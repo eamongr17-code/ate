@@ -31,9 +31,9 @@ After step 9, run `generate_typescript_types` and hand the output to the FE wave
 
 Set BEFORE or AFTER deploy (the function reads it at runtime):
 
-- **`GOOGLE_PLACES_API_KEY`** — set via `supabase secrets set GOOGLE_PLACES_API_KEY=…` (or the MCP equivalent). **While ABSENT, the function runs in STUB mode** and returns fixture restaurants behind the real interface. The moment the key is set, the live Google Places path activates with no code change. (`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are auto-injected by the Supabase runtime — do not set them manually.)
+- **`GOOGLE_PLACES_API_KEY`** — ✅ **SET (2026-06-15, E-1 resolved).** Stored as a Supabase Edge Function secret on project `vyaexmnajnbryimbkgkf`. The key (GCP project `bamboo-antler-499509-g1`, restricted to **Places API (New)** only) backs `places:autocomplete`, Place Details, and Nearby Search. With the secret present, `places-search` runs the **live Google path** (not stub). Behaviour is unchanged if the secret is ever absent again: the function falls back to STUB mode (fixture restaurants behind the same interface). (`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are auto-injected by the Supabase runtime — do not set them manually.)
 
-Tell Eamon: **the only secret to provision is `GOOGLE_PLACES_API_KEY`** (lead E-1). Until then, restaurant search works against the 3 stub places.
+History: E-1 (the only hard backend blocker) is resolved — see the board's "Open decisions / Eamon-blockers" table and `memory/places-api-key-setup-e1.md`. Full end-to-end `stub:false` verification (needs a valid user JWT) is owed to QA-1.
 
 ## 3. Auth-users-for-seed approach
 
