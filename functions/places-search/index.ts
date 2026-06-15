@@ -20,10 +20,16 @@
 //
 // Places hardening (PH-BE-1 / PH-BE-2, Eamon-locked 2026-06-16):
 //   - VIC restriction: bounding-box locationRestriction (rectangle) + region
-//     'au' + a server-side DROP of any result whose address/secondary text does
-//     NOT contain "VIC" or "Victoria". The strict drop is required — results are
-//     genuinely constricted to Victoria, not merely biased. Applied to BOTH
-//     autocomplete and nearby (PH-E1 RESOLVED).
+//     'au' CONTAIN results to the VIC box (a hard restriction, not a bias). On
+//     top of containment, a server-side DROP removes only border-bleed — a
+//     result whose address/secondary text POSITIVELY names another AU
+//     state/territory (NSW/QLD/SA/WA/NT/TAS/ACT). A result with no state token
+//     (just a suburb + "Australia") is KEPT, because the rectangle already
+//     guarantees it sits inside the VIC box. (Earlier we required a VIC token,
+//     but Google routinely omits the state in autocomplete secondary text, which
+//     silently dropped legitimate Melbourne venues → 0 predictions → a
+//     RestaurantNotFoundError on the core flow. PH-BE-1+2 peer-review fix.)
+//     Applied to BOTH autocomplete and nearby (PH-E1 RESOLVED).
 //   - Food/bev types: autocomplete keeps the 5 includedPrimaryTypes — Places API
 //     (New) autocomplete CAPS includedPrimaryTypes at 5 (PH-E2 RESOLVED). Nearby
 //     uses the broader food/bev includedTypes set (searchNearby allows up to 50).
@@ -121,12 +127,30 @@ const NEARBY_MAX_RADIUS_M = 50000;
 // nearby rows, serve from DB and skip the paid Google call entirely.
 const DB_NEARBY_THRESHOLD = 5;
 
-// VIC post-filter (PH-E1): drop any result whose address/secondary text does
-// not name Victoria. Catches bounding-box bleed into the SA/NSW border regions
-// and any region-code edge case. Matches "VIC" as a token or "Victoria".
-const VIC_RE = /\bVIC\b|Victoria/i;
-function isVic(text: string | null | undefined): boolean {
-  return VIC_RE.test(text ?? '');
+// VIC post-filter (PH-E1, hardened PH-BE-1+2 follow-up): the bounding-box
+// `locationRestriction` rectangle + `includedRegionCodes:['au']` already CONTAIN
+// results to the VIC box, so a result inside the box is presumed Victorian. The
+// only failure we still need to catch is border-bleed: a venue physically just
+// across the VIC line (the box overshoots the SA/NSW borders slightly) whose
+// address positively names ANOTHER Australian state/territory.
+//
+// Earlier we *required* a VIC/"Victoria" token — but Google routinely omits the
+// state from autocomplete secondary text (a real Melbourne venue shows
+// "Fitzroy, Australia" or just "Melbourne, Australia"), so require-VIC silently
+// dropped legitimate venues → 0 predictions → RestaurantNotFoundError on the
+// core "where did you eat?" flow. We now invert the rule:
+//
+//   DROP only when the text POSITIVELY names a non-VIC AU state/territory.
+//   KEEP everything else (no state token = inside-the-box = Victorian).
+//
+// Word-boundary anchors on the abbreviations so "WA" doesn't fire inside
+// "WARRNAMBOOL" and "SA" doesn't fire inside "SALE" — both legitimate VIC towns.
+const OTHER_AU_STATE_RE =
+  /\b(?:NSW|QLD|SA|WA|NT|TAS|ACT)\b|\bNew South Wales\b|\bQueensland\b|\bSouth Australia\b|\bWestern Australia\b|\bNorthern Territory\b|\bTasmania\b|\bAustralian Capital Territory\b/i;
+
+// Returns true when the text positively names a non-VIC state/territory → DROP.
+function namesOtherAuState(text: string | null | undefined): boolean {
+  return OTHER_AU_STATE_RE.test(text ?? '');
 }
 
 // ---------------------------------------------------------------------------
@@ -255,9 +279,11 @@ async function googleAutocomplete(input: string, _lat?: number, _lng?: number, s
       name: (s.placePrediction.structuredFormat?.mainText?.text ?? s.placePrediction.text?.text) as string,
       secondary: (s.placePrediction.structuredFormat?.secondaryText?.text ?? '') as string,
     }))
-    // PH-E1: strict VIC drop — anything whose secondary text doesn't name VIC is
-    // outside Victoria (or ambiguous) and is removed, not merely down-ranked.
-    .filter((p) => isVic(p.secondary))
+    // PH-BE-1 follow-up: drop ONLY when the secondary text positively names
+    // another AU state/territory (border-bleed). A state-less "Melbourne,
+    // Australia" is KEPT — the locationRestriction rectangle already guarantees
+    // it's inside the VIC box, and Google often omits the state token.
+    .filter((p) => !namesOtherAuState(p.secondary))
     // PH-E3: cap typed predictions at 5.
     .slice(0, AUTOCOMPLETE_CAP);
 }
@@ -342,8 +368,11 @@ async function googleNearby(lat: number, lng: number, radiusM: number): Promise<
         cover_url: '',
       } as StubPlace;
     })
-    // PH-E1: strict VIC drop on Google nearby results (formattedAddress names VIC).
-    .filter((p) => isVic(p.address));
+    // PH-BE-1 follow-up: same drop-only-on-other-state logic on nearby results
+    // (formattedAddress). The searchNearby circle + the device being in VIC keep
+    // results local; we only drop a result whose address positively names another
+    // AU state/territory (border-bleed), never one that merely omits the state.
+    .filter((p) => !namesOtherAuState(p.address));
 }
 
 // ---------------------------------------------------------------------------
