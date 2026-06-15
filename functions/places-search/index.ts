@@ -103,12 +103,20 @@ function stubDetails(placeId: string): StubPlace | null {
 // Live Google path (active only when GOOGLE_PLACES_API_KEY is present).
 // Uses the Places API (New): Text Search Autocomplete + Place Details.
 // ---------------------------------------------------------------------------
-async function googleAutocomplete(input: string, lat?: number, lng?: number) {
+async function googleAutocomplete(input: string, lat?: number, lng?: number, sessionToken?: string) {
   const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': GOOGLE_KEY },
     body: JSON.stringify({
       input,
+      // Ate is a restaurant-logging app — bias autocomplete to food establishments
+      // so "where did you eat?" surfaces venues, not cities/regions. Up to 5 primary
+      // types (Places API New). Covers restaurants, cafés, bars, bakeries, takeaway.
+      includedPrimaryTypes: ['restaurant', 'cafe', 'bar', 'bakery', 'meal_takeaway'],
+      // BE-PLACES-3: when a session token is supplied, bill the autocomplete
+      // keystrokes + the eventual Place Details as ONE session. Omitted → each
+      // request bills standalone (back-compat).
+      ...(sessionToken ? { sessionToken } : {}),
       ...(lat != null && lng != null
         ? { locationBias: { circle: { center: { latitude: lat, longitude: lng }, radius: 50000 } } }
         : {}),
@@ -125,12 +133,19 @@ async function googleAutocomplete(input: string, lat?: number, lng?: number) {
     }));
 }
 
-async function googleDetails(placeId: string): Promise<StubPlace | null> {
-  const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
+async function googleDetails(placeId: string, sessionToken?: string): Promise<StubPlace | null> {
+  // BE-PLACES-3: sessionToken is a GET query param on Place Details (it closes
+  // the autocomplete session opened above). Omitted → standalone Details call.
+  const detailsUrl = new URL(`https://places.googleapis.com/v1/places/${placeId}`);
+  if (sessionToken) detailsUrl.searchParams.set('sessionToken', sessionToken);
+  const res = await fetch(detailsUrl.toString(), {
     headers: {
       'X-Goog-Api-Key': GOOGLE_KEY,
+      // BE-PLACES-1: `photos` dropped from the field mask — it pushes the request
+      // into a higher SKU tier and we discard it (cover_url stays ''). No Place
+      // Photo calls until Eamon revisits.
       'X-Goog-FieldMask':
-        'id,displayName,formattedAddress,location,types,primaryTypeDisplayName,photos',
+        'id,displayName,formattedAddress,location,types,primaryTypeDisplayName',
     },
   });
   if (!res.ok) return null;
@@ -152,10 +167,33 @@ async function googleDetails(placeId: string): Promise<StubPlace | null> {
 }
 
 // ---------------------------------------------------------------------------
+// Service-role client (server-side reads/writes that bypass RLS). One per
+// request lifecycle — cheap to construct, no session persistence.
+// ---------------------------------------------------------------------------
+function adminClient() {
+  return createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+}
+
+const RESTAURANT_COLS = 'id, google_place_id, name, address, city, cuisine, cover_url';
+
+// BE-PLACES-4: known-place short-circuit. If this google_place_id is already a
+// restaurants row, return it WITHOUT touching Google (saves a paid Details call).
+async function findRestaurantByPlaceId(placeId: string) {
+  const admin = adminClient();
+  const { data, error } = await admin
+    .from('restaurants')
+    .select(RESTAURANT_COLS)
+    .eq('google_place_id', placeId)
+    .maybeSingle();
+  if (error) throw error;
+  return data; // null when absent
+}
+
+// ---------------------------------------------------------------------------
 // Upsert the resolved place into restaurants by google_place_id (service role).
 // ---------------------------------------------------------------------------
 async function upsertRestaurant(place: StubPlace) {
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+  const admin = adminClient();
   const { data, error } = await admin
     .from('restaurants')
     .upsert(
@@ -171,7 +209,7 @@ async function upsertRestaurant(place: StubPlace) {
       },
       { onConflict: 'google_place_id' },
     )
-    .select('id, google_place_id, name, address, city, cuisine, cover_url')
+    .select(RESTAURANT_COLS)
     .single();
   if (error) throw error;
   return data;
@@ -191,19 +229,29 @@ Deno.serve(async (req) => {
     body = {};
   }
 
+  // BE-PLACES-3: optional, additive. Present in either op body → forwarded to
+  // Google to bill the autocomplete + details as one session. Absent → unchanged.
+  const sessionToken = body.session_token ? String(body.session_token) : undefined;
+
   try {
     if (op === 'autocomplete') {
       const input = String(body.input ?? '');
       const predictions = STUB
         ? stubAutocomplete(input)
-        : await googleAutocomplete(input, body.lat, body.lng);
+        : await googleAutocomplete(input, body.lat, body.lng, sessionToken);
       return json({ stub: STUB, predictions });
     }
 
     if (op === 'details') {
       const placeId = String(body.google_place_id ?? '');
       if (!placeId) return json({ error: 'google_place_id required' }, 400);
-      const place = STUB ? stubDetails(placeId) : await googleDetails(placeId);
+
+      // BE-PLACES-4: if we already have this place as a row, return it and skip
+      // the paid Google Details call entirely (works in stub mode too).
+      const known = await findRestaurantByPlaceId(placeId);
+      if (known) return json({ stub: STUB, restaurant: known });
+
+      const place = STUB ? stubDetails(placeId) : await googleDetails(placeId, sessionToken);
       if (!place) return json({ error: 'place not found' }, 404);
       const restaurant = await upsertRestaurant(place);
       return json({ stub: STUB, restaurant });
