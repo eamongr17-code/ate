@@ -1,20 +1,43 @@
 // supabase/functions/places-search/index.ts
 //
-// Ate backend — Wave 0: Google Places proxy (data-model §1.2, §5 "nearby").
+// Ate backend — Google Places proxy (data-model §1.2, §5 "nearby").
 //
-// Two operations, switched by `?op=`:
-//   - op=autocomplete  body: { input: string, lat?, lng? }
+// Three operations, switched by `?op=`:
+//   - op=autocomplete  body: { input: string, lat?, lng?, session_token? }
 //       → returns place predictions [{ google_place_id, name, secondary }]
-//   - op=details       body: { google_place_id: string }
+//         VIC-restricted, food/bev-only, capped at 5 (PH-BE-1).
+//   - op=details       body: { google_place_id: string, session_token? }
 //       → resolves a Place to full detail AND UPSERTS a restaurants row by
 //         google_place_id, returning the restaurant row (the "resolve Place → row"
 //         write path). This is the only way restaurants are created.
+//   - op=nearby        body: { lat: number, lng: number, radius?: number }
+//       → PostGIS-first KNN against our restaurants table (free, GIST-indexed,
+//         via the restaurants_nearby RPC); falls back to Google searchNearby
+//         ONLY when DB matches are below threshold, upserting the Google results.
+//         VIC-restricted, food/bev-only, capped at 10 (PH-BE-2).
+//         Returns { stub, source, restaurants: [{ id, google_place_id, name,
+//         address, city, cuisine, cover_url }] }.
 //
-// STUB MODE (lead decision E-1): the Google Places API key is not yet provisioned.
-// When the env secret GOOGLE_PLACES_API_KEY is ABSENT, this function serves
-// deterministic FIXTURE data behind the SAME interface — so the client builds
-// against the real contract today and it goes live unchanged the moment the key
-// lands. When the secret is PRESENT, the real Google path runs.
+// Places hardening (PH-BE-1 / PH-BE-2, Eamon-locked 2026-06-16):
+//   - VIC restriction: bounding-box locationRestriction (rectangle) + region
+//     'au' + a server-side DROP of any result whose address/secondary text does
+//     NOT contain "VIC" or "Victoria". The strict drop is required — results are
+//     genuinely constricted to Victoria, not merely biased. Applied to BOTH
+//     autocomplete and nearby (PH-E1 RESOLVED).
+//   - Food/bev types: autocomplete keeps the 5 includedPrimaryTypes — Places API
+//     (New) autocomplete CAPS includedPrimaryTypes at 5 (PH-E2 RESOLVED). Nearby
+//     uses the broader food/bev includedTypes set (searchNearby allows up to 50).
+//     All type strings verified against the live Places API (New) Table-A docs
+//     (developers.google.com/maps/documentation/places/web-service/place-types).
+//   - Caps: typed autocomplete → 5 predictions; nearby default list → 10 (PH-E3
+//     RESOLVED). Enforced server-side; the FE belt-and-suspenders slices too.
+//
+// STUB MODE (lead decision E-1): when GOOGLE_PLACES_API_KEY is ABSENT, this
+// function serves deterministic FIXTURE data behind the SAME interface — so the
+// client builds against the real contract and it goes live unchanged the moment
+// the key lands. When the secret is PRESENT, the real Google path runs. (The key
+// is provisioned now, so production runs the live path; stub mode survives for
+// local/offline dev and to keep the contract honest if the key is ever pulled.)
 //
 // Secrets this function reads (set via `supabase secrets set`):
 //   - GOOGLE_PLACES_API_KEY   (absent → stub mode; present → live Google calls)
@@ -39,7 +62,76 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 // ---------------------------------------------------------------------------
-// Fixture data (stub mode) — grounded in src/data/fixtures.ts restaurants.
+// Places hardening constants (PH-BE-1 / PH-BE-2, Eamon-locked 2026-06-16).
+// ---------------------------------------------------------------------------
+
+// VIC bounding box (PH-E1): rectangle covering Victoria, Australia. low =
+// south-west corner, high = north-east corner. Used as `locationRestriction`
+// for autocomplete + nearby — a hard restriction, not a bias.
+const VIC_RECTANGLE = {
+  low: { latitude: -37.5, longitude: 140.96 },
+  high: { latitude: -33.98, longitude: 149.98 },
+};
+
+// Autocomplete primary types (PH-E2): Places API (New) autocomplete caps
+// includedPrimaryTypes at 5 — keep exactly these 5 food/bev venue types.
+const AUTOCOMPLETE_PRIMARY_TYPES = ['restaurant', 'cafe', 'bar', 'bakery', 'meal_takeaway'];
+
+// Nearby included types (PH-E2): searchNearby allows up to 50 includedTypes, so
+// we use the broader food/bev set. Every string below is a verified Places API
+// (New) Table-A "Food and Drink" type. No invented names.
+const NEARBY_INCLUDED_TYPES = [
+  'restaurant',
+  'cafe',
+  'bar',
+  'bakery',
+  'meal_takeaway',
+  'meal_delivery',
+  'food_court',
+  'ice_cream_shop',
+  'fast_food_restaurant',
+  'pub',
+  'wine_bar',
+  'coffee_shop',
+  'sandwich_shop',
+  'breakfast_restaurant',
+  'brunch_restaurant',
+  'dessert_shop',
+  'diner',
+  'deli',
+  'steak_house',
+  'pizza_restaurant',
+  'hamburger_restaurant',
+  'bar_and_grill',
+  'tea_house',
+  'juice_shop',
+];
+
+// Result caps (PH-E3).
+const AUTOCOMPLETE_CAP = 5;
+const NEARBY_CAP = 10;
+
+// Nearby radius (metres). Default to a walkable/short-drive radius; clamp to a
+// sane range so a malformed client value can't blow out the search.
+const NEARBY_DEFAULT_RADIUS_M = 2000;
+const NEARBY_MIN_RADIUS_M = 100;
+const NEARBY_MAX_RADIUS_M = 50000;
+
+// PostGIS-first threshold (PH-BE-2): if the DB returns at least this many
+// nearby rows, serve from DB and skip the paid Google call entirely.
+const DB_NEARBY_THRESHOLD = 5;
+
+// VIC post-filter (PH-E1): drop any result whose address/secondary text does
+// not name Victoria. Catches bounding-box bleed into the SA/NSW border regions
+// and any region-code edge case. Matches "VIC" as a token or "Victoria".
+const VIC_RE = /\bVIC\b|Victoria/i;
+function isVic(text: string | null | undefined): boolean {
+  return VIC_RE.test(text ?? '');
+}
+
+// ---------------------------------------------------------------------------
+// Fixture data (stub mode) — VIC venues so the stub experience matches the
+// production intent (VIC-only, food/bev). Coords are real Melbourne locations.
 // ---------------------------------------------------------------------------
 type StubPlace = {
   google_place_id: string;
@@ -54,33 +146,33 @@ type StubPlace = {
 
 const STUB_PLACES: StubPlace[] = [
   {
-    google_place_id: 'seed_place_goldees',
-    name: "Goldee's BBQ",
-    address: '4645 Dick Price Rd',
-    city: 'Fort Worth, TX',
-    lat: 32.6543,
-    lng: -97.2078,
-    cuisine: 'Barbecue',
+    google_place_id: 'seed_place_chintamani',
+    name: 'Chin Chin',
+    address: '125 Flinders Ln',
+    city: 'Melbourne VIC',
+    lat: -37.8159,
+    lng: 144.9686,
+    cuisine: 'Thai',
     cover_url: 'https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=600&q=70',
   },
   {
-    google_place_id: 'seed_place_smokering',
-    name: 'Smoke Ring Co.',
-    address: '1 Pit Row',
-    city: 'Kansas City, MO',
-    lat: 39.0997,
-    lng: -94.5786,
-    cuisine: 'Barbecue',
+    google_place_id: 'seed_place_pellegrini',
+    name: "Pellegrini's Espresso Bar",
+    address: '66 Bourke St',
+    city: 'Melbourne VIC',
+    lat: -37.8118,
+    lng: 144.9719,
+    cuisine: 'Italian',
     cover_url: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=600&q=70',
   },
   {
-    google_place_id: 'seed_place_seans',
-    name: "Sean's Shack",
-    address: '12 Harbor Way',
-    city: 'Portland, ME',
-    lat: 43.6591,
-    lng: -70.2568,
-    cuisine: 'Seafood',
+    google_place_id: 'seed_place_attica',
+    name: 'Attica',
+    address: '74 Glen Eira Rd, Ripponlea',
+    city: 'Ripponlea VIC',
+    lat: -37.8772,
+    lng: 144.9966,
+    cuisine: 'Modern Australian',
     cover_url: 'https://images.unsplash.com/photo-1559737558-2f5a35f4523b?auto=format&fit=crop&w=600&q=70',
   },
 ];
@@ -88,38 +180,70 @@ const STUB_PLACES: StubPlace[] = [
 function stubAutocomplete(input: string) {
   const q = input.trim().toLowerCase();
   const matches = q === '' ? STUB_PLACES : STUB_PLACES.filter((p) => p.name.toLowerCase().includes(q));
-  return matches.map((p) => ({
-    google_place_id: p.google_place_id,
-    name: p.name,
-    secondary: `${p.address}, ${p.city}`,
-  }));
+  return matches
+    .map((p) => ({
+      google_place_id: p.google_place_id,
+      name: p.name,
+      secondary: `${p.address}, ${p.city}`,
+    }))
+    .slice(0, AUTOCOMPLETE_CAP);
 }
 
 function stubDetails(placeId: string): StubPlace | null {
   return STUB_PLACES.find((p) => p.google_place_id === placeId) ?? null;
 }
 
+// Stub nearby: proximity-filter STUB_PLACES by a crude great-circle distance and
+// return the closest, capped. Shape matches the live nearby return.
+function stubNearby(lat: number, lng: number, radiusM: number) {
+  const withDist = STUB_PLACES.map((p) => ({ p, d: haversineM(lat, lng, p.lat, p.lng) }))
+    .filter((x) => x.d <= radiusM)
+    .sort((a, b) => a.d - b.d)
+    .slice(0, NEARBY_CAP);
+  return withDist.map(({ p }) => ({
+    id: p.google_place_id, // stub has no UUID; the place id stands in for the row id
+    google_place_id: p.google_place_id,
+    name: p.name,
+    address: p.address,
+    city: p.city,
+    cuisine: p.cuisine,
+    cover_url: p.cover_url,
+  }));
+}
+
+function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
 // ---------------------------------------------------------------------------
 // Live Google path (active only when GOOGLE_PLACES_API_KEY is present).
-// Uses the Places API (New): Text Search Autocomplete + Place Details.
+// Uses the Places API (New): Autocomplete + Place Details + Nearby Search.
 // ---------------------------------------------------------------------------
-async function googleAutocomplete(input: string, lat?: number, lng?: number, sessionToken?: string) {
+async function googleAutocomplete(input: string, _lat?: number, _lng?: number, sessionToken?: string) {
   const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': GOOGLE_KEY },
     body: JSON.stringify({
       input,
-      // Ate is a restaurant-logging app — bias autocomplete to food establishments
-      // so "where did you eat?" surfaces venues, not cities/regions. Up to 5 primary
-      // types (Places API New). Covers restaurants, cafés, bars, bakeries, takeaway.
-      includedPrimaryTypes: ['restaurant', 'cafe', 'bar', 'bakery', 'meal_takeaway'],
+      // PH-E2: 5 food/bev primary types (the New API autocomplete cap). Surfaces
+      // venues, not cities/regions, for "where did you eat?".
+      includedPrimaryTypes: AUTOCOMPLETE_PRIMARY_TYPES,
+      // PH-E1: hard-restrict to the VIC bounding box (replaces the prior
+      // locationBias circle — a bias merely re-ranked, this excludes) + scope
+      // to Australia for belt-and-suspenders country containment.
+      locationRestriction: { rectangle: VIC_RECTANGLE },
+      includedRegionCodes: ['au'],
       // BE-PLACES-3: when a session token is supplied, bill the autocomplete
       // keystrokes + the eventual Place Details as ONE session. Omitted → each
       // request bills standalone (back-compat).
       ...(sessionToken ? { sessionToken } : {}),
-      ...(lat != null && lng != null
-        ? { locationBias: { circle: { center: { latitude: lat, longitude: lng }, radius: 50000 } } }
-        : {}),
     }),
   });
   const data = await res.json();
@@ -130,7 +254,12 @@ async function googleAutocomplete(input: string, lat?: number, lng?: number, ses
       google_place_id: s.placePrediction.placeId as string,
       name: (s.placePrediction.structuredFormat?.mainText?.text ?? s.placePrediction.text?.text) as string,
       secondary: (s.placePrediction.structuredFormat?.secondaryText?.text ?? '') as string,
-    }));
+    }))
+    // PH-E1: strict VIC drop — anything whose secondary text doesn't name VIC is
+    // outside Victoria (or ambiguous) and is removed, not merely down-ranked.
+    .filter((p) => isVic(p.secondary))
+    // PH-E3: cap typed predictions at 5.
+    .slice(0, AUTOCOMPLETE_CAP);
 }
 
 async function googleDetails(placeId: string, sessionToken?: string): Promise<StubPlace | null> {
@@ -166,6 +295,57 @@ async function googleDetails(placeId: string, sessionToken?: string): Promise<St
   };
 }
 
+// PH-BE-2: Google Nearby Search (places:searchNearby) — fallback discovery when
+// the DB is thin. Returns StubPlace-shaped detail rows (used for upsert).
+async function googleNearby(lat: number, lng: number, radiusM: number): Promise<StubPlace[]> {
+  const res = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': GOOGLE_KEY,
+      // BE-PLACES-1: no photos in the field mask (preserve the lower SKU tier).
+      // `places.` prefix is required on the searchNearby field mask.
+      'X-Goog-FieldMask':
+        'places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryTypeDisplayName',
+    },
+    body: JSON.stringify({
+      // PH-E2: broad food/bev type set (searchNearby allows up to 50).
+      includedTypes: NEARBY_INCLUDED_TYPES,
+      // PH-E3: ask Google for up to the cap (max 20 allowed by the API; 10 is well within).
+      maxResultCount: NEARBY_CAP,
+      // searchNearby's locationRestriction must be a circle (it has no rectangle
+      // form). The VIC containment for nearby is enforced by (a) the device being
+      // in VIC and (b) the strict VIC post-filter below.
+      locationRestriction: {
+        circle: { center: { latitude: lat, longitude: lng }, radius: radiusM },
+      },
+      // Bias the ranking toward distance (closest first) for a "near me" list.
+      rankPreference: 'DISTANCE',
+    }),
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  const places = (data.places ?? []) as any[];
+  return places
+    .filter((p) => p.id)
+    .map((p) => {
+      const parts = (p.formattedAddress ?? '').split(',').map((s: string) => s.trim());
+      const city = parts.length >= 3 ? `${parts[parts.length - 3]}, ${parts[parts.length - 2]}` : (parts[1] ?? '');
+      return {
+        google_place_id: p.id as string,
+        name: p.displayName?.text ?? 'Unknown',
+        address: p.formattedAddress ?? '',
+        city,
+        lat: p.location?.latitude ?? 0,
+        lng: p.location?.longitude ?? 0,
+        cuisine: p.primaryTypeDisplayName?.text ?? '',
+        cover_url: '',
+      } as StubPlace;
+    })
+    // PH-E1: strict VIC drop on Google nearby results (formattedAddress names VIC).
+    .filter((p) => isVic(p.address));
+}
+
 // ---------------------------------------------------------------------------
 // Service-role client (server-side reads/writes that bypass RLS). One per
 // request lifecycle — cheap to construct, no session persistence.
@@ -175,6 +355,16 @@ function adminClient() {
 }
 
 const RESTAURANT_COLS = 'id, google_place_id, name, address, city, cuisine, cover_url';
+
+type RestaurantRow = {
+  id: string;
+  google_place_id: string | null;
+  name: string;
+  address: string | null;
+  city: string | null;
+  cuisine: string | null;
+  cover_url: string | null;
+};
 
 // BE-PLACES-4: known-place short-circuit. If this google_place_id is already a
 // restaurants row, return it WITHOUT touching Google (saves a paid Details call).
@@ -189,10 +379,33 @@ async function findRestaurantByPlaceId(placeId: string) {
   return data; // null when absent
 }
 
+// PH-BE-2: PostGIS-first nearby. Calls the GIST-indexed restaurants_nearby RPC
+// (data-model §5; defined in migration 0005). KNN-ordered by distance. Returns
+// the RESTAURANT_COLS shape (drops distance_m so it matches the contract row).
+async function dbNearby(lat: number, lng: number, radiusM: number): Promise<RestaurantRow[]> {
+  const admin = adminClient();
+  const { data, error } = await admin.rpc('restaurants_nearby', {
+    p_lat: lat,
+    p_lng: lng,
+    p_radius_m: radiusM,
+    page_size: NEARBY_CAP,
+  });
+  if (error) throw error;
+  return ((data ?? []) as any[]).map((r) => ({
+    id: r.id,
+    google_place_id: r.google_place_id,
+    name: r.name,
+    address: r.address,
+    city: r.city,
+    cuisine: r.cuisine,
+    cover_url: r.cover_url,
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // Upsert the resolved place into restaurants by google_place_id (service role).
 // ---------------------------------------------------------------------------
-async function upsertRestaurant(place: StubPlace) {
+async function upsertRestaurant(place: StubPlace): Promise<RestaurantRow> {
   const admin = adminClient();
   const { data, error } = await admin
     .from('restaurants')
@@ -212,7 +425,18 @@ async function upsertRestaurant(place: StubPlace) {
     .select(RESTAURANT_COLS)
     .single();
   if (error) throw error;
-  return data;
+  return data as RestaurantRow;
+}
+
+// PH-BE-2: upsert a batch of Google nearby results, returning the persisted rows
+// (so they carry our UUID `id`). Sequential to keep it simple + within the per-
+// request budget; the nearby cap (10) bounds the count.
+async function upsertNearbyBatch(places: StubPlace[]): Promise<RestaurantRow[]> {
+  const rows: RestaurantRow[] = [];
+  for (const place of places) {
+    rows.push(await upsertRestaurant(place));
+  }
+  return rows;
 }
 
 Deno.serve(async (req) => {
@@ -255,6 +479,49 @@ Deno.serve(async (req) => {
       if (!place) return json({ error: 'place not found' }, 404);
       const restaurant = await upsertRestaurant(place);
       return json({ stub: STUB, restaurant });
+    }
+
+    // PH-BE-2: device-location nearby. PostGIS-first KNN, Google-fallback.
+    if (op === 'nearby') {
+      const lat = Number(body.lat);
+      const lng = Number(body.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return json({ error: 'lat and lng (numbers) required' }, 400);
+      }
+      const radiusM = Math.min(
+        Math.max(Number(body.radius) || NEARBY_DEFAULT_RADIUS_M, NEARBY_MIN_RADIUS_M),
+        NEARBY_MAX_RADIUS_M,
+      );
+
+      // Stub mode: proximity-filter the fixture set, no DB/Google.
+      if (STUB) {
+        return json({ stub: true, source: 'db', restaurants: stubNearby(lat, lng, radiusM) });
+      }
+
+      // 1) PostGIS-first (E-5 RESOLVED): the GIST-indexed KNN RPC. Free, fast.
+      const dbRows = await dbNearby(lat, lng, radiusM);
+      if (dbRows.length >= DB_NEARBY_THRESHOLD) {
+        return json({ stub: false, source: 'db', restaurants: dbRows.slice(0, NEARBY_CAP) });
+      }
+
+      // 2) DB is thin → fall back to Google searchNearby for discovery, upsert
+      //    the (VIC-filtered) results so the DB warms for next time.
+      const googlePlaces = await googleNearby(lat, lng, radiusM);
+      const upserted = await upsertNearbyBatch(googlePlaces);
+
+      // 3) Merge DB + Google, dedupe by google_place_id (fall back to id when a
+      //    row has no place id), preserving DB-first (KNN) ordering then Google.
+      const merged: RestaurantRow[] = [];
+      const seen = new Set<string>();
+      for (const r of [...dbRows, ...upserted]) {
+        const key = r.google_place_id ?? r.id;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(r);
+      }
+
+      const source = upserted.length === 0 ? 'db' : dbRows.length === 0 ? 'google' : 'blend';
+      return json({ stub: false, source, restaurants: merged.slice(0, NEARBY_CAP) });
     }
 
     return json({ error: `unknown op '${op}'` }, 400);
