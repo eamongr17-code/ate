@@ -74,8 +74,12 @@ const json = (body: unknown, status = 200) =>
 // VIC bounding box (PH-E1): rectangle covering Victoria, Australia. low =
 // south-west corner, high = north-east corner. Used as `locationRestriction`
 // for autocomplete + nearby — a hard restriction, not a bias.
+// south = -39.20: covers VIC's southernmost point (Wilsons Promontory ~-39.14)
+// with a small margin. An earlier -37.5 was NORTH of Melbourne CBD (-37.81) and
+// silently excluded Melbourne, Geelong, the Mornington Peninsula, Phillip Island
+// and all of Gippsland → 0 autocomplete predictions for the core flow.
 const VIC_RECTANGLE = {
-  low: { latitude: -37.5, longitude: 140.96 },
+  low: { latitude: -39.2, longitude: 140.96 },
   high: { latitude: -33.98, longitude: 149.98 },
 };
 
