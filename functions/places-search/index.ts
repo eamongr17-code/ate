@@ -5,10 +5,12 @@
 // Three operations, switched by `?op=`:
 //   - op=autocomplete  body: { input: string, lat?, lng?, session_token? }
 //       → returns place predictions [{ google_place_id, name, secondary,
-//         distanceMeters? }] — VIC-restricted, food/bev-only, capped at 5
+//         distance_meters? }] — VIC-restricted, food/bev-only, capped at 5
 //         (PH-BE-1). FB2-BE-1: when BOTH lat+lng are sent, `origin` is forwarded
-//         to Google and each prediction carries `distanceMeters` (metres from the
-//         origin); omitted otherwise (additive, back-compat).
+//         to Google and each prediction carries `distance_meters` (metres from the
+//         origin); omitted otherwise (additive, back-compat). The wire field is
+//         snake_case `distance_meters` to match the FE consumer + the existing
+//         wire convention (google_place_id, cover_url, secondary).
 //   - op=details       body: { google_place_id: string, session_token? }
 //       → resolves a Place to full detail AND UPSERTS a restaurants row by
 //         google_place_id, returning the restaurant row (the "resolve Place → row"
@@ -19,8 +21,8 @@
 //         ONLY when DB matches are below threshold, upserting the Google results.
 //         VIC-restricted, food/bev-only, capped at 10 (PH-BE-2).
 //         Returns { stub, source, restaurants: [{ id, google_place_id, name,
-//         address, city, cuisine, cover_url, distanceMeters? }] }. FB2-BE-1:
-//         distanceMeters = the restaurants_nearby RPC's distance_m (DB rows) or a
+//         address, city, cuisine, cover_url, distance_meters? }] }. FB2-BE-1:
+//         distance_meters = the restaurants_nearby RPC's distance_m (DB rows) or a
 //         haversine from the query origin (Google-fallback rows), in metres.
 //
 // Places hardening (PH-BE-1 / PH-BE-2, Eamon-locked 2026-06-16):
@@ -212,7 +214,7 @@ const STUB_PLACES: StubPlace[] = [
 
 function stubAutocomplete(input: string, lat?: number, lng?: number) {
   // FB2-BE-1: mirror the live contract — when a finite origin is supplied,
-  // surface a computed distanceMeters; otherwise omit it (back-compat).
+  // surface a computed distance_meters; otherwise omit it (back-compat).
   const hasOrigin = Number.isFinite(lat) && Number.isFinite(lng);
   const q = input.trim().toLowerCase();
   const matches = q === '' ? STUB_PLACES : STUB_PLACES.filter((p) => p.name.toLowerCase().includes(q));
@@ -221,7 +223,7 @@ function stubAutocomplete(input: string, lat?: number, lng?: number) {
       google_place_id: p.google_place_id,
       name: p.name,
       secondary: `${p.address}, ${p.city}`,
-      ...(hasOrigin ? { distanceMeters: haversineM(lat as number, lng as number, p.lat, p.lng) } : {}),
+      ...(hasOrigin ? { distance_meters: haversineM(lat as number, lng as number, p.lat, p.lng) } : {}),
     }))
     .slice(0, AUTOCOMPLETE_CAP);
 }
@@ -246,7 +248,7 @@ function stubNearby(lat: number, lng: number, radiusM: number) {
     cuisine: p.cuisine,
     cover_url: p.cover_url,
     // FB2-BE-1: stub mirrors the live contract — surface the computed distance.
-    distanceMeters: d,
+    distance_meters: d,
   }));
 }
 
@@ -305,7 +307,7 @@ async function googleAutocomplete(input: string, lat?: number, lng?: number, ses
         google_place_id: s.placePrediction.placeId as string,
         name: (s.placePrediction.structuredFormat?.mainText?.text ?? s.placePrediction.text?.text) as string,
         secondary: (s.placePrediction.structuredFormat?.secondaryText?.text ?? '') as string,
-        ...(Number.isFinite(dm) ? { distanceMeters: dm as number } : {}),
+        ...(Number.isFinite(dm) ? { distance_meters: dm as number } : {}),
       };
     })
     // PH-BE-1 follow-up: drop ONLY when the secondary text positively names
@@ -425,7 +427,7 @@ type RestaurantRow = {
   // FB2-BE-1: distance from the nearby query origin, in metres. Only set on
   // `op=nearby` rows (from the restaurants_nearby RPC's distance_m or computed
   // from the Google-fallback location). Optional — additive, omitted elsewhere.
-  distanceMeters?: number;
+  distance_meters?: number;
 };
 
 // BE-PLACES-4: known-place short-circuit. If this google_place_id is already a
@@ -443,7 +445,7 @@ async function findRestaurantByPlaceId(placeId: string) {
 
 // PH-BE-2: PostGIS-first nearby. Calls the GIST-indexed restaurants_nearby RPC
 // (data-model §5; defined in migration 0005). KNN-ordered by distance.
-// FB2-BE-1: surfaces the RPC's distance_m as `distanceMeters` on each row.
+// FB2-BE-1: surfaces the RPC's distance_m as `distance_meters` on each row.
 async function dbNearby(lat: number, lng: number, radiusM: number): Promise<RestaurantRow[]> {
   const admin = adminClient();
   const { data, error } = await admin.rpc('restaurants_nearby', {
@@ -462,8 +464,8 @@ async function dbNearby(lat: number, lng: number, radiusM: number): Promise<Rest
     cuisine: r.cuisine,
     cover_url: r.cover_url,
     // FB2-BE-1: the RPC returns distance_m (metres from the query point). Surface
-    // it as distanceMeters; omit if somehow null.
-    ...(Number.isFinite(r.distance_m) ? { distanceMeters: r.distance_m as number } : {}),
+    // it as distance_meters; omit if somehow null.
+    ...(Number.isFinite(r.distance_m) ? { distance_meters: r.distance_m as number } : {}),
   }));
 }
 
@@ -497,7 +499,7 @@ async function upsertRestaurant(place: StubPlace): Promise<RestaurantRow> {
 // (so they carry our UUID `id`). Sequential to keep it simple + within the per-
 // request budget; the nearby cap (10) bounds the count.
 // FB2-BE-1: given the query origin (originLat/originLng), compute each row's
-// distanceMeters from the place's own lat/lng via haversineM — the upserted
+// distance_meters from the place's own lat/lng via haversineM — the upserted
 // RestaurantRow no longer carries coords, so we derive distance here, before the
 // StubPlace shape is dropped.
 async function upsertNearbyBatch(
@@ -508,7 +510,7 @@ async function upsertNearbyBatch(
   const rows: RestaurantRow[] = [];
   for (const place of places) {
     const row = await upsertRestaurant(place);
-    rows.push({ ...row, distanceMeters: haversineM(originLat, originLng, place.lat, place.lng) });
+    rows.push({ ...row, distance_meters: haversineM(originLat, originLng, place.lat, place.lng) });
   }
   return rows;
 }
@@ -534,7 +536,7 @@ Deno.serve(async (req) => {
   try {
     if (op === 'autocomplete') {
       const input = String(body.input ?? '');
-      // FB2-BE-1: optional origin → distanceMeters on predictions. Coerce to
+      // FB2-BE-1: optional origin → distance_meters on predictions. Coerce to
       // Number so a string "lat" from the body still works; non-finite → omitted.
       const acLat = body.lat == null ? undefined : Number(body.lat);
       const acLng = body.lng == null ? undefined : Number(body.lng);
@@ -586,7 +588,7 @@ Deno.serve(async (req) => {
       //    the (VIC-filtered) results so the DB warms for next time.
       const googlePlaces = await googleNearby(lat, lng, radiusM);
       // FB2-BE-1: pass the query origin so each upserted Google row gets a
-      // computed distanceMeters (the upserted row no longer carries coords).
+      // computed distance_meters (the upserted row no longer carries coords).
       const upserted = await upsertNearbyBatch(googlePlaces, lat, lng);
 
       // 3) Merge DB + Google, dedupe by google_place_id (fall back to id when a
