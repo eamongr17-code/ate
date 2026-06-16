@@ -4,8 +4,11 @@
 //
 // Three operations, switched by `?op=`:
 //   - op=autocomplete  body: { input: string, lat?, lng?, session_token? }
-//       → returns place predictions [{ google_place_id, name, secondary }]
-//         VIC-restricted, food/bev-only, capped at 5 (PH-BE-1).
+//       → returns place predictions [{ google_place_id, name, secondary,
+//         distanceMeters? }] — VIC-restricted, food/bev-only, capped at 5
+//         (PH-BE-1). FB2-BE-1: when BOTH lat+lng are sent, `origin` is forwarded
+//         to Google and each prediction carries `distanceMeters` (metres from the
+//         origin); omitted otherwise (additive, back-compat).
 //   - op=details       body: { google_place_id: string, session_token? }
 //       → resolves a Place to full detail AND UPSERTS a restaurants row by
 //         google_place_id, returning the restaurant row (the "resolve Place → row"
@@ -16,7 +19,9 @@
 //         ONLY when DB matches are below threshold, upserting the Google results.
 //         VIC-restricted, food/bev-only, capped at 10 (PH-BE-2).
 //         Returns { stub, source, restaurants: [{ id, google_place_id, name,
-//         address, city, cuisine, cover_url }] }.
+//         address, city, cuisine, cover_url, distanceMeters? }] }. FB2-BE-1:
+//         distanceMeters = the restaurants_nearby RPC's distance_m (DB rows) or a
+//         haversine from the query origin (Google-fallback rows), in metres.
 //
 // Places hardening (PH-BE-1 / PH-BE-2, Eamon-locked 2026-06-16):
 //   - VIC restriction: bounding-box locationRestriction (rectangle) + region
@@ -205,7 +210,10 @@ const STUB_PLACES: StubPlace[] = [
   },
 ];
 
-function stubAutocomplete(input: string) {
+function stubAutocomplete(input: string, lat?: number, lng?: number) {
+  // FB2-BE-1: mirror the live contract — when a finite origin is supplied,
+  // surface a computed distanceMeters; otherwise omit it (back-compat).
+  const hasOrigin = Number.isFinite(lat) && Number.isFinite(lng);
   const q = input.trim().toLowerCase();
   const matches = q === '' ? STUB_PLACES : STUB_PLACES.filter((p) => p.name.toLowerCase().includes(q));
   return matches
@@ -213,6 +221,7 @@ function stubAutocomplete(input: string) {
       google_place_id: p.google_place_id,
       name: p.name,
       secondary: `${p.address}, ${p.city}`,
+      ...(hasOrigin ? { distanceMeters: haversineM(lat as number, lng as number, p.lat, p.lng) } : {}),
     }))
     .slice(0, AUTOCOMPLETE_CAP);
 }
@@ -228,7 +237,7 @@ function stubNearby(lat: number, lng: number, radiusM: number) {
     .filter((x) => x.d <= radiusM)
     .sort((a, b) => a.d - b.d)
     .slice(0, NEARBY_CAP);
-  return withDist.map(({ p }) => ({
+  return withDist.map(({ p, d }) => ({
     id: p.google_place_id, // stub has no UUID; the place id stands in for the row id
     google_place_id: p.google_place_id,
     name: p.name,
@@ -236,6 +245,8 @@ function stubNearby(lat: number, lng: number, radiusM: number) {
     city: p.city,
     cuisine: p.cuisine,
     cover_url: p.cover_url,
+    // FB2-BE-1: stub mirrors the live contract — surface the computed distance.
+    distanceMeters: d,
   }));
 }
 
@@ -254,7 +265,12 @@ function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): num
 // Live Google path (active only when GOOGLE_PLACES_API_KEY is present).
 // Uses the Places API (New): Autocomplete + Place Details + Nearby Search.
 // ---------------------------------------------------------------------------
-async function googleAutocomplete(input: string, _lat?: number, _lng?: number, sessionToken?: string) {
+async function googleAutocomplete(input: string, lat?: number, lng?: number, sessionToken?: string) {
+  // FB2-BE-1: when BOTH origin coords are present + finite, send `origin` so the
+  // Places API (New) returns `distanceMeters` on each placePrediction. Omitted
+  // when no origin → predictions carry no distance (back-compat, ranking + shape
+  // otherwise unchanged).
+  const hasOrigin = Number.isFinite(lat) && Number.isFinite(lng);
   const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': GOOGLE_KEY },
@@ -268,6 +284,9 @@ async function googleAutocomplete(input: string, _lat?: number, _lng?: number, s
       // to Australia for belt-and-suspenders country containment.
       locationRestriction: { rectangle: VIC_RECTANGLE },
       includedRegionCodes: ['au'],
+      // FB2-BE-1: origin → Google returns distanceMeters per suggestion. Only
+      // sent when both coords are finite (additive).
+      ...(hasOrigin ? { origin: { latitude: lat as number, longitude: lng as number } } : {}),
       // BE-PLACES-3: when a session token is supplied, bill the autocomplete
       // keystrokes + the eventual Place Details as ONE session. Omitted → each
       // request bills standalone (back-compat).
@@ -278,11 +297,17 @@ async function googleAutocomplete(input: string, _lat?: number, _lng?: number, s
   const suggestions = (data.suggestions ?? []) as any[];
   return suggestions
     .filter((s) => s.placePrediction)
-    .map((s) => ({
-      google_place_id: s.placePrediction.placeId as string,
-      name: (s.placePrediction.structuredFormat?.mainText?.text ?? s.placePrediction.text?.text) as string,
-      secondary: (s.placePrediction.structuredFormat?.secondaryText?.text ?? '') as string,
-    }))
+    .map((s) => {
+      // FB2-BE-1: surface Google's distanceMeters when present (Google only
+      // returns it when an origin was sent). Omit the field entirely otherwise.
+      const dm = s.placePrediction.distanceMeters;
+      return {
+        google_place_id: s.placePrediction.placeId as string,
+        name: (s.placePrediction.structuredFormat?.mainText?.text ?? s.placePrediction.text?.text) as string,
+        secondary: (s.placePrediction.structuredFormat?.secondaryText?.text ?? '') as string,
+        ...(Number.isFinite(dm) ? { distanceMeters: dm as number } : {}),
+      };
+    })
     // PH-BE-1 follow-up: drop ONLY when the secondary text positively names
     // another AU state/territory (border-bleed). A state-less "Melbourne,
     // Australia" is KEPT — the locationRestriction rectangle already guarantees
@@ -397,6 +422,10 @@ type RestaurantRow = {
   city: string | null;
   cuisine: string | null;
   cover_url: string | null;
+  // FB2-BE-1: distance from the nearby query origin, in metres. Only set on
+  // `op=nearby` rows (from the restaurants_nearby RPC's distance_m or computed
+  // from the Google-fallback location). Optional — additive, omitted elsewhere.
+  distanceMeters?: number;
 };
 
 // BE-PLACES-4: known-place short-circuit. If this google_place_id is already a
@@ -413,8 +442,8 @@ async function findRestaurantByPlaceId(placeId: string) {
 }
 
 // PH-BE-2: PostGIS-first nearby. Calls the GIST-indexed restaurants_nearby RPC
-// (data-model §5; defined in migration 0005). KNN-ordered by distance. Returns
-// the RESTAURANT_COLS shape (drops distance_m so it matches the contract row).
+// (data-model §5; defined in migration 0005). KNN-ordered by distance.
+// FB2-BE-1: surfaces the RPC's distance_m as `distanceMeters` on each row.
 async function dbNearby(lat: number, lng: number, radiusM: number): Promise<RestaurantRow[]> {
   const admin = adminClient();
   const { data, error } = await admin.rpc('restaurants_nearby', {
@@ -432,6 +461,9 @@ async function dbNearby(lat: number, lng: number, radiusM: number): Promise<Rest
     city: r.city,
     cuisine: r.cuisine,
     cover_url: r.cover_url,
+    // FB2-BE-1: the RPC returns distance_m (metres from the query point). Surface
+    // it as distanceMeters; omit if somehow null.
+    ...(Number.isFinite(r.distance_m) ? { distanceMeters: r.distance_m as number } : {}),
   }));
 }
 
@@ -464,10 +496,19 @@ async function upsertRestaurant(place: StubPlace): Promise<RestaurantRow> {
 // PH-BE-2: upsert a batch of Google nearby results, returning the persisted rows
 // (so they carry our UUID `id`). Sequential to keep it simple + within the per-
 // request budget; the nearby cap (10) bounds the count.
-async function upsertNearbyBatch(places: StubPlace[]): Promise<RestaurantRow[]> {
+// FB2-BE-1: given the query origin (originLat/originLng), compute each row's
+// distanceMeters from the place's own lat/lng via haversineM — the upserted
+// RestaurantRow no longer carries coords, so we derive distance here, before the
+// StubPlace shape is dropped.
+async function upsertNearbyBatch(
+  places: StubPlace[],
+  originLat: number,
+  originLng: number,
+): Promise<RestaurantRow[]> {
   const rows: RestaurantRow[] = [];
   for (const place of places) {
-    rows.push(await upsertRestaurant(place));
+    const row = await upsertRestaurant(place);
+    rows.push({ ...row, distanceMeters: haversineM(originLat, originLng, place.lat, place.lng) });
   }
   return rows;
 }
@@ -493,9 +534,13 @@ Deno.serve(async (req) => {
   try {
     if (op === 'autocomplete') {
       const input = String(body.input ?? '');
+      // FB2-BE-1: optional origin → distanceMeters on predictions. Coerce to
+      // Number so a string "lat" from the body still works; non-finite → omitted.
+      const acLat = body.lat == null ? undefined : Number(body.lat);
+      const acLng = body.lng == null ? undefined : Number(body.lng);
       const predictions = STUB
-        ? stubAutocomplete(input)
-        : await googleAutocomplete(input, body.lat, body.lng, sessionToken);
+        ? stubAutocomplete(input, acLat, acLng)
+        : await googleAutocomplete(input, acLat, acLng, sessionToken);
       return json({ stub: STUB, predictions });
     }
 
@@ -540,7 +585,9 @@ Deno.serve(async (req) => {
       // 2) DB is thin → fall back to Google searchNearby for discovery, upsert
       //    the (VIC-filtered) results so the DB warms for next time.
       const googlePlaces = await googleNearby(lat, lng, radiusM);
-      const upserted = await upsertNearbyBatch(googlePlaces);
+      // FB2-BE-1: pass the query origin so each upserted Google row gets a
+      // computed distanceMeters (the upserted row no longer carries coords).
+      const upserted = await upsertNearbyBatch(googlePlaces, lat, lng);
 
       // 3) Merge DB + Google, dedupe by google_place_id (fall back to id when a
       //    row has no place id), preserving DB-first (KNN) ordering then Google.
