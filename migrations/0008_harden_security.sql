@@ -7,9 +7,20 @@
 -- Idempotent where sensible (REVOKE / DROP POLICY IF EXISTS / CREATE-after-DROP).
 -- Forward-only; no applied migration is edited or reordered.
 --
--- NOT covered here (auth project SETTING, not SQL — flagged to the lead):
---   leaked-password protection (HaveIBeenPwned) is DISABLED. Toggle it on in
---   Auth > Providers > Email > "Prevent use of leaked passwords".
+-- NOT covered here (auth project SETTING, not SQL — applied via dashboard/Mgmt API):
+--   leaked-password protection (HaveIBeenPwned). This is an Auth project setting,
+--   not a schema object, so it lives outside migration SQL.
+--   HOW TO ENABLE: Dashboard → Authentication → Providers → Email → toggle ON
+--     "Prevent sign-ups/updates with leaked passwords" (the HaveIBeenPwned check),
+--   OR Management API:
+--     PATCH https://api.supabase.com/v1/projects/{ref}/config/auth
+--     Authorization: Bearer <SUPABASE_ACCESS_TOKEN>
+--     { "password_hibp_enabled": true }
+--   VERIFY: `get_advisors(type=security)` should no longer flag
+--     "leaked_password_protection" / auth_leaked_password_protection.
+--   STATUS (ONB-BE-2, 2026-06-17): the toggle requires Management-API/MCP access
+--   the BE engineer does not hold locally (anon key only). Owner-applied via MCP
+--   (lead) or dashboard (Eamon); flip then re-run get_advisors to confirm clear.
 
 set search_path = public, extensions;
 
