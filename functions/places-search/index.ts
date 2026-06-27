@@ -52,10 +52,31 @@
 // is provisioned now, so production runs the live path; stub mode survives for
 // local/offline dev and to keep the contract honest if the key is ever pulled.)
 //
+// AUTH GATE + RATE LIMIT (TIDY-BE-2, 2026-06-27):
+//   Every op here triggers a billable Google Places call (autocomplete/details/
+//   nearby) and details/nearby also service-role-upsert into `restaurants`. The
+//   app's anon/publishable key is extractable from the JS bundle, and Supabase's
+//   platform-level JWT verification ACCEPTS the bare anon key (it's a valid
+//   project JWT with role=anon) — so without an in-function check the endpoint is
+//   invokable by anyone holding the public key. This function therefore:
+//     (1) requires a VERIFIED END-USER JWT — `auth.getUser(token)` against an
+//         anon-key client. The anon key alone resolves to NO user → 401. Only a
+//         real signed-in user's access token passes. Applied to ALL ops.
+//     (2) enforces a per-user rate limit (places_rate_hit RPC, migration 0013)
+//         → 429 when a user exceeds the per-window ceiling. The limit fails OPEN
+//         (allows the request) on any infra error so a missing/failed limiter
+//         can't take down search — the JWT gate is the must-have, the limit is
+//         the secondary layer.
+//   The client already calls via `supabase.functions.invoke()`, which attaches
+//   the logged-in user's session access token as `Authorization: Bearer <jwt>`,
+//   and the app gates to the auth screen when signed out — so authed users are
+//   unaffected (the contract is preserved). Only the *gate* is new.
+//
 // Secrets this function reads (set via `supabase secrets set`):
 //   - GOOGLE_PLACES_API_KEY   (absent → stub mode; present → live Google calls)
 //   - SUPABASE_URL            (auto-injected in the Supabase runtime)
 //   - SUPABASE_SERVICE_ROLE_KEY (auto-injected; used for the server-side upsert)
+//   - SUPABASE_ANON_KEY       (auto-injected; used ONLY to validate caller JWTs)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -64,6 +85,17 @@ const STUB = GOOGLE_KEY.trim() === '';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+
+// Rate-limit policy (TIDY-BE-2). A per-user fixed-window ceiling enforced by the
+// places_rate_hit RPC (migration 0013). Sized to be invisible to normal use and
+// hard-cap scripted abuse: the highest-frequency op is autocomplete (debounced
+// ~250ms typing, session-token-billed as ONE Google session), so the window must
+// clear a human typing a restaurant name; 90/min does (a typed search is a
+// handful of debounced calls), while op=details/op=nearby fire far less often.
+// One ceiling across all ops keeps it simple; tune here if needed.
+const RATE_LIMIT_WINDOW_S = 60;
+const RATE_LIMIT_MAX = 90;
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -414,6 +446,62 @@ function adminClient() {
   return createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 }
 
+// ---------------------------------------------------------------------------
+// AUTH GATE (TIDY-BE-2). Validate the caller's `Authorization: Bearer <jwt>`
+// against Supabase Auth and require a REAL end user. The anon/publishable key is
+// itself a valid project JWT (role=anon) and is extractable from the JS bundle —
+// platform-level verify_jwt accepts it — so we must additionally require that
+// the token resolves to a USER. `auth.getUser(token)` returns the user only for
+// a genuine signed-in access token; the bare anon key resolves to no user.
+//
+// Returns the user id on success, or null on any failure (missing/anon-only/
+// invalid/expired token). The gate NEVER fails open — null → the caller 401s.
+async function authedUserId(req: Request): Promise<string | null> {
+  const header = req.headers.get('Authorization') ?? '';
+  const token = header.replace(/^Bearer\s+/i, '').trim();
+  if (!token) return null;
+  try {
+    // anon-key client purely to validate the supplied token. We do NOT trust the
+    // header's identity for anything but this check; all DB work stays on the
+    // service-role client below.
+    const authClient = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } });
+    const { data, error } = await authClient.auth.getUser(token);
+    if (error || !data?.user?.id) return null;
+    return data.user.id;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// RATE LIMIT (TIDY-BE-2). One atomic per-user fixed-window check via the
+// places_rate_hit RPC (migration 0013). Returns true when the request is within
+// the ceiling, false when it should be rejected with 429.
+//
+// FAILS OPEN: any infra error (RPC/table missing, transient DB error) returns
+// true (allow). The JWT gate is the must-have abuse guard; the rate limiter is a
+// secondary layer and must never take down restaurant search if 0013 hasn't been
+// applied yet or the DB hiccups. A genuine over-limit (the RPC returning false)
+// is the ONLY path that denies.
+async function withinRateLimit(userId: string): Promise<boolean> {
+  try {
+    const admin = adminClient();
+    const { data, error } = await admin.rpc('places_rate_hit', {
+      p_user_id: userId,
+      p_window_seconds: RATE_LIMIT_WINDOW_S,
+      p_limit: RATE_LIMIT_MAX,
+    });
+    if (error) {
+      console.error('places_rate_hit failed (failing open):', error.message);
+      return true; // fail open — never block search on a limiter error
+    }
+    return data === true; // RPC returns boolean: true = allowed, false = over limit
+  } catch (e) {
+    console.error('places_rate_hit threw (failing open):', e);
+    return true;
+  }
+}
+
 const RESTAURANT_COLS = 'id, google_place_id, name, address, city, cuisine, cover_url';
 
 type RestaurantRow = {
@@ -518,6 +606,19 @@ async function upsertNearbyBatch(
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+
+  // TIDY-BE-2 — AUTH GATE: require a verified end-user JWT for ALL ops. The bare
+  // anon key (extractable from the bundle) resolves to no user → 401. This runs
+  // before any billable work or DB write. The service-role client below still
+  // does the actual upserts; only the gate is new.
+  const userId = await authedUserId(req);
+  if (!userId) return json({ error: 'unauthorized' }, 401);
+
+  // TIDY-BE-2 — RATE LIMIT: per-user ceiling (fails open on infra error). A real
+  // over-limit → 429; everything else proceeds.
+  if (!(await withinRateLimit(userId))) {
+    return json({ error: 'rate limit exceeded' }, 429);
+  }
 
   const url = new URL(req.url);
   const op = url.searchParams.get('op') ?? 'autocomplete';
