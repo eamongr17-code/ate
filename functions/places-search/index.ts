@@ -707,20 +707,74 @@ async function upsertRestaurant(place: StubPlace): Promise<RestaurantRow> {
 }
 
 // PH-BE-2: upsert a batch of Google nearby results, returning the persisted rows
-// (so they carry our UUID `id`). Sequential to keep it simple + within the per-
-// request budget; the nearby cap (10) bounds the count.
+// (so they carry our UUID `id`).
 // FB2-BE-1: given the query origin (originLat/originLng), compute each row's
 // distance_meters from the place's own lat/lng via haversineM — the upserted
 // RestaurantRow no longer carries coords, so we derive distance here, before the
 // StubPlace shape is dropped.
+//
+// PERF: this was up to NEARBY_CAP (10) SEQUENTIAL single-row upserts — 10 DB
+// round-trips on the Google-fallback path. It is now ONE bulk upsert (a single
+// round-trip via PostgREST's array upsert on the restaurants_google_place_id_key
+// TOTAL unique constraint restored in 0016, which ON CONFLICT (google_place_id)
+// targets). Contract-identical output: the returned rows are emitted in the SAME
+// order as `places` (Google's DISTANCE ranking), each carrying its computed
+// distance_meters, so the caller's merge/ordering is unchanged.
+//
+// SAFETY: a single bulk upsert statement cannot affect the same conflict target
+// row twice, so we DEDUPE the batch by google_place_id first (the prior per-row
+// loop tolerated intra-batch dupes because each was its own statement). Google
+// searchNearby does not normally return duplicate place ids, but the dedupe makes
+// the bulk statement robust regardless. ON CONFLICT still handles cross-request
+// races (another request upserting the same place concurrently).
 async function upsertNearbyBatch(
   places: StubPlace[],
   originLat: number,
   originLng: number,
 ): Promise<RestaurantRow[]> {
+  if (places.length === 0) return [];
+
+  // Dedupe by google_place_id, first-occurrence wins (preserves Google's order).
+  const uniqueByPlaceId = new Map<string, StubPlace>();
+  for (const p of places) {
+    if (!uniqueByPlaceId.has(p.google_place_id)) uniqueByPlaceId.set(p.google_place_id, p);
+  }
+
+  const admin = adminClient();
+  const { data, error } = await admin
+    .from('restaurants')
+    .upsert(
+      [...uniqueByPlaceId.values()].map((place) => ({
+        google_place_id: place.google_place_id,
+        name: place.name,
+        address: place.address,
+        city: place.city,
+        // PostGIS geography accepts the WKT EWKT form on insert via PostgREST.
+        location: `SRID=4326;POINT(${place.lng} ${place.lat})`,
+        cuisine: place.cuisine || null,
+        cover_url: place.cover_url || null,
+      })),
+      { onConflict: 'google_place_id' },
+    )
+    .select(RESTAURANT_COLS);
+  if (error) throw error;
+
+  // PostgREST does NOT guarantee the returned rows are in input order, so map
+  // persisted rows by google_place_id, then emit in the ORIGINAL `places` order
+  // (Google's DISTANCE ranking) with each row's computed distance_meters — an
+  // output identical in shape AND order to the prior sequential implementation.
+  const persistedByPlaceId = new Map<string, RestaurantRow>();
+  for (const row of ((data ?? []) as RestaurantRow[])) {
+    if (row.google_place_id) persistedByPlaceId.set(row.google_place_id, row);
+  }
+
   const rows: RestaurantRow[] = [];
+  const emitted = new Set<string>();
   for (const place of places) {
-    const row = await upsertRestaurant(place);
+    if (emitted.has(place.google_place_id)) continue;
+    emitted.add(place.google_place_id);
+    const row = persistedByPlaceId.get(place.google_place_id);
+    if (!row) continue; // defensively skip any row that failed to persist
     rows.push({ ...row, distance_meters: haversineM(originLat, originLng, place.lat, place.lng) });
   }
   return rows;
@@ -730,27 +784,32 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
 
+  const url = new URL(req.url);
+  const op = url.searchParams.get('op') ?? 'autocomplete';
+
   // TIDY-BE-2 — AUTH GATE: require a verified end-user JWT for ALL ops. The bare
   // anon key (extractable from the bundle) resolves to no user → 401. This runs
   // before any billable work or DB write. The service-role client below still
   // does the actual upserts; only the gate is new.
-  const userId = await authedUserId(req);
+  //
+  // PERF: the JWT verify (a GoTrue round-trip) and reading the request body are
+  // INDEPENDENT, so overlap them with Promise.all — shaving the body-parse off
+  // the critical path. This does NOT weaken the cost invariant: the rate limit
+  // still runs AFTER auth resolves a userId and BEFORE any billable Google call,
+  // so a rate-limited (or unauthenticated) caller never triggers a Google request.
+  let body: any = {};
+  const [userId, parsedBody] = await Promise.all([
+    authedUserId(req),
+    req.json().then((b) => b ?? {}).catch(() => ({})),
+  ]);
+  body = parsedBody;
   if (!userId) return json({ error: 'unauthorized' }, 401);
 
   // TIDY-BE-2 — RATE LIMIT: per-user ceiling (fails open on infra error). A real
-  // over-limit → 429; everything else proceeds.
+  // over-limit → 429; everything else proceeds. Still strictly before any Google
+  // API call (cost control: never call Google for a rate-limited user).
   if (!(await withinRateLimit(userId))) {
     return json({ error: 'rate limit exceeded' }, 429);
-  }
-
-  const url = new URL(req.url);
-  const op = url.searchParams.get('op') ?? 'autocomplete';
-
-  let body: any = {};
-  try {
-    body = await req.json();
-  } catch {
-    body = {};
   }
 
   // BE-PLACES-3: optional, additive. Present in either op body → forwarded to
