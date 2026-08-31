@@ -1,0 +1,8 @@
+// Debug — points at STAGING. Rule 5: environments are law; Debug builds never touch prod.
+// Secrets.xcconfig is gitignored; copy Config/Secrets.example.xcconfig to create it.
+// The include is optional so CI (which injects these as build settings / env) still builds.
+#include? "Secrets.xcconfig"
+
+ATE_ENVIRONMENT = staging
+SUPABASE_URL = $(SUPABASE_URL_STAGING)
+SUPABASE_KEY = $(SUPABASE_KEY_STAGING)

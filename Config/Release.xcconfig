@@ -1,0 +1,6 @@
+// Release — points at PRODUCTION. Only Release builds and CI-applied migrations touch prod.
+#include? "Secrets.xcconfig"
+
+ATE_ENVIRONMENT = production
+SUPABASE_URL = $(SUPABASE_URL_PROD)
+SUPABASE_KEY = $(SUPABASE_KEY_PROD)
