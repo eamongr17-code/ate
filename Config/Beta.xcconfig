@@ -1,0 +1,8 @@
+// Beta — Release-grade build pointed at STAGING. Used by TestFlight internal
+// builds during build-out (environment law: test drives never touch prod).
+// Promote to prod by shipping Release, not by editing this file.
+#include? "Secrets.xcconfig"
+
+ATE_ENVIRONMENT = beta
+SUPABASE_URL = $(SUPABASE_URL_STAGING)
+SUPABASE_KEY = $(SUPABASE_KEY_STAGING)
