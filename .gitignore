@@ -1,0 +1,38 @@
+# Xcode / Swift
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.playground
+.swiftpm/
+.build/
+Packages/
+
+# Secrets — never committed; .example variants are
+Config/Secrets*.xcconfig
+!Config/Secrets.example.xcconfig
+*.pem
+*.p8
+*.p12
+.env
+.env.*
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# Binary artifacts stay out of git (legacy lesson)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.mov
+*.mp4
+!App/Resources/**
+
+# OS / tools
+.DS_Store
+*.log
+scratchpad/
