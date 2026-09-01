@@ -1,0 +1,272 @@
+# Beta → TestFlight (internal)
+#
+# Archives the Beta configuration (Release-grade build pointed at STAGING — see
+# Config/Beta.xcconfig; environment law: internal test builds never touch prod)
+# and uploads it to App Store Connect for internal TestFlight distribution.
+#
+# ── Required repository SECRETS ────────────────────────────────────────────────
+#   ASC_KEY_ID     App Store Connect API key ID (10 chars, e.g. "ABCD123456").
+#   ASC_ISSUER_ID  Issuer ID for that key (UUID, shown above the key list).
+#   ASC_KEY_P8     Contents of the downloaded AuthKey_<ASC_KEY_ID>.p8 — paste the
+#                  whole file including the BEGIN/END PRIVATE KEY lines. A single
+#                  base64 blob of the same file is also accepted.
+# Until all three exist, the upload job SKIPS (neutral, not red) on pushes to main
+# so the branch stays green; a manual run FAILS loudly instead.
+#
+# ── Optional repository VARIABLE ───────────────────────────────────────────────
+#   ASC_TEAM_ID    Apple Developer team ID. Defaults to the project's
+#                  DEVELOPMENT_TEAM (9M6K835247); only set this to override.
+#
+# ── One-time App Store Connect prerequisites ───────────────────────────────────
+#   1. App record exists for bundle id com.eamongracias.ate (Users & Access →
+#      Apps; platform iOS). Uploads for an unknown bundle id are rejected.
+#   2. The API key's role is App Manager (Admin also works). Developer/Marketing
+#      roles cannot upload builds or create signing assets.
+#   3. Cloud signing is used: xcodebuild -allowProvisioningUpdates creates and
+#      renews the distribution certificate + App Store provisioning profile via
+#      the same API key. No certificates or profiles live in repo secrets.
+#   4. Encryption compliance: Config/Info.plist should carry
+#      ITSAppUsesNonExemptEncryption=false, otherwise each build waits for a
+#      manual answer in App Store Connect before it can go out to testers.
+#
+# ── Build numbers ──────────────────────────────────────────────────────────────
+# CFBundleVersion = this workflow's run number, so uploads never collide. It only
+# ever increases. If the run counter is ever reset (workflow file deleted and
+# recreated), bump MARKETING_VERSION in the project or App Store Connect will
+# reject the duplicate.
+#
+# ── Dry run ────────────────────────────────────────────────────────────────────
+# Manual runs accept dry_run=true: archives with signing disabled and skips
+# export + upload. Use it to prove the Beta configuration compiles and archives
+# on the runner without needing the API key.
+
+name: Beta
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Archive only (no signing, no upload)"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+
+concurrency:
+  group: beta-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Check App Store Connect credentials
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      have_key: ${{ steps.check.outputs.have_key }}
+    steps:
+      - name: Check secrets
+        id: check
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -n "${ASC_KEY_ID}" ]    || missing="${missing} ASC_KEY_ID"
+          [ -n "${ASC_ISSUER_ID}" ] || missing="${missing} ASC_ISSUER_ID"
+          [ -n "${ASC_KEY_P8}" ]    || missing="${missing} ASC_KEY_P8"
+
+          if [ -z "${missing}" ]; then
+            echo "have_key=true" >> "$GITHUB_OUTPUT"
+            echo "App Store Connect API key present — TestFlight upload will run." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "have_key=false" >> "$GITHUB_OUTPUT"
+          msg="TestFlight upload skipped — missing repository secret(s):${missing}. Add them under Settings → Secrets and variables → Actions (see the header comment in .github/workflows/beta.yml for how to mint the App Store Connect API key)."
+          {
+            echo "### Beta lane not armed"
+            echo ""
+            echo "Missing repository secret(s):${missing}"
+            echo ""
+            echo "Add them under **Settings → Secrets and variables → Actions**."
+            echo "See the header comment in \`.github/workflows/beta.yml\` for how to mint the key."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && [ "${DRY_RUN}" != "true" ]; then
+            echo "::error title=App Store Connect credentials missing::${msg}"
+            exit 1
+          fi
+          echo "::warning title=App Store Connect credentials missing::${msg}"
+
+  beta:
+    name: Archive + upload to TestFlight
+    needs: preflight
+    if: needs.preflight.outputs.have_key == 'true' || inputs.dry_run
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      DRY_RUN: ${{ inputs.dry_run == true }}
+      BUILD_NUMBER: ${{ github.run_number }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_TEAM_ID: ${{ vars.ASC_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          # shellcheck disable=SC2012  # runner paths are well-behaved; -V sort needs ls
+          sudo xcode-select -s /Applications/Xcode_26.5.app \
+            || sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+
+      - name: Write Secrets.xcconfig
+        # The example carries the real staging values (publishable by design); Beta
+        # resolves SUPABASE_* from the STAGING pair, so prod stays untouched.
+        run: cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
+
+      - name: Cache SPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            AteKit/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Materialise App Store Connect API key
+        if: env.DRY_RUN != 'true'
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/asc"
+          chmod 700 "$RUNNER_TEMP/asc"
+          key_path="$RUNNER_TEMP/asc/AuthKey_${ASC_KEY_ID}.p8"
+          if printf '%s' "$ASC_KEY_P8" | grep -q 'BEGIN PRIVATE KEY'; then
+            printf '%s\n' "$ASC_KEY_P8" > "$key_path"
+          else
+            # Accept a base64 blob of the .p8 as well.
+            printf '%s' "$ASC_KEY_P8" | tr -d '[:space:]' | base64 --decode > "$key_path"
+          fi
+          chmod 600 "$key_path"
+          grep -q 'BEGIN PRIVATE KEY' "$key_path" || {
+            echo "::error title=ASC_KEY_P8 is not a valid .p8::The secret did not decode to a PEM private key. Paste the AuthKey_<KEY_ID>.p8 file contents verbatim (or a base64 blob of it)."
+            exit 1
+          }
+          echo "ASC_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+
+      - name: Archive (Beta, unsigned — dry run)
+        if: env.DRY_RUN == 'true'
+        run: |
+          set -euo pipefail
+          xcodebuild archive \
+            -project Ate.xcodeproj \
+            -scheme Ate \
+            -configuration Beta \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Ate.xcarchive" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            > archive.log 2>&1 || { tail -80 archive.log; exit 1; }
+          tail -2 archive.log
+
+      - name: Archive (Beta, cloud-signed)
+        if: env.DRY_RUN != 'true'
+        run: |
+          set -euo pipefail
+          # Only override the project's DEVELOPMENT_TEAM when the repo variable is set.
+          team_override=""
+          if [ -n "${ASC_TEAM_ID}" ]; then team_override="DEVELOPMENT_TEAM=${ASC_TEAM_ID}"; fi
+          # shellcheck disable=SC2086  # team_override is one word or empty, by construction
+          xcodebuild archive \
+            -project Ate.xcodeproj \
+            -scheme Ate \
+            -configuration Beta \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Ate.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            ${team_override} \
+            > archive.log 2>&1 || { tail -120 archive.log; exit 1; }
+          tail -2 archive.log
+
+      - name: Export .ipa (app-store-connect)
+        if: env.DRY_RUN != 'true'
+        run: |
+          set -euo pipefail
+          # Team id: the repo variable wins, otherwise take what the archive was built with.
+          team_id="${ASC_TEAM_ID}"
+          if [ -z "$team_id" ]; then
+            team_id=$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:Team' "$RUNNER_TEMP/Ate.xcarchive/Info.plist" 2>/dev/null || true)
+          fi
+          if [ -z "$team_id" ]; then
+            echo "::error title=No development team::Could not determine the Apple Developer team id. Set the repository variable ASC_TEAM_ID."
+            exit 1
+          fi
+          # Built with plutil rather than a heredoc: a YAML block scalar would indent
+          # the XML declaration, which makes the plist unreadable.
+          plist="$RUNNER_TEMP/exportOptions.plist"
+          plutil -create xml1 "$plist"
+          plutil -insert method -string "app-store-connect" "$plist"
+          plutil -insert destination -string "export" "$plist"
+          plutil -insert teamID -string "$team_id" "$plist"
+          plutil -insert signingStyle -string "automatic" "$plist"
+          plutil -insert uploadSymbols -bool YES "$plist"
+          plutil -insert manageAppVersionAndBuildNumber -bool NO "$plist"
+          plutil -p "$plist"
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Ate.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            > export.log 2>&1 || { tail -120 export.log; exit 1; }
+          ls -lh "$RUNNER_TEMP/export"
+
+      - name: Upload to TestFlight
+        if: env.DRY_RUN != 'true'
+        run: |
+          set -euo pipefail
+          ipa=$(find "$RUNNER_TEMP/export" -maxdepth 1 -name '*.ipa' | head -1)
+          [ -n "$ipa" ] || { echo "::error title=No .ipa produced::Export succeeded but no .ipa is present."; exit 1; }
+          echo "Uploading $(basename "$ipa") as build $BUILD_NUMBER"
+          xcrun altool --upload-app -t ios -f "$ipa" \
+            --api-key "$ASC_KEY_ID" \
+            --api-issuer "$ASC_ISSUER_ID" \
+            --p8-file-path "$ASC_KEY_PATH" \
+            --output-format json > upload.log 2>&1 || { cat upload.log; exit 1; }
+          cat upload.log
+          {
+            echo "### Uploaded to TestFlight"
+            echo ""
+            echo "- bundle id: \`com.eamongracias.ate\`"
+            echo "- build: \`$BUILD_NUMBER\` (configuration Beta → STAGING)"
+            echo "- commit: \`${GITHUB_SHA:0:7}\`"
+            echo ""
+            echo "Processing takes a few minutes; the internal group gets it automatically once it clears."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Redact API key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/asc"
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta-${{ github.run_number }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/export/*.ipa
+            archive.log
+            export.log
+            upload.log
