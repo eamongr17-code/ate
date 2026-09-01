@@ -59,13 +59,15 @@ struct LogPostRetryTests {
     private func runner(
         drafts: any LogDraftStoring,
         poster: any ReviewPosting,
-        telemetry: any LogTelemetrySink = NoOpLogTelemetrySink()
+        telemetry: any LogTelemetrySink = NoOpLogTelemetrySink(),
+        checkout: LogDraftCheckout = LogDraftCheckout()
     ) -> LogPostRetryRunner {
         LogPostRetryRunner(
             drafts: drafts,
             poster: poster,
             currentUserID: { Self.reviewer },
-            telemetry: telemetry
+            telemetry: telemetry,
+            checkout: checkout
         )
     }
 
@@ -104,6 +106,63 @@ struct LogPostRetryTests {
         #expect(merged.needsPostRetry == false)
         #expect(merged.postAttempts == 0)
         #expect(merged.id == fresh.id)
+    }
+
+    // MARK: - ...and the store is what enforces that, not the caller
+
+    @Test("a store save can't downgrade the retry flag, however the caller phrases it")
+    func storeSaveEnforcesThePolicy() throws {
+        let sitting = ratedSitting()
+        let landed = sitting.dishes[0].id
+        let pending = LogDraft(
+            sitting: sitting,
+            postedReviewIDs: [landed],
+            needsPostRetry: true,
+            postAttempts: 2
+        )
+        let store = InMemoryLogDraftStore()
+        store.save(pending)
+
+        // The bypass this guards: a future call site that writes a draft without knowing a post
+        // failed. It doesn't have to know — the store applies the policy.
+        store.save(LogDraft(id: pending.id, sitting: sitting, savedAt: Date()))
+
+        let stored = try #require(store.load())
+        #expect(stored.needsPostRetry, "the flag survives a save that knew nothing about it")
+        #expect(stored.postAttempts == 2, "the attempt count is monotonic below the seam")
+        #expect(stored.postedReviewIDs == [landed], "a landed row is never forgotten by a save")
+    }
+
+    @Test("the file store enforces it too — the policy is a property of the seam, not one class")
+    func fileStoreEnforcesThePolicy() throws {
+        let directory = URL.temporaryDirectory.appending(path: "ate-draft-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = FileLogDraftStore(
+            fileURL: directory.appending(path: "draft.json"),
+            photoDirectory: directory.appending(path: "photos")
+        )
+        let sitting = ratedSitting()
+        let pending = LogDraft(sitting: sitting, needsPostRetry: true, postAttempts: 1)
+
+        store.save(pending)
+        store.save(LogDraft(id: pending.id, sitting: sitting, savedAt: Date()))
+
+        let stored = try #require(store.load())
+        #expect(stored.needsPostRetry)
+        #expect(stored.postAttempts == 1)
+    }
+
+    @Test("a save of a different sitting still replaces the draft outright")
+    func storeSaveReplacesADifferentSitting() throws {
+        let store = InMemoryLogDraftStore()
+        store.save(LogDraft(sitting: ratedSitting(), needsPostRetry: true, postAttempts: 2))
+        let fresh = LogDraft(sitting: ratedSitting(dishCount: 1))
+        store.save(fresh)
+
+        let stored = try #require(store.load())
+        #expect(stored.id == fresh.id)
+        #expect(stored.needsPostRetry == false, "stickiness is per draft, not a permanent condition")
     }
 
     // MARK: - The flag must be consumed
@@ -193,6 +252,111 @@ struct LogPostRetryTests {
         #expect(kept.postAttempts == 2)
         #expect(events.parameters(of: "log_post_failed")?["reason"] == "offline")
         #expect(events.parameters(of: "log_post_failed")?["attempt"] == "2")
+    }
+
+    // MARK: - ...but not out from under an open sheet
+
+    @Test("a draft the open sheet is holding is left alone — one sitting, one log_posted")
+    func skipsACheckedOutDraft() async throws {
+        let draft = LogDraft(sitting: ratedSitting(), needsPostRetry: true)
+        let store = InMemoryLogDraftStore(draft: draft)
+        let poster = FakePoster()
+        let checkout = LogDraftCheckout()
+        let events = LogEventLog()
+
+        let ticket = checkout.checkOut(draft.id)
+        let result = await runner(
+            drafts: store,
+            poster: poster,
+            telemetry: events,
+            checkout: checkout
+        ).run()
+
+        #expect(result == nil)
+        #expect(poster.sentBatches.isEmpty, "the person's own Post button is the one that counts")
+        #expect(events.names.isEmpty, "no log_posted: firing it here would double-count the sitting")
+        #expect(store.load() != nil, "the draft stays exactly as the sheet left it")
+        withExtendedLifetime(ticket) {}
+    }
+
+    @Test("another sitting's draft is not blocked by an unrelated checkout")
+    func onlyTheCheckedOutDraftIsSkipped() async throws {
+        let store = InMemoryLogDraftStore(draft: LogDraft(sitting: ratedSitting(), needsPostRetry: true))
+        let poster = FakePoster()
+        let checkout = LogDraftCheckout()
+
+        let ticket = checkout.checkOut(UUID())
+        let result = await runner(drafts: store, poster: poster, checkout: checkout).run()
+
+        #expect(result != nil)
+        #expect(poster.sentBatches.count == 1)
+        withExtendedLifetime(ticket) {}
+    }
+
+    @Test("once the sheet closes, the next foreground picks the draft back up")
+    func proceedsAfterTheCheckoutIsReleased() async throws {
+        let draft = LogDraft(sitting: ratedSitting(), needsPostRetry: true)
+        let store = InMemoryLogDraftStore(draft: draft)
+        let poster = FakePoster()
+        let checkout = LogDraftCheckout()
+        let runner = runner(drafts: store, poster: poster, checkout: checkout)
+
+        var ticket: LogDraftCheckoutTicket? = checkout.checkOut(draft.id)
+        #expect(await runner.run() == nil)
+
+        ticket = nil  // the sheet dismissed
+        #expect(ticket == nil)
+        #expect(checkout.isCheckedOut(draft.id) == false)
+
+        let result = try #require(await runner.run())
+        #expect(result.reviewIDs.count == 2)
+        #expect(store.load() == nil)
+    }
+
+    @Test("a sheet torn down without cleanup does not strand the draft forever")
+    func abnormalTeardownReleasesTheCheckout() async throws {
+        let draft = LogDraft(sitting: ratedSitting(), needsPostRetry: true)
+        let checkout = LogDraftCheckout()
+
+        // No `release()` call anywhere: the claim ends with the object that held it, which is what
+        // a swipe-dismissed (or crashed) sheet does to its session model.
+        do {
+            let holder = SheetLikeHolder(ticket: checkout.checkOut(draft.id))
+            #expect(checkout.isCheckedOut(draft.id))
+            withExtendedLifetime(holder) {}
+        }
+
+        #expect(checkout.isCheckedOut(draft.id) == false, "a dead holder can't block §6.4 forever")
+
+        let store = InMemoryLogDraftStore(draft: draft)
+        let poster = FakePoster()
+        #expect(await runner(drafts: store, poster: poster, checkout: checkout).run() != nil)
+        #expect(poster.sentBatches.count == 1)
+    }
+
+    @Test("a superseded ticket dying does not release the claim that replaced it")
+    func aStaleTicketCannotReleaseANewerClaim() {
+        let draftID = UUID()
+        let checkout = LogDraftCheckout()
+
+        // The resume path: the Continue row holds the draft, then the restored session takes it.
+        var offered: LogDraftCheckoutTicket? = checkout.checkOut(draftID)
+        let session = checkout.checkOut(draftID)
+        offered = nil
+
+        #expect(offered == nil)
+        #expect(checkout.isCheckedOut(draftID), "the session still has it")
+        withExtendedLifetime(session) {}
+    }
+}
+
+/// Stands in for the session model: something that merely *holds* a ticket and is then dropped
+/// without anyone running a teardown path.
+private final class SheetLikeHolder {
+    let ticket: LogDraftCheckoutTicket
+
+    init(ticket: LogDraftCheckoutTicket) {
+        self.ticket = ticket
     }
 }
 

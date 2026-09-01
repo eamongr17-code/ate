@@ -47,6 +47,9 @@ struct LogSheet: View {
                 .navigationDestination(for: LogRoute.self, destination: destination)
         }
         .task { model.start() }
+        // A swipe-dismissed sheet runs neither Cancel nor Done, so this is where its claim on the
+        // draft is handed back deterministically (§6.4's retry must not wait on a deallocation).
+        .onDisappear { model.releaseDraftCheckouts() }
         // §7: leaving with something composed asks; leaving with nothing doesn't.
         .interactiveDismissDisabled(model.hasContent)
         .onChange(of: scenePhase) { _, phase in

@@ -86,8 +86,16 @@ public enum LogDraftPolicy {
 /// One draft in, one draft out. Deliberately synchronous and throwing: it is a small JSON file, and
 /// making it `async` would invite writing it off the main actor mid-dismissal, which is exactly when
 /// the app might be suspended.
+///
+/// **Conformance contract:** `save(_:)` applies ``LogDraftPolicy/merged(existing:updated:)`` against
+/// whatever is already stored, inside whatever critical section the store uses for the write. The
+/// policy used to be applied by each *caller*, by discipline — which meant one forgetful call site
+/// away from silently stranding a failed post. It lives below the seam now, so no call site can get
+/// it wrong and none of them has to know it exists.
 public protocol LogDraftStoring: Sendable {
     func load() -> LogDraft?
+    /// Writes the draft, merged with the stored one per ``LogDraftPolicy``. Pass the draft you mean;
+    /// the sticky fields sort themselves out.
     func save(_ draft: LogDraft)
     func clear(draftID: UUID?)
 }
@@ -134,7 +142,11 @@ public struct FileLogDraftStore: LogDraftStoring {
     }
 
     public func save(_ draft: LogDraft) {
-        guard let data = try? JSONEncoder.ate.encode(draft) else { return }
+        // Read-merge-write: `load()` is the same read a caller would have done, minus the chance of
+        // forgetting it. An expired stored draft reads as nil and is replaced outright, which is
+        // what expiry means.
+        let merged = LogDraftPolicy.merged(existing: load(), updated: draft)
+        guard let data = try? JSONEncoder.ate.encode(merged) else { return }
         try? data.write(to: fileURL, options: .atomic)
     }
 
@@ -166,7 +178,12 @@ public final class InMemoryLogDraftStore: LogDraftStoring, @unchecked Sendable {
     }
 
     public func save(_ draft: LogDraft) {
-        lock.withLock { self.draft = draft }
+        // The merge happens *inside* the lock: a read-then-write across it could drop a retry flag
+        // set by another thread in between, which is the exact defect the policy exists to prevent.
+        lock.withLock {
+            let existing = self.draft.flatMap { $0.isExpired() ? nil : $0 }
+            self.draft = LogDraftPolicy.merged(existing: existing, updated: draft)
+        }
     }
 
     public func clear(draftID: UUID?) {

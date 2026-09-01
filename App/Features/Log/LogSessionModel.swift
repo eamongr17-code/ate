@@ -71,6 +71,12 @@ final class LogSessionModel {
     private var needsPostRetry = false
     private var hasSentOpened = false
     private var hasEnded = false
+    /// This session's claim on the draft it is editing, and on the one it is *offering* to resume.
+    /// While either is held, the §6.4 foreground retry leaves that draft alone — otherwise it posts
+    /// the sitting mid-edit and the funnel counts it twice (see ``LogDraftCheckout``). Held as
+    /// tickets, not flags, so a sheet that dies without running `endSession` still lets go.
+    private var sessionCheckout: LogDraftCheckoutTicket?
+    private var resumableCheckout: LogDraftCheckoutTicket?
 
     init(entry: LogEntry, services: LogServices) {
         self.entry = entry
@@ -101,6 +107,10 @@ final class LogSessionModel {
         guard !hasSentOpened else { return }
         hasSentOpened = true
 
+        // Even a brand-new sitting claims its own id: if its first post fails, the draft it writes
+        // carries this id, and the retry must not fire while the sheet is still open on it.
+        sessionCheckout = services.checkout.checkOut(draftID)
+
         switch entry {
         case .resume:
             if let draft = services.drafts.load() { restore(draft) }
@@ -108,6 +118,9 @@ final class LogSessionModel {
             // §7: offered as the Continue row on WHERE, never auto-restored — resuming someone
             // else's half-finished meal without asking is a good way to post the wrong dish.
             resumableDraft = services.drafts.load()
+            // Claimed while it is on screen as the Continue row: the person may be about to tap it,
+            // and a retry that posts it first would leave a row offering a sitting that's gone.
+            resumableCheckout = resumableDraft.map { services.checkout.checkOut($0.id) }
         case .restaurant, .dish:
             break
         }
@@ -119,18 +132,24 @@ final class LogSessionModel {
         guard let draft = resumableDraft else { return }
         restore(draft)
         resumableDraft = nil
+        // The session claim taken by `restore` supersedes this one; dropping it can't release the
+        // draft, because the registry only honours a release from the ticket it is holding.
+        resumableCheckout = nil
     }
 
     /// §7: the Continue row was swiped away.
     func discardResumableDraft() {
         let id = resumableDraft?.id
         resumableDraft = nil
+        resumableCheckout = nil
         services.drafts.clear(draftID: id)
         if let id { StagedPhotoStore(draftID: id).removeAll() }
     }
 
     private func restore(_ draft: LogDraft) {
         draftID = draft.id
+        // The session now edits *this* draft, so the claim moves with it.
+        sessionCheckout = services.checkout.checkOut(draft.id)
         photos = StagedPhotoStore(draftID: draft.id)
         sitting = draft.sitting
         postedReviewIDs = Set(draft.postedReviewIDs)
@@ -365,8 +384,8 @@ final class LogSessionModel {
     /// `pendingPost` can only ever raise the retry flag — never lower it. Tapping Cancel → "Save
     /// draft" after a failed post must not tell the retry runner there is nothing to retry, which is
     /// exactly how a failed sitting got stranded: saved, believed posted, never sent again. The
-    /// same rule is enforced a second time in ``LogDraftPolicy/merged(existing:updated:)``, because
-    /// this model is not the only thing that will ever write a draft.
+    /// in-memory flag below keeps this session honest; ``LogDraftStoring/save(_:)`` applies
+    /// ``LogDraftPolicy`` under the seam, so a *different* writer can't strand it either.
     func saveDraft(pendingPost: Bool = false) {
         guard let sitting, receipt == nil else { return }
         needsPostRetry = needsPostRetry || pendingPost
@@ -379,7 +398,7 @@ final class LogSessionModel {
             postAttempts: postAttempt
         )
         guard draft.isWorthKeeping else { return }
-        services.drafts.save(LogDraftPolicy.merged(existing: services.drafts.load(), updated: draft))
+        services.drafts.save(draft)
     }
 
     /// §6.5: the draft is written whenever the app stops being active, so an interruption is not a
@@ -393,6 +412,9 @@ final class LogSessionModel {
         hasEnded = true
         for task in uploads.values { task.cancel() }
         uploads = [:]
+        // Whatever this session was holding goes back now: if the draft it saved still needs a
+        // post, the very next foreground is allowed to send it.
+        releaseDraftCheckouts()
 
         if receipt == nil {
             services.telemetry.send(.abandoned(
@@ -409,5 +431,18 @@ final class LogSessionModel {
     func discardDraft() {
         services.drafts.clear(draftID: draftID)
         photos.removeAll()
+    }
+
+    /// Hands both draft claims back. Called from `endSession` and again when the sheet's view
+    /// disappears, because a swipe-dismissed sheet runs neither Cancel nor Done. Dropping the
+    /// tickets is all it takes; ARC does the same thing if this model is deallocated without anyone
+    /// calling anything — which is the point of holding tickets rather than setting a flag.
+    ///
+    /// Safe to call early: the worst case is the pre-existing behaviour where a foreground retry
+    /// posts a sitting the sheet still has open, which the database absorbs. Failing to call it can
+    /// never strand a draft past this process.
+    func releaseDraftCheckouts() {
+        sessionCheckout = nil
+        resumableCheckout = nil
     }
 }

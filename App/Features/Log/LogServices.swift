@@ -12,6 +12,9 @@ struct LogServices: Sendable {
     let poster: any ReviewPosting
     let photos: any ReviewPhotoUploading
     let drafts: any LogDraftStoring
+    /// Shared between the sheet and the foreground retry — one instance, or the retry can't tell
+    /// that a sitting is open (see ``LogDraftCheckout``).
+    let checkout: LogDraftCheckout
     let telemetry: any LogTelemetrySink
     /// Who the receipt is by. Optional — a receipt without a byline is fine; a blocked post is not.
     let currentUser: @Sendable () async -> ReceiptModel.Author?
@@ -25,6 +28,7 @@ struct LogServices: Sendable {
         poster: any ReviewPosting,
         photos: any ReviewPhotoUploading,
         drafts: any LogDraftStoring,
+        checkout: LogDraftCheckout = LogDraftCheckout(),
         telemetry: any LogTelemetrySink = TelemetryDeckLogSink(),
         currentUser: @escaping @Sendable () async -> ReceiptModel.Author? = { nil },
         currentUserID: @escaping @Sendable () async throws -> UUID = { throw AteAPIError.notAuthenticated },
@@ -34,6 +38,7 @@ struct LogServices: Sendable {
         self.poster = poster
         self.photos = photos
         self.drafts = drafts
+        self.checkout = checkout
         self.telemetry = telemetry
         self.currentUser = currentUser
         self.currentUserID = currentUserID
@@ -47,7 +52,8 @@ struct LogServices: Sendable {
             drafts: drafts,
             poster: poster,
             currentUserID: currentUserID,
-            telemetry: telemetry
+            telemetry: telemetry,
+            checkout: checkout
         )
     }
 

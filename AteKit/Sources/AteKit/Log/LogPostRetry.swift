@@ -35,19 +35,25 @@ public actor LogPostRetryRunner {
     private let poster: any ReviewPosting
     private let currentUserID: @Sendable () async throws -> UUID
     private let telemetry: any LogTelemetrySink
+    private let checkout: LogDraftCheckout
 
     private var isRunning = false
 
+    /// - Parameter checkout: must be the **same instance the log sheet checks its draft out of**
+    ///   (`LogServices` owns one and hands it to both). A fresh one means "nothing is open", which
+    ///   is the correct default for a test and a no-op for anything with no sheet.
     public init(
         drafts: any LogDraftStoring,
         poster: any ReviewPosting,
         currentUserID: @escaping @Sendable () async throws -> UUID,
-        telemetry: any LogTelemetrySink = NoOpLogTelemetrySink()
+        telemetry: any LogTelemetrySink = NoOpLogTelemetrySink(),
+        checkout: LogDraftCheckout = LogDraftCheckout()
     ) {
         self.drafts = drafts
         self.poster = poster
         self.currentUserID = currentUserID
         self.telemetry = telemetry
+        self.checkout = checkout
     }
 
     /// Returns the result when a pending sitting was completed, `nil` when there was nothing to do
@@ -60,6 +66,11 @@ public actor LogPostRetryRunner {
         defer { isRunning = false }
 
         guard let draft = drafts.load(), draft.needsPostRetry else { return nil }
+        // Someone has this sitting open. Posting it from here would work, and would then fire
+        // `log_posted`/`receipt_shown` a second time when they tap Post — one sitting counted twice
+        // in the funnel that decides everything. Their Post button is the one that counts; this run
+        // stands down, and the next foreground after the sheet closes picks the draft back up.
+        guard !checkout.isCheckedOut(draft.id) else { return nil }
         let sitting = draft.sitting
         let attempt = draft.postAttempts + 1
 
@@ -107,7 +118,9 @@ public actor LogPostRetryRunner {
             // 7-day expiry is what eventually stops it.
             var kept = draft
             kept.postAttempts = attempt
-            drafts.save(LogDraftPolicy.merged(existing: drafts.load(), updated: kept))
+            // The store applies ``LogDraftPolicy`` itself, so this can't downgrade anything the
+            // sheet wrote while we were away.
+            drafts.save(kept)
             telemetry.send(.postFailed(
                 reason: LogPostFailureReason.of(error),
                 dishCount: sitting.dishes.count,
