@@ -81,7 +81,7 @@ struct FeedRow: View {
     /// overlay clipped to it, so a portrait or panoramic photo can never change the row's shape.
     private func photo(_ url: URL) -> some View {
         Color.clear
-            .aspectRatio(Theme.Media.photoAspectRatio, contentMode: .fit)
+            .aspectRatio(Theme.Ratio.photo, contentMode: .fit)
             .overlay {
                 AsyncImage(url: url) { image in
                     image.resizable().scaledToFill()
