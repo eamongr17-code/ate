@@ -132,7 +132,7 @@ struct FeedStoreTests {
         rows: [FeedEntry],
         pageSize: Int = 5,
         analytics: RecordingAnalytics = RecordingAnalytics()
-    ) -> (FeedStore, FakeFeed, RecordingAnalytics) {
+    ) -> (FeedStore, FakeFeed, RecordingAnalytics) { // swiftlint:disable:this large_tuple
         let client = FakeFeed(rows: rows)
         return (FeedStore(client: client, analytics: analytics, pageSize: pageSize), client, analytics)
     }

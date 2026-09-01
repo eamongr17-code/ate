@@ -131,7 +131,10 @@ public struct DishSearchService: DishSearchProviding {
 
     // MARK: - Global dish scope (Search tab)
 
-    public func popular(offset: Int = 0, limit: Int = DishSearchService.defaultMenuPageSize) async throws -> DishListPage {
+    public func popular(
+        offset: Int = 0,
+        limit: Int = DishSearchService.defaultMenuPageSize
+    ) async throws -> DishListPage {
         let stats: [DishStats] = try await api.fetchAll(DishStats.self) {
             $0.order("review_count", ascending: false)
                 .order("score", ascending: false)
@@ -141,7 +144,10 @@ public struct DishSearchService: DishSearchProviding {
         return try await page(from: stats, limit: limit, offset: offset, withRestaurantNames: true)
     }
 
-    public func searchAll(query: String, limit: Int = DishSearchService.defaultMenuPageSize) async throws -> [DishRowModel] {
+    public func searchAll(
+        query: String,
+        limit: Int = DishSearchService.defaultMenuPageSize
+    ) async throws -> [DishRowModel] {
         guard let pattern = PostgRESTPattern.contains(query) else { return [] }
         let dishes: [Dish] = try await api.fetchAll(Dish.self) {
             $0.is("merged_into_dish_id", value: nil)

@@ -75,7 +75,8 @@ struct SearchQueryTests {
     func eventNames() {
         let subject = SearchSubject.dishes(restaurantID: UUID(), restaurantName: "Chin Chin")
         #expect(SearchEvent.opened(context: .browse, subject: .restaurants).name == "search_opened")
-        #expect(SearchEvent.query(subject: subject, length: 3, resultCount: 2, milliseconds: 120).name == "search_query")
+        #expect(SearchEvent.query(subject: subject, length: 3, resultCount: 2, milliseconds: 120).name
+            == "search_query")
         #expect(SearchEvent.resultSelected(subject: subject, kind: "place", index: 0).name == "search_result_selected")
         #expect(SearchEvent.createShown(subject: subject).name == "search_create_shown")
         #expect(SearchEvent.createUsed(subject: subject).name == "search_create_used")

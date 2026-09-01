@@ -1,10 +1,10 @@
 import Foundation
 
-/// The `places-search` edge-function wire contract (docs/backend/places-integration.md and
-/// manual-search-blend-contract.md). These types decode the function's JSON *exactly* — they are
-/// not domain models, and none of them is a ``Restaurant``: the function selects
-/// `id, google_place_id, name, address, city, cuisine, cover_url` and deliberately omits
-/// `created_at`, which ``Restaurant`` requires.
+// The `places-search` edge-function wire contract (docs/backend/places-integration.md and
+// manual-search-blend-contract.md). These types decode the function's JSON *exactly* — they are
+// not domain models, and none of them is a `Restaurant`: the function selects
+// `id, google_place_id, name, address, city, cuisine, cover_url` and deliberately omits
+// `created_at`, which `Restaurant` requires.
 
 // MARK: - Origin
 
