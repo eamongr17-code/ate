@@ -19,10 +19,9 @@ struct ContentView: View {
 /// The tab scaffold: stock `TabView`, stock `Tab`s, native iOS 26 chrome (including the separated
 /// search tab role) — no hand-built bar, no custom glass.
 ///
-/// **Feed** and **Search** are real; Diary is still a placeholder and the `+` tab presents the Log
-/// stand-in until that build lands.
+/// Every tab is real: Feed, Diary, Search, and a `+` that presents the Log sheet.
 ///
-/// One ``AteAPIClient`` is built here and handed to everything — feed, search and both detail
+/// One ``AteAPIClient`` is built here and handed to everything — feed, diary, search and both detail
 /// screens share a client, and therefore one URLSession and one auth session. A second client would
 /// mean the Debug sign-in reached only half the app.
 @MainActor
@@ -33,6 +32,7 @@ private struct RootTabView: View {
 
     private let environment: AteEnvironment
     private let feedStore: FeedStore
+    private let diaryStore: DiaryStore
     private let searchServices: SearchServices
     private let detail: DetailContext
     private let logServices: LogServices
@@ -48,6 +48,7 @@ private struct RootTabView: View {
             client: GlobalFeedClient(api: api),
             analytics: TelemetryDeckFeedAnalytics()
         )
+        self.diaryStore = DiaryStore(client: DiaryClient(api: api), analytics: DetailTelemetry.live)
         self.searchServices = .live(api: api)
         // `onLogDish` stays nil for now: `DetailContext`'s closure carries no dish payload, so it
         // can't open the sheet pre-resolved (§1.1) — wiring a payloadless button would break the
@@ -57,6 +58,16 @@ private struct RootTabView: View {
         self.debugSignIn = DebugStagingSignIn.make(for: environment, api: api)
     }
 
+    /// Which backend this build talks to, shown in Diary's bar. Debug only — a Release build must
+    /// never display it, and this is the one place that decides that.
+    private var environmentFootnote: String? {
+        #if DEBUG
+        BuildStamp(environment: environment.name).summary(supabaseHost: environment.supabaseURL.host())
+        #else
+        nil
+        #endif
+    }
+
     var body: some View {
         TabView(selection: $selection) {
             Tab("Feed", systemImage: "fork.knife", value: RootTab.feed) {
@@ -64,12 +75,12 @@ private struct RootTabView: View {
             }
 
             Tab("Diary", systemImage: "book.closed", value: RootTab.diary) {
-                PlaceholderTab(
-                    title: "Diary",
-                    systemImage: "book.closed",
-                    message: "Everything you've logged, newest first.",
-                    footnote: BuildStamp(environment: environment.name)
-                        .summary(supabaseHost: environment.supabaseURL.host())
+                DiaryView(
+                    store: diaryStore,
+                    detail: detail,
+                    onLogDish: { isLoggingPresented = true },
+                    debugSignIn: debugSignIn,
+                    environmentFootnote: environmentFootnote
                 )
             }
 
@@ -93,6 +104,7 @@ private struct RootTabView: View {
         // told their dishes were saved, and this is what makes that true.
         .pendingLogPostRetry(services: logServices) { _ in
             Task { await feedStore.refresh() }
+            diaryStore.reviewsWerePosted()
         }
         .sheet(isPresented: $isLoggingPresented) {
             LogSheet(
@@ -102,6 +114,9 @@ private struct RootTabView: View {
                     // The optimistic-insert seam doesn't exist yet; a refresh puts the new post at
                     // the top of the feed before the sheet is gone.
                     Task { await feedStore.refresh() }
+                    // The diary reloads when it's next looked at, rather than fetching behind a
+                    // sheet for a tab that may not be visited — but it *will* contain the post.
+                    diaryStore.reviewsWerePosted()
                 },
                 onOpenDish: { _ in
                     // Receipt's "View dish" — no cross-stack push seam yet, so land on the feed,
@@ -109,29 +124,6 @@ private struct RootTabView: View {
                     selection = .feed
                 }
             )
-        }
-    }
-}
-
-/// Stand-in tab root. Replaced wholesale by each feature's real root at merge.
-private struct PlaceholderTab: View {
-    let title: String
-    let systemImage: String
-    let message: String
-    var footnote: String?
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: Theme.Spacing.regular) {
-                ContentUnavailableView(title, systemImage: systemImage, description: Text(message))
-                if let footnote {
-                    Text(footnote)
-                        .font(Theme.Text.caption)
-                        .foregroundStyle(Theme.Color.textTertiary)
-                        .padding(.bottom, Theme.Spacing.loose)
-                }
-            }
-            .navigationTitle(title)
         }
     }
 }

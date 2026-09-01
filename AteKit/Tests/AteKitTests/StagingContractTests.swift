@@ -309,4 +309,55 @@ struct StagingContractTests {
             _ = try await anon.feedPage()
         }
     }
+
+    @Test("the diary pages only the viewer's own reviews, newest first")
+    func diaryIsScopedToTheViewer() async throws {
+        let client = try await client()
+        let me = try await client.requireCurrentUserID()
+        let diary = DiaryClient(api: client)
+
+        var request: PageRequest? = PageRequest(limit: 5)
+        var seen: [FeedEntry] = []
+        var pages = 0
+
+        while let current = request, pages < 20 {
+            let page = try await diary.diaryPage(current)
+            seen.append(contentsOf: page.items)
+            request = current.next(after: page)
+            pages += 1
+        }
+
+        // The seeded demo account has reviews; an empty diary here would mean the filter (or RLS)
+        // is wrong, not that the account is new.
+        #expect(seen.isEmpty == false)
+        #expect(Set(seen.map(\.id)).count == seen.count)
+        // The whole contract of this query, in one line.
+        #expect(seen.allSatisfy { $0.review.reviewerID == me })
+
+        for entry in seen {
+            #expect(entry.dish.name.isEmpty == false)
+            #expect(entry.restaurant.name.isEmpty == false)
+        }
+
+        for (newer, older) in zip(seen, seen.dropFirst()) {
+            let descending = newer.review.createdAt > older.review.createdAt
+                || (newer.review.createdAt == older.review.createdAt
+                    && newer.id.uuidString > older.id.uuidString)
+            #expect(descending, "\(newer.id) should sort before \(older.id)")
+        }
+
+        // …and it is strictly a subset of the global feed, which is the same query minus the filter.
+        let everything = try await GlobalFeedClient(api: client).feedPage(PageRequest(limit: 100))
+        let mineInFeed = everything.items.filter { $0.review.reviewerID == me }.map(\.id)
+        #expect(mineInFeed.allSatisfy { seen.map(\.id).contains($0) })
+    }
+
+    @Test("the diary refuses to serve an anonymous viewer an empty page")
+    func diaryRequiresASession() async {
+        let anon = DiaryClient(api: AteAPIClient(supabase: StagingContract.makeClient()))
+        // Otherwise a signed-out user is told *they* have logged nothing — about a person we can't name.
+        await #expect(throws: AteAPIError.notAuthenticated) {
+            _ = try await anon.diaryPage()
+        }
+    }
 }
