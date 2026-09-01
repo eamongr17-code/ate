@@ -1,8 +1,17 @@
 # Manual-restaurant search blend — contract (MANUAL-RESTO search-blend)
 
-> **Status:** BUILT (BE), pending prod apply + edge-fn deploy (lead's MCP step) and the FE consuming stream.
-> **Owner:** backend-engineer. **Consumers:** the log-flow "Where did you eat?" step (`usePlacesSearch` → `useDishPicker` → `pick.tsx`).
-> **Migration:** `0015_search_manual_restaurants.sql`. **Edge fn:** `places-search` (`op=autocomplete`).
+> **Status:** LIVE on staging. **Owner:** backend-engineer. **Consumers:** the log-flow "Where did you eat?" step (AteKit `RestaurantSearchService` → `SearchPicker`).
+> **Migrations:** `0015_search_manual_restaurants.sql` (original, manual-only) → **`0017_search_local_restaurants.sql` (current: all local rows)**. **Edge fn:** `places-search` (`op=autocomplete`).
+>
+> **2026-09-01 — WIDENED (additive, no client change).** The blend's DB half now matches **every**
+> restaurant we already hold, not just `source='manual'` ones. Why: a Places-sourced row we already
+> had was invisible to search, so the query only matched Google's prediction and selecting it cost a
+> paid `op=details` call whose upsert **minted a duplicate** whenever Google's place id differed from
+> the one on our row (staging's two "Chin Chin" rows; the same path is live in prod). Now a known
+> restaurant **shadows its own prediction** and is selected directly by row id. The `kind:'manual'`
+> tag is deliberately unchanged — its wire meaning was always "already a row, select directly", which
+> is equally true of a Places-sourced local row. §§4 and 5 below are the original manual-only design
+> and are kept for provenance; read them with "manual" widened to "local".
 
 Eamon's directive (verbatim): *"manually added places should show up alongside google places search results based off fuzzy match searching. So if people even closely type in the name then it should come up."*
 
@@ -14,7 +23,7 @@ So the "Where" step now blends (a) Google Places predictions and (b) `source='ma
 
 In the `places-search` edge function's `op=autocomplete` branch. Rationale: it keeps ranking, the top-5 cap, and the VIC/food-bev Places logic in **one place** and hands the FE a single ranked list. On a query the edge fn now:
 1. fetches Places predictions (unchanged: VIC-restricted, food/bev, capped 5), AND
-2. calls `search_manual_restaurants(input, 5)` (migration 0015) for fuzzy manual matches,
+2. calls `search_local_restaurants(input, 5)` (migration 0017; was `search_manual_restaurants`, 0015) for fuzzy matches against restaurants we already hold,
 3. merges them into a unified, ranked, capped-at-5, **discriminated** `results` list.
 
 Manual search is **soft-fail**: any error (RPC not yet applied, transient DB error) → it returns `[]` and the response is Places-only. The core Places autocomplete can never be broken by the blend.
@@ -64,11 +73,17 @@ De-duped by normalised (trim+lowercase) name, first-occurrence-wins → **strong
 
 This guarantees the blend: strong manual matches are never starved by Places (they lead), and Places is never starved by a flood of weak fuzzy manual matches (those trail). Manual rows are a small, deliberately-added subset, so a flood is unlikely anyway.
 
+**Ranking is unchanged by the 2026-09-01 widening** — only the candidate pool grew. Two consequences, both pinned by `supabase/functions/places-search/blend_test.ts` (which imports the real `blend.ts`, so the tests can't drift from the shipped code):
+
+- **Weak crowding is still impossible.** Weak matches rank strictly after every Places prediction, so even eight weak local hits leave the predictions in the capped-at-5 list. Tested.
+- **Strong local matches CAN now fill the page** (they lead by design, and the pool is no longer a handful of hand-added rows). A broad query like "pizza" against a large catalogue could return 5 strong local rows and show no Google prediction. That is *correct* per the ranking — local rows are free, instant and duplicate-proof — and harmless while the catalogue is Melbourne-sized, but if discovery breadth ever suffers the fix is to **reserve a Places slot** in `blendResults` (server-side, no client change). Flagged, not built.
+- Within a tier the blend **preserves the order it is given** — "strongest-first" comes from the RPC's `order by match_score desc, name`, not from `blendResults`.
+
 ---
 
 ## 4. The fuzzy matcher — `search_manual_restaurants(p_query, p_limit)` (migration 0015)
 
-`pg_trgm` over the **manual subset** of `restaurants` (a new partial GIN trigram index `restaurants_manual_name_trgm WHERE source='manual'` keeps it index-eligible as the catalogue grows). Returns `id, name, city, cuisine, match_score (0..1), strong (bool)`, strongest-first.
+`pg_trgm` over `restaurants`. 0015 scoped this to the **manual subset** (partial GIN index `restaurants_manual_name_trgm WHERE source='manual'`); **0017's `search_local_restaurants` drops the source filter** — identical body, thresholds, escaping and ordering otherwise — and rides the **total** trigram index `restaurants_name_trgm` (0002), which covers both the ILIKE and `<%` branches. Returns `id, name, city, cuisine, match_score (0..1), strong (bool)`, strongest-first.
 
 - **MATCH (surface at all):** `name ILIKE '%q%'  OR  word_similarity(q, name) >= 0.45`.
   `word_similarity` is the recall driver — it scores the best matching word-extent of the name against the query, catching partial / multi-word / mildly-misspelled queries.
