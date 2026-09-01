@@ -15,6 +15,13 @@ enum PreviewDetailData {
     static let tombstonedDishID = UUID(uuidString: "55555555-5555-4555-8555-555555555555")!
 
     static let dataSource: any DetailDataSource = PreviewDetailDataSource()
+
+    /// The fixture equivalent of what a tab root hands its stack, so previews can register the same
+    /// `detailDestinations` the app does and their pushes actually resolve.
+    @MainActor
+    static func context(onLogDish: (@MainActor () -> Void)? = nil) -> DetailContext {
+        DetailContext(dataSource: dataSource, analytics: DetailTelemetry.none, onLogDish: onLogDish)
+    }
 }
 
 struct PreviewDetailDataSource: DetailDataSource {

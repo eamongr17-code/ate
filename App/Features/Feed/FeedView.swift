@@ -17,8 +17,17 @@ struct FeedView: View {
     /// The staging-only sign-in affordance until the real auth flow lands. Debug builds only.
     private let debugSignIn: DebugStagingSignIn?
 
-    init(store: FeedStore, debugSignIn: DebugStagingSignIn? = nil) {
+    /// How this stack builds detail screens. Injected rather than defaulted so the feed tab shares
+    /// the app's one API client (and so previews can run on fixtures).
+    private let detail: DetailContext
+
+    init(
+        store: FeedStore,
+        detail: DetailContext,
+        debugSignIn: DebugStagingSignIn? = nil
+    ) {
         _store = State(initialValue: store)
+        self.detail = detail
         self.debugSignIn = debugSignIn
     }
 
@@ -26,9 +35,9 @@ struct FeedView: View {
         NavigationStack(path: $path) {
             content
                 .navigationTitle("Feed")
-                .navigationDestination(for: DishRoute.self) { route in
-                    DishDestinationPlaceholder(route: route)
-                }
+                // Registered once, at this stack's root: every dish and restaurant reached from the
+                // feed — including onward pushes inside detail — resolves here as `source: .feed`.
+                .detailDestinations(source: .feed, context: detail)
         }
         .task {
             store.recordFeedViewed()
@@ -144,23 +153,6 @@ struct FeedView: View {
                 }
             }
         }
-    }
-}
-
-/// Stand-in destination so the feed's navigation is real and drivable before the Dish detail build
-/// lands. The route value (``DishRoute``) is the contract; the lead swaps this one view for the
-/// real screen at merge.
-private struct DishDestinationPlaceholder: View {
-    let route: DishRoute
-
-    var body: some View {
-        ContentUnavailableView(
-            "Dish detail",
-            systemImage: "fork.knife.circle",
-            description: Text("Arriving with the detail build.\n\(route.dishID.uuidString)")
-        )
-        .navigationTitle("Dish")
-        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
