@@ -200,7 +200,10 @@ struct DishDetailModelTests {
         let total = DishDetailModel.reviewPageSize + 4
         let source = FakeDetailDataSource()
         await source.insert(restaurant: DetailFixtures.restaurant())
-        await source.insert(dish: DetailFixtures.dish(), stats: DetailFixtures.dishStats(score: 4.0, reviewCount: total))
+        await source.insert(
+            dish: DetailFixtures.dish(),
+            stats: DetailFixtures.dishStats(score: 4.0, reviewCount: total)
+        )
         await source.insert(reviews: DetailFixtures.reviews(count: total))
         await source.insert(user: DetailFixtures.user())
 
@@ -263,7 +266,9 @@ struct DishDetailModelTests {
         let source = await seeded()
         let events = EventLog()
 
-        let unwired = DishDetailModel(dishID: DetailFixtures.id("dish-1"), dataSource: source, analytics: events.recorder)
+        let unwired = DishDetailModel(
+            dishID: DetailFixtures.id("dish-1"), dataSource: source, analytics: events.recorder
+        )
         #expect(unwired.canLogDish == false)
 
         var tapped = 0

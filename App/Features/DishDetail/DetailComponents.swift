@@ -1,9 +1,9 @@
 import AteKit
 import SwiftUI
 
-/// The small, shared pieces both detail screens are built from. Deliberately plain: the designed
-/// dish card arrives with the Log build (brief D), and these views are sized to be swapped for it
-/// without touching either screen's structure.
+// The small, shared pieces both detail screens are built from. Deliberately plain: the designed
+// dish card arrives with the Log build (brief D), and these views are sized to be swapped for it
+// without touching either screen's structure.
 
 // MARK: - Rating
 

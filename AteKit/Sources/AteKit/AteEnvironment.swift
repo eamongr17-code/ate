@@ -98,7 +98,8 @@ public struct AteEnvironment: Sendable, Equatable {
         public var description: String {
             switch self {
             case .missing(let key):
-                "Missing configuration value \"\(key)\". Copy Config/Secrets.example.xcconfig to Config/Secrets.xcconfig and fill it in."
+                "Missing configuration value \"\(key)\". "
+                    + "Copy Config/Secrets.example.xcconfig to Config/Secrets.xcconfig and fill it in."
             case .unreadableEnvironment(let raw):
                 "Unrecognised \(AteEnvironment.environmentKey) value \"\(raw)\" — expected staging or production."
             case .malformedURL(let key, let raw):
