@@ -50,6 +50,23 @@
 
 set search_path = public, extensions;
 
+-- ---------------------------------------------------------------------------
+-- LANDMINE (hit on the first staging push of this file, 2026-09-01): the
+-- `set pg_trgm.word_similarity_threshold = 0.45` clause below fails with
+--   ERROR: permission denied to set parameter "pg_trgm.word_similarity_threshold"
+-- unless pg_trgm's library is ALREADY LOADED IN THIS SESSION. Until it loads,
+-- Postgres knows the name only as a PLACEHOLDER custom GUC, and setting a
+-- placeholder is superuser-only — and migrations run as a non-superuser role.
+--
+-- 0015 got away with the identical clause purely by accident of ordering: it
+-- creates a `gin_trgm_ops` index first, which loads the library, after which the
+-- GUC is its real USERSET self and the SET is allowed. This migration adds no
+-- index (0002's total trigram index already covers it), so it must load the
+-- library explicitly. One cheap call to a pg_trgm C function does it.
+--
+-- Any future migration that pins a pg_trgm GUC on a function needs this line.
+select extensions.word_similarity('warm', 'warm');
+
 create or replace function public.search_local_restaurants(
   p_query text,
   p_limit int default 5
