@@ -35,6 +35,7 @@ private struct RootTabView: View {
     private let feedStore: FeedStore
     private let searchServices: SearchServices
     private let detail: DetailContext
+    private let logServices: LogServices
     private let debugSignIn: DebugStagingSignIn?
 
     @State private var selection: RootTab = .feed
@@ -48,9 +49,11 @@ private struct RootTabView: View {
             analytics: TelemetryDeckFeedAnalytics()
         )
         self.searchServices = .live(api: api)
-        // `onLogDish` stays nil: the Log sheet doesn't exist yet, so both detail screens hide their
-        // CTA rather than showing a button that does nothing. One argument wires it later.
+        // `onLogDish` stays nil for now: `DetailContext`'s closure carries no dish payload, so it
+        // can't open the sheet pre-resolved (§1.1) — wiring a payloadless button would break the
+        // entry contract. Follow-up: give the closure a dish, then wire it.
         self.detail = .live(api: api)
+        self.logServices = .live(api: api)
         self.debugSignIn = DebugStagingSignIn.make(for: environment, api: api)
     }
 
@@ -86,8 +89,26 @@ private struct RootTabView: View {
             selection = previous
             isLoggingPresented = true
         }
+        // §6.4: a sitting whose post failed is retried once on the next foreground — the person was
+        // told their dishes were saved, and this is what makes that true.
+        .pendingLogPostRetry(services: logServices) { _ in
+            Task { await feedStore.refresh() }
+        }
         .sheet(isPresented: $isLoggingPresented) {
-            LogPlaceholderSheet()
+            LogSheet(
+                entry: .tab,
+                services: logServices,
+                onFinished: { _ in
+                    // The optimistic-insert seam doesn't exist yet; a refresh puts the new post at
+                    // the top of the feed before the sheet is gone.
+                    Task { await feedStore.refresh() }
+                },
+                onOpenDish: { _ in
+                    // Receipt's "View dish" — no cross-stack push seam yet, so land on the feed,
+                    // where the fresh post (and its dish) is the first row.
+                    selection = .feed
+                }
+            )
         }
     }
 }
@@ -111,28 +132,6 @@ private struct PlaceholderTab: View {
                 }
             }
             .navigationTitle(title)
-        }
-    }
-}
-
-/// Stand-in for the Log flow's sheet, so the `+` tab item is a real, dismissible interaction now.
-private struct LogPlaceholderSheet: View {
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ContentUnavailableView(
-                "Log a dish",
-                systemImage: "plus.circle",
-                description: Text("Rate what you just ate. Arriving with the log build.")
-            )
-            .navigationTitle("Log")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
         }
     }
 }
