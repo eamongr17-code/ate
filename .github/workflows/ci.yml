@@ -55,6 +55,17 @@ jobs:
             -configuration Debug build > build.log 2>&1 || { tail -50 build.log; exit 1; }
           tail -2 build.log
 
+      # Beta is the config the TestFlight lane archives, and it is NOT a DEBUG build — a #Preview
+      # referencing a #if DEBUG helper compiles fine above but breaks the release lane. Unsigned
+      # compile only; signing/upload stay in beta.yml.
+      - name: Build app (Beta, unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project Ate.xcodeproj -scheme Ate \
+            -destination 'generic/platform=iOS' \
+            -configuration Beta CODE_SIGNING_ALLOWED=NO build > beta-build.log 2>&1 || { tail -50 beta-build.log; exit 1; }
+          tail -2 beta-build.log
+
   contract:
     name: Contract tests vs staging
     runs-on: macos-26
