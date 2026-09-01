@@ -208,6 +208,7 @@ private extension View {
     }
 }
 
+#if DEBUG
 #Preview("Diary") {
     DiaryView(
         store: DiaryStore(client: PreviewDiaryClient(), pageSize: 4),
@@ -221,3 +222,4 @@ private struct PreviewDiaryClient: DiaryReading {
         Page(items: FeedPlaceholder.entries(count: request.limit), nextCursor: nil)
     }
 }
+#endif
