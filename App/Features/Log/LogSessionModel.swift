@@ -66,6 +66,9 @@ final class LogSessionModel {
     private var uploads: [UUID: Task<Void, Never>] = [:]
     private var postedReviewIDs: Set<UUID> = []
     private var postAttempt = 0
+    /// §6.4: sticky once a post has failed. Only a successful post clears it — never an ordinary
+    /// "save draft", which is how a failed sitting used to get quietly stranded.
+    private var needsPostRetry = false
     private var hasSentOpened = false
     private var hasEnded = false
 
@@ -131,6 +134,10 @@ final class LogSessionModel {
         photos = StagedPhotoStore(draftID: draft.id)
         sitting = draft.sitting
         postedReviewIDs = Set(draft.postedReviewIDs)
+        // A resumed sitting inherits its unfinished business: if its post failed before, it is still
+        // pending until it succeeds, and the attempt count keeps counting.
+        needsPostRetry = draft.needsPostRetry
+        postAttempt = draft.postAttempts
         services.telemetry.send(.draftResumed(ageMinutes: draft.ageMinutes()))
     }
 
@@ -310,6 +317,8 @@ final class LogSessionModel {
             let inserted = try await services.poster.post(rows)
             postedReviews += inserted
             postedReviewIDs.formUnion(inserted.map(\.id))
+            // The only thing that clears the flag: the rows actually landed.
+            needsPostRetry = false
             postedWithoutPhoto = state.hasPhoto && rows.contains { $0.photoURLString == nil }
 
             services.telemetry.send(.posted(
@@ -331,7 +340,7 @@ final class LogSessionModel {
                 dishCount: state.dishes.count,
                 attempt: postAttempt
             ))
-            saveDraft(needsPostRetry: true)
+            saveDraft(pendingPost: true)
         }
     }
 
@@ -351,17 +360,26 @@ final class LogSessionModel {
     /// §7 dismissal guard: a bare, untouched sitting leaves silently.
     var hasContent: Bool { sitting?.hasContent == true && receipt == nil }
 
-    func saveDraft(needsPostRetry: Bool = false) {
+    /// Writes the current sitting as *the* draft.
+    ///
+    /// `pendingPost` can only ever raise the retry flag — never lower it. Tapping Cancel → "Save
+    /// draft" after a failed post must not tell the retry runner there is nothing to retry, which is
+    /// exactly how a failed sitting got stranded: saved, believed posted, never sent again. The
+    /// same rule is enforced a second time in ``LogDraftPolicy/merged(existing:updated:)``, because
+    /// this model is not the only thing that will ever write a draft.
+    func saveDraft(pendingPost: Bool = false) {
         guard let sitting, receipt == nil else { return }
+        needsPostRetry = needsPostRetry || pendingPost
         let draft = LogDraft(
             id: draftID,
             sitting: sitting,
             savedAt: Date(),
             postedReviewIDs: Array(postedReviewIDs),
-            needsPostRetry: needsPostRetry
+            needsPostRetry: needsPostRetry,
+            postAttempts: postAttempt
         )
         guard draft.isWorthKeeping else { return }
-        services.drafts.save(draft)
+        services.drafts.save(LogDraftPolicy.merged(existing: services.drafts.load(), updated: draft))
     }
 
     /// §6.5: the draft is written whenever the app stops being active, so an interruption is not a

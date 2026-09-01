@@ -89,6 +89,11 @@ private struct RootTabView: View {
             selection = previous
             isLoggingPresented = true
         }
+        // §6.4: a sitting whose post failed is retried once on the next foreground — the person was
+        // told their dishes were saved, and this is what makes that true.
+        .pendingLogPostRetry(services: logServices) { _ in
+            Task { await feedStore.refresh() }
+        }
         .sheet(isPresented: $isLoggingPresented) {
             LogSheet(
                 entry: .tab,

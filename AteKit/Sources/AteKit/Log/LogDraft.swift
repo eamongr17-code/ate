@@ -16,19 +16,24 @@ public struct LogDraft: Sendable, Hashable, Codable, Identifiable {
     public var postedReviewIDs: [UUID]
     /// §6.4: "Leave with failed post: draft persists; one-shot auto-retry next foreground."
     public var needsPostRetry: Bool
+    /// How many times this sitting has been sent. Carried on the draft so `log_post_failed(attempt:)`
+    /// keeps counting across a relaunch instead of resetting to 1 every foreground.
+    public var postAttempts: Int
 
     public init(
         id: UUID = UUID(),
         sitting: SittingState,
         savedAt: Date = Date(),
         postedReviewIDs: [UUID] = [],
-        needsPostRetry: Bool = false
+        needsPostRetry: Bool = false,
+        postAttempts: Int = 0
     ) {
         self.id = id
         self.sitting = sitting
         self.savedAt = savedAt
         self.postedReviewIDs = postedReviewIDs
         self.needsPostRetry = needsPostRetry
+        self.postAttempts = postAttempts
     }
 
     /// §7: "Expiry 7 days."
@@ -50,6 +55,32 @@ public struct LogDraft: Sendable, Hashable, Codable, Identifiable {
 
     /// A draft is only worth keeping if something was actually composed (§7 `hasContent`).
     public var isWorthKeeping: Bool { sitting.hasContent || needsPostRetry }
+}
+
+/// The rules for *replacing* a draft — the ones that can't live in a call site, because the whole
+/// point is that no call site gets to forget them.
+public enum LogDraftPolicy {
+    /// A save must never **downgrade** a pending retry.
+    ///
+    /// The defect this exists to prevent: a post fails (flag set, draft written), the person taps
+    /// Cancel and chooses "Save draft", and that ordinary save — which knows nothing about the
+    /// failed post — writes the same sitting back with `needsPostRetry = false`. The rows are then
+    /// stranded forever: never posted, never retried, and the person was told they were saved.
+    ///
+    /// So the flag and the already-posted ids are *sticky*: they can only be cleared by the retry
+    /// actually succeeding (which clears the whole draft), never by an unrelated save. The attempt
+    /// count is likewise monotonic.
+    public static func merged(existing: LogDraft?, updated: LogDraft) -> LogDraft {
+        guard let existing, existing.id == updated.id else { return updated }
+        var merged = updated
+        merged.needsPostRetry = updated.needsPostRetry || existing.needsPostRetry
+        merged.postAttempts = max(updated.postAttempts, existing.postAttempts)
+        // Rows that landed stay recorded; forgetting one means posting it twice.
+        let known = Set(updated.postedReviewIDs)
+        merged.postedReviewIDs = updated.postedReviewIDs
+            + existing.postedReviewIDs.filter { !known.contains($0) }
+        return merged
+    }
 }
 
 /// One draft in, one draft out. Deliberately synchronous and throwing: it is a small JSON file, and

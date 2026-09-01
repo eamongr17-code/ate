@@ -40,6 +40,17 @@ struct LogServices: Sendable {
         self.provenance = provenance
     }
 
+    /// The §6.4 foreground retry, built from the same seams the sheet uses — so a test can hand it
+    /// fakes and the app can't accidentally give it a second draft store.
+    func makeRetryRunner() -> LogPostRetryRunner {
+        LogPostRetryRunner(
+            drafts: drafts,
+            poster: poster,
+            currentUserID: currentUserID,
+            telemetry: telemetry
+        )
+    }
+
     static func live(api: AteAPIClient) -> LogServices {
         let provenance = LogPickProvenance()
         return LogServices(
