@@ -42,6 +42,10 @@ public enum Theme {
         public static let body = Font.body
         public static let detail = Font.subheadline
         public static let caption = Font.footnote
+        /// A score shown inside a list row. Monospaced digits so a column of scores doesn't jitter
+        /// as rows scroll. (The large receipt/card score numerals are separate tokens, added with
+        /// the surfaces that need them.)
+        public static let rowScore = Font.subheadline.weight(.medium).monospacedDigit()
     }
 
     // MARK: - Spacing
