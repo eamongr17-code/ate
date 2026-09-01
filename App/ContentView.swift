@@ -19,9 +19,12 @@ struct ContentView: View {
 /// The tab scaffold: stock `TabView`, stock `Tab`s, native iOS 26 chrome (including the separated
 /// search tab role) — no hand-built bar, no custom glass.
 ///
-/// Only **Feed** is real today. The other three are deliberately thin placeholders that the lead
-/// swaps for the real roots as each parallel build lands; keeping them here (rather than in the
-/// feature folders those builds own) is what makes those merges non-conflicting.
+/// **Feed** and **Search** are real; Diary is still a placeholder and the `+` tab presents the Log
+/// stand-in until that build lands.
+///
+/// One ``AteAPIClient`` is built here and handed to everything — feed, search and both detail
+/// screens share a client, and therefore one URLSession and one auth session. A second client would
+/// mean the Debug sign-in reached only half the app.
 @MainActor
 private struct RootTabView: View {
     private enum RootTab: Hashable {
@@ -30,6 +33,8 @@ private struct RootTabView: View {
 
     private let environment: AteEnvironment
     private let feedStore: FeedStore
+    private let searchServices: SearchServices
+    private let detail: DetailContext
     private let debugSignIn: DebugStagingSignIn?
 
     @State private var selection: RootTab = .feed
@@ -42,13 +47,17 @@ private struct RootTabView: View {
             client: GlobalFeedClient(api: api),
             analytics: TelemetryDeckFeedAnalytics()
         )
+        self.searchServices = .live(api: api)
+        // `onLogDish` stays nil: the Log sheet doesn't exist yet, so both detail screens hide their
+        // CTA rather than showing a button that does nothing. One argument wires it later.
+        self.detail = .live(api: api)
         self.debugSignIn = DebugStagingSignIn.make(for: environment, api: api)
     }
 
     var body: some View {
         TabView(selection: $selection) {
             Tab("Feed", systemImage: "fork.knife", value: RootTab.feed) {
-                FeedView(store: feedStore, debugSignIn: debugSignIn)
+                FeedView(store: feedStore, detail: detail, debugSignIn: debugSignIn)
             }
 
             Tab("Diary", systemImage: "book.closed", value: RootTab.diary) {
@@ -69,11 +78,7 @@ private struct RootTabView: View {
             }
 
             Tab(value: RootTab.search, role: .search) {
-                PlaceholderTab(
-                    title: "Search",
-                    systemImage: "magnifyingglass",
-                    message: "Find a dish, a restaurant, or a person."
-                )
+                SearchView(services: searchServices, detail: detail)
             }
         }
         .onChange(of: selection) { previous, new in

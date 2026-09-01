@@ -1,0 +1,48 @@
+# SwiftLint — the definition-of-done gate AGENTS.md names (rule 3).
+# Philosophy: catch real defects and drift, don't fight SwiftUI idiom.
+
+included:
+  - App
+  - AteKit/Sources
+  - AteKit/Tests
+
+excluded:
+  - AteKit/.build
+  - .build
+  - DerivedData
+
+line_length:
+  warning: 120
+  error: 140
+  ignores_urls: true
+  ignores_comments: false
+
+# SwiftUI bodies and test suites legitimately run long.
+type_body_length:
+  warning: 350
+  error: 500
+function_body_length:
+  warning: 80
+  error: 120
+file_length:
+  warning: 500
+  error: 700
+
+identifier_name:
+  min_length: 2 # x/y in gesture math, id, db
+  max_length: 50
+  excluded: [l, r, a, b] # comparator/test-pair idiom
+
+nesting:
+  type_level: 2 # Theme.Color.*, enum namespacing is the house style
+
+disabled_rules:
+  - todo # TODOs are tracked in PRs, not lint
+  - trailing_comma # SwiftFormat territory; not worth churn
+
+opt_in_rules:
+  - empty_count
+  - closure_spacing
+  - contains_over_first_not_nil
+  - redundant_nil_coalescing
+  - unneeded_parentheses_in_closure_argument

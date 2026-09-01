@@ -1,9 +1,9 @@
 import AteKit
 import SwiftUI
 
-/// The small, shared pieces both detail screens are built from. Deliberately plain: the designed
-/// dish card arrives with the Log build (brief D), and these views are sized to be swapped for it
-/// without touching either screen's structure.
+// The small, shared pieces both detail screens are built from. Deliberately plain: the designed
+// dish card arrives with the Log build (brief D), and these views are sized to be swapped for it
+// without touching either screen's structure.
 
 // MARK: - Rating
 
@@ -67,19 +67,25 @@ struct AggregateScoreView: View {
 
 /// A review photo at the one ratio the app uses. Reserves its space before the image lands so the
 /// list doesn't jump under a scrolling thumb.
+///
+/// The `Color.clear` well is what sizes the row (the same fix the feed row carries): an `AsyncImage`
+/// left to size itself pushes the photo's *intrinsic* width into the layout, which widens the row
+/// and shoves the review's name and note off the left edge — seen on the simulator, not theorised.
 struct DetailPhotoView: View {
     let url: URL?
 
     var body: some View {
-        AsyncImage(url: url) { image in
-            image.resizable().scaledToFill()
-        } placeholder: {
-            Theme.Color.placeholder
-        }
-        .aspectRatio(Theme.Ratio.photo, contentMode: .fill)
-        .frame(maxWidth: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
-        .accessibilityHidden(true)
+        Color.clear
+            .aspectRatio(Theme.Ratio.photo, contentMode: .fit)
+            .overlay {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Theme.Color.placeholder
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
+            .accessibilityHidden(true)
     }
 }
 

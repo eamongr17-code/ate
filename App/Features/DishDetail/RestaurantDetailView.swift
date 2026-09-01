@@ -10,10 +10,6 @@ import SwiftUI
 struct RestaurantDetailView: View {
     @State private var model: RestaurantDetailModel
 
-    private let dataSource: any DetailDataSource
-    private let analytics: AnalyticsRecorder
-    private let onLogDish: (@MainActor () -> Void)?
-
     init(
         restaurantID: UUID,
         source: DetailSource = .unknown,
@@ -21,9 +17,6 @@ struct RestaurantDetailView: View {
         analytics: @escaping AnalyticsRecorder = DetailTelemetry.live,
         onLogDish: (@MainActor () -> Void)? = nil
     ) {
-        self.dataSource = dataSource
-        self.analytics = analytics
-        self.onLogDish = onLogDish
         _model = State(wrappedValue: RestaurantDetailModel(
             restaurantID: restaurantID,
             source: source,
@@ -92,14 +85,9 @@ struct RestaurantDetailView: View {
             }
 
             ForEach(model.dishes) { dish in
-                NavigationLink {
-                    DishDetailView(
-                        dishID: dish.id,
-                        dataSource: dataSource,
-                        analytics: analytics,
-                        onLogDish: onLogDish
-                    )
-                } label: {
+                // A value push, resolved by the hosting stack's `detailDestinations` — identical
+                // whether this screen was reached from Feed, Search or (later) the receipt.
+                NavigationLink(value: DishRoute(dishID: dish.id)) {
                     DishRowView(dish: dish)
                 }
             }
@@ -117,6 +105,7 @@ struct RestaurantDetailView: View {
             analytics: DetailTelemetry.none,
             onLogDish: {}
         )
+        .detailDestinations(source: .search, context: PreviewDetailData.context(onLogDish: {}))
     }
 }
 
@@ -127,6 +116,7 @@ struct RestaurantDetailView: View {
             dataSource: PreviewDetailData.dataSource,
             analytics: DetailTelemetry.none
         )
+        .detailDestinations(source: .unknown, context: PreviewDetailData.context())
     }
 }
 #endif

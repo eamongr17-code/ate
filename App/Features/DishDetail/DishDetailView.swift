@@ -12,12 +12,6 @@ import SwiftUI
 struct DishDetailView: View {
     @State private var model: DishDetailModel
 
-    /// Carried so a push onwards to the restaurant keeps the same injected dependencies rather than
-    /// silently falling back to the live ones (which would break previews and tests).
-    private let dataSource: any DetailDataSource
-    private let analytics: AnalyticsRecorder
-    private let onLogDish: (@MainActor () -> Void)?
-
     init(
         dishID: UUID,
         source: DetailSource = .unknown,
@@ -27,9 +21,6 @@ struct DishDetailView: View {
         /// presenter here when it lands; nothing else about this screen changes.
         onLogDish: (@MainActor () -> Void)? = nil
     ) {
-        self.dataSource = dataSource
-        self.analytics = analytics
-        self.onLogDish = onLogDish
         _model = State(wrappedValue: DishDetailModel(
             dishID: dishID,
             source: source,
@@ -77,15 +68,10 @@ struct DishDetailView: View {
             .padding(.vertical, Theme.Spacing.snug)
 
             // Tapping through to the restaurant is the second half of "what should I order here?" —
-            // a plain navigation row, so it behaves like every other disclosure in the app.
-            NavigationLink {
-                RestaurantDetailView(
-                    restaurantID: restaurant.id,
-                    dataSource: dataSource,
-                    analytics: analytics,
-                    onLogDish: onLogDish
-                )
-            } label: {
+            // a plain navigation row, so it behaves like every other disclosure in the app. It
+            // pushes a *value*: the hosting stack's `detailDestinations` builds the screen, which is
+            // what keeps the dependencies and the funnel `source` identical however deep we are.
+            NavigationLink(value: RestaurantRoute(restaurantID: restaurant.id)) {
                 VStack(alignment: .leading, spacing: Theme.Spacing.hairline) {
                     Text(restaurant.name)
                         .font(Theme.Text.itemTitle)
@@ -136,6 +122,9 @@ struct DishDetailView: View {
             analytics: DetailTelemetry.none,
             onLogDish: {}
         )
+        // Previews register the same destinations the tab roots do, so the restaurant row is
+        // tappable here too — a dead link in a preview is how a dead link ships.
+        .detailDestinations(source: .feed, context: PreviewDetailData.context(onLogDish: {}))
     }
 }
 
@@ -146,6 +135,7 @@ struct DishDetailView: View {
             dataSource: PreviewDetailData.dataSource,
             analytics: DetailTelemetry.none
         )
+        .detailDestinations(source: .unknown, context: PreviewDetailData.context())
     }
 }
 
@@ -156,6 +146,7 @@ struct DishDetailView: View {
             dataSource: PreviewDetailData.dataSource,
             analytics: DetailTelemetry.none
         )
+        .detailDestinations(source: .unknown, context: PreviewDetailData.context())
     }
 }
 #endif
