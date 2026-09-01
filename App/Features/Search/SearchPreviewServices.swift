@@ -146,11 +146,11 @@ extension SearchServices {
 }
 
 #Preview("Search tab") {
-    SearchView(services: .preview)
+    SearchView(services: .preview, detail: PreviewDetailData.context())
 }
 
 #Preview("Search tab — nothing to show") {
-    SearchView(services: .previewEmpty)
+    SearchView(services: .previewEmpty, detail: PreviewDetailData.context())
 }
 
 #Preview("WHERE step (.pick)") {
