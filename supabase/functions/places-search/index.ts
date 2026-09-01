@@ -11,15 +11,17 @@
 //         origin); omitted otherwise (additive, back-compat). The wire field is
 //         snake_case `distance_meters` to match the FE consumer + the existing
 //         wire convention (google_place_id, cover_url, secondary).
-//       MANUAL-RESTO (search-blend): ALSO returns `results` — a unified, ranked,
-//         capped-at-5, discriminated list merging the Places predictions with
-//         fuzzy-matched user-added (source='manual') restaurants from our DB
-//         (via the search_manual_restaurants RPC, migration 0015). Each item is
-//         tagged `kind:'place'` (resolve-on-select, has google_place_id) or
-//         `kind:'manual'` (already a restaurants row, has the real `id`, select
-//         directly — no resolve). `predictions` stays Places-only for
-//         back-compat; the FE migrates to `results`. See
-//         docs/backend/manual-search-blend-contract.md.
+//       SEARCH-BLEND: ALSO returns `results` — a unified, ranked, capped-at-5,
+//         discriminated list merging the Places predictions with fuzzy-matched
+//         restaurants WE ALREADY HOLD (via the search_local_restaurants RPC,
+//         migration 0017 — any source, widened from 0015's manual-only search).
+//         Each item is tagged `kind:'place'` (resolve-on-select, has
+//         google_place_id) or `kind:'manual'` (already a restaurants row, has the
+//         real `id`, select directly — no resolve). A local row SHADOWS a
+//         same-named Places prediction, which is what stops a known restaurant
+//         being re-resolved into a duplicate row (and saves the paid Details
+//         call). `predictions` stays Places-only for back-compat; the FE reads
+//         `results`. See docs/backend/manual-search-blend-contract.md.
 //   - op=details       body: { google_place_id: string, session_token? }
 //       → resolves a Place to full detail AND UPSERTS a restaurants row by
 //         google_place_id, returning the restaurant row (the "resolve Place → row"
@@ -88,6 +90,9 @@
 //   - SUPABASE_ANON_KEY       (auto-injected; used ONLY to validate caller JWTs)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// The blend's pure half (ranking, name-dedupe, top-5 cap) — see ./blend.ts. Kept
+// in its own module so blend_test.ts can test the real code rather than a copy.
+import { AUTOCOMPLETE_CAP, blendResults, type LocalMatch, type Prediction } from './blend.ts';
 
 const GOOGLE_KEY = Deno.env.get('GOOGLE_PLACES_API_KEY') ?? '';
 const STUB = GOOGLE_KEY.trim() === '';
@@ -165,8 +170,8 @@ const NEARBY_INCLUDED_TYPES = [
   'juice_shop',
 ];
 
-// Result caps (PH-E3).
-const AUTOCOMPLETE_CAP = 5;
+// Result caps (PH-E3). AUTOCOMPLETE_CAP is imported from ./blend.ts (single
+// source of truth — the blend enforces the same 5).
 const NEARBY_CAP = 10;
 
 // Nearby radius (metres). Default to a walkable/short-drive radius; clamp to a
@@ -220,36 +225,110 @@ type StubPlace = {
   cover_url: string;
 };
 
+// THE FIXTURES ARE THE SEED. Every entry below is a byte-for-byte copy of a row
+// in `supabase/seed.sql` §2 — same google_place_id ('stub-…'), name, address,
+// city, coords (seed writes ST_MakePoint(LNG, LAT); lat/lng are un-swapped here),
+// cuisine and cover_url.
+//
+// This alignment is LOAD-BEARING, not cosmetic (staging seed/Places mismatch,
+// 2026-09-01). The previous fixtures were three invented venues with
+// 'seed_place_…' ids that matched NOTHING in the database, so on a stub-mode
+// stack: autocomplete surfaced places that did not exist as rows; selecting one
+// missed the op=details known-place short-circuit (no row carries
+// 'seed_place_chintamani'); and the upsert MINTED A SECOND restaurant next to
+// the seeded one — which is exactly how staging got two "Chin Chin" rows.
+//
+// Because the ids now match the seeded rows, op=details short-circuits onto the
+// seeded row (BE-PLACES-4) and never inserts, and — with migration 0017 — the
+// blend surfaces the seeded row itself, so the prediction is shadowed before a
+// resolve is even attempted.
+//
+// The seed's 9th restaurant ("Nonna's Kitchen (synthetic)") is deliberately
+// ABSENT: it is source='manual' with google_place_id NULL, so it is not a Place
+// and must never be one. It reaches search through the local-search RPC, which
+// is precisely the path this fixture set must not fake.
+//
+// If seed.sql changes, change this list with it.
 const STUB_PLACES: StubPlace[] = [
   {
-    google_place_id: 'seed_place_chintamani',
+    google_place_id: 'stub-chin-chin',
     name: 'Chin Chin',
     address: '125 Flinders Ln',
-    city: 'Melbourne VIC',
-    lat: -37.8159,
-    lng: 144.9686,
+    city: 'Melbourne',
+    lat: -37.8163,
+    lng: 144.9695,
     cuisine: 'Thai',
-    cover_url: 'https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=600&q=70',
+    cover_url: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=800&q=70',
   },
   {
-    google_place_id: 'seed_place_pellegrini',
-    name: "Pellegrini's Espresso Bar",
-    address: '66 Bourke St',
-    city: 'Melbourne VIC',
-    lat: -37.8118,
-    lng: 144.9719,
+    google_place_id: 'stub-supernormal',
+    name: 'Supernormal',
+    address: '180 Flinders Ln',
+    city: 'Melbourne',
+    lat: -37.8157,
+    lng: 144.9707,
+    cuisine: 'Asian',
+    cover_url: 'https://images.unsplash.com/photo-1552332386-f8dd00dc2f85?auto=format&fit=crop&w=800&q=70',
+  },
+  {
+    google_place_id: 'stub-tipo-00',
+    name: 'Tipo 00',
+    address: '361 Little Bourke St',
+    city: 'Melbourne',
+    lat: -37.8134,
+    lng: 144.9617,
     cuisine: 'Italian',
-    cover_url: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=600&q=70',
+    cover_url: 'https://images.unsplash.com/photo-1551782450-a2132b4ba21d?auto=format&fit=crop&w=800&q=70',
   },
   {
-    google_place_id: 'seed_place_attica',
-    name: 'Attica',
-    address: '74 Glen Eira Rd, Ripponlea',
-    city: 'Ripponlea VIC',
-    lat: -37.8772,
-    lng: 144.9966,
+    google_place_id: 'stub-gimlet',
+    name: 'Gimlet at Cavendish House',
+    address: '33 Russell St',
+    city: 'Melbourne',
+    lat: -37.8143,
+    lng: 144.9695,
+    cuisine: 'European',
+    cover_url: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=800&q=70',
+  },
+  {
+    google_place_id: 'stub-cutler-and-co',
+    name: 'Cutler & Co',
+    address: '55-57 Gertrude St',
+    city: 'Fitzroy',
+    lat: -37.8063,
+    lng: 144.9787,
     cuisine: 'Modern Australian',
-    cover_url: 'https://images.unsplash.com/photo-1559737558-2f5a35f4523b?auto=format&fit=crop&w=600&q=70',
+    cover_url: 'https://images.unsplash.com/photo-1481931098730-318b6f776db0?auto=format&fit=crop&w=800&q=70',
+  },
+  {
+    google_place_id: 'stub-lune-fitzroy',
+    name: 'Lune Croissanterie',
+    address: '119 Rose St',
+    city: 'Fitzroy',
+    lat: -37.7986,
+    lng: 144.9803,
+    cuisine: 'Bakery',
+    cover_url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=70',
+  },
+  {
+    google_place_id: 'stub-baby-pizza',
+    name: 'Baby Pizza',
+    address: '631 Church St',
+    city: 'Richmond',
+    lat: -37.8288,
+    lng: 144.9955,
+    cuisine: 'Pizza',
+    cover_url: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=800&q=70',
+  },
+  {
+    google_place_id: 'stub-etta',
+    name: 'Etta',
+    address: '60 Lygon St',
+    city: 'Brunswick East',
+    lat: -37.7717,
+    lng: 144.9761,
+    cuisine: 'Modern Australian',
+    cover_url: 'https://images.unsplash.com/photo-1476224203421-9ac39bcb3327?auto=format&fit=crop&w=800&q=70',
   },
 ];
 
@@ -541,118 +620,60 @@ async function findRestaurantByPlaceId(placeId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// MANUAL-RESTO (search-blend). Fuzzy-match user-added (source='manual')
-// restaurants by name so they surface ALONGSIDE Places predictions in the
-// "Where did you eat?" step. The DB half is the search_manual_restaurants RPC
-// (migration 0015): pg_trgm word_similarity + ILIKE-substring over the manual
-// subset, returning a match_score (0..1) and a `strong` flag, strongest-first.
+// SEARCH-BLEND (MANUAL-RESTO, widened 2026-09-01). Fuzzy-match restaurants we
+// ALREADY HOLD by name so they surface ALONGSIDE Places predictions in the
+// "Where did you eat?" step. The DB half is the search_local_restaurants RPC
+// (migration 0017): pg_trgm word_similarity + ILIKE-substring over ALL local
+// rows, returning a match_score (0..1) and a `strong` flag, strongest-first.
+//
+// WIDENED FROM MANUAL-ONLY: this used to call search_manual_restaurants (0015),
+// which filtered source='manual' — so a Places-SOURCED row we already had was
+// invisible to search. The typed query then matched only Google's prediction,
+// and selecting it cost a paid op=details Details call whose upsert re-derived a
+// row we already held — minting a DUPLICATE whenever Google's place id differed
+// from the one on our row (the staging "two Chin Chins" incident; the same path
+// is live in prod). 0017's RPC is 0015's body minus the source filter, so a
+// known restaurant now shadows its own Google prediction (blendResults de-dupes
+// by normalised name, local-first), is selected directly by row id, and neither
+// the Details call nor the duplicate ever happens.
+//
+// WIRE: unchanged. These rows still ride the `kind:'manual'` discriminator,
+// whose contract meaning is "already a restaurants row, select directly, do not
+// resolve" — true of a Places-sourced local row too. NO client change; additive
+// in effect (more rows are directly selectable), nothing moves shape.
 //
 // SOFT-FAIL: any failure here returns [] so the core Places autocomplete is
-// NEVER broken by a manual-search hiccup (an unapplied RPC, a transient DB
-// error). Manual blending is additive; Places-only is always a valid result.
+// NEVER broken by a local-search hiccup (an unapplied RPC, a transient DB
+// error). Blending is additive; Places-only is always a valid result. Note this
+// covers the deploy ordering too: if the function ships before 0017 applies, the
+// RPC 404s, this returns [], and search degrades to Places-only rather than
+// breaking.
 // ---------------------------------------------------------------------------
-type ManualMatch = {
-  id: string;
-  name: string;
-  city: string | null;
-  cuisine: string | null;
-  match_score: number;
-  strong: boolean;
-};
-
-async function searchManualRestaurants(query: string, limit = AUTOCOMPLETE_CAP): Promise<ManualMatch[]> {
+async function searchLocalRestaurants(query: string, limit = AUTOCOMPLETE_CAP): Promise<LocalMatch[]> {
   const q = query.trim();
   if (q.length < 2) return []; // mirror the FE ≥2-char autocomplete gate
   try {
     const admin = adminClient();
-    const { data, error } = await admin.rpc('search_manual_restaurants', {
+    const { data, error } = await admin.rpc('search_local_restaurants', {
       p_query: q,
       p_limit: limit,
     });
     if (error) {
-      console.error('search_manual_restaurants failed (soft-fail to Places-only):', error.message);
+      console.error('search_local_restaurants failed (soft-fail to Places-only):', error.message);
       return [];
     }
-    return (data ?? []) as ManualMatch[];
+    return (data ?? []) as LocalMatch[];
   } catch (e) {
-    console.error('search_manual_restaurants threw (soft-fail to Places-only):', e);
+    console.error('search_local_restaurants threw (soft-fail to Places-only):', e);
     return [];
   }
 }
 
-// A Places prediction (the shape returned by google/stub Autocomplete).
-type Prediction = {
-  google_place_id: string;
-  name: string;
-  secondary?: string;
-  distance_meters?: number;
-};
-
-// The unified, discriminated search result the FE consumes (op=autocomplete
-// `results`). `kind` tells the two apart: a 'place' resolves on select via
-// op=details (has google_place_id), a 'manual' IS already a restaurants row
-// (has the real `id`) and is selected directly — no resolve.
-type SearchResult =
-  | { kind: 'place'; google_place_id: string; name: string; secondary?: string; distance_meters?: number }
-  | { kind: 'manual'; id: string; name: string; city: string; cuisine?: string; match_score: number };
-
-// Comparator mirroring the FE byDistanceAsc: nearest first, unmeasured rows
-// last, stable for ties (so Google's relevance order is preserved within a
-// distance tie / the trailing no-distance block).
-function byDistanceAsc(a: Prediction, b: Prediction): number {
-  const da = a.distance_meters;
-  const db = b.distance_meters;
-  const aMissing = da == null || !Number.isFinite(da);
-  const bMissing = db == null || !Number.isFinite(db);
-  if (aMissing && bMissing) return 0;
-  if (aMissing) return 1;
-  if (bMissing) return -1;
-  return (da as number) - (db as number);
-}
-
-// Merge Places predictions + fuzzy manual matches into ONE ranked, capped-at-5,
-// discriminated list. Ranking (justified in the contract doc):
-//   1. STRONG manual matches (near-exact typed name; strongest-first) — these
-//      are places this app's users explicitly added AND the query matches them
-//      closely, so they lead.
-//   2. Places predictions — distance-sorted (nearest first) to preserve the
-//      existing "where did you eat?" UX; Google relevance order when no origin.
-//   3. WEAK manual matches (ordinary fuzzy / typo) — after Places.
-// De-duped by normalised name (first wins → strong-manual > place > weak-manual,
-// so a manual row is preferred over a same-named Places prediction: it's
-// directly selectable with no resolve round-trip). Capped at AUTOCOMPLETE_CAP.
-function blendResults(predictions: Prediction[], manual: ManualMatch[]): SearchResult[] {
-  const toManual = (m: ManualMatch): SearchResult => ({
-    kind: 'manual',
-    id: m.id,
-    name: m.name,
-    city: m.city ?? '',
-    ...(m.cuisine ? { cuisine: m.cuisine } : {}),
-    match_score: m.match_score,
-  });
-  const toPlace = (p: Prediction): SearchResult => ({
-    kind: 'place',
-    google_place_id: p.google_place_id,
-    name: p.name,
-    ...(p.secondary ? { secondary: p.secondary } : {}),
-    ...(Number.isFinite(p.distance_meters) ? { distance_meters: p.distance_meters as number } : {}),
-  });
-
-  const strong = manual.filter((m) => m.strong).map(toManual);
-  const weak = manual.filter((m) => !m.strong).map(toManual);
-  const places = [...predictions].sort(byDistanceAsc).map(toPlace);
-
-  const ordered = [...strong, ...places, ...weak];
-  const seen = new Set<string>();
-  const out: SearchResult[] = [];
-  for (const r of ordered) {
-    const key = r.name.trim().toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(r);
-  }
-  return out.slice(0, AUTOCOMPLETE_CAP);
-}
+// RANKING / DEDUPE / CAP for the blended `results` list now lives in ./blend.ts
+// (byDistanceAsc + blendResults + the SearchResult union), imported at the top of
+// this file. It was extracted verbatim so blend_test.ts can test the REAL
+// implementation — index.ts is a Deno.serve entrypoint that reads secrets on
+// import and cannot be imported by a test.
 
 // PH-BE-2: PostGIS-first nearby. Calls the GIST-indexed restaurants_nearby RPC
 // (data-model §5; defined in migration 0005). KNN-ordered by distance.
@@ -823,18 +844,18 @@ Deno.serve(async (req) => {
       // Number so a string "lat" from the body still works; non-finite → omitted.
       const acLat = body.lat == null ? undefined : Number(body.lat);
       const acLng = body.lng == null ? undefined : Number(body.lng);
-      // MANUAL-RESTO (search-blend): fetch Places predictions AND fuzzy manual
-      // matches in parallel, then merge into a unified `results` list. Manual
-      // search is soft-fail (returns [] on any error) so it can never break the
-      // core Places autocomplete. The DB call works in stub mode too (the manual
-      // catalogue is independent of the Google key).
-      const [predictions, manual] = await Promise.all([
+      // SEARCH-BLEND: fetch Places predictions AND fuzzy matches against the
+      // restaurants we already hold, in parallel, then merge into a unified
+      // `results` list. Local search is soft-fail (returns [] on any error) so it
+      // can never break the core Places autocomplete. The DB call works in stub
+      // mode too (the local catalogue is independent of the Google key).
+      const [predictions, local] = await Promise.all([
         STUB
           ? Promise.resolve(stubAutocomplete(input, acLat, acLng))
           : googleAutocomplete(input, acLat, acLng, sessionToken),
-        searchManualRestaurants(input),
+        searchLocalRestaurants(input),
       ]);
-      const results = blendResults(predictions as Prediction[], manual);
+      const results = blendResults(predictions as Prediction[], local as LocalMatch[]);
       // `predictions` (Places-only) is UNCHANGED for back-compat (existing
       // clients ignore `results`); `results` is the new unified, ranked,
       // capped-at-5, discriminated list the FE migrates to.
