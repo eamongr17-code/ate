@@ -17,10 +17,15 @@ public enum Theme {
     public enum Color {
         /// App background behind scrolling content.
         public static let background = SwiftUI.Color(.systemBackground)
+        /// Background behind grouped lists — the recessed tone that makes inset cards read as cards.
+        public static let backgroundGrouped = SwiftUI.Color(.systemGroupedBackground)
         /// Cards, rows, and other raised surfaces.
         public static let surface = SwiftUI.Color(.secondarySystemBackground)
         /// Hairlines and dividers.
         public static let separator = SwiftUI.Color(.separator)
+        /// Space held for media that hasn't loaded. A fill, so it stays visible on a card in dark
+        /// mode where `surface` and the card are the same tone.
+        public static let placeholder = SwiftUI.Color(.tertiarySystemFill)
 
         public static let textPrimary = SwiftUI.Color(.label)
         public static let textSecondary = SwiftUI.Color(.secondaryLabel)
@@ -39,6 +44,8 @@ public enum Theme {
         public static let screenTitle = Font.largeTitle.weight(.bold)
         public static let sectionTitle = Font.title3.weight(.semibold)
         public static let itemTitle = Font.headline
+        /// A number that carries a screen: an aggregate score, a count.
+        public static let metric = Font.title2.weight(.semibold)
         public static let body = Font.body
         public static let detail = Font.subheadline
         public static let caption = Font.footnote
@@ -63,5 +70,19 @@ public enum Theme {
         public static let control: CGFloat = 10
         public static let card: CGFloat = 16
         public static let sheet: CGFloat = 24
+    }
+
+    /// Fixed sizes for the few things that can't size themselves from content.
+    public enum Size {
+        /// Square list-row thumbnail (a dish in a restaurant's list).
+        public static let thumbnail: CGFloat = 56
+        /// One star in a rating row. A size, not a font, so stars line up with any Dynamic Type.
+        public static let star: CGFloat = 13
+    }
+
+    /// Aspect ratios for media. Photos are shot and displayed at one ratio so a list of dishes
+    /// reads as a column, not a ransom note.
+    public enum Ratio {
+        public static let photo: CGFloat = 4.0 / 3.0
     }
 }
