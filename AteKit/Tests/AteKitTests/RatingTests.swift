@@ -42,7 +42,7 @@ struct RatingTests {
         #expect(Rating.minimum < Rating.maximum)
 
         let encoded = try JSONEncoder().encode(Rating(rounding: 3.5))
-        #expect(String(decoding: encoded, as: UTF8.self) == "3.5")
+        #expect(String(bytes: encoded, encoding: .utf8) == "3.5")
         #expect(try JSONDecoder().decode(Rating.self, from: encoded).value == 3.5)
         #expect(throws: (any Error).self) {
             try JSONDecoder().decode(Rating.self, from: Data("0".utf8))

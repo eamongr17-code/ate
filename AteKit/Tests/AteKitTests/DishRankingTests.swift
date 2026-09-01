@@ -5,6 +5,7 @@ import Testing
 
 @Suite("Restaurant dish ranking")
 struct DishRankingTests {
+    // swiftlint:disable:next large_tuple
     private func ranked(_ specs: [(seed: String, name: String, score: Double?, count: Int)]) -> [String] {
         let dishes = specs.map { DetailFixtures.dish($0.seed, name: $0.name) }
         let stats = specs.map { DetailFixtures.dishStats($0.seed, score: $0.score, reviewCount: $0.count) }
@@ -49,6 +50,7 @@ struct DishRankingTests {
 
     @Test("ordering is total, so the list doesn't shuffle between refreshes")
     func orderIsStable() {
+        // swiftlint:disable:next large_tuple
         let specs: [(seed: String, name: String, score: Double?, count: Int)] = [
             (seed: "dish-1", name: "Bravo", score: 4.0, count: 2),
             (seed: "dish-2", name: "alpha", score: 4.0, count: 2),

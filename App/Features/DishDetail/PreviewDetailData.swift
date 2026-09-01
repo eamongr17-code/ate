@@ -131,6 +131,8 @@ struct PreviewDetailDataSource: DetailDataSource {
             )
         }
 
+        // Preview fixture shorthand, not API surface.
+        // swiftlint:disable:next large_tuple
         let menu: [(UUID, String, Double?, Int)] = [
             (PreviewDetailData.ratedDishID, "Tagliolini", 4.6, 12),
             (UUID(), "Ragù rigatoni", 4.9, 3),

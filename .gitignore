@@ -36,3 +36,4 @@ supabase/.env
 .DS_Store
 *.log
 scratchpad/
+.claude/worktrees/

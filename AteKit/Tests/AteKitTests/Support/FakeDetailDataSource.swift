@@ -156,7 +156,9 @@ enum DetailFixtures {
         ))
     }
 
-    static func restaurant(_ seed: String = "rest-1", name: String = "Tipo 00", city: String = "Melbourne") -> Restaurant {
+    static func restaurant(
+        _ seed: String = "rest-1", name: String = "Tipo 00", city: String = "Melbourne"
+    ) -> Restaurant {
         Restaurant(
             id: id(seed),
             source: .places,
