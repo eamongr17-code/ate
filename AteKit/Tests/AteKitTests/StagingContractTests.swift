@@ -14,7 +14,8 @@ import Testing
 /// which is what lets CI run this with no extra secret wiring, exactly like the existing
 /// contract-vs-staging curl.
 ///
-/// Set `ATE_SKIP_CONTRACT_TESTS=1` to run the suite offline.
+/// Opt-in: set `ATE_CONTRACT_TESTS=1` to run (CI's contract job does; plain `swift test` skips it
+/// so PR unit tests stay green through a staging outage).
 enum StagingContract {
     static func environmentValue(_ key: String) -> String? {
         ProcessInfo.processInfo.environment[key].flatMap { $0.isEmpty ? nil : $0 }
@@ -29,7 +30,7 @@ enum StagingContract {
     static var email: String { environmentValue("ATE_STAGING_EMAIL") ?? "eamon@ate.test" }
     static var password: String { environmentValue("ATE_STAGING_PASSWORD") ?? "atedemo123" }
 
-    static var isEnabled: Bool { environmentValue("ATE_SKIP_CONTRACT_TESTS") == nil }
+    static var isEnabled: Bool { environmentValue("ATE_CONTRACT_TESTS") != nil }
 
     /// Session storage that lives and dies with the test run — the default is the Keychain, which
     /// a CI runner's test process has no business writing to.

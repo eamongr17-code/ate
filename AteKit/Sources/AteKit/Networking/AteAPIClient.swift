@@ -130,9 +130,10 @@ public final class AteAPIClient: Sendable {
         return Page(items: items, requestedLimit: request.limit)
     }
 
-    /// A page from a set-returning RPC that is itself keyset-paginated on `(created_at, id)` —
-    /// `get_feed(cursor_created_at, cursor_id, page_size)` is the one that matters. The cursor
-    /// travels as *parameters* here, not as a filter, because the function does the comparison.
+    /// A page from a set-returning RPC that is itself keyset-paginated on `(created_at, id)`.
+    /// The cursor travels as *parameters* here, not as a filter, because the function does the
+    /// comparison. NOTE: `get_feed` is follow-scoped V3 infrastructure and is NOT the V1 global
+    /// feed — that's a plain `page()` over `reviews` (PRODUCT.md: global feed, no follow graph).
     public func rpcPage<Record: KeysetPaginated>(
         _ type: Record.Type,
         function: String,
