@@ -27,6 +27,10 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<true/>
 	</dict>
+	<!-- Asked only when the restaurant picker is first opened (spec §6.1), never at launch. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Ate uses your location to show restaurants near you when you're logging a dish.</string>
+
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
