@@ -78,10 +78,13 @@ public enum Theme {
         public static let thumbnail: CGFloat = 56
         /// One star in a rating row. A size, not a font, so stars line up with any Dynamic Type.
         public static let star: CGFloat = 13
+        /// Byline avatar in a list row.
+        public static let avatarSmall: CGFloat = 28
     }
 
-    /// Aspect ratios for media. Photos are shot and displayed at one ratio so a list of dishes
-    /// reads as a column, not a ransom note.
+    /// Aspect ratios for media. Dish photos are presented 4:3 everywhere — the shape a plate reads
+    /// best in, and the one the receipt reuses — so a photo never re-crops between surfaces and a
+    /// list of dishes reads as a column, not a ransom note.
     public enum Ratio {
         public static let photo: CGFloat = 4.0 / 3.0
     }
