@@ -64,4 +64,20 @@ public enum Theme {
         public static let card: CGFloat = 16
         public static let sheet: CGFloat = 24
     }
+
+    // MARK: - Size
+
+    /// Fixed element sizes. Everything else should size itself from its content.
+    public enum Size {
+        /// Byline avatar in a list row.
+        public static let avatarSmall: CGFloat = 28
+    }
+
+    // MARK: - Media
+
+    public enum Media {
+        /// Dish photos are presented 4:3 everywhere — the shape a plate reads best in, and the one
+        /// the receipt reuses, so a photo never re-crops as it moves between surfaces.
+        public static let photoAspectRatio: CGFloat = 4.0 / 3.0
+    }
 }
