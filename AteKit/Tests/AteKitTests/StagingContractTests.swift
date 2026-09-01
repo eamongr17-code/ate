@@ -254,4 +254,57 @@ struct StagingContractTests {
             #expect(Set(second.items.map(\.id)).isDisjoint(with: Set(page.items.map(\.id))))
         }
     }
+
+    @Test("the V1 global feed walks every seeded review once, embeds and all")
+    func globalFeedWalksEverything() async throws {
+        let client = try await client()
+        let me = try await client.requireCurrentUserID()
+        let feed = GlobalFeedClient(api: client)
+
+        // Small pages on purpose: the seed has nine clusters of reviews sharing a timestamp to the
+        // microsecond, so a small page size guarantees several boundaries land inside a tie.
+        var request: PageRequest? = PageRequest(limit: 5)
+        var seen: [FeedEntry] = []
+        var pages = 0
+
+        while let current = request, pages < 40 {
+            let page = try await feed.feedPage(current)
+            seen.append(contentsOf: page.items)
+            request = current.next(after: page)
+            pages += 1
+        }
+
+        // The seeded Melbourne dataset. A dupe or a gap shows up here as the wrong number.
+        #expect(seen.count == 46)
+        #expect(Set(seen.map(\.id)).count == seen.count)
+
+        // Global, not follow-scoped: unlike get_feed, the viewer's own reviews are in it.
+        #expect(seen.contains { $0.review.reviewerID == me })
+
+        // The embeds are the whole point — a row without names is not renderable.
+        for entry in seen {
+            #expect(entry.dish.name.isEmpty == false)
+            #expect(entry.restaurant.name.isEmpty == false)
+            #expect(entry.author?.username.isEmpty == false)
+            #expect(entry.dish.id == entry.review.dishID)
+            #expect(entry.restaurant.id == entry.review.restaurantID)
+            #expect(entry.author?.id == entry.review.reviewerID)
+        }
+
+        for (newer, older) in zip(seen, seen.dropFirst()) {
+            let descending = newer.review.createdAt > older.review.createdAt
+                || (newer.review.createdAt == older.review.createdAt
+                    && newer.id.uuidString > older.id.uuidString)
+            #expect(descending, "\(newer.id) should sort before \(older.id)")
+        }
+    }
+
+    @Test("the feed refuses to serve an anonymous viewer an empty page")
+    func globalFeedRequiresASession() async {
+        let anon = GlobalFeedClient(api: AteAPIClient(supabase: StagingContract.makeClient()))
+        // Without the session check this returns `[]` with a 200 and the UI says "no reviews yet".
+        await #expect(throws: AteAPIError.notAuthenticated) {
+            _ = try await anon.feedPage()
+        }
+    }
 }
