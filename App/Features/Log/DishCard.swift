@@ -331,11 +331,17 @@ struct DishCardPhotoView: View {
     var onRetry: (() -> Void)?
     var onRemove: (() -> Void)?
 
+    /// A 4:3 well that takes the card's width, with the photo filling it.
+    ///
+    /// The **well** is what sizes the zone: an image sized by its own aspect ratio pushes its
+    /// intrinsic (pixel) width into the layout and shoves the whole row sideways — the bug `FeedRow`
+    /// documents, and the one a remote photo in the Diary list reproduced. `Color.clear` sets the
+    /// geometry; the image is an overlay clipped to it, so a portrait, panoramic or 4000px-wide
+    /// photo can never change the card's shape.
     var body: some View {
-        image
-            .aspectRatio(Theme.Ratio.photo, contentMode: .fill)
-            .frame(maxWidth: .infinity)
-            .clipped()
+        Color.clear
+            .aspectRatio(Theme.Ratio.photo, contentMode: .fit)
+            .overlay { image }
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.photo))
             .opacity(uploadState?.isInFlight == true ? 0.6 : 1)
             .overlay(alignment: .center) { uploadOverlay }
