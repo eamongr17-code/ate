@@ -35,6 +35,21 @@ public enum Theme {
         public static let accent = SwiftUI.Color.accentColor
         public static let destructive = SwiftUI.Color(.systemRed)
         public static let positive = SwiftUI.Color(.systemGreen)
+
+        /// A filled (or half-filled) star in the rating gesture. Its own role rather than a reuse of
+        /// `accent` at the call site, so the brand can make rating fill a different colour from
+        /// buttons without touching a view.
+        public static let ratingFilled = accent
+        /// An unfilled star. Reads as "nothing here yet", not as a disabled control.
+        public static let ratingEmpty = SwiftUI.Color(.tertiaryLabel)
+
+        /// The receipt renders ONE deterministic pairing — it is exported as an image that leaves the
+        /// device, so it must not follow the viewer's appearance setting. These are the only two
+        /// colours in the app that are deliberately not dark-mode-adaptive.
+        public static let receiptBackground = SwiftUI.Color(.sRGB, white: 0.98, opacity: 1)
+        public static let receiptForeground = SwiftUI.Color(.sRGB, white: 0.08, opacity: 1)
+        /// Subordinate text on the receipt (date, handle, footer band).
+        public static let receiptSecondary = SwiftUI.Color(.sRGB, white: 0.42, opacity: 1)
     }
 
     // MARK: - Type
@@ -53,6 +68,11 @@ public enum Theme {
         /// as rows scroll. (The large receipt/card score numerals are separate tokens, added with
         /// the surfaces that need them.)
         public static let rowScore = Font.subheadline.weight(.medium).monospacedDigit()
+        /// The live readout beside the rating gesture and the numeral on a dish card. Monospaced so
+        /// the number doesn't shuffle sideways as a finger scrubs across half-steps.
+        public static let scoreNumeral = Font.title2.weight(.semibold).monospacedDigit()
+        /// The receipt's headline score — the largest element on the artifact (§5.2).
+        public static let receiptScore = Font.largeTitle.weight(.bold)
     }
 
     // MARK: - Spacing
@@ -74,6 +94,10 @@ public enum Theme {
         public static let control: CGFloat = 10
         public static let card: CGFloat = 16
         public static let sheet: CGFloat = 24
+        /// Dish photography. Its own role so the brand can square photos off without squaring cards.
+        public static let photo: CGFloat = card
+        /// The receipt artifact's corner.
+        public static let receipt: CGFloat = 20
     }
 
     /// Fixed sizes for the few things that can't size themselves from content.
@@ -84,6 +108,19 @@ public enum Theme {
         public static let star: CGFloat = 13
         /// Byline avatar in a list row.
         public static let avatarSmall: CGFloat = 28
+
+        /// Height of the rating gesture's hit area (§2.1). Far taller than the glyphs it contains:
+        /// the target is a thumb crossing a track, not five small buttons.
+        public static let ratingTrackHeight: CGFloat = 64
+        /// Slop past each end of the rating track (§2.1). Leading slop maps entirely to 0.5, so the
+        /// lowest score is reachable without landing exactly on the first glyph.
+        public static let ratingHitSlop: CGFloat = 24
+
+        /// The exported receipt image (§5.3). 4:5 — the tallest a share sheet, an iMessage bubble and
+        /// an Instagram feed post all render without cropping. One constant, one export size.
+        public static let receiptExport = CGSize(width: 1080, height: 1350)
+        /// Scale factor for `ImageRenderer` on the receipt (§5.3).
+        public static let receiptExportScale: CGFloat = 3
     }
 
     /// Aspect ratios for media. Dish photos are presented 4:3 everywhere — the shape a plate reads
