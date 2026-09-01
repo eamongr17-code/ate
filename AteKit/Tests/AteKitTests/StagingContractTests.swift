@@ -274,8 +274,10 @@ struct StagingContractTests {
             pages += 1
         }
 
-        // The seeded Melbourne dataset. A dupe or a gap shows up here as the wrong number.
-        #expect(seen.count == 46)
+        // At least the seeded Melbourne dataset — staging legitimately accrues QA-drive reviews on
+        // top of the 46, so pin a floor, not an exact count. Dupes/gaps are caught by the id-set
+        // check and the ordering walk below, which hold at any count.
+        #expect(seen.count >= 46)
         #expect(Set(seen.map(\.id)).count == seen.count)
 
         // Global, not follow-scoped: unlike get_feed, the viewer's own reviews are in it.
