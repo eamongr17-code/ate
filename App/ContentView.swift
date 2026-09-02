@@ -117,11 +117,6 @@ private struct RootTabView: View {
                     // The diary reloads when it's next looked at, rather than fetching behind a
                     // sheet for a tab that may not be visited — but it *will* contain the post.
                     diaryStore.reviewsWerePosted()
-                },
-                onOpenDish: { _ in
-                    // Receipt's "View dish" — no cross-stack push seam yet, so land on the feed,
-                    // where the fresh post (and its dish) is the first row.
-                    selection = .feed
                 }
             )
         }

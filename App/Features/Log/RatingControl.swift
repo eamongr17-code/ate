@@ -7,12 +7,14 @@ import UIKit
 /// The whole product's friction budget lives here: rating a dish must cost one thumb movement, with
 /// no keyboard, no picker wheel and no confirmation. Three decisions make that true:
 ///
-/// 1. **A tap is a zero-distance drag.** `DragGesture(minimumDistance: 0)` means tap and scrub run
-///    the same code path, so they can never disagree about what 3.5 means (§2.3).
+/// 1. **A tap and a scrub are the same code path**, so they can never disagree about what 3.5 means
+///    (§2.3). Which one it was is reported honestly on `log_rating_set(method:)`.
 /// 2. **No animation while the finger is down.** The fill tracks the thumb 1:1; an animated fill
 ///    lags the finger and reads as lag, not polish (§2.3).
 /// 3. **The mapping is not in this file.** ``RatingTrack`` owns the arithmetic and is unit-tested;
 ///    this view owns pixels, haptics and accessibility.
+/// 4. **The gesture is not a `DragGesture`.** It is ``RatingScrubGesture``, which axis-locks against
+///    the enclosing `List` — see that file for the device failure this fixed.
 struct RatingControl: View {
     @Binding var rating: Rating?
     /// Fires on every settled change, with how it was made — `log_rating_set(value, method)`.
@@ -26,8 +28,9 @@ struct RatingControl: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @State private var isScrubbing = false
-    @State private var scrubStartValue: Rating?
+    /// The value the current touch started from, and the flag that says a touch is live at all.
+    /// `Rating??` is deliberate: `.some(nil)` is "scrubbing, from unrated".
+    @State private var scrubStartValue: Rating??
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
@@ -76,7 +79,7 @@ struct RatingControl: View {
                     alignment: .leading
                 )
                 .contentShape(Rectangle())
-                .gesture(dragGesture(width: trackWidth))
+                .gesture(scrubGesture(width: trackWidth))
         }
         .frame(height: Theme.Size.ratingTrackHeight)
     }
@@ -92,32 +95,40 @@ struct RatingControl: View {
         dynamicTypeSize.isAccessibilitySize ? Theme.Size.star * 2.2 : Theme.Size.star * 2
     }
 
-    private func dragGesture(width: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                if !isScrubbing {
-                    isScrubbing = true
-                    scrubStartValue = rating
-                    LogHaptics.prepareSelection()
-                }
-                let next = RatingTrack.rating(atX: trackX(value.location.x), trackWidth: width)
+    private func scrubGesture(width: CGFloat) -> RatingScrubGesture {
+        RatingScrubGesture(
+            onBegan: {
+                scrubStartValue = .some(rating)
+                LogHaptics.prepareSelection()
+            },
+            onChanged: { positionX in
+                let next = RatingTrack.rating(atX: trackX(positionX), trackWidth: width)
                 guard next != rating else { return }
                 rating = next
                 // A half-step crossing is the only thing worth a tick — one per zone, not per frame.
                 LogHaptics.selectionChanged()
-            }
-            .onEnded { value in
-                isScrubbing = false
-                let final = RatingTrack.rating(atX: trackX(value.location.x), trackWidth: width)
-                let method: LogRatingMethod = value.translation.width == 0 ? .tap : .drag
-                guard final != scrubStartValue else {
+            },
+            onEnded: { positionX, method in
+                guard let start = scrubStartValue else { return }
+                scrubStartValue = nil
+                let final = RatingTrack.rating(atX: trackX(positionX), trackWidth: width)
+                guard final != start else {
                     rating = final
                     return
                 }
                 // §2.3: one soft impact on release, and only if the value actually moved.
                 LogHaptics.ratingSettled()
                 commit(final, method: method)
+            },
+            onCancelled: {
+                // A system interruption mid-scrub is not a reason to lose the score under the
+                // thumb — but it must not be recorded twice either, so it settles like a release.
+                guard let start = scrubStartValue else { return }
+                scrubStartValue = nil
+                guard let current = rating, current != start else { return }
+                commit(current, method: .drag)
             }
+        )
     }
 
     /// The gesture is measured on the full hit area; the mapping expects a position on the *track*.

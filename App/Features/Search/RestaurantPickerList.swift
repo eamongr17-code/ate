@@ -14,6 +14,8 @@ struct RestaurantPickerList: View {
     @State private var model: RestaurantPickerModel
     @State private var location = SearchLocationProvider()
     @State private var isLocationHintDismissed = false
+    /// Parked by ``AddRestaurantSheet`` and handed on once the sheet is actually gone.
+    @State private var addedRestaurant: PickedRestaurant?
 
     init(
         services: SearchServices,
@@ -60,13 +62,23 @@ struct RestaurantPickerList: View {
             guard !Task.isCancelled else { return }
             await model.search(searchText, origin: location.origin)
         }
-        .sheet(item: $model.addRestaurantRequest) { request in
+        // The selection is delivered on DISMISS, not from inside the sheet. `onSelect` is what the
+        // Log flow uses to rewrite its navigation path; running it while the sheet was still going
+        // away meant a dismissal and a push in the same turn of the run loop, which on a device
+        // resolves as "nothing happened".
+        .sheet(item: $model.addRestaurantRequest, onDismiss: deliverAddedRestaurant) { request in
             AddRestaurantSheet(name: request.name) { name, suburb, cuisine in
                 await model.addManual(name: name, suburb: suburb, cuisine: cuisine)
             } onAdded: { picked in
-                onSelect(picked)
+                addedRestaurant = picked
             }
         }
+    }
+
+    private func deliverAddedRestaurant() {
+        guard let picked = addedRestaurant else { return }
+        addedRestaurant = nil
+        onSelect(picked)
     }
 
     // MARK: - Sections
@@ -74,9 +86,13 @@ struct RestaurantPickerList: View {
     @ViewBuilder
     private func resultsSection(_ results: [RestaurantRowModel]) -> some View {
         Section {
-            if results.isEmpty, !model.isSearching {
-                // §11.5: the stock empty state, with the create-fallback BENEATH it — never above,
-                // never instead of results.
+            // §11.5: the stock empty state — but NOT when the create row is there. A
+            // `ContentUnavailableView` in a list row is greedy: on a phone with the keyboard up it
+            // filled the visible list and pushed "Add “…” as a restaurant" below the fold, so the
+            // one screen that offers the fallback looked like a dead end. The dish picker already
+            // had this guard; the restaurant picker didn't, and that is the whole of
+            // "add-restaurant doesn't work". The create row IS the empty state's action.
+            if results.isEmpty, !model.isSearching, model.createQuery == nil {
                 ContentUnavailableView.search(text: searchText)
                     .listRowSeparator(.hidden)
             }
@@ -84,8 +100,15 @@ struct RestaurantPickerList: View {
                 rowButton(row, index: index)
             }
             if let createQuery = model.createQuery {
-                SearchCreateRow(title: "Add “\(createQuery)” as a restaurant", isBusy: false)
-                    .onTapGesture { model.addRestaurantRequest = AddRestaurantRequest(name: createQuery) }
+                // A `Button`, like every other row: a bare `.onTapGesture` inside a `List` competes
+                // with the list's own touch handling and gives the row no accessibility trait.
+                // §11.2's "never a top-level button" is about *position* — it is still the last row.
+                Button {
+                    model.addRestaurantRequest = AddRestaurantRequest(name: createQuery)
+                } label: {
+                    SearchCreateRow(title: "Add “\(createQuery)” as a restaurant", isBusy: false)
+                }
+                .buttonStyle(.plain)
             }
         } header: {
             sectionHeader("Results", isBusy: model.isSearching)
