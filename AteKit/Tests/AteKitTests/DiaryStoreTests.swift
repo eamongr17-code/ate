@@ -289,6 +289,27 @@ struct DiaryStoreTests {
         #expect(store.entries.count == 5)
     }
 
+    /// The Debug auto sign-in resolves *after* the launch tab has already read with no session.
+    /// `invalidate()` is what makes the next appearance ask again instead of leaving a signed-out
+    /// screen in front of a signed-in user.
+    @Test("a session arriving after a signed-out read makes the next appearance load")
+    func invalidateAfterSignIn() async {
+        let (store, client, _) = store(rows: DiaryFixture.mine(count: 5))
+        client.failEveryRequest(with: AteAPIError.notAuthenticated)
+        await store.loadIfNeeded()
+        #expect(store.phase == .signedOut)
+
+        // Without the invalidation the store considers itself loaded and stays quiet.
+        client.stopFailing()
+        await store.loadIfNeeded()
+        #expect(store.phase == .signedOut)
+
+        store.invalidate()
+        await store.loadIfNeeded()
+        #expect(store.phase == .ready)
+        #expect(store.entries.count == 5)
+    }
+
     @Test("losing the session mid-session drops the stale list")
     func signedOutMidSession() async {
         let (store, client, _) = store(rows: DiaryFixture.mine(count: 5))

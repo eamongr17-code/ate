@@ -93,11 +93,21 @@ public final class DiaryStore {
         await loadFirstPage()
     }
 
+    /// Marks whatever is loaded as no longer trustworthy, without fetching. The next
+    /// ``loadIfNeeded()`` does the work.
+    ///
+    /// Used for anything that changes what *your* diary contains or who "you" are — a post, or a
+    /// session appearing after the first read already failed with no session (the Debug auto
+    /// sign-in, which resolves after the launch tab has already asked).
+    public func invalidate() {
+        needsRefresh = true
+    }
+
     /// Called when reviews were posted elsewhere in the app (the Log sheet finishing). Marks the
     /// list stale rather than fetching immediately: the sheet is still on screen, the diary may be
     /// three tabs away, and the request that matters is the one made when it's next looked at.
     public func reviewsWerePosted() {
-        needsRefresh = true
+        invalidate()
     }
 
     /// Called as rows appear. Fires the next page once the visible row is within

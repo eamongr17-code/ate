@@ -100,6 +100,7 @@ private struct RootTabView: View {
             selection = previous
             isLoggingPresented = true
         }
+        .task { await autoSignInIfRequested() }
         // §6.4: a sitting whose post failed is retried once on the next foreground — the person was
         // told their dishes were saved, and this is what makes that true.
         .pendingLogPostRetry(services: logServices) { _ in
@@ -120,6 +121,23 @@ private struct RootTabView: View {
                 }
             )
         }
+    }
+}
+
+private extension RootTabView {
+    /// The Debug/Beta staging auto sign-in (`-ate-debug-signin`), run at the *scaffold* rather than
+    /// on any one tab: the launch tab is the Diary, so hanging this off the feed's `.task` (where it
+    /// used to live) left every staging drive signed out.
+    ///
+    /// The launch tab has already asked for its page by the time a session exists, and that read
+    /// failed with `signedOut` — so the diary is invalidated and asked again. Nothing here fetches
+    /// the feed: it loads when it is visited.
+    @MainActor
+    func autoSignInIfRequested() async {
+        guard let debugSignIn, debugSignIn.isAutoSignInRequested else { return }
+        await debugSignIn.signIn()
+        diaryStore.invalidate()
+        await diaryStore.loadIfNeeded()
     }
 }
 
