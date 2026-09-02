@@ -5,7 +5,7 @@ decision happens menu-in-hand: **"what should I order here?"** Ate's long-term a
 restaurant in Melbourne, open Ate, see its menu ranked by people who actually ate it.
 
 That needs dish density, and density is earned. The flywheel, in order:
-**a sub-30-second log people enjoy → every log feeds the global feed + the logger's diary →
+**a sub-30-second log people enjoy → every log feeds the logger's diary + the global feed →
 shared receipts pull new loggers in → per-restaurant dish density accumulates → the ranked-menu
 answer switches on and becomes the reason everyone else installs.**
 
@@ -13,12 +13,21 @@ answer switches on and becomes the reason everyone else installs.**
 Food-curious Melburnians in their 20s–30s, starting with Eamon's circle. iPhone, by strategy.
 **Density beats breadth**: 50 active loggers in Melbourne > 5,000 spread thin. One city until won.
 
+## Journal-first (amended 2026-09-02, CEO direction — Eamon)
+The app is a personal dish diary first, not a feed with a diary tab. **The home experience is your
+own record** — Diary is the app's front door; the global feed is a secondary, supporting surface you
+visit, not the water you swim in. This is structural, not a tab reorder: what the app opens into,
+how logging is framed, and how empty/full states read all follow from "feels like a private journal"
+before "feels like a social feed." The north star is unchanged — journal-first serves dishes-logged-
+per-WAU more directly, not less. See the restructure brief (Head of Product, 2026-09-02) for the IA
+consequences; implementation is sequenced behind the in-flight Log defect wave.
+
 ## V1 — the logging product (current)
 Five surfaces, nothing else:
-1. **Feed** (home) — one global stream of every dish review. No follow graph.
+1. **Diary** (home) — your own dish history first; the app opens into your record, not the crowd's.
 2. **Log** — pick restaurant/dish → rate (half-star gesture, multi-dish sittings) → posted receipt.
 3. **Dish / Restaurant detail**
-4. **Diary** on profile — your own history.
+4. **Feed** — the global stream of every dish review. No follow graph. A place you visit.
 5. **Search** — find to log, find to recall.
 
 Explicitly OUT of V1: follows, comments, notifications, lists, companion tagging. The schema keeps
