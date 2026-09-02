@@ -61,5 +61,25 @@ extension View {
                     onLogDish: context.onLogDish
                 )
             }
+            .navigationDestination(for: DiaryEntryRoute.self) { route in
+                DiaryEntryPlaceholderView(reviewID: route.reviewID)
+            }
+    }
+}
+
+/// Stands in for `DiaryEntryView` until the entry view lands, so the route is registered in every
+/// stack from the day the scaffold ships and nothing has to be re-plumbed to hang the real screen
+/// on it. Replaced wholesale — not extended.
+private struct DiaryEntryPlaceholderView: View {
+    let reviewID: UUID
+
+    var body: some View {
+        ContentUnavailableView(
+            "Entry",
+            systemImage: "book.closed",
+            description: Text(verbatim: reviewID.uuidString.lowercased())
+        )
+        .navigationTitle("Entry")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
