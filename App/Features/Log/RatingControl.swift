@@ -85,7 +85,7 @@ struct RatingControl: View {
     }
 
     private var readout: some View {
-        Text(rating.map { ScoreFormat.average($0.value) } ?? ScoreFormat.unratedPlaceholder)
+        Text(ScoreFormat.halfStep(rating?.value))
             .font(Theme.Text.scoreNumeral)
             .foregroundStyle(rating == nil ? Theme.Color.textTertiary : Theme.Color.textPrimary)
             .animation(nil, value: rating)  // §2.3: the number must not lag the finger
