@@ -20,7 +20,6 @@ struct LogSheet: View {
     @State private var photoItem: PhotosPickerItem?
 
     private let onFinished: ([Review]) -> Void
-    private let onOpenDish: (DishRoute) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
@@ -28,17 +27,17 @@ struct LogSheet: View {
     /// - Parameters:
     ///   - entry: §1.1 — decides which step the sheet opens on. Nothing else varies.
     ///   - onFinished: the rows that were posted, for the host's feed/diary caches.
-    ///   - onOpenDish: the receipt's "View dish", which navigates *outside* the sheet.
+    ///
+    /// There is no `onOpenDish`: the receipt is Share + Done, and nothing in the sheet navigates
+    /// outside it. The seam comes back the day something needs it.
     init(
         entry: LogEntry,
         services: LogServices,
-        onFinished: @escaping ([Review]) -> Void = { _ in },
-        onOpenDish: @escaping (DishRoute) -> Void = { _ in }
+        onFinished: @escaping ([Review]) -> Void = { _ in }
     ) {
         _model = State(initialValue: LogSessionModel(entry: entry, services: services))
         _path = State(initialValue: LogRoute.initialPath(for: entry))
         self.onFinished = onFinished
-        self.onOpenDish = onOpenDish
     }
 
     var body: some View {
@@ -248,12 +247,6 @@ struct LogSheet: View {
                     model.endSession(step: .receipt, savedDraft: false)
                     onFinished(model.postedReviews)
                     dismiss()
-                },
-                onViewDish: { route in
-                    model.endSession(step: .receipt, savedDraft: false)
-                    onFinished(model.postedReviews)
-                    dismiss()
-                    onOpenDish(route)
                 }
             )
         }

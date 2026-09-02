@@ -237,7 +237,7 @@ struct DishCard: View {
     @ViewBuilder
     private var noteZone: some View {
         if mode.isCompose {
-            if isNoteExpanded || !actions.note.wrappedValue.isEmpty {
+            if isNoteShowing {
                 TextField("Add a note", text: actions.note, axis: .vertical)
                     .font(Theme.Text.body)
                     .lineLimit(1...4)
@@ -254,29 +254,65 @@ struct DishCard: View {
 
     /// §3.2 zone 6: two borderless icon buttons, visually subordinate to the rating. No labels — a
     /// labelled "Add a note" button competes with the thing that matters.
+    ///
+    /// Both are **toggles**, not one-way doors (device feedback): an icon that opened something and
+    /// then does nothing on the second tap reads as broken, and leaves no way back from a note field
+    /// or a photo you didn't want. Off is the same tap that turned it on, and each is tinted while
+    /// it is on, so what the next tap will do is legible before you make it.
     @ViewBuilder
     private var affordanceRow: some View {
         if mode.isCompose {
             HStack(spacing: Theme.Spacing.comfortable) {
                 Spacer(minLength: 0)
-                Button {
-                    isNoteExpanded = true
-                    isNoteFocused = true
-                } label: {
+                Button(action: toggleNote) {
                     Image(systemName: "note.text")
+                        .foregroundStyle(isNoteShowing ? Theme.Color.accent : Theme.Color.textSecondary)
                 }
-                .accessibilityLabel("Add a note")
+                .accessibilityLabel(isNoteShowing ? "Remove the note" : "Add a note")
 
-                if let onAddPhoto = actions.onAddPhoto {
-                    Button(action: onAddPhoto) {
-                        Image(systemName: model.photo == nil ? "camera" : "camera.fill")
-                    }
-                    .accessibilityLabel(model.photo == nil ? "Add a photo" : "Replace the photo")
-                }
+                photoButton
             }
             .buttonStyle(.plain)
             .font(Theme.Text.detail)
             .foregroundStyle(Theme.Color.textSecondary)
+        }
+    }
+
+    @ViewBuilder
+    private var photoButton: some View {
+        if model.photo != nil, let onRemovePhoto = actions.onRemovePhoto {
+            // The second path to the photo's own ✕ — the icon that added it takes it away.
+            Button(action: onRemovePhoto) {
+                Image(systemName: "camera.fill")
+                    .foregroundStyle(Theme.Color.accent)
+            }
+            .accessibilityLabel("Remove the photo")
+        } else if let onAddPhoto = actions.onAddPhoto {
+            Button(action: onAddPhoto) {
+                Image(systemName: "camera")
+            }
+            .accessibilityLabel("Add a photo")
+        }
+    }
+
+    /// The note field is on screen either because the icon opened it or because there is text in it,
+    /// so "is it showing?" has one answer and the toggle can't disagree with the zone.
+    private var isNoteShowing: Bool {
+        isNoteExpanded || !actions.note.wrappedValue.isEmpty
+    }
+
+    private func toggleNote() {
+        guard isNoteShowing else {
+            isNoteExpanded = true
+            isNoteFocused = true
+            return
+        }
+        // Collapsing has to clear the text as well, or the zone would refuse to close — and the
+        // cleared note has to reach the draft, which it does: the binding is the sitting's note.
+        isNoteFocused = false
+        isNoteExpanded = false
+        if !actions.note.wrappedValue.isEmpty {
+            actions.note.wrappedValue = ""
         }
     }
 
@@ -318,108 +354,6 @@ private struct ComposeContextMenu<MenuContent: View>: ViewModifier {
         } else {
             base
         }
-    }
-}
-
-// MARK: - Pieces
-
-/// The photo zone (§3.2 zone 4, §3.5). Never a grey placeholder when there's no photo — the zone is
-/// simply absent and the card is shorter.
-struct DishCardPhotoView: View {
-    let photo: DishCardPhoto
-    var uploadState: PhotoUploadState?
-    var onRetry: (() -> Void)?
-    var onRemove: (() -> Void)?
-
-    /// A 4:3 well that takes the card's width, with the photo filling it.
-    ///
-    /// The **well** is what sizes the zone: an image sized by its own aspect ratio pushes its
-    /// intrinsic (pixel) width into the layout and shoves the whole row sideways — the bug `FeedRow`
-    /// documents, and the one a remote photo in the Diary list reproduced. `Color.clear` sets the
-    /// geometry; the image is an overlay clipped to it, so a portrait, panoramic or 4000px-wide
-    /// photo can never change the card's shape.
-    var body: some View {
-        Color.clear
-            .aspectRatio(Theme.Ratio.photo, contentMode: .fit)
-            .overlay { image }
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.photo))
-            .opacity(uploadState?.isInFlight == true ? 0.6 : 1)
-            .overlay(alignment: .center) { uploadOverlay }
-            .overlay(alignment: .topTrailing) { removeButton }
-            .accessibilityLabel("Dish photo")
-    }
-
-    @ViewBuilder
-    private var image: some View {
-        switch photo {
-        case .local(let url):
-            if let uiImage = UIImage(contentsOfFile: url.path(percentEncoded: false)) {
-                Image(uiImage: uiImage).resizable().scaledToFill()
-            } else {
-                Theme.Color.placeholder
-            }
-        case .remote(let url):
-            AsyncImage(url: url) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                Theme.Color.placeholder
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var uploadOverlay: some View {
-        switch uploadState {
-        case .uploading:
-            ProgressView()
-                .controlSize(.large)
-        case .failed:
-            // §3.5: a failed upload is a retry affordance, never a blocker — the post goes without it.
-            Button {
-                onRetry?()
-            } label: {
-                Image(systemName: "exclamationmark.arrow.circlepath")
-                    .font(Theme.Text.sectionTitle)
-                    .padding(Theme.Spacing.regular)
-                    .background(.thinMaterial, in: Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Photo upload failed. Retry")
-        case .uploaded, .none:
-            EmptyView()
-        }
-    }
-
-    @ViewBuilder
-    private var removeButton: some View {
-        if let onRemove {
-            Button(action: onRemove) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(Theme.Text.sectionTitle)
-                    .symbolRenderingMode(.palette)
-                    .foregroundStyle(Theme.Color.background, Theme.Color.textSecondary)
-                    .padding(Theme.Spacing.snug)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Remove photo")
-        }
-    }
-}
-
-/// A byline avatar, or its initial-less fallback. Never a broken-image glyph.
-struct AvatarView: View {
-    let url: URL?
-    var size: CGFloat = Theme.Size.avatarSmall
-
-    var body: some View {
-        AsyncImage(url: url) { image in
-            image.resizable().scaledToFill()
-        } placeholder: {
-            Theme.Color.placeholder
-        }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
-        .accessibilityHidden(true)
     }
 }
 

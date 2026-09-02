@@ -12,7 +12,6 @@ struct ReceiptView: View {
     let receipt: ReceiptModel
     let model: LogSessionModel
     let onDone: () -> Void
-    let onViewDish: (DishRoute) -> Void
 
     @State private var shareImage: UIImage?
     @State private var isRendering = true
@@ -45,6 +44,9 @@ struct ReceiptView: View {
 
     // MARK: - Actions (§5.2: below the artifact, in the thumb zone)
 
+    /// **Share and Done, and nothing else.** "View dish" was a third button competing with the one
+    /// action the receipt loop is judged on, and it led *away* from the artifact at the exact moment
+    /// the artifact is the point (device feedback). The dish is one tap away in the feed anyway.
     private var actions: some View {
         VStack(spacing: Theme.Spacing.regular) {
             ReceiptShareButton(
@@ -57,13 +59,6 @@ struct ReceiptView: View {
                     model.recordReceiptShared(activityType: activityType)
                 }
             )
-
-            if let route = receipt.singleDishRoute {
-                Button("View dish") { onViewDish(route) }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .frame(maxWidth: .infinity)
-            }
 
             Button("Done", action: onDone)
                 .buttonStyle(.plain)

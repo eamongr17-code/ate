@@ -73,4 +73,44 @@ struct RatingTrackTests {
     func accessibilityValue(score: Double?, expected: String) {
         #expect(RatingTrack.accessibilityValue(score.map { Rating(rounding: $0) }) == expected)
     }
+
+    // MARK: - Axis lock (the device fix)
+
+    @Test("nothing is claimed until the touch clears the slop")
+    func intentUndecidedInsideSlop() {
+        #expect(RatingTrack.intent(dx: 0, dy: 0) == .undecided, "touch-down must not move the score")
+        #expect(RatingTrack.intent(dx: 3.9, dy: 0) == .undecided)
+        #expect(RatingTrack.intent(dx: 0, dy: -3.9) == .undecided)
+        #expect(RatingTrack.intent(dx: -2, dy: 3) == .undecided)
+    }
+
+    @Test("a horizontal intent is a scrub, in either direction", arguments: [
+        (4.0, 0.0),
+        (-4.0, 0.0),
+        (10.0, 3.0),
+        (-40.0, 30.0)
+    ])
+    func intentHorizontal(dx: Double, dy: Double) {
+        #expect(RatingTrack.intent(dx: dx, dy: dy) == .scrub)
+    }
+
+    @Test("a vertical-or-diagonal intent belongs to the list", arguments: [
+        (0.0, 4.0),
+        (0.0, -4.0),
+        (3.0, 10.0),
+        (-3.0, -10.0),
+        (5.0, 5.0),   // a perfect diagonal goes to the scroll, never to the score
+        (-5.0, 5.0)
+    ])
+    func intentVertical(dx: Double, dy: Double) {
+        #expect(RatingTrack.intent(dx: dx, dy: dy) == .scroll)
+    }
+
+    @Test("the axis is called before UIScrollView's own pan slop")
+    func axisLockSlopBeatsTheScrollView() {
+        // UIScrollView needs ~10pt before its pan recognises; deciding later than that means the
+        // list wins every ambiguous drag and the scrub dies mid-gesture.
+        #expect(RatingTrack.axisLockSlop < 10)
+        #expect(RatingTrack.axisLockSlop > 0)
+    }
 }

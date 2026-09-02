@@ -30,6 +30,36 @@ public enum RatingTrack {
         (Double(rating.halfSteps) - 0.5) / Double(zoneCount) * trackWidth
     }
 
+    // MARK: - Axis lock
+
+    /// What the first few points of a touch on the track turned out to mean.
+    public enum ScrubIntent: Sendable, Hashable {
+        /// Too little movement to tell yet — commit to nothing.
+        case undecided
+        /// Horizontal: this is a rating scrub and the enclosing list must not scroll.
+        case scrub
+        /// Vertical: the person is scrolling the sitting, and the rating must not move.
+        case scroll
+    }
+
+    /// Points of movement before the axis is called.
+    ///
+    /// Deliberately *smaller* than `UIScrollView`'s own pan slop (~10 pt): the decision has to be
+    /// made before the list can claim the touch, or the scroll view wins every ambiguous drag and
+    /// the scrub dies mid-gesture. Small enough to be imperceptible at the start of a scrub.
+    public static let axisLockSlop: Double = 4
+
+    /// The axis lock (device lesson): a real thumb on a card inside a scrolling list is never
+    /// perfectly horizontal, so "any movement = scrub" both fights the list and repaints the score
+    /// when someone was only trying to scroll past the card.
+    ///
+    /// A perfect diagonal resolves to ``ScrubIntent/scroll``: giving an ambiguous drag to the list
+    /// costs a scroll the person can repeat, while giving it to the track silently rewrites a score.
+    public static func intent(dx: Double, dy: Double, slop: Double = axisLockSlop) -> ScrubIntent {
+        guard max(abs(dx), abs(dy)) >= slop else { return .undecided }
+        return abs(dx) > abs(dy) ? .scrub : .scroll
+    }
+
     /// VoiceOver's `.accessibilityAdjustableAction` (§2.5): ±0.5, clamped, and an unset control
     /// starts at 0.5 on increment rather than jumping to the middle.
     public static func adjusted(_ rating: Rating?, by steps: Int) -> Rating {

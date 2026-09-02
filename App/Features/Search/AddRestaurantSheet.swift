@@ -5,6 +5,9 @@ import SwiftUI
 ///
 /// Stock `Form` on a medium detent — no custom chrome. On success it resolves and continues, so the
 /// user lands where they were going rather than back in a list they already gave up on.
+///
+/// `onAdded` fires BEFORE `dismiss()` and is expected to only *park* the result: the host runs the
+/// real continuation from the sheet's `onDismiss`, so a navigation push never races a dismissal.
 struct AddRestaurantSheet: View {
     let name: String
     /// Performs the `add_manual_restaurant` RPC. Returns nil on failure — the model owns the error.
@@ -67,8 +70,8 @@ struct AddRestaurantSheet: View {
         Task {
             defer { isSaving = false }
             if let picked = await add(trimmed, suburb, cuisine) {
-                dismiss()
                 onAdded(picked)
+                dismiss()
             }
         }
     }

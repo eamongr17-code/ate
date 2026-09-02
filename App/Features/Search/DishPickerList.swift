@@ -90,16 +90,20 @@ struct DishPickerList: View {
                 rowButton(row, index: index)
             }
             if let createQuery = model.createQuery {
-                // §11.4: LAST row, never a top-level button, and only when nothing here is
-                // case-insensitively equal to what was typed.
-                SearchCreateRow(title: "Add “\(createQuery)” as a new dish", isBusy: model.isCreating)
-                    .onTapGesture {
-                        Task {
-                            if let picked = await model.createDish(named: createQuery) {
-                                onSelect(picked)
-                            }
+                // §11.4: LAST row, and only when nothing here is case-insensitively equal to what
+                // was typed. A `Button` rather than a bare `.onTapGesture`, like every sibling row —
+                // §11.4's "never a top-level button" is about position, not about the control.
+                Button {
+                    Task {
+                        if let picked = await model.createDish(named: createQuery) {
+                            onSelect(picked)
                         }
                     }
+                } label: {
+                    SearchCreateRow(title: "Add “\(createQuery)” as a new dish", isBusy: model.isCreating)
+                }
+                .buttonStyle(.plain)
+                .disabled(model.isCreating)
             }
         } header: {
             sectionHeader("Results", isBusy: model.isSearching)

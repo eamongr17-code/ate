@@ -14,6 +14,14 @@ public enum ScoreFormat {
         return score.formatted(.number.precision(.fractionLength(0...1)))
     }
 
+    /// A single half-step rating, always one decimal: `"4.0"`, `"4.5"`. Unlike ``average``, a
+    /// rating never has a fraction to drop, and a live readout must not change width between
+    /// `4` and `4.5` under the finger.
+    public static func halfStep(_ score: Double?) -> String {
+        guard let score else { return unratedPlaceholder }
+        return score.formatted(.number.precision(.fractionLength(1)))
+    }
+
     /// The average with its scale: `"4.3/5"` or `"–/5"`.
     public static func outOfFive(_ score: Double?) -> String {
         "\(average(score))/5"

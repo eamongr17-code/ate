@@ -20,6 +20,14 @@ struct ScoreFormatTests {
         #expect(ScoreFormat.average(3.76) == "3.8")
     }
 
+    @Test("a half-step rating always shows one decimal, so a live readout never changes width")
+    func halfStepFormatting() {
+        #expect(ScoreFormat.halfStep(4) == "4.0")
+        #expect(ScoreFormat.halfStep(4.5) == "4.5")
+        #expect(ScoreFormat.halfStep(0.5) == "0.5")
+        #expect(ScoreFormat.halfStep(nil) == "–")
+    }
+
     @Test("review count copy invites the first review instead of saying zero")
     func reviewCountCopy() {
         #expect(ScoreFormat.reviewCount(0) == "No reviews yet")
