@@ -6,3 +6,8 @@
 ATE_ENVIRONMENT = beta
 SUPABASE_URL = $(SUPABASE_URL_STAGING)
 SUPABASE_KEY = $(SUPABASE_KEY_STAGING)
+
+// BETA compiles the staging demo sign-in into TestFlight-internal builds (there is no real
+// auth flow yet; without it a TestFlight install can only ever show signed-out states).
+// Release never defines this, so the affordance cannot reach the App Store build.
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) BETA

@@ -26,7 +26,10 @@ struct DebugStagingSignIn: Sendable {
         ProcessInfo.processInfo.arguments.contains(Self.autoSignInArgument)
     }
 
-    #if DEBUG
+    // BETA (TestFlight-internal, staging-pointed) carries this too: real auth doesn't exist yet,
+    // and a TestFlight build with no sign-in path can only show signed-out states. Release defines
+    // neither condition, so the credentials never reach an App Store binary.
+    #if DEBUG || BETA
     private static let email = "eamon@ate.test"
     private static let password = "atedemo123"
 

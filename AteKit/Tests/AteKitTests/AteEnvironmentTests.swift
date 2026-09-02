@@ -63,7 +63,9 @@ struct AteEnvironmentTests {
         ("staging", AteEnvironmentName.staging),
         ("  Staging ", .staging),
         ("PROD", .production),
-        ("production", .production)
+        ("production", .production),
+        ("beta", .staging),  // TestFlight-internal config points at staging by law (rule 5)
+        (" Beta ", .staging)
     ])
     func parsesNames(raw: String, expected: AteEnvironmentName) {
         #expect(AteEnvironmentName(configValue: raw) == expected)

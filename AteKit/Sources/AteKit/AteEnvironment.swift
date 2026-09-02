@@ -53,7 +53,8 @@ public enum AteEnvironmentName: String, Sendable, CaseIterable, Codable {
     /// defaulting to production (rule 5: environments are law).
     public init?(configValue raw: String) {
         switch raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "staging", "stage", "dev", "development": self = .staging
+        // "beta" is the TestFlight-internal configuration — it points at staging by law (rule 5).
+        case "staging", "stage", "dev", "development", "beta": self = .staging
         case "production", "prod", "release": self = .production
         default: return nil
         }
@@ -101,7 +102,7 @@ public struct AteEnvironment: Sendable, Equatable {
                 "Missing configuration value \"\(key)\". "
                     + "Copy Config/Secrets.example.xcconfig to Config/Secrets.xcconfig and fill it in."
             case .unreadableEnvironment(let raw):
-                "Unrecognised \(AteEnvironment.environmentKey) value \"\(raw)\" — expected staging or production."
+                "Unrecognised \(AteEnvironment.environmentKey) value \"\(raw)\" — expected staging, beta or production."
             case .malformedURL(let key, let raw):
                 "Configuration value \"\(key)\" is not a valid URL: \"\(raw)\"."
             }
