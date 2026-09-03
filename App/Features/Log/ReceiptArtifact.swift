@@ -28,7 +28,7 @@ struct ReceiptArtifact: View {
     private var bandOrderRaw = ReceiptBandOrder.designDefault.rawValue
 
     private var bandOrder: ReceiptBandOrder {
-        #if DEBUG
+        #if DEBUG || BETA
         ReceiptBandOrder(rawValue: bandOrderRaw) ?? .designDefault
         #else
         .designDefault

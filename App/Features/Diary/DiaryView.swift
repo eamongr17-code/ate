@@ -68,7 +68,7 @@ struct DiaryView: View {
     }
 
     private var composerPlacement: DiaryComposerPlacement {
-        #if DEBUG
+        #if DEBUG || BETA
         DiaryComposerPlacement(rawValue: composerPlacementRaw) ?? .topOfList
         #else
         .topOfList

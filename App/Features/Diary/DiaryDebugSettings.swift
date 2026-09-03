@@ -15,7 +15,7 @@ enum DiaryDebugSettings {
     static let composerPlacementKey = "debug.diary.composerPlacement"
 
     static var composerPlacement: DiaryComposerPlacement {
-        #if DEBUG
+        #if DEBUG || BETA
         UserDefaults.standard.string(forKey: composerPlacementKey)
             .flatMap(DiaryComposerPlacement.init(rawValue:)) ?? .topOfList
         #else
@@ -46,14 +46,14 @@ struct DiaryDebugMenu: View {
     private var raw = DiaryComposerPlacement.topOfList.rawValue
 
     var body: some View {
-        #if DEBUG
+        #if DEBUG || BETA
         menu
         #else
         EmptyView()
         #endif
     }
 
-    #if DEBUG
+    #if DEBUG || BETA
     private var menu: some View {
         Menu {
             Picker("Composer placement", selection: $raw) {

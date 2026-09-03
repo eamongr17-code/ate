@@ -14,7 +14,7 @@ enum LogDebugSettings {
     static let ratingPlacementKey = "debug.log.ratingPlacement"
 
     static var ratingPlacement: RatingPlacementVariant {
-        #if DEBUG
+        #if DEBUG || BETA
         UserDefaults.standard.string(forKey: ratingPlacementKey)
             .flatMap(RatingPlacementVariant.init(rawValue:)) ?? .inlineOnCard
         #else
@@ -32,14 +32,14 @@ struct LogDebugMenu: View {
     @AppStorage(LogDebugSettings.ratingPlacementKey) private var raw = RatingPlacementVariant.inlineOnCard.rawValue
 
     var body: some View {
-        #if DEBUG
+        #if DEBUG || BETA
         menu
         #else
         EmptyView()
         #endif
     }
 
-    #if DEBUG
+    #if DEBUG || BETA
     private var menu: some View {
         Menu {
             Picker("Rating placement", selection: $raw) {
