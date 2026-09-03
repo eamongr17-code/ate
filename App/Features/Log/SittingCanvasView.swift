@@ -47,9 +47,9 @@ struct SittingCanvasView: View {
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(
                             top: Theme.Spacing.snug,
-                            leading: Theme.Spacing.comfortable,
+                            leading: Theme.Spacing.gutter,
                             bottom: Theme.Spacing.snug,
-                            trailing: Theme.Spacing.comfortable
+                            trailing: Theme.Spacing.gutter
                         ))
                 }
                 .onDelete { model.removeCards(atOffsets: $0) }
@@ -58,6 +58,11 @@ struct SittingCanvasView: View {
             }
         }
         .listStyle(.plain)
+        // A card always sits on recessed ground (Theme.Color.surfaceCard) — on the plane it would
+        // be white on white. The canvas is the app's one screen with cards plural, so it takes the
+        // recessed tone; the cards are what the screen is made of.
+        .scrollContentBackground(.hidden)
+        .background(Theme.Color.backgroundRecessed)
         .scrollDismissesKeyboard(.interactively)
         // §6.5 Reduce Motion: the insert crossfades instead of sliding.
         .animation(reduceMotion ? .easeInOut : .snappy, value: sitting.dishes.map(\.id))
@@ -174,7 +179,7 @@ struct SittingCanvasView: View {
                 .controlSize(.large)
                 .disabled(!model.canPost)
             }
-            .padding(.horizontal, Theme.Spacing.comfortable)
+            .padding(.horizontal, Theme.Spacing.gutter)
             .padding(.vertical, Theme.Spacing.regular)
             .background(.bar)
         }

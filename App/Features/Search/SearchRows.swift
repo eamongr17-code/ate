@@ -86,6 +86,12 @@ struct DishResultRow: View {
 
     var body: some View {
         HStack(spacing: Theme.Spacing.regular) {
+            // §3: the picker is where a dish most often has no photo yet, so it is the surface the
+            // tile matters most on — fifteen grey squares is what "pick a dish" used to look like.
+            DishTile(
+                dish: DishTileSubject(id: row.dishID, name: row.name),
+                size: Theme.Size.thumbnail
+            )
             VStack(alignment: .leading, spacing: Theme.Spacing.hairline) {
                 Text(row.name)
                     .font(Theme.Text.itemTitle)

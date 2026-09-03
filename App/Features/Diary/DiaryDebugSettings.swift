@@ -61,6 +61,8 @@ struct DiaryDebugMenu: View {
                     Text(placement.title).tag(placement.rawValue)
                 }
             }
+            // The design language's three open questions, in the app's one debug menu (§9).
+            DesignDebugSettingsSection()
         } label: {
             Image(systemName: "ladybug")
         }

@@ -83,11 +83,13 @@ struct FeedView: View {
     /// Redacted real rows, not a spinner: the list is already the right shape when content lands,
     /// so nothing reflows and the eye stays where it was.
     private var loadingList: some View {
-        List(FeedPlaceholder.entries(count: 4)) { entry in
+        let placeholders = FeedPlaceholder.entries(count: 4)
+        return List(placeholders) { entry in
             DishCard(model: DishCardModel(entry), mode: .feed)
-                .feedRow()
+                .streamRow(showsDivider: entry.id != placeholders.last?.id)
         }
         .listStyle(.plain)
+        .background(Theme.Color.background)
         .redacted(reason: .placeholder)
         .allowsHitTesting(false)
         .accessibilityLabel("Loading the feed")
@@ -97,7 +99,10 @@ struct FeedView: View {
         List {
             ForEach(store.entries) { entry in
                 card(for: entry)
-                    .feedRow()
+                    // §1.1: the feed is a stream of PEERS, so it lost its card containers — content
+                    // on the plane, parted by a one-pixel full-bleed hairline. Fifty cards was
+                    // wallpaper; nothing was the subject of the page because everything was.
+                    .streamRow(showsDivider: entry.id != store.entries.last?.id)
                     .task { await store.loadMoreIfNeeded(after: entry) }
             }
 
@@ -112,6 +117,7 @@ struct FeedView: View {
             }
         }
         .listStyle(.plain)
+        .background(Theme.Color.background)
         .refreshable { await store.refresh() }
     }
 
@@ -209,20 +215,6 @@ struct FeedView: View {
 }
 
 private extension View {
-    /// A card in a list: the card draws its own surface, so the row must not draw one too, and the
-    /// system separator would cut between two already-separate cards.
-    func feedRow() -> some View {
-        self
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(
-                top: Theme.Spacing.snug,
-                leading: Theme.Spacing.comfortable,
-                bottom: Theme.Spacing.snug,
-                trailing: Theme.Spacing.comfortable
-            ))
-    }
-
     /// `.refreshable` needs a scroll view to hang off; an empty state has none. Wrapping it in a
     /// `ScrollView` keeps pull-to-refresh working on the empty feed, which is the one screen where
     /// a user most wants to pull.

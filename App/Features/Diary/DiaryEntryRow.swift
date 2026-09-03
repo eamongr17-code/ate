@@ -13,13 +13,24 @@ import SwiftUI
 struct DiaryEntryRow: View {
     let entry: FeedEntry
 
+    /// The width the sitting-block hairline is inset by, so the rule starts where the text does and
+    /// the run of dishes reads as one meal (design-language §1.2 — the app's one divider exception).
+    /// Derived from the row's own geometry rather than typed as a number, so the two can't drift.
+    static let textColumnInset = Theme.Spacing.gutter + Theme.Size.tileSmall + Theme.Spacing.gutter
+
     var body: some View {
-        HStack(spacing: Theme.Spacing.regular) {
-            // §10.5: absent, not a grey box. A placeholder for a photo that was never taken says
-            // something failed.
-            if let url = entry.review.photoURL {
-                DiaryThumbnail(url: url)
-            }
+        HStack(spacing: Theme.Spacing.gutter) {
+            // §3: a dish is never a blank. The gutter tile is STRUCTURE — always filled, photo or
+            // no photo — which is what stops a 40-row diary looking like a ragged list of things
+            // that half-failed to load.
+            DishTile(
+                dish: DishTileSubject(
+                    id: entry.dish.canonicalID,
+                    name: entry.dish.name,
+                    photoURL: entry.review.photoURL
+                ),
+                size: Theme.Size.tileSmall
+            )
 
             VStack(alignment: .leading, spacing: Theme.Spacing.hairline) {
                 // §10.6: the name stored on *your* review. A later merge rewrites where the dish
@@ -49,21 +60,6 @@ struct DiaryEntryRow: View {
     }
 }
 
-/// The row's 56pt square. Its own type rather than `DishThumbnailView` (which belongs to the detail
-/// screens' file, Lane B's surface) — same tokens, same shape, one import boundary fewer.
-private struct DiaryThumbnail: View {
-    let url: URL
-
-    var body: some View {
-        // Cropped square from a 4:3 original, per §3.3 — `scaledToFill` inside a fixed frame is that
-        // crop, and clipping is what stops the overflow painting over the name.
-        AsyncImage(url: url) { image in
-            image.resizable().scaledToFill()
-        } placeholder: {
-            Theme.Color.placeholder
-        }
-        .frame(width: Theme.Size.thumbnail, height: Theme.Size.thumbnail)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
-        .accessibilityHidden(true)
-    }
-}
+// `DiaryThumbnail` is gone: the row's square is `DishTile`, the one component every dish gutter in
+// the app uses (§8.4). Three near-identical private thumbnails were three places for the fallback to
+// be wrong.

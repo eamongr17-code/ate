@@ -47,6 +47,10 @@ struct LogDebugMenu: View {
                     Text(variant.title).tag(variant.rawValue)
                 }
             }
+            // Repeated here, not duplicated: the same three `@AppStorage` keys the diary's menu
+            // writes. The receipt's band order has to be flippable while a receipt is on screen,
+            // and the log sheet covers the diary's toolbar.
+            DesignDebugSettingsSection()
         } label: {
             Image(systemName: "ladybug")
         }

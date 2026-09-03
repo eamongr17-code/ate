@@ -36,9 +36,6 @@ struct DishDetailView: View {
                 DetailErrorView(message: message) { await model.reload() }
             } else if let restaurant = model.restaurant {
                 header(restaurant: restaurant)
-                if model.canLogDish {
-                    Section { LogDishButton(title: "Log this dish") { model.logDishTapped() } }
-                }
                 reviews
             } else {
                 DetailLoadingView()
@@ -46,53 +43,75 @@ struct DishDetailView: View {
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
-        .background(Theme.Color.backgroundGrouped)
-        // The dish name IS the screen, so it's the large title — it collapses into the bar on
-        // scroll for free, which is why there's no second copy of the name inside the list.
-        // Explicit `.large`: a title set after an async load defaults to inline otherwise.
+        .background(Theme.Color.backgroundRecessed)
+        // §2's header signature: the dish name IS the screen, so it's the large title, with the
+        // place as the subtitle. Explicit `.large`: a title set after an async load defaults to
+        // inline otherwise.
         .navigationTitle(model.dish?.name ?? "")
         .navigationBarTitleDisplayMode(.large)
+        .modifier(DetailSubtitle(text: placeSubtitle))
         .refreshable { await model.refresh() }
         .task { await model.load() }
     }
 
+    /// "Chin Chin · Melbourne" under the dish name — the second half of what a dish *is*.
+    private var placeSubtitle: String? {
+        guard let restaurant = model.restaurant else { return nil }
+        guard let suburb = restaurant.locality, !suburb.isEmpty else { return restaurant.name }
+        return "\(restaurant.name) · \(suburb)"
+    }
+
     // MARK: - Header
 
+    /// §2: hero on the plane, then exactly ONE Group — the ways out. The restaurant row was already
+    /// sharing a section with the aggregate, which made the score look like a fact *of* the row.
     private func header(restaurant: Restaurant) -> some View {
-        Section {
-            AggregateScoreView(
-                score: model.score,
-                reviewCount: model.reviewCount,
-                unratedCaption: "Nobody's rated this yet"
-            )
-            .padding(.vertical, Theme.Spacing.snug)
+        Group {
+            Section {
+                AggregateHero(
+                    score: model.score,
+                    reviewCount: model.reviewCount,
+                    unratedCaption: "Nobody's rated this yet"
+                )
+            }
 
-            // Tapping through to the restaurant is the second half of "what should I order here?".
-            // Rule R's shared component (§5) rather than a bespoke link, so this row and the place
-            // line on a feed card are the same affordance and report the same event.
-            RestaurantNameLink(
-                name: restaurant.name,
-                suburb: restaurant.locality,
-                restaurantID: restaurant.id,
-                from: .dishDetail,
-                style: .disclosureRow
-            )
+            Section {
+                // Tapping through to the restaurant is the second half of "what should I order
+                // here?". Rule R's shared component (§5) rather than a bespoke link, so this row and
+                // the place line on a feed card are the same affordance and report the same event.
+                RestaurantNameLink(
+                    name: restaurant.name,
+                    suburb: restaurant.locality,
+                    restaurantID: restaurant.id,
+                    from: .dishDetail,
+                    style: .disclosureRow
+                )
+
+                if model.canLogDish {
+                    Button("Log this dish", systemImage: "plus.circle") { model.logDishTapped() }
+                        .foregroundStyle(Theme.Color.accent)
+                }
+            }
         }
     }
 
     // MARK: - Reviews
 
+    /// §2: a PERSON-LED stream on the plane — avatar gutter, full-bleed hairlines, no chevrons.
+    /// Deliberately not a Group: these are peers to keep scrolling past, not destinations.
     @ViewBuilder
     private var reviews: some View {
-        Section("Reviews") {
+        Section {
             if model.showsEmptyReviewState {
                 Text("No reviews yet — be the first to rate it.")
                     .font(Theme.Text.body)
                     .foregroundStyle(Theme.Color.textSecondary)
+                    .streamRow(showsDivider: false)
             }
 
             ForEach(model.reviews, id: \.id) { review in
-                ReviewRowView(review: review, author: model.author(of: review))
+                ReviewStreamRow(review: review, author: model.author(of: review))
+                    .streamRow(showsDivider: review.id != model.reviews.last?.id)
                     // Paging trigger: fires as rows appear, and the model ignores everything that
                     // isn't near the end.
                     .task { await model.loadMoreIfNeeded(currentReviewID: review.id) }
@@ -101,7 +120,10 @@ struct DishDetailView: View {
             if model.isLoadingMoreReviews {
                 ProgressView()
                     .frame(maxWidth: .infinity)
+                    .listRowBackground(Theme.Color.background)
             }
+        } header: {
+            Text("Reviews")
         }
     }
 }

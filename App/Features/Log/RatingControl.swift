@@ -151,5 +151,5 @@ struct RatingControl: View {
         RatingControl(rating: $unset)
         RatingControl(rating: $set)
     }
-    .padding(Theme.Spacing.comfortable)
+    .padding(Theme.Spacing.gutter)
 }

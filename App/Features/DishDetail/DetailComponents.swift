@@ -34,34 +34,60 @@ struct StarRowView: View {
     }
 }
 
-/// The aggregate headline: stars, `4.3/5` (or `–/5` when unrated), and the review count.
+/// **The aggregate hero** (design-language §2, §8.6): the number, its stars, and how many people
+/// said so — sitting on the PLANE above the first Group, not inside a well of its own.
+///
+/// That placement is the screen's identity. A dish page and a restaurant page open with the same
+/// shape ("a public thing with an aggregate") and then diverge; wrapping the hero in a card would
+/// make it the third grey block on a screen of grey blocks, which is exactly the diagnosis this
+/// design pass started from.
 ///
 /// The unrated case is a *product state*, not an error or a zero — so it gets its own line of copy
 /// rather than a greyed-out number (data-model §1.3).
-struct AggregateScoreView: View {
+struct AggregateHero: View {
     let score: Double?
     let reviewCount: Int
     /// Copy for the unrated state — a dish invites a first review, a restaurant reads differently.
     var unratedCaption: String
+    /// The line under the title on screens that carry one in the content (the restaurant's suburb).
+    var subtitle: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.snug) {
+            if let subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(Theme.Text.detail)
+                    .foregroundStyle(Theme.Color.textSecondary)
+            }
             HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.snug) {
                 Text(ScoreFormat.outOfFive(score))
-                    .font(Theme.Text.metric)
+                    .font(Theme.Text.heroMetric)
                     .foregroundStyle(score == nil ? Theme.Color.textSecondary : Theme.Color.textPrimary)
+                    // §6.4: a score that changes in place rolls rather than swaps.
+                    .contentTransition(.numericText())
                 StarRowView(score: score)
             }
             Text(score == nil ? unratedCaption : ScoreFormat.reviewCount(reviewCount))
                 .font(Theme.Text.caption)
                 .foregroundStyle(Theme.Color.textSecondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, Theme.Spacing.regular)
+        .listRowSeparator(.hidden)
+        // NO fill and NO radius — that is what "on the plane" means (§1.1). The hero is the first
+        // thing on the page and must not read as the first of several grey blocks; the Group below
+        // it is the only container on the screen above the fold.
+        .listRowBackground(Color.clear)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            score == nil
-                ? unratedCaption
-                : "\(ScoreFormat.outOfFive(score)), \(ScoreFormat.reviewCount(reviewCount))"
-        )
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: String {
+        let aggregate = score == nil
+            ? unratedCaption
+            : "\(ScoreFormat.outOfFive(score)), \(ScoreFormat.reviewCount(reviewCount))"
+        guard let subtitle, !subtitle.isEmpty else { return aggregate }
+        return "\(subtitle), \(aggregate)"
     }
 }
 
@@ -91,75 +117,70 @@ struct DetailPhotoView: View {
     }
 }
 
-/// Square thumbnail for a dish row. Falls back to a neutral surface, never a broken-image glyph.
-struct DishThumbnailView: View {
-    let url: URL?
-
-    var body: some View {
-        AsyncImage(url: url) { image in
-            image.resizable().scaledToFill()
-        } placeholder: {
-            Theme.Color.placeholder
-        }
-        .frame(width: Theme.Size.thumbnail, height: Theme.Size.thumbnail)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
-        .accessibilityHidden(true)
-    }
-}
-
 // MARK: - Rows
 
-/// One review, neutrally presented: who, when, what they scored it, the note, the photo.
+/// **One person's review, in a stream of people** (design-language §2, §8.5).
+///
+/// The dish page's body is PERSON-LED: an avatar in a 44pt left gutter, then a text column of
+/// handle + time, score, note, photo. No dish name and no place — you are already on the dish's
+/// page, and repeating them per row is what made five reviews read as "one review with comments".
+/// Five avatar gutters with full-bleed hairlines can only read as five people.
 ///
 /// No like / comment / save affordances — the columns exist server-side but V1 renders none of them
-/// (PRODUCT.md). This is the view the designed DishCard replaces later.
-struct ReviewRowView: View {
+/// (PRODUCT.md).
+struct ReviewStreamRow: View {
     let review: Review
     let author: User?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.snug) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(author?.handle ?? "Someone")
-                    .font(Theme.Text.itemTitle)
-                    .foregroundStyle(Theme.Color.textPrimary)
-                Spacer(minLength: Theme.Spacing.snug)
-                Text(review.createdAt, format: .relative(presentation: .named))
-                    .font(Theme.Text.caption)
-                    .foregroundStyle(Theme.Color.textSecondary)
-            }
+        HStack(alignment: .top, spacing: Theme.Spacing.regular) {
+            AvatarView(url: author?.avatarURL, size: Theme.Size.avatarGutter)
 
-            HStack(spacing: Theme.Spacing.snug) {
-                StarRowView(score: review.score.value)
-                Text(ScoreFormat.outOfFive(review.score.value))
-                    .font(Theme.Text.detail)
-                    .foregroundStyle(Theme.Color.textSecondary)
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Rated \(ScoreFormat.outOfFive(review.score.value))")
+            VStack(alignment: .leading, spacing: Theme.Spacing.snug) {
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.snug) {
+                    Text(author?.handle ?? "Someone")
+                        .font(Theme.Text.itemTitle)
+                        .foregroundStyle(Theme.Color.textPrimary)
+                    Spacer(minLength: Theme.Spacing.snug)
+                    Text(review.createdAt, format: .relative(presentation: .named))
+                        .font(Theme.Text.caption)
+                        .foregroundStyle(Theme.Color.textSecondary)
+                }
 
-            if let note = review.note, !note.isEmpty {
-                Text(note)
-                    .font(Theme.Text.body)
-                    .foregroundStyle(Theme.Color.textPrimary)
-            }
+                HStack(spacing: Theme.Spacing.snug) {
+                    StarRowView(score: review.score.value)
+                    Text(ScoreFormat.halfStep(review.score.value))
+                        .font(Theme.Text.rowScore)
+                        .foregroundStyle(Theme.Color.textSecondary)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Rated \(ScoreFormat.outOfFive(review.score.value))")
 
-            if let photoURL = review.photoURL {
-                DetailPhotoView(url: photoURL)
+                if let note = review.note, !note.isEmpty {
+                    Text(note)
+                        .font(Theme.Text.body)
+                        .foregroundStyle(Theme.Color.textPrimary)
+                }
+
+                if let photoURL = review.photoURL {
+                    DetailPhotoView(url: photoURL)
+                }
             }
         }
-        .padding(.vertical, Theme.Spacing.tight)
     }
 }
 
-/// One dish in a restaurant's list. The score is the dish's own average — `–/5` when nobody has
-/// ordered it yet, which is a feature of the list, not a gap in it.
+/// One dish in a restaurant's list — a **destination**, not a peer. Always-filled 56pt tile, name,
+/// score, and the system's chevron from the `NavigationLink` that wraps it.
 struct DishRowView: View {
     let dish: RankedDish
 
     var body: some View {
         HStack(spacing: Theme.Spacing.regular) {
-            DishThumbnailView(url: dish.coverURL)
+            DishTile(
+                dish: DishTileSubject(id: dish.id, name: dish.name, photoURL: dish.coverURL),
+                size: Theme.Size.thumbnail
+            )
             VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
                 Text(dish.name)
                     .font(Theme.Text.itemTitle)
@@ -210,20 +231,20 @@ struct DetailErrorView: View {
     }
 }
 
-/// The "log this" call to action. One button, one place, so both screens read identically (rule 2:
-/// the same action works the same everywhere it appears).
-struct LogDishButton: View {
-    let title: String
-    let action: () -> Void
+// `LogDishButton` is gone: §2 gives each detail screen exactly ONE actions Group, and "log this" is
+// a row in it beside the other ways out — not a filled bar competing with the aggregate for the top
+// of the screen. The action, its copy and its `log_cta_tapped` event are unchanged.
 
-    var body: some View {
-        Button(action: action) {
-            Label(title, systemImage: "plus.circle.fill")
-                .frame(maxWidth: .infinity)
+/// Applies a navigation subtitle only when there is one. An empty subtitle is still a subtitle, and
+/// it leaves a gap under the title while a detail screen is still loading its name.
+struct DetailSubtitle: ViewModifier {
+    let text: String?
+
+    func body(content: Content) -> some View {
+        if let text, !text.isEmpty {
+            content.navigationSubtitle(text)
+        } else {
+            content
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-        .listRowInsets(EdgeInsets())
-        .listRowBackground(Theme.Color.background)
     }
 }

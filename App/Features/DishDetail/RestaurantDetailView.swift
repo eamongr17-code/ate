@@ -32,9 +32,6 @@ struct RestaurantDetailView: View {
                 DetailErrorView(message: message) { await model.refresh() }
             } else if let restaurant = model.restaurant {
                 header(restaurant)
-                if model.canLogDish {
-                    Section { LogDishButton(title: "Log a dish") { model.logDishTapped() } }
-                }
                 dishes
             } else {
                 DetailLoadingView()
@@ -42,39 +39,43 @@ struct RestaurantDetailView: View {
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
-        .background(Theme.Color.backgroundGrouped)
-        // Explicit `.large`: a title set after an async load defaults to inline otherwise.
+        .background(Theme.Color.backgroundRecessed)
+        // §2: same header shape as a dish — both are "a public thing with an aggregate". Explicit
+        // `.large`: a title set after an async load defaults to inline otherwise.
         .navigationTitle(model.restaurant?.name ?? "")
         .navigationBarTitleDisplayMode(.large)
+        .modifier(DetailSubtitle(text: model.restaurant?.locality))
         .refreshable { await model.refresh() }
         .task { await model.load() }
     }
 
     // MARK: - Header
 
+    /// Hero on the plane, then exactly ONE actions Group. The suburb rides in the subtitle now, so
+    /// the hero is the score and nothing else.
+    @ViewBuilder
     private func header(_ restaurant: Restaurant) -> some View {
         Section {
-            VStack(alignment: .leading, spacing: Theme.Spacing.regular) {
-                // The name is the large title; the suburb is the line that disambiguates two
-                // restaurants with the same name, so it stays in the content.
-                if let suburb = restaurant.locality {
-                    Text(suburb)
-                        .font(Theme.Text.detail)
-                        .foregroundStyle(Theme.Color.textSecondary)
-                }
+            AggregateHero(
+                score: model.avgRating,
+                reviewCount: model.reviewCount,
+                unratedCaption: "No dishes rated here yet"
+            )
+        }
 
-                AggregateScoreView(
-                    score: model.avgRating,
-                    reviewCount: model.reviewCount,
-                    unratedCaption: "No dishes rated here yet"
-                )
+        if model.canLogDish {
+            Section {
+                Button("Log a dish", systemImage: "plus.circle") { model.logDishTapped() }
+                    .foregroundStyle(Theme.Color.accent)
             }
-            .padding(.vertical, Theme.Spacing.snug)
         }
     }
 
     // MARK: - Menu
 
+    /// §2: where a dish page's body is a stream of PEOPLE, a restaurant's is a group of
+    /// DESTINATIONS — filled 56pt tiles, system inset separators, a chevron on every row. The two
+    /// screens share a header and diverge below it, which is what tells you which one you're on.
     @ViewBuilder
     private var dishes: some View {
         Section("Dishes") {

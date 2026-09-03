@@ -156,6 +156,8 @@ struct DiaryView: View {
             body()
         }
         .listStyle(.plain)
+        // §1.1: the diary is a PLANE — rows sit directly on the background, parted by hairlines.
+        .background(Theme.Color.background)
         .scrollPosition($scrollPosition)
         .refreshable { await store.refresh() }
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -213,7 +215,7 @@ struct DiaryView: View {
                 }
             }
         }
-        .padding(.horizontal, Theme.Spacing.comfortable)
+        .padding(.horizontal, Theme.Spacing.gutter)
         .padding(.vertical, Theme.Spacing.snug)
         .background(.bar)
     }
@@ -264,8 +266,10 @@ struct DiaryView: View {
     /// rows read as one visit, and native separators do the rest.
     @ViewBuilder
     private func sittingBlock(_ sitting: DiarySitting) -> some View {
+        // §1.2: no hairline before a header. A rule there parts a thing from its heading rather
+        // than one sibling from the next, which is what made the old list read as a grid.
         DiarySittingHeader(sitting: sitting) { path.append($0) }
-            .listRowSeparator(.hidden)
+            .streamRow(showsDivider: false)
             .padding(.top, Theme.Spacing.snug)
 
         ForEach(sitting.entries) { entry in
@@ -279,6 +283,13 @@ struct DiaryView: View {
                 DiaryEntryRow(entry: entry)
             }
             .buttonStyle(.plain)
+            // The app's ONE inset hairline (§1.2): between two dishes of the same sitting the rule
+            // starts at the text column, so the block reads as one visit. The last dish of a sitting
+            // gets none — the next thing down is a header.
+            .streamRow(
+                showsDivider: entry.id != sitting.entries.last?.id,
+                dividerLeadingInset: DiaryEntryRow.textColumnInset
+            )
             .task { await store.loadMoreIfNeeded(after: entry) }
         }
     }
@@ -287,9 +298,14 @@ struct DiaryView: View {
     /// when the entries land.
     @ViewBuilder
     private var loadingSection: some View {
+        let placeholders = FeedPlaceholder.entries(count: 4)
         Section {
-            ForEach(FeedPlaceholder.entries(count: 4)) { entry in
+            ForEach(placeholders) { entry in
                 DiaryEntryRow(entry: entry)
+                    .streamRow(
+                        showsDivider: entry.id != placeholders.last?.id,
+                        dividerLeadingInset: DiaryEntryRow.textColumnInset
+                    )
             }
         } header: {
             Text("Loading")
