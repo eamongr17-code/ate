@@ -47,9 +47,9 @@ struct SittingCanvasView: View {
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(
                             top: Theme.Spacing.snug,
-                            leading: Theme.Spacing.comfortable,
+                            leading: Theme.Spacing.gutter,
                             bottom: Theme.Spacing.snug,
-                            trailing: Theme.Spacing.comfortable
+                            trailing: Theme.Spacing.gutter
                         ))
                 }
                 .onDelete { model.removeCards(atOffsets: $0) }
@@ -174,7 +174,7 @@ struct SittingCanvasView: View {
                 .controlSize(.large)
                 .disabled(!model.canPost)
             }
-            .padding(.horizontal, Theme.Spacing.comfortable)
+            .padding(.horizontal, Theme.Spacing.gutter)
             .padding(.vertical, Theme.Spacing.regular)
             .background(.bar)
         }

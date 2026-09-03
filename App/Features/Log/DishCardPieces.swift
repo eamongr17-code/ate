@@ -33,7 +33,7 @@ struct DishCardPhotoView: View {
         Color.clear
             .aspectRatio(Theme.Ratio.photo, contentMode: .fit)
             .overlay { image }
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.photo))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
             .opacity(uploadState?.isInFlight == true ? 0.6 : 1)
             .overlay(alignment: .center) { uploadOverlay }
             .overlay(alignment: .topTrailing) { removeButton }
@@ -113,7 +113,7 @@ struct DishCardPhotoView: View {
 /// A byline avatar, or its initial-less fallback. Never a broken-image glyph.
 struct AvatarView: View {
     let url: URL?
-    var size: CGFloat = Theme.Size.avatarSmall
+    var size: CGFloat = Theme.Size.avatarByline
 
     var body: some View {
         AsyncImage(url: url) { image in

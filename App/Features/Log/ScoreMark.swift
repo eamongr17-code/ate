@@ -103,5 +103,5 @@ struct StarRow: View {
         ScoreMark(score: nil)
         ScoreMark(score: 3.0, size: .compact)
     }
-    .padding(Theme.Spacing.comfortable)
+    .padding(Theme.Spacing.gutter)
 }

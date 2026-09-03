@@ -185,8 +185,8 @@ struct LogSheet: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Discard draft")
             }
-            .padding(Theme.Spacing.comfortable)
-            .background(Theme.Color.surface)
+            .padding(Theme.Spacing.gutter)
+            .background(Theme.Color.surfaceCard)
         }
     }
 
@@ -327,7 +327,7 @@ struct RatingStepView: View {
                 .frame(maxWidth: .infinity)
                 .disabled(rating == nil)
         }
-        .padding(Theme.Spacing.comfortable)
+        .padding(Theme.Spacing.gutter)
         .navigationBarTitleDisplayMode(.inline)
     }
 }

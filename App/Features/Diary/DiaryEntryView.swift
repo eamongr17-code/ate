@@ -36,7 +36,7 @@ struct DiaryEntryView: View {
         content
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
-            .background(Theme.Color.backgroundGrouped)
+            .background(Theme.Color.backgroundRecessed)
             // The dish name is the title, and it is the name stored on YOUR review — a dish merged
             // away since you logged it does not rewrite your record (§4). Routes use the canonical id.
             .navigationTitle(entry?.dish.name ?? "")
@@ -72,10 +72,13 @@ struct DiaryEntryView: View {
 
     private func entryList(_ entry: FeedEntry) -> some View {
         List {
+            // §1.1: exactly ONE card, alone on the recessed ground, and it is the subject of the
+            // page. The row draws nothing — the card is the container.
             Section {
-                DishCard(model: DishCardModel(entry), mode: .diary)
+                DishCard(model: DishCardModel(entry), mode: .entry)
                     .listRowInsets(EdgeInsets())
-                    .listRowBackground(Theme.Color.background)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
 
             if !siblings.isEmpty {
@@ -221,17 +224,25 @@ private struct DiaryEntrySiblingRow: View {
 
     var body: some View {
         HStack(spacing: Theme.Spacing.regular) {
-            // Absent, not a grey box: a score-only entry is the most common kind (§10.12) and must
-            // not look like a photo that failed.
-            if let photoURL = entry.review.photoURL {
-                DishThumbnailView(url: photoURL)
-            }
+            // §3: always filled. A gutter that appears on some rows and not others is a ragged
+            // list; the tile is the dish's identity, not a stand-in for a missing photo.
+            DishTile(
+                dish: DishTileSubject(
+                    id: entry.dish.canonicalID,
+                    name: entry.dish.name,
+                    photoURL: entry.review.photoURL
+                ),
+                size: Theme.Size.thumbnail
+            )
             Text(entry.dish.name)
                 .font(Theme.Text.itemTitle)
                 .foregroundStyle(Theme.Color.textPrimary)
                 .lineLimit(2)
             Spacer(minLength: Theme.Spacing.snug)
-            Text(ScoreFormat.average(entry.review.score.value))
+            // §4's RULE: `average` is for AGGREGATES. A single review's score is a half-step and
+            // must read "3.0", never the bare "3" an aggregate formatter produces — a sibling row
+            // that says 3 next to a card that says 3.0 looks like two different scores.
+            Text(ScoreFormat.halfStep(entry.review.score.value))
                 .font(Theme.Text.rowScore)
                 .foregroundStyle(Theme.Color.textSecondary)
         }

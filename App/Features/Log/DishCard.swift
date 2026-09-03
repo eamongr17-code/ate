@@ -2,147 +2,6 @@ import AteKit
 import SwiftUI
 import UIKit
 
-// MARK: - Model
-
-/// Where a card's photo lives. A staged photo (just picked, maybe still uploading) is a file on
-/// disk; a posted one is a URL. Both are "the photo" as far as layout is concerned.
-enum DishCardPhoto: Hashable {
-    case local(URL)
-    case remote(URL)
-}
-
-/// The byline. Present only in modes that show one — a compose card's author is obviously you.
-struct DishCardAuthor: Hashable {
-    let name: String
-    let handle: String
-    let avatarURL: URL?
-
-    init(name: String, handle: String, avatarURL: URL? = nil) {
-        self.name = name
-        self.handle = handle
-        self.avatarURL = avatarURL
-    }
-}
-
-/// **Custom surface #2's data** (§3.1).
-///
-/// Deliberately *not* coupled to the log's `SittingDish`, a `FeedEntry`, or a review row: the same
-/// card renders in five places, and if its model knew about any one of them, the other four would
-/// have to fake it. Feed and Diary construct it from a ``FeedEntry``; the log constructs it from the
-/// sitting; Detail from the loaded review.
-struct DishCardModel: Identifiable, Hashable {
-    let id: UUID
-    /// Display string. Never an identifier — the card routes by ``dishID``.
-    let dishName: String
-    let dishID: UUID
-    let restaurantName: String
-    let restaurantSuburb: String?
-    /// Rule R (§5): with an id in hand the place line becomes a link. `nil` where the card is
-    /// composed rather than read (the sitting canvas already knows where you are) — the line then
-    /// renders as plain text, never as a dead affordance.
-    let restaurantID: UUID?
-    /// `nil` is the unrated state, rendered `–/5` (§3.3). Never zero.
-    let score: Double?
-    let reviewCount: Int?
-    let note: String?
-    let photo: DishCardPhoto?
-    let author: DishCardAuthor?
-    let timestamp: Date?
-
-    init(
-        id: UUID,
-        dishName: String,
-        dishID: UUID,
-        restaurantName: String,
-        restaurantSuburb: String? = nil,
-        restaurantID: UUID? = nil,
-        score: Double? = nil,
-        reviewCount: Int? = nil,
-        note: String? = nil,
-        photo: DishCardPhoto? = nil,
-        author: DishCardAuthor? = nil,
-        timestamp: Date? = nil
-    ) {
-        self.id = id
-        self.dishName = dishName
-        self.dishID = dishID
-        self.restaurantName = restaurantName
-        self.restaurantSuburb = restaurantSuburb
-        self.restaurantID = restaurantID
-        self.score = score
-        self.reviewCount = reviewCount
-        self.note = note
-        self.photo = photo
-        self.author = author
-        self.timestamp = timestamp
-    }
-
-    /// The Feed/Diary construction. Lives here rather than in the Feed so there is exactly one
-    /// mapping from a review row to a card, whichever screen is showing it.
-    init(_ entry: FeedEntry) {
-        self.init(
-            id: entry.review.id,
-            dishName: entry.dish.name,
-            dishID: entry.dish.canonicalID,
-            restaurantName: entry.restaurant.name,
-            restaurantSuburb: entry.restaurant.locality,
-            restaurantID: entry.restaurant.id,
-            score: entry.review.score.value,
-            note: entry.review.note,
-            photo: entry.review.photoURL.map(DishCardPhoto.remote),
-            author: entry.author.map {
-                DishCardAuthor(name: $0.name, handle: $0.handle, avatarURL: $0.avatarURL)
-            },
-            timestamp: entry.review.createdAt
-        )
-    }
-}
-
-/// §3.1. Five modes, one card — the difference is which zones appear and whether the score zone is a
-/// readout or the live gesture.
-enum DishCardMode: Hashable {
-    case compose
-    case feed
-    case diary
-    case detail
-    case receipt
-
-    var showsAuthorStrip: Bool { self == .feed }
-    var showsDateLabel: Bool { self == .diary }
-    var isCompose: Bool { self == .compose }
-    /// §3.2: the note is clamped in a feed (tap the card for the rest); everywhere else it's whole.
-    var noteLineLimit: Int? { self == .feed ? 3 : nil }
-    /// The receipt draws its own surface — a card-on-card would read as a screenshot of the app
-    /// rather than as an artifact.
-    var hasContainer: Bool { self != .receipt }
-
-    /// Rule R (§5): the read modes that sit inside a navigable list. The compose card's place line
-    /// is the restaurant you are *currently at* and must not navigate away mid-sitting; the receipt
-    /// and detail cards carry the place elsewhere on their screens.
-    var linksToRestaurant: Bool { self == .feed || self == .diary }
-
-    /// Which Rule R site this card's place line is, for `restaurant_name_tapped`. `.diary` is the
-    /// journal entry view — the diary *list* uses compact rows, not cards (§3.3).
-    var restaurantLinkOrigin: RestaurantLinkOrigin { self == .feed ? .feedRow : .diaryEntry }
-}
-
-/// What a card can do. Everything defaults to nothing, so a read-mode card is `DishCard(model:mode:)`
-/// and only the compose card wires the full set.
-struct DishCardActions {
-    var rating: Binding<Rating?> = .constant(nil)
-    var note: Binding<String> = .constant("")
-    var onRatingChanged: (Rating, LogRatingMethod) -> Void = { _, _ in }
-    var onAddPhoto: (() -> Void)?
-    var onRemovePhoto: (() -> Void)?
-    var onRetryPhotoUpload: (() -> Void)?
-    var onRemoveDish: (() -> Void)?
-    var onClearRating: (() -> Void)?
-    /// Upload progress for a staged photo (§3.5). `nil` = no photo, or a photo that isn't ours.
-    var photoUploadState: PhotoUploadState?
-    /// Bumped to run the §2.4 invalid-on-post wiggle on this card's rating.
-    var wiggleTrigger: Int = 0
-}
-
 // MARK: - View
 
 /// **Custom surface #2** — the dish unit (§3).
@@ -159,7 +18,50 @@ struct DishCard: View {
     @State private var isNoteExpanded = false
     @FocusState private var isNoteFocused: Bool
 
+    /// §9's question #2. Only the feed reads it; every other mode has one layout.
+    @AppStorage(DesignDebugSettings.feedRowLayoutKey)
+    private var feedRowLayoutRaw = FeedRowLayout.designDefault.rawValue
+
+    private var feedRowLayout: FeedRowLayout {
+        #if DEBUG
+        FeedRowLayout(rawValue: feedRowLayoutRaw) ?? .designDefault
+        #else
+        .designDefault
+        #endif
+    }
+
     var body: some View {
+        layout
+            .padding(mode.hasContainer ? Theme.Spacing.gutter : 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                if mode.hasContainer {
+                    RoundedRectangle(cornerRadius: Theme.Radius.card)
+                        .fill(Theme.Color.surfaceCard)
+                }
+            }
+            // §3.4: only the compose card owns a long press. Read modes get theirs from their host —
+            // the feed's "open dish / open restaurant / share" belongs to the screen that can navigate.
+            .modifier(ComposeContextMenu(isEnabled: hasContextMenu, content: contextMenuItems))
+    }
+
+    private var hasContextMenu: Bool {
+        mode.isCompose && (actions.onRemoveDish != nil || actions.onClearRating != nil)
+    }
+
+    // MARK: Layout
+
+    /// One stack of zones everywhere — except on the feed, which is the app's density question (§9).
+    @ViewBuilder
+    private var layout: some View {
+        if mode == .feed, feedRowLayout == .photoLeading {
+            photoLeadingLayout
+        } else {
+            stackedLayout
+        }
+    }
+
+    private var stackedLayout: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.regular) {
             authorStrip
             identityBlock
@@ -168,21 +70,35 @@ struct DishCard: View {
             noteZone
             affordanceRow
         }
-        .padding(mode.hasContainer ? Theme.Spacing.comfortable : 0)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            if mode.hasContainer {
-                RoundedRectangle(cornerRadius: Theme.Radius.card)
-                    .fill(Theme.Color.surface)
-            }
-        }
-        // §3.4: only the compose card owns a long press. Read modes get theirs from their host —
-        // the feed's "open dish / open restaurant / share" belongs to the screen that can navigate.
-        .modifier(ComposeContextMenu(isEnabled: hasContextMenu, content: contextMenuItems))
     }
 
-    private var hasContextMenu: Bool {
-        mode.isCompose && (actions.onRemoveDish != nil || actions.onClearRating != nil)
+    /// **Variant B.** The photo becomes a 72pt leading tile and the text runs beside it, fitting
+    /// roughly twice as many reviews on a screen. The tile is a *gutter* here, not decoration, so it
+    /// is always filled: a row that sometimes has a left column and sometimes doesn't is a ragged
+    /// list, which is the thing the tile exists to prevent.
+    private var photoLeadingLayout: some View {
+        HStack(alignment: .top, spacing: Theme.Spacing.regular) {
+            DishTile(dish: tileSubject, size: Theme.Size.tileFeedLeading)
+            VStack(alignment: .leading, spacing: Theme.Spacing.snug) {
+                authorStrip
+                identityBlock
+                scoreZone
+                noteZone
+            }
+        }
+    }
+
+    /// The dish behind the tile. Routes and tiles both key off the canonical dish id; the remote
+    /// photo is the only kind a read-mode card can have.
+    private var tileSubject: DishTileSubject {
+        DishTileSubject(
+            id: model.dishID,
+            name: model.dishName,
+            photoURL: {
+                if case .remote(let url) = model.photo { return url }
+                return nil
+            }()
+        )
     }
 
     // MARK: Zones
@@ -193,7 +109,7 @@ struct DishCard: View {
             HStack(spacing: Theme.Spacing.snug) {
                 AvatarView(url: author.avatarURL)
                 Text(author.handle)
-                    .font(Theme.Text.detail)
+                    .font(Theme.Text.streamByline)
                     .foregroundStyle(Theme.Color.textSecondary)
                 Spacer(minLength: Theme.Spacing.snug)
                 if let timestamp = model.timestamp {
@@ -209,6 +125,13 @@ struct DishCard: View {
         }
     }
 
+    /// Dish name over place line.
+    ///
+    /// The accessibility treatment follows the *affordance*, not the layout: where the place line is
+    /// a Rule R link (feed only), the block must stay two elements or VoiceOver swallows the link
+    /// and leaves the restaurant unreachable. Where it is plain text — every other mode — combining
+    /// is strictly better: "Prawn betel leaf, Chin Chin · Melbourne" is one thought, and two swipes
+    /// to hear it is two swipes too many.
     private var identityBlock: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
             Text(model.dishName)
@@ -218,6 +141,7 @@ struct DishCard: View {
                 .truncationMode(.tail)
             placeLineView
         }
+        .modifier(CombineWhenNotLinked(isLinked: mode.linksToRestaurant && model.restaurantID != nil))
     }
 
     /// Rule R (§5). Deliberately NOT inside the identity block's combined accessibility element —
@@ -297,7 +221,7 @@ struct DishCard: View {
     @ViewBuilder
     private var affordanceRow: some View {
         if mode.isCompose {
-            HStack(spacing: Theme.Spacing.comfortable) {
+            HStack(spacing: Theme.Spacing.gutter) {
                 Spacer(minLength: 0)
                 Button(action: toggleNote) {
                     Image(systemName: "note.text")
@@ -377,6 +301,21 @@ struct DishCard: View {
     }
 }
 
+/// Combines the identity block into one VoiceOver element *unless* it contains a link. Applied as a
+/// modifier rather than a `.accessibilityElement(children:)` with a computed argument because
+/// `.contain` is not the same as leaving the element alone — the link needs no wrapper at all.
+private struct CombineWhenNotLinked: ViewModifier {
+    let isLinked: Bool
+
+    func body(content: Content) -> some View {
+        if isLinked {
+            content
+        } else {
+            content.accessibilityElement(children: .combine)
+        }
+    }
+}
+
 /// Attaches a context menu only when there is something in it. An empty `.contextMenu` still arms a
 /// long press, which reads as a broken gesture.
 private struct ComposeContextMenu<MenuContent: View>: ViewModifier {
@@ -396,12 +335,12 @@ private struct ComposeContextMenu<MenuContent: View>: ViewModifier {
 
 #Preview("Modes") {
     ScrollView {
-        VStack(spacing: Theme.Spacing.comfortable) {
+        VStack(spacing: Theme.Spacing.gutter) {
             DishCard(model: .preview, mode: .feed)
-            DishCard(model: .preview, mode: .diary)
+            DishCard(model: .preview, mode: .entry)
             DishCard(model: .previewUnrated, mode: .detail)
         }
-        .padding(Theme.Spacing.comfortable)
+        .padding(Theme.Spacing.gutter)
     }
     .background(Theme.Color.background)
 }

@@ -32,7 +32,7 @@ struct ReceiptView: View {
 
                 actions
             }
-            .padding(Theme.Spacing.comfortable)
+            .padding(Theme.Spacing.gutter)
         }
         .background(Theme.Color.background)
         .navigationTitle("Posted")
@@ -149,7 +149,11 @@ struct ReceiptArtifact: View {
         if let line = receipt.lines.first {
             VStack(alignment: .leading, spacing: Theme.Spacing.regular) {
                 Text(ScoreFormat.outOfFive(line.score.value))
-                    .font(Theme.Text.receiptScore)
+                    // The fixed-size receipt ramp (§7): same optical size as the text style it
+                    // replaces, but no longer reflowed by the reader's Dynamic Type — an exported
+                    // 1080×1350 image must render identically on every device. The full three-band
+                    // composition (and the 88pt hero numeral) lands with the receipt pass.
+                    .font(Theme.Text.receiptScoreScale)
                     .foregroundStyle(Theme.Color.receiptForeground)
                 StarRow(score: line.score.value, starSize: Theme.Size.star * 1.6)
                 Text(line.dishName)
@@ -163,7 +167,7 @@ struct ReceiptArtifact: View {
                         .aspectRatio(Theme.Ratio.photo, contentMode: .fill)
                         .frame(maxWidth: .infinity)
                         .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.photo))
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
                 }
             }
         }
@@ -181,7 +185,7 @@ struct ReceiptArtifact: View {
                             .resizable()
                             .scaledToFill()
                             .frame(width: Theme.Size.thumbnail, height: Theme.Size.thumbnail)
-                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.tile))
                     }
                     Text(line.dishName)
                         .font(Theme.Text.itemTitle)
@@ -203,7 +207,7 @@ struct ReceiptArtifact: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.snug) {
             HStack(spacing: Theme.Spacing.snug) {
                 if let author = receipt.author {
-                    AvatarView(url: author.avatarURLString.flatMap(URL.init(string:)), size: Theme.Size.avatarSmall)
+                    AvatarView(url: author.avatarURLString.flatMap(URL.init(string:)), size: Theme.Size.avatarByline)
                     Text(author.handle)
                 }
                 Spacer(minLength: Theme.Spacing.snug)
@@ -290,5 +294,5 @@ private struct ActivitySheet: UIViewControllerRepresentable {
         photoURL: { _ in nil }
     )
     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.receipt))
-    .padding(Theme.Spacing.comfortable)
+    .padding(Theme.Spacing.gutter)
 }
