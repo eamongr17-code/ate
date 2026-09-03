@@ -4,7 +4,10 @@ import SwiftUI
 
 /// Where the sheet was opened from (§1.1). The entry decides which step is on screen first and
 /// nothing else — every path converges on the same canvas.
-enum LogEntry: Hashable {
+enum LogEntry: Hashable, Identifiable {
+    /// The entry is its own identity: `.sheet(item:)` presents one sheet per distinct entry.
+    var id: LogEntry { self }
+
     /// The `+` tab. Nothing pre-resolved: opens at WHERE.
     case tab
     /// Restaurant detail → "Log a dish". Opens at WHAT.
