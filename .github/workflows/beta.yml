@@ -5,12 +5,18 @@
 # and uploads it to App Store Connect for internal TestFlight distribution.
 #
 # ── Required repository SECRETS ────────────────────────────────────────────────
-#   ASC_KEY_ID     App Store Connect API key ID (10 chars, e.g. "ABCD123456").
-#   ASC_ISSUER_ID  Issuer ID for that key (UUID, shown above the key list).
-#   ASC_KEY_P8     Contents of the downloaded AuthKey_<ASC_KEY_ID>.p8 — paste the
-#                  whole file including the BEGIN/END PRIVATE KEY lines. A single
-#                  base64 blob of the same file is also accepted.
-# Until all three exist, the upload job SKIPS (neutral, not red) on pushes to main
+#   ASC_KEY_ID            App Store Connect API key ID (10 chars, e.g. "ABCD123456").
+#   ASC_ISSUER_ID         Issuer ID for that key (UUID, shown above the key list).
+#   ASC_KEY_P8            Contents of the downloaded AuthKey_<ASC_KEY_ID>.p8 — paste
+#                         the whole file including the BEGIN/END PRIVATE KEY lines.
+#                         A single base64 blob of the same file is also accepted.
+#   DEV_CERT_P12_BASE64   ONE Apple Development certificate + private key for the
+#                         team, exported from Keychain Access as a .p12 and base64
+#                         encoded (`base64 -i cert.p12 | pbcopy`). Imported into a
+#                         throwaway keychain on the runner so automatic signing
+#                         reuses it instead of minting a new certificate per run.
+#   DEV_CERT_PASSWORD     The password chosen when exporting that .p12.
+# Until all five exist, the upload job SKIPS (neutral, not red) on pushes to main
 # so the branch stays green; a manual run FAILS loudly instead.
 #
 # ── Optional repository VARIABLE ───────────────────────────────────────────────
@@ -22,12 +28,32 @@
 #      Apps; platform iOS). Uploads for an unknown bundle id are rejected.
 #   2. The API key's role is App Manager (Admin also works). Developer/Marketing
 #      roles cannot upload builds or create signing assets.
-#   3. Cloud signing is used: xcodebuild -allowProvisioningUpdates creates and
-#      renews the distribution certificate + App Store provisioning profile via
-#      the same API key. No certificates or profiles live in repo secrets.
+#   3. Signing is a hybrid: the *development* certificate used at archive time is
+#      the one in DEV_CERT_P12_BASE64 (see "Why a certificate lives in secrets"
+#      below); provisioning profiles and the cloud-managed *distribution*
+#      certificate used at export still come from -allowProvisioningUpdates via
+#      the same API key.
 #   4. Encryption compliance: Config/Info.plist should carry
 #      ITSAppUsesNonExemptEncryption=false, otherwise each build waits for a
 #      manual answer in App Store Connect before it can go out to testers.
+#
+# ── Why a certificate lives in secrets ─────────────────────────────────────────
+# Automatic signing archives with an Apple Development identity. On an ephemeral
+# runner there is never one in the keychain, so -allowProvisioningUpdates mints a
+# fresh certificate on EVERY run; after a handful of runs the account hits Apple's
+# per-user cap ("Choose a certificate to revoke", run #150) and the lane is dead
+# until someone revokes the strays by hand. Two alternatives were tried and are
+# dead ends:
+#   - CODE_SIGN_IDENTITY="Apple Distribution" at archive time bleeds into SPM
+#     package targets and conflicts with automatic signing (#21).
+#   - Archiving unsigned and signing only at export uploads an IPA Apple rejects
+#     with "Invalid Signature" (90035) (#22).
+# The durable fix is the standard CI pattern: hold ONE development certificate as
+# a repo secret, import it into a temporary keychain before archive, and delete
+# that keychain afterwards. Xcode finds a matching identity and stops minting.
+# When the certificate expires (one year), export a new one and rotate the two
+# DEV_CERT_* secrets; the failure mode is a clear "no Apple Development identity"
+# error from the import step, not a silent fallback to minting.
 #
 # ── Build numbers ──────────────────────────────────────────────────────────────
 # CFBundleVersion = this workflow's run number, so uploads never collide. It only
@@ -38,7 +64,7 @@
 # ── Dry run ────────────────────────────────────────────────────────────────────
 # Manual runs accept dry_run=true: archives with signing disabled and skips
 # export + upload. Use it to prove the Beta configuration compiles and archives
-# on the runner without needing the API key.
+# on the runner without needing any secrets.
 
 name: Beta
 
@@ -58,7 +84,7 @@ concurrency:
 
 jobs:
   preflight:
-    name: Check App Store Connect credentials
+    name: Check signing credentials
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -70,36 +96,40 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          DEV_CERT_P12_BASE64: ${{ secrets.DEV_CERT_P12_BASE64 }}
+          DEV_CERT_PASSWORD: ${{ secrets.DEV_CERT_PASSWORD }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
           missing=""
-          [ -n "${ASC_KEY_ID}" ]    || missing="${missing} ASC_KEY_ID"
-          [ -n "${ASC_ISSUER_ID}" ] || missing="${missing} ASC_ISSUER_ID"
-          [ -n "${ASC_KEY_P8}" ]    || missing="${missing} ASC_KEY_P8"
+          [ -n "${ASC_KEY_ID}" ]          || missing="${missing} ASC_KEY_ID"
+          [ -n "${ASC_ISSUER_ID}" ]       || missing="${missing} ASC_ISSUER_ID"
+          [ -n "${ASC_KEY_P8}" ]          || missing="${missing} ASC_KEY_P8"
+          [ -n "${DEV_CERT_P12_BASE64}" ] || missing="${missing} DEV_CERT_P12_BASE64"
+          [ -n "${DEV_CERT_PASSWORD}" ]   || missing="${missing} DEV_CERT_PASSWORD"
 
           if [ -z "${missing}" ]; then
             echo "have_key=true" >> "$GITHUB_OUTPUT"
-            echo "App Store Connect API key present — TestFlight upload will run." >> "$GITHUB_STEP_SUMMARY"
+            echo "Signing credentials present — TestFlight upload will run." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
           echo "have_key=false" >> "$GITHUB_OUTPUT"
-          msg="TestFlight upload skipped — missing repository secret(s):${missing}. Add them under Settings → Secrets and variables → Actions (see the header comment in .github/workflows/beta.yml for how to mint the App Store Connect API key)."
+          msg="TestFlight upload skipped — missing repository secret(s):${missing}. Add them under Settings → Secrets and variables → Actions (see the header comment in .github/workflows/beta.yml for what each one is and how to produce it)."
           {
             echo "### Beta lane not armed"
             echo ""
             echo "Missing repository secret(s):${missing}"
             echo ""
             echo "Add them under **Settings → Secrets and variables → Actions**."
-            echo "See the header comment in \`.github/workflows/beta.yml\` for how to mint the key."
+            echo "See the header comment in \`.github/workflows/beta.yml\` for what each one is and how to produce it."
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && [ "${DRY_RUN}" != "true" ]; then
-            echo "::error title=App Store Connect credentials missing::${msg}"
+            echo "::error title=Signing credentials missing::${msg}"
             exit 1
           fi
-          echo "::warning title=App Store Connect credentials missing::${msg}"
+          echo "::warning title=Signing credentials missing::${msg}"
 
   beta:
     name: Archive + upload to TestFlight
@@ -158,6 +188,61 @@ jobs:
           }
           echo "ASC_KEY_PATH=$key_path" >> "$GITHUB_ENV"
 
+      - name: Import development certificate into a temporary keychain
+        if: env.DRY_RUN != 'true'
+        env:
+          DEV_CERT_P12_BASE64: ${{ secrets.DEV_CERT_P12_BASE64 }}
+          DEV_CERT_PASSWORD: ${{ secrets.DEV_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # Belt and braces: preflight already gates on these, but a manual re-run of
+          # this job alone must not fall through to minting a certificate.
+          if [ -z "${DEV_CERT_P12_BASE64}" ] || [ -z "${DEV_CERT_PASSWORD}" ]; then
+            echo "::error title=Development certificate secrets missing::DEV_CERT_P12_BASE64 and/or DEV_CERT_PASSWORD are not set. Without them every run mints a new Apple Development certificate and the account hits Apple's cap. See the header comment in .github/workflows/beta.yml."
+            exit 1
+          fi
+
+          p12="$RUNNER_TEMP/dev-cert.p12"
+          printf '%s' "$DEV_CERT_P12_BASE64" | tr -d '[:space:]' | base64 --decode > "$p12" || {
+            echo "::error title=DEV_CERT_P12_BASE64 is not valid base64::Re-create it with: base64 -i <exported>.p12 | pbcopy"
+            exit 1
+          }
+          chmod 600 "$p12"
+
+          # Throwaway keychain with a random password that never appears in logs.
+          SIGNING_KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          echo "SIGNING_KEYCHAIN=$SIGNING_KEYCHAIN" >> "$GITHUB_ENV"
+          keychain_password=$(openssl rand -hex 32)
+          echo "::add-mask::${keychain_password}"
+          security create-keychain -p "$keychain_password" "$SIGNING_KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$SIGNING_KEYCHAIN"
+          security unlock-keychain -p "$keychain_password" "$SIGNING_KEYCHAIN"
+
+          security import "$p12" -k "$SIGNING_KEYCHAIN" -P "$DEV_CERT_PASSWORD" -f pkcs12 \
+            -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/xcodebuild > /dev/null || {
+            echo "::error title=Could not import the .p12::security import failed. Usually a wrong DEV_CERT_PASSWORD, or the file is not a PKCS#12 export containing both the certificate and its private key."
+            exit 1
+          }
+          rm -f "$p12"
+
+          # Let codesign use the key without a UI prompt (output lists keychain
+          # contents, so it is suppressed).
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
+            -k "$keychain_password" "$SIGNING_KEYCHAIN" > /dev/null
+
+          # Prepend to the user search list so xcodebuild sees it alongside the
+          # runner's login keychain (which holds the Apple WWDR intermediates).
+          # shellcheck disable=SC2046  # keychain paths are quoted one-per-line by `security`
+          security list-keychains -d user -s "$SIGNING_KEYCHAIN" \
+            $(security list-keychains -d user | sed 's/^ *"//; s/"$//')
+
+          identities=$(security find-identity -v -p codesigning "$SIGNING_KEYCHAIN")
+          echo "$identities"
+          echo "$identities" | grep -q '"Apple Development' || {
+            echo "::error title=No Apple Development identity in the .p12::The import succeeded but no valid 'Apple Development' signing identity is present. Export the certificate+key pair from Keychain Access (the one Xcode → Settings → Accounts → Manage Certificates created), or check that it has not expired or been revoked."
+            exit 1
+          }
+
       - name: Archive (Beta, unsigned — dry run)
         if: env.DRY_RUN == 'true'
         run: |
@@ -173,13 +258,16 @@ jobs:
             > archive.log 2>&1 || { tail -80 archive.log; exit 1; }
           tail -2 archive.log
 
-      - name: Archive (Beta, cloud-signed)
+      - name: Archive (Beta, automatic signing with the imported certificate)
         if: env.DRY_RUN != 'true'
         run: |
           set -euo pipefail
           # Only override the project's DEVELOPMENT_TEAM when the repo variable is set.
           team_override=""
           if [ -n "${ASC_TEAM_ID}" ]; then team_override="DEVELOPMENT_TEAM=${ASC_TEAM_ID}"; fi
+          # -allowProvisioningUpdates stays: profiles come from the cloud. The Apple
+          # Development identity is already in the temp keychain, so Xcode reuses it
+          # instead of minting one (see the header comment for the history).
           # shellcheck disable=SC2086  # team_override is one word or empty, by construction
           xcodebuild archive \
             -project Ate.xcodeproj \
@@ -195,16 +283,11 @@ jobs:
             ${team_override} \
             > archive.log 2>&1 || { tail -120 archive.log; exit 1; }
           tail -2 archive.log
-          # Signing notes, learned the hard way (runs #150–#152):
-          # - Automatic signing archives with an *Apple Development* identity and mints a fresh
-          #   development certificate on every ephemeral runner. The account eventually hits Apple's
-          #   cap ("Choose a certificate to revoke") — the fix is to revoke the stale runner-minted
-          #   Apple Development certificates in the developer portal. Durable fix: a single
-          #   development certificate held as a repo secret and imported into a temp keychain.
-          # - CODE_SIGN_IDENTITY="Apple Distribution" at archive time bleeds into SPM package
-          #   targets and conflicts with automatic signing. Not an option.
-          # - Archiving unsigned and signing only at export uploads an IPA Apple rejects with
-          #   "Invalid Signature" (90035). Not an option either.
+          # Guard against a silent regression: if Xcode minted a certificate anyway,
+          # the archive log says so. Warn (not fail) so the upload still lands.
+          if grep -q 'Creating a new signing certificate\|Generating a new certificate' archive.log; then
+            echo "::warning title=A new certificate was minted::The archive created a signing certificate despite the imported one. The .p12 may be for a different team or expired — check the developer portal and rotate DEV_CERT_P12_BASE64."
+          fi
 
       - name: Export .ipa (app-store-connect)
         if: env.DRY_RUN != 'true'
@@ -264,9 +347,14 @@ jobs:
             echo "Processing takes a few minutes; the internal group gets it automatically once it clears."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Redact API key
+      - name: Remove signing keychain and API key
         if: always()
-        run: rm -rf "$RUNNER_TEMP/asc"
+        run: |
+          if [ -n "${SIGNING_KEYCHAIN:-}" ] && [ -f "$SIGNING_KEYCHAIN" ]; then
+            security delete-keychain "$SIGNING_KEYCHAIN" || true
+          fi
+          rm -f "$RUNNER_TEMP/dev-cert.p12"
+          rm -rf "$RUNNER_TEMP/asc"
 
       - name: Upload build artifacts
         if: always()
