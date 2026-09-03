@@ -42,6 +42,19 @@ final class LogSessionModel {
     /// Non-nil once the sitting has been posted — the receipt's content.
     private(set) var receipt: ReceiptModel?
     private(set) var postedReviews: [Review] = []
+
+    /// The posted rows **plus the names they were posted under** — what the host needs to put this
+    /// sitting on the diary the instant the sheet leaves (§7.4).
+    ///
+    /// The rows alone can't do it: a ``Review`` carries UUIDs, and for a dish created ninety seconds
+    /// ago there is nowhere on the client to look its name up. The canvas has known it all along;
+    /// this is the canvas saying so on the way out, instead of the diary paying for a round trip to
+    /// be told what was already on screen.
+    var postedSitting: PostedSitting? {
+        guard let sitting, !postedReviews.isEmpty else { return nil }
+        return PostedSitting(reviews: postedReviews, sitting: sitting)
+    }
+
     /// §5.1: "Posted without the photo" — a quiet notice, not an error.
     private(set) var postedWithoutPhoto = false
     /// Which card to flash/scroll to (a duplicate pick, or the first unrated card on a blocked post).

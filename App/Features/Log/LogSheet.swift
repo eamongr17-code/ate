@@ -19,21 +19,22 @@ struct LogSheet: View {
     @State private var isLeaveDialogPresented = false
     @State private var photoItem: PhotosPickerItem?
 
-    private let onFinished: ([Review]) -> Void
+    private let onFinished: (PostedSitting) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
 
     /// - Parameters:
     ///   - entry: §1.1 — decides which step the sheet opens on. Nothing else varies.
-    ///   - onFinished: the rows that were posted, for the host's feed/diary caches.
+    ///   - onFinished: what was posted — the rows *and* the display names they were written under,
+    ///     so the host can put the sitting on the diary without a round trip (§7.4).
     ///
     /// There is no `onOpenDish`: the receipt is Share + Done, and nothing in the sheet navigates
     /// outside it. The seam comes back the day something needs it.
     init(
         entry: LogEntry,
         services: LogServices,
-        onFinished: @escaping ([Review]) -> Void = { _ in }
+        onFinished: @escaping (PostedSitting) -> Void = { _ in }
     ) {
         _model = State(initialValue: LogSessionModel(entry: entry, services: services))
         _path = State(initialValue: LogRoute.initialPath(for: entry))
@@ -245,7 +246,9 @@ struct LogSheet: View {
                 model: model,
                 onDone: {
                     model.endSession(step: .receipt, savedDraft: false)
-                    onFinished(model.postedReviews)
+                    // Read before `dismiss()`: the model is torn down with the sheet, and the host's
+                    // optimistic insert is the whole point of this call.
+                    if let posted = model.postedSitting { onFinished(posted) }
                     dismiss()
                 }
             )

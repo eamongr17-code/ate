@@ -45,6 +45,11 @@ private struct RootTabView: View {
 
     @State private var selection: RootTab = .diary
     @State private var isLoggingPresented = false
+    /// Which step the sheet opens on — set by whichever door was used, read once on presentation.
+    @State private var logEntry: LogEntry = .tab
+    /// Bumped when the log sheet closes: the one moment the saved draft can have changed without the
+    /// diary being on screen to notice.
+    @State private var diaryDraftSignal = 0
     /// The Diary's navigation stack, hoisted out of ``DiaryView`` so finishing a log can put you
     /// back on the diary *at its root* rather than under whatever you were reading before (§7).
     @State private var diaryPath = NavigationPath()
@@ -101,8 +106,9 @@ private struct RootTabView: View {
                     store: diaryStore,
                     path: $diaryPath,
                     detail: detail,
+                    actions: diaryActions,
                     scrollToTopSignal: diaryScrollToTopSignal,
-                    onLogDish: { isLoggingPresented = true },
+                    draftRefreshSignal: diaryDraftSignal,
                     debugSignIn: debugSignIn,
                     environmentFootnote: environmentFootnote
                 )
@@ -129,6 +135,7 @@ private struct RootTabView: View {
             // The tab bar's `+` is an entry point like any other, and until now the only one that
             // reported nothing — which reads as zero rather than as unmeasured.
             detail.analytics(DetailEvents.logCTATapped(from: .tabBar))
+            logEntry = .tab
             isLoggingPresented = true
         }
         .task { await autoSignInIfRequested() }
@@ -138,27 +145,57 @@ private struct RootTabView: View {
             Task { await feedStore.refresh() }
             diaryStore.reviewsWerePosted()
         }
-        .sheet(isPresented: $isLoggingPresented) {
+        .sheet(isPresented: $isLoggingPresented, onDismiss: { diaryDraftSignal += 1 }, content: {
             LogSheet(
-                entry: .tab,
+                entry: logEntry,
                 services: logServices,
-                onFinished: { _ in
-                    // The optimistic-insert seam doesn't exist yet; a refresh puts the new post at
-                    // the top of the feed before the sheet is gone.
+                onFinished: { posted in
+                    // A refresh puts the new post at the top of the feed before the sheet is gone.
                     Task { await feedStore.refresh() }
-                    // The diary reloads when it's next looked at, rather than fetching behind a
-                    // sheet for a tab that may not be visited — but it *will* contain the post.
+                    // §7.4: the sitting is on the diary *before* the sheet finishes leaving — the
+                    // rows and the names came back with the post, so there is nothing to wait for.
+                    // This matters most on the very first log, where an empty diary would otherwise
+                    // show a loading skeleton in place of the thing that was just created.
+                    diaryStore.insertPosted(posted)
+                    // The authoritative read still happens, reconciling onto the same ids when the
+                    // diary is next looked at.
                     diaryStore.reviewsWerePosted()
                     // …and it is looked at immediately: Done on the receipt lands you on your own
                     // record, at the top, with whatever you were reading before the log unwound.
                     landOnDiaryRoot()
                 }
             )
-        }
+        })
     }
 }
 
 private extension RootTabView {
+    /// The diary's doors out of reading and into doing (§3.1, §3.5).
+    ///
+    /// All three log entry points route through the same `LogEntry`-then-present pair, so the
+    /// composer, the resume row and the tab bar's `+` open the identical sheet and differ only in
+    /// the step it starts on and the origin it reports.
+    var diaryActions: DiaryActions {
+        DiaryActions(
+            logDish: { _ in
+                logEntry = .tab
+                isLoggingPresented = true
+            },
+            resumeDraft: {
+                logEntry = .resume
+                isLoggingPresented = true
+            },
+            discardDraft: {
+                // The draft store owns photo cleanup too, which is why the id goes with it.
+                logServices.drafts.clear(draftID: logServices.drafts.load()?.id)
+            },
+            // Read straight through the store: one draft, one file, and the diary must never hold a
+            // copy that outlives a sitting posted from somewhere else.
+            loadDraft: { logServices.drafts.load().flatMap { $0.isWorthKeeping ? $0 : nil } },
+            showFeed: { selection = .feed }
+        )
+    }
+
     /// Where a finished log ends: the Diary tab, its stack unwound, its list at the top — so the
     /// dish you just rated is the first thing on screen and the record is visibly yours (§7).
     @MainActor

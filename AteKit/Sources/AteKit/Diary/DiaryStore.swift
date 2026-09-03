@@ -29,6 +29,17 @@ public final class DiaryStore {
         case signedOut
         /// First load failed with nothing on screen. Recoverable via ``retry()``.
         case failed(message: String)
+
+        /// Whether the diary shows its "Log a dish" composer (§3.1, §3.4).
+        ///
+        /// True in **every** phase except signed out — including `.loading` and `.failed`. That is
+        /// the whole rule: logging a dish is not a read of your history and must never wait on one.
+        /// Someone standing in a restaurant with no signal still gets to record what they ate; what
+        /// they lose is the list underneath, which is not what they opened the app to do.
+        ///
+        /// Signed out is the one exception, and not for tidiness: there is no session to write a
+        /// review against, so the button could only fail.
+        public var allowsComposer: Bool { self != .signedOut }
     }
 
     /// How close to the end of the list a row must be to trigger the next page.
@@ -37,6 +48,13 @@ public final class DiaryStore {
     // MARK: - Observable state
 
     public private(set) var entries: [FeedEntry] = []
+    /// ``entries``, read as a record: months of sittings (§3.2). Stored rather than computed on
+    /// demand because the view touches it on every layout pass and the grouping is a full pass over
+    /// the page; it is recomputed on *every* mutation of `entries`, which is what makes a sitting
+    /// split across a page boundary regroup when the next page lands.
+    public private(set) var months: [DiaryMonth] = []
+    /// The line under the large title, or `nil` when there is nothing trustworthy to say (§3.1).
+    public private(set) var recordLine: String?
     public private(set) var phase: Phase = .loading
     /// A page-load or refresh failed while content was already on screen. Shown inline near the
     /// content — never as an alert, which would interrupt scrolling to report a recoverable miss.
@@ -183,6 +201,7 @@ public final class DiaryStore {
         seenIDs = []
         nextCursor = nil
         hasReachedEnd = false
+        regroup()
     }
 
     private func append(_ page: Page<FeedEntry>) {
@@ -190,6 +209,44 @@ public final class DiaryStore {
         entries.append(contentsOf: fresh)
         nextCursor = page.nextCursor
         hasReachedEnd = page.isLastPage
+        regroup()
+    }
+
+    /// The one place `entries` is read back into shape. Every mutation ends here — a memoised
+    /// grouping is exactly the bug §3.2 names, where a sitting cut in half by a page boundary stays
+    /// cut in half forever.
+    private func regroup() {
+        months = DiaryGrouping.months(from: entries)
+        recordLine = DiaryRecordLine.text(entries: entries, hasReachedEnd: hasReachedEnd)
+    }
+
+    // MARK: - Optimistic insert
+
+    /// Puts a just-posted sitting on the page immediately (§7.4).
+    ///
+    /// Called as the Log sheet leaves, with the rows it wrote and the names it wrote them under.
+    /// ``reviewsWerePosted()`` still runs behind it, so the server's version of these rows lands on
+    /// the next look and reconciles onto identical ids — this only changes *when* the block appears,
+    /// never what it eventually says.
+    ///
+    /// It matters most on the first log of all: ``loadFirstPage()`` shows `.loading` only when
+    /// `entries` is empty, which is precisely the case where the person would otherwise watch their
+    /// first ever entry arrive as a skeleton.
+    ///
+    /// Rows already present are ignored (a retry that re-reports a landed row must not double it),
+    /// and the phase moves off `.empty`/`.loading` because there is now something to show. A
+    /// signed-out store is left alone: rows posted by a session we no longer have are not ours to
+    /// render.
+    public func insertPosted(_ posted: PostedSitting) {
+        guard phase != .signedOut else { return }
+        let fresh = posted.diaryEntries().filter { seenIDs.insert($0.id).inserted }
+        guard !fresh.isEmpty else { return }
+        entries.insert(contentsOf: fresh, at: 0)
+        // `hasReachedEnd` is untouched on purpose: it means "no older page follows", and prepending
+        // newer rows leaves that true — so a fully-loaded diary keeps its exact record line, now
+        // counting the sitting you just posted.
+        phase = .ready
+        regroup()
     }
 
     // MARK: - Interaction
@@ -202,6 +259,12 @@ public final class DiaryStore {
     /// only so the diary's contribution to dish detail is measurable at its source.
     public func recordTap(on entry: FeedEntry) {
         analytics(DiaryEvents.diaryEntryTapped(dishID: entry.dishRoute.dishID))
+    }
+
+    /// The diary's three doors into the log flow (§9). Recorded through the store rather than at each
+    /// button so all three go through one injected recorder and are asserted in one test.
+    public func recordLogCTATapped(from origin: LogCTAOrigin) {
+        analytics(DetailEvents.logCTATapped(from: origin))
     }
 
     // MARK: - Errors
