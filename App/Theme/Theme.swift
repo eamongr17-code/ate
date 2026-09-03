@@ -24,9 +24,15 @@ public enum Theme {
         /// The recessed ground under **groups** (`.insetGrouped` lists) — the tone that makes an
         /// inset section read as a raised set of rows.
         public static let backgroundRecessed = SwiftUI.Color(.systemGroupedBackground)
-        /// The **card** — and only the card. Exactly one per page: the entry view's review, a
-        /// compose card on the log canvas. A card is never in a list of cards (§1.1).
-        public static let surfaceCard = SwiftUI.Color(.secondarySystemBackground)
+        /// The **card** — and only the card: the entry view's review, a compose card on the log
+        /// canvas. A card is never in a list of cards (§1.1).
+        ///
+        /// `secondarySystemGroupedBackground`, not `secondarySystemBackground`, and the pairing is
+        /// load-bearing: on `backgroundRecessed` those two are the SAME colour in light mode, so the
+        /// card the spec asked for rendered as nothing at all on device. The corollary is a rule:
+        /// **a card always sits on `backgroundRecessed`.** A card on the plane would be white on
+        /// white — which is fine, because a plane carries streams, and a stream has no cards.
+        public static let surfaceCard = SwiftUI.Color(.secondarySystemGroupedBackground)
         /// The fill behind a **dish tile** — the small square that stands in for a dish with no
         /// photo. A fill, not a background, so it stays visible on a card as well as on the plane.
         public static let surfaceTile = SwiftUI.Color(.tertiarySystemFill)

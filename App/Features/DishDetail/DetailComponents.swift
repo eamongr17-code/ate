@@ -72,11 +72,12 @@ struct AggregateHero: View {
                 .foregroundStyle(Theme.Color.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, Theme.Spacing.gutter)
         .padding(.vertical, Theme.Spacing.regular)
-        .listRowInsets(EdgeInsets())
         .listRowSeparator(.hidden)
-        .listRowBackground(Theme.Color.background)
+        // NO fill and NO radius — that is what "on the plane" means (§1.1). The hero is the first
+        // thing on the page and must not read as the first of several grey blocks; the Group below
+        // it is the only container on the screen above the fold.
+        .listRowBackground(Color.clear)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
     }

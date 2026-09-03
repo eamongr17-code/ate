@@ -109,7 +109,9 @@ enum DishCardMode: Hashable {
     case receipt
 
     var showsAuthorStrip: Bool { self == .feed }
-    var showsDateLabel: Bool { self == .entry }
+    /// Nothing, now. §2 makes the date the entry screen's *subtitle* — it is what the page IS, not a
+    /// field of the review — and the card was printing it a second time three lines below.
+    var showsDateLabel: Bool { false }
     var isCompose: Bool { self == .compose }
     /// §3.2: the note is clamped in a feed (tap the card for the rest); everywhere else it's whole.
     var noteLineLimit: Int? { self == .feed ? 3 : nil }

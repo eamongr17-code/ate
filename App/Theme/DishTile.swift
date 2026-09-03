@@ -81,15 +81,24 @@ struct DishTileArtwork: View {
     /// legible at 56pt, a word at 44pt, two letters below 32pt (the degradation is `AteKit`'s and is
     /// tested there). The clipping is the point: the tile is texture that happens to be readable.
     private var typographic: some View {
-        Text(DishTileIdentity.typographicText(for: dish.name, well: well))
-            .font(Theme.Text.tileTypographic(well: well))
-            .foregroundStyle(Theme.Color.tileForeground)
-            .lineLimit(2)
-            .minimumScaleFactor(1)
-            .padding(.horizontal, Theme.Spacing.tight)
-            .padding(.top, Theme.Spacing.tight)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(Theme.Color.surfaceTile)
+        // The FILL sizes the tile and the text is an overlay pinned to its top-left corner. Written
+        // this way round for two reasons: the artwork then fills whatever frame it is handed (a
+        // 44pt square in a diary row, a 4:5 band on the receipt), and an overlay larger than its
+        // parent overflows and is cut, where a `background` behind an over-sized child would grow
+        // to fit it.
+        Theme.Color.surfaceTile
+            .overlay(alignment: .topLeading) {
+                Text(DishTileIdentity.typographicText(for: dish.name, well: well))
+                    .font(Theme.Text.tileTypographic(well: well))
+                    .foregroundStyle(Theme.Color.tileForeground)
+                    .lineLimit(2)
+                    // `fixedSize` is what makes this a *tile* and not a truncated label: the text
+                    // lays out at its intrinsic width and the well cuts it. Without it SwiftUI
+                    // ellipsises instead ("T…"), which reads as a bug rather than as a crop.
+                    .fixedSize()
+                    .padding(.horizontal, Theme.Spacing.tight)
+                    .padding(.top, Theme.Spacing.tight)
+            }
             .clipped()
     }
 
@@ -97,11 +106,14 @@ struct DishTileArtwork: View {
     /// the dish's UUID — so a menu reads as tonal texture and the same dish is the same tone
     /// everywhere it appears, forever.
     private var monogram: some View {
-        Text(DishTileIdentity.monogram(for: dish.name))
-            .font(Theme.Text.tileMonogram(well: well))
-            .foregroundStyle(Theme.Color.tileForeground)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(paletteStep)
+        paletteStep
+            .overlay {
+                Text(DishTileIdentity.monogram(for: dish.name))
+                    .font(Theme.Text.tileMonogram(well: well))
+                    .foregroundStyle(Theme.Color.tileForeground)
+                    .fixedSize()
+            }
+            .clipped()
     }
 
     private var paletteStep: Color {

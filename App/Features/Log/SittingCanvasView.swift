@@ -58,6 +58,11 @@ struct SittingCanvasView: View {
             }
         }
         .listStyle(.plain)
+        // A card always sits on recessed ground (Theme.Color.surfaceCard) — on the plane it would
+        // be white on white. The canvas is the app's one screen with cards plural, so it takes the
+        // recessed tone; the cards are what the screen is made of.
+        .scrollContentBackground(.hidden)
+        .background(Theme.Color.backgroundRecessed)
         .scrollDismissesKeyboard(.interactively)
         // §6.5 Reduce Motion: the insert crossfades instead of sliding.
         .animation(reduceMotion ? .easeInOut : .snappy, value: sitting.dishes.map(\.id))
