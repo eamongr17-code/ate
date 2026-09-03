@@ -192,9 +192,14 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             ${team_override} \
             > archive.log 2>&1 || { tail -120 archive.log; exit 1; }
           tail -2 archive.log
+          # CODE_SIGN_IDENTITY="Apple Distribution": archive with the ONE cloud-managed distribution
+          # identity. Left to its default, automatic signing archives with an *Apple Development*
+          # identity — and every fresh runner mints a new development certificate until the account
+          # hits Apple's cap ("Choose a certificate to revoke"), which is what killed run #150.
 
       - name: Export .ipa (app-store-connect)
         if: env.DRY_RUN != 'true'
