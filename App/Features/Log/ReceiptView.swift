@@ -15,6 +15,11 @@ struct ReceiptView: View {
 
     @State private var shareImage: UIImage?
     @State private var isRendering = true
+    /// §6's motion moment #2, and the only arrival animation in the app. Latched so it runs ONCE:
+    /// a scroll that re-created the view and replayed it would turn a moment into a tic.
+    @State private var hasArrived = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView {
@@ -22,6 +27,19 @@ struct ReceiptView: View {
                 ReceiptArtifact(receipt: receipt, photoURL: model.localPhotoURL(forReceiptLine:))
                     .frame(maxWidth: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.receipt))
+                    // The artifact *arrives*: it is the one screen in V1 that is a reward rather
+                    // than a destination. Reduce Motion keeps the fade and drops the scale — the
+                    // moment survives, the movement doesn't.
+                    .scaleEffect(hasArrived || reduceMotion ? 1 : 0.96)
+                    .opacity(hasArrived ? 1 : 0)
+                    .onAppear {
+                        guard !hasArrived else { return }
+                        withAnimation(
+                            reduceMotion ? .easeInOut(duration: 0.2) : .spring(duration: 0.35)
+                        ) {
+                            hasArrived = true
+                        }
+                    }
 
                 if model.postedWithoutPhoto {
                     // §5.1: a quiet notice. The review is posted; the photo simply isn't on it.
@@ -88,141 +106,6 @@ struct ReceiptView: View {
     }
 }
 
-// MARK: - The artifact
-
-/// The receipt's composition — the same view on screen and in the exported image, so a screenshot
-/// and a share can't disagree.
-///
-/// Its colours are the two deliberately non-adaptive tokens in the theme: an image that leaves the
-/// device must not depend on the sender's appearance setting.
-struct ReceiptArtifact: View {
-    let receipt: ReceiptModel
-    var photoURL: (ReceiptModel.Line) -> URL?
-    /// The export is a fixed 4:5 canvas; on screen the artifact sizes to its content.
-    var isExport = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-            place
-            if receipt.isSingleDish {
-                singleDish
-            } else {
-                multiDish
-            }
-            Spacer(minLength: 0)
-            footer
-        }
-        .padding(Theme.Spacing.loose)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Color.receiptBackground)
-    }
-
-    // 3. Restaurant + suburb — once, at the top, never per dish.
-    //
-    // Rule R (§5) applies to the ON-SCREEN artifact only: `isExport` renders the place as flat text,
-    // so the shared image is byte-identical whether or not the app could have navigated. The link
-    // also renders as text wherever no restaurant routing is installed, which is the case inside the
-    // Log sheet today — the seam is here for the day the sheet can push.
-    @ViewBuilder
-    private var place: some View {
-        if !isExport, let restaurantID = receipt.restaurantID {
-            RestaurantNameLink(
-                name: receipt.restaurantName,
-                suburb: receipt.suburb,
-                restaurantID: restaurantID,
-                from: .receipt,
-                style: .inline,
-                font: Theme.Text.detail,
-                foreground: Theme.Color.receiptSecondary
-            )
-        } else {
-            Text(receipt.placeLine)
-                .font(Theme.Text.detail)
-                .foregroundStyle(Theme.Color.receiptSecondary)
-                .lineLimit(2)
-        }
-    }
-
-    // 1 + 2 + 4, single dish: the score is the hero, the photo backs it up.
-    @ViewBuilder
-    private var singleDish: some View {
-        if let line = receipt.lines.first {
-            VStack(alignment: .leading, spacing: Theme.Spacing.regular) {
-                Text(ScoreFormat.outOfFive(line.score.value))
-                    // The fixed-size receipt ramp (§7): same optical size as the text style it
-                    // replaces, but no longer reflowed by the reader's Dynamic Type — an exported
-                    // 1080×1350 image must render identically on every device. The full three-band
-                    // composition (and the 88pt hero numeral) lands with the receipt pass.
-                    .font(Theme.Text.receiptScoreScale)
-                    .foregroundStyle(Theme.Color.receiptForeground)
-                StarRow(score: line.score.value, starSize: Theme.Size.star * 1.6)
-                Text(line.dishName)
-                    .font(Theme.Text.sectionTitle)
-                    .foregroundStyle(Theme.Color.receiptForeground)
-                    .lineLimit(3)
-                if let url = photoURL(line), let image = UIImage(contentsOfFile: url.path(percentEncoded: false)) {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .aspectRatio(Theme.Ratio.photo, contentMode: .fill)
-                        .frame(maxWidth: .infinity)
-                        .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
-                }
-            }
-        }
-    }
-
-    // 2, multi-dish: one row per dish with a right-aligned score column, and a small leading
-    // thumbnail where there's a photo. No photo → the row closes up.
-    private var multiDish: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.regular) {
-            ForEach(receipt.lines) { line in
-                HStack(spacing: Theme.Spacing.regular) {
-                    if let url = photoURL(line),
-                       let image = UIImage(contentsOfFile: url.path(percentEncoded: false)) {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: Theme.Size.thumbnail, height: Theme.Size.thumbnail)
-                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.tile))
-                    }
-                    Text(line.dishName)
-                        .font(Theme.Text.itemTitle)
-                        .foregroundStyle(Theme.Color.receiptForeground)
-                        .lineLimit(2)
-                    Spacer(minLength: Theme.Spacing.snug)
-                    Text(ScoreFormat.average(line.score.value))
-                        .font(Theme.Text.scoreNumeral)
-                        .foregroundStyle(Theme.Color.receiptForeground)
-                }
-            }
-        }
-    }
-
-    // 5 + 6: byline, then the reserved app-locator band. Bottom-most, and deliberately quiet — it
-    // must never compete with the score. Its copy is growth-lead's and its look is brand-designer's;
-    // this is the slot they land in.
-    private var footer: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.snug) {
-            HStack(spacing: Theme.Spacing.snug) {
-                if let author = receipt.author {
-                    AvatarView(url: author.avatarURLString.flatMap(URL.init(string:)), size: Theme.Size.avatarByline)
-                    Text(author.handle)
-                }
-                Spacer(minLength: Theme.Spacing.snug)
-                Text(receipt.date, format: .dateTime.day().month(.abbreviated).year())
-            }
-            .font(Theme.Text.caption)
-            .foregroundStyle(Theme.Color.receiptSecondary)
-
-            Text("ate")
-                .font(Theme.Text.caption)
-                .foregroundStyle(Theme.Color.receiptSecondary)
-        }
-    }
-}
-
 // MARK: - Share
 
 /// The native share sheet, presented directly rather than through `ShareLink`.
@@ -279,20 +162,4 @@ private struct ActivitySheet: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
-}
-
-#Preview("Receipt artifact") {
-    ReceiptArtifact(
-        receipt: ReceiptModel(
-            restaurantName: "Chin Chin",
-            suburb: "Melbourne",
-            lines: [
-                .init(id: UUID(), dishID: UUID(), dishName: "Prawn betel leaf", score: Rating(rounding: 4.5))
-            ],
-            author: .init(name: "Eamon", handle: "@eamon")
-        ),
-        photoURL: { _ in nil }
-    )
-    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.receipt))
-    .padding(Theme.Spacing.gutter)
 }

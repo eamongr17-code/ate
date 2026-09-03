@@ -46,8 +46,18 @@ struct DiaryEntryView: View {
             .onChange(of: entry?.id) { _, _ in recordViewedOnce() }
     }
 
-    @ViewBuilder
+    /// The synchronous path shows the entry with no loading state at all — the review is already on
+    /// the diary's loaded page. The skeleton is for the other door (a deep link, a restored path),
+    /// and it is the same 150/350 clock as everywhere else (§5).
     private var content: some View {
+        resolvedContent
+            .skeleton(isLoading: entry == nil && failure == nil, label: "Loading this entry") {
+                DiaryEntrySkeleton()
+            }
+    }
+
+    @ViewBuilder
+    private var resolvedContent: some View {
         if let entry {
             entryList(entry)
         } else if let failure {
@@ -55,7 +65,7 @@ struct DiaryEntryView: View {
                 DetailErrorView(message: failure) { await fetch() }
             }
         } else {
-            List { DetailLoadingView() }
+            Color.clear
         }
     }
 
