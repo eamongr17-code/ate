@@ -42,21 +42,30 @@ struct ReceiptArtifact: View {
                 switch bandOrder {
                 case .mediaLed:
                     // A: the plate first. Reads as a photograph with a caption.
-                    media.frame(height: height * Self.mediaFraction)
-                    statement.frame(height: height * Self.statementFraction)
-                    tag.frame(height: height * Self.tagFraction)
+                    band(media, height * Self.mediaFraction)
+                    band(statement, height * Self.statementFraction)
+                    band(tag, height * Self.tagFraction)
                 case .statementLed:
                     // B: the score first, with the media bleeding off the bottom edge. Reads as a
                     // poster — which is the better read at thumbnail size, and the worse one when
                     // the photo is the thing worth sharing.
-                    statement.frame(height: height * Self.statementFraction)
-                    tag.frame(height: height * Self.tagFraction)
-                    media.frame(height: height * Self.mediaFraction)
+                    band(statement, height * Self.statementFraction)
+                    band(tag, height * Self.tagFraction)
+                    band(media, height * Self.mediaFraction)
                 }
             }
         }
         .aspectRatio(Self.canvasRatio, contentMode: .fit)
         .background(Theme.Color.receiptBackground)
+    }
+
+    /// A band is a fixed slice of the canvas, and the clip comes AFTER the height — the order is
+    /// load-bearing. Clipping inside the band clips to its *intrinsic* size, which is exactly how a
+    /// five-line statement ended up printed over the tag band on device.
+    private func band(_ content: some View, _ height: CGFloat) -> some View {
+        content
+            .frame(height: height)
+            .clipped()
     }
 
     // The proportions are the composition. They do not respond to how much text there is: a
@@ -73,7 +82,6 @@ struct ReceiptArtifact: View {
     private var media: some View {
         ReceiptMediaBand(receipt: receipt, photoURL: photoURL)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipped()
     }
 
     // MARK: - Band 2 · Statement
@@ -87,23 +95,23 @@ struct ReceiptArtifact: View {
                     .font(Theme.Text.receiptDishName)
                     .foregroundStyle(Theme.Color.receiptForeground)
                     .lineLimit(2)
+                    .minimumScaleFactor(0.7)
                 place
             } else {
+                // §4: the restaurant takes the dish slot, and there is no hero numeral — a sitting
+                // isn't a thing anyone rates. The suburb is dropped rather than given a line: the
+                // band is 35% of a fixed canvas and the dishes are what it's for.
                 Text(receipt.restaurantName)
                     .font(Theme.Text.receiptDishName)
                     .foregroundStyle(Theme.Color.receiptForeground)
                     .lineLimit(1)
-                if let suburb = receipt.suburb, !suburb.isEmpty {
-                    Text(suburb)
-                        .font(Theme.Text.receiptSecondary)
-                        .foregroundStyle(Theme.Color.receiptSecondary)
-                }
+                    .minimumScaleFactor(0.7)
                 dishLines
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(.horizontal, Theme.Spacing.loose)
-        .padding(.vertical, Theme.Spacing.gutter)
+        .padding(.vertical, Theme.Spacing.regular)
     }
 
     /// **The score, and nothing next to it.** The stars are gone from the single-dish receipt: a
@@ -126,20 +134,43 @@ struct ReceiptArtifact: View {
 
     /// Multi-dish: one line per dish, score right-aligned into a column. Half-steps, because each
     /// one is a single review — not an aggregate (§4's rule, tested in `ScoreFormatTests`).
+    ///
+    /// Capped, for the same reason the media band's mosaic is: the statement is 35% of a fixed
+    /// canvas, so a nine-dish sitting has to resolve to a composition rather than to a list that
+    /// runs off the bottom. What doesn't fit is COUNTED, never silently dropped.
     private var dishLines: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-            ForEach(receipt.lines) { line in
-                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.snug) {
-                    Text(line.dishName)
-                        .lineLimit(1)
-                    Spacer(minLength: Theme.Spacing.snug)
-                    Text(ScoreFormat.halfStep(line.score.value))
-                }
-                .font(Theme.Text.receiptSecondary)
-                .foregroundStyle(Theme.Color.receiptForeground)
+        // The overflow line costs a row, so a sitting of five shows three dishes and "+2 more",
+        // never four dishes and "+1" in five rows' worth of space.
+        let hidden = max(0, receipt.lines.count - Self.maxDishRows)
+        let visible = receipt.lines.prefix(hidden > 0 ? Self.maxDishRows - 1 : Self.maxDishRows)
+        return VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
+            ForEach(visible) { line in
+                dishLine(
+                    name: line.dishName,
+                    score: ScoreFormat.halfStep(line.score.value),
+                    colour: Theme.Color.receiptForeground
+                )
+            }
+            if hidden > 0 {
+                dishLine(name: "+\(hidden + 1) more", score: "", colour: Theme.Color.receiptSecondary)
             }
         }
     }
+
+    private func dishLine(name: String, score: String, colour: Color) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.snug) {
+            Text(name)
+                .lineLimit(1)
+            Spacer(minLength: Theme.Spacing.snug)
+            Text(score)
+        }
+        .font(Theme.Text.receiptSecondary)
+        .foregroundStyle(colour)
+    }
+
+    /// Three rows fit the 35% band under the restaurant name. A fourth is what printed straight
+    /// through the tag band on device.
+    private static let maxDishRows = 3
 
     /// The place line. Rule R (§5) survives here as an *invisible* difference: on screen it is a
     /// tappable link, in the export it is flat text — identical type, identical colour, identical
@@ -215,35 +246,46 @@ struct ReceiptMediaBand: View {
         let layout = ReceiptMosaic.layout(forItemCount: receipt.lines.count)
         let visible = Array(receipt.lines.prefix(ReceiptMosaic.visibleCount(for: layout)))
 
+        mosaic(layout: layout, visible: visible)
+            .background(Theme.Color.receiptBackground)
+    }
+
+    @ViewBuilder
+    private func mosaic(layout: ReceiptMosaic.Layout, visible: [ReceiptModel.Line]) -> some View {
         switch layout {
         case .single:
             cell(visible.first)
         case .sideBySide:
-            HStack(spacing: 0) {
+            HStack(spacing: Self.cellGap) {
                 cell(visible.first)
                 cell(visible.dropFirst().first)
             }
         case .oneLargeTwoStacked:
-            HStack(spacing: 0) {
+            HStack(spacing: Self.cellGap) {
                 cell(visible.first)
-                VStack(spacing: 0) {
+                VStack(spacing: Self.cellGap) {
                     cell(visible.dropFirst().first)
                     cell(visible.dropFirst(2).first)
                 }
             }
         case .grid:
-            VStack(spacing: 0) {
-                HStack(spacing: 0) {
+            VStack(spacing: Self.cellGap) {
+                HStack(spacing: Self.cellGap) {
                     cell(visible.first)
                     cell(visible.dropFirst().first)
                 }
-                HStack(spacing: 0) {
+                HStack(spacing: Self.cellGap) {
                     cell(visible.dropFirst(2).first)
                     cell(visible.dropFirst(3).first, badge: ReceiptMosaic.overflowBadge(for: layout))
                 }
             }
         }
     }
+
+    /// A sliver of the receipt's own ground between cells. Without it two typographic tiles are the
+    /// same tone touching, and a mosaic reads as one band with strange text in it rather than as
+    /// four dishes.
+    private static let cellGap = Theme.Spacing.hairline
 
     /// One cell: the staged photo fill-cropped, or the dish's tile. The photo is read synchronously
     /// because `ImageRenderer` cannot wait for an async load — an export that raced the disk would
@@ -282,7 +324,10 @@ struct ReceiptMediaBand: View {
                 .foregroundStyle(Theme.Color.receiptBackground)
                 .padding(Theme.Spacing.snug)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Theme.Color.receiptForeground.opacity(0.55))
+                // Heavy enough that the cell underneath reads as *covered* rather than as a tile
+                // with a number printed on top of its letters, light enough that a photo still
+                // shows through as the thing being counted.
+                .background(Theme.Color.receiptForeground.opacity(0.75))
         }
     }
 }
