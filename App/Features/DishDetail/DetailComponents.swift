@@ -17,8 +17,10 @@ struct StarRowView: View {
         let stars = ScoreFormat.stars(for: score)
         HStack(spacing: Theme.Spacing.hairline) {
             ForEach(0..<5, id: \.self) { index in
+                // Fixed cell so the narrower half-star glyph never re-spaces the row.
                 Image(systemName: symbol(at: index, stars: stars))
                     .font(.system(size: size))
+                    .frame(width: StarRow.cellWidth(for: size), height: size)
             }
         }
         .foregroundStyle(score == nil ? Theme.Color.textTertiary : Theme.Color.accent)

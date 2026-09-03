@@ -72,8 +72,12 @@ struct StarRow: View {
         let stars = ScoreFormat.stars(for: score)
         HStack(spacing: spread ? 0 : Theme.Spacing.tight) {
             ForEach(0..<5, id: \.self) { index in
+                // Fixed cell: `star.leadinghalf.filled` is narrower than `star.fill`, and an
+                // HStack hands out space from each glyph's own width — so without this every
+                // half-step crossing re-spaces the whole row and the stars jump under the finger.
                 Image(systemName: Self.symbol(at: index, stars: stars))
                     .font(.system(size: starSize))
+                    .frame(width: Self.cellWidth(for: starSize), height: starSize)
                     .frame(maxWidth: spread ? .infinity : nil)
             }
         }
@@ -86,6 +90,10 @@ struct StarRow: View {
         if index == stars.full, stars.half { return "star.leadinghalf.filled" }
         return "star"
     }
+
+    /// One cell fits the widest of the three star glyphs at this point size, so swapping glyphs
+    /// never changes layout. SF's star is ~1.1× as wide as its point size.
+    static func cellWidth(for starSize: CGFloat) -> CGFloat { (starSize * 1.1).rounded(.up) }
 }
 
 #Preview("Score marks") {
