@@ -16,7 +16,10 @@ struct ScoreLabel: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.hairline) {
             ForEach(0..<Self.starCount, id: \.self) { index in
+                // Fixed cell so the narrower half-star glyph never re-spaces the row.
                 Image(systemName: symbol(at: index))
+                    .font(.system(size: Theme.Size.star))
+                    .frame(width: StarRow.cellWidth(for: Theme.Size.star), height: Theme.Size.star)
                     .foregroundStyle(rating == nil ? Theme.Color.textTertiary : Theme.Color.accent)
             }
             Text(numberText)
