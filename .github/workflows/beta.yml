@@ -187,17 +187,24 @@ jobs:
             -configuration Beta \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/Ate.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             ${team_override} \
             > archive.log 2>&1 || { tail -120 archive.log; exit 1; }
           tail -2 archive.log
-          # The archive is deliberately UNSIGNED; the export step below does all the signing with
-          # the one cloud-managed Apple Distribution identity. Signing the archive automatically
-          # mints a fresh *Apple Development* certificate on every ephemeral runner, and the account
-          # hits Apple's cap after a handful of runs ("Choose a certificate to revoke" — run #150).
-          # Overriding CODE_SIGN_IDENTITY at archive time is not an option either: it bleeds into
-          # the SPM package targets and conflicts with automatic signing (run #151).
+          # Signing notes, learned the hard way (runs #150–#152):
+          # - Automatic signing archives with an *Apple Development* identity and mints a fresh
+          #   development certificate on every ephemeral runner. The account eventually hits Apple's
+          #   cap ("Choose a certificate to revoke") — the fix is to revoke the stale runner-minted
+          #   Apple Development certificates in the developer portal. Durable fix: a single
+          #   development certificate held as a repo secret and imported into a temp keychain.
+          # - CODE_SIGN_IDENTITY="Apple Distribution" at archive time bleeds into SPM package
+          #   targets and conflicts with automatic signing. Not an option.
+          # - Archiving unsigned and signing only at export uploads an IPA Apple rejects with
+          #   "Invalid Signature" (90035). Not an option either.
 
       - name: Export .ipa (app-store-connect)
         if: env.DRY_RUN != 'true'
