@@ -63,8 +63,10 @@ struct AggregateHero: View {
                 Text(ScoreFormat.outOfFive(score))
                     .font(Theme.Text.heroMetric)
                     .foregroundStyle(score == nil ? Theme.Color.textSecondary : Theme.Color.textPrimary)
-                    // §6.4: a score that changes in place rolls rather than swaps.
+                    // §6 moment #4: a score that changes in place rolls rather than swaps. This is
+                    // the one that fires after your own review lands and the aggregate moves.
                     .contentTransition(.numericText())
+                    .animation(.snappy(duration: 0.2), value: score)
                 StarRowView(score: score)
             }
             Text(score == nil ? unratedCaption : ScoreFormat.reviewCount(reviewCount))
@@ -203,15 +205,9 @@ struct DishRowView: View {
 
 // MARK: - Screen states
 
-/// The first-load spinner, centred in a list row.
-struct DetailLoadingView: View {
-    var body: some View {
-        ProgressView()
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, Theme.Spacing.loose)
-            .listRowBackground(Theme.Color.background)
-    }
-}
+// `DetailLoadingView` is gone. §5: a spinner is for *appended* work — load-more, posting, rendering
+// the receipt. A first load gets the page's own components, redacted, so nothing reflows when the
+// data lands. See `DetailSkeletons.swift`.
 
 /// A failed first load. Stock `ContentUnavailableView` so it looks like every other Apple app.
 struct DetailErrorView: View {

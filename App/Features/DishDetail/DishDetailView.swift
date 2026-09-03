@@ -31,27 +31,39 @@ struct DishDetailView: View {
     }
 
     var body: some View {
+        page
+            // §5: redacted real components rather than a spinner, on the same 150/350 clock as
+            // every other loading state in the app.
+            .skeleton(isLoading: isLoading, label: "Loading this dish") { DishDetailSkeleton() }
+            // The chrome lives OUTSIDE the gate: a title that vanished for the length of a skeleton
+            // would be the page relayouting, which is the thing skeletons exist to prevent.
+            // §2's header signature: the dish name IS the screen, so it's the large title, with the
+            // place as the subtitle. Explicit `.large`: a title set after an async load defaults to
+            // inline otherwise.
+            .navigationTitle(model.dish?.name ?? "")
+            .navigationBarTitleDisplayMode(.large)
+            .modifier(DetailSubtitle(text: placeSubtitle))
+            .task { await model.load() }
+    }
+
+    /// Nothing to show yet and nothing to say about why — the one state a skeleton is for.
+    private var isLoading: Bool {
+        model.restaurant == nil && model.state.errorMessage == nil
+    }
+
+    private var page: some View {
         List {
             if let message = model.state.errorMessage, model.dish == nil {
                 DetailErrorView(message: message) { await model.reload() }
             } else if let restaurant = model.restaurant {
                 header(restaurant: restaurant)
                 reviews
-            } else {
-                DetailLoadingView()
             }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(Theme.Color.backgroundRecessed)
-        // §2's header signature: the dish name IS the screen, so it's the large title, with the
-        // place as the subtitle. Explicit `.large`: a title set after an async load defaults to
-        // inline otherwise.
-        .navigationTitle(model.dish?.name ?? "")
-        .navigationBarTitleDisplayMode(.large)
-        .modifier(DetailSubtitle(text: placeSubtitle))
         .refreshable { await model.refresh() }
-        .task { await model.load() }
     }
 
     /// "Chin Chin · Melbourne" under the dish name — the second half of what a dish *is*.

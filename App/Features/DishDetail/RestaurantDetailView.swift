@@ -27,26 +27,35 @@ struct RestaurantDetailView: View {
     }
 
     var body: some View {
+        page
+            .skeleton(isLoading: isLoading, label: "Loading this restaurant") {
+                RestaurantDetailSkeleton()
+            }
+            // §2: same header shape as a dish — both are "a public thing with an aggregate".
+            // Explicit `.large`: a title set after an async load defaults to inline otherwise.
+            .navigationTitle(model.restaurant?.name ?? "")
+            .navigationBarTitleDisplayMode(.large)
+            .modifier(DetailSubtitle(text: model.restaurant?.locality))
+            .task { await model.load() }
+    }
+
+    private var isLoading: Bool {
+        model.restaurant == nil && model.state.errorMessage == nil
+    }
+
+    private var page: some View {
         List {
             if let message = model.state.errorMessage, model.restaurant == nil {
                 DetailErrorView(message: message) { await model.refresh() }
             } else if let restaurant = model.restaurant {
                 header(restaurant)
                 dishes
-            } else {
-                DetailLoadingView()
             }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(Theme.Color.backgroundRecessed)
-        // §2: same header shape as a dish — both are "a public thing with an aggregate". Explicit
-        // `.large`: a title set after an async load defaults to inline otherwise.
-        .navigationTitle(model.restaurant?.name ?? "")
-        .navigationBarTitleDisplayMode(.large)
-        .modifier(DetailSubtitle(text: model.restaurant?.locality))
         .refreshable { await model.refresh() }
-        .task { await model.load() }
     }
 
     // MARK: - Header

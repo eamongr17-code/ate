@@ -42,6 +42,10 @@ struct ScoreMark: View {
             Text(ScoreFormat.outOfFive(score))
                 .font(size.numeral)
                 .foregroundStyle(score == nil ? Theme.Color.textTertiary : Theme.Color.textPrimary)
+                // §6 moment #4, and the reason the numeral is monospaced: a score that changes in
+                // place rolls its digits instead of being replaced.
+                .contentTransition(.numericText())
+                .animation(.snappy(duration: 0.2), value: score)
             if let reviewCount, score != nil {
                 Text("(\(reviewCount))")
                     .font(Theme.Text.caption)

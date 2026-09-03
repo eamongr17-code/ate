@@ -32,6 +32,11 @@ struct RatingControl: View {
     /// `Rating??` is deliberate: `.some(nil)` is "scrubbing, from unrated".
     @State private var scrubStartValue: Rating??
 
+    /// §6's motion moment #1 — **the app's signature**. Bumped on finger lift; the star row settles
+    /// with a 0.28s spring. Deliberately a trigger and not a state the gesture animates: the scrub
+    /// itself has to stay 1:1 with the thumb (§2.3), so the ONLY animated instant is the release.
+    @State private var settleTrigger = 0
+
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
             if dynamicTypeSize.isAccessibilitySize {
@@ -71,6 +76,15 @@ struct RatingControl: View {
             let trackWidth = max(1, geometry.size.width - 2 * Theme.Size.ratingHitSlop)
             StarRow(score: rating?.value, starSize: starSize, spread: true)
                 .symbolEffect(.wiggle, options: .nonRepeating, value: wiggleTrigger)
+                // The settle. A brief compression into a spring back to rest — 0.28s in total, and
+                // it starts the instant the finger leaves, so it reads as the row *landing* on the
+                // value rather than as an animation played at you. Reduce Motion never triggers it.
+                .keyframeAnimator(initialValue: 1.0, trigger: settleTrigger) { view, scale in
+                    view.scaleEffect(scale)
+                } keyframes: { _ in
+                    SpringKeyframe(0.96, duration: 0.06)
+                    SpringKeyframe(1.0, duration: 0.22, spring: .snappy)
+                }
                 .frame(width: trackWidth)
                 .padding(.horizontal, Theme.Size.ratingHitSlop)
                 .frame(
@@ -84,12 +98,18 @@ struct RatingControl: View {
         .frame(height: Theme.Size.ratingTrackHeight)
     }
 
+    /// §6 moment #4: a score that changes *in place* rolls rather than swaps — but only when no
+    /// finger is on the track. §2.3 outranks §6: during a scrub the number must not lag the thumb by
+    /// so much as a frame, so the transition is switched off for the duration of the touch.
     private var readout: some View {
         Text(ScoreFormat.halfStep(rating?.value))
             .font(Theme.Text.scoreNumeral)
             .foregroundStyle(rating == nil ? Theme.Color.textTertiary : Theme.Color.textPrimary)
-            .animation(nil, value: rating)  // §2.3: the number must not lag the finger
+            .contentTransition(.numericText())
+            .animation(isScrubbing || reduceMotion ? nil : .snappy(duration: 0.2), value: rating)
     }
+
+    private var isScrubbing: Bool { scrubStartValue != nil }
 
     private var starSize: CGFloat {
         dynamicTypeSize.isAccessibilitySize ? Theme.Size.star * 2.2 : Theme.Size.star * 2
@@ -111,6 +131,9 @@ struct RatingControl: View {
             onEnded: { positionX, method in
                 guard let start = scrubStartValue else { return }
                 scrubStartValue = nil
+                // Moment #1, on every lift — including the one that didn't change the value. The
+                // settle is feedback that the gesture ENDED, not that the score moved.
+                if !reduceMotion { settleTrigger += 1 }
                 let final = RatingTrack.rating(atX: trackX(positionX), trackWidth: width)
                 guard final != start else {
                     rating = final
