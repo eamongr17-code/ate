@@ -87,6 +87,18 @@ struct DiaryView: View {
                 // reached from the diary — including onward pushes inside detail — resolves here as
                 // `source: .diary`.
                 .detailDestinations(source: .diary, context: detail)
+                // TODO(lane-b, App/Features/DishDetail/StackRouting.swift): add the paired modifier
+                //
+                //     .stackRouting(path: $path, analytics: detail.analytics)
+                //
+                // right here. `detailDestinations` turns a route value into a screen; `stackRouting`
+                // is what lets a screen *deep inside* this stack append one — a pushed
+                // `DishDetailView` never sees `$path` — and is where `restaurant_name_tapped` fires.
+                // Lane A's sitting header already opens the restaurant through a closure rather than
+                // a `NavigationLink` (a link inside a `List` row is promoted to the whole row, which
+                // is the nested-target failure Rule R exists to prevent), so adopting
+                // `RestaurantNameLink` here is a body swap in `DiarySittingHeader`, not a rework.
+                // Left as a TODO because the modifier lives in a file Lane B owns.
         }
         // On the stack rather than on its content, so a push-then-pop within the tab is not a new
         // "view". This fires on each *tab* appearance, which is what makes a review posted in the

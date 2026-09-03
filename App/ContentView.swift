@@ -39,7 +39,10 @@ private struct RootTabView: View {
     private let feedStore: FeedStore
     private let diaryStore: DiaryStore
     private let searchServices: SearchServices
-    private let detail: DetailContext
+    /// The context as built from the API client, before the diary's seams are attached. Those seams
+    /// close over `@State` (which step the log sheet opens on), and `self` is not available in
+    /// `init` — so the assembled context is the computed `detail` below, not a stored property.
+    private let baseDetail: DetailContext
     private let logServices: LogServices
     private let debugSignIn: DebugStagingSignIn?
 
@@ -68,10 +71,34 @@ private struct RootTabView: View {
         // `onLogDish` stays nil for now: `DetailContext`'s closure carries no dish payload, so it
         // can't open the sheet pre-resolved (§1.1) — wiring a payloadless button would break the
         // entry contract. Follow-up: give the closure a dish, then wire it.
-        self.detail = .live(api: api)
+        self.baseDetail = .live(api: api)
         self.logServices = .live(api: api)
         self.debugSignIn = DebugStagingSignIn.make(for: environment, api: api)
     }
+
+    /// The detail context every stack is handed.
+    ///
+    /// Computed rather than stored because the entry view's seams have to close over this view's
+    /// `@State` — which step the log sheet opens on — and `self` doesn't exist yet in `init`.
+    ///
+    /// TODO(lane-b, App/Features/DishDetail/DetailDestinations.swift): Lane B adds
+    /// `DetailContext.withDiary(entry:siblings:onLogAgain:)`. When it lands, this body becomes:
+    ///
+    ///     baseDetail.withDiary(
+    ///         entry: { [diaryStore] id in diaryStore.entry(withReviewID: id) },
+    ///         siblings: { [diaryStore] id in diaryStore.sittingSiblings(ofReviewID: id) },
+    ///         onLogAgain: { entry in
+    ///             logEntry = entry
+    ///             isLoggingPresented = true
+    ///         }
+    ///     )
+    ///
+    /// Everything that call needs already exists and is tested: both store lookups are Lane A's, and
+    /// `siblings` deliberately reads through the same ``DiaryGrouping`` the list is drawn from, so
+    /// the entry view can never claim a sitting the diary doesn't show. Only `withDiary` itself is
+    /// missing — adding it here would collide with Lane B's own copy of that file, which is the one
+    /// thing an A-then-B merge must not have to resolve by hand.
+    private var detail: DetailContext { baseDetail }
 
     /// Which backend this build talks to, shown in Diary's bar. Debug only — a Release build must
     /// never display it, and this is the one place that decides that.
@@ -145,7 +172,13 @@ private struct RootTabView: View {
             Task { await feedStore.refresh() }
             diaryStore.reviewsWerePosted()
         }
-        .sheet(isPresented: $isLoggingPresented, onDismiss: { diaryDraftSignal += 1 }, content: {
+        .sheet(isPresented: $isLoggingPresented, onDismiss: {
+            diaryDraftSignal += 1
+            // Back to the default door. A stale `.resume` (or a pre-resolved dish, once "Log this
+            // again" lands) left here would be inherited by the *next* opening — the tab bar's `+`
+            // would silently reopen the last sitting instead of asking where you are.
+            logEntry = .tab
+        }, content: {
             LogSheet(
                 entry: logEntry,
                 services: logServices,

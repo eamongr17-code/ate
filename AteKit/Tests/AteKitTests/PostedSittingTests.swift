@@ -172,6 +172,44 @@ struct PostedSittingTests {
         #expect(!DiaryStore.Phase.signedOut.allowsComposer)
     }
 
+    // MARK: - The entry view's seams (§4)
+
+    @Test("An entry on the page resolves by review id, with no network")
+    func entryLookup() async {
+        let store = DiaryStore(client: EmptyDiary())
+        await store.loadIfNeeded()
+        store.insertPosted(Self.posted(dishes: [("Bucatini", 4.5), ("Tiramisu", 3.0)]))
+        let target = store.entries[0]
+
+        #expect(store.entry(withReviewID: target.review.id)?.dish.name == target.dish.name)
+        #expect(store.entry(withReviewID: UUID()) == nil)
+    }
+
+    @Test("Siblings are the rest of the same sitting — the block the diary actually draws")
+    func sittingSiblings() async {
+        let store = DiaryStore(client: EmptyDiary())
+        await store.loadIfNeeded()
+        store.insertPosted(Self.posted(dishes: [("Bucatini", 4.5), ("Tiramisu", 3.0)]))
+        let target = store.entries[0]
+
+        let siblings = store.sittingSiblings(ofReviewID: target.review.id)
+        #expect(siblings.count == 1)
+        // The entry is never its own sibling.
+        #expect(!siblings.contains { $0.review.id == target.review.id })
+        // …and the pair agrees with the block on the list, which is the point of sharing the rule.
+        #expect(store.months[0].sittings[0].dishCount == siblings.count + 1)
+    }
+
+    @Test("A single-dish sitting has no siblings, and neither does an id we've never loaded")
+    func noSiblings() async {
+        let store = DiaryStore(client: EmptyDiary())
+        await store.loadIfNeeded()
+        store.insertPosted(Self.posted(dishes: [("Bucatini", 4.5)]))
+
+        #expect(store.sittingSiblings(ofReviewID: store.entries[0].review.id).isEmpty)
+        #expect(store.sittingSiblings(ofReviewID: UUID()).isEmpty)
+    }
+
     @Test("Each of the diary's three log doors reports itself distinctly (§9)")
     func logCTAOriginsAreDistinct() async {
         let recorder = CapturedEvents()

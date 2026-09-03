@@ -249,6 +249,37 @@ public final class DiaryStore {
         regroup()
     }
 
+    // MARK: - Lookup (the entry view's seams, §4)
+
+    /// One loaded entry, by review id.
+    ///
+    /// The entry view is normally resolved with **no network at all**: you tapped a row that is on
+    /// this page, so the review is already here and pushing it is instant and cannot fail. A by-id
+    /// fetch exists only for entries reached from outside the diary.
+    ///
+    /// A linear scan on purpose. The diary is a keyset-paged list of a few hundred rows at most in
+    /// the session that matters, and an id→index dictionary would be a second source of truth to
+    /// keep aligned with `entries` through every refresh, prepend and dedup — for a lookup that
+    /// happens once per tap.
+    public func entry(withReviewID reviewID: UUID) -> FeedEntry? {
+        entries.first { $0.review.id == reviewID }
+    }
+
+    /// The **other** dishes of the same sitting, newest first, excluding the entry itself.
+    ///
+    /// Uses the same ``DiaryGrouping`` the list is drawn from, rather than re-deriving "same
+    /// restaurant, same evening" at the call site: if the two ever disagreed, the entry view would
+    /// claim a sitting the diary doesn't show, and the sitting block is the diary's whole thesis.
+    ///
+    /// Empty is a perfectly good answer — a single-dish sitting, or an entry reached from outside
+    /// the diary — and the caller renders nothing rather than an empty heading.
+    public func sittingSiblings(ofReviewID reviewID: UUID) -> [FeedEntry] {
+        guard let sitting = DiaryGrouping.sittings(from: entries)
+            .first(where: { $0.entries.contains { $0.review.id == reviewID } })
+        else { return [] }
+        return sitting.entries.filter { $0.review.id != reviewID }
+    }
+
     // MARK: - Interaction
 
     public func recordDiaryViewed() {
