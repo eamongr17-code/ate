@@ -219,6 +219,10 @@ public enum Theme {
         /// lowest score is reachable without landing exactly on the first glyph.
         public static let ratingHitSlop: CGFloat = 24
 
+        /// The rule above the receipt's tag band. A fixed logical thickness, not a device pixel:
+        /// the receipt is art rendered at 3×, where one device pixel would all but vanish.
+        public static let receiptRule: CGFloat = 1
+
         /// The exported receipt image (§5.3). 4:5 — the tallest a share sheet, an iMessage bubble and
         /// an Instagram feed post all render without cropping. One constant, one export size.
         public static let receiptExport = CGSize(width: 1080, height: 1350)

@@ -127,9 +127,19 @@ struct DiaryView: View {
 
     // MARK: - Phases
 
-    /// §3.4's precedence, spelled out in one place: signedOut > failed > empty > ready.
-    @ViewBuilder
+    /// §3.4's precedence, spelled out in one place: signedOut > failed > empty > ready — wrapped in
+    /// §5's one loading system, which owns the `.loading` phase. Note what stays put through the
+    /// swap: the composer is in both halves, at the same place, so logging never waits on a read of
+    /// your history and never moves under the thumb.
     private var content: some View {
+        phaseContent
+            .skeleton(isLoading: store.phase == .loading, label: "Loading your diary") {
+                diaryList { loadingSection }
+            }
+    }
+
+    @ViewBuilder
+    private var phaseContent: some View {
         switch store.phase {
         case .signedOut:
             signedOut
@@ -138,7 +148,7 @@ struct DiaryView: View {
         case .empty:
             diaryList { firstRunSection }
         case .loading:
-            diaryList { loadingSection }
+            diaryList { EmptyView() }
         case .ready:
             diaryList { recordSections }
         }
@@ -310,9 +320,6 @@ struct DiaryView: View {
         } header: {
             Text("Loading")
         }
-        .redacted(reason: .placeholder)
-        .allowsHitTesting(false)
-        .accessibilityLabel("Loading your diary")
     }
 
     /// §3.5 — the diary with nothing in it. Not a `ContentUnavailableView`: nothing is unavailable,

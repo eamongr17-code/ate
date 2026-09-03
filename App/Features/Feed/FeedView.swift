@@ -51,11 +51,19 @@ struct FeedView: View {
         }
     }
 
-    @ViewBuilder
+    /// §5: the one loading system. The gate owns the `.loading` phase — nothing is drawn for the
+    /// first 150ms (most pages arrive inside it), then redacted real rows that breathe, then a 0.2s
+    /// crossfade to the feed.
     private var content: some View {
+        phaseContent
+            .skeleton(isLoading: store.phase == .loading, label: "Loading the feed") { loadingList }
+    }
+
+    @ViewBuilder
+    private var phaseContent: some View {
         switch store.phase {
         case .loading:
-            loadingList
+            Color.clear
         case .ready:
             feedList
         case .empty:
@@ -81,7 +89,8 @@ struct FeedView: View {
     // MARK: - States
 
     /// Redacted real rows, not a spinner: the list is already the right shape when content lands,
-    /// so nothing reflows and the eye stays where it was.
+    /// so nothing reflows and the eye stays where it was. The redaction, the hit-testing and the
+    /// label come from `.skeleton` — this is just the shape.
     private var loadingList: some View {
         let placeholders = FeedPlaceholder.entries(count: 4)
         return List(placeholders) { entry in
@@ -90,9 +99,6 @@ struct FeedView: View {
         }
         .listStyle(.plain)
         .background(Theme.Color.background)
-        .redacted(reason: .placeholder)
-        .allowsHitTesting(false)
-        .accessibilityLabel("Loading the feed")
     }
 
     private var feedList: some View {
