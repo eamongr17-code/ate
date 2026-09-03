@@ -81,24 +81,19 @@ private struct RootTabView: View {
     /// Computed rather than stored because the entry view's seams have to close over this view's
     /// `@State` — which step the log sheet opens on — and `self` doesn't exist yet in `init`.
     ///
-    /// TODO(lane-b, App/Features/DishDetail/DetailDestinations.swift): Lane B adds
-    /// `DetailContext.withDiary(entry:siblings:onLogAgain:)`. When it lands, this body becomes:
-    ///
-    ///     baseDetail.withDiary(
-    ///         entry: { [diaryStore] id in diaryStore.entry(withReviewID: id) },
-    ///         siblings: { [diaryStore] id in diaryStore.sittingSiblings(ofReviewID: id) },
-    ///         onLogAgain: { entry in
-    ///             logEntry = entry
-    ///             isLoggingPresented = true
-    ///         }
-    ///     )
-    ///
-    /// Everything that call needs already exists and is tested: both store lookups are Lane A's, and
-    /// `siblings` deliberately reads through the same ``DiaryGrouping`` the list is drawn from, so
-    /// the entry view can never claim a sitting the diary doesn't show. Only `withDiary` itself is
-    /// missing — adding it here would collide with Lane B's own copy of that file, which is the one
-    /// thing an A-then-B merge must not have to resolve by hand.
-    private var detail: DetailContext { baseDetail }
+    /// The entry view resolves synchronously from the diary's loaded page, and `siblings` reads
+    /// through the same ``DiaryGrouping`` the list is drawn from — so the entry view can never
+    /// claim a sitting the diary doesn't show. "Log this again" opens the sheet pre-resolved.
+    private var detail: DetailContext {
+        baseDetail.withDiary(
+            entry: { [diaryStore] id in diaryStore.entry(withReviewID: id) },
+            siblings: { [diaryStore] id in diaryStore.sittingSiblings(ofReviewID: id) },
+            onLogAgain: { entry in
+                logEntry = entry
+                isLoggingPresented = true
+            }
+        )
+    }
 
     /// Which backend this build talks to, shown in Diary's bar. Debug only — a Release build must
     /// never display it, and this is the one place that decides that.
