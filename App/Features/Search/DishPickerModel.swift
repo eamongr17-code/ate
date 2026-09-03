@@ -31,9 +31,14 @@ final class DishPickerModel {
     private(set) var isCreating = false
     private(set) var hasLoadedDefaults = false
 
-    /// The name the "Add '<query>' as a new dish" row would create, or nil when it must not appear.
-    private(set) var createQuery: String?
+    /// §6: the add row is **permanently visible**, so this is what it *does*, not whether it exists.
+    private(set) var createRow: CreateRowState = .empty
+    /// The last query for which the direct-create state was reported, so `create_shown` fires once
+    /// per distinct query on the transition INTO that state — not on every keystroke that stays in it.
     private var createShownFor: String?
+
+    /// Non-nil presents the §6 add-a-dish form.
+    var addDishRequest: AddDishRequest?
 
     private var hasSentOpened = false
 
@@ -116,7 +121,9 @@ final class DishPickerModel {
     func search(_ rawQuery: String) async {
         guard let query = policy.query(from: rawQuery) else {
             results = nil
-            createQuery = nil
+            // No query — or one below the search threshold — is a *state* of the standing row now,
+            // not its absence.
+            updateCreateRow(rawQuery: rawQuery, rows: nil)
             isSearching = false
             return
         }
@@ -141,7 +148,7 @@ final class DishPickerModel {
             let matchedHistory = history.filter { $0.name.localizedCaseInsensitiveContains(query) }
             let rows = DishSearchRanking.flatten(history: matchedHistory, catalogue: catalogue)
             results = rows
-            updateCreateFallback(query: query, rows: rows)
+            updateCreateRow(rawQuery: query, rows: rows)
 
             services.telemetry.send(.query(
                 subject: subject,
@@ -158,19 +165,49 @@ final class DishPickerModel {
         }
     }
 
-    /// §11.4: the create row appears only when nothing here is case-insensitively equal to the
-    /// query — near-duplicates are deliberately NOT blocked, and the row is never a top-level button.
-    private func updateCreateFallback(query: String, rows: [DishRowModel]) {
+    /// §6 — supersedes §11.4's gate. The row is always there; this decides which of its three
+    /// behaviours a tap gets, and reports the one that matters to the funnel.
+    ///
+    /// `rows == nil` means no filtered list exists yet (empty query, or one below the search
+    /// threshold). Without a filtered list we can't claim "nothing here matches", so a typed name
+    /// goes through the sheet rather than being minted on one tap.
+    private func updateCreateRow(rawQuery: String, rows: [DishRowModel]?) {
         guard offersCreateFallback else {
-            createQuery = nil
+            createRow = .empty
             return
         }
-        createQuery = DishDedup.shouldOfferCreate(query: query, existingNames: rows.map(\.name))
-            ? query
-            : nil
-        guard let createQuery, createShownFor != createQuery else { return }
-        createShownFor = createQuery
+        let typed = policy.normalize(rawQuery)
+        guard !typed.isEmpty else {
+            createRow = .empty
+            createShownFor = nil
+            return
+        }
+        guard let rows else {
+            createRow = .prefilled(name: typed, hasExactMatch: false)
+            createShownFor = nil
+            return
+        }
+        createRow = DishDedup.createRowState(query: typed, existingNames: rows.map(\.name))
+        // §6: `create_shown` now means "one tap from here creates a dish", once per distinct query.
+        guard createRow.isDirectCreate, createShownFor != typed else { return }
+        createShownFor = typed
         services.telemetry.send(.createShown(subject: subject))
+    }
+
+    /// Every name currently on screen — what the Add sheet re-checks the edited name against, so its
+    /// guard uses the same candidate set the row's state was decided from.
+    var visibleNames: [String] {
+        (results ?? (history + menu)).map(\.name)
+    }
+
+    /// The standing row was tapped, whatever state it was in — the denominator `create_used` never
+    /// had. Fired before the work, so an abandoned sheet still counts as an attempt.
+    func recordCreateRowTapped() {
+        services.telemetry.send(.createRowTapped(
+            subject: subject,
+            hadQuery: createRow.hadQuery,
+            mode: createRow.mode
+        ))
     }
 
     // MARK: - Selection

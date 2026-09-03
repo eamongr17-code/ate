@@ -78,10 +78,24 @@ struct SearchQueryTests {
         #expect(SearchEvent.query(subject: subject, length: 3, resultCount: 2, milliseconds: 120).name
             == "search_query")
         #expect(SearchEvent.resultSelected(subject: subject, kind: "place", index: 0).name == "search_result_selected")
-        #expect(SearchEvent.createShown(subject: subject).name == "search_create_shown")
+        // Renamed AND redefined with the standing add row (§6): `search_create_shown` counted a row
+        // appearing; `create_shown` counts entering the state where one tap would create. The name
+        // change is deliberate so the two series can't be silently concatenated.
+        #expect(SearchEvent.createShown(subject: subject).name == "create_shown")
         #expect(SearchEvent.createUsed(subject: subject).name == "search_create_used")
+        #expect(SearchEvent.createRowTapped(subject: subject, hadQuery: true, mode: .direct).name
+            == "create_row_tapped")
         #expect(SearchEvent.zeroResults(subject: subject, queryLength: 7).name == "search_zero_results")
         #expect(SearchEvent.dishCreateFallbackUsed(restaurantID: UUID()).name == "dish_create_fallback_used")
+    }
+
+    @Test("create_row_tapped carries the subject, whether anything was typed, and what it did")
+    func createRowTappedParameters() {
+        let subject = SearchSubject.dishes(restaurantID: UUID(), restaurantName: "Chin Chin")
+        #expect(SearchEvent.createRowTapped(subject: subject, hadQuery: true, mode: .direct).parameters
+            == ["subject": "dishes", "had_query": "true", "mode": "direct"])
+        #expect(SearchEvent.createRowTapped(subject: .restaurants, hadQuery: false, mode: .sheet).parameters
+            == ["subject": "restaurants", "had_query": "false", "mode": "sheet"])
     }
 
     @Test("search_query carries the four parameters the funnel slices on")

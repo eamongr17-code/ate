@@ -38,6 +38,10 @@ public struct ReceiptModel: Sendable, Hashable {
 
     public let restaurantName: String
     public let suburb: String?
+    /// Rule R (§5): the on-screen place line is a link when this is known. It is deliberately NOT
+    /// used by the exported image — the export must stay byte-identical whether or not the app can
+    /// navigate — and is Optional so a preview or a fixture can leave it out.
+    public let restaurantID: UUID?
     public let lines: [Line]
     public let author: Author?
     public let date: Date
@@ -45,12 +49,14 @@ public struct ReceiptModel: Sendable, Hashable {
     public init(
         restaurantName: String,
         suburb: String?,
+        restaurantID: UUID? = nil,
         lines: [Line],
         author: Author?,
         date: Date = Date()
     ) {
         self.restaurantName = restaurantName
         self.suburb = suburb
+        self.restaurantID = restaurantID
         self.lines = lines
         self.author = author
         self.date = date
@@ -62,6 +68,7 @@ public struct ReceiptModel: Sendable, Hashable {
         self.init(
             restaurantName: sitting.restaurant.name,
             suburb: sitting.restaurant.suburb,
+            restaurantID: sitting.restaurant.id,
             lines: sitting.dishes.compactMap { dish in
                 guard let score = dish.score else { return nil }
                 return Line(

@@ -34,6 +34,9 @@ struct SearchView: View {
             )
             .navigationTitle("Search")
             .detailDestinations(source: .search, context: detail)
+            // Rule R (§5): a restaurant name anywhere inside this stack — a dish detail header
+            // reached from a search result, for instance — pushes through here.
+            .stackRouting(path: $path, analytics: detail.analytics)
         }
     }
 }

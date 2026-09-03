@@ -13,20 +13,67 @@ struct DetailContext {
     /// passes its sheet presenter here; nothing else about the detail screens changes.
     let onLogDish: (@MainActor () -> Void)?
 
+    // MARK: Diary entry seams (§4)
+    //
+    // The entry view is normally resolved with NO network: the review is already on the diary's
+    // loaded page, so pushing an entry is instant and cannot fail. These three closures are how it
+    // asks, without ``DiaryEntryView`` having to know that ``DiaryStore`` exists — which also keeps
+    // the diary's paging store free of a by-id index it would otherwise grow just for this screen.
+
+    /// The already-loaded review, by id. Nil closure (or a nil result) falls through to
+    /// ``entryFetcher``.
+    let diaryEntry: (@MainActor (UUID) -> FeedEntry?)?
+    /// The OTHER dishes of the same sitting, newest first, excluding the entry itself. Defaults to
+    /// none — the "Part of a sitting at …" block simply doesn't render, which is also the correct
+    /// answer for a single-dish sitting and for an entry reached from outside the diary.
+    let diarySittingSiblings: (@MainActor (UUID) -> [FeedEntry])?
+    /// The by-id read, for an entry reached from outside the diary (a deep link, a restored path).
+    let entryFetcher: (any DiaryEntryFetching)?
+    /// Opens the Log sheet pre-resolved — "Log this again" (§4). Nil hides the row rather than
+    /// showing one that does nothing.
+    let onLogAgain: (@MainActor (LogEntry) -> Void)?
+
     init(
         dataSource: any DetailDataSource,
         analytics: @escaping AnalyticsRecorder = DetailTelemetry.live,
-        onLogDish: (@MainActor () -> Void)? = nil
+        onLogDish: (@MainActor () -> Void)? = nil,
+        diaryEntry: (@MainActor (UUID) -> FeedEntry?)? = nil,
+        diarySittingSiblings: (@MainActor (UUID) -> [FeedEntry])? = nil,
+        entryFetcher: (any DiaryEntryFetching)? = nil,
+        onLogAgain: (@MainActor (LogEntry) -> Void)? = nil
     ) {
         self.dataSource = dataSource
         self.analytics = analytics
         self.onLogDish = onLogDish
+        self.diaryEntry = diaryEntry
+        self.diarySittingSiblings = diarySittingSiblings
+        self.entryFetcher = entryFetcher
+        self.onLogAgain = onLogAgain
     }
 
     /// Built from the app's single shared API client — one client, one URLSession, one auth session
     /// for feed, search and detail alike.
     static func live(api: AteAPIClient) -> DetailContext {
-        DetailContext(dataSource: AteDetailClient(api: api))
+        DetailContext(dataSource: AteDetailClient(api: api), entryFetcher: DiaryEntryClient(api: api))
+    }
+
+    /// The same context with the diary seams filled in. The tab scaffold calls this once it has the
+    /// store — a method rather than more `init` parameters at the call site, so wiring the diary is
+    /// one line and the rest of the context is built exactly as every other tab builds it.
+    func withDiary(
+        entry: @escaping @MainActor (UUID) -> FeedEntry?,
+        siblings: @escaping @MainActor (UUID) -> [FeedEntry],
+        onLogAgain: (@MainActor (LogEntry) -> Void)? = nil
+    ) -> DetailContext {
+        DetailContext(
+            dataSource: dataSource,
+            analytics: analytics,
+            onLogDish: onLogDish,
+            diaryEntry: entry,
+            diarySittingSiblings: siblings,
+            entryFetcher: entryFetcher,
+            onLogAgain: onLogAgain ?? self.onLogAgain
+        )
     }
 }
 
@@ -62,24 +109,7 @@ extension View {
                 )
             }
             .navigationDestination(for: DiaryEntryRoute.self) { route in
-                DiaryEntryPlaceholderView(reviewID: route.reviewID)
+                DiaryEntryView(reviewID: route.reviewID, context: context)
             }
-    }
-}
-
-/// Stands in for `DiaryEntryView` until the entry view lands, so the route is registered in every
-/// stack from the day the scaffold ships and nothing has to be re-plumbed to hang the real screen
-/// on it. Replaced wholesale — not extended.
-private struct DiaryEntryPlaceholderView: View {
-    let reviewID: UUID
-
-    var body: some View {
-        ContentUnavailableView(
-            "Entry",
-            systemImage: "book.closed",
-            description: Text(verbatim: reviewID.uuidString.lowercased())
-        )
-        .navigationTitle("Entry")
-        .navigationBarTitleDisplayMode(.inline)
     }
 }

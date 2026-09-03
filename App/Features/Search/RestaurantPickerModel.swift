@@ -30,10 +30,13 @@ final class RestaurantPickerModel {
     private(set) var resolvingRowID: String?
     private(set) var hasLoadedDefaults = false
 
-    /// The query the create-fallback would create, or nil when it must not be offered (§11.2:
-    /// only when the blend came back completely empty on a ≥2-char query, and never above results).
+    /// §6 — supersedes §11.2's zero-results gate. The add row is permanently visible and demoted;
+    /// this is only what it would carry into the form. Nil = no query typed, so an empty form.
+    ///
+    /// There is no direct-create state for restaurants (and therefore no `create_shown`): a
+    /// restaurant needs a suburb to be worth anything to the next person, so it always goes through
+    /// ``AddRestaurantSheet``.
     private(set) var createQuery: String?
-    private var createShownFor: String?
 
     /// Non-nil presents the §11.2 add-a-restaurant form.
     var addRestaurantRequest: AddRestaurantRequest?
@@ -77,7 +80,9 @@ final class RestaurantPickerModel {
     func search(_ rawQuery: String, origin: SearchOrigin? = nil) async {
         guard let query = policy.query(from: rawQuery) else {
             results = nil
-            createQuery = nil
+            // A one-character query still fires no request, but what was typed is not thrown away:
+            // it pre-fills the add form (§6). Only a genuinely empty field offers an empty one.
+            createQuery = policy.normalize(rawQuery).nilIfBlank
             isSearching = false
             return
         }
@@ -97,7 +102,7 @@ final class RestaurantPickerModel {
             )
             guard !Task.isCancelled else { return }
             results = rows
-            updateCreateFallback(query: query, resultCount: rows.count)
+            createQuery = query
             services.telemetry.send(.query(
                 subject: .restaurants,
                 length: query.count,
@@ -114,12 +119,14 @@ final class RestaurantPickerModel {
         }
     }
 
-    private func updateCreateFallback(query: String, resultCount: Int) {
-        // §11.2: only on a genuinely empty result set, and only as the last row.
-        createQuery = resultCount == 0 ? query : nil
-        guard let createQuery, createShownFor != createQuery else { return }
-        createShownFor = createQuery
-        services.telemetry.send(.createShown(subject: .restaurants))
+    /// The standing row was tapped (§6). Fired before the sheet opens, so an abandoned form still
+    /// counts as an attempt — which is the number `create_used` alone could never give.
+    func recordCreateRowTapped() {
+        services.telemetry.send(.createRowTapped(
+            subject: .restaurants,
+            hadQuery: createQuery != nil,
+            mode: .sheet
+        ))
     }
 
     // MARK: - Selection

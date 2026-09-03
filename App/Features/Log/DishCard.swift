@@ -37,6 +37,10 @@ struct DishCardModel: Identifiable, Hashable {
     let dishID: UUID
     let restaurantName: String
     let restaurantSuburb: String?
+    /// Rule R (§5): with an id in hand the place line becomes a link. `nil` where the card is
+    /// composed rather than read (the sitting canvas already knows where you are) — the line then
+    /// renders as plain text, never as a dead affordance.
+    let restaurantID: UUID?
     /// `nil` is the unrated state, rendered `–/5` (§3.3). Never zero.
     let score: Double?
     let reviewCount: Int?
@@ -51,6 +55,7 @@ struct DishCardModel: Identifiable, Hashable {
         dishID: UUID,
         restaurantName: String,
         restaurantSuburb: String? = nil,
+        restaurantID: UUID? = nil,
         score: Double? = nil,
         reviewCount: Int? = nil,
         note: String? = nil,
@@ -63,6 +68,7 @@ struct DishCardModel: Identifiable, Hashable {
         self.dishID = dishID
         self.restaurantName = restaurantName
         self.restaurantSuburb = restaurantSuburb
+        self.restaurantID = restaurantID
         self.score = score
         self.reviewCount = reviewCount
         self.note = note
@@ -80,6 +86,7 @@ struct DishCardModel: Identifiable, Hashable {
             dishID: entry.dish.canonicalID,
             restaurantName: entry.restaurant.name,
             restaurantSuburb: entry.restaurant.locality,
+            restaurantID: entry.restaurant.id,
             score: entry.review.score.value,
             note: entry.review.note,
             photo: entry.review.photoURL.map(DishCardPhoto.remote),
@@ -108,6 +115,15 @@ enum DishCardMode: Hashable {
     /// The receipt draws its own surface — a card-on-card would read as a screenshot of the app
     /// rather than as an artifact.
     var hasContainer: Bool { self != .receipt }
+
+    /// Rule R (§5): the read modes that sit inside a navigable list. The compose card's place line
+    /// is the restaurant you are *currently at* and must not navigate away mid-sitting; the receipt
+    /// and detail cards carry the place elsewhere on their screens.
+    var linksToRestaurant: Bool { self == .feed || self == .diary }
+
+    /// Which Rule R site this card's place line is, for `restaurant_name_tapped`. `.diary` is the
+    /// journal entry view — the diary *list* uses compact rows, not cards (§3.3).
+    var restaurantLinkOrigin: RestaurantLinkOrigin { self == .feed ? .feedRow : .diaryEntry }
 }
 
 /// What a card can do. Everything defaults to nothing, so a read-mode card is `DishCard(model:mode:)`
@@ -200,12 +216,31 @@ struct DishCard: View {
                 .foregroundStyle(foreground)
                 .lineLimit(2)
                 .truncationMode(.tail)
+            placeLineView
+        }
+    }
+
+    /// Rule R (§5). Deliberately NOT inside the identity block's combined accessibility element —
+    /// a combined element would swallow the link and leave the restaurant unreachable by VoiceOver,
+    /// which is the exact failure Rule R exists to prevent.
+    @ViewBuilder
+    private var placeLineView: some View {
+        if mode.linksToRestaurant, let restaurantID = model.restaurantID {
+            RestaurantNameLink(
+                name: model.restaurantName,
+                suburb: model.restaurantSuburb,
+                restaurantID: restaurantID,
+                from: mode.restaurantLinkOrigin,
+                style: .inline,
+                font: Theme.Text.detail,
+                foreground: secondaryForeground
+            )
+        } else {
             Text(placeLine)
                 .font(Theme.Text.detail)
                 .foregroundStyle(secondaryForeground)
                 .lineLimit(1)
         }
-        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
