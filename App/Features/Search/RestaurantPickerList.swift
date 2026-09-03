@@ -86,33 +86,42 @@ struct RestaurantPickerList: View {
     @ViewBuilder
     private func resultsSection(_ results: [RestaurantRowModel]) -> some View {
         Section {
-            // §11.5: the stock empty state — but NOT when the create row is there. A
+            // §6: the empty state keeps its words but gives up its height. A full
             // `ContentUnavailableView` in a list row is greedy: on a phone with the keyboard up it
-            // filled the visible list and pushed "Add “…” as a restaurant" below the fold, so the
-            // one screen that offers the fallback looked like a dead end. The dish picker already
-            // had this guard; the restaurant picker didn't, and that is the whole of
-            // "add-restaurant doesn't work". The create row IS the empty state's action.
-            if results.isEmpty, !model.isSearching, model.createQuery == nil {
-                ContentUnavailableView.search(text: searchText)
+            // filled the visible list and pushed "Add “…” as a restaurant" below the fold, which was
+            // the whole of "add-restaurant doesn't work". The add row is now permanent, so this
+            // trade is permanent too — the row must never be the thing that scrolls out of reach.
+            if results.isEmpty, !model.isSearching {
+                Text("No places match “\(searchText)”.")
+                    .font(Theme.Text.detail)
+                    .foregroundStyle(Theme.Color.textSecondary)
                     .listRowSeparator(.hidden)
             }
             ForEach(Array(results.enumerated()), id: \.element.id) { index, row in
                 rowButton(row, index: index)
             }
-            if let createQuery = model.createQuery {
-                // A `Button`, like every other row: a bare `.onTapGesture` inside a `List` competes
-                // with the list's own touch handling and gives the row no accessibility trait.
-                // §11.2's "never a top-level button" is about *position* — it is still the last row.
-                Button {
-                    model.addRestaurantRequest = AddRestaurantRequest(name: createQuery)
-                } label: {
-                    SearchCreateRow(title: "Add “\(createQuery)” as a restaurant", isBusy: false)
-                }
-                .buttonStyle(.plain)
-            }
+            createRow
         } header: {
             sectionHeader("Results", isBusy: model.isSearching)
         }
+    }
+
+    /// The standing add row (§6): permanently visible, permanently last, visually demoted. A
+    /// `Button`, like every other row — a bare `.onTapGesture` inside a `List` competes with the
+    /// list's own touch handling and gives the row no accessibility trait.
+    private var createRow: some View {
+        Button {
+            model.recordCreateRowTapped()
+            model.addRestaurantRequest = AddRestaurantRequest(name: model.createQuery ?? "")
+        } label: {
+            SearchCreateRow(title: createRowTitle, isBusy: false)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var createRowTitle: LocalizedStringKey {
+        guard let query = model.createQuery else { return "Add a restaurant" }
+        return "Add “\(query)” as a restaurant"
     }
 
     @ViewBuilder
@@ -142,13 +151,14 @@ struct RestaurantPickerList: View {
                 }
             }
             if model.nearby.isEmpty, model.recents.isEmpty, model.failure == nil {
-                ContentUnavailableView(
-                    "Search for a place",
-                    systemImage: "magnifyingglass",
-                    description: Text("Start typing a restaurant name.")
-                )
-                .listRowSeparator(.hidden)
+                Text("Start typing a restaurant name.")
+                    .font(Theme.Text.detail)
+                    .foregroundStyle(Theme.Color.textSecondary)
+                    .listRowSeparator(.hidden)
             }
+            // §6: under Nearby/Recent the add row is its own final, unheaded section — not a member
+            // of either list of real places.
+            Section { createRow }
         }
     }
 

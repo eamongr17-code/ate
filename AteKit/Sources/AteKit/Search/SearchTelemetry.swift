@@ -13,10 +13,18 @@ public enum SearchEvent: Sendable, Hashable {
     case query(subject: SearchSubject, length: Int, resultCount: Int, milliseconds: Int)
     /// Fired on a successful selection. `index` is the row's position in the rendered list.
     case resultSelected(subject: SearchSubject, kind: String, index: Int)
-    /// Fired the first time a create-fallback row becomes visible for a given query.
+    /// **Redefined (journal-first §6).** The add row is now permanently visible, so "it appeared" is
+    /// no longer a signal. This fires on the *transition into the direct-create state* — the query
+    /// has no exact match, so one tap would create and select — once per distinct query.
+    ///
+    /// Series break: the name changed from `search_create_shown` to `create_shown` at the same time,
+    /// so the old series can't be silently concatenated onto a differently-defined new one.
     case createShown(subject: SearchSubject)
     /// Fired when the create-fallback row is tapped.
     case createUsed(subject: SearchSubject)
+    /// **New (§6).** The standing add row was tapped, whatever state it was in — the denominator
+    /// `create_used` never had. `mode` says whether the tap created directly or opened a sheet.
+    case createRowTapped(subject: SearchSubject, hadQuery: Bool, mode: CreateRowMode)
     /// Fired when a query ≥ the minimum length returns nothing.
     case zeroResults(subject: SearchSubject, queryLength: Int)
     /// Brief addendum: a dish was actually created from the picker's fallback.
@@ -27,8 +35,9 @@ public enum SearchEvent: Sendable, Hashable {
         case .opened: "search_opened"
         case .query: "search_query"
         case .resultSelected: "search_result_selected"
-        case .createShown: "search_create_shown"
+        case .createShown: "create_shown"
         case .createUsed: "search_create_used"
+        case .createRowTapped: "create_row_tapped"
         case .zeroResults: "search_zero_results"
         case .dishCreateFallbackUsed: "dish_create_fallback_used"
         }
@@ -51,12 +60,26 @@ public enum SearchEvent: Sendable, Hashable {
             ["subject": subject.telemetryName, "kind": kind, "index": String(index)]
         case .createShown(let subject), .createUsed(let subject):
             ["subject": subject.telemetryName]
+        case .createRowTapped(let subject, let hadQuery, let mode):
+            [
+                "subject": subject.telemetryName,
+                "had_query": hadQuery ? "true" : "false",
+                "mode": mode.rawValue
+            ]
         case .zeroResults(let subject, let queryLength):
             ["subject": subject.telemetryName, "query_length": String(queryLength)]
         case .dishCreateFallbackUsed(let restaurantID):
             ["restaurant_id": restaurantID.uuidString]
         }
     }
+}
+
+/// What the standing add row did when it was tapped (§6): resolved in place, or opened a form.
+public enum CreateRowMode: String, Sendable, Hashable, CaseIterable {
+    /// Non-empty query, no exact match: creates and selects with zero extra taps.
+    case direct
+    /// Empty query, or an exact match that has to be renamed — a minimal Add sheet.
+    case sheet
 }
 
 /// `.browse` / `.pick` as it appears on the wire. The view's `SearchContext` carries a closure and

@@ -8,8 +8,8 @@ import SwiftUI
 /// claim nobody made, and is the legacy bug this atom exists to make impossible.
 ///
 /// It takes a `Double?` rather than a `Rating?` because it renders *aggregates* too (4.3 is not a
-/// half-step). ``ScoreLabel`` is the Feed's row-sized version of the same idea; this one is the card
-/// and detail scale, and the two converge when the feed adopts ``DishCard``.
+/// half-step). The Feed's own `ScoreLabel` is gone with `FeedRow` (§2): the feed renders ``DishCard``
+/// now, so this is the only score mark in the app.
 struct ScoreMark: View {
     let score: Double?
     /// Optional trailing `(12)`. §3.3: detail and menu contexts only — never on a compose card,

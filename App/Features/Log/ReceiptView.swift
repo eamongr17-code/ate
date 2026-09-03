@@ -118,11 +118,29 @@ struct ReceiptArtifact: View {
     }
 
     // 3. Restaurant + suburb — once, at the top, never per dish.
+    //
+    // Rule R (§5) applies to the ON-SCREEN artifact only: `isExport` renders the place as flat text,
+    // so the shared image is byte-identical whether or not the app could have navigated. The link
+    // also renders as text wherever no restaurant routing is installed, which is the case inside the
+    // Log sheet today — the seam is here for the day the sheet can push.
+    @ViewBuilder
     private var place: some View {
-        Text(receipt.placeLine)
-            .font(Theme.Text.detail)
-            .foregroundStyle(Theme.Color.receiptSecondary)
-            .lineLimit(2)
+        if !isExport, let restaurantID = receipt.restaurantID {
+            RestaurantNameLink(
+                name: receipt.restaurantName,
+                suburb: receipt.suburb,
+                restaurantID: restaurantID,
+                from: .receipt,
+                style: .inline,
+                font: Theme.Text.detail,
+                foreground: Theme.Color.receiptSecondary
+            )
+        } else {
+            Text(receipt.placeLine)
+                .font(Theme.Text.detail)
+                .foregroundStyle(Theme.Color.receiptSecondary)
+                .lineLimit(2)
+        }
     }
 
     // 1 + 2 + 4, single dish: the score is the hero, the photo backs it up.

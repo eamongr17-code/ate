@@ -127,4 +127,68 @@ struct DishDedupTests {
         #expect(DishDedup.isSameName("Pad Thai", "Pad Thai Special") == false)
         #expect(DishDedup.isSameName("", "") == false)
     }
+
+    // MARK: - The standing add row (§6)
+
+    @Test("an empty query offers an empty form, not a create")
+    func emptyQueryIsTheEmptyState() {
+        #expect(DishDedup.createRowState(query: "", existingNames: ["Brisket"]) == .empty)
+        #expect(DishDedup.createRowState(query: "   ", existingNames: ["Brisket"]) == .empty)
+    }
+
+    @Test("a query nothing here matches creates in one tap")
+    func directCreate() {
+        let names = ["Brisket", "Mac and Cheese"]
+        #expect(DishDedup.createRowState(query: "Burnt ends", existingNames: names)
+            == .direct(name: "Burnt ends"))
+        // Trimmed for what gets stored, but the inner spacing the person typed is left alone.
+        #expect(DishDedup.createRowState(query: "  Pad  Thai  ", existingNames: names)
+            == .direct(name: "Pad  Thai"))
+    }
+
+    @Test("an exact match sends the tap to a form that refuses that exact name")
+    func exactMatchIsGuarded() {
+        let names = ["Margherita", "Marinara"]
+        #expect(DishDedup.createRowState(query: "margherita", existingNames: names)
+            == .prefilled(name: "margherita", hasExactMatch: true))
+        #expect(DishDedup.createRowState(query: "  MARGHERITA ", existingNames: names)
+            == .prefilled(name: "MARGHERITA", hasExactMatch: true))
+    }
+
+    @Test("near-duplicates stay unblocked — they are a merge concern, not a create one")
+    func nearDuplicatesStillCreateDirectly() {
+        let names = ["Margherita"]
+        #expect(DishDedup.createRowState(query: "Margherita Special", existingNames: names).isDirectCreate)
+        #expect(DishDedup.createRowState(query: "Marg's", existingNames: names).isDirectCreate)
+    }
+
+    @Test("a query too short to mint blind goes through the form instead of vanishing")
+    func belowMinimumUsesTheForm() {
+        let state = DishDedup.createRowState(query: "b", existingNames: ["Brisket"])
+        #expect(state == .prefilled(name: "b", hasExactMatch: false))
+        #expect(state.mode == .sheet)
+        #expect(state.hadQuery)
+    }
+
+    @Test("the row's state decides its mode and whether anything was typed")
+    func modeAndQueryReporting() {
+        #expect(CreateRowState.empty.mode == .sheet)
+        #expect(CreateRowState.empty.hadQuery == false)
+        #expect(CreateRowState.empty.query == nil)
+        #expect(CreateRowState.direct(name: "Brisket").mode == .direct)
+        #expect(CreateRowState.direct(name: "Brisket").query == "Brisket")
+        #expect(CreateRowState.prefilled(name: "Brisket", hasExactMatch: true).mode == .sheet)
+    }
+
+    @Test("the state agrees with the old gate wherever the old gate still applies")
+    func stateAgreesWithTheGate() {
+        let names = ["Brisket", "Mac and Cheese"]
+        for query in ["br", "brisket", "  BRISKET ", "Brisket Roll", "mac and cheese", "burnt ends"] {
+            #expect(
+                DishDedup.createRowState(query: query, existingNames: names).isDirectCreate
+                    == DishDedup.shouldOfferCreate(query: query, existingNames: names),
+                "diverged on '\(query)'"
+            )
+        }
+    }
 }

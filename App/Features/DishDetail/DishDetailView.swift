@@ -67,22 +67,16 @@ struct DishDetailView: View {
             )
             .padding(.vertical, Theme.Spacing.snug)
 
-            // Tapping through to the restaurant is the second half of "what should I order here?" —
-            // a plain navigation row, so it behaves like every other disclosure in the app. It
-            // pushes a *value*: the hosting stack's `detailDestinations` builds the screen, which is
-            // what keeps the dependencies and the funnel `source` identical however deep we are.
-            NavigationLink(value: RestaurantRoute(restaurantID: restaurant.id)) {
-                VStack(alignment: .leading, spacing: Theme.Spacing.hairline) {
-                    Text(restaurant.name)
-                        .font(Theme.Text.itemTitle)
-                        .foregroundStyle(Theme.Color.textPrimary)
-                    if let suburb = restaurant.locality {
-                        Text(suburb)
-                            .font(Theme.Text.caption)
-                            .foregroundStyle(Theme.Color.textSecondary)
-                    }
-                }
-            }
+            // Tapping through to the restaurant is the second half of "what should I order here?".
+            // Rule R's shared component (§5) rather than a bespoke link, so this row and the place
+            // line on a feed card are the same affordance and report the same event.
+            RestaurantNameLink(
+                name: restaurant.name,
+                suburb: restaurant.locality,
+                restaurantID: restaurant.id,
+                from: .dishDetail,
+                style: .disclosureRow
+            )
         }
     }
 

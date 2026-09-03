@@ -38,6 +38,9 @@ struct FeedView: View {
                 // Registered once, at this stack's root: every dish and restaurant reached from the
                 // feed — including onward pushes inside detail — resolves here as `source: .feed`.
                 .detailDestinations(source: .feed, context: detail)
+                // Rule R's other half: every restaurant name in this stack, at any depth, pushes
+                // through here (§5).
+                .stackRouting(path: $path, analytics: detail.analytics)
         }
         .task {
             store.recordFeedViewed()
@@ -80,8 +83,9 @@ struct FeedView: View {
     /// Redacted real rows, not a spinner: the list is already the right shape when content lands,
     /// so nothing reflows and the eye stays where it was.
     private var loadingList: some View {
-        List(FeedPlaceholder.entries(count: 6)) { entry in
-            FeedRow(entry: entry)
+        List(FeedPlaceholder.entries(count: 4)) { entry in
+            DishCard(model: DishCardModel(entry), mode: .feed)
+                .feedRow()
         }
         .listStyle(.plain)
         .redacted(reason: .placeholder)
@@ -92,14 +96,9 @@ struct FeedView: View {
     private var feedList: some View {
         List {
             ForEach(store.entries) { entry in
-                Button {
-                    store.recordTap(on: entry)
-                    path.append(entry.dishRoute)
-                } label: {
-                    FeedRow(entry: entry)
-                }
-                .buttonStyle(.plain)
-                .task { await store.loadMoreIfNeeded(after: entry) }
+                card(for: entry)
+                    .feedRow()
+                    .task { await store.loadMoreIfNeeded(after: entry) }
             }
 
             if store.isLoadingMore {
@@ -114,6 +113,59 @@ struct FeedView: View {
         }
         .listStyle(.plain)
         .refreshable { await store.refresh() }
+    }
+
+    // MARK: - The row
+
+    /// One review, as the app's one dish card (§2 — `FeedRow` is gone; two renderings of one review
+    /// is the legacy failure this codebase exists to avoid).
+    ///
+    /// **The nested tap targets are the load-bearing part (§5).** The row's own tap is an
+    /// `onTapGesture` on a `contentShape`'d container, *not* an outer `Button`: an outer button
+    /// consumes every touch inside its bounds, so the restaurant link in the place line would never
+    /// fire. Two flat siblings, not a button inside a button.
+    ///
+    /// VoiceOver can't discover a nested target by geometry, so the card is presented as one element
+    /// with a written label, a default action (open the dish) and a custom action (open the
+    /// restaurant) — the same two things the context menu offers a sighted user.
+    private func card(for entry: FeedEntry) -> some View {
+        DishCard(model: DishCardModel(entry), mode: .feed)
+            .contentShape(.rect)
+            .onTapGesture { openDish(entry) }
+            .contextMenu {
+                Button("Open dish", systemImage: "fork.knife") { openDish(entry) }
+                Button("Open \(entry.restaurant.name)", systemImage: "building.2") {
+                    openRestaurant(entry)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityLabel(for: entry))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { openDish(entry) }
+            .accessibilityAction(named: "Open \(entry.restaurant.name)") { openRestaurant(entry) }
+    }
+
+    private func openDish(_ entry: FeedEntry) {
+        store.recordTap(on: entry)
+        path.append(entry.dishRoute)
+    }
+
+    private func openRestaurant(_ entry: FeedEntry) {
+        detail.analytics(DiaryEvents.restaurantNameTapped(from: .feedRow))
+        path.append(RestaurantRoute(restaurantID: entry.restaurant.id))
+    }
+
+    /// Written rather than combined: a combined element reads the inner link's "Open …" label in the
+    /// middle of the review, and a card is one thing to a screen reader even when it is six views.
+    private func accessibilityLabel(for entry: FeedEntry) -> String {
+        var parts = [
+            entry.author?.handle ?? "Someone",
+            entry.dish.name,
+            [entry.restaurant.name, entry.restaurant.locality].compactMap { $0 }.joined(separator: ", "),
+            "rated \(ScoreFormat.outOfFive(entry.review.score.value))"
+        ]
+        if let note = entry.review.note, !note.isEmpty { parts.append(note) }
+        return parts.joined(separator: ", ")
     }
 
     private var loadingMoreRow: some View {
@@ -157,6 +209,20 @@ struct FeedView: View {
 }
 
 private extension View {
+    /// A card in a list: the card draws its own surface, so the row must not draw one too, and the
+    /// system separator would cut between two already-separate cards.
+    func feedRow() -> some View {
+        self
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(
+                top: Theme.Spacing.snug,
+                leading: Theme.Spacing.comfortable,
+                bottom: Theme.Spacing.snug,
+                trailing: Theme.Spacing.comfortable
+            ))
+    }
+
     /// `.refreshable` needs a scroll view to hang off; an empty state has none. Wrapping it in a
     /// `ScrollView` keeps pull-to-refresh working on the empty feed, which is the one screen where
     /// a user most wants to pull.

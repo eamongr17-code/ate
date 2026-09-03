@@ -47,9 +47,11 @@ private struct RootTabView: View {
     private let debugSignIn: DebugStagingSignIn?
 
     @State private var selection: RootTab = .diary
-    @State private var isLoggingPresented = false
-    /// Which step the sheet opens on — set by whichever door was used, read once on presentation.
-    @State private var logEntry: LogEntry = .tab
+    /// The log sheet's presentation AND its entry, as one value: non-nil presents, and the sheet
+    /// receives the entry it was opened with. One state, so a door can never present with a stale
+    /// step (a separate Bool + entry pair did exactly that — the entry write and the presentation
+    /// read landed on different copies).
+    @State private var presentedLogEntry: LogEntry?
     /// Bumped when the log sheet closes: the one moment the saved draft can have changed without the
     /// diary being on screen to notice.
     @State private var diaryDraftSignal = 0
@@ -81,24 +83,16 @@ private struct RootTabView: View {
     /// Computed rather than stored because the entry view's seams have to close over this view's
     /// `@State` — which step the log sheet opens on — and `self` doesn't exist yet in `init`.
     ///
-    /// TODO(lane-b, App/Features/DishDetail/DetailDestinations.swift): Lane B adds
-    /// `DetailContext.withDiary(entry:siblings:onLogAgain:)`. When it lands, this body becomes:
-    ///
-    ///     baseDetail.withDiary(
-    ///         entry: { [diaryStore] id in diaryStore.entry(withReviewID: id) },
-    ///         siblings: { [diaryStore] id in diaryStore.sittingSiblings(ofReviewID: id) },
-    ///         onLogAgain: { entry in
-    ///             logEntry = entry
-    ///             isLoggingPresented = true
-    ///         }
-    ///     )
-    ///
-    /// Everything that call needs already exists and is tested: both store lookups are Lane A's, and
-    /// `siblings` deliberately reads through the same ``DiaryGrouping`` the list is drawn from, so
-    /// the entry view can never claim a sitting the diary doesn't show. Only `withDiary` itself is
-    /// missing — adding it here would collide with Lane B's own copy of that file, which is the one
-    /// thing an A-then-B merge must not have to resolve by hand.
-    private var detail: DetailContext { baseDetail }
+    /// The entry view resolves synchronously from the diary's loaded page, and `siblings` reads
+    /// through the same ``DiaryGrouping`` the list is drawn from — so the entry view can never
+    /// claim a sitting the diary doesn't show. "Log this again" opens the sheet pre-resolved.
+    private var detail: DetailContext {
+        baseDetail.withDiary(
+            entry: { [diaryStore] id in diaryStore.entry(withReviewID: id) },
+            siblings: { [diaryStore] id in diaryStore.sittingSiblings(ofReviewID: id) },
+            onLogAgain: { entry in presentedLogEntry = entry }
+        )
+    }
 
     /// Which backend this build talks to, shown in Diary's bar. Debug only — a Release build must
     /// never display it, and this is the one place that decides that.
@@ -162,8 +156,7 @@ private struct RootTabView: View {
             // The tab bar's `+` is an entry point like any other, and until now the only one that
             // reported nothing — which reads as zero rather than as unmeasured.
             detail.analytics(DetailEvents.logCTATapped(from: .tabBar))
-            logEntry = .tab
-            isLoggingPresented = true
+            presentedLogEntry = .tab
         }
         .task { await autoSignInIfRequested() }
         // §6.4: a sitting whose post failed is retried once on the next foreground — the person was
@@ -172,15 +165,12 @@ private struct RootTabView: View {
             Task { await feedStore.refresh() }
             diaryStore.reviewsWerePosted()
         }
-        .sheet(isPresented: $isLoggingPresented, onDismiss: {
+        .sheet(item: $presentedLogEntry, onDismiss: {
+            // The one moment the saved draft can have changed without the diary on screen.
             diaryDraftSignal += 1
-            // Back to the default door. A stale `.resume` (or a pre-resolved dish, once "Log this
-            // again" lands) left here would be inherited by the *next* opening — the tab bar's `+`
-            // would silently reopen the last sitting instead of asking where you are.
-            logEntry = .tab
-        }, content: {
+        }, content: { entry in
             LogSheet(
-                entry: logEntry,
+                entry: entry,
                 services: logServices,
                 onFinished: { posted in
                     // A refresh puts the new post at the top of the feed before the sheet is gone.
@@ -210,14 +200,8 @@ private extension RootTabView {
     /// the step it starts on and the origin it reports.
     var diaryActions: DiaryActions {
         DiaryActions(
-            logDish: { _ in
-                logEntry = .tab
-                isLoggingPresented = true
-            },
-            resumeDraft: {
-                logEntry = .resume
-                isLoggingPresented = true
-            },
+            logDish: { _ in presentedLogEntry = .tab },
+            resumeDraft: { presentedLogEntry = .resume },
             discardDraft: {
                 // The draft store owns photo cleanup too, which is why the id goes with it.
                 logServices.drafts.clear(draftID: logServices.drafts.load()?.id)

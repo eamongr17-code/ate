@@ -87,4 +87,65 @@ public enum DishDedup {
         let key = DishNameKey(lhs)
         return !key.isEmpty && key == DishNameKey(rhs)
     }
+
+    /// **§6 — what the standing "add" row DOES.**
+    ///
+    /// The row itself is now permanent, so ``shouldOfferCreate(query:existingNames:)`` no longer
+    /// decides whether it exists; it decides which of three behaviours the tap gets. Keeping both
+    /// spellings of one rule in this type is the point — the gate and the state can't drift.
+    public static func createRowState(
+        query: String,
+        existingNames: some Sequence<String>
+    ) -> CreateRowState {
+        let key = DishNameKey(query)
+        guard !key.isEmpty else { return .empty }
+        let trimmed = key.value
+        // Below the minimum we still show the row, but a one-character dish is not something to
+        // mint on a single tap — it goes through the sheet, where it can be finished or abandoned.
+        guard trimmed.count >= minimumCreateQueryLength else {
+            return .prefilled(name: query.trimmed, hasExactMatch: false)
+        }
+        return shouldOfferCreate(query: query, existingNames: existingNames)
+            ? .direct(name: query.trimmed)
+            : .prefilled(name: query.trimmed, hasExactMatch: true)
+    }
+}
+
+/// What the standing add row will do if tapped, and therefore what it says (§6).
+///
+/// Three states, not two booleans: the difference between "creates instantly", "opens an empty
+/// form" and "opens a form that refuses this exact name" is what the row's label and its
+/// `create_row_tapped(mode:)` both read off.
+public enum CreateRowState: Sendable, Hashable {
+    /// No query. "Add a new dish" → an empty sheet.
+    case empty
+    /// A query nothing here matches. One tap creates it and selects it — zero extra taps (§6).
+    case direct(name: String)
+    /// A query that must go through the sheet: an exact match already exists (Add stays disabled
+    /// while it still does), or the query is too short to mint blind.
+    case prefilled(name: String, hasExactMatch: Bool)
+
+    /// The name the row would carry into a sheet or a create, or nil when there is no query.
+    public var query: String? {
+        switch self {
+        case .empty: nil
+        case .direct(let name), .prefilled(let name, _): name
+        }
+    }
+
+    public var hadQuery: Bool { query != nil }
+
+    public var mode: CreateRowMode {
+        if case .direct = self { return .direct }
+        return .sheet
+    }
+
+    /// True exactly while a tap would create-and-select with no form (the ``createShown`` trigger).
+    public var isDirectCreate: Bool { mode == .direct }
+}
+
+extension String {
+    /// Trimmed for display and for what a create actually stores. Internal whitespace is left alone:
+    /// ``DishNameKey`` folds it for *comparison*, but "Pad  Thai" is what the person typed.
+    var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 }

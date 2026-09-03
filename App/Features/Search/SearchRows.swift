@@ -110,17 +110,22 @@ struct DishResultRow: View {
     }
 }
 
-/// The create-fallback row. Always LAST, never above a real result, never a top-level button
-/// (§11.2, §11.4).
+/// The **standing add row** (§6). Permanently visible in both pickers, and permanently LAST.
+///
+/// Its whole job is to be findable without competing: zero-results gating is gone (a person who
+/// knows the dish isn't listed shouldn't have to prove it by typing something that returns nothing),
+/// so the row is always there — which only works if it is visually demoted. `detail`/`textSecondary`
+/// with a leading plus, deliberately NOT the accent colour and never a filled button: an accent-
+/// coloured permanent row reads as the primary action of a list whose primary action is *picking*.
 struct SearchCreateRow: View {
     let title: LocalizedStringKey
     let isBusy: Bool
 
     var body: some View {
         HStack(spacing: Theme.Spacing.regular) {
-            Label(title, systemImage: "plus.circle")
-                .font(Theme.Text.body)
-                .foregroundStyle(Theme.Color.accent)
+            Label(title, systemImage: "plus")
+                .font(Theme.Text.detail)
+                .foregroundStyle(Theme.Color.textSecondary)
             Spacer(minLength: Theme.Spacing.snug)
             if isBusy {
                 ProgressView().controlSize(.small)

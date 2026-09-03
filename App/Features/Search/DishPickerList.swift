@@ -18,6 +18,8 @@ struct DishPickerList: View {
 
     @State private var model: DishPickerModel
     @State private var hasAppliedKeyboardRule = false
+    /// Parked by ``AddDishSheet`` and handed on once the sheet is actually gone.
+    @State private var addedDish: PickedDish?
 
     init(
         subject: SearchSubject,
@@ -65,6 +67,22 @@ struct DishPickerList: View {
             guard !Task.isCancelled else { return }
             await model.search(searchText)
         }
+        // Delivered on DISMISS, not from inside the sheet: `onSelect` rewrites the Log flow's
+        // navigation path, and a dismissal plus a push in the same run-loop turn resolves on a
+        // device as "nothing happened" (the rule ``AddRestaurantSheet`` was fixed for).
+        .sheet(item: $model.addDishRequest, onDismiss: deliverAddedDish) { request in
+            AddDishSheet(request: request) { name in
+                await model.createDish(named: name)
+            } onAdded: { picked in
+                addedDish = picked
+            }
+        }
+    }
+
+    private func deliverAddedDish() {
+        guard let picked = addedDish else { return }
+        addedDish = nil
+        onSelect(picked)
     }
 
     /// §11.3 KEYBOARD RULE — auto-focus **only** if both default sections came back empty. Applied
@@ -82,31 +100,68 @@ struct DishPickerList: View {
     @ViewBuilder
     private func resultsSection(_ results: [DishRowModel]) -> some View {
         Section {
-            if results.isEmpty, !model.isSearching, model.createQuery == nil {
-                ContentUnavailableView.search(text: searchText)
-                    .listRowSeparator(.hidden)
+            if results.isEmpty, !model.isSearching {
+                emptyResultsNotice
             }
             ForEach(Array(results.enumerated()), id: \.element.id) { index, row in
                 rowButton(row, index: index)
             }
-            if let createQuery = model.createQuery {
-                // §11.4: LAST row, and only when nothing here is case-insensitively equal to what
-                // was typed. A `Button` rather than a bare `.onTapGesture`, like every sibling row —
-                // §11.4's "never a top-level button" is about position, not about the control.
-                Button {
-                    Task {
-                        if let picked = await model.createDish(named: createQuery) {
-                            onSelect(picked)
-                        }
-                    }
-                } label: {
-                    SearchCreateRow(title: "Add “\(createQuery)” as a new dish", isBusy: model.isCreating)
-                }
-                .buttonStyle(.plain)
-                .disabled(model.isCreating)
-            }
+            // §6: LAST row, always present — the gate now chooses the behaviour, not the existence.
+            createRow
         } header: {
             sectionHeader("Results", isBusy: model.isSearching)
+        }
+    }
+
+    /// §6 says the add row sits *beneath* the empty state, never instead of it. A full
+    /// `ContentUnavailableView` in a list row is greedy, though: with the keyboard up it fills the
+    /// visible list and pushes the row below the fold, which is how "add a dish doesn't work" got
+    /// reported before. So the empty state keeps its words and gives up its height whenever there is
+    /// a row underneath that must stay reachable.
+    @ViewBuilder
+    private var emptyResultsNotice: some View {
+        if model.offersCreateFallback {
+            Text("No dishes here match “\(searchText)”.")
+                .font(Theme.Text.detail)
+                .foregroundStyle(Theme.Color.textSecondary)
+                .listRowSeparator(.hidden)
+        } else {
+            ContentUnavailableView.search(text: searchText)
+                .listRowSeparator(.hidden)
+        }
+    }
+
+    /// The standing add row (§6). Absent only in the Search tab's global Dishes scope, where a dish
+    /// can't be created at all — you can't add a dish without saying where it is (§10).
+    @ViewBuilder
+    private var createRow: some View {
+        if model.offersCreateFallback {
+            Button(action: tapCreateRow) {
+                SearchCreateRow(title: createRowTitle, isBusy: model.isCreating)
+            }
+            .buttonStyle(.plain)
+            .disabled(model.isCreating)
+        }
+    }
+
+    private var createRowTitle: LocalizedStringKey {
+        guard let query = model.createRow.query else { return "Add a new dish" }
+        return "Add “\(query)” as a new dish"
+    }
+
+    /// One tap, three outcomes (§6): create-and-select with no form, an empty form, or a pre-filled
+    /// form that won't accept a name already taken here.
+    private func tapCreateRow() {
+        model.recordCreateRowTapped()
+        switch model.createRow {
+        case .direct(let name):
+            Task {
+                if let picked = await model.createDish(named: name) { onSelect(picked) }
+            }
+        case .empty:
+            model.addDishRequest = AddDishRequest(name: "", existingNames: model.visibleNames)
+        case .prefilled(let name, _):
+            model.addDishRequest = AddDishRequest(name: name, existingNames: model.visibleNames)
         }
     }
 
@@ -142,13 +197,14 @@ struct DishPickerList: View {
                 }
             }
             if model.history.isEmpty, model.menu.isEmpty, model.failure == nil {
-                ContentUnavailableView(
-                    "Nothing here yet",
-                    systemImage: "fork.knife",
-                    description: Text(emptyDescription)
-                )
-                .listRowSeparator(.hidden)
+                Text(emptyDescription)
+                    .font(Theme.Text.detail)
+                    .foregroundStyle(Theme.Color.textSecondary)
+                    .listRowSeparator(.hidden)
             }
+            // §6: under the defaults the add row is its own final, unheaded section — a row of
+            // "You've had here" or "On the menu" it is not.
+            Section { createRow }
         }
     }
 
