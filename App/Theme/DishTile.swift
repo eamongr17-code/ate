@@ -63,7 +63,7 @@ struct DishTileArtwork: View {
     private var styleRaw = DishTileStyle.designDefault.rawValue
 
     private var style: DishTileStyle {
-        #if DEBUG
+        #if DEBUG || BETA
         DishTileStyle(rawValue: styleRaw) ?? .designDefault
         #else
         .designDefault

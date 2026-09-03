@@ -23,7 +23,7 @@ struct DishCard: View {
     private var feedRowLayoutRaw = FeedRowLayout.designDefault.rawValue
 
     private var feedRowLayout: FeedRowLayout {
-        #if DEBUG
+        #if DEBUG || BETA
         FeedRowLayout(rawValue: feedRowLayoutRaw) ?? .designDefault
         #else
         .designDefault

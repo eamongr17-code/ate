@@ -19,7 +19,7 @@ enum DesignDebugSettings {
     /// Debug reads the stored choice; Release always answers the default, so a Release build has no
     /// path to variant B at all.
     private static func current<Variant: DesignVariant>(_ key: String) -> Variant {
-        #if DEBUG
+        #if DEBUG || BETA
         UserDefaults.standard.string(forKey: key).flatMap(Variant.init(rawValue:)) ?? .designDefault
         #else
         .designDefault
@@ -92,7 +92,7 @@ enum ReceiptBandOrder: String, DesignVariant {
 /// The three pickers, as one section of the existing debug menu. Compiled out of Release entirely.
 struct DesignDebugSettingsSection: View {
     var body: some View {
-        #if DEBUG
+        #if DEBUG || BETA
         Section("Design") {
             DesignVariantPicker<DishTileStyle>(key: DesignDebugSettings.dishTileStyleKey)
             DesignVariantPicker<FeedRowLayout>(key: DesignDebugSettings.feedRowLayoutKey)
@@ -104,7 +104,7 @@ struct DesignDebugSettingsSection: View {
     }
 }
 
-#if DEBUG
+#if DEBUG || BETA
 /// One question, as a `Picker` bound to its `@AppStorage` key — which is what makes every screen
 /// holding the same key re-lay out the moment the choice changes, with no restart.
 private struct DesignVariantPicker<Variant: DesignVariant>: View {
