@@ -11,6 +11,7 @@ import SwiftUI
 /// half-step). The Feed's own `ScoreLabel` is gone with `FeedRow` (§2): the feed renders ``DishCard``
 /// now, so this is the only score mark in the app.
 struct ScoreMark: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let score: Double?
     /// Optional trailing `(12)`. §3.3: detail and menu contexts only — never on a compose card,
     /// where the only number that matters is the one you're about to give it.
@@ -45,7 +46,7 @@ struct ScoreMark: View {
                 // §6 moment #4, and the reason the numeral is monospaced: a score that changes in
                 // place rolls its digits instead of being replaced.
                 .contentTransition(.numericText())
-                .animation(.snappy(duration: 0.2), value: score)
+                .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: score)
             if let reviewCount, score != nil {
                 Text("(\(reviewCount))")
                     .font(Theme.Text.caption)
