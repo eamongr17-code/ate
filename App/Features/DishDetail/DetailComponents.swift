@@ -45,6 +45,7 @@ struct StarRowView: View {
 /// The unrated case is a *product state*, not an error or a zero — so it gets its own line of copy
 /// rather than a greyed-out number (data-model §1.3).
 struct AggregateHero: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let score: Double?
     let reviewCount: Int
     /// Copy for the unrated state — a dish invites a first review, a restaurant reads differently.
@@ -66,7 +67,7 @@ struct AggregateHero: View {
                     // §6 moment #4: a score that changes in place rolls rather than swaps. This is
                     // the one that fires after your own review lands and the aggregate moves.
                     .contentTransition(.numericText())
-                    .animation(.snappy(duration: 0.2), value: score)
+                    .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: score)
                 StarRowView(score: score)
             }
             Text(score == nil ? unratedCaption : ScoreFormat.reviewCount(reviewCount))
