@@ -34,4 +34,21 @@ struct DetailEventsTests {
     func sourceValues() {
         #expect(DetailSource.allCases.map(\.rawValue) == ["feed", "search", "diary", "receipt", "unknown"])
     }
+
+    /// One funnel series across every way into the Log sheet: a new entry point without a value here
+    /// would be invisible in the numbers, which is the failure this test exists to prevent.
+    @Test("every way into the Log sheet has a stable `from` value")
+    func logCTAOrigins() {
+        #expect(LogCTAOrigin.allCases.map(\.rawValue) == [
+            "diary_composer",
+            "diary_resume",
+            "diary_empty",
+            "tab_bar",
+            "entry_log_again",
+            "dish_detail",
+            "restaurant_detail"
+        ])
+        #expect(DetailEvents.logCTATapped(from: .tabBar).name == "log_cta_tapped")
+        #expect(DetailEvents.logCTATapped(from: .tabBar).parameters == ["from": "tab_bar"])
+    }
 }

@@ -41,9 +41,9 @@ struct FeedView: View {
         }
         .task {
             store.recordFeedViewed()
-            if let debugSignIn, debugSignIn.isAutoSignInRequested {
-                await debugSignIn.signIn()
-            }
+            // The feed is fetched when it is *visited*, never at launch — the Diary is the launch
+            // tab. (Debug auto sign-in used to live here; it now runs in `RootTabView` so a launch
+            // that lands on the Diary is signed in too.)
             await store.loadFirstPageIfNeeded()
         }
     }

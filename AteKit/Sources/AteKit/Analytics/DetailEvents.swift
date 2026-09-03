@@ -28,8 +28,21 @@ public enum DetailSource: String, Sendable, CaseIterable, Codable {
     case unknown
 }
 
-/// Which screen a "log" call to action was tapped on.
+/// Which affordance a "log" call to action was tapped on.
+///
+/// Every entry point into the Log sheet has a value here, because the question this answers is
+/// "where does logging actually start" — and an unlabelled entry point silently reads as zero.
 public enum LogCTAOrigin: String, Sendable, CaseIterable, Codable {
+    /// The composer row at the top of the diary.
+    case diaryComposer = "diary_composer"
+    /// The "Continue at …" resume row above the composer.
+    case diaryResume = "diary_resume"
+    /// The composer on the first-run (empty) diary — the same button, but the first one ever tapped.
+    case diaryEmpty = "diary_empty"
+    /// The `+` in the tab bar.
+    case tabBar = "tab_bar"
+    /// "Log this again" on your own journal entry.
+    case entryLogAgain = "entry_log_again"
     case dishDetail = "dish_detail"
     case restaurantDetail = "restaurant_detail"
 }

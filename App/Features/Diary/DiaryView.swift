@@ -13,8 +13,16 @@ import SwiftUI
 /// context menu that can't do anything is worse than offering none.
 struct DiaryView: View {
     @State private var store: DiaryStore
-    @State private var path = NavigationPath()
+    /// Owned by the tab scaffold, not by this view: finishing a log has to land you on the diary
+    /// *at its root*, and only the host can clear a stack it doesn't otherwise see (§7).
+    @Binding private var path: NavigationPath
+    /// Where the list is scrolled. Held here so the host can ask for the top without knowing what
+    /// the list is made of — the content changes shape as the diary is built out, this seam doesn't.
+    @State private var scrollPosition = ScrollPosition()
 
+    /// Bumped by the host each time the already-selected Diary tab is tapped again. A counter rather
+    /// than a Bool: two taps in a row must scroll twice, and there is nothing to reset.
+    private let scrollToTopSignal: Int
     /// How this stack builds detail screens — the app's one API client, or fixtures in previews.
     private let detail: DetailContext
     /// Presents the Log sheet. Nil in previews and any host that hasn't wired it; the empty state
@@ -28,12 +36,16 @@ struct DiaryView: View {
 
     init(
         store: DiaryStore,
+        path: Binding<NavigationPath>,
         detail: DetailContext,
+        scrollToTopSignal: Int = 0,
         onLogDish: (@MainActor () -> Void)? = nil,
         debugSignIn: DebugStagingSignIn? = nil,
         environmentFootnote: String? = nil
     ) {
         _store = State(initialValue: store)
+        _path = path
+        self.scrollToTopSignal = scrollToTopSignal
         self.detail = detail
         self.onLogDish = onLogDish
         self.debugSignIn = debugSignIn
@@ -55,6 +67,11 @@ struct DiaryView: View {
         .onAppear {
             store.recordDiaryViewed()
             Task { await store.loadIfNeeded() }
+        }
+        // Tapping the selected Diary tab again goes back to the top — the standard iOS answer to
+        // "take me home" — and never opens the log sheet.
+        .onChange(of: scrollToTopSignal) { _, _ in
+            withAnimation { scrollPosition.scrollTo(edge: .top) }
         }
     }
 
@@ -134,6 +151,7 @@ struct DiaryView: View {
             }
         }
         .listStyle(.plain)
+        .scrollPosition($scrollPosition)
         .refreshable { await store.refresh() }
     }
 
@@ -210,10 +228,21 @@ private extension View {
 
 #if DEBUG
 #Preview("Diary") {
-    DiaryView(
-        store: DiaryStore(client: PreviewDiaryClient(), pageSize: 4),
-        detail: DetailContext(dataSource: PreviewDetailDataSource(), analytics: DetailTelemetry.none)
-    )
+    DiaryPreviewHost()
+}
+
+/// The diary's stack lives in the tab scaffold, so a preview has to stand in as its host — a
+/// `.constant` path would silently swallow every push.
+private struct DiaryPreviewHost: View {
+    @State private var path = NavigationPath()
+
+    var body: some View {
+        DiaryView(
+            store: DiaryStore(client: PreviewDiaryClient(), pageSize: 4),
+            path: $path,
+            detail: DetailContext(dataSource: PreviewDetailDataSource(), analytics: DetailTelemetry.none)
+        )
+    }
 }
 
 /// Preview-only backend: the placeholder entries, paged.
