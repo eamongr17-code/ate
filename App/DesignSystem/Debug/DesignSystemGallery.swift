@@ -240,8 +240,8 @@ struct DesignSystemGallery: View {
     private var receiptSpecimen: some View {
         VStack(alignment: .leading, spacing: AteMetrics.section) {
             label("Receipt — entry and share show this same component")
-            AteReceiptView(receipt: .preview, onPlaceTap: {}, onItemTap: { _ in })
-            AteReceiptView(receipt: .previewSingle)
+            ReceiptView(receipt: .preview, onPlaceTap: {}, onItemTap: { _ in })
+            ReceiptView(receipt: .previewSingle)
             label("Shapes")
             AteDashedRule()
             AteDotLeader()

@@ -172,8 +172,15 @@ struct ComposerSpike: View {
                 AteIconButton(icon: .voice, label: "Dictate") { }
             }
             Spacer(minLength: 0)
-            key(title: "Score", icon: .starFilled, background: AteColor.butter, action: insertScore)
-            key(title: "Place", icon: .place, background: AtePalette.automatic.field) { isPickingPlace = true }
+            ComposerKey(
+                title: "Score", icon: .starFilled,
+                background: AteColor.butter, foreground: AteColor.ink,
+                action: insertScore
+            )
+            ComposerKey(
+                title: "Place", icon: .place,
+                background: AtePalette.surface.field, foreground: AtePalette.surface.fg
+            ) { isPickingPlace = true }
             Spacer(minLength: 0)
             AteIconButton(
                 icon: isPublic ? .publicEntry : .privateEntry,
@@ -182,26 +189,6 @@ struct ComposerSpike: View {
         }
         .padding(.horizontal, AteMetrics.snug)
         .padding(.vertical, AteMetrics.snug)
-    }
-
-    private func key(
-        title: String,
-        icon: AteIcon,
-        background: Color,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                icon.view(size: 15, weight: .semibold)
-                Text(title).ateText(.controlSmall)
-            }
-            .padding(.leading, 9)
-            .padding(.trailing, 13)
-            .frame(height: AteMetrics.keyHeight)
-            .background(background, in: .capsule)
-            .foregroundStyle(AteColor.ink)
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Actions
@@ -213,7 +200,9 @@ struct ComposerSpike: View {
         composition = next
         caretAfterRender = newCaret
         revision += 1
-        scoring = ScoringToken(id: token.id, dishName: dishName(before: token), rating: nil)
+        // On the token's ACTUAL value: a fresh one is 0.5, so the first star is half filled and the
+        // numeral agrees with the pill already in the words.
+        scoring = ScoringToken(id: token.id, dishName: dishName(before: token), rating: .minimum)
     }
 
     /// Tapping an existing token: the slider reopens on it, or the place sheet does.

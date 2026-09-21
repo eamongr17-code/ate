@@ -39,6 +39,12 @@ struct InlineTokenEditor: UIViewRepresentable {
     var caretAfterRender: Int?
     var style: AteTextStyle = .composerProse
     var placeholder: String = ""
+    /// Raise the keyboard as soon as the editor is in a window. The composer opens straight into
+    /// typing — an empty composer that needs a tap before it will take a word is a composer nobody
+    /// writes in.
+    var focusesOnAppear = true
+    /// Bumped by the host to pull focus back after a sheet or the slider closes.
+    var focusRequest = 0
     /// A token was tapped: reopen its slider or its sheet.
     var onTokenTap: (EntryToken) -> Void = { _ in }
     /// The caret moved. The host needs this to know where a new token should be inserted.
@@ -62,9 +68,15 @@ struct InlineTokenEditor: UIViewRepresentable {
         view.smartQuotesType = .yes
         view.smartDashesType = .yes
 
+        // ONE recognizer, and it never blocks the text view's own: it is simultaneous, it does not
+        // cancel touches, and when the tap missed a token it does the focusing itself. Relying on
+        // UIKit's internal tap-to-focus alone is what left the empty composer dead to a tap — the
+        // first thing Eamon found driving the spike.
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
         tap.cancelsTouchesInView = false
+        tap.delegate = context.coordinator
         view.addGestureRecognizer(tap)
+        view.focusesOnAppear = focusesOnAppear
         context.coordinator.textView = view
         context.coordinator.render(composition, revision: revision, caret: caretAfterRender, into: view)
         return view
@@ -72,6 +84,8 @@ struct InlineTokenEditor: UIViewRepresentable {
 
     func updateUIView(_ view: InlineTokenTextView, context: Context) {
         context.coordinator.update(binding: $composition, typography: typography, callbacks: callbacks)
+        view.focusesOnAppear = focusesOnAppear
+        context.coordinator.focusIfRequested(focusRequest, in: view)
         view.placeholderLabel.text = placeholder
         view.placeholderLabel.font = AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize)
         view.placeholderLabel.textColor = UIColor(palette.muted)
@@ -113,7 +127,7 @@ struct InlineTokenEditor: UIViewRepresentable {
     // MARK: - Coordinator
 
     @MainActor
-    final class Coordinator: NSObject, UITextViewDelegate {
+    final class Coordinator: NSObject, UITextViewDelegate, UIGestureRecognizerDelegate {
         private var binding: Binding<EntryComposition>
         private var typography: Typography
         private var callbacks: Callbacks
@@ -123,6 +137,7 @@ struct InlineTokenEditor: UIViewRepresentable {
         private var renderedTypography: Typography?
         /// Set while we are writing the storage ourselves, so the derive-back pass stays quiet.
         private var isRendering = false
+        private var servedFocusRequest = 0
 
         private var style: AteTextStyle { typography.style }
         private var palette: AtePalette { typography.palette }
@@ -151,7 +166,6 @@ struct InlineTokenEditor: UIViewRepresentable {
         /// leaving it where it was, if the host had no opinion.
         func render(_ composition: EntryComposition, revision: Int, caret: Int?, into view: InlineTokenTextView) {
             isRendering = true
-            defer { isRendering = false }
             let previous = caret ?? view.selectedRange.location
             view.attributedText = attributedString(for: composition)
             view.typingAttributes = baseAttributes()
@@ -160,6 +174,19 @@ struct InlineTokenEditor: UIViewRepresentable {
             view.placeholderLabel.isHidden = length > 0
             renderedRevision = revision
             renderedTypography = typography
+            isRendering = false
+            // `textViewDidChangeSelection` is suppressed while rendering, so the host would never
+            // hear where the caret landed — and the NEXT token would be inserted at the stale offset
+            // (the caret readout stuck at 0 after inserting one). Report it explicitly.
+            callbacks.onCaretChange(view.selectedRange.location)
+        }
+
+        /// Pulls focus back when the host asks — after the slider or a sheet closes.
+        func focusIfRequested(_ request: Int, in view: InlineTokenTextView) {
+            guard request != servedFocusRequest else { return }
+            servedFocusRequest = request
+            guard request > 0 else { return }
+            view.becomeFirstResponder()
         }
 
         /// The one attributed-string builder, shared with the read-only prose.
@@ -275,21 +302,45 @@ struct InlineTokenEditor: UIViewRepresentable {
             AteHaptics.tick()
         }
 
-        // MARK: Tapping a token
+        // MARK: Tapping — a token, or the writing area
 
         @objc
         func handleTap(_ recogniser: UITapGestureRecognizer) {
             guard let view = textView else { return }
             let point = recogniser.location(in: view)
+            if let token = token(at: point, in: view) {
+                callbacks.onTokenTap(token)
+                return
+            }
+            // A tap anywhere else in the writing area puts the caret there and starts typing.
+            if view.isFirstResponder == false {
+                view.becomeFirstResponder()
+            }
             guard let position = view.closestPosition(to: point) else { return }
+            view.selectedRange = NSRange(
+                location: view.offset(from: view.beginningOfDocument, to: position),
+                length: 0
+            )
+        }
+
+        private func token(at point: CGPoint, in view: UITextView) -> EntryToken? {
+            guard view.textStorage.length > 0, let position = view.closestPosition(to: point) else { return nil }
             let offset = view.offset(from: view.beginningOfDocument, to: position)
             let model = binding.wrappedValue
             // `closestPosition` snaps to a character boundary, so a tap in the middle of a pill can
             // land on either side of it: check both.
-            guard let token = model.token(atDisplayOffset: offset) ?? model.token(atDisplayOffset: offset - 1) else {
-                return
-            }
-            callbacks.onTokenTap(token)
+            return model.token(atDisplayOffset: offset) ?? model.token(atDisplayOffset: offset - 1)
+        }
+
+        // MARK: UIGestureRecognizerDelegate
+
+        /// Never take the tap away from the text view's own interaction — caret placement, selection
+        /// handles and the loupe are all native behaviour we are not in the business of replacing.
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+        ) -> Bool {
+            true
         }
     }
 }
@@ -300,6 +351,18 @@ struct InlineTokenEditor: UIViewRepresentable {
 final class InlineTokenTextView: UITextView {
     let placeholderLabel = UILabel()
     weak var coordinator: InlineTokenEditor.Coordinator?
+    /// Raise the keyboard the moment the editor is in a window.
+    var focusesOnAppear = false
+    private var hasFocusedOnAppear = false
+
+    /// `becomeFirstResponder()` in `makeUIView` is too early — the view has no window yet and the
+    /// call is dropped. This is the hook that is never too early and never too late.
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard window != nil, focusesOnAppear, hasFocusedOnAppear == false else { return }
+        hasFocusedOnAppear = true
+        becomeFirstResponder()
+    }
 
     override init(frame: CGRect, textContainer: NSTextContainer?) {
         super.init(frame: frame, textContainer: textContainer)
