@@ -7,10 +7,23 @@ import SwiftUI
 ///
 /// Debug and Beta only: it reaches TestFlight (where Eamon can open it) and never Release.
 struct DesignSystemGallery: View {
-    @State private var section: Section = .type
-    @State private var scheme: Scheme = .light
-    @State private var isComposerPresented = false
+    @State private var section: Section
+    @State private var scheme: Scheme
+    @State private var isComposerPresented: Bool
     @State private var isTextEditorVariantPresented = false
+
+    /// Launch arguments open the gallery straight onto a section, a mode, or the composer —
+    /// `-ate-gallery-section receipt -ate-gallery-dark`. Screenshotting a component then needs one
+    /// launch rather than a sequence of taps that can land on the wrong thing.
+    init() {
+        let arguments = ProcessInfo.processInfo.arguments
+        let requested = arguments.firstIndex(of: "-ate-gallery-section")
+            .flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
+            .flatMap(Section.init(rawValue:))
+        _section = State(initialValue: requested ?? .type)
+        _scheme = State(initialValue: arguments.contains("-ate-gallery-dark") ? .dark : .light)
+        _isComposerPresented = State(initialValue: arguments.contains("-ate-gallery-composer"))
+    }
 
     private enum Scheme: String, CaseIterable {
         case light, dark
@@ -18,7 +31,7 @@ struct DesignSystemGallery: View {
     }
 
     private enum Section: String, CaseIterable, Identifiable {
-        case type, colour, receipt, slips, controls, scoring, photos
+        case type, voices, colour, receipt, slips, controls, scoring, photos
         var id: String { rawValue }
         var title: String { rawValue.capitalized }
     }
@@ -30,6 +43,7 @@ struct DesignSystemGallery: View {
                 VStack(alignment: .leading, spacing: AteMetrics.section) {
                     switch section {
                     case .type: typeSpecimen
+                    case .voices: voiceSpecimen
                     case .colour: colourSpecimen
                     case .receipt: receiptSpecimen
                     case .slips: slipSpecimen
@@ -99,6 +113,21 @@ struct DesignSystemGallery: View {
         .background(.bar)
     }
 
+    /// Font metrics for the prose voice, plus the score pill's rendered size — the two things that
+    /// decide whether a line with a token in it stays the same height as a line without one.
+    private var metrics: String {
+        let font = AteFont.uiFont(for: .prose)
+        let pill = TokenPill.image(
+            for: .score(Rating(rounding: 4.5)), prose: font.pointSize,
+            palette: .automatic, dynamicTypeSize: .large, scale: 3
+        )
+        return String(
+            format: "prose %.1fpt  lineHeight %.1f  asc %.1f  desc %.1f  pill %.1f×%.1f",
+            font.pointSize, font.lineHeight, font.ascender, font.descender,
+            pill?.size.width ?? 0, pill?.size.height ?? 0
+        )
+    }
+
     private func label(_ text: String) -> some View {
         Text(text)
             .ateText(.receiptLabel)
@@ -115,34 +144,48 @@ struct DesignSystemGallery: View {
                 .foregroundStyle(AtePalette.automatic.muted)
 
             AteWordmark()
+            // The `wght` axis, driven live. If the variable-font plumbing ever silently falls back,
+            // these rows become one weight and the failure is visible instead of theoretical.
+            ForEach([200.0, 400.0, 600.0, 800.0], id: \.self) { weight in
+                Text(verbatim: "Bricolage \(Int(weight)) — Tagliatelle")
+                    .ateText(AteTextStyle(
+                        voice: .display, size: 22, weight: weight, trackingEm: -0.02, lineHeight: 1.1,
+                        textStyle: .title3
+                    ))
+            }
+            ForEach([300.0, 400.0, 600.0], id: \.self) { weight in
+                Text(verbatim: "Newsreader \(Int(weight)) — the words")
+                    .ateText(AteTextStyle(voice: .prose, size: 19, weight: weight, lineHeight: 1.3))
+            }
+            Text(verbatim: "DM Mono 400 / 500 — 01 Tagliatelle 4.5").ateText(.receiptLine)
+        }
+    }
+
+    /// The named styles, at the sizes `design/v1` sets them.
+    private var voiceSpecimen: some View {
+        VStack(alignment: .leading, spacing: AteMetrics.loose) {
+            // Line height is the one metric a screenshot can't be read for, so it is printed.
+            Text(verbatim: metrics)
+                .ateText(.meta)
+                .foregroundStyle(AtePalette.automatic.muted)
             Group {
                 Text("Feed").ateText(.screenTitle)
                 Text("Tipo 00").ateText(.receiptPlace)
-                Text("Which place?").ateText(.sheetTitle)
                 Text("Tipo 00").ateText(.slipPlace)
                 Text("Butchers Diner").ateText(.feedPlace)
             }
             AteHairline()
             Group {
                 Text("Control 15/600").ateText(.control)
-                Text("Control small 14/600").ateText(.controlSmall)
-                Text("Button 16/700").ateText(.button)
                 Text("Meta 13/500").ateText(.meta).foregroundStyle(AtePalette.automatic.muted)
                 Text("Journal").ateText(.tabLabelActive)
             }
             AteHairline()
-            Text("The tagliatelle al ragù was unreal, rich, glossy, gone in four minutes. "
-                + "Tiramisu a bit flat after that.")
-                .ateText(.composerProse)
-            Text("The same words at 16, which is the size they are on the entry page and in a journal "
-                + "slip where they have to share the room with a receipt.")
+            Text("The words at 16, which is the size they are on the entry page and in a journal slip, "
+                + "where they share the room with a receipt and have to hold their own rhythm over "
+                + "three or four lines.")
                 .ateText(.prose)
             Text("“Unreal. Rich, glossy, gone in four minutes.”").ateText(.proseNote)
-            AteHairline()
-            Group {
-                Text("01  Tagliatelle al ragù ....... 4.5").ateText(.receiptLine)
-                Text("361 Little Bourke St").ateText(.receiptLabel)
-            }
         }
     }
 

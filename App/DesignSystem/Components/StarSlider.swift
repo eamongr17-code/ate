@@ -28,7 +28,9 @@ struct StarSlider: View {
                     .ateText(.control)
                     .lineLimit(1)
                 Spacer(minLength: AteMetrics.regular)
-                Text(ScoreFormat.halfStep(rating?.value))
+                // Design rule 7: an unscored dish is an empty star and NO text. Five empty stars
+                // already say it; a dash would be the app putting words in someone's mouth.
+                Text(rating.map { ScoreFormat.halfStep($0.value) } ?? "")
                     .ateText(.scoreHero)
                     .monospacedDigit()
                     .contentTransition(.numericText(value: rating?.value ?? 0))

@@ -1,13 +1,16 @@
 import AteKit
 import SwiftUI
+import UIKit
 
 /// **The person's words with their tokens still in them**, read-only: the journal slip, the feed slip,
 /// the entry page. The same composition the composer edits, rendered as flowing prose.
 ///
-/// SwiftUI `Text` cannot contain a view, so each token is rasterised once and interpolated as an
-/// image run. That keeps real text layout — wrapping, line clamping, Dynamic Type, selection of the
-/// words around it — rather than rebuilding line breaking in a custom layout, which is where a design
-/// like this usually goes wrong.
+/// A `UILabel` rather than SwiftUI's `Text`, for one reason with teeth: the design's pill is about
+/// 1.2em tall, and SwiftUI takes an image run's height as its line's ascent — so every line with a
+/// score in it came out five to eight points taller than the lines around it and a paragraph's rhythm
+/// went ragged. `NSParagraphStyle` gives an exact line height that the attachment sits inside, which
+/// is what the prototype's CSS does. The label is also cheap enough for a list: no scroll view, no
+/// editing, no selection.
 struct InlineTokenText: View {
     let composition: EntryComposition
     var style: AteTextStyle = .prose
@@ -18,59 +21,53 @@ struct InlineTokenText: View {
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        text
-            .ateText(style)
-            .lineLimit(lineLimit)
-            .accessibilityLabel(composition.plain)
-    }
-
-    /// Runs of words with pill images between them, concatenated into one `Text`.
-    private var text: Text {
-        let units = Array(composition.plain.utf16)
-        var parts: [Text] = []
-        var cursor = 0
-        for span in composition.spans {
-            if span.span.location > cursor {
-                parts.append(Text(verbatim: string(units, cursor..<span.span.location)))
-            }
-            parts.append(pill(for: span.token))
-            cursor = span.span.endLocation
-        }
-        if cursor < units.count {
-            parts.append(Text(verbatim: string(units, cursor..<units.count)))
-        }
-        return parts.reduce(Text(verbatim: "")) { $0 + $1 }
-    }
-
-    private func string(_ units: [UInt16], _ range: Range<Int>) -> String {
-        String(decoding: units[range], as: UTF16.self)
-    }
-
-    private func pill(for token: EntryToken) -> Text {
-        let size = AteFont.size(for: style, dynamicTypeSize: dynamicTypeSize)
-        guard let image = TokenPill.image(
-            for: token.kind,
-            prose: size,
-            palette: palette,
-            dynamicTypeSize: dynamicTypeSize,
-            scale: displayScale
-        ) else {
-            // Fall back to the words themselves: the plain text is always the truth underneath.
-            return Text(verbatim: token.plainText)
-        }
-        return Text(Image(uiImage: image)).baselineOffset(-size * TokenPill.baselineDrop)
+        InlineTokenLabel(
+            composition: composition,
+            attributes: InlineTokenAttributes(
+                style: style,
+                palette: palette,
+                dynamicTypeSize: dynamicTypeSize,
+                displayScale: displayScale
+            ),
+            lineLimit: lineLimit
+        )
+        .accessibilityElement()
+        .accessibilityLabel(composition.plain)
     }
 }
 
-/// Rasterises a token into an image so it can live inside a `Text` run or a text view's attachment —
-/// **one** drawing of a pill, shared by the read-only prose and the editable composer, so the two can
-/// never drift apart.
+private struct InlineTokenLabel: UIViewRepresentable {
+    let composition: EntryComposition
+    let attributes: InlineTokenAttributes
+    let lineLimit: Int?
+
+    func makeUIView(context: Context) -> UILabel {
+        let label = UILabel()
+        label.numberOfLines = lineLimit ?? 0
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        label.setContentHuggingPriority(.defaultHigh, for: .vertical)
+        label.isAccessibilityElement = false
+        return label
+    }
+
+    func updateUIView(_ label: UILabel, context: Context) {
+        label.numberOfLines = lineLimit ?? 0
+        label.attributedText = attributes.attributedString(for: composition)
+    }
+
+    /// SwiftUI proposes a width; the label answers with the height its words need in it. Without this
+    /// a label in a `VStack` sizes to one line and clips.
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView label: UILabel, context: Context) -> CGSize? {
+        let width = proposal.width ?? UIView.layoutFittingExpandedSize.width
+        let size = label.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return CGSize(width: width, height: size.height)
+    }
+}
+
+/// Rasterises a token into an image so it can live inside a text view's attachment — **one** drawing
+/// of a pill, shared by the read-only prose and the editable composer, so the two can never drift.
 @MainActor
 enum TokenPill {
-    /// How far below the baseline a pill sits, as a fraction of the prose size (the prototype's
-    /// `vertical-align: 1px` at 17pt).
-    static let baselineDrop: CGFloat = 0.14
-
     static func image(
         for kind: EntryTokenKind,
         prose: CGFloat,
@@ -119,8 +116,8 @@ enum TokenPill {
             self.palette = PaletteKey(palette)
         }
 
-        /// `Color` is `Hashable`, so the palette keys the cache directly — a pill drawn on paper and
-        /// the same pill drawn on the ink ground are different images and must not share a slot.
+        /// A pill drawn on paper and the same pill drawn on the ink ground are different images and
+        /// must not share a cache slot.
         struct PaletteKey: Hashable {
             let fg: Color
             let field: Color

@@ -21,7 +21,10 @@ struct ScoreToken: View {
         }
         .padding(.leading, prose * 0.3)
         .padding(.trailing, prose * 0.41)
-        .padding(.vertical, prose * 0.1)
+        // Exactly one em tall. A pill any taller than the prose's ascent-plus-descent silently adds
+        // leading to every line it lands on, and a paragraph with three scores in it ends up with a
+        // different rhythm from one with none.
+        .frame(height: prose.rounded())
         .foregroundStyle(AteColor.ink)
         .background(AteColor.butter, in: .capsule)
         .overlay {
@@ -53,7 +56,7 @@ struct PlaceToken: View {
         }
         .padding(.leading, prose * 0.3)
         .padding(.trailing, prose * 0.47)
-        .padding(.vertical, prose * 0.1)
+        .frame(height: prose.rounded())
         .foregroundStyle(palette.fg)
         .background(palette.field, in: .capsule)
         .accessibilityElement()
@@ -74,18 +77,27 @@ struct AteStar: View {
 
     var body: some View {
         ZStack {
-            AteIcon.star.view(size: side, weight: .light)
-            AteIcon.starFilled.view(size: side, weight: .light)
+            glyph(.star)
+            glyph(.starFilled)
                 .foregroundStyle(AteColor.butter)
+                // The mask is measured against the STAR, not against whatever width the star was
+                // handed: in the slider each star sits in an equal column far wider than the glyph,
+                // and masking to the column made a half-star look like a quarter.
                 .mask(alignment: .leading) {
-                    Rectangle().frame(width: side * fill)
+                    Rectangle().frame(width: side * fill, height: side)
                 }
             // The outline is drawn last so a half fill still reads as one whole star.
-            AteIcon.star.view(size: side, weight: .light)
+            glyph(.star)
         }
-        .foregroundStyle(palette.fg)
         .frame(width: side, height: side)
+        .foregroundStyle(palette.fg)
         .accessibilityHidden(true)
+    }
+
+    /// One star glyph, sized so its box is exactly `side` — the fill fraction depends on it.
+    private func glyph(_ icon: AteIcon) -> some View {
+        icon.view(size: side * 0.92, weight: .light)
+            .frame(width: side, height: side)
     }
 }
 
@@ -114,7 +126,9 @@ struct UnscoredMark: View {
             PlaceToken(name: "Butchers Diner", prose: 19)
         }
         HStack(spacing: 0) {
-            ForEach([0.0, 0.5, 1.0, 1.0, 0.0], id: \.self) { AteStar(fill: $0) }
+            ForEach(Array([0.0, 0.5, 1.0, 1.0, 0.0].enumerated()), id: \.offset) { _, fill in
+                AteStar(fill: fill)
+            }
         }
         UnscoredMark()
     }

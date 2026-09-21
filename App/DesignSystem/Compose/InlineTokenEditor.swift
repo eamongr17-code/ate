@@ -162,112 +162,33 @@ struct InlineTokenEditor: UIViewRepresentable {
             renderedTypography = typography
         }
 
-        func attributedString(for composition: EntryComposition) -> NSAttributedString {
-            let result = NSMutableAttributedString()
-            let units = Array(composition.plain.utf16)
-            var cursor = 0
-            for span in composition.spans {
-                if span.span.location > cursor {
-                    result.append(NSAttributedString(
-                        string: String(decoding: units[cursor..<span.span.location], as: UTF16.self),
-                        attributes: baseAttributes()
-                    ))
-                }
-                result.append(attachmentString(for: span.token))
-                cursor = span.span.endLocation
-            }
-            if cursor < units.count {
-                result.append(NSAttributedString(
-                    string: String(decoding: units[cursor..<units.count], as: UTF16.self),
-                    attributes: baseAttributes()
-                ))
-            }
-            return result
-        }
-
-        /// One attachment = one token. The pill image comes from the same renderer the read-only prose
-        /// uses, so the composer and the journal can never disagree about what a token looks like.
-        func attachmentString(for token: EntryToken) -> NSAttributedString {
-            let font = AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize)
-            let attachment = NSTextAttachment()
-            if let image = TokenPill.image(
-                for: token.kind,
-                prose: font.pointSize,
+        /// The one attributed-string builder, shared with the read-only prose.
+        private var attributes: InlineTokenAttributes {
+            InlineTokenAttributes(
+                style: style,
                 palette: palette,
                 dynamicTypeSize: dynamicTypeSize,
-                scale: displayScale
-            ) {
-                image.accessibilityLabel = accessibilityLabel(for: token)
-                attachment.image = image
-                attachment.bounds = CGRect(
-                    x: 0,
-                    y: -(image.size.height - font.capHeight) / 2,
-                    width: image.size.width,
-                    height: image.size.height
-                )
-            }
-            let string = NSMutableAttributedString(attachment: attachment)
-            string.addAttributes(
-                baseAttributes().merging([.ateToken: TokenBox(token)]) { _, new in new },
-                range: NSRange(location: 0, length: string.length)
+                displayScale: displayScale
             )
-            return string
         }
 
-        private func accessibilityLabel(for token: EntryToken) -> String {
-            switch token.kind {
-            case .score(let rating): "Score \(RatingTrack.accessibilityValue(rating))"
-            case .place(let place): "Place \(place.name)"
-            }
+        func attributedString(for composition: EntryComposition) -> NSAttributedString {
+            attributes.attributedString(for: composition)
+        }
+
+        func attachmentString(for token: EntryToken) -> NSAttributedString {
+            attributes.attachmentString(for: token)
         }
 
         func baseAttributes() -> [NSAttributedString.Key: Any] {
-            let font = AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize)
-            let paragraph = NSMutableParagraphStyle()
-            // The one thing UIKit does better than SwiftUI here: an exact line height, including one
-            // TIGHTER than the font's own leading, which `lineSpacing` cannot express.
-            paragraph.minimumLineHeight = font.pointSize * style.lineHeight
-            paragraph.maximumLineHeight = font.pointSize * style.lineHeight
-            return [
-                .font: font,
-                .foregroundColor: UIColor(palette.fg),
-                .paragraphStyle: paragraph,
-                .kern: font.pointSize * style.trackingEm
-            ]
+            attributes.base()
         }
 
         // MARK: Storage → model
 
-        /// Reads the composition back out of the text storage: the words as typed, and the tokens as
-        /// the attachments they are attached to.
-        ///
-        /// Walks UTF-16 units and rebuilds the string at the end, so an emoji's surrogate pair — or a
-        /// combining mark straddling a token — can never be split into invalid text.
         func composition(from view: UITextView) -> EntryComposition {
-            let storage = view.attributedText ?? NSAttributedString()
-            let string = storage.string as NSString
-            var units: [UInt16] = []
-            var spans: [EntryTokenSpan] = []
-            var index = 0
-            while index < storage.length {
-                let unit = string.character(at: index)
-                if unit == Self.objectReplacement,
-                   let box = storage.attribute(.ateToken, at: index, effectiveRange: nil) as? TokenBox {
-                    let location = units.count
-                    units.append(contentsOf: Array(box.token.plainText.utf16))
-                    spans.append(EntryTokenSpan(
-                        token: box.token,
-                        span: TextSpan(location: location, length: box.token.plainText.utf16.count)
-                    ))
-                } else {
-                    units.append(unit)
-                }
-                index += 1
-            }
-            return EntryComposition(plain: String(decoding: units, as: UTF16.self), spans: spans)
+            InlineTokenAttributes.composition(from: view.attributedText ?? NSAttributedString())
         }
-
-        static let objectReplacement: unichar = 0xFFFC
 
         // MARK: UITextViewDelegate
 
@@ -301,7 +222,7 @@ struct InlineTokenEditor: UIViewRepresentable {
             storage.enumerateAttribute(.ateToken, in: NSRange(location: 0, length: storage.length)) { value, range, _ in
                 guard value != nil else { return }
                 for index in range.location..<(range.location + range.length)
-                where string.character(at: index) != Self.objectReplacement {
+                where string.character(at: index) != InlineTokenAttributes.objectReplacement {
                     stray.append(NSRange(location: index, length: 1))
                 }
             }
@@ -413,15 +334,4 @@ final class InlineTokenTextView: UITextView {
         let model = coordinator.composition(from: self)
         return model.plainText(inDisplaySpan: TextSpan(selectedRange))
     }
-}
-
-/// The token, boxed so it can live in an attributed string.
-private final class TokenBox: NSObject {
-    let token: EntryToken
-    init(_ token: EntryToken) { self.token = token }
-}
-
-extension NSAttributedString.Key {
-    /// Marks the one character an inline token occupies.
-    static let ateToken = NSAttributedString.Key("ateToken")
 }

@@ -10,7 +10,7 @@ import SwiftUI
 /// riskiest interaction in the product can be driven with a thumb before anything is built on top of
 /// it.
 struct ComposerSpike: View {
-    @State private var composition = EntryComposition()
+    @State private var composition: EntryComposition
     @State private var revision = 0
     @State private var caretAfterRender: Int?
     @State private var caret = 0
@@ -25,6 +25,26 @@ struct ComposerSpike: View {
         let id: UUID
         var dishName: String
         var rating: Rating?
+    }
+
+    /// `-ate-gallery-composer-seed` starts on the prototype's own sentence, tokens and all, so the
+    /// editor's rendering can be captured without typing it out first; adding
+    /// `-ate-gallery-composer-score` opens the slider on its first score.
+    init() {
+        let arguments = ProcessInfo.processInfo.arguments
+        let seeded = arguments.contains("-ate-gallery-composer-seed")
+        let composition = seeded ? EntryComposition.previewWordsWithPlace : EntryComposition()
+        _composition = State(initialValue: composition)
+        if arguments.contains("-ate-gallery-composer-score"),
+           let span = composition.spans.first(where: { $0.token.score != nil }) {
+            _scoring = State(initialValue: ScoringToken(
+                id: span.token.id,
+                dishName: "Tagliatelle al ragù",
+                rating: span.token.score
+            ))
+        }
+        _photos = State(initialValue: seeded ? [AtePhoto.swatch(AteColor.butter),
+                                                AtePhoto.swatch(AteColor.green)] : [])
     }
 
     @Environment(\.dismiss) private var dismiss
@@ -104,7 +124,11 @@ struct ComposerSpike: View {
     @ViewBuilder
     private var photoStrip: some View {
         if photos.isEmpty == false {
-            PhotoCluster(photos: photos, side: AteMetrics.clusterPhotoComposer)
+            PhotoCluster(
+                photos: photos,
+                side: AteMetrics.clusterPhotoComposer,
+                surface: AtePalette.automatic.chip
+            )
                 .padding(.leading, 22)
                 .padding(.bottom, AteMetrics.snug)
         }

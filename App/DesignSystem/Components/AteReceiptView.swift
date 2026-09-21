@@ -51,6 +51,17 @@ struct AteReceipt: Equatable, Identifiable {
         self.handle = handle
     }
 
+    /// How a receipt writes its date: "Sat 19 Sep 2026". The ORDER is the design's and is fixed; the
+    /// weekday and month NAMES still come from the reader's locale.
+    static let dateFormat = Date.VerbatimFormatStyle(
+        format: """
+\(weekday: .abbreviated) \(day: .defaultDigits) \(month: .abbreviated) \(year: .defaultDigits)
+""",
+        locale: .autoupdatingCurrent,
+        timeZone: .autoupdatingCurrent,
+        calendar: .autoupdatingCurrent
+    )
+
     /// The mean of the dishes that were actually scored. Unscored dishes are not zeros and are not
     /// counted.
     var average: Double? {
@@ -147,12 +158,16 @@ struct AteReceiptView: View {
             Text(item.name)
                 .ateText(.receiptLine)
                 .lineLimit(2)
+                // The leader is a greedy Canvas; without this it claims space from the name and a
+                // dish that fits on one line wraps anyway.
+                .layoutPriority(1)
             AteDotLeader()
                 .alignmentGuide(.firstTextBaseline) { $0[.bottom] + 4 }
             if let score = item.score {
                 Text(ScoreFormat.halfStep(score.value))
                     .ateText(.receiptScore)
                     .monospacedDigit()
+                    .layoutPriority(1)
             } else {
                 UnscoredMark()
                     .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
@@ -174,7 +189,7 @@ struct AteReceiptView: View {
             HStack {
                 Text(verbatim: "Order #\(String(format: "%04d", receipt.orderNumber))")
                 Spacer(minLength: AteMetrics.snug)
-                Text(receipt.date, format: .dateTime.weekday(.abbreviated).day().month(.abbreviated).year())
+                Text(receipt.date.formatted(AteReceipt.dateFormat))
             }
             HStack {
                 Text(receipt.items.count == 1 ? "1 dish" : "\(receipt.items.count) dishes")

@@ -51,6 +51,10 @@ struct AtePhotoTile: View {
 struct PhotoCluster: View {
     let photos: [AtePhoto]
     var side: CGFloat = AteMetrics.clusterPhoto
+    /// The colour directly behind the cluster — the ring that separates overlapping photos is drawn
+    /// in it, so it has to be the real surface: the ground on a journal slip, the control surface in
+    /// the composer, the accent on a share card.
+    var surface: Color?
 
     @Environment(\.atePalette) private var palette
 
@@ -60,7 +64,11 @@ struct PhotoCluster: View {
     var body: some View {
         HStack(spacing: -AteMetrics.clusterOverlap) {
             ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
-                AtePhotoTile(photo: photo, side: side, ring: photos.count > 1 ? palette.ground : nil)
+                AtePhotoTile(
+                    photo: photo,
+                    side: side,
+                    ring: photos.count > 1 ? (surface ?? palette.ground) : nil
+                )
                     .rotationEffect(.degrees(Self.angles[index % Self.angles.count]))
                     .zIndex(Double(photos.count - index))
             }
