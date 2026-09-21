@@ -72,6 +72,10 @@ struct AtePalette: Equatable, Sendable {
     var chip: Color
     var field: Color
     var hairline: Color
+    /// What is written ON `fg` — the tab bar's `+`, the one ink pill per sheet. Its own role rather
+    /// than "the ground", because on an accent ground the ground is coral and coral-on-ink is not a
+    /// button, it is a mistake.
+    var inverted: Color
 
     /// The app's ground, following light/dark.
     static let automatic = AtePalette(
@@ -80,7 +84,8 @@ struct AtePalette: Equatable, Sendable {
         muted: Color(light: AteColor.mutedLight, dark: AteColor.mutedDark),
         chip: Color(light: AteColor.chipLight, dark: AteColor.chipDark),
         field: Color(light: AteColor.fieldLight, dark: AteColor.fieldDark),
-        hairline: Color(light: AteColor.ink.opacity(0.14), dark: Color.white.opacity(0.16))
+        hairline: Color(light: AteColor.ink.opacity(0.14), dark: Color.white.opacity(0.16)),
+        inverted: AteColor.ground
     )
 
     /// Receipt paper: the ground dims in dark mode, everything written on it does not move.
@@ -90,7 +95,8 @@ struct AtePalette: Equatable, Sendable {
         muted: AteColor.mutedLight,
         chip: AteColor.paperChip,
         field: AteColor.paperChip,
-        hairline: AteColor.ink.opacity(0.14)
+        hairline: AteColor.ink.opacity(0.14),
+        inverted: AteColor.paper
     )
 
     /// An accent ground — Share, Welcome. Ink text, white chips, in both modes.
@@ -101,7 +107,8 @@ struct AtePalette: Equatable, Sendable {
             muted: AteColor.ink.opacity(0.62),
             chip: .white,
             field: .white,
-            hairline: AteColor.ink.opacity(0.18)
+            hairline: AteColor.ink.opacity(0.18),
+            inverted: .white
         )
     }
 }

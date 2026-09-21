@@ -14,7 +14,9 @@ struct ContentView: View {
         if ProcessInfo.processInfo.arguments.contains("-ate-design-gallery") {
             DesignSystemGallery()
         } else {
-            app
+            // The gallery presents from the ROOT, not from the debug menu it is asked for in: a
+            // `fullScreenCover` hung off a toolbar menu's content is not a reliable presentation.
+            app.designSystemGalleryPresenter()
         }
         #else
         app

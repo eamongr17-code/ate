@@ -78,7 +78,7 @@ struct AteTabBar: View {
             AteIcon.compose.view(size: 26, weight: .bold)
                 .frame(width: AteMetrics.composeButton, height: AteMetrics.composeButton)
                 .background(palette.fg, in: .circle)
-                .foregroundStyle(palette.ground)
+                .foregroundStyle(palette.inverted)
         }
         .padding(.horizontal, 6)
         .accessibilityLabel("New entry")

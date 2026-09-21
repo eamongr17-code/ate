@@ -132,7 +132,7 @@ struct AteButton: View {
             .frame(maxWidth: .infinity)
             .frame(height: AteMetrics.buttonHeight)
             .background(palette.fg, in: .capsule)
-            .foregroundStyle(palette.ground)
+            .foregroundStyle(palette.inverted)
         }
         .buttonStyle(.plain)
     }
