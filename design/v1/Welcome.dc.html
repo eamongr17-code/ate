@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ate: Welcome</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=DM+Mono:wght@400;500&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&amp;display=swap">
+<style>
+body{margin:0;font-family:'Newsreader',Georgia,serif;color:#24141F;background:#EFEAE2}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:inherit}
+input{font:inherit;color:inherit}h1,h2,h3,p{margin:0;font-weight:inherit}
+.screen{--ground:#EFEAE2;--surface:#EFEAE2;--fg:#24141F;--muted:#5E5560;--chip:#FFFFFF;--paper:#FFFFFF;--field:#E4DED4;--hair:rgba(36,20,31,.14);width:390px;height:844px;box-sizing:border-box;position:relative;overflow:hidden;background:var(--ground);color:var(--fg);display:flex;flex-direction:column}
+.screen.dark{--ground:#17111B;--surface:#17111B;--fg:#FFFFFF;--muted:#B9AFBC;--chip:#2B2231;--paper:#E6DFD3;--field:#2B2231;--hair:rgba(255,255,255,.16)}
+.col{display:flex;flex-direction:column}.row{display:flex;align-items:center}
+.h{font-family:'Bricolage Grotesque','Helvetica Neue',Helvetica,sans-serif;font-weight:800;line-height:1;letter-spacing:-.035em}
+.ui{font-family:'Bricolage Grotesque','Helvetica Neue',Helvetica,sans-serif;font-weight:600;font-size:15px;line-height:1.2;letter-spacing:-.01em}
+.meta{font-family:'Bricolage Grotesque','Helvetica Neue',Helvetica,sans-serif;font-weight:500;font-size:13px;line-height:1.3;color:var(--muted)}
+.mono{font-family:'DM Mono',ui-monospace,Menlo,monospace}
+.lab{font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:11px;line-height:1.35;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.prose{font-size:17px;line-height:1.5;text-wrap:pretty}
+.clamp2,.clamp3{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}.clamp2{-webkit-line-clamp:2}.clamp3{-webkit-line-clamp:3}
+.slipwrap{display:block}
+.slip{background:var(--paper);color:#24141F;--surface:var(--paper);--fg:#24141F;--muted:#5E5560;--chip:#F3F0EB;--hair:rgba(36,20,31,.14);display:flex;flex-direction:column;border-radius:16px 16px 0 0}
+.slip.whole{border-radius:16px}
+.tear{display:block;height:8px;background:linear-gradient(135deg,var(--paper) 6px,transparent 0) left top/12px 12px repeat-x,linear-gradient(225deg,var(--paper) 6px,transparent 0) left top/12px 12px repeat-x}
+.rule{border-top:1.5px dashed rgba(36,20,31,.35)}
+.li{display:flex;align-items:baseline;gap:8px;font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:13px;line-height:1.65}
+.note{font-size:14px;line-height:1.35;font-style:italic;color:#5E5560;padding:0 0 6px 26px}
+.dots{flex-grow:1;min-width:16px;border-bottom:1.5px dotted rgba(36,20,31,.3);position:relative;top:-4px}
+.tok{display:inline-flex;align-items:center;gap:3px;padding:0 7px 0 5px;border-radius:999px;background:#F6D365;color:#24141F;font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:.78em;font-weight:500;font-style:normal;line-height:1.55;vertical-align:1px;white-space:nowrap}
+.photo{object-fit:cover;display:block;flex-shrink:0;box-shadow:0 0 0 3px var(--surface)}
+.sq{display:flex;align-items:center;justify-content:center;flex-shrink:0;color:rgba(36,20,31,.4)}
+.card{border-radius:24px;box-sizing:border-box;display:flex;flex-direction:column;color:#24141F;--fg:#24141F;--muted:#5E5560;--chip:#FFFFFF}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px 0 10px;border-radius:999px;background:var(--chip);color:var(--fg);white-space:nowrap}
+.glass{background:var(--chip);box-sizing:border-box}
+.ink{background:var(--fg);color:var(--ground)}.pill{border-radius:999px}
+.hit{width:44px;height:44px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.btn{height:56px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:8px;font-family:'Bricolage Grotesque','Helvetica Neue',Helvetica,sans-serif;font-weight:700;font-size:16px;letter-spacing:-.01em}
+.scrim{position:absolute;left:0;right:0;bottom:0;height:160px;pointer-events:none;background:linear-gradient(to top,var(--ground) 42%,transparent)}
+.barcode{height:34px;background:repeating-linear-gradient(90deg,#24141F 0 2px,transparent 2px 5px,#24141F 5px 6px,transparent 6px 8px,#24141F 8px 11px,transparent 11px 13px)}
+.kbd{height:300px;flex-shrink:0;background:repeating-linear-gradient(45deg,#E6E0D6 0 8px,#EFEAE2 8px 16px);display:flex;align-items:center;justify-content:center}
+@keyframes blink{50%{opacity:0}}@keyframes pulse{50%{transform:scale(1.1)}}@keyframes print{from{opacity:0;transform:translateY(-24px)}}
+@media (prefers-reduced-motion:no-preference){.caret{animation:blink 1s steps(1) infinite}.pulse{animation:pulse 1.6s ease-in-out infinite}.print{animation:print .6s ease-out both}}
+.rowcard{display:flex;align-items:center;gap:12px;min-height:58px;padding:0 18px;border-radius:16px;background:var(--chip);box-sizing:border-box}
+.ptok{display:inline-flex;align-items:center;gap:3px;padding:0 8px 0 5px;border-radius:999px;background:var(--field);font-family:'Bricolage Grotesque','Helvetica Neue',Helvetica,sans-serif;font-size:.8em;font-weight:600;font-style:normal;line-height:1.5;vertical-align:1px;white-space:nowrap}
+</style>
+</helmet>
+<div class="screen" style="background:#F0623F;--surface:#F0623F">
+<div style="position:relative;margin:150px 50px 0">
+<span style="position:absolute;top:-64px;right:-44px;display:flex"><img class="photo" src="/_blob/1f227c55430df0f660308e3668514792" alt="A margherita pizza" style="width:150px;height:150px;border-radius:42px;transform:rotate(10deg)"></span>
+<span style="position:absolute;bottom:-50px;left:-44px;display:flex"><img class="photo" src="/_blob/0b42b41f315b72e78e3f97529c1cee94" alt="A cheeseburger" style="width:136px;height:136px;border-radius:38px;transform:rotate(-12deg)"></span>
+<div class="slipwrap" style="position:relative;transform:rotate(-2.5deg)">
+<div class="slip" style="padding:34px 18px 18px;gap:16px;align-items:center">
+<h1 style="display:flex"><img src="/_blob/50fa729c6adc6e95ddab1742c084f4cb" alt="Ate" style="display:block;flex-shrink:0;height:96px;width:202.7px"></h1>
+<p style="font-size:19px;line-height:1.3;font-style:italic;text-align:center">A record of everything<br>worth ordering.</p>
+<div class="rule" style="align-self:stretch"></div>
+<div class="barcode" aria-hidden="true" style="align-self:stretch"></div>
+<span class="lab">Made to order</span>
+</div>
+<div class="tear"></div>
+</div>
+</div>
+<div class="col" style="position:absolute;left:20px;right:20px;bottom:40px;gap:6px;align-items:center">
+<a href="Handle.dc.html" class="btn" style="align-self:stretch;background:#24141F;color:#FFFFFF">Sign in with Apple</a>
+<a href="Feed.dc.html" class="ui" style="min-height:44px;display:flex;align-items:center;color:#24141F;text-decoration:underline;text-underline-offset:4px">See what everyone's eating</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 390, "height": 844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
