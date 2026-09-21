@@ -56,6 +56,12 @@ private struct AteShell: View {
     init(services: AteServices) {
         self.services = services
         _hasSession = State(initialValue: services.hasSession)
+        #if DEBUG
+        ComposerDebugLaunch.seedDraftIfRequested(into: services.drafts)
+        if ComposerDebugLaunch.opensComposer {
+            _composing = State(initialValue: ComposerPresentation(origin: .tabBar))
+        }
+        #endif
     }
 
     var body: some View {

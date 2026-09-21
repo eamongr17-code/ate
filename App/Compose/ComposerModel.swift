@@ -17,7 +17,9 @@ final class ComposerModel {
         var rating: Rating?
     }
 
-    var composition: EntryComposition
+    var composition: EntryComposition {
+        didSet { persist() }
+    }
     /// Bumped to force the editor to rebuild its storage after a programmatic change.
     private(set) var revision = 0
     /// Where the caret should land after that rebuild, in display offsets.
@@ -26,18 +28,99 @@ final class ComposerModel {
     var caret = 0
     var scoring: Scoring?
     /// Per entry, not per account (PRODUCT.md decision 1: public by default, any entry can be private).
-    var isPublic = true
+    var isPublic = true {
+        didSet { persist() }
+    }
+    /// Up to five, in the order they were picked.
+    private(set) var photos: [StagedPhoto] = []
     /// Bumped to pull the keyboard back after the slider or a sheet closes.
     private(set) var focusRequest = 0
+    var isPickingPlace = false
 
-    init(composition: EntryComposition = EntryComposition()) {
-        self.composition = composition
-        self.caret = composition.displayString.utf16.count
+    /// The entry's id, minted here and carried to the INSERT — what makes the write idempotent.
+    let draftID: UUID
+    private let drafts: any EntryDraftStoring
+    private let startedAt: Date
+    private var restaurantID: UUID?
+
+    init(drafts: any EntryDraftStoring) {
+        self.drafts = drafts
+        let resumed = drafts.load()
+        self.draftID = resumed?.id ?? UUID()
+        self.composition = resumed?.composition ?? EntryComposition()
+        self.isPublic = resumed?.isPublic ?? true
+        self.restaurantID = resumed?.restaurantID
+        self.startedAt = resumed?.startedAt ?? Date()
+        // Resuming puts the caret after the last thing they wrote, not in front of it: a text view
+        // opens at offset 0, which would have them typing into the middle of their own sentence.
+        let end = (resumed?.composition ?? EntryComposition()).displayString.utf16.count
+        self.caret = end
+        self.caretAfterRender = end > 0 ? end : nil
+        self.isResumingDraft = resumed != nil
+        if let resumed {
+            photos = ComposerPhotoStaging.restore(
+                fileNames: resumed.photoFiles,
+                from: drafts.photoDirectory(for: resumed.id)
+            )
+        }
+        #if DEBUG
+        if ComposerDebugLaunch.opensScoring {
+            if let span = composition.spans.first(where: { $0.token.score != nil }) {
+                scoring = Scoring(
+                    id: span.token.id,
+                    dishName: dishName(before: span.token.id),
+                    rating: span.token.score
+                )
+            } else {
+                // The Score key's own path, so the 0.5 opening state can be looked at.
+                _ = insertScore()
+            }
+        }
+        #endif
     }
 
-    /// True once there is anything worth saving. Photos-only entries are legal (`body` may be `''`),
-    /// so the composer's own gate is "words or photos", not "words".
-    var hasContent: Bool { composition.isEmpty == false }
+    /// True when the composer opened on words somebody had already started. No prompt, no "you have
+    /// a draft" sheet — they are simply back where they were.
+    let isResumingDraft: Bool
+
+    /// True once there is anything worth saving. A photos-only entry is legal (`body` may be `''`).
+    var hasContent: Bool { composition.isEmpty == false || photos.isEmpty == false }
+
+    var photoDirectory: URL { drafts.photoDirectory(for: draftID) }
+
+    var canAddPhotos: Bool { photos.count < EntryDraft.photoLimit }
+
+    /// The entry, as it will be written.
+    var draft: EntryDraft {
+        EntryDraft(
+            id: draftID,
+            composition: composition,
+            isPublic: isPublic,
+            restaurantID: restaurantID,
+            photoFiles: photos.map(\.fileName),
+            startedAt: startedAt
+        )
+    }
+
+    func setPhotos(_ staged: [StagedPhoto]) {
+        photos = staged
+        persist()
+    }
+
+    /// Every mutation ends here. The words are on disk before the next keystroke, which is what
+    /// "your words save instantly" means while they are still being written.
+    private func persist() {
+        guard hasContent else {
+            drafts.clear(draftID: draftID)
+            return
+        }
+        drafts.save(draft)
+    }
+
+    /// Done and gone: the draft has become an entry.
+    func clearDraft() {
+        drafts.clear(draftID: draftID)
+    }
 
     // MARK: - The Score key
 
@@ -52,6 +135,11 @@ final class ComposerModel {
         apply(next, caret: newCaret)
         scoring = Scoring(id: token.id, dishName: dishName(before: token.id), rating: .minimum)
         return EntryEvents.scoreTokenCreated(source: .key)
+    }
+
+    /// The editor promoted a number the person typed (or dictated) into a token on its own.
+    func scoreLiteralPromoted(wasDictated: Bool) -> AnalyticsEvent {
+        EntryEvents.scoreTokenCreated(source: wasDictated ? .dictation : .typed)
     }
 
     /// Tapping an existing token reopens the thing that made it.
@@ -80,6 +168,7 @@ final class ComposerModel {
     /// If a place token is already there it is replaced in place; otherwise it goes at the very front,
     /// which is where the design puts it.
     func attach(place: PlaceRef) -> AnalyticsEvent {
+        restaurantID = place.id
         if let existing = composition.spans.first(where: { $0.token.place != nil }) {
             composition = composition.replacing(tokenID: existing.token.id, with: .place(place))
             revision += 1
@@ -88,14 +177,20 @@ final class ComposerModel {
             let (next, newCaret) = composition.inserting(EntryToken(kind: .place(place)), atDisplayOffset: 0)
             apply(next, caret: newCaret)
         }
+        isPickingPlace = false
         focusRequest += 1
+        persist()
         return EntryEvents.placeAttached(source: .picked)
     }
 
     /// The place the words carry, if any — and therefore the `restaurant_id` the entry is written
-    /// with. `nil` id means the person named somewhere we do not hold yet: the words keep the name,
-    /// the entry stays placeless, and the sorter parks its plan.
+    /// with. A `nil` id means the person named somewhere we do not hold yet: the words keep the
+    /// name, the entry is written placeless, and the sorter parks its plan.
     var place: PlaceRef? { composition.place }
+
+    /// What the place sheet opens pre-filled with: the words, never a location. The place already in
+    /// the sentence if there is one, otherwise nothing — guessing from the prose is the sorter's job.
+    var placeQuery: String { composition.place?.name ?? "" }
 
     // MARK: - Typing a number and moving on
 
@@ -120,6 +215,7 @@ final class ComposerModel {
         caretAfterRender = newCaret
         caret = newCaret
         revision += 1
+        persist()
     }
 
     /// The words just before a token, as the name of what is being scored. A stand-in for the

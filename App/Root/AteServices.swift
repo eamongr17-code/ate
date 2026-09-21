@@ -11,6 +11,11 @@ struct AteServices {
     let environment: AteEnvironment
     let api: AteAPIClient
     let analytics: AnalyticsRecorder
+    /// One draft, on disk. Shared, because the composer and anything that resumes it must be looking
+    /// at the same file.
+    let drafts: any EntryDraftStoring
+    /// Finding, resolving and creating places — the Place key and the entry's place correction.
+    let places: any PlaceDirectory
     /// Present in Debug and Beta pointed at staging; `nil` everywhere else. Sign in with Apple is
     /// milestone 2 — until it lands this is the only way into a session.
     let debugSignIn: DebugStagingSignIn?
@@ -20,6 +25,8 @@ struct AteServices {
         self.environment = environment
         self.api = api
         self.analytics = AteTelemetry.record
+        self.drafts = EntryDraftStore()
+        self.places = PlaceDirectoryClient(api: api)
         self.debugSignIn = DebugStagingSignIn.make(for: environment, api: api)
     }
 

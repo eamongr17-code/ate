@@ -49,6 +49,10 @@ struct InlineTokenEditor: UIViewRepresentable {
     var onTokenTap: (EntryToken) -> Void = { _ in }
     /// The caret moved. The host needs this to know where a new token should be inserted.
     var onCaretChange: (Int) -> Void = { _ in }
+    /// The editor promoted a number the person had typed into a score token on its own. The flag is
+    /// true when it arrived by dictation rather than the keyboard — the two are different products
+    /// and the funnel has to be able to tell them apart.
+    var onScorePromoted: (_ wasDictated: Bool) -> Void = { _ in }
 
     @Environment(\.atePalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -109,7 +113,7 @@ struct InlineTokenEditor: UIViewRepresentable {
     }
 
     private var callbacks: Callbacks {
-        Callbacks(onTokenTap: onTokenTap, onCaretChange: onCaretChange)
+        Callbacks(onTokenTap: onTokenTap, onCaretChange: onCaretChange, onScorePromoted: onScorePromoted)
     }
 
     struct Typography: Equatable {
@@ -122,6 +126,7 @@ struct InlineTokenEditor: UIViewRepresentable {
     struct Callbacks {
         var onTokenTap: (EntryToken) -> Void
         var onCaretChange: (Int) -> Void
+        var onScorePromoted: (Bool) -> Void
     }
 
     // MARK: - Coordinator
@@ -299,7 +304,12 @@ struct InlineTokenEditor: UIViewRepresentable {
             view.typingAttributes = baseAttributes()
             isRendering = false
             binding.wrappedValue = composition(from: view)
+            callbacks.onCaretChange(view.selectedRange.location)
             AteHaptics.tick()
+            // `primaryLanguage == "dictation"` is how UIKit reports that the text arrived from the
+            // keyboard's mic rather than its keys. It is the only signal there is, and being wrong
+            // costs one mislabelled funnel event — never a word of anybody's entry.
+            callbacks.onScorePromoted(view.textInputMode?.primaryLanguage == "dictation")
         }
 
         // MARK: Tapping — a token, or the writing area
@@ -356,12 +366,26 @@ final class InlineTokenTextView: UITextView {
     private var hasFocusedOnAppear = false
 
     /// `becomeFirstResponder()` in `makeUIView` is too early — the view has no window yet and the
-    /// call is dropped. This is the hook that is never too early and never too late.
+    /// call is dropped. This is the hook that is never too early.
+    ///
+    /// It can still be too *late* to succeed on the first try: UIKit refuses first responder while a
+    /// presentation transition is in flight, and the composer arrives in a `fullScreenCover`. So the
+    /// attempt retries for the length of a presentation and then gives up — a composer that opens
+    /// without a keyboard is a composer nobody writes in, and it was flaky, which is worse.
     override func didMoveToWindow() {
         super.didMoveToWindow()
         guard window != nil, focusesOnAppear, hasFocusedOnAppear == false else { return }
         hasFocusedOnAppear = true
-        becomeFirstResponder()
+        focusWhenAllowed(attemptsRemaining: 12)
+    }
+
+    private func focusWhenAllowed(attemptsRemaining: Int) {
+        guard isFirstResponder == false else { return }
+        if becomeFirstResponder() { return }
+        guard attemptsRemaining > 0 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            self?.focusWhenAllowed(attemptsRemaining: attemptsRemaining - 1)
+        }
     }
 
     override init(frame: CGRect, textContainer: NSTextContainer?) {
