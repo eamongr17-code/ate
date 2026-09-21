@@ -1,0 +1,109 @@
+// supabase/functions/sort-entry/model_test.ts
+//
+//   deno test --no-check supabase/functions/sort-entry/
+//   node --test supabase/functions/sort-entry/model_test.ts
+//
+// The point of these tests is INERTNESS: with no ANTHROPIC_API_KEY, the model path
+// must not merely be unused — it must be unreachable, and provably make no network
+// call. The rest pins the request shape and the tool-call parsing so the live switch
+// is a config change, not a code change.
+
+import { test, assert, assertEquals } from './harness.ts';
+import { buildRequest, MODEL, modelEnabled, planFromResponse, resolveMode, sortWithModel } from './model.ts';
+
+test('mode resolution: stub unless a key exists', () => {
+  assertEquals(resolveMode('', undefined), 'stub');
+  assertEquals(resolveMode('   ', undefined), 'stub');
+  assertEquals(resolveMode(null, undefined), 'stub');
+  assertEquals(resolveMode('sk-ant-xxx', undefined), 'model');
+});
+
+test('ATE_SORTER_MODE can force stub, but can never force model without a key', () => {
+  assertEquals(resolveMode('sk-ant-xxx', 'stub'), 'stub');
+  assertEquals(resolveMode('', 'model'), 'stub');
+  assertEquals(resolveMode('sk-ant-xxx', 'model'), 'model');
+});
+
+test('modelEnabled is the single source of that truth', () => {
+  assert(!modelEnabled(undefined));
+  assert(!modelEnabled(''));
+  assert(modelEnabled('sk-ant-xxx'));
+});
+
+test('WITHOUT a key, sortWithModel makes NO network call and returns null', async () => {
+  let calls = 0;
+  const spy = (() => {
+    calls++;
+    throw new Error('the model path must be unreachable without a key');
+  }) as unknown as typeof fetch;
+
+  assertEquals(await sortWithModel({ apiKey: '', body: 'Tipo 00. Pasta 4.5', fetchImpl: spy }), null);
+  assertEquals(await sortWithModel({ apiKey: undefined, body: 'x', fetchImpl: spy }), null);
+  assertEquals(calls, 0);
+});
+
+test('the request is haiku, deterministic, and forced through the tool', () => {
+  const req = buildRequest({ apiKey: 'sk-ant-xxx', body: 'Tipo 00. Pasta 4.5', knownDishes: ['Pasta'] });
+  const payload = JSON.parse(req.body);
+
+  assertEquals(payload.model, MODEL);
+  assertEquals(MODEL, 'claude-haiku-4-5-20251001');
+  assertEquals(payload.temperature, 0);
+  assertEquals(payload.tool_choice, { type: 'tool', name: 'sort_entry' });
+  assertEquals(payload.tools.length, 1);
+  assert(payload.system.includes('NEVER'), 'the rules must travel with the request');
+  assert(payload.messages[0].content.includes('Tipo 00. Pasta 4.5'), 'the words must be sent verbatim');
+  assert(payload.messages[0].content.includes('Pasta'), 'the known menu must be sent');
+  assertEquals(req.headers['anthropic-version'], '2023-06-01');
+  assertEquals(req.headers['x-api-key'], 'sk-ant-xxx');
+});
+
+test('a tool call is read into a plan; omitted fields become null', () => {
+  const plan = planFromResponse({
+    content: [
+      { type: 'text', text: 'ignore me' },
+      {
+        type: 'tool_use',
+        name: 'sort_entry',
+        input: {
+          place_query: 'Tipo 00',
+          items: [
+            { dish_name: 'Pasta', score: 4.5, score_evidence: '4.5', note: 'unreal.' },
+            { dish_name: 'Tiramisu' },
+          ],
+        },
+      },
+    ],
+  });
+  assertEquals(plan, {
+    place_query: 'Tipo 00',
+    items: [
+      { dish_name: 'Pasta', score: 4.5, score_evidence: '4.5', note: 'unreal.' },
+      { dish_name: 'Tiramisu', score: null, score_evidence: null, note: null },
+    ],
+  });
+});
+
+test('a reply with no tool call is null, not a guess', () => {
+  assertEquals(planFromResponse({ content: [{ type: 'text', text: '{"items":[]}' }] }), null);
+  assertEquals(planFromResponse({}), null);
+  assertEquals(planFromResponse(null), null);
+  assertEquals(planFromResponse({ content: [{ type: 'tool_use', name: 'other', input: { items: [] } }] }), null);
+});
+
+test('a non-200 from the model degrades to null (the caller falls back to the stub)', async () => {
+  const spy = (() => Promise.resolve(new Response('nope', { status: 500 }))) as unknown as typeof fetch;
+  assertEquals(await sortWithModel({ apiKey: 'sk-ant-xxx', body: 'x', fetchImpl: spy }), null);
+});
+
+test('a live tool call round-trips into a plan', async () => {
+  const body = JSON.stringify({
+    content: [{ type: 'tool_use', name: 'sort_entry', input: { items: [{ dish_name: 'Pasta', score: 4.5, score_evidence: '4.5' }] } }],
+  });
+  const spy = (() =>
+    Promise.resolve(new Response(body, { status: 200, headers: { 'content-type': 'application/json' } }))) as unknown as typeof fetch;
+
+  const plan = await sortWithModel({ apiKey: 'sk-ant-xxx', body: 'Pasta 4.5', fetchImpl: spy });
+  assertEquals(plan?.items[0].dish_name, 'Pasta');
+  assertEquals(plan?.place_query, null);
+});
