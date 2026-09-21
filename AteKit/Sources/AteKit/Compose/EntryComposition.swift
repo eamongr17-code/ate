@@ -176,24 +176,31 @@ public struct EntryComposition: Hashable, Codable, Sendable {
         )
     }
 
-    /// Inserts a token at a display offset — the Score / Place key. Adds a leading space when the
-    /// caret is tight against a word, so the words stay readable when the tokens are stripped.
+    /// Inserts a token at a display offset — the Score / Place key.
+    ///
+    /// Spaces the token off the words on either side when it needs them, so that stripping the tokens
+    /// still leaves a sentence: a place dropped in front of "with Jess" must not print as
+    /// "Tipo 00with Jess".
     public func inserting(
         _ token: EntryToken,
         atDisplayOffset offset: Int
     ) -> (EntryComposition, caret: Int) {
         let plainOffset = self.plainOffset(forDisplayOffset: offset)
         let units = Array(plain.utf16)
-        let previous = plainOffset > 0 ? units[plainOffset - 1] : UInt16(32)
-        let needsSpace = previous != 32 && previous != 10 && previous != 9
-        let prefix = needsSpace ? " " : ""
-        let inserted = prefix + token.plainText
+        let previous = plainOffset > 0 ? units[plainOffset - 1] : Self.space
+        let following = plainOffset < units.count ? units[plainOffset] : Self.space
+        let prefix = Self.whitespace.contains(previous) ? "" : " "
+        let suffix = Self.whitespace.contains(following) ? "" : " "
+        let inserted = prefix + token.plainText + suffix
 
         var next = applyingPlainEdit(replacing: TextSpan(location: plainOffset, length: 0), with: inserted)
         let span = TextSpan(location: plainOffset + prefix.utf16.count, length: token.plainText.utf16.count)
         next = EntryComposition(plain: next.plain, spans: next.spans + [EntryTokenSpan(token: token, span: span)])
         return (next, caret: next.displayOffset(forPlainOffset: span.endLocation))
     }
+
+    private static let space = UInt16(32)
+    private static let whitespace: Set<UInt16> = [32, 9, 10]
 
     /// Re-scores (or renames) an existing token in place — tapping a token and sliding again.
     public func replacing(tokenID: UUID, with kind: EntryTokenKind) -> EntryComposition {

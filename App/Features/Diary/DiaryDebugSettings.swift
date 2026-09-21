@@ -44,6 +44,7 @@ enum DiaryComposerPlacement: String, CaseIterable, Identifiable {
 struct DiaryDebugMenu: View {
     @AppStorage(DiaryDebugSettings.composerPlacementKey)
     private var raw = DiaryComposerPlacement.topOfList.rawValue
+    @State private var isGalleryPresented = false
 
     var body: some View {
         #if DEBUG || BETA
@@ -56,6 +57,9 @@ struct DiaryDebugMenu: View {
     #if DEBUG || BETA
     private var menu: some View {
         Menu {
+            // The approved design (docs/DESIGN.md) as built components, in both modes, plus the
+            // composer's inline-token spike — the one thing that has to be driven to be judged.
+            Button("Design system gallery") { isGalleryPresented = true }
             Picker("Composer placement", selection: $raw) {
                 ForEach(DiaryComposerPlacement.allCases) { placement in
                     Text(placement.title).tag(placement.rawValue)
@@ -67,6 +71,32 @@ struct DiaryDebugMenu: View {
             Image(systemName: "ladybug")
         }
         .accessibilityLabel("Debug options")
+        .fullScreenCover(isPresented: $isGalleryPresented) {
+            DesignSystemGalleryHost(isPresented: $isGalleryPresented)
+        }
     }
     #endif
 }
+
+#if DEBUG || BETA
+/// The gallery with a way out. A `fullScreenCover` so a component is judged at the size it will
+/// actually be seen at, with no sheet inset eating the gutter.
+private struct DesignSystemGalleryHost: View {
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        DesignSystemGallery()
+            .overlay(alignment: .topTrailing) {
+                Button {
+                    isPresented = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 28))
+                        .symbolRenderingMode(.hierarchical)
+                        .padding(AteMetrics.regular)
+                }
+                .accessibilityLabel("Close gallery")
+            }
+    }
+}
+#endif

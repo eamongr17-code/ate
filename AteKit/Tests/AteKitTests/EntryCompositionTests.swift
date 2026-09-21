@@ -173,6 +173,31 @@ struct EntryCompositionTests {
         #expect(next.plain == "Tiramisu 3.0")
     }
 
+    @Test("a token dropped in front of words is spaced off them, so the sentence survives")
+    func insertPlaceAtStart() {
+        var composition = EntryComposition()
+        composition = composition.applyingPlainEdit(
+            replacing: TextSpan(location: 0, length: 0),
+            with: "with Jess for her birthday"
+        )
+        let token = EntryToken(kind: .place(PlaceRef(id: UUID(), name: "Tipo 00")))
+        let (next, caret) = composition.inserting(token, atDisplayOffset: 0)
+        #expect(next.plain == "Tipo 00 with Jess for her birthday")
+        #expect(next.spans.first?.span == TextSpan(location: 0, length: 7))
+        #expect(caret == 1)
+    }
+
+    @Test("a token in the middle of a sentence gets a space on both sides")
+    func insertMidSentence() {
+        var composition = EntryComposition()
+        composition = composition.applyingPlainEdit(
+            replacing: TextSpan(location: 0, length: 0),
+            with: "The tiramisuwas flat"
+        )
+        let (next, _) = composition.inserting(EntryToken(kind: .score(Rating(rounding: 3))), atDisplayOffset: 12)
+        #expect(next.plain == "The tiramisu 3.0 was flat")
+    }
+
     @Test("re-scoring a token rewrites only its own characters and shifts what follows")
     func rescore() {
         let composition = Self.sample()

@@ -235,7 +235,8 @@ struct AteAvatar: View {
     }
 }
 
-#if DEBUG
+// `DEBUG || BETA`: the gallery these feed ships to TestFlight.
+#if DEBUG || BETA
 extension AteSlip {
     @MainActor
     static var previewJournal: AteSlip {
@@ -309,7 +310,9 @@ extension EntryComposition {
         )
     }
 }
+#endif
 
+#if DEBUG
 #Preview("Slips") {
     ScrollView {
         VStack(spacing: AteMetrics.slipGap) {

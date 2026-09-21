@@ -199,7 +199,9 @@ struct AteReceiptView: View {
     }
 }
 
-#if DEBUG
+// Fixtures are `DEBUG || BETA`, not `DEBUG`: the debug gallery ships to TestFlight, and a component
+// that can't be shown there is a component nobody can judge. Previews stay `DEBUG`.
+#if DEBUG || BETA
 extension AteReceipt {
     /// The prototype's own receipt, so a preview and the design can be held side by side.
     static let preview = AteReceipt(
@@ -225,7 +227,9 @@ extension AteReceipt {
         handle: "eamon"
     )
 }
+#endif
 
+#if DEBUG
 #Preview("Receipt") {
     ScrollView {
         VStack(spacing: AteMetrics.section) {

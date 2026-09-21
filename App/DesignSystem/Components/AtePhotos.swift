@@ -94,12 +94,13 @@ struct AteThumbnail: View {
     }
 }
 
-#if DEBUG
+// `DEBUG || BETA`: the gallery these feed ships to TestFlight.
+#if DEBUG || BETA
 extension AtePhoto {
     /// A flat coloured stand-in, so a preview shows the *composition* — tilt, overlap, ring — without
     /// a network or a bundled photo.
     @MainActor
-    static func swatch(_ colour: Color, seed: Int = 0) -> AtePhoto {
+    static func swatch(_ colour: Color) -> AtePhoto {
         let renderer = ImageRenderer(content:
             colour.frame(width: 200, height: 200).overlay(
                 Image(systemName: "fork.knife")
@@ -117,7 +118,9 @@ extension AtePhoto {
         [swatch(AteColor.butter), swatch(AteColor.green), swatch(AteColor.sky)]
     }
 }
+#endif
 
+#if DEBUG
 #Preview("Photos") {
     VStack(alignment: .leading, spacing: AteMetrics.section) {
         PhotoCluster(photos: AtePhoto.swatches)
