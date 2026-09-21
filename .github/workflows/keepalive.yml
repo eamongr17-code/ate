@@ -1,0 +1,26 @@
+name: Staging keep-alive
+
+# Supabase pauses free projects after about a week without traffic, which takes the TestFlight app
+# down (it happened in September 2026). One real query a day keeps staging awake. This never touches prod.
+on:
+  schedule:
+    - cron: "17 19 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    name: Ping staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: One anonymous read through PostgREST
+        run: |
+          # The publishable key + RLS deny-by-default means this returns 200 and [] — but it is a real
+          # database query, which is what counts as activity.
+          code=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 30 \
+            "${{ vars.SUPABASE_URL_STAGING }}/rest/v1/restaurants?select=id&limit=1" \
+            -H "apikey: ${{ vars.SUPABASE_KEY_STAGING }}")
+          echo "status=$code body=$(cat /tmp/body)"
+          [ "$code" = "200" ]
