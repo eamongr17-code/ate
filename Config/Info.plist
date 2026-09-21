@@ -26,6 +26,19 @@
 	<false/>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<!-- The three voices (docs/DESIGN.md), all OFL, bundled from App/Resources/Fonts.
+	     A synchronized Xcode group copies them to the bundle root, which is where these
+	     paths point. AteType.swift also registers them at runtime as a safety net, so
+	     SwiftUI previews and the debug gallery get the real faces too. -->
+	<key>UIAppFonts</key>
+	<array>
+		<string>BricolageGrotesque-Variable.ttf</string>
+		<string>Newsreader-Variable.ttf</string>
+		<string>Newsreader-Italic-Variable.ttf</string>
+		<string>DMMono-Regular.ttf</string>
+		<string>DMMono-Medium.ttf</string>
+		<string>DMMono-Italic.ttf</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

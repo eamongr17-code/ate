@@ -128,7 +128,10 @@ public struct EntryComposition: Hashable, Codable, Sendable {
     ///
     /// Tokens the edit touches are removed (their plain characters go with them). Tokens after the
     /// edit shift by the length delta. Nothing is ever partially deleted.
-    public func applyingDisplayEdit(replacing range: TextSpan, with replacement: String) -> (EntryComposition, caret: Int) {
+    public func applyingDisplayEdit(
+        replacing range: TextSpan,
+        with replacement: String
+    ) -> (EntryComposition, caret: Int) {
         let plainRange = plainSpan(forDisplaySpan: range)
         let next = applyingPlainEdit(replacing: plainRange, with: replacement)
         let caretPlain = plainRange.location + replacement.utf16.count
