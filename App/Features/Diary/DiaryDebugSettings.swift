@@ -56,6 +56,9 @@ struct DiaryDebugMenu: View {
     #if DEBUG || BETA
     private var menu: some View {
         Menu {
+            // The approved design (docs/DESIGN.md) as built components, in both modes, plus the
+            // composer's inline-token spike — the one thing that has to be driven to be judged.
+            DesignSystemGalleryMenuItem()
             Picker("Composer placement", selection: $raw) {
                 ForEach(DiaryComposerPlacement.allCases) { placement in
                     Text(placement.title).tag(placement.rawValue)

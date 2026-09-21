@@ -7,6 +7,24 @@ struct ContentView: View {
     let environment: Result<AteEnvironment, Error>
 
     var body: some View {
+        #if DEBUG || BETA
+        // The design-system gallery has no backend at all, so it must not be reachable only through a
+        // screen that needs one: `-ate-design-gallery` opens it straight from launch, which is also
+        // how it gets driven on a simulator.
+        if ProcessInfo.processInfo.arguments.contains("-ate-design-gallery") {
+            DesignSystemGallery()
+        } else {
+            // The gallery presents from the ROOT, not from the debug menu it is asked for in: a
+            // `fullScreenCover` hung off a toolbar menu's content is not a reliable presentation.
+            app.designSystemGalleryPresenter()
+        }
+        #else
+        app
+        #endif
+    }
+
+    @ViewBuilder
+    private var app: some View {
         switch environment {
         case .success(let environment):
             RootTabView(environment: environment)

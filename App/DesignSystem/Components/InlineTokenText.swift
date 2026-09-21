@@ -1,0 +1,132 @@
+import AteKit
+import SwiftUI
+import UIKit
+
+/// **The person's words with their tokens still in them**, read-only: the journal slip, the feed slip,
+/// the entry page. The same composition the composer edits, rendered as flowing prose.
+///
+/// A `UILabel` rather than SwiftUI's `Text`, for one reason with teeth: the design's pill is about
+/// 1.2em tall, and SwiftUI takes an image run's height as its line's ascent — so every line with a
+/// score in it came out five to eight points taller than the lines around it and a paragraph's rhythm
+/// went ragged. `NSParagraphStyle` gives an exact line height that the attachment sits inside, which
+/// is what the prototype's CSS does. The label is also cheap enough for a list: no scroll view, no
+/// editing, no selection.
+struct InlineTokenText: View {
+    let composition: EntryComposition
+    var style: AteTextStyle = .prose
+    var lineLimit: Int?
+
+    @Environment(\.displayScale) private var displayScale
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        InlineTokenLabel(
+            composition: composition,
+            attributes: InlineTokenAttributes(
+                style: style,
+                palette: palette,
+                dynamicTypeSize: dynamicTypeSize,
+                displayScale: displayScale
+            ),
+            lineLimit: lineLimit
+        )
+        .accessibilityElement()
+        .accessibilityLabel(composition.plain)
+    }
+}
+
+private struct InlineTokenLabel: UIViewRepresentable {
+    let composition: EntryComposition
+    let attributes: InlineTokenAttributes
+    let lineLimit: Int?
+
+    func makeUIView(context: Context) -> UILabel {
+        let label = UILabel()
+        label.numberOfLines = lineLimit ?? 0
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        label.setContentHuggingPriority(.defaultHigh, for: .vertical)
+        label.isAccessibilityElement = false
+        return label
+    }
+
+    func updateUIView(_ label: UILabel, context: Context) {
+        label.numberOfLines = lineLimit ?? 0
+        label.attributedText = attributes.attributedString(for: composition)
+    }
+
+    /// SwiftUI proposes a width; the label answers with the height its words need in it. Without this
+    /// a label in a `VStack` sizes to one line and clips.
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView label: UILabel, context: Context) -> CGSize? {
+        let width = proposal.width ?? UIView.layoutFittingExpandedSize.width
+        let size = label.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return CGSize(width: width, height: size.height)
+    }
+}
+
+/// Rasterises a token into an image so it can live inside a text view's attachment — **one** drawing
+/// of a pill, shared by the read-only prose and the editable composer, so the two can never drift.
+@MainActor
+enum TokenPill {
+    static func image(
+        for kind: EntryTokenKind,
+        prose: CGFloat,
+        palette: AtePalette,
+        dynamicTypeSize: DynamicTypeSize,
+        scale: CGFloat
+    ) -> UIImage? {
+        let key = Key(kind: kind, prose: prose, scale: scale, dynamicTypeSize: dynamicTypeSize, palette: palette)
+        if let cached = cache[key] { return cached }
+        let renderer = ImageRenderer(content: view(for: kind, prose: prose)
+            .environment(\.atePalette, palette)
+            .environment(\.dynamicTypeSize, dynamicTypeSize))
+        renderer.scale = scale > 0 ? scale : 3
+        renderer.isOpaque = false
+        guard let image = renderer.uiImage else { return nil }
+        cache[key] = image
+        return image
+    }
+
+    @ViewBuilder
+    private static func view(for kind: EntryTokenKind, prose: CGFloat) -> some View {
+        switch kind {
+        case .score(let rating): ScoreToken(rating: rating, prose: prose)
+        case .place(let place): PlaceToken(name: place.name, prose: prose)
+        }
+    }
+
+    private struct Key: Hashable {
+        let kind: EntryTokenKind
+        let prose: CGFloat
+        let scale: CGFloat
+        let dynamicTypeSize: DynamicTypeSize
+        let palette: PaletteKey
+
+        init(
+            kind: EntryTokenKind,
+            prose: CGFloat,
+            scale: CGFloat,
+            dynamicTypeSize: DynamicTypeSize,
+            palette: AtePalette
+        ) {
+            self.kind = kind
+            self.prose = prose
+            self.scale = scale
+            self.dynamicTypeSize = dynamicTypeSize
+            self.palette = PaletteKey(palette)
+        }
+
+        /// A pill drawn on paper and the same pill drawn on the ink ground are different images and
+        /// must not share a cache slot.
+        struct PaletteKey: Hashable {
+            let fg: Color
+            let field: Color
+            init(_ palette: AtePalette) {
+                self.fg = palette.fg
+                self.field = palette.field
+            }
+        }
+    }
+
+    private static var cache: [Key: UIImage] = [:]
+}
