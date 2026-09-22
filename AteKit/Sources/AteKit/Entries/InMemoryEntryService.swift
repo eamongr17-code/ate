@@ -179,6 +179,19 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
         }
     }
 
+    public func updateBody(entryID: UUID, body: String) async throws {
+        lock.withLock {
+            guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return }
+            let card = entries[index]
+            entries[index] = EntryCard(
+                id: card.id, authorID: card.authorID, body: body, visibility: card.visibility,
+                restaurantID: card.restaurantID, restaurantSource: card.restaurantSource,
+                orderNumber: card.orderNumber, sortStatus: .pending, createdAt: card.createdAt,
+                isMine: card.isMine, author: card.author, place: card.place, photos: card.photos
+            )
+        }
+    }
+
     /// The name the place token carried, read back out of the words. The real server resolves a
     /// name to a row; here the row is whatever they tapped.
     private func placeName(for entry: NewEntry) -> String {

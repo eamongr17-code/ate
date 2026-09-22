@@ -63,6 +63,7 @@ private final class StubEntryService: EntryService, @unchecked Sendable {
     }
     func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async throws {}
     func setVisibility(entryID: UUID, visibility: EntryVisibility) async throws {}
+    func updateBody(entryID: UUID, body: String) async throws {}
 }
 
 @Suite("Entry submission")

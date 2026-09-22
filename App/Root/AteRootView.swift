@@ -103,8 +103,13 @@ private struct AteShell: View {
             .ateGround()
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: EntryRoute.self) { route in
-                EntryScreen(route: route, services: services) { journal.replace($0) }
-                    .toolbar(.hidden, for: .navigationBar)
+                EntryScreen(
+                    route: route,
+                    services: services,
+                    onChange: { journal.replace($0) },
+                    onEdit: { composing = .edit($0) }
+                )
+                .toolbar(.hidden, for: .navigationBar)
             }
         }
         .fullScreenCover(item: $composing) { presentation in
@@ -155,9 +160,13 @@ private struct AteShell: View {
 
     /// Done in the composer: the entry is already on the journal, and this is where the receipt
     /// prints. The stack is unwound first, so writing twice in a row does not stack entry pages.
+    ///
+    /// An *edit* lands on the same page it came from, so the path is left where it is — replacing it
+    /// would push a second copy of the entry the person is already looking at.
     private func landOnEntry(_ card: EntryCard) {
         journal.insert(card)
         tab = .journal
+        guard path.contains(where: { $0.entryID == card.id }) == false else { return }
         path = [EntryRoute(entryID: card.id, isFreshlyWritten: true)]
     }
 

@@ -21,14 +21,22 @@ struct EntryScreen: View {
     let services: AteServices
     /// Called whenever the entry changes, so the journal behind this screen stays true.
     var onChange: (EntryCard) -> Void = { _ in }
+    /// The pencil: reopen these words in the composer.
+    var onEdit: (EntryCard) -> Void = { _ in }
 
     @State private var model: EntryModel
     @Environment(\.dismiss) private var dismiss
 
-    init(route: EntryRoute, services: AteServices, onChange: @escaping (EntryCard) -> Void = { _ in }) {
+    init(
+        route: EntryRoute,
+        services: AteServices,
+        onChange: @escaping (EntryCard) -> Void = { _ in },
+        onEdit: @escaping (EntryCard) -> Void = { _ in }
+    ) {
         self.route = route
         self.services = services
         self.onChange = onChange
+        self.onEdit = onEdit
         _model = State(initialValue: EntryModel(route: route, services: services))
     }
 
@@ -51,10 +59,15 @@ struct EntryScreen: View {
         .onChange(of: model.card) { _, card in
             if let card { onChange(card) }
         }
+        .sheet(isPresented: $model.isCorrectingPlace) { placeSheet }
+        .sheet(item: $model.correcting) { correcting in dishSheet(correcting.item) }
+        .sheet(isPresented: $model.isSharing) { shareSheet }
     }
 
     // MARK: - Bands
 
+    /// Back / visibility / edit / share, exactly as `Entry.dc.html` sets them down. Icons only — the
+    /// design puts labels nowhere near this row (rule 1).
     private var topBar: some View {
         HStack(spacing: 0) {
             AteIconButton(icon: .back, label: "Back to journal", size: 24) { dismiss() }
@@ -67,11 +80,49 @@ struct EntryScreen: View {
                 ) {
                     Task { await model.toggleVisibility() }
                 }
+                AteIconButton(icon: .edit, label: "Edit", size: 21) { onEdit(card) }
+                AteIconButton(icon: .share, label: "Share receipt", size: 22) { model.share() }
+                    .disabled(model.receipt == nil)
+                    .opacity(model.receipt == nil ? 0.35 : 1)
             }
         }
         .padding(.horizontal, AteMetrics.regular)
         .padding(.top, AteMetrics.contentTop)
         .background(AtePalette.automatic.ground)
+    }
+
+    // MARK: - Sheets
+
+    /// The receipt's header. The *same* sheet the composer's Place key opens — the same action has
+    /// to work identically everywhere it appears.
+    private var placeSheet: some View {
+        PlaceSheet(
+            directory: services.places,
+            initialQuery: model.card?.place?.name ?? "",
+            selected: model.card?.restaurantID
+        ) { place in
+            Task { await model.correctPlace(place) }
+        }
+        .presentationDetents([.large])
+    }
+
+    private func dishSheet(_ item: AteReceipt.Item) -> some View {
+        DishSheet(
+            directory: services.places,
+            placeID: model.card?.restaurantID,
+            placeName: model.card?.place?.name,
+            item: item
+        ) { dishID, dishName in
+            Task { await model.correctDish(reviewID: item.id, dishID: dishID, dishName: dishName) }
+        }
+        .presentationDetents([.large])
+    }
+
+    @ViewBuilder
+    private var shareSheet: some View {
+        if let image = model.shareImage {
+            ShareSheet(image: image)
+        }
     }
 
     /// The words card: the person's own sentence with its tokens, and the tilted photo cluster. It

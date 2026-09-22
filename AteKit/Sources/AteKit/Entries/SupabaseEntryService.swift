@@ -148,6 +148,14 @@ public struct SupabaseEntryService: EntryService {
             .execute()
     }
 
+    public func updateBody(entryID: UUID, body: String) async throws {
+        _ = try await api.supabase
+            .from("entries")
+            .update(["body": body], returning: .minimal)
+            .eq("id", value: entryID.uuidString.lowercased())
+            .execute()
+    }
+
     // MARK: - Wire
 
     private func isDuplicateKey(_ error: any Error) -> Bool {

@@ -39,12 +39,28 @@ final class ComposerModel {
 
     /// The entry's id, minted here and carried to the INSERT — what makes the write idempotent.
     let draftID: UUID
+    /// Set when this composer is rewriting an entry that already exists. A draft is never kept for
+    /// an edit: the words are already saved somewhere, and a second copy on disk could only rot.
+    let editing: ComposerPresentation.EditingEntry?
     private let drafts: any EntryDraftStoring
     private let startedAt: Date
     private var restaurantID: UUID?
 
-    init(drafts: any EntryDraftStoring) {
+    init(drafts: any EntryDraftStoring, editing: ComposerPresentation.EditingEntry? = nil) {
         self.drafts = drafts
+        self.editing = editing
+        if let editing {
+            self.draftID = editing.id
+            self.composition = Self.composition(for: editing)
+            self.isPublic = editing.isPublic
+            self.restaurantID = editing.restaurantID
+            self.startedAt = Date()
+            let end = Self.composition(for: editing).displayString.utf16.count
+            self.caret = end
+            self.caretAfterRender = end > 0 ? end : nil
+            self.isResumingDraft = false
+            return
+        }
         let resumed = drafts.load()
         self.draftID = resumed?.id ?? UUID()
         self.composition = resumed?.composition ?? EntryComposition()
@@ -110,11 +126,32 @@ final class ComposerModel {
     /// Every mutation ends here. The words are on disk before the next keystroke, which is what
     /// "your words save instantly" means while they are still being written.
     private func persist() {
+        guard editing == nil else { return }
         guard hasContent else {
             drafts.clear(draftID: draftID)
             return
         }
         drafts.save(draft)
+    }
+
+    /// An existing entry's words, with the place token put back where the person named it. Scores
+    /// are deliberately NOT re-tokenised here: the sorter decided which numbers were scores, and
+    /// re-deciding on the client would be a second opinion about somebody's own sentence. They stay
+    /// as the plain digits they are, and typing beside them promotes them exactly as before.
+    private static func composition(for editing: ComposerPresentation.EditingEntry) -> EntryComposition {
+        guard let name = editing.placeName,
+              let range = editing.body.range(of: name),
+              let lower = range.lowerBound.samePosition(in: editing.body.utf16) else {
+            return EntryComposition(plain: editing.body, spans: [])
+        }
+        let location = editing.body.utf16.distance(from: editing.body.utf16.startIndex, to: lower)
+        return EntryComposition(
+            plain: editing.body,
+            spans: [EntryTokenSpan(
+                token: EntryToken(kind: .place(PlaceRef(id: editing.restaurantID, name: name))),
+                span: TextSpan(location: location, length: name.utf16.count)
+            )]
+        )
     }
 
     /// Done and gone: the draft has become an entry.

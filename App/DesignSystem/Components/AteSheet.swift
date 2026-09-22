@@ -15,12 +15,20 @@ struct AteSheet<Content: View>: View {
     @ViewBuilder var content: Content
 
     @Environment(\.atePalette) private var palette
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.loose) {
-            Text(title)
-                .ateText(.sheetTitle)
-                .padding(.top, AteMetrics.section)
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .ateText(.sheetTitle)
+                Spacer(minLength: AteMetrics.snug)
+                // The design puts an X beside every sheet title. The grabber alone is a gesture;
+                // the X is the affordance, and both are native.
+                AteIconButton(icon: .close, label: "Close") { dismiss() }
+                    .padding(.trailing, -10)
+            }
+            .padding(.top, AteMetrics.section)
             if let searchText, let searchPrompt {
                 AteSearchField(prompt: searchPrompt, text: searchText)
             }

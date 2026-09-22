@@ -128,6 +128,10 @@ public protocol EntryService: Sendable {
     func correctPlace(entryID: UUID, restaurantID: UUID) async throws -> EntryCard
     func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async throws
     func setVisibility(entryID: UUID, visibility: EntryVisibility) async throws
+
+    /// The person editing their **own** words. The only path that writes `entries.body`, and it is
+    /// theirs: the server never rewrites it (data-model landmine 6).
+    func updateBody(entryID: UUID, body: String) async throws
 }
 
 public extension EntryService {

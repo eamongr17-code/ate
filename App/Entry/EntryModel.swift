@@ -31,6 +31,7 @@ final class EntryModel {
     var isCorrectingPlace = false
     var correcting: Correcting?
     var isSharing = false
+    private(set) var shareImage: UIImage?
 
     private let route: EntryRoute
     private let services: AteServices
@@ -40,6 +41,9 @@ final class EntryModel {
     init(route: EntryRoute, services: AteServices) {
         self.route = route
         self.services = services
+        #if DEBUG
+        isCorrectingPlace = ComposerDebugLaunch.opensPlaceSheet
+        #endif
     }
 
     // MARK: - Loading
@@ -82,6 +86,11 @@ final class EntryModel {
         state = EntryPresentation.state(for: card, handle: handle)
         guard case .printed(let receipt) = state else { return }
         report(receipt)
+        #if DEBUG
+        if ComposerDebugLaunch.opensDishSheet, correcting == nil, let first = receipt.items.first {
+            correcting = Correcting(item: first)
+        }
+        #endif
         // The receipt prints in the first time it *arrives*: Done in the composer landed here, or
         // the sorter finished while the page was open. Opening an entry that was already sorted
         // shows a printed receipt, not a printing one — the theatre is the moment, not the screen.
@@ -101,7 +110,24 @@ final class EntryModel {
         ))
     }
 
+    /// The receipt, when there is one. The entry page's share button is off until there is — a
+    /// receipt is the only thing this screen has to share.
+    var receipt: AteReceipt? {
+        if case .printed(let receipt) = state { return receipt }
+        return nil
+    }
+
     // MARK: - Actions
+
+    /// Renders the receipt and opens the system share sheet. Rendered at the moment of sharing, from
+    /// the same component the page draws, so the picture and the screen can never disagree.
+    func share() {
+        guard let receipt else { return }
+        shareImage = ReceiptImage.render(receipt)
+        guard shareImage != nil else { return }
+        services.analytics(EntryEvents.receiptShared())
+        isSharing = true
+    }
 
     func retrySort() async {
         state = .pending

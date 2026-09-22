@@ -31,7 +31,10 @@ struct ComposerScreen: View {
         self.presentation = presentation
         self.services = services
         self.onSaved = onSaved
-        _model = State(initialValue: ComposerModel(drafts: services.drafts))
+        _model = State(initialValue: ComposerModel(
+            drafts: services.drafts,
+            editing: presentation.editing
+        ))
     }
 
     var body: some View {
@@ -201,6 +204,10 @@ struct ComposerScreen: View {
         guard isSaving == false, model.hasContent else { return }
         isSaving = true
         model.promotePendingScoreLiteral().map(services.analytics)
+        if let editing = model.editing {
+            rewrite(editing)
+            return
+        }
         let draft = model.draft
         let request = model.request(from: draft, photoDirectory: model.photoDirectory)
         let submission = services.submission
@@ -219,6 +226,23 @@ struct ComposerScreen: View {
             // on purpose: dismissing must not cancel the rest of the entry landing.
             Task.detached {
                 await submission.finish(entryID: request.id, photoPaths: request.photoPaths)
+            }
+        }
+    }
+
+    /// Editing an entry that already exists: the body is rewritten in place and the sorter is asked
+    /// again, because the structure underneath is derived from these words and nothing else.
+    private func rewrite(_ editing: ComposerPresentation.EditingEntry) {
+        let body = model.composition.plain
+        let entries = services.entries
+        let id = editing.id
+        Task {
+            try? await entries.updateBody(entryID: id, body: body)
+            isSaving = false
+            if let card = try? await entries.entry(id: id) { onSaved(card) }
+            dismiss()
+            Task.detached {
+                _ = try? await entries.sort(entryID: id, force: true)
             }
         }
     }
