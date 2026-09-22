@@ -1,0 +1,240 @@
+import SwiftUI
+
+/// **Design rule 3's "everything else"**: no container at all — a plain row parted from the next by a
+/// hairline. Search results, settings, a restaurant's dishes, the radio rows in a sheet. If you are
+/// reaching for a card, this is what you actually want.
+struct AteListRow<Leading: View, Trailing: View>: View {
+    var title: String
+    var subtitle: String?
+    @ViewBuilder var leading: Leading
+    @ViewBuilder var trailing: Trailing
+    var action: (() -> Void)?
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        Group {
+            if let action {
+                Button(action: action) { content }
+                    .buttonStyle(.plain)
+            } else {
+                content
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var content: some View {
+        VStack(spacing: 0) {
+            // The design rules rows at the TOP (`border-top:1px solid var(--hair)`), so a section's
+            // first row is parted from its label and its last row ends on paper, not on a line.
+            AteHairline()
+            HStack(spacing: AteMetrics.regular) {
+                leading
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .ateText(.rowTitle)
+                        .foregroundStyle(palette.fg)
+                    if let subtitle {
+                        Text(subtitle)
+                            .ateText(.meta)
+                            .foregroundStyle(palette.muted)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                trailing
+            }
+            .frame(minHeight: AteMetrics.rowHeight)
+            .contentShape(.rect)
+        }
+    }
+}
+
+extension AteListRow where Leading == EmptyView, Trailing == EmptyView {
+    init(title: String, subtitle: String? = nil, action: (() -> Void)? = nil) {
+        self.init(title: title, subtitle: subtitle, leading: { EmptyView() }, trailing: { EmptyView() }, action: action)
+    }
+}
+
+extension AteListRow where Leading == EmptyView {
+    init(
+        title: String,
+        subtitle: String? = nil,
+        @ViewBuilder trailing: () -> Trailing,
+        action: (() -> Void)? = nil
+    ) {
+        self.init(title: title, subtitle: subtitle, leading: { EmptyView() }, trailing: trailing, action: action)
+    }
+}
+
+/// A radio row — how a sheet asks which place, which dish. A check, not a chevron: the row *is* the
+/// answer, and picking it closes the question.
+struct AteRadioRow: View {
+    let title: String
+    var subtitle: String?
+    let isSelected: Bool
+    let action: () -> Void
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        AteListRow(title: title, subtitle: subtitle) {
+            AteRadioMark(isSelected: isSelected)
+        } action: {
+            action()
+        }
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        // The row combines its children, so its label is "name, subtitle". The identifier is the
+        // name alone, which is what a drive actually wants to reach for.
+        .accessibilityIdentifier("row.\(title)")
+    }
+}
+
+/// The mark at the end of a radio row: a 28pt ink disc with a white check when it is the answer, and
+/// a 1.5pt ring at 30% when it is not. Not a checkmark glyph in a circle — the disc is filled.
+struct AteRadioMark: View {
+    let isSelected: Bool
+
+    @Environment(\.atePalette) private var palette
+
+    private static let side: CGFloat = 28
+
+    var body: some View {
+        ZStack {
+            if isSelected {
+                Circle().fill(palette.fg)
+                AteIcon.check.view(size: 16)
+                    .foregroundStyle(palette.ground)
+            } else {
+                Circle().strokeBorder(palette.fg.opacity(0.3), lineWidth: 1.5)
+            }
+        }
+        .frame(width: Self.side, height: Self.side)
+        .accessibilityHidden(true)
+    }
+}
+
+/// A chip: the small pill that carries a place, a filter, a count. 32pt, control surface, icon first.
+struct AteChip: View {
+    var icon: AteIcon?
+    let title: String
+    var action: (() -> Void)?
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        let content = HStack(spacing: AteMetrics.snug - 2) {
+            if let icon { icon.view(size: 16) }
+            Text(title).ateText(.controlSmall)
+        }
+        .padding(.leading, icon == nil ? 12 : 10)
+        .padding(.trailing, 12)
+        .frame(height: AteMetrics.chipHeight)
+        .background(palette.chip, in: .capsule)
+        .foregroundStyle(palette.fg)
+
+        if let action {
+            Button(action: action) { content }.buttonStyle(.plain)
+        } else {
+            content
+        }
+    }
+}
+
+/// The one ink pill per sheet, and the Share button. 56pt, full width, foreground-on-ground inverted.
+struct AteButton: View {
+    var icon: AteIcon?
+    let title: String
+    /// 56 by default; `MainEmpty`'s button inside a slip is 52.
+    var height: CGFloat = AteMetrics.buttonHeight
+    let action: () -> Void
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: AteMetrics.snug) {
+                if let icon { icon.view(size: 18) }
+                Text(title).ateText(.button)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .background(palette.fg, in: .capsule)
+            .foregroundStyle(palette.inverted)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// One choice in a segmented pill.
+struct AteSegment<Value: Hashable>: Identifiable {
+    let value: Value
+    let title: String
+
+    init(_ value: Value, _ title: String) {
+        self.value = value
+        self.title = title
+    }
+
+    var id: Value { value }
+}
+
+/// A two-way segmented pill — Journal | Saved. A pill inside a field-coloured pill, which is the only
+/// segmented control the design has.
+struct AteSegments<Value: Hashable>: View {
+    let options: [AteSegment<Value>]
+    @Binding var selection: Value
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(options) { option in
+                let isCurrent = option.value == selection
+                Button {
+                    selection = option.value
+                } label: {
+                    Text(option.title)
+                        .ateText(.controlSmall)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: AteMetrics.segmentHeight)
+                        .background(isCurrent ? palette.chip : .clear, in: .capsule)
+                        .foregroundStyle(isCurrent ? palette.fg : palette.muted)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
+            }
+        }
+        .padding(AteMetrics.tight)
+        .background(palette.field, in: .capsule)
+    }
+}
+
+#if DEBUG
+private struct RowsPreview: View {
+    @State private var segment = 0
+    @State private var picked = 1
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AteMetrics.section) {
+            AteSegments(options: [AteSegment(0, "Journal"), AteSegment(1, "Saved")], selection: $segment)
+            HStack {
+                AteChip(icon: .place, title: "Melbourne", action: {})
+                AteChip(title: "All time")
+            }
+            VStack(spacing: 0) {
+                AteListRow(title: "Tipo 00", subtitle: "361 Little Bourke St", action: {})
+                AteRadioRow(title: "Tipo 00", subtitle: "Italian", isSelected: picked == 0) { picked = 0 }
+                AteRadioRow(title: "Kisume", subtitle: "Japanese", isSelected: picked == 1) { picked = 1 }
+            }
+            AteButton(icon: .share, title: "Share", action: {})
+        }
+        .padding(AteMetrics.gutter)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .ateGround()
+    }
+}
+
+#Preview("Rows and controls") { RowsPreview() }
+#endif

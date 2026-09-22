@@ -9,6 +9,13 @@ public enum ScoreFormat {
     public static let unratedPlaceholder = "–"
 
     /// The bare average: `"4.3"`, or the placeholder when unrated.
+    ///
+    /// **AGGREGATES ONLY.** A derived average can land anywhere and drops a trailing `.0` because
+    /// "3" is what an average of exactly three is. A *single review's* score is a half-step and must
+    /// use ``halfStep``: rendering one review's 3.0 through here prints "3", which sits next to a
+    /// card reading "3.0" and looks like two different scores. That bug shipped twice (a diary
+    /// sibling row and the multi-dish receipt); this note and `scoreFormatRoleSeparation` are why it
+    /// doesn't ship a third time.
     public static func average(_ score: Double?) -> String {
         guard let score else { return unratedPlaceholder }
         return score.formatted(.number.precision(.fractionLength(0...1)))

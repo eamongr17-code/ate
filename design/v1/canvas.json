@@ -1,0 +1,377 @@
+{
+ "v": 3,
+ "attachments": {},
+ "boards": {
+  "Ask.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "later",
+   "title": "Ask your journal (not MVP)",
+   "w": 390,
+   "x": 0,
+   "y": 0
+  },
+  "Brand.dc.html": {
+   "h": 900,
+   "page": "brand",
+   "title": "Made to Order",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "Composer.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "app",
+   "title": "Composer, writing",
+   "w": 390,
+   "x": 1880,
+   "y": 0
+  },
+  "ComposerStars.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "app",
+   "title": "Composer, slide to score",
+   "w": 390,
+   "x": 2350,
+   "y": 0
+  },
+  "ComposerVoice.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "app",
+   "title": "Composer, talking",
+   "w": 390,
+   "x": 2820,
+   "y": 0
+  },
+  "Dish.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "app",
+   "title": "Dish",
+   "w": 390,
+   "x": 1880,
+   "y": 2400
+  },
+  "Entry.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "app",
+   "title": "Entry: your words + the receipt",
+   "w": 390,
+   "x": 3290,
+   "y": 0
+  },
+  "Feed.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "app",
+   "title": "Feed",
+   "w": 390,
+   "x": 0,
+   "y": 2400
+  },
+  "Main.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "app",
+   "title": "Journal",
+   "w": 390,
+   "x": 0,
+   "y": 0
+  },
+  "PlaceSheet.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "app",
+   "title": "Place, confirm or fix",
+   "w": 390,
+   "x": 3760,
+   "y": 0
+  },
+  "Recap.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "app",
+   "title": "Monthly statement",
+   "w": 390,
+   "x": 940,
+   "y": 1200
+  },
+  "Restaurant.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "app",
+   "title": "Place, what to order",
+   "w": 390,
+   "x": 1410,
+   "y": 2400
+  },
+  "Search.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "app",
+   "title": "Search",
+   "w": 390,
+   "x": 2350,
+   "y": 2400
+  },
+  "Share.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "app",
+   "title": "Share the receipt",
+   "w": 390,
+   "x": 1410,
+   "y": 1200
+  },
+  "Welcome.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "app",
+   "title": "Welcome",
+   "w": 390,
+   "x": 0,
+   "y": 3600
+  },
+  "You.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "app",
+   "title": "You, your taste",
+   "w": 390,
+   "x": 0,
+   "y": 1200
+  },
+  "Handle.dc.html": {
+   "x": 470,
+   "y": 3600,
+   "w": 390,
+   "h": 844,
+   "title": "Pick a handle",
+   "page": "app",
+   "is_interactive": true
+  },
+  "MainInk.dc.html": {
+   "x": 0,
+   "y": 4800,
+   "w": 390,
+   "h": 844,
+   "title": "Journal, dark mode",
+   "page": "app",
+   "is_interactive": true
+  },
+  "FeedInk.dc.html": {
+   "x": 470,
+   "y": 4800,
+   "w": 390,
+   "h": 844,
+   "title": "Feed, dark mode",
+   "page": "app",
+   "is_interactive": true
+  },
+  "EntryInk.dc.html": {
+   "x": 940,
+   "y": 4800,
+   "w": 390,
+   "h": 844,
+   "title": "Entry, dark mode",
+   "page": "app",
+   "is_interactive": true
+  },
+  "Saved.dc.html": {
+   "w": 390,
+   "h": 844,
+   "title": "Journal, saved",
+   "page": "app",
+   "is_interactive": true,
+   "x": 1410,
+   "y": 0
+  },
+  "Ratings.dc.html": {
+   "w": 390,
+   "h": 844,
+   "title": "Your ratings, by score",
+   "page": "app",
+   "is_interactive": true,
+   "x": 470,
+   "y": 1200
+  },
+  "MainEmpty.dc.html": {
+   "w": 390,
+   "h": 844,
+   "title": "Journal, first day",
+   "page": "app",
+   "is_interactive": true,
+   "x": 470,
+   "y": 0
+  },
+  "Suggestions.dc.html": {
+   "w": 390,
+   "h": 844,
+   "title": "Photos to write up",
+   "page": "app",
+   "is_interactive": true,
+   "x": 940,
+   "y": 0
+  },
+  "DishSheet.dc.html": {
+   "w": 390,
+   "h": 844,
+   "title": "Dish, confirm or fix",
+   "page": "app",
+   "is_interactive": true,
+   "x": 4700,
+   "y": 0
+  },
+  "AddPlace.dc.html": {
+   "w": 390,
+   "h": 844,
+   "title": "Add a new place",
+   "page": "app",
+   "is_interactive": true,
+   "x": 4230,
+   "y": 0
+  },
+  "Settings.dc.html": {
+   "w": 390,
+   "h": 844,
+   "title": "Settings",
+   "page": "app",
+   "is_interactive": true,
+   "x": 1880,
+   "y": 1200
+  },
+  "Profile.dc.html": {
+   "w": 390,
+   "h": 844,
+   "title": "Profile, someone else",
+   "page": "app",
+   "is_interactive": true,
+   "x": 470,
+   "y": 2400
+  },
+  "Actions.dc.html": {
+   "w": 390,
+   "h": 844,
+   "title": "Post and profile actions",
+   "page": "app",
+   "is_interactive": true,
+   "x": 940,
+   "y": 2400
+  },
+  "SearchResults.dc.html": {
+   "w": 390,
+   "h": 844,
+   "title": "Search, results",
+   "page": "app",
+   "is_interactive": true,
+   "x": 2820,
+   "y": 2400
+  }
+ },
+ "createdOnFiles": {
+  "at": "2026-09-21T11:46:39Z",
+  "v": 1
+ },
+ "designSystems": [],
+ "launch": {
+  "page": "app",
+  "view": "canvas"
+ },
+ "notes": {
+  "row0": {
+   "kind": "title1",
+   "maxW": 5090,
+   "page": "app",
+   "text": "Journal and compose",
+   "w": 240,
+   "x": 0,
+   "y": -300
+  },
+  "row1": {
+   "kind": "title1",
+   "maxW": 2270,
+   "page": "app",
+   "text": "What it gives back",
+   "w": 240,
+   "x": 0,
+   "y": 900
+  },
+  "row2": {
+   "kind": "title1",
+   "maxW": 3210,
+   "page": "app",
+   "text": "Everyone else",
+   "w": 240,
+   "x": 0,
+   "y": 2100
+  },
+  "row3": {
+   "kind": "title1",
+   "maxW": 860,
+   "page": "app",
+   "text": "First run",
+   "w": 240,
+   "x": 0,
+   "y": 3300
+  },
+  "row4": {
+   "x": 0,
+   "y": 4500,
+   "text": "Dark mode",
+   "kind": "title1",
+   "maxW": 1330,
+   "page": "app"
+  }
+ },
+ "order": [
+  "Brand.dc.html",
+  "Main.dc.html",
+  "Composer.dc.html",
+  "ComposerStars.dc.html",
+  "ComposerVoice.dc.html",
+  "PlaceSheet.dc.html",
+  "Entry.dc.html",
+  "You.dc.html",
+  "Ask.dc.html",
+  "Recap.dc.html",
+  "Share.dc.html",
+  "Feed.dc.html",
+  "Restaurant.dc.html",
+  "Dish.dc.html",
+  "Search.dc.html",
+  "Welcome.dc.html",
+  "Handle.dc.html",
+  "MainInk.dc.html",
+  "FeedInk.dc.html",
+  "EntryInk.dc.html",
+  "Saved.dc.html",
+  "Ratings.dc.html",
+  "MainEmpty.dc.html",
+  "Suggestions.dc.html",
+  "DishSheet.dc.html",
+  "AddPlace.dc.html",
+  "Settings.dc.html",
+  "Profile.dc.html",
+  "Actions.dc.html",
+  "SearchResults.dc.html"
+ ],
+ "pages": [
+  {
+   "id": "app",
+   "name": "The app"
+  },
+  {
+   "id": "brand",
+   "name": "Made to Order"
+  },
+  {
+   "id": "later",
+   "name": "Later"
+  }
+ ],
+ "title": "Ate — Made to Order"
+}

@@ -1,0 +1,184 @@
+import SwiftUI
+import UIKit
+
+/// **The page the design was drawn on.**
+///
+/// `design/v1` lays every screen out on a full-bleed 390×844 page: the first row sits 60 from the
+/// *top of the screen* and the floating tab bar 22 from the bottom — both measured past the status
+/// bar and past the home indicator, which the artboards simply draw over. A screen that adds the
+/// design's 60 on top of the window's own 62pt inset starts 122 down the page, which is the single
+/// biggest way a faithful layout stops looking like its artboard.
+///
+/// So the app carries the window's insets itself and spends the design's numbers against them. It is
+/// read from UIKit rather than a `GeometryReader` because a `NavigationStack` re-establishes the
+/// safe area for everything inside it, which makes the geometry a view sees a lie about the page.
+@MainActor
+enum AteScreen {
+    static var safeArea: UIEdgeInsets {
+        if let cached { return cached }
+        let insets = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first { $0.isKeyWindow }?
+            .safeAreaInsets ?? .zero
+        if insets != .zero { cached = insets }
+        return insets
+    }
+
+    private static var cached: UIEdgeInsets?
+
+    /// A sheet's height, given as the artboard gives it — out of the 844-tall page it was drawn on.
+    static func sheetHeight(_ artboard: CGFloat) -> CGFloat {
+        let screen = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.screen.bounds.height ?? 844
+        return (screen * artboard / 844).rounded()
+    }
+}
+
+extension View {
+    /// Starts a screen's content where the artboard starts it — 60 from the top of the screen, or
+    /// whatever that screen's own markup says (`Feed` and `Search` use 62, `You` 70).
+    func ateContentTop(_ top: CGFloat = AteMetrics.contentTop) -> some View {
+        modifier(AteContentTop(top: top))
+    }
+}
+
+private struct AteContentTop: ViewModifier {
+    let top: CGFloat
+
+    func body(content: Content) -> some View {
+        content.padding(.top, top - AteScreen.safeArea.top)
+    }
+}
+
+/// **Spacing, shape and size** — the numbers in `design/v1`, named by the role they play.
+///
+/// Design rule 3 is the whole shape system and it is short enough to state here: **pills (999) for
+/// controls, 16 for receipt tops and photos, and everything else has no container at all** — plain
+/// rows parted by a hairline. There is no "card radius" token because there are no cards.
+enum AteMetrics {
+
+    // MARK: - Spacing
+
+    /// **The screen gutter.** 20pt, everywhere.
+    static let gutter: CGFloat = 20
+    /// Where content starts under the status bar.
+    static let contentTop: CGFloat = 60
+    /// Inside a slip or a receipt.
+    static let slipPadding: CGFloat = 16
+
+    static let hairspace: CGFloat = 2
+    static let tight: CGFloat = 4
+    static let snug: CGFloat = 8
+    static let regular: CGFloat = 12
+    static let loose: CGFloat = 16
+    static let section: CGFloat = 24
+
+    /// Between slips in a list.
+    static let slipGap: CGFloat = 14
+
+    // MARK: - Shape
+
+    /// A control. Pills only — segments, chips, fields, buttons, the tab bar.
+    static let pill: CGFloat = 999
+    /// A receipt's top corners, and a thumbnail in a scrolling list.
+    static let receiptTop: CGFloat = 16
+    /// A sheet's top corners.
+    static let sheetTop: CGFloat = 32
+    /// The star slider's own card — the one floating panel in the composer.
+    static let panel: CGFloat = 28
+
+    /// A photo's squircle radius: 28% of its side, rounded down the way the artboards write it
+    /// (80 → 22, 84 → 23, 90 → 25, 150 → 42), so the shape holds at any size instead of going
+    /// circular when small and rectangular when large.
+    static func photoRadius(side: CGFloat) -> CGFloat { (side * 0.28).rounded(.down) }
+
+    // MARK: - Size
+
+    /// The minimum hit target, and the size of the square a toolbar icon sits in.
+    static let hit: CGFloat = 44
+    /// The floating tab bar pill.
+    static let tabBarHeight: CGFloat = 66
+    static let tabBarInset: CGFloat = 16
+    static let tabBarBottom: CGFloat = 22
+    /// The ink circle in the middle of the tab bar.
+    static let composeButton: CGFloat = 54
+    /// How far the ground fades up from under the tab bar (design rule 10).
+    static let scrimHeight: CGFloat = 160
+    /// Bottom inset for a tab screen's scrolling content. Deliberately *less* than the bar's own
+    /// height (66 + 22): design rule 10 wants the last slip to run off under the scrim rather than
+    /// stop dead above it, and this is how much of it stays readable.
+    static let tabBarScrollInset: CGFloat = 64
+
+    /// Between a sheet's bands.
+    static let sheetGap: CGFloat = 14
+    /// A sheet's clearance above the home indicator, under its one ink pill.
+    static let sheetBottom: CGFloat = 34
+
+    /// A chip: the small pill that carries a place, a filter, a count.
+    static let chipHeight: CGFloat = 32
+    /// A pill text field — a sheet's search, `AddPlace`'s three.
+    static let fieldHeight: CGFloat = 50
+    /// A composer toolbar key (Score, Place).
+    static let keyHeight: CGFloat = 40
+    /// A segment inside a segmented pill.
+    static let segmentHeight: CGFloat = 36
+    /// The one ink pill per sheet.
+    static let buttonHeight: CGFloat = 56
+    /// A plain row with a hairline under it.
+    static let rowHeight: CGFloat = 58
+
+    /// A photo in a static, tilted cluster — journal slip.
+    static let clusterPhoto: CGFloat = 80
+    /// …on the entry page, where the cluster is the hero.
+    static let clusterPhotoLarge: CGFloat = 84
+    /// …in the composer, biggest of the three.
+    static let clusterPhotoComposer: CGFloat = 90
+    /// How far cluster photos overlap.
+    static let clusterOverlap: CGFloat = 12
+    /// The ring that separates overlapping photos, in the surface's own colour.
+    static let photoRing: CGFloat = 3
+
+    /// A straight thumbnail beside words in a scrolling list (design rule 6 — nothing in a list tilts).
+    static let thumbnail: CGFloat = 84
+    /// A byline avatar.
+    static let avatar: CGFloat = 28
+
+    /// One star in the slider, and its own hit target.
+    static let star: CGFloat = 44
+    /// The slider's track height.
+    static let starTrack: CGFloat = 48
+
+    /// A receipt's barcode band.
+    static let barcodeHeight: CGFloat = 34
+    /// A receipt's torn bottom edge.
+    static let tornEdgeHeight: CGFloat = 8
+    /// The period of one tooth in the torn edge.
+    static let tornEdgePeriod: CGFloat = 12
+    /// The wordmark, in a receipt's footer row.
+    static let wordmarkFooter: CGFloat = 18
+    /// The wordmark, on a screen's header.
+    static let wordmarkHeader: CGFloat = 30
+
+    /// A dashed rule inside a receipt.
+    static let ruleWidth: CGFloat = 1.5
+    static let ruleDash: [CGFloat] = [4, 3]
+    /// A dot leader between a line item and its score. `1.5px dotted` is round dots the width of the
+    /// line, and the browser sets them on a **2.67pt pitch** — measured off the reference render
+    /// rather than assumed, because a UA fits a whole number of dots into the run and lands a little
+    /// tighter than two diameters. Paired with a round cap, so the near-zero dash draws as a circle
+    /// rather than a 1.5-square: the dot's diameter is the line width.
+    static let leaderDash: [CGFloat] = [0.01, 2.66]
+
+    /// One device pixel — a hairline is a pixel, never a logical point. `displayScale` can be 0 in an
+    /// `ImageRenderer`, hence the floor.
+    static func hairline(displayScale: CGFloat) -> CGFloat {
+        displayScale > 0 ? 1 / displayScale : 0.5
+    }
+
+    /// The share image. 4:5 — the tallest shape a share sheet, an iMessage bubble and an Instagram
+    /// post all render without cropping.
+    static let shareExport = CGSize(width: 1080, height: 1350)
+    static let shareExportScale: CGFloat = 3
+}

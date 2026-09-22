@@ -66,6 +66,20 @@ jobs:
             -configuration Beta CODE_SIGNING_ALLOWED=NO build > beta-build.log 2>&1 || { tail -50 beta-build.log; exit 1; }
           tail -2 beta-build.log
 
+  sorter:
+    name: Sorter tests (sort-entry)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # The function is Deno at deploy time, but its tested modules use no runtime APIs, so the same
+      # suite runs under Node's type stripping (harness.ts bridges the two test runners).
+      - name: Parser, validator, model and fixture suites
+        run: node --test supabase/functions/sort-entry/*_test.ts
+
   contract:
     name: Contract tests vs staging
     runs-on: macos-26

@@ -28,6 +28,23 @@ struct ScoreFormatTests {
         #expect(ScoreFormat.halfStep(nil) == "–")
     }
 
+    /// The rule the design language names out loud: `average` is for aggregates, `halfStep` is for
+    /// one person's score. Both renderings of 3.0 are correct — for different things — which is
+    /// exactly why the wrong one is easy to reach for and hard to spot in a diff.
+    @Test("a whole-number score reads differently as an aggregate and as one review")
+    func scoreFormatRoleSeparation() {
+        #expect(ScoreFormat.average(3.0) == "3")
+        #expect(ScoreFormat.halfStep(3.0) == "3.0")
+        #expect(ScoreFormat.average(5.0) == "5")
+        #expect(ScoreFormat.halfStep(5.0) == "5.0")
+        // A single review can only ever be a half-step, so this is the whole domain.
+        for halfSteps in 1...10 {
+            let value = Double(halfSteps) / 2
+            let rendered = ScoreFormat.halfStep(value)
+            #expect(rendered.contains("."), "a review score must keep its decimal: \(rendered)")
+        }
+    }
+
     @Test("review count copy invites the first review instead of saying zero")
     func reviewCountCopy() {
         #expect(ScoreFormat.reviewCount(0) == "No reviews yet")
