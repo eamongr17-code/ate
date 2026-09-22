@@ -14,7 +14,7 @@ struct WelcomeScreen: View {
     var body: some View {
         ZStack {
             slip
-                .frame(maxHeight: .infinity, alignment: .center)
+                .frame(maxHeight: .infinity, alignment: .top)
             if canSignIn {
                 button
                     .frame(maxHeight: .infinity, alignment: .bottom)
@@ -24,7 +24,39 @@ struct WelcomeScreen: View {
         .ateAccentGround(AteColor.coral)
     }
 
+    /// The printed slip, tilted, with two photos escaping from behind it — the design's own
+    /// composition, down to the angles and the overhangs.
     private var slip: some View {
+        paper
+            .rotationEffect(.degrees(-2.5))
+            .background(alignment: .topTrailing) {
+                photo("Photos/pizza", side: 150, angle: 10)
+                    .offset(x: 44, y: -64)
+            }
+            .background(alignment: .bottomLeading) {
+                photo("Photos/burger", side: 136, angle: -12)
+                    .offset(x: -44, y: 50)
+            }
+            .padding(.horizontal, 50)
+            .padding(.top, 150)
+    }
+
+    private func photo(_ name: String, side: CGFloat, angle: Double) -> some View {
+        Image(name)
+            .resizable()
+            .scaledToFill()
+            .frame(width: side, height: side)
+            .clipShape(RoundedRectangle(cornerRadius: AteMetrics.photoRadius(side: side), style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: AteMetrics.photoRadius(side: side), style: .continuous)
+                    .strokeBorder(AteColor.coral, lineWidth: AteMetrics.photoRing)
+                    .padding(-AteMetrics.photoRing)
+            }
+            .rotationEffect(.degrees(angle))
+            .accessibilityHidden(true)
+    }
+
+    private var paper: some View {
         VStack(spacing: AteMetrics.loose) {
             AteWordmark(height: 96)
             Text("A record of everything\nworth ordering.")
@@ -41,10 +73,12 @@ struct WelcomeScreen: View {
         .padding(.bottom, 18 + AteMetrics.tornEdgeHeight)
         .atePaper()
         .background(AteColor.paper, in: ReceiptPaper())
-        .rotationEffect(.degrees(-2.5))
-        .padding(.horizontal, 50)
     }
 
+    /// The artboard's pill is lettered "Sign in with Apple". This build's only door is the seeded
+    /// staging account (Sign in with Apple is milestone 2), and a pill that promises Apple's sheet
+    /// and opens something else is worse than a pill with a shorter name. The *drawing* is the
+    /// artboard's: ink, white lettering, 56 tall, full width.
     private var button: some View {
         Button {
             Task { await onSignIn() }

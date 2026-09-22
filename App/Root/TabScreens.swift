@@ -40,7 +40,14 @@ struct SearchScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: AteMetrics.loose) {
                 Text("Search").ateText(.screenTitle)
-                AteSearchField(prompt: "Places, dishes, people", text: $query)
+                // `Search.dc.html`: 52 tall, 18 in, on the chip rather than the field.
+                AteSearchField(
+                    prompt: "Places, dishes, people",
+                    text: $query,
+                    height: 52,
+                    horizontalPadding: 18,
+                    background: AtePalette.automatic.chip
+                )
                 kinds
             }
             .padding(.horizontal, AteMetrics.gutter)

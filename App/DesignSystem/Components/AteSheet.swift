@@ -56,6 +56,11 @@ struct AteSheet<Content: View>: View {
 struct AteSearchField: View {
     let prompt: String
     @Binding var text: String
+    /// A sheet's field is 50 on the surface's `field`; `Search`'s own is 52 on `chip` with a wider
+    /// inset. Both are in the markup, so both are here.
+    var height: CGFloat = AteMetrics.fieldHeight
+    var horizontalPadding: CGFloat = AteMetrics.loose
+    var background: Color?
 
     @Environment(\.atePalette) private var palette
 
@@ -70,9 +75,9 @@ struct AteSearchField: View {
             .foregroundStyle(palette.fg)
             .submitLabel(.search)
         }
-        .padding(.horizontal, AteMetrics.loose)
-        .frame(height: AteMetrics.fieldHeight)
-        .background(palette.field, in: .capsule)
+        .padding(.horizontal, horizontalPadding)
+        .frame(height: height)
+        .background(background ?? palette.field, in: .capsule)
     }
 }
 

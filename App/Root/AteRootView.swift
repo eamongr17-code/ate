@@ -63,7 +63,11 @@ private struct AteShell: View {
 
     init(services: AteServices) {
         self.services = services
-        _hasSession = State(initialValue: services.hasSession)
+        var hasSession = services.hasSession
+        #if DEBUG
+        if ComposerDebugLaunch.opensWelcome { hasSession = false }
+        #endif
+        _hasSession = State(initialValue: hasSession)
         _journal = State(initialValue: JournalStore(entries: services.entries))
         #if DEBUG
         ComposerDebugLaunch.seedDraftIfRequested(into: services.drafts)

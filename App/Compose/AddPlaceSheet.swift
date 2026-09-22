@@ -22,7 +22,7 @@ struct AddPlaceSheet: View {
             title: "New place",
             primary: ("Add place", add)
         ) {
-            VStack(alignment: .leading, spacing: AteMetrics.loose) {
+            VStack(alignment: .leading, spacing: AteMetrics.sheetGap) {
                 field("Name", text: $name)
                 field("Suburb", text: $suburb)
                 field("Street", text: $street, prompt: "Optional")
@@ -43,7 +43,7 @@ struct AddPlaceSheet: View {
             TextField(text: text) {
                 Text(prompt ?? "").foregroundStyle(AtePalette.surface.muted)
             }
-            .ateText(.control)
+            .ateText(.rowTitle)
             .textFieldStyle(.plain)
             .padding(.horizontal, AteMetrics.loose)
             .frame(height: 52)

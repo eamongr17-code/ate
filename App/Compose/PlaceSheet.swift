@@ -43,6 +43,9 @@ struct PlaceSheet: View {
                 directory: directory, query: initialQuery, selected: selected
             )
             self.model = model
+            #if DEBUG
+            if ComposerDebugLaunch.opensAddPlace { isAddingPlace = true }
+            #endif
             await model.start()
         }
         .sheet(isPresented: $isAddingPlace) {
