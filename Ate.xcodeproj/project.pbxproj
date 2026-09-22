@@ -20,12 +20,18 @@
 		AE0000000000000000001F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AE00000000000000000020 /* Secrets.example.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.example.xcconfig; sourceTree = "<group>"; };
 		AE00000000000000000030 /* Beta.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Beta.xcconfig; sourceTree = "<group>"; };
+		AE00000000000000000041 /* AteUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AteUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AE00000000000000000012 /* App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = App;
+			sourceTree = "<group>";
+		};
+		AE00000000000000000042 /* AteUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AteUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -42,6 +48,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AE00000000000000000044 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -49,6 +62,7 @@
 			isa = PBXGroup;
 			children = (
 				AE00000000000000000012 /* App */,
+				AE00000000000000000042 /* AteUITests */,
 				AE00000000000000000005 /* Config */,
 				AE00000000000000000004 /* Products */,
 			);
@@ -58,6 +72,7 @@
 			isa = PBXGroup;
 			children = (
 				AE00000000000000000006 /* Ate.app */,
+				AE00000000000000000041 /* AteUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -103,7 +118,48 @@
 			productReference = AE00000000000000000006 /* Ate.app */;
 			productType = "com.apple.product-type.application";
 		};
+		AE00000000000000000040 /* AteUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AE00000000000000000047 /* Build configuration list for PBXNativeTarget "AteUITests" */;
+			buildPhases = (
+				AE00000000000000000043 /* Sources */,
+				AE00000000000000000044 /* Frameworks */,
+				AE00000000000000000045 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AE0000000000000000004C /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AE00000000000000000042 /* AteUITests */,
+			);
+			name = AteUITests;
+			packageProductDependencies = (
+			);
+			productName = AteUITests;
+			productReference = AE00000000000000000041 /* AteUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXContainerItemProxy section */
+		AE0000000000000000004B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AE00000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AE00000000000000000002;
+			remoteInfo = Ate;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		AE0000000000000000004C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AE00000000000000000002 /* Ate */;
+			targetProxy = AE0000000000000000004B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXProject section */
 		AE00000000000000000001 /* Project object */ = {
@@ -115,6 +171,10 @@
 				TargetAttributes = {
 					AE00000000000000000002 = {
 						CreatedOnToolsVersion = 26.5;
+					};
+					AE00000000000000000040 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = AE00000000000000000002;
 					};
 				};
 			};
@@ -139,6 +199,7 @@
 			projectRoot = "";
 			targets = (
 				AE00000000000000000002 /* Ate */,
+				AE00000000000000000040 /* AteUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -151,10 +212,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AE00000000000000000045 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		AE00000000000000000009 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AE00000000000000000043 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -329,6 +404,54 @@
 			};
 			name = Beta;
 		};
+		AE00000000000000000048 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9M6K835247;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eamongracias.ate.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Ate;
+			};
+			name = Debug;
+		};
+		AE00000000000000000049 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9M6K835247;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eamongracias.ate.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Ate;
+			};
+			name = Release;
+		};
+		AE0000000000000000004A /* Beta */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9M6K835247;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eamongracias.ate.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Ate;
+			};
+			name = Beta;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -348,6 +471,16 @@
 				AE00000000000000000010 /* Debug */,
 				AE00000000000000000011 /* Release */,
 				AE00000000000000000032 /* Beta */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AE00000000000000000047 /* Build configuration list for PBXNativeTarget "AteUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AE00000000000000000048 /* Debug */,
+				AE00000000000000000049 /* Release */,
+				AE0000000000000000004A /* Beta */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

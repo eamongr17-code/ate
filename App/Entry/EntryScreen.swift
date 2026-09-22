@@ -164,12 +164,17 @@ struct EntryScreen: View {
             .padding(.horizontal, 22)
             .padding(.top, -Self.overlap)
             .atePrintsIn(model.hasPrinted)
+            // `.contain` so the paper itself is a queryable element: its children are already
+            // combined into rows, which would otherwise leave nothing addressable for a drive.
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("entry.receipt")
         case .pending, .failed:
             EntryPendingSlip(state: model.state) {
                 Task { await model.retrySort() }
             }
             .padding(.horizontal, 22)
             .padding(.top, -Self.overlap)
+            .accessibilityIdentifier("entry.pending")
         }
     }
 

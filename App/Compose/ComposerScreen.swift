@@ -91,6 +91,7 @@ struct ComposerScreen: View {
             .disabled(model.hasContent == false || isSaving)
             .opacity(model.hasContent ? 1 : 0.4)
             .padding(.trailing, AteMetrics.regular)
+            .accessibilityIdentifier("composer.done")
         }
         .padding(.top, AteMetrics.contentTop)
         .padding(.leading, AteMetrics.regular)
@@ -290,5 +291,6 @@ struct ComposerKey: View {
             .foregroundStyle(isActive ? background : foreground)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("composer.key.\(title.lowercased())")
     }
 }

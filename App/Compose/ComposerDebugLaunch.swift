@@ -21,14 +21,22 @@ enum ComposerDebugLaunch {
     static let placeSheetArgument = "-ate-open-place-sheet"
     static let dishSheetArgument = "-ate-open-dish-sheet"
 
+    /// A UI-test run starts from nothing. Without this, one test's abandoned draft is the next
+    /// test's opening screen — and a drive that depends on what ran before it is not a drive.
+    static let uiTestingArgument = "-ate-ui-testing"
+
+    static var isUITesting: Bool { has(uiTestingArgument) }
     static var opensComposer: Bool { has(openArgument) }
     static var opensScoring: Bool { has(scoringArgument) }
     static var opensEntry: Bool { has(entryArgument) }
     static var opensPlaceSheet: Bool { has(placeSheetArgument) }
     static var opensDishSheet: Bool { has(dishSheetArgument) }
 
-    /// Writes the seeded draft before the composer reads it.
+    /// Writes the seeded draft before the composer reads it — or wipes whatever a previous run left.
     static func seedDraftIfRequested(into drafts: any EntryDraftStoring) {
+        if isUITesting {
+            drafts.clear(draftID: drafts.load()?.id)
+        }
         guard has(seedArgument) else { return }
         drafts.save(EntryDraft(composition: .previewWordsWithPlace))
     }

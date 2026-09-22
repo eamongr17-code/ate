@@ -85,6 +85,9 @@ struct AteRadioRow: View {
             action()
         }
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        // The row combines its children, so its label is "name, subtitle". The identifier is the
+        // name alone, which is what a drive actually wants to reach for.
+        .accessibilityIdentifier("row.\(title)")
     }
 }
 

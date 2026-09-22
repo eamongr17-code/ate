@@ -57,11 +57,15 @@ struct InlineTokenEditor: UIViewRepresentable {
     @Environment(\.atePalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.colorScheme) private var colorScheme
 
     func makeUIView(context: Context) -> InlineTokenTextView {
         let view = InlineTokenTextView()
         view.delegate = context.coordinator
         view.coordinator = context.coordinator
+        // The one handle a UI test needs to type into the composer. Nothing else in the app is a
+        // text view, but naming it means a drive never depends on that staying true.
+        view.accessibilityIdentifier = "composer.editor"
         view.backgroundColor = .clear
         view.isScrollEnabled = true
         view.alwaysBounceVertical = true
@@ -109,7 +113,10 @@ struct InlineTokenEditor: UIViewRepresentable {
     /// Everything the coordinator needs from the SwiftUI environment, as one value — so a change in
     /// the reader's text size or the surface's palette is one comparison, not five.
     private var typography: Typography {
-        Typography(style: style, palette: palette, dynamicTypeSize: dynamicTypeSize, displayScale: displayScale)
+        Typography(
+            style: style, palette: palette, dynamicTypeSize: dynamicTypeSize,
+            displayScale: displayScale, colorScheme: colorScheme
+        )
     }
 
     private var callbacks: Callbacks {
@@ -121,6 +128,7 @@ struct InlineTokenEditor: UIViewRepresentable {
         var palette: AtePalette
         var dynamicTypeSize: DynamicTypeSize
         var displayScale: CGFloat
+        var colorScheme: ColorScheme
     }
 
     struct Callbacks {
@@ -148,6 +156,7 @@ struct InlineTokenEditor: UIViewRepresentable {
         private var palette: AtePalette { typography.palette }
         private var dynamicTypeSize: DynamicTypeSize { typography.dynamicTypeSize }
         private var displayScale: CGFloat { typography.displayScale }
+        private var colorScheme: ColorScheme { typography.colorScheme }
 
         init(binding: Binding<EntryComposition>, typography: Typography, callbacks: Callbacks) {
             self.binding = binding
@@ -186,12 +195,14 @@ struct InlineTokenEditor: UIViewRepresentable {
             callbacks.onCaretChange(view.selectedRange.location)
         }
 
-        /// Pulls focus back when the host asks — after the slider or a sheet closes.
+        /// Pulls focus back when the host asks — after the slider or a sheet closes. Retries for the
+        /// length of a dismissal, for the same reason the first focus does: UIKit refuses first
+        /// responder while a presentation transition is in flight.
         func focusIfRequested(_ request: Int, in view: InlineTokenTextView) {
             guard request != servedFocusRequest else { return }
             servedFocusRequest = request
             guard request > 0 else { return }
-            view.becomeFirstResponder()
+            view.focusWhenAllowed()
         }
 
         /// The one attributed-string builder, shared with the read-only prose.
@@ -200,7 +211,8 @@ struct InlineTokenEditor: UIViewRepresentable {
                 style: style,
                 palette: palette,
                 dynamicTypeSize: dynamicTypeSize,
-                displayScale: displayScale
+                displayScale: displayScale,
+                colorScheme: colorScheme
             )
         }
 
@@ -282,7 +294,13 @@ struct InlineTokenEditor: UIViewRepresentable {
             let lastCharacter = storage.attributedSubstring(
                 from: NSRange(location: caret.location - 1, length: 1)
             ).string
-            guard ScoreLiteral.isMoveOn(lastCharacter) else { return }
+            let previous = caret.location >= 2
+                ? storage.attributedSubstring(from: NSRange(location: caret.location - 2, length: 1)).string
+                : ""
+            guard ScoreLiteral.isMoveOn(
+                lastCharacter,
+                afterDigit: previous.count == 1 && previous.first?.isNumber == true
+            ) else { return }
 
             let model = binding.wrappedValue
             let plainCaret = model.plainOffset(forDisplayOffset: caret.location - 1)
@@ -376,10 +394,10 @@ final class InlineTokenTextView: UITextView {
         super.didMoveToWindow()
         guard window != nil, focusesOnAppear, hasFocusedOnAppear == false else { return }
         hasFocusedOnAppear = true
-        focusWhenAllowed(attemptsRemaining: 12)
+        focusWhenAllowed()
     }
 
-    private func focusWhenAllowed(attemptsRemaining: Int) {
+    func focusWhenAllowed(attemptsRemaining: Int = 12) {
         guard isFirstResponder == false else { return }
         if becomeFirstResponder() { return }
         guard attemptsRemaining > 0 else { return }

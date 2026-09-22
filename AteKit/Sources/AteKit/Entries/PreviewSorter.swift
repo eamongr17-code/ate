@@ -60,11 +60,12 @@ public enum PreviewSorter {
         let name = dishName(from: words[..<scoreIndex])
         guard name.isEmpty == false else { return nil }
         let rest = words[(scoreIndex + 1)...].joined(separator: " ")
+        let terminated = rest.last.map { ",.;:!?".contains($0) } ?? true
         return Line(
             dishName: name,
             score: rating(for: words[scoreIndex]),
             // A note is only ever a literal slice of what they wrote — never a paraphrase.
-            note: rest.isEmpty ? nil : rest + "."
+            note: rest.isEmpty ? nil : (terminated ? rest : rest + ".")
         )
     }
 

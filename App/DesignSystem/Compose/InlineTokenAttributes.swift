@@ -18,6 +18,9 @@ struct InlineTokenAttributes {
     var palette: AtePalette
     var dynamicTypeSize: DynamicTypeSize
     var displayScale: CGFloat
+    /// Carried explicitly because the pill is rasterised by `ImageRenderer`, which has no trait
+    /// collection to inherit a scheme from. See ``TokenPill``.
+    var colorScheme: ColorScheme = .light
 
     var font: UIFont { AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize) }
 
@@ -71,7 +74,8 @@ struct InlineTokenAttributes {
             prose: font.pointSize,
             palette: palette,
             dynamicTypeSize: dynamicTypeSize,
-            scale: displayScale
+            scale: displayScale,
+            colorScheme: colorScheme
         ) {
             image.accessibilityLabel = Self.accessibilityLabel(for: token)
             attachment.image = image

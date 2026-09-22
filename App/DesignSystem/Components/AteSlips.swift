@@ -89,6 +89,7 @@ struct JournalSlip: View {
         .buttonStyle(.plain)
         .disabled(onTap == nil)
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("journal.slip")
     }
 }
 

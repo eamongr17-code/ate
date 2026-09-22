@@ -58,7 +58,7 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
                 createdAt: entry.createdAt,
                 isMine: true,
                 author: EntryCard.Author(id: profile.id, username: profile.username, city: profile.city),
-                place: entry.restaurantID.map { EntryCard.Place(id: $0, name: placeName(for: entry)) }
+                place: entry.restaurantID.map(Self.place(id:))
             )
             nextOrderNumber += 1
             entries.insert(card, at: 0)
@@ -192,11 +192,14 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
         }
     }
 
-    /// The name the place token carried, read back out of the words. The real server resolves a
-    /// name to a row; here the row is whatever they tapped.
-    private func placeName(for entry: NewEntry) -> String {
-        let first = entry.body.split(separator: " ").prefix(2).joined(separator: " ")
-        return first.isEmpty ? "This place" : first
+    /// The place a tapped id belongs to. Reads the same fixtures ``InMemoryPlaceDirectory`` offers,
+    /// so a receipt printed in preview mode carries the address the sheet showed rather than a
+    /// second, lesser copy of the same place.
+    private static func place(id: UUID) -> EntryCard.Place {
+        guard let match = InMemoryPlaceDirectory.melbourne.first(where: { $0.restaurantID == id }) else {
+            return EntryCard.Place(id: id, name: "This place")
+        }
+        return EntryCard.Place(id: id, name: match.name, address: match.subtitle, city: "Melbourne")
     }
 }
 
