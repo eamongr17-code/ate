@@ -41,7 +41,7 @@
 // placeless and the app offers the place sheet — and the plan is parked in
 // entries.sort_plan so attaching the place later still prints the receipt.
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { mentionForPlaceName, parseEntry, placeCandidateSpans } from './parse.ts';
 import { validatePlan } from './validate.ts';
 import { resolveMode, sortWithModel } from './model.ts';
