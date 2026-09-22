@@ -15,6 +15,27 @@ struct AteTitle: View {
     var style: AteTextStyle = .emptyTitle
     var alignment: TextAlignment = .center
 
+    var body: some View {
+        AteExactText(text: text, style: style, alignment: alignment)
+            .accessibilityElement()
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityLabel(text)
+    }
+}
+
+/// Text whose line box is **exactly** `style.lineHeight × size`, in either direction.
+///
+/// SwiftUI's `lineSpacing` can only add leading to a font's natural line height, so any style the
+/// design sets *tighter* than its font — `.h` at 1.0, a receipt's `.note` at 1.35 — comes out loose
+/// in a `Text` and there is no modifier that closes it. `NSParagraphStyle` sets the height outright,
+/// which is what the prototype's CSS does.
+struct AteExactText: View {
+    let text: String
+    var style: AteTextStyle
+    var alignment: TextAlignment = .center
+    /// Defaults to the surface's foreground.
+    var colour: Color?
+
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.atePalette) private var palette
 
@@ -24,11 +45,9 @@ struct AteTitle: View {
             font: AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize),
             lineHeight: style.lineHeight,
             trackingEm: style.trackingEm,
-            alignment: alignment
+            alignment: alignment,
+            colour: colour ?? palette.fg
         )
-        .accessibilityElement()
-        .accessibilityAddTraits(.isHeader)
-        .accessibilityLabel(text)
     }
 }
 
@@ -38,6 +57,7 @@ private struct TitleLabel: UIViewRepresentable {
     let lineHeight: CGFloat
     let trackingEm: CGFloat
     let alignment: TextAlignment
+    let colour: Color
 
     func makeUIView(context: Context) -> UILabel {
         let label = UILabel()
@@ -58,7 +78,7 @@ private struct TitleLabel: UIViewRepresentable {
         }
         label.attributedText = NSAttributedString(string: text, attributes: [
             .font: font,
-            .foregroundColor: UIColor(context.environment.atePalette.fg),
+            .foregroundColor: UIColor(colour),
             .paragraphStyle: paragraph,
             .kern: font.pointSize * trackingEm
         ])

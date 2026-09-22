@@ -179,6 +179,8 @@ struct FeedSlip: View {
 struct SlipLineItems: View {
     let items: [AteReceipt.Item]
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
@@ -203,6 +205,9 @@ struct SlipLineItems: View {
                             .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
                     }
                 }
+                // `.li` is `line-height:1.65` — the row's box, not the glyphs'. A minimum, not a
+                // fixed height: a dish name long enough to wrap grows its row, as a flex row does.
+                .frame(minHeight: AteTextStyle.receiptLine.lineBox(dynamicTypeSize))
                 .accessibilityElement(children: .combine)
             }
         }
