@@ -51,6 +51,8 @@ struct InlineTokenEditor: UIViewRepresentable {
     /// test asserts. Going through `UndoManager` runs the exact operations that used to crash.
     var undoRequest = 0
     var redoRequest = 0
+    /// The token whose slider is open — `ComposerStars` rings it in ink while it is being scored.
+    var selectedTokenID: UUID?
     /// A token was tapped: reopen its slider or its sheet.
     var onTokenTap: (EntryToken) -> Void = { _ in }
     /// The caret moved. The host needs this to know where a new token should be inserted.
@@ -122,7 +124,7 @@ struct InlineTokenEditor: UIViewRepresentable {
     private var typography: Typography {
         Typography(
             style: style, palette: palette, dynamicTypeSize: dynamicTypeSize,
-            displayScale: displayScale, colorScheme: colorScheme
+            displayScale: displayScale, colorScheme: colorScheme, selectedTokenID: selectedTokenID
         )
     }
 
@@ -136,6 +138,9 @@ struct InlineTokenEditor: UIViewRepresentable {
         var dynamicTypeSize: DynamicTypeSize
         var displayScale: CGFloat
         var colorScheme: ColorScheme
+        /// The token whose slider is open. It lives here because it changes how a pill is *drawn*,
+        /// which is what makes a re-render necessary — `shouldRender` already watches this value.
+        var selectedTokenID: UUID?
     }
 
     struct Callbacks {

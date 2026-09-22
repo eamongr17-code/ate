@@ -191,7 +191,8 @@ extension InlineTokenEditor {
                 palette: palette,
                 dynamicTypeSize: dynamicTypeSize,
                 displayScale: displayScale,
-                colorScheme: colorScheme
+                colorScheme: colorScheme,
+                selectedTokenID: typography.selectedTokenID
             )
         }
 

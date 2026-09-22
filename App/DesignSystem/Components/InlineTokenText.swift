@@ -96,14 +96,15 @@ enum TokenPill {
         palette: AtePalette,
         dynamicTypeSize: DynamicTypeSize,
         scale: CGFloat,
-        colorScheme: ColorScheme = .light
+        colorScheme: ColorScheme = .light,
+        isSelected: Bool = false
     ) -> UIImage? {
         let key = Key(
             kind: kind, prose: prose, scale: scale, dynamicTypeSize: dynamicTypeSize,
-            palette: palette, colorScheme: colorScheme
+            palette: palette, colorScheme: colorScheme, isSelected: isSelected
         )
         if let cached = cache[key] { return cached }
-        let renderer = ImageRenderer(content: view(for: kind, prose: prose)
+        let renderer = ImageRenderer(content: view(for: kind, prose: prose, isSelected: isSelected)
             .environment(\.atePalette, palette)
             .environment(\.dynamicTypeSize, dynamicTypeSize)
             .environment(\.colorScheme, colorScheme))
@@ -115,9 +116,9 @@ enum TokenPill {
     }
 
     @ViewBuilder
-    private static func view(for kind: EntryTokenKind, prose: CGFloat) -> some View {
+    private static func view(for kind: EntryTokenKind, prose: CGFloat, isSelected: Bool) -> some View {
         switch kind {
-        case .score(let rating): ScoreToken(rating: rating, prose: prose)
+        case .score(let rating): ScoreToken(rating: rating, prose: prose, isSelected: isSelected)
         case .place(let place): PlaceToken(name: place.name, prose: prose)
         }
     }
@@ -129,6 +130,7 @@ enum TokenPill {
         let dynamicTypeSize: DynamicTypeSize
         let palette: PaletteKey
         let colorScheme: ColorScheme
+        let isSelected: Bool
 
         init(
             kind: EntryTokenKind,
@@ -136,7 +138,8 @@ enum TokenPill {
             scale: CGFloat,
             dynamicTypeSize: DynamicTypeSize,
             palette: AtePalette,
-            colorScheme: ColorScheme
+            colorScheme: ColorScheme,
+            isSelected: Bool
         ) {
             self.kind = kind
             self.prose = prose
@@ -144,6 +147,7 @@ enum TokenPill {
             self.dynamicTypeSize = dynamicTypeSize
             self.palette = PaletteKey(palette)
             self.colorScheme = colorScheme
+            self.isSelected = isSelected
         }
 
         /// A pill drawn on paper and the same pill drawn on the ink ground are different images and

@@ -152,6 +152,7 @@ struct ComposerScreen: View {
                 focusRequest: model.focusRequest,
                 undoRequest: undoRequest,
                 redoRequest: redoRequest,
+                selectedTokenID: model.scoring?.id,
                 onTokenTap: reopen,
                 onCaretChange: { model.caret = $0 },
                 onScorePromoted: { wasDictated in

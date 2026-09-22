@@ -21,6 +21,9 @@ struct InlineTokenAttributes {
     /// Carried explicitly because the pill is rasterised by `ImageRenderer`, which has no trait
     /// collection to inherit a scheme from. See ``TokenPill``.
     var colorScheme: ColorScheme = .light
+    /// The token whose slider is open. `ComposerStars` rings it — `box-shadow:0 0 0 2px #24141F` —
+    /// so the panel and the pill it is scoring are visibly the same thing.
+    var selectedTokenID: UUID?
 
     var font: UIFont { AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize) }
 
@@ -87,7 +90,8 @@ struct InlineTokenAttributes {
             palette: palette,
             dynamicTypeSize: dynamicTypeSize,
             scale: displayScale,
-            colorScheme: colorScheme
+            colorScheme: colorScheme,
+            isSelected: token.id == selectedTokenID
         ) {
             image.accessibilityLabel = Self.accessibilityLabel(for: token)
             attachment.image = image
