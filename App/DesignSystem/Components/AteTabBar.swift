@@ -48,10 +48,11 @@ struct AteTabBar: View {
         }
         .padding(.horizontal, 6)
         .frame(height: AteMetrics.tabBarHeight)
-        .background(palette.chip, in: .capsule)
-        .shadow(color: AteColor.ink.opacity(0.22), radius: 11, x: 0, y: 8)
+        .ateBackground(palette.chip, in: .capsule, shadow: .tabBar)
         .padding(.horizontal, AteMetrics.tabBarInset)
-        .padding(.bottom, AteMetrics.tabBarBottom)
+        // The design floats the bar 22 from the *screen's* bottom edge, not from the home
+        // indicator's — the indicator is drawn over it, which is what a floating bar is for.
+        .padding(.bottom, AteMetrics.tabBarBottom - AteScreen.safeArea.bottom)
     }
 
     private func tab(_ tab: AteTab) -> some View {
@@ -60,7 +61,7 @@ struct AteTabBar: View {
             selection = tab
         } label: {
             VStack(spacing: 3) {
-                tab.icon.view(size: 22, weight: isCurrent ? .semibold : .regular)
+                tab.icon.view(size: 22)
                 Text(tab.title)
                     .ateText(isCurrent ? .tabLabelActive : .tabLabel)
             }
@@ -75,7 +76,7 @@ struct AteTabBar: View {
 
     private var composeButton: some View {
         Button(action: onCompose) {
-            AteIcon.compose.view(size: 26, weight: .bold)
+            AteIcon.compose.view(size: 26, lineWidth: 2.2)
                 .frame(width: AteMetrics.composeButton, height: AteMetrics.composeButton)
                 .background(palette.fg, in: .circle)
                 .foregroundStyle(palette.inverted)
@@ -101,6 +102,8 @@ struct AteTabScrim: View {
             endPoint: .top
         )
         .frame(height: AteMetrics.scrimHeight)
+        // `.scrim` is pinned to the bottom of the screen, under the bar and under the indicator.
+        .padding(.bottom, -AteScreen.safeArea.bottom)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }

@@ -26,11 +26,14 @@ struct AteListRow<Leading: View, Trailing: View>: View {
 
     private var content: some View {
         VStack(spacing: 0) {
+            // The design rules rows at the TOP (`border-top:1px solid var(--hair)`), so a section's
+            // first row is parted from its label and its last row ends on paper, not on a line.
+            AteHairline()
             HStack(spacing: AteMetrics.regular) {
                 leading
                 VStack(alignment: .leading, spacing: 1) {
                     Text(title)
-                        .ateText(.control)
+                        .ateText(.rowTitle)
                         .foregroundStyle(palette.fg)
                     if let subtitle {
                         Text(subtitle)
@@ -43,7 +46,6 @@ struct AteListRow<Leading: View, Trailing: View>: View {
             }
             .frame(minHeight: AteMetrics.rowHeight)
             .contentShape(.rect)
-            AteHairline()
         }
     }
 }
@@ -77,10 +79,7 @@ struct AteRadioRow: View {
 
     var body: some View {
         AteListRow(title: title, subtitle: subtitle) {
-            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 21, weight: .regular))
-                .foregroundStyle(isSelected ? palette.fg : palette.hairline)
-                .accessibilityHidden(true)
+            AteRadioMark(isSelected: isSelected)
         } action: {
             action()
         }
@@ -88,6 +87,30 @@ struct AteRadioRow: View {
         // The row combines its children, so its label is "name, subtitle". The identifier is the
         // name alone, which is what a drive actually wants to reach for.
         .accessibilityIdentifier("row.\(title)")
+    }
+}
+
+/// The mark at the end of a radio row: a 28pt ink disc with a white check when it is the answer, and
+/// a 1.5pt ring at 30% when it is not. Not a checkmark glyph in a circle — the disc is filled.
+struct AteRadioMark: View {
+    let isSelected: Bool
+
+    @Environment(\.atePalette) private var palette
+
+    private static let side: CGFloat = 28
+
+    var body: some View {
+        ZStack {
+            if isSelected {
+                Circle().fill(palette.fg)
+                AteIcon.check.view(size: 16)
+                    .foregroundStyle(palette.ground)
+            } else {
+                Circle().strokeBorder(palette.fg.opacity(0.3), lineWidth: 1.5)
+            }
+        }
+        .frame(width: Self.side, height: Self.side)
+        .accessibilityHidden(true)
     }
 }
 
@@ -131,7 +154,7 @@ struct AteButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: AteMetrics.snug) {
-                if let icon { icon.view(size: 18, weight: .semibold) }
+                if let icon { icon.view(size: 18) }
                 Text(title).ateText(.button)
             }
             .frame(maxWidth: .infinity)

@@ -57,6 +57,28 @@ enum ComposerPhotoStaging {
         return staged
     }
 
+    /// Stages images the app already holds — a camera shot, or a cluster picked on `Suggestions`.
+    /// Same file, same downscale, same order as the picker's path.
+    static func stage(
+        images: [(id: String, image: UIImage)],
+        in directory: URL,
+        existing: [StagedPhoto]
+    ) -> [StagedPhoto] {
+        var staged = existing
+        for candidate in images where staged.count < EntryDraft.photoLimit {
+            guard staged.contains(where: { $0.id == candidate.id }) == false,
+                  let jpeg = downscaled(candidate.image) else { continue }
+            let fileName = "\(UUID().uuidString.lowercased()).jpg"
+            try? jpeg.write(to: directory.appending(path: fileName), options: .atomic)
+            staged.append(StagedPhoto(
+                id: candidate.id,
+                fileName: fileName,
+                image: Image(uiImage: UIImage(data: jpeg) ?? candidate.image)
+            ))
+        }
+        return staged
+    }
+
     /// Reloads a relaunched draft's photos straight off disk — no picker, no permission.
     static func restore(fileNames: [String], from directory: URL) -> [StagedPhoto] {
         fileNames.compactMap { name in

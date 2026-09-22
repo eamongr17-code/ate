@@ -46,6 +46,9 @@ private struct InlineTokenLabel: UIViewRepresentable {
     func makeUIView(context: Context) -> UILabel {
         let label = UILabel()
         label.numberOfLines = lineLimit ?? 0
+        // `-webkit-line-clamp` ends a clamped slip with an ellipsis; a label that only clips says
+        // nothing about the words it dropped.
+        label.lineBreakMode = .byTruncatingTail
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         label.setContentHuggingPriority(.defaultHigh, for: .vertical)
         label.isAccessibilityElement = false
@@ -54,7 +57,20 @@ private struct InlineTokenLabel: UIViewRepresentable {
 
     func updateUIView(_ label: UILabel, context: Context) {
         label.numberOfLines = lineLimit ?? 0
-        label.attributedText = attributes.attributedString(for: composition)
+        let string = NSMutableAttributedString(attributedString: attributes.attributedString(for: composition))
+        // A paragraph style in the string beats the label's own `lineBreakMode`, so a clamped slip
+        // has to carry the truncation itself — `-webkit-line-clamp` ends on an ellipsis, and a
+        // label that just stops mid-sentence is lying about how much was written.
+        if lineLimit != nil {
+            let whole = NSRange(location: 0, length: string.length)
+            string.enumerateAttribute(.paragraphStyle, in: whole) { value, range, _ in
+                guard let paragraph = (value as? NSParagraphStyle)?
+                    .mutableCopy() as? NSMutableParagraphStyle else { return }
+                paragraph.lineBreakMode = .byTruncatingTail
+                string.addAttribute(.paragraphStyle, value: paragraph, range: range)
+            }
+        }
+        label.attributedText = string
     }
 
     /// SwiftUI proposes a width; the label answers with the height its words need in it. Without this

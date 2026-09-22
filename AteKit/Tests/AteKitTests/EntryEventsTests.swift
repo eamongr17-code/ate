@@ -48,7 +48,7 @@ struct EntryEventsTests {
     @Test("every composer entry point has a name — an unlabelled one reads as zero")
     func composerOrigins() {
         #expect(ComposerOrigin.allCases.map(\.rawValue).sorted()
-            == ["entry_edit", "journal_empty", "tab_bar"])
+            == ["entry_edit", "journal_empty", "photo_suggestion", "tab_bar"])
         let event = EntryEvents.composerOpened(source: .journalEmpty, isResumingDraft: true)
         #expect(event.parameters["source"] == "journal_empty")
         #expect(event.parameters["resumed_draft"] == "true")

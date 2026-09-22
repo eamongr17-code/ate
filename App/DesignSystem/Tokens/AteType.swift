@@ -72,7 +72,7 @@ extension AteTextStyle {
     /// The one line an empty slip says. 34pt — it sits inside paper, not on the ground, so it is a
     /// step down from ``screenTitle``.
     static let emptyTitle = AteTextStyle(
-        voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.06, textStyle: .title
+        voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
     )
     /// A number in a statement's cell: "142". 28pt.
     static let statValue = AteTextStyle(
@@ -81,6 +81,10 @@ extension AteTextStyle {
     /// The live numeral on the star slider. 40pt.
     static let scoreHero = AteTextStyle(
         voice: .display, size: 40, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
+    )
+    /// A pushed page's own name, beside a back arrow: "From your photos". 24pt.
+    static let pageTitle = AteTextStyle(
+        voice: .display, size: 24, weight: 800, trackingEm: -0.025, lineHeight: 1.0, textStyle: .title2
     )
     /// A place name heading a journal slip. 22pt.
     static let slipPlace = AteTextStyle(
@@ -96,6 +100,10 @@ extension AteTextStyle {
     /// The default control label: segment, chip, row. 15pt.
     static let control = AteTextStyle(
         voice: .display, size: 15, weight: 600, trackingEm: -0.01, lineHeight: 1.2, textStyle: .body
+    )
+    /// A row's own name in a list, and what is typed into a sheet's search field. `.ui` at 17.
+    static let rowTitle = AteTextStyle(
+        voice: .display, size: 17, weight: 600, trackingEm: -0.01, lineHeight: 1.2, textStyle: .body
     )
     /// A smaller control label: segments, toolbar keys, handles. 14pt.
     static let controlSmall = AteTextStyle(
@@ -114,6 +122,11 @@ extension AteTextStyle {
         voice: .display, size: 10.5, weight: 700, trackingEm: 0, lineHeight: 1.2,
         textStyle: .caption2, maximumSize: 14
     )
+    /// The count in the journal header's coral badge. 11pt, capped — it lives in an 18pt disc.
+    static let badge = AteTextStyle(
+        voice: .display, size: 11, weight: 600, trackingEm: -0.01, lineHeight: 1.2,
+        textStyle: .caption2, maximumSize: 13
+    )
     /// "2h", "5 photos", a date above a slip. 13pt/500.
     static let meta = AteTextStyle(
         voice: .display, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote
@@ -130,9 +143,14 @@ extension AteTextStyle {
     static let composerProse = AteTextStyle(
         voice: .prose, size: 19, weight: 400, lineHeight: 1.5, textStyle: .body
     )
-    /// The one line an empty slip or Welcome says under its title. 17pt.
+    /// The one line an empty slip or Welcome says under its title. 17pt — `.prose`'s own 1.5.
     static let proseLarge = AteTextStyle(
-        voice: .prose, size: 17, weight: 400, lineHeight: 1.45, textStyle: .body
+        voice: .prose, size: 17, weight: 400, lineHeight: 1.5, textStyle: .body
+    )
+    /// The words in a journal slip. 16pt at `.prose`'s 1.5 — the entry page sets 1.45 by hand, and
+    /// the two really are different in the markup.
+    static let slipProse = AteTextStyle(
+        voice: .prose, size: 16, weight: 400, lineHeight: 1.5, textStyle: .body
     )
     /// Welcome's promise, set italic and centred. 19pt.
     static let proseQuote = AteTextStyle(

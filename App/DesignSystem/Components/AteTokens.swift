@@ -14,7 +14,7 @@ struct ScoreToken: View {
     var body: some View {
         let style = AteTextStyle.scoreToken(inProse: prose)
         HStack(spacing: prose * 0.17) {
-            AteIcon.starFilled.view(size: style.size * 0.85, weight: .semibold)
+            AteIcon.starFilled.view(size: Self.starSide)
             Text(ScoreFormat.halfStep(rating.value))
                 .ateText(style)
                 .monospacedDigit()
@@ -36,6 +36,9 @@ struct ScoreToken: View {
         .accessibilityLabel("Score")
         .accessibilityValue(RatingTrack.accessibilityValue(rating))
     }
+
+    /// `.tok`'s star is 11 at every prose size the artboards set it in (16 and 19 both).
+    private static let starSide: CGFloat = 11
 }
 
 /// **The place token.** A field-coloured pill with a pin and the place's name, in the control voice.
@@ -50,7 +53,7 @@ struct PlaceToken: View {
     var body: some View {
         let style = AteTextStyle.placeToken(inProse: prose)
         HStack(spacing: prose * 0.17) {
-            AteIcon.place.view(size: style.size * 0.9, weight: .medium)
+            AteIcon.place.view(size: Self.pinSide)
             Text(name)
                 .ateText(style)
         }
@@ -63,6 +66,9 @@ struct PlaceToken: View {
         .accessibilityLabel("Place")
         .accessibilityValue(name)
     }
+
+    /// `.ptok`'s pin is 12 at every prose size the artboards set it in.
+    private static let pinSide: CGFloat = 12
 }
 
 /// A star, solid-outlined and fillable by a fraction. Design rule 7: **stars are never low-opacity** —
@@ -72,42 +78,49 @@ struct AteStar: View {
     /// 0 = outline, 0.5 = half-filled, 1 = filled.
     var fill: Double
     var side: CGFloat = AteMetrics.star
+    /// `ComposerStars` strokes the slider's stars at 1.3, not the chrome's 1.8 — they are 44 across
+    /// and the heavier line closes the points up.
+    var lineWidth: CGFloat = 1.3
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        ZStack {
-            glyph(.star)
-            glyph(.starFilled)
-                .foregroundStyle(AteColor.butter)
-                // The mask is measured against the STAR, not against whatever width the star was
-                // handed: in the slider each star sits in an equal column far wider than the glyph,
-                // and masking to the column made a half-star look like a quarter.
-                .mask(alignment: .leading) {
-                    Rectangle().frame(width: side * fill, height: side)
-                }
-            // The outline is drawn last so a half fill still reads as one whole star.
-            glyph(.star)
+        ZStack(alignment: .leading) {
+            outline
+            // The filled star is a second, complete drawing clipped to the fraction — measured
+            // against the STAR, not against whatever column it was handed, or a half reads as a
+            // quarter in the slider's equal columns.
+            ZStack {
+                AteIconShape(paths: AteIcon.starFilled.fills)
+                    .fill(AteColor.butter)
+                outline
+            }
+            .frame(width: side, height: side)
+            .mask(alignment: .leading) {
+                Rectangle().frame(width: side * fill, height: side)
+            }
         }
         .frame(width: side, height: side)
         .foregroundStyle(palette.fg)
         .accessibilityHidden(true)
     }
 
-    /// One star glyph, sized so its box is exactly `side` — the fill fraction depends on it.
-    private func glyph(_ icon: AteIcon) -> some View {
-        icon.view(size: side * 0.92, weight: .light)
+    private var outline: some View {
+        AteIconShape(paths: AteIcon.star.strokes)
+            .stroke(style: StrokeStyle(
+                lineWidth: lineWidth * side / AteVector.viewBox, lineCap: .round, lineJoin: .round
+            ))
             .frame(width: side, height: side)
     }
 }
 
 /// An unscored line item: one empty star, no text (design rule 7 — a score is never inferred and
-/// never written as a zero).
+/// never written as a zero). The receipt's own line weight, 1.8.
 struct UnscoredMark: View {
     var side: CGFloat = 16
 
     var body: some View {
-        AteStar(fill: 0, side: side)
+        AteIcon.star.view(size: side)
             .accessibilityHidden(false)
             .accessibilityLabel("Not scored")
     }

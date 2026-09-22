@@ -23,9 +23,7 @@ struct AteEmptySlip: View {
                     .ateText(.receiptLabel)
                     .foregroundStyle(AtePalette.paper.muted)
             }
-            Text(title)
-                .ateText(.emptyTitle)
-                .multilineTextAlignment(.center)
+            AteTitle(text: title)
             if let prose {
                 Text(prose)
                     .ateText(.proseLarge)

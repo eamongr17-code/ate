@@ -120,14 +120,16 @@ struct AteDotLeader: View {
 }
 
 /// A plain hairline. Design rule 3's "everything else": no container, just a rule between peers.
+///
+/// A full point, not a device pixel: the artboards write `border-top:1px`, which is a CSS pixel — one
+/// *point* — and a third of that reads as a smudge next to the dashed rules it sits among.
 struct AteHairline: View {
     @Environment(\.atePalette) private var palette
-    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         Rectangle()
             .fill(palette.hairline)
-            .frame(height: AteMetrics.hairline(displayScale: displayScale))
+            .frame(height: 1)
             .accessibilityHidden(true)
     }
 }

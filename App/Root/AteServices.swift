@@ -21,6 +21,8 @@ struct AteServices {
     let places: any PlaceDirectory
     /// Entries that have not finished landing. Worked on every foreground.
     let outbox: EntryOutbox
+    /// The camera roll, behind a seam — `Suggestions` and the composer's photo staging.
+    let photos: any AtePhotoLibrary
     /// Present in Debug and Beta pointed at staging; `nil` everywhere else. Sign in with Apple is
     /// milestone 2 — until it lands this is the only way into a session.
     let debugSignIn: DebugStagingSignIn?
@@ -39,6 +41,7 @@ struct AteServices {
         self.isPreviewData = preview != nil
         self.entries = preview?.entries ?? SupabaseEntryService(api: api)
         self.places = preview?.places ?? PlaceDirectoryClient(api: api)
+        self.photos = preview?.photos ?? SystemPhotoLibrary()
         self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record)
     }
 
@@ -55,7 +58,14 @@ struct AteServices {
     /// fixtures, so the whole loop can be driven on a simulator before staging has the new tables.
     /// Debug only, in both directions: the types do not exist in a shipped binary, and a launch
     /// argument cannot be set on an installed app.
-    private static func previewServices() -> (entries: any EntryService, places: any PlaceDirectory)? {
+    /// The three seams `-ate-preview-data` swaps at once.
+    private struct PreviewServices {
+        let entries: any EntryService
+        let places: any PlaceDirectory
+        let photos: any AtePhotoLibrary
+    }
+
+    private static func previewServices() -> PreviewServices? {
         #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
         guard arguments.contains(InMemoryEntryService.launchArgument) else { return nil }
@@ -64,7 +74,9 @@ struct AteServices {
         let service = arguments.contains(InMemoryEntryService.emptyLaunchArgument)
             ? InMemoryEntryService()
             : InMemoryEntryService.seeded()
-        return (service, InMemoryPlaceDirectory())
+        return PreviewServices(
+            entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary()
+        )
         #else
         return nil
         #endif

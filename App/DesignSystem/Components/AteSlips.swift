@@ -72,7 +72,7 @@ struct JournalSlip: View {
                         .accessibilityHidden(false)
                         .accessibilityLabel(slip.isPublic ? "Public" : "Private")
                 }
-                InlineTokenText(composition: slip.words, style: .prose, lineLimit: 3)
+                InlineTokenText(composition: slip.words, style: .slipProse, lineLimit: 3)
                 if slip.photos.isEmpty == false {
                     PhotoCluster(photos: slip.photos, side: AteMetrics.clusterPhoto)
                 }

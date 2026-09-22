@@ -82,8 +82,12 @@ struct AteReceipt: Equatable, Identifiable {
 ///
 struct ReceiptView: View {
     let receipt: AteReceipt
-    /// Extra room at the top, for when something overlaps the paper (the entry page's words card).
-    var additionalTopInset: CGFloat = 0
+    /// How far the place sits from the paper's top edge. 22 on a share card; `Entry` sets 32,
+    /// because the words card covers the first sixteen of it.
+    var topPadding: CGFloat = 22
+    /// `Entry.dc.html` gives its receipt `border-radius:0` — the paper runs out from *under* the
+    /// words card, so a rounded top would show as two corners floating in the middle of the page.
+    var topRadius: CGFloat = AteMetrics.receiptTop
     /// Present on the entry page, where the header changes the place and a line changes the dish;
     /// absent on a share card, which is a picture.
     var onPlaceTap: (() -> Void)?
@@ -99,11 +103,11 @@ struct ReceiptView: View {
             AteBarcode()
             footer
         }
-        .padding(.top, 22 + additionalTopInset)
+        .padding(.top, topPadding)
         .padding(.horizontal, AteMetrics.slipPadding)
         .padding(.bottom, AteMetrics.regular + 2 + AteMetrics.tornEdgeHeight)
         .atePaper()
-        .background(AteColor.paper, in: ReceiptPaper())
+        .background(AteColor.paper, in: ReceiptPaper(topRadius: topRadius))
     }
 
     // MARK: - Bands
@@ -136,7 +140,9 @@ struct ReceiptView: View {
             ForEach(Array(receipt.items.enumerated()), id: \.element.id) { index, item in
                 lineItem(item, number: index + 1)
                 if let note = item.note {
-                    Text(verbatim: "\u{201C}\(note)\u{201D}")
+                    // Straight quotes, as the artboard prints them — a receipt is a printout, not
+                    // a typeset page.
+                    Text(verbatim: "\"\(note)\"")
                         .ateText(.proseNote)
                         .foregroundStyle(AtePalette.paper.muted)
                         .padding(.leading, 26)

@@ -20,6 +20,8 @@ enum ComposerDebugLaunch {
     /// …with the place sheet or the dish sheet already open on it.
     static let placeSheetArgument = "-ate-open-place-sheet"
     static let dishSheetArgument = "-ate-open-dish-sheet"
+    /// Pushes `Suggestions` from the journal's header.
+    static let suggestionsArgument = "-ate-open-suggestions"
 
     /// A UI-test run starts from nothing. Without this, one test's abandoned draft is the next
     /// test's opening screen — and a drive that depends on what ran before it is not a drive.
@@ -40,6 +42,7 @@ enum ComposerDebugLaunch {
     static var opensEntry: Bool { has(entryArgument) }
     static var opensPlaceSheet: Bool { has(placeSheetArgument) }
     static var opensDishSheet: Bool { has(dishSheetArgument) }
+    static var opensSuggestions: Bool { has(suggestionsArgument) }
 
     /// Writes the seeded draft before the composer reads it — or wipes whatever a previous run left.
     static func seedDraftIfRequested(into drafts: any EntryDraftStoring) {

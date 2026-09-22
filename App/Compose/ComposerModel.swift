@@ -215,6 +215,11 @@ final class ComposerModel {
         focusRequest += 1
     }
 
+    /// Puts the caret back in the words. What the mic key can actually do — see `ComposerScreen`.
+    func focusEditor() {
+        focusRequest += 1
+    }
+
     // MARK: - The Place key
 
     /// Design rule 8: a place is attached because it was **named or tapped**, never from location.

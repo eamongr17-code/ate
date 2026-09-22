@@ -10,10 +10,15 @@ struct ComposerPresentation: Identifiable, Hashable {
         case tabBar = "tab_bar"
         case journalEmpty = "journal_empty"
         case entryEdit = "entry_edit"
+        case photoSuggestion = "photo_suggestion"
     }
 
     let id = UUID()
     let origin: Origin
+    /// Photos the composer opens holding — a cluster picked on `Suggestions`. Identifiers, not
+    /// images: the composer stages them itself, the same way the picker's are staged. Design rule 8
+    /// is untouched — a photo brings its pixels and nothing else, never a place.
+    var assetIdentifiers: [String] = []
     /// Set when the composer opens on words that already exist. Done then **rewrites that entry's
     /// body** rather than writing a new one — the one path in the app that touches `entries.body`
     /// after it has landed, and it is the author's own hand.

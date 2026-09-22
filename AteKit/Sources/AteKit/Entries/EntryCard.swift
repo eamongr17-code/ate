@@ -278,18 +278,26 @@ public extension EntryCard {
                        username: "eamon", city: "Melbourne"),
         place: Place(id: UUID(uuidString: "B7E00000-0000-4000-8000-000000000001")!,
                      name: "Tipo 00", address: "361 Little Bourke St", city: "Melbourne"),
+        // The artboard's own three photos, bundled as prototype assets.
+        photos: [
+            Photo(url: "asset://ragu", position: 1),
+            Photo(url: "asset://prawn", position: 2),
+            Photo(url: "asset://tiramisu", position: 3)
+        ],
         items: [
+            // The notes read as `Entry.dc.html` prints them — the sorter lifts a sentence and the
+            // receipt sets it as one.
             Item(reviewID: UUID(uuidString: "C7E00000-0000-4000-8000-000000000001")!,
                  dishID: UUID(uuidString: "D7E00000-0000-4000-8000-000000000001")!,
                  dishName: "Tagliatelle al ragù", score: Rating(rounding: 4.5),
-                 note: "unreal, rich, glossy, gone in four minutes.", position: 1),
+                 note: "Unreal. Rich, glossy, gone in four minutes.", position: 1),
             Item(reviewID: UUID(uuidString: "C7E00000-0000-4000-8000-000000000002")!,
                  dishID: UUID(uuidString: "D7E00000-0000-4000-8000-000000000002")!,
                  dishName: "Tiramisu", score: Rating(rounding: 3),
-                 note: "a bit flat after that.", position: 2),
+                 note: "A bit flat after that.", position: 2),
             Item(reviewID: UUID(uuidString: "C7E00000-0000-4000-8000-000000000003")!,
                  dishID: UUID(uuidString: "D7E00000-0000-4000-8000-000000000003")!,
-                 dishName: "Prawn spaghetti", note: "looked the business.", position: 3)
+                 dishName: "Prawn spaghetti", position: 3)
         ]
     )
 }

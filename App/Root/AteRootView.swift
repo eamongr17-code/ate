@@ -48,7 +48,10 @@ private struct AteShell: View {
     @State private var composing: ComposerPresentation?
     /// The Journal tab's stack. Hoisted here so Done in the composer can land on the new entry, at
     /// the journal's root, rather than under whatever was open before.
-    @State private var path: [EntryRoute] = []
+    @State private var path: [JournalRoute] = []
+    /// How many recent photos are waiting to be written up — the journal header's badge. Only ever
+    /// non-zero when the photo library has already been allowed; nothing here asks.
+    @State private var photoCount = 0
     /// Bumped when a tab's own item is tapped again — the screen scrolls to the top.
     @State private var scrollToTop = 0
     @State private var hasSession: Bool
@@ -102,18 +105,46 @@ private struct AteShell: View {
             .ignoresSafeArea(.keyboard)
             .ateGround()
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: EntryRoute.self) { route in
-                EntryScreen(
-                    route: route,
-                    services: services,
-                    onChange: { journal.replace($0) },
-                    onEdit: { composing = .edit($0) }
-                )
-                .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: JournalRoute.self) { route in
+                destination(route)
+                    .toolbar(.hidden, for: .navigationBar)
             }
         }
         .fullScreenCover(item: $composing) { presentation in
             ComposerScreen(presentation: presentation, services: services, onSaved: landOnEntry)
+        }
+    }
+
+    @ViewBuilder
+    private func destination(_ route: JournalRoute) -> some View {
+        switch route {
+        case .entry(let entry):
+            EntryScreen(
+                route: entry,
+                services: services,
+                onChange: { journal.replace($0) },
+                onEdit: { composing = .edit($0) }
+            )
+        case .suggestions:
+            // `Suggestions.dc.html` keeps the tab bar under it — it is a page of the journal, not a
+            // modal. The stack's root bar is covered by the push, so the screen carries its own.
+            ZStack(alignment: .bottom) {
+                SuggestionsScreen(library: services.photos) { cluster in
+                    composing = ComposerPresentation(
+                        origin: .photoSuggestion,
+                        assetIdentifiers: cluster.items.map(\.id)
+                    )
+                }
+                AteTabScrim()
+                AteTabBar(
+                    selection: Binding(get: { tab }, set: { tapped in
+                        tab = tapped
+                        path.removeAll()
+                    }),
+                    onCompose: { openComposer(.tabBar) }
+                )
+            }
+            .ateGround()
         }
     }
 
@@ -124,11 +155,18 @@ private struct AteShell: View {
             JournalScreen(
                 store: journal,
                 scrollToTopSignal: scrollToTop,
+                photoCount: photoCount,
                 onCompose: { openComposer(.journalEmpty) },
-                onOpen: { path.append(EntryRoute(entryID: $0.id)) }
+                onOpen: { path.append(.entry(EntryRoute(entryID: $0.id))) },
+                onSuggestions: { path.append(.suggestions) }
             )
+            .task { await countPhotos() }
             #if DEBUG
             .task { await openNewestEntryIfRequested() }
+            .task {
+                guard ComposerDebugLaunch.opensSuggestions, path.isEmpty else { return }
+                path = [.suggestions]
+            }
             #endif
         case .feed:
             FeedScreen()
@@ -167,7 +205,16 @@ private struct AteShell: View {
         journal.insert(card)
         tab = .journal
         guard path.contains(where: { $0.entryID == card.id }) == false else { return }
-        path = [EntryRoute(entryID: card.id, isFreshlyWritten: true)]
+        path = [.entry(EntryRoute(entryID: card.id, isFreshlyWritten: true))]
+    }
+
+    /// The header badge. Reads the camera roll only when it has already been allowed — the ask
+    /// belongs to `Suggestions`, and a launch that asks for photos is exactly what the design's
+    /// "nothing is ever assumed" rule is against.
+    private func countPhotos() async {
+        guard services.photos.isAuthorized else { return }
+        photoCount = PhotoSuggestions.cluster(await services.photos.recent())
+            .reduce(0) { $0 + $1.items.count }
     }
 
     #if DEBUG
@@ -178,7 +225,7 @@ private struct AteShell: View {
         for _ in 0..<30 {
             await journal.loadIfNeeded()
             if let first = journal.entries.first {
-                path = [EntryRoute(entryID: first.id, isFreshlyWritten: true)]
+                path = [.entry(EntryRoute(entryID: first.id, isFreshlyWritten: true))]
                 return
             }
             try? await Task.sleep(for: .milliseconds(100))

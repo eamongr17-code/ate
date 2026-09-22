@@ -15,7 +15,7 @@ struct FeedScreen: View {
                     AteChip(icon: .place, title: "Melbourne")
                 }
                 .padding(.horizontal, AteMetrics.gutter)
-                .padding(.top, 62)
+                .ateContentTop(62)
                 AteEmptySlip(label: "Feed", title: "No receipts\nyet.")
             }
             .padding(.bottom, AteMetrics.tabBarScrollInset)
@@ -44,7 +44,7 @@ struct SearchScreen: View {
                 kinds
             }
             .padding(.horizontal, AteMetrics.gutter)
-            .padding(.top, 62)
+            .ateContentTop(62)
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
         .scrollIndicators(.hidden)
@@ -86,7 +86,7 @@ struct YouScreen: View {
                 statement
             }
             .padding(.horizontal, AteMetrics.gutter)
-            .padding(.top, 70)
+            .ateContentTop(70)
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
         .scrollIndicators(.hidden)

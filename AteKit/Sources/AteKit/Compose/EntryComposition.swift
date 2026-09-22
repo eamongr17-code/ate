@@ -56,6 +56,32 @@ public struct EntryComposition: Hashable, Codable, Sendable {
 
     public var scores: [Rating] { spans.compactMap(\.token.score) }
 
+    /// The same words with a **leading place token** taken off the front.
+    ///
+    /// A journal slip already prints the place as its heading, and `Main.dc.html` starts its prose
+    /// at "With Jess for her birthday." — the pill is on the entry's own page, not in the list.
+    /// Only a token at the very start goes: a place named mid-sentence is part of the sentence.
+    public func droppingLeadingPlace() -> EntryComposition {
+        guard let first = spans.first, first.token.place != nil, first.span.location == 0 else {
+            return self
+        }
+        var units = Array(plain.utf16)
+        var cut = first.span.endLocation
+        // Take the space after it too, so the words do not start mid-gap.
+        if cut < units.count, units[cut] == 32 { cut += 1 }
+        units.removeSubrange(0..<cut)
+        let remaining = String(decoding: units, as: UTF16.self)
+        return EntryComposition(
+            plain: remaining.prefix(1).uppercased() + remaining.dropFirst(),
+            spans: spans.dropFirst().map {
+                EntryTokenSpan(
+                    token: $0.token,
+                    span: TextSpan(location: $0.span.location - cut, length: $0.span.length)
+                )
+            }
+        )
+    }
+
     /// The display string: every token collapsed to one placeholder character.
     public var displayString: String {
         var units = Array(plain.utf16)
