@@ -506,6 +506,55 @@ export const fixtures: Fixture[] = [
       { dish_name: 'wagyu nigiri', score: 4, note: null },
     ],
   },
+
+  // -------------------------------------------------------------------------
+  // MELBOURNE SPELLS THINGS WITH ACCENTS
+  //
+  // JavaScript's `\w` is ASCII-only, so every one of these entries was mis-sorted on
+  // staging: "ragù" became the dish "Tagliatelle al rag", "crème brûlée" lost its first
+  // word, "Bánh mì 4" produced no dish at all, and "at Émile" attached to "Dinner".
+  // A dish mention must cover the WHOLE word, whichever alphabet it is written in.
+  // -------------------------------------------------------------------------
+  {
+    id: 'accent-ragu-from-prose',
+    about: 'THE staging bug: a new dish taken from the words must keep its last letter ("ragù", not "rag")',
+    body: 'Tipo 00. The tagliatelle al ragù 4.5 was rich, glossy, gone in four minutes.',
+    knownDishes: [],
+    place: 'Tipo 00',
+    items: [{ dish_name: 'tagliatelle al ragù', score: 4.5, note: 'rich, glossy, gone in four minutes.' }],
+  },
+  {
+    id: 'accent-creme-brulee-on-the-menu',
+    about: 'two accented words in one menu name — the name fence must not break inside "crème"',
+    body: 'Beatrix. The crème brûlée 4.5, cracked properly.',
+    knownDishes: ['Crème brûlée'],
+    place: 'Beatrix',
+    items: [{ dish_name: 'Crème brûlée', score: 4.5, note: 'cracked properly.' }],
+  },
+  {
+    id: 'accent-banh-mi-opens-the-entry',
+    about: 'diacritics on both words, sentence-initial: the dish used to vanish entirely',
+    body: 'Bánh mì 4 from the truck near work, still warm.',
+    knownDishes: [],
+    place: null,
+    items: [{ dish_name: 'Bánh mì', score: 4, note: 'from the truck near work, still warm.' }],
+  },
+  {
+    id: 'accent-jalapeno-mid-word',
+    about: 'ñ inside the first word of a two-word dish',
+    body: 'Butchers Diner. Jalapeño poppers 3.5, actually hot.',
+    knownDishes: [],
+    place: 'Butchers Diner',
+    items: [{ dish_name: 'Jalapeño poppers', score: 3.5, note: 'actually hot.' }],
+  },
+  {
+    id: 'accent-venue-name',
+    about: 'a venue whose name opens with a non-ASCII capital — "at Émile" used to offer "Dinner" instead',
+    body: 'Dinner at Émile. The soufflé 5.',
+    knownDishes: [],
+    place: 'Émile',
+    items: [{ dish_name: 'soufflé', score: 5, note: null }],
+  },
 ];
 
 export const FIXTURE_COUNT = fixtures.length;

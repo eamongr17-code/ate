@@ -22,7 +22,7 @@
 //
 // TWO MODES, ONE CONTRACT
 //   stub  (DEFAULT — CEO decision, no AI spend yet): ./parse.ts, a rule-based parser.
-//         No network, no key, fully deterministic, pinned by ~40 fixtures.
+//         No network, no key, fully deterministic, pinned by ~50 fixtures.
 //   model (ONLY when ANTHROPIC_API_KEY is present in the function secrets):
 //         ./model.ts, claude-haiku-4-5 with a forced tool call. Inert without the
 //         key — the code path is unreachable, not merely unused. A model failure

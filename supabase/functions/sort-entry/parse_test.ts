@@ -232,6 +232,74 @@ test('a user-pinned place is matched back to the phrase in the words, or to noth
 });
 
 // ---------------------------------------------------------------------------
+// UNICODE WORDS — `\w` is ASCII-only, and Melbourne menus are not. Every mention span
+// must cover the WHOLE word, and its offset stays a Unicode SCALAR offset.
+// ---------------------------------------------------------------------------
+test('an accented dish keeps its last letter, and its mention span covers the whole word', () => {
+  const cases: Array<[string, string[], string, string]> = [
+    // body, knownDishes, expected dish_name, expected mention_text
+    ['Tipo 00. The tagliatelle al ragù 4.5.', [], 'tagliatelle al ragù', 'tagliatelle al ragù'],
+    ['Beatrix. The crème brûlée 4.5.', [], 'crème brûlée', 'crème brûlée'],
+    ['Beatrix. the crème brûlée 4.5.', ['Crème brûlée'], 'Crème brûlée', 'crème brûlée'],
+    ['Bánh mì 4 from the truck.', [], 'Bánh mì', 'Bánh mì'],
+    ['Jalapeño poppers 3.5, actually hot.', [], 'Jalapeño poppers', 'Jalapeño poppers'],
+    ['The açaí bowl 4.', [], 'açaí bowl', 'açaí bowl'],
+    ['Pho đặc biệt 4.5.', [], 'Pho đặc biệt', 'Pho đặc biệt'],
+    ['The soufflé 5.', [], 'soufflé', 'soufflé'],
+  ];
+  for (const [body, knownDishes, dish, mention] of cases) {
+    const item = parseEntry({ body, knownDishes }).items[0];
+    assert(item, `no dish found in ${JSON.stringify(body)}`);
+    assertEquals(item.dish_name, dish, `dish_name for ${JSON.stringify(body)}`);
+    assertEquals(item.mention_text, mention, `mention for ${JSON.stringify(body)}`);
+    assertEquals(
+      sliceScalars(body, item.mention_offset!, scalarLength(item.mention_text!)),
+      item.mention_text,
+      `mention_offset for ${JSON.stringify(body)}`,
+    );
+  }
+});
+
+test('a DECOMPOSED accent is one word too — the combining mark must not end it', () => {
+  // The same words, typed on a Mac that hands over NFD: "ragù" is u + U+0300.
+  const body = 'Tipo 00. The tagliatelle al ragù 4.5.'.normalize('NFD');
+  const item = parseEntry({ body }).items[0];
+  assertEquals(item.dish_name, 'tagliatelle al ragù'.normalize('NFD'));
+  assertEquals(scalarLength(item.mention_text!), 20, 'the mark is its own scalar — offsets stay scalars');
+  assertEquals(sliceScalars(body, item.mention_offset!, 20), item.mention_text);
+});
+
+test('a venue whose name starts with a non-ASCII capital is still a candidate', () => {
+  assert(placeCandidates('Dinner at Émile. The soufflé 5.').includes('Émile'));
+  assert(placeCandidates('Ñoño on Gertrude, tacos 4.').includes('Ñoño'));
+  assert(placeCandidates('Back to Étoile for the tart.').includes('Étoile'));
+  // and a place phrase's offset still points at the phrase, accents and all
+  const body = 'Dinner at Émile. The soufflé 5.';
+  for (const c of placeCandidateSpans(body)) {
+    assertEquals(sliceScalars(body, c.offset, scalarLength(c.phrase)), c.phrase);
+  }
+});
+
+test('a menu name with regex metacharacters still compiles under /u and still matches', () => {
+  // The /u flag makes several escapes hard errors, and menu names are user-generated.
+  const cases: Array<[string, string]> = [
+    ['Crème brûlée (petit) 4.5, tiny and perfect.', 'Crème brûlée (petit)'],
+    ['The pho #1 4, always.', 'Pho #1'],
+    ['Half & half 3.5.', 'Half & half'],
+    ['Mum’s bánh xèo 5.', 'Mum’s bánh xèo'],
+  ];
+  for (const [body, dish] of cases) {
+    assertEquals(parseEntry({ body, knownDishes: [dish] }).items.map((i) => i.dish_name), [dish]);
+  }
+});
+
+test('an accented word does not become a score, a unit or a sentence break', () => {
+  // the reject vocabularies stay ASCII on purpose; these must behave exactly as before
+  assertEquals(parseEntry({ body: 'Crème brûlée, gone in four minutes.' }).items[0]?.score ?? null, null);
+  assertEquals(sentenceBounds('Café. Émile is next.', 0), [0, 5], 'a capital after a full stop still ends it');
+});
+
+// ---------------------------------------------------------------------------
 // NOTES — the CLAUSE after the dish by default (design/v1/Entry prints exactly that),
 // the whole sentence on request. Always verbatim either way.
 // ---------------------------------------------------------------------------
