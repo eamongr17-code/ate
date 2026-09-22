@@ -1,0 +1,127 @@
+import AteKit
+import SwiftUI
+
+/// Where an entry is opened from, and whether its receipt is about to print for the first time.
+struct EntryRoute: Hashable, Identifiable {
+    let entryID: UUID
+    /// True when Done in the composer landed here: the receipt prints in on first appearance, once.
+    var isFreshlyWritten = false
+
+    var id: UUID { entryID }
+}
+
+/// **`Entry`** — the words on their own page, with the receipt feeding out from underneath them.
+///
+/// The overlap is the whole picture: the words card sits on top, the paper slides out from behind it
+/// and stops, and the person sees the thing the app made from what they wrote. Everything tappable
+/// on the receipt is a correction (`correct_entry_place`, `correct_entry_dish`) — the structure is
+/// Ate's guess and the person has the last word on all of it.
+struct EntryScreen: View {
+    let route: EntryRoute
+    let services: AteServices
+    /// Called whenever the entry changes, so the journal behind this screen stays true.
+    var onChange: (EntryCard) -> Void = { _ in }
+
+    @State private var model: EntryModel
+    @Environment(\.dismiss) private var dismiss
+
+    init(route: EntryRoute, services: AteServices, onChange: @escaping (EntryCard) -> Void = { _ in }) {
+        self.route = route
+        self.services = services
+        self.onChange = onChange
+        _model = State(initialValue: EntryModel(route: route, services: services))
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                if let card = model.card {
+                    words(card)
+                    receipt(card)
+                }
+            }
+            .padding(.horizontal, AteMetrics.gutter)
+            .padding(.top, AteMetrics.snug - 2)
+            .padding(.bottom, AteMetrics.section)
+        }
+        .scrollIndicators(.hidden)
+        .ateGround()
+        .safeAreaInset(edge: .top, spacing: 0) { topBar }
+        .task { await model.load() }
+        .onChange(of: model.card) { _, card in
+            if let card { onChange(card) }
+        }
+    }
+
+    // MARK: - Bands
+
+    private var topBar: some View {
+        HStack(spacing: 0) {
+            AteIconButton(icon: .back, label: "Back to journal", size: 24) { dismiss() }
+            Spacer(minLength: AteMetrics.snug)
+            if let card = model.card {
+                AteIconButton(
+                    icon: card.visibility.isPublic ? .publicEntry : .privateEntry,
+                    label: card.visibility.isPublic ? "Public. Make private" : "Private. Make public",
+                    size: 21
+                ) {
+                    Task { await model.toggleVisibility() }
+                }
+            }
+        }
+        .padding(.horizontal, AteMetrics.regular)
+        .padding(.top, AteMetrics.contentTop)
+        .background(AtePalette.automatic.ground)
+    }
+
+    /// The words card: the person's own sentence with its tokens, and the tilted photo cluster. It
+    /// overlaps the receipt, and it is drawn on paper because it is part of the same printing.
+    private func words(_ card: EntryCard) -> some View {
+        VStack(alignment: .leading, spacing: AteMetrics.regular) {
+            InlineTokenText(composition: model.composition, style: .prose)
+            if model.photos.isEmpty == false {
+                PhotoCluster(
+                    photos: model.photos,
+                    side: AteMetrics.clusterPhotoLarge,
+                    surface: AteColor.paper
+                )
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 18)
+        .padding(.bottom, AteMetrics.loose)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .atePaper()
+        .background(
+            AteColor.paper,
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+        )
+        .shadow(color: AteColor.ink.opacity(0.35), radius: 11, x: 0, y: 14)
+        .zIndex(1)
+    }
+
+    @ViewBuilder
+    private func receipt(_ card: EntryCard) -> some View {
+        switch model.state {
+        case .printed(let receipt):
+            ReceiptView(
+                receipt: receipt,
+                additionalTopInset: Self.overlap,
+                onPlaceTap: { model.isCorrectingPlace = true },
+                onItemTap: { model.correcting = EntryModel.Correcting(item: $0) }
+            )
+            .padding(.horizontal, 22)
+            .padding(.top, -Self.overlap)
+            .atePrintsIn(model.hasPrinted)
+        case .pending, .failed:
+            EntryPendingSlip(state: model.state) {
+                Task { await model.retrySort() }
+            }
+            .padding(.horizontal, 22)
+            .padding(.top, -Self.overlap)
+        }
+    }
+
+    /// How far the words card sits over the paper — the design's `margin:-16px`.
+    private static let overlap: CGFloat = 16
+}

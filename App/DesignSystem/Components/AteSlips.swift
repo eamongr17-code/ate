@@ -188,6 +188,9 @@ struct SlipLineItems: View {
                     Text(item.name)
                         .ateText(.receiptLine)
                         .lineLimit(1)
+                        // The leader is a greedy Canvas; without this it claims space from the name
+                        // and a dish that fits on one line is elided anyway.
+                        .layoutPriority(1)
                     AteDotLeader()
                         .alignmentGuide(.firstTextBaseline) { $0[.bottom] + 4 }
                     if let score = item.score {

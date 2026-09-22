@@ -14,14 +14,23 @@ import SwiftUI
 struct ComposerScreen: View {
     let presentation: ComposerPresentation
     let services: AteServices
+    /// The entry, the instant its words are accepted — queued or landed. The shell puts it on the
+    /// journal and opens it, which is where the receipt prints.
+    var onSaved: (EntryCard) -> Void = { _ in }
 
     @State private var model: ComposerModel
     @State private var pickedItems: [PhotosPickerItem] = []
+    @State private var isSaving = false
     @Environment(\.dismiss) private var dismiss
 
-    init(presentation: ComposerPresentation, services: AteServices) {
+    init(
+        presentation: ComposerPresentation,
+        services: AteServices,
+        onSaved: @escaping (EntryCard) -> Void = { _ in }
+    ) {
         self.presentation = presentation
         self.services = services
+        self.onSaved = onSaved
         _model = State(initialValue: ComposerModel(drafts: services.drafts))
     }
 
@@ -76,7 +85,7 @@ struct ComposerScreen: View {
                     .foregroundStyle(AtePalette.surface.inverted)
             }
             .buttonStyle(.plain)
-            .disabled(model.hasContent == false)
+            .disabled(model.hasContent == false || isSaving)
             .opacity(model.hasContent ? 1 : 0.4)
             .padding(.trailing, AteMetrics.regular)
         }
@@ -186,9 +195,32 @@ struct ComposerScreen: View {
 
     // MARK: - Actions
 
+    /// Done. The words go first and alone; the photos and the sorter follow behind, after the screen
+    /// is already gone. Nothing about the receipt is allowed to delay the writing being saved.
     private func done() {
+        guard isSaving == false, model.hasContent else { return }
+        isSaving = true
         model.promotePendingScoreLiteral().map(services.analytics)
-        dismiss()
+        let draft = model.draft
+        let request = model.request(from: draft, photoDirectory: model.photoDirectory)
+        let submission = services.submission
+
+        Task {
+            let result = await submission.submit(request)
+            isSaving = false
+            guard let card = result.card else {
+                // The server refused. The draft stays exactly where it is, with every word in it.
+                return
+            }
+            model.clearDraft()
+            onSaved(card)
+            dismiss()
+            // Photos and the sorter, after the screen has gone. Detached from this view's lifetime
+            // on purpose: dismissing must not cancel the rest of the entry landing.
+            Task.detached {
+                await submission.finish(entryID: request.id, photoPaths: request.photoPaths)
+            }
+        }
     }
 
     private func reopen(_ token: EntryToken) {

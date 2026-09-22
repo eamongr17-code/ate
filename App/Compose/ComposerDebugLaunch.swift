@@ -15,9 +15,17 @@ enum ComposerDebugLaunch {
     static let seedArgument = "-ate-seed-draft"
     /// …and opens the star slider on its first score.
     static let scoringArgument = "-ate-open-scoring"
+    /// Pushes the newest journal entry, so the entry page and its sheets can be photographed.
+    static let entryArgument = "-ate-open-entry"
+    /// …with the place sheet or the dish sheet already open on it.
+    static let placeSheetArgument = "-ate-open-place-sheet"
+    static let dishSheetArgument = "-ate-open-dish-sheet"
 
     static var opensComposer: Bool { has(openArgument) }
     static var opensScoring: Bool { has(scoringArgument) }
+    static var opensEntry: Bool { has(entryArgument) }
+    static var opensPlaceSheet: Bool { has(placeSheetArgument) }
+    static var opensDishSheet: Bool { has(dishSheetArgument) }
 
     /// Writes the seeded draft before the composer reads it.
     static func seedDraftIfRequested(into drafts: any EntryDraftStoring) {

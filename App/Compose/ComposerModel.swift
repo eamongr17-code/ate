@@ -122,6 +122,22 @@ final class ComposerModel {
         drafts.clear(draftID: draftID)
     }
 
+    /// What the save path is handed. The body is the words **verbatim** — `composition.plain`, with
+    /// the tokens' own characters still in them, because that is what the person wrote and the
+    /// sorter reads (design rule 9).
+    func request(from draft: EntryDraft, photoDirectory: URL) -> NewEntryRequest {
+        NewEntryRequest(
+            id: draft.id,
+            body: draft.composition.plain,
+            visibility: draft.isPublic ? .public : .private,
+            restaurantID: draft.restaurantID,
+            photoPaths: draft.photoFiles.map { photoDirectory.appending(path: $0).path() },
+            createdAt: draft.startedAt,
+            scoreCount: draft.composition.scores.count,
+            secondsFromOpen: draft.secondsFromOpen()
+        )
+    }
+
     // MARK: - The Score key
 
     /// Puts a token at the caret and opens the slider on it, already reading 0.5.

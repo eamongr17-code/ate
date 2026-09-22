@@ -33,7 +33,8 @@ struct AteRootView: View {
     }
 }
 
-/// **The shell**: the four tabs, the floating bar, and the `+` that presents the composer.
+/// **The shell**: the four tabs, the floating bar, the `+` that presents the composer, and the one
+/// navigation stack the core loop travels on.
 ///
 /// Journal is home (PRODUCT.md decision 1) and selection always starts there — no last tab is
 /// persisted, because a journal you land in is a different product from a feed you land in.
@@ -42,20 +43,25 @@ private struct AteShell: View {
     let services: AteServices
 
     @State private var tab: AteTab = .journal
-    /// Non-nil presents the composer, and carries the draft it opens on. One piece of state, so a
-    /// door can never present without the thing it was opened with.
+    @State private var journal: JournalStore
+    /// Non-nil presents the composer, and carries what it was opened with.
     @State private var composing: ComposerPresentation?
-    /// Bumped when a tab's own tab item is tapped again — the screen scrolls to the top.
+    /// The Journal tab's stack. Hoisted here so Done in the composer can land on the new entry, at
+    /// the journal's root, rather than under whatever was open before.
+    @State private var path: [EntryRoute] = []
+    /// Bumped when a tab's own item is tapped again — the screen scrolls to the top.
     @State private var scrollToTop = 0
     @State private var hasSession: Bool
     @State private var isSigningIn = false
-    /// The signed-in person's handle. A receipt is signed, so this is loaded once at the shell rather
+    /// The signed-in person's handle. A receipt is signed, so it is loaded once at the shell rather
     /// than by whichever screen happens to need it first.
     @State private var handle: String?
+    @Environment(\.scenePhase) private var scenePhase
 
     init(services: AteServices) {
         self.services = services
         _hasSession = State(initialValue: services.hasSession)
+        _journal = State(initialValue: JournalStore(entries: services.entries))
         #if DEBUG
         ComposerDebugLaunch.seedDraftIfRequested(into: services.drafts)
         if ComposerDebugLaunch.opensComposer {
@@ -78,18 +84,31 @@ private struct AteShell: View {
             }
         }
         .task { await autoSignInIfRequested() }
+        // An entry that could not be sent is still the person's. The outbox is worked on every
+        // return to the app, and anything that lands refreshes the journal under it.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await drainOutbox() }
+        }
     }
 
     private var shell: some View {
-        ZStack(alignment: .bottom) {
-            current
-            AteTabScrim()
-            AteTabBar(selection: selection, onCompose: openComposer)
+        NavigationStack(path: $path) {
+            ZStack(alignment: .bottom) {
+                current
+                AteTabScrim()
+                AteTabBar(selection: selection, onCompose: { openComposer(.tabBar) })
+            }
+            .ignoresSafeArea(.keyboard)
+            .ateGround()
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: EntryRoute.self) { route in
+                EntryScreen(route: route, services: services) { journal.replace($0) }
+                    .toolbar(.hidden, for: .navigationBar)
+            }
         }
-        .ignoresSafeArea(.keyboard)
-        .ateGround()
         .fullScreenCover(item: $composing) { presentation in
-            ComposerScreen(presentation: presentation, services: services)
+            ComposerScreen(presentation: presentation, services: services, onSaved: landOnEntry)
         }
     }
 
@@ -97,7 +116,15 @@ private struct AteShell: View {
     private var current: some View {
         switch tab {
         case .journal:
-            JournalScreen(services: services, scrollToTopSignal: scrollToTop, onCompose: openComposer)
+            JournalScreen(
+                store: journal,
+                scrollToTopSignal: scrollToTop,
+                onCompose: { openComposer(.journalEmpty) },
+                onOpen: { path.append(EntryRoute(entryID: $0.id)) }
+            )
+            #if DEBUG
+            .task { await openNewestEntryIfRequested() }
+            #endif
         case .feed:
             FeedScreen()
         case .search:
@@ -122,8 +149,39 @@ private struct AteShell: View {
         )
     }
 
-    private func openComposer() {
-        composing = ComposerPresentation(origin: .tabBar)
+    private func openComposer(_ origin: ComposerPresentation.Origin) {
+        composing = ComposerPresentation(origin: origin)
+    }
+
+    /// Done in the composer: the entry is already on the journal, and this is where the receipt
+    /// prints. The stack is unwound first, so writing twice in a row does not stack entry pages.
+    private func landOnEntry(_ card: EntryCard) {
+        journal.insert(card)
+        tab = .journal
+        path = [EntryRoute(entryID: card.id, isFreshlyWritten: true)]
+    }
+
+    #if DEBUG
+    /// `-ate-open-entry`: pushes the newest entry once the first page has landed. Waits for it
+    /// rather than racing the journal's own load, which would find an empty list and give up.
+    private func openNewestEntryIfRequested() async {
+        guard ComposerDebugLaunch.opensEntry, path.isEmpty else { return }
+        for _ in 0..<30 {
+            await journal.loadIfNeeded()
+            if let first = journal.entries.first {
+                path = [EntryRoute(entryID: first.id, isFreshlyWritten: true)]
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+    }
+    #endif
+
+    private func drainOutbox() async {
+        let landed = await services.outbox.run()
+        guard landed.isEmpty == false else { return }
+        journal.invalidate()
+        await journal.loadIfNeeded()
     }
 
     // MARK: - Session
@@ -136,6 +194,7 @@ private struct AteShell: View {
         await debugSignIn.signIn()
         isSigningIn = false
         hasSession = services.hasSession
+        journal.invalidate()
     }
 
     private func autoSignInIfRequested() async {
@@ -146,7 +205,7 @@ private struct AteShell: View {
 
     private func loadHandle() async {
         guard hasSession, handle == nil else { return }
-        handle = try? await ViewerProfileClient(api: services.api).viewer().username
+        handle = await services.entries.currentHandle()
     }
 }
 
@@ -155,13 +214,11 @@ struct ConfigurationErrorView: View {
     let error: any Error
 
     var body: some View {
-        VStack(spacing: AteMetrics.loose) {
-            AteEmptySlip(
-                label: "Configuration",
-                title: "Nothing\nto talk to.",
-                prose: String(describing: error)
-            )
-        }
+        AteEmptySlip(
+            label: "Configuration",
+            title: "Nothing\nto talk to.",
+            prose: String(describing: error)
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ateGround()
     }
