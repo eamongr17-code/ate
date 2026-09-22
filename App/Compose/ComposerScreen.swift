@@ -21,6 +21,9 @@ struct ComposerScreen: View {
     @State private var model: ComposerModel
     @State private var pickedItems: [PhotosPickerItem] = []
     @State private var isSaving = false
+    /// Only the debug undo drive moves these; see ``ComposerDebugLaunch/undoDriveArgument``.
+    @State private var undoRequest = 0
+    @State private var redoRequest = 0
     @Environment(\.dismiss) private var dismiss
 
     init(
@@ -79,6 +82,12 @@ struct ComposerScreen: View {
         HStack {
             AteIconButton(icon: .close, label: "Close") { dismiss() }
             Spacer(minLength: AteMetrics.snug)
+            #if DEBUG
+            if ComposerDebugLaunch.drivesUndo {
+                Button("Undo") { undoRequest += 1 }.accessibilityIdentifier("debug.undo")
+                Button("Redo") { redoRequest += 1 }.accessibilityIdentifier("debug.redo")
+            }
+            #endif
             Button(action: done) {
                 Text("Done")
                     .ateText(.control)
@@ -107,6 +116,8 @@ struct ComposerScreen: View {
                 style: .composerProse,
                 placeholder: "What did you eat?",
                 focusRequest: model.focusRequest,
+                undoRequest: undoRequest,
+                redoRequest: redoRequest,
                 onTokenTap: reopen,
                 onCaretChange: { model.caret = $0 },
                 onScorePromoted: { wasDictated in
@@ -231,8 +242,15 @@ struct ComposerScreen: View {
         }
     }
 
-    /// Editing an entry that already exists: the body is rewritten in place and the sorter is asked
-    /// again, because the structure underneath is derived from these words and nothing else.
+    /// Editing an entry that already exists: the body is rewritten in place, and the sorter is asked
+    /// again **without forcing**.
+    ///
+    /// `apply_entry_sort` deletes and rebuilds every review for an entry, so forcing a re-sort here
+    /// threw away corrections the person had already made — fix a dish, come back a day later to fix
+    /// a typo, and the dish silently reverts. A non-forced call is a no-op on a sorted entry and
+    /// still picks up an entry that never got sorted, which is the honest half of the job. Re-sorting
+    /// an edit *without* losing corrections needs the server to merge rather than rebuild; backend
+    /// has it.
     private func rewrite(_ editing: ComposerPresentation.EditingEntry) {
         let body = model.composition.plain
         let entries = services.entries
@@ -243,7 +261,7 @@ struct ComposerScreen: View {
             if let card = try? await entries.entry(id: id) { onSaved(card) }
             dismiss()
             Task.detached {
-                _ = try? await entries.sort(entryID: id, force: true)
+                _ = try? await entries.sort(entryID: id, force: false)
             }
         }
     }

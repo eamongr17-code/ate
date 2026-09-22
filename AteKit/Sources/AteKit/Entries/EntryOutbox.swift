@@ -35,11 +35,19 @@ public struct QueuedEntry: Sendable, Hashable, Codable, Identifiable {
     /// Set once the INSERT has been accepted (including as a `23505`).
     public var hasInserted = false
 
+    /// The server refused rather than failed to answer. Retrying cannot help, so the queue stops
+    /// immediately instead of burning eight foregrounds to arrive at the same place.
+    public var isBlocked = false
+
     /// After this many failed foregrounds the entry stops being retried automatically. It is still
     /// on the device and still in the journal — what stops is the app promising it will fix itself.
     public static let maximumAttempts = 8
 
     public var isExhausted: Bool { attempts >= Self.maximumAttempts }
+
+    /// The queue will not touch this again on its own. The entry needs a person to say "try again",
+    /// which means it also needs somewhere to say so — see the entry page's not-printed state.
+    public var isStuck: Bool { isBlocked || isExhausted }
 }
 
 /// The insert, kept as data rather than as a `NewEntry` so it survives being written to disk.
@@ -147,17 +155,23 @@ public actor EntryOutbox {
         defer { isRunning = false }
 
         var landed: [UUID] = []
-        for item in queue where item.isExhausted == false {
+        for item in queue where item.isStuck == false {
             var working = item
             do {
                 try await push(&working)
             } catch {
+                guard EntryWriteFailure.of(error).isRetryable else {
+                    // A refusal is not a bad connection. Mark it and move on rather than counting
+                    // eight foregrounds towards the same answer.
+                    working.isBlocked = true
+                    update(working)
+                    continue
+                }
                 working.attempts += 1
                 update(working)
                 // The first failure is the one that told us we were offline; the rest of the queue
                 // will fail the same way, so stop rather than burn attempts on all of them.
-                if EntryWriteFailure.of(error).isRetryable { break }
-                continue
+                break
             }
             if working.isComplete {
                 landed.append(working.id)
@@ -168,6 +182,22 @@ public actor EntryOutbox {
         }
         persist()
         return landed
+    }
+
+    /// Whether the queue has given up on an entry. The entry page asks, so a stuck entry says so on
+    /// its own paper instead of sitting silently in a JSON file nobody opens.
+    public func isStuck(entryID: UUID) -> Bool {
+        queue.first { $0.id == entryID }?.isStuck ?? false
+    }
+
+    /// "Print it again": the person's own retry. Clears the give-up state and works the queue.
+    @discardableResult
+    public func retry(entryID: UUID) async -> [UUID] {
+        guard let index = queue.firstIndex(where: { $0.id == entryID }) else { return [] }
+        queue[index].isBlocked = false
+        queue[index].attempts = 0
+        persist()
+        return await run()
     }
 
     /// One entry's outstanding work, in order. Each step is skipped when it is already done.

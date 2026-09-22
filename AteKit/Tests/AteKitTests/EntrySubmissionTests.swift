@@ -213,6 +213,95 @@ struct EntrySubmissionTests {
     }
 }
 
+@Suite("Entry outbox")
+struct EntryOutboxTests {
+
+    private func outbox(_ entries: any EntryService) -> EntryOutbox {
+        EntryOutbox(entries: entries, containerName: "Tests-\(UUID().uuidString)")
+    }
+
+    private func queued(_ id: UUID = UUID()) -> QueuedEntry {
+        QueuedEntry(
+            entry: QueuedInsert(NewEntry(
+                id: id, authorID: ViewerProfile.preview.id, body: "Words",
+                visibility: .public, restaurantID: nil,
+                createdAt: Date(timeIntervalSince1970: 1_789_000_000)
+            )),
+            pendingPhotos: []
+        )
+    }
+
+    @Test("a refusal stops being retried at once, rather than after eight foregrounds")
+    func refusalBlocksImmediately() async {
+        let service = StubEntryService()
+        service.createError = EntryWriteFailure.rejected("column not writable")
+        let queue = outbox(service)
+        let id = UUID()
+        await queue.enqueue(queued(id))
+
+        await queue.run()
+
+        #expect(await queue.isStuck(entryID: id), "a refusal is stuck, not merely failing")
+        #expect(await queue.pendingCount == 1, "and it stays on the device")
+
+        // A second run must not even try: retrying a 42501 is a promise the app cannot keep.
+        await queue.run()
+        #expect(service.created.isEmpty)
+    }
+
+    @Test("being offline keeps retrying, and gives up only after the attempt budget")
+    func offlineRetriesThenGivesUp() async {
+        let service = StubEntryService()
+        service.createError = URLError(.notConnectedToInternet)
+        let queue = outbox(service)
+        let id = UUID()
+        await queue.enqueue(queued(id))
+
+        for _ in 0..<(QueuedEntry.maximumAttempts - 1) {
+            await queue.run()
+            #expect(await queue.isStuck(entryID: id) == false)
+        }
+        await queue.run()
+        #expect(await queue.isStuck(entryID: id), "eight foregrounds is where the app stops promising")
+    }
+
+    @Test("a person's retry revives a stuck entry and lands it")
+    func retryRevives() async {
+        let service = StubEntryService()
+        service.createError = EntryWriteFailure.rejected("nope")
+        let queue = outbox(service)
+        let id = UUID()
+        await queue.enqueue(queued(id))
+        await queue.run()
+        #expect(await queue.isStuck(entryID: id))
+
+        service.createError = nil
+        let landed = await queue.retry(entryID: id)
+
+        #expect(landed == [id])
+        #expect(await queue.pendingCount == 0)
+        #expect(await queue.isStuck(entryID: id) == false)
+    }
+
+    @Test("a stuck item does not block the rest of the queue")
+    func stuckItemDoesNotBlockOthers() async {
+        let service = StubEntryService()
+        let queue = outbox(service)
+        let blocked = UUID()
+        await queue.enqueue(queued(blocked))
+        service.createError = EntryWriteFailure.rejected("nope")
+        await queue.run()
+
+        service.createError = nil
+        let fresh = UUID()
+        await queue.enqueue(queued(fresh))
+        let landed = await queue.run()
+
+        #expect(landed == [fresh])
+        #expect(await queue.isStuck(entryID: blocked))
+    }
+}
+
 /// A tiny lock-wrapped box, so a test's recorder is safe to call from any isolation.
 private final class Mutex<Value>: @unchecked Sendable {
     private var value: Value

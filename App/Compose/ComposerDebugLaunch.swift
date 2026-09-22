@@ -25,7 +25,16 @@ enum ComposerDebugLaunch {
     /// test's opening screen — and a drive that depends on what ran before it is not a drive.
     static let uiTestingArgument = "-ate-ui-testing"
 
+    /// Puts two buttons in the composer's header that run the text view's own undo and redo.
+    ///
+    /// Undo on a phone is a shake or a three-finger swipe, and XCUITest can drive neither; Cmd+Z
+    /// needs a hardware keyboard, which hides the software keyboard another test asserts. So the
+    /// crash path — UIKit's own undo operations, run after a programmatic edit — is reached through
+    /// this instead. Debug *and* behind an argument, so it does not exist in any build anyone runs.
+    static let undoDriveArgument = "-ate-undo-drive"
+
     static var isUITesting: Bool { has(uiTestingArgument) }
+    static var drivesUndo: Bool { has(undoDriveArgument) }
     static var opensComposer: Bool { has(openArgument) }
     static var opensScoring: Bool { has(scoringArgument) }
     static var opensEntry: Bool { has(entryArgument) }

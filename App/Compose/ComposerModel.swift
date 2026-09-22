@@ -218,8 +218,12 @@ final class ComposerModel {
     // MARK: - The Place key
 
     /// Design rule 8: a place is attached because it was **named or tapped**, never from location.
-    /// If a place token is already there it is replaced in place; otherwise it goes at the very front,
-    /// which is where the design puts it.
+    ///
+    /// A place already in the words is replaced where it stands. A new one lands **at the caret**,
+    /// like the score token does — dropping it at index 0 shoved it in front of a sentence somebody
+    /// was in the middle of writing. The one exception is a caret still at the start of text that
+    /// already has words in it, which means the editor has not been touched yet; there the place
+    /// goes at the end, where they are writing.
     func attach(place: PlaceRef) -> AnalyticsEvent {
         restaurantID = place.id
         if let existing = composition.spans.first(where: { $0.token.place != nil }) {
@@ -227,7 +231,9 @@ final class ComposerModel {
             revision += 1
             caretAfterRender = nil
         } else {
-            let (next, newCaret) = composition.inserting(EntryToken(kind: .place(place)), atDisplayOffset: 0)
+            let end = composition.displayString.utf16.count
+            let offset = (caret == 0 && end > 0) ? end : min(caret, end)
+            let (next, newCaret) = composition.inserting(EntryToken(kind: .place(place)), atDisplayOffset: offset)
             apply(next, caret: newCaret)
         }
         isPickingPlace = false
@@ -251,10 +257,10 @@ final class ComposerModel {
     /// becomes a token, exactly as it would when they moved on by typing.
     @discardableResult
     func promotePendingScoreLiteral() -> AnalyticsEvent? {
-        guard let found = ScoreLiteral.candidate(
-            in: composition.plain,
-            caretUTF16: composition.plainOffset(forDisplayOffset: caret)
-        ) else { return nil }
+        // `pendingScoreLiteral` refuses a span a token already covers. Without that, Done on
+        // "tiramisu <pill>" re-found the pill's own digits, replaced it with a new token of the
+        // same value, and reported a second `entry_score_token_created` for one score.
+        guard let found = composition.pendingScoreLiteral(atDisplayOffset: caret) else { return nil }
         composition = composition.promoting(plainSpan: found.span, to: EntryToken(kind: .score(found.rating)))
         revision += 1
         caretAfterRender = nil

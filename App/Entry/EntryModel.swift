@@ -50,16 +50,15 @@ final class EntryModel {
 
     func load() async {
         handle = await services.entries.currentHandle() ?? handle
-        guard let card = try? await services.entries.entry(id: route.entryID) else { return }
-        apply(card)
+        await reload()
         // An entry that arrived here unsorted keeps asking, quietly, until it is: the person was
         // told their words were saved, and the receipt is the other half of that.
-        if card.sortStatus == .pending { await waitForSort() }
+        if card?.sortStatus == .pending, state != .failed { await waitForSort() }
     }
 
     func reload() async {
         guard let card = try? await services.entries.entry(id: route.entryID) else { return }
-        apply(card)
+        apply(card, isStuck: await services.outbox.isStuck(entryID: route.entryID))
     }
 
     /// Polls for the receipt while the sorter works. The app asked for the sort itself when the
@@ -78,12 +77,15 @@ final class EntryModel {
     private static let sortPollInterval = Duration.milliseconds(700)
     private static let sortPollCount = 12
 
-    private func apply(_ card: EntryCard) {
+    private func apply(_ card: EntryCard, isStuck: Bool = false) {
         let isFirstRead = self.card == nil
         self.card = card
         composition = EntryPresentation.composition(for: card)
         photos = card.photos.map { AtePhoto(url: URL(string: $0.url)) }
         state = EntryPresentation.state(for: card, handle: handle)
+        // An entry the outbox has given up on is not "still printing" — it is not printed, and it
+        // needs the one thing that can change that: somebody asking again.
+        if isStuck, case .pending = state { state = .failed }
         guard case .printed(let receipt) = state else { return }
         report(receipt)
         #if DEBUG
@@ -129,9 +131,15 @@ final class EntryModel {
         isSharing = true
     }
 
+    /// "Print it again". Two different failures wear the same button: an entry that never reached
+    /// the server (the outbox gave up on it) and one that reached it and could not be sorted.
     func retrySort() async {
         state = .pending
-        _ = try? await services.entries.sort(entryID: route.entryID, force: true)
+        if await services.outbox.isStuck(entryID: route.entryID) {
+            await services.outbox.retry(entryID: route.entryID)
+        } else {
+            _ = try? await services.entries.sort(entryID: route.entryID, force: true)
+        }
         await reload()
     }
 
@@ -173,24 +181,11 @@ enum EntryPresentation {
     ///
     /// The scores come from the **receipt lines**, not from a re-parse of the prose: the server has
     /// already decided which numbers in the body were scores, and guessing again on the client would
-    /// be a second opinion about somebody's own words.
+    /// be a second opinion about somebody's own words. Where each one *sits* is
+    /// ``EntryBodyTokens``, which is in AteKit because a price that looks like a score is a bug you
+    /// want a test for, not a screenshot.
     static func composition(for card: EntryCard) -> EntryComposition {
-        var spans: [EntryTokenSpan] = []
-        if let place = card.place, let span = firstSpan(of: place.name, in: card.body) {
-            spans.append(EntryTokenSpan(
-                token: EntryToken(kind: .place(PlaceRef(id: place.id, name: place.name))),
-                span: span
-            ))
-        }
-        var searchFrom = 0
-        for item in card.items {
-            guard let score = item.score else { continue }
-            let literal = ScoreFormat.halfStep(score.value)
-            guard let span = firstSpan(of: literal, in: card.body, from: searchFrom) else { continue }
-            spans.append(EntryTokenSpan(token: EntryToken(kind: .score(score)), span: span))
-            searchFrom = span.endLocation
-        }
-        return EntryComposition(plain: card.body, spans: spans)
+        EntryBodyTokens.composition(for: card)
     }
 
     static func state(for card: EntryCard, handle: String) -> EntryModel.State {
@@ -214,21 +209,5 @@ enum EntryPresentation {
                 handle: card.author?.username ?? handle
             ))
         }
-    }
-
-    /// The first occurrence of `needle` at or after `from`, in UTF-16 offsets — the coordinate space
-    /// the composition works in.
-    private static func firstSpan(of needle: String, in haystack: String, from: Int = 0) -> TextSpan? {
-        let units = Array(haystack.utf16)
-        let target = Array(needle.utf16)
-        guard target.isEmpty == false, target.count <= units.count else { return nil }
-        var index = max(0, from)
-        while index + target.count <= units.count {
-            if Array(units[index..<(index + target.count)]) == target {
-                return TextSpan(location: index, length: target.count)
-            }
-            index += 1
-        }
-        return nil
     }
 }

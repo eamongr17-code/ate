@@ -121,6 +121,55 @@ final class CoreLoopUITests: XCTestCase {
         attach("09-composer-scored")
     }
 
+    /// **Undo, twice, then redo.** This crashed: promoting a score rewrote text storage underneath
+    /// UIKit's `_UITextUndoOperationTyping`, and running that operation took the app down in
+    /// `-[_UITextUndoOperationTyping _undoRedo]`. The second undo is the one that did it, so the
+    /// test does two — and a redo, because taking undo over is only correct if redo still works.
+    func testUndoAfterAScorePromotesDoesNotCrash() {
+        app.launchArguments.append("-ate-undo-drive")
+        app.launch()
+        app.buttons["New entry"].tap()
+
+        let editor = app.textViews["composer.editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.typeText("The tagliatelle al ragu 4.5, ")
+        // The promotion deliberately runs on the next turn of the runloop, outside UIKit's edit
+        // transaction — half the fix, and why this waits rather than asserting immediately.
+        XCTAssertTrue(waitUntil(timeout: 3) { (editor.value as? String)?.contains("4.5") == false },
+                      "the digits should have become a token")
+        attach("12-before-undo")
+
+        // Undo walks back through the edits in the order they were made: the trailing space first
+        // (UIKit's own typing operation), then our promotion.
+        app.buttons["debug.undo"].tap()
+        XCTAssertEqual(app.state, .runningForeground, "the first undo must not take the app down")
+        attach("13-after-undo")
+
+        // The one that used to SIGABRT: UIKit's operation, run against storage a programmatic edit
+        // had replaced underneath it.
+        app.buttons["debug.undo"].tap()
+        XCTAssertTrue(waitUntil(timeout: 3) { (editor.value as? String)?.contains("4.5") == true },
+                      "the second undo gives the person their digits back")
+        XCTAssertEqual(app.state, .runningForeground, "a second undo must not take the app down")
+
+        app.buttons["debug.redo"].tap()
+        XCTAssertTrue(waitUntil(timeout: 3) { (editor.value as? String)?.contains("4.5") == false },
+                      "redo puts the pill back — it does not eat the score")
+        XCTAssertEqual(app.state, .runningForeground, "and redo keeps it alive too")
+        XCTAssertTrue(((editor.value as? String) ?? "").hasPrefix("The tagliatelle al ragu"),
+                      "and the words themselves came through all of it unchanged")
+        attach("14-after-redo")
+    }
+
+    private func waitUntil(timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() { return true }
+            _ = XCUIApplication().wait(for: .runningForeground, timeout: 0.1)
+        }
+        return condition()
+    }
+
     private func attach(_ name: String) {
         let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         screenshot.name = name

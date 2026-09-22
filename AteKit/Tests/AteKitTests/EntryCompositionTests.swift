@@ -36,6 +36,45 @@ struct ScoreLiteralMoveOnTests {
     }
 }
 
+@Suite("Pending score literal — the guard against promoting a token twice")
+struct PendingScoreLiteralTests {
+
+    @Test("a number the person typed is pending")
+    func typedNumberIsPending() {
+        let words = EntryComposition(plain: "The tiramisu 3.0 ", spans: [])
+        let found = words.pendingScoreLiteral(atDisplayOffset: words.plain.utf16.count - 1)
+        #expect(found?.rating.value == 3.0)
+    }
+
+    @Test("a number that IS a token is not pending — Score key, slide, Done is one score")
+    func tokenIsNotPending() {
+        // What the Score key leaves behind: "tiramisu <4.5> ", caret after the pill.
+        let token = EntryToken(kind: .score(Rating(rounding: 4.5)))
+        let (words, caret) = EntryComposition(plain: "The tiramisu", spans: [])
+            .inserting(token, atDisplayOffset: 12)
+
+        #expect(words.spans.count == 1)
+        // Done runs the same promotion the editor does. It must find nothing.
+        #expect(words.pendingScoreLiteral(atDisplayOffset: caret) == nil)
+        // …and one character further on, where a trailing space puts the caret.
+        #expect(words.pendingScoreLiteral(atDisplayOffset: caret + 1) == nil)
+    }
+
+    @Test("a real number typed after an existing token is still found")
+    func typingAfterATokenStillWorks() {
+        let token = EntryToken(kind: .score(Rating(rounding: 4.5)))
+        let (withToken, _) = EntryComposition(plain: "The ragù", spans: [])
+            .inserting(token, atDisplayOffset: 8)
+        let typed = withToken.applyingPlainEdit(
+            replacing: TextSpan(location: withToken.plain.utf16.count, length: 0),
+            with: "then the tiramisu 3.0 "
+        )
+
+        let found = typed.pendingScoreLiteral(atDisplayOffset: typed.displayString.utf16.count - 1)
+        #expect(found?.rating.value == 3.0)
+    }
+}
+
 @Suite("Entry composition — inline tokens in editable text")
 struct EntryCompositionTests {
 
