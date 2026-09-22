@@ -166,7 +166,7 @@ on any case-insensitive match; a new one is capitalised on create (so prose stop
 The place comes from the words alone, matched against restaurants we already hold
 (`search_local_restaurants`, 0017) — never Google, never location, never a new row. **No place ⇒ no dish
 reviews** (a dish needs a restaurant): the entry is still `sorted`, its findings park in
-`entries.sort_plan`, and `correct_entry_place` prints the receipt retroactively. ~45 fixtures pin every rule
+`entries.sort_plan`, and `correct_entry_place` prints the receipt retroactively. ~50 fixtures pin every rule
 here: `node --test supabase/functions/sort-entry/*_test.ts` (also the eval harness for model mode).
 
 ## `places-search` — unchanged

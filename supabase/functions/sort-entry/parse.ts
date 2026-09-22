@@ -26,6 +26,35 @@ import type { ParseInput, PlaceCandidate, SortItem, SortPlan } from './types.ts'
 import { scalarOffset } from './offsets.ts';
 
 // ---------------------------------------------------------------------------
+// WORDS ARE UNICODE. `\w`, `\b` and `[A-Za-z]` ARE NOT.
+//
+// JavaScript's `\w` is exactly [A-Za-z0-9_], so "ragù" tokenises as "rag" and the dish
+// created from a diner's prose was `Tagliatelle al rag` (staging, 2026-09-22). The same
+// cut hit "crème brûlée" (→ "brûlée"), lost "Bánh mì 4" entirely, and made "Dinner at
+// Émile" attach to "Dinner". Melbourne menus are made of these words.
+//
+// THE CONVENTION, everywhere a class stands in for "a word character":
+//     word     → \p{L}\p{N}\p{M}_          (letters, numbers, COMBINING MARKS, underscore)
+//     inside a name → the above + ' ’ -
+//     a capital → \p{Lu}                   (not [A-Z])
+//     a boundary → (?<![\p{L}\p{N}\p{M}_]) / (?![...])   — `\b` is ASCII-only too, even
+//                  with the /u flag, so it cannot be used to fence a name.
+// `\p{M}` matters because "ragù" can arrive DECOMPOSED (u + U+0300); without it the mark
+// would end the word and we would be back to "rag".
+// Every regex below that touches a name, a venue or a sentence start carries /u.
+//
+// DELIBERATELY STILL ASCII:
+//   * `\d` for score digits — a score is 0-5 written in ASCII; `\p{N}` would admit ٤ and
+//     ４ as scores, and inventing a score is the one thing rule 7 forbids.
+//   * the `\b` in the REJECT vocabularies (UNIT_AFTER, ORDINAL_AFTER, the big-number
+//     guard). An ASCII boundary there matches MORE text, so more numbers are rejected as
+//     units. Tightening it would let a number through — the unsafe direction.
+// ---------------------------------------------------------------------------
+
+/** The character class body for a Unicode word character (see the note above). */
+const WORD = '\\p{L}\\p{N}\\p{M}_';
+
+// ---------------------------------------------------------------------------
 // Vocabulary
 // ---------------------------------------------------------------------------
 
@@ -42,7 +71,7 @@ const UNIT_AFTER =
 const ORDINAL_AFTER = /^(?:st|nd|rd|th)\b/i;
 
 /** "stars", "/5", "out of five" — an unambiguous score marker. */
-const MARKER_AFTER = /^[\s-]*(?:\/\s*5|out\s+of\s+(?:5|five)|stars?\b|star\b)/i;
+const MARKER_AFTER = /^[\s-]*(?:\/\s*5|out\s+of\s+(?:5|five)|stars?(?![\p{L}\p{N}\p{M}_]))/iu;
 
 /**
  * The words that make a bare number a score: "a solid four", "I'd give it a four",
@@ -74,11 +103,12 @@ const STOPWORDS = new Set([
 ]);
 
 /** After an ordering verb, one of these means movement/time, not a dish: "got TO Kisume". */
-const PREP_AFTER_VERB = /^(?:to|into|in|at|for|with|from|by|on|about|out|back|up|down|off|over|here|there)\b/i;
+const PREP_AFTER_VERB =
+  /^(?:to|into|in|at|for|with|from|by|on|about|out|back|up|down|off|over|here|there)(?![\p{L}\p{N}\p{M}_])/iu;
 
 /** Verbs that introduce something ordered: "had the pork bun". */
 const ORDER_VERB =
-  /\b(?:had|ordered|order|got|tried|split|shared|started\s+with|finished\s+with|went\s+for|grabbed|picked|chose|demolished|smashed)\s+(?:the|a|an|some|their|his|her|my|our|two|three|four|a\s+few)?\s*/gi;
+  /(?<![\p{L}\p{N}\p{M}_])(?:had|ordered|order|got|tried|split|shared|started\s+with|finished\s+with|went\s+for|grabbed|picked|chose|demolished|smashed)\s+(?:the|a|an|some|their|his|her|my|our|two|three|four|a\s+few)?\s*/giu;
 
 /**
  * Is body[i] the end of a sentence? Newlines count — people write in fragments.
@@ -101,9 +131,9 @@ function isTerminator(body: string, i: number): boolean {
     if (body[i - 1] === '.') return false;
     // an abbreviation full stop: a sentence restarts with a CAPITAL (or the text ends).
     // Without this, "the no. 3 toastie 4.5" is two sentences and the toastie loses
-    // its score to the next dish.
+    // its score to the next dish. \p{Lu}, not [A-Z] — "Émile" and "Ñoño" start sentences.
     const rest = body.slice(i + 1);
-    if (rest.trim().length && !/^\s+[A-Z]/.test(rest)) return false;
+    if (rest.trim().length && !/^\s+\p{Lu}/u.test(rest)) return false;
   }
   return true;
 }
@@ -191,7 +221,7 @@ export function findNumbers(body: string): NumberHit[] {
 
   // --- spoken: four, four and a half, four point five, five stars ----------
   const spoken =
-    /\b(one|two|three|four|five)\b(?:[\s-]*(?:point[\s-]*(?:five|5)|and[\s-]*a[\s-]*half))?/gi;
+    /(?<![\p{L}\p{N}\p{M}_])(one|two|three|four|five)(?![\p{L}\p{N}\p{M}_])(?:[\s-]*(?:point[\s-]*(?:five|5)|and[\s-]*a[\s-]*half))?/giu;
   for (let m = spoken.exec(body); m; m = spoken.exec(body)) {
     const start = m.index;
     let end = start + m[0].length;
@@ -241,12 +271,12 @@ export function placeCandidateSpans(body: string, limit = 6): PlaceCandidate[] {
   // characters from the FRONT shifts it, so the published offset still points at the
   // first character of the phrase we return (the client's place token starts there).
   const push = (phrase: string, weight: number, at: number) => {
-    const lead = /^[^\w]+/.exec(phrase);
-    let clean = phrase.slice(lead ? lead[0].length : 0).replace(/[^\w'’&]+$/, '');
+    const lead = /^[^\p{L}\p{N}\p{M}_]+/u.exec(phrase);
+    let clean = phrase.slice(lead ? lead[0].length : 0).replace(/[^\p{L}\p{N}\p{M}_'’&]+$/u, '');
     const start = at + (lead ? lead[0].length : 0);
     // A venue name never ends in glue: "AT BUTCHERS DINER IS A" → "BUTCHERS DINER".
     for (;;) {
-      const m = /(\s+)([\w'’-]+)$/.exec(clean);
+      const m = /(\s+)([\p{L}\p{N}\p{M}_'’-]+)$/u.exec(clean);
       if (!m || !STOPWORDS.has(m[2].toLowerCase())) break;
       clean = clean.slice(0, m.index);
     }
@@ -268,7 +298,7 @@ export function placeCandidateSpans(body: string, limit = 6): PlaceCandidate[] {
   // the /i flag, because /i would also let the CAPTURE start lowercase and every
   // "at the place near work" would become a candidate to look up.)
   const intro =
-    /(?:\b(?:at|At|AT)\s+|@\s*|\b(?:back\s+to|to|To|TO)\s+)([A-Z0-9][\w'’&-]*(?:\s+[A-Z0-9][\w'’&-]*){0,3})/g;
+    /(?:(?<![\p{L}\p{N}\p{M}_])(?:at|At|AT)\s+|@\s*|(?<![\p{L}\p{N}\p{M}_])(?:back\s+to|to|To|TO)\s+)([\p{Lu}\p{N}][\p{L}\p{N}\p{M}_'’&-]*(?:\s+[\p{Lu}\p{N}][\p{L}\p{N}\p{M}_'’&-]*){0,3})/gu;
   for (let m = intro.exec(body); m; m = intro.exec(body)) {
     // the capture is the TAIL of the match, so this is its index without searching
     // (searching would mis-locate "to To …").
@@ -278,21 +308,25 @@ export function placeCandidateSpans(body: string, limit = 6): PlaceCandidate[] {
   // 2. Any run of capitalised / numeric tokens (how venue names read: "Tipo 00",
   //    "400 Gradi", "Hardware Societe"). Sentence-initial runs count — the design's
   //    own example entry opens with the place name.
-  const runs = /\b([A-Z0-9][\w'’&-]*(?:\s+(?:[A-Z0-9][\w'’&-]*|of|de|la|le|du|and|&)){0,3})/g;
+  // the leading (?<!…) is what `\b` used to be: with `\b`, a name that OPENS with a
+  // non-ASCII capital ("Émile", "Ñoño") had no boundary in front of it and never became
+  // a candidate at all — the entry then matched whatever ASCII word came next.
+  const runs =
+    /(?<![\p{L}\p{N}\p{M}_])([\p{Lu}\p{N}][\p{L}\p{N}\p{M}_'’&-]*(?:\s+(?:[\p{Lu}\p{N}][\p{L}\p{N}\p{M}_'’&-]*|of|de|la|le|du|and|&)){0,3})/gu;
   for (let m = runs.exec(body); m; m = runs.exec(body)) {
     let phrase = m[1];
     let at = m.index;
     // trim a leading sentence-starting stopword ("With Jess" → "Jess"). CUT, never
     // re-join: a join would normalise the spacing and the phrase would stop being a
     // literal slice of the body, which is what its offset points at.
-    const lead = /^[\w'’&-]+\s+/.exec(phrase);
+    const lead = /^[\p{L}\p{N}\p{M}_'’&-]+\s+/u.exec(phrase);
     if (lead && STOPWORDS.has(lead[0].trim().toLowerCase())) {
       phrase = phrase.slice(lead[0].length);
       at += lead[0].length;
     }
     push(phrase, 1, at);
     // also offer the leading two words of a long run ("Hardware Societe Flinders Ln")
-    const two = /^[\w'’&-]+\s+[\w'’&-]+/.exec(phrase);
+    const two = /^[\p{L}\p{N}\p{M}_'’&-]+\s+[\p{L}\p{N}\p{M}_'’&-]+/u.exec(phrase);
     if (two && two[0].length < phrase.length) push(two[0], 1, at);
   }
 
@@ -344,7 +378,12 @@ function findKnownDishes(body: string, knownDishes: string[], exclude: Array<[nu
   for (const dish of [...knownDishes].sort((a, b) => b.length - a.length)) {
     const name = dish.trim();
     if (name.length < 3) continue;
-    const re = new RegExp(`(?<![\\w])${escapeRe(name).replace(/\\?\s+/g, '\\s+')}(?![\\w])`, 'gi');
+    // Unicode fences, not `\b`/`\w`: "Bánh mì" must not match inside "Bánh mìs", and a
+    // menu name that ENDS in an accented letter must still be fenced at all.
+    const re = new RegExp(
+      `(?<![${WORD}])${escapeRe(name).replace(/\\?\s+/g, '\\s+')}(?![${WORD}])`,
+      'giu',
+    );
     let found = 0;
     for (let m = re.exec(body); m && found < 3; m = re.exec(body)) {
       const start = m.index;
@@ -365,7 +404,9 @@ const JOINERS = new Set(['and', '&']);
 function phraseBefore(body: string, end: number): { text: string; start: number } | null {
   const left = body.slice(0, end);
   const tokens: Array<{ w: string; at: number }> = [];
-  const re = /[\w'’-]+/g;
+  // THE staging bug lived here: with /[\w'’-]+/ the token for "ragù" was "rag", so the
+  // dish the sorter created out of a diner's prose was "Tagliatelle al rag".
+  const re = /[\p{L}\p{N}\p{M}_'’-]+/gu;
   for (let m = re.exec(left); m; m = re.exec(left)) tokens.push({ w: m[0], at: m.index });
   if (!tokens.length) return null;
 
@@ -429,7 +470,7 @@ function findNewDishes(
     const rest = body.slice(from);
     // "got TO Kisume", "went IN at six" — movement or time, not an order.
     if (PREP_AFTER_VERB.test(rest)) continue;
-    const phrase = /^[\w'’-]+(?:\s+[\w'’-]+){0,3}/.exec(rest);
+    const phrase = /^[\p{L}\p{N}\p{M}_'’-]+(?:\s+[\p{L}\p{N}\p{M}_'’-]+){0,3}/u.exec(rest);
     if (!phrase) continue;
     // A dish name is a contiguous run of content words (+ joiners): cut at the first
     // interior stopword so "Kisume at 5" can never become a dish.
@@ -520,8 +561,9 @@ export function excerptFor(
  * quoted back as a dish note.)
  */
 function hasOpinion(s: string): boolean {
-  const words = s.match(/[\w'’-]+/g) ?? [];
-  return words.some((w) => /^[a-z]/.test(w) && !STOPWORDS.has(w.toLowerCase()) && w.length > 1);
+  const words = s.match(/[\p{L}\p{N}\p{M}_'’-]+/gu) ?? [];
+  // \p{Ll}, not [a-z]: "élégant" and "über" are ordinary lowercase words too.
+  return words.some((w) => /^\p{Ll}/u.test(w) && !STOPWORDS.has(w.toLowerCase()) && w.length > 1);
 }
 
 /**
@@ -563,7 +605,7 @@ function trimSentence(raw: string): string | null {
 /** Trim only from the ends, then drop a leading connective. Result is always a substring. */
 function trimExcerpt(raw: string): string | null {
   let s = raw.replace(/^[\s,;:—–\-()"'`]+/, '').replace(/[\s,;:—–\-(["'`]+$/, '');
-  s = s.replace(/^(?:was|were|is|are|and|but|which|that|then|so)\b[\s,]*/i, '');
+  s = s.replace(/^(?:was|were|is|are|and|but|which|that|then|so)(?![\p{L}\p{N}\p{M}_])[\s,]*/iu, '');
   s = s.replace(/^[\s,;:—–\-]+/, '');
   // A slice cut short by the next dish can end on dangling glue ("beats the"). Trim
   // trailing stopwords — but only when the slice has no terminal punctuation, so a
@@ -572,7 +614,7 @@ function trimExcerpt(raw: string): string | null {
   // being a literal substring of the user's words.)
   if (!/[.!?]$/.test(s)) {
     for (;;) {
-      const m = /(\s+)([\w'’-]+)[^\w]*$/.exec(s);
+      const m = /(\s+)([\p{L}\p{N}\p{M}_'’-]+)[^\p{L}\p{N}\p{M}_]*$/u.exec(s);
       if (!m || !STOPWORDS.has(m[2].toLowerCase())) break;
       s = s.slice(0, m.index);
     }
