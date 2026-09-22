@@ -36,8 +36,12 @@ struct PlaceSheet: View {
             }
         }
         .ateSurface()
+        // `PlaceSheet.dc.html` is 716 of the page's 844.
+        .presentationDetents([.height(AteScreen.sheetHeight(716))])
         .task {
-            let model = model ?? PlaceSearchModel(directory: directory, query: initialQuery)
+            let model = model ?? PlaceSearchModel(
+                directory: directory, query: initialQuery, selected: selected
+            )
             self.model = model
             await model.start()
         }
@@ -155,20 +159,26 @@ final class PlaceSearchModel {
     private let location = AteLocation()
     private var search: Task<Void, Never>?
     private var pickedSuggestionID: String?
+    /// The place the entry already carries. It comes back marked and its "Use …" button is there
+    /// from the first frame — a sheet that opens with nothing chosen makes the person re-pick the
+    /// answer they already gave.
+    private let selectedRestaurantID: UUID?
 
     /// Long enough that a fast typist costs one Places call rather than eight, short enough that it
     /// never feels like waiting.
     private static let debounce = Duration.milliseconds(280)
 
-    init(directory: any PlaceDirectory, query: String = "") {
+    init(directory: any PlaceDirectory, query: String = "", selected: UUID? = nil) {
         self.directory = directory
         self.query = query
+        self.selectedRestaurantID = selected
     }
 
     var sectionTitle: String { isShowingRecents ? "Recent" : "Best match" }
 
     func isSelected(_ suggestion: PlaceSuggestion) -> Bool {
-        pickedSuggestionID == suggestion.id
+        if let pickedSuggestionID { return pickedSuggestionID == suggestion.id }
+        return suggestion.restaurantID != nil && suggestion.restaurantID == selectedRestaurantID
     }
 
     func start() async {
@@ -220,6 +230,16 @@ final class PlaceSearchModel {
         guard Task.isCancelled == false else { return }
         isShowingRecents = false
         results = found
+        adoptSelected(from: found)
+    }
+
+    /// The place the entry already has, found in a result set — so its "Use …" button is live
+    /// without a tap.
+    private func adoptSelected(from suggestions: [PlaceSuggestion]) {
+        guard picked == nil, let selectedRestaurantID,
+              let match = suggestions.first(where: { $0.restaurantID == selectedRestaurantID })
+        else { return }
+        picked = PlaceRef(id: selectedRestaurantID, name: match.name)
     }
 
     private func loadRecents() async {
@@ -227,5 +247,6 @@ final class PlaceSearchModel {
         guard Task.isCancelled == false else { return }
         isShowingRecents = true
         results = recent
+        adoptSelected(from: recent)
     }
 }

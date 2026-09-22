@@ -60,6 +60,8 @@ struct DishSheet: View {
             }
         }
         .ateSurface()
+        // `DishSheet.dc.html` is 640 of the page's 844.
+        .presentationDetents([.height(AteScreen.sheetHeight(640))])
         .task { await load() }
     }
 
@@ -79,28 +81,37 @@ struct DishSheet: View {
         Button {
             onPick(nil, query.trimmingCharacters(in: .whitespacesAndNewlines))
         } label: {
-            HStack(spacing: AteMetrics.regular) {
-                AteIcon.compose.view(size: 20)
-                Text("Add as a new dish").ateText(.control)
-                Spacer(minLength: 0)
+            VStack(spacing: 0) {
+                AteHairline()
+                HStack(spacing: AteMetrics.regular) {
+                    AteIcon.compose.view(size: 20)
+                    Text("Add as a new dish").ateText(.control)
+                    Spacer(minLength: 0)
+                }
+                .frame(minHeight: 54)
             }
-            .frame(minHeight: 54)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        .overlay(alignment: .top) { AteHairline() }
     }
 
     private var results: [PlaceDish] {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard needle.isEmpty == false else { return menu }
+        // Nothing typed yet: the whole menu, as `DishSheet.dc.html` shows it. The field carries the
+        // line's own name, and filtering by it would leave the one row the sorter already chose —
+        // which is the answer this sheet exists to question.
+        guard needle.isEmpty == false, needle != item.name.lowercased() else { return menu }
         return menu.filter { $0.name.lowercased().contains(needle) || $0.id == pickedID }
     }
 
     private func load() async {
         guard let placeID else { return }
         menu = (try? await directory.dishes(atPlace: placeID, limit: 50)) ?? []
+        // The line's current dish comes back marked, so the sheet opens on the answer it has.
+        if pickedID == nil {
+            pickedID = menu.first { $0.name.caseInsensitiveCompare(item.name) == .orderedSame }?.id
+        }
     }
 
     private func commit() {

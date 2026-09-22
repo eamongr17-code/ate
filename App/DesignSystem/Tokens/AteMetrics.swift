@@ -26,6 +26,14 @@ enum AteScreen {
     }
 
     private static var cached: UIEdgeInsets?
+
+    /// A sheet's height, given as the artboard gives it — out of the 844-tall page it was drawn on.
+    static func sheetHeight(_ artboard: CGFloat) -> CGFloat {
+        let screen = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.screen.bounds.height ?? 844
+        return (screen * artboard / 844).rounded()
+    }
 }
 
 extension View {

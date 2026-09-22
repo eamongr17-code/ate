@@ -21,6 +21,13 @@ final class AteLocation: NSObject, CLLocationManagerDelegate {
     /// Asks if it has never been asked, then answers with a coordinate or `nil`. `nil` is not an
     /// error — it is a Nearby section that simply is not there.
     func current() async -> CLLocationCoordinate2D? {
+        #if DEBUG
+        // A preview-data run answers from the middle of the launch market and asks nobody: the
+        // simulator's permission alert is not part of what `PlaceSheet.dc.html` draws.
+        if ProcessInfo.processInfo.arguments.contains("-ate-preview-data") {
+            return CLLocationCoordinate2D(latitude: -37.8118, longitude: 144.9629)
+        }
+        #endif
         switch manager.authorizationStatus {
         case .denied, .restricted:
             return nil

@@ -30,6 +30,8 @@ struct AddPlaceSheet: View {
             .padding(.top, AteMetrics.tight)
         }
         .ateSurface()
+        // `AddPlace.dc.html` is 560 of 844.
+        .presentationDetents([.height(AteScreen.sheetHeight(560))])
         .onAppear { if name.isEmpty { name = suggestedName } }
     }
 

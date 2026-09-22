@@ -42,7 +42,8 @@ final class EntryModel {
         self.route = route
         self.services = services
         #if DEBUG
-        isCorrectingPlace = ComposerDebugLaunch.opensPlaceSheet
+        // Not before the entry has loaded: the sheet opens on the place it is correcting, and one
+        // opened against a card that is not there yet shows "Recent" instead of "Best match".
         #endif
     }
 
@@ -91,6 +92,9 @@ final class EntryModel {
         #if DEBUG
         if ComposerDebugLaunch.opensDishSheet, correcting == nil, let first = receipt.items.first {
             correcting = Correcting(item: first)
+        }
+        if ComposerDebugLaunch.opensPlaceSheet, isFirstRead {
+            isCorrectingPlace = true
         }
         #endif
         // The receipt prints in the first time it *arrives*: Done in the composer landed here, or

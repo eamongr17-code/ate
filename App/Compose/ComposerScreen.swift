@@ -61,7 +61,6 @@ struct ComposerScreen: View {
             ) { place in
                 services.analytics(model.attach(place: place))
             }
-            .presentationDetents([.large])
         }
         .fullScreenCover(isPresented: $isTakingPhoto) {
             CameraPicker { image in

@@ -118,7 +118,6 @@ struct EntryScreen: View {
         ) { place in
             Task { await model.correctPlace(place) }
         }
-        .presentationDetents([.large])
     }
 
     private func dishSheet(_ item: AteReceipt.Item) -> some View {
@@ -130,7 +129,6 @@ struct EntryScreen: View {
         ) { dishID, dishName in
             Task { await model.correctDish(reviewID: item.id, dishID: dishID, dishName: dishName) }
         }
-        .presentationDetents([.large])
     }
 
     @ViewBuilder
