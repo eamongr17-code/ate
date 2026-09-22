@@ -9,6 +9,9 @@ import Foundation
 /// the server is the single source of structure in anything that ships.
 public final class InMemoryEntryService: EntryService, @unchecked Sendable {
     public static let launchArgument = "-ate-preview-data"
+    /// …and with nothing in it: the first-day journal, which is the one state you cannot reach by
+    /// writing something.
+    public static let emptyLaunchArgument = "-ate-preview-empty"
 
     private let lock = NSLock()
     private var entries: [EntryCard] = []

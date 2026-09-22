@@ -75,6 +75,13 @@ final class CoreLoopUITests: XCTestCase {
         XCTAssertTrue(slips.firstMatch.waitForExistence(timeout: 5))
         XCTAssertEqual(slips.count, 2, "the seeded entry plus the one just written")
         attach("07-journal-full")
+
+        // And a slip is a door: tapping the older one opens its entry, already printed — no
+        // print-in, because the theatre belongs to the moment a receipt arrives, not to the screen.
+        slips.element(boundBy: 1).tap()
+        XCTAssertTrue(app.otherElements["entry.receipt"].waitForExistence(timeout: 5),
+                      "tapping a slip opens its entry")
+        attach("10-entry-from-journal")
     }
 
     /// The score key and its slider: a fresh token reads 0.5, and sliding changes the pill in the

@@ -57,10 +57,14 @@ struct AteServices {
     /// argument cannot be set on an installed app.
     private static func previewServices() -> (entries: any EntryService, places: any PlaceDirectory)? {
         #if DEBUG
-        guard ProcessInfo.processInfo.arguments.contains(InMemoryEntryService.launchArgument) else {
-            return nil
-        }
-        return (InMemoryEntryService.seeded(), InMemoryPlaceDirectory())
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains(InMemoryEntryService.launchArgument) else { return nil }
+        // `-ate-preview-empty` is the first-day journal: signed in, nothing written. The one state
+        // that cannot be reached by writing something.
+        let service = arguments.contains(InMemoryEntryService.emptyLaunchArgument)
+            ? InMemoryEntryService()
+            : InMemoryEntryService.seeded()
+        return (service, InMemoryPlaceDirectory())
         #else
         return nil
         #endif
