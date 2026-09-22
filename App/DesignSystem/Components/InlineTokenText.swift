@@ -19,6 +19,7 @@ struct InlineTokenText: View {
     @Environment(\.displayScale) private var displayScale
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.atePalette) private var palette
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         InlineTokenLabel(
@@ -27,7 +28,8 @@ struct InlineTokenText: View {
                 style: style,
                 palette: palette,
                 dynamicTypeSize: dynamicTypeSize,
-                displayScale: displayScale
+                displayScale: displayScale,
+                colorScheme: colorScheme
             ),
             lineLimit: lineLimit
         )
@@ -68,18 +70,27 @@ private struct InlineTokenLabel: UIViewRepresentable {
 /// of a pill, shared by the read-only prose and the editable composer, so the two can never drift.
 @MainActor
 enum TokenPill {
+    /// - Parameter colorScheme: passed explicitly and **not** inherited. `ImageRenderer` draws
+    ///   outside the view hierarchy, so it has no trait collection: a dynamic `Color(light:dark:)`
+    ///   resolved in there silently comes back light, and every token pill in dark mode was being
+    ///   drawn in the light palette. Nothing about a screenshot in light mode shows it.
     static func image(
         for kind: EntryTokenKind,
         prose: CGFloat,
         palette: AtePalette,
         dynamicTypeSize: DynamicTypeSize,
-        scale: CGFloat
+        scale: CGFloat,
+        colorScheme: ColorScheme = .light
     ) -> UIImage? {
-        let key = Key(kind: kind, prose: prose, scale: scale, dynamicTypeSize: dynamicTypeSize, palette: palette)
+        let key = Key(
+            kind: kind, prose: prose, scale: scale, dynamicTypeSize: dynamicTypeSize,
+            palette: palette, colorScheme: colorScheme
+        )
         if let cached = cache[key] { return cached }
         let renderer = ImageRenderer(content: view(for: kind, prose: prose)
             .environment(\.atePalette, palette)
-            .environment(\.dynamicTypeSize, dynamicTypeSize))
+            .environment(\.dynamicTypeSize, dynamicTypeSize)
+            .environment(\.colorScheme, colorScheme))
         renderer.scale = scale > 0 ? scale : 3
         renderer.isOpaque = false
         guard let image = renderer.uiImage else { return nil }
@@ -101,19 +112,22 @@ enum TokenPill {
         let scale: CGFloat
         let dynamicTypeSize: DynamicTypeSize
         let palette: PaletteKey
+        let colorScheme: ColorScheme
 
         init(
             kind: EntryTokenKind,
             prose: CGFloat,
             scale: CGFloat,
             dynamicTypeSize: DynamicTypeSize,
-            palette: AtePalette
+            palette: AtePalette,
+            colorScheme: ColorScheme
         ) {
             self.kind = kind
             self.prose = prose
             self.scale = scale
             self.dynamicTypeSize = dynamicTypeSize
             self.palette = PaletteKey(palette)
+            self.colorScheme = colorScheme
         }
 
         /// A pill drawn on paper and the same pill drawn on the ink ground are different images and

@@ -39,19 +39,39 @@ struct InlineTokenEditor: UIViewRepresentable {
     var caretAfterRender: Int?
     var style: AteTextStyle = .composerProse
     var placeholder: String = ""
+    /// Raise the keyboard as soon as the editor is in a window. The composer opens straight into
+    /// typing — an empty composer that needs a tap before it will take a word is a composer nobody
+    /// writes in.
+    var focusesOnAppear = true
+    /// Bumped by the host to pull focus back after a sheet or the slider closes.
+    var focusRequest = 0
+    /// Bumped to run the text view's own undo / redo. Only the debug undo drive does this: on a
+    /// phone undo is a shake or a three-finger swipe, and neither can be driven by a UI test —
+    /// while Cmd+Z needs a hardware keyboard, which would hide the software one this editor's other
+    /// test asserts. Going through `UndoManager` runs the exact operations that used to crash.
+    var undoRequest = 0
+    var redoRequest = 0
     /// A token was tapped: reopen its slider or its sheet.
     var onTokenTap: (EntryToken) -> Void = { _ in }
     /// The caret moved. The host needs this to know where a new token should be inserted.
     var onCaretChange: (Int) -> Void = { _ in }
+    /// The editor promoted a number the person had typed into a score token on its own. The flag is
+    /// true when it arrived by dictation rather than the keyboard — the two are different products
+    /// and the funnel has to be able to tell them apart.
+    var onScorePromoted: (_ wasDictated: Bool) -> Void = { _ in }
 
     @Environment(\.atePalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.colorScheme) private var colorScheme
 
     func makeUIView(context: Context) -> InlineTokenTextView {
         let view = InlineTokenTextView()
         view.delegate = context.coordinator
         view.coordinator = context.coordinator
+        // The one handle a UI test needs to type into the composer. Nothing else in the app is a
+        // text view, but naming it means a drive never depends on that staying true.
+        view.accessibilityIdentifier = "composer.editor"
         view.backgroundColor = .clear
         view.isScrollEnabled = true
         view.alwaysBounceVertical = true
@@ -62,9 +82,15 @@ struct InlineTokenEditor: UIViewRepresentable {
         view.smartQuotesType = .yes
         view.smartDashesType = .yes
 
+        // ONE recognizer, and it never blocks the text view's own: it is simultaneous, it does not
+        // cancel touches, and when the tap missed a token it does the focusing itself. Relying on
+        // UIKit's internal tap-to-focus alone is what left the empty composer dead to a tap — the
+        // first thing Eamon found driving the spike.
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
         tap.cancelsTouchesInView = false
+        tap.delegate = context.coordinator
         view.addGestureRecognizer(tap)
+        view.focusesOnAppear = focusesOnAppear
         context.coordinator.textView = view
         context.coordinator.render(composition, revision: revision, caret: caretAfterRender, into: view)
         return view
@@ -72,6 +98,9 @@ struct InlineTokenEditor: UIViewRepresentable {
 
     func updateUIView(_ view: InlineTokenTextView, context: Context) {
         context.coordinator.update(binding: $composition, typography: typography, callbacks: callbacks)
+        view.focusesOnAppear = focusesOnAppear
+        context.coordinator.focusIfRequested(focusRequest, in: view)
+        context.coordinator.runUndoIfRequested(undo: undoRequest, redo: redoRequest, in: view)
         view.placeholderLabel.text = placeholder
         view.placeholderLabel.font = AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize)
         view.placeholderLabel.textColor = UIColor(palette.muted)
@@ -91,11 +120,14 @@ struct InlineTokenEditor: UIViewRepresentable {
     /// Everything the coordinator needs from the SwiftUI environment, as one value — so a change in
     /// the reader's text size or the surface's palette is one comparison, not five.
     private var typography: Typography {
-        Typography(style: style, palette: palette, dynamicTypeSize: dynamicTypeSize, displayScale: displayScale)
+        Typography(
+            style: style, palette: palette, dynamicTypeSize: dynamicTypeSize,
+            displayScale: displayScale, colorScheme: colorScheme
+        )
     }
 
     private var callbacks: Callbacks {
-        Callbacks(onTokenTap: onTokenTap, onCaretChange: onCaretChange)
+        Callbacks(onTokenTap: onTokenTap, onCaretChange: onCaretChange, onScorePromoted: onScorePromoted)
     }
 
     struct Typography: Equatable {
@@ -103,235 +135,12 @@ struct InlineTokenEditor: UIViewRepresentable {
         var palette: AtePalette
         var dynamicTypeSize: DynamicTypeSize
         var displayScale: CGFloat
+        var colorScheme: ColorScheme
     }
 
     struct Callbacks {
         var onTokenTap: (EntryToken) -> Void
         var onCaretChange: (Int) -> Void
-    }
-
-    // MARK: - Coordinator
-
-    @MainActor
-    final class Coordinator: NSObject, UITextViewDelegate {
-        private var binding: Binding<EntryComposition>
-        private var typography: Typography
-        private var callbacks: Callbacks
-
-        weak var textView: InlineTokenTextView?
-        private var renderedRevision = -1
-        private var renderedTypography: Typography?
-        /// Set while we are writing the storage ourselves, so the derive-back pass stays quiet.
-        private var isRendering = false
-
-        private var style: AteTextStyle { typography.style }
-        private var palette: AtePalette { typography.palette }
-        private var dynamicTypeSize: DynamicTypeSize { typography.dynamicTypeSize }
-        private var displayScale: CGFloat { typography.displayScale }
-
-        init(binding: Binding<EntryComposition>, typography: Typography, callbacks: Callbacks) {
-            self.binding = binding
-            self.typography = typography
-            self.callbacks = callbacks
-        }
-
-        func update(binding: Binding<EntryComposition>, typography: Typography, callbacks: Callbacks) {
-            self.binding = binding
-            self.typography = typography
-            self.callbacks = callbacks
-        }
-
-        func shouldRender(revision: Int, style: AteTextStyle, dynamicTypeSize: DynamicTypeSize) -> Bool {
-            renderedRevision != revision || renderedTypography != typography
-        }
-
-        // MARK: Model → storage
-
-        /// Writes a composition into the text view, putting the caret where the host asked for it — or
-        /// leaving it where it was, if the host had no opinion.
-        func render(_ composition: EntryComposition, revision: Int, caret: Int?, into view: InlineTokenTextView) {
-            isRendering = true
-            defer { isRendering = false }
-            let previous = caret ?? view.selectedRange.location
-            view.attributedText = attributedString(for: composition)
-            view.typingAttributes = baseAttributes()
-            let length = view.textStorage.length
-            view.selectedRange = NSRange(location: min(max(0, previous), length), length: 0)
-            view.placeholderLabel.isHidden = length > 0
-            renderedRevision = revision
-            renderedTypography = typography
-        }
-
-        /// The one attributed-string builder, shared with the read-only prose.
-        private var attributes: InlineTokenAttributes {
-            InlineTokenAttributes(
-                style: style,
-                palette: palette,
-                dynamicTypeSize: dynamicTypeSize,
-                displayScale: displayScale
-            )
-        }
-
-        func attributedString(for composition: EntryComposition) -> NSAttributedString {
-            attributes.attributedString(for: composition)
-        }
-
-        func attachmentString(for token: EntryToken) -> NSAttributedString {
-            attributes.attachmentString(for: token)
-        }
-
-        func baseAttributes() -> [NSAttributedString.Key: Any] {
-            attributes.base()
-        }
-
-        // MARK: Storage → model
-
-        func composition(from view: UITextView) -> EntryComposition {
-            InlineTokenAttributes.composition(from: view.attributedText ?? NSAttributedString())
-        }
-
-        // MARK: UITextViewDelegate
-
-        func textViewDidChange(_ textView: UITextView) {
-            guard isRendering == false, let view = textView as? InlineTokenTextView else { return }
-            view.placeholderLabel.isHidden = view.textStorage.length > 0
-            // Typing inside or beside an attachment can leave the pill's own attributes on new
-            // characters; normalise before deriving so a token can't smear.
-            scrubStrayTokenAttributes(in: view)
-            binding.wrappedValue = composition(from: view)
-            promoteScoreLiteralIfMovedOn(in: view)
-        }
-
-        func textViewDidChangeSelection(_ textView: UITextView) {
-            // UIKit inherits typing attributes from the character before the caret. Beside a token
-            // that character is an attachment — so without this, the next thing typed would come out
-            // as a second copy of the pill. There is no other formatting in this editor, so the
-            // typing attributes are always the base ones.
-            textView.typingAttributes = baseAttributes()
-            guard isRendering == false else { return }
-            callbacks.onCaretChange(textView.selectedRange.location)
-        }
-
-        /// Belt and braces for paste and for autocorrect replacing a range that starts at a token: any
-        /// character that is not the attachment itself loses the token's attributes, so a token can
-        /// never smear across the words beside it.
-        private func scrubStrayTokenAttributes(in view: InlineTokenTextView) {
-            let storage = view.textStorage
-            let string = storage.string as NSString
-            var stray: [NSRange] = []
-            storage.enumerateAttribute(.ateToken, in: NSRange(location: 0, length: storage.length)) { value, range, _ in
-                guard value != nil else { return }
-                for index in range.location..<(range.location + range.length)
-                where string.character(at: index) != InlineTokenAttributes.objectReplacement {
-                    stray.append(NSRange(location: index, length: 1))
-                }
-            }
-            guard stray.isEmpty == false else { return }
-            let caret = view.selectedRange
-            isRendering = true
-            storage.beginEditing()
-            for range in stray {
-                storage.removeAttribute(.ateToken, range: range)
-                storage.removeAttribute(.attachment, range: range)
-                storage.addAttributes(baseAttributes(), range: range)
-            }
-            storage.endEditing()
-            view.selectedRange = caret
-            view.typingAttributes = baseAttributes()
-            isRendering = false
-        }
-
-        /// "Typing a number after a dish becomes a score token." Runs after every change: when the last
-        /// thing typed was a move-on character, the number just before it is promoted in place.
-        private func promoteScoreLiteralIfMovedOn(in view: InlineTokenTextView) {
-            let caret = view.selectedRange
-            guard caret.length == 0, caret.location > 0 else { return }
-            let storage = view.textStorage
-            let lastCharacter = storage.attributedSubstring(
-                from: NSRange(location: caret.location - 1, length: 1)
-            ).string
-            guard ScoreLiteral.isMoveOn(lastCharacter) else { return }
-
-            let model = binding.wrappedValue
-            let plainCaret = model.plainOffset(forDisplayOffset: caret.location - 1)
-            guard let found = ScoreLiteral.candidate(in: model.plain, caretUTF16: plainCaret) else { return }
-
-            let start = model.displayOffset(forPlainOffset: found.span.location)
-            let end = model.displayOffset(forPlainOffset: found.span.endLocation)
-            let token = EntryToken(kind: .score(found.rating))
-
-            isRendering = true
-            storage.beginEditing()
-            storage.replaceCharacters(
-                in: NSRange(location: start, length: end - start),
-                with: attachmentString(for: token)
-            )
-            storage.endEditing()
-            let shift = 1 - (end - start)
-            view.selectedRange = NSRange(location: caret.location + shift, length: 0)
-            view.typingAttributes = baseAttributes()
-            isRendering = false
-            binding.wrappedValue = composition(from: view)
-            AteHaptics.tick()
-        }
-
-        // MARK: Tapping a token
-
-        @objc
-        func handleTap(_ recogniser: UITapGestureRecognizer) {
-            guard let view = textView else { return }
-            let point = recogniser.location(in: view)
-            guard let position = view.closestPosition(to: point) else { return }
-            let offset = view.offset(from: view.beginningOfDocument, to: position)
-            let model = binding.wrappedValue
-            // `closestPosition` snaps to a character boundary, so a tap in the middle of a pill can
-            // land on either side of it: check both.
-            guard let token = model.token(atDisplayOffset: offset) ?? model.token(atDisplayOffset: offset - 1) else {
-                return
-            }
-            callbacks.onTokenTap(token)
-        }
-    }
-}
-
-// MARK: - The view
-
-/// A `UITextView` with a placeholder and a plain-text pasteboard.
-final class InlineTokenTextView: UITextView {
-    let placeholderLabel = UILabel()
-    weak var coordinator: InlineTokenEditor.Coordinator?
-
-    override init(frame: CGRect, textContainer: NSTextContainer?) {
-        super.init(frame: frame, textContainer: textContainer)
-        placeholderLabel.numberOfLines = 0
-        placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(placeholderLabel)
-        NSLayoutConstraint.activate([
-            placeholderLabel.topAnchor.constraint(equalTo: topAnchor),
-            placeholderLabel.leadingAnchor.constraint(equalTo: leadingAnchor),
-            placeholderLabel.trailingAnchor.constraint(equalTo: trailingAnchor)
-        ])
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("not used") }
-
-    /// Copying a token must yield its WORDS. Without this, a pill on the pasteboard is a `U+FFFC` and
-    /// pasting a review into Messages loses the score entirely.
-    override func copy(_ sender: Any?) {
-        guard let plain = selectedPlainText() else { return super.copy(sender) }
-        UIPasteboard.general.string = plain
-    }
-
-    override func cut(_ sender: Any?) {
-        guard let plain = selectedPlainText(), let range = selectedTextRange else { return super.cut(sender) }
-        UIPasteboard.general.string = plain
-        replace(range, withText: "")
-    }
-
-    private func selectedPlainText() -> String? {
-        guard let coordinator, selectedRange.length > 0 else { return nil }
-        let model = coordinator.composition(from: self)
-        return model.plainText(inDisplaySpan: TextSpan(selectedRange))
+        var onScorePromoted: (Bool) -> Void
     }
 }

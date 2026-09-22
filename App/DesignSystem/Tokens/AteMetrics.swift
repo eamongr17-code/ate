@@ -53,6 +53,10 @@ enum AteMetrics {
     static let composeButton: CGFloat = 54
     /// How far the ground fades up from under the tab bar (design rule 10).
     static let scrimHeight: CGFloat = 160
+    /// Bottom inset for a tab screen's scrolling content. Deliberately *less* than the bar's own
+    /// height (66 + 22): design rule 10 wants the last slip to run off under the scrim rather than
+    /// stop dead above it, and this is how much of it stays readable.
+    static let tabBarScrollInset: CGFloat = 64
 
     /// A chip: the small pill that carries a place, a filter, a count.
     static let chipHeight: CGFloat = 32

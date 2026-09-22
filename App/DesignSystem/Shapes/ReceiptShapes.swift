@@ -76,21 +76,31 @@ struct AteDashedLine: View {
     var dash: [CGFloat] = AteMetrics.ruleDash
     var opacity: Double = 0.35
     var lineWidth: CGFloat = AteMetrics.ruleWidth
+    /// `.vertical` is the statement slip's column divider — the same rule, stood up.
+    var axis: Axis = .horizontal
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
         Canvas { context, size in
             var path = Path()
-            path.move(to: CGPoint(x: 0, y: size.height / 2))
-            path.addLine(to: CGPoint(x: size.width, y: size.height / 2))
+            if axis == .horizontal {
+                path.move(to: CGPoint(x: 0, y: size.height / 2))
+                path.addLine(to: CGPoint(x: size.width, y: size.height / 2))
+            } else {
+                path.move(to: CGPoint(x: size.width / 2, y: 0))
+                path.addLine(to: CGPoint(x: size.width / 2, y: size.height))
+            }
             context.stroke(
                 path,
                 with: .color(palette.fg.opacity(opacity)),
                 style: StrokeStyle(lineWidth: lineWidth, dash: dash)
             )
         }
-        .frame(height: lineWidth)
+        .frame(
+            width: axis == .vertical ? lineWidth : nil,
+            height: axis == .horizontal ? lineWidth : nil
+        )
         .accessibilityHidden(true)
     }
 }

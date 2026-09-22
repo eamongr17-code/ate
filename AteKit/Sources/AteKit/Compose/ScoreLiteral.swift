@@ -58,6 +58,17 @@ public enum ScoreLiteral {
         return moveOnScalars.contains(scalar) || CharacterSet.whitespacesAndNewlines.contains(scalar)
     }
 
+    /// The same question, asked with the character *before* it in hand.
+    ///
+    /// **A `.` typed straight after a digit is a decimal separator being typed, not a full stop.**
+    /// Without this, typing "4.5" promotes at the dot: the words end up holding a 4.0 token followed
+    /// by a stray ".5", which is a score the person never gave — the one thing design rule 7
+    /// forbids. Caught driving the composer, which is the only place it is visible.
+    public static func isMoveOn(_ text: String, afterDigit: Bool) -> Bool {
+        if afterDigit, text == "." { return false }
+        return isMoveOn(text)
+    }
+
     // MARK: - Pieces
 
     private static let dot = UInt16(46) // .

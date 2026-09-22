@@ -65,6 +65,19 @@ extension AteTextStyle {
     static let sheetTitle = AteTextStyle(
         voice: .display, size: 30, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
     )
+    /// A handle at the head of a profile. 32pt.
+    static let profileTitle = AteTextStyle(
+        voice: .display, size: 32, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
+    )
+    /// The one line an empty slip says. 34pt — it sits inside paper, not on the ground, so it is a
+    /// step down from ``screenTitle``.
+    static let emptyTitle = AteTextStyle(
+        voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.06, textStyle: .title
+    )
+    /// A number in a statement's cell: "142". 28pt.
+    static let statValue = AteTextStyle(
+        voice: .display, size: 28, weight: 800, trackingEm: -0.03, lineHeight: 1.0, textStyle: .title2
+    )
     /// The live numeral on the star slider. 40pt.
     static let scoreHero = AteTextStyle(
         voice: .display, size: 40, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
@@ -116,6 +129,14 @@ extension AteTextStyle {
     /// The composer: the biggest the words ever are. 19pt.
     static let composerProse = AteTextStyle(
         voice: .prose, size: 19, weight: 400, lineHeight: 1.5, textStyle: .body
+    )
+    /// The one line an empty slip or Welcome says under its title. 17pt.
+    static let proseLarge = AteTextStyle(
+        voice: .prose, size: 17, weight: 400, lineHeight: 1.45, textStyle: .body
+    )
+    /// Welcome's promise, set italic and centred. 19pt.
+    static let proseQuote = AteTextStyle(
+        voice: .prose, size: 19, weight: 400, italic: true, lineHeight: 1.3, textStyle: .body
     )
     /// The words on their own page (Entry) and in a journal slip. 16pt.
     static let prose = AteTextStyle(

@@ -85,6 +85,9 @@ struct AteRadioRow: View {
             action()
         }
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        // The row combines its children, so its label is "name, subtitle". The identifier is the
+        // name alone, which is what a drive actually wants to reach for.
+        .accessibilityIdentifier("row.\(title)")
     }
 }
 
@@ -119,6 +122,8 @@ struct AteChip: View {
 struct AteButton: View {
     var icon: AteIcon?
     let title: String
+    /// 56 by default; `MainEmpty`'s button inside a slip is 52.
+    var height: CGFloat = AteMetrics.buttonHeight
     let action: () -> Void
 
     @Environment(\.atePalette) private var palette
@@ -130,7 +135,7 @@ struct AteButton: View {
                 Text(title).ateText(.button)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: AteMetrics.buttonHeight)
+            .frame(height: height)
             .background(palette.fg, in: .capsule)
             .foregroundStyle(palette.inverted)
         }

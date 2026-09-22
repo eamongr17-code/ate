@@ -99,6 +99,20 @@ struct AtePalette: Equatable, Sendable {
         inverted: AteColor.paper
     )
 
+    /// **A control surface used as a whole screen's ground** — the composer, and every sheet.
+    ///
+    /// Identical to ``automatic`` except that `field` **recesses to the app ground**. The design's
+    /// token table gives `chip` and `field` the same value in dark (`#2B2231`), so on a chip ground a
+    /// field-coloured pill — the Place key, a sheet's search field — is invisible; Eamon caught
+    /// exactly that driving the composer spike. A field is always a step *below* the surface it sits
+    /// in, and this is what makes that true in both modes: linen-grey on white, ink on plum.
+    static let surface: AtePalette = {
+        var palette = AtePalette.automatic
+        palette.ground = Color(light: AteColor.chipLight, dark: AteColor.chipDark)
+        palette.field = Color(light: AteColor.fieldLight, dark: AteColor.groundDark)
+        return palette
+    }()
+
     /// An accent ground — Share, Welcome. Ink text, white chips, in both modes.
     static func accent(_ colour: Color) -> AtePalette {
         AtePalette(
@@ -124,6 +138,12 @@ extension View {
     func ateGround() -> some View {
         environment(\.atePalette, .automatic)
             .background(AtePalette.automatic.ground)
+    }
+
+    /// Puts the subtree on a **control surface** used as a whole screen — the composer, a sheet.
+    func ateSurface() -> some View {
+        environment(\.atePalette, .surface)
+            .background(AtePalette.surface.ground)
     }
 
     /// Puts the subtree on **receipt paper** — the ground dims in dark mode, the ink does not.
