@@ -18,6 +18,9 @@ struct InlineTokenAttributes {
     var palette: AtePalette
     var dynamicTypeSize: DynamicTypeSize
     var displayScale: CGFloat
+    /// Carried explicitly because the pill is rasterised by `ImageRenderer`, which has no trait
+    /// collection to inherit a scheme from. See ``TokenPill``.
+    var colorScheme: ColorScheme = .light
 
     var font: UIFont { AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize) }
 
@@ -71,7 +74,8 @@ struct InlineTokenAttributes {
             prose: font.pointSize,
             palette: palette,
             dynamicTypeSize: dynamicTypeSize,
-            scale: displayScale
+            scale: displayScale,
+            colorScheme: colorScheme
         ) {
             image.accessibilityLabel = Self.accessibilityLabel(for: token)
             attachment.image = image
@@ -119,9 +123,15 @@ struct InlineTokenAttributes {
                     token: box.token,
                     span: TextSpan(location: location, length: box.token.plainText.utf16.count)
                 ))
-            } else {
+            } else if unit != objectReplacement {
                 units.append(unit)
             }
+            // An object-replacement character with no token is dropped rather than carried into the
+            // words. Undo and redo can leave one behind (`replace(_:withText:)` records plain text,
+            // so redoing a promotion restores the character without its attachment), and the words
+            // are what gets POSTed — an invisible `U+FFFC` inside somebody's entry is not a glitch
+            // we get to ship. The editor also heals them in place; this is the seam that makes it
+            // impossible either way.
             index += 1
         }
         return EntryComposition(plain: String(decoding: units, as: UTF16.self), spans: spans)

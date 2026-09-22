@@ -5,10 +5,14 @@ import SwiftUI
 struct AtePhoto: Identifiable, Equatable {
     let id: UUID
     var image: Image?
+    /// A photo that lives on the server. Loaded by the tile itself, so a caller never has to hold an
+    /// image cache — and a photo still arriving holds its space rather than collapsing the cluster.
+    var url: URL?
 
-    init(id: UUID = UUID(), image: Image? = nil) {
+    init(id: UUID = UUID(), image: Image? = nil, url: URL? = nil) {
         self.id = id
         self.image = image
+        self.url = url
     }
 }
 
@@ -23,13 +27,7 @@ struct AtePhotoTile: View {
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: AteMetrics.photoRadius(side: side), style: .continuous)
-        return Group {
-            if let image = photo.image {
-                image.resizable().scaledToFill()
-            } else {
-                palette.field
-            }
-        }
+        return AtePhotoContent(photo: photo)
         .frame(width: side, height: side)
         .clipShape(shape)
         .overlay {
@@ -39,6 +37,28 @@ struct AtePhotoTile: View {
             }
         }
         .accessibilityHidden(true)
+    }
+}
+
+/// What actually fills a tile: a picked image, a photo still coming down the wire, or the space it
+/// will take. Never a spinner — the design asks for skeletons of the real component.
+private struct AtePhotoContent: View {
+    let photo: AtePhoto
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        if let image = photo.image {
+            image.resizable().scaledToFill()
+        } else if let url = photo.url {
+            AsyncImage(url: url) { loaded in
+                loaded.resizable().scaledToFill()
+            } placeholder: {
+                palette.field
+            }
+        } else {
+            palette.field
+        }
     }
 }
 
@@ -89,16 +109,10 @@ struct AteThumbnail: View {
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        Group {
-            if let image = photo.image {
-                image.resizable().scaledToFill()
-            } else {
-                palette.field
-            }
-        }
-        .frame(width: side, height: side)
-        .clipShape(RoundedRectangle(cornerRadius: AteMetrics.receiptTop, style: .continuous))
-        .accessibilityHidden(true)
+        AtePhotoContent(photo: photo)
+            .frame(width: side, height: side)
+            .clipShape(RoundedRectangle(cornerRadius: AteMetrics.receiptTop, style: .continuous))
+            .accessibilityHidden(true)
     }
 }
 

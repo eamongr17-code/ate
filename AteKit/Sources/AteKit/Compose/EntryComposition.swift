@@ -83,6 +83,23 @@ public struct EntryComposition: Hashable, Codable, Sendable {
         displaySpans.first { $0.span.contains(offset) }?.token
     }
 
+    /// The number the person has just finished typing at `offset`, **if it is not already a token**.
+    ///
+    /// The guard is the whole point. A score token's plain text is digits ("4.5"), so walking back
+    /// from the caret finds them again — and the composer used to "promote" a pill the Score key had
+    /// just put there into a second, identical pill with a new id, firing
+    /// `entry_score_token_created(source: "typed")` for a score nobody typed. Score key, slide,
+    /// Done: two events, one score.
+    ///
+    /// Both promotion paths — the editor's move-on check and Done — go through here, so neither can
+    /// forget.
+    public func pendingScoreLiteral(atDisplayOffset offset: Int) -> (span: TextSpan, rating: Rating)? {
+        let plainCaret = plainOffset(forDisplayOffset: offset)
+        guard let found = ScoreLiteral.candidate(in: plain, caretUTF16: plainCaret) else { return nil }
+        guard spans.contains(where: { $0.span.intersects(found.span) }) == false else { return nil }
+        return found
+    }
+
     // MARK: - Coordinates
 
     /// display → plain. A display offset inside no token maps straight through; an offset that lands
