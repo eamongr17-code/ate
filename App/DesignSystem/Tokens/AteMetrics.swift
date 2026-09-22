@@ -164,8 +164,12 @@ enum AteMetrics {
     /// A dashed rule inside a receipt.
     static let ruleWidth: CGFloat = 1.5
     static let ruleDash: [CGFloat] = [4, 3]
-    /// A dot leader between a line item and its score.
-    static let leaderDash: [CGFloat] = [1.5, 3.5]
+    /// A dot leader between a line item and its score. `1.5px dotted` is round dots the width of the
+    /// line, and the browser sets them on a **2.67pt pitch** — measured off the reference render
+    /// rather than assumed, because a UA fits a whole number of dots into the run and lands a little
+    /// tighter than two diameters. Paired with a round cap, so the near-zero dash draws as a circle
+    /// rather than a 1.5-square: the dot's diameter is the line width.
+    static let leaderDash: [CGFloat] = [0.01, 2.66]
 
     /// One device pixel — a hairline is a pixel, never a logical point. `displayScale` can be 0 in an
     /// `ImageRenderer`, hence the floor.
