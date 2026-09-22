@@ -7,7 +7,15 @@
 // this file pins the individual rules so a failure says WHICH rule broke.
 
 import { test, assert, assertEquals } from './harness.ts';
-import { findNumbers, parseEntry, placeCandidates, sentenceBounds } from './parse.ts';
+import {
+  findNumbers,
+  mentionForPlaceName,
+  parseEntry,
+  placeCandidates,
+  placeCandidateSpans,
+  sentenceBounds,
+} from './parse.ts';
+import { scalarLength, sliceScalars } from './offsets.ts';
 
 const values = (s: string) => findNumbers(s).map((h) => h.value);
 const texts = (s: string) => findNumbers(s).map((h) => h.text);
@@ -132,8 +140,8 @@ test('an unnamed place offers nothing that looks like a venue', () => {
 // WHOLE-PLAN BEHAVIOUR not already covered by the corpus
 // ---------------------------------------------------------------------------
 test('empty and whitespace-only words sort to nothing', () => {
-  assertEquals(parseEntry({ body: '' }), { place_query: null, items: [] });
-  assertEquals(parseEntry({ body: '   \n ' }), { place_query: null, items: [] });
+  assertEquals(parseEntry({ body: '' }), { place_query: null, place_offset: null, items: [] });
+  assertEquals(parseEntry({ body: '   \n ' }), { place_query: null, place_offset: null, items: [] });
 });
 
 test('sentiment alone never earns a score', () => {
@@ -165,6 +173,82 @@ test('items come out in the order the dishes appear in the words', () => {
     knownDishes: ['Salmon roll', 'Wagyu nigiri', 'Uni'],
   });
   assertEquals(plan.items.map((i) => i.dish_name), ['Wagyu nigiri', 'Salmon roll', 'Uni']);
+});
+
+// ---------------------------------------------------------------------------
+// WHERE THINGS ARE — the offsets the client draws its inline tokens from.
+// ---------------------------------------------------------------------------
+test('every place candidate span points at its own phrase', () => {
+  const bodies = [
+    'Tipo 00 with Jess for her birthday.',
+    'Lunch at Supernormal. The pork bun 4.5.',
+    'With Jess at Hardware Societe Flinders Ln, baked eggs 4.',
+    'ok so... 🍝 back to Tipo 00, tagliatelle 4.5',
+  ];
+  for (const body of bodies) {
+    for (const c of placeCandidateSpans(body)) {
+      assertEquals(
+        sliceScalars(body, c.offset, scalarLength(c.phrase)),
+        c.phrase,
+        `"${c.phrase}" @${c.offset} in ${JSON.stringify(body)}`,
+      );
+    }
+  }
+});
+
+test('placeCandidates is still the phrases, in the same order', () => {
+  const body = 'Two of us at Hardware Societe, baked eggs.';
+  assertEquals(placeCandidates(body), placeCandidateSpans(body).map((c) => c.phrase));
+});
+
+test('the dish mention and the score evidence both come back with their offsets', () => {
+  const body = 'Kisume 🍣 for one. Salmon roll 4.5, clean and cold.';
+  const item = parseEntry({ body, knownDishes: ['Salmon roll'] }).items[0];
+  assertEquals(sliceScalars(body, item.evidence_offset!, scalarLength(item.score_evidence!)), '4.5');
+  assertEquals(item.mention_text, 'Salmon roll');
+  assertEquals(sliceScalars(body, item.mention_offset!, scalarLength(item.mention_text!)), 'Salmon roll');
+});
+
+test('the mention is the words\' OWN spelling even when the name comes from the menu', () => {
+  const body = 'kisume. salmon roll 4.5';
+  const item = parseEntry({ body, knownDishes: ['Salmon roll'] }).items[0];
+  assertEquals(item.dish_name, 'Salmon roll', 'the menu spelling is what the receipt prints');
+  assertEquals(item.mention_text, 'salmon roll', 'the mention is what they typed');
+  assertEquals(sliceScalars(body, item.mention_offset!, scalarLength(item.mention_text!)), 'salmon roll');
+});
+
+test('a user-pinned place is matched back to the phrase in the words, or to nothing', () => {
+  const body = 'Lunch at Hardware Societe. Baked eggs 4.5.';
+  const spans = placeCandidateSpans(body);
+  const hit = mentionForPlaceName(spans, 'Hardware Societe');
+  assert(hit !== null);
+  assertEquals(sliceScalars(body, hit!.offset, scalarLength(hit!.phrase)), 'Hardware Societe');
+  // a longer canonical name still matches the phrase that starts it…
+  assert(mentionForPlaceName(spans, 'Hardware Societe Flinders Lane') !== null);
+  // …but an unrelated venue must not borrow someone else's words.
+  assertEquals(mentionForPlaceName(spans, 'Tipo 00'), null);
+  assertEquals(mentionForPlaceName(spans, ''), null);
+  assertEquals(mentionForPlaceName(spans, null), null);
+});
+
+// ---------------------------------------------------------------------------
+// NOTES — a sentence by default, a clause on request. Always verbatim.
+// ---------------------------------------------------------------------------
+test('a note is the whole sentence when the dish owns it, and never a shred of one', () => {
+  const body = 'Omakase with the team. The salmon roll 4.5 was the quiet star, clean and cold. Home by nine.';
+  const sentence = parseEntry({ body, knownDishes: ['Salmon roll'] }).items[0];
+  assertEquals(sentence.note, 'The salmon roll 4.5 was the quiet star, clean and cold.');
+
+  const clause = parseEntry({ body, knownDishes: ['Salmon roll'], noteStyle: 'clause' }).items[0];
+  assertEquals(clause.note, 'the quiet star, clean and cold.');
+  assert(body.includes(clause.note!), 'both styles are verbatim slices');
+});
+
+test('a clause cut at the next dish does not end on a dangling comma', () => {
+  const body = 'Kisume. The salmon roll 5.0 was the quiet star, and the wagyu nigiri 4.5 was fine.';
+  const items = parseEntry({ body, knownDishes: ['Salmon roll', 'Wagyu nigiri'] }).items;
+  assertEquals(items[0].note, 'the quiet star');
+  for (const i of items) if (i.note) assert(!/[,;:]$/.test(i.note), `note ends on punctuation glue: ${i.note}`);
 });
 
 test('every note the parser emits is a substring of the words', () => {

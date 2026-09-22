@@ -22,7 +22,8 @@
 // decimal ("4.5" — how the composer's score token lands in the text), or sitting
 // immediately beside the dish it scores ("Margherita 4.5").
 
-import type { ParseInput, SortItem, SortPlan } from './types.ts';
+import type { ParseInput, PlaceCandidate, SortItem, SortPlan } from './types.ts';
+import { scalarOffset } from './offsets.ts';
 
 // ---------------------------------------------------------------------------
 // Vocabulary
@@ -232,12 +233,17 @@ export function findNumbers(body: string): NumberHit[] {
 // them against restaurants we already hold; a candidate that matches nothing is
 // simply forgotten (rule 8: never invented, never from location).
 // ---------------------------------------------------------------------------
-export function placeCandidates(body: string, limit = 6): string[] {
+export function placeCandidateSpans(body: string, limit = 6): PlaceCandidate[] {
   const out: Array<{ phrase: string; weight: number; at: number }> = [];
   const seen = new Set<string>();
 
+  // `at` is the UTF-16 index in `body` of the RAW phrase; every trim below that eats
+  // characters from the FRONT shifts it, so the published offset still points at the
+  // first character of the phrase we return (the client's place token starts there).
   const push = (phrase: string, weight: number, at: number) => {
-    let clean = phrase.replace(/^[^\w]+|[^\w'’&]+$/g, '').trim();
+    const lead = /^[^\w]+/.exec(phrase);
+    let clean = phrase.slice(lead ? lead[0].length : 0).replace(/[^\w'’&]+$/, '');
+    const start = at + (lead ? lead[0].length : 0);
     // A venue name never ends in glue: "AT BUTCHERS DINER IS A" → "BUTCHERS DINER".
     for (;;) {
       const m = /(\s+)([\w'’-]+)$/.exec(clean);
@@ -250,7 +256,7 @@ export function placeCandidates(body: string, limit = 6): string[] {
     const key = clean.toLowerCase();
     if (seen.has(key)) return;
     seen.add(key);
-    out.push({ phrase: clean, weight, at });
+    out.push({ phrase: clean, weight, at: start });
   };
 
   // NOTE: the token class excludes '.', so a run STOPS at a full stop. With the dot
@@ -264,7 +270,9 @@ export function placeCandidates(body: string, limit = 6): string[] {
   const intro =
     /(?:\b(?:at|At|AT)\s+|@\s*|\b(?:back\s+to|to|To|TO)\s+)([A-Z0-9][\w'’&-]*(?:\s+[A-Z0-9][\w'’&-]*){0,3})/g;
   for (let m = intro.exec(body); m; m = intro.exec(body)) {
-    push(m[1], 3, m.index);
+    // the capture is the TAIL of the match, so this is its index without searching
+    // (searching would mis-locate "to To …").
+    push(m[1], 3, m.index + m[0].length - m[1].length);
   }
 
   // 2. Any run of capitalised / numeric tokens (how venue names read: "Tipo 00",
@@ -273,21 +281,53 @@ export function placeCandidates(body: string, limit = 6): string[] {
   const runs = /\b([A-Z0-9][\w'’&-]*(?:\s+(?:[A-Z0-9][\w'’&-]*|of|de|la|le|du|and|&)){0,3})/g;
   for (let m = runs.exec(body); m; m = runs.exec(body)) {
     let phrase = m[1];
-    // trim a leading sentence-starting stopword ("With Jess" → "Jess")
-    const words = phrase.split(/\s+/);
-    if (words.length > 1 && STOPWORDS.has(words[0].toLowerCase())) {
-      phrase = words.slice(1).join(' ');
+    let at = m.index;
+    // trim a leading sentence-starting stopword ("With Jess" → "Jess"). CUT, never
+    // re-join: a join would normalise the spacing and the phrase would stop being a
+    // literal slice of the body, which is what its offset points at.
+    const lead = /^[\w'’&-]+\s+/.exec(phrase);
+    if (lead && STOPWORDS.has(lead[0].trim().toLowerCase())) {
+      phrase = phrase.slice(lead[0].length);
+      at += lead[0].length;
     }
-    push(phrase, 1, m.index);
+    push(phrase, 1, at);
     // also offer the leading two words of a long run ("Hardware Societe Flinders Ln")
-    const w = phrase.split(/\s+/);
-    if (w.length > 2) push(w.slice(0, 2).join(' '), 1, m.index);
+    const two = /^[\w'’&-]+\s+[\w'’&-]+/.exec(phrase);
+    if (two && two[0].length < phrase.length) push(two[0], 1, at);
   }
 
   return out
     .sort((a, b) => b.weight - a.weight || b.phrase.length - a.phrase.length || a.at - b.at)
     .slice(0, limit)
-    .map((c) => c.phrase);
+    .map((c) => ({ phrase: c.phrase, offset: scalarOffset(body, c.at) }));
+}
+
+/** The phrases only — the shape the function's place lookups have always taken. */
+export function placeCandidates(body: string, limit = 6): string[] {
+  return placeCandidateSpans(body, limit).map((c) => c.phrase);
+}
+
+/**
+ * Which candidate phrase NAMES this restaurant? Used when the user already pinned the
+ * place (composer tap): the sorter has nothing to resolve, but the words still contain
+ * the mention the client wants to draw a token on. Comparison is case- and
+ * whitespace-insensitive, longest phrase first; no fuzziness, because a wrong mention
+ * would put a place token on words that are not the place.
+ */
+export function mentionForPlaceName(
+  candidates: PlaceCandidate[],
+  name: string | null | undefined,
+): PlaceCandidate | null {
+  const want = (name ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (want.length < 2) return null;
+  let best: PlaceCandidate | null = null;
+  for (const c of candidates) {
+    const have = c.phrase.trim().toLowerCase().replace(/\s+/g, ' ');
+    if (have.length < 2) continue;
+    if (have !== want && !want.startsWith(have + ' ') && !have.startsWith(want + ' ')) continue;
+    if (!best || c.phrase.length > best.phrase.length) best = c;
+  }
+  return best;
 }
 
 // ---------------------------------------------------------------------------
@@ -423,27 +463,40 @@ export function excerptFor(
   scoreSpan: [number, number] | null,
   prevEnd: number,
   nextStart: number,
+  noteStyle: 'sentence' | 'clause' = 'sentence',
 ): string | null {
-  const from = Math.max(mentionEnd, scoreSpan && scoreSpan[0] >= mentionEnd ? scoreSpan[1] : 0);
   const [sentStart, sentEnd] = sentenceBounds(body, Math.max(0, mentionEnd - 1));
-  const end = Math.min(sentEnd, nextStart > from ? nextStart : sentEnd);
 
-  const tail = body.slice(Math.min(from, end), end);
-  const trimmed = trimExcerpt(tail);
-  if (trimmed && hasOpinion(trimmed)) return trimmed;
-
-  // Nothing said AFTER the dish. Quote the whole sentence instead — still verbatim —
-  // but ONLY when (a) the dish has that sentence to itself (in a list, "Pork and
-  // chive 4, prawn 3.5.", the sentence belongs to every dish in it) and (b) the
-  // sentence says something BEYOND the dish's own name and score (otherwise
-  // "Tagliatelle al ragù 4.5." gets quoted back underneath itself).
-  if (nextStart < sentEnd || prevEnd > sentStart) return null;
+  // Does this dish have the sentence to ITSELF? In a list — "Pork and chive 4, prawn
+  // 3.5." — the sentence belongs to every dish in it, so quoting it would print the
+  // same words under each line.
+  const ownsSentence = nextStart >= sentEnd && prevEnd <= sentStart;
+  // Everything in the sentence that is NOT this dish's own name or its own score. If
+  // that says nothing, the sentence is just "Tagliatelle al ragù 4.5." and quoting it
+  // back underneath the receipt line that already prints both is noise.
   const remainder =
     body.slice(sentStart, Math.min(mentionStart, sentEnd)) +
     ' ' +
     body.slice(Math.min(scoreSpan ? Math.max(scoreSpan[1], mentionEnd) : mentionEnd, sentEnd), sentEnd);
-  if (!hasOpinion(remainder)) return null;
+  const sentenceIsQuotable = ownsSentence && hasOpinion(remainder);
 
+  // PREFERRED: the whole sentence, trimmed only at its ends (whitespace + a trailing
+  // comma) so it stays the user's words exactly (rule 9). A sentence reads like they
+  // wrote it; the clause after a token reads like a shred of it ("the quiet star,").
+  if (noteStyle === 'sentence' && sentenceIsQuotable) {
+    const whole = trimSentence(body.slice(quoteStart(body, sentStart, mentionStart), sentEnd));
+    if (whole && hasOpinion(whole)) return whole;
+  }
+
+  // Otherwise (a shared sentence, or 'clause' style): what they said AFTER the dish and
+  // its score, cut at the next dish.
+  const from = Math.max(mentionEnd, scoreSpan && scoreSpan[0] >= mentionEnd ? scoreSpan[1] : 0);
+  const end = Math.min(sentEnd, nextStart > from ? nextStart : sentEnd);
+  const trimmed = trimExcerpt(body.slice(Math.min(from, end), end));
+  if (trimmed && hasOpinion(trimmed)) return trimmed;
+
+  // Nothing said after the dish: the whole sentence is the last resort.
+  if (!sentenceIsQuotable) return null;
   const whole = trimExcerpt(body.slice(sentStart, sentEnd));
   if (whole && hasOpinion(whole)) return whole;
   return null;
@@ -463,6 +516,42 @@ function hasOpinion(s: string): boolean {
   return words.some((w) => /^[a-z]/.test(w) && !STOPWORDS.has(w.toLowerCase()) && w.length > 1);
 }
 
+/**
+ * Where the quoted sentence should START.
+ *
+ * `sentenceBounds` deliberately treats a full stop that is NOT followed by a capital as
+ * an abbreviation ("the no. 3 toastie"), which keeps a score attached to its dish. The
+ * cost is that a sentence beginning lower case ("insane?? yes. tiramisu... 3, fine.")
+ * hangs the previous sentence's tail off the front of the quote. So for the QUOTE only,
+ * step past the last sentence-ending punctuation that sits before the dish is named.
+ * Moving the start forward keeps the result a literal substring (rule 9).
+ */
+function quoteStart(body: string, sentStart: number, mentionStart: number): number {
+  const lead = body.slice(sentStart, Math.max(sentStart, mentionStart));
+  // no trailing (?=\S): the lead STOPS at the dish, so the last break is often the last
+  // thing in it ("… insane?? yes. " + "tiramisu").
+  const breaks = /(?<![.!?])[.!?]\s+/g;
+  let last = -1;
+  for (let m = breaks.exec(lead); m; m = breaks.exec(lead)) last = m.index + m[0].length;
+  return last > 0 ? sentStart + last : sentStart;
+}
+
+/**
+ * A whole sentence, trimmed at its ENDS ONLY: surrounding whitespace and a trailing
+ * comma (a sentence cut at a newline often ends on one). Nothing is dropped from the
+ * front — the opening words are the user's too — so the result is always a literal
+ * substring of the body.
+ */
+function trimSentence(raw: string): string | null {
+  let s = raw.replace(/^\s+/, '').replace(/[\s,]+$/, '');
+  if (s.length > 240) {
+    const cut = s.slice(0, 240);
+    const lastSpace = cut.lastIndexOf(' ');
+    s = (lastSpace > 80 ? cut.slice(0, lastSpace) : cut).replace(/[\s,]+$/, '');
+  }
+  return s.length ? s : null;
+}
+
 /** Trim only from the ends, then drop a leading connective. Result is always a substring. */
 function trimExcerpt(raw: string): string | null {
   let s = raw.replace(/^[\s,;:—–\-()"'`]+/, '').replace(/[\s,;:—–\-(["'`]+$/, '');
@@ -479,6 +568,9 @@ function trimExcerpt(raw: string): string | null {
       if (!m || !STOPWORDS.has(m[2].toLowerCase())) break;
       s = s.slice(0, m.index);
     }
+    // The cut can EXPOSE punctuation that used to be mid-clause: "was the quiet star,
+    // and the" → "the quiet star,". Re-strip the ends (cut, never re-join).
+    s = s.replace(/[\s,;:]+$/, '');
   }
   if (s.length > 240) {
     const cut = s.slice(0, 240);
@@ -496,8 +588,9 @@ export function parseEntry(input: ParseInput): SortPlan {
   const body = input.body ?? '';
   const known = input.knownDishes ?? [];
   const exclude = input.excludeSpans ?? [];
+  const noteStyle = input.noteStyle ?? 'sentence';
 
-  if (!body.trim()) return { place_query: null, items: [] };
+  if (!body.trim()) return { place_query: null, place_offset: null, items: [] };
 
   const numbers = findNumbers(body);
   const knownHits = findKnownDishes(body, known, exclude);
@@ -542,12 +635,21 @@ export function parseEntry(input: ParseInput): SortPlan {
       dish_name: m.name.trim(),
       score: hit ? hit.value : null,
       score_evidence: hit ? hit.text : null,
-      note: excerptFor(body, m.start, m.end, hit ? [hit.start, hit.end] : null, prevEnd, nextStart),
+      note: excerptFor(body, m.start, m.end, hit ? [hit.start, hit.end] : null, prevEnd, nextStart, noteStyle),
+      // WHERE, in scalars — the parser knows the exact occurrence it matched, which is
+      // the whole point: searching the body for "4.5" later finds the price first.
+      evidence_offset: hit ? scalarOffset(body, hit.start) : null,
+      mention_text: body.slice(m.start, m.end),
+      mention_offset: scalarOffset(body, m.start),
     });
   }
 
-  const place = placeCandidates(body, 1);
-  return { place_query: place.length ? place[0] : null, items };
+  const place = placeCandidateSpans(body, 1);
+  return {
+    place_query: place.length ? place[0].phrase : null,
+    place_offset: place.length ? place[0].offset : null,
+    items,
+  };
 }
 
 /**

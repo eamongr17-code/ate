@@ -18,6 +18,9 @@ const item = (over: Partial<SortItem> = {}): SortItem => ({
   score: 4.5,
   score_evidence: '4.5',
   note: 'unreal.',
+  evidence_offset: null,
+  mention_text: null,
+  mention_offset: null,
   ...over,
 });
 
@@ -114,6 +117,63 @@ test('an empty or absurd dish name is dropped', () => {
   assertEquals(validateItem(item({ dish_name: 'x'.repeat(200) }), { body: BODY }), null);
 });
 
+test('AN EXISTING DISH WINS a case-insensitive name match — prose is lower case, menus are not', () => {
+  const body = 'kisume. salmon roll 4.5 and the wagyu  nigiri 4.';
+  const out = validateItem(item({ dish_name: 'salmon roll', score: null, score_evidence: null, note: null }), {
+    body,
+    knownDishes: ['Salmon roll'],
+  })!;
+  assertEquals(out.dish_name, 'Salmon roll', 'the receipt prints the menu spelling');
+  assertEquals(out.mention_text, 'salmon roll', 'the words keep theirs');
+
+  // whitespace differences do not hide an existing dish either
+  const spaced = validateItem(item({ dish_name: 'wagyu  nigiri', score: null, score_evidence: null, note: null }), {
+    body,
+    knownDishes: ['Wagyu nigiri'],
+  })!;
+  assertEquals(spaced.dish_name, 'Wagyu nigiri');
+});
+
+// ---------------------------------------------------------------------------
+// WHERE — offsets are verified, recomputed, or null. Never a guess.
+// ---------------------------------------------------------------------------
+test('a claimed offset that points at the wrong text is recomputed, not trusted', () => {
+  const body = 'The tagliatelle was $14.50. Tiramisu 4.5, fine.';
+  const price = body.indexOf('4.5');
+  const score = body.lastIndexOf('4.5');
+
+  const lying = validateItem(
+    item({ dish_name: 'Tiramisu', note: null, evidence_offset: 3 }),
+    { body },
+  )!;
+  assertEquals(lying.evidence_offset, price, 'a bad claim falls back to the first occurrence');
+
+  const honest = validateItem(
+    item({ dish_name: 'Tiramisu', note: null, evidence_offset: score }),
+    { body },
+  )!;
+  assertEquals(honest.evidence_offset, score, 'the sorter knows which "4.5" it matched — and is believed');
+});
+
+test('a model-shaped item (text only, no offsets) gets its offsets recovered here', () => {
+  const out = validateItem(item({ note: 'was unreal.' }), { body: BODY })!;
+  assertEquals(out.evidence_offset, BODY.indexOf('4.5'));
+  assertEquals(out.mention_text, 'tagliatelle al ragù', 'the slice, not the model\'s casing');
+  assertEquals(out.mention_offset, BODY.indexOf('tagliatelle al ragù'));
+});
+
+test('an unscored line points nowhere, and a dish that is only on the menu has no mention', () => {
+  const unscored = validateItem(item({ score: null, score_evidence: null }), { body: BODY })!;
+  assertEquals(unscored.evidence_offset, null);
+
+  const menuOnly = validateItem(
+    item({ dish_name: 'Sea urchin', score: null, score_evidence: null, note: null }),
+    { body: BODY, knownDishes: ['Sea urchin'] },
+  )!;
+  assertEquals(menuOnly.mention_text, null);
+  assertEquals(menuOnly.mention_offset, null);
+});
+
 // ---------------------------------------------------------------------------
 // Whole plans
 // ---------------------------------------------------------------------------
@@ -121,6 +181,7 @@ test('the same dish twice becomes one line, and a later score fills the gap', ()
   const plan = validatePlan(
     {
       place_query: 'Tipo 00',
+      place_offset: 0,
       items: [
         item({ score: null, score_evidence: null, note: 'was unreal.' }),
         item({ score: 4.5, score_evidence: '4.5', note: null }),
@@ -131,14 +192,29 @@ test('the same dish twice becomes one line, and a later score fills the gap', ()
   assertEquals(plan.items.length, 1);
   assertEquals(plan.items[0].score, 4.5);
   assertEquals(plan.items[0].note, 'was unreal.');
+  assertEquals(plan.items[0].evidence_offset, BODY.indexOf('4.5'), 'the promoted score brings its WHERE with it');
 });
 
 test('a plan is capped, and a blank place_query becomes null', () => {
   const many = Array.from({ length: MAX_ITEMS + 10 }, (_, i) => item({ dish_name: `dish ${i}` }));
   const body = many.map((m) => m.dish_name).join(', ') + ' 4.5';
-  const plan = validatePlan({ place_query: ' ', items: many }, { body });
+  const plan = validatePlan({ place_query: ' ', place_offset: 0, items: many }, { body });
   assertEquals(plan.items.length, MAX_ITEMS);
   assertEquals(plan.place_query, null);
+  assertEquals(plan.place_offset, null, 'no phrase, nowhere to point');
+});
+
+test('the place phrase keeps its offset, and loses it when the words do not say it', () => {
+  assertEquals(validatePlan({ place_query: 'Tipo 00', place_offset: 0, items: [] }, { body: BODY }).place_offset, 0);
+  assertEquals(
+    validatePlan({ place_query: 'Tipo 00', place_offset: 99, items: [] }, { body: BODY }).place_offset,
+    0,
+    'a wrong claim is recomputed',
+  );
+  assertEquals(
+    validatePlan({ place_query: 'Chin Chin', place_offset: 0, items: [] }, { body: BODY }).place_offset,
+    null,
+  );
 });
 
 test('junk in the items array cannot crash the gate', () => {

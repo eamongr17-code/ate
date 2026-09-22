@@ -24,6 +24,13 @@ export type FixtureItem = {
   dish_name: string;
   score: number | null;
   note: string | null;
+  /**
+   * Optional: the expected SCALAR offset of `score_evidence` in `body` (see
+   * offsets.ts). Set it where the occurrence matters — a body with a price in it has
+   * two "4.5"s and only one of them is the score. Left undefined, fixtures_test still
+   * checks mechanically that whatever offset came back really points at the evidence.
+   */
+  evidence_offset?: number | null;
 };
 
 export type Fixture = {
@@ -47,9 +54,13 @@ export const fixtures: Fixture[] = [
     knownDishes: ['Tagliatelle al ragù', 'Tiramisu', 'Prawn spaghetti'],
     place: 'Tipo 00',
     items: [
-      { dish_name: 'Tagliatelle al ragù', score: 4.5, note: 'unreal, rich, glossy, gone in four minutes.' },
-      { dish_name: 'Tiramisu', score: 3.0, note: 'a bit flat after that.' },
-      { dish_name: 'Prawn spaghetti', score: null, note: 'looked the business.' },
+      {
+        dish_name: 'Tagliatelle al ragù',
+        score: 4.5,
+        note: 'The tagliatelle al ragù 4.5 was unreal, rich, glossy, gone in four minutes.',
+      },
+      { dish_name: 'Tiramisu', score: 3.0, note: 'Tiramisu 3.0 a bit flat after that.' },
+      { dish_name: 'Prawn spaghetti', score: null, note: 'Jess\'s prawn spaghetti looked the business.' },
     ],
   },
   {
@@ -60,8 +71,12 @@ export const fixtures: Fixture[] = [
     knownDishes: ['Prawn spaghetti', 'Tiramisu'],
     place: null,
     items: [
-      { dish_name: 'Prawn spaghetti', score: 5.0, note: 'still the best thing on Little Bourke, fight me.' },
-      { dish_name: 'Tiramisu', score: 4.0, note: 'as always.' },
+      {
+        dish_name: 'Prawn spaghetti',
+        score: 5.0,
+        note: 'The prawn spaghetti 5.0 is still the best thing on Little Bourke, fight me.',
+      },
+      { dish_name: 'Tiramisu', score: 4.0, note: 'Tiramisu 4.0, as always.' },
     ],
   },
   {
@@ -70,7 +85,13 @@ export const fixtures: Fixture[] = [
     body: 'Queued forty minutes for this cheeseburger 4.5 and would queue again.',
     knownDishes: [],
     place: null,
-    items: [{ dish_name: 'cheeseburger', score: 4.5, note: 'would queue again.' }],
+    items: [
+      {
+        dish_name: 'cheeseburger',
+        score: 4.5,
+        note: 'Queued forty minutes for this cheeseburger 4.5 and would queue again.',
+      },
+    ],
   },
   {
     id: 'no-place-list',
@@ -89,7 +110,13 @@ export const fixtures: Fixture[] = [
     body: 'Chin Chin. The kingfish sashimi gets four and a half stars from me, clean and cold.',
     knownDishes: ['Kingfish sashimi'],
     place: 'Chin Chin',
-    items: [{ dish_name: 'Kingfish sashimi', score: 4.5, note: 'from me, clean and cold.' }],
+    items: [
+      {
+        dish_name: 'Kingfish sashimi',
+        score: 4.5,
+        note: 'The kingfish sashimi gets four and a half stars from me, clean and cold.',
+      },
+    ],
   },
   {
     id: 'out-of-five',
@@ -116,7 +143,7 @@ export const fixtures: Fixture[] = [
     body: 'Beatrix. Raspberry cake was $18 and worth every cent.',
     knownDishes: ['Raspberry cake'],
     place: 'Beatrix',
-    items: [{ dish_name: 'Raspberry cake', score: null, note: '$18 and worth every cent.' }],
+    items: [{ dish_name: 'Raspberry cake', score: null, note: 'Raspberry cake was $18 and worth every cent.' }],
   },
   {
     id: 'clock-trap',
@@ -124,7 +151,7 @@ export const fixtures: Fixture[] = [
     body: 'Got to Kisume at 5 pm, out by 8:02. Salmon roll still the best thing here.',
     knownDishes: ['Salmon roll'],
     place: 'Kisume',
-    items: [{ dish_name: 'Salmon roll', score: null, note: 'still the best thing here.' }],
+    items: [{ dish_name: 'Salmon roll', score: null, note: 'Salmon roll still the best thing here.' }],
   },
   {
     id: 'date-trap',
@@ -132,7 +159,7 @@ export const fixtures: Fixture[] = [
     body: 'Di Stasio, 12 September. Penne al ragù 4.5, the room does half the work.',
     knownDishes: ['Penne al ragù'],
     place: 'Di Stasio',
-    items: [{ dish_name: 'Penne al ragù', score: 4.5, note: 'the room does half the work.' }],
+    items: [{ dish_name: 'Penne al ragù', score: 4.5, note: 'Penne al ragù 4.5, the room does half the work.' }],
   },
   {
     id: 'headcount-trap',
@@ -140,7 +167,7 @@ export const fixtures: Fixture[] = [
     body: 'Two of us at Hardware Societe, baked eggs x4 between us. Baked eggs 4.5.',
     knownDishes: ['Baked eggs'],
     place: 'Hardware Societe',
-    items: [{ dish_name: 'Baked eggs', score: 4.5, note: 'x4 between us.' }],
+    items: [{ dish_name: 'Baked eggs', score: 4.5, note: 'Two of us at Hardware Societe, baked eggs x4 between us.' }],
   },
   {
     id: 'ordinal-trap',
@@ -148,7 +175,7 @@ export const fixtures: Fixture[] = [
     body: '4th time at Osteria Ilaria this year. The pappardelle never misses.',
     knownDishes: ['Pappardelle'],
     place: 'Osteria Ilaria',
-    items: [{ dish_name: 'Pappardelle', score: null, note: 'never misses.' }],
+    items: [{ dish_name: 'Pappardelle', score: null, note: 'The pappardelle never misses.' }],
   },
   {
     id: 'three-dishes-prose',
@@ -158,9 +185,9 @@ export const fixtures: Fixture[] = [
     knownDishes: ['Steak tartare', 'Sardines', 'Chips'],
     place: 'Kirk\'s Wine Bar',
     items: [
-      { dish_name: 'Steak tartare', score: 4.5, note: 'the best thing on the table.' },
-      { dish_name: 'Sardines', score: 3.5, note: 'a bit heavy on the vinegar.' },
-      { dish_name: 'Chips', score: null, note: 'I have nothing to report.' },
+      { dish_name: 'Steak tartare', score: 4.5, note: 'The steak tartare 4.5 was the best thing on the table.' },
+      { dish_name: 'Sardines', score: 3.5, note: 'Sardines 3.5, a bit heavy on the vinegar.' },
+      { dish_name: 'Chips', score: null, note: 'We also had the chips and I have nothing to report.' },
     ],
   },
   {
@@ -169,7 +196,13 @@ export const fixtures: Fixture[] = [
     body: 'Tipo 00 again. Tagliatelle al ragù 4.5. Honestly the tagliatelle al ragù is the only reason I come.',
     knownDishes: ['Tagliatelle al ragù'],
     place: 'Tipo 00',
-    items: [{ dish_name: 'Tagliatelle al ragù', score: 4.5, note: 'the only reason I come.' }],
+    items: [
+      {
+        dish_name: 'Tagliatelle al ragù',
+        score: 4.5,
+        note: 'Honestly the tagliatelle al ragù is the only reason I come.',
+      },
+    ],
   },
   {
     id: 'score-before-dish',
@@ -177,7 +210,13 @@ export const fixtures: Fixture[] = [
     body: 'Beatrix. A solid 4.5 for the raspberry cake, and nothing else needed saying.',
     knownDishes: ['Raspberry cake'],
     place: 'Beatrix',
-    items: [{ dish_name: 'Raspberry cake', score: 4.5, note: 'nothing else needed saying.' }],
+    items: [
+      {
+        dish_name: 'Raspberry cake',
+        score: 4.5,
+        note: 'A solid 4.5 for the raspberry cake, and nothing else needed saying.',
+      },
+    ],
   },
   {
     id: 'lowercase-after-at',
@@ -197,8 +236,8 @@ export const fixtures: Fixture[] = [
     knownDishes: ['Kingfish sashimi', 'Son in law eggs'],
     place: 'Chin Chin',
     items: [
-      { dish_name: 'Kingfish sashimi', score: 4.5, note: 'the only thing I wanted' },
-      { dish_name: 'Son in law eggs', score: 3.5, note: 'too sweet' },
+      { dish_name: 'Kingfish sashimi', score: 4.5, note: 'Kingfish sashimi 4.5 — the only thing I wanted' },
+      { dish_name: 'Son in law eggs', score: 3.5, note: 'Son in law eggs 3.5, too sweet' },
     ],
   },
   {
@@ -208,8 +247,10 @@ export const fixtures: Fixture[] = [
     knownDishes: ['Tagliatelle al ragù', 'Tiramisu'],
     place: 'Tipo 00',
     items: [
-      { dish_name: 'Tagliatelle al ragù', score: 4.5, note: 'insane??' },
-      { dish_name: 'Tiramisu', score: 3, note: 'fine.' },
+      { dish_name: 'Tagliatelle al ragù', score: 4.5, note: 'tagliatelle al ragù 4.5 — insane??' },
+      // the quote starts at the DISH, not at the tail of the sentence before it
+      // ("insane?? yes. tiramisu…"): see quoteStart in parse.ts.
+      { dish_name: 'Tiramisu', score: 3, note: 'tiramisu... 3, fine.' },
     ],
   },
   {
@@ -262,7 +303,8 @@ export const fixtures: Fixture[] = [
       {
         dish_name: 'Lobster roll',
         score: null,
-        note: 'the reason this place has a queue out the door on a Tuesday, and I resent how good it is.',
+        note:
+          'The lobster roll is the reason this place has a queue out the door on a Tuesday, and I resent how good it is.',
       },
     ],
   },
@@ -283,7 +325,13 @@ export const fixtures: Fixture[] = [
     body: 'Di Stasio. The penne al ragù, I would give it a 4.5 and I do not give those out.',
     knownDishes: ['Penne al ragù'],
     place: 'Di Stasio',
-    items: [{ dish_name: 'Penne al ragù', score: 4.5, note: 'I do not give those out.' }],
+    items: [
+      {
+        dish_name: 'Penne al ragù',
+        score: 4.5,
+        note: 'The penne al ragù, I would give it a 4.5 and I do not give those out.',
+      },
+    ],
   },
   {
     id: 'apostrophe-dish',
@@ -291,7 +339,13 @@ export const fixtures: Fixture[] = [
     body: 'Butchers Diner. Grandma\'s meatballs 4, better than they need to be at 2am.',
     knownDishes: ['Grandma\'s meatballs'],
     place: 'Butchers Diner',
-    items: [{ dish_name: 'Grandma\'s meatballs', score: 4, note: 'better than they need to be at 2am.' }],
+    items: [
+      {
+        dish_name: 'Grandma\'s meatballs',
+        score: 4,
+        note: 'Grandma\'s meatballs 4, better than they need to be at 2am.',
+      },
+    ],
   },
   {
     id: 'numeric-dish-name',
@@ -310,7 +364,7 @@ export const fixtures: Fixture[] = [
     body: 'Chin Chin. Son in law eggs, three and a half, too sweet for me.',
     knownDishes: ['Son in law eggs'],
     place: 'Chin Chin',
-    items: [{ dish_name: 'Son in law eggs', score: 3.5, note: 'too sweet for me.' }],
+    items: [{ dish_name: 'Son in law eggs', score: 3.5, note: 'Son in law eggs, three and a half, too sweet for me.' }],
   },
   {
     id: 'point-five',
@@ -337,7 +391,7 @@ export const fixtures: Fixture[] = [
     body: 'Smoke Ring Co. The beef rib roll 4.5, gone before the table sat down.',
     knownDishes: ['Beef rib', 'Beef rib roll'],
     place: 'Smoke Ring Co',
-    items: [{ dish_name: 'Beef rib roll', score: 4.5, note: 'gone before the table sat down.' }],
+    items: [{ dish_name: 'Beef rib roll', score: 4.5, note: 'The beef rib roll 4.5, gone before the table sat down.' }],
   },
   {
     id: 'very-short',
@@ -383,7 +437,7 @@ export const fixtures: Fixture[] = [
     body: 'Beatrix. Raspberry cake, 5 stars, no notes.',
     knownDishes: ['Raspberry cake'],
     place: 'Beatrix',
-    items: [{ dish_name: 'Raspberry cake', score: 5, note: 'no notes.' }],
+    items: [{ dish_name: 'Raspberry cake', score: 5, note: 'Raspberry cake, 5 stars, no notes.' }],
   },
   {
     id: 'duration-and-real-score',
@@ -391,7 +445,7 @@ export const fixtures: Fixture[] = [
     body: 'Kisume. The salmon roll 4.5 was gone in five minutes flat.',
     knownDishes: ['Salmon roll'],
     place: 'Kisume',
-    items: [{ dish_name: 'Salmon roll', score: 4.5, note: 'gone in five minutes flat.' }],
+    items: [{ dish_name: 'Salmon roll', score: 4.5, note: 'The salmon roll 4.5 was gone in five minutes flat.' }],
   },
   {
     id: 'shared-no-score',
@@ -399,7 +453,13 @@ export const fixtures: Fixture[] = [
     body: 'Osteria Ilaria. We shared the pappardelle and then we shared a second pappardelle.',
     knownDishes: [],
     place: 'Osteria Ilaria',
-    items: [{ dish_name: 'pappardelle', score: null, note: 'then we shared a second pappardelle.' }],
+    items: [
+      {
+        dish_name: 'pappardelle',
+        score: null,
+        note: 'We shared the pappardelle and then we shared a second pappardelle.',
+      },
+    ],
   },
   {
     id: 'low-score',
@@ -408,8 +468,8 @@ export const fixtures: Fixture[] = [
     knownDishes: ['Cheeseburger', 'Fries'],
     place: 'Butchers Diner',
     items: [
-      { dish_name: 'Cheeseburger', score: 1.5, note: 'cold in the middle.' },
-      { dish_name: 'Fries', score: 2, note: 'sad.' },
+      { dish_name: 'Cheeseburger', score: 1.5, note: 'Cheeseburger 1.5, cold in the middle.' },
+      { dish_name: 'Fries', score: 2, note: 'Fries 2, sad.' },
     ],
   },
   {
@@ -418,7 +478,91 @@ export const fixtures: Fixture[] = [
     body: 'New place on Gertrude called Petal & Pan. The sourdough focaccia 4.5, worth the walk.',
     knownDishes: [],
     place: 'Petal & Pan',
-    items: [{ dish_name: 'sourdough focaccia', score: 4.5, note: 'worth the walk.' }],
+    items: [{ dish_name: 'sourdough focaccia', score: 4.5, note: 'The sourdough focaccia 4.5, worth the walk.' }],
+  },
+
+  // -------------------------------------------------------------------------
+  // NOTES ARE SENTENCES (the receipt quotes the way they write, not a shred of it)
+  // -------------------------------------------------------------------------
+  {
+    id: 'note-is-the-whole-sentence',
+    about: 'the dish owns its sentence, so the note is that sentence — not "was the quiet star,"',
+    body:
+      'Omakase with the team. The salmon roll 4.5 was the quiet star, clean and cold and gone too fast. Could have skipped the second round of sake.',
+    knownDishes: ['Salmon roll'],
+    place: null,
+    items: [
+      {
+        dish_name: 'Salmon roll',
+        score: 4.5,
+        note: 'The salmon roll 4.5 was the quiet star, clean and cold and gone too fast.',
+      },
+    ],
+  },
+  {
+    id: 'note-shared-sentence-no-dangling-comma',
+    about: 'two dishes in one sentence: each keeps its own clause, and neither ends on a dangling comma',
+    body: 'Kisume. The salmon roll 5.0 was the quiet star, and the wagyu nigiri 4.5 was fine.',
+    knownDishes: ['Salmon roll', 'Wagyu nigiri'],
+    place: 'Kisume',
+    items: [
+      { dish_name: 'Salmon roll', score: 5.0, note: 'the quiet star' },
+      { dish_name: 'Wagyu nigiri', score: 4.5, note: 'fine.' },
+    ],
+  },
+  {
+    id: 'note-sentence-keeps-the-words-before-the-dish',
+    about: 'what they said BEFORE naming the dish is theirs too — the clause-only cut used to throw it away',
+    body: 'Butchers Diner. Stood in the rain twenty minutes for the cheeseburger 4 and I would do it again.',
+    knownDishes: ['Cheeseburger'],
+    place: 'Butchers Diner',
+    items: [
+      {
+        dish_name: 'Cheeseburger',
+        score: 4,
+        note: 'Stood in the rain twenty minutes for the cheeseburger 4 and I would do it again.',
+      },
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // WHERE THE SCORE IS — the offsets the client rebuilds its tokens from
+  // -------------------------------------------------------------------------
+  {
+    id: 'offset-price-before-score',
+    about:
+      'a price contains the same digits as the score: searching the body for "4.5" finds $14.50 FIRST, so the offset must come from the sorter',
+    body: 'Tipo 00. The tagliatelle was $14.50 and worth it. Tiramisu 4.5, better than it looks.',
+    knownDishes: ['Tagliatelle', 'Tiramisu'],
+    place: 'Tipo 00',
+    items: [
+      { dish_name: 'Tagliatelle', score: null, note: 'The tagliatelle was $14.50 and worth it.' },
+      // "4.5" also sits inside "$14.50" at scalar 31 — a naive search finds THAT one.
+      // The score's own evidence is at 59.
+      { dish_name: 'Tiramisu', score: 4.5, note: 'Tiramisu 4.5, better than it looks.', evidence_offset: 59 },
+    ],
+  },
+  {
+    id: 'offset-after-an-emoji',
+    about: 'an emoji is TWO UTF-16 code units but ONE scalar: the published offset is in scalars (31 vs 30)',
+    body: 'Kisume 🍣 for one. Salmon roll 4.5, clean and cold.',
+    knownDishes: ['Salmon roll'],
+    place: 'Kisume',
+    items: [
+      { dish_name: 'Salmon roll', score: 4.5, note: 'Salmon roll 4.5, clean and cold.', evidence_offset: 30 },
+    ],
+  },
+  {
+    id: 'lowercase-prose-dish-no-menu',
+    about:
+      'no place matched, so no menu: the name stays exactly as they wrote it and the DISPLAY name is normalised by find_or_create_dish on create, never here',
+    body: 'salmon roll 4.5, wagyu nigiri 4.',
+    knownDishes: [],
+    place: null,
+    items: [
+      { dish_name: 'salmon roll', score: 4.5, note: null },
+      { dish_name: 'wagyu nigiri', score: 4, note: null },
+    ],
   },
 ];
 
