@@ -18,6 +18,20 @@ export type SortItem = {
   score_evidence: string | null;
   /** A verbatim excerpt of the user's words about this dish, or null (DESIGN rule 9). */
   note: string | null;
+  /**
+   * WHERE in the body `score_evidence` was matched — a 0-based UNICODE SCALAR offset
+   * (see ./offsets.ts). The client rebuilds its inline score token from this instead
+   * of searching the body for the number, which mis-hits a price ("$14.50" for a 4.5).
+   * null whenever there is no score.
+   */
+  evidence_offset: number | null;
+  /**
+   * The verbatim slice of the body that NAMED this dish. It can differ from
+   * `dish_name` in case and spacing, because `dish_name` may be the menu's spelling.
+   */
+  mention_text: string | null;
+  /** Scalar offset of `mention_text` in the body. */
+  mention_offset: number | null;
 };
 
 /** What the sorter proposes for one entry. */
@@ -28,7 +42,15 @@ export type SortPlan = {
    * never invented and never derived from location (DESIGN rule 8).
    */
   place_query: string | null;
+  /** Scalar offset of `place_query` in the body — the client's place token. */
+  place_offset: number | null;
   items: SortItem[];
+};
+
+/** A phrase in the words that might name a place, with where it sits (scalar offset). */
+export type PlaceCandidate = {
+  phrase: string;
+  offset: number;
 };
 
 /** Everything the pure parser is allowed to know. No IO, no clock, no randomness. */
@@ -38,6 +60,19 @@ export type ParseInput = {
   knownDishes?: string[];
   /** Character spans to ignore when hunting for dishes (e.g. the matched place name). */
   excludeSpans?: Array<[number, number]>;
+  /**
+   * How a dish note is cut out of the words:
+   *   'clause' (DEFAULT)  — what follows the dish and its score, cut at the next dish.
+   *                         This is what the approved receipt prints
+   *                         (design/v1/Entry: `"A bit flat after that."`): a quote that
+   *                         repeats the line's own dish name and score reads badly under
+   *                         it. Dangling glue and punctuation are trimmed off the ends.
+   *   'sentence'          — the whole sentence the dish is mentioned in, when that
+   *                         sentence is the dish's own. Keeps what they said BEFORE
+   *                         naming it, at the cost of repeating the name and score.
+   * Both are verbatim substrings (rule 9); this only chooses where the cut is.
+   */
+  noteStyle?: 'sentence' | 'clause';
 };
 
 export type SorterMode = 'stub' | 'model';

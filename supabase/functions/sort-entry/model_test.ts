@@ -75,11 +75,20 @@ test('a tool call is read into a plan; omitted fields become null', () => {
       },
     ],
   });
+  // The model is never asked WHERE anything is (it cannot count code points): every
+  // offset comes back null and validate.ts recovers it from the text.
   assertEquals(plan, {
     place_query: 'Tipo 00',
+    place_offset: null,
     items: [
-      { dish_name: 'Pasta', score: 4.5, score_evidence: '4.5', note: 'unreal.' },
-      { dish_name: 'Tiramisu', score: null, score_evidence: null, note: null },
+      {
+        dish_name: 'Pasta', score: 4.5, score_evidence: '4.5', note: 'unreal.',
+        evidence_offset: null, mention_text: null, mention_offset: null,
+      },
+      {
+        dish_name: 'Tiramisu', score: null, score_evidence: null, note: null,
+        evidence_offset: null, mention_text: null, mention_offset: null,
+      },
     ],
   });
 });

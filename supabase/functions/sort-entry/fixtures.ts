@@ -24,6 +24,13 @@ export type FixtureItem = {
   dish_name: string;
   score: number | null;
   note: string | null;
+  /**
+   * Optional: the expected SCALAR offset of `score_evidence` in `body` (see
+   * offsets.ts). Set it where the occurrence matters — a body with a price in it has
+   * two "4.5"s and only one of them is the score. Left undefined, fixtures_test still
+   * checks mechanically that whatever offset came back really points at the evidence.
+   */
+  evidence_offset?: number | null;
 };
 
 export type Fixture = {
@@ -419,6 +426,85 @@ export const fixtures: Fixture[] = [
     knownDishes: [],
     place: 'Petal & Pan',
     items: [{ dish_name: 'sourdough focaccia', score: 4.5, note: 'worth the walk.' }],
+  },
+
+  // -------------------------------------------------------------------------
+  // NOTES ARE CLAUSES (what design/v1/Entry prints: `"A bit flat after that."`)
+  //
+  // The note is what they said AFTER the dish and its score. It never repeats the dish
+  // name or the score, because the receipt line above it already prints both. The
+  // 'sentence' alternative is pinned in parse_test.ts, not here — the corpus asserts the
+  // DEFAULT, which is what ships.
+  // -------------------------------------------------------------------------
+  {
+    id: 'note-is-the-clause-after-the-score',
+    about: 'the note starts after the dish and its score — "was" and other lead-in glue are trimmed off',
+    body:
+      'Omakase with the team. The salmon roll 4.5 was the quiet star, clean and cold and gone too fast. Could have skipped the second round of sake.',
+    knownDishes: ['Salmon roll'],
+    place: null,
+    items: [{ dish_name: 'Salmon roll', score: 4.5, note: 'the quiet star, clean and cold and gone too fast.' }],
+  },
+  {
+    id: 'note-shared-sentence-no-dangling-comma',
+    about: 'two dishes in one sentence: each keeps its own clause, and neither ends on a dangling comma',
+    body: 'Kisume. The salmon roll 5.0 was the quiet star, and the wagyu nigiri 4.5 was fine.',
+    knownDishes: ['Salmon roll', 'Wagyu nigiri'],
+    place: 'Kisume',
+    items: [
+      // "was the quiet star, and the" → the stopword trim exposes a comma, which is then
+      // stripped. THE bug this fixture exists for.
+      { dish_name: 'Salmon roll', score: 5.0, note: 'the quiet star' },
+      { dish_name: 'Wagyu nigiri', score: 4.5, note: 'fine.' },
+    ],
+  },
+  {
+    id: 'note-clause-drops-the-lead-in',
+    about: 'words BEFORE the dish are not in the note — they are still in `body`, which the slip prints above it',
+    body: 'Butchers Diner. Stood in the rain twenty minutes for the cheeseburger 4 and I would do it again.',
+    knownDishes: ['Cheeseburger'],
+    place: 'Butchers Diner',
+    items: [{ dish_name: 'Cheeseburger', score: 4, note: 'I would do it again.' }],
+  },
+
+  // -------------------------------------------------------------------------
+  // WHERE THE SCORE IS — the offsets the client rebuilds its tokens from
+  // -------------------------------------------------------------------------
+  {
+    id: 'offset-price-before-score',
+    about:
+      'a price contains the same digits as the score: searching the body for "4.5" finds $14.50 FIRST, so the offset must come from the sorter',
+    body: 'Tipo 00. The tagliatelle was $14.50 and worth it. Tiramisu 4.5, better than it looks.',
+    knownDishes: ['Tagliatelle', 'Tiramisu'],
+    place: 'Tipo 00',
+    items: [
+      { dish_name: 'Tagliatelle', score: null, note: '$14.50 and worth it.' },
+      // "4.5" also sits inside "$14.50" at scalar 31 — a naive search finds THAT one.
+      // The score's own evidence is at 59.
+      { dish_name: 'Tiramisu', score: 4.5, note: 'better than it looks.', evidence_offset: 59 },
+    ],
+  },
+  {
+    id: 'offset-after-an-emoji',
+    about: 'an emoji is TWO UTF-16 code units but ONE scalar: the published offset is in scalars (31 vs 30)',
+    body: 'Kisume 🍣 for one. Salmon roll 4.5, clean and cold.',
+    knownDishes: ['Salmon roll'],
+    place: 'Kisume',
+    items: [
+      { dish_name: 'Salmon roll', score: 4.5, note: 'clean and cold.', evidence_offset: 30 },
+    ],
+  },
+  {
+    id: 'lowercase-prose-dish-no-menu',
+    about:
+      'no place matched, so no menu: the name stays exactly as they wrote it and the DISPLAY name is normalised by find_or_create_dish on create, never here',
+    body: 'salmon roll 4.5, wagyu nigiri 4.',
+    knownDishes: [],
+    place: null,
+    items: [
+      { dish_name: 'salmon roll', score: 4.5, note: null },
+      { dish_name: 'wagyu nigiri', score: 4, note: null },
+    ],
   },
 ];
 

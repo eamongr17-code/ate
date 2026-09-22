@@ -1,7 +1,8 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0023` define it. Forward-only; applied migrations
-are never edited. V1 re-scope landed in **0018–0023** (2026-09-22).
+**Status:** the schema as `supabase/migrations/0001–0025` define it. Forward-only; applied migrations
+are never edited. V1 re-scope landed in **0018–0023**; corrections + offsets in **0024–0025**
+(2026-09-22).
 
 The atom the USER creates is an **entry** = one visit. The atom AGGREGATES are built from is still a
 per-dish **review** — reviews are now *linked* to an entry, not replaced by it. A **sorter** turns the
@@ -20,6 +21,7 @@ Three design rules are enforced in the database, not just in the app (`docs/DESI
 | 7 — a score is only ever the user's, never inferred | `reviews.score` is NULLABLE; `apply_entry_sort` drops any score whose `score_evidence` is not a literal substring of `entries.body` |
 | 8 — a place attaches only when named or tapped | `entries.restaurant_id` nullable + `restaurant_source ∈ (user, sorter)`, CHECKed together; no code path reads location |
 | 9 — the words are never rewritten | `entries.body` is written once by the client; UPDATE on entries is column-granted to `(body, visibility)` only, and the sorter writes nowhere near it. Dish notes must be substrings of the body |
+| the user's fix outranks the sorter | `reviews.corrected_at` / `entries.place_corrected_at`; `apply_entry_sort` deletes only lines with `corrected_at IS NULL`, so a re-sort (forced or not) cannot overwrite a correction (0024) |
 
 ## New in V1
 
@@ -39,19 +41,33 @@ Three design rules are enforced in the database, not just in the app (`docs/DESI
 | `created_at` | timestamptz | **client-settable** so an offline entry keeps when they ate |
 | `updated_at` | timestamptz | trigger-maintained |
 
+| `place_corrected_at` | timestamptz NULL | the author overrode the place (0024); once set, no place mention is recorded again |
+| `place_query` / `place_offset` | text / int NULL | the verbatim slice of `body` that named the attached place, and where it starts (0024) |
+
 `order_number` is allocated by `trg_entry_biu` from a row-locked counter (`profiles.entry_seq`), so it
 is race-free. It is allocated **on arrival**, so an entry written offline can carry an older
 `created_at` than a lower order number — deliberate: "Order #" is the order Ate printed receipts in.
+
+**OFFSETS ARE UNICODE SCALARS.** Every `*_offset` on `reviews`/`entries` is a 0-based code-point offset
+into `entries.body`, verified on write by `verified_offset()` (the claimed position must really hold that
+text, else the first occurrence, else NULL). Scalars because Postgres `position()`/`substring()`/
+`char_length()` count code points; JS and Swift count UTF-16 and must convert. Lengths are
+`char_length(score_evidence | mention_text | place_query)` — the view computes them, nothing stores them.
 
 ### `entry_photos` (0018)
 `(entry_id, position)` composite **PK** (a TOTAL unique — safe upsert target for a retried upload),
 `photo_url` NOT NULL, `created_at`. Position 0–23. Separate table because the words save instantly
 while uploads are still in flight.
 
-### `reviews` — changed (0018)
+### `reviews` — changed (0018, 0024)
 Additive: `entry_id` (→ entries, cascade; NULL for legacy rows), `entry_position` smallint (receipt
 line order), `score_evidence` text (the literal slice of the body that justified the score;
 provenance only, never displayed).
+0024 adds the provenance of a USER'S FIX and of WHERE each finding sits in the words:
+`corrected_at` (the author fixed this line — dish, score or note; stamped by `correct_entry_dish` and by
+the correction trigger on any author UPDATE of `dish_id`/`score`/`note`, monotone, never cleared),
+`corrected_from_name` (the dish name the line carried when first corrected = the sorter's proposal, the
+key a later re-sort recognises it by), `evidence_offset`, `mention_text`, `mention_offset`.
 **Breaking for readers:** `score` is now **NULLABLE** — an unscored dish review is the normal case.
 The `reviews_score_halfstep` CHECK is untouched (a NULL CHECK passes), so every non-null score is
 still 0.5–5.0 in half steps. Reviews written by the sorter inherit the entry's `created_at`.
@@ -97,6 +113,12 @@ unique `WHERE merged_into_dish_id IS NULL`, merge tombstones) · storage buckets
 5. **Storage public-read rides the bucket flag**, not a SELECT policy. Never flip a bucket private
    casually — `0008` removed bucket-wide LIST on purpose and object reads still work.
 6. **`entries.body` is never rewritten server-side.** If you find yourself writing UPDATE on it, stop.
+7. **Adding a parameter to an RPC means DROP-then-CREATE, not CREATE OR REPLACE.** Two overloads make
+   every PostgREST named-argument call ambiguous (`42725 function is not unique`) — a silent break for
+   the client, not a warning. 0024 dropped `apply_entry_sort(uuid,uuid,jsonb,text)` before creating the
+   six-argument one, in the same migration as its only caller's update.
+8. **A correction is user data.** Never re-derive over a row with `corrected_at`/`place_corrected_at`,
+   and never "clean up" one. A re-sort replaces the sorter's lines and nothing else.
 
 ## Derived reads (never stored)
 
@@ -104,7 +126,7 @@ unique `WHERE merged_into_dish_id IS NULL`, merge tombstones) · storage buckets
 |---|---|---|
 | `dish_stats` | `dish_id, restaurant_id, score, review_count, cover_url, scored_count, people_count` | `score` = avg of non-null scores (NULL = nobody scored it); `people_count` = distinct reviewers |
 | `restaurant_stats` | `restaurant_id, avg_rating, review_count, cover_url, people_count, dish_count` | `avg_rating` = **mean of per-dish averages**, null-score dishes excluded |
-| `entry_cards` | the one entry shape (see `integration-design.md`) | Journal slip / Feed slip / Entry page / Share receipt are all this row |
+| `entry_cards` | the one entry shape (see `integration-design.md`) | Journal slip / Feed slip / Entry page / Share receipt are all this row; carries the token offsets + `items[].corrected` |
 | `my_saved_dishes` | saved dish + place + dish aggregate + provenance handle | caller-scoped |
 
 All are `security_invoker = true`, so **aggregates are viewer-relative**: a private entry's dish
@@ -133,9 +155,11 @@ dish reads in both directions without any query having to remember.
 **Column privileges do what RLS cannot:** `authenticated` may INSERT only
 `(id, author_id, body, visibility, restaurant_id, created_at)` on `entries` and UPDATE only
 `(body, visibility)`. `order_number`, `sort_status`, `sort_mode`, `sort_error`, `sorted_at`,
-`sort_plan` and `restaurant_source` are unwritable by clients on every path — the trigger and the
-0021 RPCs are their only writers. `restaurant_id` is insertable (the composer's place pick) but not
-updatable: place corrections go through `correct_entry_place`, which also re-resolves the dishes.
+`sort_plan`, `restaurant_source` and 0024's `place_*` are unwritable by clients on every path — the
+trigger and the 0021/0024 RPCs are their only writers. `restaurant_id` is insertable (the composer's
+place pick) but not updatable: place corrections go through `correct_entry_place`, which also re-resolves
+the dishes. `reviews` has no column grants, so an author can PATCH their own `score`/`note` — that is the
+sanctioned path and the correction trigger records it. Anything beyond `score`/`note` is unsupported.
 
 ## Migration index
 
@@ -148,3 +172,5 @@ updatable: place corrections go through `correct_entry_place`, which also re-res
 | 0021 | `sort_write_path.sql` | `find_or_create_dish`, `apply_entry_sort`, `mark_entry_sort_failed`, `correct_entry_place`, `correct_entry_dish` |
 | 0022 | `entry_reads.sql` | `entry_cards`; feed/journal/place readers; `place_dishes`, `place_summary`, `dish_summary`, `get_dish_reviews`; dish/restaurant stat columns |
 | 0023 | `stats_search.sql` | `profile_summary`, `score_histogram`, `dishes_by_score`, `statement_months`, `monthly_statement`, `search_all` |
+| 0024 | `corrections_and_offsets.sql` | correction provenance + the preservation rule in `apply_entry_sort` (dropped/recreated with `p_place_query`/`p_place_offset`); `verified_offset`; the correction trigger; dish display-name normalisation in `find_or_create_dish` |
+| 0025 | `entry_cards_offsets.sql` | `entry_cards` + `place_offset`/`place_length` and `items[].evidence_*`/`mention_*`/`corrected` |

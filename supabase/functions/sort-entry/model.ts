@@ -153,6 +153,10 @@ export function planFromResponse(payload: unknown): SortPlan | null {
 
   return {
     place_query: typeof input.place_query === 'string' && input.place_query.trim() ? input.place_query.trim() : null,
+    // The model is asked for TEXT, never for offsets — it cannot count code points and
+    // a wrong offset is worse than none. validate.ts recovers each offset from the
+    // first occurrence of the text it did return.
+    place_offset: null,
     items: input.items.map((raw) => {
       const it = (raw ?? {}) as Record<string, unknown>;
       return {
@@ -160,6 +164,9 @@ export function planFromResponse(payload: unknown): SortPlan | null {
         score: typeof it.score === 'number' ? it.score : null,
         score_evidence: typeof it.score_evidence === 'string' ? it.score_evidence : null,
         note: typeof it.note === 'string' ? it.note : null,
+        evidence_offset: null,
+        mention_text: null,
+        mention_offset: null,
       };
     }),
   };

@@ -7,8 +7,18 @@
 //
 //   POST /functions/v1/sort-entry
 //   body: { entry_id: uuid, force?: boolean, dry_run?: boolean }
-//   → 200 { ok, mode, entry_id, sort_status, restaurant_id, place_query, items[] }
+//   → 200 { ok, mode, entry_id, sort_status, restaurant_id, place_query, place_offset, items[] }
 //     401 unauthorized · 403 not your entry · 404 unknown entry · 422 bad request
+//
+// `force` IS NOT A LICENCE TO DESTROY. A line the user corrected survives any re-sort:
+// apply_entry_sort (0024) keeps corrected rows, dish and score intact, and only re-parses
+// the lines the sorter still owns. Forcing is therefore safe by construction rather than
+// by the client remembering not to.
+//
+// Every item also carries WHERE it was found — `evidence_offset`, `mention_offset`, plus
+// `place_offset` on the entry — as 0-based UNICODE SCALAR offsets into `body`
+// (./offsets.ts). The client rebuilds its inline tokens from those instead of searching
+// the body, which mis-hits a price ("$14.50") for a score.
 //
 // TWO MODES, ONE CONTRACT
 //   stub  (DEFAULT — CEO decision, no AI spend yet): ./parse.ts, a rule-based parser.
@@ -32,10 +42,10 @@
 // entries.sort_plan so attaching the place later still prints the receipt.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { parseEntry, placeCandidates } from './parse.ts';
+import { mentionForPlaceName, parseEntry, placeCandidateSpans } from './parse.ts';
 import { validatePlan } from './validate.ts';
 import { resolveMode, sortWithModel } from './model.ts';
-import type { SorterMode, SortPlan } from './types.ts';
+import type { PlaceCandidate, SorterMode, SortPlan } from './types.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -97,38 +107,40 @@ type LocalMatch = { id: string; name: string; match_score: number; strong: boole
  */
 async function resolvePlace(
   admin: ReturnType<typeof adminClient>,
-  candidates: string[],
-): Promise<{ restaurant_id: string; name: string; query: string } | null> {
+  candidates: PlaceCandidate[],
+): Promise<{ restaurant_id: string; name: string; query: string; offset: number } | null> {
   const tried = candidates.slice(0, PLACE_LOOKUPS);
   if (!tried.length) return null;
 
   const results = await Promise.all(
-    tried.map(async (q) => {
+    tried.map(async (c) => {
       try {
-        const { data, error } = await admin.rpc('search_local_restaurants', { p_query: q, p_limit: 3 });
-        if (error) return { q, rows: [] as LocalMatch[] };
-        return { q, rows: (data ?? []) as LocalMatch[] };
+        const { data, error } = await admin.rpc('search_local_restaurants', { p_query: c.phrase, p_limit: 3 });
+        if (error) return { c, rows: [] as LocalMatch[] };
+        return { c, rows: (data ?? []) as LocalMatch[] };
       } catch {
-        return { q, rows: [] as LocalMatch[] };
+        return { c, rows: [] as LocalMatch[] };
       }
     }),
   );
 
-  let best: { restaurant_id: string; name: string; query: string; score: number } | null = null;
-  for (const { q, rows } of results) {
+  let best: { restaurant_id: string; name: string; query: string; offset: number; score: number } | null = null;
+  for (const { c, rows } of results) {
     for (const row of rows) {
       const score = Number(row.match_score ?? 0);
       // `strong` means an exact substring hit or a high trigram score — the same
       // signal the composer's search blend trusts to shadow a Google prediction.
       if (!row.strong && score < PLACE_MATCH_MIN) continue;
       // Prefer a longer candidate phrase on a tie: "Hardware Societe" over "Hardware".
-      const weighted = score + q.length / 1000;
+      const weighted = score + c.phrase.length / 1000;
       if (!best || weighted > best.score) {
-        best = { restaurant_id: row.id, name: row.name, query: q, score: weighted };
+        best = { restaurant_id: row.id, name: row.name, query: c.phrase, offset: c.offset, score: weighted };
       }
     }
   }
-  return best ? { restaurant_id: best.restaurant_id, name: best.name, query: best.query } : null;
+  return best
+    ? { restaurant_id: best.restaurant_id, name: best.name, query: best.query, offset: best.offset }
+    : null;
 }
 
 async function knownDishesAt(
@@ -147,6 +159,20 @@ async function knownDishesAt(
     return [];
   }
   return (data ?? []).map((d: { name: string }) => d.name);
+}
+
+/** The pinned restaurant's own name — used only to find its mention in the words. */
+async function placeNameOf(
+  admin: ReturnType<typeof adminClient>,
+  restaurantId: string | null,
+): Promise<string | null> {
+  if (!restaurantId) return null;
+  const { data, error } = await admin.from('restaurants').select('name').eq('id', restaurantId).maybeSingle();
+  if (error) {
+    console.error('sort-entry: place name lookup failed:', error.message);
+    return null;
+  }
+  return (data as { name?: string } | null)?.name ?? null;
 }
 
 Deno.serve(async (req) => {
@@ -186,13 +212,25 @@ Deno.serve(async (req) => {
     }
 
     // ---- 1. the place, from the words only ---------------------------------
-    const candidates = placeCandidates(row.body);
+    const candidates = placeCandidateSpans(row.body);
     const userPinned = row.restaurant_source === 'user' && row.restaurant_id;
     const matched = userPinned ? null : await resolvePlace(admin, candidates);
     const restaurantId = userPinned ? row.restaurant_id : matched?.restaurant_id ?? null;
 
-    // ---- 2. the dishes ----------------------------------------------------
-    const known = await knownDishesAt(admin, restaurantId);
+    // ---- 2. the dishes, and WHERE the place is named -----------------------
+    const [known, pinnedName] = await Promise.all([
+      knownDishesAt(admin, restaurantId),
+      userPinned ? placeNameOf(admin, restaurantId) : Promise.resolve(null),
+    ]);
+    // The client draws its place token off this offset. When the sorter matched the
+    // place, it is the phrase that matched; when the USER pinned it (composer tap), it
+    // is the candidate phrase that says that restaurant's name — and nothing at all if
+    // the words never named it.
+    const mention: PlaceCandidate | null = userPinned
+      ? mentionForPlaceName(candidates, pinnedName)
+      : matched
+      ? { phrase: matched.query, offset: matched.offset }
+      : null;
 
     let plan: SortPlan | null = null;
     let usedMode: SorterMode = MODE;
@@ -201,7 +239,7 @@ Deno.serve(async (req) => {
         apiKey: ANTHROPIC_KEY,
         body: row.body,
         knownDishes: known,
-        placeCandidates: candidates,
+        placeCandidates: candidates.map((c) => c.phrase),
       });
       if (!plan) usedMode = 'stub'; // degrade, never fail
     }
@@ -217,7 +255,8 @@ Deno.serve(async (req) => {
         mode: usedMode,
         entry_id: row.id,
         restaurant_id: restaurantId,
-        place_query: matched?.query ?? validated.place_query,
+        place_query: mention?.phrase ?? validated.place_query,
+        place_offset: mention?.offset ?? validated.place_offset,
         items: validated.items,
       });
     }
@@ -228,6 +267,10 @@ Deno.serve(async (req) => {
       p_restaurant_id: restaurantId,
       p_items: validated.items,
       p_mode: usedMode,
+      // the place MENTION: text + where it sits (0-based scalar offset). The RPC
+      // verifies the offset against the body before it stores it.
+      p_place_query: mention?.phrase ?? null,
+      p_place_offset: mention?.offset ?? null,
     });
 
     if (applyError) {
@@ -244,7 +287,8 @@ Deno.serve(async (req) => {
       entry_id: row.id,
       sort_status: result?.sort_status ?? 'sorted',
       restaurant_id: result?.restaurant_id ?? restaurantId,
-      place_query: matched?.query ?? validated.place_query,
+      place_query: mention?.phrase ?? validated.place_query,
+      place_offset: mention?.offset ?? validated.place_offset,
       items: validated.items,
     });
   } catch (err) {

@@ -9,7 +9,9 @@
 //     that evidence actually contains the number (DESIGN rule 7);
 //   * a NOTE survives only if it is a literal substring of the words (rule 9);
 //   * a DISH survives only if its name appears in the words or is already on the
-//     matched restaurant's menu — a model may not conjure a dish nobody mentioned.
+//     matched restaurant's menu — a model may not conjure a dish nobody mentioned;
+//   * an OFFSET survives only if the body really says that text there (./offsets.ts),
+//     and is otherwise recomputed from the first occurrence, never guessed.
 //
 // Substring tests are CASE-SENSITIVE on purpose: Postgres `position(x in y)` is
 // case-sensitive, so anything this module lets through on a looser test would be
@@ -17,6 +19,7 @@
 // until someone wondered where a score went.
 
 import { findNumbers } from './parse.ts';
+import { scalarLength, scalarOffset, verifiedScalarOffset } from './offsets.ts';
 import type { SortItem, SortPlan } from './types.ts';
 
 export const MAX_ITEMS = 24;
@@ -36,14 +39,23 @@ export type ValidateOptions = {
 
 export function validateItem(item: SortItem, opts: ValidateOptions): SortItem | null {
   const body = opts.body ?? '';
-  const known = (opts.knownDishes ?? []).map((d) => d.trim().toLowerCase());
+  const known = opts.knownDishes ?? [];
+  const knownByKey = new Map(known.map((d) => [d.trim().replace(/\s+/g, ' ').toLowerCase(), d.trim()]));
 
-  const dish = String(item?.dish_name ?? '').trim().replace(/\s+/g, ' ');
+  let dish = String(item?.dish_name ?? '').trim().replace(/\s+/g, ' ');
   if (!dish || dish.length > 120) return null;
 
   // anti-hallucination: the name is either in the words or already on the menu.
   const inBody = body.toLowerCase().includes(dish.toLowerCase());
-  if (!inBody && !known.includes(dish.toLowerCase())) return null;
+  const onMenu = knownByKey.get(dish.toLowerCase());
+  if (!inBody && !onMenu) return null;
+
+  // AN EXISTING DISH WINS ON A CASE-INSENSITIVE MATCH. Prose arrives lowercase
+  // ("salmon roll"); the menu already says "Salmon roll" and that is the name the
+  // receipt prints. (The database agrees independently: find_or_create_dish selects on
+  // lower(name), so it resolves to the same row either way — this keeps the PLAN
+  // honest about which dish it means.)
+  if (onMenu && onMenu !== dish) dish = onMenu;
 
   // ---- score + evidence ---------------------------------------------------
   let score: number | null = typeof item.score === 'number' ? item.score : null;
@@ -72,7 +84,40 @@ export function validateItem(item: SortItem, opts: ValidateOptions): SortItem | 
   }
   if (note !== null && note.length === 0) note = null;
 
-  return { dish_name: dish, score, score_evidence: evidence, note };
+  // ---- WHERE: scalar offsets, verified or recomputed, never guessed --------
+  // The parser supplies the exact occurrence it matched. A model supplies text only, so
+  // the offset is recovered here from the first occurrence — the same fallback
+  // apply_entry_sort uses, so TypeScript and SQL cannot disagree about the answer.
+  const evidenceOffset = evidence ? verifiedScalarOffset(body, evidence, item?.evidence_offset) : null;
+
+  let mentionText = typeof item?.mention_text === 'string' ? item.mention_text : null;
+  let mentionOffset = mentionText ? verifiedScalarOffset(body, mentionText, item?.mention_offset) : null;
+  if (mentionText === null || mentionOffset === null) {
+    // recover it: the dish is named SOMEWHERE in the words (case may differ, which is
+    // why this is a lowercase search and the slice — not the name — is what we keep).
+    const at = body.toLowerCase().indexOf(dish.toLowerCase());
+    if (at < 0) {
+      mentionText = null;
+      mentionOffset = null;
+    } else {
+      mentionText = body.slice(at, at + dish.length);
+      mentionOffset = scalarOffset(body, at);
+    }
+  }
+  if (mentionText !== null && scalarLength(mentionText) === 0) {
+    mentionText = null;
+    mentionOffset = null;
+  }
+
+  return {
+    dish_name: dish,
+    score,
+    score_evidence: evidence,
+    note,
+    evidence_offset: evidenceOffset,
+    mention_text: mentionText,
+    mention_offset: mentionOffset,
+  };
 }
 
 /**
@@ -100,10 +145,17 @@ export function validatePlan(plan: SortPlan, opts: ValidateOptions): SortPlan {
     if (kept.score === null && item.score !== null) {
       kept.score = item.score;
       kept.score_evidence = item.score_evidence;
+      kept.evidence_offset = item.evidence_offset;
     }
     if (!kept.note && item.note) kept.note = item.note;
+    // the mention stays the FIRST one — the receipt's line order follows the words.
   }
 
   const place = plan?.place_query ? String(plan.place_query).trim() : null;
-  return { place_query: place && place.length >= 2 ? place : null, items };
+  const keptPlace = place && place.length >= 2 ? place : null;
+  return {
+    place_query: keptPlace,
+    place_offset: verifiedScalarOffset(opts.body ?? '', keptPlace, plan?.place_offset),
+    items,
+  };
 }
