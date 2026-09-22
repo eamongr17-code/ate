@@ -90,8 +90,14 @@ public enum PhotoSuggestions {
 
     /// "9:40 pm" — the clock the artboard prints, in the reader's own locale. The formatter parts
     /// the minutes from the meridiem with a narrow no-break space; the artboard uses a plain one.
-    public static func time(for date: Date, locale: Locale = .autoupdatingCurrent) -> String {
-        date.formatted(.dateTime.hour().minute().locale(locale))
+    public static func time(
+        for date: Date,
+        calendar: Calendar = .autoupdatingCurrent,
+        locale: Locale = .autoupdatingCurrent
+    ) -> String {
+        var style = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
+        style = style.hour().minute()
+        return date.formatted(style)
             .lowercased()
             .replacingOccurrences(of: "\u{202F}", with: " ")
             .replacingOccurrences(of: "\u{00A0}", with: " ")

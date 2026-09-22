@@ -88,6 +88,7 @@ struct PhotoSuggestionsTests {
 
     @Test("The clock is the artboard's lowercase")
     func clock() {
-        #expect(PhotoSuggestions.time(for: date(19, 9, 21, 40), locale: Locale(identifier: "en_AU")) == "9:40 pm")
+        #expect(PhotoSuggestions.time(for: date(19, 9, 21, 40), calendar: calendar,
+                                      locale: Locale(identifier: "en_AU")) == "9:40 pm")
     }
 }
