@@ -155,6 +155,11 @@ public struct EntrySubmission: Sendable {
                 durationMilliseconds: Int(now().timeIntervalSince(startedAt) * 1000),
                 didAttachPlace: outcome.didAttachPlace
             ))
+            // The sorter found the place in the words. Design rule 8's other half: the composer's
+            // sheet reports `picked`, this reports `named`, and there is no third way in.
+            if outcome.didAttachPlace {
+                analytics(EntryEvents.placeAttached(source: .named))
+            }
         } catch {
             analytics(EntryEvents.sortFailed(reason: reason(for: error)))
         }
