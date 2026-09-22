@@ -46,6 +46,9 @@ private struct InlineTokenLabel: UIViewRepresentable {
     func makeUIView(context: Context) -> UILabel {
         let label = UILabel()
         label.numberOfLines = lineLimit ?? 0
+        // `-webkit-line-clamp` ends a clamped slip with an ellipsis; a label that only clips says
+        // nothing about the words it dropped.
+        label.lineBreakMode = .byTruncatingTail
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         label.setContentHuggingPriority(.defaultHigh, for: .vertical)
         label.isAccessibilityElement = false
@@ -54,7 +57,20 @@ private struct InlineTokenLabel: UIViewRepresentable {
 
     func updateUIView(_ label: UILabel, context: Context) {
         label.numberOfLines = lineLimit ?? 0
-        label.attributedText = attributes.attributedString(for: composition)
+        let string = NSMutableAttributedString(attributedString: attributes.attributedString(for: composition))
+        // A paragraph style in the string beats the label's own `lineBreakMode`, so a clamped slip
+        // has to carry the truncation itself — `-webkit-line-clamp` ends on an ellipsis, and a
+        // label that just stops mid-sentence is lying about how much was written.
+        if lineLimit != nil {
+            let whole = NSRange(location: 0, length: string.length)
+            string.enumerateAttribute(.paragraphStyle, in: whole) { value, range, _ in
+                guard let paragraph = (value as? NSParagraphStyle)?
+                    .mutableCopy() as? NSMutableParagraphStyle else { return }
+                paragraph.lineBreakMode = .byTruncatingTail
+                string.addAttribute(.paragraphStyle, value: paragraph, range: range)
+            }
+        }
+        label.attributedText = string
     }
 
     /// SwiftUI proposes a width; the label answers with the height its words need in it. Without this
@@ -80,14 +96,15 @@ enum TokenPill {
         palette: AtePalette,
         dynamicTypeSize: DynamicTypeSize,
         scale: CGFloat,
-        colorScheme: ColorScheme = .light
+        colorScheme: ColorScheme = .light,
+        isSelected: Bool = false
     ) -> UIImage? {
         let key = Key(
             kind: kind, prose: prose, scale: scale, dynamicTypeSize: dynamicTypeSize,
-            palette: palette, colorScheme: colorScheme
+            palette: palette, colorScheme: colorScheme, isSelected: isSelected
         )
         if let cached = cache[key] { return cached }
-        let renderer = ImageRenderer(content: view(for: kind, prose: prose)
+        let renderer = ImageRenderer(content: view(for: kind, prose: prose, isSelected: isSelected)
             .environment(\.atePalette, palette)
             .environment(\.dynamicTypeSize, dynamicTypeSize)
             .environment(\.colorScheme, colorScheme))
@@ -99,9 +116,9 @@ enum TokenPill {
     }
 
     @ViewBuilder
-    private static func view(for kind: EntryTokenKind, prose: CGFloat) -> some View {
+    private static func view(for kind: EntryTokenKind, prose: CGFloat, isSelected: Bool) -> some View {
         switch kind {
-        case .score(let rating): ScoreToken(rating: rating, prose: prose)
+        case .score(let rating): ScoreToken(rating: rating, prose: prose, isSelected: isSelected)
         case .place(let place): PlaceToken(name: place.name, prose: prose)
         }
     }
@@ -113,6 +130,7 @@ enum TokenPill {
         let dynamicTypeSize: DynamicTypeSize
         let palette: PaletteKey
         let colorScheme: ColorScheme
+        let isSelected: Bool
 
         init(
             kind: EntryTokenKind,
@@ -120,7 +138,8 @@ enum TokenPill {
             scale: CGFloat,
             dynamicTypeSize: DynamicTypeSize,
             palette: AtePalette,
-            colorScheme: ColorScheme
+            colorScheme: ColorScheme,
+            isSelected: Bool
         ) {
             self.kind = kind
             self.prose = prose
@@ -128,6 +147,7 @@ enum TokenPill {
             self.dynamicTypeSize = dynamicTypeSize
             self.palette = PaletteKey(palette)
             self.colorScheme = colorScheme
+            self.isSelected = isSelected
         }
 
         /// A pill drawn on paper and the same pill drawn on the ink ground are different images and

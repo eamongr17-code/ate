@@ -20,6 +20,13 @@ enum ComposerDebugLaunch {
     /// …with the place sheet or the dish sheet already open on it.
     static let placeSheetArgument = "-ate-open-place-sheet"
     static let dishSheetArgument = "-ate-open-dish-sheet"
+    /// Pushes `Suggestions` from the journal's header.
+    static let suggestionsArgument = "-ate-open-suggestions"
+    /// Shows `Welcome` even when this build has a session — the one screen you cannot reach once
+    /// you are signed in.
+    static let welcomeArgument = "-ate-open-welcome"
+    /// …and `AddPlace` on top of the place sheet.
+    static let addPlaceArgument = "-ate-open-add-place"
 
     /// A UI-test run starts from nothing. Without this, one test's abandoned draft is the next
     /// test's opening screen — and a drive that depends on what ran before it is not a drive.
@@ -40,6 +47,9 @@ enum ComposerDebugLaunch {
     static var opensEntry: Bool { has(entryArgument) }
     static var opensPlaceSheet: Bool { has(placeSheetArgument) }
     static var opensDishSheet: Bool { has(dishSheetArgument) }
+    static var opensSuggestions: Bool { has(suggestionsArgument) }
+    static var opensWelcome: Bool { has(welcomeArgument) }
+    static var opensAddPlace: Bool { has(addPlaceArgument) }
 
     /// Writes the seeded draft before the composer reads it — or wipes whatever a previous run left.
     static func seedDraftIfRequested(into drafts: any EntryDraftStoring) {
@@ -47,7 +57,22 @@ enum ComposerDebugLaunch {
             drafts.clear(draftID: drafts.load()?.id)
         }
         guard has(seedArgument) else { return }
-        drafts.save(EntryDraft(composition: .previewWordsWithPlace))
+        var draft = EntryDraft(composition: .previewWordsWithPlace)
+        // …with the artboard's own three photos already staged, so `Composer` can be photographed
+        // as it is drawn rather than one cluster short of it.
+        draft.photoFiles = seedPhotos(into: drafts.photoDirectory(for: draft.id))
+        drafts.save(draft)
+    }
+
+    private static func seedPhotos(into directory: URL) -> [String] {
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return ["ragu", "prawn", "tiramisu"].compactMap { name in
+            guard let image = UIImage(named: "Photos/\(name)"),
+                  let data = image.jpegData(compressionQuality: 0.8) else { return nil }
+            let fileName = "\(name).jpg"
+            try? data.write(to: directory.appending(path: fileName), options: .atomic)
+            return fileName
+        }
     }
 
     private static func has(_ argument: String) -> Bool {

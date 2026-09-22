@@ -22,7 +22,7 @@ struct AddPlaceSheet: View {
             title: "New place",
             primary: ("Add place", add)
         ) {
-            VStack(alignment: .leading, spacing: AteMetrics.loose) {
+            VStack(alignment: .leading, spacing: AteMetrics.sheetGap) {
                 field("Name", text: $name)
                 field("Suburb", text: $suburb)
                 field("Street", text: $street, prompt: "Optional")
@@ -30,6 +30,8 @@ struct AddPlaceSheet: View {
             .padding(.top, AteMetrics.tight)
         }
         .ateSurface()
+        // `AddPlace.dc.html` is 560 of 844.
+        .presentationDetents([.height(AteScreen.sheetHeight(560))])
         .onAppear { if name.isEmpty { name = suggestedName } }
     }
 
@@ -41,7 +43,7 @@ struct AddPlaceSheet: View {
             TextField(text: text) {
                 Text(prompt ?? "").foregroundStyle(AtePalette.surface.muted)
             }
-            .ateText(.control)
+            .ateText(.rowTitle)
             .textFieldStyle(.plain)
             .padding(.horizontal, AteMetrics.loose)
             .frame(height: 52)

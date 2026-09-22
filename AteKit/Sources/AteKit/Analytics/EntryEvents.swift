@@ -10,6 +10,8 @@ public enum ComposerOrigin: String, Sendable, CaseIterable, Codable {
     case journalEmpty = "journal_empty"
     /// The pencil on an entry — editing words that already exist.
     case entryEdit = "entry_edit"
+    /// A cluster of recent photos on `Suggestions`, opened from the journal's header.
+    case photoSuggestion = "photo_suggestion"
 }
 
 /// How a score token got into the words. The three are genuinely different products: the Score key

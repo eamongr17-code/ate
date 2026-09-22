@@ -15,7 +15,7 @@ struct FeedScreen: View {
                     AteChip(icon: .place, title: "Melbourne")
                 }
                 .padding(.horizontal, AteMetrics.gutter)
-                .padding(.top, 62)
+                .ateContentTop(62)
                 AteEmptySlip(label: "Feed", title: "No receipts\nyet.")
             }
             .padding(.bottom, AteMetrics.tabBarScrollInset)
@@ -40,11 +40,18 @@ struct SearchScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: AteMetrics.loose) {
                 Text("Search").ateText(.screenTitle)
-                AteSearchField(prompt: "Places, dishes, people", text: $query)
+                // `Search.dc.html`: 52 tall, 18 in, on the chip rather than the field.
+                AteSearchField(
+                    prompt: "Places, dishes, people",
+                    text: $query,
+                    height: 52,
+                    horizontalPadding: 18,
+                    background: AtePalette.automatic.chip
+                )
                 kinds
             }
             .padding(.horizontal, AteMetrics.gutter)
-            .padding(.top, 62)
+            .ateContentTop(62)
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
         .scrollIndicators(.hidden)
@@ -86,7 +93,7 @@ struct YouScreen: View {
                 statement
             }
             .padding(.horizontal, AteMetrics.gutter)
-            .padding(.top, 70)
+            .ateContentTop(70)
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
         .scrollIndicators(.hidden)

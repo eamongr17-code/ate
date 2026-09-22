@@ -21,8 +21,23 @@ struct InlineTokenAttributes {
     /// Carried explicitly because the pill is rasterised by `ImageRenderer`, which has no trait
     /// collection to inherit a scheme from. See ``TokenPill``.
     var colorScheme: ColorScheme = .light
+    /// The token whose slider is open. `ComposerStars` rings it — `box-shadow:0 0 0 2px #24141F` —
+    /// so the panel and the pill it is scoring are visibly the same thing.
+    var selectedTokenID: UUID?
 
     var font: UIFont { AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize) }
+
+    /// How tall these words are at this width. The composer hangs its photo cluster off the bottom
+    /// of the sentence, and measuring the *same* attributed string the editor draws is the only way
+    /// the two can agree about where that is.
+    func height(for composition: EntryComposition, width: CGFloat) -> CGFloat {
+        guard width > 0, composition.isEmpty == false else { return 0 }
+        return attributedString(for: composition).boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            context: nil
+        ).height.rounded(.up)
+    }
 
     /// The attributes every run carries: the voice, the ink, an exact line height, and the design's
     /// tracking.
@@ -75,7 +90,8 @@ struct InlineTokenAttributes {
             palette: palette,
             dynamicTypeSize: dynamicTypeSize,
             scale: displayScale,
-            colorScheme: colorScheme
+            colorScheme: colorScheme,
+            isSelected: token.id == selectedTokenID
         ) {
             image.accessibilityLabel = Self.accessibilityLabel(for: token)
             attachment.image = image

@@ -44,9 +44,18 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<true/>
 	</dict>
-	<!-- Asked only when the restaurant picker is first opened (spec §6.1), never at launch. -->
+	<!-- Asked only when the place sheet is first opened, never at launch, and only to list the
+	     places near you. Design rule 8 stands: nothing is ever attached from a location. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Ate uses your location to show restaurants near you when you're logging a dish.</string>
+	<string>Ate lists the places near you when you're choosing where an entry happened. Nothing is attached until you tap one.</string>
+
+	<!-- The composer's camera key. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Ate uses the camera to take a photo of what you're eating, for the entry you're writing.</string>
+
+	<!-- Asked only when Suggestions is opened, to offer recent photos to write up. -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Ate looks at your recent photos so it can offer the meals you haven't written up yet.</string>
 
 	<key>UISupportedInterfaceOrientations</key>
 	<array>

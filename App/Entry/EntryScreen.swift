@@ -10,6 +10,21 @@ struct EntryRoute: Hashable, Identifiable {
     var id: UUID { entryID }
 }
 
+/// Everywhere the Journal tab's stack can go. One type, because a `NavigationStack`'s path is one
+/// type — and both destinations are pushes with the tab bar still under them.
+enum JournalRoute: Hashable {
+    case entry(EntryRoute)
+    /// `Suggestions` — recent photos, offered as sittings to write up.
+    case suggestions
+
+    var entryID: UUID? {
+        switch self {
+        case .entry(let route): route.entryID
+        case .suggestions: nil
+        }
+    }
+}
+
 /// **`Entry`** — the words on their own page, with the receipt feeding out from underneath them.
 ///
 /// The overlap is the whole picture: the words card sits on top, the paper slides out from behind it
@@ -87,7 +102,7 @@ struct EntryScreen: View {
             }
         }
         .padding(.horizontal, AteMetrics.regular)
-        .padding(.top, AteMetrics.contentTop)
+        .ateContentTop()
         .background(AtePalette.automatic.ground)
     }
 
@@ -103,7 +118,6 @@ struct EntryScreen: View {
         ) { place in
             Task { await model.correctPlace(place) }
         }
-        .presentationDetents([.large])
     }
 
     private func dishSheet(_ item: AteReceipt.Item) -> some View {
@@ -115,7 +129,6 @@ struct EntryScreen: View {
         ) { dishID, dishName in
             Task { await model.correctDish(reviewID: item.id, dishID: dishID, dishName: dishName) }
         }
-        .presentationDetents([.large])
     }
 
     @ViewBuilder
@@ -143,11 +156,11 @@ struct EntryScreen: View {
         .padding(.bottom, AteMetrics.loose)
         .frame(maxWidth: .infinity, alignment: .leading)
         .atePaper()
-        .background(
+        .ateBackground(
             AteColor.paper,
-            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous),
+            shadow: .wordsCard
         )
-        .shadow(color: AteColor.ink.opacity(0.35), radius: 11, x: 0, y: 14)
         .zIndex(1)
     }
 
@@ -157,7 +170,8 @@ struct EntryScreen: View {
         case .printed(let receipt):
             ReceiptView(
                 receipt: receipt,
-                additionalTopInset: Self.overlap,
+                topPadding: Self.topPadding,
+                topRadius: 0,
                 onPlaceTap: { model.isCorrectingPlace = true },
                 onItemTap: { model.correcting = EntryModel.Correcting(item: $0) }
             )
@@ -180,4 +194,6 @@ struct EntryScreen: View {
 
     /// How far the words card sits over the paper — the design's `margin:-16px`.
     private static let overlap: CGFloat = 16
+    /// `Entry.dc.html`'s `padding:32px 16px 14px` on the receipt.
+    private static let topPadding: CGFloat = 32
 }

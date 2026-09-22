@@ -47,6 +47,15 @@ public struct PlaceDirectoryClient: PlaceDirectory {
         return rows.map(PlaceSuggestion.init)
     }
 
+    /// `places-search?op=nearby`, already KNN-ordered and capped by the edge function. Returned in
+    /// the server's order, never re-sorted.
+    public func nearby(latitude: Double, longitude: Double) async throws -> [PlaceSuggestion] {
+        let rows = try await restaurants.nearby(
+            origin: SearchOrigin(latitude: latitude, longitude: longitude)
+        )
+        return rows.map(PlaceSuggestion.init)
+    }
+
     public func resolve(_ suggestion: PlaceSuggestion) async throws -> PlaceRef {
         switch suggestion.selection {
         case .restaurant(let id):
@@ -122,13 +131,17 @@ extension PlaceSuggestion {
     init(_ row: RestaurantRowModel) {
         switch row.selection {
         case .restaurant(id: let id):
-            self.init(restaurantID: id, name: row.name, subtitle: row.secondary)
+            self.init(
+                restaurantID: id, name: row.name, subtitle: row.secondary,
+                distanceMeters: row.distanceMeters
+            )
         case .place(googlePlaceID: let googlePlaceID):
             self.init(
                 id: googlePlaceID,
                 name: row.name,
                 subtitle: row.secondary,
-                selection: .googlePlace(googlePlaceID)
+                selection: .googlePlace(googlePlaceID),
+                distanceMeters: row.distanceMeters
             )
         }
     }

@@ -18,21 +18,41 @@ public struct PlaceSuggestion: Identifiable, Sendable, Hashable {
     /// to say shows nothing (design rule 1).
     public var subtitle: String?
     public var selection: Selection
+    /// How far away, when the row came from a nearby search. `PlaceSheet.dc.html` prints it at the
+    /// right of the row ("20 m", "140 m"); a typed result has none and shows none.
+    public var distanceMeters: Double?
 
-    public init(id: String, name: String, subtitle: String? = nil, selection: Selection) {
+    public init(
+        id: String,
+        name: String,
+        subtitle: String? = nil,
+        selection: Selection,
+        distanceMeters: Double? = nil
+    ) {
         self.id = id
         self.name = name
         self.subtitle = subtitle
         self.selection = selection
+        self.distanceMeters = distanceMeters
     }
 
-    public init(restaurantID: UUID, name: String, subtitle: String? = nil) {
+    public init(restaurantID: UUID, name: String, subtitle: String? = nil, distanceMeters: Double? = nil) {
         self.init(
             id: restaurantID.uuidString.lowercased(),
             name: name,
             subtitle: subtitle,
-            selection: .restaurant(restaurantID)
+            selection: .restaurant(restaurantID),
+            distanceMeters: distanceMeters
         )
+    }
+
+    /// "20 m", "140 m", "1.2 km" — the artboard's own right-hand column.
+    public var distance: String? {
+        guard let distanceMeters, distanceMeters >= 0 else { return nil }
+        if distanceMeters < 1000 {
+            return "\(Int(distanceMeters.rounded())) m"
+        }
+        return "\((distanceMeters / 1000).formatted(.number.precision(.fractionLength(0...1)))) km"
     }
 
     /// The row that is already a place we hold, if this is one.
@@ -50,6 +70,10 @@ public protocol PlaceDirectory: Sendable {
     func search(_ query: String) async throws -> [PlaceSuggestion]
     /// The empty-query default: places this person has already eaten at.
     func recents(limit: Int) async throws -> [PlaceSuggestion]
+    /// `PlaceSheet`'s Nearby section. Asked for **only** when the sheet has a location to ask with,
+    /// which is only ever after the person allowed it on this screen. Design rule 8 is untouched:
+    /// this lists rooms, it never attaches one.
+    func nearby(latitude: Double, longitude: Double) async throws -> [PlaceSuggestion]
     /// Turns a tapped row into a real place with a UUID. Free for rows that are already rows.
     func resolve(_ suggestion: PlaceSuggestion) async throws -> PlaceRef
     /// "Add a new place" — `add_manual_restaurant`. The only create path that is not Google's.

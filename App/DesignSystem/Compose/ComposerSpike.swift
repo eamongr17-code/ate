@@ -84,7 +84,7 @@ struct ComposerSpike: View {
             }
             .padding(.trailing, AteMetrics.regular)
         }
-        .padding(.top, AteMetrics.contentTop)
+        .ateContentTop()
         .padding(.leading, AteMetrics.regular)
         .padding(.bottom, AteMetrics.tight)
     }

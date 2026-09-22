@@ -82,12 +82,18 @@ struct AteReceipt: Equatable, Identifiable {
 ///
 struct ReceiptView: View {
     let receipt: AteReceipt
-    /// Extra room at the top, for when something overlaps the paper (the entry page's words card).
-    var additionalTopInset: CGFloat = 0
+    /// How far the place sits from the paper's top edge. 22 on a share card; `Entry` sets 32,
+    /// because the words card covers the first sixteen of it.
+    var topPadding: CGFloat = 22
+    /// `Entry.dc.html` gives its receipt `border-radius:0` — the paper runs out from *under* the
+    /// words card, so a rounded top would show as two corners floating in the middle of the page.
+    var topRadius: CGFloat = AteMetrics.receiptTop
     /// Present on the entry page, where the header changes the place and a line changes the dish;
     /// absent on a share card, which is a picture.
     var onPlaceTap: (() -> Void)?
     var onItemTap: ((AteReceipt.Item) -> Void)?
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(spacing: AteMetrics.snug + 2) {
@@ -99,11 +105,11 @@ struct ReceiptView: View {
             AteBarcode()
             footer
         }
-        .padding(.top, 22 + additionalTopInset)
+        .padding(.top, topPadding)
         .padding(.horizontal, AteMetrics.slipPadding)
         .padding(.bottom, AteMetrics.regular + 2 + AteMetrics.tornEdgeHeight)
         .atePaper()
-        .background(AteColor.paper, in: ReceiptPaper())
+        .background(AteColor.paper, in: ReceiptPaper(topRadius: topRadius))
     }
 
     // MARK: - Bands
@@ -136,12 +142,18 @@ struct ReceiptView: View {
             ForEach(Array(receipt.items.enumerated()), id: \.element.id) { index, item in
                 lineItem(item, number: index + 1)
                 if let note = item.note {
-                    Text(verbatim: "\u{201C}\(note)\u{201D}")
-                        .ateText(.proseNote)
-                        .foregroundStyle(AtePalette.paper.muted)
-                        .padding(.leading, 26)
-                        .padding(.bottom, 6)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    // `.note`: 14 italic on `line-height:1.35`, inset 26, 6 under. Straight quotes,
+                    // as the artboard prints them — a receipt is a printout, not a typeset page.
+                    // An exact line box, so a note that wraps stacks the way the design stacks it.
+                    AteExactText(
+                        text: "\"\(note)\"",
+                        style: .proseNote,
+                        alignment: .leading,
+                        colour: AtePalette.paper.muted
+                    )
+                    .padding(.leading, 26)
+                    .padding(.bottom, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
@@ -171,6 +183,9 @@ struct ReceiptView: View {
                     .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
             }
         }
+        // `.li` is `line-height:1.65` — the row's box, not the glyphs'. A minimum, not a fixed
+        // height: a dish name long enough to wrap grows its row, as a flex row does.
+        .frame(minHeight: AteTextStyle.receiptLine.lineBox(dynamicTypeSize))
         .accessibilityElement(children: .combine)
 
         if let onItemTap {

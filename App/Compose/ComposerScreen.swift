@@ -20,7 +20,13 @@ struct ComposerScreen: View {
 
     @State private var model: ComposerModel
     @State private var pickedItems: [PhotosPickerItem] = []
+    @State private var isTakingPhoto = false
     @State private var isSaving = false
+    /// The editor's width, for measuring where the words end.
+    @State private var editorWidth: CGFloat = 0
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.displayScale) private var displayScale
+    @Environment(\.colorScheme) private var colorScheme
     /// Only the debug undo drive moves these; see ``ComposerDebugLaunch/undoDriveArgument``.
     @State private var undoRequest = 0
     @State private var redoRequest = 0
@@ -55,7 +61,16 @@ struct ComposerScreen: View {
             ) { place in
                 services.analytics(model.attach(place: place))
             }
-            .presentationDetents([.large])
+        }
+        .fullScreenCover(isPresented: $isTakingPhoto) {
+            CameraPicker { image in
+                model.setPhotos(ComposerPhotoStaging.stage(
+                    images: [(id: UUID().uuidString, image: image)],
+                    in: model.photoDirectory,
+                    existing: model.photos
+                ))
+            }
+            .ignoresSafeArea()
         }
         .onChange(of: pickedItems) { _, items in
             Task { await stage(items) }
@@ -66,6 +81,7 @@ struct ComposerScreen: View {
                 isResumingDraft: model.isResumingDraft
             ))
         }
+        .task { await stageSuggestedPhotos() }
     }
 
     private var origin: ComposerOrigin {
@@ -73,7 +89,25 @@ struct ComposerScreen: View {
         case .tabBar: .tabBar
         case .journalEmpty: .journalEmpty
         case .entryEdit: .entryEdit
+        case .photoSuggestion: .photoSuggestion
         }
+    }
+
+    /// A composer opened from `Suggestions` arrives holding a cluster's photos. They are staged the
+    /// same way the picker's are — bytes on disk before anything else happens — and they bring
+    /// nothing with them but their pixels.
+    private func stageSuggestedPhotos() async {
+        guard presentation.assetIdentifiers.isEmpty == false, model.photos.isEmpty else { return }
+        var images: [(id: String, image: UIImage)] = []
+        for identifier in presentation.assetIdentifiers {
+            guard let image = await services.photos.image(
+                id: identifier, maximumDimension: ComposerPhotoStaging.maximumDimension
+            ) else { continue }
+            images.append((id: identifier, image: image))
+        }
+        model.setPhotos(ComposerPhotoStaging.stage(
+            images: images, in: model.photoDirectory, existing: model.photos
+        ))
     }
 
     // MARK: - Bands
@@ -102,7 +136,7 @@ struct ComposerScreen: View {
             .padding(.trailing, AteMetrics.regular)
             .accessibilityIdentifier("composer.done")
         }
-        .padding(.top, AteMetrics.contentTop)
+        .ateContentTop()
         .padding(.leading, AteMetrics.regular)
         .padding(.bottom, AteMetrics.tight)
     }
@@ -118,6 +152,7 @@ struct ComposerScreen: View {
                 focusRequest: model.focusRequest,
                 undoRequest: undoRequest,
                 redoRequest: redoRequest,
+                selectedTokenID: model.scoring?.id,
                 onTokenTap: reopen,
                 onCaretChange: { model.caret = $0 },
                 onScorePromoted: { wasDictated in
@@ -125,6 +160,11 @@ struct ComposerScreen: View {
                 }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            // Between the words and the panel: the cluster belongs under the sentence, and the
+            // slider opens over both.
+            photoCluster
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             if let scoring = model.scoring {
                 StarSlider(
@@ -136,18 +176,37 @@ struct ComposerScreen: View {
                 ) { rating in
                     model.commitScore(rating, for: scoring.id)
                 }
-                .padding(.top, 60)
+                // `ComposerStars` pins the panel at `top:100px` inside a column that is itself 8
+                // below the header.
+                .padding(.top, 100 - AteMetrics.snug)
                 .transition(.scale(scale: 0.96).combined(with: .opacity))
             }
         }
         .padding(.horizontal, 22)
         .padding(.top, AteMetrics.snug)
-        .overlay(alignment: .bottomLeading) { photoCluster }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { editorWidth = $0 }
+    }
+
+    /// Where the words end — measured from the same attributed string the editor draws, so the two
+    /// cannot disagree about it.
+    private var wordsHeight: CGFloat {
+        InlineTokenAttributes(
+            style: .composerProse,
+            palette: .surface,
+            dynamicTypeSize: dynamicTypeSize,
+            displayScale: displayScale,
+            colorScheme: colorScheme
+        )
+        .height(for: model.composition, width: editorWidth)
     }
 
     /// Design rule 6: the mess is tilt and overlap, in a small static cluster. The composer's is the
     /// biggest of the three (90pt), and it sits on the control surface, so the separating ring is
     /// drawn in that colour rather than in the app's ground.
+    ///
+    /// It hangs off the bottom of the words — the artboard's column is prose, then photos, with an
+    /// 18 gap. The editor itself fills the well so the blank space under it still takes a tap, so
+    /// the cluster is placed rather than stacked.
     @ViewBuilder
     private var photoCluster: some View {
         if model.photos.isEmpty == false {
@@ -156,26 +215,42 @@ struct ComposerScreen: View {
                 side: AteMetrics.clusterPhotoComposer,
                 surface: AtePalette.surface.ground
             )
-            .padding(.leading, 22)
-            .padding(.bottom, AteMetrics.snug)
+            .padding(.top, wordsHeight + Self.wordsGap)
+            .allowsHitTesting(false)
         }
     }
 
+    /// `Composer.dc.html`'s `gap:18px` between the words and the photos.
+    private static let wordsGap: CGFloat = 18
+
+    /// `Composer.dc.html`: camera · library · mic on the left, Score and Place in the middle,
+    /// visibility on the right — three groups, parted by the space between them.
     private var toolbar: some View {
         HStack(spacing: AteMetrics.snug - 2) {
-            PhotosPicker(
-                selection: $pickedItems,
-                maxSelectionCount: EntryDraft.photoLimit,
-                selectionBehavior: .ordered,
-                matching: .images,
-                photoLibrary: .shared()
-            ) {
-                AteIcon.library.view(size: 22)
-                    .frame(width: AteMetrics.hit, height: AteMetrics.hit)
-                    .contentShape(.rect)
+            HStack(spacing: 0) {
+                AteIconButton(icon: .camera, label: "Camera", tint: AtePalette.surface.fg) {
+                    isTakingPhoto = UIImagePickerController.isSourceTypeAvailable(.camera)
+                }
+                PhotosPicker(
+                    selection: $pickedItems,
+                    maxSelectionCount: EntryDraft.photoLimit,
+                    selectionBehavior: .ordered,
+                    matching: .images,
+                    photoLibrary: .shared()
+                ) {
+                    AteIcon.library.view(size: 22)
+                        .frame(width: AteMetrics.hit, height: AteMetrics.hit)
+                        .contentShape(.rect)
+                }
+                .foregroundStyle(AtePalette.surface.fg)
+                .accessibilityLabel("Photo library")
+                // Dictation is the keyboard's own key and iOS exposes no way to start it from an
+                // app, so this puts the caret back in the words — where the microphone is one tap
+                // away — and says nothing.
+                AteIconButton(icon: .voice, label: "Dictate", tint: AtePalette.surface.fg) {
+                    model.focusEditor()
+                }
             }
-            .foregroundStyle(AtePalette.surface.fg)
-            .accessibilityLabel("Photo library")
             Spacer(minLength: 0)
             ComposerKey(
                 title: "Score",
@@ -192,6 +267,7 @@ struct ComposerScreen: View {
             ComposerKey(
                 title: "Place",
                 icon: .place,
+                iconSize: 16,
                 background: AtePalette.surface.field,
                 foreground: AtePalette.surface.fg
             ) {
@@ -200,7 +276,9 @@ struct ComposerScreen: View {
             Spacer(minLength: 0)
             AteIconButton(
                 icon: model.isPublic ? .publicEntry : .privateEntry,
-                label: model.isPublic ? "Public. Make private" : "Private. Make public"
+                label: model.isPublic ? "Public. Make private" : "Private. Make public",
+                size: 21,
+                tint: AtePalette.surface.fg
             ) {
                 model.isPublic.toggle()
             }
@@ -289,6 +367,8 @@ struct ComposerScreen: View {
 struct ComposerKey: View {
     let title: String
     let icon: AteIcon
+    /// The artboards size the two keys' icons differently: the Score star is 15, the Place pin 16.
+    var iconSize: CGFloat = 15
     let background: Color
     let foreground: Color
     /// Inverted, the way `ComposerStars` draws the Score key while its slider is open: the pill
@@ -299,7 +379,7 @@ struct ComposerKey: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 5) {
-                icon.view(size: 15, weight: .semibold)
+                icon.view(size: iconSize)
                 Text(title).ateText(.controlSmall)
             }
             .padding(.leading, 9)

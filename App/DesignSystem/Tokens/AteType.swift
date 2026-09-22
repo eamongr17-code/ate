@@ -42,6 +42,16 @@ struct AteTextStyle: Equatable, Sendable {
     /// well (a tab-bar label, a receipt's mono labels) is capped; prose never is.
     var maximumSize: CGFloat?
     var uppercase: Bool = false
+
+    /// The line box this style asks for, in points. A `Text` gets it from `lineSpacing`, but a row
+    /// built out of several views — a receipt's line item is a number, a name, a leader and a score
+    /// — has to be given it as a height, or the rows stack at the font's own line height and the
+    /// bill loses its rhythm (`.li` is `13px/1.65` = 21.45, and it came out 17).
+    func lineBox(_ dynamicTypeSize: DynamicTypeSize) -> CGFloat {
+        // Not rounded: 13 × 1.65 is 21.45, and rounding it to 21 loses half a point per row — three
+        // line items into a bill that is a point and a half short of the artboard.
+        AteFont.size(for: self, dynamicTypeSize: dynamicTypeSize) * lineHeight
+    }
 }
 
 // MARK: - The named styles
@@ -72,7 +82,7 @@ extension AteTextStyle {
     /// The one line an empty slip says. 34pt — it sits inside paper, not on the ground, so it is a
     /// step down from ``screenTitle``.
     static let emptyTitle = AteTextStyle(
-        voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.06, textStyle: .title
+        voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
     )
     /// A number in a statement's cell: "142". 28pt.
     static let statValue = AteTextStyle(
@@ -81,6 +91,10 @@ extension AteTextStyle {
     /// The live numeral on the star slider. 40pt.
     static let scoreHero = AteTextStyle(
         voice: .display, size: 40, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
+    )
+    /// A pushed page's own name, beside a back arrow: "From your photos". 24pt.
+    static let pageTitle = AteTextStyle(
+        voice: .display, size: 24, weight: 800, trackingEm: -0.025, lineHeight: 1.0, textStyle: .title2
     )
     /// A place name heading a journal slip. 22pt.
     static let slipPlace = AteTextStyle(
@@ -96,6 +110,10 @@ extension AteTextStyle {
     /// The default control label: segment, chip, row. 15pt.
     static let control = AteTextStyle(
         voice: .display, size: 15, weight: 600, trackingEm: -0.01, lineHeight: 1.2, textStyle: .body
+    )
+    /// A row's own name in a list, and what is typed into a sheet's search field. `.ui` at 17.
+    static let rowTitle = AteTextStyle(
+        voice: .display, size: 17, weight: 600, trackingEm: -0.01, lineHeight: 1.2, textStyle: .body
     )
     /// A smaller control label: segments, toolbar keys, handles. 14pt.
     static let controlSmall = AteTextStyle(
@@ -114,6 +132,11 @@ extension AteTextStyle {
         voice: .display, size: 10.5, weight: 700, trackingEm: 0, lineHeight: 1.2,
         textStyle: .caption2, maximumSize: 14
     )
+    /// The count in the journal header's coral badge. 11pt, capped — it lives in an 18pt disc.
+    static let badge = AteTextStyle(
+        voice: .display, size: 11, weight: 600, trackingEm: -0.01, lineHeight: 1.2,
+        textStyle: .caption2, maximumSize: 13
+    )
     /// "2h", "5 photos", a date above a slip. 13pt/500.
     static let meta = AteTextStyle(
         voice: .display, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote
@@ -130,9 +153,14 @@ extension AteTextStyle {
     static let composerProse = AteTextStyle(
         voice: .prose, size: 19, weight: 400, lineHeight: 1.5, textStyle: .body
     )
-    /// The one line an empty slip or Welcome says under its title. 17pt.
+    /// The one line an empty slip or Welcome says under its title. 17pt — `.prose`'s own 1.5.
     static let proseLarge = AteTextStyle(
-        voice: .prose, size: 17, weight: 400, lineHeight: 1.45, textStyle: .body
+        voice: .prose, size: 17, weight: 400, lineHeight: 1.5, textStyle: .body
+    )
+    /// The words in a journal slip. 16pt at `.prose`'s 1.5 — the entry page sets 1.45 by hand, and
+    /// the two really are different in the markup.
+    static let slipProse = AteTextStyle(
+        voice: .prose, size: 16, weight: 400, lineHeight: 1.5, textStyle: .body
     )
     /// Welcome's promise, set italic and centred. 19pt.
     static let proseQuote = AteTextStyle(
@@ -264,125 +292,6 @@ enum AteFontAxis {
     static let weight = 0x7767_6874
     /// `opsz`
     static let opticalSize = 0x6F70_737A
-}
-
-/// Finds the bundled font files and registers them with Core Text.
-///
-/// Registration happens lazily on first use rather than at app launch, so SwiftUI previews and the
-/// debug gallery get the real fonts without depending on anything having run first.
-private final class AteFontRegistry: @unchecked Sendable {
-    struct Face {
-        let family: String
-        private let regular: String
-        /// DM Mono is not variable: its medium is a separate file, chosen by weight.
-        private let medium: String?
-        let variationAxes: Set<Int>?
-        let opticalSizeRange: ClosedRange<CGFloat>?
-
-        init(
-            family: String,
-            regular: String,
-            medium: String? = nil,
-            variationAxes: Set<Int>?,
-            opticalSizeRange: ClosedRange<CGFloat>?
-        ) {
-            self.family = family
-            self.regular = regular
-            self.medium = medium
-            self.variationAxes = variationAxes
-            self.opticalSizeRange = opticalSizeRange
-        }
-
-        var postScriptName: String { regular }
-
-        func postScriptName(forWeight weight: CGFloat) -> String {
-            guard variationAxes == nil, weight >= 450, let medium else { return regular }
-            return medium
-        }
-    }
-
-    static let shared = AteFontRegistry()
-
-    private let faces: [String: Face]
-    let faceNames: [String]
-
-    var isAvailable: Bool { faces.isEmpty == false }
-
-    private init() {
-        Self.registerBundledFonts()
-        var found: [String: Face] = [:]
-        var names: [String] = []
-        for candidate in Self.candidates {
-            guard let font = UIFont(name: candidate.postScriptName, size: 12),
-                  font.familyName == candidate.family else { continue }
-            found[candidate.key] = candidate.face
-            names.append(contentsOf: UIFont.fontNames(forFamilyName: candidate.family))
-        }
-        self.faces = found
-        self.faceNames = Array(Set(names)).sorted()
-    }
-
-    func face(for voice: AteVoice, italic: Bool) -> Face? {
-        faces[Self.key(voice: voice, italic: italic)] ?? faces[Self.key(voice: voice, italic: false)]
-    }
-
-    // MARK: Registration
-
-    /// Registers every `.ttf` in the bundle. Looks in the bundle root and in a `Fonts` subdirectory,
-    /// because whether a synchronized Xcode group flattens resources is not something to depend on.
-    private static func registerBundledFonts() {
-        var urls = Bundle.main.urls(forResourcesWithExtension: "ttf", subdirectory: nil) ?? []
-        urls += Bundle.main.urls(forResourcesWithExtension: "ttf", subdirectory: "Fonts") ?? []
-        guard urls.isEmpty == false else { return }
-        CTFontManagerRegisterFontURLs(Array(Set(urls)) as CFArray, .process, true, nil)
-    }
-
-    // MARK: The files, as shipped
-
-    private struct Candidate {
-        let voice: AteVoice
-        let italic: Bool
-        let face: Face
-
-        var key: String { AteFontRegistry.key(voice: voice, italic: italic) }
-        var postScriptName: String { face.postScriptName }
-        var family: String { face.family }
-    }
-
-    /// PostScript names and axis ranges read out of the shipped files with a Core Text dump, not
-    /// guessed: Bricolage's default instance is its 96pt ExtraBold, and Newsreader's is 16pt Regular.
-    private static let candidates: [Candidate] = [
-        Candidate(voice: .display, italic: false, face: Face(
-            family: "Bricolage Grotesque",
-            regular: "BricolageGrotesque-96ptExtraBold",
-            variationAxes: [AteFontAxis.weight, AteFontAxis.opticalSize],
-            opticalSizeRange: 12...96
-        )),
-        Candidate(voice: .prose, italic: false, face: Face(
-            family: "Newsreader",
-            regular: "Newsreader16pt-Regular",
-            variationAxes: [AteFontAxis.weight, AteFontAxis.opticalSize],
-            opticalSizeRange: 6...72
-        )),
-        Candidate(voice: .prose, italic: true, face: Face(
-            family: "Newsreader",
-            regular: "Newsreader16pt-Italic",
-            variationAxes: [AteFontAxis.weight, AteFontAxis.opticalSize],
-            opticalSizeRange: 6...72
-        )),
-        Candidate(voice: .mono, italic: false, face: Face(
-            family: "DM Mono", regular: "DMMono-Regular", medium: "DMMono-Medium",
-            variationAxes: nil, opticalSizeRange: nil
-        )),
-        Candidate(voice: .mono, italic: true, face: Face(
-            family: "DM Mono", regular: "DMMono-Italic",
-            variationAxes: nil, opticalSizeRange: nil
-        ))
-    ]
-
-    fileprivate static func key(voice: AteVoice, italic: Bool) -> String {
-        "\(voice)-\(italic)"
-    }
 }
 
 // MARK: - Bridges

@@ -76,6 +76,9 @@ struct AteDashedLine: View {
     var dash: [CGFloat] = AteMetrics.ruleDash
     var opacity: Double = 0.35
     var lineWidth: CGFloat = AteMetrics.ruleWidth
+    /// Round for a leader's dots, butt for a rule's dashes — CSS `dotted` is round and `dashed` is
+    /// square, and at 1.5px the difference is the difference between a dotted line and a dashed one.
+    var lineCap: CGLineCap = .butt
     /// `.vertical` is the statement slip's column divider — the same rule, stood up.
     var axis: Axis = .horizontal
 
@@ -94,7 +97,7 @@ struct AteDashedLine: View {
             context.stroke(
                 path,
                 with: .color(palette.fg.opacity(opacity)),
-                style: StrokeStyle(lineWidth: lineWidth, dash: dash)
+                style: StrokeStyle(lineWidth: lineWidth, lineCap: lineCap, dash: dash)
             )
         }
         .frame(
@@ -112,22 +115,27 @@ struct AteDashedRule: View {
 
 /// The dot leaders between a line item and its score — the detail that makes a list of dishes read as
 /// a bill.
+/// `border-bottom:1.5px dotted rgba(36,20,31,.3)` — round dots the width of the line, on a 3pt
+/// pitch. A zero-length dash with a round cap *is* a circle, which is the only way to get a dot
+/// rather than a 1.5×1.5 square out of a stroke.
 struct AteDotLeader: View {
     var body: some View {
-        AteDashedLine(dash: AteMetrics.leaderDash, opacity: 0.3)
+        AteDashedLine(dash: AteMetrics.leaderDash, opacity: 0.3, lineCap: .round)
             .frame(minWidth: AteMetrics.loose)
     }
 }
 
 /// A plain hairline. Design rule 3's "everything else": no container, just a rule between peers.
+///
+/// A full point, not a device pixel: the artboards write `border-top:1px`, which is a CSS pixel — one
+/// *point* — and a third of that reads as a smudge next to the dashed rules it sits among.
 struct AteHairline: View {
     @Environment(\.atePalette) private var palette
-    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         Rectangle()
             .fill(palette.hairline)
-            .frame(height: AteMetrics.hairline(displayScale: displayScale))
+            .frame(height: 1)
             .accessibilityHidden(true)
     }
 }

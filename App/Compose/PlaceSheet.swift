@@ -4,10 +4,11 @@ import SwiftUI
 /// **`PlaceSheet`** — "Where was this?". The one place a place is chosen, shared by the composer's
 /// Place key and the entry's receipt header, so the same action works identically in both.
 ///
-/// Design rule 8 is the whole contract of this sheet: a place is attached because it was **named or
-/// tapped**. Nothing here reads location — the design's "Nearby" section is milestone 2, and until
-/// there is a reason to ask for the permission, an empty query shows the places you have already
-/// eaten at instead.
+/// Two sections, as `PlaceSheet.dc.html` draws them: **Best match**, which comes from the words
+/// somebody typed, and **Nearby**, which comes from the phone — the one screen in the app that asks
+/// for location, and only as this sheet opens. Design rule 8 is untouched by that: nearby rooms are
+/// *listed*, never attached. A place lands on an entry because it was named or tapped, and a refused
+/// permission costs exactly one section.
 struct PlaceSheet: View {
     let directory: any PlaceDirectory
     /// Pre-filled with what the person already typed, when there is something to go on — the words,
@@ -35,9 +36,16 @@ struct PlaceSheet: View {
             }
         }
         .ateSurface()
+        // `PlaceSheet.dc.html` is 716 of the page's 844.
+        .presentationDetents([.height(AteScreen.sheetHeight(716))])
         .task {
-            let model = model ?? PlaceSearchModel(directory: directory, query: initialQuery)
+            let model = model ?? PlaceSearchModel(
+                directory: directory, query: initialQuery, selected: selected
+            )
             self.model = model
+            #if DEBUG
+            if ComposerDebugLaunch.opensAddPlace { isAddingPlace = true }
+            #endif
             await model.start()
         }
         .sheet(isPresented: $isAddingPlace) {
@@ -55,41 +63,78 @@ struct PlaceSheet: View {
 
     @ViewBuilder
     private func content(_ model: PlaceSearchModel) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: AteMetrics.sheetGap) {
             if model.results.isEmpty == false {
-                section(model.sectionTitle)
-                ForEach(model.results) { suggestion in
-                    AteRadioRow(
-                        title: suggestion.name,
-                        subtitle: suggestion.subtitle,
-                        isSelected: model.isSelected(suggestion)
-                    ) {
-                        Task { await model.pick(suggestion) }
+                section(model.sectionTitle) {
+                    ForEach(model.results) { suggestion in
+                        row(suggestion, model: model)
                     }
                 }
             }
-            Button {
-                isAddingPlace = true
-            } label: {
+            // Absent, not empty, when there is no permission — the design has no "turn on location"
+            // copy and this screen is not the place to invent any.
+            if model.nearby.isEmpty == false {
+                section("Nearby") {
+                    ForEach(model.nearby) { suggestion in
+                        row(suggestion, model: model)
+                    }
+                    addPlaceRow
+                }
+            } else {
+                addPlaceRow
+            }
+        }
+    }
+
+    private func row(_ suggestion: PlaceSuggestion, model: PlaceSearchModel) -> some View {
+        AteListRow(
+            title: suggestion.name,
+            subtitle: suggestion.subtitle,
+            leading: { AteIcon.place.view(size: 20) },
+            trailing: {
+                HStack(spacing: AteMetrics.regular) {
+                    if let distance = suggestion.distance {
+                        Text(distance)
+                            .ateText(.meta)
+                            .foregroundStyle(AtePalette.surface.muted)
+                    }
+                    AteRadioMark(isSelected: model.isSelected(suggestion))
+                }
+            },
+            action: { Task { await model.pick(suggestion) } }
+        )
+        .accessibilityAddTraits(model.isSelected(suggestion) ? [.isButton, .isSelected] : .isButton)
+        .accessibilityIdentifier("row.\(suggestion.name)")
+    }
+
+    private var addPlaceRow: some View {
+        Button {
+            isAddingPlace = true
+        } label: {
+            VStack(spacing: 0) {
+                AteHairline()
                 HStack(spacing: AteMetrics.regular) {
                     AteIcon.compose.view(size: 20)
                     Text("Add a new place").ateText(.control)
                     Spacer(minLength: 0)
                 }
                 .frame(minHeight: 54)
-                .contentShape(.rect)
             }
-            .buttonStyle(.plain)
-            .overlay(alignment: .top) { AteHairline() }
+            .contentShape(.rect)
         }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("place.add")
     }
 
-    private func section(_ title: String) -> some View {
-        Text(title)
-            .ateText(.meta)
-            .foregroundStyle(AtePalette.surface.muted)
-            .padding(.top, AteMetrics.tight)
-            .padding(.bottom, AteMetrics.snug)
+    private func section(_ title: String, @ViewBuilder rows: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title)
+                .ateText(.meta)
+                .foregroundStyle(AtePalette.surface.muted)
+                .padding(.top, AteMetrics.tight)
+                .padding(.bottom, AteMetrics.snug)
+            rows()
+        }
     }
 }
 
@@ -105,36 +150,56 @@ final class PlaceSearchModel {
     }
 
     private(set) var results: [PlaceSuggestion] = []
+    /// The rooms around the phone. Empty when the permission was never given — the section then
+    /// simply is not drawn.
+    private(set) var nearby: [PlaceSuggestion] = []
     private(set) var picked: PlaceRef?
     private(set) var isSearching = false
     /// True while the results are the empty-query default rather than a search.
     private(set) var isShowingRecents = true
 
     private let directory: any PlaceDirectory
+    private let location = AteLocation()
     private var search: Task<Void, Never>?
     private var pickedSuggestionID: String?
+    /// The place the entry already carries. It comes back marked and its "Use …" button is there
+    /// from the first frame — a sheet that opens with nothing chosen makes the person re-pick the
+    /// answer they already gave.
+    private let selectedRestaurantID: UUID?
 
     /// Long enough that a fast typist costs one Places call rather than eight, short enough that it
     /// never feels like waiting.
     private static let debounce = Duration.milliseconds(280)
 
-    init(directory: any PlaceDirectory, query: String = "") {
+    init(directory: any PlaceDirectory, query: String = "", selected: UUID? = nil) {
         self.directory = directory
         self.query = query
+        self.selectedRestaurantID = selected
     }
 
     var sectionTitle: String { isShowingRecents ? "Recent" : "Best match" }
 
     func isSelected(_ suggestion: PlaceSuggestion) -> Bool {
-        pickedSuggestionID == suggestion.id
+        if let pickedSuggestionID { return pickedSuggestionID == suggestion.id }
+        return suggestion.restaurantID != nil && suggestion.restaurantID == selectedRestaurantID
     }
 
     func start() async {
+        async let near: Void = loadNearby()
         if query.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 {
             await run()
         } else {
             await loadRecents()
         }
+        await near
+    }
+
+    /// The one location ask in the app, made as the sheet opens. No permission, no section.
+    private func loadNearby() async {
+        guard let coordinate = await location.current() else { return }
+        nearby = (try? await directory.nearby(
+            latitude: coordinate.latitude, longitude: coordinate.longitude
+        )) ?? []
     }
 
     /// Tapping a row resolves it there and then: a Google prediction becomes a real row, which is
@@ -168,6 +233,16 @@ final class PlaceSearchModel {
         guard Task.isCancelled == false else { return }
         isShowingRecents = false
         results = found
+        adoptSelected(from: found)
+    }
+
+    /// The place the entry already has, found in a result set — so its "Use …" button is live
+    /// without a tap.
+    private func adoptSelected(from suggestions: [PlaceSuggestion]) {
+        guard picked == nil, let selectedRestaurantID,
+              let match = suggestions.first(where: { $0.restaurantID == selectedRestaurantID })
+        else { return }
+        picked = PlaceRef(id: selectedRestaurantID, name: match.name)
     }
 
     private func loadRecents() async {
@@ -175,5 +250,6 @@ final class PlaceSearchModel {
         guard Task.isCancelled == false else { return }
         isShowingRecents = true
         results = recent
+        adoptSelected(from: recent)
     }
 }

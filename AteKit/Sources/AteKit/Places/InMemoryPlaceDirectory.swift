@@ -24,6 +24,11 @@ public struct InMemoryPlaceDirectory: PlaceDirectory {
         Array(places.prefix(limit))
     }
 
+    /// `PlaceSheet.dc.html`'s own Nearby list, distances and all.
+    public func nearby(latitude: Double, longitude: Double) async throws -> [PlaceSuggestion] {
+        Self.nearbyMelbourne
+    }
+
     public func resolve(_ suggestion: PlaceSuggestion) async throws -> PlaceRef {
         PlaceRef(id: suggestion.restaurantID ?? UUID(), name: suggestion.name)
     }
@@ -48,6 +53,15 @@ public struct InMemoryPlaceDirectory: PlaceDirectory {
                         name: "Osteria Ilaria", subtitle: "367 Little Bourke St"),
         PlaceSuggestion(restaurantID: UUID(uuidString: "B7E00000-0000-4000-8000-000000000005")!,
                         name: "400 Gradi", subtitle: "99 Lygon St")
+    ]
+
+    static let nearbyMelbourne: [PlaceSuggestion] = [
+        PlaceSuggestion(restaurantID: UUID(uuidString: "B7E00000-0000-4000-8000-000000000004")!,
+                        name: "Osteria Ilaria", subtitle: "367 Little Bourke St", distanceMeters: 20),
+        PlaceSuggestion(restaurantID: UUID(uuidString: "B7E00000-0000-4000-8000-000000000006")!,
+                        name: "Kirk's Wine Bar", subtitle: "46 Hardware Ln", distanceMeters: 90),
+        PlaceSuggestion(restaurantID: UUID(uuidString: "B7E00000-0000-4000-8000-000000000007")!,
+                        name: "Hardware Societe", subtitle: "123 Hardware St", distanceMeters: 140)
     ]
 
     static let tipoMenu: [UUID: [PlaceDish]] = [

@@ -31,9 +31,11 @@ struct AtePhotoTile: View {
         .frame(width: side, height: side)
         .clipShape(shape)
         .overlay {
+            // `box-shadow:0 0 0 3px var(--surface)` — the ring sits entirely OUTSIDE the photo, so
+            // the white parting between two overlapping tiles is a full 3pt, not half of one.
             if let ring {
                 shape.strokeBorder(ring, lineWidth: AteMetrics.photoRing)
-                    .padding(-AteMetrics.photoRing / 2)
+                    .padding(-AteMetrics.photoRing)
             }
         }
         .accessibilityHidden(true)
@@ -51,15 +53,46 @@ private struct AtePhotoContent: View {
         if let image = photo.image {
             image.resizable().scaledToFill()
         } else if let url = photo.url {
-            AsyncImage(url: url) { loaded in
-                loaded.resizable().scaledToFill()
-            } placeholder: {
-                palette.field
+            #if DEBUG
+            if let bundled = Self.bundled(url) {
+                bundled.resizable().scaledToFill()
+            } else {
+                remote(url)
             }
+            #else
+            remote(url)
+            #endif
         } else {
             palette.field
         }
     }
+
+    private func remote(_ url: URL) -> some View {
+        AsyncImage(url: url) { loaded in
+            loaded.resizable().scaledToFill()
+        } placeholder: {
+            palette.field
+        }
+    }
+
+    #if DEBUG
+    /// The prototype photos, for `-ate-preview-data`. `asset://ragu` is the design's own fixture;
+    /// `preview://<entry>/<n>` is what the in-memory service mints when a written entry's photos
+    /// "upload", so a drive sees food rather than grey squares.
+    private static func bundled(_ url: URL) -> Image? {
+        switch url.scheme {
+        case "asset":
+            return url.host().map { Image("Photos/\($0)") }
+        case "preview":
+            let index = Int(url.lastPathComponent) ?? 0
+            return Image("Photos/\(names[abs(index) % names.count])")
+        default:
+            return nil
+        }
+    }
+
+    private static let names = ["ragu", "prawn", "tiramisu", "sushi", "burger", "pizza", "cake", "penne"]
+    #endif
 }
 
 /// **The mess.** Design rule 6: photos tilt and overlap *only* in small static clusters — the entry
@@ -93,8 +126,10 @@ struct PhotoCluster: View {
                     .zIndex(Double(photos.count - index))
             }
         }
-        .padding(.vertical, AteMetrics.tight)
-        .padding(.leading, AteMetrics.snug)
+        // The artboards' own `padding:4px 0 2px 6px` around a cluster.
+        .padding(.top, AteMetrics.tight)
+        .padding(.bottom, AteMetrics.hairspace)
+        .padding(.leading, 6)
         .accessibilityElement()
         .accessibilityLabel(photos.count == 1 ? "1 photo" : "\(photos.count) photos")
     }

@@ -18,7 +18,7 @@ struct AteSheet<Content: View>: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AteMetrics.loose) {
+        VStack(alignment: .leading, spacing: AteMetrics.sheetGap) {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
                     .ateText(.sheetTitle)
@@ -28,7 +28,8 @@ struct AteSheet<Content: View>: View {
                 AteIconButton(icon: .close, label: "Close") { dismiss() }
                     .padding(.trailing, -10)
             }
-            .padding(.top, AteMetrics.section)
+            // 10 above the grabber + the grabber + the design's own 14 gap.
+            .padding(.top, AteMetrics.sheetTop - 8)
             if let searchText, let searchPrompt {
                 AteSearchField(prompt: searchPrompt, text: searchText)
             }
@@ -39,7 +40,8 @@ struct AteSheet<Content: View>: View {
             .scrollBounceBehavior(.basedOnSize)
             if let primary {
                 AteButton(title: primary.title, action: primary.action)
-                    .padding(.bottom, AteMetrics.snug)
+                    // `margin-bottom:34px` — the sheet's own clearance above the home indicator.
+                    .padding(.bottom, AteMetrics.sheetBottom)
             }
         }
         .padding(.horizontal, AteMetrics.gutter)
@@ -54,34 +56,28 @@ struct AteSheet<Content: View>: View {
 struct AteSearchField: View {
     let prompt: String
     @Binding var text: String
+    /// A sheet's field is 50 on the surface's `field`; `Search`'s own is 52 on `chip` with a wider
+    /// inset. Both are in the markup, so both are here.
+    var height: CGFloat = AteMetrics.fieldHeight
+    var horizontalPadding: CGFloat = AteMetrics.loose
+    var background: Color?
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        HStack(spacing: AteMetrics.snug) {
-            AteIcon.search.view(size: 17)
-                .foregroundStyle(palette.muted)
+        HStack(spacing: 10) {
+            AteIcon.search.view(size: 18)
             TextField(text: $text) {
                 Text(prompt).foregroundStyle(palette.muted)
             }
-            .ateText(.control)
+            .ateText(.rowTitle)
             .textFieldStyle(.plain)
             .foregroundStyle(palette.fg)
             .submitLabel(.search)
-            if text.isEmpty == false {
-                Button {
-                    text = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 17))
-                        .foregroundStyle(palette.muted)
-                }
-                .accessibilityLabel("Clear")
-            }
         }
-        .padding(.horizontal, AteMetrics.loose)
-        .frame(height: AteMetrics.buttonHeight - 8)
-        .background(palette.field, in: .capsule)
+        .padding(.horizontal, horizontalPadding)
+        .frame(height: height)
+        .background(background ?? palette.field, in: .capsule)
     }
 }
 
