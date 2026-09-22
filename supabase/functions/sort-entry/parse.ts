@@ -455,6 +455,11 @@ function findNewDishes(
 // ---------------------------------------------------------------------------
 // NOTES — a verbatim slice, never a paraphrase (rule 9). We may only trim from the
 // ENDS of a slice; cutting from the middle would stop it being the user's words.
+//
+// THE DEFAULT IS THE CLAUSE AFTER THE DISH, because that is what the approved receipt
+// prints (design/v1/Entry: `"A bit flat after that."`). A note that opened with the dish
+// name and its score would repeat the line it sits under. 'sentence' exists as the
+// alternative — Eamon's call, one word at the call site, both styles tested.
 // ---------------------------------------------------------------------------
 export function excerptFor(
   body: string,
@@ -463,7 +468,7 @@ export function excerptFor(
   scoreSpan: [number, number] | null,
   prevEnd: number,
   nextStart: number,
-  noteStyle: 'sentence' | 'clause' = 'sentence',
+  noteStyle: 'sentence' | 'clause' = 'clause',
 ): string | null {
   const [sentStart, sentEnd] = sentenceBounds(body, Math.max(0, mentionEnd - 1));
 
@@ -480,16 +485,19 @@ export function excerptFor(
     body.slice(Math.min(scoreSpan ? Math.max(scoreSpan[1], mentionEnd) : mentionEnd, sentEnd), sentEnd);
   const sentenceIsQuotable = ownsSentence && hasOpinion(remainder);
 
-  // PREFERRED: the whole sentence, trimmed only at its ends (whitespace + a trailing
-  // comma) so it stays the user's words exactly (rule 9). A sentence reads like they
-  // wrote it; the clause after a token reads like a shred of it ("the quiet star,").
+  // 'sentence' style ONLY (not the default): the whole sentence, trimmed at its ends
+  // (whitespace + a trailing comma) so it stays the user's words exactly (rule 9). It
+  // keeps what they said before naming the dish, but it also repeats the dish name and
+  // score that the receipt line already prints — which is why the approved design, and
+  // therefore the default, is the clause below.
   if (noteStyle === 'sentence' && sentenceIsQuotable) {
     const whole = trimSentence(body.slice(quoteStart(body, sentStart, mentionStart), sentEnd));
     if (whole && hasOpinion(whole)) return whole;
   }
 
-  // Otherwise (a shared sentence, or 'clause' style): what they said AFTER the dish and
-  // its score, cut at the next dish.
+  // THE DEFAULT: what they said AFTER the dish and its score, cut at the next dish, with
+  // dangling glue and punctuation trimmed off the ends ("the quiet star," → "the quiet
+  // star"). Always a verbatim slice — trimmed, never re-joined.
   const from = Math.max(mentionEnd, scoreSpan && scoreSpan[0] >= mentionEnd ? scoreSpan[1] : 0);
   const end = Math.min(sentEnd, nextStart > from ? nextStart : sentEnd);
   const trimmed = trimExcerpt(body.slice(Math.min(from, end), end));
@@ -588,7 +596,7 @@ export function parseEntry(input: ParseInput): SortPlan {
   const body = input.body ?? '';
   const known = input.knownDishes ?? [];
   const exclude = input.excludeSpans ?? [];
-  const noteStyle = input.noteStyle ?? 'sentence';
+  const noteStyle = input.noteStyle ?? 'clause';
 
   if (!body.trim()) return { place_query: null, place_offset: null, items: [] };
 

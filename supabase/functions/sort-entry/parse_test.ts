@@ -232,16 +232,30 @@ test('a user-pinned place is matched back to the phrase in the words, or to noth
 });
 
 // ---------------------------------------------------------------------------
-// NOTES — a sentence by default, a clause on request. Always verbatim.
+// NOTES — the CLAUSE after the dish by default (design/v1/Entry prints exactly that),
+// the whole sentence on request. Always verbatim either way.
 // ---------------------------------------------------------------------------
-test('a note is the whole sentence when the dish owns it, and never a shred of one', () => {
+test('a note is the clause after the dish, and does NOT repeat the dish name or score', () => {
   const body = 'Omakase with the team. The salmon roll 4.5 was the quiet star, clean and cold. Home by nine.';
-  const sentence = parseEntry({ body, knownDishes: ['Salmon roll'] }).items[0];
-  assertEquals(sentence.note, 'The salmon roll 4.5 was the quiet star, clean and cold.');
+  const item = parseEntry({ body, knownDishes: ['Salmon roll'] }).items[0];
+  assertEquals(item.note, 'the quiet star, clean and cold.');
+  assert(!/salmon roll/i.test(item.note!), 'the receipt line above already prints the dish');
+  assert(!item.note!.includes('4.5'), 'and the score');
+});
 
-  const clause = parseEntry({ body, knownDishes: ['Salmon roll'], noteStyle: 'clause' }).items[0];
-  assertEquals(clause.note, 'the quiet star, clean and cold.');
-  assert(body.includes(clause.note!), 'both styles are verbatim slices');
+test('noteStyle: \'sentence\' is the alternative — it keeps the words before the dish', () => {
+  const body = 'Omakase with the team. The salmon roll 4.5 was the quiet star, clean and cold. Home by nine.';
+  const item = parseEntry({ body, knownDishes: ['Salmon roll'], noteStyle: 'sentence' }).items[0];
+  assertEquals(item.note, 'The salmon roll 4.5 was the quiet star, clean and cold.');
+  assert(body.includes(item.note!), 'both styles are verbatim slices');
+
+  // and it starts at the DISH, not at the tail of the sentence before it (quoteStart):
+  // sentenceBounds treats ". t" as an abbreviation so the score stays with its dish.
+  const messy = 'ok so... Tipo 00 🍝!! tagliatelle al ragù 4.5 — insane?? yes. tiramisu... 3, fine.';
+  const second = parseEntry({ body: messy, knownDishes: ['Tagliatelle al ragù', 'Tiramisu'], noteStyle: 'sentence' })
+    .items[1];
+  assertEquals(second.note, 'tiramisu... 3, fine.');
+  assert(messy.includes(second.note!));
 });
 
 test('a clause cut at the next dish does not end on a dangling comma', () => {

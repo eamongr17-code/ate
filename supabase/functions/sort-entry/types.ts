@@ -62,10 +62,14 @@ export type ParseInput = {
   excludeSpans?: Array<[number, number]>;
   /**
    * How a dish note is cut out of the words:
-   *   'sentence' (DEFAULT) — the whole sentence the dish is mentioned in, when that
-   *                          sentence is the dish's own. Reads like the diner wrote it.
-   *   'clause'             — only what follows the dish and its score. Shorter, but a
-   *                          shared sentence leaves a shred ("the quiet star,").
+   *   'clause' (DEFAULT)  — what follows the dish and its score, cut at the next dish.
+   *                         This is what the approved receipt prints
+   *                         (design/v1/Entry: `"A bit flat after that."`): a quote that
+   *                         repeats the line's own dish name and score reads badly under
+   *                         it. Dangling glue and punctuation are trimmed off the ends.
+   *   'sentence'          — the whole sentence the dish is mentioned in, when that
+   *                         sentence is the dish's own. Keeps what they said BEFORE
+   *                         naming it, at the cost of repeating the name and score.
    * Both are verbatim substrings (rule 9); this only chooses where the cut is.
    */
   noteStyle?: 'sentence' | 'clause';

@@ -90,6 +90,18 @@ test('RULE 9 across the corpus: every note is a verbatim substring of the words'
   }
 });
 
+test('RULE 9 holds for the OTHER note style too, across the corpus', () => {
+  // The corpus pins the default ('clause'). 'sentence' is an option the lead can flip, so
+  // it has to obey the same law on the same 45 entries — verbatim, never a rewrite.
+  for (const f of fixtures) {
+    const opts = { body: f.body, knownDishes: f.knownDishes ?? [] };
+    for (const item of validatePlan(parseEntry({ ...opts, noteStyle: 'sentence' }), opts).items) {
+      if (item.note === null) continue;
+      assert(f.body.includes(item.note), `${f.id}: sentence-style note is not a substring of the body`);
+    }
+  }
+});
+
 test('OFFSETS across the corpus: every published offset really points at its text', () => {
   for (const f of fixtures) {
     for (const item of sortOf(f.body, f.knownDishes ?? []).items) {
