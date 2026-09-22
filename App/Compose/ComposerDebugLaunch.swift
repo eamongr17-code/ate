@@ -50,7 +50,22 @@ enum ComposerDebugLaunch {
             drafts.clear(draftID: drafts.load()?.id)
         }
         guard has(seedArgument) else { return }
-        drafts.save(EntryDraft(composition: .previewWordsWithPlace))
+        var draft = EntryDraft(composition: .previewWordsWithPlace)
+        // …with the artboard's own three photos already staged, so `Composer` can be photographed
+        // as it is drawn rather than one cluster short of it.
+        draft.photoFiles = seedPhotos(into: drafts.photoDirectory(for: draft.id))
+        drafts.save(draft)
+    }
+
+    private static func seedPhotos(into directory: URL) -> [String] {
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return ["ragu", "prawn", "tiramisu"].compactMap { name in
+            guard let image = UIImage(named: "Photos/\(name)"),
+                  let data = image.jpegData(compressionQuality: 0.8) else { return nil }
+            let fileName = "\(name).jpg"
+            try? data.write(to: directory.appending(path: fileName), options: .atomic)
+            return fileName
+        }
     }
 
     private static func has(_ argument: String) -> Bool {

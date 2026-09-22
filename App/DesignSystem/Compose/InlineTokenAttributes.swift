@@ -24,6 +24,18 @@ struct InlineTokenAttributes {
 
     var font: UIFont { AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize) }
 
+    /// How tall these words are at this width. The composer hangs its photo cluster off the bottom
+    /// of the sentence, and measuring the *same* attributed string the editor draws is the only way
+    /// the two can agree about where that is.
+    func height(for composition: EntryComposition, width: CGFloat) -> CGFloat {
+        guard width > 0, composition.isEmpty == false else { return 0 }
+        return attributedString(for: composition).boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            context: nil
+        ).height.rounded(.up)
+    }
+
     /// The attributes every run carries: the voice, the ink, an exact line height, and the design's
     /// tracking.
     func base() -> [NSAttributedString.Key: Any] {

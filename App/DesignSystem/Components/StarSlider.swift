@@ -40,12 +40,17 @@ struct StarSlider: View {
         }
         .padding(.top, AteMetrics.loose)
         .padding([.horizontal, .bottom], 18)
-        .background(palette.chip, in: RoundedRectangle(cornerRadius: AteMetrics.panel, style: .continuous))
+        // `box-shadow:0 0 0 1.5px #24141F, 0 18px 40px -18px rgba(36,20,31,.45)` — a hairline ring
+        // and a shadow tight under the panel, not a halo around it.
+        .ateBackground(
+            palette.chip,
+            in: RoundedRectangle(cornerRadius: AteMetrics.panel, style: .continuous),
+            shadow: .panel
+        )
         .overlay {
             RoundedRectangle(cornerRadius: AteMetrics.panel, style: .continuous)
                 .strokeBorder(palette.fg, lineWidth: 1.5)
         }
-        .shadow(color: AteColor.ink.opacity(0.28), radius: 20, x: 0, y: 14)
     }
 
     private var track: some View {

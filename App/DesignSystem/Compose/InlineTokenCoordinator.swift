@@ -86,7 +86,17 @@ extension InlineTokenEditor {
             isRendering = true
 
             if let textRange = view.textRange(for: edit.range) {
+                // `replace(_:withText:)` inserts PLAIN text under whatever the view's typing
+                // attributes are. Setting them afterwards is one render too late: a draft restored
+                // into a view that is already on screen came in as the system's Helvetica instead
+                // of Newsreader, and the composer was the one screen in the app not in the app's
+                // own voice. Set them first, then re-assert them over what landed.
+                view.typingAttributes = baseAttributes()
                 view.replace(textRange, withText: edit.text)
+                let written = NSRange(location: edit.range.location, length: (edit.text as NSString).length)
+                if written.upperBound <= view.textStorage.length {
+                    view.textStorage.addAttributes(baseAttributes(), range: written)
+                }
             } else {
                 // No addressable document yet — the very first render, before the view is in a
                 // window. There is no undo stack to keep coherent at that point either.

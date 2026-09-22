@@ -22,6 +22,11 @@ struct ComposerScreen: View {
     @State private var pickedItems: [PhotosPickerItem] = []
     @State private var isTakingPhoto = false
     @State private var isSaving = false
+    /// The editor's width, for measuring where the words end.
+    @State private var editorWidth: CGFloat = 0
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.displayScale) private var displayScale
+    @Environment(\.colorScheme) private var colorScheme
     /// Only the debug undo drive moves these; see ``ComposerDebugLaunch/undoDriveArgument``.
     @State private var undoRequest = 0
     @State private var redoRequest = 0
@@ -156,6 +161,11 @@ struct ComposerScreen: View {
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
+            // Between the words and the panel: the cluster belongs under the sentence, and the
+            // slider opens over both.
+            photoCluster
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
             if let scoring = model.scoring {
                 StarSlider(
                     dishName: scoring.dishName,
@@ -166,18 +176,37 @@ struct ComposerScreen: View {
                 ) { rating in
                     model.commitScore(rating, for: scoring.id)
                 }
-                .padding(.top, 60)
+                // `ComposerStars` pins the panel at `top:100px` inside a column that is itself 8
+                // below the header.
+                .padding(.top, 100 - AteMetrics.snug)
                 .transition(.scale(scale: 0.96).combined(with: .opacity))
             }
         }
         .padding(.horizontal, 22)
         .padding(.top, AteMetrics.snug)
-        .overlay(alignment: .bottomLeading) { photoCluster }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { editorWidth = $0 }
+    }
+
+    /// Where the words end — measured from the same attributed string the editor draws, so the two
+    /// cannot disagree about it.
+    private var wordsHeight: CGFloat {
+        InlineTokenAttributes(
+            style: .composerProse,
+            palette: .surface,
+            dynamicTypeSize: dynamicTypeSize,
+            displayScale: displayScale,
+            colorScheme: colorScheme
+        )
+        .height(for: model.composition, width: editorWidth)
     }
 
     /// Design rule 6: the mess is tilt and overlap, in a small static cluster. The composer's is the
     /// biggest of the three (90pt), and it sits on the control surface, so the separating ring is
     /// drawn in that colour rather than in the app's ground.
+    ///
+    /// It hangs off the bottom of the words — the artboard's column is prose, then photos, with an
+    /// 18 gap. The editor itself fills the well so the blank space under it still takes a tap, so
+    /// the cluster is placed rather than stacked.
     @ViewBuilder
     private var photoCluster: some View {
         if model.photos.isEmpty == false {
@@ -186,10 +215,13 @@ struct ComposerScreen: View {
                 side: AteMetrics.clusterPhotoComposer,
                 surface: AtePalette.surface.ground
             )
-            .padding(.leading, 22)
-            .padding(.bottom, AteMetrics.snug)
+            .padding(.top, wordsHeight + Self.wordsGap)
+            .allowsHitTesting(false)
         }
     }
+
+    /// `Composer.dc.html`'s `gap:18px` between the words and the photos.
+    private static let wordsGap: CGFloat = 18
 
     /// `Composer.dc.html`: camera · library · mic on the left, Score and Place in the middle,
     /// visibility on the right — three groups, parted by the space between them.
