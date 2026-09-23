@@ -500,6 +500,25 @@ test('the place name is never a dish, nor the front half of one', () => {
   assertEquals(unfenced.items.map((i) => i.dish_name), ['Pizza San Danielle Pizza']);
 });
 
+test('a WELDED place name is still fenced, and only when it is multi-word', () => {
+  // the client bug that produced this is fixed, but the entry it wrote is still in the data:
+  // place + words concatenated with no separator, so "cantina" ran into "fishbowl".
+  const welded = 'PJ’s Mexican cantinafishbowl margarita  was a 4.5 and eliteeeee';
+  assertEquals(placeNameSpans(welded, ["PJ's Mexican cantina"]), [[0, 20]]);
+  assertEquals(
+    parseEntry({ body: welded, placeNames: ["PJ's Mexican cantina"] }).items.map((i) => `${i.dish_name}=${i.score}`),
+    ['margarita=4.5'],
+    'the venue no longer ends up inside the dish name',
+  );
+
+  // a CLEAN body never reaches the fallback — the fenced match is there, so the fence stays
+  // exactly as wide as the name.
+  assertEquals(placeNameSpans('Baby Pizza San Danielle Pizza 3.5.', ['Baby Pizza']), [[0, 10]]);
+  // and a single-word venue is never matched inside a longer word
+  assertEquals(placeNameSpans('Pizzaiolo on Lygon. Pizza margherita 4.', ['Pizza']), [[20, 25]]);
+  assertEquals(placeNameSpans('Pizzaiolo on Lygon, no menu.', ['Pizza']), []);
+});
+
 test('a place mention is matched past an apostrophe, a capital and extra spaces', () => {
   const body = 'PJ’s Mexican cantina fishbowl margarita  was a 4.5 and eliteeeee';
   assertEquals(placeNameSpans(body, ["PJ's Mexican Cantina"]), [[0, 20]], 'straight vs curly apostrophe, any case');

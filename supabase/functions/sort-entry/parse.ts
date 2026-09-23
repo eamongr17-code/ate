@@ -258,16 +258,36 @@ export function placeNameSpans(
     const pattern = escapeRe(name)
       .replace(/\\?\s+/g, '\\s+')
       .replace(/['’‘´]/g, "['’‘´]");
-    let re: RegExp;
-    try {
-      re = new RegExp(`(?<![${WORD}])${pattern}(?![${WORD}])`, 'giu');
-    } catch {
-      continue; // a name that will not compile is simply not excluded
+    const found = (source: string): Array<[number, number]> => {
+      const hits: Array<[number, number]> = [];
+      let re: RegExp;
+      try {
+        re = new RegExp(source, 'giu');
+      } catch {
+        return hits; // a name that will not compile is simply not excluded
+      }
+      for (let m = re.exec(body); m; m = re.exec(body)) {
+        hits.push([m.index, m.index + m[0].length]);
+        if (m[0].length === 0) break;
+      }
+      return hits;
+    };
+
+    const fenced = found(`(?<![${WORD}])${pattern}(?![${WORD}])`);
+    if (fenced.length) {
+      spans.push(...fenced);
+      continue;
     }
-    for (let m = re.exec(body); m; m = re.exec(body)) {
-      spans.push([m.index, m.index + m[0].length]);
-      if (m[0].length === 0) break;
-    }
+    // WELDED NAMES, the last resort. A client bug once concatenated the place and the words
+    // with no separator, so the venue's last word runs INTO the body's first: "PJ’s Mexican
+    // cantinafishbowl margarita  was a 4.5". With the trailing fence that name matches
+    // nowhere, and the dish came back as "PJ’s Mexican cantinafishbowl margarita".
+    //
+    // Narrow on purpose: only when the name matches nowhere as a whole word, only when it is
+    // MULTI-WORD (its own internal spaces still have to be there), and the leading boundary
+    // is still required. A single-word venue is never matched inside a longer word, so
+    // "Pizza" cannot eat "Pizzaiolo".
+    if (/\s/.test(name)) spans.push(...found(`(?<![${WORD}])${pattern}`));
   }
   return spans;
 }
