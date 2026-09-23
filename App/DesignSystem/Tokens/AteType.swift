@@ -209,15 +209,17 @@ extension AteTextStyle {
         textStyle: .caption2, maximumSize: 16, uppercase: true
     )
 
-    /// A score token's numeral, sized against the prose it sits in (0.78em in the prototype).
+    /// A score token's numeral, sized against the prose it sits in — `.tok`'s `font-size:.78em`.
+    /// **Not rounded**: `em` is a fraction in the markup, and rounding 12.48 to 12 took nearly a
+    /// point off the width of every pill in a 16pt slip.
     static func scoreToken(inProse size: CGFloat) -> AteTextStyle {
-        AteTextStyle(voice: .mono, size: (size * 0.78).rounded(), weight: 500, lineHeight: 1.0, textStyle: .footnote)
+        AteTextStyle(voice: .mono, size: size * 0.78, weight: 500, lineHeight: 1.0, textStyle: .footnote)
     }
 
-    /// A place token's name, sized against the prose it sits in (0.8em).
+    /// A place token's name, sized against the prose it sits in — `.ptok`'s `font-size:.8em`.
     static func placeToken(inProse size: CGFloat) -> AteTextStyle {
         AteTextStyle(
-            voice: .display, size: (size * 0.8).rounded(), weight: 600,
+            voice: .display, size: size * 0.8, weight: 600,
             trackingEm: -0.01, lineHeight: 1.0, textStyle: .footnote
         )
     }
@@ -230,10 +232,18 @@ enum AteFont {
 
     /// The resolved `UIFont` — needed directly by the composer, which has to put fonts into an
     /// `NSAttributedString`, and by anything drawing text into an image.
+    ///
+    /// `opsz` is driven from the size the glyphs are **drawn** at, not from the design's number:
+    /// the prototype sets `font-optical-sizing:auto`, which tracks the used font-size, and a reader
+    /// at an accessibility size would otherwise get 24pt glyphs cut for 17.
     static func uiFont(for style: AteTextStyle, dynamicTypeSize: DynamicTypeSize = .large) -> UIFont {
-        let base = base(for: style)
         let metrics = UIFontMetrics(forTextStyle: UIFont.TextStyle(style.textStyle))
         let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(dynamicTypeSize))
+        let drawn = min(
+            metrics.scaledValue(for: style.size, compatibleWith: traits),
+            style.maximumSize ?? .greatestFiniteMagnitude
+        )
+        let base = base(for: style, opticalSize: drawn)
         if let maximum = style.maximumSize {
             return metrics.scaledFont(for: base, maximumPointSize: maximum, compatibleWith: traits)
         }
@@ -261,7 +271,13 @@ enum AteFont {
 
     // MARK: Private
 
-    private static func base(for style: AteTextStyle) -> UIFont {
+    /// The face at its design size, with **both variable axes pinned by us**: `wght` from the style
+    /// (400 for every Newsreader run, 800 for a title) and `opsz` from `opticalSize`.
+    ///
+    /// Pinned rather than left to Core Text's automatic optical sizing, which happens to agree at the
+    /// default text size and is silent when it does not. The bundled files are the variable ones, so
+    /// the italic runs come off `Newsreader-Italic-Variable`, never a slanted roman.
+    private static func base(for style: AteTextStyle, opticalSize: CGFloat) -> UIFont {
         let registry = AteFontRegistry.shared
         guard let face = registry.face(for: style.voice, italic: style.italic) else {
             return fallback(for: style)
@@ -272,7 +288,7 @@ enum AteFont {
         guard let axes = face.variationAxes else { return named }
         var variations: [Int: CGFloat] = [AteFontAxis.weight: style.weight]
         if let opsz = face.opticalSizeRange {
-            variations[AteFontAxis.opticalSize] = min(max(style.size, opsz.lowerBound), opsz.upperBound)
+            variations[AteFontAxis.opticalSize] = min(max(opticalSize, opsz.lowerBound), opsz.upperBound)
         }
         let supported = variations.filter { axes.contains($0.key) }
         guard supported.isEmpty == false else { return named }

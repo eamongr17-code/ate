@@ -95,11 +95,13 @@ struct InlineTokenAttributes {
         ) {
             image.accessibilityLabel = Self.accessibilityLabel(for: token)
             attachment.image = image
-            // Centred on the x-height rather than sat on the baseline: the pill is a word in the
-            // sentence, not a footnote hanging off it.
+            // Where the artboard puts it: the pill's ICON sits one point above the prose baseline
+            // (`vertical-align:1px` on an inline-flex, whose baseline is its first item's), and the
+            // pill's own padding hangs below. Centring the box on the x-height — what this used to do
+            // — sat the pill low and made a 1.209em pill look like a 1em one.
             attachment.bounds = CGRect(
                 x: 0,
-                y: (font.xHeight - image.size.height) / 2,
+                y: -TokenPillMetrics.descent(for: token.kind, prose: font.pointSize),
                 width: image.size.width,
                 height: image.size.height
             )
