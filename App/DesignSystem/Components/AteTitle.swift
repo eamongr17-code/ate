@@ -68,9 +68,10 @@ private struct TitleLabel: UIViewRepresentable {
     }
 
     func updateUIView(_ label: UILabel, context: Context) {
+        let box = font.pointSize * lineHeight
         let paragraph = NSMutableParagraphStyle()
-        paragraph.minimumLineHeight = font.pointSize * lineHeight
-        paragraph.maximumLineHeight = font.pointSize * lineHeight
+        paragraph.minimumLineHeight = box
+        paragraph.maximumLineHeight = box
         paragraph.alignment = switch alignment {
         case .leading: .left
         case .trailing: .right
@@ -80,7 +81,12 @@ private struct TitleLabel: UIViewRepresentable {
             .font: font,
             .foregroundColor: UIColor(colour),
             .paragraphStyle: paragraph,
-            .kern: font.pointSize * trackingEm
+            .kern: font.pointSize * trackingEm,
+            // CSS **centres** the glyphs in a line box; UIKit sits them on the bottom of a clamped
+            // one. So every style the design sets tighter than its font — `.h` at 1.0 — drew four
+            // points high, which is a visible gap under a 38pt title. Half the leading, signed: it is
+            // negative exactly when the box is tighter than the face, which is when CSS overflows it.
+            .baselineOffset: (box - (font.ascender - font.descender)) / 2
         ])
     }
 

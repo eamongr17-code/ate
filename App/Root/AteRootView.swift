@@ -200,8 +200,8 @@ private struct AteShell: View {
         composing = ComposerPresentation(origin: origin)
     }
 
-    /// Done in the composer: the entry is already on the journal, and this is where the receipt
-    /// prints. The stack is unwound first, so writing twice in a row does not stack entry pages.
+    /// Done in the composer: the entry is already on the journal, and this is the page it lands on.
+    /// The stack is unwound first, so writing twice in a row does not stack entry pages.
     ///
     /// An *edit* lands on the same page it came from, so the path is left where it is — replacing it
     /// would push a second copy of the entry the person is already looking at.
@@ -209,7 +209,7 @@ private struct AteShell: View {
         journal.insert(card)
         tab = .journal
         guard path.contains(where: { $0.entryID == card.id }) == false else { return }
-        path = [.entry(EntryRoute(entryID: card.id, isFreshlyWritten: true))]
+        path = [.entry(EntryRoute(entryID: card.id))]
     }
 
     /// The header badge. Reads the camera roll only when it has already been allowed — the ask
@@ -229,7 +229,7 @@ private struct AteShell: View {
         for _ in 0..<30 {
             await journal.loadIfNeeded()
             if let first = journal.entries.first {
-                path = [.entry(EntryRoute(entryID: first.id, isFreshlyWritten: true))]
+                path = [.entry(EntryRoute(entryID: first.id))]
                 return
             }
             try? await Task.sleep(for: .milliseconds(100))

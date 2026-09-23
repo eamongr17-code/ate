@@ -67,6 +67,11 @@ extension AteTextStyle {
     static let screenTitle = AteTextStyle(
         voice: .display, size: 40, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
     )
+    /// The place at the head of the entry page — the biggest type in the app after a screen's own
+    /// name, because on an entry the place IS the title. 38pt.
+    static let entryPlace = AteTextStyle(
+        voice: .display, size: 38, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
+    )
     /// The place at the head of a receipt. 32pt.
     static let receiptPlace = AteTextStyle(
         voice: .display, size: 32, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
@@ -179,8 +184,17 @@ extension AteTextStyle {
         voice: .prose, size: 14, weight: 400, italic: true, lineHeight: 1.35, textStyle: .subheadline
     )
 
-    // Receipts — DM Mono, and only here.
+    // Receipts and the entry page's bill — DM Mono, and only here.
 
+    /// A line in the entry page's bill. 14pt on 1.75 (`.bill .li` overrides `.li`'s 13/1.65): the
+    /// page is read at arm's length, a receipt is read in the hand.
+    static let billLine = AteTextStyle(
+        voice: .mono, size: 14, weight: 400, lineHeight: 1.75, textStyle: .subheadline, maximumSize: 21
+    )
+    /// …and the score at the end of it.
+    static let billScore = AteTextStyle(
+        voice: .mono, size: 14, weight: 500, lineHeight: 1.75, textStyle: .subheadline, maximumSize: 21
+    )
     /// A receipt line item. 13pt.
     static let receiptLine = AteTextStyle(
         voice: .mono, size: 13, weight: 400, lineHeight: 1.65, textStyle: .footnote, maximumSize: 20

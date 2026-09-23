@@ -26,8 +26,9 @@ extension View {
         modifier(AteAnimationModifier(animation: animation, value: value))
     }
 
-    /// The receipt's print-in: the whole reason the entry screen feels like a machine finishing a
-    /// job. With Reduce Motion on, the receipt is simply there.
+    /// The receipt's print-in. **Share's alone**: the entry is a page now, and a page does not print
+    /// — the one moment of theatre belongs to the artefact, at the moment it is made. With Reduce
+    /// Motion on, the receipt is simply there.
     func atePrintsIn(_ isPresented: Bool) -> some View {
         modifier(AtePrintModifier(isPresented: isPresented))
     }

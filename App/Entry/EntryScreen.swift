@@ -1,11 +1,9 @@
 import AteKit
 import SwiftUI
 
-/// Where an entry is opened from, and whether its receipt is about to print for the first time.
+/// Where an entry is opened from.
 struct EntryRoute: Hashable, Identifiable {
     let entryID: UUID
-    /// True when Done in the composer landed here: the receipt prints in on first appearance, once.
-    var isFreshlyWritten = false
 
     var id: UUID { entryID }
 }
@@ -25,12 +23,20 @@ enum JournalRoute: Hashable {
     }
 }
 
-/// **`Entry`** — the words on their own page, with the receipt feeding out from underneath them.
+/// **`Entry`** — the whole entry, on one page.
 ///
-/// The overlap is the whole picture: the words card sits on top, the paper slides out from behind it
-/// and stops, and the person sees the thing the app made from what they wrote. Everything tappable
-/// on the receipt is a correction (`correct_entry_place`, `correct_entry_dish`) — the structure is
-/// Ate's guess and the person has the last word on all of it.
+/// A single piece of white paper laid on the linen ground: 24pt top corners, 16 clear either side,
+/// and it runs off the bottom of the screen rather than stopping on it (design rule 10). On it, in
+/// order: the order number and the date, the place as the title, the photos as a tilted collage, the
+/// person's own words with their tokens, and the bill between two dashed rules with the address and
+/// the average under it.
+///
+/// There is no receipt here. The receipt is the artefact Ate prints for **sharing** — it is rendered
+/// from `ReceiptView` at the moment of sharing and it has not changed — but the page a person reads
+/// their own entry on is a page, not a printout of one.
+///
+/// Everything on it is still a correction: the title opens ``PlaceSheet``, a line opens ``DishSheet``
+/// (`entry_corrected`), because the structure is Ate's guess and the person has the last word on it.
 struct EntryScreen: View {
     let route: EntryRoute
     let services: AteServices
@@ -57,15 +63,9 @@ struct EntryScreen: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                if let card = model.card {
-                    words(card)
-                    receipt(card)
-                }
-            }
-            .padding(.horizontal, AteMetrics.gutter)
-            .padding(.top, AteMetrics.snug - 2)
-            .padding(.bottom, AteMetrics.section)
+            page
+                .padding(.horizontal, AteMetrics.pageInset)
+                .padding(.top, AteMetrics.pageGap)
         }
         .scrollIndicators(.hidden)
         .ateGround()
@@ -77,6 +77,144 @@ struct EntryScreen: View {
         .sheet(isPresented: $model.isCorrectingPlace) { placeSheet }
         .sheet(item: $model.correcting) { correcting in dishSheet(correcting.item) }
         .sheet(isPresented: $model.isSharing) { shareSheet }
+        .fullScreenCover(item: $model.viewingPhoto) { viewing in
+            AtePhotoViewer(photos: model.photos, index: viewing.index)
+        }
+    }
+
+    // MARK: - The page
+
+    /// `.slip`: `padding:22px 20px 0`, `gap:14px`, `border-radius:24px 24px 0 0`, `min-height:760`.
+    private var page: some View {
+        VStack(alignment: .leading, spacing: AteMetrics.pageBandGap) {
+            if let card = model.card {
+                orderRow(card)
+                if let place = card.place {
+                    title(place.name)
+                }
+                photos
+                words
+                AteDashedRule()
+                bill
+                AteDashedRule()
+                footer(card)
+            }
+        }
+        .padding(.top, AteMetrics.pagePaddingTop)
+        .padding(.horizontal, AteMetrics.pagePaddingSide)
+        // The artboard has no bottom padding — its page simply continues past the screen. Ours can be
+        // scrolled to the end, and a bill sitting on the cut edge would read as a crop.
+        .padding(.bottom, AteMetrics.section)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: pageMinimumHeight, alignment: .top)
+        .atePaper()
+        .background(AteColor.paper, in: UnevenRoundedRectangle(
+            topLeadingRadius: AteMetrics.pageTop,
+            bottomLeadingRadius: 0,
+            bottomTrailingRadius: 0,
+            topTrailingRadius: AteMetrics.pageTop,
+            style: .continuous
+        ))
+    }
+
+    /// `ORDER #0142` left, the date right — the mono label row that opens the page.
+    private func orderRow(_ card: EntryCard) -> some View {
+        labelRow(
+            leading: "Order #\(String(format: "%04d", card.orderNumber))",
+            trailing: card.createdAt.formatted(AteReceipt.dateFormat)
+        )
+    }
+
+    /// The address and the average close it. Either may be missing — design rule 2 says put the two
+    /// values left and right or drop one; it never invents a separator or a placeholder.
+    private func footer(_ card: EntryCard) -> some View {
+        labelRow(
+            leading: card.place?.address,
+            trailing: card.avgScore.map {
+                "Avg \($0.formatted(.number.precision(.fractionLength(0...2))))"
+            }
+        )
+    }
+
+    @ViewBuilder
+    private func labelRow(leading: String?, trailing: String?) -> some View {
+        if leading != nil || trailing != nil {
+            HStack(alignment: .firstTextBaseline, spacing: AteMetrics.snug) {
+                if let leading { Text(leading) }
+                Spacer(minLength: 0)
+                if let trailing { Text(trailing) }
+            }
+            .ateText(.receiptLabel)
+            // `.lab` is muted by default; the page overrides it to full ink on both of its rows.
+            .foregroundStyle(AtePalette.paper.fg)
+        }
+    }
+
+    /// The place, at 38. The same door the receipt's header used to be: tapping it changes the place
+    /// and re-resolves every line at the new one.
+    private func title(_ place: String) -> some View {
+        Button {
+            model.isCorrectingPlace = true
+        } label: {
+            AteExactText(text: place, style: .entryPlace, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(place). Change the place")
+        .accessibilityAddTraits(.isHeader)
+    }
+
+    @ViewBuilder
+    private var photos: some View {
+        if model.photos.isEmpty == false {
+            PhotoCollage(
+                photos: model.photos,
+                width: contentWidth,
+                surface: AteColor.paper
+            ) { index in
+                model.viewingPhoto = EntryModel.ViewingPhoto(index: index)
+            }
+        }
+    }
+
+    /// The person's own words, with their score and place pills still in them. `.prose` at 17 — the
+    /// biggest the words are anywhere outside the composer.
+    @ViewBuilder
+    private var words: some View {
+        if model.composition.plain.isEmpty == false {
+            InlineTokenText(composition: model.composition, style: .proseLarge)
+                .accessibilityIdentifier("entry.words")
+        }
+    }
+
+    @ViewBuilder
+    private var bill: some View {
+        switch model.state {
+        case .printed(let receipt):
+            EntryBill(items: receipt.items) { item in
+                model.correcting = EntryModel.Correcting(item: item)
+            }
+        case .pending, .failed:
+            EntryPendingBill(state: model.state) {
+                Task { await model.retrySort() }
+            }
+        }
+    }
+
+    // MARK: - Measurements
+
+    /// The page's content width — what the collage is laid out against. Arithmetic, not geometry: the
+    /// page is inset by a fixed amount from a screen whose width is known.
+    private var contentWidth: CGFloat {
+        AteScreen.width - 2 * AteMetrics.pageInset - 2 * AteMetrics.pagePaddingSide
+    }
+
+    /// The artboard's `min-height:760`: everything left of the screen under the top bar, plus the 28
+    /// the page always runs past the fold.
+    private var pageMinimumHeight: CGFloat {
+        let top = AteMetrics.contentTop + AteMetrics.hit + AteMetrics.pageGap
+        return max(0, AteScreen.height - top + AteMetrics.pageOvershoot)
     }
 
     // MARK: - Bands
@@ -108,8 +246,8 @@ struct EntryScreen: View {
 
     // MARK: - Sheets
 
-    /// The receipt's header. The *same* sheet the composer's Place key opens — the same action has
-    /// to work identically everywhere it appears.
+    /// The place. The *same* sheet the composer's Place key opens — the same action has to work
+    /// identically everywhere it appears.
     private var placeSheet: some View {
         PlaceSheet(
             directory: services.places,
@@ -137,63 +275,4 @@ struct EntryScreen: View {
             ShareSheet(image: image)
         }
     }
-
-    /// The words card: the person's own sentence with its tokens, and the tilted photo cluster. It
-    /// overlaps the receipt, and it is drawn on paper because it is part of the same printing.
-    private func words(_ card: EntryCard) -> some View {
-        VStack(alignment: .leading, spacing: AteMetrics.regular) {
-            InlineTokenText(composition: model.composition, style: .prose)
-            if model.photos.isEmpty == false {
-                PhotoCluster(
-                    photos: model.photos,
-                    side: AteMetrics.clusterPhotoLarge,
-                    surface: AteColor.paper
-                )
-            }
-        }
-        .padding(.horizontal, 18)
-        .padding(.top, 18)
-        .padding(.bottom, AteMetrics.loose)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .atePaper()
-        .ateBackground(
-            AteColor.paper,
-            in: RoundedRectangle(cornerRadius: 20, style: .continuous),
-            shadow: .wordsCard
-        )
-        .zIndex(1)
-    }
-
-    @ViewBuilder
-    private func receipt(_ card: EntryCard) -> some View {
-        switch model.state {
-        case .printed(let receipt):
-            ReceiptView(
-                receipt: receipt,
-                topPadding: Self.topPadding,
-                topRadius: 0,
-                onPlaceTap: { model.isCorrectingPlace = true },
-                onItemTap: { model.correcting = EntryModel.Correcting(item: $0) }
-            )
-            .padding(.horizontal, 22)
-            .padding(.top, -Self.overlap)
-            .atePrintsIn(model.hasPrinted)
-            // `.contain` so the paper itself is a queryable element: its children are already
-            // combined into rows, which would otherwise leave nothing addressable for a drive.
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("entry.receipt")
-        case .pending, .failed:
-            EntryPendingSlip(state: model.state) {
-                Task { await model.retrySort() }
-            }
-            .padding(.horizontal, 22)
-            .padding(.top, -Self.overlap)
-            .accessibilityIdentifier("entry.pending")
-        }
-    }
-
-    /// How far the words card sits over the paper — the design's `margin:-16px`.
-    private static let overlap: CGFloat = 16
-    /// `Entry.dc.html`'s `padding:32px 16px 14px` on the receipt.
-    private static let topPadding: CGFloat = 32
 }
