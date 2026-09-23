@@ -88,7 +88,11 @@ final class EntryModel {
         let isFirstRead = self.card == nil
         #endif
         self.card = card
-        composition = EntryPresentation.composition(for: card)
+        // The page's own title already says the place, so a pill at the very start of the words is
+        // the same fact twice — exactly the cut the journal slip makes. A place named mid-sentence
+        // is part of the sentence and stays, and the words themselves are never rewritten: only the
+        // decoration comes off.
+        composition = EntryPresentation.composition(for: card).droppingLeadingPlace()
         photos = card.photos.map { AtePhoto(url: URL(string: $0.url)) }
         state = EntryPresentation.state(for: card, handle: handle)
         // An entry the outbox has given up on is not "still printing" — it is not printed, and it
