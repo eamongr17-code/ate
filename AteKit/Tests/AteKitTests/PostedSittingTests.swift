@@ -48,7 +48,7 @@ struct PostedSittingTests {
         #expect(entries.map(\.dish.name) == ["Tiramisu", "Bucatini"])
         #expect(entries.allSatisfy { $0.restaurant.name == "Tipo 00" })
         #expect(entries[0].restaurant.locality == "Carlton")
-        #expect(entries[0].review.score.value == 3.0)
+        #expect(entries[0].review.score?.value == 3.0)
     }
 
     @Test("A restaurant with no suburb renders no second line, exactly as the refresh will")
