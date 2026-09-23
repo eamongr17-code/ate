@@ -20,6 +20,8 @@
 // prices, clock times, dates, head counts, ordinals, quantities — because inventing a
 // score from one of those is the single worst bug this system can have.
 
+import type { ResolvedPlace } from './parse.ts';
+
 export type FixtureItem = {
   dish_name: string;
   score: number | null;
@@ -41,11 +43,13 @@ export type Fixture = {
   /** dish names already on the matched restaurant's menu (empty = no place matched) */
   knownDishes?: string[];
   /**
-   * The attached place's name(s), as the FUNCTION resolves them (restaurant row + the
-   * phrase that matched). Wherever they appear in the body they are off limits to the dish
-   * hunt — set this on any fixture whose words open with the venue.
+   * WHAT THE FUNCTION RESOLVED for this entry, in the shape of its own locals: the row it
+   * attached and the phrase that led there. fixtures_test runs it through the REAL
+   * `fencedPlaceNames()` the function calls, so a fixture proves the whole chain — passing
+   * the fence a hand-written list is how the live re-sort of `place-name-bleed` came back
+   * with the dish `Pizza` while the fixture was green.
    */
-  placeNames?: string[];
+  resolvedPlace?: ResolvedPlace;
   /** a phrase that MUST appear among placeCandidates(body); null = the text names no place */
   place: string | null;
   items: FixtureItem[];
@@ -662,9 +666,10 @@ export const fixtures: Fixture[] = [
       'THE ENTRY THAT SORTED TO NOTHING: "<dish> was a <n>", with the double space the CEO typed and slang after the score',
     body: 'PJ’s Mexican cantina fishbowl margarita  was a 4.5 and eliteeeee',
     knownDishes: [],
-    // the place resolved, so its name is off limits to the dish hunt — otherwise the dish
-    // is "Mexican cantina fishbowl margarita"
-    placeNames: ['PJ\'s Mexican cantina'],
+    // the place resolved, so the ROW NAME is off limits to the dish hunt — otherwise the
+    // dish is "Mexican cantina fishbowl margarita". The candidate phrase that found the row
+    // is only part of the name here, and is fenced by nothing.
+    resolvedPlace: { matchedName: 'PJ\'s Mexican cantina', candidatePhrase: 'PJ’s Mexican' },
     place: 'PJ’s Mexican',
     items: [{ dish_name: 'fishbowl margarita', score: 4.5, note: 'eliteeeee', evidence_offset: 47 }],
   },
@@ -673,7 +678,7 @@ export const fixtures: Fixture[] = [
     about: '"<dish> is a <n>" and "<dish> gets a <n>" in one breath, both on the menu',
     body: 'Chin Chin. The kingfish is a 4.5 and the pork bun gets a 3.5.',
     knownDishes: ['Kingfish', 'Pork bun'],
-    placeNames: ['Chin Chin'],
+    resolvedPlace: { matchedName: 'Chin Chin', candidatePhrase: 'Chin Chin' },
     place: 'Chin Chin',
     items: [
       { dish_name: 'Kingfish', score: 4.5, note: null },
@@ -685,7 +690,7 @@ export const fixtures: Fixture[] = [
     about: 'the same phrasing for a dish not on the menu yet — the lead-in is what finds the name',
     body: 'Supernormal. The lobster roll was a 4.5, the best thing all week.',
     knownDishes: [],
-    placeNames: ['Supernormal'],
+    resolvedPlace: { matchedName: 'Supernormal', candidatePhrase: 'Supernormal' },
     place: 'Supernormal',
     items: [{ dish_name: 'lobster roll', score: 4.5, note: 'the best thing all week.' }],
   },
@@ -694,7 +699,7 @@ export const fixtures: Fixture[] = [
     about: '"gave the <dish> a <n>" — the verb names the dish and the article carries the number',
     body: 'Beatrix. I gave the raspberry cake a 4.5 and would again.',
     knownDishes: [],
-    placeNames: ['Beatrix'],
+    resolvedPlace: { matchedName: 'Beatrix', candidatePhrase: 'Beatrix' },
     place: 'Beatrix',
     items: [{ dish_name: 'raspberry cake', score: 4.5, note: 'would again.' }],
   },
@@ -703,7 +708,7 @@ export const fixtures: Fixture[] = [
     about: '"<dish>, a solid <n>" — the pre-marker adjective sits between the dish and its score',
     body: 'Tipo 00. The tiramisu, a solid 3.5, then home.',
     knownDishes: [],
-    placeNames: ['Tipo 00'],
+    resolvedPlace: { matchedName: 'Tipo 00', candidatePhrase: 'Tipo 00' },
     place: 'Tipo 00',
     items: [{ dish_name: 'tiramisu', score: 3.5, note: 'home.' }],
   },
@@ -717,7 +722,15 @@ export const fixtures: Fixture[] = [
       'staging: "Baby Pizza San Danielle Pizza 3.5" minted a dish called "Pizza San Danielle Pizza" — the walk ate the venue\'s last word',
     body: 'Baby Pizza San Danielle Pizza 3.5 was decent, nothing crazy.',
     knownDishes: [],
-    placeNames: ['Baby Pizza'],
+    // THE LIVE INPUTS, not a tidied version of them: the candidate run that found this row
+    // is "Baby Pizza San Danielle" (placeCandidates offers it first, longest-capitalised-run
+    // first), and fencing THAT is what made the dish come back as `Pizza` on the re-sort.
+    // Only the row name may be fenced; the rest of the run is dish territory.
+    resolvedPlace: {
+      matchedName: 'Baby Pizza',
+      candidatePhrase: 'Baby Pizza San Danielle',
+      mentionPhrase: 'Baby Pizza San Danielle',
+    },
     place: 'Baby Pizza',
     items: [{ dish_name: 'San Danielle Pizza', score: 3.5, note: 'decent, nothing crazy.' }],
   },
@@ -726,7 +739,7 @@ export const fixtures: Fixture[] = [
     about: 'scoring the PLACE is not scoring a dish: "Baby Pizza was a 4.5" prints no receipt line',
     body: 'Baby Pizza was a 4.5. Everything we ordered worked.',
     knownDishes: [],
-    placeNames: ['Baby Pizza'],
+    resolvedPlace: { matchedName: 'Baby Pizza', candidatePhrase: 'Baby Pizza' },
     place: 'Baby Pizza',
     items: [],
   },

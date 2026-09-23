@@ -13,6 +13,7 @@ import {
   parseEntry,
   placeCandidates,
   placeCandidateSpans,
+  fencedPlaceNames,
   placeNameSpans,
   sentenceBounds,
 } from './parse.ts';
@@ -435,6 +436,46 @@ test('the lead-in walk never reaches into the sentence before', () => {
 // ---------------------------------------------------------------------------
 // THE PLACE IS NOT THE DISH — placeNames fences the venue's own words off.
 // ---------------------------------------------------------------------------
+test('ONLY A ROW NAME IS FENCED — a candidate phrase is not a name', () => {
+  // THE LIVE REGRESSION: the function used to fence the phrase that found the row as well.
+  // The candidate run here is "Baby Pizza San Danielle" — venue plus two thirds of the dish —
+  // and fencing it brought the dish back as `Pizza` on the re-sort while the fixture (which
+  // passed a hand-written ['Baby Pizza']) stayed green.
+  const live = {
+    matchedName: 'Baby Pizza',
+    candidatePhrase: 'Baby Pizza San Danielle',
+    mentionPhrase: 'Baby Pizza San Danielle',
+  };
+  assertEquals(fencedPlaceNames(live), ['Baby Pizza'], 'the phrases are dropped, the row name is not');
+
+  const body = 'Baby Pizza San Danielle Pizza 3.5 was decent, nothing crazy.';
+  // and that phrase is not invented for the test — it is the run the parser really offers
+  // first, so this stays honest if candidate generation ever changes.
+  assertEquals(placeCandidates(body)[0], 'Baby Pizza San Danielle');
+  assertEquals(placeNameSpans(body, fencedPlaceNames(live)), [[0, 10]], 'the fence stops at the name');
+  assertEquals(
+    parseEntry({ body, placeNames: fencedPlaceNames(live) }).items.map((i) => i.dish_name),
+    ['San Danielle Pizza'],
+    'a candidate run longer than the name leaves the remainder as dish territory',
+  );
+  // and what the old call site did, kept as the failing shape so it cannot come back
+  assertEquals(
+    parseEntry({ body, placeNames: ['Baby Pizza', 'Baby Pizza San Danielle'] }).items.map((i) => i.dish_name),
+    ['Pizza'],
+    'fencing the candidate run is what ate the dish',
+  );
+
+  // the pinned row is a name too; a mention phrase that runs past it is still not
+  assertEquals(
+    fencedPlaceNames({ pinnedName: 'Hardware Societe', mentionPhrase: 'Hardware Societe Flinders Lane' }),
+    ['Hardware Societe'],
+  );
+  // both rows, deduped case/space-insensitively; junk and 1-char names are refused
+  assertEquals(fencedPlaceNames({ pinnedName: 'Tipo 00', matchedName: 'tipo  00' }), ['Tipo 00']);
+  assertEquals(fencedPlaceNames({}), []);
+  assertEquals(fencedPlaceNames({ pinnedName: '  ', matchedName: 'X' }), []);
+});
+
 test('the place name is never a dish, nor the front half of one', () => {
   // staging: this minted a dish called "Pizza San Danielle Pizza"
   const bleed = parseEntry({
@@ -457,6 +498,25 @@ test('the place name is never a dish, nor the front half of one', () => {
   // and without a resolved place nothing is fenced — the words are all we have
   const unfenced = parseEntry({ body: 'Baby Pizza San Danielle Pizza 3.5.' });
   assertEquals(unfenced.items.map((i) => i.dish_name), ['Pizza San Danielle Pizza']);
+});
+
+test('a WELDED place name is still fenced, and only when it is multi-word', () => {
+  // the client bug that produced this is fixed, but the entry it wrote is still in the data:
+  // place + words concatenated with no separator, so "cantina" ran into "fishbowl".
+  const welded = 'PJ’s Mexican cantinafishbowl margarita  was a 4.5 and eliteeeee';
+  assertEquals(placeNameSpans(welded, ["PJ's Mexican cantina"]), [[0, 20]]);
+  assertEquals(
+    parseEntry({ body: welded, placeNames: ["PJ's Mexican cantina"] }).items.map((i) => `${i.dish_name}=${i.score}`),
+    ['margarita=4.5'],
+    'the venue no longer ends up inside the dish name',
+  );
+
+  // a CLEAN body never reaches the fallback — the fenced match is there, so the fence stays
+  // exactly as wide as the name.
+  assertEquals(placeNameSpans('Baby Pizza San Danielle Pizza 3.5.', ['Baby Pizza']), [[0, 10]]);
+  // and a single-word venue is never matched inside a longer word
+  assertEquals(placeNameSpans('Pizzaiolo on Lygon. Pizza margherita 4.', ['Pizza']), [[20, 25]]);
+  assertEquals(placeNameSpans('Pizzaiolo on Lygon, no menu.', ['Pizza']), []);
 });
 
 test('a place mention is matched past an apostrophe, a capital and extra spaces', () => {
