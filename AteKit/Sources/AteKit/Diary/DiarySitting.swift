@@ -3,9 +3,9 @@ import Foundation
 /// One visit: the dishes you rated at one restaurant, in one go.
 ///
 /// A sitting is a **client-side reading of the review stream**, not a stored thing — there is no
-/// `sittings` table and there is deliberately not going to be one (the log flow's ``SittingState``
-/// posts n rows and disappears). What makes the diary read as a record of *eating* rather than a
-/// list of ratings is that those n rows are drawn back together on the way out.
+/// `sittings` table and there is deliberately not going to be one: a visit posts n rows and
+/// disappears. What makes the diary read as a record of *eating* rather than a list of ratings is
+/// that those n rows are drawn back together on the way out.
 ///
 /// Grouping rule (§3.2): consecutive entries in the newest-first stream belong to the same sitting
 /// when they share `restaurant.id`, fall on the same **local** calendar day, and were created within

@@ -26,6 +26,9 @@ extension InlineTokenEditor {
         private var servedRedoRequest = 0
         /// One promotion check per runloop turn, however many changes landed in it.
         private var hasPendingPromotion = false
+        /// The promotion the last change made available, noticed while that change was still the
+        /// present tense. See ``scheduleScorePromotion(in:)``.
+        private var noticedPromotion: Promotion?
         /// The last token this editor promoted, kept so a *redo* of that promotion can put the pill
         /// back rather than leaving a bare placeholder for ``normaliseTokens(in:)`` to delete.
         private var lastPromotedToken: EntryToken?
@@ -230,6 +233,8 @@ extension InlineTokenEditor {
             // characters; normalise before deriving so a token can't smear.
             normaliseTokens(in: view)
             binding.wrappedValue = composition(from: view)
+            // Noticed now, applied a turn later — see `scheduleScorePromotion`.
+            if let promotion = promotableScore(in: view) { noticedPromotion = promotion }
             scheduleScorePromotion(in: view)
         }
 
@@ -240,6 +245,13 @@ extension InlineTokenEditor {
         /// longer existed. Waiting a turn means the typing operation is fully registered before
         /// ``applyStorageEdit(in:caret:updatesBinding:)`` drops it, which is the difference between
         /// a coherent undo stack and a crash.
+        ///
+        /// **But a turn later is a different sentence.** The trigger is the character under the
+        /// caret — a move-on straight after a digit — and when several keystrokes land in the same
+        /// turn (a fast typist, a paste, dictation, a busy machine) the caret has moved past it by
+        /// the time this runs, and the number quietly never became a pill. So the candidate is
+        /// *noticed* in `textViewDidChange`, while it is still true, and applied here as long as the
+        /// words at that range still read the number it was noticed for.
         private func scheduleScorePromotion(in view: InlineTokenTextView) {
             guard hasPendingPromotion == false else { return }
             hasPendingPromotion = true
@@ -247,7 +259,11 @@ extension InlineTokenEditor {
                 MainActor.assumeIsolated {
                     guard let self, let view else { return }
                     self.hasPendingPromotion = false
-                    self.promoteScoreLiteralIfMovedOn(in: view)
+                    let noticed = self.noticedPromotion
+                    self.noticedPromotion = nil
+                    let stillThere = noticed.flatMap { self.stillReads($0, in: view) ? $0 : nil }
+                    guard let promotion = self.promotableScore(in: view) ?? stillThere else { return }
+                    self.apply(promotion, in: view)
                 }
             }
         }
@@ -330,11 +346,21 @@ extension InlineTokenEditor {
             isRendering = false
         }
 
-        /// "Typing a number after a dish becomes a score token." Runs after every change: when the last
-        /// thing typed was a move-on character, the number just before it is promoted in place.
-        private func promoteScoreLiteralIfMovedOn(in view: InlineTokenTextView) {
+        /// A number the person has moved on from: where it sits, and what it is worth.
+        struct Promotion {
+            /// The digits, in display offsets.
+            let range: NSRange
+            /// What they read — checked again before the pill goes in, so a promotion noticed a turn
+            /// ago can never land on characters that have changed since.
+            let literal: String
+            let token: EntryToken
+        }
+
+        /// "Typing a number after a dish becomes a score token." Read-only: the condition is the
+        /// character under the caret — a move-on straight after a digit.
+        private func promotableScore(in view: InlineTokenTextView) -> Promotion? {
             let caret = view.selectedRange
-            guard caret.length == 0, caret.location > 0 else { return }
+            guard caret.length == 0, caret.location > 0 else { return nil }
             let storage = view.textStorage
             let lastCharacter = storage.attributedSubstring(
                 from: NSRange(location: caret.location - 1, length: 1)
@@ -345,27 +371,50 @@ extension InlineTokenEditor {
             guard ScoreLiteral.isMoveOn(
                 lastCharacter,
                 afterDigit: previous.count == 1 && previous.first?.isNumber == true
-            ) else { return }
+            ) else { return nil }
 
             let model = composition(from: view)
             // `pendingScoreLiteral` refuses a span a token already covers, so a pill put there by
             // the Score key is never "promoted" into a second, identical pill.
-            guard let found = model.pendingScoreLiteral(atDisplayOffset: caret.location - 1) else { return }
+            guard let found = model.pendingScoreLiteral(atDisplayOffset: caret.location - 1) else { return nil }
 
             let start = model.displayOffset(forPlainOffset: found.span.location)
             let end = model.displayOffset(forPlainOffset: found.span.endLocation)
-            let token = EntryToken(kind: .score(found.rating))
-            let shift = 1 - (end - start)
-            lastPromotedToken = token
+            let range = NSRange(location: start, length: end - start)
+            guard let literal = text(at: range, in: view) else { return nil }
+            return Promotion(range: range, literal: literal, token: EntryToken(kind: .score(found.rating)))
+        }
+
+        /// Whether the words still say there what they said when this was noticed.
+        private func stillReads(_ promotion: Promotion, in view: InlineTokenTextView) -> Bool {
+            text(at: promotion.range, in: view) == promotion.literal
+        }
+
+        private func text(at range: NSRange, in view: InlineTokenTextView) -> String? {
+            let storage = view.textStorage
+            guard range.location >= 0, range.length > 0, range.upperBound <= storage.length else { return nil }
+            return storage.attributedSubstring(from: range).string
+        }
+
+        /// The digits out, one pill in.
+        private func apply(_ promotion: Promotion, in view: InlineTokenTextView) {
+            let caret = view.selectedRange.location
+            let shift = 1 - promotion.range.length
+            lastPromotedToken = promotion.token
 
             // One placeholder character in through the edit path, then its attachment as an
             // attribute. Undoing this restores the digits the person typed, which is what they
             // would expect and what UIKit's own operation now describes correctly.
             write(StorageEdit(
                 text: String(EntryComposition.tokenPlaceholder),
-                range: NSRange(location: start, length: end - start),
-                tokens: [EntryTokenSpan(token: token, span: TextSpan(location: start, length: 1))],
-                caret: caret.location + shift,
+                range: promotion.range,
+                tokens: [EntryTokenSpan(
+                    token: promotion.token,
+                    span: TextSpan(location: promotion.range.location, length: 1)
+                )],
+                // The caret moves with the words only when it was after them. When the promotion is
+                // landing behind a caret that has already typed on, where they are is where they stay.
+                caret: caret >= promotion.range.upperBound ? caret + shift : caret,
                 updatesBinding: true
             ), in: view)
             AteHaptics.tick()
