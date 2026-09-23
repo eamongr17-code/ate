@@ -90,9 +90,10 @@ final class CoreLoopUITests: XCTestCase {
                       "and the words are on the same page, above it")
         attach("06-entry-printed")
 
-        // Back to the journal, where the entry now lives. Waited for: the page arrives with the
-        // push animation, and a tap fired into a hierarchy that is still settling finds nothing.
-        let back = app.buttons["Back to journal"]
+        // Back to the journal, where the entry now lives. "Back", not "Back to journal": the entry
+        // page is reached from the feed and from a profile too now. Waited for: the page arrives
+        // with the push animation, and a tap fired into a hierarchy still settling finds nothing.
+        let back = app.buttons["Back"]
         XCTAssertTrue(back.waitForExistence(timeout: 5), "the entry page's own back control")
         back.tap()
         let slips = app.buttons.matching(identifier: "journal.slip")

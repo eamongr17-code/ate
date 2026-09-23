@@ -177,3 +177,23 @@ struct PostgRESTDateTests {
         #expect(PostgRESTTimestamp.string(from: date) == raw)
     }
 }
+
+@Suite("A row missing a bookmark is still a row")
+struct EntryCardItemDefaultsTests {
+
+    /// `saved` is the viewer's own flag, and a row served by an older view - or through a path that
+    /// does not compute it - simply does not carry it. A required `Bool` there throws, and one
+    /// missing key takes down a whole page of entries: the same defence `author` and `place` have.
+    @Test("An item with no `saved` key decodes as not saved")
+    func savedDefaultsToFalse() throws {
+        let json = Data("""
+        {"review_id":"C7E00000-0000-4000-8000-000000000001",
+         "dish_id":"D7E00000-0000-4000-8000-000000000001",
+         "dish_name":"Prawn spaghetti","score":5,"position":1}
+        """.utf8)
+        let item = try PostgRESTDate.decoder.decode(EntryCard.Item.self, from: json)
+        #expect(item.saved == false)
+        #expect(item.corrected == false)
+        #expect(item.dishName == "Prawn spaghetti")
+    }
+}

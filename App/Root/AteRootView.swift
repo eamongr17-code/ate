@@ -44,11 +44,17 @@ private struct AteShell: View {
 
     @State private var tab: AteTab = .journal
     @State private var journal: JournalStore
+    /// Everyone else's entries, and the shelf a save fills. Held here rather than by the screens so
+    /// a save made in the feed is already true on the shelf, and a block empties both at once.
+    @State private var feed: EntryListStore
+    @State private var saved: SavedDishesStore
+    /// The one save, made once and handed down — it holds which dishes are mid-flight.
+    @State private var saveAction: SaveAction
     /// Non-nil presents the composer, and carries what it was opened with.
     @State private var composing: ComposerPresentation?
-    /// The Journal tab's stack. Hoisted here so Done in the composer can land on the new entry, at
-    /// the journal's root, rather than under whatever was open before.
-    @State private var path: [JournalRoute] = []
+    /// The one stack every tab pushes onto. Hoisted here so Done in the composer can land on the new
+    /// entry, at the journal's root, rather than under whatever was open before.
+    @State private var path: [Route] = []
     /// How many recent photos are waiting to be written up — the journal header's badge. Only ever
     /// non-zero when the photo library has already been allowed; nothing here asks.
     @State private var photoCount = 0
@@ -69,6 +75,29 @@ private struct AteShell: View {
         #endif
         _hasSession = State(initialValue: hasSession)
         _journal = State(initialValue: JournalStore(entries: services.entries))
+        let feedReader = services.feed
+        let analytics = services.analytics
+        let feedStore = EntryListStore(
+            fallbackMessage: "Couldn't load the feed.",
+            savedDishes: services.savedDishes
+        ) { cursor, pageSize in
+            try await feedReader.feedPage(after: cursor, pageSize: pageSize, includeOwn: false)
+        }
+        // `feed_page_loaded` is reported where the page actually lands — a prefetched page and a
+        // pulled one count the same, and a refresh cannot swallow its own first page by resetting
+        // the count and filling it again in the same turn.
+        feedStore.onPageLoaded = { page, items in
+            analytics(SocialEvents.feedPageLoaded(page: page, itemCount: items))
+        }
+        _feed = State(initialValue: feedStore)
+        let shelf = SavedDishesStore(saves: services.saves)
+        _saved = State(initialValue: shelf)
+        _saveAction = State(initialValue: SaveAction(
+            saves: services.saves,
+            analytics: services.analytics,
+            shelf: shelf,
+            broadcast: services.savedDishes
+        ))
         #if DEBUG
         ComposerDebugLaunch.seedDraftIfRequested(into: services.drafts)
         if ComposerDebugLaunch.opensComposer {
@@ -91,6 +120,9 @@ private struct AteShell: View {
             }
         }
         .task { await autoSignInIfRequested() }
+        #if DEBUG
+        .task { await openDebugScreenIfRequested() }
+        #endif
         // An entry that could not be sent is still the person's. The outbox is worked on every
         // return to the app, and anything that lands refreshes the journal under it.
         .onChange(of: scenePhase) { _, phase in
@@ -109,7 +141,7 @@ private struct AteShell: View {
             .ignoresSafeArea(.keyboard)
             .ateGround()
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: JournalRoute.self) { route in
+            .navigationDestination(for: Route.self) { route in
                 destination(route)
                     .toolbar(.hidden, for: .navigationBar)
             }
@@ -120,15 +152,40 @@ private struct AteShell: View {
     }
 
     @ViewBuilder
-    private func destination(_ route: JournalRoute) -> some View {
+    private func destination(_ route: Route) -> some View {
         switch route {
         case .entry(let entry):
             EntryScreen(
                 route: entry,
                 services: services,
-                onChange: { journal.replace($0) },
-                onEdit: { composing = .edit($0) }
+                saves: saveAction,
+                onChange: { card in
+                    journal.replace(card)
+                    feed.replace(card)
+                },
+                onEdit: { composing = .edit($0) },
+                onProfile: { open(.profile($0)) },
+                onBlocked: {
+                    // The person is gone from every read the server serves; the lists on this
+                    // device catch up now rather than on the next launch.
+                    path.removeAll()
+                    Task { await feed.refresh() }
+                }
             )
+        case .profile(let userID):
+            ProfileDestination(
+                userID: userID,
+                services: services,
+                saves: saveAction,
+                onOpen: { open(.entry(EntryRoute(entryID: $0.id))) },
+                onBlocked: { blocked in
+                    path.removeAll { $0 == .profile(blocked) }
+                    Task { await feed.refresh() }
+                }
+            )
+        // Slice 2. `open(_:)` will not push these, so this is unreachable rather than empty-by-design.
+        case .place, .dish:
+            EmptyView()
         case .suggestions:
             // `Suggestions.dc.html` keeps the tab bar under it — it is a page of the journal, not a
             // modal. The stack's root bar is covered by the push, so the screen carries its own.
@@ -158,11 +215,19 @@ private struct AteShell: View {
         case .journal:
             JournalScreen(
                 store: journal,
+                saved: saved,
                 scrollToTopSignal: scrollToTop,
                 photoCount: photoCount,
                 onCompose: { openComposer(.journalEmpty) },
-                onOpen: { path.append(.entry(EntryRoute(entryID: $0.id))) },
-                onSuggestions: { path.append(.suggestions) }
+                onOpen: { open(.entry(EntryRoute(entryID: $0.id))) },
+                onSuggestions: { open(.suggestions) },
+                onSavedPlace: { open(.place($0)) },
+                onSavedDish: { open(.dish($0.dishID)) },
+                // The shelf's own bookmark. Only a round trip the server accepted is announced
+                // to the rest of the app or counted — the store puts its row back on a refusal.
+                onUnsave: { dish in
+                    Task { await saveAction.unsaveFromShelf(dish) }
+                }
             )
             .task { await countPhotos() }
             #if DEBUG
@@ -173,7 +238,23 @@ private struct AteShell: View {
             }
             #endif
         case .feed:
-            FeedScreen()
+            FeedScreen(
+                store: feed,
+                scrollToTopSignal: scrollToTop,
+                onOpen: { open(.entry(EntryRoute(entryID: $0.id))) },
+                onProfile: { open(.profile($0)) },
+                onSave: { entry, dish in
+                    Task {
+                        await saveAction.toggle(
+                            dishID: dish.dishID,
+                            entryID: entry.id,
+                            isSaved: dish.isSaved,
+                            source: .feed
+                        )
+                    }
+                },
+                onViewed: { services.analytics(SocialEvents.feedViewed()) }
+            )
         case .search:
             SearchScreen()
         case .you:
@@ -189,11 +270,20 @@ private struct AteShell: View {
             set: { tapped in
                 guard tapped == tab else {
                     tab = tapped
+                    // A tab is a place, not a layer: switching one leaves nothing pushed behind it.
+                    path.removeAll()
                     return
                 }
                 scrollToTop += 1
             }
         )
+    }
+
+    /// Pushes a destination — and refuses the ones that do not exist yet, so a link to slice 2 does
+    /// nothing at all rather than opening a blank page.
+    private func open(_ route: Route) {
+        guard route.isBuilt else { return }
+        path.append(route)
     }
 
     private func openComposer(_ origin: ComposerPresentation.Origin) {
@@ -233,6 +323,24 @@ private struct AteShell: View {
                 return
             }
             try? await Task.sleep(for: .milliseconds(100))
+        }
+    }
+    #endif
+
+    #if DEBUG
+    /// `-ate-open-feed` / `-ate-open-profile`: the screens a drive photographs, reachable from
+    /// `simctl launch` because a simulator cannot be tapped from a shell.
+    private func openDebugScreenIfRequested() async {
+        guard ComposerDebugLaunch.opensFeed else { return }
+        tab = .feed
+        guard ComposerDebugLaunch.opensProfile else { return }
+        for _ in 0..<40 {
+            await feed.loadIfNeeded()
+            if let first = feed.entries.first {
+                open(.profile(first.authorID))
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(150))
         }
     }
     #endif

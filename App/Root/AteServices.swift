@@ -19,6 +19,15 @@ struct AteServices {
     let drafts: any EntryDraftStoring
     /// Finding, resolving and creating places — the Place key and the entry's place correction.
     let places: any PlaceDirectory
+    /// Everyone else's entries. Read-only, and its own seam: the feed never writes.
+    let feed: any EntryFeedReading
+    /// The feed's one action, and the shelf it fills.
+    let saves: any DishSaving
+    /// Somebody else's page, and the two things you can do about them.
+    let profiles: any ProfileReading
+    /// The one place a bookmark's new state is announced. Everything that draws one listens, so a
+    /// save made on an entry page is already true on the feed and the profile underneath it.
+    let savedDishes = SavedDishBroadcast()
     /// Entries that have not finished landing. Worked on every foreground.
     let outbox: EntryOutbox
     /// The camera roll, behind a seam — `Suggestions` and the composer's photo staging.
@@ -42,6 +51,9 @@ struct AteServices {
         self.entries = preview?.entries ?? SupabaseEntryService(api: api)
         self.places = preview?.places ?? PlaceDirectoryClient(api: api)
         self.photos = preview?.photos ?? SystemPhotoLibrary()
+        self.feed = preview?.feed ?? EntryFeedClient(api: api)
+        self.saves = preview?.saves ?? SaveClient(api: api)
+        self.profiles = preview?.profiles ?? ProfileClient(api: api)
         self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record)
     }
 
@@ -58,24 +70,34 @@ struct AteServices {
     /// fixtures, so the whole loop can be driven on a simulator before staging has the new tables.
     /// Debug only, in both directions: the types do not exist in a shipped binary, and a launch
     /// argument cannot be set on an installed app.
-    /// The three seams `-ate-preview-data` swaps at once.
+    /// The seams `-ate-preview-data` swaps at once.
     private struct PreviewServices {
         let entries: any EntryService
         let places: any PlaceDirectory
         let photos: any AtePhotoLibrary
+        // One object stands in for all three in memory — they share state (a dish saved in the
+        // feed is on the shelf) — but it is held as its three protocols, so this struct still
+        // type-checks in a build where the in-memory types do not exist at all.
+        let feed: any EntryFeedReading
+        let saves: any DishSaving
+        let profiles: any ProfileReading
     }
 
     private static func previewServices() -> PreviewServices? {
         #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
         guard arguments.contains(InMemoryEntryService.launchArgument) else { return nil }
+        // The feed owns everyone else's entries, and the entry service reads through to it — so a
+        // slip opened from the feed lands on a page that agrees about what has been saved.
+        let social = InMemorySocialService()
         // `-ate-preview-empty` is the first-day journal: signed in, nothing written. The one state
         // that cannot be reached by writing something.
         let service = arguments.contains(InMemoryEntryService.emptyLaunchArgument)
-            ? InMemoryEntryService()
-            : InMemoryEntryService.seeded()
+            ? InMemoryEntryService(others: social)
+            : InMemoryEntryService.seeded(others: social)
         return PreviewServices(
-            entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary()
+            entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
+            feed: social, saves: social, profiles: social
         )
         #else
         return nil

@@ -5,7 +5,7 @@ import SwiftUI
 /// The entry page's state: the row, what the bill says, and which correction sheet is open.
 @MainActor
 @Observable
-final class EntryModel {
+final class EntryModel: SavedDishObserving {
     /// What the bill on the page is doing.
     enum State: Equatable {
         /// The words are saved; the structure has not arrived. A designed state, not a spinner
@@ -40,12 +40,14 @@ final class EntryModel {
 
     private let route: EntryRoute
     private let services: AteServices
+    private let saves: SaveAction
     private var handle = ""
     private var hasReportedPrint = false
 
-    init(route: EntryRoute, services: AteServices) {
+    init(route: EntryRoute, services: AteServices, saves: SaveAction) {
         self.route = route
         self.services = services
+        self.saves = saves
         #if DEBUG
         // Not before the entry has loaded: the sheet opens on the place it is correcting, and one
         // opened against a card that is not there yet shows "Recent" instead of "Best match".
@@ -151,6 +153,91 @@ final class EntryModel {
         await reload()
     }
 
+    // MARK: - Somebody else's entry
+
+    /// Whose entry this is. Your own gets the pencil and the globe; anybody else's gets a byline and
+    /// bookmarks. One row, two readings (`docs/DESIGN.md`, "Not drawn").
+    var isMine: Bool { card?.isMine ?? true }
+
+    /// The byline on somebody else's entry — their avatar, their handle, and how long ago.
+    var byline: AteByline? {
+        guard let card, card.isMine == false, let author = card.author else { return nil }
+        return AteByline(
+            userID: author.id,
+            handle: author.username,
+            age: RelativeAge.short(card.createdAt)
+        )
+    }
+
+    /// True when every line of this entry is already on the shelf — what the top bar's bookmark
+    /// reads. An entry with no lines is never "saved": there is nothing to have saved.
+    var isEveryDishSaved: Bool { card?.isEveryDishSaved ?? false }
+
+    /// One line's bookmark. A save is one dish, wherever it is tapped — and the page hears about
+    /// it the same way the feed underneath it does, through the broadcast.
+    func toggleSave(item: AteReceipt.Item) async {
+        guard let card, let dishID = item.dishID else { return }
+        await saves.toggle(dishID: dishID, entryID: card.id, isSaved: item.isSaved, source: .entry)
+    }
+
+    /// The bookmark in the top bar: every dish on this visit, at once — `save_entry_dishes`, which
+    /// is the same thing "Save this place" does on the actions sheet.
+    func toggleSaveEveryDish() async {
+        guard let card, card.items.isEmpty == false else { return }
+        let dishIDs = card.items.map(\.dishID)
+        if card.isEveryDishSaved {
+            await saves.unsaveEveryDish(dishIDs: dishIDs, source: .entry)
+        } else {
+            await saves.saveEveryDish(entryID: card.id, dishIDs: dishIDs, source: .entry)
+        }
+    }
+
+    /// The bookmark changed somewhere — here, or on a list this page was opened from.
+    func savedDishChanged(dishID: UUID, isSaved: Bool) {
+        applySaved(dishID: dishID, to: isSaved)
+    }
+
+    /// What the actions sheet's Share row sends: this visit's receipt, rendered now. An entry whose
+    /// bill has not printed has no artefact yet, and sends nothing rather than a blank page.
+    func receiptShareItems() -> [Any] {
+        guard let receipt, let image = ReceiptImage.render(receipt) else { return [] }
+        services.analytics(EntryEvents.receiptShared())
+        return [image]
+    }
+
+    /// Report this entry. The author is reported from their profile; this is about the words.
+    @discardableResult
+    func report() async -> Bool {
+        do {
+            try await services.profiles.report(entryID: route.entryID, reason: nil, note: nil)
+            services.analytics(SocialEvents.entryReported())
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    /// Block this entry's author. Returns their id so the caller can empty the lists behind it.
+    func blockAuthor() async -> UUID? {
+        guard let card, card.isMine == false else { return nil }
+        do {
+            try await services.profiles.block(userID: card.authorID)
+            services.analytics(SocialEvents.userBlocked())
+            return card.authorID
+        } catch {
+            return nil
+        }
+    }
+
+    /// Writes a bookmark into the row this page is drawn from, so the bill and the top bar agree
+    /// with every other list before the server answers.
+    private func applySaved(dishID: UUID, to isSaved: Bool) {
+        guard let card else { return }
+        let updated = card.settingSaved(dishID: dishID, to: isSaved)
+        self.card = updated
+        state = EntryPresentation.state(for: updated, handle: handle)
+    }
+
     func toggleVisibility() async {
         guard let card else { return }
         let next: EntryVisibility = card.visibility.isPublic ? .private : .public
@@ -210,7 +297,10 @@ enum EntryPresentation {
                 placeID: place.id,
                 address: place.address,
                 items: card.items.map {
-                    AteReceipt.Item(id: $0.reviewID, name: $0.dishName, score: $0.score, note: $0.note)
+                    AteReceipt.Item(
+                        id: $0.reviewID, name: $0.dishName, score: $0.score, note: $0.note,
+                        dishID: $0.dishID, isSaved: $0.saved
+                    )
                 },
                 orderNumber: card.orderNumber,
                 date: card.createdAt,
