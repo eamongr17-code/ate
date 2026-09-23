@@ -53,6 +53,11 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
     public let dishCount: Int
     /// Over SCORED items only; `nil` when none. Matches the receipt footer.
     public let avgScore: Double?
+    /// Where the PLACE is named in `body` — a 0-based **Unicode scalar** offset and a scalar length
+    /// (`integration-design.md`). `nil` when the words never named it, and then no place pill is
+    /// drawn. Never used to search: see ``EntryBodyTokens``.
+    public let placeOffset: Int?
+    public let placeLength: Int?
 
     public struct Author: Sendable, Hashable, Codable, Identifiable {
         public let id: UUID
@@ -115,11 +120,27 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
         public let position: Int
         /// The *viewer's* own save state.
         public let saved: Bool
+        /// Where the SCORE is in `body`: a 0-based **Unicode scalar** offset and a scalar length.
+        ///
+        /// This is `score_evidence`, so it *holds* the number but can be longer than it — "4.5 stars",
+        /// "4 out of 5" (migration 0024). `nil` when the server cannot point at it.
+        public let evidenceOffset: Int?
+        public let evidenceLength: Int?
+        /// Where the DISH is named in `body`, same units. The body's own spelling, which may differ in
+        /// case from ``dishName`` (that is the menu's).
+        public let mentionOffset: Int?
+        public let mentionLength: Int?
+        /// The author fixed this line themselves; no re-sort, forced or not, overwrites it.
+        public let corrected: Bool
 
         public var id: UUID { reviewID }
 
+        // swiftlint:disable:next function_default_parameter_at_end
         public init(reviewID: UUID, dishID: UUID, dishName: String, score: Rating? = nil,
-                    note: String? = nil, position: Int, saved: Bool = false) {
+                    note: String? = nil, position: Int, saved: Bool = false,
+                    evidenceOffset: Int? = nil, evidenceLength: Int? = nil,
+                    mentionOffset: Int? = nil, mentionLength: Int? = nil,
+                    corrected: Bool = false) {
             self.reviewID = reviewID
             self.dishID = dishID
             self.dishName = dishName
@@ -127,13 +148,41 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
             self.note = note
             self.position = position
             self.saved = saved
+            self.evidenceOffset = evidenceOffset
+            self.evidenceLength = evidenceLength
+            self.mentionOffset = mentionOffset
+            self.mentionLength = mentionLength
+            self.corrected = corrected
+        }
+
+        /// Hand-written for one reason: `corrected` is a plain `Bool` in the app and a column that
+        /// only exists from 0025 on the wire. Decoding it with `decodeIfPresent` means a row served
+        /// by an older view is still a row — it simply has no corrections.
+        public init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.reviewID = try container.decode(UUID.self, forKey: .reviewID)
+            self.dishID = try container.decode(UUID.self, forKey: .dishID)
+            self.dishName = try container.decode(String.self, forKey: .dishName)
+            self.score = try container.decodeIfPresent(Rating.self, forKey: .score)
+            self.note = try container.decodeIfPresent(String.self, forKey: .note)
+            self.position = try container.decode(Int.self, forKey: .position)
+            self.saved = try container.decodeIfPresent(Bool.self, forKey: .saved) ?? false
+            self.evidenceOffset = try container.decodeIfPresent(Int.self, forKey: .evidenceOffset)
+            self.evidenceLength = try container.decodeIfPresent(Int.self, forKey: .evidenceLength)
+            self.mentionOffset = try container.decodeIfPresent(Int.self, forKey: .mentionOffset)
+            self.mentionLength = try container.decodeIfPresent(Int.self, forKey: .mentionLength)
+            self.corrected = try container.decodeIfPresent(Bool.self, forKey: .corrected) ?? false
         }
 
         enum CodingKeys: String, CodingKey {
-            case score, note, position, saved
+            case score, note, position, saved, corrected
             case reviewID = "review_id"
             case dishID = "dish_id"
             case dishName = "dish_name"
+            case evidenceOffset = "evidence_offset"
+            case evidenceLength = "evidence_length"
+            case mentionOffset = "mention_offset"
+            case mentionLength = "mention_length"
         }
     }
 
@@ -156,7 +205,9 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
         place: Place? = nil,
         photos: [Photo] = [],
         items: [Item] = [],
-        avgScore: Double? = nil
+        avgScore: Double? = nil,
+        placeOffset: Int? = nil,
+        placeLength: Int? = nil
     ) {
         self.id = id
         self.authorID = authorID
@@ -177,6 +228,8 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
         self.items = items
         self.dishCount = items.count
         self.avgScore = avgScore ?? Self.average(of: items)
+        self.placeOffset = placeOffset
+        self.placeLength = placeLength
     }
 
     /// The mean of the dishes that were actually scored. Unscored dishes are not zeros and are not
@@ -201,6 +254,8 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
         case photoCount = "photo_count"
         case dishCount = "dish_count"
         case avgScore = "avg_score"
+        case placeOffset = "place_offset"
+        case placeLength = "place_length"
     }
 }
 
@@ -243,7 +298,12 @@ public extension EntryCard {
             author: author,
             place: place ?? self.place,
             photos: photos ?? self.photos,
-            items: items ?? self.items
+            items: items ?? self.items,
+            // A PLACE CORRECTION CLEARS THE PLACE TOKEN, exactly as `correct_entry_place` does in SQL
+            // (0024): the words named some other venue, so there is nothing in them to point at any
+            // more, and an offset kept here would put a pill for this place on the name of that one.
+            placeOffset: place == nil ? placeOffset : nil,
+            placeLength: place == nil ? placeLength : nil
         )
     }
 
@@ -286,19 +346,27 @@ public extension EntryCard {
         ],
         items: [
             // The notes read as `Entry.dc.html` prints them — the sorter lifts a sentence and the
-            // receipt sets it as one.
+            // receipt sets it as one. The offsets are the real ones for this body, in scalars, so a
+            // preview, a screenshot and a UI drive all render through the offset path the server
+            // feeds (`-ate-preview-data`'s locally sorted entries carry none, and exercise the
+            // fallback — both halves of ``EntryBodyTokens`` are reachable on a simulator).
             Item(reviewID: UUID(uuidString: "C7E00000-0000-4000-8000-000000000001")!,
                  dishID: UUID(uuidString: "D7E00000-0000-4000-8000-000000000001")!,
                  dishName: "Tagliatelle al ragù", score: Rating(rounding: 4.5),
-                 note: "Unreal. Rich, glossy, gone in four minutes.", position: 1),
+                 note: "Unreal. Rich, glossy, gone in four minutes.", position: 1,
+                 evidenceOffset: 60, evidenceLength: 3, mentionOffset: 40, mentionLength: 19),
             Item(reviewID: UUID(uuidString: "C7E00000-0000-4000-8000-000000000002")!,
                  dishID: UUID(uuidString: "D7E00000-0000-4000-8000-000000000002")!,
                  dishName: "Tiramisu", score: Rating(rounding: 3),
-                 note: "A bit flat after that.", position: 2),
+                 note: "A bit flat after that.", position: 2,
+                 evidenceOffset: 121, evidenceLength: 3, mentionOffset: 112, mentionLength: 8),
             Item(reviewID: UUID(uuidString: "C7E00000-0000-4000-8000-000000000003")!,
                  dishID: UUID(uuidString: "D7E00000-0000-4000-8000-000000000003")!,
-                 dishName: "Prawn spaghetti", position: 3)
-        ]
+                 dishName: "Prawn spaghetti", position: 3,
+                 mentionOffset: 155, mentionLength: 15)
+        ],
+        placeOffset: 0,
+        placeLength: 7
     )
 }
 #endif

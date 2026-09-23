@@ -220,35 +220,6 @@ public final class DiaryStore {
         recordLine = DiaryRecordLine.text(entries: entries, hasReachedEnd: hasReachedEnd)
     }
 
-    // MARK: - Optimistic insert
-
-    /// Puts a just-posted sitting on the page immediately (§7.4).
-    ///
-    /// Called as the Log sheet leaves, with the rows it wrote and the names it wrote them under.
-    /// ``reviewsWerePosted()`` still runs behind it, so the server's version of these rows lands on
-    /// the next look and reconciles onto identical ids — this only changes *when* the block appears,
-    /// never what it eventually says.
-    ///
-    /// It matters most on the first log of all: ``loadFirstPage()`` shows `.loading` only when
-    /// `entries` is empty, which is precisely the case where the person would otherwise watch their
-    /// first ever entry arrive as a skeleton.
-    ///
-    /// Rows already present are ignored (a retry that re-reports a landed row must not double it),
-    /// and the phase moves off `.empty`/`.loading` because there is now something to show. A
-    /// signed-out store is left alone: rows posted by a session we no longer have are not ours to
-    /// render.
-    public func insertPosted(_ posted: PostedSitting) {
-        guard phase != .signedOut else { return }
-        let fresh = posted.diaryEntries().filter { seenIDs.insert($0.id).inserted }
-        guard !fresh.isEmpty else { return }
-        entries.insert(contentsOf: fresh, at: 0)
-        // `hasReachedEnd` is untouched on purpose: it means "no older page follows", and prepending
-        // newer rows leaves that true — so a fully-loaded diary keeps its exact record line, now
-        // counting the sitting you just posted.
-        phase = .ready
-        regroup()
-    }
-
     // MARK: - Lookup (the entry view's seams, §4)
 
     /// One loaded entry, by review id.
