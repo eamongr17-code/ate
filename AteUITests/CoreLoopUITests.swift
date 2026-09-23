@@ -47,6 +47,13 @@ final class CoreLoopUITests: XCTestCase {
         attach("03-composer-typed")
         // Typing "4.5" and moving on must leave ONE token holding the whole number. Promoting at
         // the decimal point left a 4.0 pill and a stray ".5" in the words — a score nobody gave.
+        //
+        // Waited for, not read straight off: the promotion runs on the NEXT turn of the runloop,
+        // outside UIKit's edit transaction (the same seam `testUndoAfterAScorePromotes…` waits on).
+        // Reading `value` the instant `typeText` returned raced it, and this test failed about one
+        // run in six with the digits still in the words — a pass that depended on the machine.
+        XCTAssertTrue(waitForEditor(editor, contains: false),
+                      "the digits should have become a token")
         let written = (editor.value as? String) ?? ""
         XCTAssertFalse(written.contains("4"), "the digits belong inside the token, not in the words")
         XCTAssertFalse(written.contains(".5"), "the decimal must not be left behind as words")
@@ -83,8 +90,11 @@ final class CoreLoopUITests: XCTestCase {
                       "and the words are on the same page, above it")
         attach("06-entry-printed")
 
-        // Back to the journal, where the entry now lives.
-        app.buttons["Back to journal"].tap()
+        // Back to the journal, where the entry now lives. Waited for: the page arrives with the
+        // push animation, and a tap fired into a hierarchy that is still settling finds nothing.
+        let back = app.buttons["Back to journal"]
+        XCTAssertTrue(back.waitForExistence(timeout: 5), "the entry page's own back control")
+        back.tap()
         let slips = app.buttons.matching(identifier: "journal.slip")
         XCTAssertTrue(slips.firstMatch.waitForExistence(timeout: 5))
         XCTAssertEqual(slips.count, 2, "the seeded entry plus the one just written")
@@ -152,21 +162,31 @@ final class CoreLoopUITests: XCTestCase {
                       "the digits should have become a token")
         attach("12-before-undo")
 
-        // Undo walks back through the edits in the order they were made: the trailing space first
-        // (UIKit's own typing operation), then our promotion.
+        // Undo walks back through the edits in the order they were made. **How far each step goes is
+        // UIKit's business, not ours**: it coalesces typing into groups of its own choosing, and the
+        // promotion can land in the same group as the characters typed beside it. So the digits come
+        // back on the first undo or the second — this asks after each one and requires only that
+        // they came back, which is the behaviour the person cares about. (Asserting "4.5" after
+        // exactly two undos is what made this test fail about one run in five: that run's second
+        // undo gave back `ragu 4.` — the promotion reversed *and* part of the typing with it.)
         app.buttons["debug.undo"].tap()
+        let digitsBackAfterFirst = waitForEditor(editor, contains: true, "4", timeout: 3)
         XCTAssertEqual(app.state, .runningForeground, "the first undo must not take the app down")
         attach("13-after-undo")
 
         // The one that used to SIGABRT: UIKit's operation, run against storage a programmatic edit
         // had replaced underneath it.
         app.buttons["debug.undo"].tap()
-        XCTAssertTrue(waitForEditor(editor, contains: true),
-                      "the second undo gives the person their digits back")
+        let digitsBackAfterSecond = waitForEditor(editor, contains: true, "4")
         XCTAssertEqual(app.state, .runningForeground, "a second undo must not take the app down")
+        XCTAssertTrue(digitsBackAfterFirst || digitsBackAfterSecond,
+                      "undo gives the person the digits they typed back")
 
+        // Redo as many times as we undid: whatever UIKit grouped, undoing N and redoing N is the
+        // state we started from — the pill back in the words, no loose digits beside it.
         app.buttons["debug.redo"].tap()
-        XCTAssertTrue(waitForEditor(editor, contains: false),
+        app.buttons["debug.redo"].tap()
+        XCTAssertTrue(waitForEditor(editor, contains: false, "4"),
                       "redo puts the pill back — it does not eat the score")
         XCTAssertEqual(app.state, .runningForeground, "and redo keeps it alive too")
         XCTAssertTrue(((editor.value as? String) ?? "").hasPrefix("The tagliatelle al ragu"),
