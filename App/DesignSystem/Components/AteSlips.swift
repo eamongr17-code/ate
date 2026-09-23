@@ -142,7 +142,7 @@ struct EntrySlip: View {
                 dishStack(interactive: interactive)
             }
             // The place, the words and the photos are one target: they are the entry, in miniature.
-            tappable(interactive: interactive) {
+            tappable(interactive: interactive, part: "body") {
                 VStack(alignment: .leading, spacing: AteMetrics.slipBandGap) {
                     if slip.place != nil || slip.meta != .none {
                         placeLine
@@ -164,9 +164,14 @@ struct EntrySlip: View {
     }
 
     /// Wraps a band in a button when the slip has its own controls, and leaves it alone when the
-    /// whole slip is already one.
+    /// whole slip is already one. `part` is what a drive reaches for: with bookmarks in the way, the
+    /// slip is no longer one element, so its two halves are named.
     @ViewBuilder
-    private func tappable(interactive: Bool, @ViewBuilder _ content: () -> some View) -> some View {
+    private func tappable(
+        interactive: Bool,
+        part: String,
+        @ViewBuilder _ content: () -> some View
+    ) -> some View {
         if interactive, let onOpen {
             Button(action: onOpen) {
                 content()
@@ -175,6 +180,7 @@ struct EntrySlip: View {
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("\(identifier).\(part)")
         } else {
             content()
         }
@@ -196,7 +202,7 @@ struct EntrySlip: View {
 
     private func dishRow(_ dish: AteSlip.Dish, interactive: Bool) -> some View {
         HStack(spacing: AteMetrics.regular) {
-            tappable(interactive: interactive) {
+            tappable(interactive: interactive, part: "dish") {
                 HStack(spacing: AteMetrics.regular) {
                     Text(dish.name)
                         .ateText(.slipDish)

@@ -30,7 +30,13 @@ struct JournalScreen: View {
         case journal, saved
     }
 
-    @State private var shelf: Shelf = .journal
+    @State private var shelf: Shelf = {
+        #if DEBUG
+        return ComposerDebugLaunch.opensSaved ? .saved : .journal
+        #else
+        return .journal
+        #endif
+    }()
 
     var body: some View {
         ScrollViewReader { proxy in

@@ -8,7 +8,8 @@ import Foundation
 /// argument cannot be set on an installed app. It carries the artboards' own entries, so what a
 /// screenshot shows and what `design/v1` draws are the same words, the same dishes and the same
 /// scores.
-public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileReading, @unchecked Sendable {
+public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileReading,
+                                          PreviewEntryLookup, @unchecked Sendable {
     private let lock = NSLock()
     private var entries: [EntryCard]
     private var profiles: [UUID: ProfileSummary]
@@ -119,6 +120,16 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
                 }
             } ?? rows
             return Page(items: Array(after.prefix(pageSize)), requestedLimit: pageSize)
+        }
+    }
+
+    /// One entry, with the viewer's bookmarks on it — what the entry page reads when it is opened
+    /// from the feed.
+    public func entryCard(id: UUID) -> EntryCard? {
+        lock.withLock {
+            guard let card = entries.first(where: { $0.id == id }),
+                  blocked.contains(card.authorID) == false else { return nil }
+            return applyingSaves(card)
         }
     }
 

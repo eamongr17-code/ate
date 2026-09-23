@@ -102,6 +102,9 @@ private struct AteShell: View {
             }
         }
         .task { await autoSignInIfRequested() }
+        #if DEBUG
+        .task { await openDebugScreenIfRequested() }
+        #endif
         // An entry that could not be sent is still the person's. The outbox is worked on every
         // return to the app, and anything that lands refreshes the journal under it.
         .onChange(of: scenePhase) { _, phase in
@@ -316,6 +319,24 @@ private struct AteShell: View {
                 return
             }
             try? await Task.sleep(for: .milliseconds(100))
+        }
+    }
+    #endif
+
+    #if DEBUG
+    /// `-ate-open-feed` / `-ate-open-profile`: the screens a drive photographs, reachable from
+    /// `simctl launch` because a simulator cannot be tapped from a shell.
+    private func openDebugScreenIfRequested() async {
+        guard ComposerDebugLaunch.opensFeed else { return }
+        tab = .feed
+        guard ComposerDebugLaunch.opensProfile else { return }
+        for _ in 0..<40 {
+            await feed.loadIfNeeded()
+            if let first = feed.entries.first {
+                open(.profile(first.authorID))
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(150))
         }
     }
     #endif

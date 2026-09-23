@@ -84,7 +84,9 @@ final class CoreLoopUITests: XCTestCase {
         attach("06-entry-printed")
 
         // Back to the journal, where the entry now lives.
-        app.buttons["Back to journal"].tap()
+        // "Back", not "Back to journal": the entry page is reached from the feed and from a
+        // profile too now, and a label that names one of them is wrong from the other two.
+        app.buttons["Back"].tap()
         let slips = app.buttons.matching(identifier: "journal.slip")
         XCTAssertTrue(slips.firstMatch.waitForExistence(timeout: 5))
         XCTAssertEqual(slips.count, 2, "the seeded entry plus the one just written")

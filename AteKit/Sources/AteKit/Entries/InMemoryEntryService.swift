@@ -7,6 +7,14 @@ import Foundation
 /// exist in a Beta or Release binary, and a launch argument cannot be set on an installed app
 /// anyway. The structure it adds comes from ``PreviewSorter``, which carries the same restriction —
 /// the server is the single source of structure in anything that ships.
+/// Where an entry that is not the viewer's own is read from in preview mode — implemented by
+/// ``InMemorySocialService``, so a feed slip opened from the feed lands on a real page **with its
+/// bookmarks already true**. Without it the two in-memory services would each hold half the app's
+/// state and disagree about what the reader had saved.
+public protocol PreviewEntryLookup: Sendable {
+    func entryCard(id: UUID) -> EntryCard?
+}
+
 public final class InMemoryEntryService: EntryService, @unchecked Sendable {
     public static let launchArgument = "-ate-preview-data"
     /// …and with nothing in it: the first-day journal, which is the one state you cannot reach by
@@ -20,23 +28,31 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
     /// How long a sort "takes". Non-zero so the pending state and the receipt printing in are both
     /// reachable on a simulator; zero in tests, which should not wait for theatre.
     private let sortDelay: Duration
+    /// Everyone else's entries, read from wherever the feed keeps them.
+    private let others: (any PreviewEntryLookup)?
 
     public init(
         viewer: ViewerProfile = .preview,
         entries: [EntryCard] = [],
         firstOrderNumber: Int = 1,
-        sortDelay: Duration = .zero
+        sortDelay: Duration = .zero,
+        others: (any PreviewEntryLookup)? = nil
     ) {
         self.profile = viewer
         self.entries = entries.sorted { $0.createdAt > $1.createdAt }
         self.nextOrderNumber = max(firstOrderNumber, (entries.map(\.orderNumber).max() ?? 0) + 1)
         self.sortDelay = sortDelay
+        self.others = others
     }
 
     /// The design's own journal: one sorted entry, so the receipt, the slip and the day header all
     /// have something true to draw.
-    public static func seeded(sortDelay: Duration = .milliseconds(900)) -> InMemoryEntryService {
-        InMemoryEntryService(entries: [.previewSorted], firstOrderNumber: 143, sortDelay: sortDelay)
+    public static func seeded(
+        sortDelay: Duration = .milliseconds(900),
+        others: (any PreviewEntryLookup)? = nil
+    ) -> InMemoryEntryService {
+        InMemoryEntryService(entries: [.previewSorted], firstOrderNumber: 143,
+                             sortDelay: sortDelay, others: others)
     }
 
     public func viewer() async throws -> ViewerProfile { profile }
@@ -116,17 +132,18 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
     // MARK: - Read
 
     public func entry(id: UUID) async throws -> EntryCard {
-        try lock.withLock {
-            guard let card = entries.first(where: { $0.id == id }) else {
-                throw AteAPIError.notFound(table: EntryCard.table, id: id)
-            }
-            return card
+        if let mine = lock.withLock({ entries.first { $0.id == id } }) { return mine }
+        // Not the viewer's — the feed's, then. Opening somebody else's slip has to land on their
+        // page, not on a not-found.
+        guard let theirs = others?.entryCard(id: id) else {
+            throw AteAPIError.notFound(table: EntryCard.table, id: id)
         }
+        return theirs
     }
 
     public func journal(after cursor: PageCursor?, pageSize: Int) async throws -> Page<EntryCard> {
         lock.withLock {
-            let ordered = entries.sorted {
+            let ordered = entries.filter(\.isMine).sorted {
                 ($0.createdAt, $0.id.uuidString) > ($1.createdAt, $1.id.uuidString)
             }
             let remaining: [EntryCard]

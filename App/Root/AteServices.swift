@@ -81,14 +81,17 @@ struct AteServices {
         #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
         guard arguments.contains(InMemoryEntryService.launchArgument) else { return nil }
+        // The feed owns everyone else's entries, and the entry service reads through to it — so a
+        // slip opened from the feed lands on a page that agrees about what has been saved.
+        let social = InMemorySocialService()
         // `-ate-preview-empty` is the first-day journal: signed in, nothing written. The one state
         // that cannot be reached by writing something.
         let service = arguments.contains(InMemoryEntryService.emptyLaunchArgument)
-            ? InMemoryEntryService()
-            : InMemoryEntryService.seeded()
+            ? InMemoryEntryService(others: social)
+            : InMemoryEntryService.seeded(others: social)
         return PreviewServices(
             entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
-            social: InMemorySocialService()
+            social: social
         )
         #else
         return nil
