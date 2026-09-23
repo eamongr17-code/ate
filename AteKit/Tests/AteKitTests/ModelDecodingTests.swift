@@ -135,13 +135,13 @@ struct ModelDecodingTests {
         """)
 
         #expect(review.score == Rating(rounding: 4))
-        #expect(review.score.value == 4.0)
+        #expect(review.score?.value == 4.0)
         #expect(review.restaurantID == UUID(uuidString: "a0000000-0000-4000-8000-000000000007"))
         #expect(review.hasPhoto == false)
         #expect(review.pageCursor == PageCursor(createdAt: review.createdAt, id: review.id))
     }
 
-    @Test("a half-step score decodes; an off-grid one is rejected rather than silently rounded")
+    @Test("a half-step score decodes, NULL decodes; an off-grid one is rejected rather than rounded")
     func rejectsOffGridScore() throws {
         func reviewJSON(score: String) -> String {
             """
@@ -159,10 +159,15 @@ struct ModelDecodingTests {
             """
         }
 
-        #expect(try Self.decode(Review.self, reviewJSON(score: "4.5")).score.value == 4.5)
+        #expect(try Self.decode(Review.self, reviewJSON(score: "4.5")).score?.value == 4.5)
         // The DB CHECK makes this impossible; if it ever arrives, we want a loud failure, not a
         // score the rating gesture can't represent.
         #expect(throws: (any Error).self) { try Self.decode(Review.self, reviewJSON(score: "4.3")) }
+
+        // NULL is not off-grid — it is "the user never gave a number" (score nullable since 0018,
+        // DESIGN rule 7). The unscored line item is the normal case, so this must decode, not throw.
+        let unscored = try Self.decode(Review.self, reviewJSON(score: "null"))
+        #expect(unscored.score == nil)
     }
 
     // MARK: - User

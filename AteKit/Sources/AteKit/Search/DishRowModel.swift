@@ -133,12 +133,18 @@ public enum DishSearchRanking {
             .map(\.key)
     }
 
-    /// The viewer's most recent score per dish — the "you rated 4.0" caption.
+    /// The viewer's most recent **scored** review per dish — the "you rated 4.0" caption.
+    ///
+    /// Unscored reviews (`score == nil`, the normal case since 0018) are skipped rather than
+    /// becoming the latest: the caption reports a number the user actually gave, and a later line
+    /// item with no number is not a rating of anything (DESIGN rule 7). A dish the viewer has only
+    /// ever written about without scoring therefore has no caption, not a phantom one.
     public static func latestOwnScores(from reviews: [Review]) -> [UUID: (score: Rating, at: Date)] {
         var latest: [UUID: (score: Rating, at: Date)] = [:]
         for review in reviews {
+            guard let score = review.score else { continue }
             if let existing = latest[review.dishID], existing.at >= review.createdAt { continue }
-            latest[review.dishID] = (review.score, review.createdAt)
+            latest[review.dishID] = (score, review.createdAt)
         }
         return latest
     }
