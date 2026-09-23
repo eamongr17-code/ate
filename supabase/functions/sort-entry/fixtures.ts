@@ -555,6 +555,94 @@ export const fixtures: Fixture[] = [
     place: 'Émile',
     items: [{ dish_name: 'soufflé', score: 5, note: null }],
   },
+
+  // -------------------------------------------------------------------------
+  // FALSE LINE ITEMS — the five the 32-entry staging seed surfaced, two of them
+  // false SCORES (a rule-7 breach: the number was the user's, but not about a dish).
+  //
+  // The first two are killed at the NUMBER: a ranking idiom and a count are not scores,
+  // so no number means no score-anchored dish either ("Top", "Order" vanish with them).
+  // The last three are killed by THE ANCHOR RULE: an unscored candidate must be on the
+  // menu or introduced by a determiner. A noun run mined out of prose is a description.
+  // -------------------------------------------------------------------------
+  {
+    id: 'false-top-five-is-a-ranking',
+    about: '"a top five Melbourne pizza" gave the dish "Top" a score of 5.0 — a ranking idiom is never a score',
+    body: '400 Gradi. Margherita 4.5 — is a top five Melbourne pizza.',
+    knownDishes: ['Margherita'],
+    place: '400 Gradi',
+    // the ranking survives as the margherita's NOTE, which is where it belongs
+    items: [{ dish_name: 'Margherita', score: 4.5, note: 'a top five Melbourne pizza.' }],
+  },
+  {
+    id: 'false-top-5-digits',
+    about: 'the same idiom written with a digit',
+    body: '400 Gradi. Margherita 4.5, easily a top 5 pizza in this city.',
+    knownDishes: ['Margherita'],
+    place: '400 Gradi',
+    items: [{ dish_name: 'Margherita', score: 4.5, note: 'easily a top 5 pizza in this city.' }],
+  },
+  {
+    id: 'false-order-two-is-a-count',
+    about: '"Order two." gave the dish "Order" a score of 2.0 — an imperative + number is how many',
+    body: 'Tipo 00. Tagliatelle al ragù 4.5, glossy, peppery, tiny. Order two.',
+    knownDishes: ['Tagliatelle al ragù'],
+    place: 'Tipo 00',
+    items: [{ dish_name: 'Tagliatelle al ragù', score: 4.5, note: 'glossy, peppery, tiny.' }],
+  },
+  {
+    id: 'false-order-twice',
+    about: '"would order twice" became a dish called "Twice" — an adverb after a verb is not a dish',
+    body: 'Lune. Focaccia came warm, would order twice.',
+    knownDishes: ['Focaccia'],
+    place: 'Lune',
+    items: [{ dish_name: 'Focaccia', score: null, note: 'came warm, would order twice.' }],
+  },
+  {
+    id: 'false-leopard-spotting',
+    about: 'an unscored noun run out of prose ("proper leopard spotting") is a description, not an order',
+    body: '400 Gradi. The margherita 4.5 had proper leopard spotting on the crust.',
+    knownDishes: ['Margherita'],
+    place: '400 Gradi',
+    items: [{ dish_name: 'Margherita', score: 4.5, note: 'had proper leopard spotting on the crust.' }],
+  },
+  {
+    id: 'false-real-heat',
+    about: 'same class: "the salsa had real heat" is about the food, and "Real heat" is not a line item',
+    body: 'Mamasita. The tacos 4, and the salsa had real heat.',
+    knownDishes: ['Tacos'],
+    place: 'Mamasita',
+    // and because the phantom is dropped BEFORE the note windows are cut, the tacos keep
+    // the whole clause instead of quoting "the salsa" and stopping.
+    items: [{ dish_name: 'Tacos', score: 4, note: 'the salsa had real heat.' }],
+  },
+  {
+    id: 'count-after-a-verb-no-longer-steals-the-score',
+    about:
+      'found while fixing the above: "got a four" minted a dish "four" AND left the pork bun unscored — a number is never the head of a dish name',
+    body: 'Supernormal. The pork bun got a four from me.',
+    knownDishes: ['Pork bun'],
+    place: 'Supernormal',
+    // no note: "from me." is nothing but glue (hasOpinion), so the line prints bare
+    items: [{ dish_name: 'Pork bun', score: 4, note: null }],
+  },
+  {
+    id: 'marked-score-after-a-verb-survives',
+    about:
+      'and "got 5 stars" minted a dish "5 stars": an explicit marker still makes it a score, and it belongs to the cake',
+    body: 'Beatrix. Raspberry cake got 5 stars, no notes.',
+    knownDishes: ['Raspberry cake'],
+    place: 'Beatrix',
+    items: [{ dish_name: 'Raspberry cake', score: 5, note: 'no notes.' }],
+  },
+  {
+    id: 'roti-for-the-curry',
+    about: 'the shape that must keep working: a bare integer beside the dish, with a clause after it',
+    body: 'Roti 4 for the curry, obviously.',
+    knownDishes: [],
+    place: null,
+    items: [{ dish_name: 'Roti', score: 4, note: 'for the curry, obviously.' }],
+  },
 ];
 
 export const FIXTURE_COUNT = fixtures.length;

@@ -232,6 +232,47 @@ test('a user-pinned place is matched back to the phrase in the words, or to noth
 });
 
 // ---------------------------------------------------------------------------
+// FALSE LINE ITEMS — a ranking and a count are not scores, and an unscored candidate
+// must have been POINTED AT (menu match, or the user's own determiner).
+// ---------------------------------------------------------------------------
+test('a ranking idiom and a count never become scores', () => {
+  assertEquals(values('is a top five Melbourne pizza'), []);
+  assertEquals(values('easily a top 5 pizza'), []);
+  assertEquals(values('Order two.'), []);
+  assertEquals(values('we got 4 between us'), []);
+  assertEquals(values('had 2 of those'), []);
+  // …unless the user marked it, which is unambiguous
+  assertEquals(values('got 5 stars'), [5]);
+  assertEquals(values('got a four'), [4]);
+  assertEquals(values('ordered the 4.5'), [4.5]);
+});
+
+test('an unscored candidate needs the menu or a determiner, not just a noun run', () => {
+  const dishes = (body: string, knownDishes: string[] = []) =>
+    parseEntry({ body, knownDishes }).items.map((i) => i.dish_name);
+
+  // prose about the food — no line item
+  assertEquals(dishes('had proper leopard spotting on the crust.'), []);
+  assertEquals(dishes('the salsa had real heat.'), []);
+  assertEquals(dishes('would order twice.'), []);
+  // the user pointed at it
+  assertEquals(dishes('We also had the chips.'), ['chips']);
+  assertEquals(dishes('We shared the pappardelle.'), ['pappardelle']);
+  // the menu knows it
+  assertEquals(dishes('had proper leopard spotting.', ['Leopard spotting']), ['Leopard spotting']);
+  // or they gave it a number, which makes it theirs
+  assertEquals(dishes('had proper leopard spotting 4.5.'), ['proper leopard spotting']);
+});
+
+test('a number is never the head of a dish name, and never steals a score', () => {
+  const plan = parseEntry({ body: 'The pork bun got a four from me.', knownDishes: ['Pork bun'] });
+  assertEquals(plan.items.map((i) => `${i.dish_name}=${i.score}`), ['Pork bun=4']);
+
+  const marked = parseEntry({ body: 'Raspberry cake got 5 stars, no notes.', knownDishes: ['Raspberry cake'] });
+  assertEquals(marked.items.map((i) => `${i.dish_name}=${i.score}`), ['Raspberry cake=5']);
+});
+
+// ---------------------------------------------------------------------------
 // UNICODE WORDS — `\w` is ASCII-only, and Melbourne menus are not. Every mention span
 // must cover the WHOLE word, and its offset stays a Unicode SCALAR offset.
 // ---------------------------------------------------------------------------
