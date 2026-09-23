@@ -1,29 +1,5 @@
 import SwiftUI
 
-/// **`Feed`** — everyone's receipts, the one place you go to decide where to eat next.
-///
-/// Milestone 1 builds the loop that fills it (write → receipt → journal), so what exists here is the
-/// screen's own chrome and the state it is actually in: nothing has been published yet. The slips
-/// themselves are `FeedSlip`, already in the kit and already drawn in the gallery.
-struct FeedScreen: View {
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: AteMetrics.section) {
-                HStack {
-                    Text("Feed").ateText(.screenTitle)
-                    Spacer(minLength: AteMetrics.snug)
-                    AteChip(icon: .place, title: "Melbourne")
-                }
-                .padding(.horizontal, AteMetrics.gutter)
-                .ateContentTop(62)
-                AteEmptySlip(label: "Feed", title: "No receipts\nyet.")
-            }
-            .padding(.bottom, AteMetrics.tabBarScrollInset)
-        }
-        .scrollIndicators(.hidden)
-    }
-}
-
 /// **`Search`** — places, dishes, people. Its zero state is the field: a search screen with nothing
 /// typed has nothing to say, and saying it anyway would be helper copy (design rule 1).
 struct SearchScreen: View {
@@ -138,7 +114,6 @@ struct YouScreen: View {
 }
 
 #if DEBUG
-#Preview("Feed") { FeedScreen().ateGround() }
 #Preview("Search") { SearchScreen().ateGround() }
 #Preview("You") { YouScreen(handle: "eamon").ateGround() }
 #endif

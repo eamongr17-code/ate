@@ -13,6 +13,9 @@ import SwiftUI
 struct EntryBill: View {
     let items: [AteReceipt.Item]
     var onTap: ((AteReceipt.Item) -> Void)?
+    /// Present on somebody else's entry: every line is a dish you can put on your own shelf, and a
+    /// save is always one dish (PRODUCT.md decision 7).
+    var onSave: ((AteReceipt.Item) -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -29,13 +32,36 @@ struct EntryBill: View {
     @ViewBuilder
     private func line(_ item: AteReceipt.Item, number: Int) -> some View {
         let row = EntryBillRow(number: number, name: item.name, score: item.score)
-        if let onTap {
-            Button { onTap(item) } label: { row }
-                .buttonStyle(.plain)
-                .accessibilityHint("Change the dish")
-        } else {
-            row
+        HStack(spacing: AteMetrics.regular) {
+            if let onTap {
+                Button { onTap(item) } label: { row.contentShape(.rect) }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Change the dish")
+            } else {
+                row
+            }
+            if let onSave {
+                bookmark(item, action: onSave)
+            }
         }
+    }
+
+    private func bookmark(_ item: AteReceipt.Item, action: @escaping (AteReceipt.Item) -> Void) -> some View {
+        Button {
+            action(item)
+        } label: {
+            (item.isSaved ? AteIcon.saved : AteIcon.save)
+                .view(size: 20)
+                .frame(width: AteMetrics.hit, height: AteMetrics.hit)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        // The mark sits on the page's own edge, as it does on a slip.
+        .padding(.vertical, -10)
+        .padding(.trailing, -12)
+        .accessibilityLabel(item.isSaved ? "Saved \(item.name)" : "Save \(item.name)")
+        .accessibilityAddTraits(item.isSaved ? [.isButton, .isSelected] : .isButton)
+        .accessibilityIdentifier("entry.save")
     }
 }
 

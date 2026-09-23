@@ -8,21 +8,6 @@ struct EntryRoute: Hashable, Identifiable {
     var id: UUID { entryID }
 }
 
-/// Everywhere the Journal tab's stack can go. One type, because a `NavigationStack`'s path is one
-/// type — and both destinations are pushes with the tab bar still under them.
-enum JournalRoute: Hashable {
-    case entry(EntryRoute)
-    /// `Suggestions` — recent photos, offered as sittings to write up.
-    case suggestions
-
-    var entryID: UUID? {
-        switch self {
-        case .entry(let route): route.entryID
-        case .suggestions: nil
-        }
-    }
-}
-
 /// **`Entry`** — the whole entry, on one page.
 ///
 /// A single piece of white paper laid on the linen ground: 24pt top corners, 16 clear either side,
@@ -40,25 +25,35 @@ enum JournalRoute: Hashable {
 struct EntryScreen: View {
     let route: EntryRoute
     let services: AteServices
-    /// Called whenever the entry changes, so the journal behind this screen stays true.
+    /// Called whenever the entry changes, so the journal — or the feed — behind this screen stays true.
     var onChange: (EntryCard) -> Void = { _ in }
-    /// The pencil: reopen these words in the composer.
+    /// The pencil: reopen these words in the composer. Your own entries only.
     var onEdit: (EntryCard) -> Void = { _ in }
+    /// The byline on somebody else's entry.
+    var onProfile: (UUID) -> Void = { _ in }
+    /// This entry's author was blocked from its actions sheet: every list behind this page is stale.
+    var onBlocked: () -> Void = {}
 
     @State private var model: EntryModel
+    @State private var isShowingActions = false
     @Environment(\.dismiss) private var dismiss
 
     init(
         route: EntryRoute,
         services: AteServices,
+        saved: SavedDishesStore,
         onChange: @escaping (EntryCard) -> Void = { _ in },
-        onEdit: @escaping (EntryCard) -> Void = { _ in }
+        onEdit: @escaping (EntryCard) -> Void = { _ in },
+        onProfile: @escaping (UUID) -> Void = { _ in },
+        onBlocked: @escaping () -> Void = {}
     ) {
         self.route = route
         self.services = services
         self.onChange = onChange
         self.onEdit = onEdit
-        _model = State(initialValue: EntryModel(route: route, services: services))
+        self.onProfile = onProfile
+        self.onBlocked = onBlocked
+        _model = State(initialValue: EntryModel(route: route, services: services, saved: saved))
     }
 
     var body: some View {
@@ -77,6 +72,7 @@ struct EntryScreen: View {
         .sheet(isPresented: $model.isCorrectingPlace) { placeSheet }
         .sheet(item: $model.correcting) { correcting in dishSheet(correcting.item) }
         .sheet(isPresented: $model.isSharing) { shareSheet }
+        .sheet(isPresented: $isShowingActions) { actionsSheet }
         .fullScreenCover(item: $model.viewingPhoto) { viewing in
             AtePhotoViewer(photos: model.photos, index: viewing.index)
         }
@@ -192,9 +188,13 @@ struct EntryScreen: View {
     private var bill: some View {
         switch model.state {
         case .printed(let receipt):
-            EntryBill(items: receipt.items) { item in
-                model.correcting = EntryModel.Correcting(item: item)
-            }
+            // Your own bill is a set of corrections; somebody else's is a set of bookmarks. The
+            // structure is Ate's guess only where the words were yours.
+            EntryBill(
+                items: receipt.items,
+                onTap: model.isMine ? { model.correcting = EntryModel.Correcting(item: $0) } : nil,
+                onSave: model.isMine ? nil : { item in Task { await model.toggleSave(item: item) } }
+            )
         case .pending, .failed:
             EntryPendingBill(state: model.state) {
                 Task { await model.retrySort() }
@@ -221,27 +221,82 @@ struct EntryScreen: View {
 
     /// Back / visibility / edit / share, exactly as `Entry.dc.html` sets them down. Icons only — the
     /// design puts labels nowhere near this row (rule 1).
+    ///
+    /// Somebody else's entry swaps the two controls that only an author can use for the two a reader
+    /// needs: the byline that says whose visit this was, and the bookmark that puts it on their shelf
+    /// (`docs/DESIGN.md`, "Not drawn").
     private var topBar: some View {
         HStack(spacing: 0) {
-            AteIconButton(icon: .back, label: "Back to journal", size: 24) { dismiss() }
+            AteIconButton(icon: .back, label: "Back", size: 24) { dismiss() }
+            if let byline = model.byline {
+                bylineButton(byline)
+            }
             Spacer(minLength: AteMetrics.snug)
             if let card = model.card {
-                AteIconButton(
-                    icon: card.visibility.isPublic ? .publicEntry : .privateEntry,
-                    label: card.visibility.isPublic ? "Public. Make private" : "Private. Make public",
-                    size: 21
-                ) {
-                    Task { await model.toggleVisibility() }
+                if card.isMine {
+                    authorControls(card)
+                } else {
+                    readerControls(card)
                 }
-                AteIconButton(icon: .edit, label: "Edit", size: 21) { onEdit(card) }
-                AteIconButton(icon: .share, label: "Share receipt", size: 22) { model.share() }
-                    .disabled(model.receipt == nil)
-                    .opacity(model.receipt == nil ? 0.35 : 1)
             }
         }
         .padding(.horizontal, AteMetrics.regular)
         .ateContentTop()
         .background(AtePalette.automatic.ground)
+    }
+
+    private func bylineButton(_ byline: AteByline) -> some View {
+        Button {
+            onProfile(byline.userID)
+        } label: {
+            HStack(spacing: AteMetrics.snug) {
+                AteAvatar(userID: byline.userID, handle: byline.handle)
+                Text(verbatim: "@\(byline.handle)")
+                    .ateText(.controlSmall)
+                Text(byline.age)
+                    .ateText(.meta)
+                    .foregroundStyle(AtePalette.automatic.muted)
+            }
+            .frame(minHeight: AteMetrics.hit)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("@\(byline.handle), \(byline.age)")
+        .accessibilityIdentifier("entry.byline")
+    }
+
+    private func authorControls(_ card: EntryCard) -> some View {
+        Group {
+            AteIconButton(
+                icon: card.visibility.isPublic ? .publicEntry : .privateEntry,
+                label: card.visibility.isPublic ? "Public. Make private" : "Private. Make public",
+                size: 21
+            ) {
+                Task { await model.toggleVisibility() }
+            }
+            AteIconButton(icon: .edit, label: "Edit", size: 21) { onEdit(card) }
+            AteIconButton(icon: .share, label: "Share receipt", size: 22) { model.share() }
+                .disabled(model.receipt == nil)
+                .opacity(model.receipt == nil ? 0.35 : 1)
+        }
+    }
+
+    /// The whole visit, at once — and the "…" that carries share, report and block. Disabled while
+    /// there is no bill, because there is nothing to save until the receipt has printed.
+    private func readerControls(_ card: EntryCard) -> some View {
+        Group {
+            AteIconButton(
+                icon: model.isEveryDishSaved ? .saved : .save,
+                label: model.isEveryDishSaved ? "Saved every dish" : "Save every dish",
+                size: 22
+            ) {
+                Task { await model.toggleSaveEveryDish() }
+            }
+            .disabled(card.items.isEmpty)
+            .opacity(card.items.isEmpty ? 0.35 : 1)
+            .accessibilityIdentifier("entry.saveAll")
+            AteIconButton(icon: .more, label: "More", size: 22) { isShowingActions = true }
+        }
     }
 
     // MARK: - Sheets
@@ -273,6 +328,28 @@ struct EntryScreen: View {
     private var shareSheet: some View {
         if let image = model.shareImage {
             ShareSheet(image: image)
+        }
+    }
+
+    /// The same sheet a profile's "…" opens — save this place, share, report, block — pointed at
+    /// this visit and its author.
+    @ViewBuilder
+    private var actionsSheet: some View {
+        if let byline = model.byline {
+            AteActionsSheet(
+                title: "@\(byline.handle)",
+                blockTitle: "Block @\(byline.handle)",
+                onSavePlace: { Task { await model.toggleSaveEveryDish() } },
+                onShare: { model.receiptShareItems() },
+                onReport: { Task { await model.report() } },
+                onBlock: {
+                    Task {
+                        guard await model.blockAuthor() != nil else { return }
+                        onBlocked()
+                        dismiss()
+                    }
+                }
+            )
         }
     }
 }

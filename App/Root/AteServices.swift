@@ -19,6 +19,12 @@ struct AteServices {
     let drafts: any EntryDraftStoring
     /// Finding, resolving and creating places — the Place key and the entry's place correction.
     let places: any PlaceDirectory
+    /// Everyone else's entries. Read-only, and its own seam: the feed never writes.
+    let feed: any EntryFeedReading
+    /// The feed's one action, and the shelf it fills.
+    let saves: any DishSaving
+    /// Somebody else's page, and the two things you can do about them.
+    let profiles: any ProfileReading
     /// Entries that have not finished landing. Worked on every foreground.
     let outbox: EntryOutbox
     /// The camera roll, behind a seam — `Suggestions` and the composer's photo staging.
@@ -42,6 +48,9 @@ struct AteServices {
         self.entries = preview?.entries ?? SupabaseEntryService(api: api)
         self.places = preview?.places ?? PlaceDirectoryClient(api: api)
         self.photos = preview?.photos ?? SystemPhotoLibrary()
+        self.feed = preview?.social ?? EntryFeedClient(api: api)
+        self.saves = preview?.social ?? SaveClient(api: api)
+        self.profiles = preview?.social ?? ProfileClient(api: api)
         self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record)
     }
 
@@ -58,11 +67,14 @@ struct AteServices {
     /// fixtures, so the whole loop can be driven on a simulator before staging has the new tables.
     /// Debug only, in both directions: the types do not exist in a shipped binary, and a launch
     /// argument cannot be set on an installed app.
-    /// The three seams `-ate-preview-data` swaps at once.
+    /// The seams `-ate-preview-data` swaps at once.
     private struct PreviewServices {
         let entries: any EntryService
         let places: any PlaceDirectory
         let photos: any AtePhotoLibrary
+        /// One object standing in for the feed, saves and profiles — they share state (a dish saved
+        /// in the feed is on the shelf), so in memory they are one thing.
+        let social: InMemorySocialService
     }
 
     private static func previewServices() -> PreviewServices? {
@@ -75,7 +87,8 @@ struct AteServices {
             ? InMemoryEntryService()
             : InMemoryEntryService.seeded()
         return PreviewServices(
-            entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary()
+            entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
+            social: InMemorySocialService()
         )
         #else
         return nil

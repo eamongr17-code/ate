@@ -37,10 +37,19 @@ enum ReceiptImage {
 /// is made at the moment of sharing, not held in the view's state — and because the activity
 /// controller is the only way to be sure the image (not a URL, not a description) is what travels.
 struct ShareSheet: UIViewControllerRepresentable {
-    let image: UIImage
+    /// Whatever is being sent: the receipt image, or a link to a profile.
+    let items: [Any]
+
+    init(items: [Any]) {
+        self.items = items
+    }
+
+    init(image: UIImage) {
+        self.items = [image]
+    }
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: [image], applicationActivities: nil)
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
     }
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
