@@ -21,7 +21,17 @@ public struct Review: KeysetPaginated, Hashable {
     public let dishID: UUID
     /// Denormalised from the dish, trigger-maintained. Always equals the dish's restaurant.
     public let restaurantID: UUID
-    public let score: Rating
+    /// The **user's** score, or `nil` when they never gave a number.
+    ///
+    /// Nullable since migration 0018 (DESIGN rule 7 — a score is only ever the user's, never
+    /// inferred). An unscored line item is the *normal* case now: the composer saves the words, and
+    /// `apply_entry_sort` only writes a score when the words literally contain one (it refuses any
+    /// score whose `score_evidence` is not a substring of the entry body). Every *non-null* score is
+    /// still a half-step — `reviews_score_halfstep` is untouched, and a NULL CHECK passes.
+    ///
+    /// Decoding this as non-optional is precisely what broke the day staging first held real
+    /// entries; `nil` means "no number", never `0` (which ``Rating`` cannot represent).
+    public let score: Rating?
     public let note: String?
     public let photoURLString: String?
     public let createdAt: Date
@@ -35,7 +45,7 @@ public struct Review: KeysetPaginated, Hashable {
         reviewerID: UUID,
         dishID: UUID,
         restaurantID: UUID,
-        score: Rating,
+        score: Rating?,
         note: String? = nil,
         photoURLString: String? = nil,
         createdAt: Date,
