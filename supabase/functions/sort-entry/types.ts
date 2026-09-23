@@ -61,6 +61,15 @@ export type ParseInput = {
   /** Character spans to ignore when hunting for dishes (e.g. the matched place name). */
   excludeSpans?: Array<[number, number]>;
   /**
+   * The attached place's name(s) — the restaurant row's name and the phrase in the words
+   * that matched it. Wherever they appear in `body` they are excluded from the dish hunt,
+   * so a venue name can neither become a dish nor be swallowed into the front of one
+   * ("Baby Pizza San Danielle Pizza 3.5" → `San Danielle Pizza`, not `Pizza San Danielle
+   * Pizza`). Only names the FUNCTION resolved belong here — never the parser's own place
+   * candidate, which for "Margherita 4.5" is the dish.
+   */
+  placeNames?: string[];
+  /**
    * How a dish note is cut out of the words:
    *   'clause' (DEFAULT)  — what follows the dish and its score, cut at the next dish.
    *                         This is what the approved receipt prints

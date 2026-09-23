@@ -1,8 +1,9 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0025` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0028` define it. Forward-only; applied migrations
 are never edited. V1 re-scope landed in **0018–0023**; corrections + offsets in **0024–0025**
-(2026-09-22).
+(2026-09-22); entry-photo covers, the save toggle and the report vocabulary in **0026–0028**
+(2026-09-24).
 
 The atom the USER creates is an **entry** = one visit. The atom AGGREGATES are built from is still a
 per-dish **review** — reviews are now *linked* to an entry, not replaced by it. A **sorter** turns the
@@ -82,9 +83,14 @@ to the saver. The old `lists`/`list_dishes` pair is left applied and untouched �
 `(blocker_id, blocked_id)` PK, no self-block. Recorded one-way, enforced **both ways** by
 `blocked_with(uuid)` (SECURITY DEFINER, so it reads `blocks` without recursing through RLS).
 
-### `reports` (0019)
+### `reports` (0019, 0028)
 `id`, `reporter_id`, exactly one of `entry_id` / `profile_id` (CHECK), `reason`, `note`,
 `status ∈ (open, actioned, dismissed)`. Reporter-visible only; triaged manually with the service role.
+0028 closes `reason` to `spam | abuse | wrong_place | not_food | other`, **NULL still legal** ("reported,
+no reason given" — what the client sends today). The CHECK is `NOT VALID`: enforced on every new row,
+never applied retroactively, because rewriting a real user's report to make a constraint validate is the
+kind of cleanup this team does not do. `report_entry`/`report_profile` lower-case and trim the reason;
+anything outside the list is `23514`.
 
 ### `profiles` — changed (0018)
 Additive: `entry_seq` int (the order-number counter; never client-writable), `city` text (shown under
@@ -126,12 +132,20 @@ unique `WHERE merged_into_dish_id IS NULL`, merge tombstones) · storage buckets
 |---|---|---|
 | `dish_stats` | `dish_id, restaurant_id, score, review_count, cover_url, scored_count, people_count` | `score` = avg of non-null scores (NULL = nobody scored it); `people_count` = distinct reviewers |
 | `restaurant_stats` | `restaurant_id, avg_rating, review_count, cover_url, people_count, dish_count` | `avg_rating` = **mean of per-dish averages**, null-score dishes excluded |
-| `entry_cards` | the one entry shape (see `integration-design.md`) | Journal slip / Feed slip / Entry page / Share receipt are all this row; carries the token offsets + `items[].corrected` |
-| `my_saved_dishes` | saved dish + place + dish aggregate + provenance handle | caller-scoped |
+| `entry_cards` | the one entry shape (see `integration-design.md`) | Journal slip / Feed slip / Entry page / Share receipt are all this row; carries the token offsets + `items[].corrected` + `items[].cover_url` |
+| `my_saved_dishes` | saved dish + place + dish aggregate + provenance handle | caller-scoped; page on the keyset `(saved_at desc, dish_id desc)`. `cover_url` == the older `dish_cover_url` |
+
+**`cover_url` comes from the photos we actually have (0026).** `dish_cover_url(dish)` /
+`restaurant_cover_url(restaurant)` are the single derivation, still live (no stored column, so nothing can
+go stale): the newest visible review that has a photo, where a photo is
+`coalesce(reviews.photo_url, the first entry_photo of that review's entry)`. Before 0026 only
+`reviews.photo_url` counted, and the V1 write path never sets it — every V1 dish read `cover_url = NULL`.
+An entry with photos but no dish lines covers nothing: there is no review row to hang it on.
 
 All are `security_invoker = true`, so **aggregates are viewer-relative**: a private entry's dish
 reviews are hidden by RLS and therefore count towards nobody's averages but their author's. The
 alternative leaks a score as soon as a dish has one reviewer. (Flagged as a product-visible choice.)
+Covers ride the same rule — a private entry's photo covers a dish **for its author only**.
 
 ## RLS
 
@@ -174,3 +188,6 @@ sanctioned path and the correction trigger records it. Anything beyond `score`/`
 | 0023 | `stats_search.sql` | `profile_summary`, `score_histogram`, `dishes_by_score`, `statement_months`, `monthly_statement`, `search_all` |
 | 0024 | `corrections_and_offsets.sql` | correction provenance + the preservation rule in `apply_entry_sort` (dropped/recreated with `p_place_query`/`p_place_offset`); `verified_offset`; the correction trigger; dish display-name normalisation in `find_or_create_dish` |
 | 0025 | `entry_cards_offsets.sql` | `entry_cards` + `place_offset`/`place_length` and `items[].evidence_*`/`mention_*`/`corrected` |
+| 0026 | `entry_photo_covers.sql` | `dish_cover_url`/`restaurant_cover_url`; `dish_stats`/`restaurant_stats` covers now see `entry_photos`; `my_saved_dishes` + `cover_url`; `entry_cards.items[]` + `cover_url` |
+| 0027 | `unsave_entry_dishes.sql` | `unsave_entry_dishes` (the inverse of `save_entry_dishes`) + the Saved keyset index |
+| 0028 | `report_reason.sql` | `reports_reason_ck` (NOT VALID) + reason normalisation in `report_entry`/`report_profile` |

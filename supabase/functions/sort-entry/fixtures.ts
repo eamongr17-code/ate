@@ -1,6 +1,6 @@
 // supabase/functions/sort-entry/fixtures.ts
 //
-// THE EVAL CORPUS — 40 realistic entries with their expected sort.
+// THE EVAL CORPUS — 67 realistic entries with their expected sort.
 //
 // This file has two jobs:
 //   1. It pins the deterministic stub parser (fixtures_test.ts asserts every item).
@@ -14,7 +14,7 @@
 //     dish. Sentiment never earns a score, however strong ("unreal", "the best
 //     thing on Little Bourke").
 //   * `note` is always an exact substring of `body`. fixtures_test.ts re-checks that
-//     mechanically for all 40, so a typo in a note cannot sneak in as a rewrite.
+//     mechanically for all of them, so a typo in a note cannot sneak in as a rewrite.
 //
 // The corpus deliberately includes the numbers that are NOT scores — durations,
 // prices, clock times, dates, head counts, ordinals, quantities — because inventing a
@@ -40,6 +40,12 @@ export type Fixture = {
   body: string;
   /** dish names already on the matched restaurant's menu (empty = no place matched) */
   knownDishes?: string[];
+  /**
+   * The attached place's name(s), as the FUNCTION resolves them (restaurant row + the
+   * phrase that matched). Wherever they appear in the body they are off limits to the dish
+   * hunt — set this on any fixture whose words open with the venue.
+   */
+  placeNames?: string[];
   /** a phrase that MUST appear among placeCandidates(body); null = the text names no place */
   place: string | null;
   items: FixtureItem[];
@@ -642,6 +648,87 @@ export const fixtures: Fixture[] = [
     knownDishes: [],
     place: null,
     items: [{ dish_name: 'Roti', score: 4, note: 'for the curry, obviously.' }],
+  },
+
+  // -------------------------------------------------------------------------
+  // THE SCORE LEAD-IN — "X was a 4.5" scored NOTHING (the CEO's own entries,
+  // staging 2026-09-24). The number was always found; the DISH was not, because the
+  // walk in front of the number stops at a stopword and "was", "is", "a" and "solid"
+  // are all stopwords. Every phrasing below is a user scoring a dish.
+  // -------------------------------------------------------------------------
+  {
+    id: 'ceo-fishbowl-margarita',
+    about:
+      'THE ENTRY THAT SORTED TO NOTHING: "<dish> was a <n>", with the double space the CEO typed and slang after the score',
+    body: 'PJ’s Mexican cantina fishbowl margarita  was a 4.5 and eliteeeee',
+    knownDishes: [],
+    // the place resolved, so its name is off limits to the dish hunt — otherwise the dish
+    // is "Mexican cantina fishbowl margarita"
+    placeNames: ['PJ\'s Mexican cantina'],
+    place: 'PJ’s Mexican',
+    items: [{ dish_name: 'fishbowl margarita', score: 4.5, note: 'eliteeeee', evidence_offset: 47 }],
+  },
+  {
+    id: 'lead-in-is-a-and-gets-a',
+    about: '"<dish> is a <n>" and "<dish> gets a <n>" in one breath, both on the menu',
+    body: 'Chin Chin. The kingfish is a 4.5 and the pork bun gets a 3.5.',
+    knownDishes: ['Kingfish', 'Pork bun'],
+    placeNames: ['Chin Chin'],
+    place: 'Chin Chin',
+    items: [
+      { dish_name: 'Kingfish', score: 4.5, note: null },
+      { dish_name: 'Pork bun', score: 3.5, note: null },
+    ],
+  },
+  {
+    id: 'lead-in-new-dish',
+    about: 'the same phrasing for a dish not on the menu yet — the lead-in is what finds the name',
+    body: 'Supernormal. The lobster roll was a 4.5, the best thing all week.',
+    knownDishes: [],
+    placeNames: ['Supernormal'],
+    place: 'Supernormal',
+    items: [{ dish_name: 'lobster roll', score: 4.5, note: 'the best thing all week.' }],
+  },
+  {
+    id: 'lead-in-gave-the-dish-a',
+    about: '"gave the <dish> a <n>" — the verb names the dish and the article carries the number',
+    body: 'Beatrix. I gave the raspberry cake a 4.5 and would again.',
+    knownDishes: [],
+    placeNames: ['Beatrix'],
+    place: 'Beatrix',
+    items: [{ dish_name: 'raspberry cake', score: 4.5, note: 'would again.' }],
+  },
+  {
+    id: 'lead-in-a-solid',
+    about: '"<dish>, a solid <n>" — the pre-marker adjective sits between the dish and its score',
+    body: 'Tipo 00. The tiramisu, a solid 3.5, then home.',
+    knownDishes: [],
+    placeNames: ['Tipo 00'],
+    place: 'Tipo 00',
+    items: [{ dish_name: 'tiramisu', score: 3.5, note: 'home.' }],
+  },
+
+  // -------------------------------------------------------------------------
+  // THE PLACE IS NOT THE DISH — and not the front half of one.
+  // -------------------------------------------------------------------------
+  {
+    id: 'place-name-bleed',
+    about:
+      'staging: "Baby Pizza San Danielle Pizza 3.5" minted a dish called "Pizza San Danielle Pizza" — the walk ate the venue\'s last word',
+    body: 'Baby Pizza San Danielle Pizza 3.5 was decent, nothing crazy.',
+    knownDishes: [],
+    placeNames: ['Baby Pizza'],
+    place: 'Baby Pizza',
+    items: [{ dish_name: 'San Danielle Pizza', score: 3.5, note: 'decent, nothing crazy.' }],
+  },
+  {
+    id: 'place-scored-is-not-a-dish',
+    about: 'scoring the PLACE is not scoring a dish: "Baby Pizza was a 4.5" prints no receipt line',
+    body: 'Baby Pizza was a 4.5. Everything we ordered worked.',
+    knownDishes: [],
+    placeNames: ['Baby Pizza'],
+    place: 'Baby Pizza',
+    items: [],
   },
 ];
 
