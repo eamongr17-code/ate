@@ -73,8 +73,13 @@ enum AteMetrics {
     static let gutter: CGFloat = 20
     /// Where content starts under the status bar.
     static let contentTop: CGFloat = 60
-    /// Inside a slip or a receipt.
+    /// Inside a slip or a receipt, either side.
     static let slipPadding: CGFloat = 16
+    /// …and above and below its contents (`padding:12px 16px 14px`).
+    static let slipPaddingTop: CGFloat = 12
+    static let slipPaddingBottom: CGFloat = 14
+    /// Between a slip's bands: the dish stack, the place line, the words, the photos (`gap:10px`).
+    static let slipBandGap: CGFloat = 10
 
     static let hairspace: CGFloat = 2
     static let tight: CGFloat = 4

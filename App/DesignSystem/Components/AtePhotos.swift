@@ -117,6 +117,11 @@ struct PhotoCluster: View {
     /// in it, so it has to be the real surface: the ground on a journal slip, the control surface in
     /// the composer, the accent on a share card.
     var surface: Color?
+    /// The air the artboard leaves around a cluster. The composer's is `4px 0 2px 6px`, a slip's is
+    /// `2px 0 0 6px` — small numbers, but they are the difference between a photo that sits on the
+    /// words and one that sits on the paper's edge.
+    var topPadding: CGFloat = AteMetrics.tight
+    var bottomPadding: CGFloat = AteMetrics.hairspace
 
     @Environment(\.atePalette) private var palette
 
@@ -135,9 +140,10 @@ struct PhotoCluster: View {
                     .zIndex(Double(photos.count - index))
             }
         }
-        // The artboards' own `padding:4px 0 2px 6px` around a cluster.
-        .padding(.top, AteMetrics.tight)
-        .padding(.bottom, AteMetrics.hairspace)
+        .padding(.top, topPadding)
+        .padding(.bottom, bottomPadding)
+        // Every artboard insets a cluster by 6 on the leading edge, so the first photo's tilt has
+        // somewhere to go.
         .padding(.leading, 6)
         .accessibilityElement()
         .accessibilityLabel(photos.count == 1 ? "1 photo" : "\(photos.count) photos")

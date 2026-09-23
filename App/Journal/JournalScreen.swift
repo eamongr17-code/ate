@@ -9,6 +9,9 @@ import SwiftUI
 /// next to the dishes you did.
 struct JournalScreen: View {
     let store: JournalStore
+    /// The shelf beside it. Held by the shell rather than this screen, because a save made in the
+    /// feed has to be able to tell it to reload.
+    let saved: SavedDishesStore
     /// Bumped when the Journal tab is tapped while already current.
     var scrollToTopSignal = 0
     /// How many recent photos are waiting to be written up — the header badge. Zero hides it, which
@@ -17,12 +20,23 @@ struct JournalScreen: View {
     let onCompose: () -> Void
     let onOpen: (EntryCard) -> Void
     var onSuggestions: () -> Void = {}
+    /// A saved row's two doors — both to screens that land in slice 2.
+    var onSavedPlace: (UUID) -> Void = { _ in }
+    var onSavedDish: (SavedDish) -> Void = { _ in }
+    /// The bookmark on a saved row: it only ever unsaves.
+    var onUnsave: (SavedDish) -> Void = { _ in }
 
     enum Shelf: Hashable {
         case journal, saved
     }
 
-    @State private var shelf: Shelf = .journal
+    @State private var shelf: Shelf = {
+        #if DEBUG
+        return ComposerDebugLaunch.opensSaved ? .saved : .journal
+        #else
+        return .journal
+        #endif
+    }()
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -43,7 +57,7 @@ struct JournalScreen: View {
                 .padding(.bottom, AteMetrics.tabBarScrollInset)
             }
             .scrollIndicators(.hidden)
-            .refreshable { await store.refresh() }
+            .refreshable { await refresh() }
             .onChange(of: scrollToTopSignal) { _, _ in
                 withAnimation { proxy.scrollTo(Self.topAnchor, anchor: .top) }
             }
@@ -65,6 +79,15 @@ struct JournalScreen: View {
         .ateContentTop()
     }
 
+    /// Pull to refresh reloads whichever shelf is showing — the gesture belongs to the screen, and
+    /// the screen is two lists.
+    private func refresh() async {
+        switch shelf {
+        case .journal: await store.refresh()
+        case .saved: await saved.refresh()
+        }
+    }
+
     @ViewBuilder
     private var shelfContent: some View {
         switch shelf {
@@ -73,8 +96,16 @@ struct JournalScreen: View {
             // gives its slip 22 + a 26 margin before it.
             journalShelf.padding(.top, store.days.isEmpty ? Self.emptyTop : AteMetrics.slipGap)
         case .saved:
-            AteEmptySlip(label: "Saved", title: "Nothing saved\nyet.")
-                .padding(.top, Self.emptyTop)
+            // `Saved.dc.html` parts the segment from the first place head by the column's own 14,
+            // and the head carries its own 18 on top of that. An empty shelf is a slip, and gets
+            // the margin a slip gets.
+            SavedScreen(
+                store: saved,
+                onPlace: onSavedPlace,
+                onDish: onSavedDish,
+                onUnsave: onUnsave
+            )
+            .padding(.top, saved.groups.isEmpty ? Self.emptyTop : AteMetrics.slipGap)
         }
     }
 
@@ -82,7 +113,7 @@ struct JournalScreen: View {
     private var journalShelf: some View {
         switch store.phase {
         case .loading:
-            JournalSkeleton()
+            SlipSkeleton().padding(.horizontal, AteMetrics.gutter)
         case .empty:
             emptySlip
         case .signedOut:
@@ -111,7 +142,7 @@ struct JournalScreen: View {
                     .ateText(.controlSmall)
                     .padding(.top, AteMetrics.snug - 2)
                 ForEach(day.entries) { entry in
-                    JournalSlip(slip: JournalPresentation.slip(for: entry)) {
+                    EntrySlip(slip: EntrySlipPresentation.journal(entry)) {
                         onOpen(entry)
                     }
                     .task { await store.loadMoreIfNeeded(after: entry) }
@@ -162,49 +193,5 @@ struct PhotoStackButton: View {
                 .background(AteColor.coral, in: .capsule)
                 .offset(x: 3, y: -3)
         }
-    }
-}
-
-/// Turning a row into the slip the design draws. Kept beside the screen and free of state, so "what
-/// does this entry look like in a list" is one function.
-enum JournalPresentation {
-    static func slip(for entry: EntryCard) -> AteSlip {
-        AteSlip(
-            id: entry.id,
-            // An entry with no place yet still belongs on the journal — it shows the day it
-            // happened where the place will go, rather than a blank or a guess.
-            place: entry.place?.name ?? entry.createdAt.formatted(JournalGrouping.dayFormat),
-            isPublic: entry.visibility.isPublic,
-            // The slip's heading already says the place, so the pill comes off the front of the
-            // words — `Main.dc.html` starts its prose at "With Jess for her birthday."
-            words: EntryPresentation.composition(for: entry).droppingLeadingPlace(),
-            photos: entry.photos.map { AtePhoto(url: URL(string: $0.url)) },
-            items: entry.items.map {
-                AteReceipt.Item(id: $0.reviewID, name: $0.dishName, score: $0.score)
-            }
-        )
-    }
-}
-
-/// First load, drawn as the component it is waiting for — never a spinner (`docs/DESIGN.md`).
-struct JournalSkeleton: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: AteMetrics.slipGap) {
-            ForEach(0..<2, id: \.self) { _ in
-                VStack(alignment: .leading, spacing: AteMetrics.regular) {
-                    AteDashedRule()
-                    AteDashedRule()
-                    AteDashedRule()
-                }
-                .padding(AteMetrics.slipPadding)
-                .padding(.bottom, AteMetrics.tornEdgeHeight)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .atePaper()
-                .background(AteColor.paper, in: ReceiptPaper())
-                .opacity(0.6)
-            }
-        }
-        .padding(.horizontal, AteMetrics.gutter)
-        .accessibilityHidden(true)
     }
 }

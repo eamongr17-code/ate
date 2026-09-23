@@ -61,9 +61,13 @@ pulse; score numerals roll.
 - **Receipt** — place (title 32) + address (mono label) / dashed rule / numbered line items with dot
   leaders and right-aligned score, each dish's note in Newsreader italic beneath it / dashed rule /
   `Order #` left, date right; `n dishes` left, `Avg` right / barcode / handle left, logo right / torn edge.
-- **Journal slip** — place title + visibility icon (globe/lock), words (3-line clamp, inline tokens),
-  tilted 80pt photo cluster, dashed rule, line items. Feed slip = the same + byline row (avatar,
-  handle, age, bookmark) and an 84pt straight thumbnail beside two lines of words; ≤2 line items.
+- **Entry slip** — one component, everywhere entries are listed. It OPENS with the **dish stack**:
+  one row per dish, the name (`.h` 20, wraps, never truncates) left and the score (`.h` 26 with a
+  filled star) right — unscored is a 22pt outlined star and no number — parted by a 1pt hairline,
+  44 minimum. Then pin + place (journal: time + visibility icon on the right; profile: age), the
+  words (2-line clamp, inline tokens), then the tilted 80pt photo cluster. **The dish is the item**:
+  in the feed and on a profile every dish row carries its own bookmark, because a save is always one
+  dish and never a whole entry. The feed adds a byline row above the stack (28pt avatar, handle, age).
 - **Sheets** (place / dish / new place / actions) — white, 32pt top corners, grabber, title 30, pill
   search field, radio rows, one ink pill button.
 - **Photo** — squircle (radius 28% of side; 16 on thumbs), 3pt ring in the surface colour when overlapping.
