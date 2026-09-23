@@ -239,7 +239,7 @@ struct DesignSystemGallery: View {
 
     private var receiptSpecimen: some View {
         VStack(alignment: .leading, spacing: AteMetrics.section) {
-            label("Receipt — entry and share show this same component")
+            label("Receipt — what Share prints; the entry page is a page, not a receipt")
             ReceiptView(receipt: .preview, onPlaceTap: {}, onItemTap: { _ in })
             ReceiptView(receipt: .previewSingle)
             label("Shapes")
@@ -296,11 +296,19 @@ struct DesignSystemGallery: View {
         }
     }
 
+    /// The gallery is laid out on the screen gutter, not the entry page's margins — the collage is
+    /// told the width it has, so it is told this one.
+    private var collageWidth: CGFloat { AteScreen.width - 2 * AteMetrics.gutter }
+
     private var photoSpecimen: some View {
         VStack(alignment: .leading, spacing: AteMetrics.section) {
             label("Cluster — tilt and overlap, static surfaces only")
             PhotoCluster(photos: AtePhoto.swatches)
             PhotoCluster(photos: AtePhoto.swatches, side: AteMetrics.clusterPhotoComposer)
+            label("Collage — the entry page, 1 / 2 / 3 photos")
+            PhotoCollage(photos: Array(AtePhoto.swatches.prefix(1)), width: collageWidth)
+            PhotoCollage(photos: Array(AtePhoto.swatches.prefix(2)), width: collageWidth)
+            PhotoCollage(photos: AtePhoto.swatches, width: collageWidth)
             label("Straight thumbnail — anything in a scrolling list")
             HStack(spacing: AteMetrics.regular) {
                 AteThumbnail(photo: AtePhoto.swatch(AteColor.lilac))

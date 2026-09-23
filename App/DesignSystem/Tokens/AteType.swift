@@ -67,6 +67,11 @@ extension AteTextStyle {
     static let screenTitle = AteTextStyle(
         voice: .display, size: 40, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
     )
+    /// The place at the head of the entry page — the biggest type in the app after a screen's own
+    /// name, because on an entry the place IS the title. 38pt.
+    static let entryPlace = AteTextStyle(
+        voice: .display, size: 38, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
+    )
     /// The place at the head of a receipt. 32pt.
     static let receiptPlace = AteTextStyle(
         voice: .display, size: 32, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
@@ -179,8 +184,17 @@ extension AteTextStyle {
         voice: .prose, size: 14, weight: 400, italic: true, lineHeight: 1.35, textStyle: .subheadline
     )
 
-    // Receipts — DM Mono, and only here.
+    // Receipts and the entry page's bill — DM Mono, and only here.
 
+    /// A line in the entry page's bill. 14pt on 1.75 (`.bill .li` overrides `.li`'s 13/1.65): the
+    /// page is read at arm's length, a receipt is read in the hand.
+    static let billLine = AteTextStyle(
+        voice: .mono, size: 14, weight: 400, lineHeight: 1.75, textStyle: .subheadline, maximumSize: 21
+    )
+    /// …and the score at the end of it.
+    static let billScore = AteTextStyle(
+        voice: .mono, size: 14, weight: 500, lineHeight: 1.75, textStyle: .subheadline, maximumSize: 21
+    )
     /// A receipt line item. 13pt.
     static let receiptLine = AteTextStyle(
         voice: .mono, size: 13, weight: 400, lineHeight: 1.65, textStyle: .footnote, maximumSize: 20
@@ -195,15 +209,17 @@ extension AteTextStyle {
         textStyle: .caption2, maximumSize: 16, uppercase: true
     )
 
-    /// A score token's numeral, sized against the prose it sits in (0.78em in the prototype).
+    /// A score token's numeral, sized against the prose it sits in — `.tok`'s `font-size:.78em`.
+    /// **Not rounded**: `em` is a fraction in the markup, and rounding 12.48 to 12 took nearly a
+    /// point off the width of every pill in a 16pt slip.
     static func scoreToken(inProse size: CGFloat) -> AteTextStyle {
-        AteTextStyle(voice: .mono, size: (size * 0.78).rounded(), weight: 500, lineHeight: 1.0, textStyle: .footnote)
+        AteTextStyle(voice: .mono, size: size * 0.78, weight: 500, lineHeight: 1.0, textStyle: .footnote)
     }
 
-    /// A place token's name, sized against the prose it sits in (0.8em).
+    /// A place token's name, sized against the prose it sits in — `.ptok`'s `font-size:.8em`.
     static func placeToken(inProse size: CGFloat) -> AteTextStyle {
         AteTextStyle(
-            voice: .display, size: (size * 0.8).rounded(), weight: 600,
+            voice: .display, size: size * 0.8, weight: 600,
             trackingEm: -0.01, lineHeight: 1.0, textStyle: .footnote
         )
     }
@@ -214,12 +230,37 @@ extension AteTextStyle {
 /// Turns an ``AteTextStyle`` into a real font. The single point where a family name is spoken.
 enum AteFont {
 
+    /// **Newsreader is drawn heavier than the 400 the design names.**
+    ///
+    /// The prototype's 400 and ours are the same outlines — "tagliatelle" at 17 advances identically
+    /// in both — but a browser gamma-corrects and stem-darkens text and Core Graphics does not, so
+    /// the same file comes off an iPhone about a fifth less inked: 30.1% coverage and a 5px stem in
+    /// the render against 25.7% and 4px on the device, measured at 3x. It is a serif problem and not
+    /// a rendering-stack problem in general — DM Mono on the same page is within half a percent.
+    ///
+    /// Eamon judged the render, so the render is the target and the axis is the only lever that
+    /// reaches it. The cost is bought knowingly: heavier is wider, and the words wrap a little
+    /// sooner than the artboard's do.
+    ///
+    /// Only the **prose** voice is compensated; it is added to the style's own weight, so a bold
+    /// Newsreader added later still lands a notch above its nominal. And only the variable axis is
+    /// moved — the system-serif fallback keeps the design's weight, because it has no gamma to undo.
+    static let proseWeightCompensation: CGFloat = 80
+
     /// The resolved `UIFont` — needed directly by the composer, which has to put fonts into an
     /// `NSAttributedString`, and by anything drawing text into an image.
+    ///
+    /// `opsz` is driven from the size the glyphs are **drawn** at, not from the design's number:
+    /// the prototype sets `font-optical-sizing:auto`, which tracks the used font-size, and a reader
+    /// at an accessibility size would otherwise get 24pt glyphs cut for 17.
     static func uiFont(for style: AteTextStyle, dynamicTypeSize: DynamicTypeSize = .large) -> UIFont {
-        let base = base(for: style)
         let metrics = UIFontMetrics(forTextStyle: UIFont.TextStyle(style.textStyle))
         let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(dynamicTypeSize))
+        let drawn = min(
+            metrics.scaledValue(for: style.size, compatibleWith: traits),
+            style.maximumSize ?? .greatestFiniteMagnitude
+        )
+        let base = base(for: style, opticalSize: drawn)
         if let maximum = style.maximumSize {
             return metrics.scaledFont(for: base, maximumPointSize: maximum, compatibleWith: traits)
         }
@@ -247,7 +288,13 @@ enum AteFont {
 
     // MARK: Private
 
-    private static func base(for style: AteTextStyle) -> UIFont {
+    /// The face at its design size, with **both variable axes pinned by us**: `wght` from the style
+    /// (400 for every Newsreader run, 800 for a title) and `opsz` from `opticalSize`.
+    ///
+    /// Pinned rather than left to Core Text's automatic optical sizing, which happens to agree at the
+    /// default text size and is silent when it does not. The bundled files are the variable ones, so
+    /// the italic runs come off `Newsreader-Italic-Variable`, never a slanted roman.
+    private static func base(for style: AteTextStyle, opticalSize: CGFloat) -> UIFont {
         let registry = AteFontRegistry.shared
         guard let face = registry.face(for: style.voice, italic: style.italic) else {
             return fallback(for: style)
@@ -256,9 +303,9 @@ enum AteFont {
             return fallback(for: style)
         }
         guard let axes = face.variationAxes else { return named }
-        var variations: [Int: CGFloat] = [AteFontAxis.weight: style.weight]
+        var variations: [Int: CGFloat] = [AteFontAxis.weight: drawnWeight(for: style)]
         if let opsz = face.opticalSizeRange {
-            variations[AteFontAxis.opticalSize] = min(max(style.size, opsz.lowerBound), opsz.upperBound)
+            variations[AteFontAxis.opticalSize] = min(max(opticalSize, opsz.lowerBound), opsz.upperBound)
         }
         let supported = variations.filter { axes.contains($0.key) }
         guard supported.isEmpty == false else { return named }
@@ -267,6 +314,13 @@ enum AteFont {
                 Dictionary(uniqueKeysWithValues: supported.map { (NSNumber(value: $0.key), NSNumber(value: $0.value)) })
         ])
         return UIFont(descriptor: descriptor, size: style.size)
+    }
+
+    /// The weight the variable axis is actually set to — the design's, plus Newsreader's gamma
+    /// compensation. Both faces of the family, roman and italic, since both are drawn by the same
+    /// rasteriser.
+    private static func drawnWeight(for style: AteTextStyle) -> CGFloat {
+        style.voice == .prose ? style.weight + proseWeightCompensation : style.weight
     }
 
     /// The safety net: system designs that stand in for each voice when the files are absent.

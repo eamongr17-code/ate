@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// **The design's three shadows, as the artboards write them.**
+/// **The design's shadows, as the artboards write them.**
 ///
 /// `design/v1` uses CSS `box-shadow` with a *negative spread* on every one of them — the shape is
 /// shrunk before it is blurred, which is what makes these reads tight and close rather than the soft
@@ -17,8 +17,6 @@ struct AteShadow: Equatable, Sendable {
 
     /// The floating tab bar: `0 8px 22px -14px rgba(36,20,31,.4)`.
     static let tabBar = AteShadow(colour: AteColor.ink.opacity(0.4), offsetY: 8, blur: 22, spread: -14)
-    /// The entry page's words card: `0 14px 22px -16px rgba(36,20,31,.55)`.
-    static let wordsCard = AteShadow(colour: AteColor.ink.opacity(0.55), offsetY: 14, blur: 22, spread: -16)
     /// The composer's star popover: `0 18px 40px -18px rgba(36,20,31,.45)` (its 1.5px ink ring is a
     /// stroke, drawn by the panel itself).
     static let panel = AteShadow(colour: AteColor.ink.opacity(0.45), offsetY: 18, blur: 40, spread: -18)

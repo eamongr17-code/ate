@@ -1,6 +1,58 @@
 import AteKit
 import SwiftUI
 
+/// **How an inline pill is proportioned and where it sits**, straight off `.tok` and `.ptok`.
+///
+/// Both are `display:inline-flex`, so a pill's **height is its own line box** — `font-size ×
+/// line-height` of the em it is set in — not one em of the prose around it. And both carry
+/// `vertical-align:1px` on a flex box whose baseline is its first item's: the **icon's bottom edge**
+/// lands 1pt above the prose baseline, and the pill's own padding carries on past it. That last part
+/// is the whole reason a pill reads as a word in the sentence rather than a chip dropped into it.
+enum TokenPillMetrics {
+    /// `.tok`: `font-size:.78em; line-height:1.55`.
+    static let scoreHeightEm: CGFloat = 0.78 * 1.55
+    /// `.ptok`: `font-size:.8em; line-height:1.5`.
+    static let placeHeightEm: CGFloat = 0.8 * 1.5
+    /// The icons, 11 and 12 at every prose size the artboards set them in (16, 17 and 19 alike).
+    static let starSide: CGFloat = 11
+    static let pinSide: CGFloat = 12
+    /// `vertical-align:1px`.
+    static let riseAboveBaseline: CGFloat = 1
+
+    // The paddings and the gap are **absolute** in the markup — `padding:0 7px 0 5px`, `gap:3px` —
+    // not fractions of the em the pill sits in. Written as em fractions they happened to land at 17pt
+    // prose and came out nearly two points narrow in a 16pt slip.
+
+    /// `.tok`: `padding:0 7px 0 5px`.
+    static let scoreLeading: CGFloat = 5
+    static let scoreTrailing: CGFloat = 7
+    /// `.ptok`: `padding:0 8px 0 5px`.
+    static let placeLeading: CGFloat = 5
+    static let placeTrailing: CGFloat = 8
+    /// `gap:3px`, both.
+    static let iconGap: CGFloat = 3
+
+    /// How far the pill hangs **below** the prose baseline: half the air around its icon, less the
+    /// point the artboard lifts it by.
+    static func descent(height: CGFloat, icon: CGFloat) -> CGFloat {
+        (height - icon) / 2 - riseAboveBaseline
+    }
+
+    static func height(for kind: EntryTokenKind, prose: CGFloat) -> CGFloat {
+        switch kind {
+        case .score: prose * scoreHeightEm
+        case .place: prose * placeHeightEm
+        }
+    }
+
+    static func descent(for kind: EntryTokenKind, prose: CGFloat) -> CGFloat {
+        switch kind {
+        case .score: descent(height: height(for: kind, prose: prose), icon: starSide)
+        case .place: descent(height: height(for: kind, prose: prose), icon: pinSide)
+        }
+    }
+}
+
 /// **The score token.** A butter pill carrying a filled star and one decimal, in mono — a score
 /// printed like a price (design rule 7). It appears inline in prose, inside a receipt's line items,
 /// and in the composer's editable text, and it is the same object in all three.
@@ -13,18 +65,17 @@ struct ScoreToken: View {
 
     var body: some View {
         let style = AteTextStyle.scoreToken(inProse: prose)
-        HStack(spacing: prose * 0.17) {
-            AteIcon.starFilled.view(size: Self.starSide)
+        HStack(spacing: TokenPillMetrics.iconGap) {
+            AteIcon.starFilled.view(size: TokenPillMetrics.starSide)
             Text(ScoreFormat.halfStep(rating.value))
                 .ateText(style)
                 .monospacedDigit()
         }
-        .padding(.leading, prose * 0.3)
-        .padding(.trailing, prose * 0.41)
-        // Exactly one em tall. A pill any taller than the prose's ascent-plus-descent silently adds
-        // leading to every line it lands on, and a paragraph with three scores in it ends up with a
-        // different rhythm from one with none.
-        .frame(height: prose.rounded())
+        .padding(.leading, TokenPillMetrics.scoreLeading)
+        .padding(.trailing, TokenPillMetrics.scoreTrailing)
+        // `.tok`'s own line box: `.78em × 1.55` = 1.209em, which is 20.6 in 17pt prose. Not one em —
+        // that drew a squat capsule three and a half points short of the artboard's.
+        .frame(height: prose * TokenPillMetrics.scoreHeightEm)
         .foregroundStyle(AteColor.ink)
         .background(AteColor.butter, in: .capsule)
         .overlay {
@@ -36,9 +87,6 @@ struct ScoreToken: View {
         .accessibilityLabel("Score")
         .accessibilityValue(RatingTrack.accessibilityValue(rating))
     }
-
-    /// `.tok`'s star is 11 at every prose size the artboards set it in (16 and 19 both).
-    private static let starSide: CGFloat = 11
 }
 
 /// **The place token.** A field-coloured pill with a pin and the place's name, in the control voice.
@@ -52,23 +100,21 @@ struct PlaceToken: View {
 
     var body: some View {
         let style = AteTextStyle.placeToken(inProse: prose)
-        HStack(spacing: prose * 0.17) {
-            AteIcon.place.view(size: Self.pinSide)
+        HStack(spacing: TokenPillMetrics.iconGap) {
+            AteIcon.place.view(size: TokenPillMetrics.pinSide)
             Text(name)
                 .ateText(style)
         }
-        .padding(.leading, prose * 0.3)
-        .padding(.trailing, prose * 0.47)
-        .frame(height: prose.rounded())
+        .padding(.leading, TokenPillMetrics.placeLeading)
+        .padding(.trailing, TokenPillMetrics.placeTrailing)
+        // `.ptok`'s own line box: `.8em × 1.5` = 1.2em.
+        .frame(height: prose * TokenPillMetrics.placeHeightEm)
         .foregroundStyle(palette.fg)
         .background(palette.field, in: .capsule)
         .accessibilityElement()
         .accessibilityLabel("Place")
         .accessibilityValue(name)
     }
-
-    /// `.ptok`'s pin is 12 at every prose size the artboards set it in.
-    private static let pinSide: CGFloat = 12
 }
 
 /// A star, solid-outlined and fillable by a fraction. Design rule 7: **stars are never low-opacity** —

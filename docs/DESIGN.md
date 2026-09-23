@@ -14,7 +14,7 @@ for exact sizes, colours, radii and copy; it is 390×844 and does not render out
    receipt tops and photos. Everything else has no container — plain rows with a hairline.
 4. **Receipts are what Ate prints** (white paper, mono type, dashed rules, dot leaders, torn bottom
    edge, 16pt rounded top). Use one only where something was printed from the user's words.
-   Entry and Share show the *identical* receipt component.
+   The receipt is the **share** artefact and lives in `Share` alone — `Entry` is a page, not a receipt.
 5. **Colour is punctuation**, never decoration: score tokens, avatars, the + button, Share/Welcome
    grounds. No blobs, patterns, gradients-as-style, or colour-blocked feed cards.
 6. **The mess is tilt + overlap of photos**, only in small static clusters (entry, dish hero, share,
@@ -72,8 +72,10 @@ pulse; score numerals roll.
 
 Journal & compose: `Main` (Journal | Saved segment; logo; photo-stack button with count) · `MainEmpty` ·
 `Suggestions` (photos to write up; never guesses a place) · `Saved` (grouped by place) · `Composer` ·
-`ComposerStars` (slide to score) · `ComposerVoice` · `Entry` (words page + receipt feeding out beneath;
-Done in the composer lands here and the receipt prints in; header → `PlaceSheet`, line → `DishSheet`) ·
+`ComposerStars` (slide to score) · `ComposerVoice` · `Entry` (one white page on the linen ground, 24pt
+top corners, running off the bottom: `Order #` / date mono row, place title 38, tilted photo collage,
+the words with their tokens, dashed rule, the bill (line items only — no notes), dashed rule, address /
+`Avg`. No receipt here; title → `PlaceSheet`, line → `DishSheet`, photo → full-screen viewer) ·
 `PlaceSheet` · `AddPlace` · `DishSheet`.
 Gives back: `You` · `Ratings` (tap a histogram bar) · `Recap` (monthly statement) · `Share` · `Settings`.
 Everyone else: `Feed` · `Profile` · `Actions` (save/share/report/block) · `Restaurant` · `Dish` · `Search` · `SearchResults`.
@@ -84,6 +86,6 @@ Typing a number after a dish, or saying one, becomes the same score token.
 
 ## Not drawn — build with the existing vocabulary
 
-Offline / not-yet-sorted entry (words show, receipt absent) · loading (skeletons of the real
+Offline / not-yet-sorted entry (words show, the bill absent) · loading (skeletons of the real
 components, never a spinner for first load) · someone else's entry (= `Entry` with a byline and a
 bookmark instead of edit/visibility) · system photo picker and keyboard.

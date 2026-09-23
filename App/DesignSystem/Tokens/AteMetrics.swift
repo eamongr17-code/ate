@@ -14,6 +14,17 @@ import UIKit
 /// safe area for everything inside it, which makes the geometry a view sees a lie about the page.
 @MainActor
 enum AteScreen {
+    /// The window's own size. The artboards are 390×844; anything that has to run off the bottom of
+    /// the screen (the entry page) needs the real number rather than the drawn one.
+    static var size: CGSize {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.screen.bounds.size ?? CGSize(width: 390, height: 844)
+    }
+
+    static var width: CGFloat { size.width }
+    static var height: CGFloat { size.height }
+
     static var safeArea: UIEdgeInsets {
         if let cached { return cached }
         let insets = UIApplication.shared.connectedScenes
@@ -29,10 +40,7 @@ enum AteScreen {
 
     /// A sheet's height, given as the artboard gives it — out of the 844-tall page it was drawn on.
     static func sheetHeight(_ artboard: CGFloat) -> CGFloat {
-        let screen = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first?.screen.bounds.height ?? 844
-        return (screen * artboard / 844).rounded()
+        (height * artboard / 844).rounded()
     }
 }
 
@@ -77,6 +85,28 @@ enum AteMetrics {
 
     /// Between slips in a list.
     static let slipGap: CGFloat = 14
+
+    // MARK: - The page
+    //
+    // `Entry.dc.html`'s own numbers. The entry is ONE white page on the linen ground — not a card and
+    // not a receipt — so it has its own small set: where it starts, how far it is inset, and the
+    // rhythm inside it.
+
+    /// The page's side margins (`.slipwrap` `margin:8px 16px 0`).
+    static let pageInset: CGFloat = 16
+    /// …and its clearance under the top bar.
+    static let pageGap: CGFloat = 8
+    /// Its top corners. The only 24 in the app, and the reason it reads as paper laid on the ground
+    /// rather than a receipt (16) or a sheet (32).
+    static let pageTop: CGFloat = 24
+    /// Inside the page: `padding:22px 20px 0`.
+    static let pagePaddingTop: CGFloat = 22
+    static let pagePaddingSide: CGFloat = 20
+    /// Between the page's bands (`gap:14px`).
+    static let pageBandGap: CGFloat = 14
+    /// How far the page runs off the bottom of the screen: the artboard's `min-height:760` starts at
+    /// 112 on an 844-tall page, so 28 of it is always past the fold (design rule 10).
+    static let pageOvershoot: CGFloat = 28
 
     // MARK: - Shape
 
@@ -131,8 +161,6 @@ enum AteMetrics {
 
     /// A photo in a static, tilted cluster — journal slip.
     static let clusterPhoto: CGFloat = 80
-    /// …on the entry page, where the cluster is the hero.
-    static let clusterPhotoLarge: CGFloat = 84
     /// …in the composer, biggest of the three.
     static let clusterPhotoComposer: CGFloat = 90
     /// How far cluster photos overlap.

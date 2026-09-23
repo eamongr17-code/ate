@@ -5,7 +5,7 @@ import XCTest
 /// The one XCUITest flow `docs/ARCHITECTURE.md` budgets for, and it earns its keep on exactly the
 /// things a unit test cannot see: whether tapping the composer raises a keyboard, whether typing a
 /// number beside a dish turns into a score pill, whether Done leaves an entry on the journal and a
-/// receipt on its page. Every one of those was broken at least once during this milestone, and none
+/// bill on its page. Every one of those was broken at least once during this milestone, and none
 /// of them shows up in a diff.
 ///
 /// It runs against `-ate-preview-data` — the in-memory service — so it needs no backend, no session
@@ -27,8 +27,8 @@ final class CoreLoopUITests: XCTestCase {
         app.launchArguments = ["-ate-preview-data", "-ate-ui-testing"]
     }
 
-    /// Write → score inline → place → Done → the receipt prints → it is in the journal.
-    func testWritingAnEntryPrintsAReceiptAndLandsInTheJournal() {
+    /// Write → score inline → place → Done → the bill prints on the page → it is in the journal.
+    func testWritingAnEntryPrintsABillAndLandsInTheJournal() {
         app.launch()
         attach("01-journal")
 
@@ -76,9 +76,11 @@ final class CoreLoopUITests: XCTestCase {
 
         app.buttons["composer.done"].tap()
 
-        // The entry page. The words are there immediately; the receipt arrives when the sorter does.
-        let receipt = app.otherElements["entry.receipt"]
-        XCTAssertTrue(receipt.waitForExistence(timeout: 15), "the receipt should print")
+        // The entry page. The words are there immediately; the bill arrives when the sorter does.
+        let bill = app.otherElements["entry.bill"]
+        XCTAssertTrue(bill.waitForExistence(timeout: 15), "the bill should print on the page")
+        XCTAssertTrue(app.otherElements["entry.words"].exists,
+                      "and the words are on the same page, above it")
         attach("06-entry-printed")
 
         // Back to the journal, where the entry now lives.
@@ -88,10 +90,9 @@ final class CoreLoopUITests: XCTestCase {
         XCTAssertEqual(slips.count, 2, "the seeded entry plus the one just written")
         attach("07-journal-full")
 
-        // And a slip is a door: tapping the older one opens its entry, already printed — no
-        // print-in, because the theatre belongs to the moment a receipt arrives, not to the screen.
+        // And a slip is a door: tapping the older one opens its entry, bill and all.
         slips.element(boundBy: 1).tap()
-        XCTAssertTrue(app.otherElements["entry.receipt"].waitForExistence(timeout: 5),
+        XCTAssertTrue(app.otherElements["entry.bill"].waitForExistence(timeout: 5),
                       "tapping a slip opens its entry")
         attach("10-entry-from-journal")
     }

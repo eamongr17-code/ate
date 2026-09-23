@@ -2,14 +2,14 @@ import AteKit
 import Observation
 import SwiftUI
 
-/// The entry page's state: the row, what the receipt says, and which correction sheet is open.
+/// The entry page's state: the row, what the bill says, and which correction sheet is open.
 @MainActor
 @Observable
 final class EntryModel {
-    /// What the paper under the words is doing.
+    /// What the bill on the page is doing.
     enum State: Equatable {
         /// The words are saved; the structure has not arrived. A designed state, not a spinner
-        /// (`docs/DESIGN.md`, "Not drawn": words show, receipt absent).
+        /// (`docs/DESIGN.md`, "Not drawn": words show, the bill absent).
         case pending
         /// The sorter could not finish. One retry, in the design's vocabulary.
         case failed
@@ -22,14 +22,19 @@ final class EntryModel {
         var id: UUID { item.id }
     }
 
+    /// Which photo the full-screen viewer opened on.
+    struct ViewingPhoto: Identifiable, Equatable {
+        let index: Int
+        var id: Int { index }
+    }
+
     private(set) var card: EntryCard?
     private(set) var composition = EntryComposition()
     private(set) var photos: [AtePhoto] = []
     private(set) var state: State = .pending
-    /// Flips true once, on the first appearance after the receipt exists — the print-in.
-    private(set) var hasPrinted = false
     var isCorrectingPlace = false
     var correcting: Correcting?
+    var viewingPhoto: ViewingPhoto?
     var isSharing = false
     private(set) var shareImage: UIImage?
 
@@ -79,9 +84,15 @@ final class EntryModel {
     private static let sortPollCount = 12
 
     private func apply(_ card: EntryCard, isStuck: Bool = false) {
+        #if DEBUG
         let isFirstRead = self.card == nil
+        #endif
         self.card = card
-        composition = EntryPresentation.composition(for: card)
+        // The page's own title already says the place, so a pill at the very start of the words is
+        // the same fact twice — exactly the cut the journal slip makes. A place named mid-sentence
+        // is part of the sentence and stays, and the words themselves are never rewritten: only the
+        // decoration comes off.
+        composition = EntryPresentation.composition(for: card).droppingLeadingPlace()
         photos = card.photos.map { AtePhoto(url: URL(string: $0.url)) }
         state = EntryPresentation.state(for: card, handle: handle)
         // An entry the outbox has given up on is not "still printing" — it is not printed, and it
@@ -97,14 +108,6 @@ final class EntryModel {
             isCorrectingPlace = true
         }
         #endif
-        // The receipt prints in the first time it *arrives*: Done in the composer landed here, or
-        // the sorter finished while the page was open. Opening an entry that was already sorted
-        // shows a printed receipt, not a printing one — the theatre is the moment, not the screen.
-        if isFirstRead && route.isFreshlyWritten == false {
-            hasPrinted = true
-        } else {
-            withAnimation { hasPrinted = true }
-        }
     }
 
     private func report(_ receipt: AteReceipt) {
@@ -116,8 +119,9 @@ final class EntryModel {
         ))
     }
 
-    /// The receipt, when there is one. The entry page's share button is off until there is — a
-    /// receipt is the only thing this screen has to share.
+    /// The receipt, when there is one: the bill's contents, plus everything only the artefact prints
+    /// (the notes, the handle, the barcode). The share button is off until it exists — a receipt is
+    /// the only thing this screen has to share, and the page itself is not one.
     var receipt: AteReceipt? {
         if case .printed(let receipt) = state { return receipt }
         return nil
@@ -125,8 +129,8 @@ final class EntryModel {
 
     // MARK: - Actions
 
-    /// Renders the receipt and opens the system share sheet. Rendered at the moment of sharing, from
-    /// the same component the page draws, so the picture and the screen can never disagree.
+    /// Renders the receipt and opens the system share sheet. Made at the moment of sharing, from the
+    /// entry's own row, so the artefact and the page can never disagree about what was eaten.
     func share() {
         guard let receipt else { return }
         shareImage = ReceiptImage.render(receipt)
