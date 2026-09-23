@@ -14,14 +14,21 @@
 
 import { test, assert, assertEquals } from './harness.ts';
 import { fixtures, type Fixture } from './fixtures.ts';
-import { parseEntry, placeCandidates } from './parse.ts';
+import { fencedPlaceNames, parseEntry, placeCandidates } from './parse.ts';
 import { scalarLength, sliceScalars } from './offsets.ts';
 import { evidenceSupportsScore, validatePlan } from './validate.ts';
 
-/** The pipeline the function runs, with everything a fixture declares. */
+/**
+ * The pipeline the function runs, with everything a fixture declares — including the REAL
+ * `fencedPlaceNames()` step. The corpus feeds the fence what the FUNCTION resolved, never a
+ * hand-picked list: the hand-picked list is how `place-name-bleed` stayed green while the
+ * live re-sort returned the dish `Pizza`.
+ */
+const placeNamesOf = (f: Fixture) => fencedPlaceNames(f.resolvedPlace ?? {});
+
 const sortOf = (f: Fixture) => {
   const opts = { body: f.body, knownDishes: f.knownDishes ?? [] };
-  return validatePlan(parseEntry({ ...opts, placeNames: f.placeNames ?? [] }), opts);
+  return validatePlan(parseEntry({ ...opts, placeNames: placeNamesOf(f) }), opts);
 };
 
 test('corpus has the cases the harness promises', () => {
@@ -98,7 +105,7 @@ test('RULE 9 holds for the OTHER note style too, across the corpus', () => {
   // it has to obey the same law on every entry — verbatim, never a rewrite.
   for (const f of fixtures) {
     const opts = { body: f.body, knownDishes: f.knownDishes ?? [] };
-    const plan = parseEntry({ ...opts, placeNames: f.placeNames ?? [], noteStyle: 'sentence' });
+    const plan = parseEntry({ ...opts, placeNames: placeNamesOf(f), noteStyle: 'sentence' });
     for (const item of validatePlan(plan, opts).items) {
       if (item.note === null) continue;
       assert(f.body.includes(item.note), `${f.id}: sentence-style note is not a substring of the body`);

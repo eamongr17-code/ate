@@ -42,7 +42,7 @@
 // entries.sort_plan so attaching the place later still prints the receipt.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { mentionForPlaceName, parseEntry, placeCandidateSpans } from './parse.ts';
+import { fencedPlaceNames, mentionForPlaceName, parseEntry, placeCandidateSpans } from './parse.ts';
 import { validatePlan } from './validate.ts';
 import { resolveMode, sortWithModel } from './model.ts';
 import type { PlaceCandidate, SorterMode, SortPlan } from './types.ts';
@@ -245,12 +245,18 @@ Deno.serve(async (req) => {
     }
     // The PLACE'S OWN NAME is not a dish and not the front half of one. Without this the
     // walk in front of a score eats the tail of the venue: "Baby Pizza San Danielle Pizza
-    // 3.5" produced a dish called "Pizza San Danielle Pizza" (staging, 2026-09-24). Both
-    // the row's name and the phrase that named it are passed — the typing and the row
-    // differ ("PJ's" vs "PJ’s"), and either spelling may be the one in the words.
-    const placeNames = [pinnedName, matched?.name, matched?.query, mention?.phrase].filter(
-      (n): n is string => typeof n === 'string' && n.trim().length >= 2,
-    );
+    // 3.5" produced a dish called "Pizza San Danielle Pizza" (staging, 2026-09-24).
+    //
+    // fencedPlaceNames decides what may be fenced. It is handed everything this scope knows
+    // — including the candidate phrase and the mention — and keeps only the ROW NAMES: the
+    // matched candidate here is "Baby Pizza San Danielle", and fencing that run took the
+    // dish down to `Pizza` on the live re-sort.
+    const placeNames = fencedPlaceNames({
+      pinnedName,
+      matchedName: matched?.name ?? null,
+      candidatePhrase: matched?.query ?? null,
+      mentionPhrase: mention?.phrase ?? null,
+    });
     if (!plan) plan = parseEntry({ body: row.body, knownDishes: known, placeNames });
 
     // ---- 3. the same gate for every mode ----------------------------------

@@ -240,9 +240,10 @@ function overlapsSpans(start: number, end: number, spans: Array<[number, number]
  * cut in the CEO's margarita entry: without this the dish is "Mexican cantina fishbowl
  * margarita".
  *
- * Only names the FUNCTION resolved are passed in (the attached restaurant's name, and the
- * phrase in the words that matched it) — never the parser's own place candidate, which for
- * "Margherita 4.5" is the dish. Matching is case-insensitive, tolerant of any apostrophe
+ * ONLY A RESTAURANT ROW'S OWN NAME BELONGS IN HERE — build the list with
+ * fencedPlaceNames(), never by hand. A CANDIDATE PHRASE IS NOT A NAME: passing the phrase
+ * that led to the match fenced "Baby Pizza San Danielle" and the dish came back as `Pizza`
+ * (staging, the live re-sort). Matching is case-insensitive, tolerant of any apostrophe
  * ("PJ's" vs "PJ’s" — the row and the typing differ) and of extra whitespace, and fenced
  * with Unicode word boundaries so "Pizza" inside "Pizzaiolo" is not a venue mention.
  */
@@ -269,6 +270,49 @@ export function placeNameSpans(
     }
   }
   return spans;
+}
+
+/**
+ * What the FUNCTION knows about the place after resolving it — the shape of its own locals,
+ * so the call site cannot quietly hand the fence the wrong thing.
+ */
+export type ResolvedPlace = {
+  /** The restaurant row the USER pinned in the composer. A real name. */
+  pinnedName?: string | null;
+  /** The restaurant row the SORTER matched. Also a real name. */
+  matchedName?: string | null;
+  /** The phrase in the words that led to that match. NOT a name — see below. */
+  candidatePhrase?: string | null;
+  /** The phrase the client draws its place token on. NOT a name either. */
+  mentionPhrase?: string | null;
+};
+
+/**
+ * The names the dish hunt is fenced off from: THE RESTAURANT ROW'S NAME, and nothing else.
+ *
+ * THE BUG THIS CLOSES (the live re-sort of the Baby Pizza entry): the function used to hand
+ * the fence the matched CANDIDATE PHRASE as well. A candidate is a run of capitalised words,
+ * and that run is "Baby Pizza San Danielle" — venue plus two thirds of the dish. Fencing it
+ * left the dish as `Pizza`. A phrase is evidence that the place was named SOMEWHERE in this
+ * run; only the row's name says HOW MUCH of the run is the venue.
+ *
+ * So `candidatePhrase` and `mentionPhrase` are accepted here and deliberately DROPPED: the
+ * call site passes what it has, this decides what may be fenced, and the rule is tested
+ * rather than remembered. Where a candidate run is longer than the name, the remainder is
+ * dish territory — which is exactly what falls out of fencing the name alone.
+ */
+export function fencedPlaceNames(place: ResolvedPlace): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of [place.pinnedName, place.matchedName]) {
+    const name = typeof raw === 'string' ? raw.trim() : '';
+    if (name.length < 2) continue;
+    const key = name.toLowerCase().replace(/\s+/g, ' ');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
 }
 
 /** Sentence bounds containing `index`, terminator INCLUDED at the end (so a note can keep its full stop). */
