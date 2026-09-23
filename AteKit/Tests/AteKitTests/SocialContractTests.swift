@@ -168,8 +168,8 @@ struct SocialContractTests {
         let page = try await EntryFeedClient(api: client)
             .feedPage(after: nil, pageSize: 5, includeOwn: false)
         let entry = try #require(page.items.first)
-        try await profiles.report(entryID: entry.id, reason: "contract-test", note: nil)
-        try await profiles.report(profileID: entry.authorID, reason: "contract-test", note: nil)
+        try await profiles.report(entryID: entry.id, reason: "other", note: nil)
+        try await profiles.report(profileID: entry.authorID, reason: "other", note: nil)
     }
 
     @Test("block_user removes that person from every read, both ways, until they are unblocked")

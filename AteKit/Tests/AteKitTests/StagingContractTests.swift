@@ -305,7 +305,18 @@ struct StagingContractTests {
         // The floor is the server's count, not a number lifted from the seed. (It used to be `>= 46`,
         // the seed's review count when this was written; staging holds far more now, so that floor
         // had stopped asserting anything about "walks everything".)
-        let total = try await visibleReviewCount(client)
+        // The global feed serves reviews on PUBLIC entries (and the legacy rows with no entry).
+        // RLS also lets the viewer read their own private entries' reviews, so the floor is the
+        // visible count minus those — otherwise one private dinner makes "walked everything" false.
+        let visible = try await visibleReviewCount(client)
+        let onPrivate = try #require(
+            try await client.supabase.from(Review.table)
+                .select("id, entries!inner(visibility)", head: true, count: .exact)
+                .eq("entries.visibility", value: "private")
+                .execute().count,
+            "PostgREST returned no count header"
+        )
+        let total = visible - onPrivate
         #expect(total > 0, "an empty reviews table can't test a feed walk")
 
         // Small pages on purpose: the seed has nine clusters of reviews sharing a timestamp to the
