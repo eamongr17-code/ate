@@ -48,9 +48,9 @@ struct AteServices {
         self.entries = preview?.entries ?? SupabaseEntryService(api: api)
         self.places = preview?.places ?? PlaceDirectoryClient(api: api)
         self.photos = preview?.photos ?? SystemPhotoLibrary()
-        self.feed = preview?.social ?? EntryFeedClient(api: api)
-        self.saves = preview?.social ?? SaveClient(api: api)
-        self.profiles = preview?.social ?? ProfileClient(api: api)
+        self.feed = preview?.feed ?? EntryFeedClient(api: api)
+        self.saves = preview?.saves ?? SaveClient(api: api)
+        self.profiles = preview?.profiles ?? ProfileClient(api: api)
         self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record)
     }
 
@@ -72,9 +72,12 @@ struct AteServices {
         let entries: any EntryService
         let places: any PlaceDirectory
         let photos: any AtePhotoLibrary
-        /// One object standing in for the feed, saves and profiles — they share state (a dish saved
-        /// in the feed is on the shelf), so in memory they are one thing.
-        let social: InMemorySocialService
+        // One object stands in for all three in memory — they share state (a dish saved in the
+        // feed is on the shelf) — but it is held as its three protocols, so this struct still
+        // type-checks in a build where the in-memory types do not exist at all.
+        let feed: any EntryFeedReading
+        let saves: any DishSaving
+        let profiles: any ProfileReading
     }
 
     private static func previewServices() -> PreviewServices? {
@@ -91,7 +94,7 @@ struct AteServices {
             : InMemoryEntryService.seeded(others: social)
         return PreviewServices(
             entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
-            social: social
+            feed: social, saves: social, profiles: social
         )
         #else
         return nil
