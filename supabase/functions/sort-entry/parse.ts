@@ -81,6 +81,57 @@ const MARKER_AFTER = /^[\s-]*(?:\/\s*5|out\s+of\s+(?:5|five)|stars?(?![\p{L}\p{N
 const PRE_MARKER =
   /(?:giv(?:e|ing)\s+(?:it|that|them)?\s*an?|gave\s+(?:it|that|them)?\s*an?|rated?\s+(?:it|that)?\s*an?|(?:is|was|are|were|gets|got)\s+an?|solid|strong|easy|generous|comfortable|honest)\s*$/i;
 
+/** The adjectives that pre-mark a score: "a SOLID four", "an EASY 5". Same list PRE_MARKER
+ *  carries inline — kept as a string so SCORE_LEAD_IN below can reuse it verbatim. */
+const PRE_ADJ = 'solid|strong|easy|generous|comfortable|honest';
+
+/**
+ * "gave the kingfish a 4", "rated the pasta a 3.5" — the user's scoring verb names the
+ * DISH first and the article carries the number, which PRE_MARKER's tight "gave it a"
+ * cannot see. Up to four words may sit between the verb and the article (that is the dish
+ * name); the run is spaces/tabs only, so it can neither cross a newline nor reach through
+ * punctuation into the clause before.
+ */
+const GIVE_LEAD = new RegExp(
+  `(?<![${WORD}])(?:gave|give|gives|giving|rate|rates|rated|score|scores|scored)\\s+` +
+    '(?:the|a|an|that|this|it|them|my|our|their|his|her)?\\s*' +
+    `(?:[${WORD}'’-]+[ \\t]+){0,4}` +
+    'an?\\s*$',
+  'iu',
+);
+
+/**
+ * A SCORE LEAD-IN — the glue a diner writes BETWEEN the dish and the number when the
+ * sentence itself is what says the number is a score:
+ *
+ *   "the fishbowl margarita WAS A 4.5"   "the pork bun GETS A 4"
+ *   "I gave the kingfish A 4"            "the tiramisu, A SOLID 4"
+ *
+ * It exists because the dish-name walk stops dead at a stopword, and "was", "is", "a" and
+ * "solid" are all stopwords — so the CEO's real entry ("…fishbowl margarita  was a 4.5 and
+ * eliteeeee", staging 2026-09-24) produced NO line item at all: the number was found, the
+ * dish was not. Stripping a recognised lead-in hands the walk the words in front of it.
+ *
+ * Anchored at the end (it is tested against the text immediately before the number) and
+ * every alternative must END in something that marks a score — a scoring verb, an article,
+ * or a pre-marker adjective. Nothing here makes a number INTO a score: findNumbers decides
+ * that (marker / decimal / half / PRE_MARKER / GIVE_LEAD) and the lead-in is only ever
+ * stripped for a number that already proved itself, so "a party of 4" still finds no dish.
+ */
+const SCORE_LEAD_IN = new RegExp(
+  '(?:' +
+    // "was a", "is an", "gets a", "was a solid", "rated it an easy"
+    `(?<![${WORD}])(?:was|is|are|were|gets|get|got|gave|give|gives|giving|rate|rates|rated|score|scores|scored)` +
+    `\\s+(?:it|that|them|this)?\\s*(?:an?|the)?\\s*(?:${PRE_ADJ})?\\s*` +
+    '|' +
+    // the article on its own: "gave the kingfish A", ", A solid", "a strong"
+    `(?<![${WORD}])(?:an?|the)\\s+(?:${PRE_ADJ})?\\s*` +
+    '|' +
+    `(?<![${WORD}])(?:${PRE_ADJ})\\s+` +
+    ')$',
+  'iu',
+);
+
 /** Immediately before a number and it is not a score: "$5", "x4", "#4". */
 const PRE_REJECT = /[$#x×@]\s*$/i;
 
@@ -110,6 +161,10 @@ const STOPWORDS = new Set([
   'a', 'an', 'the', 'and', 'or', 'but', 'with', 'for', 'at', 'in', 'on', 'of', 'to', 'from',
   'my', 'her', 'his', 'their', 'our', 'your', 'its', 'this', 'that', 'these', 'those',
   'was', 'were', 'is', 'are', 'be', 'been', 'had', 'has', 'have', 'got', 'get', 'went',
+  // the scoring verbs: never part of a dish's name, and never an OPINION either — without
+  // them "I gave the kingfish a 4" quoted itself back as that line's note, repeating the
+  // dish and the score the receipt line already prints.
+  'gave', 'give', 'gives', 'giving', 'rated', 'rates', 'scored',
   'we', 'i', 'they', 'he', 'she', 'it', 'us', 'them', 'me',
   'very', 'really', 'so', 'too', 'just', 'quite', 'pretty', 'bit', 'more', 'less',
   'then', 'than', 'also', 'again', 'still', 'twice', 'once', 'here', 'there', 'now', 'after',
@@ -169,6 +224,51 @@ const isHalfStep = (n: number) => n >= 0.5 && n <= 5 && Math.abs(n * 2 - Math.ro
 
 function inSpans(index: number, spans: Array<[number, number]>): boolean {
   return spans.some(([s, e]) => index >= s && index < e);
+}
+
+/** Does [start,end) touch any of these spans at all? (inSpans only asks about one index.) */
+function overlapsSpans(start: number, end: number, spans: Array<[number, number]>): boolean {
+  return spans.some(([s, e]) => start < e && end > s);
+}
+
+/**
+ * Where the PLACE'S OWN NAME sits in the words — spans the dish hunt must not walk into.
+ *
+ * THE BUG THIS CLOSES (staging, 2026-09-24): "Baby Pizza San Danielle Pizza 3.5 was decent"
+ * at Baby Pizza produced a dish called `Pizza San Danielle Pizza`. The walk in front of the
+ * score collects up to four words and nothing told it that the first one was the venue. Same
+ * cut in the CEO's margarita entry: without this the dish is "Mexican cantina fishbowl
+ * margarita".
+ *
+ * Only names the FUNCTION resolved are passed in (the attached restaurant's name, and the
+ * phrase in the words that matched it) — never the parser's own place candidate, which for
+ * "Margherita 4.5" is the dish. Matching is case-insensitive, tolerant of any apostrophe
+ * ("PJ's" vs "PJ’s" — the row and the typing differ) and of extra whitespace, and fenced
+ * with Unicode word boundaries so "Pizza" inside "Pizzaiolo" is not a venue mention.
+ */
+export function placeNameSpans(
+  body: string,
+  names: Array<string | null | undefined>,
+): Array<[number, number]> {
+  const spans: Array<[number, number]> = [];
+  for (const raw of names) {
+    const name = (raw ?? '').trim();
+    if (name.length < 2 || name.length > 80) continue;
+    const pattern = escapeRe(name)
+      .replace(/\\?\s+/g, '\\s+')
+      .replace(/['’‘´]/g, "['’‘´]");
+    let re: RegExp;
+    try {
+      re = new RegExp(`(?<![${WORD}])${pattern}(?![${WORD}])`, 'giu');
+    } catch {
+      continue; // a name that will not compile is simply not excluded
+    }
+    for (let m = re.exec(body); m; m = re.exec(body)) {
+      spans.push([m.index, m.index + m[0].length]);
+      if (m[0].length === 0) break;
+    }
+  }
+  return spans;
 }
 
 /** Sentence bounds containing `index`, terminator INCLUDED at the end (so a note can keep its full stop). */
@@ -239,7 +339,8 @@ export function findNumbers(body: string): NumberHit[] {
       end,
       text: body.slice(start, end),
       value,
-      selfEvident: Boolean(marker) || raw.includes('.') || PRE_MARKER.test(before),
+      selfEvident:
+        Boolean(marker) || raw.includes('.') || PRE_MARKER.test(before) || GIVE_LEAD.test(before),
     });
   }
 
@@ -277,7 +378,7 @@ export function findNumbers(body: string): NumberHit[] {
       end,
       text: body.slice(start, end),
       value,
-      selfEvident: Boolean(marker) || isHalf || PRE_MARKER.test(before),
+      selfEvident: Boolean(marker) || isHalf || PRE_MARKER.test(before) || GIVE_LEAD.test(before),
     });
   }
 
@@ -443,8 +544,15 @@ function findKnownDishes(body: string, knownDishes: string[], exclude: Array<[nu
 /** Words allowed INSIDE a dish name, but never at either end: "pork and chive". */
 const JOINERS = new Set(['and', '&']);
 
-/** Walk backwards from `end` collecting up to 4 words as a dish name. */
-function phraseBefore(body: string, end: number): { text: string; start: number } | null {
+/**
+ * Walk backwards from `end` collecting up to 4 words as a dish name.
+ * `stops` are spans the walk must not enter — the place's own name (see placeNameSpans).
+ */
+function phraseBefore(
+  body: string,
+  end: number,
+  stops: Array<[number, number]> = [],
+): { text: string; start: number } | null {
   const left = body.slice(0, end);
   const tokens: Array<{ w: string; at: number }> = [];
   // THE staging bug lived here: with /[\w'’-]+/ the token for "ragù" was "rag", so the
@@ -456,6 +564,9 @@ function phraseBefore(body: string, end: number): { text: string; start: number 
   const picked: Array<{ w: string; at: number }> = [];
   for (let i = tokens.length - 1; i >= 0 && picked.length < 4; i--) {
     const t = tokens[i];
+    // the venue's name is not part of the dish's: "Baby Pizza San Danielle Pizza 3.5" is
+    // the San Danielle, not a "Pizza San Danielle Pizza" (staging, 2026-09-24).
+    if (overlapsSpans(t.at, t.at + t.w.length, stops)) break;
     // stop at a clause boundary between this token and what we already have
     if (picked.length) {
       const between = body.slice(t.at + t.w.length, picked[0].at);
@@ -499,7 +610,31 @@ function findNewDishes(
   //     produce nothing at all.
   for (const n of numbers) {
     if (taken.some((h) => n.start >= h.end && isAdjacent(body.slice(h.end, n.start)))) continue;
-    const p = phraseBefore(body, n.start);
+    let p = phraseBefore(body, n.start, exclude);
+    // THE LEAD-IN RETRY: "the fishbowl margarita was a 4.5" — the walk hit "a", then "was",
+    // both stopwords, and returned nothing, so the entry sorted to no line items at all.
+    // Step back over the lead-in and walk again from in front of it. ONLY for a number that
+    // has already proved it is a score: "a party of 4" keeps finding no dish, which is the
+    // asymmetry rule 7 asks for.
+    if (!p && n.selfEvident) {
+      const [sentStart] = sentenceBounds(body, n.start);
+      // A dish ALREADY NAMED in front of this number owns it — unless a nearer number has
+      // already claimed that dish. "…penne al ragù, I would give it a 4.5" is the penne's
+      // score, not a dish called "would"; but "the kingfish 4.5 and the pork bun was a 4"
+      // is two dishes and the pork bun still has to be found.
+      const served = (h: Mention) =>
+        numbers.some((o) => o !== n && o.start >= h.end && o.start < n.start);
+      const ownedAlready = [...taken, ...found].some(
+        (h) => h.end <= n.start && h.start >= sentStart && !served(h),
+      );
+      const lead = ownedAlready ? null : SCORE_LEAD_IN.exec(body.slice(0, n.start));
+      if (lead && lead[0].length) {
+        // never out of this sentence: "Beatrix. A solid 4.5 for the raspberry cake" must
+        // not make a dish out of the venue standing in the sentence before it.
+        const stops: Array<[number, number]> = [...exclude, [0, sentStart]];
+        p = phraseBefore(body, n.start - lead[0].length, stops);
+      }
+    }
     if (!p) continue;
     if (!n.selfEvident && !isAdjacent(body.slice(p.start + p.text.length, n.start))) continue;
     if (overlaps(p.start, p.start + p.text.length)) continue;
@@ -694,7 +829,12 @@ function trimExcerpt(raw: string): string | null {
 export function parseEntry(input: ParseInput): SortPlan {
   const body = input.body ?? '';
   const known = input.knownDishes ?? [];
-  const exclude = input.excludeSpans ?? [];
+  // The place's own name is off limits to the dish hunt, exactly like an explicit
+  // excludeSpan — a venue is never a dish and never the front half of one.
+  const exclude = [
+    ...(input.excludeSpans ?? []),
+    ...placeNameSpans(body, input.placeNames ?? []),
+  ];
   const noteStyle = input.noteStyle ?? 'clause';
 
   if (!body.trim()) return { place_query: null, place_offset: null, items: [] };
