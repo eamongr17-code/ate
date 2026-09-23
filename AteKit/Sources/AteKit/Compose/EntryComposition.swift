@@ -221,29 +221,48 @@ public struct EntryComposition: Hashable, Codable, Sendable {
 
     /// Inserts a token at a display offset — the Score / Place key.
     ///
-    /// Spaces the token off the words on either side when it needs them, so that stripping the tokens
-    /// still leaves a sentence: a place dropped in front of "with Jess" must not print as
-    /// "Tipo 00with Jess".
+    /// **A token is a word, and it brings its own gaps.** One space on each side where a word
+    /// boundary is missing, none where one already exists, so that stripping the tokens still leaves
+    /// a sentence: a place dropped in front of "with Jess" must not print as "Tipo 00with Jess".
+    ///
+    /// Two things this gets right that the first version did not, both from the CEO's first real
+    /// entry — `PJ’s Mexican cantinafishbowl margarita  was a 4.5 and elitee`:
+    ///
+    /// 1. **The end of the text is not a boundary.** It used to be read as one (a missing character
+    ///    was treated as a space), so a token inserted where the words end got no trailing gap — and
+    ///    the next thing typed came out welded to it: "PJ’s Mexican cantinafishbowl". There is
+    ///    nothing there yet; the token has to bring the space itself.
+    /// 2. **The caret goes after everything the insertion added**, not between the token and its
+    ///    trailing space. Landing it inside the inserted run leaves that space in front of the
+    ///    caret, where every keystroke shoves it one place further along — the gap that belonged to
+    ///    the pill ends up several words downstream, which is the double space before "was".
     public func inserting(
         _ token: EntryToken,
         atDisplayOffset offset: Int
     ) -> (EntryComposition, caret: Int) {
         let plainOffset = self.plainOffset(forDisplayOffset: offset)
         let units = Array(plain.utf16)
-        let previous = plainOffset > 0 ? units[plainOffset - 1] : Self.space
-        let following = plainOffset < units.count ? units[plainOffset] : Self.space
-        let prefix = Self.whitespace.contains(previous) ? "" : " "
-        let suffix = Self.whitespace.contains(following) ? "" : " "
+        // The start of the text is a boundary; so is whitespace already there. Nothing else is.
+        let prefix = plainOffset == 0 || Self.whitespace.contains(units[plainOffset - 1]) ? "" : " "
+        // After the token: whitespace, or the punctuation a word may touch — "the tiramisu 3.0,"
+        // never "the tiramisu 3.0 ,". The end of the text is NOT a boundary (see 1 above).
+        let suffix = plainOffset < units.count && Self.follows.contains(units[plainOffset]) ? "" : " "
         let inserted = prefix + token.plainText + suffix
 
         var next = applyingPlainEdit(replacing: TextSpan(location: plainOffset, length: 0), with: inserted)
         let span = TextSpan(location: plainOffset + prefix.utf16.count, length: token.plainText.utf16.count)
         next = EntryComposition(plain: next.plain, spans: next.spans + [EntryTokenSpan(token: token, span: span)])
-        return (next, caret: next.displayOffset(forPlainOffset: span.endLocation))
+        return (next, caret: next.displayOffset(forPlainOffset: span.endLocation + suffix.utf16.count))
     }
 
-    private static let space = UInt16(32)
     private static let whitespace: Set<UInt16> = [32, 9, 10]
+    /// What a word can be followed by with no gap in between: whitespace, and closing punctuation.
+    private static let follows: Set<UInt16> = whitespace.union([
+        44, 46, 33, 63, 59, 58, // , . ! ? ; :
+        41, 93, 125, // ) ] }
+        34, 39, 8221, 8217, // " ' ” ’
+        8230 // …
+    ])
 
     /// Re-scores (or renames) an existing token in place — tapping a token and sliding again.
     public func replacing(tokenID: UUID, with kind: EntryTokenKind) -> EntryComposition {

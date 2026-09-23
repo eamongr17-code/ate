@@ -62,6 +62,18 @@ final class CoreLoopUITests: XCTestCase {
         XCTAssertTrue(editor.waitForExistence(timeout: 5), "picking a place returns to the words")
         attach("05-composer-with-place")
 
+        // **A token brings its own gap, and keeps it.** The CEO's first entry arrived as
+        // "PJ’s Mexican cantinafishbowl margarita  was …": a place inserted where the words end got
+        // no trailing space, so the next word welded itself to the pill. A unit test covers the
+        // model; this covers the editor, where the pill is one character written through UIKit's own
+        // edit path and the space could still be eaten or moved on the way in.
+        editor.typeText("afterwards")
+        let withPlace = (editor.value as? String) ?? ""
+        XCTAssertTrue(withPlace.contains(" afterwards"),
+                      "the word typed after the place pill must not weld to it: \(withPlace)")
+        XCTAssertFalse(withPlace.contains("  "),
+                       "and nothing may leave a gap the person did not type: \(withPlace)")
+
         app.buttons["composer.done"].tap()
 
         // The entry page. The words are there immediately; the bill arrives when the sorter does.

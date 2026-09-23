@@ -100,7 +100,7 @@ jobs:
           restore-keys: spm-${{ runner.os }}-
 
       - name: AteKit staging contract suite
-        run: ATE_CONTRACT_TESTS=1 swift test --package-path AteKit --filter StagingContract
+        run: ATE_CONTRACT_TESTS=1 swift test --package-path AteKit --filter Contract
 
       - name: Staging reachable + RLS gate holds
         run: |

@@ -84,6 +84,27 @@ const PRE_MARKER =
 /** Immediately before a number and it is not a score: "$5", "x4", "#4". */
 const PRE_REJECT = /[$#x×@]\s*$/i;
 
+/**
+ * A number DIRECTLY after one of these is a ranking or a quantity, never a score:
+ *
+ *   "is a top five Melbourne pizza"   → a ranking idiom. Nobody scores a pizza "5" by
+ *                                       calling it top five, and "Top" is not a dish.
+ *   "Order two."  "we got 4"  "had 2" → how MANY, not how good.
+ *
+ * Checked only when the number carries no explicit marker, so "got 5 stars" and
+ * "got a four" keep their score — the marker/article is what tells the two apart. Where
+ * it stays ambiguous, rule 7's asymmetry decides: a bare "we got 4" loses a score rather
+ * than inventing one.
+ *
+ * NOTE 'top' is deliberately NOT a STOPWORD: "Top Paddock" is a Melbourne venue, and
+ * STOPWORDS also trims place candidates.
+ */
+const PRE_REJECT_WORD =
+  /(?:top|bottom|order|orders|ordered|get|gets|got|grab|grabs|grabbed|share|shares|shared|split|splits|take|takes|took|have|has|had|buy|buys|bought|bring|brought|try|tries|tried)(?:\s+(?:another|about|maybe|just|like|around))?\s+$/i;
+
+/** A word that is a NUMBER, spoken or written. Never the head of a dish name. */
+const NUMBER_WORD = /^(?:\d+(?:[.,]\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|dozen|couple|few)$/i;
+
 /** Words that may not start or end a dish name. */
 const STOPWORDS = new Set([
   'a', 'an', 'the', 'and', 'or', 'but', 'with', 'for', 'at', 'in', 'on', 'of', 'to', 'from',
@@ -91,7 +112,7 @@ const STOPWORDS = new Set([
   'was', 'were', 'is', 'are', 'be', 'been', 'had', 'has', 'have', 'got', 'get', 'went',
   'we', 'i', 'they', 'he', 'she', 'it', 'us', 'them', 'me',
   'very', 'really', 'so', 'too', 'just', 'quite', 'pretty', 'bit', 'more', 'less',
-  'then', 'than', 'also', 'again', 'still', 'again', 'here', 'there', 'now', 'after',
+  'then', 'than', 'also', 'again', 'still', 'twice', 'once', 'here', 'there', 'now', 'after',
   'before', 'about', 'some', 'every', 'all', 'both', 'each', 'no', 'not', 'nothing',
   'good', 'great', 'best', 'worst', 'nice', 'lovely', 'solid', 'unreal', 'ok', 'okay',
   // quantity/ordinal words that are never part of a dish's name
@@ -209,6 +230,9 @@ export function findNumbers(body: string): NumberHit[] {
       // skip past the marker so "4/5" and "4 out of five" don't also yield a bare 5
       digits.lastIndex = end;
     }
+    // "a top 5 pizza", "order 2" — a ranking or a count. An explicit marker overrides it
+    // ("got 5 stars" is still a score).
+    if (!marker && PRE_REJECT_WORD.test(before)) continue;
 
     hits.push({
       start,
@@ -245,6 +269,8 @@ export function findNumbers(body: string): NumberHit[] {
 
     // "four" inside a longer number word run ("four twenty") — leave it alone.
     if (/^[\s-]*(?:hundred|thousand|twenty|thirty|forty|fifty)\b/i.test(after)) continue;
+    // "a top five Melbourne pizza", "Order two." — a ranking or a count, not a score.
+    if (!marker && PRE_REJECT_WORD.test(before)) continue;
 
     hits.push({
       start,
@@ -368,7 +394,24 @@ export function mentionForPlaceName(
 // DISH MENTIONS
 // ---------------------------------------------------------------------------
 
-type Mention = { name: string; start: number; end: number; known: boolean };
+/**
+ * `anchored` — did the USER point at this as a thing they ate?
+ *
+ * Two ways to earn it: it is on the matched restaurant's menu, or they introduced it with
+ * a determiner ("had THE focaccia", "split A tiramisu", "shared SOME chips"). An
+ * UNANCHORED candidate is a noun run the parser lifted out of ordinary prose — "had
+ * proper leopard spotting on the crust", "the salsa had real heat" — and it needs a SCORE
+ * to earn a receipt line. Without one it is description, not an order.
+ *
+ * Why a determiner rather than a list of food words: a food lexicon cannot cover bánh mì,
+ * açaí bowl or pho đặc biệt without silently dropping real dishes, and guessing which
+ * nouns are food is exactly the kind of inference rules 7 and 8 forbid. A determiner is
+ * evidence the diner produced.
+ */
+type Mention = { name: string; start: number; end: number; known: boolean; anchored: boolean };
+
+/** The determiners ORDER_VERB may swallow — "had THE pork bun" points, "had proper…" does not. */
+const POINTED_BY = /(?:^|\s)(?:the|a|an|some|their|his|her|my|our|two|three|four|a\s+few)\s*$/i;
 
 /** Every occurrence (up to 3 per dish) — a dish scored on its SECOND mention still
  *  gets its score; the duplicate lines are merged downstream by validatePlan. */
@@ -390,7 +433,7 @@ function findKnownDishes(body: string, knownDishes: string[], exclude: Array<[nu
       const end = start + m[0].length;
       if (inSpans(start, exclude)) continue;
       if (hits.some((h) => start < h.end && end > h.start)) continue;
-      hits.push({ name, start, end, known: true });
+      hits.push({ name, start, end, known: true, anchored: true });
       found++;
     }
   }
@@ -460,7 +503,8 @@ function findNewDishes(
     if (!p) continue;
     if (!n.selfEvident && !isAdjacent(body.slice(p.start + p.text.length, n.start))) continue;
     if (overlaps(p.start, p.start + p.text.length)) continue;
-    found.push({ name: p.text, start: p.start, end: p.start + p.text.length, known: false });
+    // anchored by the NUMBER sitting against it — that is this branch's whole premise.
+    found.push({ name: p.text, start: p.start, end: p.start + p.text.length, known: false, anchored: true });
   }
 
   // (b) verb-anchored: "had the pork bun", "split the tiramisu".
@@ -482,12 +526,25 @@ function findNewDishes(
     }
     while (words.length && JOINERS.has(words[words.length - 1].toLowerCase())) words.pop();
     if (!words.length) continue;
+    // "got 5 stars", "had 2 beers", "order two" — a COUNT follows the verb, so this is a
+    // quantity construction and not "verb + dish". Abandon it rather than mine a name out
+    // of it: "5 stars" and "four" are not dishes, and taking them also steals the score
+    // off the dish that earned it.
+    if (NUMBER_WORD.test(words[0])) continue;
     const text = words.join(' ');
     const start = from + phrase[0].indexOf(words[0]);
     const end = start + text.length;
     if (text.length < 3) continue;
     if (overlaps(start, end)) continue;
-    found.push({ name: body.slice(start, end), start, end, known: false });
+    found.push({
+      name: body.slice(start, end),
+      start,
+      end,
+      known: false,
+      // "had THE pork bun" points at a thing; "had proper leopard spotting" carries on
+      // describing the one before it.
+      anchored: POINTED_BY.test(m[0]),
+    });
   }
 
   return found;
@@ -648,7 +705,13 @@ export function parseEntry(input: ParseInput): SortPlan {
   // mention must still find its number. validatePlan merges the duplicates (first
   // line wins, a later score/note fills a gap it left).
   const mentions = [...knownHits, ...findNewDishes(body, numbers, knownHits, exclude)]
-    .sort((a, b) => a.start - b.start);
+    .sort((a, b) => a.start - b.start)
+    // THE ANCHOR RULE, applied BEFORE the note windows are cut. A candidate nobody
+    // pointed at and no number can score is not a line item — and it must not be here at
+    // all, because a mention the parser is going to refuse still ends the previous dish's
+    // note ("The tacos 4, and the salsa had real heat." left the tacos quoting "the
+    // salsa"). A phantom line item should cost the receipt nothing.
+    .filter((m) => m.anchored || numbers.some((n) => couldScore(body, m, n)));
 
   const usedNumbers = new Set<NumberHit>();
   const items: SortItem[] = [];
@@ -679,6 +742,9 @@ export function parseEntry(input: ParseInput): SortPlan {
             isScoreFor(body, n, m.start, true),
         );
     }
+    // An unanchored candidate only got this far because a number could score it; if
+    // another dish claimed that number first, it goes back to being prose.
+    if (!m.anchored && !hit) continue;
     if (hit) usedNumbers.add(hit);
 
     items.push({
@@ -700,6 +766,22 @@ export function parseEntry(input: ParseInput): SortPlan {
     place_offset: place.length ? place[0].offset : null,
     items,
   };
+}
+
+/**
+ * Could this number plausibly be THIS mention's score? The loose, window-free version of
+ * isScoreFor, used by the anchor rule to tell "had proper leopard spotting" (no number
+ * anywhere near it) from "had proper leopard spotting 4.5" (their own number, so their
+ * own line). Deliberately generous: the loop below still decides who actually gets it.
+ */
+function couldScore(body: string, m: Mention, n: NumberHit): boolean {
+  const [sentStart, sentEnd] = sentenceBounds(body, m.start);
+  if (n.start >= m.end && n.start < sentEnd) return isScoreFor(body, n, m.end);
+  // BACKWARD, and only when the number is sitting against it. A self-evident number
+  // elsewhere in the sentence belongs to whatever else is in that sentence — the
+  // margherita's own "4.5" must not keep "had proper leopard spotting" alive.
+  if (n.end <= m.start && n.start >= sentStart) return isAdjacent(body.slice(n.end, m.start));
+  return false;
 }
 
 /**
