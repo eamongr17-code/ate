@@ -48,6 +48,8 @@ private struct AteShell: View {
     /// a save made in the feed is already true on the shelf, and a block empties both at once.
     @State private var feed: EntryListStore
     @State private var saved: SavedDishesStore
+    /// The one save, made once and handed down — it holds which dishes are mid-flight.
+    @State private var saveAction: SaveAction
     /// Non-nil presents the composer, and carries what it was opened with.
     @State private var composing: ComposerPresentation?
     /// The one stack every tab pushes onto. Hoisted here so Done in the composer can land on the new
@@ -75,7 +77,10 @@ private struct AteShell: View {
         _journal = State(initialValue: JournalStore(entries: services.entries))
         let feedReader = services.feed
         let analytics = services.analytics
-        let feedStore = EntryListStore(fallbackMessage: "Couldn't load the feed.") { cursor, pageSize in
+        let feedStore = EntryListStore(
+            fallbackMessage: "Couldn't load the feed.",
+            savedDishes: services.savedDishes
+        ) { cursor, pageSize in
             try await feedReader.feedPage(after: cursor, pageSize: pageSize, includeOwn: false)
         }
         // `feed_page_loaded` is reported where the page actually lands — a prefetched page and a
@@ -85,7 +90,14 @@ private struct AteShell: View {
             analytics(SocialEvents.feedPageLoaded(page: page, itemCount: items))
         }
         _feed = State(initialValue: feedStore)
-        _saved = State(initialValue: SavedDishesStore(saves: services.saves))
+        let shelf = SavedDishesStore(saves: services.saves)
+        _saved = State(initialValue: shelf)
+        _saveAction = State(initialValue: SaveAction(
+            saves: services.saves,
+            analytics: services.analytics,
+            shelf: shelf,
+            broadcast: services.savedDishes
+        ))
         #if DEBUG
         ComposerDebugLaunch.seedDraftIfRequested(into: services.drafts)
         if ComposerDebugLaunch.opensComposer {
@@ -146,7 +158,7 @@ private struct AteShell: View {
             EntryScreen(
                 route: entry,
                 services: services,
-                saved: saved,
+                saves: saveAction,
                 onChange: { card in
                     journal.replace(card)
                     feed.replace(card)
@@ -164,8 +176,7 @@ private struct AteShell: View {
             ProfileDestination(
                 userID: userID,
                 services: services,
-                feed: feed,
-                saved: saved,
+                saves: saveAction,
                 onOpen: { open(.entry(EntryRoute(entryID: $0.id))) },
                 onBlocked: { blocked in
                     path.removeAll { $0 == .profile(blocked) }
@@ -212,13 +223,10 @@ private struct AteShell: View {
                 onSuggestions: { open(.suggestions) },
                 onSavedPlace: { open(.place($0)) },
                 onSavedDish: { open(.dish($0.dishID)) },
+                // The shelf's own bookmark. Only a round trip the server accepted is announced
+                // to the rest of the app or counted — the store puts its row back on a refusal.
                 onUnsave: { dish in
-                    Task {
-                        await saved.unsave(dish)
-                        services.analytics(SocialEvents.saveToggled(source: .savedList, isSaved: false))
-                        AteHaptics.save()
-                        feed.setSaved(dishID: dish.dishID, to: false)
-                    }
+                    Task { await saveAction.unsaveFromShelf(dish) }
                 }
             )
             .task { await countPhotos() }
@@ -242,9 +250,7 @@ private struct AteShell: View {
                             entryID: entry.id,
                             isSaved: dish.isSaved,
                             source: .feed
-                        ) { isSaved in
-                            feed.setSaved(dishID: dish.dishID, to: isSaved)
-                        }
+                        )
                     }
                 },
                 onViewed: { services.analytics(SocialEvents.feedViewed()) }
@@ -271,11 +277,6 @@ private struct AteShell: View {
                 scrollToTop += 1
             }
         )
-    }
-
-    /// The one save, wherever it is tapped.
-    private var saveAction: SaveAction {
-        SaveAction(saves: services.saves, analytics: services.analytics, shelf: saved)
     }
 
     /// Pushes a destination — and refuses the ones that do not exist yet, so a link to slice 2 does

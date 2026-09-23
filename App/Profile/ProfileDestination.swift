@@ -5,14 +5,13 @@ import SwiftUI
 /// destination's builder, which SwiftUI calls again on every re-render — a store made there would be
 /// thrown away and reloaded mid-scroll.
 ///
-/// It also owns the two things a profile has to tell the rest of the app: a save here is a save
-/// everywhere (the feed behind it flips too), and a block empties every open list.
+/// Its entries listen to ``SavedDishBroadcast`` like every other list, so a dish saved on the entry
+/// page pushed on top of this one is already saved when the reader comes back to it. A block is the
+/// one thing still passed up by hand: it is not a fact about a dish, it is the end of the page.
 struct ProfileDestination: View {
     let userID: UUID
     let services: AteServices
-    /// The list behind this page.
-    let feed: EntryListStore
-    let saved: SavedDishesStore
+    let saves: SaveAction
     var onOpen: (EntryCard) -> Void = { _ in }
     var onBlocked: (UUID) -> Void = { _ in }
 
@@ -21,18 +20,20 @@ struct ProfileDestination: View {
     init(
         userID: UUID,
         services: AteServices,
-        feed: EntryListStore,
-        saved: SavedDishesStore,
+        saves: SaveAction,
         onOpen: @escaping (EntryCard) -> Void = { _ in },
         onBlocked: @escaping (UUID) -> Void = { _ in }
     ) {
         self.userID = userID
         self.services = services
-        self.feed = feed
-        self.saved = saved
+        self.saves = saves
         self.onOpen = onOpen
         self.onBlocked = onBlocked
-        _store = State(initialValue: ProfileStore(userID: userID, profiles: services.profiles))
+        _store = State(initialValue: ProfileStore(
+            userID: userID,
+            profiles: services.profiles,
+            savedDishes: services.savedDishes
+        ))
     }
 
     var body: some View {
@@ -41,17 +42,12 @@ struct ProfileDestination: View {
             onOpen: onOpen,
             onSave: { entry, dish in
                 Task {
-                    await saveAction.toggle(
+                    await saves.toggle(
                         dishID: dish.dishID,
                         entryID: entry.id,
                         isSaved: dish.isSaved,
                         source: .profile
-                    ) { isSaved in
-                        store.entries.setSaved(dishID: dish.dishID, to: isSaved)
-                        // The same bookmark, on the same dish, in the list this page was opened
-                        // from. Going back to a feed that disagrees would read as a lost save.
-                        feed.setSaved(dishID: dish.dishID, to: isSaved)
-                    }
+                    )
                 }
             },
             onBlocked: {
@@ -61,9 +57,5 @@ struct ProfileDestination: View {
             onViewed: { isMe in services.analytics(SocialEvents.profileViewed(isMe: isMe)) },
             onReported: { services.analytics(SocialEvents.profileReported()) }
         )
-    }
-
-    private var saveAction: SaveAction {
-        SaveAction(saves: services.saves, analytics: services.analytics, shelf: saved)
     }
 }

@@ -47,9 +47,11 @@ struct ProfileScreen: View {
         HStack(spacing: 0) {
             AteIconButton(icon: .back, label: "Back", size: 24) { dismiss() }
             Spacer(minLength: AteMetrics.snug)
-            AteIconButton(icon: .more, label: "More", size: 22) { isShowingActions = true }
-                .disabled(store.username == nil)
-                .opacity(store.username == nil ? 0.35 : 1)
+            // Only for somebody else: there is no reporting or blocking yourself, and Search will
+            // push your own page soon enough.
+            if store.isSomebodyElse {
+                AteIconButton(icon: .more, label: "More", size: 22) { isShowingActions = true }
+            }
         }
         .padding(.horizontal, AteMetrics.regular)
         .ateContentTop()
@@ -131,7 +133,7 @@ struct ProfileScreen: View {
 
     @ViewBuilder
     private var actions: some View {
-        if let handle = store.username {
+        if store.isSomebodyElse, let handle = store.username {
             AteActionsSheet(
                 title: "@\(handle)",
                 blockTitle: "Block @\(handle)",

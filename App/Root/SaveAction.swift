@@ -3,35 +3,52 @@ import SwiftUI
 
 /// **The save, wherever it is made.** The feed's bookmark, a profile's, the one on someone else's
 /// entry page and the unsave on the Saved shelf are the same action and must behave identically
-/// (AGENTS.md rule 2) — so there is one of it.
+/// (AGENTS.md rule 2) — so there is one of it, made once at the shell and handed down.
 ///
 /// What "identically" means here:
 /// 1. the bookmark flips **before** the RPC, and is put back if the RPC refuses — a save is one tap
 ///    on a moving list, and a round trip is a visible stutter;
-/// 2. it is **felt** — one light impact, the moment it flips;
-/// 3. `save_toggled` is emitted at the tap, with the surface it happened on, because the number we
+/// 2. it flips **everywhere that dish is on screen**, through ``SavedDishBroadcast``: the feed, the
+///    profile that was opened from it, the entry page on top of both. Nothing is hand-wired, so
+///    nothing can be forgotten;
+/// 3. it is **felt** — one light impact, the moment it flips;
+/// 4. `save_toggled` is emitted at the tap, with the surface it happened on, because the number we
 ///    act on is how often people save and not how often the network agreed;
-/// 4. the Saved shelf is told it is stale, so the dish is there the next time it is looked at.
+/// 5. the Saved shelf is told it is stale, so the dish is there the next time it is looked at.
+///
+/// A class, not a value: it holds which dishes are mid-flight, and two taps on one bookmark must
+/// meet the same set.
 @MainActor
-struct SaveAction {
-    let saves: any DishSaving
-    let analytics: AnalyticsRecorder
+final class SaveAction {
+    private let saves: any DishSaving
+    private let analytics: AnalyticsRecorder
     /// The shelf to invalidate. It reloads when it is next looked at, not while it is not.
-    let shelf: SavedDishesStore
+    private let shelf: SavedDishesStore
+    private let broadcast: SavedDishBroadcast
+    /// Dishes with a call in the air. A second tap while one is in flight is dropped rather than
+    /// queued: two RPCs racing can land in the other order and leave the bookmark disagreeing with
+    /// the server, which is the one outcome an optimistic write must never produce.
+    private var inFlight: Set<UUID> = []
 
-    /// - Parameters:
-    ///   - apply: writes the optimistic state wherever it is held — usually one or more
-    ///     ``EntryListStore``s. Called once with the new state, and again with the old one if the
-    ///     server refuses.
-    func toggle(
-        dishID: UUID,
-        entryID: UUID?,
-        isSaved: Bool,
-        source: SaveSource,
-        apply: (Bool) -> Void
-    ) async {
+    init(
+        saves: any DishSaving,
+        analytics: @escaping AnalyticsRecorder,
+        shelf: SavedDishesStore,
+        broadcast: SavedDishBroadcast
+    ) {
+        self.saves = saves
+        self.analytics = analytics
+        self.shelf = shelf
+        self.broadcast = broadcast
+    }
+
+    /// One dish's bookmark.
+    func toggle(dishID: UUID, entryID: UUID?, isSaved: Bool, source: SaveSource) async {
+        guard inFlight.insert(dishID).inserted else { return }
+        defer { inFlight.remove(dishID) }
+
         let next = isSaved == false
-        apply(next)
+        broadcast.send(dishID: dishID, isSaved: next)
         AteHaptics.save()
         analytics(SocialEvents.saveToggled(source: source, isSaved: next))
         do {
@@ -44,15 +61,31 @@ struct SaveAction {
         } catch {
             // The server had the last word. Put the bookmark back rather than leaving a save that
             // did not happen looking like one that did.
-            apply(isSaved)
+            broadcast.send(dishID: dishID, isSaved: isSaved)
         }
+    }
+
+    /// The unsave on the Saved shelf, where the bookmark is the only reason the row exists — so the
+    /// store removes it, and only a refusal-free round trip is told to the rest of the app.
+    func unsaveFromShelf(_ dish: SavedDish) async {
+        guard inFlight.insert(dish.dishID).inserted else { return }
+        defer { inFlight.remove(dish.dishID) }
+
+        AteHaptics.save()
+        guard await shelf.unsave(dish) else { return }
+        analytics(SocialEvents.saveToggled(source: .savedList, isSaved: false))
+        broadcast.send(dishID: dish.dishID, isSaved: false)
     }
 
     /// "Save this place" — every line of one entry, provenance = that entry
     /// (`save_entry_dishes`). Returns whether it landed.
     @discardableResult
-    func saveEveryDish(entryID: UUID, source: SaveSource, apply: (Bool) -> Void) async -> Bool {
-        apply(true)
+    func saveEveryDish(entryID: UUID, dishIDs: [UUID], source: SaveSource) async -> Bool {
+        let claimed = dishIDs.filter { inFlight.insert($0).inserted }
+        defer { claimed.forEach { inFlight.remove($0) } }
+        guard claimed.isEmpty == false else { return false }
+
+        claimed.forEach { broadcast.send(dishID: $0, isSaved: true) }
         AteHaptics.save()
         analytics(SocialEvents.saveToggled(source: source, isSaved: true))
         do {
@@ -60,25 +93,33 @@ struct SaveAction {
             shelf.invalidate()
             return true
         } catch {
-            apply(false)
+            // One RPC for the whole visit, so one rollback for the whole visit.
+            claimed.forEach { broadcast.send(dishID: $0, isSaved: false) }
             return false
         }
     }
 
     /// The other half of the entry page's bookmark: an entry whose every line is already saved
     /// un-saves all of them. There is no `unsave_entry_dishes` in the contract — unsaving is per
-    /// dish, so this is that call, once per line.
-    func unsaveEveryDish(dishIDs: [UUID], source: SaveSource, apply: (Bool) -> Void) async {
-        apply(false)
+    /// dish, so this is that call, once per line, and **each line is rolled back on its own**: a
+    /// failure on the third dish must not put the first two back on a shelf they have left.
+    func unsaveEveryDish(dishIDs: [UUID], source: SaveSource) async {
+        let claimed = dishIDs.filter { inFlight.insert($0).inserted }
+        defer { claimed.forEach { inFlight.remove($0) } }
+        guard claimed.isEmpty == false else { return }
+
+        claimed.forEach { broadcast.send(dishID: $0, isSaved: false) }
         AteHaptics.save()
         analytics(SocialEvents.saveToggled(source: source, isSaved: false))
-        do {
-            for dishID in dishIDs {
+        var anyLanded = false
+        for dishID in claimed {
+            do {
                 try await saves.unsave(dishID: dishID)
+                anyLanded = true
+            } catch {
+                broadcast.send(dishID: dishID, isSaved: true)
             }
-            shelf.invalidate()
-        } catch {
-            apply(true)
         }
+        if anyLanded { shelf.invalidate() }
     }
 }

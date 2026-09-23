@@ -5,7 +5,7 @@ import SwiftUI
 /// The entry page's state: the row, what the bill says, and which correction sheet is open.
 @MainActor
 @Observable
-final class EntryModel {
+final class EntryModel: SavedDishObserving {
     /// What the bill on the page is doing.
     enum State: Equatable {
         /// The words are saved; the structure has not arrived. A designed state, not a spinner
@@ -40,16 +40,14 @@ final class EntryModel {
 
     private let route: EntryRoute
     private let services: AteServices
-    private let saveAction: SaveAction
+    private let saves: SaveAction
     private var handle = ""
     private var hasReportedPrint = false
 
-    init(route: EntryRoute, services: AteServices, saved: SavedDishesStore) {
+    init(route: EntryRoute, services: AteServices, saves: SaveAction) {
         self.route = route
         self.services = services
-        self.saveAction = SaveAction(
-            saves: services.saves, analytics: services.analytics, shelf: saved
-        )
+        self.saves = saves
         #if DEBUG
         // Not before the entry has loaded: the sheet opens on the place it is correcting, and one
         // opened against a card that is not there yet shows "Recent" instead of "Best match".
@@ -175,17 +173,11 @@ final class EntryModel {
     /// reads. An entry with no lines is never "saved": there is nothing to have saved.
     var isEveryDishSaved: Bool { card?.isEveryDishSaved ?? false }
 
-    /// One line's bookmark. A save is one dish, wherever it is tapped.
+    /// One line's bookmark. A save is one dish, wherever it is tapped — and the page hears about
+    /// it the same way the feed underneath it does, through the broadcast.
     func toggleSave(item: AteReceipt.Item) async {
         guard let card, let dishID = item.dishID else { return }
-        await saveAction.toggle(
-            dishID: dishID,
-            entryID: card.id,
-            isSaved: item.isSaved,
-            source: .entry
-        ) { [weak self] isSaved in
-            self?.applySaved(dishID: dishID, to: isSaved)
-        }
+        await saves.toggle(dishID: dishID, entryID: card.id, isSaved: item.isSaved, source: .entry)
     }
 
     /// The bookmark in the top bar: every dish on this visit, at once — `save_entry_dishes`, which
@@ -194,14 +186,15 @@ final class EntryModel {
         guard let card, card.items.isEmpty == false else { return }
         let dishIDs = card.items.map(\.dishID)
         if card.isEveryDishSaved {
-            await saveAction.unsaveEveryDish(dishIDs: dishIDs, source: .entry) { [weak self] isSaved in
-                for dishID in dishIDs { self?.applySaved(dishID: dishID, to: isSaved) }
-            }
+            await saves.unsaveEveryDish(dishIDs: dishIDs, source: .entry)
         } else {
-            await saveAction.saveEveryDish(entryID: card.id, source: .entry) { [weak self] isSaved in
-                for dishID in dishIDs { self?.applySaved(dishID: dishID, to: isSaved) }
-            }
+            await saves.saveEveryDish(entryID: card.id, dishIDs: dishIDs, source: .entry)
         }
+    }
+
+    /// The bookmark changed somewhere — here, or on a list this page was opened from.
+    func savedDishChanged(dishID: UUID, isSaved: Bool) {
+        applySaved(dishID: dishID, to: isSaved)
     }
 
     /// What the actions sheet's Share row sends: this visit's receipt, rendered now. An entry whose
@@ -237,7 +230,7 @@ final class EntryModel {
     }
 
     /// Writes a bookmark into the row this page is drawn from, so the bill and the top bar agree
-    /// before the server answers.
+    /// with every other list before the server answers.
     private func applySaved(dishID: UUID, to isSaved: Bool) {
         guard let card else { return }
         let updated = card.settingSaved(dishID: dishID, to: isSaved)

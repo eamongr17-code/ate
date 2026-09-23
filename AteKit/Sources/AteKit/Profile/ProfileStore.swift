@@ -26,12 +26,18 @@ public final class ProfileStore {
     private let profiles: any ProfileReading
     private var hasLoadedHeader = false
 
-    public init(userID: UUID, profiles: any ProfileReading, pageSize: Int = 20) {
+    public init(
+        userID: UUID,
+        profiles: any ProfileReading,
+        pageSize: Int = 20,
+        savedDishes: SavedDishBroadcast? = nil
+    ) {
         self.userID = userID
         self.profiles = profiles
         self.entries = EntryListStore(
             pageSize: pageSize,
-            fallbackMessage: "Couldn't load these entries."
+            fallbackMessage: "Couldn't load these entries.",
+            savedDishes: savedDishes
         ) { [profiles] cursor, size in
             try await profiles.entriesPage(authorID: userID, after: cursor, pageSize: size)
         }
@@ -68,6 +74,14 @@ public final class ProfileStore {
     public var username: String? {
         if case .ready(let summary) = header { return summary.username }
         return nil
+    }
+
+    /// Whether this page is about somebody else. `is_me` is the server's answer, not a comparison
+    /// of ids on the client, and until the header lands the answer is "not yet" — a control that
+    /// might be self-block is not drawn on a guess.
+    public var isSomebodyElse: Bool {
+        if case .ready(let summary) = header { return summary.isMe == false }
+        return false
     }
 
     // MARK: - Actions

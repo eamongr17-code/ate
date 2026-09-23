@@ -145,6 +145,24 @@ struct SavedDishesStoreTests {
         #expect(store.phase == .ready)
     }
 
+    /// The caller has things to do that must not happen on a refusal — telling every other list
+    /// the dish is gone, and counting a `save_toggled` that never happened.
+    @Test("Unsave says whether the server took it")
+    func unsaveReportsTheOutcome() async {
+        let first = saved("Prawn spaghetti", at: tipo, placeName: "Tipo 00", minutesAgo: 1)
+        let second = saved("Tiramisu", at: tipo, placeName: "Tipo 00", minutesAgo: 2)
+        let saves = FakeSaves(pages: [[first, second]])
+        let store = SavedDishesStore(saves: saves, pageSize: 10)
+        await store.loadIfNeeded()
+
+        let landed = await store.unsave(first)
+        #expect(landed)
+        saves.refuses = true
+        let refused = await store.unsave(second)
+        #expect(refused == false)
+        #expect(store.dishes.map(\.dishID) == [second.dishID], "and the row it kept is still there")
+    }
+
     @Test("Unsaving the last row leaves the empty state")
     func unsaveEverything() async {
         let only = saved("Prawn spaghetti", at: tipo, placeName: "Tipo 00", minutesAgo: 1)

@@ -17,7 +17,7 @@ import Observation
 /// (they differ only in which RPC they call) and so a test can drive paging with no network at all.
 @MainActor
 @Observable
-public final class EntryListStore {
+public final class EntryListStore: SavedDishObserving {
 
     /// What the screen shows instead of entries.
     public enum Phase: Sendable, Equatable {
@@ -61,10 +61,18 @@ public final class EntryListStore {
     /// How close to the end a row must be before the next page is asked for.
     private static let prefetchDistance = 4
 
-    public init(pageSize: Int = 20, fallbackMessage: String, loader: @escaping Loader) {
+    public init(
+        pageSize: Int = 20,
+        fallbackMessage: String,
+        savedDishes: SavedDishBroadcast? = nil,
+        loader: @escaping Loader
+    ) {
         self.pageSize = pageSize
         self.fallbackMessage = fallbackMessage
         self.loader = loader
+        // Every list that draws a bookmark listens, rather than being told by whoever happens to
+        // own it — the propagation that is maintained by hand is the one that goes stale.
+        savedDishes?.add(self)
     }
 
     // MARK: - Loading
@@ -148,6 +156,10 @@ public final class EntryListStore {
     /// disagreed with itself would read as a bug.
     public func setSaved(dishID: UUID, to isSaved: Bool) {
         entries = entries.map { $0.settingSaved(dishID: dishID, to: isSaved) }
+    }
+
+    public func savedDishChanged(dishID: UUID, isSaved: Bool) {
+        setSaved(dishID: dishID, to: isSaved)
     }
 
     /// Someone was blocked: they are gone from the server's reads already, and they go from this

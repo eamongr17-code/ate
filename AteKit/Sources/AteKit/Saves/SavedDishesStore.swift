@@ -106,7 +106,12 @@ public final class SavedDishesStore {
     // MARK: - Unsaving
 
     /// Optimistic: the row leaves, and comes back if the server refuses.
-    public func unsave(_ dish: SavedDish) async {
+    ///
+    /// **Returns whether it landed**, because the caller has things to do that must not happen on a
+    /// refusal — telling every other list the dish is unsaved, and counting a `save_toggled` that
+    /// never happened.
+    @discardableResult
+    public func unsave(_ dish: SavedDish) async -> Bool {
         let index = dishes.firstIndex { $0.dishID == dish.dishID }
         if let index {
             dishes.remove(at: index)
@@ -116,12 +121,14 @@ public final class SavedDishesStore {
         }
         do {
             try await saves.unsave(dishID: dish.dishID)
+            return true
         } catch {
-            guard let index else { return }
+            guard let index else { return false }
             dishes.insert(dish, at: min(index, dishes.count))
             seenIDs.insert(dish.dishID)
             phase = .ready
             regroup()
+            return false
         }
     }
 

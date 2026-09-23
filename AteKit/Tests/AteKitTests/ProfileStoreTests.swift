@@ -107,6 +107,22 @@ struct ProfileStoreTests {
         #expect(store.header == .ready(summary))
     }
 
+    /// Report and block are about somebody else. Search will push your own page soon, and the
+    /// answer comes from the server's `is_me`, never from comparing ids on the client.
+    @Test("A page is 'somebody else' only once the server has said so")
+    func somebodyElse() async {
+        let profiles = FakeProfiles(summary: summary)
+        let store = ProfileStore(userID: userID, profiles: profiles)
+        #expect(store.isSomebodyElse == false, "not while the header is still loading")
+        await store.load()
+        #expect(store.isSomebodyElse)
+
+        let mine = ProfileSummary(userID: userID, username: "eamon", isMe: true)
+        let own = ProfileStore(userID: userID, profiles: FakeProfiles(summary: mine))
+        await own.load()
+        #expect(own.isSomebodyElse == false)
+    }
+
     @Test("Blocking empties the page and says it went through")
     func block() async {
         let profiles = FakeProfiles(summary: summary, entries: [entry()])

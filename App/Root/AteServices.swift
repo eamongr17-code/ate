@@ -25,6 +25,9 @@ struct AteServices {
     let saves: any DishSaving
     /// Somebody else's page, and the two things you can do about them.
     let profiles: any ProfileReading
+    /// The one place a bookmark's new state is announced. Everything that draws one listens, so a
+    /// save made on an entry page is already true on the feed and the profile underneath it.
+    let savedDishes = SavedDishBroadcast()
     /// Entries that have not finished landing. Worked on every foreground.
     let outbox: EntryOutbox
     /// The camera roll, behind a seam — `Suggestions` and the composer's photo staging.

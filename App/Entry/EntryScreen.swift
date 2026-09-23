@@ -41,7 +41,7 @@ struct EntryScreen: View {
     init(
         route: EntryRoute,
         services: AteServices,
-        saved: SavedDishesStore,
+        saves: SaveAction,
         onChange: @escaping (EntryCard) -> Void = { _ in },
         onEdit: @escaping (EntryCard) -> Void = { _ in },
         onProfile: @escaping (UUID) -> Void = { _ in },
@@ -53,7 +53,7 @@ struct EntryScreen: View {
         self.onEdit = onEdit
         self.onProfile = onProfile
         self.onBlocked = onBlocked
-        _model = State(initialValue: EntryModel(route: route, services: services, saved: saved))
+        _model = State(initialValue: EntryModel(route: route, services: services, saves: saves))
     }
 
     var body: some View {
@@ -65,7 +65,10 @@ struct EntryScreen: View {
         .scrollIndicators(.hidden)
         .ateGround()
         .safeAreaInset(edge: .top, spacing: 0) { topBar }
-        .task { await model.load() }
+        .task {
+            services.savedDishes.add(model)
+            await model.load()
+        }
         .onChange(of: model.card) { _, card in
             if let card { onChange(card) }
         }
@@ -295,7 +298,12 @@ struct EntryScreen: View {
             .disabled(card.items.isEmpty)
             .opacity(card.items.isEmpty ? 0.35 : 1)
             .accessibilityIdentifier("entry.saveAll")
-            AteIconButton(icon: .more, label: "More", size: 22) { isShowingActions = true }
+            // The actions sheet is entirely about a person — save their place, share their visit,
+            // report it, block them. With no author on the row (blocked, deleted) there is nobody
+            // to act on, so the control is absent rather than opening an empty sheet.
+            if model.byline != nil {
+                AteIconButton(icon: .more, label: "More", size: 22) { isShowingActions = true }
+            }
         }
     }
 

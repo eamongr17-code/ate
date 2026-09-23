@@ -66,6 +66,27 @@ final class FeedUITests: XCTestCase {
             .waitForExistence(timeout: 5), "with their entries under it")
         attach("04-profile")
 
+        // **The stale bookmark QA found.** Feed → profile → their entry → toggle → Back used to
+        // come back to a profile that still drew the old bookmark, because the propagation was a
+        // hand-maintained list of stores and the profile was not on it. Every list listens now, and
+        // this is the drive that keeps it that way.
+        let profileBookmark = app.buttons.matching(identifier: "slip.save").firstMatch
+        XCTAssertTrue(profileBookmark.waitForExistence(timeout: 5))
+        let savedOnProfile = profileBookmark.isSelected
+        app.buttons.matching(identifier: "profile.slip.body").firstMatch.tap()
+        let line = app.buttons.matching(identifier: "entry.save").firstMatch
+        XCTAssertTrue(line.waitForExistence(timeout: 10), "their entry's bill carries bookmarks")
+        line.tap()
+        XCTAssertTrue(waitUntil(timeout: 5) { line.isSelected != savedOnProfile },
+                      "the line flips at the tap")
+        attach("05-entry-toggled")
+        app.buttons["Back"].tap()
+        let backOnProfile = app.buttons.matching(identifier: "slip.save").firstMatch
+        XCTAssertTrue(backOnProfile.waitForExistence(timeout: 5))
+        XCTAssertTrue(waitUntil(timeout: 5) { backOnProfile.isSelected != savedOnProfile },
+                      "and the profile behind it already agrees")
+        attach("06-profile-agrees")
+
         // **The actions sheet.** Four answers about a person, and the two that cannot be taken back
         // ask first. Driven rather than read: a sheet, a confirmation dialog and a destructive role
         // are three presentations, and a unit test sees none of them.
@@ -79,14 +100,14 @@ final class FeedUITests: XCTestCase {
             NSPredicate(format: "identifier BEGINSWITH %@", "actions.Block @")
         ).firstMatch
         XCTAssertTrue(block.exists, "and the last row is the block, by name")
-        attach("05-actions")
+        attach("07-actions")
 
         app.buttons["actions.Report"].tap()
         // Two matches: SwiftUI keeps the dialog's button in the hierarchy under its presenter as
         // well as in the dialog itself. Either one is the same button; the drive takes the first.
         let confirm = app.buttons.matching(identifier: "actions.confirmReport").firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: 5), "reporting asks before it reports")
-        attach("06-report-confirm")
+        attach("08-report-confirm")
         confirm.tap()
         // Confirming is the whole feedback the design carries: the sheet closes and the page is
         // where it was. No toast, no banner, no helper copy (design rule 1).
