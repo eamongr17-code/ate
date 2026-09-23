@@ -148,7 +148,7 @@ final class CoreLoopUITests: XCTestCase {
         editor.typeText("The tagliatelle al ragu 4.5, ")
         // The promotion deliberately runs on the next turn of the runloop, outside UIKit's edit
         // transaction — half the fix, and why this waits rather than asserting immediately.
-        XCTAssertTrue(waitUntil(timeout: 3) { (editor.value as? String)?.contains("4.5") == false },
+        XCTAssertTrue(waitForEditor(editor, contains: false),
                       "the digits should have become a token")
         attach("12-before-undo")
 
@@ -161,12 +161,12 @@ final class CoreLoopUITests: XCTestCase {
         // The one that used to SIGABRT: UIKit's operation, run against storage a programmatic edit
         // had replaced underneath it.
         app.buttons["debug.undo"].tap()
-        XCTAssertTrue(waitUntil(timeout: 3) { (editor.value as? String)?.contains("4.5") == true },
+        XCTAssertTrue(waitForEditor(editor, contains: true),
                       "the second undo gives the person their digits back")
         XCTAssertEqual(app.state, .runningForeground, "a second undo must not take the app down")
 
         app.buttons["debug.redo"].tap()
-        XCTAssertTrue(waitUntil(timeout: 3) { (editor.value as? String)?.contains("4.5") == false },
+        XCTAssertTrue(waitForEditor(editor, contains: false),
                       "redo puts the pill back — it does not eat the score")
         XCTAssertEqual(app.state, .runningForeground, "and redo keeps it alive too")
         XCTAssertTrue(((editor.value as? String) ?? "").hasPrefix("The tagliatelle al ragu"),
@@ -174,13 +174,30 @@ final class CoreLoopUITests: XCTestCase {
         attach("14-after-redo")
     }
 
-    private func waitUntil(timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if condition() { return true }
-            _ = XCUIApplication().wait(for: .runningForeground, timeout: 0.1)
-        }
-        return condition()
+    /// Waits for the digits to appear in — or disappear from — the editor's accessibility **value**,
+    /// which is how "did the promotion happen / did undo give the score back" is observed from out
+    /// here.
+    ///
+    /// **One attribute, ten seconds.** This used to be a hand-rolled three-second loop that built a
+    /// fresh `XCUIApplication`, waited on its state and *then* read `editor.value` — three
+    /// accessibility round-trips per turn, against an app still settling from the test before it. A
+    /// full-suite run failed about one time in three, always here and never because the app was
+    /// wrong: the budget went on the polling rather than on the app. `XCTNSPredicateExpectation`
+    /// evaluates one keypath on XCTest's own cadence, so the wait costs almost nothing and can
+    /// afford to be generous. The assertion is the same one: the value either holds "4.5" or it does
+    /// not.
+    private func waitForEditor(
+        _ editor: XCUIElement,
+        contains digits: Bool,
+        _ literal: String = "4.5",
+        timeout: TimeInterval = 10
+    ) -> Bool {
+        let format = digits ? "value CONTAINS %@" : "NOT (value CONTAINS %@)"
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: format, literal),
+            object: editor
+        )
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
     }
 
     private func attach(_ name: String) {
