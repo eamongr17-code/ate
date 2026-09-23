@@ -30,14 +30,20 @@ struct EntryCardTests {
         { "review_id": "c7e00000-0000-4000-8000-000000000001",
           "dish_id": "d7e00000-0000-4000-8000-000000000001",
           "dish_name": "Tagliatelle al rag\\u00f9", "score": 4.5,
-          "note": "unreal", "position": 1, "saved": false },
+          "note": "unreal", "position": 1, "saved": false,
+          "evidence_offset": 42, "evidence_length": 3,
+          "mention_offset": 23, "mention_length": 19, "corrected": false },
         { "review_id": "c7e00000-0000-4000-8000-000000000003",
           "dish_id": "d7e00000-0000-4000-8000-000000000003",
           "dish_name": "Prawn spaghetti", "score": null,
-          "note": null, "position": 2, "saved": false }
+          "note": null, "position": 2, "saved": false,
+          "evidence_offset": null, "evidence_length": null,
+          "mention_offset": null, "mention_length": null, "corrected": true }
       ],
       "dish_count": 2,
-      "avg_score": 4.5
+      "avg_score": 4.5,
+      "place_offset": 0,
+      "place_length": 7
     }
     """
 
@@ -56,6 +62,49 @@ struct EntryCardTests {
         #expect(card.items[0].score?.value == 4.5)
         #expect(card.items[1].score == nil)
         #expect(card.avgScore == 4.5)
+    }
+
+    @Test("the 0025 offsets decode — scalar units, nulls where the server cannot point")
+    func decodesTheOffsets() throws {
+        let card = try PostgRESTDate.decoder.decode(EntryCard.self, from: Data(json.utf8))
+
+        #expect(card.placeOffset == 0)
+        #expect(card.placeLength == 7)
+        #expect(card.items[0].evidenceOffset == 42)
+        #expect(card.items[0].evidenceLength == 3)
+        #expect(card.items[0].mentionOffset == 23)
+        #expect(card.items[0].mentionLength == 19)
+        #expect(card.items[0].corrected == false)
+        // An unscored line has nothing to point at, and this one is the user's own.
+        #expect(card.items[1].evidenceOffset == nil)
+        #expect(card.items[1].mentionOffset == nil)
+        #expect(card.items[1].corrected)
+    }
+
+    @Test("a row served without the offset columns is still a row")
+    func decodesWithoutTheOffsets() throws {
+        // A view older than 0025 — or prod before the migration lands there. `corrected` is a plain
+        // Bool in the app, so it is the one that would otherwise throw; absent means no correction.
+        let stripped = json
+            .replacingOccurrences(of: "\"place_offset\": 0,", with: "")
+            .replacingOccurrences(of: "\"place_length\": 7", with: "\"dish_count\": 2")
+            .replacingOccurrences(of: "\"evidence_offset\": 42, \"evidence_length\": 3,", with: "")
+            .replacingOccurrences(of: "\"evidence_offset\": null, \"evidence_length\": null,", with: "")
+            .replacingOccurrences(
+                of: "\"mention_offset\": 23, \"mention_length\": 19, \"corrected\": false",
+                with: "\"saved\": false"
+            )
+            .replacingOccurrences(
+                of: "\"mention_offset\": null, \"mention_length\": null, \"corrected\": true",
+                with: "\"saved\": false"
+            )
+
+        let card = try PostgRESTDate.decoder.decode(EntryCard.self, from: Data(stripped.utf8))
+        #expect(card.placeOffset == nil)
+        #expect(card.items.count == 2)
+        #expect(card.items.allSatisfy { $0.evidenceOffset == nil && $0.corrected == false })
+        // …and it still renders: the matcher is the fallback, not an error.
+        #expect(EntryBodyTokens.composition(for: card).spans.isEmpty == false)
     }
 
     @Test("the microseconds survive — a truncated cursor matches nothing")

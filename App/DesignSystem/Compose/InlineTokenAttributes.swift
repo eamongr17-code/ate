@@ -27,16 +27,34 @@ struct InlineTokenAttributes {
 
     var font: UIFont { AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize) }
 
+    /// **Half the leading, the half that belongs under the words.**
+    ///
+    /// CSS splits the difference between a line box and the font's own box evenly, above and below
+    /// the glyphs ("half-leading"); TextKit, handed a clamped line height, puts all of it above and
+    /// sits the glyphs on the floor of the box. At `.proseLarge` that is 4.25pt, and it is exactly
+    /// how far every line of read-only prose was drawn below the render.
+    ///
+    /// Zero when the font's box is already taller than the line box — a tight line height has no
+    /// leading to split, and the clamp then behaves exactly as it did before.
+    var halfLeading: CGFloat {
+        let font = font
+        return max(0, (font.pointSize * style.lineHeight - (font.ascender - font.descender)) / 2)
+    }
+
     /// How tall these words are at this width. The composer hangs its photo cluster off the bottom
     /// of the sentence, and measuring the *same* attributed string the editor draws is the only way
     /// the two can agree about where that is.
+    ///
+    /// Plus the half-leading TextKit leaves off the last line: `lineSpacing` sits *between* lines, so
+    /// the laid-out text is that much shorter than the block CSS would give it. The words occupy
+    /// whole line boxes — what hangs off the bottom of them hangs where the artboard puts it.
     func height(for composition: EntryComposition, width: CGFloat) -> CGFloat {
         guard width > 0, composition.isEmpty == false else { return 0 }
-        return attributedString(for: composition).boundingRect(
+        return (attributedString(for: composition).boundingRect(
             with: CGSize(width: width, height: .greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
             context: nil
-        ).height.rounded(.up)
+        ).height + halfLeading).rounded(.up)
     }
 
     /// The attributes every run carries: the voice, the ink, an exact line height, and the design's
@@ -44,8 +62,17 @@ struct InlineTokenAttributes {
     func base() -> [NSAttributedString.Key: Any] {
         let font = font
         let paragraph = NSMutableParagraphStyle()
-        paragraph.minimumLineHeight = font.pointSize * style.lineHeight
-        paragraph.maximumLineHeight = font.pointSize * style.lineHeight
+        // The line box, minus the half of its leading that belongs *below* the words — which is then
+        // put back as the space between lines. Same rhythm as a single clamp (a line still advances
+        // by exactly `size × lineHeight`), but the glyphs sit where CSS draws them instead of on the
+        // floor of the box, and the caret, the selection and the pills all move with them because
+        // the line fragment itself is what moved. `baselineOffset` would do it in a label and wreck
+        // it in the composer: TextKit 2 drops the clamp when it sees one, and the composer's lines
+        // collapse from 28.5pt to 23.75.
+        let half = halfLeading
+        paragraph.minimumLineHeight = font.pointSize * style.lineHeight - half
+        paragraph.maximumLineHeight = font.pointSize * style.lineHeight - half
+        paragraph.lineSpacing = half
         // Deliberately NOT setting `lineBreakMode`: on a paragraph style it truncates instead of
         // wrapping, which turned the composer into a single elided line. Clamping is the label's job.
         return [

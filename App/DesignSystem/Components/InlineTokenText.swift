@@ -22,19 +22,22 @@ struct InlineTokenText: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        InlineTokenLabel(
-            composition: composition,
-            attributes: InlineTokenAttributes(
-                style: style,
-                palette: palette,
-                dynamicTypeSize: dynamicTypeSize,
-                displayScale: displayScale,
-                colorScheme: colorScheme
-            ),
-            lineLimit: lineLimit
+        let attributes = InlineTokenAttributes(
+            style: style,
+            palette: palette,
+            dynamicTypeSize: dynamicTypeSize,
+            displayScale: displayScale,
+            colorScheme: colorScheme
         )
-        .accessibilityElement()
-        .accessibilityLabel(composition.plain)
+        InlineTokenLabel(composition: composition, attributes: attributes, lineLimit: lineLimit)
+            // The half-leading under the last line. TextKit puts `lineSpacing` between lines only, so
+            // a laid-out paragraph stops at the bottom of its last line's glyphs; in the markup the
+            // block is whole line boxes and whatever follows it — a dashed rule, a photo cluster —
+            // is spaced from there. Padding rather than a taller label, because a `UILabel` given
+            // more height than its text centres the text in it and would give half of this back.
+            .padding(.bottom, attributes.halfLeading)
+            .accessibilityElement()
+            .accessibilityLabel(composition.plain)
     }
 }
 
