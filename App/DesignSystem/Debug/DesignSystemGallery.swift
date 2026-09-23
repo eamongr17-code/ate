@@ -239,7 +239,7 @@ struct DesignSystemGallery: View {
 
     private var receiptSpecimen: some View {
         VStack(alignment: .leading, spacing: AteMetrics.section) {
-            label("Receipt — entry and share show this same component")
+            label("Receipt — what Share prints; the entry page is a page, not a receipt")
             ReceiptView(receipt: .preview, onPlaceTap: {}, onItemTap: { _ in })
             ReceiptView(receipt: .previewSingle)
             label("Shapes")

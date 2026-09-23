@@ -230,6 +230,23 @@ extension AteTextStyle {
 /// Turns an ``AteTextStyle`` into a real font. The single point where a family name is spoken.
 enum AteFont {
 
+    /// **Newsreader is drawn heavier than the 400 the design names.**
+    ///
+    /// The prototype's 400 and ours are the same outlines — "tagliatelle" at 17 advances identically
+    /// in both — but a browser gamma-corrects and stem-darkens text and Core Graphics does not, so
+    /// the same file comes off an iPhone about a fifth less inked: 30.1% coverage and a 5px stem in
+    /// the render against 25.7% and 4px on the device, measured at 3x. It is a serif problem and not
+    /// a rendering-stack problem in general — DM Mono on the same page is within half a percent.
+    ///
+    /// Eamon judged the render, so the render is the target and the axis is the only lever that
+    /// reaches it. The cost is bought knowingly: heavier is wider, and the words wrap a little
+    /// sooner than the artboard's do.
+    ///
+    /// Only the **prose** voice is compensated; it is added to the style's own weight, so a bold
+    /// Newsreader added later still lands a notch above its nominal. And only the variable axis is
+    /// moved — the system-serif fallback keeps the design's weight, because it has no gamma to undo.
+    static let proseWeightCompensation: CGFloat = 80
+
     /// The resolved `UIFont` — needed directly by the composer, which has to put fonts into an
     /// `NSAttributedString`, and by anything drawing text into an image.
     ///
@@ -286,7 +303,7 @@ enum AteFont {
             return fallback(for: style)
         }
         guard let axes = face.variationAxes else { return named }
-        var variations: [Int: CGFloat] = [AteFontAxis.weight: style.weight]
+        var variations: [Int: CGFloat] = [AteFontAxis.weight: drawnWeight(for: style)]
         if let opsz = face.opticalSizeRange {
             variations[AteFontAxis.opticalSize] = min(max(opticalSize, opsz.lowerBound), opsz.upperBound)
         }
@@ -297,6 +314,13 @@ enum AteFont {
                 Dictionary(uniqueKeysWithValues: supported.map { (NSNumber(value: $0.key), NSNumber(value: $0.value)) })
         ])
         return UIFont(descriptor: descriptor, size: style.size)
+    }
+
+    /// The weight the variable axis is actually set to — the design's, plus Newsreader's gamma
+    /// compensation. Both faces of the family, roman and italic, since both are drawn by the same
+    /// rasteriser.
+    private static func drawnWeight(for style: AteTextStyle) -> CGFloat {
+        style.voice == .prose ? style.weight + proseWeightCompensation : style.weight
     }
 
     /// The safety net: system designs that stand in for each voice when the files are absent.
