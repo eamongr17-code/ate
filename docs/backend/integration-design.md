@@ -26,7 +26,8 @@ Journal slip, Feed slip, Entry page and Share receipt are the same data at four 
 
 `items[]`: `review_id`, `dish_id`, `dish_name` (the menu's spelling), `score` (**null = they gave no number**
 → empty star, no text, DESIGN rule 7), `note` (null = they said nothing; a verbatim clause of `body`, never a
-paraphrase), `position` (1-based), `saved` (the viewer's own save state), `evidence_offset` +
+paraphrase), `position` (1-based), `saved` (the viewer's own save state), `cover_url` (the DISH's cover photo,
+null when the dish has none — **not** a photo from this entry; `photos[]` is that), `evidence_offset` +
 `evidence_length` (where the SCORE is in `body`), `mention_offset` + `mention_length` (where the DISH is
 named), `corrected` (the user fixed this line; no re-sort overwrites it). Every `*_offset`/`*_length` is null
 when we cannot point at it — then draw no token.
@@ -62,7 +63,7 @@ row's `created_at` **and** `id`. Ordering is always `created_at DESC, id DESC`; 
 | Place — entries | `rpc get_entries_at_place(p_restaurant_id, p_scope, cursor…)` | `entry_cards[]`; `p_scope ∈ 'all'|'mine'|'others'` |
 | Dish — header | `rpc dish_summary(p_dish_id)` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_city, score, review_count, scored_count, people_count, cover_url, saved, my_last_score}` |
 | Dish — reviews | `rpc get_dish_reviews(p_dish_id, p_cursor_mine, p_cursor_created_at, p_cursor_id, p_page_size)` | `{review_id, entry_id, author{…}, score, note, created_at, is_mine, photos[]}[]` — **mine first**, then newest. Keyset is 3-part: pass `is_mine`, `created_at`, `id` from the last row |
-| Saved | `GET /rest/v1/my_saved_dishes?order=restaurant_name.asc,saved_at.desc` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_city, dish_score, dish_cover_url, source_entry_id, source_user_id, source_username, saved_at}[]` — client groups by restaurant |
+| Saved | `GET /rest/v1/my_saved_dishes?order=saved_at.desc,dish_id.desc&limit=N` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_city, dish_score, dish_cover_url, source_entry_id, source_user_id, source_username, saved_at, cover_url}[]` — keyset below; client groups by restaurant |
 | You · Profile header | `rpc profile_summary(p_user_id)` | `{user_id, username, name, avatar_url, bio, city, created_at, orders, places, dishes, scored, avg_score, is_me}` |
 | Ratings histogram | `rpc score_histogram(p_user_id)` | 10 rows `{score, dish_count, review_count}` for 0.5…5.0, **zeros included** — draw bars straight from it. The label ("36 dishes") is `dish_count` |
 | Ratings bar tap · "Your 5.0s" | `rpc dishes_by_score(p_user_id, p_score, p_limit)` | `{review_id, entry_id, dish_id, dish_name, restaurant_id, restaurant_name, score, note, created_at}[]`, newest first |
@@ -70,6 +71,11 @@ row's `created_at` **and** `id`. Ordering is always `created_at DESC, id DESC`; 
 | Recap | `rpc monthly_statement(p_user_id, p_month, p_tz)` | one jsonb (below) |
 | Search | `rpc search_all(p_query, p_limit_per_kind)` | `{kind, id, title, subtitle, score, match_rank, detail}[]`, `kind ∈ place|dish|person` — split on `kind` for the tabs. Nearby: `places-search?op=nearby` (below) |
 | Handle availability | `rpc handle_available(p_handle)` | bool. **Use this, not a `profiles` select** — the block-aware policy can make a taken handle look free |
+
+**Saved is keyset-paged on `(saved_at desc, dish_id desc)`** — next page:
+`&or=(saved_at.lt.<last saved_at>,and(saved_at.eq.<last saved_at>,dish_id.lt.<last dish_id>))`.
+**Never order by `restaurant_name`**: grouping by place is presentation (the client groups the page it has),
+and a name-ordered list has no stable cursor. `cover_url` == `dish_cover_url`; prefer `cover_url`.
 
 `monthly_statement` → `{month, orders, places, new_places, dishes, stars, average, top_dishes:[{dish_id,
 dish_name, restaurant_name, score}], most_ordered:{dish_name,count}|null, most_visited:{restaurant_id,
@@ -138,9 +144,10 @@ partial unique index; see `data-model.md` Landmines).
 |---|---|
 | Save a dish | `rpc save_dish(p_dish_id, p_source_entry_id)` — idempotent; first provenance wins |
 | "Save this place" on an entry | `rpc save_entry_dishes(p_entry_id)` → count. Saves every line, provenance = that entry |
+| …and toggle it back off | `rpc unsave_entry_dishes(p_entry_id)` → count removed. Drops the save for **every dish this entry printed, whatever entry it was saved from** — the toggle's off state has to mean "no line reads saved". Returns 0 (never an error) when the entry is gone or not visible |
 | Unsave | `rpc unsave_dish(p_dish_id)` · check: `rpc is_dish_saved(p_dish_id)` (or `items[].saved`) |
 | Block / unblock | `rpc block_user(p_user_id)` / `rpc unblock_user(p_user_id)` |
-| Report | `rpc report_entry(p_entry_id, p_reason, p_note)` / `rpc report_profile(p_user_id, …)` → report uuid |
+| Report | `rpc report_entry(p_entry_id, p_reason, p_note)` / `rpc report_profile(p_user_id, …)` → report uuid. `p_reason ∈ (spam, abuse, wrong_place, not_food, other)` **or null** ("no reason given" — what a one-tap report sends); lower-cased + trimmed server-side, anything else is `23514`. `p_note` is free text, kept verbatim |
 
 After a block, **refetch open lists** (that user vanishes from every read, both directions) and render a
 missing author/place as unavailable rather than crashing on a nil join.
@@ -163,6 +170,13 @@ punctuation trimmed off its ends ("the quiet star," → "the quiet star") — wh
 never repeating the dish name or score the line above already shows. A dish name keeps the menu's spelling
 on any case-insensitive match; a new one is capitalised on create (so prose stops printing "salmon roll").
 
+**A score the sentence itself marks belongs to the dish in front of it**: `"<dish> was a 4.5"`,
+`"<dish> is a 4"`, `"<dish> gets a 3.5"`, `"gave the <dish> a 4"`, `"<dish>, a solid 4"` all print a scored
+line (the CEO's `…fishbowl margarita  was a 4.5 and eliteeeee` printed nothing before this). Only a number
+that has already proved it is a score is read that way, so `"a party of 4"`, `"table for 4"`, `"top five"`
+and `"Order two."` still print nothing. **The attached place's own name is never a dish, nor the front half
+of one** — `"Baby Pizza San Danielle Pizza 3.5"` is the `San Danielle Pizza`.
+
 The place comes from the words alone, matched against restaurants we already hold
 (`search_local_restaurants`, 0017) — never Google, never location, never a new row. **No place ⇒ no dish
 reviews** (a dish needs a restaurant): the entry is still `sorted`, its findings park in
@@ -178,6 +192,15 @@ with `distance_meters`). Verified end-user JWT + per-user rate limit on every op
 changes, make it config, do not fork the function.
 
 ## Wire-change log
+
+**Additive — 0026–0028 (2026-09-24).** `entry_cards.items[].cover_url`; `my_saved_dishes.cover_url`
+(appended last, same value as the kept `dish_cover_url`); `unsave_entry_dishes(p_entry_id)`. Behaviour, not
+shape: (1) every `cover_url` (`dish_stats`, `restaurant_stats`, `my_saved_dishes`, `place_dishes`,
+`place_summary`, `dish_summary`, `search_all`'s dish `detail`) **stops reading null** once a dish's entries
+carry photos — covers now come from `entry_photos`, not only the legacy `reviews.photo_url`; (2) the sorter
+reads `"<dish> was a 4.5"`-shaped scores and keeps the venue's name out of dish names, so entries that
+printed nothing (or `Pizza San Danielle Pizza`) now print a correct line — a re-sort still never touches a
+corrected one; (3) a `reason` outside the five-word vocabulary is `23514` (the client sends null today).
 
 **Additive** — everything 0018–0023 introduced (the tables, columns, RPCs and views above), plus
 **0024/0025**: `reviews.corrected_at`/`corrected_from_name`/`evidence_offset`/`mention_text`/
@@ -197,5 +220,6 @@ are simply not there, so tolerate an absent author; (3) `authenticated` may writ
 ## Errors worth handling
 
 `23505` on an entry insert = already accepted. `42501` = RLS/grant refusal (not yours, or a column you may not
-write). `23503` = missing FK (unknown dish/restaurant). `22023` = bad RPC argument (e.g. `correct_entry_dish`
+write). `23503` = missing FK (unknown dish/restaurant). `23514` = a CHECK refused the value (e.g. a report
+`reason` outside the five-word vocabulary). `22023` = bad RPC argument (e.g. `correct_entry_dish`
 before the entry has a place). `429` from `places-search` = rate limited.
