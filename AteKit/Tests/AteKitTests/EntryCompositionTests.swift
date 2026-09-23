@@ -232,9 +232,12 @@ struct EntryCompositionTests {
         )
         let token = EntryToken(kind: .score(Rating(rounding: 3)))
         let (next, caret) = composition.inserting(token, atDisplayOffset: 12)
-        #expect(next.plain == "The tiramisu 3.0")
-        #expect(next.displayString == "The tiramisu \u{FFFC}")
-        #expect(caret == 14)
+        // A space in front of the pill AND one after it: the end of the words is not a word
+        // boundary, it is where the next word is about to be typed.
+        #expect(next.plain == "The tiramisu 3.0 ")
+        #expect(next.displayString == "The tiramisu \u{FFFC} ")
+        // …and the caret is after that space, not inside the run the insertion just wrote.
+        #expect(caret == 15)
     }
 
     @Test("no double space when the caret is already after one")
@@ -242,7 +245,7 @@ struct EntryCompositionTests {
         var composition = EntryComposition()
         composition = composition.applyingPlainEdit(replacing: TextSpan(location: 0, length: 0), with: "Tiramisu ")
         let (next, _) = composition.inserting(EntryToken(kind: .score(Rating(rounding: 3))), atDisplayOffset: 9)
-        #expect(next.plain == "Tiramisu 3.0")
+        #expect(next.plain == "Tiramisu 3.0 ")
     }
 
     @Test("a token dropped in front of words is spaced off them, so the sentence survives")
@@ -256,7 +259,9 @@ struct EntryCompositionTests {
         let (next, caret) = composition.inserting(token, atDisplayOffset: 0)
         #expect(next.plain == "Tipo 00 with Jess for her birthday")
         #expect(next.spans.first?.span == TextSpan(location: 0, length: 7))
-        #expect(caret == 1)
+        // The start of the text needed no space; the caret still clears the one the token brought
+        // with it on the other side, so typing cannot shove that space down the sentence.
+        #expect(caret == 2)
     }
 
     @Test("a token in the middle of a sentence gets a space on both sides")
@@ -268,6 +273,125 @@ struct EntryCompositionTests {
         )
         let (next, _) = composition.inserting(EntryToken(kind: .score(Rating(rounding: 3))), atDisplayOffset: 12)
         #expect(next.plain == "The tiramisu 3.0 was flat")
+    }
+
+    @Test("a token that lands against punctuation takes no gap — never 'the tiramisu 3.0 ,'")
+    func insertBeforePunctuation() {
+        var composition = EntryComposition()
+        composition = composition.applyingPlainEdit(
+            replacing: TextSpan(location: 0, length: 0),
+            with: "The tiramisu, then coffee"
+        )
+        let (next, caret) = composition.inserting(EntryToken(kind: .score(Rating(rounding: 3))), atDisplayOffset: 12)
+        #expect(next.plain == "The tiramisu 3.0, then coffee")
+        // Nothing was added after the token, so the caret sits against the comma.
+        #expect(caret == 14)
+    }
+
+    // MARK: - The words round-trip verbatim through a token insert
+
+    /// **The CEO's first real entry on build 45.** It arrived on the server as
+    /// `PJ’s Mexican cantinafishbowl margarita  was a 4.5 and elitee`: the place token welded to the
+    /// next word, and a doubled gap further along where the token's own space had been pushed to.
+    ///
+    /// Driven the way the editor drives it — a token at the caret, then one keystroke at a time, then
+    /// the promotion the move-on space triggers — because the defect only appears in the sequence.
+    @Test("a place picked on an empty composer, then typed against, keeps exactly one space")
+    func placeThenTypingRoundTripsVerbatim() {
+        let place = EntryToken(kind: .place(PlaceRef(id: UUID(), name: "PJ’s Mexican cantina")))
+        var (composition, caret) = EntryComposition().inserting(place, atDisplayOffset: 0)
+
+        // "fishbowl margarita 4.5 " — the space at the end is the move-on that promotes the number.
+        for character in "fishbowl margarita 4.5 " {
+            (composition, caret) = composition.applyingDisplayEdit(
+                replacing: TextSpan(location: caret, length: 0),
+                with: String(character)
+            )
+        }
+        #expect(composition.plain == "PJ’s Mexican cantina fishbowl margarita 4.5 ")
+
+        // The editor's move-on check, at the character just typed.
+        let found = composition.pendingScoreLiteral(atDisplayOffset: caret - 1)
+        #expect(found?.rating.value == 4.5)
+        guard let found else { return }
+        composition = composition.promoting(plainSpan: found.span, to: EntryToken(kind: .score(found.rating)))
+        // Promotion moves no characters but its own, so the caret stays after the move-on space.
+        caret = composition.displayOffset(forPlainOffset: composition.plain.utf16.count)
+
+        for character in "was" {
+            (composition, caret) = composition.applyingDisplayEdit(
+                replacing: TextSpan(location: caret, length: 0),
+                with: String(character)
+            )
+        }
+
+        #expect(composition.plain == "PJ’s Mexican cantina fishbowl margarita 4.5 was")
+        #expect(composition.plain.contains("  ") == false, "no gap the person did not type")
+        #expect(composition.place?.name == "PJ’s Mexican cantina")
+        #expect(composition.scores.map(\.value) == [4.5])
+        // Both tokens still cover their own words — the invariant everything downstream reads.
+        #expect(composition.spans.count == 2)
+    }
+
+    @Test("the space a token brings stays with the token, however much is typed after it")
+    func insertedSpaceIsNeverRelocated() {
+        var composition = EntryComposition()
+        composition = composition.applyingPlainEdit(
+            replacing: TextSpan(location: 0, length: 0),
+            with: "The tiramisu"
+        )
+        var caret: Int
+        (composition, caret) = composition.inserting(
+            EntryToken(kind: .score(Rating(rounding: 4.5))),
+            atDisplayOffset: 12
+        )
+        for character in "was unreal" {
+            (composition, caret) = composition.applyingDisplayEdit(
+                replacing: TextSpan(location: caret, length: 0),
+                with: String(character)
+            )
+        }
+        #expect(composition.plain == "The tiramisu 4.5 was unreal")
+        #expect(composition.plain.contains("  ") == false)
+    }
+
+    /// The same defect from the other side, and the one that leaves the doubled gap behind: a token
+    /// dropped in the middle brings a space with it, and the words typed next must land after that
+    /// space rather than shove it down the sentence.
+    @Test("a token inserted mid-sentence keeps its gap where it put it")
+    func insertedSpaceMidSentenceIsNeverRelocated() {
+        var composition = EntryComposition()
+        composition = composition.applyingPlainEdit(
+            replacing: TextSpan(location: 0, length: 0),
+            with: "The tiramisuwas unreal"
+        )
+        var caret: Int
+        (composition, caret) = composition.inserting(
+            EntryToken(kind: .score(Rating(rounding: 4.5))),
+            atDisplayOffset: 12
+        )
+        #expect(composition.plain == "The tiramisu 4.5 was unreal")
+        for character in "really " {
+            (composition, caret) = composition.applyingDisplayEdit(
+                replacing: TextSpan(location: caret, length: 0),
+                with: String(character)
+            )
+        }
+        // Not "The tiramisu 4.5really  was unreal" — welded to the pill in front and a doubled gap
+        // further along, which is the shape the entry arrived in.
+        #expect(composition.plain == "The tiramisu 4.5 really was unreal")
+        #expect(composition.plain.contains("  ") == false)
+    }
+
+    @Test("promotion leaves every space around the literal exactly where it was")
+    func promotionTouchesNoWhitespace() {
+        let composition = EntryComposition(plain: "The ragù 4 was unreal", spans: [])
+        let found = composition.pendingScoreLiteral(atDisplayOffset: 10)
+        #expect(found?.rating.value == 4)
+        guard let found else { return }
+        let promoted = composition.promoting(plainSpan: found.span, to: EntryToken(kind: .score(found.rating)))
+        // "4" prints as "4.0" — the only characters promotion may rewrite are the literal's own.
+        #expect(promoted.plain == "The ragù 4.0 was unreal")
     }
 
     @Test("re-scoring a token rewrites only its own characters and shifts what follows")

@@ -141,12 +141,19 @@ extension InlineTokenEditor {
 
         /// Writes a composition into the text view, putting the caret where the host asked for it — or
         /// leaving it where it was, if the host had no opinion.
+        ///
+        /// A re-render the host did not ask for — the palette moved, the reader changed text size, a
+        /// pill became the one the slider is open on — must never move the caret. `caretAfterRender`
+        /// belongs to the model change that set it, and the host keeps holding it afterwards; obeying
+        /// it a second time drops the person back where they were several words ago, and the rest of
+        /// what they type lands inside their own sentence.
         func render(_ composition: EntryComposition, revision: Int, caret: Int?, into view: InlineTokenTextView) {
+            let isNewComposition = revision != renderedRevision
             write(StorageEdit(
                 text: composition.displayString,
                 range: NSRange(location: 0, length: view.textStorage.length),
                 tokens: composition.displaySpans,
-                caret: caret,
+                caret: isNewComposition ? caret : nil,
                 updatesBinding: false
             ), in: view)
             renderedRevision = revision
