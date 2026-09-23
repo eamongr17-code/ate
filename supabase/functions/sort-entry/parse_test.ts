@@ -13,6 +13,7 @@ import {
   parseEntry,
   placeCandidates,
   placeCandidateSpans,
+  placeNameSpans,
   sentenceBounds,
 } from './parse.ts';
 import { scalarLength, sliceScalars } from './offsets.ts';
@@ -372,6 +373,104 @@ test('a clause cut at the next dish does not end on a dangling comma', () => {
   const items = parseEntry({ body, knownDishes: ['Salmon roll', 'Wagyu nigiri'] }).items;
   assertEquals(items[0].note, 'the quiet star');
   for (const i of items) if (i.note) assert(!/[,;:]$/.test(i.note), `note ends on punctuation glue: ${i.note}`);
+});
+
+// ---------------------------------------------------------------------------
+// THE SCORE LEAD-IN — "X was a 4.5" used to sort to NOTHING: the number was found, the
+// dish was not, because the walk in front of the number stops at a stopword and "was",
+// "is", "a" and "solid" all are. (The CEO's own entries, staging 2026-09-24.)
+// ---------------------------------------------------------------------------
+test('a lead-in between the dish and the number still finds the dish', () => {
+  const line = (body: string, knownDishes: string[] = []) =>
+    parseEntry({ body, knownDishes }).items.map((i) => `${i.dish_name}=${i.score}`);
+
+  assertEquals(line('The fishbowl margarita was a 4.5 and eliteeeee'), ['fishbowl margarita=4.5']);
+  assertEquals(line('The pork bun is a 4.'), ['pork bun=4']);
+  assertEquals(line('The tiramisu gets a 3.5.'), ['tiramisu=3.5']);
+  assertEquals(line('I gave the kingfish a 4.'), ['kingfish=4']);
+  assertEquals(line('The tiramisu, a solid 4, then home.'), ['tiramisu=4']);
+  assertEquals(line('The margarita was a four.'), ['margarita=4']);
+  // the double space the CEO actually typed
+  assertEquals(line('The fishbowl margarita  was a 4.5'), ['fishbowl margarita=4.5']);
+  // and the menu spelling still wins
+  assertEquals(line('the pork bun was a 4', ['Pork bun']), ['Pork bun=4']);
+});
+
+test('a lead-in is only stripped for a number that is ALREADY a score', () => {
+  const dishes = (body: string) => parseEntry({ body }).items.map((i) => i.dish_name);
+  // a count, a head count and a time are not scores, so there is nothing to walk back from
+  assertEquals(dishes('We were a party of 4 and it was tight.'), []);
+  assertEquals(dishes('Table for 4 at 6.'), []);
+  assertEquals(dishes('They gave us a 20 minute wait.'), []);
+  // "It" is a stopword: a scored SOMETHING with no name is not a line item
+  assertEquals(dishes('It was a 4.'), []);
+  // and the rejections the corpus pins keep rejecting
+  assertEquals(findNumbers('is a top five Melbourne pizza').length, 0);
+  assertEquals(findNumbers('Order two.').length, 0);
+  assertEquals(findNumbers('gone in four minutes').length, 0);
+});
+
+test('a dish already named in front of the number keeps it — no phantom out of the lead-in', () => {
+  // "would" is not a dish: the penne was named first and nothing nearer took its number.
+  const penne = parseEntry({
+    body: 'Di Stasio. The penne al ragù, I would give it a 4.5 and I do not give those out.',
+    knownDishes: ['Penne al ragù'],
+  });
+  assertEquals(penne.items.map((i) => `${i.dish_name}=${i.score}`), ['Penne al ragù=4.5']);
+
+  // …but a dish whose own number already went elsewhere does NOT block the next one.
+  const two = parseEntry({ body: 'The kingfish 4.5 and the pork bun was a 4.' });
+  assertEquals(two.items.map((i) => `${i.dish_name}=${i.score}`), ['kingfish=4.5', 'pork bun=4']);
+});
+
+test('the lead-in walk never reaches into the sentence before', () => {
+  // the venue stands in the previous sentence; "A solid 4.5" belongs to the cake after it
+  const plan = parseEntry({
+    body: 'Beatrix. A solid 4.5 for the raspberry cake, and nothing else needed saying.',
+    knownDishes: ['Raspberry cake'],
+  });
+  assertEquals(plan.items.map((i) => i.dish_name), ['Raspberry cake']);
+});
+
+// ---------------------------------------------------------------------------
+// THE PLACE IS NOT THE DISH — placeNames fences the venue's own words off.
+// ---------------------------------------------------------------------------
+test('the place name is never a dish, nor the front half of one', () => {
+  // staging: this minted a dish called "Pizza San Danielle Pizza"
+  const bleed = parseEntry({
+    body: 'Baby Pizza San Danielle Pizza 3.5 was decent, nothing crazy.',
+    placeNames: ['Baby Pizza'],
+  });
+  assertEquals(bleed.items.map((i) => i.dish_name), ['San Danielle Pizza']);
+
+  // scoring the PLACE prints no receipt line
+  assertEquals(parseEntry({ body: 'Baby Pizza was a 4.5.', placeNames: ['Baby Pizza'] }).items, []);
+
+  // a menu dish whose name sits INSIDE the venue name does not match there
+  const inside = parseEntry({
+    body: 'Baby Pizza San Danielle Pizza 3.5.',
+    knownDishes: ['Pizza'],
+    placeNames: ['Baby Pizza'],
+  });
+  assertEquals(inside.items.map((i) => i.mention_offset), [24]);
+
+  // and without a resolved place nothing is fenced — the words are all we have
+  const unfenced = parseEntry({ body: 'Baby Pizza San Danielle Pizza 3.5.' });
+  assertEquals(unfenced.items.map((i) => i.dish_name), ['Pizza San Danielle Pizza']);
+});
+
+test('a place mention is matched past an apostrophe, a capital and extra spaces', () => {
+  const body = 'PJ’s Mexican cantina fishbowl margarita  was a 4.5 and eliteeeee';
+  assertEquals(placeNameSpans(body, ["PJ's Mexican Cantina"]), [[0, 20]], 'straight vs curly apostrophe, any case');
+  assertEquals(placeNameSpans(body, ['pj’s   mexican cantina']), [[0, 20]], 'collapsed whitespace');
+  assertEquals(placeNameSpans(body, ['Pizzaiolo', '', null, undefined]), [], 'no match, no span');
+  // Unicode-fenced: a venue name is not found inside a longer word
+  assertEquals(placeNameSpans('Pizzaiolo on Lygon', ['Pizza']), []);
+
+  const item = parseEntry({ body, placeNames: ["PJ's Mexican cantina"] }).items[0];
+  assertEquals(item.dish_name, 'fishbowl margarita');
+  assertEquals(item.note, 'eliteeeee');
+  assertEquals(sliceScalars(body, item.evidence_offset!, scalarLength(item.score_evidence!)), '4.5');
 });
 
 test('every note the parser emits is a substring of the words', () => {
