@@ -51,6 +51,12 @@ public final class EntryListStore {
     private var isLoadingFirstPage = false
     /// 1-based, and reset by a refresh — what `feed_page_loaded` reports.
     public private(set) var pagesLoaded = 0
+    /// Called as each page lands, with `(page, itemsNowLoaded)`.
+    ///
+    /// A closure rather than something a view watches: a refresh sets the count back to zero and
+    /// straight to one in the same turn, and an observer would see no change at all and report
+    /// nothing. The event belongs where the page actually arrives.
+    public var onPageLoaded: (@MainActor (Int, Int) -> Void)?
 
     /// How close to the end a row must be before the next page is asked for.
     private static let prefetchDistance = 4
@@ -179,6 +185,7 @@ public final class EntryListStore {
         nextCursor = page.nextCursor
         hasReachedEnd = page.isLastPage
         pagesLoaded += 1
+        onPageLoaded?(pagesLoaded, entries.count)
     }
 
     static func isNotAuthenticated(_ error: any Error) -> Bool {

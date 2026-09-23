@@ -15,10 +15,6 @@ struct FeedScreen: View {
     var onProfile: (UUID) -> Void = { _ in }
     var onSave: (EntryCard, AteSlip.Dish) -> Void = { _, _ in }
     var onViewed: () -> Void = {}
-    /// Called with the 1-based page number whenever one lands — `feed_page_loaded`.
-    var onPageLoaded: (Int, Int) -> Void = { _, _ in }
-
-    @State private var reportedPages = 0
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -38,16 +34,6 @@ struct FeedScreen: View {
         .task {
             onViewed()
             await store.loadIfNeeded()
-        }
-        // Reported from the store's own count rather than at the call site, so a page that arrives
-        // from a prefetch is counted exactly like one that arrives from a pull.
-        .onChange(of: store.pagesLoaded) { _, pages in
-            guard pages > reportedPages else {
-                reportedPages = pages
-                return
-            }
-            reportedPages = pages
-            onPageLoaded(pages, store.entries.count)
         }
     }
 

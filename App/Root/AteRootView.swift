@@ -74,11 +74,17 @@ private struct AteShell: View {
         _hasSession = State(initialValue: hasSession)
         _journal = State(initialValue: JournalStore(entries: services.entries))
         let feedReader = services.feed
-        _feed = State(initialValue: EntryListStore(
-            fallbackMessage: "Couldn't load the feed."
-        ) { cursor, pageSize in
+        let analytics = services.analytics
+        let feedStore = EntryListStore(fallbackMessage: "Couldn't load the feed.") { cursor, pageSize in
             try await feedReader.feedPage(after: cursor, pageSize: pageSize, includeOwn: false)
-        })
+        }
+        // `feed_page_loaded` is reported where the page actually lands — a prefetched page and a
+        // pulled one count the same, and a refresh cannot swallow its own first page by resetting
+        // the count and filling it again in the same turn.
+        feedStore.onPageLoaded = { page, items in
+            analytics(SocialEvents.feedPageLoaded(page: page, itemCount: items))
+        }
+        _feed = State(initialValue: feedStore)
         _saved = State(initialValue: SavedDishesStore(saves: services.saves))
         #if DEBUG
         ComposerDebugLaunch.seedDraftIfRequested(into: services.drafts)
@@ -241,10 +247,7 @@ private struct AteShell: View {
                         }
                     }
                 },
-                onViewed: { services.analytics(SocialEvents.feedViewed()) },
-                onPageLoaded: { page, items in
-                    services.analytics(SocialEvents.feedPageLoaded(page: page, itemCount: items))
-                }
+                onViewed: { services.analytics(SocialEvents.feedViewed()) }
             )
         case .search:
             SearchScreen()

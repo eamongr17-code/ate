@@ -96,15 +96,16 @@ struct JournalScreen: View {
             // gives its slip 22 + a 26 margin before it.
             journalShelf.padding(.top, store.days.isEmpty ? Self.emptyTop : AteMetrics.slipGap)
         case .saved:
-            // `Saved.dc.html` starts straight under the segment: the first place head carries its
-            // own 18. An empty shelf is a slip, and gets the margin a slip gets.
+            // `Saved.dc.html` parts the segment from the first place head by the column's own 14,
+            // and the head carries its own 18 on top of that. An empty shelf is a slip, and gets
+            // the margin a slip gets.
             SavedScreen(
                 store: saved,
                 onPlace: onSavedPlace,
                 onDish: onSavedDish,
                 onUnsave: onUnsave
             )
-            .padding(.top, saved.groups.isEmpty ? Self.emptyTop : 0)
+            .padding(.top, saved.groups.isEmpty ? Self.emptyTop : AteMetrics.slipGap)
         }
     }
 

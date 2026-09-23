@@ -152,6 +152,25 @@ struct EntryListStoreTests {
         #expect(store.entries.allSatisfy { $0.items.allSatisfy { $0.saved == false } })
     }
 
+    /// A refresh sets the page count back to zero and straight to one in the same turn, so a view
+    /// watching the number would see no change and report nothing. The event fires where the page
+    /// lands, and this is the test that keeps it there.
+    @Test("Every page that lands is reported, including the first one after a refresh")
+    func pageReporting() async {
+        let feed = PagedFeed(pages: [[card(1), card(2)], [card(3), card(4)]])
+        let store = store(feed)
+        var reported: [(Int, Int)] = []
+        store.onPageLoaded = { page, items in reported.append((page, items)) }
+
+        await store.loadIfNeeded()
+        await store.loadMore()
+        feed.pages = [[card(5), card(6)]]
+        await store.refresh()
+
+        #expect(reported.map(\.0) == [1, 2, 1], "page numbering restarts with the refresh")
+        #expect(reported.map(\.1) == [2, 4, 2])
+    }
+
     @Test("A block empties the list of that person immediately")
     func blocking() async {
         let blocked = UUID()
