@@ -65,6 +65,34 @@ final class FeedUITests: XCTestCase {
         XCTAssertTrue(app.otherElements.matching(identifier: "profile.slip").firstMatch
             .waitForExistence(timeout: 5), "with their entries under it")
         attach("04-profile")
+
+        // **The actions sheet.** Four answers about a person, and the two that cannot be taken back
+        // ask first. Driven rather than read: a sheet, a confirmation dialog and a destructive role
+        // are three presentations, and a unit test sees none of them.
+        app.buttons["More"].tap()
+        XCTAssertTrue(app.buttons["actions.Share"].waitForExistence(timeout: 5),
+                      "the profile's ellipsis opens the actions sheet")
+        XCTAssertTrue(app.buttons["actions.Report"].exists)
+        XCTAssertFalse(app.buttons["actions.Save this place"].exists,
+                       "a profile has no visit to save — the row is absent, not disabled")
+        let block = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "actions.Block @")
+        ).firstMatch
+        XCTAssertTrue(block.exists, "and the last row is the block, by name")
+        attach("05-actions")
+
+        app.buttons["actions.Report"].tap()
+        // Two matches: SwiftUI keeps the dialog's button in the hierarchy under its presenter as
+        // well as in the dialog itself. Either one is the same button; the drive takes the first.
+        let confirm = app.buttons.matching(identifier: "actions.confirmReport").firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "reporting asks before it reports")
+        attach("06-report-confirm")
+        confirm.tap()
+        // Confirming is the whole feedback the design carries: the sheet closes and the page is
+        // where it was. No toast, no banner, no helper copy (design rule 1).
+        XCTAssertTrue(app.buttons["More"].waitForExistence(timeout: 5),
+                      "reporting closes the sheet and leaves the profile up")
+        XCTAssertFalse(app.buttons["actions.Report"].exists)
     }
 
     private func waitUntil(timeout: TimeInterval, _ condition: () -> Bool) -> Bool {

@@ -60,12 +60,14 @@ struct AteActionsSheet: View {
                 onReport()
                 dismiss()
             }
+            .accessibilityIdentifier("actions.confirmReport")
         }
         .confirmationDialog(blockTitle + "?", isPresented: $isConfirmingBlock, titleVisibility: .visible) {
             Button("Block", role: .destructive) {
                 onBlock()
                 dismiss()
             }
+            .accessibilityIdentifier("actions.confirmBlock")
         }
         .sheet(item: $sharing) { payload in
             ShareSheet(items: payload.items)
