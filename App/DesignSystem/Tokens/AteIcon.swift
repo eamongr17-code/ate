@@ -21,6 +21,9 @@ enum AteIcon: String, CaseIterable {
 
     // Actions
     case share, edit, save, saved, camera, library, voice, close, back, check, chevron, settings
+    /// The one "…" that carries everything you can do about a person or an entry, and the two
+    /// answers underneath it.
+    case more, flag, block
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
@@ -77,6 +80,12 @@ enum AteIcon: String, CaseIterable {
             [Self.path("M9.5 5l7 7-7 7")]
         case .settings:
             [AteVector.circle(12, 12, 3), Self.gearPath]
+        case .more:
+            [AteVector.circle(6, 12, 1.2), AteVector.circle(12, 12, 1.2), AteVector.circle(18, 12, 1.2)]
+        case .flag:
+            [Self.path("M6 21V4M6 5h11l-2 3.5 2 3.5H6")]
+        case .block:
+            [AteVector.circle(12, 12, 8.5), Self.path("M6 6l12 12")]
         }
     }
 

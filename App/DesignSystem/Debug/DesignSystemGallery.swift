@@ -172,7 +172,8 @@ struct DesignSystemGallery: View {
                 Text("Feed").ateText(.screenTitle)
                 Text("Tipo 00").ateText(.receiptPlace)
                 Text("Tipo 00").ateText(.slipPlace)
-                Text("Butchers Diner").ateText(.feedPlace)
+                Text("Prawn spaghetti").ateText(.slipDish)
+                Text("4.5").ateText(.slipScore)
             }
             AteHairline()
             Group {
@@ -252,17 +253,32 @@ struct DesignSystemGallery: View {
 
     private var slipSpecimen: some View {
         VStack(alignment: .leading, spacing: AteMetrics.slipGap) {
-            label("Journal slip")
-            JournalSlip(slip: .previewJournal, onTap: {})
-            JournalSlip(slip: AteSlip(
+            label("Journal slip — the dish stack, then the place, the words, the photos")
+            EntrySlip(slip: .previewJournal, onOpen: {})
+            EntrySlip(slip: AteSlip(
+                dishes: [
+                    AteSlip.Dish(id: UUID(), dishID: UUID(), name: "Salmon roll",
+                                 score: Rating(rounding: 4.5)),
+                    AteSlip.Dish(id: UUID(), dishID: UUID(), name: "Wagyu nigiri")
+                ],
                 place: "Kisume",
-                isPublic: false,
-                words: .previewFeedWords,
-                items: [AteReceipt.Item(name: "Salmon roll", score: Rating(rounding: 4.5)),
-                        AteReceipt.Item(name: "Wagyu nigiri")]
-            ), onTap: {})
-            label("Feed slip")
-            FeedSlip(slip: .previewFeed, onTap: {}, onProfileTap: {}, onSaveTap: {})
+                meta: .time("7:20 pm", isPublic: false),
+                words: .previewFeedWords
+            ), onOpen: {})
+            label("Feed slip — a byline, and a bookmark on every dish")
+            EntrySlip(slip: .previewFeed, onOpen: {}, onProfile: {}, onSave: { _ in },
+                      identifier: "feed.slip")
+            label("Saved row")
+            SavedDishRow(
+                dish: SavedDish(
+                    dishID: UUID(), dishName: "Prawn spaghetti", restaurantID: UUID(),
+                    restaurantName: "Tipo 00", restaurantCity: "CBD", dishScore: 4.4,
+                    sourceUsername: "jessw", savedAt: Date()
+                ),
+                onTap: {}, onUnsave: {}
+            )
+            label("Statement")
+            AteStatsSlip(cells: [("86", "Orders"), ("40", "Places"), ("201", "Dishes")])
         }
     }
 

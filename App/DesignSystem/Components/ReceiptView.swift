@@ -12,12 +12,27 @@ struct AteReceipt: Equatable, Identifiable {
         var score: Rating?
         /// The sentence the sorter lifted out of the person's own words for this dish.
         var note: String?
+        /// The dish itself — what a save saves, and where a line links to. Absent on a fixture that
+        /// has no dish behind it.
+        var dishID: UUID?
+        /// The viewer's own bookmark. Only ever drawn on somebody else's entry: your own dishes are
+        /// written, not saved.
+        var isSaved: Bool
 
-        init(id: UUID = UUID(), name: String, score: Rating? = nil, note: String? = nil) {
+        init(
+            id: UUID = UUID(),
+            name: String,
+            score: Rating? = nil,
+            note: String? = nil,
+            dishID: UUID? = nil,
+            isSaved: Bool = false
+        ) {
             self.id = id
             self.name = name
             self.score = score
             self.note = note
+            self.dishID = dishID
+            self.isSaved = isSaved
         }
     }
 

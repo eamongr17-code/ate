@@ -113,6 +113,12 @@ enum AteHaptics {
         selection.selectionChanged()
         selection.prepare()
     }
+
+    /// A save landing. An *impact*, not a selection: a bookmark is a thing put on a shelf, and it is
+    /// one tap rather than nine in a scrub, so it can afford to be felt.
+    static func save() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
 }
 
 #if DEBUG

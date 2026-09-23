@@ -118,6 +118,8 @@ struct AteRadioMark: View {
 struct AteChip: View {
     var icon: AteIcon?
     let title: String
+    /// 32 by default; the feed's city chip is 40.
+    var height: CGFloat = AteMetrics.chipHeight
     var action: (() -> Void)?
 
     @Environment(\.atePalette) private var palette
@@ -129,7 +131,7 @@ struct AteChip: View {
         }
         .padding(.leading, icon == nil ? 12 : 10)
         .padding(.trailing, 12)
-        .frame(height: AteMetrics.chipHeight)
+        .frame(height: height)
         .background(palette.chip, in: .capsule)
         .foregroundStyle(palette.fg)
 

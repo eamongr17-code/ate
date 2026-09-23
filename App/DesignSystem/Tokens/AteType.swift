@@ -101,13 +101,18 @@ extension AteTextStyle {
     static let pageTitle = AteTextStyle(
         voice: .display, size: 24, weight: 800, trackingEm: -0.025, lineHeight: 1.0, textStyle: .title2
     )
-    /// A place name heading a journal slip. 22pt.
+    /// A place heading a group of rows — the Saved shelf's place heads. 22pt.
     static let slipPlace = AteTextStyle(
         voice: .display, size: 22, weight: 800, trackingEm: -0.025, lineHeight: 1.05, textStyle: .title2
     )
-    /// A place name heading a feed slip. 20pt.
-    static let feedPlace = AteTextStyle(
-        voice: .display, size: 20, weight: 800, trackingEm: -0.025, lineHeight: 1.05, textStyle: .title3
+    /// **A dish in a slip's stack. 20pt** — the item itself, and the largest thing on a slip after
+    /// its score. It wraps rather than truncating, so this never gets a line limit.
+    static let slipDish = AteTextStyle(
+        voice: .display, size: 20, weight: 800, trackingEm: -0.03, lineHeight: 1.05, textStyle: .title3
+    )
+    /// …and the score beside it, printed like a price. 26pt at `.h`'s own line height of 1.
+    static let slipScore = AteTextStyle(
+        voice: .display, size: 26, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title2
     )
 
     // Controls — Bricolage 600/700.
@@ -146,10 +151,19 @@ extension AteTextStyle {
     static let meta = AteTextStyle(
         voice: .display, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote
     )
-    /// Two letters in an avatar circle. No tracking — a monogram is centred, not set.
+    /// The place on a slip's place line — `.meta`'s size in the control weight, in full ink.
+    static let slipPlaceName = AteTextStyle(
+        voice: .display, size: 13, weight: 600, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote
+    )
+    /// A letter in a byline's avatar circle. No tracking — a monogram is centred, not set.
     static let avatarInitial = AteTextStyle(
         voice: .display, size: 12, weight: 800, trackingEm: 0, lineHeight: 1.0,
         textStyle: .caption, maximumSize: 16
+    )
+    /// …and in the 76pt disc at the head of a profile. 34pt, capped for the same reason.
+    static let avatarMonogram = AteTextStyle(
+        voice: .display, size: 34, weight: 800, trackingEm: 0, lineHeight: 1.0,
+        textStyle: .title, maximumSize: 44
     )
 
     // The person's words — Newsreader.
