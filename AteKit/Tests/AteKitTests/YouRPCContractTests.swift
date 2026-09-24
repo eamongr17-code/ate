@@ -123,7 +123,7 @@ struct YouRPCContractTests {
             cursor = page.count < Self.pageSize ? nil : page.last
             pages += 1
         } while cursor != nil && pages < 200
-        #expect(walked.map(\.reviewID) == whole.map(\.reviewID), "the cursor repeated or skipped a line")
+        KeysetWalk.expectMatches(walked.map(\.reviewID), whole.map(\.reviewID), "dishes_by_score")
     }
 
     func scoredPage(
@@ -163,7 +163,7 @@ struct YouRPCContractTests {
             cursor = page.isEmpty ? nil : page.last
             pages += 1
         } while cursor != nil && pages < 240
-        #expect(walked.map(\.month) == whole.map(\.month), "the month cursor repeated or skipped")
+        KeysetWalk.expectMatches(walked.map(\.month), whole.map(\.month), "statement_months")
     }
 
     @Test("monthly_statement is the receipt design/v1/Recap prints, and never claims a habit of one")
@@ -235,7 +235,7 @@ struct YouRPCContractTests {
             cursor = page.count < Self.pageSize ? nil : page.last
             pages += 1
         } while cursor != nil && pages < 120
-        #expect(walked.map(\.id) == whole.map(\.id), "the journal cursor repeated or skipped an entry")
+        KeysetWalk.expectMatches(walked.map(\.id), whole.map(\.id), "journal")
     }
 
     func authorPage(

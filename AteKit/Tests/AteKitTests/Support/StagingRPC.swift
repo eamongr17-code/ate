@@ -1,6 +1,7 @@
 import Foundation
 import PostgREST
 import Supabase
+import Testing
 
 @testable import AteKit
 
@@ -53,4 +54,41 @@ enum StagingRPC {
     static func count(_ value: Int?) -> AnyJSON { value.map { AnyJSON.integer($0) } ?? .null }
     static func maybeID(_ value: UUID?) -> AnyJSON { value.map { id($0) } ?? .null }
     static func maybeAt(_ value: Date?) -> AnyJSON { value.map { at($0) } ?? .null }
+}
+
+/// Comparing a paged walk against the same read taken whole, **on a database that is not standing
+/// still.**
+///
+/// Staging is shared and the contract suites run in parallel with each other.
+/// `SocialContractTests.blockingHidesThem` blocks a seeded author for the length of one test, and
+/// `blocked_with()` then hides that author's profile, entries AND reviews from every read — so a row
+/// that really was in the first page of fifty can legitimately be gone by the time a walk in pages of
+/// two reaches it. (`StagingContractTests` learned the same lesson from the other direction: rows
+/// ARRIVE mid-walk too, which is why its floor is `>=` and not `==`.) A plain `walked == whole` turns
+/// that into a red suite that says "the cursor is broken" when the cursor is perfect — and a contract
+/// suite that cries wolf is how a real breakage gets ignored.
+///
+/// The two properties that are actually about the cursor, and that hold either way:
+///  1. **it repeats nothing** — the same row twice is a cursor that failed to advance;
+///  2. **restricted to the rows BOTH reads could see, the walk IS the whole read, in order** — a
+///     skipped or reordered row inside the stable set still fails, which is the bug worth catching.
+enum KeysetWalk {
+    static func expectMatches<ID: Hashable>(
+        _ walked: [ID],
+        _ whole: [ID],
+        _ what: String,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) {
+        #expect(
+            Set(walked).count == walked.count,
+            "the \(what) cursor served a row twice",
+            sourceLocation: sourceLocation
+        )
+        let shared = Set(walked).intersection(whole)
+        #expect(
+            walked.filter { shared.contains($0) } == whole.filter { shared.contains($0) },
+            "the \(what) cursor skipped or reordered a row (walked \(walked.count), whole \(whole.count))",
+            sourceLocation: sourceLocation
+        )
+    }
 }

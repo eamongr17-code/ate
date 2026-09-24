@@ -61,8 +61,6 @@ struct DetailRPCContractTests {
 
         #expect(place.restaurantID == stats.restaurantID)
         #expect(place.name.isEmpty == false)
-        #expect(place.avgRating == stats.avgRating, "the chip is restaurant_stats, not a client average")
-        #expect(place.reviewCount == stats.reviewCount)
         // Absent is NULL, never "" (0029). An empty cover string is a broken image request.
         for field in [place.address, place.city, place.cuisine, place.coverURL, place.locality] {
             #expect(field != "", "place_summary served an empty string where it means NULL")
@@ -74,8 +72,26 @@ struct DetailRPCContractTests {
 
         // entry_count IS the number of entries this same viewer can page at this place.
         let visible = try await entriesAtPlace(client, stats.restaurantID, scope: "all", size: 50)
+        // Everything below compares two reads, and staging does not hold still between them (see
+        // KeysetWalk): another suite blocks a seeded author mid-run, which changes both the
+        // aggregates and the visible entries. So each number is asserted against the reading taken
+        // BEFORE or the one taken AFTER — a client-side average would match neither.
+        let after = try #require(
+            try await client.findRow(RestaurantStats.self) {
+                $0.eq("restaurant_id", value: stats.restaurantID.uuidString)
+            }
+        )
+        #expect(
+            [stats.avgRating, after.avgRating].contains(place.avgRating),
+            "the chip is restaurant_stats, not a client average"
+        )
+        #expect([stats.reviewCount, after.reviewCount].contains(place.reviewCount))
         if visible.count < 50 {
-            #expect(place.entryCount == visible.count, "entry_count disagrees with the entries it counts")
+            let again: [PlaceSummaryRow] = try await StagingRPC.rows(
+                client, "place_summary", ["p_restaurant_id": StagingRPC.id(stats.restaurantID)]
+            )
+            let counts = [place.entryCount, again.first?.entryCount].compactMap { $0 }
+            #expect(counts.contains(visible.count), "entry_count disagrees with the entries it counts")
         }
     }
 
@@ -136,7 +152,7 @@ struct DetailRPCContractTests {
             pages += 1
         } while cursor != nil && pages < 120
 
-        #expect(walked.map(\.dishID) == whole.map(\.dishID), "the 4-part cursor repeated or skipped")
+        KeysetWalk.expectMatches(walked.map(\.dishID), whole.map(\.dishID), "place_dishes 4-part")
     }
 
     func placeDishPage(
@@ -170,8 +186,13 @@ struct DetailRPCContractTests {
         let others = try await entriesAtPlace(client, stats.restaurantID, scope: "others", size: 50)
         #expect(mine.allSatisfy { $0.isMine })
         #expect(others.allSatisfy { $0.isMine == false })
+        // Three reads of a moving database: match the count against the 'all' read before OR after.
+        let allAgain = try await entriesAtPlace(client, stats.restaurantID, scope: "all", size: 50)
         if all.count < 50 {
-            #expect(mine.count + others.count == all.count, "mine + others must be all of them")
+            #expect(
+                [all.count, allAgain.count].contains(mine.count + others.count),
+                "mine + others must be all of them"
+            )
         }
 
         var walked: [EntryCard] = []
@@ -185,7 +206,7 @@ struct DetailRPCContractTests {
             cursor = page.count < Self.pageSize ? nil : page.last
             pages += 1
         } while cursor != nil && pages < 120
-        #expect(walked.map(\.id) == all.map(\.id), "the place cursor repeated or skipped an entry")
+        KeysetWalk.expectMatches(walked.map(\.id), all.map(\.id), "place entries")
     }
 
     func entriesAtPlace(
@@ -215,8 +236,16 @@ struct DetailRPCContractTests {
         #expect(dish.dishName.isEmpty == false)
         #expect(dish.restaurantID == busiest.restaurantID)
         #expect(dish.restaurantName.isEmpty == false)
-        #expect(dish.score == busiest.score, "the header score is dish_stats, not a client average")
-        #expect(dish.reviewCount == busiest.reviewCount)
+        // The aggregate is the view's, read before OR after this call — never a number of its own
+        // (a concurrent block in another suite moves both readings; see KeysetWalk).
+        let now = try #require(
+            try await client.findRow(DishStats.self) { $0.eq("dish_id", value: busiest.dishID.uuidString) }
+        )
+        #expect(
+            [busiest.score, now.score].contains(dish.score),
+            "the header score is dish_stats, not a client average"
+        )
+        #expect([busiest.reviewCount, now.reviewCount].contains(dish.reviewCount))
         #expect(dish.scoredCount <= dish.reviewCount)
         #expect((dish.score == nil) == (dish.scoredCount == 0), "a score nobody gave is an inferred one")
         #expect(dish.peopleCount <= dish.reviewCount, "people are distinct reviewers; lines are not")
@@ -264,7 +293,7 @@ struct DetailRPCContractTests {
             cursor = page.count < Self.pageSize ? nil : page.last
             pages += 1
         } while cursor != nil && pages < 120
-        #expect(walked.map(\.reviewID) == whole.map(\.reviewID), "the 3-part cursor repeated or skipped")
+        KeysetWalk.expectMatches(walked.map(\.reviewID), whole.map(\.reviewID), "dish reviews 3-part")
     }
 
     /// A nullable `entry_id` is not a staging quirk: it is every review written before entries
