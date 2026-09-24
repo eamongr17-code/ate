@@ -180,7 +180,7 @@ struct StatementMonthRow: Decodable, Sendable {
     let orders: Int
 }
 
-struct MonthlyStatement: Decodable, Sendable {
+struct MonthlyStatementRow: Decodable, Sendable {
     let month: String
     /// The handle the receipt prints under the month (0029).
     let username: String?

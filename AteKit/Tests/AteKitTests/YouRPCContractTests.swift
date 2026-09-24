@@ -188,7 +188,7 @@ struct YouRPCContractTests {
         let summary = try await profile(client, user)
         let newest = try #require(try await monthsPage(client, user, size: 1).first)
 
-        let statement: MonthlyStatement = try await StagingRPC.value(client, "monthly_statement", [
+        let statement: MonthlyStatementRow = try await StagingRPC.value(client, "monthly_statement", [
             "p_user_id": StagingRPC.id(user),
             "p_month": .string(newest.month),
             "p_tz": .string("Australia/Melbourne")

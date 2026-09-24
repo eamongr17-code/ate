@@ -57,63 +57,6 @@ struct SearchScreen: View {
     }
 }
 
-/// **`You`** — the record, as a statement. The three totals are the honest answer for a journal with
-/// nothing in it yet, which is why this screen needs no empty state of its own: zeros *are* the state.
-struct YouScreen: View {
-    var handle: String?
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                header
-                statement
-            }
-            .padding(.horizontal, AteMetrics.gutter)
-            .ateContentTop(70)
-            .padding(.bottom, AteMetrics.tabBarScrollInset)
-        }
-        .scrollIndicators(.hidden)
-    }
-
-    private var header: some View {
-        HStack(spacing: AteMetrics.loose) {
-            AteAvatar(
-                userID: UUID(uuidString: "00000000-0000-0000-0000-000000000000")!,
-                handle: handle ?? "",
-                side: 76
-            )
-            Text(verbatim: handle.map { "@\($0)" } ?? "")
-                .ateText(.profileTitle)
-        }
-    }
-
-    private var statement: some View {
-        HStack(spacing: 0) {
-            cell("0", "Orders")
-            AteDashedLine(axis: .vertical).frame(height: 44)
-            cell("0", "Places")
-            AteDashedLine(axis: .vertical).frame(height: 44)
-            cell("0", "Dishes")
-        }
-        .padding(.vertical, 14)
-        .padding(.bottom, AteMetrics.tornEdgeHeight)
-        .frame(maxWidth: .infinity)
-        .atePaper()
-        .background(AteColor.paper, in: ReceiptPaper())
-    }
-
-    private func cell(_ value: String, _ label: String) -> some View {
-        VStack(spacing: AteMetrics.tight) {
-            Text(value).ateText(.statValue)
-            Text(label)
-                .ateText(.receiptLabel)
-                .foregroundStyle(AtePalette.paper.muted)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
 #if DEBUG
 #Preview("Search") { SearchScreen().ateGround() }
-#Preview("You") { YouScreen(handle: "eamon").ateGround() }
 #endif

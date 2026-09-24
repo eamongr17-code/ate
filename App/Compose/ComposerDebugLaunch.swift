@@ -28,6 +28,13 @@ enum ComposerDebugLaunch {
     static let savedArgument = "-ate-open-saved"
     /// …and pushes the first feed author's page on top of the feed.
     static let profileArgument = "-ate-open-profile"
+    /// The You tab, and the two pages that hang off it.
+    static let youArgument = "-ate-open-you"
+    static let ratingsArgument = "-ate-open-ratings"
+    static let recapArgument = "-ate-open-recap"
+    /// …and `Share`, on an entry's receipt. Implies ``entryArgument`` — `Share` is presented FROM
+    /// an entry page, so asking for it on its own has to open one.
+    static let shareArgument = "-ate-open-share"
     /// Pushes the place, and the dish, of the first feed entry that has one — the only way a drive
     /// photographs those two pages on a simulator that cannot be tapped from a shell.
     static let placeArgument = "-ate-open-place"
@@ -55,7 +62,7 @@ enum ComposerDebugLaunch {
     static var drivesUndo: Bool { has(undoDriveArgument) }
     static var opensComposer: Bool { has(openArgument) }
     static var opensScoring: Bool { has(scoringArgument) }
-    static var opensEntry: Bool { has(entryArgument) }
+    static var opensEntry: Bool { has(entryArgument) || has(shareArgument) }
     static var opensPlaceSheet: Bool { has(placeSheetArgument) }
     static var opensDishSheet: Bool { has(dishSheetArgument) }
     static var opensSuggestions: Bool { has(suggestionsArgument) }
@@ -66,6 +73,10 @@ enum ComposerDebugLaunch {
     }
     static var opensSaved: Bool { has(savedArgument) }
     static var opensProfile: Bool { has(profileArgument) }
+    static var opensYou: Bool { has(youArgument) || has(ratingsArgument) || has(recapArgument) }
+    static var opensRatings: Bool { has(ratingsArgument) }
+    static var opensRecap: Bool { has(recapArgument) }
+    static var opensShare: Bool { has(shareArgument) }
     static var opensPlace: Bool { has(placeArgument) }
     static var opensDish: Bool { has(dishArgument) }
 

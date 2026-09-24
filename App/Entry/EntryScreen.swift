@@ -87,10 +87,18 @@ struct EntryScreen: View {
         }
         .sheet(isPresented: $model.isCorrectingPlace) { placeSheet }
         .sheet(item: $model.correcting) { correcting in dishSheet(correcting.item) }
-        .sheet(isPresented: $model.isSharing) { shareSheet }
         .sheet(isPresented: $isShowingActions) { actionsSheet }
         .fullScreenCover(item: $model.viewingPhoto) { viewing in
             AtePhotoViewer(photos: model.photos, index: viewing.index)
+        }
+        // `Share.dc.html` — the coral screen, and the only place a receipt leaves from. The same
+        // card the actions sheet's Share row presents, so the artefact is identical either way.
+        .fullScreenCover(item: $model.sharing) { sharing in
+            ShareScreen(
+                artefact: sharing.artefact,
+                source: .entry,
+                analytics: services.analytics
+            )
         }
     }
 
@@ -386,13 +394,6 @@ struct EntryScreen: View {
         }
     }
 
-    @ViewBuilder
-    private var shareSheet: some View {
-        if let image = model.shareImage {
-            ShareSheet(image: image)
-        }
-    }
-
     /// The same sheet a profile's "…" opens — save this place, share, report, block — pointed at
     /// this visit and its author.
     @ViewBuilder
@@ -402,7 +403,9 @@ struct EntryScreen: View {
                 title: "@\(byline.handle)",
                 blockTitle: "Block @\(byline.handle)",
                 onSavePlace: { Task { await model.toggleSaveEveryDish() } },
-                onShare: { model.receiptShareItems() },
+                onShare: { [] },
+                onShareReceipt: { model.shareArtefact() },
+                analytics: services.analytics,
                 onReport: { Task { await model.report() } },
                 onBlock: {
                     Task {

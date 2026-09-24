@@ -39,14 +39,14 @@ struct AteRootView: View {
 /// Journal is home (PRODUCT.md decision 1) and selection always starts there — no last tab is
 /// persisted, because a journal you land in is a different product from a feed you land in.
 @MainActor
-private struct AteShell: View {
+struct AteShell: View {
     let services: AteServices
 
-    @State private var tab: AteTab = .journal
-    @State private var journal: JournalStore
+    @State var tab: AteTab = .journal
+    @State var journal: JournalStore
     /// Everyone else's entries, and the shelf a save fills. Held here rather than by the screens so
     /// a save made in the feed is already true on the shelf, and a block empties both at once.
-    @State private var feed: EntryListStore
+    @State var feed: EntryListStore
     @State private var saved: SavedDishesStore
     /// The one save, made once and handed down — it holds which dishes are mid-flight.
     @State private var saveAction: SaveAction
@@ -54,7 +54,7 @@ private struct AteShell: View {
     @State private var composing: ComposerPresentation?
     /// The one stack every tab pushes onto. Hoisted here so Done in the composer can land on the new
     /// entry, at the journal's root, rather than under whatever was open before.
-    @State private var path: [Route] = []
+    @State var path: [Route] = []
     /// Where each pushed destination was opened from — the `source` its view event carries.
     ///
     /// Kept beside the path rather than inside ``Route`` on purpose: a route is an *identity*, and
@@ -67,11 +67,14 @@ private struct AteShell: View {
     @State private var photoCount = 0
     /// Bumped when a tab's own item is tapped again — the screen scrolls to the top.
     @State private var scrollToTop = 0
-    @State private var hasSession: Bool
+    @State var hasSession: Bool
     @State private var isSigningIn = false
     /// The signed-in person's handle. A receipt is signed, so it is loaded once at the shell rather
     /// than by whichever screen happens to need it first.
     @State private var handle: String?
+    /// The You tab, held here rather than by the screen so switching away and back does not re-read
+    /// five RPCs — and so a pull-to-refresh on it is the only thing that does.
+    @State var you: YouStore
     @Environment(\.scenePhase) private var scenePhase
 
     init(services: AteServices) {
@@ -97,6 +100,7 @@ private struct AteShell: View {
             analytics(SocialEvents.feedPageLoaded(page: page, itemCount: items))
         }
         _feed = State(initialValue: feedStore)
+        _you = State(initialValue: YouStore(stats: services.stats))
         let shelf = SavedDishesStore(saves: services.saves)
         _saved = State(initialValue: shelf)
         _saveAction = State(initialValue: SaveAction(
@@ -129,6 +133,7 @@ private struct AteShell: View {
         .task { await autoSignInIfRequested() }
         #if DEBUG
         .task { await openDebugScreenIfRequested() }
+        .task { await openYouIfRequested() }
         #endif
         // An entry that could not be sent is still the person's. The outbox is worked on every
         // return to the app, and anything that lands refreshes the journal under it.
@@ -138,7 +143,7 @@ private struct AteShell: View {
         }
     }
 
-    private var shell: some View {
+    var shell: some View {
         NavigationStack(path: $path) {
             ZStack(alignment: .bottom) {
                 current
@@ -213,27 +218,57 @@ private struct AteShell: View {
                 onPlace: { open(.place($0), from: .dish) },
                 onEntry: { open(.entry(EntryRoute(entryID: $0))) }
             )
+        case .ratings(let score):
+            // `Ratings.dc.html` keeps the tab bar, exactly like `Suggestions`: it is a page of You,
+            // not a modal.
+            overTabBar {
+                RatingsScreen(
+                    score: score,
+                    stats: services.stats,
+                    onDish: { open(.dish($0)) },
+                    onViewed: { services.analytics(YouEvents.ratingsViewed(score: $0)) }
+                )
+            }
+        case .statement(let month):
+            // `Recap.dc.html` draws no tab bar — a statement is a printout you hold, on its own.
+            RecapScreen(
+                month: month,
+                stats: services.stats,
+                // A receipt is signed. The You header is already loaded by the time a statement can
+                // be opened, so its handle is the one on hand; the shell's is the fallback.
+                handle: you.summary?.username ?? handle ?? "",
+                analytics: services.analytics
+            )
         case .suggestions:
             // `Suggestions.dc.html` keeps the tab bar under it — it is a page of the journal, not a
             // modal. The stack's root bar is covered by the push, so the screen carries its own.
-            ZStack(alignment: .bottom) {
+            overTabBar {
                 SuggestionsScreen(library: services.photos) { cluster in
                     composing = ComposerPresentation(
                         origin: .photoSuggestion,
                         assetIdentifiers: cluster.items.map(\.id)
                     )
                 }
-                AteTabScrim()
-                AteTabBar(
-                    selection: Binding(get: { tab }, set: { tapped in
-                        tab = tapped
-                        path.removeAll()
-                    }),
-                    onCompose: { openComposer(.tabBar) }
-                )
             }
-            .ateGround()
         }
+    }
+
+    /// A pushed page that keeps the floating bar under it. The stack's root bar is covered by the
+    /// push, so the page carries its own — and tapping a tab from one pops back to that tab.
+    @ViewBuilder
+    private func overTabBar(@ViewBuilder _ content: () -> some View) -> some View {
+        ZStack(alignment: .bottom) {
+            content()
+            AteTabScrim()
+            AteTabBar(
+                selection: Binding(get: { tab }, set: { tapped in
+                    tab = tapped
+                    path.removeAll()
+                }),
+                onCompose: { openComposer(.tabBar) }
+            )
+        }
+        .ateGround()
     }
 
     @ViewBuilder
@@ -289,7 +324,13 @@ private struct AteShell: View {
         case .search:
             SearchScreen()
         case .you:
-            YouScreen(handle: handle)
+            YouScreen(
+                store: you,
+                onRatings: { open(.ratings(score: $0)) },
+                onDish: { open(.dish($0)) },
+                onStatement: { open(.statement($0)) },
+                onViewed: { services.analytics(YouEvents.youViewed()) }
+            )
         }
     }
 
@@ -315,7 +356,7 @@ private struct AteShell: View {
     ///
     /// `from` is remembered for the destination's view event. The funnel question is always "which
     /// entry point produced this", and an unlabelled one silently reads as zero.
-    private func open(_ route: Route, from source: DetailSource = .unknown) {
+    func open(_ route: Route, from source: DetailSource = .unknown) {
         guard route.isBuilt else { return }
         sources[route] = source
         path.append(route)
@@ -345,57 +386,6 @@ private struct AteShell: View {
         photoCount = PhotoSuggestions.cluster(await services.photos.recent())
             .reduce(0) { $0 + $1.items.count }
     }
-
-    #if DEBUG
-    /// `-ate-open-entry`: pushes the newest entry once the first page has landed. Waits for it
-    /// rather than racing the journal's own load, which would find an empty list and give up.
-    private func openNewestEntryIfRequested() async {
-        guard ComposerDebugLaunch.opensEntry, path.isEmpty else { return }
-        for _ in 0..<30 {
-            await journal.loadIfNeeded()
-            if let first = journal.entries.first {
-                path = [.entry(EntryRoute(entryID: first.id))]
-                return
-            }
-            try? await Task.sleep(for: .milliseconds(100))
-        }
-    }
-    #endif
-
-    #if DEBUG
-    /// `-ate-open-feed` / `-ate-open-profile` / `-ate-open-place` / `-ate-open-dish`: the screens a
-    /// drive photographs, reachable from `simctl launch` because a simulator cannot be tapped from
-    /// a shell. Each waits for the feed's first page rather than racing it, which would find an
-    /// empty list and give up.
-    private func openDebugScreenIfRequested() async {
-        guard ComposerDebugLaunch.opensFeed else { return }
-        tab = .feed
-        guard let route = await firstDebugRoute() else { return }
-        open(route, from: .feed)
-    }
-
-    private func firstDebugRoute() async -> Route? {
-        let wantsProfile = ComposerDebugLaunch.opensProfile
-        let wantsPlace = ComposerDebugLaunch.opensPlace
-        let wantsDish = ComposerDebugLaunch.opensDish
-        guard wantsProfile || wantsPlace || wantsDish else { return nil }
-
-        for _ in 0..<40 {
-            await feed.loadIfNeeded()
-            if wantsProfile, let first = feed.entries.first {
-                return .profile(first.authorID)
-            }
-            if wantsPlace, let place = feed.entries.compactMap(\.place?.id).first {
-                return .place(place)
-            }
-            if wantsDish, let dish = feed.entries.flatMap(\.items).map(\.dishID).first {
-                return .dish(dish)
-            }
-            try? await Task.sleep(for: .milliseconds(150))
-        }
-        return nil
-    }
-    #endif
 
     private func drainOutbox() async {
         let landed = await services.outbox.run()

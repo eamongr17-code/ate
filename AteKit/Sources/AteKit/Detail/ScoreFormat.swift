@@ -42,6 +42,12 @@ public enum ScoreFormat {
     ///
     /// Unscored lines are not zeros and are not counted — the caller passes the mean of the scored
     /// ones, or `nil`.
+    /// A TOTAL of stars ("Stars handed out 57.5", "… 86"): a quantity, not a score, so a whole
+    /// number keeps no decimal — only the halves show theirs.
+    public static func starsTotal(_ stars: Double) -> String {
+        stars.formatted(.number.precision(.fractionLength(0...1)))
+    }
+
     public static func entryAverage(_ score: Double?) -> String {
         guard let score else { return unratedPlaceholder }
         return score.formatted(.number.precision(.fractionLength(2)))
@@ -50,6 +56,12 @@ public enum ScoreFormat {
     /// The average with its scale: `"4.3/5"`, `"5.0/5"`, or `"–/5"`.
     public static func outOfFive(_ score: Double?) -> String {
         "\(average(score))/5"
+    }
+
+    /// How many dishes sit at a score — the Ratings screen's own count line ("36 dishes"). Singular
+    /// at one, because "1 dishes" is how a screen tells you nobody read it.
+    public static func dishCount(_ count: Int) -> String {
+        count == 1 ? "1 dish" : "\(max(0, count)) dishes"
     }
 
     /// Review-count line for a header. Unrated dishes get the invitation, not "0 reviews".

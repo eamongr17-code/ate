@@ -28,6 +28,12 @@ final class EntryModel: SavedDishObserving {
         var id: Int { index }
     }
 
+    /// What `Share` is about — `Identifiable` so it can present a cover.
+    struct Sharing: Identifiable, Equatable {
+        let artefact: ShareArtefact
+        var id: UUID { artefact.entryID ?? UUID() }
+    }
+
     private(set) var card: EntryCard?
     private(set) var composition = EntryComposition()
     private(set) var photos: [AtePhoto] = []
@@ -35,8 +41,8 @@ final class EntryModel: SavedDishObserving {
     var isCorrectingPlace = false
     var correcting: Correcting?
     var viewingPhoto: ViewingPhoto?
-    var isSharing = false
-    private(set) var shareImage: UIImage?
+    /// Non-nil presents `Share` — the coral screen the receipt actually leaves from.
+    var sharing: Sharing?
 
     private let route: EntryRoute
     private let services: AteServices
@@ -109,6 +115,9 @@ final class EntryModel: SavedDishObserving {
         if ComposerDebugLaunch.opensPlaceSheet, isFirstRead {
             isCorrectingPlace = true
         }
+        if ComposerDebugLaunch.opensShare, sharing == nil {
+            share()
+        }
         #endif
     }
 
@@ -131,14 +140,19 @@ final class EntryModel: SavedDishObserving {
 
     // MARK: - Actions
 
-    /// Renders the receipt and opens the system share sheet. Made at the moment of sharing, from the
-    /// entry's own row, so the artefact and the page can never disagree about what was eaten.
+    /// Opens `Share` — the coral screen the artefact is approved on and sent from. `receipt_shared`
+    /// fires there, at the tap that actually sends it: looking at a receipt is not sharing one.
     func share() {
-        guard let receipt else { return }
-        shareImage = ReceiptImage.render(receipt)
-        guard shareImage != nil else { return }
-        services.analytics(EntryEvents.receiptShared())
-        isSharing = true
+        guard let artefact = shareArtefact() else { return }
+        sharing = Sharing(artefact: artefact)
+    }
+
+    /// The share card's subject, built from this entry's own row so the artefact and the page can
+    /// never disagree about what was eaten. `nil` while the bill has not printed — there is nothing
+    /// to send yet, and a blank page is not an artefact.
+    func shareArtefact() -> ShareArtefact? {
+        guard let receipt, let card else { return nil }
+        return .entry(receipt, photos: card.photos.compactMap { URL(string: $0.url) })
     }
 
     /// "Print it again". Two different failures wear the same button: an entry that never reached
@@ -195,14 +209,6 @@ final class EntryModel: SavedDishObserving {
     /// The bookmark changed somewhere — here, or on a list this page was opened from.
     func savedDishChanged(dishID: UUID, isSaved: Bool) {
         applySaved(dishID: dishID, to: isSaved)
-    }
-
-    /// What the actions sheet's Share row sends: this visit's receipt, rendered now. An entry whose
-    /// bill has not printed has no artefact yet, and sends nothing rather than a blank page.
-    func receiptShareItems() -> [Any] {
-        guard let receipt, let image = ReceiptImage.render(receipt) else { return [] }
-        services.analytics(EntryEvents.receiptShared())
-        return [image]
     }
 
     /// Report this entry. The author is reported from their profile; this is about the words.

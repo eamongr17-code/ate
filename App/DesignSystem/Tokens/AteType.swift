@@ -107,6 +107,10 @@ extension AteTextStyle {
     static let emptyTitle = AteTextStyle(
         voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
     )
+    /// The score a `Ratings` page is about, beside its stars. `.h` at 30.
+    static let ratingsScore = AteTextStyle(
+        voice: .display, size: 30, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
+    )
     /// A number in a statement's cell: "142". 28pt.
     static let statValue = AteTextStyle(
         voice: .display, size: 28, weight: 800, trackingEm: -0.03, lineHeight: 1.0, textStyle: .title2
@@ -168,6 +172,11 @@ extension AteTextStyle {
     /// "2h", "5 photos", a date above a slip. 13pt/500.
     static let meta = AteTextStyle(
         voice: .display, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote
+    )
+    /// A dish's name under its tile in a small cluster — "Your 5.0s". `.meta` at 12, in full ink:
+    /// the name is the item, not a caption about it.
+    static let tileCaption = AteTextStyle(
+        voice: .display, size: 12, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .caption
     )
     /// The place on a slip's place line — `.meta`'s size in the control weight, in full ink.
     static let slipPlaceName = AteTextStyle(
@@ -239,6 +248,11 @@ extension AteTextStyle {
     /// The score at the end of a line item — the "price" column. 13pt/500.
     static let receiptScore = AteTextStyle(
         voice: .mono, size: 13, weight: 500, lineHeight: 1.65, textStyle: .footnote, maximumSize: 20
+    )
+    /// The numerals under the ratings histogram. 10pt DM Mono, plain — the only mono outside a
+    /// receipt, because a chart's scale is a printed measure and reads as one.
+    static let scaleLabel = AteTextStyle(
+        voice: .mono, size: 10, weight: 400, lineHeight: 1.35, textStyle: .caption2, maximumSize: 14
     )
     /// A receipt label: the address, `ORDER #0142`, `3 DISHES`, `@eamon`. 11pt, uppercase, +8%.
     static let receiptLabel = AteTextStyle(
