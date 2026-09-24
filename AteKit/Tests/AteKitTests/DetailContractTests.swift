@@ -25,7 +25,8 @@ struct DetailContractTests {
         #expect(snapshot.dish.id == unrated.dishID)
         #expect(snapshot.score == nil)
         #expect(snapshot.isRated == false)
-        #expect(snapshot.reviewCount == 0)
+        // Unrated does NOT mean unreviewed since 0018: an unscored line is the normal case, so the
+        // dish may well have reviews. What it never has is a number invented for it.
         #expect(ScoreFormat.outOfFive(snapshot.score) == "–/5")
         #expect(snapshot.restaurant.id == snapshot.dish.restaurantID)
         #expect(snapshot.wasRedirected == false)
