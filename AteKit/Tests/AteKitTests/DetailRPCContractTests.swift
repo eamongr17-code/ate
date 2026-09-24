@@ -130,76 +130,78 @@ struct DetailRPCContractTests {
     /// here, and that is the right place for it to land.
     @Test("place_dishes is DishRanking's order, drops never-logged dishes, and pages on 4 parts")
     func placeDishesRanksAndPages() async throws {
-        let client = try await client()
-        let stats = try await busiestPlace(client)
-        let whole = try await placeDishPage(client, place: stats.restaurantID, size: 200)
-        #expect(whole.isEmpty == false, "the busiest place has no dishes — place_dishes lost its join")
+        try await StagingExclusive.shared.run {
+            let client = try await client()
+            let stats = try await busiestPlace(client)
+            let whole = try await placeDishPage(client, place: stats.restaurantID, size: 200)
+            #expect(whole.isEmpty == false, "the busiest place has no dishes — place_dishes lost its join")
 
-        // The ported rule, over the server's own rows: re-ranking them must change nothing.
-        let ranked = DishRanking.rank(
-            dishes: whole.map { row in
-                Dish(id: row.dishID, name: row.dishName, restaurantID: stats.restaurantID, createdAt: .now)
-            },
-            stats: whole.map { row in
-                DishStats(
-                    dishID: row.dishID, restaurantID: stats.restaurantID,
-                    score: row.score, reviewCount: row.reviewCount
-                )
-            }
-        )
-        #expect(
-            ranked.map(\.id) == whole.map(\.dishID),
-            """
-            place_dishes is not DishRanking's order — review count leads, then score (unscored last), \
-            then name, then id. Server: \(whole.map { "\($0.dishName) \($0.reviewCount)×" }). \
-            Rule: \(ranked.map { "\($0.name) \($0.reviewCount)×" })
-            """
-        )
-        // Review count leads; score only breaks its ties, with the unscored last inside a tie.
-        for (upper, lower) in zip(whole, whole.dropFirst()) {
-            #expect(upper.reviewCount >= lower.reviewCount, "review_count is the first key")
-            if upper.reviewCount == lower.reviewCount {
-                #expect((upper.score ?? -1) >= (lower.score ?? -1), "score is the second key, nulls last")
-            }
-        }
-        // A dish nobody has logged is an abandoned "add a new dish" shell, not a menu item (0030).
-        // An UNSCORED dish WITH a line is a menu item and must still be here — so the menu is
-        // exactly the dishes this viewer can see a line for, no more and no less. Stated as a set
-        // equality rather than "every row has a line", which staging can satisfy vacuously: it holds
-        // no shell today, and this is the assertion that catches one the moment somebody seeds it
-        // (and catches a real menu item being dropped, which is the costlier direction).
-        let logged = try await client.fetchAll(DishStats.self) {
-            $0.eq("restaurant_id", value: stats.restaurantID.uuidString)
-                .gt("review_count", value: 0)
-                .limit(200)
-        }
-        #expect(
-            Set(whole.map(\.dishID)) == Set(logged.map(\.dishID)),
-            "the menu must be exactly the dishes with a line (shells out, unscored-with-a-line in)"
-        )
-        #expect(whole.allSatisfy { $0.reviewCount > 0 }, "a never-logged dish is on the menu")
-        #expect(whole.allSatisfy { $0.peopleCount > 0 }, "a line implies a reviewer")
-        #expect(whole.allSatisfy { $0.coverURL != "" })
-
-        var walked: [PlaceDishRow] = []
-        var cursor: PlaceDishRow?
-        var pages = 0
-        repeat {
-            let page = try await placeDishPage(
-                client, place: stats.restaurantID, size: Self.pageSize, after: cursor
+            // The ported rule, over the server's own rows: re-ranking them must change nothing.
+            let ranked = DishRanking.rank(
+                dishes: whole.map { row in
+                    Dish(id: row.dishID, name: row.dishName, restaurantID: stats.restaurantID, createdAt: .now)
+                },
+                stats: whole.map { row in
+                    DishStats(
+                        dishID: row.dishID, restaurantID: stats.restaurantID,
+                        score: row.score, reviewCount: row.reviewCount
+                    )
+                }
             )
-            walked.append(contentsOf: page)
-            cursor = page.count < Self.pageSize ? nil : page.last
-            pages += 1
-        } while cursor != nil && pages < 120
+            #expect(
+                ranked.map(\.id) == whole.map(\.dishID),
+                """
+                place_dishes is not DishRanking's order — review count leads, then score (unscored last), \
+                then name, then id. Server: \(whole.map { "\($0.dishName) \($0.reviewCount)×" }). \
+                Rule: \(ranked.map { "\($0.name) \($0.reviewCount)×" })
+                """
+            )
+            // Review count leads; score only breaks its ties, with the unscored last inside a tie.
+            for (upper, lower) in zip(whole, whole.dropFirst()) {
+                #expect(upper.reviewCount >= lower.reviewCount, "review_count is the first key")
+                if upper.reviewCount == lower.reviewCount {
+                    #expect((upper.score ?? -1) >= (lower.score ?? -1), "score is the second key, nulls last")
+                }
+            }
+            // A dish nobody has logged is an abandoned "add a new dish" shell, not a menu item (0030).
+            // An UNSCORED dish WITH a line is a menu item and must still be here — so the menu is
+            // exactly the dishes this viewer can see a line for, no more and no less. Stated as a set
+            // equality rather than "every row has a line", which staging can satisfy vacuously: it holds
+            // no shell today, and this is the assertion that catches one the moment somebody seeds it
+            // (and catches a real menu item being dropped, which is the costlier direction).
+            let logged = try await client.fetchAll(DishStats.self) {
+                $0.eq("restaurant_id", value: stats.restaurantID.uuidString)
+                    .gt("review_count", value: 0)
+                    .limit(200)
+            }
+            #expect(
+                Set(whole.map(\.dishID)) == Set(logged.map(\.dishID)),
+                "the menu must be exactly the dishes with a line (shells out, unscored-with-a-line in)"
+            )
+            #expect(whole.allSatisfy { $0.reviewCount > 0 }, "a never-logged dish is on the menu")
+            #expect(whole.allSatisfy { $0.peopleCount > 0 }, "a line implies a reviewer")
+            #expect(whole.allSatisfy { $0.coverURL != "" })
 
-        // The whole read again, AFTER the walk: the rows present in both snapshots are the ones that
-        // existed throughout, and every one of them must be in the walk (see KeysetWalk).
-        let wholeAfter = try await placeDishPage(client, place: stats.restaurantID, size: 200)
-        KeysetWalk.expectMatches(
-            walked.map(\.dishID), before: whole.map(\.dishID), after: wholeAfter.map(\.dishID),
-            "place_dishes 4-part"
-        )
+            var walked: [PlaceDishRow] = []
+            var cursor: PlaceDishRow?
+            var pages = 0
+            repeat {
+                let page = try await placeDishPage(
+                    client, place: stats.restaurantID, size: Self.pageSize, after: cursor
+                )
+                walked.append(contentsOf: page)
+                cursor = page.count < Self.pageSize ? nil : page.last
+                pages += 1
+            } while cursor != nil && pages < 120
+
+            // The whole read again, AFTER the walk: the rows present in both snapshots are the ones that
+            // existed throughout, and every one of them must be in the walk (see KeysetWalk).
+            let wholeAfter = try await placeDishPage(client, place: stats.restaurantID, size: 200)
+            KeysetWalk.expectMatches(
+                walked.map(\.dishID), before: whole.map(\.dishID), after: wholeAfter.map(\.dishID),
+                "place_dishes 4-part"
+            )
+        }
     }
 
     func placeDishPage(
@@ -219,43 +221,45 @@ struct DetailRPCContractTests {
 
     @Test("get_entries_at_place returns entry_cards — the one shape — and scopes mine vs others")
     func entriesAtPlaceAreEntryCards() async throws {
-        let client = try await client()
-        let stats = try await busiestPlace(client)
-        let all = try await entriesAtPlace(client, stats.restaurantID, scope: "all", size: 50)
-        #expect(all.isEmpty == false, "no entries at the busiest place — the place page would be blank")
-        #expect(all.allSatisfy { $0.restaurantID == stats.restaurantID })
-        #expect(all.allSatisfy { $0.place?.id == stats.restaurantID }, "an entry here carries its place")
-        // It is the ONE shape: the footer numbers the receipt draws arrive with the row.
-        #expect(all.allSatisfy { $0.dishCount == $0.items.count })
-        #expect(all.allSatisfy { $0.photoCount == $0.photos.count })
+        try await StagingExclusive.shared.run {
+            let client = try await client()
+            let stats = try await busiestPlace(client)
+            let all = try await entriesAtPlace(client, stats.restaurantID, scope: "all", size: 50)
+            #expect(all.isEmpty == false, "no entries at the busiest place — the place page would be blank")
+            #expect(all.allSatisfy { $0.restaurantID == stats.restaurantID })
+            #expect(all.allSatisfy { $0.place?.id == stats.restaurantID }, "an entry here carries its place")
+            // It is the ONE shape: the footer numbers the receipt draws arrive with the row.
+            #expect(all.allSatisfy { $0.dishCount == $0.items.count })
+            #expect(all.allSatisfy { $0.photoCount == $0.photos.count })
 
-        let mine = try await entriesAtPlace(client, stats.restaurantID, scope: "mine", size: 50)
-        let others = try await entriesAtPlace(client, stats.restaurantID, scope: "others", size: 50)
-        #expect(mine.allSatisfy { $0.isMine })
-        #expect(others.allSatisfy { $0.isMine == false })
-        // The bracketing 'all' read is taken after the walk below, so one read serves both checks.
+            let mine = try await entriesAtPlace(client, stats.restaurantID, scope: "mine", size: 50)
+            let others = try await entriesAtPlace(client, stats.restaurantID, scope: "others", size: 50)
+            #expect(mine.allSatisfy { $0.isMine })
+            #expect(others.allSatisfy { $0.isMine == false })
+            // The bracketing 'all' read is taken after the walk below, so one read serves both checks.
 
-        var walked: [EntryCard] = []
-        var cursor: EntryCard?
-        var pages = 0
-        repeat {
-            let page = try await entriesAtPlace(
-                client, stats.restaurantID, scope: "all", size: Self.pageSize, after: cursor
+            var walked: [EntryCard] = []
+            var cursor: EntryCard?
+            var pages = 0
+            repeat {
+                let page = try await entriesAtPlace(
+                    client, stats.restaurantID, scope: "all", size: Self.pageSize, after: cursor
+                )
+                walked.append(contentsOf: page)
+                cursor = page.count < Self.pageSize ? nil : page.last
+                pages += 1
+            } while cursor != nil && pages < 120
+            let allAfter = try await entriesAtPlace(client, stats.restaurantID, scope: "all", size: 50)
+            KeysetWalk.expectMatches(
+                walked.map(\.id), before: all.map(\.id), after: allAfter.map(\.id), "place entries"
             )
-            walked.append(contentsOf: page)
-            cursor = page.count < Self.pageSize ? nil : page.last
-            pages += 1
-        } while cursor != nil && pages < 120
-        let allAfter = try await entriesAtPlace(client, stats.restaurantID, scope: "all", size: 50)
-        KeysetWalk.expectMatches(
-            walked.map(\.id), before: all.map(\.id), after: allAfter.map(\.id), "place entries"
-        )
-        // Two reads of a moving database, so the count is matched against 'all' before OR after.
-        if all.count < 50 {
-            #expect(
-                [all.count, allAfter.count].contains(mine.count + others.count),
-                "mine + others must be all of them"
-            )
+            // Two reads of a moving database, so the count is matched against 'all' before OR after.
+            if all.count < 50 {
+                #expect(
+                    [all.count, allAfter.count].contains(mine.count + others.count),
+                    "mine + others must be all of them"
+                )
+            }
         }
     }
 
@@ -318,36 +322,38 @@ struct DetailRPCContractTests {
 
     @Test("get_dish_reviews puts mine first, newest within, and pages on all three parts")
     func dishReviewsMineFirstAndPage() async throws {
-        let client = try await client()
-        let busiest = try #require(try await busiestDish(client).first)
-        let whole = try await dishReviewPage(client, dish: busiest.dishID, size: 50)
-        #expect(whole.isEmpty == false)
-        #expect(whole.allSatisfy { $0.author.username.isEmpty == false }, "a line needs a handle")
+        try await StagingExclusive.shared.run {
+            let client = try await client()
+            let busiest = try #require(try await busiestDish(client).first)
+            let whole = try await dishReviewPage(client, dish: busiest.dishID, size: 50)
+            #expect(whole.isEmpty == false)
+            #expect(whole.allSatisfy { $0.author.username.isEmpty == false }, "a line needs a handle")
 
-        // design/v1/Dish puts "You" above the others.
-        if let lastMine = whole.lastIndex(where: { $0.isMine }) {
-            #expect(whole.prefix(lastMine + 1).allSatisfy { $0.isMine }, "a stranger's line sits above mine")
-        }
-        for (newer, older) in zip(whole, whole.dropFirst()) where newer.isMine == older.isMine {
-            #expect(newer.createdAt >= older.createdAt, "newest-first broke inside a group")
-        }
+            // design/v1/Dish puts "You" above the others.
+            if let lastMine = whole.lastIndex(where: { $0.isMine }) {
+                #expect(whole.prefix(lastMine + 1).allSatisfy { $0.isMine }, "a stranger's line sits above mine")
+            }
+            for (newer, older) in zip(whole, whole.dropFirst()) where newer.isMine == older.isMine {
+                #expect(newer.createdAt >= older.createdAt, "newest-first broke inside a group")
+            }
 
-        var walked: [DishReviewRow] = []
-        var cursor: DishReviewRow?
-        var pages = 0
-        repeat {
-            let page = try await dishReviewPage(
-                client, dish: busiest.dishID, size: Self.pageSize, after: cursor
+            var walked: [DishReviewRow] = []
+            var cursor: DishReviewRow?
+            var pages = 0
+            repeat {
+                let page = try await dishReviewPage(
+                    client, dish: busiest.dishID, size: Self.pageSize, after: cursor
+                )
+                walked.append(contentsOf: page)
+                cursor = page.count < Self.pageSize ? nil : page.last
+                pages += 1
+            } while cursor != nil && pages < 120
+            let wholeAfter = try await dishReviewPage(client, dish: busiest.dishID, size: 50)
+            KeysetWalk.expectMatches(
+                walked.map(\.reviewID), before: whole.map(\.reviewID), after: wholeAfter.map(\.reviewID),
+                "dish reviews 3-part"
             )
-            walked.append(contentsOf: page)
-            cursor = page.count < Self.pageSize ? nil : page.last
-            pages += 1
-        } while cursor != nil && pages < 120
-        let wholeAfter = try await dishReviewPage(client, dish: busiest.dishID, size: 50)
-        KeysetWalk.expectMatches(
-            walked.map(\.reviewID), before: whole.map(\.reviewID), after: wholeAfter.map(\.reviewID),
-            "dish reviews 3-part"
-        )
+        }
     }
 
     /// A nullable `entry_id` is not a staging quirk: it is every review written before entries

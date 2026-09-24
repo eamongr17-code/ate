@@ -92,45 +92,47 @@ struct YouRPCContractTests {
 
     @Test("dishes_by_score fills the bucket it was asked for, carries the tile, and pages")
     func dishesByScoreMatchesItsBucket() async throws {
-        let client = try await client()
-        let user = try await me(client)
-        let fullest = try #require(
-            try await histogram(client, user).max(by: { $0.reviewCount < $1.reviewCount }),
-            "an empty histogram cannot be tapped"
-        )
-        #expect(fullest.reviewCount > 0, "the viewer has no scores at all — seed some")
+        try await StagingExclusive.shared.run {
+            let client = try await client()
+            let user = try await me(client)
+            let fullest = try #require(
+                try await histogram(client, user).max(by: { $0.reviewCount < $1.reviewCount }),
+                "an empty histogram cannot be tapped"
+            )
+            #expect(fullest.reviewCount > 0, "the viewer has no scores at all — seed some")
 
-        let whole = try await scoredPage(client, user, fullest.score, size: 500)
-        #expect(whole.count == fullest.reviewCount, "the bar says \(fullest.reviewCount) lines")
-        #expect(whole.allSatisfy { $0.score == fullest.score })
-        #expect(whole.allSatisfy { $0.dishName.isEmpty == false && $0.restaurantName.isEmpty == false })
-        #expect(whole.allSatisfy { $0.coverURL != "" })
-        // Newest first: the list prints "19 Sep" down the right edge.
-        for (newer, older) in zip(whole, whole.dropFirst()) {
-            #expect(newer.createdAt >= older.createdAt)
-        }
-        // The tile draws a photo, so at least one row in the fullest bucket must have one.
-        withKnownIssue(
-            "no dish in this bucket has a photo yet — the tiles would draw empty",
-            isIntermittent: true
-        ) {
-            #expect(whole.contains { $0.coverURL != nil })
-        }
+            let whole = try await scoredPage(client, user, fullest.score, size: 500)
+            #expect(whole.count == fullest.reviewCount, "the bar says \(fullest.reviewCount) lines")
+            #expect(whole.allSatisfy { $0.score == fullest.score })
+            #expect(whole.allSatisfy { $0.dishName.isEmpty == false && $0.restaurantName.isEmpty == false })
+            #expect(whole.allSatisfy { $0.coverURL != "" })
+            // Newest first: the list prints "19 Sep" down the right edge.
+            for (newer, older) in zip(whole, whole.dropFirst()) {
+                #expect(newer.createdAt >= older.createdAt)
+            }
+            // The tile draws a photo, so at least one row in the fullest bucket must have one.
+            withKnownIssue(
+                "no dish in this bucket has a photo yet — the tiles would draw empty",
+                isIntermittent: true
+            ) {
+                #expect(whole.contains { $0.coverURL != nil })
+            }
 
-        var walked: [ScoredDishRow] = []
-        var cursor: ScoredDishRow?
-        var pages = 0
-        repeat {
-            let page = try await scoredPage(client, user, fullest.score, size: Self.pageSize, after: cursor)
-            walked.append(contentsOf: page)
-            cursor = page.count < Self.pageSize ? nil : page.last
-            pages += 1
-        } while cursor != nil && pages < 200
-        let wholeAfter = try await scoredPage(client, user, fullest.score, size: 500)
-        KeysetWalk.expectMatches(
-            walked.map(\.reviewID), before: whole.map(\.reviewID), after: wholeAfter.map(\.reviewID),
-            "dishes_by_score"
-        )
+            var walked: [ScoredDishRow] = []
+            var cursor: ScoredDishRow?
+            var pages = 0
+            repeat {
+                let page = try await scoredPage(client, user, fullest.score, size: Self.pageSize, after: cursor)
+                walked.append(contentsOf: page)
+                cursor = page.count < Self.pageSize ? nil : page.last
+                pages += 1
+            } while cursor != nil && pages < 200
+            let wholeAfter = try await scoredPage(client, user, fullest.score, size: 500)
+            KeysetWalk.expectMatches(
+                walked.map(\.reviewID), before: whole.map(\.reviewID), after: wholeAfter.map(\.reviewID),
+                "dishes_by_score"
+            )
+        }
     }
 
     func scoredPage(
@@ -149,32 +151,34 @@ struct YouRPCContractTests {
 
     @Test("statement_months pages newest-first and accounts for every entry")
     func statementMonthsPageAndSum() async throws {
-        let client = try await client()
-        let user = try await me(client)
-        let whole = try await monthsPage(client, user, size: 240)
-        #expect(whole.isEmpty == false, "a viewer with entries has at least one statement")
-        #expect(whole.map(\.month) == whole.map(\.month).sorted(by: >), "newest month first")
-        #expect(Set(whole.map(\.month)).count == whole.count, "a month cannot appear twice")
-        #expect(whole.allSatisfy { $0.orders > 0 }, "a month with no entries is not a statement")
+        try await StagingExclusive.shared.run {
+            let client = try await client()
+            let user = try await me(client)
+            let whole = try await monthsPage(client, user, size: 240)
+            #expect(whole.isEmpty == false, "a viewer with entries has at least one statement")
+            #expect(whole.map(\.month) == whole.map(\.month).sorted(by: >), "newest month first")
+            #expect(Set(whole.map(\.month)).count == whole.count, "a month cannot appear twice")
+            #expect(whole.allSatisfy { $0.orders > 0 }, "a month with no entries is not a statement")
 
-        // Every entry lands in exactly one month, so the months account for the profile's orders.
-        let summary = try await profile(client, user)
-        #expect(whole.reduce(0) { $0 + $1.orders } == summary.orders)
+            // Every entry lands in exactly one month, so the months account for the profile's orders.
+            let summary = try await profile(client, user)
+            #expect(whole.reduce(0) { $0 + $1.orders } == summary.orders)
 
-        var walked: [StatementMonthRow] = []
-        var cursor: StatementMonthRow?
-        var pages = 0
-        repeat {
-            let page = try await monthsPage(client, user, size: 1, after: cursor)
-            walked.append(contentsOf: page)
-            cursor = page.isEmpty ? nil : page.last
-            pages += 1
-        } while cursor != nil && pages < 240
-        let wholeAfter = try await monthsPage(client, user, size: 240)
-        KeysetWalk.expectMatches(
-            walked.map(\.month), before: whole.map(\.month), after: wholeAfter.map(\.month),
-            "statement_months"
-        )
+            var walked: [StatementMonthRow] = []
+            var cursor: StatementMonthRow?
+            var pages = 0
+            repeat {
+                let page = try await monthsPage(client, user, size: 1, after: cursor)
+                walked.append(contentsOf: page)
+                cursor = page.isEmpty ? nil : page.last
+                pages += 1
+            } while cursor != nil && pages < 240
+            let wholeAfter = try await monthsPage(client, user, size: 240)
+            KeysetWalk.expectMatches(
+                walked.map(\.month), before: whole.map(\.month), after: wholeAfter.map(\.month),
+                "statement_months"
+            )
+        }
     }
 
     @Test("monthly_statement is the receipt design/v1/Recap prints, and never claims a habit of one")
@@ -226,30 +230,32 @@ struct YouRPCContractTests {
 
     @Test("get_entries_by_author is entry_cards for one author, private ones included when it is me")
     func entriesByAuthorAreEntryCards() async throws {
-        let client = try await client()
-        let user = try await me(client)
-        let whole = try await authorPage(client, user, size: 50)
-        #expect(whole.isEmpty == false, "the demo viewer's journal is empty")
-        #expect(whole.allSatisfy { $0.authorID == user })
-        #expect(whole.allSatisfy { $0.isMine })
-        #expect(whole.allSatisfy { $0.dishCount == $0.items.count })
-        // My own journal is the one place a private entry is visible; an entry I cannot see is not
-        // "missing data" but the RLS contract working.
-        #expect(whole.allSatisfy { $0.orderNumber > 0 })
+        try await StagingExclusive.shared.run {
+            let client = try await client()
+            let user = try await me(client)
+            let whole = try await authorPage(client, user, size: 50)
+            #expect(whole.isEmpty == false, "the demo viewer's journal is empty")
+            #expect(whole.allSatisfy { $0.authorID == user })
+            #expect(whole.allSatisfy { $0.isMine })
+            #expect(whole.allSatisfy { $0.dishCount == $0.items.count })
+            // My own journal is the one place a private entry is visible; an entry I cannot see is not
+            // "missing data" but the RLS contract working.
+            #expect(whole.allSatisfy { $0.orderNumber > 0 })
 
-        var walked: [EntryCard] = []
-        var cursor: EntryCard?
-        var pages = 0
-        repeat {
-            let page = try await authorPage(client, user, size: Self.pageSize, after: cursor)
-            walked.append(contentsOf: page)
-            cursor = page.count < Self.pageSize ? nil : page.last
-            pages += 1
-        } while cursor != nil && pages < 120
-        let wholeAfter = try await authorPage(client, user, size: 50)
-        KeysetWalk.expectMatches(
-            walked.map(\.id), before: whole.map(\.id), after: wholeAfter.map(\.id), "journal"
-        )
+            var walked: [EntryCard] = []
+            var cursor: EntryCard?
+            var pages = 0
+            repeat {
+                let page = try await authorPage(client, user, size: Self.pageSize, after: cursor)
+                walked.append(contentsOf: page)
+                cursor = page.count < Self.pageSize ? nil : page.last
+                pages += 1
+            } while cursor != nil && pages < 120
+            let wholeAfter = try await authorPage(client, user, size: 50)
+            KeysetWalk.expectMatches(
+                walked.map(\.id), before: whole.map(\.id), after: wholeAfter.map(\.id), "journal"
+            )
+        }
     }
 
     func authorPage(
