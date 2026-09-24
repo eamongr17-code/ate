@@ -60,7 +60,7 @@ reviews, `dishes_by_score`); the two ranked/grouped lists key on their own order
 | Journal · Profile | `rpc get_entries_by_author(p_author_id, cursor…, p_page_size)` | `entry_cards[]` — yours includes private; someone else's is public-only (RLS) |
 | Entry · Share | `GET /rest/v1/entry_cards?id=eq.<uuid>` | one `entry_card` |
 | Place — header | `rpc place_summary(p_restaurant_id)` | `{restaurant_id, name, address, city, cuisine, cover_url, avg_rating, review_count, people_count, dish_count, my_visits, my_last_visit, locality, entry_count}` — **`locality` is the second chip** (`city` is unreliable, see below); `entry_count` = visits here, `review_count` = receipt lines; every text field is `null`, never `''` |
-| Place — what to order | `rpc place_dishes(p_restaurant_id, p_limit, p_cursor_score, p_cursor_people, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, score, people_count, review_count, cover_url}[]` — score DESC (unscored last), then people, then name. **4-part keyset: pass all four from the last row** (`p_cursor_score` may be null) |
+| Place — what to order | `rpc place_dishes(p_restaurant_id, p_limit, p_cursor_review_count, p_cursor_score, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, score, people_count, review_count, cover_url}[]` — **`review_count` DESC leads**, then `score` DESC (unscored last), then name, then id: the ported `DishRanking` rule, so one 5.0 from one person cannot lead the menu. **Never re-sort it client-side.** A dish with no line at all is not returned. **4-part keyset: pass all four from the last row** (`p_cursor_score` may be null) |
 | Place — entries | `rpc get_entries_at_place(p_restaurant_id, p_scope, cursor…)` | `entry_cards[]`; `p_scope ∈ 'all'|'mine'|'others'` |
 | Dish — header | `rpc dish_summary(p_dish_id)` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_city, score, review_count, scored_count, people_count, cover_url, saved, my_last_score, photos, restaurant_locality}` — `photos` = `[{url, entry_id}]` newest first for the header stack, `[]` when none, and **`photos[0].url == cover_url`** |
 | Dish — reviews | `rpc get_dish_reviews(p_dish_id, p_cursor_mine, p_cursor_created_at, p_cursor_id, p_page_size)` | `{review_id, entry_id, author{…}, score, note, created_at, is_mine, photos[]}[]` — **mine first**, then newest. Keyset is 3-part: pass `is_mine`, `created_at`, `id` from the last row. **`entry_id` is nullable** (a pre-entries line has no entry to open — decode optional, hide the tap); `photos[]` is the review's ENTRY's |
@@ -206,6 +206,14 @@ with `distance_meters`). Verified end-user JWT + per-user rate limit on every op
 changes, make it config, do not fork the function.
 
 ## Wire-change log
+
+**Behavioural — 0030 (2026-09-24).** `place_dishes` returns the product's order now, which is the
+ported-and-tested `DishRanking` rule: `review_count` desc → `score` desc (unscored last) → name → id.
+Score-first was wrong on this screen — a 4.4 from three people outranked a 4.2 from four, and a lonely
+5.0 would lead the menu. Same columns, different order, **fewer rows**: a dish with no line is an
+abandoned "add a new dish" shell and is gone, while an UNSCORED dish with a line stays. The keyset
+follows the order, so `p_cursor_people` becomes `p_cursor_review_count` — **breaking on that parameter
+alone**, which nothing shipped sends (the app calls `place_dishes(p_restaurant_id, p_limit)`).
 
 **Additive — 0029 (2026-09-24), the detail + You read audit.** `place_summary` + `locality`/`entry_count`;
 `dish_summary` + `photos`/`restaurant_locality`; `dishes_by_score` + `cover_url`; new cursor parameters on

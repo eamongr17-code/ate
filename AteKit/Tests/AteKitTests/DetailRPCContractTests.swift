@@ -118,26 +118,54 @@ struct DetailRPCContractTests {
 
     // MARK: - place_dishes
 
-    @Test("place_dishes ranks by score then people, and its 4-part cursor pages exactly")
+    /// The order is the PRODUCT's, and the product's rule already exists in Swift, ported from the
+    /// legacy repo with its test cases: `DishRanking`. So the oracle here is that type, applied to
+    /// the rows the server itself returned — one read, nothing to race, and it fails if the server
+    /// ever ranks by anything else (0022 ranked score-first: a lonely 5.0 led the menu).
+    ///
+    /// The one thing this cannot pin is a COLLATION disagreement on an exotic tie: `lower(name)` in
+    /// Postgres versus `localizedCaseInsensitiveCompare` in Swift agree on case and on ASCII, and the
+    /// `id` tiebreak (byte order == uppercase-hex order) settles everything they call equal. Two
+    /// dishes at the same review count and score whose names differ only by an accent would land
+    /// here, and that is the right place for it to land.
+    @Test("place_dishes is DishRanking's order, drops never-logged dishes, and pages on 4 parts")
     func placeDishesRanksAndPages() async throws {
         let client = try await client()
         let stats = try await busiestPlace(client)
         let whole = try await placeDishPage(client, place: stats.restaurantID, size: 200)
         #expect(whole.isEmpty == false, "the busiest place has no dishes — place_dishes lost its join")
 
+        // The ported rule, over the server's own rows: re-ranking them must change nothing.
+        let ranked = DishRanking.rank(
+            dishes: whole.map { row in
+                Dish(id: row.dishID, name: row.dishName, restaurantID: stats.restaurantID, createdAt: .now)
+            },
+            stats: whole.map { row in
+                DishStats(
+                    dishID: row.dishID, restaurantID: stats.restaurantID,
+                    score: row.score, reviewCount: row.reviewCount
+                )
+            }
+        )
+        #expect(
+            ranked.map(\.id) == whole.map(\.dishID),
+            """
+            place_dishes is not DishRanking's order — review count leads, then score (unscored last), \
+            then name, then id. Server: \(whole.map { "\($0.dishName) \($0.reviewCount)×" }). \
+            Rule: \(ranked.map { "\($0.name) \($0.reviewCount)×" })
+            """
+        )
+        // Review count leads; score only breaks its ties, with the unscored last inside a tie.
         for (upper, lower) in zip(whole, whole.dropFirst()) {
-            let upperKey = upper.score ?? -1
-            let lowerKey = lower.score ?? -1
-            #expect(upperKey >= lowerKey, "\(upper.dishName) must outrank \(lower.dishName) on score")
-            if upperKey == lowerKey {
-                #expect(upper.peopleCount >= lower.peopleCount, "people_count is the second key")
+            #expect(upper.reviewCount >= lower.reviewCount, "review_count is the first key")
+            if upper.reviewCount == lower.reviewCount {
+                #expect((upper.score ?? -1) >= (lower.score ?? -1), "score is the second key, nulls last")
             }
         }
-        // Unscored dishes are a contiguous tail: present (a dish logged without a number is still on
-        // the menu) but never above a scored one.
-        if let firstUnscored = whole.firstIndex(where: { $0.score == nil }) {
-            #expect(whole[firstUnscored...].allSatisfy { $0.score == nil })
-        }
+        // A dish nobody has logged is an abandoned "add a new dish" shell, not a menu item (0030).
+        // An UNSCORED dish with a line is a menu item and must still be here.
+        #expect(whole.allSatisfy { $0.reviewCount > 0 }, "a never-logged dish is on the menu")
+        #expect(whole.allSatisfy { $0.peopleCount > 0 }, "a line implies a reviewer")
         #expect(whole.allSatisfy { $0.coverURL != "" })
 
         var walked: [PlaceDishRow] = []
@@ -167,8 +195,8 @@ struct DetailRPCContractTests {
         try await StagingRPC.rows(client, "place_dishes", [
             "p_restaurant_id": StagingRPC.id(place),
             "p_limit": .integer(size),
+            "p_cursor_review_count": StagingRPC.count(last?.reviewCount),
             "p_cursor_score": StagingRPC.number(last?.score),
-            "p_cursor_people": StagingRPC.count(last?.peopleCount),
             "p_cursor_dish_name": StagingRPC.text(last?.dishName),
             "p_cursor_dish_id": StagingRPC.maybeID(last?.dishID)
         ])

@@ -1,8 +1,8 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0029` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0030` define it. Forward-only; applied migrations
 are never edited. V1 re-scope landed in **0018–0023**; corrections + offsets **0024–0025**; covers, the
-save toggle and the report vocabulary **0026–0028**; the detail + You read audit **0029** (2026-09-24).
+save toggle and the report vocabulary **0026–0028**; the detail + You read audit **0029–0030** (2026-09-24).
 
 The atom the USER creates is an **entry** = one visit. The atom AGGREGATES are built from is still a
 per-dish **review**, now *linked* to an entry, not replaced by it. A **sorter** turns the words into
@@ -69,8 +69,7 @@ line inherits the entry's `created_at`, so `reviews.created_at` IS the visit's d
 
 ### `saves` (0020)
 `(user_id, dish_id)` **PK** + `source_entry_id` (→ entries, SET NULL), `source_user_id` (→ profiles,
-SET NULL), `created_at`. A save is a DISH at its restaurant, with provenance ("from @jessw"), private
-to the saver.
+SET NULL), `created_at`. A DISH at its restaurant with provenance ("from @jessw"), private to the saver.
 
 ### `blocks` (0019)
 `(blocker_id, blocked_id)` PK, no self-block. One-way, enforced **both ways** by `blocked_with(uuid)` (SECURITY DEFINER — it reads `blocks` without recursing through RLS).
@@ -143,7 +142,7 @@ except where noted; **entries = visits, reviews = receipt lines, and they are no
 | RPC | What it returns / counts |
 |---|---|
 | `place_summary(place)` | the header in one call. `entry_count` = VISITS here, `review_count` = LINES (18 lines from 8 visits at Tipo 00 — printing the wrong one is a lie); `my_visits`/`my_last_visit` = the "Your N visits" row; `locality` = `place_locality(address, city)`; `avg_rating` = mean of per-dish averages; empty text arrives as NULL, never `''` |
-| `place_dishes(place, …)` | "what to order": `score` desc (unscored LAST, never dropped — a dish logged without a number is still on the menu), `people_count` desc, `name`. 4-part keyset |
+| `place_dishes(place, …)` | "what to order", and the order is the ported `DishRanking` rule (0030): `review_count` desc → `score` desc (unscored last) → name → id. **Review count LEADS** — one 5.0 from one person must not lead a menu. A dish with NO line is excluded (an abandoned "add a new dish" shell); an unscored dish WITH a line stays. 4-part keyset |
 | `dish_summary(dish)` | dish + place + aggregates + `photos` (`photos[0].url` == `cover_url`) + the viewer's `saved` / `my_last_score`. A dish's "orders" IS `review_count`: one entry prints one line per dish |
 | `get_dish_reviews(dish, …)` | one row per LINE, the caller's own first then newest (3-part keyset). `entry_id` is **NULL on a pre-entries line**; `photos[]` is the review's ENTRY's, so it can hold another dish's photo |
 | `get_entries_at_place(place, scope, …)` | `setof entry_cards` — the ONE entry shape, never review rows. `scope ∈ mine\|others\|all` |
@@ -197,3 +196,4 @@ their own `score`/`note` — the sanctioned path, recorded by the correction tri
 | 0026–0027 | `entry_photo_covers.sql` · `unsave_entry_dishes.sql` | `dish_cover_url`/`restaurant_cover_url` (covers now see `entry_photos`); `my_saved_dishes` + `cover_url`; `entry_cards.items[]` + `cover_url`; `unsave_entry_dishes` + the Saved keyset index |
 | 0028 | `report_reason.sql` | `reports_reason_ck` (NOT VALID) + reason normalisation in `report_entry`/`report_profile` |
 | 0029 | `detail_you_reads.sql` | the Place/Dish/You/Ratings/Recap audit: `place_locality`, `dish_photos`; `place_summary` + `locality`/`entry_count`; `dish_summary` + `photos`/`restaurant_locality`; `dishes_by_score` + `cover_url` + cursor; cursors on `place_dishes`/`statement_months`; `profile_summary` counts lines by `reviewer_id`; `monthly_statement` + `username`, no x1 "most ordered" |
+| 0030 | `place_dishes_order.sql` | "what to order" becomes the ported `DishRanking` order (review_count desc → score desc nulls last → name → id), never-logged dishes excluded, keyset rewritten to match (`p_cursor_people` → `p_cursor_review_count`) |
