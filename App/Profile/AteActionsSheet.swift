@@ -17,21 +17,33 @@ struct AteActionsSheet: View {
     let blockTitle: String
     /// Absent on a profile.
     var onSavePlace: (() -> Void)?
-    /// What to hand the share sheet — a link to a profile, or the receipt an entry printed. An
-    /// empty array cancels quietly, which is what a receipt that has not printed yet means.
+    /// What to hand the system share sheet directly — a link to a profile. An empty array cancels
+    /// quietly. Ignored when ``onShareReceipt`` answers with an artefact.
     var onShare: () -> [Any]
+    /// An entry's share card, when this sheet is about an entry. It presents the **same** `Share`
+    /// screen the entry page's share icon does — one action, one artefact, everywhere it appears
+    /// (AGENTS.md rule 2).
+    var onShareReceipt: (() -> ShareArtefact?)?
+    /// Where `receipt_shared` is sent from. Only used on the receipt path.
+    var analytics: AnalyticsRecorder = { _ in }
     var onReport: () -> Void
     var onBlock: () -> Void
 
     @State private var isConfirmingReport = false
     @State private var isConfirmingBlock = false
     @State private var sharing: SharePayload?
+    @State private var sharingReceipt: SharingReceipt?
     @Environment(\.dismiss) private var dismiss
 
     /// What is being sent — `Identifiable` so it can present a sheet.
     private struct SharePayload: Identifiable {
         let id = UUID()
         let items: [Any]
+    }
+
+    private struct SharingReceipt: Identifiable {
+        let artefact: ShareArtefact
+        var id: UUID { artefact.entryID ?? UUID() }
     }
 
     var body: some View {
@@ -44,6 +56,10 @@ struct AteActionsSheet: View {
                     }
                 }
                 row(icon: .share, title: "Share") {
+                    if let artefact = onShareReceipt?() {
+                        sharingReceipt = SharingReceipt(artefact: artefact)
+                        return
+                    }
                     let items = onShare()
                     guard items.isEmpty == false else { return }
                     sharing = SharePayload(items: items)
@@ -71,6 +87,9 @@ struct AteActionsSheet: View {
         }
         .sheet(item: $sharing) { payload in
             ShareSheet(items: payload.items)
+        }
+        .fullScreenCover(item: $sharingReceipt) { sharing in
+            ShareScreen(artefact: sharing.artefact, source: .actions, analytics: analytics)
         }
     }
 

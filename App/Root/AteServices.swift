@@ -25,6 +25,8 @@ struct AteServices {
     let saves: any DishSaving
     /// Somebody else's page, and the two things you can do about them.
     let profiles: any ProfileReading
+    /// What the You tab gives back: the histogram, a bar's dishes, and the monthly statements.
+    let stats: any StatsReading
     /// The one place a bookmark's new state is announced. Everything that draws one listens, so a
     /// save made on an entry page is already true on the feed and the profile underneath it.
     let savedDishes = SavedDishBroadcast()
@@ -54,6 +56,7 @@ struct AteServices {
         self.feed = preview?.feed ?? EntryFeedClient(api: api)
         self.saves = preview?.saves ?? SaveClient(api: api)
         self.profiles = preview?.profiles ?? ProfileClient(api: api)
+        self.stats = preview?.stats ?? StatsClient(api: api)
         self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record)
     }
 
@@ -81,6 +84,7 @@ struct AteServices {
         let feed: any EntryFeedReading
         let saves: any DishSaving
         let profiles: any ProfileReading
+        let stats: any StatsReading
     }
 
     private static func previewServices() -> PreviewServices? {
@@ -97,7 +101,7 @@ struct AteServices {
             : InMemoryEntryService.seeded(others: social)
         return PreviewServices(
             entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
-            feed: social, saves: social, profiles: social
+            feed: social, saves: social, profiles: social, stats: InMemoryStatsService()
         )
         #else
         return nil

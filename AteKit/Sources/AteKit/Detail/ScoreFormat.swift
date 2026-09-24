@@ -34,6 +34,12 @@ public enum ScoreFormat {
         "\(average(score))/5"
     }
 
+    /// How many dishes sit at a score — the Ratings screen's own count line ("36 dishes"). Singular
+    /// at one, because "1 dishes" is how a screen tells you nobody read it.
+    public static func dishCount(_ count: Int) -> String {
+        count == 1 ? "1 dish" : "\(max(0, count)) dishes"
+    }
+
     /// Review-count line for a header. Unrated dishes get the invitation, not "0 reviews".
     public static func reviewCount(_ count: Int) -> String {
         switch count {

@@ -38,16 +38,48 @@ struct AteExactText: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.atePalette) private var palette
+    @Environment(\.ateIsSnapshotting) private var isSnapshotting
 
     var body: some View {
-        TitleLabel(
-            text: text,
-            font: AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize),
-            lineHeight: style.lineHeight,
-            trackingEm: style.trackingEm,
-            alignment: alignment,
-            colour: colour ?? palette.fg
-        )
+        if isSnapshotting {
+            // `ImageRenderer` cannot draw a `UIViewRepresentable` — it paints an "unsupported view"
+            // placeholder over it, which is how a shared receipt lost every dish note. So a snapshot
+            // falls back to a plain `Text`: it cannot clamp a line box *tighter* than the font, but
+            // a note set a point loose is a receipt, and a yellow warning stripe is not.
+            Text(text)
+                .ateText(style)
+                .multilineTextAlignment(alignment)
+                .foregroundStyle(colour ?? palette.fg)
+                .frame(maxWidth: .infinity, alignment: alignment.frameAlignment)
+        } else {
+            TitleLabel(
+                text: text,
+                font: AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize),
+                lineHeight: style.lineHeight,
+                trackingEm: style.trackingEm,
+                alignment: alignment,
+                colour: colour ?? palette.fg
+            )
+        }
+    }
+}
+
+extension EnvironmentValues {
+    /// True while the subtree is being drawn into an image rather than onto the screen.
+    ///
+    /// Set by ``ShareImage`` and read by anything that reaches for UIKit: `ImageRenderer` renders a
+    /// `UIViewRepresentable` as a placeholder, so the components that use one need a pure-SwiftUI
+    /// way to draw themselves for the artefact that actually leaves the app.
+    @Entry var ateIsSnapshotting: Bool = false
+}
+
+private extension TextAlignment {
+    var frameAlignment: Alignment {
+        switch self {
+        case .leading: .leading
+        case .trailing: .trailing
+        default: .center
+        }
     }
 }
 

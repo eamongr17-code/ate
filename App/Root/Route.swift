@@ -19,11 +19,15 @@ enum Route: Hashable {
     case place(UUID)
     /// Slice 2.
     case dish(UUID)
+    /// One bar of your own histogram, opened — the dishes you gave that score.
+    case ratings(score: Double)
+    /// A month, totalled and printed.
+    case statement(StatementMonth)
 
     /// Whether this destination exists yet.
     var isBuilt: Bool {
         switch self {
-        case .entry, .suggestions, .profile: true
+        case .entry, .suggestions, .profile, .ratings, .statement: true
         case .place, .dish: false
         }
     }

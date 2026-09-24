@@ -28,6 +28,12 @@ enum ComposerDebugLaunch {
     static let savedArgument = "-ate-open-saved"
     /// …and pushes the first feed author's page on top of the feed.
     static let profileArgument = "-ate-open-profile"
+    /// The You tab, and the two pages that hang off it.
+    static let youArgument = "-ate-open-you"
+    static let ratingsArgument = "-ate-open-ratings"
+    static let recapArgument = "-ate-open-recap"
+    /// …and `Share`, on the newest entry's receipt.
+    static let shareArgument = "-ate-open-share"
 
     /// Shows `Welcome` even when this build has a session — the one screen you cannot reach once
     /// you are signed in.
@@ -60,6 +66,10 @@ enum ComposerDebugLaunch {
     static var opensFeed: Bool { has(feedArgument) || has(profileArgument) }
     static var opensSaved: Bool { has(savedArgument) }
     static var opensProfile: Bool { has(profileArgument) }
+    static var opensYou: Bool { has(youArgument) || has(ratingsArgument) || has(recapArgument) }
+    static var opensRatings: Bool { has(ratingsArgument) }
+    static var opensRecap: Bool { has(recapArgument) }
+    static var opensShare: Bool { has(shareArgument) }
 
     /// Writes the seeded draft before the composer reads it — or wipes whatever a previous run left.
     static func seedDraftIfRequested(into drafts: any EntryDraftStoring) {

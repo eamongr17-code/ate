@@ -41,6 +41,18 @@ public enum EntryCorrection: String, Sendable, CaseIterable, Codable {
     case dish
 }
 
+/// Where a receipt was sent from. A closed set, because the north-star question is *which surface
+/// actually produces shares*: the entry page's share icon, the actions sheet behind a slip's "…",
+/// or a monthly statement.
+public enum ReceiptShareSource: String, Sendable, CaseIterable, Codable {
+    /// The share icon on the entry page.
+    case entry
+    /// The Share row in the actions sheet — the feed, the journal, a profile.
+    case actions
+    /// The share icon on a monthly statement (`Recap`).
+    case statement
+}
+
 /// **The core loop's funnel**, built here so the names and parameters are asserted by tests and can
 /// never drift, and sent by the app target's ``AnalyticsRecorder``.
 ///
@@ -148,9 +160,17 @@ public enum EntryEvents {
         AnalyticsEvent(name: "entry_corrected", parameters: ["part": part.rawValue])
     }
 
-    /// The receipt left the app. The loop's last step (PRODUCT.md — "the receipt is the marketing").
-    public static func receiptShared() -> AnalyticsEvent {
-        AnalyticsEvent(name: "receipt_shared")
+    /// The receipt left the app. The loop's last step (PRODUCT.md — "the receipt is the marketing"),
+    /// and the north-star event, which is why it carries **which** receipt and **where the share
+    /// started**: the share sheet, the actions sheet and a monthly statement are three different
+    /// products wearing one button.
+    ///
+    /// `entry_id` is absent for a statement, which is a receipt with no entry behind it — an empty
+    /// string would read as a real id in a query.
+    public static func receiptShared(entryID: UUID?, source: ReceiptShareSource) -> AnalyticsEvent {
+        var parameters = ["source": source.rawValue]
+        if let entryID { parameters["entry_id"] = entryID.uuidString.lowercased() }
+        return AnalyticsEvent(name: "receipt_shared", parameters: parameters)
     }
 
     private static func flag(_ value: Bool) -> String { value ? "true" : "false" }
