@@ -89,16 +89,13 @@ struct PlaceDishContractTests {
         #expect(dishes.allSatisfy { $0.reviewCount >= 0 && $0.peopleCount >= 0 })
         #expect(dishes.allSatisfy { ($0.score ?? 1) > 0 }, "unrated is nil, never 0")
         #expect(Set(dishes.map(\.dishID)).count == dishes.count, "one row per dish")
-        // The page shows the SERVER's order — score desc, unscored last, then people desc. It is
-        // paged (0029), so it cannot be re-sorted on arrival; see `MenuDishCursor`.
-        let ordered = zip(dishes, dishes.dropFirst()).allSatisfy { first, second in
-            switch (first.score, second.score) {
-            case let (left?, right?) where left != right: left > right
-            case (.none, .some): false
-            default: true
-            }
-        }
-        #expect(ordered, "score desc, unscored last")
+        // 0030 moved the product's ranking rule into the `ORDER BY`, which is the only place a
+        // paged list can hold one. This is the assertion that keeps it there: the rows come back
+        // already in `DishRanking`'s order, so the page never sorts and never has to.
+        #expect(DishRanking.rank(dishes).map(\.dishID) == dishes.map(\.dishID),
+                "the server's order IS DishRanking's: review_count desc, score desc nulls last")
+        // …and a dish nobody has written about is not on the menu at all.
+        #expect(dishes.allSatisfy { $0.reviewCount > 0 }, "never-logged dishes are not returned")
     }
 
     @Test("get_entries_at_place walks each scope, keyset, without repeating an entry")

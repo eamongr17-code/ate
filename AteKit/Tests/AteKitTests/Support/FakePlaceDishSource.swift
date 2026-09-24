@@ -79,9 +79,11 @@ final class FakePlaceDishSource: PlacePageReading, DishPageReading, @unchecked S
         try lock.withLock {
             if let failure = state.menuFailure { throw failure }
             state.menuCursors.append(cursor)
-            // Seeded rows are handed back in the order they were seeded — the fake stands in for
-            // the server's ORDER BY, and the store must not reorder what it is given.
-            let rows = state.dishes[restaurantID] ?? []
+            // The fake stands in for the server's ORDER BY, which since 0030 is DishRanking's
+            // rule — so a test can seed in any order and still assert the product order, and the
+            // store is proved not to reorder what it is handed.
+            // …and a dish nobody has written about is not on the menu at all (0030).
+            let rows = DishRanking.rank((state.dishes[restaurantID] ?? []).filter { $0.reviewCount > 0 })
             let remaining = cursor.map { cursor in
                 Array(rows.drop { $0.dishID != cursor.dishID }.dropFirst())
             } ?? rows

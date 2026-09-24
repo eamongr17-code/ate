@@ -40,6 +40,11 @@ struct EntryScreen: View {
 
     @State private var model: EntryModel
     @State private var isShowingActions = false
+    #if DEBUG || BETA
+    /// The one genuinely uncertain interaction on this page, shipped as both answers
+    /// (``AteVariants``). Held as state so flipping it redraws the page under the menu.
+    @State private var variants = AteVariants.shared
+    #endif
     @Environment(\.dismiss) private var dismiss
 
     init(
@@ -157,14 +162,20 @@ struct EntryScreen: View {
         }
     }
 
-    /// The place, at 38. **Tapping it opens the place's page**; long-pressing it opens
-    /// ``PlaceSheet``, which changes the place and re-resolves every line at the new one. The
-    /// correction is still the author's and still one gesture away — it simply no longer owns the
-    /// tap, now that the place has a page of its own to be.
+    /// **The place, at 38 — and the open question.**
+    ///
+    /// It goes two places: the place's own page, and ``PlaceSheet``, which changes the place and
+    /// re-resolves every line at the new one. Which of them the *tap* opens is genuinely uncertain
+    /// — the artboard wired the tap to the sheet, before those pages existed — so both are built
+    /// and ``AteVariants/entryTapOpensDetail`` picks (AGENTS.md: two working variants, decided
+    /// on-device). The other is always one long press away, with a word on it.
+    ///
+    /// Somebody else's entry has no correction, so its title always opens the page.
     private func title(_ place: EntryCard.Place, isMine: Bool) -> some View {
-        Button {
-            onPlace(place.id)
-        } label: {
+        let openPage = { onPlace(place.id) }
+        let correct = { model.isCorrectingPlace = true }
+        let tapOpensPage = isMine == false || tapOpensDetail
+        return Button(action: tapOpensPage ? openPage : correct) {
             AteExactText(text: place.name, style: .entryPlace, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(.rect)
@@ -172,12 +183,37 @@ struct EntryScreen: View {
         .buttonStyle(.plain)
         .contextMenu {
             if isMine {
-                Button("Change the place") { model.isCorrectingPlace = true }
+                Button(tapOpensPage ? "Change the place" : "Open \(place.name)") {
+                    tapOpensPage ? correct() : openPage()
+                }
             }
+            variantSwitch
         }
         .accessibilityLabel(place.name)
         .accessibilityAddTraits(.isHeader)
         .accessibilityIdentifier("entry.place")
+    }
+
+    /// Which gesture owns a tap on the title and on a bill line. Always `true` in a Release build:
+    /// the variant machinery does not exist there, and the default is the one that ships.
+    private var tapOpensDetail: Bool {
+        #if DEBUG || BETA
+        variants.entryTapOpensDetail
+        #else
+        true
+        #endif
+    }
+
+    /// The toggle itself, in the menu it is about — the gallery carries the same switch, but the
+    /// gallery is not reachable from a TestFlight build and this page is. Debug and Beta only.
+    @ViewBuilder
+    private var variantSwitch: some View {
+        #if DEBUG || BETA
+        Divider()
+        Button(variants.entryTapSwitchTitle) {
+            variants.entryTapOpensDetail.toggle()
+        }
+        #endif
     }
 
     @ViewBuilder
@@ -213,7 +249,8 @@ struct EntryScreen: View {
                 items: receipt.items,
                 onOpen: { item in item.dishID.map(onDish) },
                 onCorrect: model.isMine ? { model.correcting = EntryModel.Correcting(item: $0) } : nil,
-                onSave: model.isMine ? nil : { item in Task { await model.toggleSave(item: item) } }
+                onSave: model.isMine ? nil : { item in Task { await model.toggleSave(item: item) } },
+                tapOpensDetail: tapOpensDetail
             )
         case .pending, .failed:
             EntryPendingBill(state: model.state) {

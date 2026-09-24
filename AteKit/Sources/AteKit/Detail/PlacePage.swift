@@ -127,8 +127,8 @@ public struct MenuDish: Sendable, Hashable, Codable, Identifiable, DishRankable 
     public let score: Double?
     /// How many different people have scored it — the number the artboard prints under the name.
     public let peopleCount: Int
-    /// How many reviews it has. Conforms this row to ``DishRankable`` — **but the page does not
-    /// re-rank**, see ``MenuDishCursor``.
+    /// How many reviews it has — **the column the list is ordered by** (0030), and the first part
+    /// of its cursor. One 5.0 from one person does not outrank a 4.4 from twelve.
     public let reviewCount: Int
     public let coverURLString: String?
 
@@ -138,7 +138,7 @@ public struct MenuDish: Sendable, Hashable, Codable, Identifiable, DishRankable 
 
     /// Where this row sits in the stream, for the next page's request.
     public var pageCursor: MenuDishCursor {
-        MenuDishCursor(score: score, peopleCount: peopleCount, name: name, dishID: dishID)
+        MenuDishCursor(reviewCount: reviewCount, score: score, name: name, dishID: dishID)
     }
 
     public init(
@@ -167,24 +167,23 @@ public struct MenuDish: Sendable, Hashable, Codable, Identifiable, DishRankable 
     }
 }
 
-/// **A four-part keyset**, because `place_dishes` orders `score desc nulls last, people_count desc,
-/// dish_name, dish_id` — four columns, so four values from the last row (0029).
+/// **A four-part keyset**, because `place_dishes` orders `review_count desc, score desc nulls last,
+/// lower(dish_name), dish_id` — four columns, so four values from the last row (0030).
 ///
-/// **This is why the client does not re-rank the menu.** ``DishRanking`` would put the
-/// most-reviewed dish first rather than the best-scored one, which is the better answer to "what
-/// should I order here?" — but a list you page cannot be reordered on arrival without the second
-/// page interleaving into the first. The order has to be settled in the `ORDER BY`, not on the
-/// client; until it is, the page shows the server's order exactly as sent.
+/// **That order is ``DishRanking``'s**, settled where it belongs: in the `ORDER BY`. The client
+/// therefore does not sort the menu at all, and must not start — a list you page cannot be
+/// reordered on arrival without the second page interleaving into the first. `DishRanking` remains
+/// the written statement of the rule, and the contract test asserts the server still obeys it.
 public struct MenuDishCursor: Sendable, Hashable, Codable {
+    public let reviewCount: Int
     /// Nullable: unscored dishes sort last, and the cursor has to be able to sit among them.
     public let score: Double?
-    public let peopleCount: Int
     public let name: String
     public let dishID: UUID
 
-    public init(score: Double?, peopleCount: Int, name: String, dishID: UUID) {
+    public init(reviewCount: Int, score: Double?, name: String, dishID: UUID) {
+        self.reviewCount = reviewCount
         self.score = score
-        self.peopleCount = peopleCount
         self.name = name
         self.dishID = dishID
     }
@@ -243,8 +242,8 @@ public protocol PlacePageReading: Sendable {
 
 /// The live place reads: `place_summary`, `place_dishes`, `get_entries_at_place`.
 ///
-/// Thin by design: it fetches, and every ordering decision is the server's. See ``MenuDishCursor``
-/// for why the menu is *not* re-ranked here even though ``DishRanking`` disagrees with it.
+/// Thin by design: it fetches, and every ordering decision is the server's — which since 0030 is
+/// ``DishRanking``'s rule, so there is nothing left to disagree about. See ``MenuDishCursor``.
 public struct PlacePageClient: PlacePageReading {
     /// `place_dishes` clamps `p_limit` at 200. A real menu fits inside one page of that; the cursor
     /// exists so a pathological one still walks rather than silently stopping at 200.
@@ -285,13 +284,13 @@ public struct PlacePageClient: PlacePageReading {
             "p_restaurant_id": .string(restaurantID.uuidString.lowercased()),
             "p_limit": .integer(limit)
         ]
-        // The four cursor parameters are only sent when there IS a cursor — so the first page is the
-        // same call it was before 0029, and a project that has not taken the migration still serves
-        // it. `p_cursor_score` is legitimately null for an unscored dish, which is why the cursor's
-        // presence is what decides, never the value's.
+        // The four cursor parameters are only sent when there IS a cursor, so the first page is the
+        // same call it has always been and a project mid-migration still serves it. `p_cursor_score`
+        // is legitimately null for an unscored dish, which is why the cursor's *presence* is what
+        // decides here, never the value's.
         if let cursor {
+            parameters["p_cursor_review_count"] = .integer(cursor.reviewCount)
             parameters["p_cursor_score"] = cursor.score.map { .double($0) } ?? .null
-            parameters["p_cursor_people"] = .integer(cursor.peopleCount)
             parameters["p_cursor_dish_name"] = .string(cursor.name)
             parameters["p_cursor_dish_id"] = .string(cursor.dishID.uuidString.lowercased())
         }

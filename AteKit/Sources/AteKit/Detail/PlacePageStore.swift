@@ -36,7 +36,8 @@ public final class PlacePageStore {
 
     public private(set) var header: Header = .loading
     public private(set) var menu: Menu = .loading
-    /// The menu, in the server's own order — see ``MenuDishCursor`` for why it is not re-ranked.
+    /// The menu, in the order the server sends it — which is ``DishRanking``'s (0030). Not sorted
+    /// here, and it must not start being: see ``MenuDishCursor``.
     public private(set) var dishes: [MenuDish] = []
     /// The viewer's own entries here — "Your N visits". Private entries included; they are yours.
     public let visits: EntryListStore
@@ -197,7 +198,7 @@ public final class PlacePageStore {
     }
 
     /// Appends, dropping ids already on screen — a duplicate id in a SwiftUI list is a crash, not a
-    /// cosmetic bug. **No re-sort:** the order is the server's (see ``MenuDishCursor``).
+    /// cosmetic bug. **No re-sort:** the order arrived correct (see ``MenuDishCursor``).
     private func append(_ page: MenuDishPage) {
         dishes.append(contentsOf: page.items.filter { seenDishIDs.insert($0.dishID).inserted })
         nextMenuCursor = page.nextCursor

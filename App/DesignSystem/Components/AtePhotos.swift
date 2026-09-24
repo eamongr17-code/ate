@@ -125,11 +125,13 @@ struct PhotoCluster: View {
     /// How far the tiles overlap. 12 in a slip's 80pt cluster; the dish page's hero is 150pt and
     /// laps 44, because an overlap is a fraction of the photo and not an absolute.
     var overlap: CGFloat = AteMetrics.clusterOverlap
+    /// The tilt, per position. Defaults to ``AtePhotoAngles/slip`` — a slip's, the composer's and
+    /// the share card's cluster. **Parity is per artboard**, so a screen whose markup writes
+    /// different numbers passes its own (the dish hero's ``AtePhotoAngles/dishHero``) rather than
+    /// forking the component or living with a degree of drift.
+    var angles: [Double] = AtePhotoAngles.slip
 
     @Environment(\.atePalette) private var palette
-
-    /// The prototype's angles, repeating for a fourth and fifth photo.
-    private static let angles: [Double] = [-5, 4, -2, 6, -3]
 
     var body: some View {
         HStack(spacing: -overlap) {
@@ -139,7 +141,7 @@ struct PhotoCluster: View {
                     side: side,
                     ring: photos.count > 1 ? (surface ?? palette.ground) : nil
                 )
-                    .rotationEffect(.degrees(Self.angles[index % Self.angles.count]))
+                    .rotationEffect(.degrees(angle(at: index)))
                     .zIndex(Double(photos.count - index))
             }
         }
@@ -151,6 +153,22 @@ struct PhotoCluster: View {
         .accessibilityElement()
         .accessibilityLabel(photos.count == 1 ? "1 photo" : "\(photos.count) photos")
     }
+
+    /// Fixed per position rather than random, so the same entry always looks the same — a cluster
+    /// that re-shuffles as the list scrolls past is noise, not character.
+    private func angle(at index: Int) -> Double {
+        guard angles.isEmpty == false else { return 0 }
+        return angles[index % angles.count]
+    }
+}
+
+/// The tilts the artboards draw, named by the screen that draws them. A view asks for a cluster's
+/// role; it never writes a number.
+enum AtePhotoAngles {
+    /// `design/v1`'s slip, composer and share clusters, repeating for a fourth and fifth photo.
+    static let slip: [Double] = [-5, 4, -2, 6, -3]
+    /// `Dish.dc.html`'s 150pt hero pair: `rotate(-6deg)` then `rotate(4deg)`.
+    static let dishHero: [Double] = [-6, 4]
 }
 
 /// **The entry page's collage** — the mess at its largest (design rule 6).

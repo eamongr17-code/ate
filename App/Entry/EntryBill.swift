@@ -8,22 +8,24 @@ import SwiftUI
 /// under each dish says the same thing twice. The notes stay on the share receipt, which travels
 /// without them.
 ///
-/// **Tap a line and it opens the dish's page; long-press it and it opens ``DishSheet``**
-/// (`entry_corrected`, `part=dish`). The correction did not go away — the structure is still Ate's
-/// guess and the person still has the last word on all of it — it moved to the gesture that does
-/// not compete with a destination the dish now actually has.
+/// **A line does two things and the open question is which one owns the tap.** The dish has a page
+/// now, and it also still has ``DishSheet`` (`entry_corrected`, `part=dish`) — the structure is
+/// Ate's guess and the person has the last word on all of it. `tapOpensDetail` decides: on, a tap
+/// opens the page and a long press corrects; off, the artboard's original wiring, a tap corrects
+/// and a long press opens the page. Both destinations are always one gesture away.
+///
+/// Somebody else's entry has no correction at all, so its lines always open the dish.
 struct EntryBill: View {
     let items: [AteReceipt.Item]
-    /// **Tapping a line opens the dish.** A line item names a dish, and a dish has a page — the
-    /// same page the feed's slips and the place's menu open, so the tap means one thing everywhere.
+    /// The dish's page — the same page the feed's slips and the place's menu open.
     var onOpen: ((AteReceipt.Item) -> Void)?
-    /// **Long-pressing it corrects it** — `DishSheet`, on your own entry only. The structure is
-    /// still Ate's guess and the person still has the last word on it; what changed is only which
-    /// gesture asks, because the primary tap now has a page to go to.
+    /// The correction — `DishSheet`, on your own entry only.
     var onCorrect: ((AteReceipt.Item) -> Void)?
     /// Present on somebody else's entry: every line is a dish you can put on your own shelf, and a
     /// save is always one dish (PRODUCT.md decision 7).
     var onSave: ((AteReceipt.Item) -> Void)?
+    /// Which gesture owns the tap. See the type note; `true` is the default variant.
+    var tapOpensDetail = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -40,15 +42,16 @@ struct EntryBill: View {
     @ViewBuilder
     private func line(_ item: AteReceipt.Item, number: Int) -> some View {
         let row = EntryBillRow(number: number, name: item.name, score: item.score)
+        let open = item.dishID == nil ? nil : onOpen
+        // With no correction to offer (somebody else's entry) the page always owns the tap; with no
+        // page to go to (a line whose dish never resolved) the correction does.
+        let primary = tapOpensDetail ? (open ?? onCorrect) : (onCorrect ?? open)
+        let secondary = tapOpensDetail ? (open == nil ? nil : onCorrect) : (onCorrect == nil ? nil : open)
         HStack(spacing: AteMetrics.regular) {
-            if let onOpen, item.dishID != nil {
-                Button { onOpen(item) } label: { row.contentShape(.rect) }
+            if let primary {
+                Button { primary(item) } label: { row.contentShape(.rect) }
                     .buttonStyle(.plain)
-                    .contextMenu { correction(item) }
-            } else if let onCorrect {
-                Button { onCorrect(item) } label: { row.contentShape(.rect) }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Change the dish")
+                    .contextMenu { secondaryAction(item, secondary) }
             } else {
                 row
             }
@@ -58,13 +61,15 @@ struct EntryBill: View {
         }
     }
 
-    /// The correction, moved onto a long press now that the tap opens the dish. Labelled here and
-    /// nowhere else: a context menu is the one place in this design where a word is allowed,
-    /// because a menu item with no label is not a control.
+    /// Whichever of the two the tap did not take. Labelled — a context menu is the one place in
+    /// this design where a word is required, because a menu item with no label is not a control.
     @ViewBuilder
-    private func correction(_ item: AteReceipt.Item) -> some View {
-        if let onCorrect {
-            Button("Change the dish") { onCorrect(item) }
+    private func secondaryAction(
+        _ item: AteReceipt.Item,
+        _ action: ((AteReceipt.Item) -> Void)?
+    ) -> some View {
+        if let action {
+            Button(tapOpensDetail ? "Change the dish" : "Open the dish") { action(item) }
         }
     }
 

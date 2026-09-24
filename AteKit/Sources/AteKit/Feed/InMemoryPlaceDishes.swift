@@ -66,25 +66,13 @@ extension InMemorySocialService: PlacePageReading, DishPageReading {
                 coverURLString: rows.compactMap { $0.entry.photos.first?.url }.first
             )
         }
-        // The server's own order: score desc (unscored last), people desc, name, id.
-        let ordered = dishes.sorted { Self.menuKey(for: $0) < Self.menuKey(for: $1) }
+        // The server's own order since 0030 — which is DishRanking's rule, so the pure type that
+        // states it is the one that sorts here too. A dish nobody has reviewed is not on the menu.
+        let ordered = DishRanking.rank(dishes.filter { $0.reviewCount > 0 })
         let remaining = cursor.map { cursor in
-            ordered.filter { Self.menuKey(for: $0) > Self.cursorKey(cursor) }
+            Array(ordered.drop { $0.dishID != cursor.dishID }.dropFirst())
         } ?? ordered
         return MenuDishPage(items: Array(remaining.prefix(max(1, pageSize))), requestedLimit: pageSize)
-    }
-
-    // `score desc nulls last, people_count desc, dish_name, dish_id` as one ascending key: an
-    // unscored dish sorts after every scored one, which is what `nulls last` means.
-    // swiftlint:disable:next large_tuple
-    private static func menuKey(for dish: MenuDish) -> (Int, Double, Int, String) {
-        (dish.score == nil ? 1 : 0, -(dish.score ?? 0), -dish.peopleCount, dish.name + dish.dishID.uuidString)
-    }
-
-    // swiftlint:disable:next large_tuple
-    private static func cursorKey(_ cursor: MenuDishCursor) -> (Int, Double, Int, String) {
-        (cursor.score == nil ? 1 : 0, -(cursor.score ?? 0), -cursor.peopleCount,
-         cursor.name + cursor.dishID.uuidString)
     }
 
     public func entriesAtPlace(

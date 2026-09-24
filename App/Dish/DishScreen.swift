@@ -83,7 +83,8 @@ struct DishScreen: View {
                 side: Self.heroPhoto,
                 topPadding: 6,
                 bottomPadding: 0,
-                overlap: Self.heroOverlap
+                overlap: Self.heroOverlap,
+                angles: AtePhotoAngles.dishHero
             )
             // The cluster already insets 6 for its own tilt; the artboard's is 8.
             .padding(.leading, AteMetrics.gutter - 6 + 2)
