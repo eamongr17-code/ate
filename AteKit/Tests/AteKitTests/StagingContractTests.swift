@@ -289,7 +289,10 @@ struct StagingContractTests {
         // The trap the brief names: staging really does serve these rows.
         let unrated = try await client.fetchAll(DishStats.self) { $0.is("score", value: nil).limit(5) }
         #expect(unrated.isEmpty == false)
-        #expect(unrated.allSatisfy { $0.score == nil && $0.reviewCount == 0 && $0.isRated == false })
+        #expect(unrated.allSatisfy { $0.score == nil && $0.isRated == false })
+        // Since 0018 an unscored LINE is the normal case, so an unrated dish usually has reviews;
+        // the seed keeps at least one such dish (Affogato at Tipo 00) so this stays exercised.
+        #expect(unrated.contains { $0.reviewCount > 0 }, "no unrated dish with a line on staging — reseed one")
 
         // The view keys on dish_id, not id — proves AteRecord.primaryKeyColumn.
         let one = try #require(rated.first)
