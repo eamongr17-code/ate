@@ -90,6 +90,16 @@ struct StagingContractTests {
     /// `count=exact`. The walk tests use this instead of a floor copied off the seed: the same
     /// `reviews_select_visible` policy (0019) governs this count and the feed/diary select, so the
     /// number is the contract — "walked everything" stays true as staging grows.
+    /// Every review id the viewer can read right now, in one request. Staging holds a few hundred
+    /// rows; the 5,000 cap is far above that and fails loudly (not silently) if it is ever reached.
+    func visibleReviewIDs(_ client: AteAPIClient) async throws -> Set<UUID> {
+        struct IDRow: Decodable { let id: UUID }
+        let rows: [IDRow] = try await client.supabase.from(Review.table).select("id")
+            .range(from: 0, to: 4_999).execute().value
+        try #require(rows.count < 5_000, "visibleReviewIDs hit its cap; page it")
+        return Set(rows.map(\.id))
+    }
+
     func visibleReviewCount(
         _ client: AteAPIClient,
         refine: @Sendable (PostgrestFilterBuilder) -> PostgrestFilterBuilder = { $0 }
@@ -302,22 +312,14 @@ struct StagingContractTests {
         let me = try await client.requireCurrentUserID()
         let feed = GlobalFeedClient(api: client)
 
-        // The floor is the server's count, not a number lifted from the seed. (It used to be `>= 46`,
-        // the seed's review count when this was written; staging holds far more now, so that floor
-        // had stopped asserting anything about "walks everything".)
-        // The global feed serves reviews on PUBLIC entries (and the legacy rows with no entry).
-        // RLS also lets the viewer read their own private entries' reviews, so the floor is the
-        // visible count minus those — otherwise one private dinner makes "walked everything" false.
-        let visible = try await visibleReviewCount(client)
-        let onPrivate = try #require(
-            try await client.supabase.from(Review.table)
-                .select("id, entries!inner(visibility)", head: true, count: .exact)
-                .eq("entries.visibility", value: "private")
-                .execute().count,
-            "PostgREST returned no count header"
-        )
-        let total = visible - onPrivate
-        #expect(total > 0, "an empty reviews table can't test a feed walk")
+        // Two id snapshots bracket the walk. Staging is written to while CI runs (other contract
+        // suites mint and delete rows; agents re-sort entries), so a single count taken up front is
+        // neither a floor nor a ceiling: a row deleted mid-walk made "seen 138 >= total 139" fail
+        // twice on 2026-09-24 with nothing wrong in the pager. What the walk owes is every row that
+        // existed BOTH before and after it — the ids in both snapshots. Inserts above the cursor
+        // and deletes below it fall out of that intersection by construction.
+        let before = try await visibleReviewIDs(client)
+        #expect(before.isEmpty == false, "an empty reviews table can't test a feed walk")
 
         // Small pages on purpose: the seed has nine clusters of reviews sharing a timestamp to the
         // microsecond, so a small page size guarantees several boundaries land inside a tie.
@@ -326,7 +328,7 @@ struct StagingContractTests {
         var seen: [FeedEntry] = []
         var pages = 0
         // Derived from the count, so a growing staging can't silently truncate the walk into a pass.
-        let pageCap = total / pageSize + 8
+        let pageCap = before.count / pageSize + 8
 
         while let current = request, pages < pageCap {
             let page = try await feed.feedPage(current)
@@ -336,11 +338,12 @@ struct StagingContractTests {
         }
 
         #expect(request == nil, "the walk must end because the stream ran out, not because it hit the cap")
-        // `>=`, not `==`: a row inserted above the cursor mid-walk (staging accrues rows while CI
-        // runs) can never be served by a descending keyset, so the count taken first is a floor.
-        // Dupes and gaps are caught by the id-set and ordering checks, which hold at any count.
-        #expect(seen.count >= total)
-        #expect(Set(seen.map(\.id)).count == seen.count)
+        let after = try await visibleReviewIDs(client)
+        let stable = before.intersection(after)
+        let seenIDs = Set(seen.map(\.id))
+        let skipped = stable.subtracting(seenIDs)
+        #expect(skipped.isEmpty, "the walk skipped rows that existed throughout: \(skipped)")
+        #expect(seenIDs.count == seen.count, "the walk served a row twice")
 
         // Global, not follow-scoped: unlike get_feed, the viewer's own reviews are in it.
         #expect(seen.contains { $0.review.reviewerID == me })
