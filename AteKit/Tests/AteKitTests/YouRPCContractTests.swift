@@ -123,7 +123,11 @@ struct YouRPCContractTests {
             cursor = page.count < Self.pageSize ? nil : page.last
             pages += 1
         } while cursor != nil && pages < 200
-        KeysetWalk.expectMatches(walked.map(\.reviewID), whole.map(\.reviewID), "dishes_by_score")
+        let wholeAfter = try await scoredPage(client, user, fullest.score, size: 500)
+        KeysetWalk.expectMatches(
+            walked.map(\.reviewID), before: whole.map(\.reviewID), after: wholeAfter.map(\.reviewID),
+            "dishes_by_score"
+        )
     }
 
     func scoredPage(
@@ -163,7 +167,11 @@ struct YouRPCContractTests {
             cursor = page.isEmpty ? nil : page.last
             pages += 1
         } while cursor != nil && pages < 240
-        KeysetWalk.expectMatches(walked.map(\.month), whole.map(\.month), "statement_months")
+        let wholeAfter = try await monthsPage(client, user, size: 240)
+        KeysetWalk.expectMatches(
+            walked.map(\.month), before: whole.map(\.month), after: wholeAfter.map(\.month),
+            "statement_months"
+        )
     }
 
     @Test("monthly_statement is the receipt design/v1/Recap prints, and never claims a habit of one")
@@ -235,7 +243,10 @@ struct YouRPCContractTests {
             cursor = page.count < Self.pageSize ? nil : page.last
             pages += 1
         } while cursor != nil && pages < 120
-        KeysetWalk.expectMatches(walked.map(\.id), whole.map(\.id), "journal")
+        let wholeAfter = try await authorPage(client, user, size: 50)
+        KeysetWalk.expectMatches(
+            walked.map(\.id), before: whole.map(\.id), after: wholeAfter.map(\.id), "journal"
+        )
     }
 
     func authorPage(

@@ -64,18 +64,26 @@ enum StagingRPC {
 /// `blocked_with()` then hides that author's profile, entries AND reviews from every read — so a row
 /// that really was in the first page of fifty can legitimately be gone by the time a walk in pages of
 /// two reaches it. (`StagingContractTests` learned the same lesson from the other direction: rows
-/// ARRIVE mid-walk too, which is why its floor is `>=` and not `==`.) A plain `walked == whole` turns
-/// that into a red suite that says "the cursor is broken" when the cursor is perfect — and a contract
-/// suite that cries wolf is how a real breakage gets ignored.
+/// ARRIVE mid-walk too.) A plain `walked == whole` turns that into a red suite that says "the cursor
+/// is broken" when the cursor is perfect — and a contract suite that cries wolf is how a real
+/// breakage gets ignored.
 ///
-/// The two properties that are actually about the cursor, and that hold either way:
-///  1. **it repeats nothing** — the same row twice is a cursor that failed to advance;
-///  2. **restricted to the rows BOTH reads could see, the walk IS the whole read, in order** — a
-///     skipped or reordered row inside the stable set still fails, which is the bug worth catching.
+/// **The trap this went through once:** intersecting with the WALK (`Set(walked) ∩ whole`) makes the
+/// assertion unfalsifiable — a row the cursor drops is missing from `walked`, so it leaves the
+/// intersection and the comparison passes. That removes exactly the failure the test exists for.
+/// The stable set has to be established by the DATABASE, not by the walk's own output.
+///
+/// So `whole` is read TWICE, before and after the walk, and the contract is:
+///  1. **the walk repeats nothing** — the same row twice is a cursor that failed to advance;
+///  2. **every row that existed throughout (`before ∩ after`) appears in the walk, in `before`'s
+///     relative order** — a dropped row is in the stable set and not in the walk, so a skip fails;
+///     so does a reorder. Rows that only left, or only arrived, fall out of the stable set by
+///     construction and can no longer make a correct cursor look broken.
 enum KeysetWalk {
     static func expectMatches<ID: Hashable>(
         _ walked: [ID],
-        _ whole: [ID],
+        before: [ID],
+        after: [ID],
         _ what: String,
         sourceLocation: SourceLocation = #_sourceLocation
     ) {
@@ -84,10 +92,15 @@ enum KeysetWalk {
             "the \(what) cursor served a row twice",
             sourceLocation: sourceLocation
         )
-        let shared = Set(walked).intersection(whole)
+        let stable = Set(before).intersection(after)
+        let expected = before.filter { stable.contains($0) }
+        let got = walked.filter { stable.contains($0) }
         #expect(
-            walked.filter { shared.contains($0) } == whole.filter { shared.contains($0) },
-            "the \(what) cursor skipped or reordered a row (walked \(walked.count), whole \(whole.count))",
+            got == expected,
+            """
+            the \(what) cursor skipped or reordered a row that was there the whole time \
+            (\(expected.count) stable, \(got.count) of them walked; \(walked.count) walked in all)
+            """,
             sourceLocation: sourceLocation
         )
     }

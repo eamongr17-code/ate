@@ -152,7 +152,13 @@ struct DetailRPCContractTests {
             pages += 1
         } while cursor != nil && pages < 120
 
-        KeysetWalk.expectMatches(walked.map(\.dishID), whole.map(\.dishID), "place_dishes 4-part")
+        // The whole read again, AFTER the walk: the rows present in both snapshots are the ones that
+        // existed throughout, and every one of them must be in the walk (see KeysetWalk).
+        let wholeAfter = try await placeDishPage(client, place: stats.restaurantID, size: 200)
+        KeysetWalk.expectMatches(
+            walked.map(\.dishID), before: whole.map(\.dishID), after: wholeAfter.map(\.dishID),
+            "place_dishes 4-part"
+        )
     }
 
     func placeDishPage(
@@ -186,14 +192,7 @@ struct DetailRPCContractTests {
         let others = try await entriesAtPlace(client, stats.restaurantID, scope: "others", size: 50)
         #expect(mine.allSatisfy { $0.isMine })
         #expect(others.allSatisfy { $0.isMine == false })
-        // Three reads of a moving database: match the count against the 'all' read before OR after.
-        let allAgain = try await entriesAtPlace(client, stats.restaurantID, scope: "all", size: 50)
-        if all.count < 50 {
-            #expect(
-                [all.count, allAgain.count].contains(mine.count + others.count),
-                "mine + others must be all of them"
-            )
-        }
+        // The bracketing 'all' read is taken after the walk below, so one read serves both checks.
 
         var walked: [EntryCard] = []
         var cursor: EntryCard?
@@ -206,7 +205,17 @@ struct DetailRPCContractTests {
             cursor = page.count < Self.pageSize ? nil : page.last
             pages += 1
         } while cursor != nil && pages < 120
-        KeysetWalk.expectMatches(walked.map(\.id), all.map(\.id), "place entries")
+        let allAfter = try await entriesAtPlace(client, stats.restaurantID, scope: "all", size: 50)
+        KeysetWalk.expectMatches(
+            walked.map(\.id), before: all.map(\.id), after: allAfter.map(\.id), "place entries"
+        )
+        // Two reads of a moving database, so the count is matched against 'all' before OR after.
+        if all.count < 50 {
+            #expect(
+                [all.count, allAfter.count].contains(mine.count + others.count),
+                "mine + others must be all of them"
+            )
+        }
     }
 
     func entriesAtPlace(
@@ -293,7 +302,11 @@ struct DetailRPCContractTests {
             cursor = page.count < Self.pageSize ? nil : page.last
             pages += 1
         } while cursor != nil && pages < 120
-        KeysetWalk.expectMatches(walked.map(\.reviewID), whole.map(\.reviewID), "dish reviews 3-part")
+        let wholeAfter = try await dishReviewPage(client, dish: busiest.dishID, size: 50)
+        KeysetWalk.expectMatches(
+            walked.map(\.reviewID), before: whole.map(\.reviewID), after: wholeAfter.map(\.reviewID),
+            "dish reviews 3-part"
+        )
     }
 
     /// A nullable `entry_id` is not a staging quirk: it is every review written before entries
