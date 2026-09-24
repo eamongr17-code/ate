@@ -49,39 +49,53 @@ back to plain text, never to a search.
 
 ## Reads
 
-Every list is keyset-paginated. **Cursor contract:** first page → pass nulls; next page → pass the LAST
-row's `created_at` **and** `id`. Ordering is always `created_at DESC, id DESC`; page size is clamped
-(feeds 50, lists 200–500). No OFFSET anywhere.
+Every list is keyset-paginated; **no OFFSET anywhere.** First page → pass nulls; next page → pass the LAST
+row's key. That key is `(created_at, id)` DESC on every entry and review list (feed, journal, place, dish
+reviews, `dishes_by_score`); the two ranked/grouped lists key on their own order instead —
+`place_dishes` on `(score, people, name, dish_id)`, `statement_months` on `month`. Page sizes are clamped.
 
 | Screen | Call | Returns |
 |---|---|---|
 | Feed | `rpc get_entry_feed(p_cursor_created_at, p_cursor_id, p_page_size, p_include_own)` | `entry_cards[]` — all public entries, blocked users already gone. `p_include_own` defaults **false** (your visits live in Journal) |
 | Journal · Profile | `rpc get_entries_by_author(p_author_id, cursor…, p_page_size)` | `entry_cards[]` — yours includes private; someone else's is public-only (RLS) |
 | Entry · Share | `GET /rest/v1/entry_cards?id=eq.<uuid>` | one `entry_card` |
-| Place — header | `rpc place_summary(p_restaurant_id)` | `{restaurant_id, name, address, city, cuisine, cover_url, avg_rating, review_count, people_count, dish_count, my_visits, my_last_visit}` |
-| Place — what to order | `rpc place_dishes(p_restaurant_id, p_limit)` | `{dish_id, dish_name, score, people_count, review_count, cover_url}[]` — score DESC, unscored last |
+| Place — header | `rpc place_summary(p_restaurant_id)` | `{restaurant_id, name, address, city, cuisine, cover_url, avg_rating, review_count, people_count, dish_count, my_visits, my_last_visit, locality, entry_count}` — **`locality` is the second chip** (`city` is unreliable, see below); `entry_count` = visits here, `review_count` = receipt lines; every text field is `null`, never `''` |
+| Place — what to order | `rpc place_dishes(p_restaurant_id, p_limit, p_cursor_score, p_cursor_people, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, score, people_count, review_count, cover_url}[]` — score DESC (unscored last), then people, then name. **4-part keyset: pass all four from the last row** (`p_cursor_score` may be null) |
 | Place — entries | `rpc get_entries_at_place(p_restaurant_id, p_scope, cursor…)` | `entry_cards[]`; `p_scope ∈ 'all'|'mine'|'others'` |
-| Dish — header | `rpc dish_summary(p_dish_id)` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_city, score, review_count, scored_count, people_count, cover_url, saved, my_last_score}` |
-| Dish — reviews | `rpc get_dish_reviews(p_dish_id, p_cursor_mine, p_cursor_created_at, p_cursor_id, p_page_size)` | `{review_id, entry_id, author{…}, score, note, created_at, is_mine, photos[]}[]` — **mine first**, then newest. Keyset is 3-part: pass `is_mine`, `created_at`, `id` from the last row |
+| Dish — header | `rpc dish_summary(p_dish_id)` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_city, score, review_count, scored_count, people_count, cover_url, saved, my_last_score, photos, restaurant_locality}` — `photos` = `[{url, entry_id}]` newest first for the header stack, `[]` when none, and **`photos[0].url == cover_url`** |
+| Dish — reviews | `rpc get_dish_reviews(p_dish_id, p_cursor_mine, p_cursor_created_at, p_cursor_id, p_page_size)` | `{review_id, entry_id, author{…}, score, note, created_at, is_mine, photos[]}[]` — **mine first**, then newest. Keyset is 3-part: pass `is_mine`, `created_at`, `id` from the last row. **`entry_id` is nullable** (a pre-entries line has no entry to open — decode optional, hide the tap); `photos[]` is the review's ENTRY's |
 | Saved | `GET /rest/v1/my_saved_dishes?order=saved_at.desc,dish_id.desc&limit=N` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_city, dish_score, dish_cover_url, source_entry_id, source_user_id, source_username, saved_at, cover_url}[]` — keyset below; client groups by restaurant |
-| You · Profile header | `rpc profile_summary(p_user_id)` | `{user_id, username, name, avatar_url, bio, city, created_at, orders, places, dishes, scored, avg_score, is_me}` |
+| You · Profile header | `rpc profile_summary(p_user_id)` | `{user_id, username, name, avatar_url, bio, city, created_at, orders, places, dishes, scored, avg_score, is_me}` — `orders`/`places` count ENTRIES, `dishes`/`scored`/`avg_score` count receipt LINES (and now agree with `score_histogram`) |
 | Ratings histogram | `rpc score_histogram(p_user_id)` | 10 rows `{score, dish_count, review_count}` for 0.5…5.0, **zeros included** — draw bars straight from it. The label ("36 dishes") is `dish_count` |
-| Ratings bar tap · "Your 5.0s" | `rpc dishes_by_score(p_user_id, p_score, p_limit)` | `{review_id, entry_id, dish_id, dish_name, restaurant_id, restaurant_name, score, note, created_at}[]`, newest first |
-| Recap picker | `rpc statement_months(p_user_id, p_tz)` | `{month (date), orders}[]`, newest first |
+| Ratings bar tap · "Your 5.0s" | `rpc dishes_by_score(p_user_id, p_score, p_limit, p_cursor_created_at, p_cursor_id)` | `{review_id, entry_id, dish_id, dish_name, restaurant_id, restaurant_name, score, note, created_at, cover_url}[]`, newest first, keyset `(created_at, id)`. `cover_url` is the DISH's photo (the tile), `created_at` is the visit's date, `entry_id` is **nullable** |
+| Recap picker | `rpc statement_months(p_user_id, p_tz, p_cursor_month, p_limit)` | `{month (date), orders}[]`, newest first; `orders` is that month's ENTRY count. Keyset: pass the last row's `month` |
 | Recap | `rpc monthly_statement(p_user_id, p_month, p_tz)` | one jsonb (below) |
 | Search | `rpc search_all(p_query, p_limit_per_kind)` | `{kind, id, title, subtitle, score, match_rank, detail}[]`, `kind ∈ place|dish|person` — split on `kind` for the tabs. Nearby: `places-search?op=nearby` (below) |
 | Handle availability | `rpc handle_available(p_handle)` | bool. **Use this, not a `profiles` select** — the block-aware policy can make a taken handle look free |
+
+**A place's label is `locality`, never `city`.** `restaurants.city` is a bare suburb on stub and manual rows
+but, on anything resolved live through `places-search op=details`, it is the mangled
+`"<street>, <suburb STATE post>"` that function's address split produces. `place_summary.locality` and
+`dish_summary.restaurant_locality` are derived on read from the address and are the only ones safe to
+print; `null` means we cannot honestly name one — draw no chip. (`search_all`'s place `subtitle` still
+falls back to `city` for a place with no cuisine: the one caller not yet moved over.)
 
 **Saved is keyset-paged on `(saved_at desc, dish_id desc)`** — next page:
 `&or=(saved_at.lt.<last saved_at>,and(saved_at.eq.<last saved_at>,dish_id.lt.<last dish_id>))`.
 **Never order by `restaurant_name`**: grouping by place is presentation (the client groups the page it has),
 and a name-ordered list has no stable cursor. `cover_url` == `dish_cover_url`; prefer `cover_url`.
 
-`monthly_statement` → `{month, orders, places, new_places, dishes, stars, average, top_dishes:[{dish_id,
-dish_name, restaurant_name, score}], most_ordered:{dish_name,count}|null, most_visited:{restaurant_id,
-restaurant_name, count}|null}`. Months are local to `p_tz` (default `Australia/Melbourne`; pass the device
-zone). `average`/`stars` cover scored lines only. Aggregates come back at 1 decimal — **round to the
-nearest half for display** (DESIGN rule 7).
+`monthly_statement` → `{month, username, orders, places, new_places, dishes, stars, average,
+top_dishes:[{dish_id, dish_name, restaurant_name, score}], most_ordered:{dish_name,count}|null,
+most_visited:{restaurant_id, restaurant_name, count}|null}`. Months are local to `p_tz` (default
+`Australia/Melbourne`; pass the device zone). `average`/`stars` cover scored lines only. `most_ordered`/
+`most_visited` are **null below a count of 2** — "Most ordered … x1" is not a habit, so print nothing.
+
+**Printing an aggregate: one decimal, as sent.** `place_summary.avg_rating`, `dish_summary.score`,
+`place_dishes.score` and `monthly_statement.average` are averages, not scores: print `4.6`, never rounded
+to `4.5` (`ScoreFormat.average`). Only the STAR GLYPHS round to the nearest half (DESIGN: "aggregates show
+to the nearest half" is about the stars). An entry's own `avg_score` keeps its 2 decimals — the receipt
+footer reads `Avg 3.75`. A single review's score is a half-step and prints one decimal always (`4.0`).
 
 ## Writes
 
@@ -193,22 +207,27 @@ changes, make it config, do not fork the function.
 
 ## Wire-change log
 
-**Additive — 0026–0028 (2026-09-24).** `entry_cards.items[].cover_url`; `my_saved_dishes.cover_url`
-(appended last, same value as the kept `dish_cover_url`); `unsave_entry_dishes(p_entry_id)`. Behaviour, not
-shape: (1) every `cover_url` (`dish_stats`, `restaurant_stats`, `my_saved_dishes`, `place_dishes`,
-`place_summary`, `dish_summary`, `search_all`'s dish `detail`) **stops reading null** once a dish's entries
-carry photos — covers now come from `entry_photos`, not only the legacy `reviews.photo_url`; (2) the sorter
-reads `"<dish> was a 4.5"`-shaped scores and keeps the venue's name out of dish names, so entries that
-printed nothing (or `Pizza San Danielle Pizza`) now print a correct line — a re-sort still never touches a
-corrected one; (3) a `reason` outside the five-word vocabulary is `23514` (the client sends null today).
+**Additive — 0029 (2026-09-24), the detail + You read audit.** `place_summary` + `locality`/`entry_count`;
+`dish_summary` + `photos`/`restaurant_locality`; `dishes_by_score` + `cover_url`; new cursor parameters on
+`place_dishes` (4-part), `dishes_by_score` and `statement_months`; `monthly_statement` + `"username"`; new
+`place_locality(address, city)` / `dish_photos(dish, limit)`. Every column is appended LAST and every
+parameter defaults to null, so an existing call keeps working untouched. Behaviour, not shape — the four
+things to KNOW: (1) `profile_summary.dishes`/`scored`/`avg_score` now count by `reviewer_id`, so a user
+with pre-entries reviews sees HIGHER numbers that finally match `score_histogram` (staging: 40 → 60
+scored); (2) `place_summary.address`/`city`/`cuisine`/`cover_url` and `dish_summary.restaurant_city` are
+`null` instead of `''` — a `""` cover was a broken image request; (3) `monthly_statement.most_ordered`/
+`most_visited` are `null` when the count is 1; (4) `get_dish_reviews.entry_id` and
+`dishes_by_score.entry_id` were ALWAYS nullable on real rows — now documented, decode optional.
 
-**Additive** — everything 0018–0023 introduced (the tables, columns, RPCs and views above), plus
-**0024/0025**: `reviews.corrected_at`/`corrected_from_name`/`evidence_offset`/`mention_text`/
-`mention_offset`, `entries.place_corrected_at`/`place_query`/`place_offset`, `entry_cards.place_offset`/
-`place_length` (appended last), `items[].evidence_offset`/`evidence_length`/`mention_offset`/
-`mention_length`/`corrected`, `place_offset` on the `sort-entry` response. Behaviour, not shape: new dish
-names are capitalised and a clause note loses its dangling comma, so both READ slightly differently.
-(`apply_entry_sort` also gained two parameters — service_role only, no client call site.)
+**Additive — 0018–0028.** Everything 0018–0023 introduced (the tables, columns, RPCs and views above);
+0024/0025's correction + offset columns (`reviews.corrected_at`/`corrected_from_name`/`evidence_offset`/
+`mention_text`/`mention_offset`, `entries.place_corrected_at`/`place_query`/`place_offset`,
+`entry_cards.place_offset`/`place_length` and `items[].evidence_*`/`mention_*`/`corrected`, `place_offset`
+on the `sort-entry` response); 0026–0028's `entry_cards.items[].cover_url`, `my_saved_dishes.cover_url` and
+`unsave_entry_dishes(p_entry_id)`. Behaviour, not shape: every `cover_url` **stops reading null** once a
+dish's entries carry photos (covers see `entry_photos`, not only the legacy `reviews.photo_url`); the
+sorter reads `"<dish> was a 4.5"` scores, keeps the venue's name out of dish names, capitalises a new dish
+and trims a clause note's dangling comma; a report `reason` outside the five-word vocabulary is `23514`.
 
 **Breaking — sequenced with iOS through the lead:** (1) `reviews.score` NOT NULL → **NULLABLE**, decode as
 optional (V1 Swift is written against this from the start, so nothing shipped is broken today); (2) SELECT
