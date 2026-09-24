@@ -42,6 +42,12 @@ public enum ScoreFormat {
     ///
     /// Unscored lines are not zeros and are not counted — the caller passes the mean of the scored
     /// ones, or `nil`.
+    /// A TOTAL of stars ("Stars handed out 57.5", "… 86"): a quantity, not a score, so a whole
+    /// number keeps no decimal — only the halves show theirs.
+    public static func starsTotal(_ stars: Double) -> String {
+        stars.formatted(.number.precision(.fractionLength(0...1)))
+    }
+
     public static func entryAverage(_ score: Double?) -> String {
         guard let score else { return unratedPlaceholder }
         return score.formatted(.number.precision(.fractionLength(2)))

@@ -245,9 +245,10 @@ struct StatsDecodingTests {
     /// Scores print like prices — one decimal for a rating, a dropped `.0` for a total.
     @Test("Stars and averages print the way a receipt prints them")
     func statementFormatting() {
-        #expect(ScoreFormat.average(57.5) == "57.5")
-        #expect(ScoreFormat.average(86) == "86")
+        #expect(ScoreFormat.starsTotal(57.5) == "57.5")
+        #expect(ScoreFormat.starsTotal(86) == "86")
         #expect(ScoreFormat.average(4.1) == "4.1")
+        #expect(ScoreFormat.average(4.0) == "4.0")
         #expect(ScoreFormat.halfStep(4.5) == "4.5")
         #expect(ScoreFormat.dishCount(36) == "36 dishes")
         #expect(ScoreFormat.dishCount(1) == "1 dish")

@@ -85,7 +85,7 @@ struct StatementReceiptView: View {
             line("Places", value: statement.places.formatted())
             line("New to you", value: statement.newPlaces.formatted())
             line("Dishes", value: statement.dishes.formatted())
-            line("Stars handed out", value: ScoreFormat.average(statement.stars))
+            line("Stars handed out", value: ScoreFormat.starsTotal(statement.stars))
             // An unscored month prints the em-dash, never `0.0` (data-model §1.3).
             line("Average", value: ScoreFormat.average(statement.average))
         }
