@@ -457,7 +457,10 @@ struct StagingContractTests {
             let mineUnscored = try await visibleReviewCount(client) {
                 $0.eq("reviewer_id", value: reviewerID).is("score", value: nil)
             }
-            #expect(mineUnscored > 0, "the demo account must have an unscored review — it is the normal case since 0018")
+            #expect(
+                mineUnscored > 0,
+                "the demo account must have an unscored review — it is the normal case since 0018"
+            )
             #expect(seen.filter { $0.review.score == nil }.count >= mineUnscored)
 
             for entry in seen {
