@@ -132,10 +132,17 @@ struct StatementReceiptView: View {
             if let number {
                 Text(String(format: "%02d", number))
                     .ateText(.receiptLine)
+                    // **Never wraps.** Without this an unbounded label next to it takes the whole
+                    // row and the ordinal is squeezed to one glyph wide: "0" on one line and "1"
+                    // on the next, which is how "01 Tagliatelle al ragù, Tipo 00" printed.
+                    .fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(AtePalette.paper.muted)
             }
             Text(label)
                 .ateText(.receiptLine)
+                // Two lines, as a receipt's line item takes — a "dish, restaurant" string is long
+                // and it is the thing that is allowed to wrap.
+                .lineLimit(2)
                 // The leader is a greedy Canvas; without this it claims space from the label.
                 .layoutPriority(1)
             AteDotLeader()

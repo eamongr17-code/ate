@@ -17,6 +17,9 @@ struct ShareScreen: View {
 
     @State private var photos: [AtePhoto] = []
     @State private var sending: SendingImage?
+    /// True after a render that produced nothing. The button carries the state and nothing else
+    /// does — see ``send()``.
+    @State private var didFail = false
     @Environment(\.dismiss) private var dismiss
 
     /// The rendered picture — `Identifiable` so it can present the system sheet.
@@ -32,9 +35,10 @@ struct ShareScreen: View {
                 .padding(.horizontal, ShareCard.inset)
                 .padding(.top, ShareScreen.cardTop)
             Spacer(minLength: AteMetrics.section)
-            AteButton(icon: .share, title: "Share", action: send)
+            AteButton(icon: .share, title: didFail ? "Try again" : "Share", action: send)
                 .padding(.horizontal, AteMetrics.gutter)
                 .padding(.bottom, ShareScreen.buttonBottom)
+                .accessibilityIdentifier("share.send")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ateAccentGround(AteColor.coral)
@@ -42,6 +46,9 @@ struct ShareScreen: View {
             photos = await SharePhotos.resolve(artefact.photoURLs)
             #if DEBUG
             dumpForDriveIfRequested()
+            // `-ate-fail-share-render` taps Share for the drive too: the failure is a state of the
+            // button, and a simulator cannot be tapped from a shell.
+            if forcesRenderFailure { send() }
             #endif
         }
         .sheet(item: $sending) { sending in
@@ -88,11 +95,35 @@ struct ShareScreen: View {
 
     /// Render, count it, and hand it to the system. The event fires here — at the tap that sends it
     /// — not when this screen opened: looking at a receipt is not sharing one.
+    ///
+    /// **A render that fails is never silent.** It does not open the system sheet and it does not
+    /// count as a share; the button says what to do next in the same voice "Print it again" uses on
+    /// an entry that would not sort — one word on the control itself, no toast, no banner and no
+    /// line of explanation (design rule 1).
     private func send() {
-        guard let image = ShareImage.render(artefact: artefact, photos: photos) else { return }
+        guard let image = rendered() else {
+            didFail = true
+            return
+        }
+        didFail = false
         analytics(EntryEvents.receiptShared(entryID: artefact.entryID, source: source))
         sending = SendingImage(image: image)
     }
+
+    private func rendered() -> UIImage? {
+        #if DEBUG
+        if forcesRenderFailure { return nil }
+        #endif
+        return ShareImage.render(artefact: artefact, photos: photos)
+    }
+
+    #if DEBUG
+    /// `-ate-fail-share-render`: the one state that cannot be reached by using the app, made
+    /// reachable so it can be driven and looked at like every other.
+    private var forcesRenderFailure: Bool {
+        ProcessInfo.processInfo.arguments.contains("-ate-fail-share-render")
+    }
+    #endif
 }
 
 /// Turning the photo URLs behind a receipt into something ``ImageRenderer`` can actually draw.

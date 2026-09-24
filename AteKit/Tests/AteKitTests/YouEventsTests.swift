@@ -26,6 +26,27 @@ struct YouEventsTests {
         #expect(YouEvents.ratingsViewed(score: 4.3).parameters == ["score": "4.5"])
     }
 
+    /// **The parameter is locale-invariant.** A dashboard groups on the string, so a reader on
+    /// `de_DE` sending `4,5` would silently split one bar into two series — and the half of the
+    /// answer that came from Europe would be the half nobody noticed was missing.
+    @Test("A score is sent with a period, wherever the reader is")
+    func ratingsAreLocaleInvariant() {
+        let comma = Locale(identifier: "de_DE")
+        // The premise: a comma-decimal locale really does write this number with a comma, and
+        // `ScoreFormat` — a *display* formatter — is built on exactly this style.
+        #expect(4.5.formatted(.number.precision(.fractionLength(1)).locale(comma)) == "4,5")
+        // The event is not. Every bar on the chart, in the one spelling a dashboard can group on.
+        let sent = ScoreHistogram.scores.map {
+            YouEvents.ratingsViewed(score: $0).parameters["score"]
+        }
+        #expect(sent == ["0.5", "1.0", "1.5", "2.0", "2.5", "3.0", "3.5", "4.0", "4.5", "5.0"])
+        #expect(YouEvents.invariant(4.5) == "4.5")
+        #expect(YouEvents.invariant(0.5) == "0.5")
+        #expect(YouEvents.invariant(5) == "5.0")
+        // …and no thousands separator can creep in either.
+        #expect(YouEvents.invariant(1234.5) == "1234.5")
+    }
+
     /// `YYYY-MM`, so a month reads the same in every time zone — the same reason ``StatementMonth``
     /// is not a `Date`.
     @Test("A statement carries its month, not an instant")

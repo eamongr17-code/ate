@@ -19,12 +19,28 @@ public enum YouEvents {
     public static func ratingsViewed(score: Double) -> AnalyticsEvent {
         AnalyticsEvent(
             name: "ratings_viewed",
-            parameters: ["score": ScoreFormat.halfStep(ScoreHistogram.snapped(score))]
+            parameters: ["score": invariant(ScoreHistogram.snapped(score))]
         )
     }
 
     /// A statement was read. `month` is `YYYY-MM`, so a month reads the same in every time zone.
     public static func statementViewed(month: StatementMonth) -> AnalyticsEvent {
         AnalyticsEvent(name: "statement_viewed", parameters: ["month": month.key])
+    }
+
+    /// A number as an analytics parameter: one decimal, **always a period, never a comma**.
+    ///
+    /// ``ScoreFormat`` is a *display* formatter and follows the reader's locale — on `de_DE` it
+    /// writes `4,5`. A dashboard groups on the string, so a locale-aware parameter silently splits
+    /// one bar into two series and the German half of the answer goes missing. Every other numeric
+    /// parameter in the funnel is an `Int` through `String(_:)`, which has the same property for
+    /// free; a `Double` has to say so.
+    static func invariant(_ value: Double) -> String {
+        value.formatted(
+            .number
+                .precision(.fractionLength(1))
+                .grouping(.never)
+                .locale(Locale(identifier: "en_US_POSIX"))
+        )
     }
 }

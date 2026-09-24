@@ -32,7 +32,8 @@ enum ComposerDebugLaunch {
     static let youArgument = "-ate-open-you"
     static let ratingsArgument = "-ate-open-ratings"
     static let recapArgument = "-ate-open-recap"
-    /// …and `Share`, on the newest entry's receipt.
+    /// …and `Share`, on an entry's receipt. Implies ``entryArgument`` — `Share` is presented FROM
+    /// an entry page, so asking for it on its own has to open one.
     static let shareArgument = "-ate-open-share"
 
     /// Shows `Welcome` even when this build has a session — the one screen you cannot reach once
@@ -57,7 +58,7 @@ enum ComposerDebugLaunch {
     static var drivesUndo: Bool { has(undoDriveArgument) }
     static var opensComposer: Bool { has(openArgument) }
     static var opensScoring: Bool { has(scoringArgument) }
-    static var opensEntry: Bool { has(entryArgument) }
+    static var opensEntry: Bool { has(entryArgument) || has(shareArgument) }
     static var opensPlaceSheet: Bool { has(placeSheetArgument) }
     static var opensDishSheet: Bool { has(dishSheetArgument) }
     static var opensSuggestions: Bool { has(suggestionsArgument) }

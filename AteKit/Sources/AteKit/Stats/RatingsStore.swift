@@ -24,6 +24,10 @@ public final class RatingsStore {
     /// every other (ARCHITECTURE.md), not a 500-row read hoping nobody eats that much.
     private var cursor: PageCursor?
     private var isLoadingMore = false
+    /// Bumped every time the selected bar changes, so a slow page for the bar you just left cannot
+    /// land on the bar you are looking at — the same guard the feed and every entry list keep
+    /// (``FeedStore``, ``EntryListStore``). Two taps in a row is not an edge case on a chart.
+    private var generation = 0
 
     public init(score: Double, stats: any StatsReading, pageSize: Int = StatsClient.defaultDishLimit) {
         self.score = ScoreHistogram.snapped(score)
@@ -83,9 +87,15 @@ public final class RatingsStore {
             isLoading = false
             return
         }
+        generation += 1
+        let generationAtStart = generation
+        let wanted = score
         isLoading = true
         cursor = nil
-        let page = try? await stats.dishes(userID: viewer, score: score, after: nil, pageSize: pageSize)
+        let page = try? await stats.dishes(userID: viewer, score: wanted, after: nil, pageSize: pageSize)
+        // A newer bar overtook this one. Its rows belong to a score nobody is looking at, and
+        // `isLoading` belongs to the load that is still running.
+        guard generationAtStart == generation else { return }
         dishes = page?.items ?? []
         cursor = page?.nextCursor
         isLoading = false
@@ -95,9 +105,14 @@ public final class RatingsStore {
         guard let viewer = await viewerID(), let cursor else { return }
         isLoadingMore = true
         defer { isLoadingMore = false }
+        let generationAtStart = generation
+        let wanted = score
         guard let page = try? await stats.dishes(
-            userID: viewer, score: score, after: cursor, pageSize: pageSize
+            userID: viewer, score: wanted, after: cursor, pageSize: pageSize
         ) else { return }
+        // A prefetch started before a bar switch must not append the old score's rows to the new
+        // bar's list — the same hole, one page further down.
+        guard generationAtStart == generation else { return }
         // A keyset page can re-serve a row when one lands mid-scroll; the id is the guard.
         let known = Set(dishes.map(\.id))
         dishes.append(contentsOf: page.items.filter { known.contains($0.id) == false })
