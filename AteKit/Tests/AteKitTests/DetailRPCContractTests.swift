@@ -163,7 +163,20 @@ struct DetailRPCContractTests {
             }
         }
         // A dish nobody has logged is an abandoned "add a new dish" shell, not a menu item (0030).
-        // An UNSCORED dish with a line is a menu item and must still be here.
+        // An UNSCORED dish WITH a line is a menu item and must still be here — so the menu is
+        // exactly the dishes this viewer can see a line for, no more and no less. Stated as a set
+        // equality rather than "every row has a line", which staging can satisfy vacuously: it holds
+        // no shell today, and this is the assertion that catches one the moment somebody seeds it
+        // (and catches a real menu item being dropped, which is the costlier direction).
+        let logged = try await client.fetchAll(DishStats.self) {
+            $0.eq("restaurant_id", value: stats.restaurantID.uuidString)
+                .gt("review_count", value: 0)
+                .limit(200)
+        }
+        #expect(
+            Set(whole.map(\.dishID)) == Set(logged.map(\.dishID)),
+            "the menu must be exactly the dishes with a line (shells out, unscored-with-a-line in)"
+        )
         #expect(whole.allSatisfy { $0.reviewCount > 0 }, "a never-logged dish is on the menu")
         #expect(whole.allSatisfy { $0.peopleCount > 0 }, "a line implies a reviewer")
         #expect(whole.allSatisfy { $0.coverURL != "" })

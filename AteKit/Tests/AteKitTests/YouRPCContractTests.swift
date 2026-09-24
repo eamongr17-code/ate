@@ -110,7 +110,10 @@ struct YouRPCContractTests {
             #expect(newer.createdAt >= older.createdAt)
         }
         // The tile draws a photo, so at least one row in the fullest bucket must have one.
-        withKnownIssue("no dish in this bucket has a photo yet — the tiles would draw empty", isIntermittent: true) {
+        withKnownIssue(
+            "no dish in this bucket has a photo yet — the tiles would draw empty",
+            isIntermittent: true
+        ) {
             #expect(whole.contains { $0.coverURL != nil })
         }
 
