@@ -27,6 +27,11 @@ struct AteServices {
     let profiles: any ProfileReading
     /// What the You tab gives back: the histogram, a bar's dishes, and the monthly statements.
     let stats: any StatsReading
+    /// The place page's three reads. Its own seam and not `places` above — that one finds and
+    /// creates places for the composer, and this one only ever reads one.
+    let placePages: any PlacePageReading
+    /// The dish page's reads.
+    let dishPages: any DishPageReading
     /// The one place a bookmark's new state is announced. Everything that draws one listens, so a
     /// save made on an entry page is already true on the feed and the profile underneath it.
     let savedDishes = SavedDishBroadcast()
@@ -57,6 +62,8 @@ struct AteServices {
         self.saves = preview?.saves ?? SaveClient(api: api)
         self.profiles = preview?.profiles ?? ProfileClient(api: api)
         self.stats = preview?.stats ?? StatsClient(api: api)
+        self.placePages = preview?.placePages ?? PlacePageClient(api: api)
+        self.dishPages = preview?.dishPages ?? DishPageClient(api: api)
         self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record)
     }
 
@@ -85,6 +92,10 @@ struct AteServices {
         let saves: any DishSaving
         let profiles: any ProfileReading
         let stats: any StatsReading
+        /// The place and dish pages are *derived* from the same in-memory entries, so a preview
+        /// drive cannot show a dish page that disagrees with the feed it was opened from.
+        let placePages: any PlacePageReading
+        let dishPages: any DishPageReading
     }
 
     private static func previewServices() -> PreviewServices? {
@@ -101,7 +112,8 @@ struct AteServices {
             : InMemoryEntryService.seeded(others: social)
         return PreviewServices(
             entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
-            feed: social, saves: social, profiles: social, stats: InMemoryStatsService()
+            feed: social, saves: social, profiles: social, stats: InMemoryStatsService(),
+            placePages: social, dishPages: social
         )
         #else
         return nil

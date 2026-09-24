@@ -10,6 +10,10 @@ public enum SaveSource: String, Sendable, CaseIterable, Codable {
     case savedList = "saved_list"
     /// A profile's slips.
     case profile
+    /// A place page — the bookmark on one of its entries.
+    case place
+    /// A dish page — the one bookmark in its top bar.
+    case dish
 }
 
 /// **The feed and the save loop's funnel.** Built here so the names and parameters are asserted by

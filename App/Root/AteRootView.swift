@@ -55,6 +55,13 @@ private struct AteShell: View {
     /// The one stack every tab pushes onto. Hoisted here so Done in the composer can land on the new
     /// entry, at the journal's root, rather than under whatever was open before.
     @State private var path: [Route] = []
+    /// Where each pushed destination was opened from — the `source` its view event carries.
+    ///
+    /// Kept beside the path rather than inside ``Route`` on purpose: a route is an *identity*, and
+    /// two pushes of the same place from two different screens must still be the same value to
+    /// `NavigationStack` (and to `path.contains`). Folding the source into the case would make them
+    /// different routes and quietly break every comparison on the path.
+    @State private var sources: [Route: DetailSource] = [:]
     /// How many recent photos are waiting to be written up — the journal header's badge. Only ever
     /// non-zero when the photo library has already been allowed; nothing here asks.
     @State private var photoCount = 0
@@ -170,6 +177,8 @@ private struct AteShell: View {
                 },
                 onEdit: { composing = .edit($0) },
                 onProfile: { open(.profile($0)) },
+                onPlace: { open(.place($0), from: .entry) },
+                onDish: { open(.dish($0), from: .entry) },
                 onBlocked: {
                     // The person is gone from every read the server serves; the lists on this
                     // device catch up now rather than on the next launch.
@@ -183,14 +192,32 @@ private struct AteShell: View {
                 services: services,
                 saves: saveAction,
                 onOpen: { open(.entry(EntryRoute(entryID: $0.id))) },
+                onPlace: { open(.place($0), from: .profile) },
+                onDish: { open(.dish($0), from: .profile) },
                 onBlocked: { blocked in
                     path.removeAll { $0 == .profile(blocked) }
                     Task { await feed.refresh() }
                 }
             )
-        // Slice 2. `open(_:)` will not push these, so this is unreachable rather than empty-by-design.
-        case .place, .dish:
-            EmptyView()
+        case .place(let restaurantID):
+            PlaceDestination(
+                restaurantID: restaurantID,
+                source: sources[route] ?? .unknown,
+                services: services,
+                saves: saveAction,
+                onDish: { open(.dish($0), from: .place) },
+                onOpen: { open(.entry(EntryRoute(entryID: $0.id))) },
+                onProfile: { open(.profile($0)) }
+            )
+        case .dish(let dishID):
+            DishDestination(
+                dishID: dishID,
+                source: sources[route] ?? .unknown,
+                services: services,
+                saves: saveAction,
+                onPlace: { open(.place($0), from: .dish) },
+                onEntry: { open(.entry(EntryRoute(entryID: $0))) }
+            )
         case .ratings(let score):
             // `Ratings.dc.html` keeps the tab bar, exactly like `Suggestions`: it is a page of You,
             // not a modal.
@@ -256,8 +283,10 @@ private struct AteShell: View {
                 onCompose: { openComposer(.journalEmpty) },
                 onOpen: { open(.entry(EntryRoute(entryID: $0.id))) },
                 onSuggestions: { open(.suggestions) },
-                onSavedPlace: { open(.place($0)) },
-                onSavedDish: { open(.dish($0.dishID)) },
+                onPlace: { open(.place($0), from: .journal) },
+                onDish: { open(.dish($0), from: .journal) },
+                onSavedPlace: { open(.place($0), from: .saved) },
+                onSavedDish: { open(.dish($0.dishID), from: .saved) },
                 // The shelf's own bookmark. Only a round trip the server accepted is announced
                 // to the rest of the app or counted — the store puts its row back on a refusal.
                 onUnsave: { dish in
@@ -278,6 +307,8 @@ private struct AteShell: View {
                 scrollToTopSignal: scrollToTop,
                 onOpen: { open(.entry(EntryRoute(entryID: $0.id))) },
                 onProfile: { open(.profile($0)) },
+                onPlace: { open(.place($0), from: .feed) },
+                onDish: { open(.dish($0), from: .feed) },
                 onSave: { entry, dish in
                     Task {
                         await saveAction.toggle(
@@ -320,10 +351,14 @@ private struct AteShell: View {
         )
     }
 
-    /// Pushes a destination — and refuses the ones that do not exist yet, so a link to slice 2 does
-    /// nothing at all rather than opening a blank page.
-    private func open(_ route: Route) {
+    /// Pushes a destination — and refuses any that does not exist yet, so a link that has outrun
+    /// its page does nothing at all rather than opening a blank one.
+    ///
+    /// `from` is remembered for the destination's view event. The funnel question is always "which
+    /// entry point produced this", and an unlabelled one silently reads as zero.
+    private func open(_ route: Route, from source: DetailSource = .unknown) {
         guard route.isBuilt else { return }
+        sources[route] = source
         path.append(route)
     }
 
@@ -406,20 +441,37 @@ private struct AteShell: View {
     #endif
 
     #if DEBUG
-    /// `-ate-open-feed` / `-ate-open-profile`: the screens a drive photographs, reachable from
-    /// `simctl launch` because a simulator cannot be tapped from a shell.
+    /// `-ate-open-feed` / `-ate-open-profile` / `-ate-open-place` / `-ate-open-dish`: the screens a
+    /// drive photographs, reachable from `simctl launch` because a simulator cannot be tapped from
+    /// a shell. Each waits for the feed's first page rather than racing it, which would find an
+    /// empty list and give up.
     private func openDebugScreenIfRequested() async {
         guard ComposerDebugLaunch.opensFeed else { return }
         tab = .feed
-        guard ComposerDebugLaunch.opensProfile else { return }
+        guard let route = await firstDebugRoute() else { return }
+        open(route, from: .feed)
+    }
+
+    private func firstDebugRoute() async -> Route? {
+        let wantsProfile = ComposerDebugLaunch.opensProfile
+        let wantsPlace = ComposerDebugLaunch.opensPlace
+        let wantsDish = ComposerDebugLaunch.opensDish
+        guard wantsProfile || wantsPlace || wantsDish else { return nil }
+
         for _ in 0..<40 {
             await feed.loadIfNeeded()
-            if let first = feed.entries.first {
-                open(.profile(first.authorID))
-                return
+            if wantsProfile, let first = feed.entries.first {
+                return .profile(first.authorID)
+            }
+            if wantsPlace, let place = feed.entries.compactMap(\.place?.id).first {
+                return .place(place)
+            }
+            if wantsDish, let dish = feed.entries.flatMap(\.items).map(\.dishID).first {
+                return .dish(dish)
             }
             try? await Task.sleep(for: .milliseconds(150))
         }
+        return nil
     }
     #endif
 

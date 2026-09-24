@@ -13,11 +13,23 @@ struct ScoreFormatTests {
         #expect(ScoreFormat.outOfFive(nil).contains("0") == false)
     }
 
-    @Test("a rated aggregate keeps one decimal, and drops a trailing .0")
+    @Test("a rated aggregate always prints exactly one decimal")
     func ratedFormatting() {
         #expect(ScoreFormat.outOfFive(4.3) == "4.3/5")
-        #expect(ScoreFormat.outOfFive(5) == "5/5")
+        #expect(ScoreFormat.outOfFive(5) == "5.0/5")
         #expect(ScoreFormat.average(3.76) == "3.8")
+    }
+
+    /// The receipt's own footer. Two decimals because the reader can add up the lines above it.
+    @Test("an entry's own average always shows two decimals")
+    func entryAverageFormatting() {
+        #expect(ScoreFormat.entryAverage(3.75) == "3.75")
+        #expect(ScoreFormat.entryAverage(4) == "4.00")
+        #expect(ScoreFormat.entryAverage(nil) == "–")
+        // `4.5 + 3.0 + 4.0` over three scored dishes — the digits one decimal would round away.
+        #expect(ScoreFormat.entryAverage((4.5 + 3.0 + 4.0) / 3) == "3.83")
+        // …and the community aggregate of the same three keeps one.
+        #expect(ScoreFormat.average((4.5 + 3.0 + 4.0) / 3) == "3.8")
     }
 
     @Test("a half-step rating always shows one decimal, so a live readout never changes width")
@@ -28,15 +40,17 @@ struct ScoreFormatTests {
         #expect(ScoreFormat.halfStep(nil) == "–")
     }
 
-    /// The rule the design language names out loud: `average` is for aggregates, `halfStep` is for
-    /// one person's score. Both renderings of 3.0 are correct — for different things — which is
-    /// exactly why the wrong one is easy to reach for and hard to spot in a diff.
-    @Test("a whole-number score reads differently as an aggregate and as one review")
+    /// **Scores print like prices** (`docs/DESIGN.md`): one decimal, whatever the number is and
+    /// whichever of the two formatters produced it. A column that alternates `4` and `4.4` is the
+    /// bug this pins shut.
+    @Test("a whole-number score keeps its decimal, as an aggregate and as one review alike")
     func scoreFormatRoleSeparation() {
-        #expect(ScoreFormat.average(3.0) == "3")
+        #expect(ScoreFormat.average(3.0) == "3.0")
         #expect(ScoreFormat.halfStep(3.0) == "3.0")
-        #expect(ScoreFormat.average(5.0) == "5")
+        #expect(ScoreFormat.average(5.0) == "5.0")
         #expect(ScoreFormat.halfStep(5.0) == "5.0")
+        // Aggregates land off the half-step grid; that is the only difference that survives.
+        #expect(ScoreFormat.average(4.3) == "4.3")
         // A single review can only ever be a half-step, so this is the whole domain.
         for halfSteps in 1...10 {
             let value = Double(halfSteps) / 2

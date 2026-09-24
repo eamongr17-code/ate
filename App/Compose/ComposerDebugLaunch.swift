@@ -35,6 +35,10 @@ enum ComposerDebugLaunch {
     /// …and `Share`, on an entry's receipt. Implies ``entryArgument`` — `Share` is presented FROM
     /// an entry page, so asking for it on its own has to open one.
     static let shareArgument = "-ate-open-share"
+    /// Pushes the place, and the dish, of the first feed entry that has one — the only way a drive
+    /// photographs those two pages on a simulator that cannot be tapped from a shell.
+    static let placeArgument = "-ate-open-place"
+    static let dishArgument = "-ate-open-dish"
 
     /// Shows `Welcome` even when this build has a session — the one screen you cannot reach once
     /// you are signed in.
@@ -64,13 +68,17 @@ enum ComposerDebugLaunch {
     static var opensSuggestions: Bool { has(suggestionsArgument) }
     static var opensWelcome: Bool { has(welcomeArgument) }
     static var opensAddPlace: Bool { has(addPlaceArgument) }
-    static var opensFeed: Bool { has(feedArgument) || has(profileArgument) }
+    static var opensFeed: Bool {
+        has(feedArgument) || has(profileArgument) || has(placeArgument) || has(dishArgument)
+    }
     static var opensSaved: Bool { has(savedArgument) }
     static var opensProfile: Bool { has(profileArgument) }
     static var opensYou: Bool { has(youArgument) || has(ratingsArgument) || has(recapArgument) }
     static var opensRatings: Bool { has(ratingsArgument) }
     static var opensRecap: Bool { has(recapArgument) }
     static var opensShare: Bool { has(shareArgument) }
+    static var opensPlace: Bool { has(placeArgument) }
+    static var opensDish: Bool { has(dishArgument) }
 
     /// Writes the seeded draft before the composer reads it — or wipes whatever a previous run left.
     static func seedDraftIfRequested(into drafts: any EntryDraftStoring) {
