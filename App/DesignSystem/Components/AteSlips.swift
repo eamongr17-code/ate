@@ -92,6 +92,12 @@ struct EntrySlip: View {
     var onProfile: (() -> Void)?
     /// Nil on the journal: your own entries are not saved, they are written.
     var onSave: ((AteSlip.Dish) -> Void)?
+    /// The place line's pin opens the place page. Wired on every surface a slip appears on — the
+    /// same tap must do the same thing in the journal, the feed and on a profile (AGENTS.md rule 2).
+    var onPlace: ((UUID) -> Void)?
+    /// …and a dish's name opens its page. The score and the bookmark beside it are not part of the
+    /// target: one is a fact, the other is an action.
+    var onDish: ((AteSlip.Dish) -> Void)?
     /// The identifier a drive reaches for. The journal's slips have always been `journal.slip`.
     var identifier = "journal.slip"
 
@@ -120,7 +126,12 @@ struct EntrySlip: View {
         }
     }
 
-    private var isInteractive: Bool { onSave != nil || onProfile != nil }
+    /// Whether the slip has controls of its own. When it does it cannot itself be a button — a tap
+    /// inside a `Button`'s label belongs to the outer button — so its bands say what they open one
+    /// by one instead.
+    private var isInteractive: Bool {
+        onSave != nil || onProfile != nil || onPlace != nil || onDish != nil
+    }
 
     private func paper(@ViewBuilder _ content: () -> some View) -> some View {
         content()
@@ -141,12 +152,15 @@ struct EntrySlip: View {
             if slip.dishes.isEmpty == false {
                 dishStack(interactive: interactive)
             }
-            // The place, the words and the photos are one target: they are the entry, in miniature.
+            // The place line is its own band: the pin goes to the place, everything under it goes
+            // to the entry. (A sibling rather than a child of the body's button — a tap inside a
+            // button's label belongs to that button, so a nested one would never be heard.)
+            if slip.place != nil || slip.meta != .none {
+                placeLine(interactive: interactive)
+            }
+            // The words and the photos are one target: they are the entry, in miniature.
             tappable(interactive: interactive, part: "body") {
                 VStack(alignment: .leading, spacing: AteMetrics.slipBandGap) {
-                    if slip.place != nil || slip.meta != .none {
-                        placeLine
-                    }
                     if slip.words.plain.isEmpty == false {
                         InlineTokenText(composition: slip.words, style: .slipProse, lineLimit: 2)
                     }
@@ -202,7 +216,7 @@ struct EntrySlip: View {
 
     private func dishRow(_ dish: AteSlip.Dish, interactive: Bool) -> some View {
         HStack(spacing: AteMetrics.regular) {
-            tappable(interactive: interactive, part: "dish") {
+            dishTarget(dish, interactive: interactive) {
                 HStack(spacing: AteMetrics.regular) {
                     Text(dish.name)
                         .ateText(.slipDish)
@@ -219,6 +233,29 @@ struct EntrySlip: View {
             }
         }
         .frame(minHeight: AteMetrics.hit)
+    }
+
+    /// Where a dish row goes. **The dish, when there is a dish page to go to** — the name and its
+    /// score are the item, and the item has a page. Without one it falls back to opening the entry,
+    /// which is what a slip did before those pages existed.
+    @ViewBuilder
+    private func dishTarget(
+        _ dish: AteSlip.Dish,
+        interactive: Bool,
+        @ViewBuilder _ content: () -> some View
+    ) -> some View {
+        if let onDish {
+            Button { onDish(dish) } label: {
+                content()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("\(identifier).dish")
+        } else {
+            tappable(interactive: interactive, part: "dish") { content() }
+        }
     }
 
     @ViewBuilder
@@ -260,18 +297,45 @@ struct EntrySlip: View {
 
     // MARK: - The place line
 
-    private var placeLine: some View {
+    private func placeLine(interactive: Bool) -> some View {
         HStack(spacing: AteMetrics.regular) {
             if let place = slip.place {
-                HStack(spacing: 5) {
-                    AteIcon.place.view(size: 15)
-                    Text(place).ateText(.slipPlaceName)
-                }
-                .foregroundStyle(AtePalette.paper.fg)
-                .accessibilityElement(children: .combine)
+                placeTarget(place, interactive: interactive)
             }
             Spacer(minLength: 0)
             metaValue
+        }
+    }
+
+    /// How far the place's target is grown past its glyphs, and given straight back to the layout.
+    /// The line is 13pt type — a 17pt-tall target on a moving list is a miss — but growing the band
+    /// would push every slip taller than the artboard draws it, so the air is padded on and the
+    /// margin is padded off, exactly as a slip's bookmark does it.
+    private static let placeTargetPadding: CGFloat = 9
+
+    @ViewBuilder
+    private func placeTarget(_ place: String, interactive: Bool) -> some View {
+        let name = HStack(spacing: 5) {
+            AteIcon.place.view(size: 15)
+            Text(place).ateText(.slipPlaceName)
+        }
+        .foregroundStyle(AtePalette.paper.fg)
+
+        if interactive, let onPlace, let placeID = slip.placeID {
+            Button {
+                onPlace(placeID)
+            } label: {
+                name
+                    .padding(.vertical, Self.placeTargetPadding)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .padding(.vertical, -Self.placeTargetPadding)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(place)
+            .accessibilityIdentifier("\(identifier).place")
+        } else {
+            name.accessibilityElement(children: .combine)
         }
     }
 
@@ -358,89 +422,6 @@ struct AteAvatar: View {
         }
     }
 }
-
-// `DEBUG || BETA`: the gallery these feed ships to TestFlight.
-#if DEBUG || BETA
-extension AteSlip {
-    @MainActor
-    static var previewJournal: AteSlip {
-        AteSlip(
-            dishes: [
-                Dish(id: UUID(), dishID: UUID(), name: "Tagliatelle al ragù", score: Rating(rounding: 4.5)),
-                Dish(id: UUID(), dishID: UUID(), name: "Tiramisu", score: Rating(rounding: 3)),
-                Dish(id: UUID(), dishID: UUID(), name: "Prawn spaghetti")
-            ],
-            place: "Tipo 00",
-            meta: .time("8:14 pm", isPublic: true),
-            words: .previewWords,
-            photos: AtePhoto.swatches
-        )
-    }
-
-    @MainActor
-    static var previewFeed: AteSlip {
-        AteSlip(
-            dishes: [
-                Dish(id: UUID(), dishID: UUID(), name: "Cheeseburger",
-                     score: Rating(rounding: 4.5), isSaved: true),
-                Dish(id: UUID(), dishID: UUID(), name: "Fries", score: Rating(rounding: 4))
-            ],
-            place: "Butchers Diner",
-            words: .previewFeedWords,
-            photos: [AtePhoto.swatch(AteColor.coral)],
-            byline: AteByline(userID: UUID(uuidString: "11111111-2222-3333-4444-555555555555")!,
-                              handle: "marcus.eats", age: "5h")
-        )
-    }
-}
-
-extension EntryComposition {
-    /// Builds a fixture by *finding* each token's words in the sentence rather than hand-counting
-    /// offsets — a fixture with a wrong offset is refused by the model and would silently show no
-    /// tokens at all.
-    static func fixture(_ text: String, _ kinds: [EntryTokenKind]) -> EntryComposition {
-        var spans: [EntryTokenSpan] = []
-        var searchStart = text.startIndex
-        for kind in kinds {
-            guard let range = text.range(of: kind.plainText, range: searchStart..<text.endIndex),
-                  let lower = range.lowerBound.samePosition(in: text.utf16) else { continue }
-            let location = text.utf16.distance(from: text.utf16.startIndex, to: lower)
-            spans.append(EntryTokenSpan(
-                token: EntryToken(kind: kind),
-                span: TextSpan(location: location, length: kind.plainText.utf16.count)
-            ))
-            searchStart = range.upperBound
-        }
-        return EntryComposition(plain: text, spans: spans)
-    }
-
-    /// The prototype's own sentence, tokens and all.
-    static var previewWords: EntryComposition {
-        fixture(
-            "With Jess for her birthday. The tagliatelle al ragù 4.5 was unreal, rich, glossy, "
-                + "gone in four minutes. Tiramisu 3.0 a bit flat after that.",
-            [.score(Rating(rounding: 4.5)), .score(Rating(rounding: 3))]
-        )
-    }
-
-    static var previewFeedWords: EntryComposition {
-        fixture(
-            "Queued forty minutes for this cheeseburger 4.5 and would queue again.",
-            [.score(Rating(rounding: 4.5))]
-        )
-    }
-
-    /// With a place token leading the sentence, as the composer and entry page show it.
-    static var previewWordsWithPlace: EntryComposition {
-        fixture(
-            "Tipo 00 with Jess for her birthday. The tagliatelle al ragù 4.5 was unreal, rich, "
-                + "glossy, gone in four minutes. Tiramisu 3.0 a bit flat after that.",
-            [.place(PlaceRef(id: UUID(), name: "Tipo 00")), .score(Rating(rounding: 4.5)),
-             .score(Rating(rounding: 3))]
-        )
-    }
-}
-#endif
 
 #if DEBUG
 #Preview("Slips") {

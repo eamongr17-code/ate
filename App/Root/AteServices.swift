@@ -25,6 +25,11 @@ struct AteServices {
     let saves: any DishSaving
     /// Somebody else's page, and the two things you can do about them.
     let profiles: any ProfileReading
+    /// The place page's three reads. Its own seam and not `places` above — that one finds and
+    /// creates places for the composer, and this one only ever reads one.
+    let placePages: any PlacePageReading
+    /// The dish page's reads.
+    let dishPages: any DishPageReading
     /// The one place a bookmark's new state is announced. Everything that draws one listens, so a
     /// save made on an entry page is already true on the feed and the profile underneath it.
     let savedDishes = SavedDishBroadcast()
@@ -54,6 +59,8 @@ struct AteServices {
         self.feed = preview?.feed ?? EntryFeedClient(api: api)
         self.saves = preview?.saves ?? SaveClient(api: api)
         self.profiles = preview?.profiles ?? ProfileClient(api: api)
+        self.placePages = preview?.placePages ?? PlacePageClient(api: api)
+        self.dishPages = preview?.dishPages ?? DishPageClient(api: api)
         self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record)
     }
 
@@ -81,6 +88,10 @@ struct AteServices {
         let feed: any EntryFeedReading
         let saves: any DishSaving
         let profiles: any ProfileReading
+        /// The place and dish pages are *derived* from the same in-memory entries, so a preview
+        /// drive cannot show a dish page that disagrees with the feed it was opened from.
+        let placePages: any PlacePageReading
+        let dishPages: any DishPageReading
     }
 
     private static func previewServices() -> PreviewServices? {
@@ -97,7 +108,8 @@ struct AteServices {
             : InMemoryEntryService.seeded(others: social)
         return PreviewServices(
             entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
-            feed: social, saves: social, profiles: social
+            feed: social, saves: social, profiles: social,
+            placePages: social, dishPages: social
         )
         #else
         return nil

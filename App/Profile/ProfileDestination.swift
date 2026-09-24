@@ -13,6 +13,8 @@ struct ProfileDestination: View {
     let services: AteServices
     let saves: SaveAction
     var onOpen: (EntryCard) -> Void = { _ in }
+    var onPlace: (UUID) -> Void = { _ in }
+    var onDish: (UUID) -> Void = { _ in }
     var onBlocked: (UUID) -> Void = { _ in }
 
     @State private var store: ProfileStore
@@ -22,12 +24,16 @@ struct ProfileDestination: View {
         services: AteServices,
         saves: SaveAction,
         onOpen: @escaping (EntryCard) -> Void = { _ in },
+        onPlace: @escaping (UUID) -> Void = { _ in },
+        onDish: @escaping (UUID) -> Void = { _ in },
         onBlocked: @escaping (UUID) -> Void = { _ in }
     ) {
         self.userID = userID
         self.services = services
         self.saves = saves
         self.onOpen = onOpen
+        self.onPlace = onPlace
+        self.onDish = onDish
         self.onBlocked = onBlocked
         _store = State(initialValue: ProfileStore(
             userID: userID,
@@ -50,6 +56,8 @@ struct ProfileDestination: View {
                     )
                 }
             },
+            onPlace: onPlace,
+            onDish: onDish,
             onBlocked: {
                 services.analytics(SocialEvents.userBlocked())
                 onBlocked(userID)

@@ -13,6 +13,10 @@ struct FeedScreen: View {
     var scrollToTopSignal = 0
     var onOpen: (EntryCard) -> Void = { _ in }
     var onProfile: (UUID) -> Void = { _ in }
+    /// A slip's pin line and its dish rows — the same doors they are in the journal and on a
+    /// profile (AGENTS.md rule 2).
+    var onPlace: (UUID) -> Void = { _ in }
+    var onDish: (UUID) -> Void = { _ in }
     var onSave: (EntryCard, AteSlip.Dish) -> Void = { _, _ in }
     var onViewed: () -> Void = {}
 
@@ -83,6 +87,8 @@ struct FeedScreen: View {
                     onOpen: { onOpen(entry) },
                     onProfile: { onProfile(entry.authorID) },
                     onSave: { onSave(entry, $0) },
+                    onPlace: onPlace,
+                    onDish: { onDish($0.dishID) },
                     identifier: "feed.slip"
                 )
                 .task { await store.loadMoreIfNeeded(after: entry) }

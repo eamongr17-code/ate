@@ -28,6 +28,10 @@ enum ComposerDebugLaunch {
     static let savedArgument = "-ate-open-saved"
     /// …and pushes the first feed author's page on top of the feed.
     static let profileArgument = "-ate-open-profile"
+    /// Pushes the place, and the dish, of the first feed entry that has one — the only way a drive
+    /// photographs those two pages on a simulator that cannot be tapped from a shell.
+    static let placeArgument = "-ate-open-place"
+    static let dishArgument = "-ate-open-dish"
 
     /// Shows `Welcome` even when this build has a session — the one screen you cannot reach once
     /// you are signed in.
@@ -57,9 +61,13 @@ enum ComposerDebugLaunch {
     static var opensSuggestions: Bool { has(suggestionsArgument) }
     static var opensWelcome: Bool { has(welcomeArgument) }
     static var opensAddPlace: Bool { has(addPlaceArgument) }
-    static var opensFeed: Bool { has(feedArgument) || has(profileArgument) }
+    static var opensFeed: Bool {
+        has(feedArgument) || has(profileArgument) || has(placeArgument) || has(dishArgument)
+    }
     static var opensSaved: Bool { has(savedArgument) }
     static var opensProfile: Bool { has(profileArgument) }
+    static var opensPlace: Bool { has(placeArgument) }
+    static var opensDish: Bool { has(dishArgument) }
 
     /// Writes the seeded draft before the composer reads it — or wipes whatever a previous run left.
     static func seedDraftIfRequested(into drafts: any EntryDraftStoring) {

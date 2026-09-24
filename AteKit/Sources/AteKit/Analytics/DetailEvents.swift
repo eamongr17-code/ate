@@ -26,6 +26,19 @@ public enum DetailSource: String, Sendable, CaseIterable, Codable {
     case receipt
     /// A deep link, a preview, or a caller that hasn't been wired yet.
     case unknown
+    /// An entry page — its bill lines, and the place at its head.
+    case entry
+    /// The Saved shelf: a place head, or a saved dish row.
+    case saved
+    /// Somebody's profile, from one of its slips.
+    case profile
+    /// Home. Named for the tab, because `diary` is what this surface used to be called and an event
+    /// parameter that disagrees with the app's own word for a screen is a trap for whoever reads it.
+    case journal
+    /// The place page — a "what to order" row.
+    case place
+    /// The dish page — its place line.
+    case dish
 }
 
 /// Which affordance a "log" call to action was tapped on.

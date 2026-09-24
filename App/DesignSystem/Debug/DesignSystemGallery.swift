@@ -11,6 +11,7 @@ struct DesignSystemGallery: View {
     @State private var scheme: Scheme
     @State private var isComposerPresented: Bool
     @State private var isTextEditorVariantPresented = false
+    @State private var variants = AteVariants.shared
 
     /// Launch arguments open the gallery straight onto a section, a mode, or the composer —
     /// `-ate-gallery-section receipt -ate-gallery-dark`. Screenshotting a component then needs one
@@ -31,7 +32,7 @@ struct DesignSystemGallery: View {
     }
 
     private enum Section: String, CaseIterable, Identifiable {
-        case type, voices, colour, receipt, slips, controls, scoring, photos
+        case type, voices, colour, receipt, slips, controls, scoring, photos, variants
         var id: String { rawValue }
         var title: String { rawValue.capitalized }
     }
@@ -50,6 +51,7 @@ struct DesignSystemGallery: View {
                     case .controls: controlSpecimen
                     case .scoring: scoringSpecimen
                     case .photos: photoSpecimen
+                    case .variants: variantSpecimen
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -66,6 +68,29 @@ struct DesignSystemGallery: View {
             ScrollView { ComposerTextEditorVariant() }
                 .background(AteColor.ground)
                 .preferredColorScheme(scheme.colorScheme)
+        }
+    }
+
+    /// **The open questions**, each shipped as both answers. A row here is deleted the day its
+    /// question is settled — this is not a settings screen in waiting.
+    private var variantSpecimen: some View {
+        VStack(alignment: .leading, spacing: AteMetrics.section) {
+            label("Entry page — which gesture owns a tap on the title and on a bill line")
+            Toggle(isOn: Bindable(variants).entryTapOpensDetail) {
+                VStack(alignment: .leading, spacing: AteMetrics.tight) {
+                    Text("Tap opens the place / dish page")
+                        .ateText(.rowTitle)
+                    Text(variants.entryTapOpensDetail
+                         ? "Long press corrects it. (The default.)"
+                         : "Off: the artboard's wiring — a tap corrects, a long press opens the page.")
+                        .ateText(.meta)
+                        .foregroundStyle(AtePalette.automatic.muted)
+                }
+            }
+            .tint(AtePalette.automatic.fg)
+            // The same switch is in the entry page's own context menu, because the gallery is not
+            // reachable from a TestFlight build and that page is.
+            label("Also on the entry page itself, under a long press")
         }
     }
 
@@ -321,6 +346,11 @@ struct DesignSystemGallery: View {
             label("Cluster — tilt and overlap, static surfaces only")
             PhotoCluster(photos: AtePhoto.swatches)
             PhotoCluster(photos: AtePhoto.swatches, side: AteMetrics.clusterPhotoComposer)
+            label("…and the dish hero's own pair: 150pt, lapped 44, −6°/+4°")
+            PhotoCluster(
+                photos: Array(AtePhoto.swatches.prefix(2)), side: 150,
+                overlap: 44, angles: AtePhotoAngles.dishHero
+            )
             label("Collage — the entry page, 1 / 2 / 3 photos")
             PhotoCollage(photos: Array(AtePhoto.swatches.prefix(1)), width: collageWidth)
             PhotoCollage(photos: Array(AtePhoto.swatches.prefix(2)), width: collageWidth)

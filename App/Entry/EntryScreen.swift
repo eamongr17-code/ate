@@ -31,11 +31,20 @@ struct EntryScreen: View {
     var onEdit: (EntryCard) -> Void = { _ in }
     /// The byline on somebody else's entry.
     var onProfile: (UUID) -> Void = { _ in }
+    /// The place at the head of the page, and a bill line — the same two destinations a slip's pin
+    /// and its dish rows open.
+    var onPlace: (UUID) -> Void = { _ in }
+    var onDish: (UUID) -> Void = { _ in }
     /// This entry's author was blocked from its actions sheet: every list behind this page is stale.
     var onBlocked: () -> Void = {}
 
     @State private var model: EntryModel
     @State private var isShowingActions = false
+    #if DEBUG || BETA
+    /// The one genuinely uncertain interaction on this page, shipped as both answers
+    /// (``AteVariants``). Held as state so flipping it redraws the page under the menu.
+    @State private var variants = AteVariants.shared
+    #endif
     @Environment(\.dismiss) private var dismiss
 
     init(
@@ -45,6 +54,8 @@ struct EntryScreen: View {
         onChange: @escaping (EntryCard) -> Void = { _ in },
         onEdit: @escaping (EntryCard) -> Void = { _ in },
         onProfile: @escaping (UUID) -> Void = { _ in },
+        onPlace: @escaping (UUID) -> Void = { _ in },
+        onDish: @escaping (UUID) -> Void = { _ in },
         onBlocked: @escaping () -> Void = {}
     ) {
         self.route = route
@@ -52,6 +63,8 @@ struct EntryScreen: View {
         self.onChange = onChange
         self.onEdit = onEdit
         self.onProfile = onProfile
+        self.onPlace = onPlace
+        self.onDish = onDish
         self.onBlocked = onBlocked
         _model = State(initialValue: EntryModel(route: route, services: services, saves: saves))
     }
@@ -89,7 +102,7 @@ struct EntryScreen: View {
             if let card = model.card {
                 orderRow(card)
                 if let place = card.place {
-                    title(place.name)
+                    title(place, isMine: card.isMine)
                 }
                 photos
                 words
@@ -149,19 +162,58 @@ struct EntryScreen: View {
         }
     }
 
-    /// The place, at 38. The same door the receipt's header used to be: tapping it changes the place
-    /// and re-resolves every line at the new one.
-    private func title(_ place: String) -> some View {
-        Button {
-            model.isCorrectingPlace = true
-        } label: {
-            AteExactText(text: place, style: .entryPlace, alignment: .leading)
+    /// **The place, at 38 — and the open question.**
+    ///
+    /// It goes two places: the place's own page, and ``PlaceSheet``, which changes the place and
+    /// re-resolves every line at the new one. Which of them the *tap* opens is genuinely uncertain
+    /// — the artboard wired the tap to the sheet, before those pages existed — so both are built
+    /// and ``AteVariants/entryTapOpensDetail`` picks (AGENTS.md: two working variants, decided
+    /// on-device). The other is always one long press away, with a word on it.
+    ///
+    /// Somebody else's entry has no correction, so its title always opens the page.
+    private func title(_ place: EntryCard.Place, isMine: Bool) -> some View {
+        let openPage = { onPlace(place.id) }
+        let correct = { model.isCorrectingPlace = true }
+        let tapOpensPage = isMine == false || tapOpensDetail
+        return Button(action: tapOpensPage ? openPage : correct) {
+            AteExactText(text: place.name, style: .entryPlace, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(place). Change the place")
+        .contextMenu {
+            if isMine {
+                Button(tapOpensPage ? "Change the place" : "Open \(place.name)") {
+                    tapOpensPage ? correct() : openPage()
+                }
+            }
+            variantSwitch
+        }
+        .accessibilityLabel(place.name)
         .accessibilityAddTraits(.isHeader)
+        .accessibilityIdentifier("entry.place")
+    }
+
+    /// Which gesture owns a tap on the title and on a bill line. Always `true` in a Release build:
+    /// the variant machinery does not exist there, and the default is the one that ships.
+    private var tapOpensDetail: Bool {
+        #if DEBUG || BETA
+        variants.entryTapOpensDetail
+        #else
+        true
+        #endif
+    }
+
+    /// The toggle itself, in the menu it is about — the gallery carries the same switch, but the
+    /// gallery is not reachable from a TestFlight build and this page is. Debug and Beta only.
+    @ViewBuilder
+    private var variantSwitch: some View {
+        #if DEBUG || BETA
+        Divider()
+        Button(variants.entryTapSwitchTitle) {
+            variants.entryTapOpensDetail.toggle()
+        }
+        #endif
     }
 
     @ViewBuilder
@@ -195,8 +247,10 @@ struct EntryScreen: View {
             // structure is Ate's guess only where the words were yours.
             EntryBill(
                 items: receipt.items,
-                onTap: model.isMine ? { model.correcting = EntryModel.Correcting(item: $0) } : nil,
-                onSave: model.isMine ? nil : { item in Task { await model.toggleSave(item: item) } }
+                onOpen: { item in item.dishID.map(onDish) },
+                onCorrect: model.isMine ? { model.correcting = EntryModel.Correcting(item: $0) } : nil,
+                onSave: model.isMine ? nil : { item in Task { await model.toggleSave(item: item) } },
+                tapOpensDetail: tapOpensDetail
             )
         case .pending, .failed:
             EntryPendingBill(state: model.state) {
