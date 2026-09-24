@@ -211,34 +211,36 @@ struct EntryCardsContractTests {
 
     @Test("get_entry_feed pages on its cursor: no repeats, no gaps, newest first")
     func entryFeedPages() async throws {
-        let client = try await client()
-        let pageSize = 3
-        var cursor: PageCursor?
-        var seen: [EntryCard] = []
-        var pages = 0
+        try await StagingExclusive.shared.run {
+            let client = try await client()
+            let pageSize = 3
+            var cursor: PageCursor?
+            var seen: [EntryCard] = []
+            var pages = 0
 
-        repeat {
-            let rows = try await feedPage(client, cursor: cursor, pageSize: pageSize)
-            if pages == 0 {
-                #expect(rows.isEmpty == false, "a signed-in viewer's feed must not be empty — the empty-feed trap")
+            repeat {
+                let rows = try await feedPage(client, cursor: cursor, pageSize: pageSize)
+                if pages == 0 {
+                    #expect(rows.isEmpty == false, "a signed-in viewer's feed must not be empty — the empty-feed trap")
+                }
+                seen.append(contentsOf: rows)
+                cursor = rows.count < pageSize ? nil : rows.last.map { PageCursor(createdAt: $0.createdAt, id: $0.id) }
+                pages += 1
+            } while cursor != nil && pages < 8
+
+            #expect(Set(seen.map(\.id)).count == seen.count, "the cursor served a row twice")
+            for (newer, older) in zip(seen, seen.dropFirst()) {
+                let descending = newer.createdAt > older.createdAt
+                    || (newer.createdAt == older.createdAt && newer.id.uuidString > older.id.uuidString)
+                #expect(descending, "\(newer.id) should sort before \(older.id)")
             }
-            seen.append(contentsOf: rows)
-            cursor = rows.count < pageSize ? nil : rows.last.map { PageCursor(createdAt: $0.createdAt, id: $0.id) }
-            pages += 1
-        } while cursor != nil && pages < 8
-
-        #expect(Set(seen.map(\.id)).count == seen.count, "the cursor served a row twice")
-        for (newer, older) in zip(seen, seen.dropFirst()) {
-            let descending = newer.createdAt > older.createdAt
-                || (newer.createdAt == older.createdAt && newer.id.uuidString > older.id.uuidString)
-            #expect(descending, "\(newer.id) should sort before \(older.id)")
+            // The feed is public entries by other people: `p_include_own` defaults false, because your
+            // own visits live in the journal (contract, Reads).
+            #expect(seen.allSatisfy { $0.visibility == .public })
+            #expect(seen.allSatisfy { $0.isMine == false })
+            // A row nobody can put a name to is not renderable.
+            #expect(seen.allSatisfy { ($0.author?.username.isEmpty == false) })
         }
-        // The feed is public entries by other people: `p_include_own` defaults false, because your
-        // own visits live in the journal (contract, Reads).
-        #expect(seen.allSatisfy { $0.visibility == .public })
-        #expect(seen.allSatisfy { $0.isMine == false })
-        // A row nobody can put a name to is not renderable.
-        #expect(seen.allSatisfy { ($0.author?.username.isEmpty == false) })
     }
 
     /// One page of `get_entry_feed`, built the way `integration-design.md` writes the cursor

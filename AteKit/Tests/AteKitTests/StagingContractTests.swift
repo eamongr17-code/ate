@@ -80,6 +80,41 @@ enum StagingContract {
     }
 }
 
+/// Cursor walks and visibility writers are mutually exclusive within one test process.
+///
+/// Swift Testing runs suites in parallel. `blockingHidesThem` blocks a seeded author for four round
+/// trips and `blocked_with()` hides that author's rows from every read while it holds — so a walk
+/// running at the same moment loses rows that are back by the time it finishes, and no snapshot
+/// taken before or after can tell that from a pager skipping them. Every walk and every test that
+/// changes what the viewer can see runs inside this lock. Fair (FIFO) and never blocks a thread.
+actor StagingExclusive {
+    static let shared = StagingExclusive()
+    private var held = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func run<T: Sendable>(_ body: @Sendable () async throws -> T) async rethrows -> T {
+        await acquire()
+        defer { release() }
+        return try await body()
+    }
+
+    private func acquire() async {
+        if held == false {
+            held = true
+            return
+        }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    private func release() {
+        if waiters.isEmpty {
+            held = false
+        } else {
+            waiters.removeFirst().resume()
+        }
+    }
+}
+
 @Suite("Staging contract", .enabled(if: StagingContract.isEnabled), .serialized)
 struct StagingContractTests {
     func client() async throws -> AteAPIClient {
@@ -90,6 +125,16 @@ struct StagingContractTests {
     /// `count=exact`. The walk tests use this instead of a floor copied off the seed: the same
     /// `reviews_select_visible` policy (0019) governs this count and the feed/diary select, so the
     /// number is the contract — "walked everything" stays true as staging grows.
+    /// Every review id the viewer can read right now, in one request. Staging holds a few hundred
+    /// rows; the 5,000 cap is far above that and fails loudly (not silently) if it is ever reached.
+    func visibleReviewIDs(_ client: AteAPIClient) async throws -> Set<UUID> {
+        struct IDRow: Decodable { let id: UUID }
+        let rows: [IDRow] = try await client.supabase.from(Review.table).select("id")
+            .range(from: 0, to: 4_999).execute().value
+        try #require(rows.count < 5_000, "visibleReviewIDs hit its cap; page it")
+        return Set(rows.map(\.id))
+    }
+
     func visibleReviewCount(
         _ client: AteAPIClient,
         refine: @Sendable (PostgrestFilterBuilder) -> PostgrestFilterBuilder = { $0 }
@@ -196,25 +241,27 @@ struct StagingContractTests {
 
     @Test("keyset paging walks reviews with no gaps and no repeats, across a timestamp tie")
     func keysetPagingIsTotal() async throws {
-        let client = try await client()
-        // Page size 2 over a seed that has three reviews sharing one microsecond timestamp — the
-        // case where a created_at-only cursor loops or skips.
-        var request: PageRequest? = PageRequest(limit: 2)
-        var seen: [Review] = []
+        try await StagingExclusive.shared.run {
+            let client = try await client()
+            // Page size 2 over a seed that has three reviews sharing one microsecond timestamp — the
+            // case where a created_at-only cursor loops or skips.
+            var request: PageRequest? = PageRequest(limit: 2)
+            var seen: [Review] = []
 
-        while let current = request, seen.count < 12 {
-            let page = try await client.page(Review.self, request: current)
-            seen.append(contentsOf: page.items)
-            request = current.next(after: page)
-        }
+            while let current = request, seen.count < 12 {
+                let page = try await client.page(Review.self, request: current)
+                seen.append(contentsOf: page.items)
+                request = current.next(after: page)
+            }
 
-        #expect(seen.count >= 4)
-        #expect(Set(seen.map(\.id)).count == seen.count)  // no row served twice
-        // Strictly descending on the composite key — the total order the cursor relies on.
-        for (newer, older) in zip(seen, seen.dropFirst()) {
-            let isDescending = newer.createdAt > older.createdAt
-                || (newer.createdAt == older.createdAt && newer.id.uuidString > older.id.uuidString)
-            #expect(isDescending, "\(newer.id) should sort before \(older.id)")
+            #expect(seen.count >= 4)
+            #expect(Set(seen.map(\.id)).count == seen.count)  // no row served twice
+            // Strictly descending on the composite key — the total order the cursor relies on.
+            for (newer, older) in zip(seen, seen.dropFirst()) {
+                let isDescending = newer.createdAt > older.createdAt
+                    || (newer.createdAt == older.createdAt && newer.id.uuidString > older.id.uuidString)
+                #expect(isDescending, "\(newer.id) should sort before \(older.id)")
+            }
         }
     }
 
@@ -242,7 +289,10 @@ struct StagingContractTests {
         // The trap the brief names: staging really does serve these rows.
         let unrated = try await client.fetchAll(DishStats.self) { $0.is("score", value: nil).limit(5) }
         #expect(unrated.isEmpty == false)
-        #expect(unrated.allSatisfy { $0.score == nil && $0.reviewCount == 0 && $0.isRated == false })
+        #expect(unrated.allSatisfy { $0.score == nil && $0.isRated == false })
+        // Since 0018 an unscored LINE is the normal case, so an unrated dish usually has reviews;
+        // the seed keeps at least one such dish (Affogato at Tipo 00) so this stays exercised.
+        #expect(unrated.contains { $0.reviewCount > 0 }, "no unrated dish with a line on staging — reseed one")
 
         // The view keys on dish_id, not id — proves AteRecord.primaryKeyColumn.
         let one = try #require(rated.first)
@@ -277,92 +327,89 @@ struct StagingContractTests {
 
     @Test("get_feed pages through the RPC cursor")
     func feedRPCPages() async throws {
-        let client = try await client()
-        let me = try await client.requireCurrentUserID()
+        try await StagingExclusive.shared.run {
+            let client = try await client()
+            let me = try await client.requireCurrentUserID()
 
-        let page: Page<Review> = try await client.rpcPage(
-            Review.self, function: "get_feed", request: PageRequest(limit: 3)
-        )
-        // The seeded viewer follows other demo accounts, so the following-only feed is non-empty.
-        #expect(page.items.isEmpty == false)
-        // get_feed is following-only BY DESIGN: own posts are unioned client-side (data-model §5).
-        #expect(page.items.allSatisfy { $0.reviewerID != me })
-
-        if let cursor = page.nextCursor {
-            let second: Page<Review> = try await client.rpcPage(
-                Review.self, function: "get_feed", request: PageRequest(limit: 3, after: cursor)
+            let page: Page<Review> = try await client.rpcPage(
+                Review.self, function: "get_feed", request: PageRequest(limit: 3)
             )
-            #expect(Set(second.items.map(\.id)).isDisjoint(with: Set(page.items.map(\.id))))
+            // The seeded viewer follows other demo accounts, so the following-only feed is non-empty.
+            #expect(page.items.isEmpty == false)
+            // get_feed is following-only BY DESIGN: own posts are unioned client-side (data-model §5).
+            #expect(page.items.allSatisfy { $0.reviewerID != me })
+
+            if let cursor = page.nextCursor {
+                let second: Page<Review> = try await client.rpcPage(
+                    Review.self, function: "get_feed", request: PageRequest(limit: 3, after: cursor)
+                )
+                #expect(Set(second.items.map(\.id)).isDisjoint(with: Set(page.items.map(\.id))))
+            }
         }
     }
 
     @Test("the V1 global feed walks every review the viewer can read, once, embeds and all")
     func globalFeedWalksEverything() async throws {
-        let client = try await client()
-        let me = try await client.requireCurrentUserID()
-        let feed = GlobalFeedClient(api: client)
+        try await StagingExclusive.shared.run {
+            let client = try await client()
+            let me = try await client.requireCurrentUserID()
+            let feed = GlobalFeedClient(api: client)
 
-        // The floor is the server's count, not a number lifted from the seed. (It used to be `>= 46`,
-        // the seed's review count when this was written; staging holds far more now, so that floor
-        // had stopped asserting anything about "walks everything".)
-        // The global feed serves reviews on PUBLIC entries (and the legacy rows with no entry).
-        // RLS also lets the viewer read their own private entries' reviews, so the floor is the
-        // visible count minus those — otherwise one private dinner makes "walked everything" false.
-        let visible = try await visibleReviewCount(client)
-        let onPrivate = try #require(
-            try await client.supabase.from(Review.table)
-                .select("id, entries!inner(visibility)", head: true, count: .exact)
-                .eq("entries.visibility", value: "private")
-                .execute().count,
-            "PostgREST returned no count header"
-        )
-        let total = visible - onPrivate
-        #expect(total > 0, "an empty reviews table can't test a feed walk")
+            // Two id snapshots bracket the walk. Staging is written to while CI runs (other contract
+            // suites mint and delete rows; agents re-sort entries), so a single count taken up front is
+            // neither a floor nor a ceiling: a row deleted mid-walk made "seen 138 >= total 139" fail
+            // twice on 2026-09-24 with nothing wrong in the pager. What the walk owes is every row that
+            // existed BOTH before and after it — the ids in both snapshots. Inserts above the cursor
+            // and deletes below it fall out of that intersection by construction.
+            let before = try await visibleReviewIDs(client)
+            #expect(before.isEmpty == false, "an empty reviews table can't test a feed walk")
 
-        // Small pages on purpose: the seed has nine clusters of reviews sharing a timestamp to the
-        // microsecond, so a small page size guarantees several boundaries land inside a tie.
-        let pageSize = 5
-        var request: PageRequest? = PageRequest(limit: pageSize)
-        var seen: [FeedEntry] = []
-        var pages = 0
-        // Derived from the count, so a growing staging can't silently truncate the walk into a pass.
-        let pageCap = total / pageSize + 8
+            // Small pages on purpose: the seed has nine clusters of reviews sharing a timestamp to the
+            // microsecond, so a small page size guarantees several boundaries land inside a tie.
+            let pageSize = 5
+            var request: PageRequest? = PageRequest(limit: pageSize)
+            var seen: [FeedEntry] = []
+            var pages = 0
+            // Derived from the count, so a growing staging can't silently truncate the walk into a pass.
+            let pageCap = before.count / pageSize + 8
 
-        while let current = request, pages < pageCap {
-            let page = try await feed.feedPage(current)
-            seen.append(contentsOf: page.items)
-            request = current.next(after: page)
-            pages += 1
-        }
+            while let current = request, pages < pageCap {
+                let page = try await feed.feedPage(current)
+                seen.append(contentsOf: page.items)
+                request = current.next(after: page)
+                pages += 1
+            }
 
-        #expect(request == nil, "the walk must end because the stream ran out, not because it hit the cap")
-        // `>=`, not `==`: a row inserted above the cursor mid-walk (staging accrues rows while CI
-        // runs) can never be served by a descending keyset, so the count taken first is a floor.
-        // Dupes and gaps are caught by the id-set and ordering checks, which hold at any count.
-        #expect(seen.count >= total)
-        #expect(Set(seen.map(\.id)).count == seen.count)
+            #expect(request == nil, "the walk must end because the stream ran out, not because it hit the cap")
+            let after = try await visibleReviewIDs(client)
+            let stable = before.intersection(after)
+            let seenIDs = Set(seen.map(\.id))
+            let skipped = stable.subtracting(seenIDs)
+            #expect(skipped.isEmpty, "the walk skipped rows that existed throughout: \(skipped)")
+            #expect(seenIDs.count == seen.count, "the walk served a row twice")
 
-        // Global, not follow-scoped: unlike get_feed, the viewer's own reviews are in it.
-        #expect(seen.contains { $0.review.reviewerID == me })
-        // And an unscored line item is renderable — the 0018 case that broke this very test. A row
-        // with no number is a row, not an error.
-        #expect(seen.contains { $0.review.score == nil }, "the feed must carry unscored reviews too")
+            // Global, not follow-scoped: unlike get_feed, the viewer's own reviews are in it.
+            #expect(seen.contains { $0.review.reviewerID == me })
+            // And an unscored line item is renderable — the 0018 case that broke this very test. A row
+            // with no number is a row, not an error.
+            #expect(seen.contains { $0.review.score == nil }, "the feed must carry unscored reviews too")
 
-        // The embeds are the whole point — a row without names is not renderable.
-        for entry in seen {
-            #expect(entry.dish.name.isEmpty == false)
-            #expect(entry.restaurant.name.isEmpty == false)
-            #expect(entry.author?.username.isEmpty == false)
-            #expect(entry.dish.id == entry.review.dishID)
-            #expect(entry.restaurant.id == entry.review.restaurantID)
-            #expect(entry.author?.id == entry.review.reviewerID)
-        }
+            // The embeds are the whole point — a row without names is not renderable.
+            for entry in seen {
+                #expect(entry.dish.name.isEmpty == false)
+                #expect(entry.restaurant.name.isEmpty == false)
+                #expect(entry.author?.username.isEmpty == false)
+                #expect(entry.dish.id == entry.review.dishID)
+                #expect(entry.restaurant.id == entry.review.restaurantID)
+                #expect(entry.author?.id == entry.review.reviewerID)
+            }
 
-        for (newer, older) in zip(seen, seen.dropFirst()) {
-            let descending = newer.review.createdAt > older.review.createdAt
-                || (newer.review.createdAt == older.review.createdAt
-                    && newer.id.uuidString > older.id.uuidString)
-            #expect(descending, "\(newer.id) should sort before \(older.id)")
+            for (newer, older) in zip(seen, seen.dropFirst()) {
+                let descending = newer.review.createdAt > older.review.createdAt
+                    || (newer.review.createdAt == older.review.createdAt
+                        && newer.id.uuidString > older.id.uuidString)
+                #expect(descending, "\(newer.id) should sort before \(older.id)")
+            }
         }
     }
 
@@ -377,60 +424,65 @@ struct StagingContractTests {
 
     @Test("the diary pages only the viewer's own reviews, newest first")
     func diaryIsScopedToTheViewer() async throws {
-        let client = try await client()
-        let me = try await client.requireCurrentUserID()
-        let diary = DiaryClient(api: client)
+        try await StagingExclusive.shared.run {
+            let client = try await client()
+            let me = try await client.requireCurrentUserID()
+            let diary = DiaryClient(api: client)
 
-        // Same treatment as the feed: the viewer's own row count is the floor, so the walk can't
-        // truncate into a pass as the demo account accumulates entries.
-        let reviewerID = me.uuidString.lowercased()
-        let mine = try await visibleReviewCount(client) { $0.eq("reviewer_id", value: reviewerID) }
-        // The seeded demo account has reviews; an empty diary here would mean the filter (or RLS)
-        // is wrong, not that the account is new.
-        #expect(mine > 0)
+            // Same treatment as the feed: the viewer's own row count is the floor, so the walk can't
+            // truncate into a pass as the demo account accumulates entries.
+            let reviewerID = me.uuidString.lowercased()
+            let mine = try await visibleReviewCount(client) { $0.eq("reviewer_id", value: reviewerID) }
+            // The seeded demo account has reviews; an empty diary here would mean the filter (or RLS)
+            // is wrong, not that the account is new.
+            #expect(mine > 0)
 
-        let pageSize = 5
-        var request: PageRequest? = PageRequest(limit: pageSize)
-        var seen: [FeedEntry] = []
-        var pages = 0
-        let pageCap = mine / pageSize + 8
+            let pageSize = 5
+            var request: PageRequest? = PageRequest(limit: pageSize)
+            var seen: [FeedEntry] = []
+            var pages = 0
+            let pageCap = mine / pageSize + 8
 
-        while let current = request, pages < pageCap {
-            let page = try await diary.diaryPage(current)
-            seen.append(contentsOf: page.items)
-            request = current.next(after: page)
-            pages += 1
+            while let current = request, pages < pageCap {
+                let page = try await diary.diaryPage(current)
+                seen.append(contentsOf: page.items)
+                request = current.next(after: page)
+                pages += 1
+            }
+
+            #expect(request == nil, "the walk must end because the stream ran out, not because it hit the cap")
+            #expect(seen.count >= mine)
+            #expect(Set(seen.map(\.id)).count == seen.count)
+            // The whole contract of this query, in one line.
+            #expect(seen.allSatisfy { $0.review.reviewerID == me })
+            // The diary is where an unscored line item lands first: you wrote about a dish and gave it no
+            // number. Every one of them must page like any other row — counted, not sampled.
+            let mineUnscored = try await visibleReviewCount(client) {
+                $0.eq("reviewer_id", value: reviewerID).is("score", value: nil)
+            }
+            #expect(
+                mineUnscored > 0,
+                "the demo account must have an unscored review — it is the normal case since 0018"
+            )
+            #expect(seen.filter { $0.review.score == nil }.count >= mineUnscored)
+
+            for entry in seen {
+                #expect(entry.dish.name.isEmpty == false)
+                #expect(entry.restaurant.name.isEmpty == false)
+            }
+
+            for (newer, older) in zip(seen, seen.dropFirst()) {
+                let descending = newer.review.createdAt > older.review.createdAt
+                    || (newer.review.createdAt == older.review.createdAt
+                        && newer.id.uuidString > older.id.uuidString)
+                #expect(descending, "\(newer.id) should sort before \(older.id)")
+            }
+
+            // …and it is strictly a subset of the global feed, which is the same query minus the filter.
+            let everything = try await GlobalFeedClient(api: client).feedPage(PageRequest(limit: 100))
+            let mineInFeed = everything.items.filter { $0.review.reviewerID == me }.map(\.id)
+            #expect(mineInFeed.allSatisfy { seen.map(\.id).contains($0) })
         }
-
-        #expect(request == nil, "the walk must end because the stream ran out, not because it hit the cap")
-        #expect(seen.count >= mine)
-        #expect(Set(seen.map(\.id)).count == seen.count)
-        // The whole contract of this query, in one line.
-        #expect(seen.allSatisfy { $0.review.reviewerID == me })
-        // The diary is where an unscored line item lands first: you wrote about a dish and gave it no
-        // number. Every one of them must page like any other row — counted, not sampled.
-        let mineUnscored = try await visibleReviewCount(client) {
-            $0.eq("reviewer_id", value: reviewerID).is("score", value: nil)
-        }
-        #expect(mineUnscored > 0, "the demo account must have an unscored review — it is the normal case since 0018")
-        #expect(seen.filter { $0.review.score == nil }.count >= mineUnscored)
-
-        for entry in seen {
-            #expect(entry.dish.name.isEmpty == false)
-            #expect(entry.restaurant.name.isEmpty == false)
-        }
-
-        for (newer, older) in zip(seen, seen.dropFirst()) {
-            let descending = newer.review.createdAt > older.review.createdAt
-                || (newer.review.createdAt == older.review.createdAt
-                    && newer.id.uuidString > older.id.uuidString)
-            #expect(descending, "\(newer.id) should sort before \(older.id)")
-        }
-
-        // …and it is strictly a subset of the global feed, which is the same query minus the filter.
-        let everything = try await GlobalFeedClient(api: client).feedPage(PageRequest(limit: 100))
-        let mineInFeed = everything.items.filter { $0.review.reviewerID == me }.map(\.id)
-        #expect(mineInFeed.allSatisfy { seen.map(\.id).contains($0) })
     }
 
     @Test("the diary refuses to serve an anonymous viewer an empty page")
