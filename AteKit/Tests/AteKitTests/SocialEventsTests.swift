@@ -31,7 +31,13 @@ struct SocialEventsTests {
         let off = SocialEvents.saveToggled(source: .savedList, isSaved: false)
         #expect(off.parameters == ["source": "saved_list", "state": "off"])
         #expect(SaveSource.allCases.map(\.rawValue)
-            == ["feed", "entry", "saved_list", "profile"])
+            == ["feed", "entry", "saved_list", "profile", "place", "dish"])
+        // The dish page's own bookmark and a place page's: the same event, so "how often people
+        // save" stays one number however many surfaces grow one.
+        #expect(SocialEvents.saveToggled(source: .dish, isSaved: true).parameters
+            == ["source": "dish", "state": "on"])
+        #expect(SocialEvents.saveToggled(source: .place, isSaved: true).parameters
+            == ["source": "place", "state": "on"])
     }
 
     @Test("Profiles and moderation")

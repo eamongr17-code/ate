@@ -96,13 +96,15 @@ final class CoreLoopUITests: XCTestCase {
         let back = app.buttons["Back"]
         XCTAssertTrue(back.waitForExistence(timeout: 5), "the entry page's own back control")
         back.tap()
-        let slips = app.buttons.matching(identifier: "journal.slip")
+        // A journal slip is no longer one flat button: its pin opens the place and its dish rows
+        // open the dish, so the slip is a container and its body is the door to the entry.
+        let slips = app.otherElements.matching(identifier: "journal.slip")
         XCTAssertTrue(slips.firstMatch.waitForExistence(timeout: 5))
         XCTAssertEqual(slips.count, 2, "the seeded entry plus the one just written")
         attach("07-journal-full")
 
-        // And a slip is a door: tapping the older one opens its entry, bill and all.
-        slips.element(boundBy: 1).tap()
+        // And a slip is a door: tapping the older one's body opens its entry, bill and all.
+        app.buttons.matching(identifier: "journal.slip.body").element(boundBy: 1).tap()
         XCTAssertTrue(app.otherElements["entry.bill"].waitForExistence(timeout: 5),
                       "tapping a slip opens its entry")
         attach("10-entry-from-journal")

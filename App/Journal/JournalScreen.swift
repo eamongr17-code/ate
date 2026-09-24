@@ -20,7 +20,10 @@ struct JournalScreen: View {
     let onCompose: () -> Void
     let onOpen: (EntryCard) -> Void
     var onSuggestions: () -> Void = {}
-    /// A saved row's two doors — both to screens that land in slice 2.
+    /// A slip's pin line and its dish rows — the same doors the feed's slips carry.
+    var onPlace: (UUID) -> Void = { _ in }
+    var onDish: (UUID) -> Void = { _ in }
+    /// A saved row's two doors: the place head, and the dish itself.
     var onSavedPlace: (UUID) -> Void = { _ in }
     var onSavedDish: (SavedDish) -> Void = { _ in }
     /// The bookmark on a saved row: it only ever unsaves.
@@ -142,9 +145,12 @@ struct JournalScreen: View {
                     .ateText(.controlSmall)
                     .padding(.top, AteMetrics.snug - 2)
                 ForEach(day.entries) { entry in
-                    EntrySlip(slip: EntrySlipPresentation.journal(entry)) {
-                        onOpen(entry)
-                    }
+                    EntrySlip(
+                        slip: EntrySlipPresentation.journal(entry),
+                        onOpen: { onOpen(entry) },
+                        onPlace: onPlace,
+                        onDish: { onDish($0.dishID) }
+                    )
                     .task { await store.loadMoreIfNeeded(after: entry) }
                 }
             }

@@ -31,6 +31,10 @@ struct EntryScreen: View {
     var onEdit: (EntryCard) -> Void = { _ in }
     /// The byline on somebody else's entry.
     var onProfile: (UUID) -> Void = { _ in }
+    /// The place at the head of the page, and a bill line — the same two destinations a slip's pin
+    /// and its dish rows open.
+    var onPlace: (UUID) -> Void = { _ in }
+    var onDish: (UUID) -> Void = { _ in }
     /// This entry's author was blocked from its actions sheet: every list behind this page is stale.
     var onBlocked: () -> Void = {}
 
@@ -45,6 +49,8 @@ struct EntryScreen: View {
         onChange: @escaping (EntryCard) -> Void = { _ in },
         onEdit: @escaping (EntryCard) -> Void = { _ in },
         onProfile: @escaping (UUID) -> Void = { _ in },
+        onPlace: @escaping (UUID) -> Void = { _ in },
+        onDish: @escaping (UUID) -> Void = { _ in },
         onBlocked: @escaping () -> Void = {}
     ) {
         self.route = route
@@ -52,6 +58,8 @@ struct EntryScreen: View {
         self.onChange = onChange
         self.onEdit = onEdit
         self.onProfile = onProfile
+        self.onPlace = onPlace
+        self.onDish = onDish
         self.onBlocked = onBlocked
         _model = State(initialValue: EntryModel(route: route, services: services, saves: saves))
     }
@@ -89,7 +97,7 @@ struct EntryScreen: View {
             if let card = model.card {
                 orderRow(card)
                 if let place = card.place {
-                    title(place.name)
+                    title(place, isMine: card.isMine)
                 }
                 photos
                 words
@@ -149,19 +157,27 @@ struct EntryScreen: View {
         }
     }
 
-    /// The place, at 38. The same door the receipt's header used to be: tapping it changes the place
-    /// and re-resolves every line at the new one.
-    private func title(_ place: String) -> some View {
+    /// The place, at 38. **Tapping it opens the place's page**; long-pressing it opens
+    /// ``PlaceSheet``, which changes the place and re-resolves every line at the new one. The
+    /// correction is still the author's and still one gesture away — it simply no longer owns the
+    /// tap, now that the place has a page of its own to be.
+    private func title(_ place: EntryCard.Place, isMine: Bool) -> some View {
         Button {
-            model.isCorrectingPlace = true
+            onPlace(place.id)
         } label: {
-            AteExactText(text: place, style: .entryPlace, alignment: .leading)
+            AteExactText(text: place.name, style: .entryPlace, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(place). Change the place")
+        .contextMenu {
+            if isMine {
+                Button("Change the place") { model.isCorrectingPlace = true }
+            }
+        }
+        .accessibilityLabel(place.name)
         .accessibilityAddTraits(.isHeader)
+        .accessibilityIdentifier("entry.place")
     }
 
     @ViewBuilder
@@ -195,7 +211,8 @@ struct EntryScreen: View {
             // structure is Ate's guess only where the words were yours.
             EntryBill(
                 items: receipt.items,
-                onTap: model.isMine ? { model.correcting = EntryModel.Correcting(item: $0) } : nil,
+                onOpen: { item in item.dishID.map(onDish) },
+                onCorrect: model.isMine ? { model.correcting = EntryModel.Correcting(item: $0) } : nil,
                 onSave: model.isMine ? nil : { item in Task { await model.toggleSave(item: item) } }
             )
         case .pending, .failed:

@@ -8,11 +8,19 @@ import SwiftUI
 /// under each dish says the same thing twice. The notes stay on the share receipt, which travels
 /// without them.
 ///
-/// Every line is a correction: tapping one opens ``DishSheet`` (`entry_corrected`, `part=dish`). The
-/// structure is Ate's guess and the person has the last word on all of it.
+/// **Tap a line and it opens the dish's page; long-press it and it opens ``DishSheet``**
+/// (`entry_corrected`, `part=dish`). The correction did not go away — the structure is still Ate's
+/// guess and the person still has the last word on all of it — it moved to the gesture that does
+/// not compete with a destination the dish now actually has.
 struct EntryBill: View {
     let items: [AteReceipt.Item]
-    var onTap: ((AteReceipt.Item) -> Void)?
+    /// **Tapping a line opens the dish.** A line item names a dish, and a dish has a page — the
+    /// same page the feed's slips and the place's menu open, so the tap means one thing everywhere.
+    var onOpen: ((AteReceipt.Item) -> Void)?
+    /// **Long-pressing it corrects it** — `DishSheet`, on your own entry only. The structure is
+    /// still Ate's guess and the person still has the last word on it; what changed is only which
+    /// gesture asks, because the primary tap now has a page to go to.
+    var onCorrect: ((AteReceipt.Item) -> Void)?
     /// Present on somebody else's entry: every line is a dish you can put on your own shelf, and a
     /// save is always one dish (PRODUCT.md decision 7).
     var onSave: ((AteReceipt.Item) -> Void)?
@@ -33,8 +41,12 @@ struct EntryBill: View {
     private func line(_ item: AteReceipt.Item, number: Int) -> some View {
         let row = EntryBillRow(number: number, name: item.name, score: item.score)
         HStack(spacing: AteMetrics.regular) {
-            if let onTap {
-                Button { onTap(item) } label: { row.contentShape(.rect) }
+            if let onOpen, item.dishID != nil {
+                Button { onOpen(item) } label: { row.contentShape(.rect) }
+                    .buttonStyle(.plain)
+                    .contextMenu { correction(item) }
+            } else if let onCorrect {
+                Button { onCorrect(item) } label: { row.contentShape(.rect) }
                     .buttonStyle(.plain)
                     .accessibilityHint("Change the dish")
             } else {
@@ -43,6 +55,16 @@ struct EntryBill: View {
             if let onSave {
                 bookmark(item, action: onSave)
             }
+        }
+    }
+
+    /// The correction, moved onto a long press now that the tap opens the dish. Labelled here and
+    /// nowhere else: a context menu is the one place in this design where a word is allowed,
+    /// because a menu item with no label is not a control.
+    @ViewBuilder
+    private func correction(_ item: AteReceipt.Item) -> some View {
+        if let onCorrect {
+            Button("Change the dish") { onCorrect(item) }
         }
     }
 
@@ -152,7 +174,7 @@ struct EntryPendingBill: View {
 #Preview("Bill") {
     ScrollView {
         VStack(alignment: .leading, spacing: AteMetrics.section) {
-            EntryBill(items: AteReceipt.preview.items, onTap: { _ in })
+            EntryBill(items: AteReceipt.preview.items, onOpen: { _ in }, onCorrect: { _ in })
             EntryPendingBill(state: .pending, onRetry: {})
             EntryPendingBill(state: .failed, onRetry: {})
         }

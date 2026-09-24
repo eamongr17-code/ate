@@ -10,7 +10,9 @@ struct ProfileScreen: View {
     let store: ProfileStore
     var onOpen: (EntryCard) -> Void = { _ in }
     var onSave: (EntryCard, AteSlip.Dish) -> Void = { _, _ in }
+    /// A slip's pin line and its dish rows.
     var onPlace: (UUID) -> Void = { _ in }
+    var onDish: (UUID) -> Void = { _ in }
     /// Blocked: the page is done. The caller pops it and refetches whatever is behind it.
     var onBlocked: () -> Void = {}
     var onViewed: (Bool) -> Void = { _ in }
@@ -123,6 +125,8 @@ struct ProfileScreen: View {
                     slip: EntrySlipPresentation.profile(entry),
                     onOpen: { onOpen(entry) },
                     onSave: { onSave(entry, $0) },
+                    onPlace: onPlace,
+                    onDish: { onDish($0.dishID) },
                     identifier: "profile.slip"
                 )
                 .task { await store.entries.loadMoreIfNeeded(after: entry) }

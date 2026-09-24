@@ -67,6 +67,24 @@ extension AteTextStyle {
     static let screenTitle = AteTextStyle(
         voice: .display, size: 40, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
     )
+    /// The place at the head of its own page — the biggest type in the app, because on the place
+    /// page the place is the whole subject. 44pt (`Restaurant.dc.html`).
+    static let placeTitle = AteTextStyle(
+        voice: .display, size: 44, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
+    )
+    /// A dish's aggregate, printed like a price on its own page. 64pt — the one number big enough
+    /// to be read across a table (`Dish.dc.html`).
+    static let dishScore = AteTextStyle(
+        voice: .display, size: 64, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
+    )
+    /// A dish in the "what to order" list, and its score beside it. 17/24 — a menu line, not a
+    /// slip's dish (20/26): the list is scanned, and the photo carries the weight.
+    static let menuDish = AteTextStyle(
+        voice: .display, size: 17, weight: 600, trackingEm: -0.01, lineHeight: 1.2, textStyle: .body
+    )
+    static let menuScore = AteTextStyle(
+        voice: .display, size: 24, weight: 800, trackingEm: -0.025, lineHeight: 1.0, textStyle: .title2
+    )
     /// The place at the head of the entry page — the biggest type in the app after a screen's own
     /// name, because on an entry the place IS the title. 38pt.
     static let entryPlace = AteTextStyle(
@@ -159,6 +177,11 @@ extension AteTextStyle {
     static let avatarInitial = AteTextStyle(
         voice: .display, size: 12, weight: 800, trackingEm: 0, lineHeight: 1.0,
         textStyle: .caption, maximumSize: 16
+    )
+    /// …and in the 36pt disc beside a dish review. 16pt, capped for the same reason.
+    static let avatarInitialMedium = AteTextStyle(
+        voice: .display, size: 16, weight: 800, trackingEm: 0, lineHeight: 1.0,
+        textStyle: .body, maximumSize: 20
     )
     /// …and in the 76pt disc at the head of a profile. 34pt, capped for the same reason.
     static let avatarMonogram = AteTextStyle(

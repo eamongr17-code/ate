@@ -123,6 +123,18 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
         }
     }
 
+    /// Every entry the viewer can see, newest first, with their bookmarks already on it. The place
+    /// and dish pages are *derived* from this rather than from a second store, so a preview drive
+    /// can never have a dish page that disagrees with the feed behind it (`InMemoryPlaceDishes`).
+    func visibleEntriesEverywhere() -> [EntryCard] {
+        lock.withLock {
+            entries
+                .filter { blocked.contains($0.authorID) == false }
+                .filter { $0.visibility == .public || $0.isMine }
+                .map(applyingSaves)
+        }
+    }
+
     /// One entry, with the viewer's bookmarks on it — what the entry page reads when it is opened
     /// from the feed.
     public func entryCard(id: UUID) -> EntryCard? {

@@ -120,13 +120,16 @@ struct AteChip: View {
     let title: String
     /// 32 by default; the feed's city chip is 40.
     var height: CGFloat = AteMetrics.chipHeight
+    /// 16 by default. The place header draws its star at 14 and its people mark at 15, because a
+    /// filled glyph reads heavier than a stroked one at the same box.
+    var iconSize: CGFloat = 16
     var action: (() -> Void)?
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
         let content = HStack(spacing: AteMetrics.snug - 2) {
-            if let icon { icon.view(size: 16) }
+            if let icon { icon.view(size: iconSize) }
             Text(title).ateText(.controlSmall)
         }
         .padding(.leading, icon == nil ? 12 : 10)

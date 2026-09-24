@@ -122,6 +122,9 @@ struct PhotoCluster: View {
     /// words and one that sits on the paper's edge.
     var topPadding: CGFloat = AteMetrics.tight
     var bottomPadding: CGFloat = AteMetrics.hairspace
+    /// How far the tiles overlap. 12 in a slip's 80pt cluster; the dish page's hero is 150pt and
+    /// laps 44, because an overlap is a fraction of the photo and not an absolute.
+    var overlap: CGFloat = AteMetrics.clusterOverlap
 
     @Environment(\.atePalette) private var palette
 
@@ -129,7 +132,7 @@ struct PhotoCluster: View {
     private static let angles: [Double] = [-5, 4, -2, 6, -3]
 
     var body: some View {
-        HStack(spacing: -AteMetrics.clusterOverlap) {
+        HStack(spacing: -overlap) {
             ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
                 AtePhotoTile(
                     photo: photo,

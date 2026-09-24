@@ -32,7 +32,10 @@ struct DetailEventsTests {
 
     @Test("every entry point the app can navigate from has a stable wire value")
     func sourceValues() {
-        #expect(DetailSource.allCases.map(\.rawValue) == ["feed", "search", "diary", "receipt", "unknown"])
+        #expect(DetailSource.allCases.map(\.rawValue) == [
+            "feed", "search", "diary", "receipt", "unknown",
+            "entry", "saved", "profile", "journal", "place", "dish"
+        ])
     }
 
     /// One funnel series across every way into the Log sheet: a new entry point without a value here
