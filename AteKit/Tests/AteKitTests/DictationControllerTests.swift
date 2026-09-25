@@ -118,6 +118,33 @@ struct DictationControllerTests {
         #expect(recorder.names == ["entry_voice_denied"])
     }
 
+    @Test("coming back from Settings still refused is the same denial — one event, not one per return")
+    func deniedOncePerDenial() async {
+        let transcriber = Transcriber()
+        transcriber.denial = .speech
+        let recorder = Recorder()
+        let controller = DictationController(
+            target: Target(), transcriber: transcriber, analytics: recorder.record
+        )
+        await controller.start()
+        await controller.retry()
+        await controller.retry()
+        #expect(controller.state == .denied(.speech))
+        #expect(recorder.names == ["entry_voice_denied"])
+
+        // A different refusal is a different denial.
+        transcriber.denial = .microphone
+        await controller.retry()
+        #expect(recorder.names == ["entry_voice_denied", "entry_voice_denied"])
+
+        // Allowed at last: it listens.
+        transcriber.denial = nil
+        await controller.retry()
+        #expect(controller.state == .listening)
+        #expect(transcriber.startCount == 1)
+        controller.stop(refocus: false)
+    }
+
     @Test("words said go into the target, and stopping commits them once")
     func transcriptsAndStop() async {
         let transcriber = Transcriber()

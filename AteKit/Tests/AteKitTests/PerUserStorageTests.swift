@@ -89,7 +89,7 @@ struct PerUserStorageTests {
         let outbox = EntryOutbox(
             entries: entries, containerName: "Tests-\(UUID().uuidString)", owner: { session.current }
         )
-        let entry = NewEntry(id: UUID(), authorID: alice, body: "queued offline", visibility: .public,
+        let entry = NewEntry(id: UUID(), authorID: alice, body: "queued offline",
                              restaurantID: nil, createdAt: Date())
         await outbox.enqueue(QueuedEntry(entry: QueuedInsert(entry), pendingPhotos: []))
 

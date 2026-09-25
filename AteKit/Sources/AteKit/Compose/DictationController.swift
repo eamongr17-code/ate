@@ -74,6 +74,9 @@ public final class DictationController {
     private var tokensMinted = 0
     private var hasStopped = false
     private var isAuthorizing = false
+    /// The refusal already reported. Coming back from Settings still refused is the same denial, not
+    /// a new one — `entry_voice_denied` counts people turned away, not trips to Settings.
+    private var reportedDenial: VoiceDenialReason?
 
     public init(
         target: any DictationTarget,
@@ -98,9 +101,13 @@ public final class DictationController {
         guard hasStopped == false, Task.isCancelled == false else { return }
         if let denial {
             state = .denied(denial)
-            analytics(EntryEvents.voiceDenied(reason: denial))
+            if denial != reportedDenial {
+                reportedDenial = denial
+                analytics(EntryEvents.voiceDenied(reason: denial))
+            }
             return
         }
+        reportedDenial = nil
         state = .listening
         analytics(EntryEvents.voiceStarted())
         session = DictationSession(anchor: target.caretPlainOffset)
