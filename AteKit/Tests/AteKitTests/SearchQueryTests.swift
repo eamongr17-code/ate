@@ -43,16 +43,19 @@ struct SearchQueryTests {
 
     // MARK: - ilike patterns
 
-    @Test("a contains-pattern is quoted so commas and parens can't break PostgREST parsing")
-    func quotedPattern() {
-        #expect(PostgRESTPattern.contains("Pasta, two ways") == "\"%Pasta, two ways%\"")
+    @Test("a contains-pattern is NOT quoted — a quote is part of the LIKE pattern, not syntax")
+    func unquotedPattern() {
+        // This used to expect `"%Pasta, two ways%"`. Staging says otherwise: `ilike."%rot%"` returns
+        // nothing while `ilike.%rot%` finds the saved "Roti", because the quotes end up inside the
+        // pattern. A comma in a single filter value is harmless — the parameter runs to its end.
+        #expect(PostgRESTPattern.contains("Pasta, two ways") == "%Pasta, two ways%")
     }
 
     @Test("LIKE metacharacters are neutralised — typing '%' must not match the whole table", arguments: [
-        ("50%", "\"%50_%\""),
-        ("a_b", "\"%a_b%\""),
-        ("a*b", "\"%a_b%\""),
-        ("a\\b", "\"%a_b%\"")
+        ("50%", "%50_%"),
+        ("a_b", "%a_b%"),
+        ("a*b", "%a_b%"),
+        ("a\\b", "%a_b%")
     ])
     func metacharacters(query: String, pattern: String) {
         #expect(PostgRESTPattern.contains(query) == pattern)
@@ -64,9 +67,9 @@ struct SearchQueryTests {
         #expect(PostgRESTPattern.contains("   ") == nil)
     }
 
-    @Test("a double quote in the query is escaped, not left to terminate the value")
-    func quoteEscaping() {
-        #expect(PostgRESTPattern.contains("the \"good\" one") == "\"%the \\\"good\\\" one%\"")
+    @Test("a double quote in the query is looked for, not escaped — it is a character in a name")
+    func quotesAreLiteral() {
+        #expect(PostgRESTPattern.contains("the \"good\" one") == "%the \"good\" one%")
     }
 
     // MARK: - Telemetry (§11.6)

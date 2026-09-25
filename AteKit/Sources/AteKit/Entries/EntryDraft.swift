@@ -82,4 +82,17 @@ public protocol EntryDraftStoring: Sendable {
     func clear(draftID: UUID?)
     /// Where a draft's staged photos live. Created on demand.
     func photoDirectory(for draftID: UUID) -> URL
+    /// Hands a draft written before drafts had owners to whoever is signed in now.
+    func adoptUnownedDraft()
+    /// Removes any draft with no owner — on every sign-out, so it can never reach the next person.
+    func discardUnowned()
+    /// Deletes one person's draft and staged photos — their account is gone.
+    func discardDrafts(of userID: UUID)
+}
+
+public extension EntryDraftStoring {
+    /// Stores without owners (memory, tests) have nothing to adopt or discard.
+    func adoptUnownedDraft() {}
+    func discardUnowned() {}
+    func discardDrafts(of userID: UUID) {}
 }

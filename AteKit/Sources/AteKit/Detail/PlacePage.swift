@@ -308,8 +308,13 @@ public struct PlacePageClient: PlacePageReading {
         after cursor: PageCursor?,
         pageSize: Int
     ) async throws -> Page<EntryCard> {
-        try await api.requireCurrentUserID()
+        // No session required: a signed-out browser reads this as `anon` (0034), and the server
+        // answers every viewer-relative field as a stranger's — nothing saved, nothing "mine".
         let limit = min(Self.maximumPageSize, max(1, pageSize))
+        // …and nobody signed in has visits of their own to list.
+        if scope == .mine, api.isSignedIn == false {
+            return Page(items: [], requestedLimit: limit)
+        }
         var parameters: [String: AnyJSON] = [
             "p_restaurant_id": .string(restaurantID.uuidString.lowercased()),
             "p_scope": .string(scope.rawValue),

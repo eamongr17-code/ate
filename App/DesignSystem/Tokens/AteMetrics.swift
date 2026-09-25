@@ -60,6 +60,15 @@ private struct AteContentTop: ViewModifier {
     }
 }
 
+extension View {
+    /// The bottom half of the same rule: a control the markup pins `bottom:40px` from the bottom of
+    /// the *page* (Welcome's pill, Handle's Continue) sits 40 from the bottom of the screen, not 40
+    /// above the home indicator.
+    func ateContentBottom(_ bottom: CGFloat) -> some View {
+        padding(.bottom, max(0, bottom - AteScreen.safeArea.bottom))
+    }
+}
+
 /// **Spacing, shape and size** — the numbers in `design/v1`, named by the role they play.
 ///
 /// Design rule 3 is the whole shape system and it is short enough to state here: **pills (999) for
@@ -179,6 +188,15 @@ enum AteMetrics {
     static let buttonHeight: CGFloat = 56
     /// A plain row with a hairline under it.
     static let rowHeight: CGFloat = 58
+    /// …and the settings variant: 56 with a 10pt gap (`Settings.dc.html`), a shade tighter than a
+    /// search result because a settings row is one line and never carries a subtitle.
+    static let settingsRowHeight: CGFloat = 56
+    static let settingsRowGap: CGFloat = 10
+    /// The chevron at the end of a settings row. Smaller than a toolbar icon on purpose — it is
+    /// punctuation, not a control.
+    static let settingsChevron: CGFloat = 15
+    /// The check beside the chosen Appearance — `Handle`'s check, at its own 18.
+    static let settingsCheck: CGFloat = 18
 
     /// A photo in a static, tilted cluster — journal slip.
     static let clusterPhoto: CGFloat = 80

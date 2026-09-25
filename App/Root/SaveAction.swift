@@ -14,7 +14,8 @@ import SwiftUI
 /// 3. it is **felt** — one light impact, the moment it flips;
 /// 4. `save_toggled` is emitted at the tap, with the surface it happened on, because the number we
 ///    act on is how often people save and not how often the network agreed;
-/// 5. the Saved shelf is told it is stale, so the dish is there the next time it is looked at.
+/// 5. the Saved shelf is told it is stale, so the dish is there the next time it is looked at;
+/// 6. somebody browsing signed out is asked to sign in instead (``SessionGate``), and nothing flips.
 ///
 /// A class, not a value: it holds which dishes are mid-flight, and two taps on one bookmark must
 /// meet the same set.
@@ -25,6 +26,8 @@ final class SaveAction {
     /// The shelf to invalidate. It reloads when it is next looked at, not while it is not.
     private let shelf: SavedDishesStore
     private let broadcast: SavedDishBroadcast
+    /// Asked before every save. Nil means nobody can be signed out here (previews).
+    private let gate: SessionGate?
     /// Dishes with a call in the air. A second tap while one is in flight is dropped rather than
     /// queued: two RPCs racing can land in the other order and leave the bookmark disagreeing with
     /// the server, which is the one outcome an optimistic write must never produce.
@@ -34,16 +37,22 @@ final class SaveAction {
         saves: any DishSaving,
         analytics: @escaping AnalyticsRecorder,
         shelf: SavedDishesStore,
-        broadcast: SavedDishBroadcast
+        broadcast: SavedDishBroadcast,
+        gate: SessionGate? = nil
     ) {
         self.saves = saves
         self.analytics = analytics
         self.shelf = shelf
         self.broadcast = broadcast
+        self.gate = gate
     }
+
+    /// A save is a write: a browser is asked to sign in, and the bookmark stays as it was.
+    private var mayWrite: Bool { gate?.permitsWrite(.save) ?? true }
 
     /// One dish's bookmark.
     func toggle(dishID: UUID, entryID: UUID?, isSaved: Bool, source: SaveSource) async {
+        guard mayWrite else { return }
         guard inFlight.insert(dishID).inserted else { return }
         defer { inFlight.remove(dishID) }
 
@@ -67,20 +76,25 @@ final class SaveAction {
 
     /// The unsave on the Saved shelf, where the bookmark is the only reason the row exists — so the
     /// store removes it, and only a refusal-free round trip is told to the rest of the app.
-    func unsaveFromShelf(_ dish: SavedDish) async {
-        guard inFlight.insert(dish.dishID).inserted else { return }
+    /// Returns whether it landed, so a second list showing the same shelf (Search's Saved segment)
+    /// can put its row back on a refusal exactly as the shelf does.
+    @discardableResult
+    func unsaveFromShelf(_ dish: SavedDish, source: SaveSource = .savedList) async -> Bool {
+        guard inFlight.insert(dish.dishID).inserted else { return false }
         defer { inFlight.remove(dish.dishID) }
 
         AteHaptics.save()
-        guard await shelf.unsave(dish) else { return }
-        analytics(SocialEvents.saveToggled(source: .savedList, isSaved: false))
+        guard await shelf.unsave(dish) else { return false }
+        analytics(SocialEvents.saveToggled(source: source, isSaved: false))
         broadcast.send(dishID: dish.dishID, isSaved: false)
+        return true
     }
 
     /// "Save this place" — every line of one entry, provenance = that entry
     /// (`save_entry_dishes`). Returns whether it landed.
     @discardableResult
     func saveEveryDish(entryID: UUID, dishIDs: [UUID], source: SaveSource) async -> Bool {
+        guard mayWrite else { return false }
         let claimed = dishIDs.filter { inFlight.insert($0).inserted }
         defer { claimed.forEach { inFlight.remove($0) } }
         guard claimed.isEmpty == false else { return false }
@@ -104,6 +118,7 @@ final class SaveAction {
     /// dish, so this is that call, once per line, and **each line is rolled back on its own**: a
     /// failure on the third dish must not put the first two back on a shelf they have left.
     func unsaveEveryDish(dishIDs: [UUID], source: SaveSource) async {
+        guard mayWrite else { return }
         let claimed = dishIDs.filter { inFlight.insert($0).inserted }
         defer { claimed.forEach { inFlight.remove($0) } }
         guard claimed.isEmpty == false else { return }

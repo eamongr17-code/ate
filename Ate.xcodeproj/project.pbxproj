@@ -315,6 +315,7 @@
 				EXCLUDED_SOURCE_FILE_NAMES = .gitkeep;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Config/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Config/Ate.entitlements;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -339,6 +340,7 @@
 				EXCLUDED_SOURCE_FILE_NAMES = .gitkeep;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Config/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Config/Ate.entitlements;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -392,6 +394,7 @@
 				EXCLUDED_SOURCE_FILE_NAMES = .gitkeep;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Config/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Config/Ate.entitlements;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
