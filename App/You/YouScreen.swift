@@ -15,6 +15,8 @@ struct YouScreen: View {
     var onDish: (UUID) -> Void = { _ in }
     /// The statement row.
     var onStatement: (StatementMonth) -> Void = { _ in }
+    /// The gear.
+    var onSettings: () -> Void = {}
     /// Fired once per appearance.
     var onViewed: () -> Void = {}
 
@@ -52,10 +54,9 @@ struct YouScreen: View {
 
     // MARK: - Bands
 
-    /// `top:60px; right:12px`. Drawn, and going nowhere yet — Settings is the last slice, and a
-    /// gear that opened a half-built page would be worse than one that waits.
+    /// `top:60px; right:12px` — the way into Settings.
     private var settings: some View {
-        AteIconButton(icon: .settings, label: "Settings", size: 22) {}
+        AteIconButton(icon: .settings, label: "Settings", size: 22, action: onSettings)
             .padding(.trailing, AteMetrics.regular)
             .ateContentTop()
     }

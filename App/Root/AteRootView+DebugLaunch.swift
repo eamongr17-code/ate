@@ -89,3 +89,27 @@ extension AteShell {
     }
 }
 #endif
+
+#if DEBUG
+extension AteShell {
+    /// `-ate-open-settings` / `-ate-open-handle` / `-ate-open-appearance` / `-ate-open-ai` /
+    /// `-ate-open-blocked`: the settings branch a drive photographs, pushed from You the way a tap
+    /// on the gear pushes it.
+    func openSettingsIfRequested() async {
+        guard let page = SettingsDebugLaunch.page, path.isEmpty else { return }
+        for _ in 0..<40 where services.hasSession == false {
+            try? await Task.sleep(for: .milliseconds(150))
+        }
+        tab = .you
+        switch page {
+        case .root:
+            path = [.settings(.root)]
+        case .handle:
+            let current = try? await services.account.account().username
+            path = [.settings(.root), .settings(.handle(current: current))]
+        default:
+            path = [.settings(.root), .settings(page)]
+        }
+    }
+}
+#endif
