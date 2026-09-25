@@ -223,7 +223,7 @@ struct ReceiptView: View {
                 Text(receipt.items.count == 1 ? "1 dish" : "\(receipt.items.count) dishes")
                 Spacer(minLength: AteMetrics.snug)
                 if let average = receipt.average {
-                    Text(verbatim: "Avg \(average.formatted(.number.precision(.fractionLength(0...2))))")
+                    Text(verbatim: "Avg \(ScoreFormat.entryAverage(average))")
                 }
             }
         }

@@ -151,7 +151,7 @@ struct EntryScreen: View {
         labelRow(
             leading: card.place?.address,
             trailing: card.avgScore.map {
-                "Avg \($0.formatted(.number.precision(.fractionLength(0...2))))"
+                "Avg \(ScoreFormat.entryAverage($0))"
             }
         )
     }

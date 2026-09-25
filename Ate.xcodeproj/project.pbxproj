@@ -13,6 +13,16 @@
 		AE0000000000000000001E /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = AE0000000000000000001A /* TelemetryDeck */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		AE0000000000000000004B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AE00000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AE00000000000000000002;
+			remoteInfo = Ate;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		AE00000000000000000006 /* Ate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ate.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AE00000000000000000007 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
@@ -143,24 +153,6 @@
 		};
 /* End PBXNativeTarget section */
 
-/* Begin PBXContainerItemProxy section */
-		AE0000000000000000004B /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = AE00000000000000000001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = AE00000000000000000002;
-			remoteInfo = Ate;
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXTargetDependency section */
-		AE0000000000000000004C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = AE00000000000000000002 /* Ate */;
-			targetProxy = AE0000000000000000004B /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
 /* Begin PBXProject section */
 		AE00000000000000000001 /* Project object */ = {
 			isa = PBXProject;
@@ -237,6 +229,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AE0000000000000000004C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AE00000000000000000002 /* Ate */;
+			targetProxy = AE0000000000000000004B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		AE0000000000000000000D /* Debug */ = {
