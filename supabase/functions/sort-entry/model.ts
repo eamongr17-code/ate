@@ -163,7 +163,8 @@ export function buildRequest(opts: {
     body: JSON.stringify({
       model: opts.model ?? DEFAULT_MODEL,
       max_tokens: 2048,
-      temperature: 0,
+      // Sonnet 5 rejects sampling parameters with a 400; Haiku 4.5 still takes them.
+      ...((opts.model ?? DEFAULT_MODEL) === 'claude-haiku-4-5' ? { temperature: 0 } : {}),
       system: SYSTEM,
       tools: [TOOL],
       tool_choice: { type: 'tool', name: TOOL.name },
