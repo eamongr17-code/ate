@@ -7,7 +7,8 @@
 //
 //   POST /functions/v1/sort-entry
 //   body: { entry_id: uuid, force?: boolean, dry_run?: boolean }
-//   → 200 { ok, mode, entry_id, sort_status, restaurant_id, place_query, place_offset, items[] }
+//   → 200 { ok, mode, model, entry_id, sort_status, restaurant_id, place_query, place_offset, items[] }
+//     (`model` is the model ID that produced the plan, null when the stub did)
 //     401 unauthorized · 403 not your entry · 404 unknown entry · 422 bad request
 //
 // `force` IS NOT A LICENCE TO DESTROY. A line the user corrected survives any re-sort:
@@ -24,9 +25,10 @@
 //   stub  (DEFAULT — CEO decision, no AI spend yet): ./parse.ts, a rule-based parser.
 //         No network, no key, fully deterministic, pinned by ~50 fixtures.
 //   model (ONLY when ANTHROPIC_API_KEY is present in the function secrets):
-//         ./model.ts, claude-haiku-4-5 with a forced tool call. Inert without the
-//         key — the code path is unreachable, not merely unused. A model failure
-//         falls back to the stub rather than failing the sort.
+//         ./model.ts with a forced tool call, on ATE_SORTER_MODEL (claude-haiku-4-5 by
+//         default, or claude-sonnet-5). Inert without the key — the code path is
+//         unreachable, not merely unused. A model failure falls back to the stub
+//         rather than failing the sort.
 //   ATE_SORTER_MODE=stub forces stub even with a key (eval/incident switch).
 //
 // BOTH modes go through ./validate.ts and then through apply_entry_sort's SQL checks
@@ -44,7 +46,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { fencedPlaceNames, mentionForPlaceName, parseEntry, placeCandidateSpans } from './parse.ts';
 import { validatePlan } from './validate.ts';
-import { resolveMode, sortWithModel } from './model.ts';
+import { resolveMode, resolveModel, sortWithModel } from './model.ts';
 import type { PlaceCandidate, SorterMode, SortPlan } from './types.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -53,6 +55,9 @@ const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
 
 const MODE: SorterMode = resolveMode(ANTHROPIC_KEY, Deno.env.get('ATE_SORTER_MODE'));
+const MODEL_ID = resolveModel(Deno.env.get('ATE_SORTER_MODEL'));
+/** What the response reports as `model`: the ID only when the model's plan was used. */
+const modelFor = (mode: SorterMode) => (mode === 'model' ? MODEL_ID : null);
 
 /** A local match must clear this to attach a place. Mirrors the search blend's bar. */
 const PLACE_MATCH_MIN = 0.55;
@@ -237,6 +242,7 @@ Deno.serve(async (req) => {
     if (MODE === 'model') {
       plan = await sortWithModel({
         apiKey: ANTHROPIC_KEY,
+        model: MODEL_ID,
         body: row.body,
         knownDishes: known,
         placeCandidates: candidates.map((c) => c.phrase),
@@ -267,6 +273,7 @@ Deno.serve(async (req) => {
         ok: true,
         dry_run: true,
         mode: usedMode,
+        model: modelFor(usedMode),
         entry_id: row.id,
         restaurant_id: restaurantId,
         place_query: mention?.phrase ?? validated.place_query,
@@ -298,6 +305,7 @@ Deno.serve(async (req) => {
     return json({
       ok: true,
       mode: usedMode,
+      model: modelFor(usedMode),
       entry_id: row.id,
       sort_status: result?.sort_status ?? 'sorted',
       restaurant_id: result?.restaurant_id ?? restaurantId,

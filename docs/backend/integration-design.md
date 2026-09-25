@@ -125,7 +125,7 @@ Upload to `review-photos/<auth.uid()>/<file>` → public URL → `POST /rest/v1/
 ### Sort it
 ```
 POST /functions/v1/sort-entry     { "entry_id": "<uuid>", "force": false, "dry_run": false }
-→ 200 { ok, mode: "stub"|"model", entry_id, sort_status, restaurant_id,
+→ 200 { ok, mode: "stub"|"model", model, entry_id, sort_status, restaurant_id,
         place_query, place_offset, items:[…] }
   401 unauthorized · 403 not your entry · 404 unknown entry · 422 entry_id missing · 500 sort failed
 ```
@@ -185,15 +185,17 @@ missing author/place as unavailable rather than crashing on a nil join.
 
 ## The sorter (`supabase/functions/sort-entry`)
 
-Two modes, one contract. **stub** (default — no AI spend): deterministic, no network. **model**:
-`claude-haiku-4-5-20251001` via a forced tool call, **only** with `ANTHROPIC_API_KEY` set (`ATE_SORTER_MODE=stub`
-forces stub); a model failure degrades to the stub, never fails the sort.
+Two modes, one contract. **stub** (default, no network). **model**: a forced tool call, **only** with the
+`ANTHROPIC_API_KEY` secret set (`ATE_SORTER_MODE=stub` forces stub); a failure degrades to the stub.
+`ATE_SORTER_MODEL` = `claude-haiku-4-5` (default) | `claude-sonnet-5`, anything else → default; the response's
+`model` names it (null when the stub sorted). **Choose by eval:** from the function dir with the key in env,
+`deno run --allow-net --allow-env eval.ts --both` (or `--model <id>`; `node eval.ts` works too) grades each model
+on the corpus: per-fixture PASS/CORE(dishes+scores)/FAIL, gate rejections, p50/p95, tokens and dollars.
 
-Both are post-validated identically, in TypeScript and again in SQL: a **score** survives only if its
-`score_evidence` is a literal substring of `body` **and** contains that number (sentiment can never become
-a score); a **note** only if it is a literal substring, case-sensitively, matching Postgres `position()`
-(quote, never paraphrase); a **dish** only if its name is in the words or already on the matched menu; an
-**offset** only if the body says that text there, else it is recomputed from the first occurrence, else null.
+Both are post-validated identically, in TypeScript and SQL: a **score** survives only if its `score_evidence`
+is a literal substring of `body` **and** contains that number; a **note** only if a literal, case-sensitive
+substring (Postgres `position()`); a **dish** only if named in the words or on the matched menu; an **offset**
+only if the body says that text there, else recomputed from the first occurrence, else null.
 
 A note is the **clause after the dish and its score**, cut at the next dish, glue trimmed (what
 `design/v1/Entry` prints). A matched dish keeps the menu's spelling; a new one is capitalised. A score the
@@ -203,8 +205,8 @@ never scores. The attached place's own name is never a dish, nor the front half 
 The place comes from the words alone, matched against restaurants we already hold
 (`search_local_restaurants`, 0017) — never Google, never location, never a new row. **No place ⇒ no dish
 reviews** (a dish needs a restaurant): the entry is still `sorted`, its findings park in
-`entries.sort_plan`, and `correct_entry_place` prints the receipt retroactively. ~50 fixtures pin every rule
-here: `node --test supabase/functions/sort-entry/*_test.ts` (also the eval harness for model mode).
+`entries.sort_plan`, and `correct_entry_place` prints the receipt retroactively. `fixtures.ts` pins every rule
+(`modelOnly` entries grade the model, not the stub): `node --test supabase/functions/sort-entry/*_test.ts`.
 
 ## `places-search`
 
@@ -216,6 +218,8 @@ changes, make it config, do not fork the function. `restaurants.city` is written
 PR, same rule as `place_locality()`); rows written before keep the mangle — read `locality`.
 
 ## Wire-change log
+
+**Additive — sort-entry.** `model` (string|null) on sort and dry-run 200s (not on `skipped`). `mode` values unchanged.
 
 **Behavioural — 0035.** `delete_account` raises instead of a partial `ok`; sign-up always creates a profile
 (or fails whole); deactivated profiles vanish from every read. `deactivate_account` is retired (not
