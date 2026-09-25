@@ -14,7 +14,7 @@ final class FakeSearchService: SearchReading, @unchecked Sendable {
         let message: String
     }
 
-    struct Call: Equatable {
+    struct Call: Equatable, Sendable {
         let scope: SearchScope
         let query: String?
         let offset: Int
@@ -31,6 +31,8 @@ final class FakeSearchService: SearchReading, @unchecked Sendable {
         var saved: [SavedDish] = []
         var calls: [Call] = []
         var failure: Failure?
+        /// How long each scope's reads take — long enough to switch segments while one is in the air.
+        var latency: [SearchScope: Duration] = [:]
     }
 
     // MARK: - Seeding
@@ -53,6 +55,17 @@ final class FakeSearchService: SearchReading, @unchecked Sendable {
 
     func fail(_ failure: Failure?) { lock.withLock { state.failure = failure } }
 
+    func setLatency(_ latency: Duration?, for scope: SearchScope) {
+        lock.withLock { state.latency[scope] = latency }
+    }
+
+    /// Waits until a call matching `where` has been made — i.e. that request is now in the air.
+    func waitForCall(where matches: @Sendable (Call) -> Bool) async {
+        for _ in 0..<400 where calls.contains(where: matches) == false {
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+    }
+
     var calls: [Call] { lock.withLock { state.calls } }
     var callCount: Int { lock.withLock { state.calls.count } }
     func calls(for scope: SearchScope) -> [Call] { calls.filter { $0.scope == scope } }
@@ -63,14 +76,14 @@ final class FakeSearchService: SearchReading, @unchecked Sendable {
         -> SearchPage<PlaceResult> {
         let all = lock.withLock { state.nearby }
         let offset = Self.offset(after: cursor, in: all.map(\.id))
-        try record(Call(scope: .places, query: nil, offset: offset))
+        try await record(Call(scope: .places, query: nil, offset: offset))
         return Self.page(all, offset: offset, pageSize: pageSize) { .nearby(distanceMeters: 0, id: $0.id) }
     }
 
     func places(query: String, after cursor: SearchCursor?, pageSize: Int) async throws -> SearchPage<PlaceResult> {
         let all = lock.withLock { state.places.filter { $0.name.localizedCaseInsensitiveContains(query) } }
         let offset = Self.offset(after: cursor, in: all.map(\.id))
-        try record(Call(scope: .places, query: query, offset: offset))
+        try await record(Call(scope: .places, query: query, offset: offset))
         return Self.page(all, offset: offset, pageSize: pageSize) {
             .place(matchTier: 0, reviewCount: 0, name: $0.name, id: $0.id)
         }
@@ -79,7 +92,7 @@ final class FakeSearchService: SearchReading, @unchecked Sendable {
     func dishes(query: String, after cursor: SearchCursor?, pageSize: Int) async throws -> SearchPage<DishResult> {
         let all = lock.withLock { state.dishes.filter { $0.name.localizedCaseInsensitiveContains(query) } }
         let offset = Self.offset(after: cursor, in: all.map(\.id))
-        try record(Call(scope: .dishes, query: query, offset: offset))
+        try await record(Call(scope: .dishes, query: query, offset: offset))
         return Self.page(all, offset: offset, pageSize: pageSize) {
             .dish(matchTier: 0, reviewCount: 0, name: $0.name, id: $0.id)
         }
@@ -88,7 +101,7 @@ final class FakeSearchService: SearchReading, @unchecked Sendable {
     func people(query: String, after cursor: SearchCursor?, pageSize: Int) async throws -> SearchPage<PersonResult> {
         let all = lock.withLock { state.people.filter { $0.handle.localizedCaseInsensitiveContains(query) } }
         let offset = Self.offset(after: cursor, in: all.map(\.id))
-        try record(Call(scope: .people, query: query, offset: offset))
+        try await record(Call(scope: .people, query: query, offset: offset))
         return Self.page(all, offset: offset, pageSize: pageSize) {
             .person(matchTier: 0, username: $0.handle, id: $0.id)
         }
@@ -103,16 +116,28 @@ final class FakeSearchService: SearchReading, @unchecked Sendable {
             }
             .sorted { ($0.savedAt, $0.dishID.uuidString) > ($1.savedAt, $1.dishID.uuidString) }
         let offset = Self.offset(after: cursor, in: all.map(\.id))
-        try record(Call(scope: .saved, query: query, offset: offset))
+        try await record(Call(scope: .saved, query: query, offset: offset))
         return Self.page(all, offset: offset, pageSize: pageSize) { .saved(savedAt: $0.savedAt, dishID: $0.dishID) }
     }
 
     // MARK: - Machinery
 
-    private func record(_ call: Call) throws {
-        let failure = lock.withLock { () -> Failure? in
+    /// Records the call, holds it for the scope's latency, then fails it if told to.
+    ///
+    /// A cancel during the hold surfaces as `URLError(.cancelled)` — what URLSession, and so
+    /// supabase-swift, actually throws — rather than Swift's `CancellationError`, because that is the
+    /// one a store is most likely to mistake for a real failure.
+    private func record(_ call: Call) async throws {
+        let (failure, latency) = lock.withLock { () -> (Failure?, Duration?) in
             state.calls.append(call)
-            return state.failure
+            return (state.failure, state.latency[call.scope])
+        }
+        if let latency {
+            do {
+                try await Task.sleep(for: latency)
+            } catch {
+                throw URLError(.cancelled)
+            }
         }
         if let failure { throw failure }
     }

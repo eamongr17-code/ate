@@ -57,8 +57,9 @@ struct SearchTabScreen: View {
     /// A refusal costs exactly one list and is never mentioned again (no helper copy).
     private func askWhereWeAre() async {
         guard store.scope == .places else { return }
-        guard let coordinate = await location.current() else { return }
-        await store.setOrigin(SearchOrigin(latitude: coordinate.latitude, longitude: coordinate.longitude))
+        // Until this answers, Places shows nothing under the pills; a "no" keeps it that way.
+        let coordinate = await location.current()
+        await store.setOrigin(coordinate.map { SearchOrigin(latitude: $0.latitude, longitude: $0.longitude) })
     }
 
     // MARK: - Segments

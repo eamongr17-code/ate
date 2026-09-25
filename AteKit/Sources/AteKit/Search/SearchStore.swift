@@ -56,9 +56,22 @@ public final class SearchStore {
     private let pageSize: Int
     private let debounce: Duration
 
-    /// Where the phone is, if it ever said. `nil` is not an error: it is a `Nearby` list that simply
-    /// is not there (design rule 8 — a location ranks a list, it never attaches a place).
-    private var origin: SearchOrigin?
+    /// Where the phone is, as far as the screen has been told. Until it says, and after a refusal,
+    /// there is no Nearby list — and no "nothing found" standing in for one: the Places scope shows the
+    /// field and the pills and nothing under them (design rule 1; rule 8 — a location ranks a list,
+    /// it never attaches a place).
+    private enum Location: Equatable {
+        case undecided
+        case unavailable
+        case known(SearchOrigin)
+    }
+
+    private var location = Location.undecided
+
+    private var origin: SearchOrigin? {
+        if case .known(let origin) = location { return origin }
+        return nil
+    }
 
     private struct ScopeState {
         var rows: SearchRows
@@ -67,8 +80,11 @@ public final class SearchStore {
         var next: SearchCursor?
         var hasReachedEnd = false
         var isNearby = false
-        /// Whether this scope has ever answered the query it is holding.
-        var isLoaded = false
+        /// The normalised query these rows ANSWER — `nil` until one has. Kept apart from `query`
+        /// (what was last asked) on purpose: a request that was asked and then cancelled or
+        /// overtaken must leave the scope not-loaded for the new query, so coming back re-asks it
+        /// instead of showing the old query's rows under the new one.
+        var answered: String?
     }
 
     private var states: [SearchScope: ScopeState] = [:]
@@ -109,6 +125,9 @@ public final class SearchStore {
     public func select(_ scope: SearchScope) {
         guard scope != self.scope else { return }
         self.scope = scope
+        // Whatever was in the air belongs to the scope being left; nothing that lands now may be
+        // drawn under this one.
+        generation += 1
         adopt(states[scope] ?? ScopeState(rows: .empty(for: scope)))
         pending?.cancel()
         pending = Task { [weak self] in await self?.runIfNeeded() }
@@ -117,9 +136,13 @@ public final class SearchStore {
     /// Where the phone is — handed in by the screen, which is the only layer allowed to ask.
     /// Arriving late is normal (the permission sheet takes as long as it takes), so it loads Nearby
     /// itself if that is what is on screen.
+    ///
+    /// `nil` is the answer "no": refused, restricted, or no fix. The Places scope then shows nothing
+    /// under the pills — not an empty-results slip, and not a word about why.
     public func setOrigin(_ origin: SearchOrigin?) async {
-        guard let origin, origin != self.origin else { return }
-        self.origin = origin
+        let next: Location = origin.map { .known($0) } ?? .unavailable
+        guard next != location else { return }
+        location = next
         guard scope == .places, isBelowMinimumLength else { return }
         await run()
     }
@@ -134,26 +157,29 @@ public final class SearchStore {
 
     public func loadMore() async {
         guard isLoadingMore == false, hasReachedEnd == false else { return }
-        guard var state = states[scope], state.isLoaded else { return }
-        guard let cursor = state.next else { return }
+        // Captured before the await and checked after it: the page belongs to THIS scope and THIS
+        // query, and if either has moved on by the time it lands it is dropped — never appended to
+        // whatever happens to be on screen then. The cursor is still in the scope's state, so the
+        // page is simply asked for again when that list is next scrolled.
+        let scope = scope
+        let generationAtStart = generation
+        guard let state = states[scope], let answered = state.answered, let cursor = state.next else { return }
 
         isLoadingMore = true
         defer { isLoadingMore = false }
-        let generationAtStart = generation
         do {
             // The query the first page was asked with — `nil` for a standing list (Nearby, the whole
             // shelf), exactly as `run()` decided it.
-            let typed = SearchQueryPolicy(scope: scope).query(from: state.query)
+            let typed = SearchQueryPolicy(scope: scope).query(from: answered)
             let more = try await page(for: scope, query: typed, after: cursor)
-            guard generationAtStart == generation else { return }
-            state = states[scope] ?? state
-            state.rows = SearchStore.appending(more.rows, to: state.rows)
-            state.next = more.next
-            state.hasReachedEnd = more.next == nil
-            states[scope] = state
-            adopt(state)
+            guard generationAtStart == generation, scope == self.scope,
+                  var current = states[scope], current.answered == answered, current.next == cursor else { return }
+            current.rows = SearchStore.appending(more.rows, to: current.rows)
+            current.next = more.next
+            current.hasReachedEnd = more.next == nil
+            commit(current, for: scope)
         } catch {
-            // A failed second page leaves the first one standing. The list is still true.
+            // A failed or cancelled second page leaves the first one standing. The list is still true.
         }
     }
 
@@ -209,7 +235,7 @@ public final class SearchStore {
     /// Runs only when this scope is not already holding the answer to this query.
     private func runIfNeeded() async {
         let normalized = SearchQueryPolicy(scope: scope).normalize(query)
-        if let state = states[scope], state.isLoaded, state.query == normalized { return }
+        if let state = states[scope], state.answered == normalized { return }
         await run()
     }
 
@@ -219,16 +245,23 @@ public final class SearchStore {
         let scope = scope
         generation += 1
         let generationAtStart = generation
+        let typed = policy.query(from: query)
 
         // Below the minimum: the standing list, or nothing at all. Never a flash of empty.
-        let typed = policy.query(from: query)
         if typed == nil, scope.hasStandingList == false {
             var state = ScopeState(rows: .empty(for: scope))
             state.query = normalized
-            state.isLoaded = true
-            state.phase = .idle
-            states[scope] = state
-            adopt(state)
+            state.answered = normalized
+            commit(state, for: scope)
+            return
+        }
+
+        // Nearby with no location — not yet decided, or refused: nothing under the pills. Not marked
+        // answered, so a location that arrives later (even while another scope is up) is used.
+        if typed == nil, scope == .places, origin == nil {
+            var state = ScopeState(rows: .empty(for: scope))
+            state.query = normalized
+            commit(state, for: scope)
             return
         }
 
@@ -238,31 +271,37 @@ public final class SearchStore {
         // A first load draws skeletons; a re-query keeps the rows that are up while the next set
         // comes down, so the list does not blink between two answers.
         state.phase = state.rows.isEmpty ? .loading : state.phase
-        states[scope] = state
-        adopt(state)
+        commit(state, for: scope)
 
         let started = ContinuousClock.now
         do {
             let first = try await page(for: scope, query: typed, after: nil)
             guard generationAtStart == generation else { return }
+            state = states[scope] ?? state
             state.rows = first.rows
             state.next = first.next
             state.hasReachedEnd = first.next == nil
-            state.isLoaded = true
+            state.answered = normalized
             state.phase = first.rows.isEmpty ? .empty : .ready
-            states[scope] = state
-            adopt(state)
+            commit(state, for: scope)
             report(scope: scope, query: normalized, resultCount: first.rows.count, since: started)
-        } catch is CancellationError {
-            return
         } catch {
-            guard generationAtStart == generation else { return }
+            // Overtaken or cancelled is not a failure: the scope stays unanswered for this query, and
+            // is asked again the next time it is shown. Only a real refusal, for the question still
+            // being asked, prints the failure slip.
+            guard generationAtStart == generation, Self.isCancellation(error) == false else { return }
             state.rows = .empty(for: scope)
-            state.isLoaded = true
+            state.answered = normalized
             state.phase = .failed(message: SearchStore.failureMessage(error))
-            states[scope] = state
-            adopt(state)
+            commit(state, for: scope)
         }
+    }
+
+    /// A cancelled request surfaces three ways: Swift's own error, URLSession's, or neither — with the
+    /// task simply marked cancelled.
+    static func isCancellation(_ error: any Error) -> Bool {
+        if error is CancellationError || Task.isCancelled { return true }
+        return (error as? URLError)?.code == .cancelled
     }
 
     /// One page, whichever scope asked for it. A `nil` query is the standing list: Nearby for
@@ -273,7 +312,7 @@ public final class SearchStore {
             let page = try await service.places(query: query, after: cursor, pageSize: pageSize)
             return LoadedPage(rows: .places(page.rows), next: page.next)
         case (.places, nil):
-            // No permission, no location, no section — and no copy about it.
+            // `run()` never gets here without one; a page asked for after a refusal is empty.
             guard let origin else { return LoadedPage(rows: .places([])) }
             let page = try await service.nearbyPlaces(origin: origin, after: cursor, pageSize: pageSize)
             return LoadedPage(rows: .places(page.rows), next: page.next)
@@ -320,6 +359,12 @@ public final class SearchStore {
 
     // MARK: - Small machinery
 
+    /// Stores a scope's state, and draws it only if that scope is the one on screen.
+    private func commit(_ state: ScopeState, for scope: SearchScope) {
+        states[scope] = state
+        if scope == self.scope { adopt(state) }
+    }
+
     private func adopt(_ state: ScopeState) {
         rows = state.rows
         phase = state.phase
@@ -365,7 +410,7 @@ extension SearchStore: SavedDishObserving {
     /// rather than guessing where the new row sorts: it is read again the next time it is shown.
     public func savedDishChanged(dishID: UUID, isSaved: Bool) {
         if isSaved {
-            states[.saved]?.isLoaded = false
+            states[.saved]?.answered = nil
         } else {
             removeSaved(dishID)
         }

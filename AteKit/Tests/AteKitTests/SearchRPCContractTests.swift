@@ -150,28 +150,56 @@ struct SearchRPCContractTests {
 
     // MARK: - search_saved
 
-    @Test("search_saved: no query is the whole shelf, a word narrows it, and both page on one cursor")
+    private struct Picked {
+        let id: UUID
+        let name: String
+        let place: String
+    }
+
+    @Test("search_saved finds a save this test made, by dish and by place, and loses it on unsave")
     func saved() async throws {
-        let search = try await client()
-        let whole = try await search.savedDishes(matching: nil, after: nil, pageSize: 50)
-        guard let firstDish = whole.rows.first else {
-            Issue.record("staging's demo viewer must have at least one saved dish")
-            return
+        // Asserts only on a row this test puts on the shelf itself: the demo account is shared with
+        // the save suite, which adds and removes shelf rows while this runs, so "the whole shelf"
+        // is never the same list twice. Staging only, and the save is taken off again.
+        let api = try await StagingContract.Backend.shared.client()
+        let search = SearchClient(api: api)
+        let saves = SaveClient(api: api)
+
+        let shelf = try await search.savedDishes(matching: nil, after: nil, pageSize: 50)
+        // Everything already on the shelf, read wide: a dish that is already saved is never picked,
+        // so the unsave at the end can only ever take off what this test put there.
+        let onShelf = Set(try await saves.savedDishesPage(after: nil, pageSize: 100).items.map(\.dishID))
+        #expect(shelf.rows.map(\.savedAt) == shelf.rows.map(\.savedAt).sorted(by: >), "newest save first")
+
+        // A dish someone else wrote up, that this account has not saved — the same pick the save
+        // suite makes, read off the feed.
+        let feed = try await EntryFeedClient(api: api).feedPage(after: nil, pageSize: 30, includeOwn: false)
+        let picked = feed.items.lazy.compactMap { entry -> Picked? in
+            guard let place = entry.place,
+                  let item = entry.items.first(where: { onShelf.contains($0.dishID) == false }) else { return nil }
+            return Picked(id: item.dishID, name: item.dishName, place: place.name)
+        }.first
+        let dish = try #require(picked, "staging needs a dish this account has not saved")
+
+        try await saves.save(dishID: dish.id, sourceEntryID: nil)
+        do {
+            let byDish = try await search.savedDishes(matching: dish.name, after: nil, pageSize: 50)
+            let row = try #require(byDish.rows.first { $0.dishID == dish.id }, "a new save is found by its name")
+            #expect(row.restaurantName == dish.place)
+            #expect(row.restaurantCity.map { $0.contains(",") } != true, "labelled by locality, never city")
+
+            let byPlace = try await search.savedDishes(matching: dish.place, after: nil, pageSize: 50)
+            #expect(byPlace.rows.contains { $0.dishID == dish.id }, "…and by the place it was saved at")
+
+            let whole = try await search.savedDishes(matching: nil, after: nil, pageSize: 50)
+            #expect(whole.rows.contains { $0.dishID == dish.id }, "no query is the whole shelf")
+        } catch {
+            try? await saves.unsave(dishID: dish.id)
+            throw error
         }
-        #expect(whole.rows.map(\.savedAt) == whole.rows.map(\.savedAt).sorted(by: >), "newest save first")
 
-        let term = String(firstDish.dishName.prefix(3)).lowercased()
-        let narrowed = try await search.savedDishes(matching: term, after: nil, pageSize: 50)
-        #expect(narrowed.rows.contains { $0.dishID == firstDish.dishID })
-        #expect(narrowed.rows.count <= whole.rows.count)
-
-        let (walkedAll, wideAll) = try await walk {
-            try await search.savedDishes(matching: nil, after: $0, pageSize: $1)
-        }
-        #expect(Set(walkedAll).count == walkedAll.count, "the saved cursor served a row twice")
-        #expect(walkedAll == wideAll)
-
-        let (walked, wide) = try await walk { try await search.savedDishes(matching: term, after: $0, pageSize: $1) }
-        #expect(walked == wide, "the filter must survive the cursor")
+        try await saves.unsave(dishID: dish.id)
+        let after = try await search.savedDishes(matching: dish.name, after: nil, pageSize: 50)
+        #expect(after.rows.contains { $0.dishID == dish.id } == false)
     }
 }
