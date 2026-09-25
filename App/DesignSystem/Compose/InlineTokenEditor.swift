@@ -45,6 +45,9 @@ struct InlineTokenEditor: UIViewRepresentable {
     var focusesOnAppear = true
     /// Bumped by the host to pull focus back after a sheet or the slider closes.
     var focusRequest = 0
+    /// True while something covers the editor in the keyboard's place (dictation): the keyboard goes
+    /// down and stays down. The text view — and its undo stack — stays exactly where it is.
+    var isFocusSuspended = false
     /// Bumped to run the text view's own undo / redo. Only the debug undo drive does this: on a
     /// phone undo is a shake or a three-finger swipe, and neither can be driven by a UI test —
     /// while Cmd+Z needs a hardware keyboard, which would hide the software one this editor's other
@@ -75,6 +78,9 @@ struct InlineTokenEditor: UIViewRepresentable {
         // text view, but naming it means a drive never depends on that staying true.
         view.accessibilityIdentifier = "composer.editor"
         view.backgroundColor = .clear
+        // `Composer.dc.html`'s caret is coral (`background:#F0623F`). The tint is also what colours the
+        // selection and its handles, which is the native behaviour following the same accent.
+        view.tintColor = UIColor(AteColor.coral)
         view.isScrollEnabled = true
         view.alwaysBounceVertical = true
         view.textContainerInset = .zero
@@ -101,11 +107,18 @@ struct InlineTokenEditor: UIViewRepresentable {
     func updateUIView(_ view: InlineTokenTextView, context: Context) {
         context.coordinator.update(binding: $composition, typography: typography, callbacks: callbacks)
         view.focusesOnAppear = focusesOnAppear
+        view.isFocusSuspended = isFocusSuspended
+        if isFocusSuspended, view.isFirstResponder { view.resignFirstResponder() }
         context.coordinator.focusIfRequested(focusRequest, in: view)
         context.coordinator.runUndoIfRequested(undo: undoRequest, redo: redoRequest, in: view)
-        view.placeholderLabel.text = placeholder
-        view.placeholderLabel.font = AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize)
-        view.placeholderLabel.textColor = UIColor(palette.muted)
+        // The placeholder is set in the words' own paragraph style, not just their font: the first
+        // line of text sits at the floor of a clamped line box, and a bare label sat four points above
+        // it — so the caret, and then the first letter typed, started below the words they replaced.
+        var placeholderAttributes = context.coordinator.baseAttributes()
+        placeholderAttributes[.foregroundColor] = UIColor(palette.muted)
+        view.placeholderLabel.attributedText = NSAttributedString(
+            string: placeholder, attributes: placeholderAttributes
+        )
         view.placeholderLabel.isHidden = view.text.isEmpty == false
 
         // Re-render only when the host changed the model or the typography moved under us. During

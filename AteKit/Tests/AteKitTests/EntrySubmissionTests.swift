@@ -22,7 +22,7 @@ private final class StubEntryService: EntryService, @unchecked Sendable {
         if let createError { throw createError }
         let card = EntryCard(
             id: entry.id, authorID: entry.authorID, body: entry.body,
-            visibility: entry.visibility, restaurantID: entry.restaurantID,
+            visibility: .public, restaurantID: entry.restaurantID,
             orderNumber: 1, createdAt: entry.createdAt
         )
         lock.withLock {
@@ -62,7 +62,6 @@ private final class StubEntryService: EntryService, @unchecked Sendable {
         try await entry(id: entryID)
     }
     func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async throws {}
-    func setVisibility(entryID: UUID, visibility: EntryVisibility) async throws {}
     func updateBody(entryID: UUID, body: String) async throws {}
 }
 
@@ -76,7 +75,7 @@ struct EntrySubmissionTests {
         photoPaths: [String] = []
     ) -> NewEntryRequest {
         NewEntryRequest(
-            id: id, body: body, visibility: .public, restaurantID: restaurantID,
+            id: id, body: body, restaurantID: restaurantID,
             photoPaths: photoPaths, createdAt: Date(timeIntervalSince1970: 1_789_000_000),
             scoreCount: 1, secondsFromOpen: 42
         )
@@ -207,7 +206,8 @@ struct EntrySubmissionTests {
         #expect(event?.parameters["photo_count"] == "1")
         #expect(event?.parameters["has_place"] == "true")
         #expect(event?.parameters["score_count"] == "1")
-        #expect(event?.parameters["visibility"] == "public")
+        // Every entry is public; the event no longer carries a dimension that cannot vary.
+        #expect(event?.parameters["visibility"] == nil)
         #expect(event?.parameters["seconds_from_open"] == "42")
         #expect(event?.parameters["queued"] == "false")
     }
@@ -224,7 +224,7 @@ struct EntryOutboxTests {
         QueuedEntry(
             entry: QueuedInsert(NewEntry(
                 id: id, authorID: ViewerProfile.preview.id, body: "Words",
-                visibility: .public, restaurantID: nil,
+                restaurantID: nil,
                 createdAt: Date(timeIntervalSince1970: 1_789_000_000)
             )),
             pendingPhotos: []

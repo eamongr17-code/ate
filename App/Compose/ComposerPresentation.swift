@@ -28,7 +28,6 @@ struct ComposerPresentation: Identifiable, Hashable {
     struct EditingEntry: Hashable {
         let id: UUID
         let body: String
-        let isPublic: Bool
         let restaurantID: UUID?
         let placeName: String?
     }
@@ -39,7 +38,6 @@ struct ComposerPresentation: Identifiable, Hashable {
             editing: EditingEntry(
                 id: card.id,
                 body: card.body,
-                isPublic: card.visibility.isPublic,
                 restaurantID: card.restaurantID,
                 placeName: card.place?.name
             )

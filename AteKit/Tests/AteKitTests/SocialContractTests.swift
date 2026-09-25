@@ -41,7 +41,7 @@ struct SocialContractTests {
 
             #expect(seen.isEmpty == false, "staging seeds other people's entries")
             #expect(Set(seen.map(\.id)).count == seen.count, "a keyset page must not serve a row twice")
-            #expect(seen.allSatisfy { $0.visibility == .public }, "the feed is public entries only")
+            #expect(seen.allSatisfy { $0.visibility == .public }, "every entry is public (0033)")
             // `p_include_own` defaults false: your own visits live in the journal.
             #expect(seen.allSatisfy { $0.authorID != me })
             #expect(seen.allSatisfy { $0.isMine == false })
@@ -82,7 +82,7 @@ struct SocialContractTests {
 
         let theirs = try await profiles.entriesPage(authorID: someoneElse, after: nil, pageSize: 5)
         #expect(theirs.items.allSatisfy { $0.authorID == someoneElse })
-        // RLS: a stranger's page is public entries only.
+        // Every entry is public (0033): a stranger's page is simply all of their entries.
         #expect(theirs.items.allSatisfy { $0.visibility == .public })
     }
 

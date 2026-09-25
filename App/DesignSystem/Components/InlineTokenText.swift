@@ -15,6 +15,9 @@ struct InlineTokenText: View {
     let composition: EntryComposition
     var style: AteTextStyle = .prose
     var lineLimit: Int?
+    /// The voice composer's one addition: the offset in the words from which the recogniser is still
+    /// changing its mind, drawn muted (`ComposerVoice.dc.html`). `nil` everywhere else.
+    var volatileFromPlainOffset: Int?
 
     @Environment(\.displayScale) private var displayScale
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -27,7 +30,8 @@ struct InlineTokenText: View {
             palette: palette,
             dynamicTypeSize: dynamicTypeSize,
             displayScale: displayScale,
-            colorScheme: colorScheme
+            colorScheme: colorScheme,
+            volatileFromPlainOffset: volatileFromPlainOffset
         )
         InlineTokenLabel(composition: composition, attributes: attributes, lineLimit: lineLimit)
             // The half-leading under the last line. TextKit puts `lineSpacing` between lines only, so

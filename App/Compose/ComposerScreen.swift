@@ -1,4 +1,5 @@
 import AteKit
+import AVFoundation
 import PhotosUI
 import SwiftUI
 
@@ -21,6 +22,12 @@ struct ComposerScreen: View {
     @State private var model: ComposerModel
     @State private var pickedItems: [PhotosPickerItem] = []
     @State private var isTakingPhoto = false
+    /// The microphone is open: `ComposerVoice` sits over the composer, which stays mounted beneath it
+    /// so the text view — and its undo stack — is the same one the words come back to.
+    @State private var isDictating = false
+    /// The open microphone, made once when the mic key is tapped and dropped when it closes.
+    @State private var dictation: DictationController?
+    @Environment(\.openURL) private var openURL
     @State private var isSaving = false
     /// The editor's width, for measuring where the words end.
     @State private var editorWidth: CGFloat = 0
@@ -47,12 +54,35 @@ struct ComposerScreen: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            editor
-            toolbar
+        ZStack {
+            VStack(spacing: 0) {
+                header
+                editor
+                toolbar
+            }
+            .ateSurface()
+            if isDictating, let dictation {
+                VoiceComposerScreen(
+                    composer: model,
+                    model: dictation,
+                    onStop: { isDictating = false },
+                    onDone: {
+                        isDictating = false
+                        done()
+                    },
+                    onClose: { dismiss() }
+                )
+                .transition(.opacity)
+            }
         }
-        .ateSurface()
+        .ateAnimation(.easeInOut(duration: 0.2), value: isDictating)
+        .onChange(of: isDictating) { _, isOpen in
+            // However the screen went away, the microphone goes with it.
+            if isOpen == false {
+                dictation?.stop(refocus: false)
+                dictation = nil
+            }
+        }
         .sheet(isPresented: $model.isPickingPlace) {
             PlaceSheet(
                 directory: services.places,
@@ -63,14 +93,8 @@ struct ComposerScreen: View {
             }
         }
         .fullScreenCover(isPresented: $isTakingPhoto) {
-            CameraPicker { image in
-                model.setPhotos(ComposerPhotoStaging.stage(
-                    images: [(id: UUID().uuidString, image: image)],
-                    in: model.photoDirectory,
-                    existing: model.photos
-                ))
-            }
-            .ignoresSafeArea()
+            CameraPicker { image in captured(image) }
+                .ignoresSafeArea()
         }
         .onChange(of: pickedItems) { _, items in
             Task { await stage(items) }
@@ -82,6 +106,44 @@ struct ComposerScreen: View {
             ))
         }
         .task { await stageSuggestedPhotos() }
+        #if DEBUG
+        .task { runDebugLaunch() }
+        #endif
+    }
+
+    #if DEBUG
+    /// The simulator has neither a microphone nor a camera, so the two keys' states are reached from
+    /// `simctl launch` instead. See ``ComposerDebugLaunch``.
+    private func runDebugLaunch() {
+        if ComposerDebugLaunch.fakesCameraCapture, let image = UIImage(named: "Photos/ragu") {
+            captured(image)
+        }
+        if ComposerDebugLaunch.opensVoice { startDictation() }
+        if ComposerDebugLaunch.drivesVoiceUndo {
+            Task {
+                try? await Task.sleep(for: .seconds(7))
+                isDictating = false
+                try? await Task.sleep(for: .seconds(1.5))
+                undoRequest += 1
+                guard ComposerDebugLaunch.drivesVoiceRedo else { return }
+                try? await Task.sleep(for: .seconds(1.5))
+                redoRequest += 1
+            }
+        }
+    }
+    #endif
+
+    /// The recogniser. On a simulator, a Debug launch argument swaps in a scripted one — the only
+    /// microphone a machine without one has.
+    private func makeTranscriber() -> any VoiceTranscribing {
+        #if DEBUG
+        if ComposerDebugLaunch.fakesDictation {
+            let fake = FakeVoiceTranscriber()
+            fake.denial = ComposerDebugLaunch.deniesDictation ? .microphone : nil
+            return fake
+        }
+        #endif
+        return SystemVoiceTranscriber()
     }
 
     private var origin: ComposerOrigin {
@@ -122,19 +184,8 @@ struct ComposerScreen: View {
                 Button("Redo") { redoRequest += 1 }.accessibilityIdentifier("debug.redo")
             }
             #endif
-            Button(action: done) {
-                Text("Done")
-                    .ateText(.control)
-                    .padding(.horizontal, 18)
-                    .frame(height: 38)
-                    .background(AtePalette.surface.fg, in: .capsule)
-                    .foregroundStyle(AtePalette.surface.inverted)
-            }
-            .buttonStyle(.plain)
-            .disabled(model.hasContent == false || isSaving)
-            .opacity(model.hasContent ? 1 : 0.4)
-            .padding(.trailing, AteMetrics.regular)
-            .accessibilityIdentifier("composer.done")
+            ComposerDoneButton(isEnabled: model.hasContent, isBusy: isSaving, action: done)
+                .accessibilityIdentifier("composer.done")
         }
         .ateContentTop()
         .padding(.leading, AteMetrics.regular)
@@ -148,8 +199,9 @@ struct ComposerScreen: View {
                 revision: model.revision,
                 caretAfterRender: model.caretAfterRender,
                 style: .composerProse,
-                placeholder: "What did you eat?",
+                placeholder: Self.placeholder,
                 focusRequest: model.focusRequest,
+                isFocusSuspended: isDictating,
                 undoRequest: undoRequest,
                 redoRequest: redoRequest,
                 selectedTokenID: model.scoring?.id,
@@ -197,8 +249,15 @@ struct ComposerScreen: View {
             displayScale: displayScale,
             colorScheme: colorScheme
         )
-        .height(for: model.composition, width: editorWidth)
+        // Nothing written yet, the placeholder is what the photos hang under — a photos-only draft
+        // (a camera shot first) otherwise drew its cluster over "What did you eat?".
+        .height(
+            for: model.composition.isEmpty ? EntryComposition(plain: Self.placeholder, spans: []) : model.composition,
+            width: editorWidth
+        )
     }
+
+    private static let placeholder = "What did you eat?"
 
     /// Design rule 6: the mess is tilt and overlap, in a small static cluster. The composer's is the
     /// biggest of the three (90pt), and it sits on the control surface, so the separating ring is
@@ -223,13 +282,14 @@ struct ComposerScreen: View {
     /// `Composer.dc.html`'s `gap:18px` between the words and the photos.
     private static let wordsGap: CGFloat = 18
 
-    /// `Composer.dc.html`: camera · library · mic on the left, Score and Place in the middle,
-    /// visibility on the right — three groups, parted by the space between them.
+    /// `Composer.dc.html`: camera · library · mic on the left, Score and Place on the right —
+    /// `padding:8px 14px 8px 8px; gap:6px; justify-content:space-between`. There is no third group:
+    /// every entry is public (Eamon, 2026-09-25), so the visibility key is gone.
     private var toolbar: some View {
-        HStack(spacing: AteMetrics.snug - 2) {
+        HStack(spacing: Self.toolbarGap) {
             HStack(spacing: 0) {
                 AteIconButton(icon: .camera, label: "Camera", tint: AtePalette.surface.fg) {
-                    isTakingPhoto = UIImagePickerController.isSourceTypeAvailable(.camera)
+                    takePhoto()
                 }
                 PhotosPicker(
                     selection: $pickedItems,
@@ -244,47 +304,45 @@ struct ComposerScreen: View {
                 }
                 .foregroundStyle(AtePalette.surface.fg)
                 .accessibilityLabel("Photo library")
-                // Dictation is the keyboard's own key and iOS exposes no way to start it from an
-                // app, so this puts the caret back in the words — where the microphone is one tap
-                // away — and says nothing.
                 AteIconButton(icon: .voice, label: "Dictate", tint: AtePalette.surface.fg) {
-                    model.focusEditor()
+                    startDictation()
+                }
+                .accessibilityIdentifier("composer.key.dictate")
+            }
+            Spacer(minLength: 0)
+            HStack(spacing: Self.toolbarGap) {
+                ComposerKey(
+                    title: "Score",
+                    icon: .starFilled,
+                    background: AteColor.butter,
+                    foreground: AteColor.ink,
+                    // `ComposerStars`: while the slider is open the Score key inverts — ink pill,
+                    // butter lettering. The Place key never does; the design leaves it in the field
+                    // colour whether a place is attached or not.
+                    isActive: model.scoring != nil
+                ) {
+                    services.analytics(model.insertScore())
+                }
+                ComposerKey(
+                    title: "Place",
+                    icon: .place,
+                    iconSize: 16,
+                    background: AtePalette.surface.field,
+                    foreground: AtePalette.surface.fg
+                ) {
+                    model.isPickingPlace = true
                 }
             }
-            Spacer(minLength: 0)
-            ComposerKey(
-                title: "Score",
-                icon: .starFilled,
-                background: AteColor.butter,
-                foreground: AteColor.ink,
-                // `ComposerStars`: while the slider is open the Score key inverts — ink pill,
-                // butter lettering. The Place key never does; the design leaves it in the field
-                // colour whether a place is attached or not.
-                isActive: model.scoring != nil
-            ) {
-                services.analytics(model.insertScore())
-            }
-            ComposerKey(
-                title: "Place",
-                icon: .place,
-                iconSize: 16,
-                background: AtePalette.surface.field,
-                foreground: AtePalette.surface.fg
-            ) {
-                model.isPickingPlace = true
-            }
-            Spacer(minLength: 0)
-            AteIconButton(
-                icon: model.isPublic ? .publicEntry : .privateEntry,
-                label: model.isPublic ? "Public. Make private" : "Private. Make public",
-                size: 21,
-                tint: AtePalette.surface.fg
-            ) {
-                model.isPublic.toggle()
-            }
         }
-        .padding(AteMetrics.snug)
+        .padding(.vertical, AteMetrics.snug)
+        .padding(.leading, AteMetrics.snug)
+        .padding(.trailing, Self.toolbarTrailing)
     }
+
+    /// `gap:6px`, between the groups and between the two keys.
+    private static let toolbarGap: CGFloat = 6
+    /// `padding-right:14px` — the keys sit in from the edge, where the visibility key used to be.
+    private static let toolbarTrailing: CGFloat = 14
 
     // MARK: - Actions
 
@@ -359,36 +417,52 @@ struct ComposerScreen: View {
     }
 }
 
-/// A composer toolbar key: **Score** (butter, an accent, so it carries ink) and **Place** (the field
-/// colour, so it carries the surface's own foreground).
-///
-/// The foreground is a parameter for exactly that reason. Hard-wiring ink — which the spike did —
-/// made the Place key near-invisible in dark mode: ink text on a plum pill.
-struct ComposerKey: View {
-    let title: String
-    let icon: AteIcon
-    /// The artboards size the two keys' icons differently: the Score star is 15, the Place pin 16.
-    var iconSize: CGFloat = 15
-    let background: Color
-    let foreground: Color
-    /// Inverted, the way `ComposerStars` draws the Score key while its slider is open: the pill
-    /// becomes ink and the lettering becomes the colour the pill used to be.
-    var isActive = false
-    let action: () -> Void
+// MARK: - The mic key and the camera key
 
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                icon.view(size: iconSize)
-                Text(title).ateText(.controlSmall)
+extension ComposerScreen {
+
+    /// The keyboard goes down and `ComposerVoice` comes up over the words. The editor stays exactly
+    /// where it is underneath; dictation writes into the same model, and the text view takes it all
+    /// back in one edit when the microphone closes.
+    private func startDictation() {
+        guard isDictating == false else { return }
+        if model.scoring != nil { model.dismissScoring() }
+        dictation = DictationController(
+            target: model, transcriber: makeTranscriber(), analytics: services.analytics
+        )
+        isDictating = true
+    }
+
+    // MARK: - The camera key
+
+    /// The camera, if this phone has one and the person has let us use it. Refused, the key goes to
+    /// Settings — the same answer the mic key gives, and for the same reason: there is nothing the app
+    /// can say about it that the system does not already.
+    private func takePhoto() {
+        guard UIImagePickerController.isSourceTypeAvailable(.camera), model.canAddPhotos else { return }
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            isTakingPhoto = true
+        case .notDetermined:
+            Task {
+                let granted = await AVCaptureDevice.requestAccess(for: .video)
+                if granted { isTakingPhoto = true }
             }
-            .padding(.leading, 9)
-            .padding(.trailing, 13)
-            .frame(height: AteMetrics.keyHeight)
-            .background(isActive ? AtePalette.surface.fg : background, in: .capsule)
-            .foregroundStyle(isActive ? background : foreground)
+        case .denied, .restricted:
+            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+        @unknown default:
+            break
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("composer.key.\(title.lowercased())")
+    }
+
+    /// A photo from the camera lands in the cluster exactly as one from the library does: the same
+    /// staging, the same file on disk, the same order.
+    private func captured(_ image: UIImage) {
+        model.setPhotos(ComposerPhotoStaging.stage(
+            images: [(id: UUID().uuidString, image: image)],
+            in: model.photoDirectory,
+            existing: model.photos
+        ))
+        services.analytics(EntryEvents.cameraCaptured(photoCount: model.photos.count))
     }
 }

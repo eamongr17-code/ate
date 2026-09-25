@@ -24,6 +24,10 @@ struct InlineTokenAttributes {
     /// The token whose slider is open. `ComposerStars` rings it — `box-shadow:0 0 0 2px #24141F` —
     /// so the panel and the pill it is scoring are visibly the same thing.
     var selectedTokenID: UUID?
+    /// Where the words stop being settled, in **plain** offsets. `ComposerVoice.dc.html` draws the tail
+    /// the recogniser is still revising in `--muted`, so it reads as "not yet yours" while the rest of
+    /// the sentence is in full ink. `nil` everywhere else, which is everywhere the words are finished.
+    var volatileFromPlainOffset: Int?
 
     var font: UIFont { AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize) }
 
@@ -103,6 +107,20 @@ struct InlineTokenAttributes {
                 string: String(decoding: units[cursor..<units.count], as: UTF16.self),
                 attributes: base()
             ))
+        }
+        // The dictated tail, greyed. Applied as an attribute over the finished string rather than by
+        // splitting the runs, so the paragraph style — and therefore the line rhythm the pills sit
+        // inside — is identical either way.
+        if let volatileFromPlainOffset {
+            let start = min(max(0, composition.displayOffset(forPlainOffset: volatileFromPlainOffset)),
+                            result.length)
+            if start < result.length {
+                result.addAttribute(
+                    .foregroundColor,
+                    value: UIColor(palette.muted),
+                    range: NSRange(location: start, length: result.length - start)
+                )
+            }
         }
         return result
     }

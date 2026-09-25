@@ -228,7 +228,7 @@ struct YouRPCContractTests {
 
     // MARK: - get_entries_by_author
 
-    @Test("get_entries_by_author is entry_cards for one author, private ones included when it is me")
+    @Test("get_entries_by_author is entry_cards for one author, every one of them public")
     func entriesByAuthorAreEntryCards() async throws {
         try await StagingExclusive.shared.run {
             let client = try await client()
@@ -238,8 +238,8 @@ struct YouRPCContractTests {
             #expect(whole.allSatisfy { $0.authorID == user })
             #expect(whole.allSatisfy { $0.isMine })
             #expect(whole.allSatisfy { $0.dishCount == $0.items.count })
-            // My own journal is the one place a private entry is visible; an entry I cannot see is not
-            // "missing data" but the RLS contract working.
+            // Every entry is public (0033) — mine included. There is no private entry left to hide.
+            #expect(whole.allSatisfy { $0.visibility == .public })
             #expect(whole.allSatisfy { $0.orderNumber > 0 })
 
             var walked: [EntryCard] = []

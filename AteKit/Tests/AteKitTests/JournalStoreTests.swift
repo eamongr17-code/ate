@@ -39,7 +39,6 @@ private final class PagedEntryService: EntryService, @unchecked Sendable {
         throw AteAPIError.notFound(table: "e", id: entryID)
     }
     func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async throws {}
-    func setVisibility(entryID: UUID, visibility: EntryVisibility) async throws {}
     func updateBody(entryID: UUID, body: String) async throws {}
 }
 
