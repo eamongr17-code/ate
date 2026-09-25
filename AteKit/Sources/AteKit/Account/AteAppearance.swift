@@ -40,6 +40,8 @@ public final class AtePreferences {
         self.store = store
         self.appearance = AteAppearance(rawValue: store.value(forKey: Key.appearance) ?? "") ?? .system
         self.pendingHandleUserID = store.value(forKey: Key.pendingHandleUserID).flatMap(UUID.init(uuidString:))
+        let chosen = (store.value(forKey: Key.handleChosenUserIDs) ?? "").split(separator: ",")
+        self.handleChosenUserIDs = Set(chosen.compactMap { UUID(uuidString: String($0)) })
     }
 
     /// System / Light / Dark. Applied at the root, so Welcome and every sheet follow it too.
@@ -65,9 +67,43 @@ public final class AtePreferences {
         }
     }
 
+    /// Everyone who has pressed Continue on the first-run `Handle` on this phone. Once in here, a
+    /// person is never routed there again — whatever their handle looks like — so keeping the
+    /// handle they were given cannot loop them back on every launch.
+    public private(set) var handleChosenUserIDs: Set<UUID> {
+        didSet {
+            guard handleChosenUserIDs != oldValue else { return }
+            store.setValue(
+                handleChosenUserIDs.map(\.uuidString).sorted().joined(separator: ","),
+                forKey: Key.handleChosenUserIDs
+            )
+        }
+    }
+
+    /// A new account signed in (or an old one still wearing the server's placeholder handle): it
+    /// owes a handle — unless that person already finished first run here.
+    public func noteOwesHandle(_ userID: UUID) {
+        guard handleChosenUserIDs.contains(userID) == false else { return }
+        pendingHandleUserID = userID
+    }
+
+    /// Whether the person signed in right now is to be sent to `Handle`. Bound to *who* is signed
+    /// in: a pending mark left by somebody else never routes the next person.
+    public func owesHandle(signedInAs userID: UUID?) -> Bool {
+        guard let userID, pendingHandleUserID == userID else { return false }
+        return handleChosenUserIDs.contains(userID) == false
+    }
+
+    /// Continue on first run — written or kept, it is done, for good.
+    public func handleChosen(by userID: UUID?) {
+        pendingHandleUserID = nil
+        if let userID { handleChosenUserIDs.insert(userID) }
+    }
+
     private enum Key {
         static let appearance = "ate.appearance"
         static let pendingHandleUserID = "ate.pendingHandleUserID"
+        static let handleChosenUserIDs = "ate.handleChosenUserIDs"
     }
 }
 

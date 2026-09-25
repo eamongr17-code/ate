@@ -351,6 +351,33 @@ struct AtePreferencesTests {
         #expect(AtePreferences(store: store).appearance == .system)
     }
 
+    @Test("Continue ends first run for good: a kept placeholder never loops back to Handle")
+    func firstRunIsDoneOnce() {
+        let store = InMemoryKeyValueStore()
+        let id = UUID()
+        let preferences = AtePreferences(store: store)
+        preferences.noteOwesHandle(id)
+        #expect(preferences.owesHandle(signedInAs: id))
+        preferences.handleChosen(by: id)
+        #expect(preferences.owesHandle(signedInAs: id) == false)
+        // Every later launch sees the placeholder again and notes it — and is ignored.
+        let relaunched = AtePreferences(store: store)
+        relaunched.noteOwesHandle(id)
+        #expect(relaunched.owesHandle(signedInAs: id) == false)
+        #expect(relaunched.pendingHandleUserID == nil)
+    }
+
+    @Test("a pending handle is bound to who is signed in, never to the next person")
+    func owesHandleIsPerUser() {
+        let preferences = AtePreferences(store: InMemoryKeyValueStore())
+        let alice = UUID()
+        let bob = UUID()
+        preferences.noteOwesHandle(alice)
+        #expect(preferences.owesHandle(signedInAs: bob) == false)
+        #expect(preferences.owesHandle(signedInAs: nil) == false)
+        #expect(preferences.owesHandle(signedInAs: alice))
+    }
+
     @Test("the pending handle survives a first run that was killed on the handle screen")
     func remembersWhoOwesAHandle() {
         let store = InMemoryKeyValueStore()

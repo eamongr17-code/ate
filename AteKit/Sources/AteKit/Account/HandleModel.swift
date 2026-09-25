@@ -55,7 +55,11 @@ public final class HandleModel {
     ) {
         self.account = account
         self.analytics = analytics
-        self.current = current.map(HandleName.sanitise)
+        // First run never offers the server's placeholder (`ate1a2b3c4d`) as a handle to keep: the
+        // field opens empty and Continue waits for a real one. A handle derived from the person's
+        // own email is theirs, and is offered.
+        let sanitised = current.map(HandleName.sanitise)
+        self.current = isFirstRun && sanitised.map(HandleName.isPlaceholder) == true ? nil : sanitised
         self.isFirstRun = isFirstRun
         self.debounce = debounce
         if let current = self.current, current.isEmpty == false {
@@ -83,10 +87,8 @@ public final class HandleModel {
         guard canContinue, HandleName.isWellFormed(typed) else { return nil }
         // Unchanged is already done. An UPDATE to the same value would succeed, but it would also
         // mean the edit screen could not be left without a round trip.
+        // `handle_set` is a write, and only a write: keeping the handle you have reports nothing.
         if let current, current == typed {
-            // …but on first run, keeping the handle the account was made with IS picking it, and
-            // the funnel step has to count it or everyone who liked their suggestion reads as lost.
-            if isFirstRun { analytics(AccountEvents.handleSet(isFirstRun: true)) }
             return typed
         }
         isSaving = true

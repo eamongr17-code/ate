@@ -209,21 +209,43 @@ struct HandleModelTests {
         #expect(events.names.isEmpty, "nothing was written, so nothing happened")
     }
 
-    @Test("first run: keeping the handle the account came with still completes the funnel step")
-    func firstRunKeepingTheSuggestionCounts() async throws {
+    @Test("first run: keeping your own derived handle writes nothing and reports nothing")
+    func firstRunKeepingAHandleIsNotASet() async throws {
         let events = EventLog()
         let account = InMemoryAccountService(profile: AccountProfile(id: UUID(), username: "eamon"))
         let model = HandleModel(
-            account: account,
-            analytics: events.recorder,
-            current: "eamon",
-            isFirstRun: true,
+            account: account, analytics: events.recorder, current: "eamon", isFirstRun: true,
             debounce: Self.debounce
         )
-        #expect(model.status == .available, "the account's own handle is drawn with its check")
+        #expect(model.status == .available)
         #expect(await model.save() == "eamon")
-        #expect(account.checked.isEmpty, "no round trip for your own handle")
+        #expect(events.names.isEmpty, "handle_set fires only on a real write")
+    }
+
+    @Test("first run never offers the server's placeholder: the field opens empty, Continue waits")
+    func placeholderIsNotOffered() async throws {
+        let events = EventLog()
+        let account = InMemoryAccountService(profile: AccountProfile(id: UUID(), username: "ate1a2b3c4d"))
+        let model = HandleModel(
+            account: account, analytics: events.recorder, current: "ate1a2b3c4d", isFirstRun: true,
+            debounce: Self.debounce
+        )
+        #expect(model.typed.isEmpty)
+        #expect(model.canContinue == false)
+        #expect(await model.save() == nil)
+        model.type("eamon")
+        try await settle(model) { model.status == .available }
+        #expect(await model.save() == "eamon")
         #expect(events.names == ["handle_set"])
-        #expect(events.first(named: "handle_set")?.parameters["is_first_run"] == "true")
+        #expect(try await account.account().username == "eamon")
+    }
+
+    @Test("from Settings, the placeholder is still your handle to keep")
+    func settingsKeepsWhateverYouHave() {
+        let model = HandleModel(
+            account: InMemoryAccountService(), current: "ate1a2b3c4d", isFirstRun: false, debounce: Self.debounce
+        )
+        #expect(model.typed == "ate1a2b3c4d")
+        #expect(model.status == .available)
     }
 }

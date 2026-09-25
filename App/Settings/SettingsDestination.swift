@@ -31,8 +31,10 @@ struct SettingsDestination: View {
     var onOpen: (SettingsPage) -> Void = { _ in }
     /// A new handle was written. The shell signs receipts with it and You shows it.
     var onHandleChanged: (String) -> Void = { _ in }
-    /// The session ended — sign out, or the account was deleted.
+    /// The session ended — sign out.
     var onSignedOut: () -> Void = {}
+    /// The account was deleted — whose, so what it left on this phone can go too.
+    var onDeleted: (UUID?) -> Void = { _ in }
 
     @State private var model: SettingsModel
     @Environment(\.dismiss) private var dismiss
@@ -42,13 +44,15 @@ struct SettingsDestination: View {
         services: AteServices,
         onOpen: @escaping (SettingsPage) -> Void = { _ in },
         onHandleChanged: @escaping (String) -> Void = { _ in },
-        onSignedOut: @escaping () -> Void = {}
+        onSignedOut: @escaping () -> Void = {},
+        onDeleted: @escaping (UUID?) -> Void = { _ in }
     ) {
         self.page = page
         self.services = services
         self.onOpen = onOpen
         self.onHandleChanged = onHandleChanged
         self.onSignedOut = onSignedOut
+        self.onDeleted = onDeleted
         _model = State(initialValue: SettingsModel(
             account: services.account,
             preferences: services.preferences,
@@ -63,6 +67,7 @@ struct SettingsDestination: View {
                 model: model,
                 onOpen: onOpen,
                 onSignedOut: onSignedOut,
+                onDeleted: onDeleted,
                 onBack: { dismiss() }
             )
         case .handle(let current):

@@ -97,14 +97,20 @@ public actor EntryOutbox {
     private let analytics: AnalyticsRecorder
     private var queue: [QueuedEntry]
     private var isRunning = false
+    /// Who is signed in now. **An entry is only ever pushed as its own author**: with somebody
+    /// else signed in, another person's queued entry waits untouched for them — pushing it would be
+    /// refused by RLS and marked blocked, or worse. Nil (tests) works every item.
+    private let owner: (@Sendable () -> UUID?)?
 
     public init(
         entries: any EntryService,
         analytics: @escaping AnalyticsRecorder = { _ in },
-        containerName: String = "Entries"
+        containerName: String = "Entries",
+        owner: (@Sendable () -> UUID?)? = nil
     ) {
         self.entries = entries
         self.analytics = analytics
+        self.owner = owner
         let support = (try? FileManager.default.url(
             for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
         )) ?? URL.temporaryDirectory
@@ -155,7 +161,7 @@ public actor EntryOutbox {
         defer { isRunning = false }
 
         var landed: [UUID] = []
-        for item in queue where item.isStuck == false {
+        for item in queue where item.isStuck == false && belongsToCurrentOwner(item) {
             var working = item
             do {
                 try await push(&working)
@@ -184,6 +190,19 @@ public actor EntryOutbox {
         return landed
     }
 
+    /// Whether an item is the signed-in person's to push.
+    private func belongsToCurrentOwner(_ item: QueuedEntry) -> Bool {
+        guard let owner else { return true }
+        return owner() == item.entry.authorID
+    }
+
+    /// Drops everything one person had queued — their account has been deleted, and there is no
+    /// longer anybody an entry of theirs could be pushed as.
+    public func discard(authoredBy userID: UUID) {
+        queue.removeAll { $0.entry.authorID == userID }
+        persist()
+    }
+
     /// Whether the queue has given up on an entry. The entry page asks, so a stuck entry says so on
     /// its own paper instead of sitting silently in a JSON file nobody opens.
     public func isStuck(entryID: UUID) -> Bool {
@@ -193,7 +212,8 @@ public actor EntryOutbox {
     /// "Print it again": the person's own retry. Clears the give-up state and works the queue.
     @discardableResult
     public func retry(entryID: UUID) async -> [UUID] {
-        guard let index = queue.firstIndex(where: { $0.id == entryID }) else { return [] }
+        guard let index = queue.firstIndex(where: { $0.id == entryID }),
+              belongsToCurrentOwner(queue[index]) else { return [] }
         queue[index].isBlocked = false
         queue[index].attempts = 0
         persist()

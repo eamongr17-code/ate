@@ -38,13 +38,14 @@ extension AteShell {
         #if DEBUG
         if SettingsDebugLaunch.opensFirstRunHandle { return true }
         #endif
-        return services.preferences.pendingHandleUserID != nil
+        return services.preferences.owesHandle(signedInAs: services.api.currentUserID)
     }
 
     /// `Handle`, as the last step of a first sign-in. No way back: Continue is the only way on.
     var firstRunHandle: some View {
         FirstRunHandle(services: services, suggestion: firstRunName) { chosen in
-            services.preferences.pendingHandleUserID = nil
+            // Written or kept, first run is over for this person — never routed back here again.
+            services.preferences.handleChosen(by: services.api.currentUserID)
             firstRunName = nil
             handle = chosen
         }
@@ -78,7 +79,7 @@ extension AteShell {
             isFirstAuthorization: credential.isFirstAuthorization,
             createdAt: signedIn.accountCreatedAt
         ) {
-            services.preferences.pendingHandleUserID = signedIn.userID
+            services.preferences.noteOwesHandle(signedIn.userID)
             firstRunName = credential.fullName
         }
         // The one sign-in Apple says who this is. The trigger could not hear it (the token has no
@@ -118,6 +119,8 @@ extension AteShell {
         let wasBrowsing = gate.isBrowsing
         gate.signedIn()
         hasSession = services.hasSession
+        // A draft from before drafts had owners goes to the person who just signed in.
+        services.drafts.adoptUnownedDraft()
         journal.invalidate()
         if wasBrowsing {
             Task { await feed.refresh() }
@@ -133,7 +136,8 @@ extension AteShell {
             services: services,
             onOpen: { open(.settings($0)) },
             onHandleChanged: { handleChanged($0) },
-            onSignedOut: { endSession() }
+            onSignedOut: { endSession() },
+            onDeleted: { endSession(deleting: $0) }
         )
     }
 
@@ -144,6 +148,13 @@ extension AteShell {
     }
 
     /// Journal and You are yours. A browser tapping either is asked to sign in, and stays put.
+    /// An entry page reads `entry_cards`, which a browser cannot (0034): the card stays, and the
+    /// browser is asked to sign in.
+    func mayOpen(_ route: Route) -> Bool {
+        guard case .entry = route else { return true }
+        return gate.permitsWrite(.entry)
+    }
+
     func mayOpen(_ tapped: AteTab) -> Bool {
         switch tapped {
         case .journal: gate.permitsWrite(.journal)
@@ -155,9 +166,20 @@ extension AteShell {
     // MARK: - Getting out
 
     /// Sign out, or a deleted account. The session is already gone; this forgets whose phone it was
-    /// and hands back to the root, which builds a clean shell on `Welcome`.
-    func endSession() {
+    /// and hands back to the root, which builds a clean shell on `Welcome` — every in-memory store
+    /// (journal, shelf, feed, You, statements) is the shell's, so none of it reaches the next person.
+    ///
+    /// On disk, a signed-out person's draft and queued entries are **kept, and scoped to them**: they
+    /// wait for that person, and nobody else can resume or push them (`EntryDraftStore`,
+    /// `EntryOutbox`). A deleted person's are destroyed, because nobody can ever post them now.
+    func endSession(deleting deletedUserID: UUID? = nil) {
         services.preferences.pendingHandleUserID = nil
+        services.drafts.discardUnowned()
+        if let deletedUserID {
+            services.drafts.discardDrafts(of: deletedUserID)
+            let outbox = services.outbox
+            Task { await outbox.discard(authoredBy: deletedUserID) }
+        }
         onSessionEnded()
     }
 }

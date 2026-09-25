@@ -396,7 +396,7 @@ struct AteShell: View {
     /// `from` is remembered for the destination's view event. The funnel question is always "which
     /// entry point produced this", and an unlabelled one silently reads as zero.
     func open(_ route: Route, from source: DetailSource = .unknown) {
-        guard route.isBuilt else { return }
+        guard route.isBuilt, mayOpen(route) else { return }
         sources[route] = source
         path.append(route)
     }
@@ -442,7 +442,7 @@ struct AteShell: View {
         guard hasSession, handle == nil else { return }
         handle = await services.entries.currentHandle()
         if let handle, HandleName.isPlaceholder(handle), let userID = services.api.currentUserID {
-            services.preferences.pendingHandleUserID = userID
+            services.preferences.noteOwesHandle(userID)
         }
     }
 }

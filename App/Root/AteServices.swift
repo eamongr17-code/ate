@@ -55,11 +55,22 @@ struct AteServices {
         self.environment = environment
         self.api = api
         self.analytics = AteTelemetry.record
-        self.drafts = EntryDraftStore()
         self.debugSignIn = DebugStagingSignIn.make(for: environment, api: api)
 
         let preview = Self.previewServices()
         self.isPreviewData = preview != nil
+        // Whose draft and whose queued entries: the signed-in user, read at every use, so nothing one
+        // person leaves on this phone is resumed or posted as the next one. The preview drive has no
+        // session, so it is one fixed person.
+        let owner: @Sendable () -> UUID?
+        if preview == nil {
+            owner = { [api] in api.currentUserID }
+        } else {
+            let fixed = Self.previewOwner
+            owner = { fixed }
+        }
+        let drafts = EntryDraftStore(owner: owner)
+        self.drafts = drafts
         self.entries = preview?.entries ?? SupabaseEntryService(api: api)
         self.places = preview?.places ?? PlaceDirectoryClient(api: api)
         self.photos = preview?.photos ?? SystemPhotoLibrary()
@@ -71,13 +82,17 @@ struct AteServices {
         self.dishPages = preview?.dishPages ?? DishPageClient(api: api)
         self.account = preview?.account ?? AccountClient(api: api)
         self.preferences = AtePreferences.standard
-        self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record)
+        self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record, owner: owner)
+        if api.isSignedIn || preview != nil { drafts.adoptUnownedDraft() }
     }
 
     /// The save path, as one value: insert, photos, sort, with the outbox behind it.
     var submission: EntrySubmission {
         EntrySubmission(entries: entries, outbox: outbox, analytics: analytics)
     }
+
+    /// The one person a `-ate-preview-data` drive is signed in as.
+    nonisolated static let previewOwner = UUID(uuidString: "00000000-0000-4000-8000-00000000A7E0")!
 
     /// True when there is a session token on hand. Cheap and synchronous — it may be expired, which
     /// the first real request resolves.

@@ -11,12 +11,15 @@ struct SettingsScreen: View {
     let model: SettingsModel
     var onOpen: (SettingsPage) -> Void = { _ in }
     var onSignedOut: () -> Void = {}
+    /// Delete account finished; carries whose account it was.
+    var onDeleted: (UUID?) -> Void = { _ in }
     var onBack: () -> Void = {}
 
     @State private var photo: PhotosPickerItem?
     @State private var isConfirmingDelete = false
     /// The data went but the login survived: the session is already over, once the alert is read.
     @State private var endsSessionAfterAlert = false
+    @State private var deletedUserID: UUID?
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -46,9 +49,11 @@ struct SettingsScreen: View {
         .confirmationDialog("Delete your account?", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
             Button("Delete account", role: .destructive) {
                 Task {
+                    // Read before the call: afterwards there is no session to ask.
+                    deletedUserID = model.userID
                     let outcome = await model.deleteAccount()
                     // The half-deletion waits for its alert to be read before the page goes away.
-                    if outcome == .deleted { onSignedOut() }
+                    if outcome == .deleted { onDeleted(deletedUserID) }
                     endsSessionAfterAlert = outcome == .loginSurvived
                 }
             }
@@ -65,7 +70,7 @@ struct SettingsScreen: View {
             )
         ) {
             Button("OK", role: .cancel) {
-                if endsSessionAfterAlert { onSignedOut() }
+                if endsSessionAfterAlert { onDeleted(deletedUserID) }
             }
         }
         .task { await model.loadIfNeeded() }
