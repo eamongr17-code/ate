@@ -123,7 +123,7 @@ struct DishScreen: View {
     /// `gap:14px` — the number at 64, and beside it the star row and how many people.
     ///
     /// An unrated dish prints neither: design rule 7 says a score is never inferred, so there is no
-    /// "0.0" and no row of grey stars, only the empty-star mark the line items use.
+    /// "0.0", no row of grey stars and no mark — the score slot is simply empty.
     private func aggregate(_ summary: DishSummary) -> some View {
         HStack(alignment: .center, spacing: 14) {
             if let score = summary.score {
@@ -136,8 +136,6 @@ struct DishScreen: View {
                     people(summary)
                 }
             } else {
-                UnscoredMark(side: 28)
-                    .foregroundStyle(AtePalette.automatic.fg)
                 people(summary)
             }
             Spacer(minLength: 0)
@@ -269,15 +267,11 @@ struct DishReviewRow: View {
 
     private var handle: String { review.author?.username ?? "?" }
 
-    /// Design rule 7: no number, no zero, and a full-strength outline — "not scored" is a state,
-    /// not a disabled control.
+    /// Design rule 7: an unrated review leaves the score slot empty — no number, no zero, no mark.
     @ViewBuilder
     private var score: some View {
         if let score = review.score {
             ScoreToken(rating: score, prose: 16)
-        } else {
-            UnscoredMark(side: 18)
-                .foregroundStyle(AtePalette.automatic.fg)
         }
     }
 }

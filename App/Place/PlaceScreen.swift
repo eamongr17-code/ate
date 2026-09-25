@@ -254,8 +254,7 @@ struct MenuDishRow: View {
         .accessibilityIdentifier("place.dish")
     }
 
-    /// Design rule 7: an unscored dish gets the empty star at full strength, never a zero and never
-    /// a dimmed control.
+    /// Design rule 7: an unrated dish leaves the score slot empty — never a zero, never a mark.
     @ViewBuilder
     private var score: some View {
         if let value = dish.score {
@@ -263,9 +262,6 @@ struct MenuDishRow: View {
                 .ateText(.menuScore)
                 .monospacedDigit()
                 .accessibilityLabel("Rated \(ScoreFormat.average(value)) out of 5")
-        } else {
-            UnscoredMark(side: 22)
-                .foregroundStyle(AtePalette.paper.muted)
         }
     }
 }

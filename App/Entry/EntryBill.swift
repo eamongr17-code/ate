@@ -92,8 +92,8 @@ struct EntryBill: View {
     }
 }
 
-/// One line: the number, the dish, a dot leader, and the score printed like a price (design rule 7 —
-/// an unscored dish is an empty star and never a zero).
+/// One line: the number, the dish, a dot leader, and the score printed like a price. An unrated
+/// dish leaves the score column empty and its leader runs to the edge (design rule 7).
 struct EntryBillRow: View {
     let number: Int
     let name: String
@@ -123,11 +123,6 @@ struct EntryBillRow: View {
                     .ateText(.billScore)
                     .monospacedDigit()
                     .layoutPriority(1)
-            } else {
-                UnscoredMark(side: 14)
-                    .foregroundStyle(AtePalette.slip.muted)
-                    .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 3 }
-                    .opacity(isBlank ? 0.35 : 1)
             }
         }
         // `.li` is `line-height:1.75` — the row's box, not the glyphs'. A minimum, not a fixed height:

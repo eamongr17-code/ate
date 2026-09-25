@@ -160,18 +160,6 @@ struct AteStar: View {
     }
 }
 
-/// An unscored line item: one empty star, no text (design rule 7 — a score is never inferred and
-/// never written as a zero). The receipt's own line weight, 1.8.
-struct UnscoredMark: View {
-    var side: CGFloat = 16
-
-    var body: some View {
-        AteIcon.star.view(size: side)
-            .accessibilityHidden(false)
-            .accessibilityLabel("Not scored")
-    }
-}
-
 #if DEBUG
 #Preview("Tokens") {
     VStack(alignment: .leading, spacing: AteMetrics.loose) {
@@ -189,7 +177,6 @@ struct UnscoredMark: View {
                 AteStar(fill: fill)
             }
         }
-        UnscoredMark()
     }
     .padding(AteMetrics.gutter)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

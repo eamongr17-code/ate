@@ -96,7 +96,8 @@ struct StatementReceiptView: View {
             ForEach(Array(statement.topDishes.enumerated()), id: \.element.id) { index, dish in
                 line(
                     name(dish),
-                    value: dish.score.map(ScoreFormat.halfStep) ?? ScoreFormat.unratedPlaceholder,
+                    // Unrated: an empty column, never a placeholder (design rule 7).
+                    value: dish.score.map(ScoreFormat.halfStep),
                     number: index + 1
                 )
             }
@@ -127,7 +128,7 @@ struct StatementReceiptView: View {
 
     /// A statement line: an optional `01`, the label, dot leaders, and the figure on the right —
     /// scores print like prices (design rule 7).
-    private func line(_ label: String, value: String, number: Int? = nil) -> some View {
+    private func line(_ label: String, value: String?, number: Int? = nil) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: AteMetrics.snug) {
             if let number {
                 Text(String(format: "%02d", number))
@@ -147,10 +148,12 @@ struct StatementReceiptView: View {
                 .layoutPriority(1)
             AteDotLeader()
                 .alignmentGuide(.firstTextBaseline) { $0[.bottom] + 4 }
-            Text(value)
-                .ateText(.receiptScore)
-                .monospacedDigit()
-                .layoutPriority(1)
+            if let value {
+                Text(value)
+                    .ateText(.receiptScore)
+                    .monospacedDigit()
+                    .layoutPriority(1)
+            }
         }
         .frame(minHeight: AteTextStyle.receiptLine.lineBox(dynamicTypeSize), alignment: .leading)
         .accessibilityElement(children: .combine)

@@ -23,8 +23,9 @@ for exact sizes, colours, radii and copy; it is 390×844 and does not render out
    grounds. No blobs, patterns, gradients-as-style, or colour-blocked feed cards.
 6. **The mess is tilt + overlap of photos**, only in small static clusters (entry slips, entry,
    dish hero, share, welcome, `Suggestions` rows). Thumbnails elsewhere in a list are straight.
-7. **Scores are only ever the user's.** Never inferred. Unrated dish on a slip = an **empty score
-   slot** (no mark, no text); on a bill or receipt line = an empty star, no text.
+7. **Scores are only ever the user's.** Never inferred. **An unrated dish is an empty score slot
+   everywhere** — cards, the Entry bill, Share and statement receipts (the dot leader runs to the
+   edge), Place, Dish, Search and Saved rows: no star, no mark, no text, no zero.
    Stars are never low-opacity: solid outline, half = half-filled. Aggregates show to the nearest half.
    Scoring is a finger **slide**, not taps. Scores print like prices: right-aligned, one decimal.
 8. **A place is only attached when the user names it or taps it.** Never from location alone.

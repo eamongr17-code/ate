@@ -7,8 +7,8 @@ struct AteReceipt: Equatable, Identifiable {
     struct Item: Equatable, Identifiable {
         let id: UUID
         var name: String
-        /// `nil` is a dish that was named but not scored. Design rule 7: it prints as an empty star
-        /// and never as a zero.
+        /// `nil` is a dish that was named but not scored. Design rule 7: its score column is empty —
+        /// no star, no zero.
         var score: Rating?
         /// The sentence the sorter lifted out of the person's own words for this dish.
         var note: String?
@@ -188,14 +188,12 @@ struct ReceiptView: View {
                 .layoutPriority(1)
             AteDotLeader()
                 .alignmentGuide(.firstTextBaseline) { $0[.bottom] + 4 }
+            // Unrated: the score column is empty and the leader runs to the edge (design rule 7).
             if let score = item.score {
                 Text(ScoreFormat.halfStep(score.value))
                     .ateText(.receiptScore)
                     .monospacedDigit()
                     .layoutPriority(1)
-            } else {
-                UnscoredMark()
-                    .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
             }
         }
         // `.li` is `line-height:1.65` — the row's box, not the glyphs'. A minimum, not a fixed
