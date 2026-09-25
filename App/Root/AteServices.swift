@@ -39,8 +39,13 @@ struct AteServices {
     let outbox: EntryOutbox
     /// The camera roll, behind a seam — `Suggestions` and the composer's photo staging.
     let photos: any AtePhotoLibrary
-    /// Present in Debug and Beta pointed at staging; `nil` everywhere else. Sign in with Apple is
-    /// milestone 2 — until it lands this is the only way into a session.
+    /// Your own account: the handle, the photo, the blocked list, sign out and delete.
+    let account: any AccountServing
+    /// The phone's own preferences — the appearance, and who still owes a handle. One object for
+    /// the whole app, so the root that paints the appearance and the page that changes it agree.
+    let preferences: AtePreferences
+    /// Present in Debug and Beta pointed at staging; `nil` everywhere else. The seeded demo account,
+    /// for drives and for internal builds while staging has no Apple provider.
     let debugSignIn: DebugStagingSignIn?
     /// True when the loop is running against the in-memory service rather than a backend.
     let isPreviewData: Bool
@@ -64,6 +69,8 @@ struct AteServices {
         self.stats = preview?.stats ?? StatsClient(api: api)
         self.placePages = preview?.placePages ?? PlacePageClient(api: api)
         self.dishPages = preview?.dishPages ?? DishPageClient(api: api)
+        self.account = preview?.account ?? AccountClient(api: api)
+        self.preferences = AtePreferences.standard
         self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record)
     }
 
@@ -96,6 +103,7 @@ struct AteServices {
         /// drive cannot show a dish page that disagrees with the feed it was opened from.
         let placePages: any PlacePageReading
         let dishPages: any DishPageReading
+        let account: any AccountServing
     }
 
     private static func previewServices() -> PreviewServices? {
@@ -113,7 +121,7 @@ struct AteServices {
         return PreviewServices(
             entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
             feed: social, saves: social, profiles: social, stats: InMemoryStatsService(),
-            placePages: social, dishPages: social
+            placePages: social, dishPages: social, account: InMemoryAccountService()
         )
         #else
         return nil
