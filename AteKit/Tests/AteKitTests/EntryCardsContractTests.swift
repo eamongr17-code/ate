@@ -234,8 +234,8 @@ struct EntryCardsContractTests {
                     || (newer.createdAt == older.createdAt && newer.id.uuidString > older.id.uuidString)
                 #expect(descending, "\(newer.id) should sort before \(older.id)")
             }
-            // The feed is public entries by other people: `p_include_own` defaults false, because your
-            // own visits live in the journal (contract, Reads).
+            // The feed is other people's entries (every entry is public, 0033): `p_include_own`
+            // defaults false, because your own visits live in the journal (contract, Reads).
             #expect(seen.allSatisfy { $0.visibility == .public })
             #expect(seen.allSatisfy { $0.isMine == false })
             // A row nobody can put a name to is not renderable.
