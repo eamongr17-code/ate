@@ -80,6 +80,12 @@ jobs:
       - name: Parser, validator, model and fixture suites
         run: node --test supabase/functions/sort-entry/*_test.ts
 
+      # places-search's pure modules, same deal: no runtime APIs, so Node runs them. Only the
+      # node-compatible suites are listed — blend_test.ts and vic_filter_test.ts import
+      # deno.land/std and need `deno test`.
+      - name: Places locality derivation (the restaurants.city suburb rule)
+        run: node --test supabase/functions/places-search/locality_test.ts
+
   contract:
     name: Contract tests vs staging
     runs-on: macos-26
