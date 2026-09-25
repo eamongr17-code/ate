@@ -10,17 +10,15 @@ import SwiftUI
 enum EntrySlipPresentation {
 
     /// Your own journal: no byline, no bookmarks (your entries are written, not saved), and the
-    /// right of the place line carries when you ate and who can see it.
+    /// right of the foot line carries the day you ate.
     static func journal(_ card: EntryCard, timeZone: TimeZone = .autoupdatingCurrent) -> AteSlip {
-        slip(card, meta: .time(
-            RelativeAge.time(card.createdAt, timeZone: timeZone),
-            isPublic: card.visibility.isPublic
-        ))
+        slip(card, surface: .journal, meta: .day(RelativeAge.day(card.createdAt, timeZone: timeZone)))
     }
 
-    /// The feed: the person is named above the stack, and every dish carries its own bookmark.
+    /// The feed: the person is named above the stack, every dish carries its own bookmark, and a
+    /// visit of three dishes or more leaves its words to the entry (``SlipAnatomy``).
     static func feed(_ card: EntryCard, now: Date = Date()) -> AteSlip {
-        var slip = slip(card, meta: .none)
+        var slip = slip(card, surface: .feed, meta: .none)
         // A blocked or deleted author is simply absent from the row (contract). The entry is still
         // readable; it just loses its byline rather than taking the page down.
         if let author = card.author {
@@ -33,10 +31,10 @@ enum EntrySlipPresentation {
         return slip
     }
 
-    /// A profile: the byline would be the page's own title repeated, so the age moves to the place
-    /// line and the stack keeps its bookmarks.
+    /// A profile: the byline would be the page's own title repeated, so the age moves to the right
+    /// of the foot line — where the journal prints its date — and the stack keeps its bookmarks.
     static func profile(_ card: EntryCard, now: Date = Date()) -> AteSlip {
-        slip(card, meta: .age(RelativeAge.short(card.createdAt, now: now)))
+        slip(card, surface: .profile, meta: .age(RelativeAge.short(card.createdAt, now: now)))
     }
 
     // MARK: - The shape they share
@@ -45,8 +43,9 @@ enum EntrySlipPresentation {
     /// stack than the artboard draws — the rest stay on the entry.
     private static let maximumPhotos = 3
 
-    private static func slip(_ card: EntryCard, meta: AteSlip.Meta) -> AteSlip {
-        AteSlip(
+    private static func slip(_ card: EntryCard, surface: SlipAnatomy.Surface, meta: AteSlip.Meta) -> AteSlip {
+        let showsWords = SlipAnatomy.showsWords(on: surface, dishCount: card.items.count)
+        return AteSlip(
             id: card.id,
             dishes: card.items.map {
                 AteSlip.Dish(
@@ -59,11 +58,14 @@ enum EntrySlipPresentation {
             },
             place: card.place?.name,
             placeID: card.place?.id,
+            suburb: card.place?.suburb,
             meta: meta,
-            // The place line already says the place, so a pill at the very start of the words is the
+            // The foot line already says the place, so a pill at the very start of the words is the
             // same fact twice. A place named mid-sentence is part of the sentence and stays: the
             // words themselves are never rewritten, only the decoration comes off.
-            words: EntryPresentation.composition(for: card).droppingLeadingPlace(),
+            words: showsWords
+                ? EntryPresentation.composition(for: card).droppingLeadingPlace()
+                : EntryComposition(plain: "", spans: []),
             photos: card.photos.prefix(maximumPhotos).map { AtePhoto(url: URL(string: $0.url)) }
         )
     }
@@ -71,7 +73,7 @@ enum EntrySlipPresentation {
 
 /// First load, drawn as the component it is waiting for — never a spinner (`docs/DESIGN.md`).
 ///
-/// The shape of a real slip: two dish rows parted by a hairline, a place line, two lines of words.
+/// The shape of a real slip: two dish rows parted by a hairline, two lines of words, a foot line.
 /// Nothing animates and nothing shimmers; it is paper that has not been written on yet.
 struct SlipSkeleton: View {
     var count = 2
@@ -85,7 +87,7 @@ struct SlipSkeleton: View {
                     if hasByline {
                         HStack(spacing: AteMetrics.snug) {
                             Circle()
-                                .fill(AtePalette.paper.hairline)
+                                .fill(AtePalette.slip.hairline)
                                 .frame(width: AteMetrics.avatar, height: AteMetrics.avatar)
                             bar(width: 88, height: 12)
                         }
@@ -103,16 +105,17 @@ struct SlipSkeleton: View {
                             }
                         }
                     }
-                    bar(width: 110, height: 12)
+                    // The words, then the foot line — the order a real slip prints them in.
                     bar(height: 12)
                     bar(width: 220, height: 12)
+                    bar(width: 110, height: 12)
                 }
-                .padding(.top, AteMetrics.slipPaddingTop)
+                .padding(.top, hasByline ? AteMetrics.slipPaddingTop : AteMetrics.slipPaddingTopBare)
                 .padding(.horizontal, AteMetrics.slipPadding)
                 .padding(.bottom, AteMetrics.slipPaddingBottom + AteMetrics.tornEdgeHeight)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .atePaper()
-                .background(AteColor.paper, in: ReceiptPaper())
+                .ateSlip()
+                .background(AteColor.slip, in: ReceiptPaper())
             }
         }
         .accessibilityHidden(true)
@@ -122,7 +125,7 @@ struct SlipSkeleton: View {
     /// words does.
     private func bar(width: CGFloat? = nil, height: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: height / 2, style: .continuous)
-            .fill(AtePalette.paper.hairline)
+            .fill(AtePalette.slip.hairline)
             .frame(width: width, height: height)
             .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
     }
@@ -135,7 +138,7 @@ struct SlipSkeleton: View {
             SlipSkeleton(count: 1, hasByline: true)
             SlipSkeleton(count: 1)
         }
-        .padding(.horizontal, AteMetrics.gutter)
+        .padding(.horizontal, AteMetrics.listGutter)
         .padding(.vertical, AteMetrics.section)
     }
     .ateGround()

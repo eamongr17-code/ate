@@ -29,7 +29,7 @@ struct StatementReceiptView: View {
                 AteDashedRule()
                 Text("Top of the month")
                     .ateText(.receiptLabel)
-                    .foregroundStyle(AtePalette.paper.fg)
+                    .foregroundStyle(AtePalette.slip.fg)
                 top
             }
             if habits.isEmpty == false {
@@ -44,7 +44,7 @@ struct StatementReceiptView: View {
                 .padding(.top, AteMetrics.tight)
             Text("Ate that.")
                 .ateText(.receiptLabel)
-                .foregroundStyle(AtePalette.paper.muted)
+                .foregroundStyle(AtePalette.slip.muted)
                 .frame(maxWidth: .infinity)
         }
         // `padding:22px 18px 16px` — and the torn edge under it.
@@ -52,8 +52,8 @@ struct StatementReceiptView: View {
         .padding(.horizontal, 18)
         .padding(.bottom, AteMetrics.loose + AteMetrics.tornEdgeHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .atePaper()
-        .background(AteColor.paper, in: ReceiptPaper())
+        .ateSlip()
+        .background(AteColor.slip, in: ReceiptPaper())
     }
 
     /// `gap:11px` between the statement's bands.
@@ -65,14 +65,14 @@ struct StatementReceiptView: View {
         VStack(spacing: AteMetrics.tight) {
             Text("Statement")
                 .ateText(.receiptLabel)
-                .foregroundStyle(AtePalette.paper.muted)
+                .foregroundStyle(AtePalette.slip.muted)
             // 40pt at `.h`'s line-height of 1 — the same size a screen names itself at, because on
             // a statement the month IS the title. A `Text` cannot set a line box tighter than its
             // font, which is what ``AteExactText`` is for.
-            AteExactText(text: statement.month.title, style: .screenTitle, colour: AtePalette.paper.fg)
+            AteExactText(text: statement.month.title, style: .screenTitle, colour: AtePalette.slip.fg)
             Text(verbatim: "@\(signature)")
                 .ateText(.receiptLabel)
-                .foregroundStyle(AtePalette.paper.muted)
+                .foregroundStyle(AtePalette.slip.muted)
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
@@ -96,7 +96,8 @@ struct StatementReceiptView: View {
             ForEach(Array(statement.topDishes.enumerated()), id: \.element.id) { index, dish in
                 line(
                     name(dish),
-                    value: dish.score.map(ScoreFormat.halfStep) ?? ScoreFormat.unratedPlaceholder,
+                    // Unrated: an empty column, never a placeholder (design rule 7).
+                    value: dish.score.map(ScoreFormat.halfStep),
                     number: index + 1
                 )
             }
@@ -127,7 +128,7 @@ struct StatementReceiptView: View {
 
     /// A statement line: an optional `01`, the label, dot leaders, and the figure on the right —
     /// scores print like prices (design rule 7).
-    private func line(_ label: String, value: String, number: Int? = nil) -> some View {
+    private func line(_ label: String, value: String?, number: Int? = nil) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: AteMetrics.snug) {
             if let number {
                 Text(String(format: "%02d", number))
@@ -136,7 +137,7 @@ struct StatementReceiptView: View {
                     // row and the ordinal is squeezed to one glyph wide: "0" on one line and "1"
                     // on the next, which is how "01 Tagliatelle al ragù, Tipo 00" printed.
                     .fixedSize(horizontal: true, vertical: false)
-                    .foregroundStyle(AtePalette.paper.muted)
+                    .foregroundStyle(AtePalette.slip.muted)
             }
             Text(label)
                 .ateText(.receiptLine)
@@ -147,10 +148,12 @@ struct StatementReceiptView: View {
                 .layoutPriority(1)
             AteDotLeader()
                 .alignmentGuide(.firstTextBaseline) { $0[.bottom] + 4 }
-            Text(value)
-                .ateText(.receiptScore)
-                .monospacedDigit()
-                .layoutPriority(1)
+            if let value {
+                Text(value)
+                    .ateText(.receiptScore)
+                    .monospacedDigit()
+                    .layoutPriority(1)
+            }
         }
         .frame(minHeight: AteTextStyle.receiptLine.lineBox(dynamicTypeSize), alignment: .leading)
         .accessibilityElement(children: .combine)

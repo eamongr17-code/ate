@@ -214,7 +214,7 @@ public struct MenuDishPage: Sendable, Equatable {
 /// string literal at the call site.
 public enum PlaceEntryScope: String, Sendable, CaseIterable, Codable {
     case all
-    /// The viewer's own — "Your N visits", private entries included (RLS shows you yours).
+    /// The viewer's own — "Your N visits".
     case mine
     case others
 }

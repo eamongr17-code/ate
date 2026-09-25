@@ -156,8 +156,11 @@ struct AteChip: View {
 struct AteButton: View {
     var icon: AteIcon?
     let title: String
-    /// 56 by default; `MainEmpty`'s button inside a slip is 52.
+    /// 56 by default; `MainEmpty`'s is 52.
     var height: CGFloat = AteMetrics.buttonHeight
+    /// `nil` fills the width it is given (a sheet's one pill). A number hugs the title with that much
+    /// either side instead — `MainEmpty`'s `padding:0 28px`.
+    var hugPadding: CGFloat?
     let action: () -> Void
 
     @Environment(\.atePalette) private var palette
@@ -168,7 +171,8 @@ struct AteButton: View {
                 if let icon { icon.view(size: 18) }
                 Text(title).ateText(.button)
             }
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, hugPadding ?? 0)
+            .frame(maxWidth: hugPadding == nil ? .infinity : nil)
             .frame(height: height)
             .background(palette.fg, in: .capsule)
             .foregroundStyle(palette.inverted)

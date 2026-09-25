@@ -278,7 +278,7 @@ struct DesignSystemGallery: View {
 
     private var slipSpecimen: some View {
         VStack(alignment: .leading, spacing: AteMetrics.slipGap) {
-            label("Journal slip — the dish stack, then the place, the words, the photos")
+            label("Journal slip — the dish rows, the words, the photos, the foot line")
             EntrySlip(slip: .previewJournal, onOpen: {})
             EntrySlip(slip: AteSlip(
                 dishes: [
@@ -287,7 +287,8 @@ struct DesignSystemGallery: View {
                     AteSlip.Dish(id: UUID(), dishID: UUID(), name: "Wagyu nigiri")
                 ],
                 place: "Kisume",
-                meta: .time("7:20 pm", isPublic: false),
+                suburb: "CBD",
+                meta: .day("Thu 17 Sep"),
                 words: .previewFeedWords
             ), onOpen: {})
             label("Feed slip — a byline, and a bookmark on every dish")

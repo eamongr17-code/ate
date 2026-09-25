@@ -41,4 +41,24 @@ public enum RelativeAge {
         style.timeZone = timeZone
         return date.formatted(style).lowercased(with: locale)
     }
+
+    /// The day a journal slip prints at the right of its foot line: "Sat 19 Sep". The ORDER is the
+    /// design's and is fixed; the weekday and month names come from the reader's locale. A date and
+    /// never a time — the journal is a record of meals, and "8:14 pm" on its own says nothing about
+    /// which one.
+    public static func day(
+        _ date: Date,
+        locale: Locale = .autoupdatingCurrent,
+        timeZone: TimeZone = .autoupdatingCurrent
+    ) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let style = Date.VerbatimFormatStyle(
+            format: "\(weekday: .abbreviated) \(day: .defaultDigits) \(month: .abbreviated)",
+            locale: locale,
+            timeZone: timeZone,
+            calendar: calendar
+        )
+        return date.formatted(style)
+    }
 }

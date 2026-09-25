@@ -271,21 +271,6 @@ extension AteTextStyle {
         voice: .mono, size: 11, weight: 400, trackingEm: 0.08, lineHeight: 1.35,
         textStyle: .caption2, maximumSize: 16, uppercase: true
     )
-
-    /// A score token's numeral, sized against the prose it sits in — `.tok`'s `font-size:.78em`.
-    /// **Not rounded**: `em` is a fraction in the markup, and rounding 12.48 to 12 took nearly a
-    /// point off the width of every pill in a 16pt slip.
-    static func scoreToken(inProse size: CGFloat) -> AteTextStyle {
-        AteTextStyle(voice: .mono, size: size * 0.78, weight: 500, lineHeight: 1.0, textStyle: .footnote)
-    }
-
-    /// A place token's name, sized against the prose it sits in — `.ptok`'s `font-size:.8em`.
-    static func placeToken(inProse size: CGFloat) -> AteTextStyle {
-        AteTextStyle(
-            voice: .display, size: size * 0.8, weight: 600,
-            trackingEm: -0.01, lineHeight: 1.0, textStyle: .footnote
-        )
-    }
 }
 
 // MARK: - Resolution
@@ -324,10 +309,16 @@ enum AteFont {
             style.maximumSize ?? .greatestFiniteMagnitude
         )
         let base = base(for: style, opticalSize: drawn)
-        if let maximum = style.maximumSize {
-            return metrics.scaledFont(for: base, maximumPointSize: maximum, compatibleWith: traits)
+        let scaled = if let maximum = style.maximumSize {
+            metrics.scaledFont(for: base, maximumPointSize: maximum, compatibleWith: traits)
+        } else {
+            metrics.scaledFont(for: base, compatibleWith: traits)
         }
-        return metrics.scaledFont(for: base, compatibleWith: traits)
+        // `scaledFont` rounds to a whole point. The design has fractional sizes — a score token is
+        // `.78em` (12.48 in a slip, 13.26 on the entry page), a tab label 10.5 — and rounding them
+        // printed every token's figures about 4% small against the artboard's `.tok`. The font keeps
+        // its Dynamic Type identity; only the size is put back to the one computed above.
+        return scaled.withSize(drawn)
     }
 
     static func font(for style: AteTextStyle, dynamicTypeSize: DynamicTypeSize = .large) -> Font {
@@ -481,6 +472,7 @@ extension View {
     func ateText(_ style: AteTextStyle) -> some View {
         modifier(AteTextModifier(style: style))
     }
+
 }
 
 /// Reads `dynamicTypeSize` from the environment, which is what makes the whole ramp re-lay out when

@@ -85,16 +85,23 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
         public let id: UUID
         public let name: String
         public let address: String?
+        /// Unreliable — rows resolved before 0031 hold a mangled street-and-postcode here. Never
+        /// printed as the place's label; read ``locality``.
         public let city: String?
         public let cuisine: String?
+        /// The suburb, as `place_locality(address, city)` derives it — the ONLY safe label for a
+        /// place (`integration-design.md`). Optional on the wire: a view that does not carry it yet
+        /// decodes as `nil`, and the slip then prints no suburb rather than falling back to `city`.
+        public let locality: String?
 
         public init(id: UUID, name: String, address: String? = nil,
-                    city: String? = nil, cuisine: String? = nil) {
+                    city: String? = nil, cuisine: String? = nil, locality: String? = nil) {
             self.id = id
             self.name = name
             self.address = address
             self.city = city
             self.cuisine = cuisine
+            self.locality = locality
         }
     }
 
@@ -332,12 +339,14 @@ public extension EntryCard {
         restaurantSource: "user",
         orderNumber: 142,
         sortStatus: .sorted,
-        sortedAt: Date(timeIntervalSince1970: 1_789_000_100),
-        createdAt: Date(timeIntervalSince1970: 1_789_000_000),
+        // Sat 19 Sep 2026, 8:14 pm in Melbourne — the artboard's day.
+        sortedAt: Date(timeIntervalSince1970: 1_789_812_940),
+        createdAt: Date(timeIntervalSince1970: 1_789_812_840),
         author: Author(id: UUID(uuidString: "5C4B0D0E-0000-4000-8000-000000000001")!,
                        username: "eamon", city: "Melbourne"),
         place: Place(id: UUID(uuidString: "B7E00000-0000-4000-8000-000000000001")!,
-                     name: "Tipo 00", address: "361 Little Bourke St", city: "Melbourne"),
+                     name: "Tipo 00", address: "361 Little Bourke St", city: "Melbourne",
+                     locality: "CBD"),
         // The artboard's own three photos, bundled as prototype assets.
         photos: [
             Photo(url: "asset://ragu", position: 1),
@@ -368,5 +377,41 @@ public extension EntryCard {
         placeOffset: 0,
         placeLength: 7
     )
+
+    /// `Main.dc.html`'s second slip: one dish, one photo, Thu 17 Sep.
+    static let previewCroissant: EntryCard = {
+        let body = "Queued twenty minutes like everyone else and the almond croissant 5.0 is the best "
+            + "thing I have eaten this year."
+        // Offsets in Unicode scalars, found rather than hand-counted.
+        func offset(of needle: String) -> Int? {
+            body.range(of: needle).map { body.unicodeScalars.distance(from: body.startIndex, to: $0.lowerBound) }
+        }
+        return EntryCard(
+            id: UUID(uuidString: "A7E00000-0000-4000-8000-000000000141")!,
+            authorID: UUID(uuidString: "5C4B0D0E-0000-4000-8000-000000000001")!,
+            body: body,
+            restaurantID: UUID(uuidString: "B7E00000-0000-4000-8000-000000000009")!,
+            restaurantSource: "user",
+            orderNumber: 141,
+            sortStatus: .sorted,
+            // Thu 17 Sep 2026, 9:40 am in Melbourne.
+            sortedAt: Date(timeIntervalSince1970: 1_789_602_100),
+            createdAt: Date(timeIntervalSince1970: 1_789_602_000),
+            author: Author(id: UUID(uuidString: "5C4B0D0E-0000-4000-8000-000000000001")!,
+                           username: "eamon", city: "Melbourne"),
+            place: Place(id: UUID(uuidString: "B7E00000-0000-4000-8000-000000000009")!,
+                         name: "Lune Croissanterie", address: "119 Rose St", city: "Melbourne",
+                         locality: "CBD"),
+            photos: [Photo(url: "asset://cake", position: 1)],
+            items: [
+                Item(reviewID: UUID(uuidString: "C7E00000-0000-4000-8000-000000000141")!,
+                     dishID: UUID(uuidString: "D7E00000-0000-4000-8000-000000000141")!,
+                     dishName: "Almond croissant", score: Rating(rounding: 5),
+                     note: "The best thing I have eaten this year.", position: 1,
+                     evidenceOffset: offset(of: "5.0"), evidenceLength: 3,
+                     mentionOffset: offset(of: "almond croissant"), mentionLength: 16)
+            ]
+        )
+    }()
 }
 #endif

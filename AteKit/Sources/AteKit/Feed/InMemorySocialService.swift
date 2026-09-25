@@ -17,9 +17,18 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
     private var blocked: Set<UUID> = []
 
     public init(entries: [EntryCard] = InMemorySocialService.seededEntries,
-                profiles: [ProfileSummary] = InMemorySocialService.seededProfiles) {
+                profiles: [ProfileSummary] = InMemorySocialService.seededProfiles,
+                saved: [UUID] = []) {
         self.entries = entries.sorted { $0.createdAt > $1.createdAt }
         self.profiles = Dictionary(uniqueKeysWithValues: profiles.map { ($0.userID, $0) })
+        let now = Date()
+        self.savedDishIDs = Dictionary(uniqueKeysWithValues: saved.map { ($0, now) })
+    }
+
+    /// The artboards' feed with the artboards' bookmarks already filled — what `-ate-preview-data`
+    /// launches into.
+    public static func seededWithSaves() -> InMemorySocialService {
+        InMemorySocialService(saved: seededSaves)
     }
 
     // MARK: - Feed
@@ -30,8 +39,10 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
         includeOwn: Bool
     ) async throws -> Page<EntryCard> {
         lock.withLock {
+            // Every entry is public (0033): the only things that keep one off the feed are a block
+            // and whose it is.
             let visible = entries
-                .filter { $0.visibility == .public && blocked.contains($0.authorID) == false }
+                .filter { blocked.contains($0.authorID) == false }
                 .filter { includeOwn || $0.isMine == false }
                 .map(applyingSaves)
             return page(of: visible, after: cursor, pageSize: pageSize)
@@ -57,7 +68,6 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
         lock.withLock {
             let theirs = entries
                 .filter { $0.authorID == authorID && blocked.contains(authorID) == false }
-                .filter { $0.visibility == .public || $0.isMine }
                 .map(applyingSaves)
             return page(of: theirs, after: cursor, pageSize: pageSize)
         }
@@ -130,7 +140,6 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
         lock.withLock {
             entries
                 .filter { blocked.contains($0.authorID) == false }
-                .filter { $0.visibility == .public || $0.isMine }
                 .map(applyingSaves)
         }
     }

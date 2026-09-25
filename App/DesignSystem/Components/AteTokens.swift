@@ -53,6 +53,23 @@ enum TokenPillMetrics {
     }
 }
 
+extension AteTextStyle {
+    /// A score token's numeral, sized against the prose it sits in — `.tok`'s `font-size:.78em`.
+    /// **Not rounded**: `em` is a fraction in the markup, and rounding 12.48 to 12 took nearly a
+    /// point off the width of every pill in a 16pt slip.
+    static func scoreToken(inProse size: CGFloat) -> AteTextStyle {
+        AteTextStyle(voice: .mono, size: size * 0.78, weight: 500, lineHeight: 1.0, textStyle: .footnote)
+    }
+
+    /// A place token's name, sized against the prose it sits in — `.ptok`'s `font-size:.8em`.
+    static func placeToken(inProse size: CGFloat) -> AteTextStyle {
+        AteTextStyle(
+            voice: .display, size: size * 0.8, weight: 600,
+            trackingEm: -0.01, lineHeight: 1.0, textStyle: .footnote
+        )
+    }
+}
+
 /// **The score token.** A butter pill carrying a filled star and one decimal, in mono — a score
 /// printed like a price (design rule 7). It appears inline in prose, inside a receipt's line items,
 /// and in the composer's editable text, and it is the same object in all three.
@@ -173,18 +190,6 @@ struct AteStar: View {
     }
 }
 
-/// An unscored line item: one empty star, no text (design rule 7 — a score is never inferred and
-/// never written as a zero). The receipt's own line weight, 1.8.
-struct UnscoredMark: View {
-    var side: CGFloat = 16
-
-    var body: some View {
-        AteIcon.star.view(size: side)
-            .accessibilityHidden(false)
-            .accessibilityLabel("Not scored")
-    }
-}
-
 #if DEBUG
 #Preview("Tokens") {
     VStack(alignment: .leading, spacing: AteMetrics.loose) {
@@ -202,7 +207,6 @@ struct UnscoredMark: View {
                 AteStar(fill: fill)
             }
         }
-        UnscoredMark()
     }
     .padding(AteMetrics.gutter)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

@@ -43,16 +43,16 @@ struct FeedScreen: View {
 
     private static let topAnchor = "feed.top"
 
-    /// `padding:62px 20px 14px` — the screen's name, and the city it is about.
+    /// `padding:62px 12px 14px` — the screen's name, and the city it is about.
     private var header: some View {
         HStack {
-            Text("Feed").ateText(.screenTitle)
+            Text("Feed").ateTextLine(.screenTitle)
             Spacer(minLength: AteMetrics.snug)
             // Static: Melbourne is the launch market, and a chip that could be changed would be a
             // promise of a second city we are not making (PRODUCT.md — density beats breadth).
             AteChip(icon: .place, title: "Melbourne", height: 40)
         }
-        .padding(.horizontal, AteMetrics.gutter)
+        .padding(.horizontal, AteMetrics.listGutter)
         .ateContentTop(62)
         .padding(.bottom, AteMetrics.slipGap)
         .id(Self.topAnchor)
@@ -63,16 +63,16 @@ struct FeedScreen: View {
         switch store.phase {
         case .loading:
             SlipSkeleton(hasByline: true)
-                .padding(.horizontal, AteMetrics.gutter)
+                .padding(.horizontal, AteMetrics.listGutter)
         case .empty:
             // Honest: nobody else has written anything yet. Not an error, and not an instruction.
-            AteEmptySlip(label: "Feed", title: "Nobody's written\nanything yet.")
+            AteEmptyState(title: "Nobody's written\nanything yet.")
                 .padding(.top, AteMetrics.snug)
         case .signedOut:
-            AteEmptySlip(label: "Feed", title: "Nobody's\nsigned in.")
+            AteEmptyState(title: "Nobody's\nsigned in.")
                 .padding(.top, AteMetrics.snug)
         case .failed(let message):
-            AteEmptySlip(label: "Feed", title: message)
+            AteEmptyState(title: message)
                 .padding(.top, AteMetrics.snug)
         case .ready:
             slips
@@ -101,7 +101,7 @@ struct FeedScreen: View {
                     .padding(.top, AteMetrics.regular)
             }
         }
-        .padding(.horizontal, AteMetrics.gutter)
+        .padding(.horizontal, AteMetrics.listGutter)
     }
 }
 

@@ -16,9 +16,6 @@ enum AteIcon: String, CaseIterable {
     // The atoms
     case star, starFilled, place, photoStack
 
-    // Visibility
-    case publicEntry, privateEntry
-
     // Actions
     case share, edit, save, saved, camera, library, voice, close, back, check, chevron, settings
     /// Stop dictating — the filled square inside the ink circle on `ComposerVoice.dc.html`. The third
@@ -52,11 +49,6 @@ enum AteIcon: String, CaseIterable {
              AteVector.circle(12, 10, 2.3)]
         case .photoStack:
             [AteVector.rectangle(3.5, 7.5, 14, 12, 3), Self.path("M7 4.5h10.5a3 3 0 0 1 3 3V16")]
-        case .publicEntry:
-            [AteVector.circle(12, 12, 8.5),
-             Self.path("M3.5 12h17M12 3.5c3 3 3 14 0 17M12 3.5c-3 3-3 14 0 17")]
-        case .privateEntry:
-            [AteVector.rectangle(5.5, 10.5, 13, 9.5, 2), Self.path("M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5")]
         case .share:
             [Self.path("M12 15V4M8 7.5l4-4 4 4M5 12v7.5h14V12")]
         case .edit:

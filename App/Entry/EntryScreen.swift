@@ -127,8 +127,8 @@ struct EntryScreen: View {
         .padding(.bottom, AteMetrics.section)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(minHeight: pageMinimumHeight, alignment: .top)
-        .atePaper()
-        .background(AteColor.paper, in: UnevenRoundedRectangle(
+        .ateSlip()
+        .background(AteColor.slip, in: UnevenRoundedRectangle(
             topLeadingRadius: AteMetrics.pageTop,
             bottomLeadingRadius: 0,
             bottomTrailingRadius: 0,
@@ -166,7 +166,7 @@ struct EntryScreen: View {
             }
             .ateText(.receiptLabel)
             // `.lab` is muted by default; the page overrides it to full ink on both of its rows.
-            .foregroundStyle(AtePalette.paper.fg)
+            .foregroundStyle(AtePalette.slip.fg)
         }
     }
 
@@ -230,7 +230,7 @@ struct EntryScreen: View {
             PhotoCollage(
                 photos: model.photos,
                 width: contentWidth,
-                surface: AteColor.paper
+                surface: AteColor.slip
             ) { index in
                 model.viewingPhoto = EntryModel.ViewingPhoto(index: index)
             }
@@ -284,8 +284,9 @@ struct EntryScreen: View {
 
     // MARK: - Bands
 
-    /// Back / visibility / edit / share, exactly as `Entry.dc.html` sets them down. Icons only — the
-    /// design puts labels nowhere near this row (rule 1).
+    /// Back / edit / share, exactly as `Entry.dc.html` sets them down — there is no visibility control,
+    /// because public/private no longer exists. Icons only — the design puts labels nowhere near this
+    /// row (rule 1).
     ///
     /// Somebody else's entry swaps the two controls that only an author can use for the two a reader
     /// needs: the byline that says whose visit this was, and the bookmark that puts it on their shelf
@@ -332,13 +333,6 @@ struct EntryScreen: View {
 
     private func authorControls(_ card: EntryCard) -> some View {
         Group {
-            AteIconButton(
-                icon: card.visibility.isPublic ? .publicEntry : .privateEntry,
-                label: card.visibility.isPublic ? "Public. Make private" : "Private. Make public",
-                size: 21
-            ) {
-                Task { await model.toggleVisibility() }
-            }
             AteIconButton(icon: .edit, label: "Edit", size: 21) { onEdit(card) }
             AteIconButton(icon: .share, label: "Share receipt", size: 22) { model.share() }
                 .disabled(model.receipt == nil)

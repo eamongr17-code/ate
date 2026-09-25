@@ -59,9 +59,7 @@ struct SuggestionsScreen: View {
                             .foregroundStyle(AtePalette.automatic.muted)
                     }
                     HStack(spacing: AteMetrics.snug) {
-                        ForEach(cluster.items) { item in
-                            SuggestionThumbnail(library: library, id: item.id)
-                        }
+                        SuggestionCluster(library: library, ids: cluster.items.map(\.id))
                         Spacer(minLength: 0)
                         AteIcon.edit.view(size: 18)
                             .frame(width: AteMetrics.hit, height: AteMetrics.hit)
@@ -87,20 +85,41 @@ struct SuggestionsScreen: View {
     }
 }
 
-/// A suggestion's photo: 74pt, straight, 16pt corners, no ring — design rule 6, nothing in a list
-/// tilts.
-struct SuggestionThumbnail: View {
+/// A suggestion's photos: the slip's tilted, overlapping cluster at 88pt (`padding:4px 0 4px 6px`,
+/// `margin-left:-12px`, `rotate(-5/4/-2deg)`) — the same mess a written-up entry wears, so the photos
+/// already look like the entry they are about to become.
+///
+/// Three at most, like a slip: a fourth would run into the pencil on a 390pt phone, and the rest are
+/// all still in the composer when the row is tapped.
+struct SuggestionCluster: View {
     let library: any AtePhotoLibrary
-    let id: String
+    let ids: [String]
 
-    @State private var image: Image?
+    @State private var images: [String: Image] = [:]
 
-    private static let side: CGFloat = 74
+    private static let side = AteMetrics.clusterPhotoSuggestion
+    private static let maximumPhotos = 3
+
+    private var shown: [String] { Array(ids.prefix(Self.maximumPhotos)) }
 
     var body: some View {
-        AteThumbnail(photo: AtePhoto(image: image), side: Self.side)
-            .task {
-                image = await library.thumbnail(id: id, side: Self.side)
+        PhotoCluster(
+            photos: shown.enumerated().map { AtePhoto(id: Self.photoID($0), image: images[$1]) },
+            side: Self.side,
+            surface: AtePalette.automatic.ground,
+            topPadding: AteMetrics.tight,
+            bottomPadding: AteMetrics.tight
+        )
+        .task(id: shown) {
+            for id in shown where images[id] == nil {
+                images[id] = await library.thumbnail(id: id, side: Self.side)
             }
+        }
+    }
+
+    /// A tile's identity is its position in the row: the row's assets never reorder, so the tiles
+    /// keep their place (and their tilt) as the images arrive.
+    private static func photoID(_ position: Int) -> UUID {
+        UUID(uuidString: String(format: "00000000-0000-4000-8000-%012X", position)) ?? UUID()
     }
 }

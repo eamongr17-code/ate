@@ -45,13 +45,13 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
         self.others = others
     }
 
-    /// The design's own journal: one sorted entry, so the receipt, the slip and the day header all
-    /// have something true to draw.
+    /// The design's own journal (`Main.dc.html`): the Tipo 00 birthday dinner and the almond
+    /// croissant two days before it, so the receipt and both slips have something true to draw.
     public static func seeded(
         sortDelay: Duration = .milliseconds(900),
         others: (any PreviewEntryLookup)? = nil
     ) -> InMemoryEntryService {
-        InMemoryEntryService(entries: [.previewSorted], firstOrderNumber: 143,
+        InMemoryEntryService(entries: [.previewSorted, .previewCroissant], firstOrderNumber: 143,
                              sortDelay: sortDelay, others: others)
     }
 

@@ -4,8 +4,8 @@ import SwiftUI
 /// **`Profile`** — somebody else's record: who they are, what they have eaten, and their entries.
 ///
 /// The same slip as the feed, without the byline (the page is already their name) and with the age
-/// moved onto the place line. Every dish still carries its bookmark: a profile is a place you come
-/// to for what to order next, exactly like the feed.
+/// at the right of the foot line, where the journal prints its date. Every dish still carries its
+/// bookmark: a profile is a place you come to for what to order next, exactly like the feed.
 struct ProfileScreen: View {
     let store: ProfileStore
     var onOpen: (EntryCard) -> Void = { _ in }
@@ -65,10 +65,10 @@ struct ProfileScreen: View {
         switch store.header {
         case .loading:
             ProfileHeaderSkeleton()
-                .padding(.horizontal, AteMetrics.gutter)
+                .padding(.horizontal, AteMetrics.listGutter)
         case .unavailable:
             // A blocked or deleted author is simply not there (contract). Say that, and nothing else.
-            AteEmptySlip(label: "Profile", title: "This person\nisn't here.")
+            AteEmptyState(title: "This person\nisn't here.")
         case .ready(let summary):
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: AteMetrics.loose) {
@@ -80,7 +80,7 @@ struct ProfileScreen: View {
                     )
                     VStack(alignment: .leading, spacing: AteMetrics.tight) {
                         Text(verbatim: "@\(summary.username)")
-                            .ateText(.profileTitle)
+                            .ateTextLine(.profileTitle)
                         if let city = summary.city {
                             Text(city)
                                 .ateText(.meta)
@@ -96,7 +96,7 @@ struct ProfileScreen: View {
                     (summary.dishes.formatted(), "Dishes")
                 ])
             }
-            .padding(.horizontal, AteMetrics.gutter)
+            .padding(.horizontal, AteMetrics.listGutter)
         }
     }
 
@@ -105,14 +105,14 @@ struct ProfileScreen: View {
         switch store.entries.phase {
         case .loading:
             SlipSkeleton()
-                .padding(.horizontal, AteMetrics.gutter)
+                .padding(.horizontal, AteMetrics.listGutter)
         case .empty:
             // Nothing public. Not an error, and not an invitation to do anything about it.
-            AteEmptySlip(label: "Profile", title: "Nothing\nto read yet.")
+            AteEmptyState(title: "Nothing\nto read yet.")
         case .signedOut:
-            AteEmptySlip(label: "Profile", title: "Nobody's\nsigned in.")
+            AteEmptyState(title: "Nobody's\nsigned in.")
         case .failed(let message):
-            AteEmptySlip(label: "Profile", title: message)
+            AteEmptyState(title: message)
         case .ready:
             slips
         }
@@ -132,7 +132,7 @@ struct ProfileScreen: View {
                 .task { await store.entries.loadMoreIfNeeded(after: entry) }
             }
         }
-        .padding(.horizontal, AteMetrics.gutter)
+        .padding(.horizontal, AteMetrics.listGutter)
     }
 
     @ViewBuilder

@@ -68,7 +68,7 @@ struct YouScreen: View {
             YouHeaderSkeleton()
         case .unavailable:
             // No session, or the header would not load. The page says who is missing and stops.
-            AteEmptySlip(label: "You", title: "Nobody's\nsigned in.")
+            AteEmptyState(title: "Nobody's\nsigned in.")
         case .ready(let summary):
             HStack(spacing: AteMetrics.loose) {
                 AteAvatar(
@@ -79,7 +79,7 @@ struct YouScreen: View {
                 )
                 VStack(alignment: .leading, spacing: AteMetrics.tight) {
                     Text(verbatim: "@\(summary.username)")
-                        .ateText(.profileTitle)
+                        .ateTextLine(.profileTitle)
                     if let city = summary.city, city.isEmpty == false {
                         Text(city)
                             .ateText(.meta)
