@@ -197,4 +197,4 @@ their own `score`/`note` — the sanctioned path, recorded by the correction tri
 | 0031–0032 | `search_scopes.sql` · `apple_auth_account_blocks.sql` | Search scopes + `search_key` accent fold + `nearby_places`; Apple-safe `handle_new_user`, `delete_account()`, `my_blocks()` |
 | 0033 | `entries_always_public.sql` | **flips every private entry public (prod data)**, undo list in `entries_private_before_0033`; trigger pins `public`; `entries`/`reviews` SELECT = own or not blocked; feed drops its filter; total feed index |
 | 0034 | `signed_out_browse.sql` | anon EXECUTE on the 9 browse reads (feed, place ×3, dish ×3, profile ×2); plpgsql dispatch → `browse.*` DEFINER; no table grant |
-| 0035 | `account_integrity.sql` | `delete_account` atomic + verified (raises, never a false ok); `handle_new_user` always leaves a profile; deactivated profiles hidden (policy + browse twins) |
+| 0035 | `account_integrity.sql` | `delete_account` atomic + verified (raises, never a false ok); `handle_new_user` always leaves a profile; deactivated profiles hidden; `deactivate_account` retired; profiles UPDATE column-granted; `entry_cards.place.locality` |

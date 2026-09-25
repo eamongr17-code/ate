@@ -342,3 +342,88 @@ comment on function public.deactivate_account() is
 
 revoke update on public.profiles from anon, authenticated;
 grant update (username, name, avatar_url, bio, city) on public.profiles to authenticated;
+
+
+-- ===========================================================================
+-- 5. entry_cards.place + `locality` (design round: the card foot line prints the suburb).
+--
+-- The ONE entry shape, so this reaches every card read at once: get_entry_feed,
+-- get_entries_by_author, get_entries_at_place, `entry_cards?id=eq.` — and the anon browse twins,
+-- which return those reads' rows. The view is 0026's, verbatim, with one key appended inside the
+-- `place` jsonb: same columns, same types, so create-or-replace is legal and the grant on the view
+-- survives. ADDITIVE on the wire (a new key in an existing object; `null` when we cannot name one).
+-- ===========================================================================
+create or replace view public.entry_cards
+with (security_invoker = true) as
+  select
+    e.id,
+    e.author_id,
+    e.body,
+    e.visibility,
+    e.restaurant_id,
+    e.restaurant_source,
+    e.order_number,
+    e.sort_status,
+    e.sorted_at,
+    e.created_at,
+    e.updated_at,
+    (e.author_id = (select auth.uid())) as is_mine,
+    jsonb_build_object(
+      'id', p.id, 'username', p.username, 'name', p.name,
+      'avatar_url', p.avatar_url, 'city', p.city
+    ) as author,
+    case when r.id is null then null else jsonb_build_object(
+      'id', r.id, 'name', r.name, 'address', r.address,
+      'city', r.city, 'cuisine', r.cuisine,
+      -- 0035: the suburb the card foot line prints. place_locality(), never the raw city (which is
+      -- the "<street>, <suburb STATE post>" mangle on rows resolved live before 0031's PR).
+      'locality', public.place_locality(r.address, r.city)
+    ) end as place,
+    coalesce(ph.photos, '[]'::jsonb) as photos,
+    coalesce(ph.photo_count, 0)      as photo_count,
+    coalesce(it.items, '[]'::jsonb)  as items,
+    coalesce(it.dish_count, 0)       as dish_count,
+    it.avg_score,
+    -- WHERE the place is named in the words (0025).
+    e.place_offset,
+    char_length(e.place_query) as place_length
+  from public.entries e
+  join public.profiles p on p.id = e.author_id
+  left join public.restaurants r on r.id = e.restaurant_id
+  left join lateral (
+    select
+      jsonb_agg(jsonb_build_object('url', x.photo_url, 'position', x.position)
+                order by x.position) as photos,
+      count(*)::int as photo_count
+    from public.entry_photos x
+    where x.entry_id = e.id
+  ) ph on true
+  left join lateral (
+    select
+      jsonb_agg(jsonb_build_object(
+        'review_id', v.id,
+        'dish_id',   v.dish_id,
+        'dish_name', d.name,
+        'score',     v.score,
+        'note',      v.note,
+        'position',  v.entry_position,
+        'saved',     (s.user_id is not null),
+        'evidence_offset', v.evidence_offset,
+        'evidence_length', char_length(v.score_evidence),
+        'mention_offset',  v.mention_offset,
+        'mention_length',  char_length(v.mention_text),
+        'corrected', (v.corrected_at is not null),
+        -- the DISH's cover, so a receipt line can draw its thumbnail without a second
+        -- round trip. NOT this entry's photo — `photos[]` is that.
+        'cover_url', public.dish_cover_url(v.dish_id)
+      ) order by v.entry_position nulls last, v.created_at, v.id) as items,
+      count(*)::int as dish_count,
+      round(avg(v.score), 2)::numeric(3,2) as avg_score
+    from public.reviews v
+    join public.dishes d on d.id = v.dish_id
+    left join public.saves s on s.dish_id = v.dish_id and s.user_id = (select auth.uid())
+    where v.entry_id = e.id
+  ) it on true;
+
+comment on view public.entry_cards is
+  'The one entry shape for Journal slip / Feed slip / Entry page / Share receipt: entry + author + place (+ locality, 0035) + photos[] + items[] (each with the dish''s cover_url) + receipt footer (dish_count, avg_score over scored items) + where each finding sits in body (place_offset/length, items[].evidence_* and mention_*, all 0-based UNICODE SCALAR offsets). Read a single entry with ?id=eq.<uuid>; page lists via get_entry_feed / get_entries_by_author / get_entries_at_place.';

@@ -23,7 +23,7 @@ Journal slip, Feed slip, Entry page and Share receipt are the same data at four 
 | `order_number` · `is_mine` | int — "Order #0142" · bool |
 | `sort_status` · `sorted_at` | `pending` \| `sorted` \| `failed` (at `pending`: words, no receipt) · ts\|null |
 | `author` | `{id, username, name, avatar_url, city}` |
-| `place` | `{id, name, address, city, cuisine}` — **null when unattached** |
+| `place` | `{id, name, address, city, cuisine, locality}` — **null when unattached**; print `locality` (0035), never `city` |
 | `photos` · `photo_count` | `[{url, position}]` ordered, `[]` when none · int |
 | `items` | receipt lines, ordered — fields below |
 | `dish_count` · `avg_score` | int (every line) · numeric over **scored lines only**, null when none — the receipt footer reads `3 dishes / Avg 3.75` |
@@ -219,7 +219,7 @@ PR, same rule as `place_locality()`); rows written before keep the mangle — re
 
 **Behavioural — 0035.** `delete_account` raises instead of a partial `ok`; sign-up always creates a profile
 (or fails whole); deactivated profiles vanish from every read. `deactivate_account` is retired (not
-executable), and a `profiles` PATCH may touch only `username, name, avatar_url, bio, city` (else `42501`).
+executable), and a `profiles` PATCH may touch only `username, name, avatar_url, bio, city` (else `42501`). Additive: `entry_cards.place.locality`.
 
 **Additive — 0034.** anon may EXECUTE the nine browse reads above (401/42501 → rows). Signed-in callers: same
 parameters, columns and query. Client: drop the `requireCurrentUserID()` guard on those reads when browsing.
