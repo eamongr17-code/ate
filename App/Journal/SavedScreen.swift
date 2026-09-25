@@ -121,16 +121,13 @@ struct SavedDishRow: View {
     }
 
     /// The dish's community aggregate, printed as sent (`Saved.dc.html` prints 4.2, 4.4, 4.7 — an
-    /// average is a price, and only a star glyph rounds to the half). Nobody's score yet is the
-    /// full-strength empty star (design rule 7), exactly as Search's own rows draw it — this row is
+    /// average is a price, and only a star glyph rounds to the half). Nobody's score yet is an
+    /// empty score slot (design rule 7), exactly as Search's own rows draw it — this row is
     /// Search's Saved row too.
     @ViewBuilder
     private var score: some View {
         if let value = dish.dishScore {
             ScoreToken(average: value, prose: 16)
-        } else {
-            UnscoredMark(side: 18)
-                .foregroundStyle(AtePalette.automatic.fg)
         }
     }
 

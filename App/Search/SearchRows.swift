@@ -132,18 +132,14 @@ struct PersonResultRow: View {
 /// The score at the right of a row: the butter token when there is one — an aggregate, so printed
 /// as sent (`4.3`, the artboards' own numbers) — and the full-strength empty star when there is not.
 ///
-/// Rule 7 twice over: nobody's score is ever made up for a row, and "nobody has scored this" is a
-/// state drawn at full strength, never a zero and never a dimmed control. Sized as the dish page's
-/// own list draws it beside a 16pt token.
+/// Rule 7: nobody's score is ever made up for a row, and "nobody has scored this" is an empty
+/// score slot — no star, no mark, no zero.
 struct SearchScoreMark: View {
     let score: Double?
 
     var body: some View {
         if let score {
             ScoreToken(average: score, prose: 16)
-        } else {
-            UnscoredMark(side: 18)
-                .foregroundStyle(AtePalette.automatic.fg)
         }
     }
 }

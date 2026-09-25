@@ -116,15 +116,14 @@ struct SearchTabScreen: View {
             case .empty:
                 // An empty shelf with nothing typed is the shelf's own state, word for word; an
                 // answer that found nothing is the search's.
-                AteEmptySlip(
-                    label: store.scope.title,
+                AteEmptyState(
                     title: store.scope == .saved && store.isSearching == false
                         ? "Nothing saved\nyet."
                         : "Nothing\nfound."
                 )
                 .padding(.top, AteMetrics.snug)
             case .failed(let message):
-                AteEmptySlip(label: store.scope.title, title: message)
+                AteEmptyState(title: message)
                     .padding(.top, AteMetrics.snug)
             case .ready:
                 rows

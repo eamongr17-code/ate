@@ -271,21 +271,6 @@ extension AteTextStyle {
         voice: .mono, size: 11, weight: 400, trackingEm: 0.08, lineHeight: 1.35,
         textStyle: .caption2, maximumSize: 16, uppercase: true
     )
-
-    /// A score token's numeral, sized against the prose it sits in — `.tok`'s `font-size:.78em`.
-    /// **Not rounded**: `em` is a fraction in the markup, and rounding 12.48 to 12 took nearly a
-    /// point off the width of every pill in a 16pt slip.
-    static func scoreToken(inProse size: CGFloat) -> AteTextStyle {
-        AteTextStyle(voice: .mono, size: size * 0.78, weight: 500, lineHeight: 1.0, textStyle: .footnote)
-    }
-
-    /// A place token's name, sized against the prose it sits in — `.ptok`'s `font-size:.8em`.
-    static func placeToken(inProse size: CGFloat) -> AteTextStyle {
-        AteTextStyle(
-            voice: .display, size: size * 0.8, weight: 600,
-            trackingEm: -0.01, lineHeight: 1.0, textStyle: .footnote
-        )
-    }
 }
 
 // MARK: - Resolution
