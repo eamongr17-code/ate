@@ -142,9 +142,9 @@ struct AccountContractTests {
 ///   true}`, then the password no longer signs in. The failure branch (auth delete refused) needs the
 ///   service role to provoke and is not driven here; 0035 makes it raise, so a regression back to a
 ///   silent `ok` would have to change the function this suite calls.
-/// - **A deactivated profile disappears** (0035): before `deactivate_account` the demo viewer and a
-///   signed-out browser both see the probe's profile and entry; after it, neither does, and search
-///   does not find the handle.
+/// - **Nobody can deactivate themselves** (0035): `deactivate_account` is retired and `deleted_at` is
+///   not client-writable. (Hiding a deactivated profile is policy + browse filters; with no client
+///   able to set `deleted_at`, driving it end-to-end needs the service role.)
 @Suite(
     "Account lifecycle — staging probe",
     .enabled(if: StagingContract.isEnabled && StagingContract.environmentValue("ATE_ACCOUNT_DELETION_TEST") != nil),
@@ -214,51 +214,34 @@ struct AccountDeletionProbeTests {
         }
     }
 
-    @Test("a deactivated profile and its entries vanish for signed-in and signed-out readers")
-    func deactivatedProfileIsHidden() async throws {
+    /// Run on a THROWAWAY account, never the demo one: against a staging without 0035 these calls
+    /// would succeed, and the demo account holds Eamon's real entries.
+    @Test("no client can deactivate itself — by RPC or by PATCH — and first-run writes still work")
+    func selfDeactivationIsRefused() async throws {
         let demo = try await StagingContract.Backend.shared.client()
-        let anon = AteAPIClient(supabase: StagingContract.makeClient())
-
         try await withProbe { probe in
-            let handle = try #require(try await probe.client.fetchByIDs(User.self, ids: [probe.userID]).first?.username)
-            try await probe.client.supabase.from("entries").insert([
-                "id": UUID().uuidString.lowercased(),
-                "author_id": probe.userID.uuidString.lowercased(),
-                "body": "deactivation probe"
-            ]).execute()
+            await #expect(throws: (any Error).self, "deactivate_account is retired (0035)") {
+                try await probe.client.callRPC("deactivate_account")
+            }
+            await #expect(throws: (any Error).self, "deleted_at is not a client-writable column (0035)") {
+                try await probe.client.supabase.from("profiles")
+                    .update(["deleted_at": "2026-01-01T00:00:00Z"], returning: .minimal)
+                    .eq("id", value: probe.userID.uuidString.lowercased())
+                    .execute()
+            }
+            // Still a live profile to everyone else.
+            let seen: [ProfileSummary] = try await StagingRPC.rows(
+                demo, "profile_summary", ["p_user_id": StagingRPC.id(probe.userID)]
+            )
+            #expect(seen.count == 1, "the probe must not have been tombstoned")
 
-            func profile(_ reader: AteAPIClient) async throws -> [ProfileSummary] {
-                try await StagingRPC.rows(reader, "profile_summary", ["p_user_id": StagingRPC.id(probe.userID)])
-            }
-            func entries(_ reader: AteAPIClient) async throws -> [EntryCard] {
-                try await StagingRPC.rows(reader, "get_entries_by_author", [
-                    "p_author_id": StagingRPC.id(probe.userID),
-                    "p_cursor_created_at": .null, "p_cursor_id": .null, "p_page_size": .integer(10)
-                ])
-            }
-            func found(_ reader: AteAPIClient) async throws -> Bool {
-                let rows: [SearchPersonRow] = try await StagingRPC.rows(
-                    reader, "search_people", ["p_query": .string(handle), "p_limit": .integer(50)]
-                )
-                return rows.contains { $0.userID == probe.userID }
-            }
-
-            // Visible first — otherwise "hidden" below would prove nothing.
-            for reader in [demo, anon] {
-                #expect(try await profile(reader).count == 1)
-                #expect(try await entries(reader).count == 1)
-            }
-            #expect(try await found(demo))
-
-            try await probe.client.callRPC("deactivate_account")
-
-            for reader in [demo, anon] {
-                #expect(try await profile(reader).isEmpty, "a deactivated profile has no header")
-                #expect(try await entries(reader).isEmpty, "a deactivated profile's entries are gone")
-            }
-            #expect(try await found(demo) == false, "search must not find a deactivated handle")
-            // The owner still sees themselves (and can still delete the account).
-            #expect(try await profile(probe.client).count == 1)
+            // The columns first-run and Settings write are still writable.
+            try await probe.client.supabase.from("profiles")
+                .update(["name": "Probe"], returning: .minimal)
+                .eq("id", value: probe.userID.uuidString.lowercased())
+                .execute()
+            let renamed = try await probe.client.fetchByIDs(User.self, ids: [probe.userID]).first?.name
+            #expect(renamed == "Probe")
         }
     }
 }

@@ -218,7 +218,8 @@ PR, same rule as `place_locality()`); rows written before keep the mangle — re
 ## Wire-change log
 
 **Behavioural — 0035.** `delete_account` raises instead of a partial `ok`; sign-up always creates a profile
-(or fails whole); deactivated profiles vanish from profile, author, feed, place and dish-review reads.
+(or fails whole); deactivated profiles vanish from every read. `deactivate_account` is retired (not
+executable), and a `profiles` PATCH may touch only `username, name, avatar_url, bio, city` (else `42501`).
 
 **Additive — 0034.** anon may EXECUTE the nine browse reads above (401/42501 → rows). Signed-in callers: same
 parameters, columns and query. Client: drop the `requireCurrentUserID()` guard on those reads when browsing.

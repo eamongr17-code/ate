@@ -162,7 +162,7 @@ nine RPCs that dispatch on `current_user = 'anon'` to DEFINER twins in the unexp
 | `entries` | own, or not blocked (0033) | self | self (cols `body, visibility` only) | self |
 | `entry_photos` | parent entry visible | parent entry is own | own | own |
 | `reviews` | own, or not blocked (0033) | author | author | author |
-| `profiles` | self, or (not deactivated AND not blocked) | self | self | — (`delete_account()` RPC) |
+| `profiles` | self, or (not deactivated AND not blocked) | self | self (cols `username, name, avatar_url, bio, city`) | — (`delete_account()` RPC) |
 | `saves` | own | own | own | own |
 | `blocks` | rows you created | self as blocker | — | self as blocker |
 | `reports` | own | self | — | — |

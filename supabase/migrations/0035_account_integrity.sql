@@ -320,3 +320,25 @@ as $$
   from public.profile_summary(p_user_id) s
   where exists (select 1 from public.profiles p where p.id = s.user_id and p.deleted_at is null);
 $$;
+
+-- ===========================================================================
+-- 4. Nobody deactivates themselves any more (QA, on 0035).
+--
+-- `delete_account()` is the account-removal path; `deactivate_account()` (0005) is retired. Left
+-- callable, a user tombstoning themselves would make the signed-out browse twins return SHORT pages:
+-- they drop deactivated authors AFTER the public read's LIMIT, so a short page reads as "the end".
+-- The same tombstone was reachable by a plain PATCH of `profiles.deleted_at` (profiles carried
+-- Supabase's default table-wide UPDATE grant — `entry_seq`, the order-number counter, too), so the
+-- column grants close that door as well: a client may update only what first-run and Settings
+-- write. `deleted_at` is now service-role-only.
+-- WIRE: breaking only for callers of `deactivate_account` (nothing ships one) and for a profile PATCH
+-- of any column outside the list below (nothing ships one — AccountService writes username, name,
+-- avatar_url).
+-- ===========================================================================
+revoke execute on function public.deactivate_account() from public, anon, authenticated;
+
+comment on function public.deactivate_account() is
+  'RETIRED (0035): not executable by any client role. Account removal is delete_account(). Service role only.';
+
+revoke update on public.profiles from anon, authenticated;
+grant update (username, name, avatar_url, bio, city) on public.profiles to authenticated;
