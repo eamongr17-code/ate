@@ -4,8 +4,12 @@ Everything the app calls, with shapes. Schema lives in `data-model.md`. **Comple
 Swift client against without asking a question** — if something is missing, that is a bug in this file.
 **Environments are law:** Debug → STAGING `cvoitgoaosofkougmarn`, Release → PROD `vyaexmnajnbryimbkgkf`;
 migrations reach staging on merge and prod only via the explicit CI job. Auth: Supabase Auth (Apple +
-email; see Account below); every call carries the user's token. `anon` is revoked on all V1 tables
-(unauthenticated → `[]`). **Every entry is public (0033)** — there is no private entry, anywhere, for anyone.
+email; see Account below); every call carries the user's token. `anon` has no table access (a raw read →
+`[]` or `42501`). **Every entry is public (0033).** **Signed out (0034):** with the publishable key alone, only
+`get_entry_feed`, `get_entries_by_author`, `get_entries_at_place`, `place_summary`, `place_dishes`,
+`dish_summary`, `get_dish_reviews`, `profile_summary` and `is_dish_saved` answer — same shapes, with
+`is_mine`/`is_me`/`saved`/`items[].saved` = `false`, `my_visits` = 0, `my_last_*` = null, scope `mine` = `[]`.
+Everything else (the Entry page's `entry_cards` read, search, stats, every write) needs a session.
 
 ## The one row shape — `entry_cards`
 
@@ -211,6 +215,9 @@ changes, make it config, do not fork the function. `restaurants.city` is written
 PR, same rule as `place_locality()`); rows written before keep the mangle — read `locality`.
 
 ## Wire-change log
+
+**Additive — 0034.** anon may EXECUTE the nine browse reads above (401/42501 → rows). Signed-in callers: same
+parameters, columns and query. Client: drop the `requireCurrentUserID()` guard on those reads when browsing.
 
 **Behavioural — 0033 (2026-09-25): every entry is public.** Every formerly-private entry flips public and
 now appears in the feed, on profiles, place/dish pages, search, and everyone's counts, averages and covers

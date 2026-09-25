@@ -1,9 +1,9 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0033` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0034` define it. Forward-only; applied migrations
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
-account deletion **0032**; **every entry public 0033** (2026-09-25: public/private removed from the product).
+account deletion **0032**; **every entry public 0033** (public/private removed); signed-out browse **0034**.
 
 The atom the USER creates is an **entry** = one visit. The atom AGGREGATES are built from is still a
 per-dish **review**, now *linked* to an entry, not replaced by it. A **sorter** turns the words into
@@ -91,7 +91,7 @@ label; `places-search` stores a bare suburb from 0031's PR on, forward-only, no 
 `WHERE merged_into_dish_id IS NULL`, merge tombstones) · storage buckets `review-photos` + `avatars`
 (public-read via the **bucket flag**, own-folder write).
 
-**Dormant in V1** (applied, unread, untouched): `comments`, `review_likes`, `comment_likes`, `follows`, `lists`, `list_dishes`, `review_tags`, `notifications`.
+**Dormant in V1:** `comments`, `review_likes`, `comment_likes`, `follows`, `lists`, `list_dishes`, `review_tags`, `notifications`.
 
 ## Landmines — do not re-learn
 
@@ -154,7 +154,8 @@ except where noted; **entries = visits, reviews = receipt lines, and they are no
 
 ## RLS
 
-Enabled on every table. Reads are authenticated-only; `anon` is revoked on all V1 tables.
+Enabled on every table. Table reads are authenticated-only; `anon` has NO table grant. Signed-out browse (0034) is
+nine RPCs that dispatch on `current_user = 'anon'` to DEFINER twins in the unexposed `browse` schema.
 
 | Table | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
@@ -188,13 +189,12 @@ their own `score`/`note` — the sanctioned path, recorded by the correction tri
 | 0019 | `moderation.sql` | blocks + reports; `blocked_with`; block-aware SELECT policies; `handle_available`; block/report RPCs |
 | 0020 | `saves.sql` | saves + `my_saved_dishes` + save/unsave RPCs |
 | 0021 | `sort_write_path.sql` | `find_or_create_dish`, `apply_entry_sort`, `mark_entry_sort_failed`, `correct_entry_place`, `correct_entry_dish` |
-| 0022 | `entry_reads.sql` | `entry_cards`; feed/journal/place readers; `place_dishes`, `place_summary`, `dish_summary`, `get_dish_reviews`; dish/restaurant stat columns |
-| 0023 | `stats_search.sql` | `profile_summary`, `score_histogram`, `dishes_by_score`, `statement_months`, `monthly_statement`, `search_all` |
-| 0024–0025 | `corrections_and_offsets.sql` · `entry_cards_offsets.sql` | correction provenance + the preservation rule in `apply_entry_sort` (dropped/recreated with `p_place_query`/`p_place_offset`); `verified_offset`; the correction trigger; dish display-name normalisation; `entry_cards` + `place_offset`/`place_length` + `items[].evidence_*`/`mention_*`/`corrected` |
-| 0026–0027 | `entry_photo_covers.sql` · `unsave_entry_dishes.sql` | `dish_cover_url`/`restaurant_cover_url` (covers now see `entry_photos`); `my_saved_dishes` + `cover_url`; `entry_cards.items[]` + `cover_url`; `unsave_entry_dishes` + the Saved keyset index |
-| 0028 | `report_reason.sql` | `reports_reason_ck` (NOT VALID) + reason normalisation in `report_entry`/`report_profile` |
+| 0022–0023 | `entry_reads.sql` · `stats_search.sql` | `entry_cards`; feed/journal/place/dish readers; stat columns · `profile_summary`, histogram, `dishes_by_score`, statements, `search_all` |
+| 0024–0025 | `corrections_and_offsets.sql` · `entry_cards_offsets.sql` | correction provenance + preservation rule in `apply_entry_sort`; `verified_offset`; correction trigger; `entry_cards` token offsets + `corrected` |
+| 0026–0028 | `entry_photo_covers.sql` · `unsave_entry_dishes.sql` · `report_reason.sql` | covers see `entry_photos`; `cover_url` on saved + receipt lines; `unsave_entry_dishes`; `reports_reason_ck` (NOT VALID) |
 | 0029 | `detail_you_reads.sql` | the Place/Dish/You/Ratings/Recap audit: `place_locality`, `dish_photos`; `place_summary` + `locality`/`entry_count`; `dish_summary` + `photos`/`restaurant_locality`; `dishes_by_score` + `cover_url` + cursor; cursors on `place_dishes`/`statement_months`; `profile_summary` counts lines by `reviewer_id`; `monthly_statement` + `username`, no x1 "most ordered" |
 | 0030 | `place_dishes_order.sql` | "what to order" becomes the ported `DishRanking` order (review_count desc → score desc nulls last → name → id), never-logged dishes excluded, keyset rewritten to match (`p_cursor_people` → `p_cursor_review_count`) |
 | 0031 | `search_scopes.sql` | `unaccent` + `search_key`/`search_pattern`/`search_tier` + folded-name trigram indexes; `search_places`/`search_dishes`/`search_people`/`search_saved`/`nearby_places`; `search_all` accent-folded, place subtitle via `place_locality` |
 | 0032 | `apple_auth_account_blocks.sql` | `handle_new_user` Apple-safe (NULL email, relay address, never raises); `delete_account()` (App Store 5.1.1(v)); `my_blocks()` |
 | 0033 | `entries_always_public.sql` | **flips every private entry public (prod data)**, undo list in `entries_private_before_0033`; trigger pins `public`; `entries`/`reviews` SELECT = own or not blocked; feed drops its filter; total feed index |
+| 0034 | `signed_out_browse.sql` | anon EXECUTE on the 9 browse reads (feed, place ×3, dish ×3, profile ×2); plpgsql dispatch → `browse.*` DEFINER; no table grant |
