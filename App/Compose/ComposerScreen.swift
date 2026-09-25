@@ -25,6 +25,8 @@ struct ComposerScreen: View {
     /// The microphone is open: `ComposerVoice` sits over the composer, which stays mounted beneath it
     /// so the text view — and its undo stack — is the same one the words come back to.
     @State private var isDictating = false
+    /// The open microphone, made once when the mic key is tapped and dropped when it closes.
+    @State private var dictation: DictationController?
     @Environment(\.openURL) private var openURL
     @State private var isSaving = false
     /// The editor's width, for measuring where the words end.
@@ -59,11 +61,10 @@ struct ComposerScreen: View {
                 toolbar
             }
             .ateSurface()
-            if isDictating {
+            if isDictating, let dictation {
                 VoiceComposerScreen(
                     composer: model,
-                    transcriber: makeTranscriber(),
-                    analytics: services.analytics,
+                    model: dictation,
                     onStop: { isDictating = false },
                     onDone: {
                         isDictating = false
@@ -75,6 +76,13 @@ struct ComposerScreen: View {
             }
         }
         .ateAnimation(.easeInOut(duration: 0.2), value: isDictating)
+        .onChange(of: isDictating) { _, isOpen in
+            // However the screen went away, the microphone goes with it.
+            if isOpen == false {
+                dictation?.stop(refocus: false)
+                dictation = nil
+            }
+        }
         .sheet(isPresented: $model.isPickingPlace) {
             PlaceSheet(
                 directory: services.places,
@@ -394,7 +402,24 @@ struct ComposerScreen: View {
         }
     }
 
-    // MARK: - The mic key
+    private func reopen(_ token: EntryToken) {
+        if model.reopen(token) { return }
+        if token.place != nil { model.isPickingPlace = true }
+    }
+
+    private func stage(_ items: [PhotosPickerItem]) async {
+        let staged = await ComposerPhotoStaging.stage(
+            items,
+            in: model.photoDirectory,
+            existing: model.photos
+        )
+        model.setPhotos(staged)
+    }
+}
+
+// MARK: - The mic key and the camera key
+
+extension ComposerScreen {
 
     /// The keyboard goes down and `ComposerVoice` comes up over the words. The editor stays exactly
     /// where it is underneath; dictation writes into the same model, and the text view takes it all
@@ -402,6 +427,9 @@ struct ComposerScreen: View {
     private func startDictation() {
         guard isDictating == false else { return }
         if model.scoring != nil { model.dismissScoring() }
+        dictation = DictationController(
+            target: model, transcriber: makeTranscriber(), analytics: services.analytics
+        )
         isDictating = true
     }
 
@@ -436,19 +464,5 @@ struct ComposerScreen: View {
             existing: model.photos
         ))
         services.analytics(EntryEvents.cameraCaptured(photoCount: model.photos.count))
-    }
-
-    private func reopen(_ token: EntryToken) {
-        if model.reopen(token) { return }
-        if token.place != nil { model.isPickingPlace = true }
-    }
-
-    private func stage(_ items: [PhotosPickerItem]) async {
-        let staged = await ComposerPhotoStaging.stage(
-            items,
-            in: model.photoDirectory,
-            existing: model.photos
-        )
-        model.setPhotos(staged)
     }
 }

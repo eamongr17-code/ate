@@ -17,6 +17,9 @@ import SwiftUI
 /// words come back into the same text view, with the same undo stack, in one edit.
 struct VoiceComposerScreen: View {
     let composer: ComposerModel
+    /// Owned by the composer and made once per spell of dictation — never per render, which would
+    /// build a new audio engine and recogniser for every partial result.
+    let model: DictationController
     /// Back to the keyboard — the stop key, or a tap on the words.
     var onStop: () -> Void
     /// Done — the entry is finished. The composer's own save path, so the two Dones are one behaviour.
@@ -24,26 +27,8 @@ struct VoiceComposerScreen: View {
     /// The close key: leave the composer entirely. The words stay in the draft, as they do everywhere.
     var onClose: () -> Void
 
-    @State private var model: VoiceComposerModel
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
-
-    init(
-        composer: ComposerModel,
-        transcriber: any VoiceTranscribing,
-        analytics: @escaping AnalyticsRecorder,
-        onStop: @escaping () -> Void,
-        onDone: @escaping () -> Void,
-        onClose: @escaping () -> Void
-    ) {
-        self.composer = composer
-        self.onStop = onStop
-        self.onDone = onDone
-        self.onClose = onClose
-        _model = State(initialValue: VoiceComposerModel(
-            composer: composer, transcriber: transcriber, analytics: analytics
-        ))
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -161,7 +146,7 @@ struct VoiceComposerScreen: View {
         switch model.state {
         case .denied:
             Button {
-                if let url = model.settingsURL { openURL(url) }
+                if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
             } label: {
                 AteIcon.voice.view(size: 28)
                     .frame(width: Self.keySide, height: Self.keySide)
@@ -172,7 +157,7 @@ struct VoiceComposerScreen: View {
             .frame(width: Self.pulseSide, height: Self.pulseSide)
             .accessibilityLabel("Microphone is off. Open Settings")
             .accessibilityIdentifier("voice.denied")
-        case .starting, .listening:
+        case .starting, .listening, .stopped:
             ZStack {
                 VoicePulse(isAnimating: isListening)
                 Button {
@@ -236,7 +221,7 @@ struct VoiceWaveform: View {
 
     var body: some View {
         HStack(spacing: Self.gap) {
-            ForEach(0..<VoiceComposerModel.barCount, id: \.self) { index in
+            ForEach(0..<DictationController.barCount, id: \.self) { index in
                 Capsule(style: .continuous)
                     .fill(palette.fg)
                     .opacity(index.isMultiple(of: 3) ? 0.4 : 1)
@@ -251,7 +236,7 @@ struct VoiceWaveform: View {
     /// The oldest bars sit on the left, so a history shorter than the row starts flat rather than
     /// bunched at one end.
     private func height(at index: Int) -> CGFloat {
-        let missing = VoiceComposerModel.barCount - levels.count
+        let missing = DictationController.barCount - levels.count
         guard isLive, index >= missing, index - missing < levels.count else { return Self.minimum }
         let level = CGFloat(levels[index - missing])
         return Self.minimum + (Self.maximum - Self.minimum) * min(1, max(0, level))

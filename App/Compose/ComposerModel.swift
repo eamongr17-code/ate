@@ -9,7 +9,7 @@ import SwiftUI
 /// attached — and nothing else. The view renders it and calls it.
 @MainActor
 @Observable
-final class ComposerModel {
+final class ComposerModel: DictationTarget {
     /// Which token the slider is open on, and the value under the finger.
     struct Scoring: Identifiable, Equatable {
         let id: UUID

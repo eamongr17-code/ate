@@ -2,32 +2,6 @@ import AteKit
 import AVFoundation
 import Speech
 
-/// What the microphone says.
-enum VoiceTranscriberEvent: Sendable {
-    /// The **whole utterance so far**, as the recogniser currently hears it — not the next word. It
-    /// re-sends everything every time it changes its mind, which is what ``DictationSession`` exists to
-    /// absorb. `isFinal` means the recogniser is done with this utterance; the next transcript starts
-    /// from nothing.
-    case transcript(String, isFinal: Bool)
-    /// How loud the room is, 0…1. The only reason the audio tap belongs to us rather than to the
-    /// recogniser: `ComposerVoice.dc.html` draws a live waveform, and no speech API reports level.
-    case level(Float)
-    /// Listening ended on its own — the recogniser gave up, or the audio session was taken away.
-    case stopped(VoiceDenialReason?)
-}
-
-/// **The dictation seam.** A protocol with three methods, because a simulator has no microphone and
-/// the whole transcript path — partial results, revisions, a number becoming a pill — has to be
-/// drivable without one (`ComposerDebugLaunch.fakesDictation`).
-@MainActor
-protocol VoiceTranscribing: AnyObject {
-    /// Asks for everything it needs, once. `nil` when it can listen.
-    func authorize() async -> VoiceDenialReason?
-    /// Starts listening. The stream ends when ``stop()`` is called, or when listening stops by itself.
-    func start() -> AsyncStream<VoiceTranscriberEvent>
-    func stop()
-}
-
 /// **On-device dictation through the Speech framework.**
 ///
 /// Two deliberate choices:
@@ -51,30 +25,79 @@ final class SystemVoiceTranscriber: VoiceTranscribing {
     private var sink: BufferSink?
     private var continuation: AsyncStream<VoiceTranscriberEvent>.Continuation?
     private var isListening = false
+    /// Which recognition task is current; a late callback from a replaced one is ignored.
+    private var generation = 0
+    private var restarts = RecognitionRestartPolicy()
+    private var restartWork: Task<Void, Never>?
 
     func authorize() async -> VoiceDenialReason? {
         // `isAvailable` is asked *after* authorisation, not before: an unauthorised recogniser reports
         // itself unavailable, and answering "unavailable" to somebody who has never been asked would
         // take the microphone away without ever offering it.
         guard let recogniser else { return .unavailable }
-        let speech = await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
-        }
-        guard speech == .authorized else { return .speech }
-        let microphone = await withCheckedContinuation { continuation in
-            AVAudioApplication.requestRecordPermission { continuation.resume(returning: $0) }
-        }
-        guard microphone else { return .microphone }
+        guard await Self.speechAuthorization() == .authorized else { return .speech }
+        guard await Self.microphonePermission() else { return .microphone }
         return recogniser.isAvailable ? nil : .unavailable
+    }
+
+    // MARK: - Callbacks that arrive off the main thread
+    //
+    // **Every closure handed to Speech or AVFAudio is built in a `nonisolated` function.** A closure
+    // written inside this `@MainActor` class inherits main-actor isolation, and Swift 6 checks that at
+    // runtime: the permission handlers and the audio tap are called on the framework's own queues, so
+    // the first real use of the mic was `swift_task_reportUnexpectedExecutor` — a crash. Built here,
+    // they are `@Sendable` and isolated to nothing, and the compiler refuses any touch of main-actor
+    // state inside them; anything that needs the main actor hops there explicitly.
+
+    nonisolated private static func speechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization(OffMainCallback.resuming(continuation))
+        }
+    }
+
+    nonisolated private static func microphonePermission() async -> Bool {
+        await withCheckedContinuation { continuation in
+            AVAudioApplication.requestRecordPermission(completionHandler: OffMainCallback.resuming(continuation))
+        }
+    }
+
+    nonisolated private static func isSilence(_ error: any Error) -> Bool {
+        let error = error as NSError
+        return error.domain == "kAFAssistantErrorDomain" && error.code == 1110
+    }
+
+    nonisolated private static func tap(_ sink: BufferSink) -> AVAudioNodeTapBlock {
+        { @Sendable buffer, _ in sink.receive(buffer) }
+    }
+
+    /// The recogniser's result handler: reads what it needs on the recogniser's queue — a result
+    /// cannot cross an isolation boundary — and hops to the main actor with plain values only.
+    nonisolated private static func resultHandler(
+        for transcriber: SystemVoiceTranscriber,
+        generation: Int
+    ) -> @Sendable (SFSpeechRecognitionResult?, (any Error)?) -> Void {
+        { [weak transcriber] result, error in
+            let transcript = result?.bestTranscription.formattedString
+            let isFinal = result?.isFinal ?? false
+            // "No speech detected" is silence, not a fault: somebody thinking. Counting it would give
+            // up on a person for pausing three times.
+            let failed = error.map { Self.isSilence($0) == false } ?? false
+            Task { @MainActor [weak transcriber] in
+                transcriber?.received(
+                    transcript: transcript, isFinal: isFinal, failed: failed, generation: generation
+                )
+            }
+        }
     }
 
     func start() -> AsyncStream<VoiceTranscriberEvent> {
         let (stream, continuation) = AsyncStream<VoiceTranscriberEvent>.makeStream()
         self.continuation = continuation
         isListening = true
+        restarts = RecognitionRestartPolicy()
         do {
             try startAudio(sending: continuation)
-            listen(sending: continuation)
+            listen()
         } catch {
             continuation.yield(.stopped(.unavailable))
             continuation.finish()
@@ -85,6 +108,8 @@ final class SystemVoiceTranscriber: VoiceTranscribing {
 
     func stop() {
         isListening = false
+        restartWork?.cancel()
+        restartWork = nil
         task?.finish()
         task = nil
         request?.endAudio()
@@ -116,15 +141,13 @@ final class SystemVoiceTranscriber: VoiceTranscribing {
 
         let sink = BufferSink(continuation: continuation)
         self.sink = sink
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-            sink.receive(buffer)
-        }
+        input.installTap(onBus: 0, bufferSize: 1024, format: format, block: Self.tap(sink))
         engine.prepare()
         try engine.start()
     }
 
-    /// One recognition task, and its replacement when the recogniser decides the utterance is over.
-    private func listen(sending continuation: AsyncStream<VoiceTranscriberEvent>.Continuation) {
+    /// One recognition task. Its replacement is decided in ``received(transcript:isFinal:failed:generation:)``.
+    private func listen() {
         guard let recogniser, isListening else { return }
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
@@ -136,26 +159,39 @@ final class SystemVoiceTranscriber: VoiceTranscribing {
         }
         self.request = request
         sink?.use(request)
-        // The handler arrives on the recogniser's own queue, so the transcript is read out of the
-        // result there — `SFSpeechRecognitionResult` cannot cross an isolation boundary — and only the
-        // words themselves hop to the main actor.
-        task = recogniser.recognitionTask(with: request) { [weak self] result, error in
-            let transcript = result?.bestTranscription.formattedString
-            let isFinal = result?.isFinal ?? false
-            let isOver = isFinal || error != nil
-            Task { @MainActor [weak self] in
-                guard let self, self.isListening else { return }
-                if let transcript {
-                    continuation.yield(.transcript(transcript, isFinal: isFinal))
-                }
-                guard isOver else { return }
-                // The utterance ended, or the task failed. Keep the microphone open: a pause in the
-                // middle of a sentence is not somebody finishing.
-                self.task = nil
-                self.request?.endAudio()
-                self.request = nil
-                self.listen(sending: continuation)
+        generation += 1
+        task = recogniser.recognitionTask(
+            with: request,
+            resultHandler: Self.resultHandler(for: self, generation: generation)
+        )
+    }
+
+    /// On the main actor, with plain values. A task that has been replaced is ignored.
+    private func received(transcript: String?, isFinal: Bool, failed: Bool, generation: Int) {
+        guard isListening, generation == self.generation else { return }
+        if let transcript, transcript.isEmpty == false {
+            restarts.heardSomething()
+            continuation?.yield(.transcript(transcript, isFinal: isFinal))
+        }
+        guard isFinal || failed || transcript == nil else { return }
+        // The utterance ended, or the task failed. A pause mid-sentence is not somebody finishing, so
+        // a fresh task follows — straight away after a pause, backing off after an error, and not at
+        // all after a run of errors: that is the recogniser not working, and the screen says so.
+        task = nil
+        request?.endAudio()
+        request = nil
+        switch restarts.taskEnded(failed: failed && isFinal == false) {
+        case .restart(let seconds) where seconds == 0:
+            listen()
+        case .restart(let seconds):
+            restartWork = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(seconds))
+                guard Task.isCancelled == false else { return }
+                self?.listen()
             }
+        case .giveUp:
+            continuation?.yield(.stopped(.unavailable))
+            stop()
         }
     }
 

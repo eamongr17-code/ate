@@ -16,8 +16,10 @@ import Foundation
 ///   words under us the session re-anchors rather than writing over them (``reanchor(to:)``).
 /// - **settle from the front.** Words the recogniser has stopped revising are *settled* (drawn in full
 ///   ink, `ComposerVoice.dc.html`); the tail it is still changing is volatile (drawn muted). The rule
-///   is the longest common prefix of two consecutive transcripts, snapped back to a word boundary, and
-///   it never goes backwards.
+///   is the longest common prefix of two consecutive transcripts, snapped back to a word boundary —
+///   **recomputed on every transcript**. It used to be a high-water mark, and a recogniser rewriting
+///   "four" as "4" underneath it put a number straight into the "settled" region, where it was
+///   promoted to a 4.0 on its way to becoming 4.5.
 /// - **a spoken number is the same score token as a typed one** (design: "typing a number after a
 ///   dish, or saying one, becomes the same score token"). Promotion runs through the same
 ///   ``ScoreLiteral`` rule the keyboard uses, and only inside the settled region — promoting "4" while
@@ -51,6 +53,10 @@ public struct DictationSession: Hashable, Sendable {
     /// How much of the transcript is **frozen**: already placed in the words and past a score token,
     /// so it is never replaced again. Revisions behind a pill would have to move the pill.
     private var frozen = 0
+    /// The transcript text that is frozen, and the number that froze it — so a recogniser that rewrites
+    /// a word *behind* a pill can be followed rather than cut at a stale offset.
+    private var frozenPrefix = ""
+    private var frozenLiteral = ""
     /// How much of the transcript the recogniser has stopped revising. Monotonic.
     private var settled = 0
     private var previousTranscript = ""
@@ -114,9 +120,9 @@ public struct DictationSession: Hashable, Sendable {
             reanchor(to: composition.plain.utf16.count)
         }
 
+        let tail = tail(of: transcript)
         settle(on: transcript, isFinal: isFinal)
         previousTranscript = transcript
-        let tail = Self.dropping(frozen, from: transcript)
         composition = write(tail, into: composition)
         let promoted = promote(in: &composition, isFinal: isFinal)
 
@@ -136,8 +142,9 @@ public struct DictationSession: Hashable, Sendable {
     // MARK: - Pieces
 
     /// The longest common prefix of this transcript and the last one, snapped back to a word boundary
-    /// — the words the recogniser has stopped changing. Never goes backwards: a word drawn in full
-    /// ink does not go grey again, which would read as the app second-guessing itself.
+    /// — the words the recogniser has stopped changing. **Recomputed from the first changed character
+    /// every time**: when the recogniser goes back and rewrites a word, that word and everything after
+    /// it are its guess again, and a number in there is not somebody's score yet.
     private mutating func settle(on transcript: String, isFinal: Bool) {
         let units = Array(transcript.utf16)
         guard isFinal == false else {
@@ -149,7 +156,7 @@ public struct DictationSession: Hashable, Sendable {
         while common < units.count, common < previous.count, units[common] == previous[common] {
             common += 1
         }
-        settled = max(settled, Self.wordBoundary(at: common, in: units))
+        settled = Self.wordBoundary(at: common, in: units)
     }
 
     /// Replaces the live region with the tail of the transcript — or opens the region, if this is the
@@ -226,12 +233,15 @@ public struct DictationSession: Hashable, Sendable {
             let printed = ScoreFormat.halfStep(candidate.rating.value).utf16.count
             // Transcript offsets come from the pre-promotion coordinates; plain ones from the post.
             frozenTranscriptEnd = frozen + candidate.span.endLocation - region.location
+            let literalStart = frozen + candidate.span.location - region.location
+            frozenLiteral = Self.slice(previousTranscript, literalStart..<frozenTranscriptEnd)
             frozenPlainEnd = span.location + printed
             delta += printed - span.length
         }
 
         promotedScoreCount += candidates.count
         frozen = frozenTranscriptEnd
+        frozenPrefix = Self.slice(previousTranscript, 0..<frozen)
         live = TextSpan(
             location: frozenPlainEnd,
             length: max(0, region.endLocation + delta - frozenPlainEnd)
@@ -260,11 +270,52 @@ public struct DictationSession: Hashable, Sendable {
     /// said twice.
     private mutating func reanchor(to plainOffset: Int) {
         frozen = previousTranscriptLength
+        frozenPrefix = previousTranscript
+        frozenLiteral = ""
         anchor = plainOffset
         prefix = ""
         suffix = ""
         live = nil
         liveText = ""
+    }
+
+    /// What of this transcript is still the microphone's to write: everything after the frozen part.
+    ///
+    /// The recogniser may rewrite words *behind* a pill ("the past was 4.5" → "the pasta was 4.5").
+    /// Those words stay as they were — they are behind something the person can see — but the cut
+    /// has to follow them: re-found by the number that froze them, nearest to where it was, and failing
+    /// that at the last whole word before the old offset. Cutting at the stale offset instead split a
+    /// word and wrote its second half into the sentence.
+    private mutating func tail(of transcript: String) -> String {
+        let units = Array(transcript.utf16)
+        let prefix = Array(frozenPrefix.utf16)
+        guard frozen > 0, units.starts(with: prefix) == false else {
+            return Self.dropping(frozen, from: transcript)
+        }
+        let aligned = Self.end(of: frozenLiteral, in: units, nearest: frozen)
+            ?? Self.wordBoundary(at: min(frozen, units.count), in: units)
+        frozen = aligned
+        frozenPrefix = Self.slice(transcript, 0..<aligned)
+        return Self.dropping(aligned, from: transcript)
+    }
+
+    /// The end of the occurrence of `literal` in `units` whose end is closest to `offset`.
+    private static func end(of literal: String, in units: [UInt16], nearest offset: Int) -> Int? {
+        let needle = Array(literal.utf16)
+        guard needle.isEmpty == false, units.count >= needle.count else { return nil }
+        var best: Int?
+        for start in 0...(units.count - needle.count) where Array(units[start..<start + needle.count]) == needle {
+            let end = start + needle.count
+            if best.map({ abs(end - offset) < abs($0 - offset) }) ?? true { best = end }
+        }
+        return best
+    }
+
+    private static func slice(_ string: String, _ range: Range<Int>) -> String {
+        let units = Array(string.utf16)
+        let lower = min(max(0, range.lowerBound), units.count)
+        let upper = min(max(lower, range.upperBound), units.count)
+        return String(decoding: units[lower..<upper], as: UTF16.self)
     }
 
     private static func dropping(_ count: Int, from transcript: String) -> String {

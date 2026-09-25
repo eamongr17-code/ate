@@ -208,14 +208,56 @@ struct DictationSessionTests {
         #expect(update.composition.plain == "the tagliatelle al ragù was")
     }
 
-    @Test("settling never goes backwards — a word in full ink does not turn grey again")
-    func settlingIsMonotonic() {
+    @Test("a word the recogniser goes back and rewrites is its guess again, not settled")
+    func rewriteUnsettles() {
         var session = DictationSession(anchor: 0)
         let first = session.apply(transcript: "the ragù was unreal", to: EntryComposition())
         let update = session.apply(transcript: "the ragù was unreal and", to: first.composition)
-        let settled = session.volatilePlainStart
-        _ = session.apply(transcript: "the ragù was", to: update.composition)
-        #expect((session.volatilePlainStart ?? .max) >= (settled ?? 0))
+        #expect(session.volatilePlainStart == 19)
+        // The recogniser rewrites "was unreal": from its first changed character, it is volatile.
+        _ = session.apply(transcript: "the ragù was on real and", to: update.composition)
+        #expect(session.volatilePlainStart == 12)
+    }
+
+    /// QA's probe, verbatim. The recogniser hears "four", then rewrites it as a digit on its way to
+    /// "4.5". A high-water "settled" mark put the rewritten "4" inside the settled region, promoted it
+    /// to a 4.0 nobody said, and then wrote ".5" after the pill: "the pasta was 4.0.5 and it was".
+    @Test("a number the recogniser rewrites into already-heard words is not promoted early")
+    func rewrittenNumberIsNotPromotedEarly() {
+        var session = DictationSession(anchor: 0)
+        var composition = EntryComposition()
+        for transcript in [
+            "the pasta was four and",
+            "the pasta was four and it was",
+            "the pasta was 4 and it was",
+            "the pasta was 4.5 and it was"
+        ] {
+            composition = session.apply(transcript: transcript, to: composition).composition
+        }
+        #expect(composition.plain == "the pasta was 4.5 and it was")
+        #expect(composition.spans.isEmpty)
+        #expect(composition.plain.contains("4.0") == false)
+
+        // Once the recogniser stops revising it, it is the score that was actually said.
+        let update = session.apply(transcript: "the pasta was 4.5 and it was great", to: composition)
+        #expect(update.promotedScores == [Rating(exactly: 4.5)])
+        #expect(update.composition.plain == "the pasta was 4.5 and it was great")
+        #expect(update.composition.scores == [Rating(exactly: 4.5)])
+    }
+
+    @Test("a word rewritten behind a pill does not split the words after it")
+    func rewriteBehindAPillKeepsTheTailWhole() {
+        var session = DictationSession(anchor: 0)
+        var composition = EntryComposition()
+        for transcript in ["the past was 4.5 and", "the past was 4.5 and it"] {
+            composition = session.apply(transcript: transcript, to: composition).composition
+        }
+        #expect(composition.scores == [Rating(exactly: 4.5)])
+        // "past" → "pasta": one character longer, behind the pill. The words behind the pill stay as
+        // the person saw them; what follows it is not cut one character late.
+        let update = session.apply(transcript: "the pasta was 4.5 and it was great", to: composition)
+        #expect(update.composition.plain == "the past was 4.5 and it was great")
+        #expect(update.composition.scores == [Rating(exactly: 4.5)])
     }
 
     @Test("the whole utterance settles when it ends")
