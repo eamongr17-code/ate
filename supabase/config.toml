@@ -318,11 +318,32 @@ max_frequency = "5s"
 # Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
 # `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin_oidc`, `notion`, `twitch`,
 # `twitter`, `x`, `slack`, `spotify`, `workos`, `zoom`.
+# SIGN IN WITH APPLE — the NATIVE iOS flow only (0032).
+#
+# The app runs ASAuthorizationAppleIDProvider itself and hands the resulting identity token to
+# `auth.signInWithIdToken(credentials: .init(provider: .apple, idToken:, nonce:))`. Nothing here is
+# an OAuth web redirect, which is why:
+#   * `client_id` is the iOS BUNDLE ID, not a Services ID. It is the `aud` claim Apple puts in the
+#     identity token, and Supabase rejects a token whose `aud` is not in this list. (Comma-separate
+#     if a second bundle id — an App Clip, a widget — ever needs to sign in.)
+#   * `secret` is NOT needed and is deliberately left empty. A client secret is only used to
+#     exchange an authorization CODE, which native SIGN-IN never does. (Apple's token REVOCATION on
+#     account deletion does need a .p8-signed client secret — that belongs in an edge function's
+#     secrets, never in this file.)
+#   * `redirect_uri` / `url` stay empty — there is no callback.
+#   * `skip_nonce_check` stays FALSE. The app must SHA-256 a random string into
+#     ASAuthorizationAppleIDRequest.nonce and pass the RAW string to signInWithIdToken; Supabase
+#     verifies the pair. Skipping it would let a stolen identity token be replayed.
+#   * `email_optional` is TRUE: an Apple identity may arrive with no email claim at all (and a
+#     private-relay address when it has one). `handle_new_user` (0032) provisions a profile from a
+#     NULL email without failing the sign-up, so a missing email must not be an auth error.
 [auth.external.apple]
-enabled = false
-client_id = ""
-# DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
-secret = "env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)"
+enabled = true
+client_id = "com.eamongracias.ate"
+# Not used by the native identity-token flow — see the note above — so it is EMPTY, not an env()
+# reference: the CLI requires no secret for apple, and an unset env() is one more way for
+# `supabase start` to fail. Never paste a real secret into this file.
+secret = ""
 # Overrides the default auth callback URL derived from auth.external_url.
 redirect_uri = ""
 # Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
@@ -331,7 +352,7 @@ url = ""
 # If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
 skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
-email_optional = false
+email_optional = true
 
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.
 # You can configure "web3" rate limit in the [auth.rate_limit] section and set up [auth.captcha] if self-hosting.

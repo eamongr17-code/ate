@@ -56,6 +56,16 @@
 //   - Caps: typed autocomplete → 5 predictions; nearby default list → 10 (PH-E3
 //     RESOLVED). Enforced server-side; the FE belt-and-suspenders slices too.
 //
+// `city` IS A SUBURB AGAIN (M3-BE, 2026-09-24). The live Google path's formatted-address split
+// stored "<street>, <suburb STATE post>" in `restaurants.city` — the column every screen prints as
+// the suburb chip, and the reason 0029 had to add `place_locality()` to undo it on read. Both sites
+// (op=details and the searchNearby fallback) now call `localityFromAddress` (./locality.ts), which
+// mirrors `place_locality()` rule for rule, so the write and the read agree and a new row stores
+// "Melbourne". FORWARD-ONLY: existing rows keep their mangled city and are NOT rewritten — the read
+// derivation already handles them, and a bulk update of real rows to fix a display string is not
+// something this team does. The STUB fixtures were always bare suburbs ('Melbourne', 'Fitzroy'), so
+// this is also what makes stub and live agree for the first time.
+//
 // STUB MODE (lead decision E-1): when GOOGLE_PLACES_API_KEY is ABSENT, this
 // function serves deterministic FIXTURE data behind the SAME interface — so the
 // client builds against the real contract and it goes live unchanged the moment
@@ -93,6 +103,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // The blend's pure half (ranking, name-dedupe, top-5 cap) — see ./blend.ts. Kept
 // in its own module so blend_test.ts can test the real code rather than a copy.
 import { AUTOCOMPLETE_CAP, blendResults, type LocalMatch, type Prediction } from './blend.ts';
+// The suburb out of a Google formattedAddress. Its own module for the same reason as the blend's:
+// index.ts cannot be imported by a test, and this rule now has to match place_locality() exactly.
+import { localityFromAddress } from './locality.ts';
 
 const GOOGLE_KEY = Deno.env.get('GOOGLE_PLACES_API_KEY') ?? '';
 const STUB = GOOGLE_KEY.trim() === '';
@@ -457,9 +470,9 @@ async function googleDetails(placeId: string, sessionToken?: string): Promise<St
   if (!res.ok) return null;
   const p = await res.json();
   if (!p.id) return null;
-  // best-effort city from the formatted address
-  const parts = (p.formattedAddress ?? '').split(',').map((s: string) => s.trim());
-  const city = parts.length >= 3 ? `${parts[parts.length - 3]}, ${parts[parts.length - 2]}` : (parts[1] ?? '');
+  // The SUBURB, not a street line: localityFromAddress mirrors place_locality() (0029). See
+  // ./locality.ts for the mangle this replaced. Forward-only — existing rows are not rewritten.
+  const city = localityFromAddress(p.formattedAddress);
   return {
     google_place_id: p.id,
     name: p.displayName?.text ?? 'Unknown',
@@ -506,8 +519,8 @@ async function googleNearby(lat: number, lng: number, radiusM: number): Promise<
   return places
     .filter((p) => p.id)
     .map((p) => {
-      const parts = (p.formattedAddress ?? '').split(',').map((s: string) => s.trim());
-      const city = parts.length >= 3 ? `${parts[parts.length - 3]}, ${parts[parts.length - 2]}` : (parts[1] ?? '');
+      // Same derivation as op=details — one implementation, in ./locality.ts.
+      const city = localityFromAddress(p.formattedAddress);
       return {
         google_place_id: p.id as string,
         name: p.displayName?.text ?? 'Unknown',
