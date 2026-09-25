@@ -46,7 +46,8 @@ public struct ProfileClient: ProfileReading {
         after cursor: PageCursor?,
         pageSize: Int
     ) async throws -> Page<EntryCard> {
-        try await api.requireCurrentUserID()
+        // No session required: a signed-out browser reads this as `anon` (0034), and the server
+        // answers every viewer-relative field as a stranger's — nothing saved, nothing "mine".
         let limit = min(Self.maximumPageSize, max(1, pageSize))
         var parameters: [String: AnyJSON] = [
             "p_author_id": .string(authorID.uuidString.lowercased()),

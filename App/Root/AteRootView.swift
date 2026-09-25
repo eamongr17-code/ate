@@ -5,8 +5,27 @@ import SwiftUI
 /// configuration error — a misconfigured checkout must explain itself, not crash.
 struct AteRootView: View {
     let environment: Result<AteEnvironment, Error>
+    /// Built once. The shell is rebuilt on every sign-out, and the services under it must not be —
+    /// one client, one auth session, for the life of the process.
+    @State private var services: AteServices?
+    /// Bumped when a session ends, so the next person starts from a shell with nothing of the last
+    /// one's in it: no journal, no shelf, no half-pushed stack.
+    @State private var generation = 0
+
+    init(environment: Result<AteEnvironment, Error>) {
+        self.environment = environment
+        _services = State(initialValue: (try? environment.get()).map { AteServices(environment: $0) })
+    }
 
     var body: some View {
+        content
+            // Settings' Appearance, applied to the window so Welcome, every sheet and every cover
+            // follow it too — not just the views under one modifier.
+            .ateAppearance(AtePreferences.standard.appearance)
+    }
+
+    @ViewBuilder
+    private var content: some View {
         #if DEBUG || BETA
         // The gallery has no backend at all, so it must not be reachable only through a screen that
         // needs one: `-ate-design-gallery` opens it straight from launch, which is also how it gets
@@ -25,8 +44,11 @@ struct AteRootView: View {
     @ViewBuilder
     private var resolved: some View {
         switch environment {
-        case .success(let environment):
-            AteShell(services: AteServices(environment: environment))
+        case .success:
+            if let services {
+                AteShell(services: services, onSessionEnded: { generation += 1 })
+                    .id(generation)
+            }
         case .failure(let error):
             ConfigurationErrorView(error: error)
         }
@@ -41,6 +63,8 @@ struct AteRootView: View {
 @MainActor
 struct AteShell: View {
     let services: AteServices
+    /// Signed out, or deleted. The root throws this shell away and builds a clean one.
+    var onSessionEnded: () -> Void = {}
 
     @State var tab: AteTab = .journal
     @State var journal: JournalStore
@@ -68,17 +92,24 @@ struct AteShell: View {
     /// Bumped when a tab's own item is tapped again — the screen scrolls to the top.
     @State private var scrollToTop = 0
     @State var hasSession: Bool
-    @State private var isSigningIn = false
+    @State var isSigningIn = false
+    /// Signed out, looking at the feed — and the ask that comes up when a browser tries to write.
+    @State var gate: SessionGate
+    /// Apple's display name, first sign-in only: the handle screen's suggestion.
+    @State var firstRunName: String?
     /// The signed-in person's handle. A receipt is signed, so it is loaded once at the shell rather
     /// than by whichever screen happens to need it first.
-    @State private var handle: String?
+    @State var handle: String?
     /// The You tab, held here rather than by the screen so switching away and back does not re-read
     /// five RPCs — and so a pull-to-refresh on it is the only thing that does.
     @State var you: YouStore
     @Environment(\.scenePhase) private var scenePhase
 
-    init(services: AteServices) {
+    init(services: AteServices, onSessionEnded: @escaping () -> Void = {}) {
         self.services = services
+        self.onSessionEnded = onSessionEnded
+        let gate = SessionGate(analytics: services.analytics)
+        _gate = State(initialValue: gate)
         var hasSession = services.hasSession
         #if DEBUG
         if ComposerDebugLaunch.opensWelcome { hasSession = false }
@@ -107,7 +138,8 @@ struct AteShell: View {
             saves: services.saves,
             analytics: services.analytics,
             shelf: shelf,
-            broadcast: services.savedDishes
+            broadcast: services.savedDishes,
+            gate: gate
         ))
         #if DEBUG
         ComposerDebugLaunch.seedDraftIfRequested(into: services.drafts)
@@ -119,21 +151,23 @@ struct AteShell: View {
 
     var body: some View {
         Group {
-            if hasSession {
+            if hasSession && owesHandle {
+                firstRunHandle
+            } else if hasSession || gate.isBrowsing {
                 shell
                     .task(id: hasSession) { await loadHandle() }
             } else {
-                WelcomeScreen(
-                    canSignIn: services.debugSignIn != nil,
-                    isBusy: isSigningIn,
-                    onSignIn: signIn
-                )
+                welcome(isPrompt: false)
             }
         }
+        // "The first write asks for sign-in": Welcome again, over the feed, with its link as Not Now.
+        .fullScreenCover(isPresented: $gate.isAsking) { welcome(isPrompt: true) }
+        .environment(gate)
         .task { await autoSignInIfRequested() }
         #if DEBUG
         .task { await openDebugScreenIfRequested() }
         .task { await openYouIfRequested() }
+        .task { await openSettingsIfRequested() }
         #endif
         // An entry that could not be sent is still the person's. The outbox is worked on every
         // return to the app, and anything that lands refreshes the journal under it.
@@ -239,6 +273,8 @@ struct AteShell: View {
                 handle: you.summary?.username ?? handle ?? "",
                 analytics: services.analytics
             )
+        case .settings(let page):
+            settings(page)
         case .suggestions:
             // `Suggestions.dc.html` keeps the tab bar under it — it is a page of the journal, not a
             // modal. The stack's root bar is covered by the push, so the screen carries its own.
@@ -262,6 +298,7 @@ struct AteShell: View {
             AteTabScrim()
             AteTabBar(
                 selection: Binding(get: { tab }, set: { tapped in
+                    guard mayOpen(tapped) else { return }
                     tab = tapped
                     path.removeAll()
                 }),
@@ -329,6 +366,7 @@ struct AteShell: View {
                 onRatings: { open(.ratings(score: $0)) },
                 onDish: { open(.dish($0)) },
                 onStatement: { open(.statement($0)) },
+                onSettings: { open(.settings(.root)) },
                 onViewed: { services.analytics(YouEvents.youViewed()) }
             )
         }
@@ -341,6 +379,7 @@ struct AteShell: View {
             get: { tab },
             set: { tapped in
                 guard tapped == tab else {
+                    guard mayOpen(tapped) else { return }
                     tab = tapped
                     // A tab is a place, not a layer: switching one leaves nothing pushed behind it.
                     path.removeAll()
@@ -357,12 +396,13 @@ struct AteShell: View {
     /// `from` is remembered for the destination's view event. The funnel question is always "which
     /// entry point produced this", and an unlabelled one silently reads as zero.
     func open(_ route: Route, from source: DetailSource = .unknown) {
-        guard route.isBuilt else { return }
+        guard route.isBuilt, mayOpen(route) else { return }
         sources[route] = source
         path.append(route)
     }
 
     private func openComposer(_ origin: ComposerPresentation.Origin) {
+        guard gate.permitsWrite(.compose) else { return }
         composing = ComposerPresentation(origin: origin)
     }
 
@@ -394,28 +434,16 @@ struct AteShell: View {
         await journal.loadIfNeeded()
     }
 
-    // MARK: - Session
+    // MARK: - Session (the rest is in `AteShell+Session.swift`)
 
-    /// Sign in with Apple is milestone 2. Until then the one path in is the seeded staging demo
-    /// account, which exists in Debug and Beta only (`DebugStagingSignIn`).
-    private func signIn() async {
-        guard let debugSignIn = services.debugSignIn else { return }
-        isSigningIn = true
-        await debugSignIn.signIn()
-        isSigningIn = false
-        hasSession = services.hasSession
-        journal.invalidate()
-    }
-
-    private func autoSignInIfRequested() async {
-        guard hasSession == false, let debugSignIn = services.debugSignIn,
-              debugSignIn.isAutoSignInRequested else { return }
-        await signIn()
-    }
-
+    /// The handle receipts are signed with — and, if it is still the one the server made up, the
+    /// person is sent to `Handle` (a first run finished nowhere, or killed before it was noted).
     private func loadHandle() async {
         guard hasSession, handle == nil else { return }
         handle = await services.entries.currentHandle()
+        if let handle, HandleName.isPlaceholder(handle), let userID = services.api.currentUserID {
+            services.preferences.noteOwesHandle(userID)
+        }
     }
 }
 
