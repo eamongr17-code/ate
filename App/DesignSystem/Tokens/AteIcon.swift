@@ -21,6 +21,9 @@ enum AteIcon: String, CaseIterable {
 
     // Actions
     case share, edit, save, saved, camera, library, voice, close, back, check, chevron, settings
+    /// Stop dictating — the filled square inside the ink circle on `ComposerVoice.dc.html`. The third
+    /// icon the design fills, and the only one that is a shape rather than a drawing.
+    case stop
     /// The one "…" that carries everything you can do about a person or an entry, and the two
     /// answers underneath it.
     case more, flag, block
@@ -86,14 +89,17 @@ enum AteIcon: String, CaseIterable {
             [Self.path("M6 21V4M6 5h11l-2 3.5 2 3.5H6")]
         case .block:
             [AteVector.circle(12, 12, 8.5), Self.path("M6 6l12 12")]
+        case .stop:
+            []
         }
     }
 
-    /// What is filled. Only the two icons the design ever fills.
+    /// What is filled. Only the three icons the design ever fills.
     var fills: [Path] {
         switch self {
         case .starFilled: [Self.starPath]
         case .saved: [Self.bookmarkPath]
+        case .stop: [AteVector.rectangle(7, 7, 10, 10, 2)]
         default: []
         }
     }

@@ -53,6 +53,14 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Ate uses the camera to take a photo of what you're eating, for the entry you're writing.</string>
 
+	<!-- The composer's mic key. Asked the first time it is tapped, never before. Recognition runs on
+	     the phone wherever the language has an on-device model; the speech string says so honestly
+	     because where it does not, Apple's server does the listening. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Ate listens while the mic is open, so you can say what you ate instead of typing it.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Ate turns what you say into the words of your entry. It happens on your phone where it can, and through Apple otherwise.</string>
+
 	<!-- Asked only when Suggestions is opened, to offer recent photos to write up. -->
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Ate looks at your recent photos so it can offer the meals you haven't written up yet.</string>

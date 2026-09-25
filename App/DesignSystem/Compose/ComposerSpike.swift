@@ -16,7 +16,6 @@ struct ComposerSpike: View {
     @State private var caret = 0
     @State private var scoring: ScoringToken?
     @State private var isPickingPlace = false
-    @State private var isPublic = true
     @State private var showsModel = true
     @State private var photos: [AtePhoto] = []
 
@@ -181,11 +180,6 @@ struct ComposerSpike: View {
                 title: "Place", icon: .place,
                 background: AtePalette.surface.field, foreground: AtePalette.surface.fg
             ) { isPickingPlace = true }
-            Spacer(minLength: 0)
-            AteIconButton(
-                icon: isPublic ? .publicEntry : .privateEntry,
-                label: isPublic ? "Public. Make private" : "Private. Make public"
-            ) { isPublic.toggle() }
         }
         .padding(.horizontal, AteMetrics.snug)
         .padding(.vertical, AteMetrics.snug)

@@ -2,13 +2,14 @@ import Foundation
 
 /// The insert payload, exactly as `integration-design.md` writes it — and no more. `authenticated`
 /// may write only these columns on `entries`; anything else is a `42501`.
+///
+/// No `visibility`: every entry is public (Eamon, 2026-09-25) and the server forces it (0033).
 public struct NewEntry: Sendable, Hashable, Encodable {
     /// Client-minted. INSERT, never upsert: the trigger consumes an order number, and a conflicting
     /// upsert would burn one.
     public let id: UUID
     public let authorID: UUID
     public let body: String
-    public let visibility: EntryVisibility
     /// Only when the person TAPPED a place. Sending it stamps `restaurant_source = 'user'`, which
     /// the sorter will not overwrite.
     public let restaurantID: UUID?
@@ -19,20 +20,18 @@ public struct NewEntry: Sendable, Hashable, Encodable {
         id: UUID,
         authorID: UUID,
         body: String,
-        visibility: EntryVisibility,
         restaurantID: UUID?,
         createdAt: Date
     ) {
         self.id = id
         self.authorID = authorID
         self.body = body
-        self.visibility = visibility
         self.restaurantID = restaurantID
         self.createdAt = createdAt
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, body, visibility
+        case id, body
         case authorID = "author_id"
         case restaurantID = "restaurant_id"
         case createdAt = "created_at"
@@ -43,7 +42,6 @@ public struct NewEntry: Sendable, Hashable, Encodable {
         try container.encode(id, forKey: .id)
         try container.encode(authorID, forKey: .authorID)
         try container.encode(body, forKey: .body)
-        try container.encode(visibility, forKey: .visibility)
         try container.encodeIfPresent(restaurantID, forKey: .restaurantID)
         try container.encode(PostgRESTTimestamp.string(from: createdAt), forKey: .createdAt)
     }
@@ -127,7 +125,6 @@ public protocol EntryService: Sendable {
     /// Corrections — the user's, always.
     func correctPlace(entryID: UUID, restaurantID: UUID) async throws -> EntryCard
     func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async throws
-    func setVisibility(entryID: UUID, visibility: EntryVisibility) async throws
 
     /// The person editing their **own** words. The only path that writes `entries.body`, and it is
     /// theirs: the server never rewrites it (data-model landmine 6).

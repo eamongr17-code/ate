@@ -17,7 +17,7 @@ struct EntryEventsTests {
         #expect(EntryEvents.scoreTokenCreated(source: .key).name == "entry_score_token_created")
         #expect(EntryEvents.placeAttached(source: .picked).name == "entry_place_attached")
         #expect(EntryEvents.saved(.init(photoCount: 0, hasPlace: false, scoreCount: 0,
-                                        isPublic: true, secondsFromOpen: 0)).name == "entry_saved")
+                                        secondsFromOpen: 0)).name == "entry_saved")
         #expect(EntryEvents.sortCompleted(mode: "stub", itemCount: 0, durationMilliseconds: 0,
                                           didAttachPlace: false).name == "entry_sort_completed")
         #expect(EntryEvents.receiptPrinted(itemCount: 0, hasAverage: false).name == "receipt_printed")
@@ -57,14 +57,13 @@ struct EntryEventsTests {
     @Test("entry_saved carries the whole shape of what was written")
     func savedParameters() {
         let event = EntryEvents.saved(.init(
-            photoCount: 3, hasPlace: true, scoreCount: 2, isPublic: false,
+            photoCount: 3, hasPlace: true, scoreCount: 2,
             secondsFromOpen: 96, wasQueued: true
         ))
         #expect(event.parameters == [
             "photo_count": "3",
             "has_place": "true",
             "score_count": "2",
-            "visibility": "private",
             "seconds_from_open": "96",
             "queued": "true"
         ])
@@ -73,7 +72,7 @@ struct EntryEventsTests {
     @Test("a clock that ran backwards is not a negative duration")
     func durationsAreNeverNegative() {
         let saved = EntryEvents.saved(.init(photoCount: 0, hasPlace: false, scoreCount: 0,
-                                            isPublic: true, secondsFromOpen: -5))
+                                            secondsFromOpen: -5))
         #expect(saved.parameters["seconds_from_open"] == "0")
         let sorted = EntryEvents.sortCompleted(mode: "model", itemCount: 3,
                                                durationMilliseconds: -1, didAttachPlace: true)
