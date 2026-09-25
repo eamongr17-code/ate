@@ -76,14 +76,18 @@ final class SaveAction {
 
     /// The unsave on the Saved shelf, where the bookmark is the only reason the row exists — so the
     /// store removes it, and only a refusal-free round trip is told to the rest of the app.
-    func unsaveFromShelf(_ dish: SavedDish) async {
-        guard inFlight.insert(dish.dishID).inserted else { return }
+    /// Returns whether it landed, so a second list showing the same shelf (Search's Saved segment)
+    /// can put its row back on a refusal exactly as the shelf does.
+    @discardableResult
+    func unsaveFromShelf(_ dish: SavedDish, source: SaveSource = .savedList) async -> Bool {
+        guard inFlight.insert(dish.dishID).inserted else { return false }
         defer { inFlight.remove(dish.dishID) }
 
         AteHaptics.save()
-        guard await shelf.unsave(dish) else { return }
-        analytics(SocialEvents.saveToggled(source: .savedList, isSaved: false))
+        guard await shelf.unsave(dish) else { return false }
+        analytics(SocialEvents.saveToggled(source: source, isSaved: false))
         broadcast.send(dishID: dish.dishID, isSaved: false)
+        return true
     }
 
     /// "Save this place" — every line of one entry, provenance = that entry

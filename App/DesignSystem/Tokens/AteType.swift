@@ -155,6 +155,10 @@ extension AteTextStyle {
     static let rowTitle = AteTextStyle(
         voice: .display, size: 17, weight: 600, trackingEm: -0.01, lineHeight: 1.2, textStyle: .body
     )
+    /// `Search`'s own field: `.ui` 17 at `font-weight:500`, lighter than a sheet's (`rowTitle`).
+    static let searchField = AteTextStyle(
+        voice: .display, size: 17, weight: 500, trackingEm: -0.01, lineHeight: 1.2, textStyle: .body
+    )
     /// A smaller control label: segments, toolbar keys, handles. 14pt.
     static let controlSmall = AteTextStyle(
         voice: .display, size: 14, weight: 600, trackingEm: -0.01, lineHeight: 1.2, textStyle: .subheadline
