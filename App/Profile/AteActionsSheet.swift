@@ -33,6 +33,10 @@ struct AteActionsSheet: View {
     @State private var isConfirmingBlock = false
     @State private var sharing: SharePayload?
     @State private var sharingReceipt: SharingReceipt?
+    /// A browser tapped a write. The sheet goes first and `Welcome` asks once it has gone — a cover
+    /// cannot be presented from under a sheet that is still up.
+    @State private var askOnceGone: SessionGate.Trigger?
+    @Environment(SessionGate.self) private var gate: SessionGate?
     @Environment(\.dismiss) private var dismiss
 
     /// What is being sent — `Identifiable` so it can present a sheet.
@@ -51,6 +55,7 @@ struct AteActionsSheet: View {
             VStack(spacing: 0) {
                 if let onSavePlace {
                     row(icon: .save, title: "Save this place") {
+                        guard mayWrite(.save) else { return }
                         onSavePlace()
                         dismiss()
                     }
@@ -64,13 +69,21 @@ struct AteActionsSheet: View {
                     guard items.isEmpty == false else { return }
                     sharing = SharePayload(items: items)
                 }
-                row(icon: .flag, title: "Report") { isConfirmingReport = true }
+                row(icon: .flag, title: "Report") {
+                    guard mayWrite(.report) else { return }
+                    isConfirmingReport = true
+                }
                 row(icon: .block, title: blockTitle, tint: AteColor.destructive) {
+                    guard mayWrite(.block) else { return }
                     isConfirmingBlock = true
                 }
             }
         }
         .presentationDetents([.height(AteScreen.sheetHeight(420))])
+        .onDisappear {
+            guard let trigger = askOnceGone else { return }
+            _ = gate?.permitsWrite(trigger)
+        }
         .confirmationDialog("Report \(title)?", isPresented: $isConfirmingReport, titleVisibility: .visible) {
             Button("Report", role: .destructive) {
                 onReport()
@@ -91,6 +104,15 @@ struct AteActionsSheet: View {
         .fullScreenCover(item: $sharingReceipt) { sharing in
             ShareScreen(artefact: sharing.artefact, source: .actions, analytics: analytics)
         }
+    }
+
+    /// Save, Report and Block are writes. Somebody browsing signed out is asked to sign in instead —
+    /// the same ask a bookmark in the feed makes (AGENTS.md rule 2).
+    private func mayWrite(_ trigger: SessionGate.Trigger) -> Bool {
+        guard let gate, gate.isBrowsing else { return true }
+        askOnceGone = trigger
+        dismiss()
+        return false
     }
 
     /// `min-height:60px; gap:14px`, ruled at the top — the sheet's own row.

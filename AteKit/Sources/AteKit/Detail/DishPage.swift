@@ -280,7 +280,8 @@ public struct DishPageClient: DishPageReading {
         after cursor: DishReviewCursor?,
         pageSize: Int
     ) async throws -> DishReviewPage {
-        try await api.requireCurrentUserID()
+        // No session required: a signed-out browser reads this as `anon` (0034), and the server
+        // answers every viewer-relative field as a stranger's — nothing saved, nothing "mine".
         let limit = min(Self.maximumPageSize, max(1, pageSize))
         var parameters: [String: AnyJSON] = [
             "p_dish_id": .string(dishID.uuidString.lowercased()),
@@ -301,7 +302,9 @@ public struct DishPageClient: DishPageReading {
     }
 
     public func isDishSaved(dishID: UUID) async throws -> Bool {
-        try await api.rpc(
+        // Nobody signed in has saved anything — and `is_dish_saved` is not an `anon` read.
+        guard api.isSignedIn else { return false }
+        return try await api.rpc(
             "is_dish_saved",
             parameters: ["p_dish_id": .string(dishID.uuidString.lowercased())],
             decoding: Bool.self
