@@ -39,7 +39,7 @@ public final class PlacePageStore {
     /// The menu, in the order the server sends it — which is ``DishRanking``'s (0030). Not sorted
     /// here, and it must not start being: see ``MenuDishCursor``.
     public private(set) var dishes: [MenuDish] = []
-    /// The viewer's own entries here — "Your N visits". Private entries included; they are yours.
+    /// The viewer's own entries here — "Your N visits".
     public let visits: EntryListStore
     /// Everybody else's, newest first.
     public let entries: EntryListStore

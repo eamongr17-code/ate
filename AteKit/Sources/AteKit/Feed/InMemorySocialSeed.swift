@@ -1,31 +1,34 @@
 #if DEBUG
 import Foundation
 
-/// The artboards' own feed, as data: three people, four visits, the same dishes and scores
-/// `design/v1/Feed.dc.html` and `Profile.dc.html` draw. Ages are computed from now, so a drive
+/// The artboards' own feed, as data: three people, five visits, the same dishes, scores, suburbs
+/// and saves `design/v1/Feed.dc.html` draws. Ages are computed from now, so a drive
 /// photographed at any hour still reads "2h" and "5h" where the artboard does.
 public extension InMemorySocialService {
 
     enum Seed {
-        public static let jess = UUID(uuidString: "11111111-0000-4000-8000-000000000001")!
-        public static let marcus = UUID(uuidString: "11111111-0000-4000-8000-000000000002")!
-        public static let priya = UUID(uuidString: "11111111-0000-4000-8000-000000000003")!
+        // Chosen so each person's avatar lands on the accent `Feed.dc.html` paints them in —
+        // butter, green, lilac — since the colour is picked from the UUID (`AteAvatar.index`).
+        public static let jess = UUID(uuidString: "11111111-0000-4000-8000-000000000003")!
+        public static let marcus = UUID(uuidString: "11111111-0000-4000-8000-000000000004")!
+        public static let priya = UUID(uuidString: "11111111-0000-4000-8000-000000000001")!
 
         static let tipo = EntryCard.Place(
             id: UUID(uuidString: "B7E00000-0000-4000-8000-000000000001")!,
-            name: "Tipo 00", address: "361 Little Bourke St", city: "Melbourne"
+            name: "Tipo 00", address: "361 Little Bourke St", city: "Melbourne", locality: "CBD"
         )
         static let butchers = EntryCard.Place(
             id: UUID(uuidString: "B7E00000-0000-4000-8000-000000000002")!,
-            name: "Butchers Diner", address: "153 Bourke St", city: "Melbourne"
+            name: "Butchers Diner", address: "153 Bourke St", city: "Melbourne", locality: "CBD"
         )
         static let kisume = EntryCard.Place(
             id: UUID(uuidString: "B7E00000-0000-4000-8000-000000000003")!,
-            name: "Kisume", address: "175 Flinders Ln", city: "Melbourne"
+            name: "Kisume", address: "175 Flinders Ln", city: "Melbourne", locality: "CBD"
         )
         static let beatrix = EntryCard.Place(
             id: UUID(uuidString: "B7E00000-0000-4000-8000-000000000004")!,
-            name: "Beatrix", address: "688 Queensberry St", city: "Melbourne"
+            name: "Beatrix", address: "688 Queensberry St", city: "Melbourne",
+            locality: "North Melbourne"
         )
 
         static func hoursAgo(_ hours: Double) -> Date {
@@ -52,8 +55,9 @@ public extension InMemorySocialService {
                 author: Seed.jess, username: "jessw", orderNumber: 86, place: Seed.tipo,
                 body: "Birthday pasta. Still the best thing on Little Bourke, fight me.",
                 createdAt: Seed.hoursAgo(2),
-                photos: ["prawn", "tiramisu"],
-                items: [("Prawn spaghetti", 5.0), ("Tiramisu", 4.0)]
+                photos: ["prawn", "tiramisu", "ragu"],
+                // Three dishes: the feed leaves this visit's words to the entry (`SlipAnatomy`).
+                items: [("Prawn spaghetti", 5.0), ("Tiramisu", 4.0), ("Tagliatelle al ragù", 4.5)]
             ),
             entry(
                 id: "E0000000-0000-4000-8000-000000000002",
@@ -79,8 +83,8 @@ public extension InMemorySocialService {
                 photos: ["cake"],
                 items: [("Raspberry cake", 5.0)]
             ),
-            // A visit the sorter could not score every line of — one dish, no number. The feed has
-            // to draw an outlined star here and nothing else (design rule 7).
+            // A visit the sorter could not score every line of — one dish, no number. The feed
+            // leaves the score slot empty: no star, no text (design rule 7).
             entry(
                 id: "E0000000-0000-4000-8000-000000000005",
                 author: Seed.marcus, username: "marcus.eats", orderNumber: 33, place: Seed.tipo,
@@ -89,6 +93,14 @@ public extension InMemorySocialService {
                 photos: ["penne"],
                 items: [("Penne alla vodka", nil)]
             )
+        ]
+    }
+
+    /// The two bookmarks `Feed.dc.html` draws filled: Jess's tiramisu and Marcus's cheeseburger.
+    static var seededSaves: [UUID] {
+        [
+            derived(from: "E0000000-0000-4000-8000-000000000001", prefix: "D", index: 1),
+            derived(from: "E0000000-0000-4000-8000-000000000002", prefix: "D", index: 0)
         ]
     }
 

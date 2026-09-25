@@ -41,19 +41,27 @@ enum AteColor {
 
     fileprivate static let groundLight = Color(hex: 0xEFEAE2)
     fileprivate static let groundDark = Color(hex: 0x17111B)
-    fileprivate static let fgDark = Color.white
+    /// The Ink boards' dark values (`MainInk`/`FeedInk`, 2026-09-25): a warm off-white rather than
+    /// pure white, a lifted plum chip, and a field one step below it.
+    fileprivate static let fgDark = Color(hex: 0xF4EFE9)
     fileprivate static let mutedLight = Color(hex: 0x5E5560)
     fileprivate static let mutedDark = Color(hex: 0xB9AFBC)
     fileprivate static let chipLight = Color.white
-    fileprivate static let chipDark = Color(hex: 0x2B2231)
+    fileprivate static let chipDark = Color(hex: 0x342A3A)
     fileprivate static let fieldLight = Color(hex: 0xE4DED4)
-    fileprivate static let fieldDark = Color(hex: 0x2B2231)
+    fileprivate static let fieldDark = Color(hex: 0x231B24)
 
     /// Receipt paper. Its own token, and **dimmed in dark** so a white sheet doesn't burn a hole in
     /// the ink ground — but the text on it stays ``ink`` either way.
     static let paper = Color(light: .white, dark: Color(hex: 0xE6DFD3))
     /// A control surface *on* paper (a chip inside a receipt or slip).
     fileprivate static let paperChip = Color(hex: 0xF3F0EB)
+
+    /// **A slip** — the one card the journal, the feed and a profile list, and the statement slip.
+    /// White on linen; in dark it is its own plum card with light type on it (`.screen.dark .slip`),
+    /// not the dimmed receipt paper. Receipts — the share card, the statement, the entry page — keep
+    /// ``paper``.
+    static let slip = Color(light: .white, dark: Color(hex: 0x231B24))
 
     // MARK: - Screen backgrounds
 
@@ -76,6 +84,10 @@ struct AtePalette: Equatable, Sendable {
     /// than "the ground", because on an accent ground the ground is coral and coral-on-ink is not a
     /// button, it is a mistake.
     var inverted: Color
+    /// What dashed rules and dot leaders are drawn in, before their own opacity. The surface's `fg`
+    /// everywhere but a dark slip, where the Ink boards set rules at white 22% rather than the
+    /// 35% a straight `fg` would give (`.screen.dark .rule`).
+    var rule: Color
 
     /// The app's ground, following light/dark.
     static let automatic = AtePalette(
@@ -85,7 +97,23 @@ struct AtePalette: Equatable, Sendable {
         chip: Color(light: AteColor.chipLight, dark: AteColor.chipDark),
         field: Color(light: AteColor.fieldLight, dark: AteColor.fieldDark),
         hairline: Color(light: AteColor.ink.opacity(0.14), dark: Color.white.opacity(0.16)),
-        inverted: AteColor.ground
+        inverted: AteColor.ground,
+        rule: Color(light: AteColor.ink, dark: AteColor.fgDark)
+    )
+
+    /// **A slip** — journal, feed and profile cards, and the statement slip. In light it is exactly
+    /// receipt paper; in dark it is a plum card whose type turns light (`.screen.dark .slip`:
+    /// `--fg:#F4EFE9; --muted:#B9AFBC; --chip:#342A3A; --field:#342A3A; --hair:white 12%`).
+    static let slip = AtePalette(
+        ground: AteColor.slip,
+        fg: Color(light: AteColor.ink, dark: AteColor.fgDark),
+        muted: Color(light: AteColor.mutedLight, dark: AteColor.mutedDark),
+        chip: Color(light: AteColor.paperChip, dark: AteColor.chipDark),
+        field: Color(light: AteColor.paperChip, dark: AteColor.chipDark),
+        hairline: Color(light: AteColor.ink.opacity(0.14), dark: Color.white.opacity(0.12)),
+        inverted: AteColor.slip,
+        // 0.35 × 0.63 ≈ the boards' white 22% for a rule, and 0.3 × 0.63 ≈ their 20% for a leader.
+        rule: Color(light: AteColor.ink, dark: Color.white.opacity(0.63))
     )
 
     /// Receipt paper: the ground dims in dark mode, everything written on it does not move.
@@ -96,7 +124,8 @@ struct AtePalette: Equatable, Sendable {
         chip: AteColor.paperChip,
         field: AteColor.paperChip,
         hairline: AteColor.ink.opacity(0.14),
-        inverted: AteColor.paper
+        inverted: AteColor.paper,
+        rule: AteColor.ink
     )
 
     /// **A control surface used as a whole screen's ground** — the composer, and every sheet.
@@ -122,7 +151,8 @@ struct AtePalette: Equatable, Sendable {
             chip: .white,
             field: .white,
             hairline: AteColor.ink.opacity(0.18),
-            inverted: .white
+            inverted: .white,
+            rule: AteColor.ink
         )
     }
 }
@@ -152,6 +182,13 @@ extension View {
     func atePaper() -> some View {
         environment(\.atePalette, .paper)
             .foregroundStyle(AtePalette.paper.fg)
+    }
+
+    /// Puts the subtree on **a slip** — the list card. Like ``atePaper()`` it paints nothing: a slip's
+    /// silhouette (torn or whole) is drawn by its own shape.
+    func ateSlip() -> some View {
+        environment(\.atePalette, .slip)
+            .foregroundStyle(AtePalette.slip.fg)
     }
 
     /// Puts the subtree on an accent ground — always ink text (design rule 5).

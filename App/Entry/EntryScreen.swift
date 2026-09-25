@@ -284,8 +284,9 @@ struct EntryScreen: View {
 
     // MARK: - Bands
 
-    /// Back / visibility / edit / share, exactly as `Entry.dc.html` sets them down. Icons only — the
-    /// design puts labels nowhere near this row (rule 1).
+    /// Back / edit / share, exactly as `Entry.dc.html` sets them down — there is no visibility control,
+    /// because public/private no longer exists. Icons only — the design puts labels nowhere near this
+    /// row (rule 1).
     ///
     /// Somebody else's entry swaps the two controls that only an author can use for the two a reader
     /// needs: the byline that says whose visit this was, and the bookmark that puts it on their shelf
@@ -332,13 +333,6 @@ struct EntryScreen: View {
 
     private func authorControls(_ card: EntryCard) -> some View {
         Group {
-            AteIconButton(
-                icon: card.visibility.isPublic ? .publicEntry : .privateEntry,
-                label: card.visibility.isPublic ? "Public. Make private" : "Private. Make public",
-                size: 21
-            ) {
-                Task { await model.toggleVisibility() }
-            }
             AteIconButton(icon: .edit, label: "Edit", size: 21) { onEdit(card) }
             AteIconButton(icon: .share, label: "Share receipt", size: 22) { model.share() }
                 .disabled(model.receipt == nil)

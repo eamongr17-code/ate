@@ -1,8 +1,8 @@
 import AteKit
 import SwiftUI
 
-/// **`Main`** — home. The logo, the Journal | Saved segment, and your entries newest first, grouped
-/// under the day they happened.
+/// **`Main`** — home. The logo, the Journal | Saved segment, and your entries newest first — each
+/// slip carrying its own day at the right of its foot line, so the list needs no headings.
 ///
 /// Journal is the app's front door (PRODUCT.md decision 1): you write for yourself, and the record
 /// you keep is the first thing you see. Saved lives beside it because a dish you meant to eat belongs
@@ -50,7 +50,7 @@ struct JournalScreen: View {
                         options: [AteSegment(Shelf.journal, "Journal"), AteSegment(Shelf.saved, "Saved")],
                         selection: $shelf
                     )
-                    .padding(.horizontal, AteMetrics.gutter)
+                    .padding(.horizontal, AteMetrics.listGutter)
                     .padding(.top, AteMetrics.loose)
                     .id(Self.topAnchor)
                     shelfContent
@@ -69,8 +69,16 @@ struct JournalScreen: View {
     }
 
     private static let topAnchor = "journal.top"
-    /// `MainEmpty`: the column's 22 gap plus the slip's own 26 margin.
+    /// `Saved`'s empty state keeps its old place under the segment.
     private static let emptyTop: CGFloat = 48
+    /// `MainEmpty`: `padding:16px 12px 110px; gap:22px; flex:1` — the first-day state is centred in
+    /// what is left of the page between the segment (22 under it) and 110 above the bottom edge.
+    private static let firstDayGap: CGFloat = 22
+    private static let firstDayBottom: CGFloat = 110
+    /// Where the segment ends on the page: the 60 content top, the 44 header, the 16 above the
+    /// segment and the segment's own 44.
+    private static let segmentBottom: CGFloat = AteMetrics.contentTop + AteMetrics.hit + AteMetrics.loose
+        + AteMetrics.segmentHeight + 2 * AteMetrics.tight
 
     private var header: some View {
         HStack {
@@ -78,7 +86,7 @@ struct JournalScreen: View {
             Spacer(minLength: AteMetrics.snug)
             PhotoStackButton(count: photoCount, action: onSuggestions)
         }
-        .padding(.horizontal, AteMetrics.gutter)
+        .padding(.horizontal, AteMetrics.listGutter)
         .ateContentTop()
     }
 
@@ -95,9 +103,10 @@ struct JournalScreen: View {
     private var shelfContent: some View {
         switch shelf {
         case .journal:
-            // `Main` parts the segment from the first day label by the column's own 14; `MainEmpty`
-            // gives its slip 22 + a 26 margin before it.
-            journalShelf.padding(.top, store.days.isEmpty ? Self.emptyTop : AteMetrics.slipGap)
+            // `Main` parts the segment from the first slip by the column's own 14; `MainEmpty`
+            // centres its state in the page below (`firstDay`).
+            journalShelf.padding(.top, store.phase == .ready || store.phase == .loading
+                ? AteMetrics.slipGap : Self.firstDayGap)
         case .saved:
             // `Saved.dc.html` parts the segment from the first place head by the column's own 14,
             // and the head carries its own 18 on top of that. An empty shelf is a slip, and gets
@@ -116,43 +125,36 @@ struct JournalScreen: View {
     private var journalShelf: some View {
         switch store.phase {
         case .loading:
-            SlipSkeleton().padding(.horizontal, AteMetrics.gutter)
+            SlipSkeleton().padding(.horizontal, AteMetrics.listGutter)
         case .empty:
-            emptySlip
+            firstDay(AteEmptyState(title: "Nothing\non the tab.", actionTitle: "Write your first", action: onCompose))
         case .signedOut:
-            AteEmptySlip(label: "Ate", title: "Nobody's\nsigned in.")
+            firstDay(AteEmptyState(title: "Nobody's\nsigned in."))
         case .failed(let message):
-            AteEmptySlip(label: "Journal", title: message)
+            firstDay(AteEmptyState(title: message))
         case .ready:
-            days
+            slips
         }
     }
 
-    private var emptySlip: some View {
-        AteEmptySlip(
-            label: "Order #0001",
-            title: "Nothing\non the tab.",
-            prose: "Eat something good,\nthen tell us about it.",
-            actionTitle: "Write your first",
-            action: onCompose
-        )
+    /// `MainEmpty` — the state, centred in the page under the segment. No paper: an empty journal
+    /// has not printed anything, so it does not wear the receipt.
+    private func firstDay(_ state: AteEmptyState) -> some View {
+        state
+            .frame(maxWidth: .infinity)
+            .frame(height: max(0, AteScreen.height - Self.segmentBottom - Self.firstDayGap - Self.firstDayBottom))
     }
 
-    private var days: some View {
+    private var slips: some View {
         LazyVStack(alignment: .leading, spacing: AteMetrics.slipGap) {
-            ForEach(store.days) { day in
-                Text(day.title)
-                    .ateText(.controlSmall)
-                    .padding(.top, AteMetrics.snug - 2)
-                ForEach(day.entries) { entry in
-                    EntrySlip(
-                        slip: EntrySlipPresentation.journal(entry),
-                        onOpen: { onOpen(entry) },
-                        onPlace: onPlace,
-                        onDish: { onDish($0.dishID) }
-                    )
-                    .task { await store.loadMoreIfNeeded(after: entry) }
-                }
+            ForEach(store.entries) { entry in
+                EntrySlip(
+                    slip: EntrySlipPresentation.journal(entry),
+                    onOpen: { onOpen(entry) },
+                    onPlace: onPlace,
+                    onDish: { onDish($0.dishID) }
+                )
+                .task { await store.loadMoreIfNeeded(after: entry) }
             }
             if let message = store.inlineErrorMessage {
                 Text(message)
@@ -162,7 +164,7 @@ struct JournalScreen: View {
                     .padding(.top, AteMetrics.regular)
             }
         }
-        .padding(.horizontal, AteMetrics.gutter)
+        .padding(.horizontal, AteMetrics.listGutter)
     }
 }
 

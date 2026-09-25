@@ -1,37 +1,47 @@
 import SwiftUI
 
-/// **The statement**: a short piece of receipt paper carrying three totals, parted by dashed rules.
+/// **The statement**: a whole slip — 16pt corners all round, no torn edge — carrying three totals,
+/// parted by dashed rules.
 ///
-/// The same object on `You` and on somebody else's profile — the record, counted. Its labels are the
-/// receipt's own mono caps, because a total on paper is a printed thing.
+/// The same object on `You` and on somebody else's profile — the record, counted. Torn edges belong
+/// to dish entry slips alone (`docs/DESIGN.md`), so this one is `.slip.whole`. Its labels keep the
+/// mono caps, because a total is still a printed figure.
 struct AteStatsSlip: View {
     /// Value first, label under it. Three of them, the way both artboards draw it.
     let cells: [(value: String, label: String)]
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(Array(cells.enumerated()), id: \.offset) { index, cell in
                 if index > 0 {
-                    AteDashedLine(axis: .vertical).frame(height: 44)
+                    // `border-left:1.5px dashed rgba(36,20,31,.3)` down the whole column: a 28pt
+                    // figure, the 4 gap, and an 11pt label's 1.35 line.
+                    AteDashedLine(opacity: 0.3, axis: .vertical).frame(height: Self.columnHeight)
                 }
                 VStack(spacing: AteMetrics.tight) {
-                    Text(cell.value).ateText(.statValue)
+                    Text(cell.value)
+                        .ateTextExact(.statValue)
+                        .offset(y: -AteFont.exactBaselineDrop(for: .statValue, dynamicTypeSize: dynamicTypeSize))
                     Text(cell.label)
-                        .ateText(.receiptLabel)
-                        .foregroundStyle(AtePalette.paper.muted)
+                        .ateTextExact(.receiptLabel)
+                        .foregroundStyle(AtePalette.slip.muted)
                 }
                 .frame(maxWidth: .infinity)
                 .accessibilityElement(children: .combine)
             }
         }
-        // `padding:14px 8px` — and the torn edge under it.
+        // `padding:14px 8px`, and no tear.
         .padding(.vertical, 14)
         .padding(.horizontal, AteMetrics.snug)
-        .padding(.bottom, AteMetrics.tornEdgeHeight)
         .frame(maxWidth: .infinity)
-        .atePaper()
-        .background(AteColor.paper, in: ReceiptPaper())
+        .ateSlip()
+        .background(AteColor.slip, in: RoundedRectangle(cornerRadius: AteMetrics.slipCorner, style: .continuous))
     }
+
+    private static let columnHeight: CGFloat = AteTextStyle.statValue.lineBox(.large) + AteMetrics.tight
+        + AteTextStyle.receiptLabel.lineBox(.large)
 }
 
 #if DEBUG

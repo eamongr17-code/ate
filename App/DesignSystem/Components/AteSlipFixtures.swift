@@ -16,7 +16,8 @@ extension AteSlip {
                 Dish(id: UUID(), dishID: UUID(), name: "Prawn spaghetti")
             ],
             place: "Tipo 00",
-            meta: .time("8:14 pm", isPublic: true),
+            suburb: "CBD",
+            meta: .day("Sat 19 Sep"),
             words: .previewWords,
             photos: AtePhoto.swatches
         )
@@ -31,6 +32,7 @@ extension AteSlip {
                 Dish(id: UUID(), dishID: UUID(), name: "Fries", score: Rating(rounding: 4))
             ],
             place: "Butchers Diner",
+            suburb: "CBD",
             words: .previewFeedWords,
             photos: [AtePhoto.swatch(AteColor.coral)],
             byline: AteByline(userID: UUID(uuidString: "11111111-2222-3333-4444-555555555555")!,

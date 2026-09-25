@@ -8,8 +8,8 @@ import Supabase
 public protocol ProfileReading: Sendable {
     /// The header: `profile_summary(p_user_id)`.
     func profile(id: UUID) async throws -> ProfileSummary
-    /// Their entries: `get_entries_by_author`. RLS decides what is visible — your own call returns
-    /// private entries too, a stranger's returns only public ones.
+    /// Their entries: `get_entries_by_author`. Every entry is public (0033), so yours and a
+    /// stranger's read the same; a blocked author reads empty (RLS).
     func entriesPage(authorID: UUID, after cursor: PageCursor?, pageSize: Int) async throws -> Page<EntryCard>
     /// One-way in the table, enforced both ways by `blocked_with()`: after this, each of you is gone
     /// from every read the other makes. **Refetch every open list.**

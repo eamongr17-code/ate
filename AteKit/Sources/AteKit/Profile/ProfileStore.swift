@@ -3,9 +3,9 @@ import Observation
 
 /// **Somebody else's page**: the header, and their entries under it.
 ///
-/// The header and the list load independently, because they fail independently — a profile whose
-/// entries are all private is a real, drawable page, and a header that 404s (blocked, deleted)
-/// must not take a loaded list down with it.
+/// The header and the list load independently, because they fail independently — a profile with no
+/// entries yet is a real, drawable page, and a header that 404s (blocked, deleted) must not take a
+/// loaded list down with it.
 @MainActor
 @Observable
 public final class ProfileStore {

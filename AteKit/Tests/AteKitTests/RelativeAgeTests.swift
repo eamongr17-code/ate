@@ -62,4 +62,35 @@ struct RelativeAgeTests {
         let french = RelativeAge.time(evening, locale: Locale(identifier: "fr_FR"), timeZone: melbourne)
         #expect(french.contains("20"))
     }
+
+    @Test("A journal slip prints the day, weekday first, and never a time")
+    func dayStamp() {
+        var calendar = Calendar(identifier: .gregorian)
+        let melbourne = TimeZone(identifier: "Australia/Melbourne")!
+        calendar.timeZone = melbourne
+        let evening = calendar.date(from: DateComponents(year: 2026, month: 9, day: 19,
+                                                         hour: 20, minute: 14))!
+        let english = Locale(identifier: "en_AU")
+        #expect(RelativeAge.day(evening, locale: english, timeZone: melbourne) == "Sat 19 Sep")
+        #expect(RelativeAge.day(evening, locale: english, timeZone: melbourne).contains(":") == false)
+    }
+
+    /// 11:30 pm in Melbourne is already the next morning in Auckland — the day is the reader's own,
+    /// never the server's.
+    @Test("The day is taken in the reader's own time zone")
+    func dayStampTimeZone() {
+        var calendar = Calendar(identifier: .gregorian)
+        let melbourne = TimeZone(identifier: "Australia/Melbourne")!
+        calendar.timeZone = melbourne
+        let lateSupper = calendar.date(from: DateComponents(year: 2026, month: 9, day: 17,
+                                                            hour: 23, minute: 30))!
+        let english = Locale(identifier: "en_AU")
+        #expect(RelativeAge.day(lateSupper, locale: english, timeZone: melbourne) == "Thu 17 Sep")
+        #expect(RelativeAge.day(lateSupper, locale: english, timeZone: TimeZone(identifier: "UTC")!)
+            == "Thu 17 Sep")
+        let tokyo = TimeZone(identifier: "Asia/Tokyo")!
+        #expect(RelativeAge.day(lateSupper, locale: english, timeZone: tokyo) == "Thu 17 Sep")
+        let auckland = TimeZone(identifier: "Pacific/Auckland")!
+        #expect(RelativeAge.day(lateSupper, locale: english, timeZone: auckland) == "Fri 18 Sep")
+    }
 }

@@ -96,7 +96,7 @@ struct AteDashedLine: View {
             }
             context.stroke(
                 path,
-                with: .color(palette.fg.opacity(opacity)),
+                with: .color(palette.rule.opacity(opacity)),
                 style: StrokeStyle(lineWidth: lineWidth, lineCap: lineCap, dash: dash)
             )
         }

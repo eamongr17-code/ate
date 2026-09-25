@@ -69,17 +69,33 @@ enum AteMetrics {
 
     // MARK: - Spacing
 
-    /// **The screen gutter.** 20pt, everywhere.
+    /// **The screen gutter.** 20pt, everywhere a screen is not a list of slips.
     static let gutter: CGFloat = 20
+    /// **The list gutter** — 12pt either side of the slips in the journal, the feed and a profile,
+    /// and of the headers above them (`padding:… 12px`), so a slip is as wide as the phone allows.
+    static let listGutter: CGFloat = 12
     /// Where content starts under the status bar.
     static let contentTop: CGFloat = 60
     /// Inside a slip or a receipt, either side.
     static let slipPadding: CGFloat = 16
-    /// …and above and below its contents (`padding:12px 16px 14px`).
+    /// …above its contents when it opens on a byline (`padding:12px 16px 14px`)…
     static let slipPaddingTop: CGFloat = 12
+    /// …and when it opens straight on the dish stack, whose 44pt rows carry their own air
+    /// (`padding:4px 16px 14px`).
+    static let slipPaddingTopBare: CGFloat = 4
     static let slipPaddingBottom: CGFloat = 14
-    /// Between a slip's bands: the dish stack, the place line, the words, the photos (`gap:10px`).
+    /// Between a slip's bands: the byline, the dish stack, the words, the photos, the foot line
+    /// (`gap:10px`).
     static let slipBandGap: CGFloat = 10
+    /// A slip's foot line — pin, place, suburb, and the date or age on the right
+    /// (`.placeline`: `min-height:28px; margin:2px 0 -6px`).
+    static let slipFootHeight: CGFloat = 28
+    static let slipFootTop: CGFloat = 2
+    static let slipFootBottom: CGFloat = -6
+    /// A dish row's own air above and below a name that wraps (`padding:9px 0`).
+    static let slipDishPadding: CGFloat = 9
+    /// A slip's corners when it has no torn edge — the statement slip (`.slip.whole`).
+    static let slipCorner: CGFloat = 16
 
     static let hairspace: CGFloat = 2
     static let tight: CGFloat = 4
@@ -166,6 +182,8 @@ enum AteMetrics {
 
     /// A photo in a static, tilted cluster — journal slip.
     static let clusterPhoto: CGFloat = 80
+    /// …on a `Suggestions` row, a little bigger, with the same tilt and overlap.
+    static let clusterPhotoSuggestion: CGFloat = 88
     /// …in the composer, biggest of the three.
     static let clusterPhotoComposer: CGFloat = 90
     /// How far cluster photos overlap.

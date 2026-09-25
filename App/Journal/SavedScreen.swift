@@ -20,11 +20,11 @@ struct SavedScreen: View {
             case .loading:
                 SavedSkeleton()
             case .empty:
-                AteEmptySlip(label: "Saved", title: "Nothing saved\nyet.")
+                AteEmptyState(title: "Nothing saved\nyet.")
             case .signedOut:
-                AteEmptySlip(label: "Saved", title: "Nobody's\nsigned in.")
+                AteEmptyState(title: "Nobody's\nsigned in.")
             case .failed(let message):
-                AteEmptySlip(label: "Saved", title: message)
+                AteEmptyState(title: message)
             case .ready:
                 groups
             }

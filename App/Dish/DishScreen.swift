@@ -26,7 +26,7 @@ struct DishScreen: View {
                     DishHeaderSkeleton()
                         .padding(.horizontal, AteMetrics.gutter)
                 case .unavailable:
-                    AteEmptySlip(label: "Dish", title: "This dish\nisn't here.")
+                    AteEmptyState(title: "This dish\nisn't here.")
                 case .ready(let summary):
                     hero
                     title(summary)
@@ -184,11 +184,11 @@ struct DishScreen: View {
                 .padding(.horizontal, AteMetrics.gutter)
         case .empty:
             // Nobody has written about it yet. Honest, and not an instruction.
-            AteEmptySlip(label: "Dish", title: "Nobody's written\nabout this yet.")
+            AteEmptyState(title: "Nobody's written\nabout this yet.")
         case .signedOut:
-            AteEmptySlip(label: "Dish", title: "Nobody's\nsigned in.")
+            AteEmptyState(title: "Nobody's\nsigned in.")
         case .failed(let message):
-            AteEmptySlip(label: "Dish", title: message)
+            AteEmptyState(title: message)
         case .ready:
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(store.reviews) { review in

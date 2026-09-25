@@ -424,10 +424,9 @@ struct ConfigurationErrorView: View {
     let error: any Error
 
     var body: some View {
-        AteEmptySlip(
-            label: "Configuration",
+        AteEmptyState(
             title: "Nothing\nto talk to.",
-            prose: String(describing: error)
+            detail: String(describing: error)
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ateGround()

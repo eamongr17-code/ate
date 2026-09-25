@@ -312,10 +312,16 @@ enum AteFont {
             style.maximumSize ?? .greatestFiniteMagnitude
         )
         let base = base(for: style, opticalSize: drawn)
-        if let maximum = style.maximumSize {
-            return metrics.scaledFont(for: base, maximumPointSize: maximum, compatibleWith: traits)
+        let scaled = if let maximum = style.maximumSize {
+            metrics.scaledFont(for: base, maximumPointSize: maximum, compatibleWith: traits)
+        } else {
+            metrics.scaledFont(for: base, compatibleWith: traits)
         }
-        return metrics.scaledFont(for: base, compatibleWith: traits)
+        // `scaledFont` rounds to a whole point. The design has fractional sizes — a score token is
+        // `.78em` (12.48 in a slip, 13.26 on the entry page), a tab label 10.5 — and rounding them
+        // printed every token's figures about 4% small against the artboard's `.tok`. The font keeps
+        // its Dynamic Type identity; only the size is put back to the one computed above.
+        return scaled.withSize(drawn)
     }
 
     static func font(for style: AteTextStyle, dynamicTypeSize: DynamicTypeSize = .large) -> Font {
@@ -469,6 +475,7 @@ extension View {
     func ateText(_ style: AteTextStyle) -> some View {
         modifier(AteTextModifier(style: style))
     }
+
 }
 
 /// Reads `dynamicTypeSize` from the environment, which is what makes the whole ramp re-lay out when

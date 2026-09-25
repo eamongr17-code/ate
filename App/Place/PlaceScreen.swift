@@ -57,7 +57,7 @@ struct PlaceScreen: View {
                 .padding(.horizontal, AteMetrics.gutter)
         case .unavailable:
             // Deleted, or behind a block. Say that, and nothing else (design rule 1).
-            AteEmptySlip(label: "Place", title: "This place\nisn't here.")
+            AteEmptyState(title: "This place\nisn't here.")
         case .ready(let summary):
             VStack(alignment: .leading, spacing: 10) {
                 AteExactText(text: summary.name, style: .placeTitle, alignment: .leading)
@@ -101,7 +101,7 @@ struct PlaceScreen: View {
             EmptyView()
         case .ready where store.dishes.isEmpty:
             // Nobody has written up a dish here yet. Not an error, and not an instruction.
-            AteEmptySlip(label: "What to order", title: "Nothing\nordered yet.")
+            AteEmptyState(title: "Nothing\nordered yet.")
         case .ready:
             VStack(alignment: .leading, spacing: 0) {
                 Text("What to order")
