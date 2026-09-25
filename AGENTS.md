@@ -16,15 +16,15 @@ feedback, and brand direction when he defines it. Everything else is the team's 
 
 | Role | Agent | Model | Owns |
 |---|---|---|---|
-| Chief of staff | lead session | fable | Dispatch, integration, merges, the digest, escalations |
-| Head of product | `head-of-product` | sonnet | Backlog, flow-scoped briefs, sequencing/parallelism, strategy guardianship |
-| UX designer | `ux-designer` | opus | Flows, IA, native-pattern correctness, interaction feel (NOT brand) |
-| iOS engineer | `ios-engineer` | opus | The Swift app: features, tests, performance |
-| Backend engineer | `backend-engineer` | opus | Schema, migrations, RLS, edge functions, the contract |
-| QA engineer | `qa-engineer` | sonnet | Independent diff review + verdicts; definition of done |
-| Growth lead | `growth-lead` | sonnet | Funnel analytics, receipt loop, ASO drafts, Melbourne seeding plans |
+| Chief of staff | lead session | opus 5.5 | Dispatch, integration, merges, the digest, escalations |
+| Head of product | `head-of-product` | opus 5.5 | Backlog, flow-scoped briefs, sequencing/parallelism, strategy guardianship |
+| UX designer | `ux-designer` | opus 5.5 | Flows, IA, native-pattern correctness, interaction feel (NOT brand) |
+| iOS engineer | `ios-engineer` | opus 5.5 | The Swift app: features, tests, performance |
+| Backend engineer | `backend-engineer` | opus 5.5 | Schema, migrations, RLS, edge functions, the contract |
+| QA engineer | `qa-engineer` | opus 5.5 | Independent diff review + verdicts; definition of done |
+| Growth lead | `growth-lead` | opus 5.5 | Funnel analytics, receipt loop, ASO drafts, Melbourne seeding plans |
 | Ops watchdog | `ops-watchdog` | haiku | Crash triage, metrics digest, dependency + advisor sweeps |
-| Brand designer | `brand-designer` | opus | Keeps the design system true to `BRAND.md`/`DESIGN.md`; proposes, Eamon approves |
+| Brand designer | `brand-designer` | opus 5.5 | Keeps the design system true to `BRAND.md`/`DESIGN.md`; proposes, Eamon approves |
 
 ## The five rules
 
@@ -60,7 +60,8 @@ feedback, and brand direction when he defines it. Everything else is the team's 
 - **Port, don't rewrite, solved logic.** Dish ranking, dedup, sitting state, sort orders come from the
   legacy repo (`~/Documents/ate`, archived) WITH their test cases translated.
 - **Verify with the cheapest sufficient evidence.** Battery > sim drive; staging logs > minted rows;
-  a targeted query > a re-read. Mechanical bulk work goes to haiku.
+  a targeted query > a re-read. Opus 5.5 is the default for judgement work, pinned by ID
+  (`claude-opus-5-5`; the bare `opus` alias resolves to an older model). Mechanical bulk work goes to haiku.
 - **The digest is the interface to Eamon.** The lead maintains one running CEO digest (artifact):
   shipped, in-flight, metrics, flagged decisions, escalations. Nothing else is written for him.
 
