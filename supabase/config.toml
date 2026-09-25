@@ -327,8 +327,9 @@ max_frequency = "5s"
 #     identity token, and Supabase rejects a token whose `aud` is not in this list. (Comma-separate
 #     if a second bundle id — an App Clip, a widget — ever needs to sign in.)
 #   * `secret` is NOT needed and is deliberately left empty. A client secret is only used to
-#     exchange an authorization CODE, which the native flow never does. Do not generate the .p8/JWT
-#     dance for this; there is nothing to spend it on.
+#     exchange an authorization CODE, which native SIGN-IN never does. (Apple's token REVOCATION on
+#     account deletion does need a .p8-signed client secret — that belongs in an edge function's
+#     secrets, never in this file.)
 #   * `redirect_uri` / `url` stay empty — there is no callback.
 #   * `skip_nonce_check` stays FALSE. The app must SHA-256 a random string into
 #     ASAuthorizationAppleIDRequest.nonce and pass the RAW string to signInWithIdToken; Supabase
