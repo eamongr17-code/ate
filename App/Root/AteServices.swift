@@ -32,6 +32,9 @@ struct AteServices {
     let placePages: any PlacePageReading
     /// The dish page's reads.
     let dishPages: any DishPageReading
+    /// The Search tab's four scopes and its Nearby list. Places go through the composer's own
+    /// directory component (`places-search` + `search_all`), so the two can never disagree.
+    let search: any SearchReading
     /// The one place a bookmark's new state is announced. Everything that draws one listens, so a
     /// save made on an entry page is already true on the feed and the profile underneath it.
     let savedDishes = SavedDishBroadcast()
@@ -64,6 +67,7 @@ struct AteServices {
         self.stats = preview?.stats ?? StatsClient(api: api)
         self.placePages = preview?.placePages ?? PlacePageClient(api: api)
         self.dishPages = preview?.dishPages ?? DishPageClient(api: api)
+        self.search = preview?.search ?? SearchClient(api: api)
         self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record)
     }
 
@@ -96,6 +100,7 @@ struct AteServices {
         /// drive cannot show a dish page that disagrees with the feed it was opened from.
         let placePages: any PlacePageReading
         let dishPages: any DishPageReading
+        let search: any SearchReading
     }
 
     private static func previewServices() -> PreviewServices? {
@@ -113,7 +118,7 @@ struct AteServices {
         return PreviewServices(
             entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
             feed: social, saves: social, profiles: social, stats: InMemoryStatsService(),
-            placePages: social, dishPages: social
+            placePages: social, dishPages: social, search: social
         )
         #else
         return nil

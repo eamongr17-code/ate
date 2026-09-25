@@ -62,12 +62,14 @@ struct ScoreToken: View {
     var prose: CGFloat = 17
     /// Ringed in ink while its slider is open.
     var isSelected = false
+    /// What the pill prints, when it is not one person's half-step. See ``init(average:prose:)``.
+    var printed: String?
 
     var body: some View {
         let style = AteTextStyle.scoreToken(inProse: prose)
         HStack(spacing: TokenPillMetrics.iconGap) {
             AteIcon.starFilled.view(size: TokenPillMetrics.starSide)
-            Text(ScoreFormat.halfStep(rating.value))
+            Text(printed ?? ScoreFormat.halfStep(rating.value))
                 .ateText(style)
                 .monospacedDigit()
         }
@@ -86,6 +88,17 @@ struct ScoreToken: View {
         .accessibilityElement()
         .accessibilityLabel("Score")
         .accessibilityValue(RatingTrack.accessibilityValue(rating))
+    }
+}
+
+extension ScoreToken {
+    /// **An aggregate in the same pill** — a place's or a dish's community average, printed **as
+    /// sent**, one decimal (`4.3`, `4.4`: `Search`, `SearchResults`, `Saved` all print them). Only a
+    /// star glyph rounds to the half; a number in a pill is a price, and a price is not rounded
+    /// (integration-design.md, "Printing an aggregate"). VoiceOver still hears the nearest half, like
+    /// every other score.
+    init(average: Double, prose: CGFloat = 17) {
+        self.init(rating: Rating(rounding: average), prose: prose, printed: ScoreFormat.average(average))
     }
 }
 

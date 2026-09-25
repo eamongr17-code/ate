@@ -75,6 +75,8 @@ struct AteShell: View {
     /// The You tab, held here rather than by the screen so switching away and back does not re-read
     /// five RPCs — and so a pull-to-refresh on it is the only thing that does.
     @State var you: YouStore
+    /// The Search tab, held here so its query, segment and pages survive a trip to another tab.
+    @State private var search: SearchStore
     @Environment(\.scenePhase) private var scenePhase
 
     init(services: AteServices) {
@@ -101,6 +103,22 @@ struct AteShell: View {
         }
         _feed = State(initialValue: feedStore)
         _you = State(initialValue: YouStore(stats: services.stats))
+        var searchScope = SearchScope.places
+        var searchQuery = ""
+        #if DEBUG
+        if SearchDebugLaunch.opensSearch {
+            _tab = State(initialValue: .search)
+            searchScope = SearchDebugLaunch.scope
+            searchQuery = SearchDebugLaunch.query
+        }
+        #endif
+        _search = State(initialValue: SearchStore(
+            service: services.search,
+            scope: searchScope,
+            query: searchQuery,
+            analytics: services.analytics,
+            savedDishes: services.savedDishes
+        ))
         let shelf = SavedDishesStore(saves: services.saves)
         _saved = State(initialValue: shelf)
         _saveAction = State(initialValue: SaveAction(
@@ -322,7 +340,7 @@ struct AteShell: View {
                 onViewed: { services.analytics(SocialEvents.feedViewed()) }
             )
         case .search:
-            SearchScreen()
+            SearchScreen(store: search, saves: saveAction, open: { open($0, from: $1) })
         case .you:
             YouScreen(
                 store: you,
