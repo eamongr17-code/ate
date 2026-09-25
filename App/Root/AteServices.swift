@@ -32,6 +32,8 @@ struct AteServices {
     let placePages: any PlacePageReading
     /// The dish page's reads.
     let dishPages: any DishPageReading
+    /// The Search tab's four scopes and its Nearby list — the keyset-paged scope RPCs (0031).
+    let search: any SearchReading
     /// The one place a bookmark's new state is announced. Everything that draws one listens, so a
     /// save made on an entry page is already true on the feed and the profile underneath it.
     let savedDishes = SavedDishBroadcast()
@@ -80,6 +82,7 @@ struct AteServices {
         self.stats = preview?.stats ?? StatsClient(api: api)
         self.placePages = preview?.placePages ?? PlacePageClient(api: api)
         self.dishPages = preview?.dishPages ?? DishPageClient(api: api)
+        self.search = preview?.search ?? SearchClient(api: api)
         self.account = preview?.account ?? AccountClient(api: api)
         self.preferences = AtePreferences.standard
         self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record, owner: owner)
@@ -118,6 +121,7 @@ struct AteServices {
         /// drive cannot show a dish page that disagrees with the feed it was opened from.
         let placePages: any PlacePageReading
         let dishPages: any DishPageReading
+        let search: any SearchReading
         let account: any AccountServing
     }
 
@@ -136,7 +140,7 @@ struct AteServices {
         return PreviewServices(
             entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
             feed: social, saves: social, profiles: social, stats: InMemoryStatsService(),
-            placePages: social, dishPages: social, account: InMemoryAccountService()
+            placePages: social, dishPages: social, search: social, account: InMemoryAccountService()
         )
         #else
         return nil

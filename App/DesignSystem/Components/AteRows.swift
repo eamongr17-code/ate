@@ -6,6 +6,9 @@ import SwiftUI
 struct AteListRow<Leading: View, Trailing: View>: View {
     var title: String
     var subtitle: String?
+    /// 58 by default (`.rowcard`); `Search`'s own rows are 62 and 76, which the artboards set
+    /// per list rather than globally.
+    var minHeight: CGFloat = AteMetrics.rowHeight
     @ViewBuilder var leading: Leading
     @ViewBuilder var trailing: Trailing
     var action: (() -> Void)?
@@ -44,7 +47,7 @@ struct AteListRow<Leading: View, Trailing: View>: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 trailing
             }
-            .frame(minHeight: AteMetrics.rowHeight)
+            .frame(minHeight: minHeight)
             .contentShape(.rect)
         }
     }
@@ -52,7 +55,10 @@ struct AteListRow<Leading: View, Trailing: View>: View {
 
 extension AteListRow where Leading == EmptyView, Trailing == EmptyView {
     init(title: String, subtitle: String? = nil, action: (() -> Void)? = nil) {
-        self.init(title: title, subtitle: subtitle, leading: { EmptyView() }, trailing: { EmptyView() }, action: action)
+        self.init(
+            title: title, subtitle: subtitle,
+            leading: { EmptyView() }, trailing: { EmptyView() }, action: action
+        )
     }
 }
 
