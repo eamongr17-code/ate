@@ -4,7 +4,8 @@ Everything the app calls, with shapes. Schema lives in `data-model.md`. **Comple
 Swift client against without asking a question** — if something is missing, that is a bug in this file.
 **Environments are law:** Debug → STAGING `cvoitgoaosofkougmarn`, Release → PROD `vyaexmnajnbryimbkgkf`;
 migrations reach staging on merge and prod only via the explicit CI job. Auth: Supabase Auth (Apple +
-email); every call carries the user's token. `anon` is revoked on all V1 tables (unauthenticated → `[]`).
+email; see Account below); every call carries the user's token. `anon` is revoked on all V1 tables
+(unauthenticated → `[]`). **Every entry is public (0033)** — there is no private entry, anywhere, for anyone.
 
 ## The one row shape — `entry_cards`
 
@@ -13,7 +14,7 @@ Journal slip, Feed slip, Entry page and Share receipt are the same data at four 
 | Field | Type — notes |
 |---|---|
 | `id` · `author_id` · `created_at` · `updated_at` | uuid · uuid · ts · ts |
-| `body` · `visibility` | text — the user's words, verbatim · `public` \| `private` |
+| `body` · `visibility` | text — the user's words, verbatim · always `public` (**deprecated**, 0033; dropped later — stop reading it) |
 | `restaurant_id` · `restaurant_source` | uuid\|null · `user` \| `sorter` \| null |
 | `order_number` · `is_mine` | int — "Order #0142" · bool |
 | `sort_status` · `sorted_at` | `pending` \| `sorted` \| `failed` (at `pending`: words, no receipt) · ts\|null |
@@ -50,14 +51,14 @@ back to plain text, never to a search.
 ## Reads
 
 Every list is keyset-paginated; **no OFFSET anywhere.** First page → pass nulls; next page → pass the LAST
-row's key. That key is `(created_at, id)` DESC on every entry and review list (feed, journal, place, dish
-reviews, `dishes_by_score`); the two ranked/grouped lists key on their own order instead —
-`place_dishes` on `(score, people, name, dish_id)`, `statement_months` on `month`. Page sizes are clamped.
+row's key — EVERY field of it. `(created_at, id)` DESC on every entry and review list; ranked lists key on
+their own order: `place_dishes` `(review_count, score, name, dish_id)`, `statement_months` `month`, Saved
+`(saved_at, dish_id)`, Search scopes `(match_tier, review_count|username, name, id)`, Nearby `(distance_m, id)`.
 
 | Screen | Call | Returns |
 |---|---|---|
-| Feed | `rpc get_entry_feed(p_cursor_created_at, p_cursor_id, p_page_size, p_include_own)` | `entry_cards[]` — all public entries, blocked users already gone. `p_include_own` defaults **false** (your visits live in Journal) |
-| Journal · Profile | `rpc get_entries_by_author(p_author_id, cursor…, p_page_size)` | `entry_cards[]` — yours includes private; someone else's is public-only (RLS) |
+| Feed | `rpc get_entry_feed(p_cursor_created_at, p_cursor_id, p_page_size, p_include_own)` | `entry_cards[]` — every entry, blocked users already gone. `p_include_own` defaults **false** (your visits live in Journal) |
+| Journal · Profile | `rpc get_entries_by_author(p_author_id, cursor…, p_page_size)` | `entry_cards[]` — the same rows whoever asks (a blocked author: `[]`) |
 | Entry · Share | `GET /rest/v1/entry_cards?id=eq.<uuid>` | one `entry_card` |
 | Place — header | `rpc place_summary(p_restaurant_id)` | `{restaurant_id, name, address, city, cuisine, cover_url, avg_rating, review_count, people_count, dish_count, my_visits, my_last_visit, locality, entry_count}` — **`locality` is the second chip** (`city` is unreliable, see below); `entry_count` = visits here, `review_count` = receipt lines; every text field is `null`, never `''` |
 | Place — what to order | `rpc place_dishes(p_restaurant_id, p_limit, p_cursor_review_count, p_cursor_score, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, score, people_count, review_count, cover_url}[]` — **`review_count` DESC leads**, then `score` DESC (unscored last), then name, then id: the ported `DishRanking` rule, so one 5.0 from one person cannot lead the menu. **Never re-sort it client-side.** A dish with no line at all is not returned. **4-part keyset: pass all four from the last row** (`p_cursor_score` may be null) |
@@ -70,20 +71,25 @@ reviews, `dishes_by_score`); the two ranked/grouped lists key on their own order
 | Ratings bar tap · "Your 5.0s" | `rpc dishes_by_score(p_user_id, p_score, p_limit, p_cursor_created_at, p_cursor_id)` | `{review_id, entry_id, dish_id, dish_name, restaurant_id, restaurant_name, score, note, created_at, cover_url}[]`, newest first, keyset `(created_at, id)`. `cover_url` is the DISH's photo (the tile), `created_at` is the visit's date, `entry_id` is **nullable** |
 | Recap picker | `rpc statement_months(p_user_id, p_tz, p_cursor_month, p_limit)` | `{month (date), orders}[]`, newest first; `orders` is that month's ENTRY count. Keyset: pass the last row's `month` |
 | Recap | `rpc monthly_statement(p_user_id, p_month, p_tz)` | one jsonb (below) |
-| Search | `rpc search_all(p_query, p_limit_per_kind)` | `{kind, id, title, subtitle, score, match_rank, detail}[]`, `kind ∈ place|dish|person` — split on `kind` for the tabs. Nearby: `places-search?op=nearby` (below) |
-| Handle availability | `rpc handle_available(p_handle)` | bool. **Use this, not a `profiles` select** — the block-aware policy can make a taken handle look free |
+| Search — Places | `rpc search_places(p_query, p_limit, p_cursor_match_tier, p_cursor_review_count, p_cursor_name, p_cursor_id)` | `{restaurant_id, name, cuisine, locality, avg_rating, review_count, people_count, dish_count, cover_url, match_tier}[]` |
+| Search — Dishes | `rpc search_dishes(p_query, p_limit, p_cursor_match_tier, p_cursor_review_count, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_locality, score, review_count, scored_count, people_count, cover_url, match_tier}[]` — the whole row in one call |
+| Search — People | `rpc search_people(p_query, p_limit, p_cursor_match_tier, p_cursor_username, p_cursor_user_id)` | `{user_id, username, name, avatar_url, city, is_me, match_tier}[]` — handle OR name; you can find yourself (`is_me`) |
+| Search — Saved | `rpc search_saved(p_query, p_limit, p_cursor_saved_at, p_cursor_dish_id)` | `my_saved_dishes`' columns + `restaurant_locality`; dish OR place name; **empty/null query = the whole list** |
+| Search — Nearby (before typing) | `rpc nearby_places(p_lat, p_lng, p_radius_m, p_limit, p_cursor_distance_m, p_cursor_id)` | `{restaurant_id, name, cuisine, locality, avg_rating, review_count, people_count, dish_count, cover_url, distance_m}[]` — places we hold, nearest first; no Google call |
+| Composer place sheet | `rpc search_all(p_query, p_limit_per_kind)` | `{kind, id, title, subtitle, score, match_rank, detail}[]`, unpaged; the Search TAB uses the scope RPCs |
+| Handle availability | `rpc handle_available(p_handle)` | bool, **case-insensitive** (citext; `Eamon` = `eamon`), trims, 1–30 chars; the character set is the client's rule. **Use this, not a `profiles` select** — RLS can make a taken handle look free |
+| Settings — blocked | `rpc my_blocks(p_limit, p_cursor_created_at, p_cursor_blocked_id)` | `{blocked_id, username, name, avatar_url, city, created_at}[]`, newest first. **Not** a `blocks` embed: `profiles` RLS nulls exactly these people |
 
-**A place's label is `locality`, never `city`.** `restaurants.city` is a bare suburb on stub and manual rows
-but, on anything resolved live through `places-search op=details`, it is the mangled
-`"<street>, <suburb STATE post>"` that function's address split produces. `place_summary.locality` and
-`dish_summary.restaurant_locality` are derived on read from the address and are the only ones safe to
-print; `null` means we cannot honestly name one — draw no chip. (`search_all`'s place `subtitle` still
-falls back to `city` for a place with no cuisine: the one caller not yet moved over.)
+**Search scopes (0031):** matching is accent-insensitive (`ragu` finds `ragù`) and needs ≥2 characters
+(fewer → `[]`); rows come ranked `match_tier` (0 exact · 1 prefix · 2 word-start · 3 contains) → `review_count`
+desc → name → id. **Never re-sort.** Blocked people, and dishes only they logged, are absent. Text is `null`, never `''`.
 
-**Saved is keyset-paged on `(saved_at desc, dish_id desc)`** — next page:
-`&or=(saved_at.lt.<last saved_at>,and(saved_at.eq.<last saved_at>,dish_id.lt.<last dish_id>))`.
-**Never order by `restaurant_name`**: grouping by place is presentation (the client groups the page it has),
-and a name-ordered list has no stable cursor. `cover_url` == `dish_cover_url`; prefer `cover_url`.
+**A place's label is `locality`, never `city`.** Rows resolved live before 0031's PR hold a mangled
+`"<street>, <suburb STATE post>"` in `city`; every `locality`/`restaurant_locality` (place, dish, search rows,
+`search_all`'s subtitle) is derived on read and is the only thing safe to print. `null` → draw no chip.
+
+**Saved** next page: `&or=(saved_at.lt.<last>,and(saved_at.eq.<last>,dish_id.lt.<last dish_id>))`. Never order
+by `restaurant_name` (no stable cursor; grouping is presentation). `cover_url` == `dish_cover_url`.
 
 `monthly_statement` → `{month, username, orders, places, new_places, dishes, stars, average,
 top_dishes:[{dish_id, dish_name, restaurant_name, score}], most_ordered:{dish_name,count}|null,
@@ -91,18 +97,15 @@ most_visited:{restaurant_id, restaurant_name, count}|null}`. Months are local to
 `Australia/Melbourne`; pass the device zone). `average`/`stars` cover scored lines only. `most_ordered`/
 `most_visited` are **null below a count of 2** — "Most ordered … x1" is not a habit, so print nothing.
 
-**Printing an aggregate: one decimal, as sent.** `place_summary.avg_rating`, `dish_summary.score`,
-`place_dishes.score` and `monthly_statement.average` are averages, not scores: print `4.6`, never rounded
-to `4.5` (`ScoreFormat.average`). Only the STAR GLYPHS round to the nearest half (DESIGN: "aggregates show
-to the nearest half" is about the stars). An entry's own `avg_score` keeps its 2 decimals — the receipt
-footer reads `Avg 3.75`. A single review's score is a half-step and prints one decimal always (`4.0`).
+**Printing an aggregate: one decimal, as sent** (`4.6`, never rounded to `4.5` — `ScoreFormat.average`); only
+the STAR GLYPHS round to the half. An entry's `avg_score` keeps 2 decimals (`Avg 3.75`); a review prints `4.0`.
 
 ## Writes
 
 ### Create an entry — the words land first, alone
 ```
 POST /rest/v1/entries
-{ "id": <client uuid>, "author_id": <me>, "body": "…", "visibility": "public",
+{ "id": <client uuid>, "author_id": <me>, "body": "…",     // no "visibility": deprecated, any value lands public
   "restaurant_id": <uuid|null>,          // only if the user TAPPED a place in the composer
   "created_at": "<when they wrote it>" }  // optional; send it for offline entries
 ```
@@ -133,7 +136,7 @@ the rule below is enforced in SQL, not by the caller remembering it.
 | Fix the place | `rpc correct_entry_place(p_entry_id, p_restaurant_id)` → the entry row. Re-resolves every line's dish at the new place, or prints the parked plan if the entry had none. Pins `restaurant_source='user'`, records `place_corrected_at`, clears the place token |
 | Fix a line's dish | `rpc correct_entry_dish(p_review_id, p_dish_id, p_dish_name)` → dish uuid. Pass `p_dish_id` for a menu pick, `p_dish_name` to name one. Score and note untouched |
 | Set / clear a score | `PATCH /rest/v1/reviews?id=eq.<uuid>` `{ "score": 4.5 }` (or `null`). Half steps 0.5–5.0 |
-| Edit the words / flip visibility | `PATCH /rest/v1/entries?id=eq.<uuid>` `{ "body": "…" }` / `{ "visibility": "private" }` |
+| Edit the words | `PATCH /rest/v1/entries?id=eq.<uuid>` `{ "body": "…" }`. (A `{visibility}` PATCH still succeeds and changes nothing — remove the control) |
 | Delete a visit | `DELETE /rest/v1/entries?id=eq.<uuid>` (cascades photos + its reviews) |
 
 Any of the first three marks the line `corrected` (`reviews.corrected_at`; a bare `score`/`note` PATCH by the
@@ -148,10 +151,8 @@ author counts). **A corrected line is the user's, and a re-sort — forced or no
 4. A corrected line matching no item survives anyway, appended after the parsed lines.
 5. A corrected line pins the place: a fresh sorter match cannot move the entry and orphan it.
 
-Rules 7 and 9 are re-asserted on every sorter-proposed line, never on a preserved one — they bound what the
-sorter may write, not what the user may keep; editing the words does not delete their fix. Never write
-`reviews` rows directly for a new entry: the sorter's RPC owns dish creation (select-then-insert against a
-partial unique index; see `data-model.md` Landmines).
+Rules 7/9 bound what the SORTER may write, never what the user keeps. Never write `reviews` for a new entry:
+the sorter's RPC owns dish creation (select-then-insert on a partial unique index — `data-model.md` Landmines).
 
 ### Save · block · report
 | Action | Call |
@@ -166,12 +167,22 @@ partial unique index; see `data-model.md` Landmines).
 After a block, **refetch open lists** (that user vanishes from every read, both directions) and render a
 missing author/place as unavailable rather than crashing on a nil join.
 
+### Account — Sign in with Apple, and deletion (0032)
+- **Sign in:** native only. `ASAuthorizationAppleIDRequest` with `nonce = sha256(raw)`, then
+  `auth.signInWithIdToken(.init(provider: .apple, idToken:, nonce: raw))`. Apple usually sends **no name and
+  may send no email** (or a private-relay one); the account still gets a profile with a placeholder handle
+  (`ate<8 hex>`), so route every new user through the first-run Handle screen (`handle_available`, then PATCH
+  `profiles.username`/`name`). If `fullName` arrives on the first credential, PATCH `name` from it.
+- **Delete account** (App Store 5.1.1(v)) — in this order: (1) list + delete your objects under
+  `review-photos/<uid>/` and `avatars/<uid>/`; (2) `rpc delete_account()` → `{ok, auth_user_deleted}`;
+  (3) sign out locally. `ok` = your data is gone; `auth_user_deleted = false` means the login survived —
+  report it (it needs the admin API). `deactivate_account` is NOT deletion; do not call it.
+
 ## The sorter (`supabase/functions/sort-entry`)
 
-Two modes, one contract. **stub** (default, CEO decision — no AI spend): a deterministic rule-based parser,
-no network, no key. **model**: `claude-haiku-4-5-20251001` via a forced tool call, reachable **only** when
-`ANTHROPIC_API_KEY` is in the function's secrets; `ATE_SORTER_MODE=stub` forces stub even with a key, and a
-model failure degrades to the stub rather than failing the sort.
+Two modes, one contract. **stub** (default — no AI spend): deterministic, no network. **model**:
+`claude-haiku-4-5-20251001` via a forced tool call, **only** with `ANTHROPIC_API_KEY` set (`ATE_SORTER_MODE=stub`
+forces stub); a model failure degrades to the stub, never fails the sort.
 
 Both are post-validated identically, in TypeScript and again in SQL: a **score** survives only if its
 `score_evidence` is a literal substring of `body` **and** contains that number (sentiment can never become
@@ -179,17 +190,10 @@ a score); a **note** only if it is a literal substring, case-sensitively, matchi
 (quote, never paraphrase); a **dish** only if its name is in the words or already on the matched menu; an
 **offset** only if the body says that text there, else it is recomputed from the first occurrence, else null.
 
-A note is the **clause after the dish and its score**, cut at the next dish, with dangling glue and
-punctuation trimmed off its ends ("the quiet star," → "the quiet star") — what `design/v1/Entry` prints,
-never repeating the dish name or score the line above already shows. A dish name keeps the menu's spelling
-on any case-insensitive match; a new one is capitalised on create (so prose stops printing "salmon roll").
-
-**A score the sentence itself marks belongs to the dish in front of it**: `"<dish> was a 4.5"`,
-`"<dish> is a 4"`, `"<dish> gets a 3.5"`, `"gave the <dish> a 4"`, `"<dish>, a solid 4"` all print a scored
-line (the CEO's `…fishbowl margarita  was a 4.5 and eliteeeee` printed nothing before this). Only a number
-that has already proved it is a score is read that way, so `"a party of 4"`, `"table for 4"`, `"top five"`
-and `"Order two."` still print nothing. **The attached place's own name is never a dish, nor the front half
-of one** — `"Baby Pizza San Danielle Pizza 3.5"` is the `San Danielle Pizza`.
+A note is the **clause after the dish and its score**, cut at the next dish, glue trimmed (what
+`design/v1/Entry` prints). A matched dish keeps the menu's spelling; a new one is capitalised. A score the
+sentence marks belongs to the dish before it (`"<dish> was a 4.5"`, `"gave the <dish> a 4"`); `"table for 4"`
+never scores. The attached place's own name is never a dish, nor the front half of one.
 
 The place comes from the words alone, matched against restaurants we already hold
 (`search_local_restaurants`, 0017) — never Google, never location, never a new row. **No place ⇒ no dish
@@ -197,45 +201,42 @@ reviews** (a dish needs a restaurant): the entry is still `sorted`, its findings
 `entries.sort_plan`, and `correct_entry_place` prints the receipt retroactively. ~50 fixtures pin every rule
 here: `node --test supabase/functions/sort-entry/*_test.ts` (also the eval harness for model mode).
 
-## `places-search` — unchanged
+## `places-search`
 
 `op=autocomplete` (blended `results[]`: `kind:'place'` = resolve on select, `kind:'manual'` = already a row) ·
 `op=details` (upserts the row; the only restaurant-create path) · `op=nearby` (PostGIS-first, `restaurants[]`
 with `distance_meters`). Verified end-user JWT + per-user rate limit on every op; stub mode when
 `GOOGLE_PLACES_API_KEY` is absent. The VIC bounding box is a launch-market constant — when the market
-changes, make it config, do not fork the function.
+changes, make it config, do not fork the function. `restaurants.city` is written as the bare suburb (0031's
+PR, same rule as `place_locality()`); rows written before keep the mangle — read `locality`.
 
 ## Wire-change log
 
-**Behavioural — 0030 (2026-09-24).** `place_dishes` returns the product's order now, which is the
-ported-and-tested `DishRanking` rule: `review_count` desc → `score` desc (unscored last) → name → id.
-Score-first was wrong on this screen — a 4.4 from three people outranked a 4.2 from four, and a lonely
-5.0 would lead the menu. Same columns, different order, **fewer rows**: a dish with no line is an
-abandoned "add a new dish" shell and is gone, while an UNSCORED dish with a line stays. The keyset
-follows the order, so `p_cursor_people` becomes `p_cursor_review_count` — **breaking on that parameter
-alone**, which nothing shipped sends (the app calls `place_dishes(p_restaurant_id, p_limit)`).
+**Behavioural — 0033 (2026-09-25): every entry is public.** Every formerly-private entry flips public and
+now appears in the feed, on profiles, place/dish pages, search, and everyone's counts, averages and covers
+(numbers can move). `visibility` stays on `entries`/`entry_cards`, always `public`, so no decoder breaks;
+an insert/PATCH sending `private` succeeds and lands public. **Follow-up (breaking, sequenced):** drop the
+column once no TestFlight build reads or writes it.
 
-**Additive — 0029 (2026-09-24), the detail + You read audit.** `place_summary` + `locality`/`entry_count`;
-`dish_summary` + `photos`/`restaurant_locality`; `dishes_by_score` + `cover_url`; new cursor parameters on
-`place_dishes` (4-part), `dishes_by_score` and `statement_months`; `monthly_statement` + `"username"`; new
-`place_locality(address, city)` / `dish_photos(dish, limit)`. Every column is appended LAST and every
-parameter defaults to null, so an existing call keeps working untouched. Behaviour, not shape — the four
-things to KNOW: (1) `profile_summary.dishes`/`scored`/`avg_score` now count by `reviewer_id`, so a user
-with pre-entries reviews sees HIGHER numbers that finally match `score_histogram` (staging: 40 → 60
-scored); (2) `place_summary.address`/`city`/`cuisine`/`cover_url` and `dish_summary.restaurant_city` are
-`null` instead of `''` — a `""` cover was a broken image request; (3) `monthly_statement.most_ordered`/
-`most_visited` are `null` when the count is 1; (4) `get_dish_reviews.entry_id` and
-`dishes_by_score.entry_id` were ALWAYS nullable on real rows — now documented, decode optional.
+**Additive — 0032.** `delete_account()`, `my_blocks(…)`. Behaviour: a new user with no usable email gets
+handle `ate<8 hex>` (never one derived from an Apple relay address). Auth config: Apple native provider on.
 
-**Additive — 0018–0028.** Everything 0018–0023 introduced (the tables, columns, RPCs and views above);
-0024/0025's correction + offset columns (`reviews.corrected_at`/`corrected_from_name`/`evidence_offset`/
-`mention_text`/`mention_offset`, `entries.place_corrected_at`/`place_query`/`place_offset`,
-`entry_cards.place_offset`/`place_length` and `items[].evidence_*`/`mention_*`/`corrected`, `place_offset`
-on the `sort-entry` response); 0026–0028's `entry_cards.items[].cover_url`, `my_saved_dishes.cover_url` and
-`unsave_entry_dishes(p_entry_id)`. Behaviour, not shape: every `cover_url` **stops reading null** once a
-dish's entries carry photos (covers see `entry_photos`, not only the legacy `reviews.photo_url`); the
-sorter reads `"<dish> was a 4.5"` scores, keeps the venue's name out of dish names, capitalises a new dish
-and trims a clause note's dangling comma; a report `reason` outside the five-word vocabulary is `23514`.
+**Additive — 0031.** `search_places`/`search_dishes`/`search_people`/`search_saved`/`nearby_places`; helper
+`search_key`/`search_pattern`/`search_tier`. Behaviour, same shape: `search_all` matches accent-insensitively
+(more rows) and a no-cuisine place's `subtitle` is its locality, not the street-mangled `city`.
+
+**Behavioural — 0030.** `place_dishes` is the ported `DishRanking` order (`review_count` desc → `score` desc,
+unscored last → name → id) and drops never-logged dishes; `p_cursor_people` → `p_cursor_review_count`
+(breaking on that parameter alone; nothing shipped sends it).
+
+**Additive — 0029.** `place_summary` + `locality`/`entry_count`; `dish_summary` + `photos`/`restaurant_locality`;
+`dishes_by_score` + `cover_url`; cursors on `place_dishes`/`dishes_by_score`/`statement_months`;
+`monthly_statement` + `username`. Behaviour: `profile_summary` counts lines by `reviewer_id` (numbers rise for
+legacy users); empty text is `null`, not `''`; `most_ordered`/`most_visited` null at 1; `entry_id` is nullable.
+
+**Additive — 0018–0028.** The tables, columns, RPCs and views above, the correction + offset columns, and
+`cover_url` on `entry_cards.items[]`/`my_saved_dishes`. Behaviour: covers see `entry_photos`; a report
+`reason` outside the five-word vocabulary is `23514`.
 
 **Breaking — sequenced with iOS through the lead:** (1) `reviews.score` NOT NULL → **NULLABLE**, decode as
 optional (V1 Swift is written against this from the start, so nothing shipped is broken today); (2) SELECT
