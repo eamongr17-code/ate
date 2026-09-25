@@ -2,165 +2,16 @@ import Foundation
 
 @testable import AteKit
 
-// The wire shapes of the Search tab's four scopes, its Nearby list, and the account/blocks reads —
-// exactly as `docs/backend/integration-design.md` writes them (migrations 0031, 0032).
-//
-// They live in the test target for the same reason `DetailWireRows` does: the Search screen is being
-// built in the lane next door, and a contract test should pin the WIRE, not wait for a type. Nothing
-// here has a forgiving decoder, so a renamed or dropped column fails in CI against real staging rows
-// instead of leaving a blank row on somebody's phone.
+// Test-only wire shapes for reads the app does not model: `search_all`'s row and the account/blocks
+// reads (migrations 0031, 0032). The four Search scopes and Nearby are decoded with AteKit's own
+// rows (`Search/SearchWire.swift`, promoted by the Search lane) — one type, so the contract tests pin
+// exactly what the app decodes. Nothing here has a forgiving decoder.
 //
 // The two standing rules:
 //   * an AGGREGATE is a `Double` (4.3 is a legal average and an illegal score); a USER'S score would
 //     be a `Rating`, and none of these rows carries one.
 //   * anything the server can legitimately not know is Optional — a cuisine nobody set, a locality we
 //     cannot name, a dish nobody scored. Absent is never `""` and never `0`.
-
-// MARK: - Places scope + Nearby
-
-/// `search_places` — design/v1/SearchResults' place row: name · cuisine · score.
-struct SearchPlaceRow: Decodable, Sendable {
-    let restaurantID: UUID
-    let name: String
-    let cuisine: String?
-    /// The suburb chip, derived on read (`place_locality`). Never the raw `city`.
-    let locality: String?
-    /// Mean of per-dish averages — an average, not a score. Print as sent.
-    let avgRating: Double?
-    let reviewCount: Int
-    let peopleCount: Int
-    let dishCount: Int
-    let coverURL: String?
-    /// 0 exact · 1 prefix · 2 word-start · 3 contains. The leading sort key, and cursor part 1.
-    let matchTier: Int
-
-    enum CodingKeys: String, CodingKey {
-        case name, cuisine, locality
-        case restaurantID = "restaurant_id"
-        case avgRating = "avg_rating"
-        case reviewCount = "review_count"
-        case peopleCount = "people_count"
-        case dishCount = "dish_count"
-        case coverURL = "cover_url"
-        case matchTier = "match_tier"
-    }
-}
-
-/// `nearby_places` — design/v1/Search's pre-typing list. Same row as a place hit, keyed on distance.
-struct NearbyPlaceRow: Decodable, Sendable {
-    let restaurantID: UUID
-    let name: String
-    let cuisine: String?
-    let locality: String?
-    let avgRating: Double?
-    let reviewCount: Int
-    let peopleCount: Int
-    let dishCount: Int
-    let coverURL: String?
-    /// Metres from the query origin. The artboard does not print it; the cursor rides on it.
-    let distanceM: Double
-
-    enum CodingKeys: String, CodingKey {
-        case name, cuisine, locality
-        case restaurantID = "restaurant_id"
-        case avgRating = "avg_rating"
-        case reviewCount = "review_count"
-        case peopleCount = "people_count"
-        case dishCount = "dish_count"
-        case coverURL = "cover_url"
-        case distanceM = "distance_m"
-    }
-}
-
-// MARK: - Dishes scope
-
-/// `search_dishes` — the artboard's dish row in ONE call: cover · dish · place · score.
-struct SearchDishRow: Decodable, Sendable {
-    let dishID: UUID
-    let dishName: String
-    let restaurantID: UUID
-    let restaurantName: String
-    let restaurantLocality: String?
-    /// Nobody scored it → null. An unscored dish with a line is still a result (DESIGN rule 7).
-    let score: Double?
-    let reviewCount: Int
-    let scoredCount: Int
-    let peopleCount: Int
-    let coverURL: String?
-    let matchTier: Int
-
-    enum CodingKeys: String, CodingKey {
-        case score
-        case dishID = "dish_id"
-        case dishName = "dish_name"
-        case restaurantID = "restaurant_id"
-        case restaurantName = "restaurant_name"
-        case restaurantLocality = "restaurant_locality"
-        case reviewCount = "review_count"
-        case scoredCount = "scored_count"
-        case peopleCount = "people_count"
-        case coverURL = "cover_url"
-        case matchTier = "match_tier"
-    }
-}
-
-// MARK: - People scope
-
-/// `search_people` — handle · name · avatar, and nothing else is drawn.
-struct SearchPersonRow: Decodable, Sendable {
-    let userID: UUID
-    let username: String
-    let name: String
-    let avatarURL: String?
-    let city: String?
-    /// The caller is included in their own results; the client decides whether to draw them.
-    let isMe: Bool
-    let matchTier: Int
-
-    enum CodingKeys: String, CodingKey {
-        case username, name, city
-        case userID = "user_id"
-        case avatarURL = "avatar_url"
-        case isMe = "is_me"
-        case matchTier = "match_tier"
-    }
-}
-
-// MARK: - Saved scope
-
-/// `search_saved` — `my_saved_dishes`' own columns (+ `restaurant_locality`), filtered.
-struct SearchSavedRow: Decodable, Sendable {
-    let dishID: UUID
-    let dishName: String
-    let restaurantID: UUID
-    let restaurantName: String
-    let restaurantCity: String?
-    let restaurantLocality: String?
-    let dishScore: Double?
-    let dishCoverURL: String?
-    let sourceEntryID: UUID?
-    let sourceUserID: UUID?
-    let sourceUsername: String?
-    let savedAt: Date
-    /// The same value as `dishCoverURL`; the newer name.
-    let coverURL: String?
-
-    enum CodingKeys: String, CodingKey {
-        case dishID = "dish_id"
-        case dishName = "dish_name"
-        case restaurantID = "restaurant_id"
-        case restaurantName = "restaurant_name"
-        case restaurantCity = "restaurant_city"
-        case restaurantLocality = "restaurant_locality"
-        case dishScore = "dish_score"
-        case dishCoverURL = "dish_cover_url"
-        case sourceEntryID = "source_entry_id"
-        case sourceUserID = "source_user_id"
-        case sourceUsername = "source_username"
-        case savedAt = "saved_at"
-        case coverURL = "cover_url"
-    }
-}
 
 // MARK: - search_all (unchanged shape, the composer's place sheet reads it)
 

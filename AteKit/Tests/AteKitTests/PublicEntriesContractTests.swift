@@ -15,8 +15,8 @@ import Testing
 /// - **The journal and the feed are one set.** Everything in my journal is in the global feed read
 ///   with `p_include_own = true`. Before 0033 a private entry was in the first and not the second;
 ///   that gap IS the removed feature, so its absence is the test.
-/// - **A shipped client does not break, and cannot make anything private.** The app still has the
-///   "Make private" PATCH (`SupabaseEntryService.setVisibility`). It must succeed — a 23514 there is
+/// - **A shipped client does not break, and cannot make anything private.** TestFlight builds still
+///   send the "Make private" PATCH (the current app no longer has it). It must succeed — a 23514 there is
 ///   a broken client — land public, and leave `updated_at` alone: `updated_at > sorted_at` is the
 ///   entry_cards "words edited after the sort" hint, and a bumped stamp would strip the entry's
 ///   inline score/place tokens.
@@ -90,13 +90,20 @@ struct PublicEntriesContractTests {
                 "the demo viewer's journal is empty"
             )
 
-            // The exact call the shipped composer/entry page makes. Must not throw.
-            try await service.setVisibility(entryID: entry.id, visibility: .private)
+            // The exact PATCH a build that still has the toggle sends (the app's `setVisibility` is
+            // gone since #53; shipped TestFlight builds still make this call). Must not throw.
+            func patchVisibility(_ value: String) async throws {
+                _ = try await client.supabase.from("entries")
+                    .update(["visibility": value], returning: .minimal)
+                    .eq("id", value: entry.id.uuidString.lowercased())
+                    .execute()
+            }
+            try await patchVisibility("private")
             let after = try await service.entry(id: entry.id)
 
             if after.visibility != .public {
                 // Staging has not had 0033: put the demo entry back before failing.
-                try await service.setVisibility(entryID: entry.id, visibility: .public)
+                try await patchVisibility("public")
             }
             #expect(after.visibility == .public, "the trigger pins every entry public")
             #expect(
