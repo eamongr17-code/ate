@@ -22,6 +22,13 @@ struct SlipAnatomyTests {
         }
     }
 
+    @Test("The journal prints the words whole; the feed and a profile clamp them at two lines")
+    func wordClamp() {
+        #expect(SlipAnatomy.wordsLineLimit(on: .journal) == nil)
+        #expect(SlipAnatomy.wordsLineLimit(on: .feed) == 2)
+        #expect(SlipAnatomy.wordsLineLimit(on: .profile) == 2)
+    }
+
     @Test("A suburb is the place's locality, and a blank one is no suburb at all")
     func suburb() {
         let id = UUID()

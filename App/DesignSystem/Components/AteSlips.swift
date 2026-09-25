@@ -3,8 +3,9 @@ import SwiftUI
 
 /// **The slip.** One component, three surfaces.
 ///
-/// A torn piece of paper carrying, in order: the byline (feed only), the dish rows, the words at a
-/// two-line clamp, a small tilted photo cluster, and the foot line. Tapping it opens the entry.
+/// A torn piece of paper carrying, in order: the byline (feed only), the dish rows, the words (whole
+/// in the journal, two lines elsewhere), a small tilted photo cluster, and the foot line. Tapping it
+/// opens the entry; tapping a score pill in the words opens that score's dish.
 ///
 /// `onSave` is what makes it a feed or profile slip: pass it and every dish row grows a bookmark,
 /// because a save is always one dish and never a whole entry (PRODUCT.md decision 7). Pass a
@@ -82,7 +83,12 @@ struct EntrySlip: View {
                 tappable(interactive: interactive, part: "body") {
                     VStack(alignment: .leading, spacing: AteMetrics.slipBandGap) {
                         if slip.words.plain.isEmpty == false {
-                            InlineTokenText(composition: slip.words, style: .slipProse, lineLimit: 2)
+                            InlineTokenText(
+                                composition: slip.words,
+                                style: .slipProse,
+                                lineLimit: slip.wordsLineLimit,
+                                onScoreDish: onDish.map { open in { (dishID: UUID) in open(scoredDish(dishID)) } }
+                            )
                         }
                         if slip.photos.isEmpty == false {
                             PhotoCluster(
@@ -102,6 +108,12 @@ struct EntrySlip: View {
                 footLine(interactive: interactive)
             }
         }
+    }
+
+    /// The dish a score pill in the words points at: the slip's own line for it, or a bare one with
+    /// the id — the dish page needs nothing more, and the pill never exists without a sorted line.
+    private func scoredDish(_ dishID: UUID) -> AteSlip.Dish {
+        slip.dishes.first { $0.dishID == dishID } ?? AteSlip.Dish(id: dishID, dishID: dishID, name: "")
     }
 
     private var hasBody: Bool {

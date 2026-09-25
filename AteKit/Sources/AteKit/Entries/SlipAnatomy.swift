@@ -26,6 +26,18 @@ public enum SlipAnatomy {
         case .feed: dishCount <= feedWordsMaximumDishes
         }
     }
+
+    /// The clamp on the words, where one is printed. The journal is your own record and prints them
+    /// whole (Eamon, 2026-09-26); the feed and a profile are someone else's in a list, and stop at two
+    /// lines with the rest one tap away. `nil` is no clamp.
+    public static let clampedWordLines = 2
+
+    public static func wordsLineLimit(on surface: Surface) -> Int? {
+        switch surface {
+        case .journal: nil
+        case .feed, .profile: clampedWordLines
+        }
+    }
 }
 
 public extension EntryCard.Place {

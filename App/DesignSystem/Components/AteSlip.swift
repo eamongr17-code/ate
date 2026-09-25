@@ -47,6 +47,9 @@ struct AteSlip: Equatable, Identifiable {
     /// The person's own words, with their tokens. Empty when the surface leaves them to the entry
     /// (``SlipAnatomy/showsWords(on:dishCount:)``).
     var words: EntryComposition
+    /// How many lines of the words print before the ellipsis — `nil` prints them whole
+    /// (``SlipAnatomy/wordsLineLimit(on:)``: the journal does, the feed and a profile clamp at two).
+    var wordsLineLimit: Int? = SlipAnatomy.clampedWordLines
     var photos: [AtePhoto]
     /// Who wrote it — present in the feed, absent in your own journal and on their own profile.
     var byline: AteByline?

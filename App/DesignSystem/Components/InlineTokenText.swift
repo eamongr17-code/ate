@@ -18,6 +18,10 @@ struct InlineTokenText: View {
     /// The voice composer's one addition: the offset in the words from which the recogniser is still
     /// changing its mind, drawn muted (`ComposerVoice.dc.html`). `nil` everywhere else.
     var volatileFromPlainOffset: Int?
+    /// A **finished** entry's score pill was tapped: the dish that score belongs to. Only a token the
+    /// sorter resolved carries one (``EntryToken/dishID``) — an unsorted entry's pills, and every
+    /// pill in the composer, stay inert. `nil` makes every pill inert.
+    var onScoreDish: ((UUID) -> Void)?
 
     @Environment(\.displayScale) private var displayScale
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -33,7 +37,9 @@ struct InlineTokenText: View {
             colorScheme: colorScheme,
             volatileFromPlainOffset: volatileFromPlainOffset
         )
-        InlineTokenLabel(composition: composition, attributes: attributes, lineLimit: lineLimit)
+        InlineTokenLabel(
+            composition: composition, attributes: attributes, lineLimit: lineLimit, onScoreDish: onScoreDish
+        )
             // The half-leading under the last line. TextKit puts `lineSpacing` between lines only, so
             // a laid-out paragraph stops at the bottom of its last line's glyphs; in the markup the
             // block is whole line boxes and whatever follows it — a dashed rule, a photo cluster —
@@ -49,9 +55,10 @@ private struct InlineTokenLabel: UIViewRepresentable {
     let composition: EntryComposition
     let attributes: InlineTokenAttributes
     let lineLimit: Int?
+    let onScoreDish: ((UUID) -> Void)?
 
-    func makeUIView(context: Context) -> UILabel {
-        let label = UILabel()
+    func makeUIView(context: Context) -> TokenLabel {
+        let label = TokenLabel()
         label.numberOfLines = lineLimit ?? 0
         // `-webkit-line-clamp` ends a clamped slip with an ellipsis; a label that only clips says
         // nothing about the words it dropped.
@@ -62,8 +69,9 @@ private struct InlineTokenLabel: UIViewRepresentable {
         return label
     }
 
-    func updateUIView(_ label: UILabel, context: Context) {
+    func updateUIView(_ label: TokenLabel, context: Context) {
         label.numberOfLines = lineLimit ?? 0
+        label.onScoreDish = onScoreDish
         let string = NSMutableAttributedString(attributedString: attributes.attributedString(for: composition))
         // A paragraph style in the string beats the label's own `lineBreakMode`, so a clamped slip
         // has to carry the truncation itself — `-webkit-line-clamp` ends on an ellipsis, and a
@@ -82,11 +90,67 @@ private struct InlineTokenLabel: UIViewRepresentable {
 
     /// SwiftUI proposes a width; the label answers with the height its words need in it. Without this
     /// a label in a `VStack` sizes to one line and clips.
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView label: UILabel, context: Context) -> CGSize? {
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView label: TokenLabel, context: Context) -> CGSize? {
         let width = proposal.width ?? UIView.layoutFittingExpandedSize.width
         let size = label.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
         return CGSize(width: width, height: size.height)
     }
+}
+
+/// **A label whose score pills are links.** One tap recogniser, and it only ever *begins* on a pill
+/// that knows its dish — a tap anywhere else in the words is never claimed, so it falls through to
+/// whatever the words sit in (a slip opens its entry, exactly as before).
+final class TokenLabel: UILabel {
+    var onScoreDish: ((UUID) -> Void)? {
+        didSet { isUserInteractionEnabled = onScoreDish != nil }
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tapped(_:))))
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    @objc private func tapped(_ recogniser: UITapGestureRecognizer) {
+        guard let dishID = dishID(at: recogniser.location(in: self)) else { return }
+        onScoreDish?(dishID)
+    }
+
+    /// UIKit asks the touched view about every recogniser in play, its own and its ancestors'. Only
+    /// its own is refused off a pill; the rest are none of its business.
+    override func gestureRecognizerShouldBegin(_ recogniser: UIGestureRecognizer) -> Bool {
+        guard recogniser.view === self else { return super.gestureRecognizerShouldBegin(recogniser) }
+        return onScoreDish != nil && dishID(at: recogniser.location(in: self)) != nil
+    }
+
+    /// The dish behind the score pill under `point`, laid out the way the label lays itself out.
+    private func dishID(at point: CGPoint) -> UUID? {
+        guard let text = attributedText, text.length > 0, bounds.isEmpty == false else { return nil }
+        let storage = NSTextStorage(attributedString: text)
+        let layout = NSLayoutManager()
+        let container = NSTextContainer(size: CGSize(width: bounds.width, height: .greatestFiniteMagnitude))
+        container.lineFragmentPadding = 0
+        container.maximumNumberOfLines = numberOfLines
+        container.lineBreakMode = lineBreakMode
+        layout.addTextContainer(container)
+        storage.addLayoutManager(layout)
+        // A label centres its text in any height it is given beyond what the text needs.
+        let used = layout.usedRect(for: container)
+        let local = CGPoint(x: point.x, y: point.y - max(0, (bounds.height - used.height) / 2))
+        let glyph = layout.glyphIndex(for: local, in: container)
+        let rect = layout.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: container)
+        // A finger is wider than a pill's edge; a few points of slack, never a neighbouring word's worth.
+        guard rect.insetBy(dx: -Self.slack, dy: -Self.slack).contains(local) else { return nil }
+        let index = layout.characterIndexForGlyph(at: glyph)
+        guard index < text.length,
+              let box = text.attribute(.ateToken, at: index, effectiveRange: nil) as? TokenBox,
+              box.token.score != nil else { return nil }
+        return box.token.dishID
+    }
+
+    private static let slack: CGFloat = 4
 }
 
 /// Rasterises a token into an image so it can live inside a text view's attachment — **one** drawing

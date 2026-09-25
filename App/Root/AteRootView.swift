@@ -205,6 +205,7 @@ struct AteShell: View {
             .ignoresSafeArea(.keyboard)
             .ateGround()
             .toolbar(.hidden, for: .navigationBar)
+            .ateSwipeBack()
             .navigationDestination(for: Route.self) { route in
                 destination(route)
                     .toolbar(.hidden, for: .navigationBar)

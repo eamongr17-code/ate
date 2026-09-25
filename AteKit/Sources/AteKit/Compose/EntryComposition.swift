@@ -267,7 +267,9 @@ public struct EntryComposition: Hashable, Codable, Sendable {
     /// Re-scores (or renames) an existing token in place — tapping a token and sliding again.
     public func replacing(tokenID: UUID, with kind: EntryTokenKind) -> EntryComposition {
         guard let existing = spans.first(where: { $0.token.id == tokenID }) else { return self }
-        let token = EntryToken(id: tokenID, kind: kind)
+        // The token keeps its identity and whatever it points at — only what it says changes.
+        var token = existing.token
+        token.kind = kind
         let stripped = applyingPlainEdit(replacing: existing.span, with: token.plainText)
         let span = TextSpan(location: existing.span.location, length: token.plainText.utf16.count)
         return EntryComposition(

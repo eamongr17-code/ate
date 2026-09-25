@@ -242,7 +242,8 @@ struct EntryScreen: View {
     @ViewBuilder
     private var words: some View {
         if model.composition.plain.isEmpty == false {
-            InlineTokenText(composition: model.composition, style: .proseLarge)
+            // A score pill is a link to its dish, exactly as a line of the bill is.
+            InlineTokenText(composition: model.composition, style: .proseLarge, onScoreDish: onDish)
                 .accessibilityIdentifier("entry.words")
         }
     }

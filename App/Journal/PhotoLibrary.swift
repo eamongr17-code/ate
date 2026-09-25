@@ -12,7 +12,7 @@ protocol AtePhotoLibrary {
     var isAuthorized: Bool { get }
     /// Asks — only ever from `Suggestions`, never at launch.
     func requestAuthorization() async -> Bool
-    /// Recent photos, newest first. Empty when there is no permission.
+    /// Recent photos **of food**, newest first. Empty when there is no permission.
     func recent() async -> [PhotoSuggestionItem]
     func thumbnail(id: String, side: CGFloat) async -> Image?
     /// The bytes the composer stages, at the size it keeps.
@@ -22,6 +22,17 @@ protocol AtePhotoLibrary {
 /// The real one.
 @MainActor
 final class SystemPhotoLibrary: AtePhotoLibrary {
+    /// Only meals are offered: every recent photo is classified on the device, once
+    /// (``FoodPhotoFilter``), and the verdicts are kept between launches.
+    private let food = FoodPhotoFilter(verdicts: FoodPhotoVerdicts.load()) {
+        await FoodPhotoClassifier.labels(forAssetID: $0)
+    }
+    private let analytics: AnalyticsRecorder
+
+    init(analytics: @escaping AnalyticsRecorder = AteTelemetry.record) {
+        self.analytics = analytics
+    }
+
     var isAuthorized: Bool {
         switch PHPhotoLibrary.authorizationStatus(for: .readWrite) {
         case .authorized, .limited: true
@@ -42,11 +53,27 @@ final class SystemPhotoLibrary: AtePhotoLibrary {
         options.fetchLimit = 120
         let result = PHAsset.fetchAssets(with: options)
         var items: [PhotoSuggestionItem] = []
+        // Only what `Suggestions` could show is worth classifying: the window it looks back over.
+        let since = Date().addingTimeInterval(-PhotoSuggestions.window)
         result.enumerateObjects { asset, _, _ in
-            guard let created = asset.creationDate else { return }
+            guard let created = asset.creationDate, created >= since else { return }
             items.append(PhotoSuggestionItem(id: asset.localIdentifier, createdAt: created))
         }
+        #if targetEnvironment(simulator)
+        // Vision's classifier does not run on the simulator (no Neural Engine: "Failed to create
+        // espresso context", and the CPU fallback returns the same labels for every image), so a
+        // simulator offers every recent photo rather than none. The rule itself is tested in AteKit.
         return items
+        #else
+        let filtered = await food.filter(items)
+        if filtered.newlyClassified > 0 {
+            // Only the window's verdicts are kept: a photo that has aged out is never asked about.
+            let ids = Set(items.map(\.id))
+            FoodPhotoVerdicts.save(await food.knownVerdicts.filter { ids.contains($0.key) })
+            analytics(EntryEvents.suggestionFiltered(count: filtered.dropped, kept: filtered.kept.count))
+        }
+        return filtered.kept
+        #endif
     }
 
     func thumbnail(id: String, side: CGFloat) async -> Image? {

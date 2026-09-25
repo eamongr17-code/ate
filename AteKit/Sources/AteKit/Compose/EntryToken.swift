@@ -65,10 +65,15 @@ public enum EntryTokenKind: Hashable, Codable, Sendable {
 public struct EntryToken: Identifiable, Hashable, Codable, Sendable {
     public let id: UUID
     public var kind: EntryTokenKind
+    /// The dish a **finished** entry's score token belongs to — the sorted line it was read from, so
+    /// tapping the pill can open that dish's page. `nil` in the composer, in a draft, and on any
+    /// entry the sorter has not resolved: those pills go nowhere, rather than somewhere guessed.
+    public var dishID: UUID?
 
-    public init(id: UUID = UUID(), kind: EntryTokenKind) {
+    public init(id: UUID = UUID(), kind: EntryTokenKind, dishID: UUID? = nil) {
         self.id = id
         self.kind = kind
+        self.dishID = dishID
     }
 
     public var plainText: String { kind.plainText }
