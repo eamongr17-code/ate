@@ -1,6 +1,6 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0034` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0035` define it. Forward-only; applied migrations
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
 account deletion **0032**; **every entry public 0033** (public/private removed); signed-out browse **0034**.
@@ -80,7 +80,7 @@ only — real reports are never rewritten to validate it). The RPCs lower-case +
 
 ### `profiles` — changed (0018)
 Additive: `entry_seq` int (the order-number counter; never client-writable), `city` text (under the handle on You/Profile). `username` is `citext UNIQUE` — the handle.
-`delete_account()` (0032) deletes the auth user; FK cascades take every personal row, the catalogue stays (`dishes.created_by_user_id` → NULL). New users: `handle_new_user` never raises; no usable email ⇒ handle `ate<8 hex>`.
+`delete_account()` deletes the auth user; FK cascades take every personal row (verified, else it RAISES — 0035), the catalogue stays. `handle_new_user` always leaves a profile (handle `ate<hex>` when no usable email). `deleted_at` hides a profile from everyone but its owner (0035).
 
 ## Unchanged from Wave 0
 
@@ -162,7 +162,7 @@ nine RPCs that dispatch on `current_user = 'anon'` to DEFINER twins in the unexp
 | `entries` | own, or not blocked (0033) | self | self (cols `body, visibility` only) | self |
 | `entry_photos` | parent entry visible | parent entry is own | own | own |
 | `reviews` | own, or not blocked (0033) | author | author | author |
-| `profiles` | self, or not blocked | self | self | — (`delete_account()` RPC, 0032) |
+| `profiles` | self, or (not deactivated AND not blocked) | self | self | — (`delete_account()` RPC) |
 | `saves` | own | own | own | own |
 | `blocks` | rows you created | self as blocker | — | self as blocker |
 | `reports` | own | self | — | — |
@@ -194,7 +194,7 @@ their own `score`/`note` — the sanctioned path, recorded by the correction tri
 | 0026–0028 | `entry_photo_covers.sql` · `unsave_entry_dishes.sql` · `report_reason.sql` | covers see `entry_photos`; `cover_url` on saved + receipt lines; `unsave_entry_dishes`; `reports_reason_ck` (NOT VALID) |
 | 0029 | `detail_you_reads.sql` | the Place/Dish/You/Ratings/Recap audit: `place_locality`, `dish_photos`; `place_summary` + `locality`/`entry_count`; `dish_summary` + `photos`/`restaurant_locality`; `dishes_by_score` + `cover_url` + cursor; cursors on `place_dishes`/`statement_months`; `profile_summary` counts lines by `reviewer_id`; `monthly_statement` + `username`, no x1 "most ordered" |
 | 0030 | `place_dishes_order.sql` | "what to order" becomes the ported `DishRanking` order (review_count desc → score desc nulls last → name → id), never-logged dishes excluded, keyset rewritten to match (`p_cursor_people` → `p_cursor_review_count`) |
-| 0031 | `search_scopes.sql` | `unaccent` + `search_key`/`search_pattern`/`search_tier` + folded-name trigram indexes; `search_places`/`search_dishes`/`search_people`/`search_saved`/`nearby_places`; `search_all` accent-folded, place subtitle via `place_locality` |
-| 0032 | `apple_auth_account_blocks.sql` | `handle_new_user` Apple-safe (NULL email, relay address, never raises); `delete_account()` (App Store 5.1.1(v)); `my_blocks()` |
+| 0031–0032 | `search_scopes.sql` · `apple_auth_account_blocks.sql` | Search scopes + `search_key` accent fold + `nearby_places`; Apple-safe `handle_new_user`, `delete_account()`, `my_blocks()` |
 | 0033 | `entries_always_public.sql` | **flips every private entry public (prod data)**, undo list in `entries_private_before_0033`; trigger pins `public`; `entries`/`reviews` SELECT = own or not blocked; feed drops its filter; total feed index |
 | 0034 | `signed_out_browse.sql` | anon EXECUTE on the 9 browse reads (feed, place ×3, dish ×3, profile ×2); plpgsql dispatch → `browse.*` DEFINER; no table grant |
+| 0035 | `account_integrity.sql` | `delete_account` atomic + verified (raises, never a false ok); `handle_new_user` always leaves a profile; deactivated profiles hidden (policy + browse twins) |

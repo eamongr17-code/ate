@@ -158,6 +158,9 @@ struct BrowseContractTests {
                 "p_dish_id": StagingRPC.id(dishID), "p_source_entry_id": StagingRPC.id(someEntry.id)
             ])
         }
+        await #expect(throws: (any Error).self, "anon cannot delete an account") {
+            try await client.callRPC("delete_account")
+        }
         // Search is signed-in only.
         await #expect(throws: (any Error).self, "anon cannot search") {
             let _: [SearchPlaceRow] = try await StagingRPC.rows(client, "search_places", ["p_query": .string("pizza")])

@@ -179,8 +179,9 @@ missing author/place as unavailable rather than crashing on a nil join.
   `profiles.username`/`name`). If `fullName` arrives on the first credential, PATCH `name` from it.
 - **Delete account** (App Store 5.1.1(v)) — in this order: (1) list + delete your objects under
   `review-photos/<uid>/` and `avatars/<uid>/`; (2) `rpc delete_account()` → `{ok, auth_user_deleted}`;
-  (3) sign out locally. `ok` = your data is gone; `auth_user_deleted = false` means the login survived —
-  report it (it needs the admin API). `deactivate_account` is NOT deletion; do not call it.
+  (3) sign out locally. It returns `{ok: true, auth_user_deleted: true}` or **raises, having deleted
+  nothing** (0035) — show an error and let them retry. `deactivate_account` is NOT deletion; do not call it.
+  A deactivated profile (and its entries and lines) is hidden from every other viewer, signed in or out.
 
 ## The sorter (`supabase/functions/sort-entry`)
 
@@ -215,6 +216,9 @@ changes, make it config, do not fork the function. `restaurants.city` is written
 PR, same rule as `place_locality()`); rows written before keep the mangle — read `locality`.
 
 ## Wire-change log
+
+**Behavioural — 0035.** `delete_account` raises instead of a partial `ok`; sign-up always creates a profile
+(or fails whole); deactivated profiles vanish from profile, author, feed, place and dish-review reads.
 
 **Additive — 0034.** anon may EXECUTE the nine browse reads above (401/42501 → rows). Signed-in callers: same
 parameters, columns and query. Client: drop the `requireCurrentUserID()` guard on those reads when browsing.

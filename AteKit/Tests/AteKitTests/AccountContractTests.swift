@@ -129,66 +129,136 @@ struct AccountContractTests {
     }
 }
 
-/// **Account deletion, proved by deleting an account** (`delete_account`, 0032).
+/// **Throwaway accounts on staging: sign-up, deactivation, deletion** (0032, fixed in 0035).
 ///
-/// Separately opt-in — `ATE_ACCOUNT_DELETION_TEST=1` on top of `ATE_CONTRACT_TESTS=1` — for one
-/// reason: it signs a THROWAWAY user up on staging and deletes it. That is legal synthetic data in
-/// staging and nowhere else, but it is a write the ordinary contract run has no business making on
-/// every PR, and it must never be pointed at an account a person uses.
+/// Separately opt-in — `ATE_ACCOUNT_DELETION_TEST=1` on top of `ATE_CONTRACT_TESTS=1` — because each
+/// test signs a THROWAWAY user up on staging (legal synthetic data there, nowhere else) and deletes it
+/// before it finishes, pass or fail. Never pointed at an account a person uses. Needs staging email
+/// confirmations off, so a fresh sign-up returns a session.
 ///
-/// It is the only way to answer the question the RPC's return value exists for: `delete_account`
-/// deletes `auth.users` from a SECURITY DEFINER function, which depends on the function owner's
-/// rights on the auth schema. If that privilege is ever not there, `auth_user_deleted` comes back
-/// `false`, the user's DATA is still gone (the fallback scrubs and deletes it) but the account can
-/// still be signed into — and we owe it an edge function using `auth.admin.deleteUser`. Run this once
-/// per environment after 0032 applies; a red result here is a decision, not a flake.
+/// - **Sign-up always yields a profile** (`handle_new_user`): the probe asks for a handle that is
+///   already taken (the demo account's), and must still get a profile, under a different handle.
+/// - **Deletion is real or it is an error** (`delete_account`): `{ok: true, auth_user_deleted:
+///   true}`, then the password no longer signs in. The failure branch (auth delete refused) needs the
+///   service role to provoke and is not driven here; 0035 makes it raise, so a regression back to a
+///   silent `ok` would have to change the function this suite calls.
+/// - **A deactivated profile disappears** (0035): before `deactivate_account` the demo viewer and a
+///   signed-out browser both see the probe's profile and entry; after it, neither does, and search
+///   does not find the handle.
 @Suite(
-    "Account deletion — staging probe",
+    "Account lifecycle — staging probe",
     .enabled(if: StagingContract.isEnabled && StagingContract.environmentValue("ATE_ACCOUNT_DELETION_TEST") != nil),
     .serialized
 )
 struct AccountDeletionProbeTests {
+    struct Probe {
+        let client: AteAPIClient
+        let userID: UUID
+        let email: String
+        let password: String
+    }
 
-    @Test("delete_account removes the auth user, the profile and the caller's content")
-    func deleteAccountDeletesTheAccount() async throws {
-        // A throwaway identity, unmistakably synthetic and unique per run.
+    /// A throwaway identity, unmistakably synthetic and unique per run. `data` rides into
+    /// `raw_user_meta_data`, which is what `handle_new_user` derives the handle from.
+    func signUpProbe(requestingHandle handle: String? = nil) async throws -> Probe {
         let tag = UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(12)
         let email = "delete-probe-\(tag)@ate.test"
         let password = "probe-\(tag)"
-
         let supabase = StagingContract.makeClient()
-        let signUp = try await supabase.auth.signUp(email: email, password: password)
-        let userID = signUp.user.id
+        let signUp = try await supabase.auth.signUp(
+            email: email, password: password, data: handle.map { ["username": .string($0)] }
+        )
         try #require(
             signUp.session != nil,
-            """
-            staging returned no session for a fresh sign-up — email confirmations are on, so this \
-            probe cannot act as the throwaway user. Turn them off for staging or run the deletion \
-            check by hand against a user you created in the dashboard.
-            """
+            "staging returned no session for a fresh sign-up — email confirmations are on; turn them off for staging"
         )
-        let client = AteAPIClient(supabase: supabase)
+        return Probe(client: AteAPIClient(supabase: supabase), userID: signUp.user.id, email: email, password: password)
+    }
 
-        // The trigger provisioned a profile (this is also the Apple path's guarantee: an identity
-        // with no name still gets a legal, unique handle).
-        let provisioned = try await client.fetchByIDs(User.self, ids: [userID])
-        #expect(provisioned.count == 1, "handle_new_user must provision a profile, even for a bare identity")
-        #expect(provisioned.first?.username.isEmpty == false)
+    func deleteAccount(_ probe: Probe) async throws -> DeleteAccountResult {
+        try await StagingRPC.value(probe.client, "delete_account")
+    }
 
-        let result: DeleteAccountResult = try await StagingRPC.value(client, "delete_account")
-        #expect(result.ok)
-        #expect(
-            result.authUserDeleted,
-            """
-            delete_account could not delete auth.users — the data is gone but the account can still \
-            be signed into. This needs an edge function calling auth.admin.deleteUser; tell the lead.
-            """
-        )
+    /// Runs `body`, then deletes the probe whatever happened, so a red test never strands a user.
+    func withProbe(
+        requestingHandle handle: String? = nil,
+        _ body: (Probe) async throws -> Void
+    ) async throws {
+        let probe = try await signUpProbe(requestingHandle: handle)
+        do {
+            try await body(probe)
+        } catch {
+            _ = try? await deleteAccount(probe)
+            throw error
+        }
+        _ = try? await deleteAccount(probe)
+    }
 
-        // Signing in again must fail: the account is gone, not deactivated.
+    @Test("a taken handle still yields a profile; delete_account deletes the account or raises")
+    func signUpThenDelete() async throws {
+        let demo = try await StagingContract.Backend.shared.client()
+        let demoID = try await demo.requireCurrentUserID()
+        let taken = try #require(try await demo.fetchByIDs(User.self, ids: [demoID]).first?.username)
+
+        let probe = try await signUpProbe(requestingHandle: taken)
+        let provisioned = try await probe.client.fetchByIDs(User.self, ids: [probe.userID])
+        #expect(provisioned.count == 1, "handle_new_user must ALWAYS leave a profile (0035)")
+        #expect(provisioned.first.map { $0.username.lowercased() != taken.lowercased() } == true)
+
+        let result = try await deleteAccount(probe)
+        #expect(result.ok && result.authUserDeleted, "0035: success is total, anything else raises")
+
         let fresh = StagingContract.makeClient()
-        await #expect(throws: (any Error).self) {
-            _ = try await fresh.auth.signIn(email: email, password: password)
+        await #expect(throws: (any Error).self, "the account is gone, not deactivated") {
+            _ = try await fresh.auth.signIn(email: probe.email, password: probe.password)
+        }
+    }
+
+    @Test("a deactivated profile and its entries vanish for signed-in and signed-out readers")
+    func deactivatedProfileIsHidden() async throws {
+        let demo = try await StagingContract.Backend.shared.client()
+        let anon = AteAPIClient(supabase: StagingContract.makeClient())
+
+        try await withProbe { probe in
+            let handle = try #require(try await probe.client.fetchByIDs(User.self, ids: [probe.userID]).first?.username)
+            try await probe.client.supabase.from("entries").insert([
+                "id": UUID().uuidString.lowercased(),
+                "author_id": probe.userID.uuidString.lowercased(),
+                "body": "deactivation probe"
+            ]).execute()
+
+            func profile(_ reader: AteAPIClient) async throws -> [ProfileSummary] {
+                try await StagingRPC.rows(reader, "profile_summary", ["p_user_id": StagingRPC.id(probe.userID)])
+            }
+            func entries(_ reader: AteAPIClient) async throws -> [EntryCard] {
+                try await StagingRPC.rows(reader, "get_entries_by_author", [
+                    "p_author_id": StagingRPC.id(probe.userID),
+                    "p_cursor_created_at": .null, "p_cursor_id": .null, "p_page_size": .integer(10)
+                ])
+            }
+            func found(_ reader: AteAPIClient) async throws -> Bool {
+                let rows: [SearchPersonRow] = try await StagingRPC.rows(
+                    reader, "search_people", ["p_query": .string(handle), "p_limit": .integer(50)]
+                )
+                return rows.contains { $0.userID == probe.userID }
+            }
+
+            // Visible first — otherwise "hidden" below would prove nothing.
+            for reader in [demo, anon] {
+                #expect(try await profile(reader).count == 1)
+                #expect(try await entries(reader).count == 1)
+            }
+            #expect(try await found(demo))
+
+            try await probe.client.callRPC("deactivate_account")
+
+            for reader in [demo, anon] {
+                #expect(try await profile(reader).isEmpty, "a deactivated profile has no header")
+                #expect(try await entries(reader).isEmpty, "a deactivated profile's entries are gone")
+            }
+            #expect(try await found(demo) == false, "search must not find a deactivated handle")
+            // The owner still sees themselves (and can still delete the account).
+            #expect(try await profile(probe.client).count == 1)
         }
     }
 }
