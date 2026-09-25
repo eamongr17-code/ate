@@ -5,7 +5,6 @@ public struct NewEntryRequest: Sendable, Hashable {
     public let id: UUID
     /// The words, verbatim. `""` is legal.
     public let body: String
-    public let visibility: EntryVisibility
     /// Only when they named or tapped a place.
     public let restaurantID: UUID?
     /// Absolute paths to the staged JPEGs, in the order they print.
@@ -17,7 +16,6 @@ public struct NewEntryRequest: Sendable, Hashable {
     public init(
         id: UUID,
         body: String,
-        visibility: EntryVisibility,
         restaurantID: UUID?,
         photoPaths: [String],
         createdAt: Date,
@@ -26,7 +24,6 @@ public struct NewEntryRequest: Sendable, Hashable {
     ) {
         self.id = id
         self.body = body
-        self.visibility = visibility
         self.restaurantID = restaurantID
         self.photoPaths = photoPaths
         self.createdAt = createdAt
@@ -93,7 +90,6 @@ public struct EntrySubmission: Sendable {
             id: request.id,
             authorID: authorID,
             body: request.body,
-            visibility: request.visibility,
             restaurantID: request.restaurantID,
             createdAt: request.createdAt
         )
@@ -178,7 +174,6 @@ public struct EntrySubmission: Sendable {
             photoCount: request.photoPaths.count,
             hasPlace: request.restaurantID != nil,
             scoreCount: request.scoreCount,
-            isPublic: request.visibility.isPublic,
             secondsFromOpen: request.secondsFromOpen,
             wasQueued: queued
         )
@@ -192,7 +187,7 @@ public struct EntrySubmission: Sendable {
             id: entry.id,
             authorID: entry.authorID,
             body: entry.body,
-            visibility: entry.visibility,
+            visibility: .public,
             restaurantID: entry.restaurantID,
             restaurantSource: entry.restaurantID == nil ? nil : "user",
             orderNumber: 0,

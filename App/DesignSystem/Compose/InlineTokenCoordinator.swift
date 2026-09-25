@@ -32,6 +32,8 @@ extension InlineTokenEditor {
         /// The last token this editor promoted, kept so a *redo* of that promotion can put the pill
         /// back rather than leaving a bare placeholder for ``normaliseTokens(in:)`` to delete.
         private var lastPromotedToken: EntryToken?
+        /// Every document this editor has written, so undo or redo landing back on one gets its pills.
+        private var rendered = RenderedTokenHistory()
 
         private var style: AteTextStyle { typography.style }
         private var palette: AtePalette { typography.palette }
@@ -82,13 +84,20 @@ extension InlineTokenEditor {
             /// False when the host already holds this composition (a render), true when the edit
             /// originated here (a promotion) and the host has to be told.
             var updatesBinding: Bool
+            /// A render re-asserts the words' attributes over the **whole** document, not just the run
+            /// it wrote — the typography may be what changed. Attributes only, so it disturbs nothing
+            /// UIKit has registered for undo.
+            var restylesAll = false
         }
 
         private func write(_ edit: StorageEdit, in view: InlineTokenTextView) {
             let beforeCaret = view.selectedRange.location
             isRendering = true
 
-            if let textRange = view.textRange(for: edit.range) {
+            let isNoOp = edit.range.length == 0 && edit.text.isEmpty
+            if isNoOp {
+                // Nothing to write (a re-score, a palette change): only the attributes below move.
+            } else if let textRange = view.textRange(for: edit.range) {
                 // `replace(_:withText:)` inserts PLAIN text under whatever the view's typing
                 // attributes are. Setting them afterwards is one render too late: a draft restored
                 // into a view that is already on screen came in as the system's Helvetica instead
@@ -107,7 +116,11 @@ extension InlineTokenEditor {
                     NSAttributedString(string: edit.text, attributes: baseAttributes())
                 )
             }
+            if edit.restylesAll, view.textStorage.length > 0 {
+                view.textStorage.addAttributes(baseAttributes(), range: NSRange(0..<view.textStorage.length))
+            }
             attach(edit.tokens, in: view)
+            rendered.remember(composition(from: view), as: view.textStorage.string)
 
             let length = view.textStorage.length
             let caret = min(max(0, edit.caret ?? beforeCaret), length)
@@ -150,14 +163,19 @@ extension InlineTokenEditor {
         /// belongs to the model change that set it, and the host keeps holding it afterwards; obeying
         /// it a second time drops the person back where they were several words ago, and the rest of
         /// what they type lands inside their own sentence.
+        ///
+        /// **Only what changed is written** (``DisplayEdit``): a whole-document replace made undo of a
+        /// dictation bring every *other* pill back as an orphaned placeholder, which was then deleted.
         func render(_ composition: EntryComposition, revision: Int, caret: Int?, into view: InlineTokenTextView) {
             let isNewComposition = revision != renderedRevision
+            let edit = DisplayEdit.between(view.textStorage.string, composition.displayString)
             write(StorageEdit(
-                text: composition.displayString,
-                range: NSRange(location: 0, length: view.textStorage.length),
+                text: edit.replacement,
+                range: edit.span.nsRange,
                 tokens: composition.displaySpans,
                 caret: isNewComposition ? caret : nil,
-                updatesBinding: false
+                updatesBinding: false,
+                restylesAll: true
             ), in: view)
             renderedRevision = revision
             renderedTypography = typography
@@ -310,6 +328,19 @@ extension InlineTokenEditor {
                 }
             }
             guard stray.isEmpty == false || orphans.isEmpty == false else { return }
+
+            // Undo or redo landed the text view back on words it has held before: put back the pills
+            // that were in them. This is what makes *redo* of a dictation bring its score pills back
+            // rather than deleting their placeholders.
+            if orphans.isEmpty == false, stray.isEmpty, let known = rendered.tokens(for: storage.string) {
+                isRendering = true
+                let caret = view.selectedRange
+                attach(known, in: view)
+                view.selectedRange = caret
+                view.typingAttributes = baseAttributes()
+                isRendering = false
+                return
+            }
 
             // One orphan and a promotion whose token is nowhere in the storage: this is that
             // promotion coming back.

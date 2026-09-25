@@ -32,6 +32,8 @@ struct AteServices {
     let placePages: any PlacePageReading
     /// The dish page's reads.
     let dishPages: any DishPageReading
+    /// The Search tab's four scopes and its Nearby list — the keyset-paged scope RPCs (0031).
+    let search: any SearchReading
     /// The one place a bookmark's new state is announced. Everything that draws one listens, so a
     /// save made on an entry page is already true on the feed and the profile underneath it.
     let savedDishes = SavedDishBroadcast()
@@ -39,8 +41,13 @@ struct AteServices {
     let outbox: EntryOutbox
     /// The camera roll, behind a seam — `Suggestions` and the composer's photo staging.
     let photos: any AtePhotoLibrary
-    /// Present in Debug and Beta pointed at staging; `nil` everywhere else. Sign in with Apple is
-    /// milestone 2 — until it lands this is the only way into a session.
+    /// Your own account: the handle, the photo, the blocked list, sign out and delete.
+    let account: any AccountServing
+    /// The phone's own preferences — the appearance, and who still owes a handle. One object for
+    /// the whole app, so the root that paints the appearance and the page that changes it agree.
+    let preferences: AtePreferences
+    /// Present in Debug and Beta pointed at staging; `nil` everywhere else. The seeded demo account,
+    /// for drives and for internal builds while staging has no Apple provider.
     let debugSignIn: DebugStagingSignIn?
     /// True when the loop is running against the in-memory service rather than a backend.
     let isPreviewData: Bool
@@ -50,11 +57,22 @@ struct AteServices {
         self.environment = environment
         self.api = api
         self.analytics = AteTelemetry.record
-        self.drafts = EntryDraftStore()
         self.debugSignIn = DebugStagingSignIn.make(for: environment, api: api)
 
         let preview = Self.previewServices()
         self.isPreviewData = preview != nil
+        // Whose draft and whose queued entries: the signed-in user, read at every use, so nothing one
+        // person leaves on this phone is resumed or posted as the next one. The preview drive has no
+        // session, so it is one fixed person.
+        let owner: @Sendable () -> UUID?
+        if preview == nil {
+            owner = { [api] in api.currentUserID }
+        } else {
+            let fixed = Self.previewOwner
+            owner = { fixed }
+        }
+        let drafts = EntryDraftStore(owner: owner)
+        self.drafts = drafts
         self.entries = preview?.entries ?? SupabaseEntryService(api: api)
         self.places = preview?.places ?? PlaceDirectoryClient(api: api)
         self.photos = preview?.photos ?? SystemPhotoLibrary()
@@ -64,13 +82,20 @@ struct AteServices {
         self.stats = preview?.stats ?? StatsClient(api: api)
         self.placePages = preview?.placePages ?? PlacePageClient(api: api)
         self.dishPages = preview?.dishPages ?? DishPageClient(api: api)
-        self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record)
+        self.search = preview?.search ?? SearchClient(api: api)
+        self.account = preview?.account ?? AccountClient(api: api)
+        self.preferences = AtePreferences.standard
+        self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record, owner: owner)
+        if api.isSignedIn || preview != nil { drafts.adoptUnownedDraft() }
     }
 
     /// The save path, as one value: insert, photos, sort, with the outbox behind it.
     var submission: EntrySubmission {
         EntrySubmission(entries: entries, outbox: outbox, analytics: analytics)
     }
+
+    /// The one person a `-ate-preview-data` drive is signed in as.
+    nonisolated static let previewOwner = UUID(uuidString: "00000000-0000-4000-8000-00000000A7E0")!
 
     /// True when there is a session token on hand. Cheap and synchronous — it may be expired, which
     /// the first real request resolves.
@@ -96,6 +121,8 @@ struct AteServices {
         /// drive cannot show a dish page that disagrees with the feed it was opened from.
         let placePages: any PlacePageReading
         let dishPages: any DishPageReading
+        let search: any SearchReading
+        let account: any AccountServing
     }
 
     private static func previewServices() -> PreviewServices? {
@@ -113,7 +140,7 @@ struct AteServices {
         return PreviewServices(
             entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
             feed: social, saves: social, profiles: social, stats: InMemoryStatsService(),
-            placePages: social, dishPages: social
+            placePages: social, dishPages: social, search: social, account: InMemoryAccountService()
         )
         #else
         return nil

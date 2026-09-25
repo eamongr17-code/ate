@@ -14,6 +14,8 @@ public enum SaveSource: String, Sendable, CaseIterable, Codable {
     case place
     /// A dish page — the one bookmark in its top bar.
     case dish
+    /// The Search tab's Saved segment — the shelf's own row, found by typing.
+    case search
 }
 
 /// **The feed and the save loop's funnel.** Built here so the names and parameters are asserted by

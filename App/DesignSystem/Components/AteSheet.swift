@@ -61,6 +61,8 @@ struct AteSearchField: View {
     var height: CGFloat = AteMetrics.fieldHeight
     var horizontalPadding: CGFloat = AteMetrics.loose
     var background: Color?
+    /// 600 in a sheet, 500 in `Search` — the two artboards differ, so the field takes its voice.
+    var textStyle: AteTextStyle = .rowTitle
 
     @Environment(\.atePalette) private var palette
 
@@ -70,7 +72,7 @@ struct AteSearchField: View {
             TextField(text: $text) {
                 Text(prompt).foregroundStyle(palette.muted)
             }
-            .ateText(.rowTitle)
+            .ateText(textStyle)
             .textFieldStyle(.plain)
             .foregroundStyle(palette.fg)
             .submitLabel(.search)
