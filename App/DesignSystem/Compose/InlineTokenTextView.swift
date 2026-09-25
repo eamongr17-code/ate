@@ -2,12 +2,28 @@ import AteKit
 import SwiftUI
 import UIKit
 
-/// A `UITextView` with a placeholder and a plain-text pasteboard.
+/// `Composer.dc.html`'s `.caret`, in points at the 19pt prose it is drawn in.
+enum CaretMetrics {
+    static let designProse: CGFloat = 19
+    /// `width:2px`.
+    static let width: CGFloat = 2
+    /// `height:22px`.
+    static let height: CGFloat = 22
+    /// `vertical-align:-4px`: how far the caret's foot hangs below the baseline.
+    static let drop: CGFloat = 4
+    /// `margin-left:1px`.
+    static let gap: CGFloat = 1
+}
+
+/// A `UITextView` with a placeholder, a plain-text pasteboard, and the design's caret.
 final class InlineTokenTextView: UITextView {
     let placeholderLabel = UILabel()
     weak var coordinator: InlineTokenEditor.Coordinator?
     /// Raise the keyboard the moment the editor is in a window.
     var focusesOnAppear = false
+    /// Something is laid over the editor that takes the place of the keyboard — `ComposerVoice`. No
+    /// focus attempt may raise the keyboard over it, including the retries of the first one.
+    var isFocusSuspended = false
     private var hasFocusedOnAppear = false
 
     /// `becomeFirstResponder()` in `makeUIView` is too early — the view has no window yet and the
@@ -25,7 +41,7 @@ final class InlineTokenTextView: UITextView {
     }
 
     func focusWhenAllowed(attemptsRemaining: Int = 12) {
-        guard isFirstResponder == false else { return }
+        guard isFirstResponder == false, isFocusSuspended == false else { return }
         if becomeFirstResponder() { return }
         guard attemptsRemaining > 0 else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
@@ -47,6 +63,69 @@ final class InlineTokenTextView: UITextView {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not used") }
+
+    // MARK: - The caret
+
+    /// **The caret `Composer.dc.html` draws**: `width:2px; height:22px; margin-left:1px;
+    /// vertical-align:-4px` in 19pt prose — two points wide, a point clear of the last glyph, and
+    /// hung off the **baseline**: four points below it, eighteen above.
+    ///
+    /// UIKit's own caret is not hung off anything the design can name. It is the height of the font's
+    /// box plus a share of the clamped line box, so it ran from 20 above the baseline to 6.7 below —
+    /// 26.7 tall, dropping under the words and the pills beside it on every line — and in the empty
+    /// composer it sat half a line below the placeholder it was meant to start. Measured on the
+    /// iPhone 17e simulator; see the lane's before/after captures.
+    ///
+    /// Everything scales with the prose size, so a reader at a larger text size gets the same caret in
+    /// proportion.
+    override func caretRect(for position: UITextPosition) -> CGRect {
+        let system = super.caretRect(for: position)
+        guard system.isNull == false, system.isInfinite == false,
+              let font = typingAttributes[.font] as? UIFont else { return system }
+        let em = font.pointSize / CaretMetrics.designProse
+        guard let baseline = baseline(near: system, font: font) else { return system }
+        return CGRect(
+            x: system.minX + CaretMetrics.gap * em,
+            y: baseline - (CaretMetrics.height - CaretMetrics.drop) * em,
+            width: CaretMetrics.width,
+            height: CaretMetrics.height * em
+        )
+    }
+
+    /// The baseline of the line the system caret is on, read off TextKit 2's own line fragments — the
+    /// same geometry the glyphs were drawn with, so the caret and the words cannot disagree.
+    private func baseline(near caret: CGRect, font: UIFont) -> CGFloat? {
+        guard textStorage.length > 0 else { return emptyBaseline(font: font) }
+        guard let layout = textLayoutManager else { return nil }
+        let origin = CGPoint(x: textContainerInset.left, y: textContainerInset.top)
+        var best: (distance: CGFloat, baseline: CGFloat)?
+        layout.enumerateTextLayoutFragments(
+            from: layout.documentRange.location,
+            options: [.ensuresLayout]
+        ) { fragment in
+            let frame = fragment.layoutFragmentFrame
+            // Past the caret's line and then some: nothing further down can be closer.
+            if frame.minY + origin.y > caret.maxY + font.pointSize * 2 { return false }
+            for line in fragment.textLineFragments {
+                let top = frame.minY + origin.y + line.typographicBounds.minY
+                let bottom = frame.minY + origin.y + line.typographicBounds.maxY
+                let distance = caret.midY < top ? top - caret.midY
+                    : caret.midY > bottom ? caret.midY - bottom : 0
+                let baseline = top + line.glyphOrigin.y
+                if best.map({ distance < $0.distance }) ?? true { best = (distance, baseline) }
+            }
+            return true
+        }
+        return best?.baseline
+    }
+
+    /// No words yet, so no line to read: where the first line's baseline *will* be — the floor of the
+    /// clamped line box, less the font's descent, which is exactly how TextKit sets the first line.
+    private func emptyBaseline(font: UIFont) -> CGFloat {
+        let paragraph = typingAttributes[.paragraphStyle] as? NSParagraphStyle
+        let line = max(paragraph?.minimumLineHeight ?? 0, font.lineHeight)
+        return textContainerInset.top + line + font.descender
+    }
 
     /// Copying a token must yield its WORDS. Without this, a pill on the pasteboard is a `U+FFFC` and
     /// pasting a review into Messages loses the score entirely.

@@ -69,7 +69,7 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
                 id: entry.id,
                 authorID: entry.authorID,
                 body: entry.body,
-                visibility: entry.visibility,
+                visibility: .public,
                 restaurantID: entry.restaurantID,
                 restaurantSource: entry.restaurantID == nil ? nil : "user",
                 orderNumber: nextOrderNumber,
@@ -189,13 +189,6 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
                 }
                 entries[index] = card.replacing(items: items)
             }
-        }
-    }
-
-    public func setVisibility(entryID: UUID, visibility: EntryVisibility) async throws {
-        lock.withLock {
-            guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return }
-            entries[index] = entries[index].replacing(visibility: visibility)
         }
     }
 

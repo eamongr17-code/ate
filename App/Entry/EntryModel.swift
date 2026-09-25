@@ -244,13 +244,10 @@ final class EntryModel: SavedDishObserving {
         state = EntryPresentation.state(for: updated, handle: handle)
     }
 
-    func toggleVisibility() async {
-        guard let card else { return }
-        let next: EntryVisibility = card.visibility.isPublic ? .private : .public
-        self.card = card.replacing(visibility: next)
-        try? await services.entries.setVisibility(entryID: card.id, visibility: next)
-        await reload()
-    }
+    /// Every entry is public now (Eamon, 2026-09-25; the server forces it, 0033), so there is nothing
+    /// to write. Kept only because `EntryScreen`'s visibility key still calls it until the design
+    /// lane removes that key — delete this with it.
+    func toggleVisibility() async {}
 
     /// The receipt's header: `correct_entry_place`. Re-resolves every line at the new place — or
     /// prints the parked plan, if the entry had none.

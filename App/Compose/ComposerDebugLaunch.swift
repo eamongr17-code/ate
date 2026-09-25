@@ -58,9 +58,36 @@ enum ComposerDebugLaunch {
     /// this instead. Debug *and* behind an argument, so it does not exist in any build anyone runs.
     static let undoDriveArgument = "-ate-undo-drive"
 
+    /// Parks the caret straight after the seeded draft's first score pill — the place Eamon saw the
+    /// caret drawn wrong, and not one a shell can tap to.
+    static let caretAfterTokenArgument = "-ate-caret-after-token"
+
+    /// Opens `ComposerVoice` over the composer, on a draft holding the artboard's opening words.
+    static let voiceArgument = "-ate-open-voice"
+    /// Dictation from a script instead of a microphone (``FakeVoiceTranscriber``) — the simulator has
+    /// none. Implied by ``voiceArgument``.
+    static let fakeDictationArgument = "-ate-fake-dictation"
+    /// …and refuses, for the permission-denied state.
+    static let denyDictationArgument = "-ate-deny-dictation"
+    /// A camera capture without a camera: the artboard's ragù lands through the camera key's own path.
+    static let fakeCameraArgument = "-ate-fake-camera"
+
+    /// Lets the scripted dictation finish, closes the microphone, then runs the text view's own undo —
+    /// and, with ``voiceRedoArgument``, its redo. The one way to watch "undo across a dictation" on a
+    /// machine that can neither talk nor shake.
+    static let voiceUndoArgument = "-ate-voice-undo"
+    static let voiceRedoArgument = "-ate-voice-redo"
+
     static var isUITesting: Bool { has(uiTestingArgument) }
+    static var drivesVoiceUndo: Bool { has(voiceUndoArgument) || has(voiceRedoArgument) }
+    static var drivesVoiceRedo: Bool { has(voiceRedoArgument) }
+    static var opensVoice: Bool { has(voiceArgument) }
+    static var fakesDictation: Bool { has(fakeDictationArgument) || has(voiceArgument) }
+    static var deniesDictation: Bool { has(denyDictationArgument) }
+    static var fakesCameraCapture: Bool { has(fakeCameraArgument) }
+    static var parksCaretAfterToken: Bool { has(caretAfterTokenArgument) }
     static var drivesUndo: Bool { has(undoDriveArgument) }
-    static var opensComposer: Bool { has(openArgument) }
+    static var opensComposer: Bool { has(openArgument) || has(voiceArgument) || has(fakeCameraArgument) }
     static var opensScoring: Bool { has(scoringArgument) }
     static var opensEntry: Bool { has(entryArgument) || has(shareArgument) }
     static var opensPlaceSheet: Bool { has(placeSheetArgument) }
@@ -85,6 +112,12 @@ enum ComposerDebugLaunch {
         if isUITesting {
             drafts.clear(draftID: drafts.load()?.id)
         }
+        if has(voiceArgument), has(seedArgument) == false {
+            // `ComposerVoice.dc.html` opens on the words typed before the microphone: the place pill
+            // and "with Jess for her birthday." — the rest is what gets said.
+            drafts.save(EntryDraft(composition: .voiceOpeningWords))
+            return
+        }
         guard has(seedArgument) else { return }
         var draft = EntryDraft(composition: .previewWordsWithPlace)
         // …with the artboard's own three photos already staged, so `Composer` can be photographed
@@ -106,6 +139,19 @@ enum ComposerDebugLaunch {
 
     private static func has(_ argument: String) -> Bool {
         ProcessInfo.processInfo.arguments.contains(argument)
+    }
+}
+
+extension EntryComposition {
+    /// `ComposerVoice.dc.html`'s words before anybody spoke.
+    static var voiceOpeningWords: EntryComposition {
+        EntryComposition(
+            plain: "Tipo 00 with Jess for her birthday.",
+            spans: [EntryTokenSpan(
+                token: EntryToken(kind: .place(PlaceRef(id: UUID(), name: "Tipo 00"))),
+                span: TextSpan(location: 0, length: 7)
+            )]
+        )
     }
 }
 #endif

@@ -55,7 +55,6 @@ public struct QueuedInsert: Sendable, Hashable, Codable {
     public let id: UUID
     public let authorID: UUID
     public let body: String
-    public let visibility: EntryVisibility
     public let restaurantID: UUID?
     public let createdAt: Date
 
@@ -63,13 +62,12 @@ public struct QueuedInsert: Sendable, Hashable, Codable {
         self.id = entry.id
         self.authorID = entry.authorID
         self.body = entry.body
-        self.visibility = entry.visibility
         self.restaurantID = entry.restaurantID
         self.createdAt = entry.createdAt
     }
 
     public var newEntry: NewEntry {
-        NewEntry(id: id, authorID: authorID, body: body, visibility: visibility,
+        NewEntry(id: id, authorID: authorID, body: body,
                  restaurantID: restaurantID, createdAt: createdAt)
     }
 }

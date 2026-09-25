@@ -140,14 +140,6 @@ public struct SupabaseEntryService: EntryService {
         _ = try await api.supabase.rpc("correct_entry_dish", params: parameters).execute()
     }
 
-    public func setVisibility(entryID: UUID, visibility: EntryVisibility) async throws {
-        _ = try await api.supabase
-            .from("entries")
-            .update(["visibility": visibility.rawValue], returning: .minimal)
-            .eq("id", value: entryID.uuidString.lowercased())
-            .execute()
-    }
-
     public func updateBody(entryID: UUID, body: String) async throws {
         _ = try await api.supabase
             .from("entries")

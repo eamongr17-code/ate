@@ -5,8 +5,8 @@ import SwiftUI
 /// **The composer's state**, and every rule about how a token gets into the words.
 ///
 /// The words themselves live in ``EntryComposition`` (AteKit, unit-tested); this holds what the
-/// screen needs around them — where the caret is, which token the slider is open on, whether the
-/// entry is public, which photos are attached — and nothing else. The view renders it and calls it.
+/// screen needs around them — where the caret is, which token the slider is open on, which photos are
+/// attached — and nothing else. The view renders it and calls it.
 @MainActor
 @Observable
 final class ComposerModel {
@@ -27,10 +27,6 @@ final class ComposerModel {
     /// Where the caret is now, as the editor reports it.
     var caret = 0
     var scoring: Scoring?
-    /// Per entry, not per account (PRODUCT.md decision 1: public by default, any entry can be private).
-    var isPublic = true {
-        didSet { persist() }
-    }
     /// Up to five, in the order they were picked.
     private(set) var photos: [StagedPhoto] = []
     /// Bumped to pull the keyboard back after the slider or a sheet closes.
@@ -52,7 +48,6 @@ final class ComposerModel {
         if let editing {
             self.draftID = editing.id
             self.composition = Self.composition(for: editing)
-            self.isPublic = editing.isPublic
             self.restaurantID = editing.restaurantID
             self.startedAt = Date()
             let end = Self.composition(for: editing).displayString.utf16.count
@@ -64,7 +59,6 @@ final class ComposerModel {
         let resumed = drafts.load()
         self.draftID = resumed?.id ?? UUID()
         self.composition = resumed?.composition ?? EntryComposition()
-        self.isPublic = resumed?.isPublic ?? true
         self.restaurantID = resumed?.restaurantID
         self.startedAt = resumed?.startedAt ?? Date()
         // Resuming puts the caret after the last thing they wrote, not in front of it: a text view
@@ -80,6 +74,11 @@ final class ComposerModel {
             )
         }
         #if DEBUG
+        if ComposerDebugLaunch.parksCaretAfterToken,
+           let pill = composition.displaySpans.first(where: { $0.token.score != nil }) {
+            caret = pill.span.endLocation
+            caretAfterRender = pill.span.endLocation
+        }
         if ComposerDebugLaunch.opensScoring {
             if let span = composition.spans.first(where: { $0.token.score != nil }) {
                 scoring = Scoring(
@@ -111,7 +110,9 @@ final class ComposerModel {
         EntryDraft(
             id: draftID,
             composition: composition,
-            isPublic: isPublic,
+            // Every entry is public (Eamon, 2026-09-25: public/private is out of the product). The
+            // draft's field stays so drafts already on disk still decode.
+            isPublic: true,
             restaurantID: restaurantID,
             photoFiles: photos.map(\.fileName),
             startedAt: startedAt
@@ -166,7 +167,6 @@ final class ComposerModel {
         NewEntryRequest(
             id: draft.id,
             body: draft.composition.plain,
-            visibility: draft.isPublic ? .public : .private,
             restaurantID: draft.restaurantID,
             photoPaths: draft.photoFiles.map { photoDirectory.appending(path: $0).path() },
             createdAt: draft.startedAt,
@@ -215,9 +215,39 @@ final class ComposerModel {
         focusRequest += 1
     }
 
-    /// Puts the caret back in the words. What the mic key can actually do — see `ComposerScreen`.
+    /// Puts the caret back in the words — after a sheet, the slider, or a spell of dictation.
     func focusEditor() {
         focusRequest += 1
+    }
+
+    // MARK: - The mic key
+
+    /// Where the caret is in the **words**, which is where a dictation starts. The editor reports the
+    /// caret in display offsets; a dictation session works in the plain text, because that is what it
+    /// is stitching into.
+    var caretPlainOffset: Int { composition.plainOffset(forDisplayOffset: caret) }
+
+    /// One transcript's worth of dictation.
+    ///
+    /// The revision is deliberately **not** bumped: the editor is behind the voice screen and does not
+    /// need to re-render for every partial result, and a full-document rewrite per partial would leave
+    /// the person with twenty undo steps for one sentence. The words are on disk either way (the
+    /// `didSet` persists them), and the editor takes them in one edit when dictation ends.
+    func applyDictation(_ update: DictationSession.Update) {
+        composition = update.composition
+        caret = composition.displayOffset(forPlainOffset: update.caretPlainOffset)
+    }
+
+    /// Dictation ended. **One** revision, so the text view makes one `replace(_:withText:)` for the
+    /// whole spell of talking — which is one coherent undo operation, and undoing it gives back exactly
+    /// the sentence that was there before the microphone was opened.
+    ///
+    /// - Parameter refocus: true when the composer is what comes next (the stop button), false when the
+    ///   entry is being saved and the keyboard would only flash.
+    func commitDictation(refocus: Bool) {
+        revision += 1
+        caretAfterRender = caret
+        if refocus { focusRequest += 1 }
     }
 
     // MARK: - The Place key
