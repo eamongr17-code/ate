@@ -50,5 +50,8 @@ struct SlipAnatomyTests {
         #expect(place.suburb == nil)
         let located = "{\"id\":\"B7E00000-0000-4000-8000-000000000001\",\"name\":\"Tipo 00\",\"locality\":\"CBD\"}"
         #expect(try JSONDecoder().decode(EntryCard.Place.self, from: Data(located.utf8)).suburb == "CBD")
+        // 0035 sends `locality: null` for a place it cannot derive one for.
+        let null = "{\"id\":\"B7E00000-0000-4000-8000-000000000001\",\"name\":\"Tipo 00\",\"locality\":null}"
+        #expect(try JSONDecoder().decode(EntryCard.Place.self, from: Data(null.utf8)).suburb == nil)
     }
 }

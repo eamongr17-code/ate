@@ -127,8 +127,8 @@ struct EntryScreen: View {
         .padding(.bottom, AteMetrics.section)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(minHeight: pageMinimumHeight, alignment: .top)
-        .atePaper()
-        .background(AteColor.paper, in: UnevenRoundedRectangle(
+        .ateSlip()
+        .background(AteColor.slip, in: UnevenRoundedRectangle(
             topLeadingRadius: AteMetrics.pageTop,
             bottomLeadingRadius: 0,
             bottomTrailingRadius: 0,
@@ -166,7 +166,7 @@ struct EntryScreen: View {
             }
             .ateText(.receiptLabel)
             // `.lab` is muted by default; the page overrides it to full ink on both of its rows.
-            .foregroundStyle(AtePalette.paper.fg)
+            .foregroundStyle(AtePalette.slip.fg)
         }
     }
 
@@ -230,7 +230,7 @@ struct EntryScreen: View {
             PhotoCollage(
                 photos: model.photos,
                 width: contentWidth,
-                surface: AteColor.paper
+                surface: AteColor.slip
             ) { index in
                 model.viewingPhoto = EntryModel.ViewingPhoto(index: index)
             }

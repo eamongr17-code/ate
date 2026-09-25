@@ -107,7 +107,7 @@ struct EntryBillRow: View {
         HStack(alignment: .firstTextBaseline, spacing: AteMetrics.snug) {
             Text(String(format: "%02d", number))
                 .ateText(.billLine)
-                .foregroundStyle(AtePalette.paper.muted.opacity(isBlank ? 0.5 : 1))
+                .foregroundStyle(AtePalette.slip.muted.opacity(isBlank ? 0.5 : 1))
             if isBlank == false {
                 Text(name)
                     .ateText(.billLine)
@@ -125,7 +125,7 @@ struct EntryBillRow: View {
                     .layoutPriority(1)
             } else {
                 UnscoredMark(side: 14)
-                    .foregroundStyle(AtePalette.paper.muted)
+                    .foregroundStyle(AtePalette.slip.muted)
                     .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 3 }
                     .opacity(isBlank ? 0.35 : 1)
             }
@@ -151,7 +151,7 @@ struct EntryPendingBill: View {
         VStack(alignment: .leading, spacing: AteMetrics.regular) {
             Text(label)
                 .ateText(.receiptLabel)
-                .foregroundStyle(AtePalette.paper.muted)
+                .foregroundStyle(AtePalette.slip.muted)
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(1...3, id: \.self) { number in
                     EntryBillRow(number: number, name: "", isBlank: true)
@@ -185,8 +185,8 @@ struct EntryPendingBill: View {
         }
         .padding(AteMetrics.pagePaddingSide)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .atePaper()
-        .background(AteColor.paper)
+        .ateSlip()
+        .background(AteColor.slip)
         .padding(AteMetrics.pageInset)
     }
     .ateGround()

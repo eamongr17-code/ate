@@ -131,17 +131,17 @@ private struct StatementSkeleton: View {
         VStack(alignment: .leading, spacing: 11) {
             VStack(spacing: AteMetrics.tight) {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(AtePalette.paper.hairline)
+                    .fill(AtePalette.slip.hairline)
                     .frame(width: 78, height: 11)
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(AtePalette.paper.hairline)
+                    .fill(AtePalette.slip.hairline)
                     .frame(width: 186, height: 38)
             }
             .frame(maxWidth: .infinity)
             AteDashedRule()
             ForEach(0..<6, id: \.self) { _ in
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(AtePalette.paper.hairline)
+                    .fill(AtePalette.slip.hairline)
                     .frame(height: 13)
                     .padding(.vertical, 4)
             }
@@ -152,8 +152,8 @@ private struct StatementSkeleton: View {
         .padding(.horizontal, 18)
         .padding(.bottom, AteMetrics.loose + AteMetrics.tornEdgeHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .atePaper()
-        .background(AteColor.paper, in: ReceiptPaper())
+        .ateSlip()
+        .background(AteColor.slip, in: ReceiptPaper())
         .accessibilityHidden(true)
     }
 }

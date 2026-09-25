@@ -123,8 +123,8 @@ struct ReceiptView: View {
         .padding(.top, topPadding)
         .padding(.horizontal, AteMetrics.slipPadding)
         .padding(.bottom, AteMetrics.regular + 2 + AteMetrics.tornEdgeHeight)
-        .atePaper()
-        .background(AteColor.paper, in: ReceiptPaper(topRadius: topRadius))
+        .ateSlip()
+        .background(AteColor.slip, in: ReceiptPaper(topRadius: topRadius))
     }
 
     // MARK: - Bands
@@ -138,7 +138,7 @@ struct ReceiptView: View {
             if let address = receipt.address {
                 Text(address)
                     .ateText(.receiptLabel)
-                    .foregroundStyle(AtePalette.paper.muted)
+                    .foregroundStyle(AtePalette.slip.muted)
             }
         }
         .frame(maxWidth: .infinity)
@@ -164,7 +164,7 @@ struct ReceiptView: View {
                         text: "\"\(note)\"",
                         style: .proseNote,
                         alignment: .leading,
-                        colour: AtePalette.paper.muted
+                        colour: AtePalette.slip.muted
                     )
                     .padding(.leading, 26)
                     .padding(.bottom, 6)
@@ -179,7 +179,7 @@ struct ReceiptView: View {
         let row = HStack(alignment: .firstTextBaseline, spacing: AteMetrics.snug) {
             Text(String(format: "%02d", number))
                 .ateText(.receiptLine)
-                .foregroundStyle(AtePalette.paper.muted)
+                .foregroundStyle(AtePalette.slip.muted)
             Text(item.name)
                 .ateText(.receiptLine)
                 .lineLimit(2)
@@ -228,14 +228,14 @@ struct ReceiptView: View {
             }
         }
         .ateText(.receiptLabel)
-        .foregroundStyle(AtePalette.paper.fg)
+        .foregroundStyle(AtePalette.slip.fg)
     }
 
     private var footer: some View {
         HStack {
             Text(verbatim: "@\(receipt.handle)")
                 .ateText(.receiptLabel)
-                .foregroundStyle(AtePalette.paper.fg)
+                .foregroundStyle(AtePalette.slip.fg)
             Spacer(minLength: AteMetrics.snug)
             AteWordmark(height: AteMetrics.wordmarkFooter)
         }

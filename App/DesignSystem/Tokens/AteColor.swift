@@ -57,10 +57,11 @@ enum AteColor {
     /// A control surface *on* paper (a chip inside a receipt or slip).
     fileprivate static let paperChip = Color(hex: 0xF3F0EB)
 
-    /// **A slip** — the one card the journal, the feed and a profile list, and the statement slip.
-    /// White on linen; in dark it is its own plum card with light type on it (`.screen.dark .slip`),
-    /// not the dimmed receipt paper. Receipts — the share card, the statement, the entry page — keep
-    /// ``paper``.
+    /// **A slip** — every card and printed page the reader looks at: the journal, feed and profile
+    /// cards, the statement slip, the entry page, the monthly statement and the on-screen Share
+    /// receipt. White on linen; in dark a plum card with light type on it (`.screen.dark .slip`).
+    /// The EXPORTED share image stays light — `ShareImage` renders in `.light` — and the
+    /// dimmed ``paper`` is left to the place menu and Welcome.
     static let slip = Color(light: .white, dark: Color(hex: 0x231B24))
 
     // MARK: - Screen backgrounds
