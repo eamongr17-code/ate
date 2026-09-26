@@ -82,5 +82,14 @@
 	<string>$(SENTRY_DSN)</string>
 	<key>TELEMETRYDECK_APP_ID</key>
 	<string>$(TELEMETRYDECK_APP_ID)</string>
+
+	<!-- Share → Instagram Stories. The Facebook App ID Meta requires as source_application; empty
+	     (and the option hidden) until one exists. One xcconfig key: ATE_FACEBOOK_APP_ID. -->
+	<key>ATE_FACEBOOK_APP_ID</key>
+	<string>$(ATE_FACEBOOK_APP_ID)</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>instagram-stories</string>
+	</array>
 </dict>
 </plist>

@@ -180,6 +180,9 @@ struct PhotoCluster: View {
     /// different numbers passes its own (the dish hero's ``AtePhotoAngles/dishHero``) rather than
     /// forking the component or living with a degree of drift.
     var angles: [Double] = AtePhotoAngles.slip
+    /// Set where a photo can be taken back out (the composer): a long press on it offers the
+    /// system's own menu with one destructive item. Tiles take no touches otherwise.
+    var onRemove: ((Int) -> Void)?
 
     @Environment(\.atePalette) private var palette
 
@@ -192,6 +195,7 @@ struct PhotoCluster: View {
                     ring: photos.count > 1 ? (surface ?? palette.ground) : nil
                 )
                     .rotationEffect(.degrees(angle(at: index)))
+                    .modifier(RemovablePhoto(index: index, side: side, onRemove: onRemove))
                     .zIndex(Double(photos.count - index))
             }
         }
@@ -202,6 +206,13 @@ struct PhotoCluster: View {
         .padding(.leading, 6)
         .accessibilityElement()
         .accessibilityLabel(photos.count == 1 ? "1 photo" : "\(photos.count) photos")
+        .accessibilityActions {
+            if let onRemove {
+                ForEach(photos.indices, id: \.self) { index in
+                    Button("Remove photo \(index + 1)") { onRemove(index) }
+                }
+            }
+        }
     }
 
     /// Fixed per position rather than random, so the same entry always looks the same — a cluster
@@ -209,6 +220,28 @@ struct PhotoCluster: View {
     private func angle(at index: Int) -> Double {
         guard angles.isEmpty == false else { return 0 }
         return angles[index % angles.count]
+    }
+}
+
+/// A tile's long-press menu, when the cluster allows removing; inert otherwise.
+private struct RemovablePhoto: ViewModifier {
+    let index: Int
+    let side: CGFloat
+    let onRemove: ((Int) -> Void)?
+
+    func body(content: Content) -> some View {
+        if let onRemove {
+            content
+                .contentShape(
+                    .contextMenuPreview,
+                    .rect(cornerRadius: AteMetrics.photoRadius(side: side), style: .continuous)
+                )
+                .contextMenu {
+                    Button("Remove", role: .destructive) { onRemove(index) }
+                }
+        } else {
+            content
+        }
     }
 }
 

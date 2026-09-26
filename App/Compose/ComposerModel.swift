@@ -49,10 +49,11 @@ final class ComposerModel: DictationTarget {
         self.editing = editing
         if let editing {
             self.draftID = editing.id
-            self.composition = Self.composition(for: editing)
+            self.composition = editing.composition
             self.place = editing.restaurantID.map { PlaceRef(id: $0, name: editing.placeName ?? "") }
+            self.photos = editing.photos.map(StagedPhoto.init(existing:))
             self.startedAt = Date()
-            let end = Self.composition(for: editing).displayString.utf16.count
+            let end = editing.composition.displayString.utf16.count
             self.caret = end
             self.caretAfterRender = end > 0 ? end : nil
             self.isResumingDraft = false
@@ -107,6 +108,26 @@ final class ComposerModel: DictationTarget {
     /// True once there is anything worth saving. A photos-only entry is legal (`body` may be `''`).
     var hasContent: Bool { composition.isEmpty == false || photos.isEmpty == false }
 
+    /// Done is live once there is something to save **and a place** (Eamon, round 3): a receipt
+    /// prints only at a place, and the Place key is the obvious way to give it one. No copy says so.
+    var canSave: Bool { hasContent && place?.id != nil }
+
+    /// What an early sort would be asked about right now, or `nil` — never for an edit, whose
+    /// sort is not the one Done runs for a new entry.
+    var earlySortInput: EarlySortInput? {
+        guard editing == nil else { return nil }
+        return EarlySortInput(composition: composition, restaurantID: place?.id)
+    }
+
+    /// The photo set an edit saves, in order: kept ones by URL, added ones by staged file.
+    var editedPhotos: [EntryEdit.Photo] {
+        photos.compactMap { photo in
+            if let url = photo.remoteURL { return .existing(url: url) }
+            guard let fileName = photo.fileName else { return nil }
+            return .added(path: photoDirectory.appending(path: fileName).path())
+        }
+    }
+
     var photoDirectory: URL { drafts.photoDirectory(for: draftID) }
 
     var canAddPhotos: Bool { photos.count < EntryDraft.photoLimit }
@@ -121,7 +142,7 @@ final class ComposerModel: DictationTarget {
             isPublic: true,
             restaurantID: place?.id,
             placeName: place?.name,
-            photoFiles: photos.map(\.fileName),
+            photoFiles: photos.compactMap(\.fileName),
             startedAt: startedAt
         )
     }
@@ -129,6 +150,14 @@ final class ComposerModel: DictationTarget {
     func setPhotos(_ staged: [StagedPhoto]) {
         photos = staged
         persist()
+    }
+
+    /// Takes one staged photo back out. Its file stays in the draft's folder until the draft goes —
+    /// an undo-free removal should not be the thing that deletes bytes.
+    func removePhoto(id: String) -> AnalyticsEvent {
+        photos.removeAll { $0.id == id }
+        persist()
+        return EntryEvents.photoRemoved(photoCount: photos.count)
     }
 
     /// Every mutation ends here. The words are on disk before the next keystroke, which is what
@@ -140,14 +169,6 @@ final class ComposerModel: DictationTarget {
             return
         }
         drafts.save(draft)
-    }
-
-    /// An existing entry's words, as plain text. The place is the Place key's, never a pill in the
-    /// words; scores and tags are deliberately NOT re-tokenised: the sorter decided which numbers
-    /// were scores, and re-deciding on the client would be a second opinion about somebody's own
-    /// sentence. They stay as the characters they are, and typing beside them promotes as before.
-    private static func composition(for editing: ComposerPresentation.EditingEntry) -> EntryComposition {
-        EntryComposition(plain: editing.body, spans: [])
     }
 
     /// Done and gone: the draft has become an entry.
@@ -279,7 +300,9 @@ final class ComposerModel: DictationTarget {
     /// Design rule 8: a place is attached because it was **tapped**, never from location — and it
     /// lives on the key, not in the words (ComposerPlaceB). Typing never makes one; picking one
     /// again replaces it.
-    func attach(place: PlaceRef) -> AnalyticsEvent {
+    func attach(place: PlaceRef) -> AnalyticsEvent? {
+        // Never attach nothing: a place that has not resolved to a row cannot go on an entry.
+        guard place.id != nil else { return nil }
         self.place = place
         isPickingPlace = false
         focusRequest += 1
@@ -287,9 +310,26 @@ final class ComposerModel: DictationTarget {
         return EntryEvents.placeAttached(source: .picked)
     }
 
+    /// The server said the entry has no place (`place_required`). The key goes back to empty, and
+    /// Done with it, so the Place key is once again the obvious next step.
+    func placeRefused() {
+        place = nil
+        persist()
+    }
+
     /// What the place sheet opens pre-filled with: the place already on the key, otherwise nothing —
     /// guessing from the prose is the sorter's job, and a location is never a guess we make.
     var placeQuery: String { place?.name ?? "" }
+
+    // MARK: - The Diet key (prototype)
+
+    /// A tag chip after the current dish (``EntryComposition/insertingTag(_:atDisplayOffset:)``).
+    func insertTag(_ tag: DietTag) -> AnalyticsEvent {
+        let (next, newCaret) = composition.insertingTag(tag, atDisplayOffset: caret)
+        apply(next, caret: newCaret)
+        focusRequest += 1
+        return EntryEvents.dishTagAdded(tag)
+    }
 
     // MARK: - Typing a number and moving on
 

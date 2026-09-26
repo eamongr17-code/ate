@@ -18,6 +18,9 @@ struct ShareScreen: View {
     let analytics: AnalyticsRecorder
 
     @State private var photos: [AtePhoto] = []
+    /// Share is off until the photos behind the paper have loaded: the picture that leaves must be
+    /// the one on screen, and an export taken early would go without them.
+    @State private var photosLoaded = false
     @State private var sender = ShareSender()
     @Environment(\.dismiss) private var dismiss
 
@@ -27,12 +30,13 @@ struct ShareScreen: View {
             photos: photos,
             isPrinting: false,
             breathes: false,
-            primary: .share(isEnabled: true, didFail: sender.didFail),
+            primary: .share(isEnabled: photosLoaded, didFail: sender.didFail),
             onDone: { dismiss() },
             onPrimary: send
         )
         .task {
             photos = await SharePhotos.resolve(artefact.photoURLs)
+            photosLoaded = true
             #if DEBUG
             dumpForDriveIfRequested()
             // `-ate-fail-share-render` taps Share for the drive too: the failure is a state of the
@@ -41,14 +45,16 @@ struct ShareScreen: View {
             #endif
         }
         .sheet(item: $sender.sending) { sending in
-            ShareSheet(items: [sending.image])
+            ShareSheet(sending: sending) { destination in
+                analytics(EntryEvents.receiptShared(
+                    entryID: artefact.entryID, source: destination == .instagramStories ? .instagramStories : source
+                ))
+            }
         }
     }
 
     private func send() {
-        sender.send(artefact: artefact, photos: photos) {
-            analytics(EntryEvents.receiptShared(entryID: artefact.entryID, source: source))
-        }
+        sender.send(artefact: artefact, photos: photos)
     }
 
     #if DEBUG
@@ -90,19 +96,25 @@ struct ShareStage: View {
     let onDone: () -> Void
     let onPrimary: () -> Void
 
+    /// The card scrolls in its own band above the pills: a long receipt continues down that band
+    /// and stops above them, never running underneath.
     var body: some View {
-        ZStack(alignment: .top) {
-            ShareCard(
-                artefact: artefact, photos: photos, isPrinting: isPrinting, breathes: breathes,
-                onAddPlace: onAddPlace
-            )
-                .padding(.horizontal, ShareCard.inset)
-                .ateContentTop(isPrinting ? Self.printingTop : Self.cardTop)
-                .ateAnimation(AteMotion.settle, value: isPrinting)
-            VStack {
-                Spacer(minLength: 0)
-                actions
+        VStack(spacing: Self.actionGap * 2) {
+            ScrollView {
+                ShareCard(
+                    artefact: artefact, photos: photos, isPrinting: isPrinting, breathes: breathes,
+                    onAddPlace: onAddPlace
+                )
+                    .padding(.horizontal, ShareCard.inset)
+                    .ateContentTop(isPrinting ? Self.printingTop : Self.cardTop)
+                    // The lower photo hangs past the paper's foot; its tilt needs the room.
+                    .padding(.bottom, Self.cardFoot)
+                    .frame(maxWidth: .infinity)
+                    .ateAnimation(AteMotion.settle, value: isPrinting)
             }
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollIndicators(.hidden)
+            actions
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ateAccentGround(AteColor.coral)
@@ -135,6 +147,8 @@ struct ShareStage: View {
     /// `margin-top:180px` — and `160` while printing (`SummaryLoading`).
     static let cardTop: CGFloat = 180
     static let printingTop: CGFloat = 160
+    /// Below the paper, inside the scrolling band.
+    private static let cardFoot: CGFloat = 30
     /// `bottom:40px`.
     private static let actionsBottom: CGFloat = 40
     private static let actionGap: CGFloat = 10
@@ -150,20 +164,26 @@ struct ShareSender {
     struct Sending: Identifiable {
         let id = UUID()
         let image: UIImage
+        /// The card on a transparent ground, for an Instagram Stories sticker.
+        var sticker: UIImage?
     }
 
     var sending: Sending?
     var didFail = false
 
+    /// Renders and opens the sheet. The share is counted by the sheet itself, when the picture
+    /// actually leaves — and by where it went, so Instagram Stories reads as its own source.
     @MainActor
-    mutating func send(artefact: ShareArtefact, photos: [AtePhoto], onSent: () -> Void) {
+    mutating func send(artefact: ShareArtefact, photos: [AtePhoto]) {
         guard let image = Self.render(artefact: artefact, photos: photos) else {
             didFail = true
             return
         }
         didFail = false
-        onSent()
-        sending = Sending(image: image)
+        sending = Sending(
+            image: image,
+            sticker: ShareImage.sticker(artefact: artefact, photos: photos)
+        )
     }
 
     @MainActor

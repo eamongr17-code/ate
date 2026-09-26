@@ -137,6 +137,11 @@ enum AteHaptics {
     static func save() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
+
+    /// An entry saved — Done in the composer landing. The system's own success pattern.
+    static func success() {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
 }
 
 #if DEBUG

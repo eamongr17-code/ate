@@ -9,12 +9,48 @@ import SwiftUI
 /// photo-library permission and no second trip through the picker.
 struct StagedPhoto: Identifiable, Equatable {
     let id: String
-    let fileName: String
+    /// On the phone, in the draft's photo directory. `nil` for a photo the entry already has.
+    let fileName: String?
     var image: Image?
+    /// A photo the entry being edited already carries — in storage, drawn from its URL.
+    var remoteURL: String?
+
+    init(id: String, fileName: String, image: Image?) {
+        self.id = id
+        self.fileName = fileName
+        self.image = image
+    }
+
+    /// One of an edited entry's own photos.
+    init(existing photo: EntryCard.Photo) {
+        self.id = photo.url
+        self.fileName = nil
+        self.image = nil
+        self.remoteURL = photo.url
+    }
 
     var photo: AtePhoto {
-        AtePhoto(id: UUID(uuidString: fileName.replacingOccurrences(of: ".jpg", with: "")) ?? UUID(),
-                 image: image)
+        AtePhoto(
+            id: stableID,
+            image: image,
+            url: remoteURL.flatMap(URL.init(string:))
+        )
+    }
+
+    /// The same id every render, so the cluster does not rebuild its tiles.
+    private var stableID: UUID {
+        if let fileName, let uuid = UUID(uuidString: fileName.replacingOccurrences(of: ".jpg", with: "")) {
+            return uuid
+        }
+        return UUID(uuidString: Self.hashedUUID(id)) ?? UUID()
+    }
+
+    private static func hashedUUID(_ string: String) -> String {
+        var hasher = Hasher()
+        hasher.combine(string)
+        let value = UInt64(bitPattern: Int64(hasher.finalize()))
+        let hex = String(format: "%016llx", value)
+        return "\(hex.prefix(8))-\(hex.dropFirst(8).prefix(4))-4\(hex.suffix(3))-8000-000000000000"
     }
 }
 
@@ -31,23 +67,23 @@ enum ComposerPhotoStaging {
     static let maximumDimension: CGFloat = 1600
     static let compressionQuality: CGFloat = 0.8
 
+    /// Library picks **append** to what is already staged — a second trip to the picker adds to
+    /// the cluster rather than replacing it. A pick already staged is not staged twice; the cap is
+    /// the entry's five.
     static func stage(
         _ items: [PhotosPickerItem],
         in directory: URL,
         existing: [StagedPhoto]
     ) async -> [StagedPhoto] {
-        var staged: [StagedPhoto] = []
-        for item in items.prefix(EntryDraft.photoLimit) {
+        var staged = existing
+        for item in items where staged.count < EntryDraft.photoLimit {
             let key = item.itemIdentifier ?? UUID().uuidString
-            if let already = existing.first(where: { $0.id == key }) {
-                staged.append(already)
-                continue
-            }
-            guard let data = try? await item.loadTransferable(type: Data.self),
+            guard staged.contains(where: { $0.id == key }) == false,
+                  let data = try? await item.loadTransferable(type: Data.self),
                   let source = UIImage(data: data),
                   let jpeg = downscaled(source) else { continue }
             let fileName = "\(UUID().uuidString.lowercased()).jpg"
-            try? jpeg.write(to: directory.appending(path: fileName), options: .atomic)
+            guard write(jpeg, to: directory, as: fileName) else { continue }
             staged.append(StagedPhoto(
                 id: key,
                 fileName: fileName,
@@ -55,6 +91,18 @@ enum ComposerPhotoStaging {
             ))
         }
         return staged
+    }
+
+    /// A photo is only staged once its bytes are on disk — a photo that is on screen but not on
+    /// disk would be a photo Done silently drops.
+    private static func write(_ jpeg: Data, to directory: URL, as fileName: String) -> Bool {
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try jpeg.write(to: directory.appending(path: fileName), options: .atomic)
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Stages images the app already holds — a camera shot, or a cluster picked on `Suggestions`.
@@ -69,7 +117,7 @@ enum ComposerPhotoStaging {
             guard staged.contains(where: { $0.id == candidate.id }) == false,
                   let jpeg = downscaled(candidate.image) else { continue }
             let fileName = "\(UUID().uuidString.lowercased()).jpg"
-            try? jpeg.write(to: directory.appending(path: fileName), options: .atomic)
+            guard write(jpeg, to: directory, as: fileName) else { continue }
             staged.append(StagedPhoto(
                 id: candidate.id,
                 fileName: fileName,

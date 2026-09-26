@@ -38,7 +38,9 @@ struct ComposerKey: View {
                 .padding(.trailing, value == nil ? 13 : 14)
                 .frame(height: AteMetrics.keyHeight)
             }
-            .background(isActive ? AtePalette.surface.fg : background, in: .capsule)
+            // Inverted is ink in both modes: `ComposerStars` draws an ink pill with butter lettering,
+            // and the surface's own `fg` is cream in dark — butter on cream cannot be read.
+            .background(isActive ? AteColor.ink : background, in: .capsule)
             .foregroundStyle(isActive ? background : foreground)
         }
         .buttonStyle(.plain)
@@ -71,13 +73,15 @@ private struct CappedWidth: Layout {
 /// **Done** — the ink pill both composer screens carry in the same corner. One component, so the key
 /// that saves the entry looks and behaves the same whether you were typing or talking.
 struct ComposerDoneButton: View {
+    /// "Done", or "Try again" after a save that did not land.
+    var title = "Done"
     var isEnabled: Bool
     var isBusy = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text("Done")
+            Text(title)
                 .ateText(.control)
                 .padding(.horizontal, 18)
                 .frame(height: 38)
@@ -111,7 +115,8 @@ struct ComposerToolbar: View {
                 }
                 PhotosPicker(
                     selection: $pickedItems,
-                    maxSelectionCount: EntryDraft.photoLimit,
+                    // Picks append to what is staged, so the picker offers only what is left.
+                    maxSelectionCount: max(1, EntryDraft.photoLimit - model.photos.count),
                     selectionBehavior: .ordered,
                     matching: .images,
                     photoLibrary: .shared()
@@ -121,6 +126,7 @@ struct ComposerToolbar: View {
                         .contentShape(.rect)
                 }
                 .foregroundStyle(AtePalette.surface.fg)
+                .disabled(model.canAddPhotos == false)
                 .simultaneousGesture(TapGesture().onEnded { model.dismissScoring(refocus: false) })
                 .accessibilityLabel("Photo library")
                 AteIconButton(icon: .voice, label: "Dictate", tint: AtePalette.surface.fg, action: onDictate)
@@ -150,8 +156,8 @@ struct ComposerToolbar: View {
                     title: "Place",
                     icon: .place,
                     iconSize: 16,
-                    background: AtePalette.surface.field,
-                    foreground: AtePalette.surface.fg,
+                    background: ComposerKeyColor.place,
+                    foreground: AteColor.ink,
                     value: model.place.flatMap { $0.name.isEmpty ? nil : $0.name },
                     identifier: "composer.key.place"
                 ) {
@@ -169,4 +175,12 @@ struct ComposerToolbar: View {
     private static let gap: CGFloat = 6
     /// `padding-right:14px` — the keys sit in from the edge, where the visibility key used to be.
     private static let trailing: CGFloat = 14
+}
+
+/// The composer keys' fills. The Score key is butter in both modes; the Place key is the linen
+/// field it is drawn in (`Composer.dc.html`: `--field:#E4DED4`), **also in both modes** — in dark,
+/// the surface's own field (ink `#17111B` on the plum surface) read as a hole in the toolbar
+/// (Eamon, round 3). Like the Score key it carries ink either way.
+enum ComposerKeyColor {
+    static let place = AteColor.linenField
 }

@@ -23,20 +23,25 @@ struct ComposerScreen: View {
     /// journal and opens its page under this cover, where the Summary's Done lands.
     var onSaved: (EntryCard) -> Void = { _ in }
 
-    @State private var model: ComposerModel
-    @State private var pickedItems: [PhotosPickerItem] = []
-    @State private var isTakingPhoto = false
+    @State var model: ComposerModel
+    @State var pickedItems: [PhotosPickerItem] = []
+    @State var isTakingPhoto = false
     /// The microphone is open: `ComposerVoice` sits over the composer, which stays mounted beneath it
     /// so the text view — and its undo stack — is the same one the words come back to.
-    @State private var isDictating = false
+    @State var isDictating = false
     /// The open microphone, made once when the mic key is tapped and dropped when it closes.
-    @State private var dictation: DictationController?
-    @Environment(\.openURL) private var openURL
-    @State private var isSaving = false
+    @State var dictation: DictationController?
+    @Environment(\.openURL) var openURL
+    @State var isSaving = false
+    /// Done could not save: the composer stays open with everything in it, and the pill says
+    /// "Try again" — the one word, on the control itself (design rule 1).
+    @State var saveFailed = false
+    /// The early sort (`sort-entry`, `preview: true`), made once per composer.
+    @State var earlySort: EarlySortScheduler?
     /// Set once a new entry's words are accepted: the Summary takes the cover.
-    @State private var summary: EntryCard?
+    @State var summary: EntryCard?
     /// …and the chips it was sorted with, so "Print it again" re-sorts with the same ones.
-    @State private var summaryTagTokens: [TagToken] = []
+    @State var summaryTagTokens: [TagToken] = []
     /// The editor's width, for measuring where the words end.
     @State private var editorWidth: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -45,7 +50,7 @@ struct ComposerScreen: View {
     /// Only the debug undo drive moves these; see ``ComposerDebugLaunch/undoDriveArgument``.
     @State private var undoRequest = 0
     @State private var redoRequest = 0
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismiss) var dismiss
 
     init(
         presentation: ComposerPresentation,
@@ -95,6 +100,9 @@ struct ComposerScreen: View {
                 .transition(.opacity)
             }
         }
+        // The surface runs behind the keyboard, to the screen's edges: without it the cover's own
+        // black shows around the keyboard's rounded corners.
+        .background { AtePalette.surface.ground.ignoresSafeArea() }
         .ateAnimation(.easeInOut(duration: 0.2), value: isDictating)
         .ateAnimation(.easeInOut(duration: 0.25), value: summary?.id)
         .onChange(of: isDictating) { _, isOpen in
@@ -110,7 +118,7 @@ struct ComposerScreen: View {
                 initialQuery: model.placeQuery,
                 selected: model.place?.id
             ) { place in
-                services.analytics(model.attach(place: place))
+                model.attach(place: place).map(services.analytics)
             }
         }
         .fullScreenCover(isPresented: $isTakingPhoto) {
@@ -118,8 +126,11 @@ struct ComposerScreen: View {
                 .ignoresSafeArea()
         }
         .onChange(of: pickedItems) { _, items in
+            guard items.isEmpty == false else { return }
             Task { await stage(items) }
         }
+        .onChange(of: model.earlySortInput) { _, input in earlySort?.edited(input) }
+        .onDisappear { earlySort?.stop() }
         .onAppear {
             services.analytics(EntryEvents.composerOpened(
                 source: origin,
@@ -127,6 +138,7 @@ struct ComposerScreen: View {
             ))
         }
         .task { await stageSuggestedPhotos() }
+        .task { startEarlySort() }
         #if DEBUG
         .task { runDebugLaunch() }
         #endif
@@ -156,7 +168,7 @@ struct ComposerScreen: View {
 
     /// The recogniser. On a simulator, a Debug launch argument swaps in a scripted one — the only
     /// microphone a machine without one has.
-    private func makeTranscriber() -> any VoiceTranscribing {
+    func makeTranscriber() -> any VoiceTranscribing {
         #if DEBUG
         if ComposerDebugLaunch.fakesDictation {
             let fake = FakeVoiceTranscriber()
@@ -205,7 +217,12 @@ struct ComposerScreen: View {
                 Button("Redo") { redoRequest += 1 }.accessibilityIdentifier("debug.redo")
             }
             #endif
-            ComposerDoneButton(isEnabled: model.hasContent, isBusy: isSaving, action: done)
+            ComposerDoneButton(
+                title: saveFailed ? "Try again" : "Done",
+                isEnabled: model.canSave,
+                isBusy: isSaving,
+                action: done
+            )
                 .accessibilityIdentifier("composer.done")
         }
         .ateContentTop()
@@ -238,8 +255,12 @@ struct ComposerScreen: View {
 
             // Between the words and the panel: the cluster belongs under the sentence, and the
             // slider opens over both.
+            // While the slider is open the pill is the focus: the cluster steps back rather than
+            // having the panel's edge cut across tilted photos.
             photoCluster
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .opacity(model.scoring == nil ? 1 : 0)
+                .allowsHitTesting(model.scoring == nil)
 
             if model.scoring != nil {
                 // A tap anywhere in the writing area outside the panel closes it — and only closes
@@ -308,10 +329,14 @@ struct ComposerScreen: View {
             PhotoCluster(
                 photos: model.photos.map(\.photo),
                 side: AteMetrics.clusterPhotoComposer,
-                surface: AtePalette.surface.ground
+                surface: AtePalette.surface.ground,
+                // A long press on a photo takes it back out — the system's own menu, no copy.
+                onRemove: { index in
+                    guard model.photos.indices.contains(index) else { return }
+                    services.analytics(model.removePhoto(id: model.photos[index].id))
+                }
             )
             .padding(.top, wordsHeight + Self.wordsGap)
-            .allowsHitTesting(false)
         }
     }
 
@@ -327,148 +352,5 @@ struct ComposerScreen: View {
             onCamera: takePhoto,
             onDictate: startDictation
         )
-    }
-
-    // MARK: - Actions
-
-    /// Done. The words go first and alone; the photos and the sorter follow behind, after the screen
-    /// is already gone. Nothing about the receipt is allowed to delay the writing being saved.
-    private func done() {
-        guard isSaving == false, model.hasContent else { return }
-        isSaving = true
-        model.dismissScoring(refocus: false)
-        model.promotePendingScoreLiteral().map(services.analytics)
-        if let editing = model.editing {
-            rewrite(editing)
-            return
-        }
-        let draft = model.draft
-        let request = model.request(from: draft, photoDirectory: model.photoDirectory)
-        let submission = services.submission
-
-        Task {
-            let result = await submission.submit(request)
-            isSaving = false
-            guard let card = result.card else {
-                // The server refused. The draft stays exactly where it is, with every word in it.
-                return
-            }
-            model.clearDraft()
-            onSaved(card)
-            if case .saved = result {
-                // The Summary takes the cover; the entry page is already beneath it.
-                summaryTagTokens = request.tagTokens
-                summary = card
-            } else {
-                // Queued offline: there is no order number to print yet (the server allocates
-                // it), so there is no receipt to show — the entry page carries the wait.
-                dismiss()
-            }
-            // Photos and the sorter, while the receipt prints. Detached from this view's lifetime on
-            // purpose: Done on the Summary must not cancel the rest of the entry landing.
-            Task.detached {
-                await submission.finish(
-                    entryID: request.id, photoPaths: request.photoPaths, tagTokens: request.tagTokens
-                )
-            }
-        }
-    }
-
-    /// Editing an entry that already exists: the body is rewritten in place, and the sorter is asked
-    /// again **without forcing**.
-    ///
-    /// `apply_entry_sort` deletes and rebuilds every review for an entry, so forcing a re-sort here
-    /// threw away corrections the person had already made — fix a dish, come back a day later to fix
-    /// a typo, and the dish silently reverts. A non-forced call is a no-op on a sorted entry and
-    /// still picks up an entry that never got sorted, which is the honest half of the job. Re-sorting
-    /// an edit *without* losing corrections needs the server to merge rather than rebuild; backend
-    /// has it.
-    ///
-    /// Everything the keys set is kept (``EntryEdit``): a place picked on the Place key is attached
-    /// with `correct_entry_place`, and tag chips typed during the edit go to a forced re-sort as
-    /// `tag_tokens` — the one case where forcing is the point.
-    private func rewrite(_ editing: ComposerPresentation.EditingEntry) {
-        let edit = EntryEdit(
-            entryID: editing.id,
-            body: model.composition.plain,
-            originalRestaurantID: editing.restaurantID,
-            restaurantID: model.place?.id,
-            tagTokens: model.composition.tagTokens
-        )
-        let entries = services.entries
-        let analytics = services.analytics
-        Task {
-            if edit.changesPlace { analytics(EntryEvents.corrected(.place)) }
-            let card = (try? await edit.saveWordsAndPlace(to: entries)).flatMap { $0 }
-            isSaving = false
-            if let card { onSaved(card) }
-            dismiss()
-            Task.detached { await edit.sort(on: entries) }
-        }
-    }
-
-    /// Tapping a pill reopens what made it — the slider, for a score. A tag chip has nothing to
-    /// reopen: backspace takes it, as it would a word.
-    private func reopen(_ token: EntryToken) {
-        _ = model.reopen(token)
-    }
-
-    private func stage(_ items: [PhotosPickerItem]) async {
-        let staged = await ComposerPhotoStaging.stage(
-            items,
-            in: model.photoDirectory,
-            existing: model.photos
-        )
-        model.setPhotos(staged)
-    }
-}
-
-// MARK: - The mic key and the camera key
-
-extension ComposerScreen {
-
-    /// The keyboard goes down and `ComposerVoice` comes up over the words. The editor stays exactly
-    /// where it is underneath; dictation writes into the same model, and the text view takes it all
-    /// back in one edit when the microphone closes.
-    func startDictation() {
-        guard isDictating == false else { return }
-        model.dismissScoring(refocus: false)
-        dictation = DictationController(
-            target: model, transcriber: makeTranscriber(), analytics: services.analytics
-        )
-        isDictating = true
-    }
-
-    // MARK: - The camera key
-
-    /// The camera, if this phone has one and the person has let us use it. Refused, the key goes to
-    /// Settings — the same answer the mic key gives, and for the same reason: there is nothing the app
-    /// can say about it that the system does not already.
-    func takePhoto() {
-        guard UIImagePickerController.isSourceTypeAvailable(.camera), model.canAddPhotos else { return }
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized:
-            isTakingPhoto = true
-        case .notDetermined:
-            Task {
-                let granted = await AVCaptureDevice.requestAccess(for: .video)
-                if granted { isTakingPhoto = true }
-            }
-        case .denied, .restricted:
-            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
-        @unknown default:
-            break
-        }
-    }
-
-    /// A photo from the camera lands in the cluster exactly as one from the library does: the same
-    /// staging, the same file on disk, the same order.
-    private func captured(_ image: UIImage) {
-        model.setPhotos(ComposerPhotoStaging.stage(
-            images: [(id: UUID().uuidString, image: image)],
-            in: model.photoDirectory,
-            existing: model.photos
-        ))
-        services.analytics(EntryEvents.cameraCaptured(photoCount: model.photos.count))
     }
 }

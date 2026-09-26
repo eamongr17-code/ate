@@ -80,11 +80,21 @@ public struct EntryPhotoUpload: Sendable, Hashable {
     public let entryID: UUID
     public let position: Int
     public let data: Data
+    /// The object's own name, when the position cannot be it. A new entry's photos are named by
+    /// position (`<entry>-<position>.jpg`, so a retried upload overwrites itself); an edit's added
+    /// photos are not, because an existing photo may already own that name at another slot.
+    public let name: String?
 
-    public init(entryID: UUID, position: Int, data: Data) {
+    public init(entryID: UUID, position: Int, data: Data, name: String? = nil) {
         self.entryID = entryID
         self.position = position
         self.data = data
+        self.name = name
+    }
+
+    /// `<entry>-<position or name>.jpg`, under the author's folder.
+    public func objectName() -> String {
+        "\(entryID.uuidString.lowercased())-\(name ?? String(position)).jpg"
     }
 }
 
@@ -133,9 +143,31 @@ public protocol EntryService: Sendable {
     /// The person editing their **own** words. The only path that writes `entries.body`, and it is
     /// theirs: the server never rewrites it (data-model landmine 6).
     func updateBody(entryID: UUID, body: String) async throws
+
+    /// **The early sort** — `sort-entry` with `"preview": true`: the server plans, persists
+    /// nothing, and caches the plan for the real sort after Done to reuse when the inputs match.
+    func previewSort(_ input: EarlySortInput) async throws
+
+    /// An edit keeping a photo that is already in storage, at `position` — the row, not the bytes.
+    func attachExisting(entryID: UUID, position: Int, url: String) async throws
+
+    /// An edit that removed photos: drops every photo row at or after `position`, and the removed
+    /// objects (with their thumbnails) from storage.
+    func removePhotos(entryID: UUID, fromPosition position: Int, removedURLs: [String]) async throws
 }
 
 public extension EntryService {
+    /// A service with no server-side cache has nothing to warm.
+    func previewSort(_ input: EarlySortInput) async throws {}
+
+    func attachExisting(entryID: UUID, position: Int, url: String) async throws {
+        throw EntryWriteFailure.rejected("attachExisting unsupported")
+    }
+
+    func removePhotos(entryID: UUID, fromPosition position: Int, removedURLs: [String]) async throws {
+        throw EntryWriteFailure.rejected("removePhotos unsupported")
+    }
+
     /// A sort with no tag chips — a re-sort, a correction, an edit.
     @discardableResult
     func sort(entryID: UUID, force: Bool) async throws -> SortOutcome {

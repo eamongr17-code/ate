@@ -439,7 +439,7 @@ struct AteShell: View {
         journal.insert(card)
         tab = .journal
         guard path.contains(where: { $0.entryID == card.id }) == false else { return }
-        path = [.entry(EntryRoute(entryID: card.id))]
+        path = [] // a new entry: the Summary's Done lands on the Journal, the entry at its top
     }
 
     /// The header badge. Reads the camera roll only when it has already been allowed — the ask

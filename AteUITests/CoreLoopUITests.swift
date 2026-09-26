@@ -27,7 +27,7 @@ final class CoreLoopUITests: XCTestCase {
         app.launchArguments = ["-ate-preview-data", "-ate-ui-testing"]
     }
 
-    /// Write → score inline → place → Done → the bill prints on the page → it is in the journal.
+    /// Write → score inline → place → Done → the Summary prints → Done → it tops the journal.
     func testWritingAnEntryPrintsABillAndLandsInTheJournal() {
         app.launch()
         attach("01-journal")
@@ -59,6 +59,9 @@ final class CoreLoopUITests: XCTestCase {
         XCTAssertFalse(written.contains(".5"), "the decimal must not be left behind as words")
         XCTAssertTrue(written.contains("was the quiet star"), "the rest of the sentence is untouched")
 
+        // No place, no Done: a receipt prints only at a place (round 3). No copy says so.
+        XCTAssertFalse(app.buttons["composer.done"].isEnabled, "Done waits for a place")
+
         // The place is attached because it was TAPPED (design rule 8), never from location.
         app.buttons["composer.key.place"].tap()
         let row = app.buttons["row.Tipo 00"].firstMatch
@@ -74,6 +77,7 @@ final class CoreLoopUITests: XCTestCase {
                        "the Place key shows the place it holds")
         let words = (editor.value as? String) ?? ""
         XCTAssertFalse(words.contains("Tipo 00"), "picking a place never writes it into the words: \(words)")
+        XCTAssertTrue(app.buttons["composer.done"].isEnabled, "with a place, Done is live")
 
         app.buttons["composer.done"].tap()
 
@@ -86,27 +90,26 @@ final class CoreLoopUITests: XCTestCase {
         attach("06-summary-printed")
         app.buttons["share.done"].tap()
 
-        // The entry page, already waiting beneath: the dish rows lead it, the words follow.
-        let dishes = app.otherElements["entry.dishes"]
-        XCTAssertTrue(dishes.waitForExistence(timeout: 15), "the dish rows lead the page")
-        XCTAssertTrue(app.otherElements["entry.words"].exists,
-                      "and the words are on the same page, under them")
-        attach("06b-entry-printed")
-
-        // Back to the journal, where the entry now lives. "Back", not "Back to journal": the entry
-        // page is reached from the feed and from a profile too now. Waited for: the page arrives
-        // with the push animation, and a tap fired into a hierarchy still settling finds nothing.
-        let back = app.buttons["Back"]
-        XCTAssertTrue(back.waitForExistence(timeout: 5), "the entry page's own back control")
-        back.tap()
+        // The Summary's Done returns to the Journal — not the entry page — with the new entry at
+        // the top of it (round 3).
+        XCTAssertFalse(app.otherElements["entry.dishes"].waitForExistence(timeout: 2),
+                       "Done lands on the Journal, not on the entry's page")
         // A journal slip is no longer one flat button: its pin opens the place and its dish rows
         // open the dish, so the slip is a container and its body is the door to the entry.
         let slips = app.otherElements.matching(identifier: "journal.slip")
         XCTAssertTrue(slips.firstMatch.waitForExistence(timeout: 5))
-        XCTAssertEqual(slips.count, 2, "the seeded entry plus the one just written")
+        // The seeded visits plus the one just written (a list is lazy, so at least the two on screen).
+        XCTAssertGreaterThanOrEqual(slips.count, 2, "the seeded entries plus the one just written")
         attach("07-journal-full")
 
-        // And a slip is a door: tapping the older one's body opens its entry, bill and all.
+        // And a slip is a door: tapping the new one's body opens its entry, bill and all.
+        app.buttons.matching(identifier: "journal.slip.body").element(boundBy: 0).tap()
+        XCTAssertTrue(app.otherElements["entry.words"].waitForExistence(timeout: 5),
+                      "the newest slip is the entry just written")
+        attach("06b-entry-printed")
+        let back = app.buttons["Back"]
+        XCTAssertTrue(back.waitForExistence(timeout: 5), "the entry page's own back control")
+        back.tap()
         app.buttons.matching(identifier: "journal.slip.body").element(boundBy: 1).tap()
         XCTAssertTrue(app.otherElements["entry.dishes"].waitForExistence(timeout: 5),
                       "tapping a slip opens its entry")

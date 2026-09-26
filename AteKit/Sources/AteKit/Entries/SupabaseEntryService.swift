@@ -46,25 +46,63 @@ public struct SupabaseEntryService: EntryService {
 
     public func attach(photo: EntryPhotoUpload) async throws {
         let userID = try await api.requireCurrentUserID()
-        let path = "\(userID.uuidString.lowercased())/\(photo.entryID.uuidString.lowercased())"
-            + "-\(photo.position).jpg"
-        let storage = api.supabase.storage.from("review-photos")
+        let path = "\(userID.uuidString.lowercased())/\(photo.objectName())"
+        let storage = api.supabase.storage.from(Self.photoBucket)
+        let options = FileOptions(contentType: "image/jpeg", upsert: true)
         // `upsert` so a retried upload overwrites rather than 409s — the path is deterministic, so
-        // a second attempt is the same object.
-        _ = try await storage.upload(
-            path,
-            data: photo.data,
-            options: FileOptions(contentType: "image/jpeg", upsert: true)
-        )
+        // a second attempt is the same object. The small copy (`_t.jpg`, what lists draw) goes up
+        // beside it at the same time.
+        let thumbnail = PhotoThumbnail.jpeg(from: photo.data)
+        async let full = storage.upload(path, data: photo.data, options: options)
+        if let thumbnail {
+            _ = try await storage.upload(PhotoThumbnail.path(for: path), data: thumbnail, options: options)
+        }
+        _ = try await full
         let url = try storage.getPublicURL(path: path).absoluteString
+        try await attachExisting(entryID: photo.entryID, position: photo.position, url: url)
+    }
+
+    public func attachExisting(entryID: UUID, position: Int, url: String) async throws {
         _ = try await api.supabase
             .from("entry_photos")
             .upsert(
-                EntryPhotoRow(entryID: photo.entryID, position: photo.position, photoURL: url),
+                EntryPhotoRow(entryID: entryID, position: position, photoURL: url),
                 onConflict: "entry_id,position",
                 returning: .minimal
             )
             .execute()
+    }
+
+    public func removePhotos(entryID: UUID, fromPosition position: Int, removedURLs: [String]) async throws {
+        _ = try await api.supabase
+            .from("entry_photos")
+            .delete(returning: .minimal)
+            .eq("entry_id", value: entryID.uuidString.lowercased())
+            .gte("position", value: position)
+            .execute()
+        // The rows are what the entry shows, and they are gone. The objects are the author's own
+        // folder being tidied: only paths inside this bucket are named, and a miss changes nothing.
+        let paths = removedURLs.compactMap(Self.storagePath(fromPublicURL:))
+        guard paths.isEmpty == false else { return }
+        _ = try await api.supabase.storage.from(Self.photoBucket)
+            .remove(paths: paths + paths.map(PhotoThumbnail.path(for:)))
+    }
+
+    public func previewSort(_ input: EarlySortInput) async throws {
+        let _: PreviewResponse = try await api.supabase.functions.invoke(
+            "sort-entry",
+            options: FunctionInvokeOptions(method: .post, body: PreviewSortRequest(input))
+        )
+    }
+
+    static let photoBucket = "review-photos"
+
+    /// `…/storage/v1/object/public/review-photos/<path>` → `<path>`.
+    static func storagePath(fromPublicURL url: String) -> String? {
+        let marker = "/object/public/\(photoBucket)/"
+        guard let range = url.range(of: marker) else { return nil }
+        let path = String(url[range.upperBound...])
+        return path.isEmpty ? nil : path.removingPercentEncoding ?? path
     }
 
     @discardableResult
@@ -173,6 +211,38 @@ public struct SupabaseEntryService: EntryService {
             case entryID = "entry_id"
             case photoURL = "photo_url"
         }
+    }
+
+    /// `sort-entry` with `"preview": true` — body, tag chips and place; no entry id, nothing written.
+    struct PreviewSortRequest: Encodable, Sendable {
+        let body: String
+        let tagTokens: [TagToken]
+        let restaurantID: UUID
+
+        init(_ input: EarlySortInput) {
+            body = input.body
+            tagTokens = input.tagTokens
+            restaurantID = input.restaurantID
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case preview, body
+            case tagTokens = "tag_tokens"
+            case restaurantID = "restaurant_id"
+        }
+
+        func encode(to encoder: any Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(true, forKey: .preview)
+            try container.encode(body, forKey: .body)
+            try container.encode(tagTokens, forKey: .tagTokens)
+            try container.encode(restaurantID.uuidString.lowercased(), forKey: .restaurantID)
+        }
+    }
+
+    /// The plan comes back; nothing on this side reads it — the point is the server's cache.
+    private struct PreviewResponse: Decodable, Sendable {
+        let ok: Bool?
     }
 
     private struct SortResponse: Decodable, Sendable {

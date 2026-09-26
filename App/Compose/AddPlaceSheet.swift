@@ -15,12 +15,15 @@ struct AddPlaceSheet: View {
     @State private var suburb = ""
     @State private var street = ""
     @State private var isSaving = false
+    /// The add did not land: the fields keep what was typed and the pill says "Try again".
+    @State private var didFail = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         AteSheet(
             title: "New place",
-            primary: ("Add place", add)
+            primary: (didFail ? "Try again" : "Add place", add),
+            isPrimaryBusy: isSaving
         ) {
             VStack(alignment: .leading, spacing: AteMetrics.sheetGap) {
                 field("Name", text: $name)
@@ -55,15 +58,24 @@ struct AddPlaceSheet: View {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false, isSaving == false else { return }
         isSaving = true
+        didFail = false
         Task {
             defer { isSaving = false }
-            guard let place = try? await directory.add(
-                name: trimmed,
-                suburb: suburb.trimmingCharacters(in: .whitespacesAndNewlines),
-                street: street.trimmingCharacters(in: .whitespacesAndNewlines)
-            ) else { return }
-            onAdded(place)
-            dismiss()
+            do {
+                let place = try await directory.add(
+                    name: trimmed,
+                    suburb: suburb.trimmingCharacters(in: .whitespacesAndNewlines),
+                    street: street.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+                guard place.id != nil else {
+                    didFail = true
+                    return
+                }
+                onAdded(place)
+                dismiss()
+            } catch {
+                didFail = true
+            }
         }
     }
 }
