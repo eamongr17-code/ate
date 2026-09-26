@@ -15,7 +15,8 @@ import Testing
 ///   keeps only entries whose `place.locality` is that area. Both answer signed out.
 /// - **Early sort:** `sort-entry {preview: true, body, tag_tokens, restaurant_id}` returns a plan and writes
 ///   NO entry and NO line.
-/// - **Place required:** an `entries` INSERT without `restaurant_id` is `23502` `place_required`.
+/// - **Place required:** an `entries` INSERT without `restaurant_id` is `23502` `place_required` — skipped
+///   until 0040 is on staging (it waits for the place-required build).
 /// - **Thumbnails:** `<path minus extension>_t.jpg` uploads under the owner's folder (no policy change).
 ///
 /// Writes are staging-only synthetic rows under the seeded DEMO account `jess` (not Eamon's), every body
@@ -275,7 +276,29 @@ struct Round3ContractTests {
         }
     }
 
-    @Test("a new entry without a place is refused: 23502 place_required")
+    /// Is 0040 on staging? It is applied only once the place-required build ships, so its test SKIPS
+    /// until then. The probe WRITES NOTHING: jess inserts a placeless entry in someone else's name.
+    /// BEFORE triggers run before RLS's WITH CHECK, so with 0040 the place trigger answers `23502`;
+    /// without it the row reaches RLS and is refused `42501`. Either way the statement rolls back.
+    static func placeRequiredApplied() async throws -> Bool {
+        guard StagingContract.isEnabled else { return false }
+        let other = try await StagingContract.Backend.shared.client().requireCurrentUserID()
+        let supabase = StagingContract.makeClient()
+        try await supabase.auth.signIn(email: author.email, password: author.password)
+        let probe = NewEntry(id: UUID(), authorID: other, body: "\(marker) 0040 probe", restaurantID: nil,
+                             createdAt: Date())
+        do {
+            try await supabase.from("entries").insert(probe, returning: .minimal).execute()
+            return false
+        } catch {
+            return (error as? PostgrestError)?.code == "23502"
+        }
+    }
+
+    @Test(
+        "a new entry without a place is refused: 23502 place_required",
+        .enabled("migration 0040 is applied to staging") { try await Round3ContractTests.placeRequiredApplied() }
+    )
     func placeRequired() async throws {
         try await guarded { jess in
             let id = UUID()
