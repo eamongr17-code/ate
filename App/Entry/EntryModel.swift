@@ -249,7 +249,8 @@ final class EntryModel: SavedDishObserving {
         let deleter = EntryDeleter(
             entries: services.entries,
             deletions: services.entryDeletions,
-            analytics: services.analytics
+            analytics: services.analytics,
+            outbox: services.outbox
         )
         guard await deleter.delete(card) else {
             deleteFailed = true

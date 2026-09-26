@@ -117,17 +117,28 @@ public struct EntryDeleter {
     private let entries: any EntryService
     private let deletions: EntryDeletions
     private let analytics: AnalyticsRecorder
+    /// The queue of unfinished writes. The entry leaves it before the server is asked to delete it.
+    private let outbox: EntryOutbox?
 
-    public init(entries: any EntryService, deletions: EntryDeletions, analytics: @escaping AnalyticsRecorder) {
+    public init(
+        entries: any EntryService,
+        deletions: EntryDeletions,
+        analytics: @escaping AnalyticsRecorder,
+        outbox: EntryOutbox? = nil
+    ) {
         self.entries = entries
         self.deletions = deletions
         self.analytics = analytics
+        self.outbox = outbox
     }
 
     /// Returns whether it went. On success every listening list has already dropped the entry and
     /// `entry_deleted` has been sent; on a failure nothing has moved.
     @discardableResult
     public func delete(_ card: EntryCard) async -> Bool {
+        // The outbox first: a queued photo or sort for this entry must never run again, and a push
+        // already in the air is waited out, so nothing lands after the delete and brings it back.
+        let queued = await outbox?.forget(entryID: card.id)
         do {
             let result = try await entries.delete(entryID: card.id)
             deletions.send(card.id)
@@ -137,6 +148,7 @@ public struct EntryDeleter {
             ))
             return true
         } catch {
+            await outbox?.restore(queued, entryID: card.id)
             return false
         }
     }

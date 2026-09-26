@@ -152,10 +152,9 @@ struct JournalScreen: View {
                     onPlace: onPlace,
                     onDish: { onDish($0.dishID) }
                 )
-                .task {
-                    AtePrefetch.photos(after: entry, in: store.entries)
-                    await store.loadMoreIfNeeded(after: entry)
-                }
+                .task { await store.loadMoreIfNeeded(after: entry) }
+                // Its own task, so the row scrolling away cancels the prefetch with it.
+                .task { await AtePrefetch.photos(after: entry, in: store.entries) }
             }
             if let message = store.inlineErrorMessage {
                 Text(message)

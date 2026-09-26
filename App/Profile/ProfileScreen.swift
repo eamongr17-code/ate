@@ -132,10 +132,9 @@ struct ProfileScreen: View {
                     onDish: { onDish($0.dishID) },
                     identifier: "profile.slip"
                 )
-                .task {
-                    AtePrefetch.photos(after: entry, in: store.entries.entries)
-                    await store.entries.loadMoreIfNeeded(after: entry)
-                }
+                .task { await store.entries.loadMoreIfNeeded(after: entry) }
+                // Its own task, so the row scrolling away cancels the prefetch with it.
+                .task { await AtePrefetch.photos(after: entry, in: store.entries.entries) }
             }
         }
         .padding(.horizontal, AteMetrics.listGutter)

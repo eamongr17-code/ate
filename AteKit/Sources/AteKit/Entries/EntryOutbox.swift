@@ -99,6 +99,11 @@ public actor EntryOutbox {
     private let analytics: AnalyticsRecorder
     private var queue: [QueuedEntry]
     private var isRunning = false
+    /// The entry a run is pushing right now, between its awaits.
+    private var pushing: UUID?
+    /// Entries forgotten because they were deleted. A run already holding one of them in its
+    /// snapshot must neither push it nor write it back.
+    private var forgotten: Set<UUID> = []
     /// Who is signed in now. **An entry is only ever pushed as its own author**: with somebody
     /// else signed in, another person's queued entry waits untouched for them — pushing it would be
     /// refused by RLS and marked blocked, or worse. Nil (tests) works every item.
@@ -137,6 +142,30 @@ public actor EntryOutbox {
         persist()
     }
 
+    /// **Before a delete.** The entry leaves the queue for good, and this waits out any push of it
+    /// already in the air — so no queued photo re-uploads an orphan file, and no insert that timed
+    /// out on the way in can land after `delete_entry` and resurrect the entry.
+    ///
+    /// Returns what was queued, so a delete the server refuses can put it back (``restore(_:)``).
+    @discardableResult
+    public func forget(entryID: UUID) async -> QueuedEntry? {
+        forgotten.insert(entryID)
+        let queued = queue.first { $0.id == entryID }
+        queue.removeAll { $0.id == entryID }
+        persist()
+        while pushing == entryID {
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return queued
+    }
+
+    /// The delete was refused: the entry still exists, so its unfinished work is owed again.
+    public func restore(_ item: QueuedEntry?, entryID: UUID) {
+        forgotten.remove(entryID)
+        guard let item else { return }
+        enqueue(item)
+    }
+
     /// Records what the foreground save already managed, so a later run does not repeat it and does
     /// not forget what is still outstanding. An item with nothing left to do leaves the queue.
     public func recordProgress(entryID: UUID, uploadedPositions: Set<Int>, didSort: Bool) {
@@ -164,7 +193,10 @@ public actor EntryOutbox {
 
         var landed: [UUID] = []
         for item in queue where item.isStuck == false && belongsToCurrentOwner(item) {
+            guard forgotten.contains(item.id) == false else { continue }
             var working = item
+            pushing = item.id
+            defer { pushing = nil }
             do {
                 try await push(&working)
             } catch {
@@ -181,6 +213,8 @@ public actor EntryOutbox {
                 // will fail the same way, so stop rather than burn attempts on all of them.
                 break
             }
+            // Deleted mid-push: it is not landed, and it is not coming back.
+            guard forgotten.contains(working.id) == false else { continue }
             if working.isComplete {
                 landed.append(working.id)
                 queue.removeAll { $0.id == working.id }
@@ -230,6 +264,8 @@ public actor EntryOutbox {
         }
         var remaining: [QueuedPhoto] = []
         for photo in item.pendingPhotos {
+            // Deleted while this run was working it: stop, and upload nothing more.
+            guard forgotten.contains(item.id) == false else { return }
             guard let data = try? Data(contentsOf: URL(filePath: photo.path)) else { continue }
             do {
                 try await entries.attach(photo: EntryPhotoUpload(
@@ -241,7 +277,7 @@ public actor EntryOutbox {
             }
         }
         item.pendingPhotos = remaining
-        if item.needsSort {
+        if item.needsSort, forgotten.contains(item.id) == false {
             let outcome = try await entries.sort(
                 entryID: item.entry.id, force: false, tagTokens: item.tagTokens ?? []
             )
@@ -256,7 +292,8 @@ public actor EntryOutbox {
     }
 
     private func update(_ item: QueuedEntry) {
-        guard let index = queue.firstIndex(where: { $0.id == item.id }) else { return }
+        guard forgotten.contains(item.id) == false,
+              let index = queue.firstIndex(where: { $0.id == item.id }) else { return }
         queue[index] = item
     }
 

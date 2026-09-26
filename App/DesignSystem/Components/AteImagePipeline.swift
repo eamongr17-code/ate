@@ -61,10 +61,18 @@ final class AteImagePipeline: @unchecked Sendable {
     private let directory: URL
     private let lock = NSLock()
     private var inFlight: [String: Task<UIImage?, Never>] = [:]
+    /// How many callers are waiting on each request. When the last one goes away (its row scrolled
+    /// off), the request is cancelled rather than finishing for nobody.
+    private var waiters: [String: Int] = [:]
+    /// Bytes written since the folder was last trimmed; past ``trimEvery`` a trim runs, so the cap
+    /// holds during a long session and not only at launch.
+    private var writtenSinceTrim = 0
+    private var isTrimming = false
 
     /// The disk budget, and what a trim brings it back to.
     private static let diskLimit = 300 * 1024 * 1024
     private static let diskTarget = 200 * 1024 * 1024
+    private static let trimEvery = 16 * 1024 * 1024
 
     init() {
         memory.totalCostLimit = 120 * 1024 * 1024
@@ -105,24 +113,42 @@ final class AteImagePipeline: @unchecked Sendable {
         if let hit = cached(url, size: size) { return hit }
         let key = Self.memoryKey(url, size)
         let task: Task<UIImage?, Never> = lock.withLock {
-            if let running = inFlight[key] { return running }
+            waiters[key, default: 0] += 1
+            // A request its last waiter abandoned is not joined: it is on its way to nothing.
+            if let running = inFlight[key], running.isCancelled == false { return running }
             let started = Task.detached(priority: priority) { [self] in
                 await load(url, size: size)
             }
             inFlight[key] = started
             return started
         }
-        let image = await task.value
-        lock.withLock { inFlight[key] = nil }
+        let image = await withTaskCancellationHandler {
+            await task.value
+        } onCancel: { [self] in
+            // The row that wanted it scrolled away. Only the last waiter cancels the fetch — a tile
+            // still on screen asking for the same photo keeps it alive.
+            lock.withLock {
+                if waiters[key] == 1 { inFlight[key]?.cancel() }
+            }
+        }
+        lock.withLock {
+            let left = (waiters[key] ?? 1) - 1
+            waiters[key] = left > 0 ? left : nil
+            if left <= 0, inFlight[key] == task { inFlight[key] = nil }
+        }
         return image
     }
 
-    /// Warms the caches for photos about to scroll into view. Fire and forget, at low priority.
-    func prefetch(_ addresses: [String], size: AtePhotoSize) {
-        for address in addresses {
-            guard let url = URL(string: address), cached(url, size: size) == nil else { continue }
-            Task.detached(priority: .utility) { [self] in
-                _ = await image(url, size: size, priority: .utility)
+    /// Warms the caches for photos about to scroll into view, at low priority. **Awaited from the
+    /// row's own `.task`**, so when the row scrolls away the prefetch is cancelled with it and its
+    /// fetches stop, instead of finishing for rows nobody is going to see.
+    func prefetch(_ addresses: [String], size: AtePhotoSize) async {
+        await withTaskGroup(of: Void.self) { group in
+            for address in addresses {
+                guard let url = URL(string: address), cached(url, size: size) == nil else { continue }
+                group.addTask(priority: .utility) { [self] in
+                    _ = await image(url, size: size, priority: .utility)
+                }
             }
         }
     }
@@ -197,7 +223,20 @@ final class AteImagePipeline: @unchecked Sendable {
     }
 
     private func writeDisk(_ data: Data, to file: URL) {
-        try? data.write(to: file, options: .atomic)
+        guard (try? data.write(to: file, options: .atomic)) != nil else { return }
+        let shouldTrim: Bool = lock.withLock {
+            writtenSinceTrim += data.count
+            guard writtenSinceTrim >= Self.trimEvery, isTrimming == false else { return false }
+            writtenSinceTrim = 0
+            isTrimming = true
+            return true
+        }
+        guard shouldTrim else { return }
+        let directory = directory
+        Task.detached(priority: .background) { [self] in
+            Self.trim(directory)
+            lock.withLock { isTrimming = false }
+        }
     }
 
     /// Oldest first, until the folder is back under its target.
@@ -278,9 +317,10 @@ final class AteImagePipeline: @unchecked Sendable {
 /// decoded at the size their cluster draws them, so they are already there when they scroll in.
 @MainActor
 enum AtePrefetch {
-    static func photos(after entry: EntryCard, in entries: [EntryCard]) {
+    /// Await it from the row's own `.task`: the row scrolling away cancels it.
+    static func photos(after entry: EntryCard, in entries: [EntryCard]) async {
         guard let index = entries.firstIndex(where: { $0.id == entry.id }) else { return }
-        AteImagePipeline.shared.prefetch(PhotoAddress.upcoming(in: entries, after: index), size: .thumbnail)
+        await AteImagePipeline.shared.prefetch(PhotoAddress.upcoming(in: entries, after: index), size: .thumbnail)
     }
 }
 
