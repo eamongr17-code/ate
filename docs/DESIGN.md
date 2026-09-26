@@ -34,7 +34,7 @@ for exact sizes, colours, radii and copy; it is 390×844 and does not render out
    words and never from location. Typing never mints a place; an old entry's inline place prints
    as plain text and the entry keeps its place.
 9. **The user's words are saved instantly and never rewritten.** The sorter only adds structure.
-10. Lists and receipts that continue run off the bottom of the screen; content fades under the tab bar.
+10. Lists and receipts that continue run off the bottom of the screen, under the glass tab bar.
 11. The logo is the supplied wordmark, never typeset.
 12. **Public/private no longer exists.** Every entry is public; no globe or lock anywhere.
 
@@ -73,8 +73,13 @@ pulse; score numerals roll; a printing receipt's skeleton lines breathe (to 45%,
 
 ## Components
 
-- **Tab bar** — one floating white pill, 66 high: Journal · Feed · **+** (54 ink circle) · Search · You.
-  Icon + 10.5pt label; active = fg + bold, inactive = muted. Content fades to ground beneath it.
+- **Tab bar** — the native iOS 26 `TabView` bar: Liquid Glass, kept translucent (never smoked or
+  opaque), minimising on scroll down. Journal · Feed · Search · You, each a ported line icon (24) over
+  a brand label (Bricolage 10.5; bold when current). **+** is a separate floating glass circle beside
+  the bar, and it stays there when the bar minimises. It presents the composer and is never a tab.
+  Ratings and Suggestions keep the bar; other pushed pages hide it.
+- **App icon** — coral ground with the white `ate.` wordmark, optically centred. Dark appearance is
+  the coral wordmark on ink; tinted is the white glyph on transparent.
 - **Score token** — butter pill, filled star + one-decimal number, DM Mono 500, inline in prose.
 - **Tag chip** (`DietTags`) — GF · DF · V · VG · NF: linen (ground-colour) pill, 18 high, 6 side
   padding, Bricolage 600 10.5 caps +6%, muted, no stroke. 6 after a dish's name on its row (4 apart,

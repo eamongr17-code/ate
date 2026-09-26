@@ -195,8 +195,9 @@ struct SavedUndoPill: View {
 
     /// How long the way back stays open.
     private static let lifetime = Duration.seconds(4)
-    /// The pill sits a row's gap above the floating tab bar: its 22 from the bottom, its 66, and 12.
-    private static let bottom: CGFloat = AteMetrics.tabBarBottom + AteMetrics.tabBarHeight + AteMetrics.regular
+    /// A row's gap above whatever the tab leaves at the bottom — the native bar's safe area, full
+    /// size or minimised.
+    private static let bottom: CGFloat = AteMetrics.regular
     private static let height: CGFloat = AteMetrics.hit
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -216,6 +217,6 @@ struct SavedUndoPill: View {
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: store.undoable?.dishID)
-        .ateContentBottom(Self.bottom)
+        .padding(.bottom, Self.bottom)
     }
 }

@@ -86,6 +86,12 @@ jobs:
       - name: Places locality derivation (the restaurants.city suburb rule)
         run: node --test supabase/functions/places-search/locality_test.ts
 
+      # Every migration applied in order to an in-process Postgres (PGlite/WASM + postgis), then the
+      # SQL-level contract tests. No Docker, never staging: a migration that cannot apply fails here.
+      - name: Migration chain + SQL contracts (PGlite)
+        working-directory: supabase/tests/db
+        run: npm ci --no-fund --no-audit && node --test
+
   contract:
     name: Contract tests vs staging
     runs-on: macos-26
