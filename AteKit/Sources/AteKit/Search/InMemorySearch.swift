@@ -60,6 +60,59 @@ extension InMemorySocialService: SearchReading {
         )
     }
 
+    // MARK: - Filters (the round 4 contract, answered from the seed)
+
+    public func places(query: String, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int)
+        async throws -> SearchPage<PlaceResult> {
+        let rows = try await places(query: query, after: cursor, pageSize: pageSize).rows
+        let lines = visibleEntriesEverywhere()
+        let menu = dishResults()
+        let kept = rows.filter { place in
+            let cuisine = lines.first { $0.place?.id == place.restaurantID }?.place?.cuisine
+            let dishTags = menu.filter { $0.restaurantID == place.restaurantID }.map(\.tags)
+            return Self.passes(filters, cuisine: cuisine, score: place.score)
+                && filters.placeMatchesTags(dishTags: dishTags)
+        }
+        return SearchPage(rows: kept, next: nil)
+    }
+
+    public func dishes(query: String, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int)
+        async throws -> SearchPage<DishResult> {
+        let rows = try await dishes(query: query, after: cursor, pageSize: pageSize).rows
+        let places = Dictionary(
+            visibleEntriesEverywhere().compactMap { entry in entry.place.map { ($0.id, $0) } },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let kept = rows.filter { dish in
+            Self.passes(filters, cuisine: places[dish.restaurantID]?.cuisine, score: dish.score)
+                && filters.dishMatchesTags(dish.tags)
+        }
+        return SearchPage(rows: kept, next: nil)
+    }
+
+    public func cuisines() async throws -> [CuisineCount] {
+        var counts: [String: Set<UUID>] = [:]
+        for place in visibleEntriesEverywhere().compactMap(\.place) {
+            guard let cuisine = place.cuisine, cuisine.isEmpty == false else { continue }
+            counts[cuisine, default: []].insert(place.id)
+        }
+        return counts
+            .map { CuisineCount(cuisine: $0.key, placeCount: $0.value.count) }
+            .sorted { ($0.placeCount, $1.cuisine) > ($1.placeCount, $0.cuisine) }
+    }
+
+    /// The contract's other two rules: any picked cuisine, and a scored-at-least bar that an unscored
+    /// row never clears. Tags are ``SearchFilters``' own rule (every code, on one dish).
+    private static func passes(_ filters: SearchFilters, cuisine: String?, score: Double?) -> Bool {
+        if filters.cuisines.isEmpty == false {
+            guard let cuisine, filters.contains(cuisine: cuisine) else { return false }
+        }
+        if let minimum = filters.minimumScore {
+            guard let score, score >= minimum else { return false }
+        }
+        return true
+    }
+
     /// `search_key`'s rule: case- and accent-insensitive substring — "ragu" finds "ragù".
     private static func matches(_ text: String, _ query: String) -> Bool {
         text.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
@@ -99,7 +152,8 @@ extension InMemorySocialService: SearchReading {
                 restaurantName: place.name,
                 score: scores.isEmpty ? nil : (scores.reduce(0, +) / Double(scores.count) * 10).rounded() / 10,
                 coverURLString: rows.compactMap { $0.0.photos.first?.url }.first,
-                peopleCount: Set(rows.map { $0.0.authorID }).count
+                peopleCount: Set(rows.map { $0.0.authorID }).count,
+                tags: DishTagConsensus.tags(lines: rows.map { $0.1.tags })
             )
         }
         .sorted { $0.name < $1.name }

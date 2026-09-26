@@ -30,6 +30,17 @@ public enum SearchEvents {
         return AnalyticsEvent(name: "search_performed", parameters: parameters)
     }
 
+    /// The filters changed (round 4). What is on, never which cuisine by name — the count says
+    /// whether people narrow at all; the codes and the bar are a closed set, so they are sent as is.
+    public static func searchFiltered(_ filters: SearchFilters) -> AnalyticsEvent {
+        AnalyticsEvent(name: "search_filtered", parameters: [
+            "cuisine_count": String(filters.cuisines.count),
+            "tags": filters.tags.map(\.rawValue).joined(separator: ","),
+            "min_score": filters.minimumScore.map { ScoreFormat.halfStep($0) } ?? "none",
+            "filter_count": String(filters.count)
+        ])
+    }
+
     /// A result row was opened. At the tap, and only the scope: which row it was is the place or
     /// dish page's own `*_viewed(source: search)`, which already exists.
     public static func searchResultOpened(scope: SearchScope) -> AnalyticsEvent {

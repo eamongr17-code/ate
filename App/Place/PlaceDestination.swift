@@ -61,7 +61,8 @@ struct PlaceDestination: View {
                         source: .place
                     )
                 }
-            }
+            },
+            onMenuPhoto: { services.analytics(DetailEvents.menuPhotoOpened()) }
         )
     }
 }

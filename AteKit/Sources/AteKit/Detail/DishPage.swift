@@ -40,6 +40,10 @@ public struct DishSummary: Sendable, Hashable, Codable, Identifiable {
     /// ``Rating`` so one out-of-range row could never take the whole header down; read it through
     /// ``myLastRating``, which is the half-step or nothing.
     public let myLastScore: Double?
+    /// **What most people say about it** — `dish_summary.tags` (0036): a dietary code is listed when
+    /// at least half of the dish's lines the viewer can see carry it. `[]` when none qualifies, and
+    /// on a project that predates 0036. The users' own chips, aggregated — never inferred.
+    public let tags: [DietTag]
 
     public var id: UUID { dishID }
     public var coverURL: URL? { coverURLString.flatMap(URL.init(string:)) }
@@ -62,7 +66,8 @@ public struct DishSummary: Sendable, Hashable, Codable, Identifiable {
         coverURLString: String? = nil,
         photos: [DishPhoto] = [],
         isSaved: Bool = false,
-        myLastScore: Double? = nil
+        myLastScore: Double? = nil,
+        tags: [DietTag] = []
     ) {
         self.dishID = dishID
         self.name = name
@@ -78,6 +83,7 @@ public struct DishSummary: Sendable, Hashable, Codable, Identifiable {
         self.photos = photos
         self.isSaved = isSaved
         self.myLastScore = myLastScore
+        self.tags = tags
     }
 
     /// Hand-written so a project that has not taken 0029 still serves a decodable header: the two
@@ -98,10 +104,11 @@ public struct DishSummary: Sendable, Hashable, Codable, Identifiable {
         self.photos = try container.decodeIfPresent([DishPhoto].self, forKey: .photos) ?? []
         self.isSaved = try container.decodeIfPresent(Bool.self, forKey: .isSaved) ?? false
         self.myLastScore = try container.decodeIfPresent(Double.self, forKey: .myLastScore)
+        self.tags = DietTag.decoding(try container.decodeIfPresent([String].self, forKey: .tags) ?? [])
     }
 
     enum CodingKeys: String, CodingKey {
-        case score, photos
+        case score, photos, tags
         case dishID = "dish_id"
         case name = "dish_name"
         case restaurantID = "restaurant_id"

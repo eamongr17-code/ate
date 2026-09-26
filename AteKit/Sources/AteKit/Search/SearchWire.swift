@@ -89,9 +89,13 @@ struct SearchDishRow: Decodable, Sendable {
     let peopleCount: Int
     let coverURL: String?
     let matchTier: Int
+    /// The dish's consensus dietary codes (`dish_summary`'s rule, 0036). The one forgiving column
+    /// here, on purpose: `search_dishes` does not carry it yet, and a result with no chips is still a
+    /// result. When the server adds it, the chips simply appear.
+    let tags: [String]?
 
     enum CodingKeys: String, CodingKey {
-        case score
+        case score, tags
         case dishID = "dish_id"
         case dishName = "dish_name"
         case restaurantID = "restaurant_id"

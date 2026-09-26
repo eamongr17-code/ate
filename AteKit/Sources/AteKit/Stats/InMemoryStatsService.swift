@@ -93,7 +93,9 @@ public extension InMemoryStatsService {
         ScoreBucket(score: 3.5, dishCount: 25, reviewCount: 27),
         ScoreBucket(score: 4.0, dishCount: 40, reviewCount: 44),
         ScoreBucket(score: 4.5, dishCount: 36, reviewCount: 39),
-        ScoreBucket(score: 5.0, dishCount: 16, reviewCount: 16)
+        ScoreBucket(score: 5.0, dishCount: 16, reviewCount: 16),
+        // The secret 6 (round 4): given once, so its bar is drawn.
+        ScoreBucket(score: 6.0, dishCount: 1, reviewCount: 1)
     ]
 
     /// `Ratings.dc.html`'s five rows, plus the four `You` prints as "Your 5.0s".
@@ -117,6 +119,7 @@ public extension InMemoryStatsService {
         }
         return [
             dish("Tagliatelle al ragù", "Tipo 00", 4.5, 0),
+            dish("Prawn spaghetti", "Tipo 00", 6.0, 2),
             dish("Cheeseburger", "Butchers Diner", 4.5, 17),
             dish("Margherita", "400 Gradi", 4.5, 22),
             dish("Raspberry cake", "Beatrix", 4.5, 29),

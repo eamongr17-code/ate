@@ -8,6 +8,11 @@ import SwiftUI
 /// written here as one stream with no heading (`RestaurantVisits`, 2026-09-26): yours first, each
 /// with a "You" byline, then everyone else's.
 ///
+/// Round 4: the page sits on the list gutter (12, the Journal's); it arrives whole — a still
+/// skeleton of the full layout until the header, the menu and the visits are all in, then one fade;
+/// the menu has no rule above its first dish; and a dish's photo on the menu opens the photo viewer
+/// (its letter tile still opens the dish).
+///
 /// The average in the header is **read**, never computed: it is the mean of per-dish averages
 /// (data-model §1.2), so averaging the menu below it would print a different, wrong number.
 struct PlaceScreen: View {
@@ -16,24 +21,35 @@ struct PlaceScreen: View {
     var onOpen: (EntryCard) -> Void = { _ in }
     var onProfile: (UUID) -> Void = { _ in }
     var onSave: (EntryCard, AteSlip.Dish) -> Void = { _, _ in }
+    /// A dish's photo on the menu was opened in the viewer (telemetry; the viewer is the shell's).
+    var onMenuPhoto: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: AteMetrics.loose) {
-                header
-                // A place that is not there, or could not be reached, is its one line and nothing
-                // under it — no menu skeleton waiting on a page that has already said it failed.
-                if store.header.isFailure == false {
-                    menu
-                    // `gap:12px` — one list, yours woven in first.
-                    VStack(alignment: .leading, spacing: AteMetrics.placeSlipGap) {
-                        visits
-                        entries
+            Group {
+                if store.isSettled {
+                    VStack(alignment: .leading, spacing: AteMetrics.loose) {
+                        header
+                        // A place that is not there, or could not be reached, is its one line and
+                        // nothing under it.
+                        if store.header.isFailure == false {
+                            menu
+                            // `gap:12px` — one list, yours woven in first.
+                            VStack(alignment: .leading, spacing: AteMetrics.placeSlipGap) {
+                                visits
+                                entries
+                            }
+                        }
                     }
+                    .transition(.opacity)
+                } else {
+                    PlacePageSkeleton()
+                        .transition(.opacity)
                 }
             }
+            .ateAnimation(AteMotion.fillIn, value: store.isSettled)
             .padding(.top, AteMetrics.hairspace)
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
@@ -62,7 +78,7 @@ struct PlaceScreen: View {
         switch store.header {
         case .loading:
             PlaceHeaderSkeleton()
-                .padding(.horizontal, AteMetrics.gutter)
+                .padding(.horizontal, AteMetrics.listGutter)
         case .unavailable:
             // Deleted, or behind a block. Say that, and nothing else (design rule 1).
             AteEmptyState(title: "This place\nisn't here.")
@@ -79,7 +95,7 @@ struct PlaceScreen: View {
                     .accessibilityAddTraits(.isHeader)
                 facts
             }
-            .padding(.horizontal, AteMetrics.gutter)
+            .padding(.horizontal, AteMetrics.listGutter)
         }
     }
 
@@ -113,7 +129,7 @@ struct PlaceScreen: View {
         switch store.menu {
         case .loading:
             MenuSkeleton()
-                .padding(.horizontal, AteMetrics.gutter)
+                .padding(.horizontal, AteMetrics.listGutter)
         case .failed:
             EmptyView()
         case .ready where store.dishes.isEmpty:
@@ -125,7 +141,7 @@ struct PlaceScreen: View {
                     .ateText(.receiptLabel)
                     .padding(.bottom, AteMetrics.regular)
                 ForEach(Array(store.dishes.enumerated()), id: \.element.id) { index, dish in
-                    MenuDishRow(dish: dish, rank: index + 1) { onDish(dish.dishID) }
+                    MenuDishRow(dish: dish, rank: index + 1, onPhoto: onMenuPhoto) { onDish(dish.dishID) }
                         .task { await store.loadMoreDishesIfNeeded(after: dish) }
                 }
             }
@@ -136,7 +152,7 @@ struct PlaceScreen: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .ateSlip()
             .ateTornPaper()
-            .padding(.horizontal, AteMetrics.gutter)
+            .padding(.horizontal, AteMetrics.listGutter)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("place.menu")
         }
@@ -158,7 +174,7 @@ struct PlaceScreen: View {
         switch store.entries.phase {
         case .loading:
             SlipSkeleton(count: 1, hasByline: true)
-                .padding(.horizontal, AteMetrics.gutter)
+                .padding(.horizontal, AteMetrics.listGutter)
         case .empty, .signedOut:
             EmptyView()
         case .failed(let message):
@@ -189,16 +205,21 @@ struct PlaceScreen: View {
                 .task { await list.loadMoreIfNeeded(after: entry) }
             }
         }
-        .padding(.horizontal, AteMetrics.gutter)
+        .padding(.horizontal, AteMetrics.listGutter)
     }
 }
 
 /// One line of **what to order**: the rank, a straight 48pt thumbnail (design rule 6 — nothing in a
-/// list tilts), the dish, how many people have scored it, and the score printed like a price.
+/// list tilts), the dish with its dietary chips, how many people have scored it, and the score
+/// printed like a price.
+///
+/// The dashed rule is **between** dishes, never above the first (round 4). A cover photo is its own
+/// control and opens the photo viewer; a letter tile is part of the row and opens the dish.
 struct MenuDishRow: View {
     let dish: MenuDish
     /// 1-based, and a fact about the *list* rather than about the dish — so it is handed in.
     let rank: Int
+    var onPhoto: () -> Void = {}
     let action: () -> Void
 
     /// `min-height:66px; gap:12px`, ruled at the top with the receipt's own dashed line.
@@ -211,50 +232,87 @@ struct MenuDishRow: View {
     /// The receipt it is printed on — light type on the plum slip in dark, ink on white in light.
     @Environment(\.atePalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.atePhotoViewer) private var showPhotos
 
     var body: some View {
-        // At the accessibility sizes the score moves under the dish, so the name has the row.
-        let stacks = dynamicTypeSize.isAccessibilitySize
-        return Button(action: action) {
-            VStack(spacing: 0) {
-                AteDashedLine(opacity: 0.25)
+        VStack(spacing: 0) {
+            if rank > 1 { AteDashedLine(opacity: 0.25) }
+            if dish.coverURL != nil {
+                // Three siblings, because a tap inside a button's label belongs to that button:
+                // the rank and the words open the dish, the photo opens itself.
                 HStack(spacing: AteMetrics.regular) {
-                    Text(String(format: "%02d", rank))
-                        .ateText(.receiptLabel)
-                        // 18 wide at the design's size; the two digits never break across lines.
-                        .fixedSize()
-                        .frame(minWidth: Self.rankWidth, alignment: .leading)
-                    // `width:48px; border-radius:14px` — its cover, or its letter tile (`NoPhotoA`).
-                    AteThumbnail(
-                        photo: AtePhoto(id: dish.dishID, url: dish.coverURL,
-                                        dish: DishLetter(dishID: dish.dishID, name: dish.name)),
-                        side: Self.thumbnail,
-                        radius: Self.thumbnailRadius
-                    )
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(dish.name)
-                            .ateText(.menuDish)
-                            // The dish IS the item; an elided one is a dish nobody can recognise.
-                            .fixedSize(horizontal: false, vertical: true)
-                        if dish.peopleCount > 0 {
-                            HStack(spacing: AteMetrics.tight) {
-                                AteIcon.feed.view(size: 13)
-                                Text(dish.peopleCount.formatted()).ateText(.meta)
-                            }
-                            .foregroundStyle(palette.muted)
-                        }
-                        if stacks { score }
+                    Button(action: action) { rankLabel.frame(maxHeight: .infinity).contentShape(.rect) }
+                        .buttonStyle(.plain)
+                        .accessibilityHidden(true)
+                    Button {
+                        onPhoto()
+                        showPhotos([photo], at: 0)
+                    } label: {
+                        thumbnail.frame(maxHeight: .infinity).contentShape(.rect)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    if stacks == false { score }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Photo of \(dish.name)")
+                    .accessibilityIdentifier("place.dish.photo")
+                    Button(action: action) { words.frame(maxHeight: .infinity).contentShape(.rect) }
+                        .buttonStyle(.plain)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("place.dish")
                 }
                 .frame(minHeight: Self.height)
-                .contentShape(.rect)
+            } else {
+                Button(action: action) {
+                    HStack(spacing: AteMetrics.regular) {
+                        rankLabel
+                        thumbnail
+                        words
+                    }
+                    .frame(minHeight: Self.height)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("place.dish")
             }
         }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("place.dish")
+    }
+
+    private var photo: AtePhoto {
+        AtePhoto(id: dish.dishID, url: dish.coverURL, dish: DishLetter(dishID: dish.dishID, name: dish.name))
+    }
+
+    private var rankLabel: some View {
+        Text(String(format: "%02d", rank))
+            .ateText(.receiptLabel)
+            // 18 wide at the design's size; the two digits never break across lines.
+            .fixedSize()
+            .frame(minWidth: Self.rankWidth, alignment: .leading)
+    }
+
+    /// `width:48px; border-radius:14px` — its cover, or its letter tile (`NoPhotoA`).
+    private var thumbnail: some View {
+        AteThumbnail(photo: photo, side: Self.thumbnail, radius: Self.thumbnailRadius)
+    }
+
+    private var words: some View {
+        // At the accessibility sizes the score moves under the dish, so the name has the row.
+        let stacks = dynamicTypeSize.isAccessibilitySize
+        return HStack(spacing: AteMetrics.regular) {
+            VStack(alignment: .leading, spacing: 1) {
+                // The dish IS the item; an elided one is a dish nobody can recognise.
+                DishNameText(name: dish.name, tags: dish.tags, style: .menuDish)
+                    .fixedSize(horizontal: false, vertical: true)
+                if dish.peopleCount > 0 {
+                    HStack(spacing: AteMetrics.tight) {
+                        AteIcon.feed.view(size: 13)
+                        Text(dish.peopleCount.formatted()).ateText(.meta)
+                    }
+                    .foregroundStyle(palette.muted)
+                }
+                if stacks { score }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if stacks == false { score }
+        }
     }
 
     /// Design rule 7: an unrated dish leaves the score slot empty — never a zero, never a mark.
@@ -264,7 +322,8 @@ struct MenuDishRow: View {
             Text(ScoreFormat.average(value))
                 .ateText(.menuScore)
                 .monospacedDigit()
-                .accessibilityLabel("Rated \(ScoreFormat.average(value)) out of 5")
+                .fixedSize()
+                .accessibilityLabel("Rated \(ScoreFormat.average(value))")
         }
     }
 }
@@ -312,9 +371,9 @@ private struct MenuSkeletonLines: View {
                 .fill(palette.hairline)
                 .frame(width: 96, height: 11)
                 .padding(.bottom, AteMetrics.regular)
-            ForEach(0..<3, id: \.self) { _ in
+            ForEach(0..<3, id: \.self) { index in
                 VStack(spacing: 0) {
-                    AteDashedLine(opacity: 0.25)
+                    if index > 0 { AteDashedLine(opacity: 0.25) }
                     HStack(spacing: AteMetrics.regular) {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(palette.hairline)
@@ -329,6 +388,20 @@ private struct MenuSkeletonLines: View {
                 }
             }
         }
+    }
+}
+
+/// **The whole page before any of it has arrived** — the header, the menu and a visit, as the still
+/// shapes they are waiting for (round 4: staged loading, no shimmer). Everything fills in at once.
+private struct PlacePageSkeleton: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: AteMetrics.loose) {
+            PlaceHeaderSkeleton()
+            MenuSkeleton()
+            SlipSkeleton(count: 1, hasByline: true)
+        }
+        .padding(.horizontal, AteMetrics.listGutter)
+        .accessibilityHidden(true)
     }
 }
 

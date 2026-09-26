@@ -31,14 +31,14 @@ struct StatsContractTests {
         #expect(summary.orders >= 0 && summary.places >= 0 && summary.dishes >= 0)
     }
 
-    /// The RPC's contract is all ten buckets, zeros included, so the client never fills a gap.
-    @Test("score_histogram is ten half-steps with the zeros in place")
+    /// The client normalises to every bucket, zeros included — the ten half-steps and the secret 6.
+    @Test("score_histogram normalises to the ten half-steps and the 6, zeros in place")
     func histogram() async throws {
         let stats = StatsClient(api: try await client())
         let me = try await stats.viewerID()
         let histogram = try await stats.histogram(userID: me)
 
-        #expect(histogram.buckets.count == 10)
+        #expect(histogram.buckets.count == ScoreHistogram.scores.count)
         #expect(histogram.buckets.map(\.score) == ScoreHistogram.scores)
         #expect(histogram.buckets.allSatisfy { $0.dishCount >= 0 && $0.reviewCount >= 0 })
         // One dish scored twice is one dish and two reviews — never the other way round.

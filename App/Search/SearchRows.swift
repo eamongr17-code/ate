@@ -72,7 +72,7 @@ struct PlaceResultRow: View {
 }
 
 /// One dish: `min-height:76px; gap:12px`, a straight 56pt cover (design rule 6 — nothing in a list
-/// tilts), the place under the name (`SearchResults.dc.html`).
+/// tilts), the dish's dietary chips after its name, the place under it (`SearchResults.dc.html`).
 struct DishResultRow: View {
     let dish: DishResult
     let action: () -> Void
@@ -95,11 +95,17 @@ struct DishResultRow: View {
                         side: Self.thumbnail
                     )
                     VStack(alignment: .leading, spacing: AteMetrics.hairspace) {
-                        Text(dish.name)
-                            .ateText(.rowTitle)
-                            .foregroundStyle(AtePalette.automatic.fg)
-                            // The dish IS the item; an elided one is a dish nobody can recognise.
-                            .fixedSize(horizontal: false, vertical: true)
+                        // The dish and its dietary chips (round 4) — on the linen ground, so the
+                        // chips take the ground's recessed field tone.
+                        DishNameText(
+                            name: dish.name,
+                            tags: dish.tags,
+                            style: .rowTitle,
+                            chipFill: AtePalette.automatic.field
+                        )
+                        .foregroundStyle(AtePalette.automatic.fg)
+                        // The dish IS the item; an elided one is a dish nobody can recognise.
+                        .fixedSize(horizontal: false, vertical: true)
                         Text(dish.restaurantName)
                             .ateText(.meta)
                             .foregroundStyle(AtePalette.automatic.muted)
@@ -220,7 +226,7 @@ struct SearchRowsSkeleton: View {
             )
             SearchRowsSkeleton()
         }
-        .padding(.horizontal, AteMetrics.gutter)
+        .padding(.horizontal, AteMetrics.listGutter)
     }
     .ateGround()
 }
