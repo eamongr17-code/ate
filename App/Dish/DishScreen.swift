@@ -241,7 +241,9 @@ struct DishScreen: View {
                     DishReviewRow(
                         review: review,
                         onOpen: { onReview(review) },
-                        onProfile: review.author.map { author in { onProfile(author.id) } }
+                        // Your own "You" is not a door, exactly as on a place's visits: the You
+                        // tab is your profile. The row still opens your entry.
+                        onProfile: review.isMine ? nil : review.author.map { author in { onProfile(author.id) } }
                     )
                     .task { await store.loadMoreIfNeeded(after: review) }
                 }
