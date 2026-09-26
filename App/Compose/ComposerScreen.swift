@@ -26,13 +26,17 @@ struct ComposerScreen: View {
     @State var model: ComposerModel
     @State var pickedItems: [PhotosPickerItem] = []
     @State var isTakingPhoto = false
-    /// The microphone is open: `ComposerVoice` sits over the composer, which stays mounted beneath it
-    /// so the text view — and its undo stack — is the same one the words come back to.
+    /// The microphone is open: `ComposerVoice` sits over the composer. **Parked** (round 4,
+    /// ``VoiceParking``): nothing reaches it while voice mode is out of the product.
     @State var isDictating = false
-    /// The open microphone, made once when the mic key is tapped and dropped when it closes.
+    /// The open microphone, made once when dictation starts and dropped when it closes.
     @State var dictation: DictationController?
     @Environment(\.openURL) var openURL
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State var isSaving = false
+    /// Done was tapped: the keyboard goes down at once, rather than sitting up over a screen that is
+    /// about to be the Summary (round 4, bug a). Back up if the save does not land.
+    @State var isHandingOver = false
     /// Done could not save: the composer stays open with everything in it, and the pill says
     /// "Try again" — the one word, on the control itself (design rule 1).
     @State var saveFailed = false
@@ -40,13 +44,11 @@ struct ComposerScreen: View {
     @State var earlySort: EarlySortScheduler?
     /// Set once a new entry's words are accepted: the Summary takes the cover.
     @State var summary: EntryCard?
-    /// …and the chips it was sorted with, so "Print it again" re-sorts with the same ones.
+    /// …and the chips and 6s it was sorted with, so "Print it again" re-sorts with the same ones.
     @State var summaryTagTokens: [TagToken] = []
-    /// The editor's width, for measuring where the words end.
-    @State private var editorWidth: CGFloat = 0
+    @State var summarySixTokens: [TagToken] = []
+    @State var keyboard = KeyboardPresence()
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.displayScale) private var displayScale
-    @Environment(\.colorScheme) private var colorScheme
     /// Only the debug undo drive moves these; see ``ComposerDebugLaunch/undoDriveArgument``.
     @State private var undoRequest = 0
     @State private var redoRequest = 0
@@ -71,9 +73,11 @@ struct ComposerScreen: View {
             VStack(spacing: 0) {
                 header
                 editor
+                photoStrip
                 toolbar
             }
             .ateSurface()
+            .ateComposerKeyboard(keyboard)
             if isDictating, let dictation {
                 VoiceComposerScreen(
                     composer: model,
@@ -92,20 +96,25 @@ struct ComposerScreen: View {
                     card: summary,
                     photos: model.photos.map(\.photo),
                     handle: summary.author?.username ?? "",
-                    actions: .live(services.entries, tagTokens: summaryTagTokens),
+                    actions: .live(services.entries, tagTokens: summaryTagTokens, sixTokens: summarySixTokens),
                     places: services.places,
                     analytics: services.analytics,
                     onDone: { dismiss() },
                     onUpdated: onSaved
                 )
+                // Laid out whole before it is shown — never grown out of the corner mid-transition
+                // (round 4, bug a: a grey Share pill at the top-left and a stray letter) — and blind
+                // to the keyboard, which is on its way down under it.
+                .geometryGroup()
+                .ignoresSafeArea(.keyboard)
                 .transition(.opacity)
+                .zIndex(1)
             }
         }
         // The surface runs behind the keyboard, to the screen's edges: without it the cover's own
         // black shows around the keyboard's rounded corners.
         .background { AtePalette.surface.ground.ignoresSafeArea() }
         .ateAnimation(.easeInOut(duration: 0.2), value: isDictating)
-        .ateAnimation(.easeInOut(duration: 0.25), value: summary?.id)
         .onChange(of: isDictating) { _, isOpen in
             // However the screen went away, the microphone goes with it.
             if isOpen == false {
@@ -127,7 +136,7 @@ struct ComposerScreen: View {
         }
         .onChange(of: pickedItems) { _, items in
             guard items.isEmpty == false else { return }
-            Task { await stage(items) }
+            stage(items)
         }
         .onChange(of: model.earlySortInput) { _, input in earlySort?.edited(input) }
         // No `onDisappear` stop: presenting the camera's cover disappears this view, and the early
@@ -242,7 +251,7 @@ struct ComposerScreen: View {
                 style: .composerProse,
                 placeholder: Self.placeholder,
                 focusRequest: model.focusRequest,
-                isFocusSuspended: isDictating || summary != nil,
+                isFocusSuspended: isDictating || isHandingOver || summary != nil,
                 undoRequest: undoRequest,
                 redoRequest: redoRequest,
                 selectedTokenID: model.scoring?.id,
@@ -250,28 +259,12 @@ struct ComposerScreen: View {
                 hidesCaret: model.scoring != nil,
                 onTokenTap: reopen,
                 onCaretChange: { model.caret = $0 },
-                onTokenPromoted: { token, wasDictated in
-                    model.literalPromoted(token, wasDictated: wasDictated).map(services.analytics)
+                onTokenPromoted: { token, wasDictated, isPhrase in
+                    model.literalPromoted(token, wasDictated: wasDictated, isPhrase: isPhrase)
+                        .map(services.analytics)
                 }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            // Between the words and the panel: the cluster belongs under the sentence, and the
-            // slider opens over both.
-            // While the slider is open the pill is the focus: the cluster steps back rather than
-            // having the panel's edge cut across tilted photos.
-            //
-            // `minHeight: 0`: the cluster hangs under the words, and words longer than the well (a
-            // long draft, or any draft at the accessibility sizes) put it past the well's bottom.
-            // Without the floor it pushed the well taller than the screen — the header and the
-            // toolbar went off the top and bottom with it.
-            photoCluster
-                .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .topLeading)
-                // …and what hangs past the well's foot is cut there, not drawn under the toolbar's
-                // keys. Only top and bottom: the tilted photos lean past the well's sides.
-                .mask { Rectangle().padding(.horizontal, -Self.wellInset) }
-                .opacity(model.scoring == nil ? 1 : 0)
-                .allowsHitTesting(model.scoring == nil)
 
             if model.scoring != nil {
                 // A tap anywhere in the writing area outside the panel closes it — and only closes
@@ -290,9 +283,10 @@ struct ComposerScreen: View {
                     rating: Binding(
                         get: { model.scoring?.rating },
                         set: { if let rating = $0 { model.slideScore(to: rating) } }
-                    )
+                    ),
+                    allowsSix: true
                 ) { rating in
-                    model.finishScore(at: rating)
+                    model.finishScore(at: rating).map(services.analytics)
                 }
                 // `ComposerStars` pins the panel at `top:100px` inside a column that is itself 8
                 // below the header.
@@ -302,29 +296,11 @@ struct ComposerScreen: View {
                 .padding(.top, dynamicTypeSize.isAccessibilitySize ? 0 : 100 - AteMetrics.snug)
                 .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .top)
                 .transition(.scale(scale: 0.96).combined(with: .opacity))
+                .zIndex(1)
             }
         }
         .padding(.horizontal, Self.wellInset)
         .padding(.top, AteMetrics.snug)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { editorWidth = $0 }
-    }
-
-    /// Where the words end — measured from the same attributed string the editor draws, so the two
-    /// cannot disagree about it.
-    private var wordsHeight: CGFloat {
-        InlineTokenAttributes(
-            style: .composerProse,
-            palette: .surface,
-            dynamicTypeSize: dynamicTypeSize,
-            displayScale: displayScale,
-            colorScheme: colorScheme
-        )
-        // Nothing written yet, the placeholder is what the photos hang under — a photos-only draft
-        // (a camera shot first) otherwise drew its cluster over "What did you eat?".
-        .height(
-            for: model.composition.isEmpty ? EntryComposition(plain: Self.placeholder, spans: []) : model.composition,
-            width: editorWidth
-        )
     }
 
     private static let placeholder = "What did you eat?"
@@ -335,28 +311,33 @@ struct ComposerScreen: View {
     /// biggest of the three (90pt), and it sits on the control surface, so the separating ring is
     /// drawn in that colour rather than in the app's ground.
     ///
-    /// It hangs off the bottom of the words — the artboard's column is prose, then photos, with an
-    /// 18 gap. The editor itself fills the well so the blank space under it still takes a tap, so
-    /// the cluster is placed rather than stacked.
+    /// **Anchored at the foot of the writing area** (round 4), just above the toolbar: the words
+    /// scroll above it and never run under it, and it does not move while they are typed. Each photo
+    /// carries a small X; a long press still offers the system's Remove.
     @ViewBuilder
-    private var photoCluster: some View {
+    private var photoStrip: some View {
         if model.photos.isEmpty == false {
             PhotoCluster(
                 photos: model.photos.map(\.photo),
                 side: AteMetrics.clusterPhotoComposer,
                 surface: AtePalette.surface.ground,
-                // A long press on a photo takes it back out — the system's own menu, no copy.
+                topPadding: Self.stripTop,
+                bottomPadding: AteMetrics.hairspace,
                 onRemove: { index in
                     guard model.photos.indices.contains(index) else { return }
+                    AteHaptics.key()
                     services.analytics(model.removePhoto(id: model.photos[index].id))
                 }
             )
-            .padding(.top, wordsHeight + Self.wordsGap)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Self.wellInset)
+            .accessibilityIdentifier("composer.photos")
+            .transition(.opacity)
         }
     }
 
-    /// `Composer.dc.html`'s `gap:18px` between the words and the photos.
-    private static let wordsGap: CGFloat = 18
+    /// Room above the tiles for their tilt and for each one's X, which sits over its corner.
+    private static let stripTop: CGFloat = 12
 
     /// `Composer.dc.html`'s toolbar — ``ComposerToolbar``.
     private var toolbar: some View {
@@ -364,8 +345,7 @@ struct ComposerScreen: View {
             model: model,
             pickedItems: $pickedItems,
             analytics: services.analytics,
-            onCamera: takePhoto,
-            onDictate: startDictation
+            onCamera: takePhoto
         )
     }
 

@@ -58,7 +58,8 @@ struct SummaryScreen: View {
             primary: primary,
             onAddPlace: store.phase == .needsPlace && store.isBusy == false ? { isPickingPlace = true } : nil,
             onDone: done,
-            onPrimary: primaryAction
+            onPrimary: primaryAction,
+            isHero: true
         )
         .task { await store.watch() }
         .onChange(of: store.card) { _, card in onUpdated(card) }

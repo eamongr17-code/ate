@@ -88,6 +88,8 @@ extension AteShell {
                     // is not heard, so the slot is held for one turn and then released — a real
                     // change, which puts the bar back on the tab under the composer.
                     holdsComposeSlot = true
+                    // The `+` is a key like any other: one light tap under the finger (round 4).
+                    AteHaptics.key()
                     openComposer(.tabBar)
                     Task { @MainActor in holdsComposeSlot = false }
                 }

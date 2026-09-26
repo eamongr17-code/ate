@@ -193,12 +193,17 @@ struct ReceiptView: View {
     @ViewBuilder
     private func lineItem(_ item: AteReceipt.Item, number: Int) -> some View {
         let row = HStack(alignment: .firstTextBaseline, spacing: AteMetrics.snug) {
+            // The number column is never squeezed: a long name used to take its width and break "01"
+            // into "0" over "1" (round 4). It keeps its size on the first line; the name wraps in its
+            // own column beside it.
             Text(String(format: "%02d", number))
                 .ateText(.receiptLine)
                 .foregroundStyle(AtePalette.slip.muted)
+                .fixedSize()
             Text(item.name)
                 .ateText(.receiptLine)
                 .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
                 // The leader is a greedy Canvas; without this it claims space from the name and a
                 // dish that fits on one line wraps anyway.
                 .layoutPriority(1)
@@ -209,6 +214,7 @@ struct ReceiptView: View {
                 Text(ScoreFormat.halfStep(score.value))
                     .ateText(.receiptScore)
                     .monospacedDigit()
+                    .fixedSize()
                     .layoutPriority(1)
             }
         }

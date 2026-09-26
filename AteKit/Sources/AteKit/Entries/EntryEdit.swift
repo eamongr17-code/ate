@@ -34,6 +34,10 @@ public struct EntryEdit: Sendable {
     /// The place on the Place key now.
     public let restaurantID: UUID?
     public let tagTokens: [TagToken]
+    /// The secret 6s in the edited words. A forced sort rebuilds every line and the sorter never
+    /// reads a 6 out of prose, so a 6 not carried here would be lost to the very re-sort a new chip
+    /// asks for.
+    public let sixTokens: [TagToken]
     /// Whether the sort after the edit is forced: only when the edit added a tag chip that was not
     /// there when it opened (``EditTagDiff/hasNewTags``). A forced sort rebuilds every uncorrected
     /// line, so a typo or a photo must never trigger one.
@@ -51,6 +55,7 @@ public struct EntryEdit: Sendable {
         originalRestaurantID: UUID?,
         restaurantID: UUID?,
         tagTokens: [TagToken],
+        sixTokens: [TagToken] = [],
         originalPhotos: [EntryCard.Photo] = [],
         photos: [Photo]? = nil,
         tags: EditTagDiff? = nil
@@ -60,6 +65,7 @@ public struct EntryEdit: Sendable {
         self.originalRestaurantID = originalRestaurantID
         self.restaurantID = restaurantID
         self.tagTokens = tagTokens
+        self.sixTokens = sixTokens
         // No baseline (a caller that only ever adds chips): any chip is new, as before.
         self.forcesSort = tags?.hasNewTags ?? (tagTokens.isEmpty == false)
         self.tagRemovals = tags?.removals ?? []
@@ -142,6 +148,8 @@ public struct EntryEdit: Sendable {
     /// the server adding structure, not the person's write — a failure leaves the words as saved,
     /// and the entry page offers "Print it again".
     public func sort(on entries: any EntryService) async {
-        _ = try? await entries.sort(entryID: entryID, force: forcesSort, tagTokens: tagTokens)
+        _ = try? await entries.sort(
+            entryID: entryID, force: forcesSort, tagTokens: tagTokens, sixTokens: sixTokens
+        )
     }
 }

@@ -15,6 +15,8 @@ public struct NewEntryRequest: Sendable, Hashable {
     /// The composer's tag chips, in scalars — carried to the sort, and kept with the entry in the
     /// outbox so a sort that runs later still has them.
     public let tagTokens: [TagToken]
+    /// The secret 6s, in scalars (`six_tokens`) — carried beside the chips, for the same reason.
+    public let sixTokens: [TagToken]
 
     public init(
         id: UUID,
@@ -24,7 +26,8 @@ public struct NewEntryRequest: Sendable, Hashable {
         createdAt: Date,
         scoreCount: Int,
         secondsFromOpen: Int,
-        tagTokens: [TagToken] = []
+        tagTokens: [TagToken] = [],
+        sixTokens: [TagToken] = []
     ) {
         self.id = id
         self.body = body
@@ -34,6 +37,7 @@ public struct NewEntryRequest: Sendable, Hashable {
         self.scoreCount = scoreCount
         self.secondsFromOpen = secondsFromOpen
         self.tagTokens = tagTokens
+        self.sixTokens = sixTokens
     }
 }
 
@@ -116,7 +120,8 @@ public struct EntrySubmission: Sendable {
                 entry: QueuedInsert(entry),
                 pendingPhotos: photos(of: request),
                 hasInserted: true,
-                tagTokens: request.tagTokens
+                tagTokens: request.tagTokens,
+                sixTokens: request.sixTokens
             ))
             return .saved(card)
         } catch {
@@ -129,7 +134,8 @@ public struct EntrySubmission: Sendable {
                 entry: QueuedInsert(entry),
                 pendingPhotos: photos(of: request),
                 hasInserted: false,
-                tagTokens: request.tagTokens
+                tagTokens: request.tagTokens,
+                sixTokens: request.sixTokens
             ))
             analytics(EntryEvents.saved(savedEvent(request, queued: true)))
             return .queued(placeholder(for: entry, request: request))
@@ -141,9 +147,11 @@ public struct EntrySubmission: Sendable {
     /// photos are still uploading. Returns the entry as it now stands, or `nil` when nothing could
     /// be reached — in which case the outbox already has the rest.
     @discardableResult
-    public func finish(entryID: UUID, photoPaths: [String], tagTokens: [TagToken] = []) async -> EntryCard? {
+    public func finish(
+        entryID: UUID, photoPaths: [String], tagTokens: [TagToken] = [], sixTokens: [TagToken] = []
+    ) async -> EntryCard? {
         async let uploaded = upload(entryID: entryID, photoPaths: photoPaths)
-        let didSort = await sort(entryID: entryID, tagTokens: tagTokens)
+        let didSort = await sort(entryID: entryID, tagTokens: tagTokens, sixTokens: sixTokens)
         await outbox.recordProgress(entryID: entryID, uploadedPositions: await uploaded, didSort: didSort)
         return try? await entries.entry(id: entryID)
     }
@@ -174,10 +182,12 @@ public struct EntrySubmission: Sendable {
         }
     }
 
-    private func sort(entryID: UUID, tagTokens: [TagToken]) async -> Bool {
+    private func sort(entryID: UUID, tagTokens: [TagToken], sixTokens: [TagToken]) async -> Bool {
         let startedAt = now()
         do {
-            let outcome = try await entries.sort(entryID: entryID, force: false, tagTokens: tagTokens)
+            let outcome = try await entries.sort(
+                entryID: entryID, force: false, tagTokens: tagTokens, sixTokens: sixTokens
+            )
             analytics(EntryEvents.sortCompleted(
                 mode: outcome.mode,
                 itemCount: outcome.itemCount,
@@ -239,9 +249,16 @@ public struct EntrySubmission: Sendable {
 }
 
 extension QueuedEntry {
-    init(entry: QueuedInsert, pendingPhotos: [QueuedPhoto], hasInserted: Bool, tagTokens: [TagToken] = []) {
+    init(
+        entry: QueuedInsert,
+        pendingPhotos: [QueuedPhoto],
+        hasInserted: Bool,
+        tagTokens: [TagToken] = [],
+        sixTokens: [TagToken] = []
+    ) {
         self.init(entry: entry, pendingPhotos: pendingPhotos)
         self.hasInserted = hasInserted
         self.tagTokens = tagTokens.isEmpty ? nil : tagTokens
+        self.sixTokens = sixTokens.isEmpty ? nil : sixTokens
     }
 }

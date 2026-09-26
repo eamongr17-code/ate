@@ -6,11 +6,15 @@ import Foundation
 public struct EarlySortInput: Hashable, Sendable {
     public let body: String
     public let tagTokens: [TagToken]
+    /// The secret 6s (`six_tokens`) — part of the input, so a plan cached without them is never
+    /// reused for words that hold one.
+    public let sixTokens: [TagToken]
     public let restaurantID: UUID
 
-    public init(body: String, tagTokens: [TagToken], restaurantID: UUID) {
+    public init(body: String, tagTokens: [TagToken], sixTokens: [TagToken] = [], restaurantID: UUID) {
         self.body = body
         self.tagTokens = tagTokens
+        self.sixTokens = sixTokens
         self.restaurantID = restaurantID
     }
 
@@ -22,7 +26,12 @@ public struct EarlySortInput: Hashable, Sendable {
         let hasDishToken = composition.spans.contains { $0.token.score != nil || $0.token.tag != nil }
         let length = composition.plain.trimmingCharacters(in: .whitespacesAndNewlines).count
         guard hasDishToken || length >= Self.minimumCharacters else { return nil }
-        self.init(body: composition.plain, tagTokens: composition.tagTokens, restaurantID: restaurantID)
+        self.init(
+            body: composition.plain,
+            tagTokens: composition.tagTokens,
+            sixTokens: composition.sixTokens,
+            restaurantID: restaurantID
+        )
     }
 
     public static let minimumCharacters = 12

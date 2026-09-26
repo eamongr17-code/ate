@@ -92,6 +92,13 @@ final class InlineTokenTextView: UITextView {
         )
     }
 
+    /// The baseline of the line nearest `rect` — where a pill on that line sits (the shimmer sweep).
+    func baselineY(near rect: CGRect) -> CGFloat {
+        guard let font = typingAttributes[.font] as? UIFont,
+              let baseline = baseline(near: rect, font: font) else { return rect.maxY }
+        return baseline
+    }
+
     /// The baseline of the line the system caret is on, read off TextKit 2's own line fragments — the
     /// same geometry the glyphs were drawn with, so the caret and the words cannot disagree.
     private func baseline(near caret: CGRect, font: UIFont) -> CGFloat? {

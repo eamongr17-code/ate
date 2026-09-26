@@ -85,8 +85,20 @@ public enum EntryEvents {
         )
     }
 
-    public static func scoreTokenCreated(source: ScoreTokenSource) -> AnalyticsEvent {
-        AnalyticsEvent(name: "entry_score_token_created", parameters: ["source": source.rawValue])
+    /// `isPhrase`: the score was said in words ("four and a half", "a solid four", "4 out of 5" —
+    /// ``ScorePhrase``) rather than typed as a number. Sent as `form=phrase` only then, so the
+    /// existing series is byte-for-byte what it was.
+    public static func scoreTokenCreated(source: ScoreTokenSource, isPhrase: Bool = false) -> AnalyticsEvent {
+        var parameters = ["source": source.rawValue]
+        if isPhrase { parameters["form"] = "phrase" }
+        return AnalyticsEvent(name: "entry_score_token_created", parameters: parameters)
+    }
+
+    /// **The secret 6** came out on the slider — held past 5.0 until the sixth star appeared. Counted
+    /// once per pill that ends the slide on 6, so it reads as "how many 6s were given", never as how
+    /// often someone wobbled at the end of the track.
+    public static func scoreSix() -> AnalyticsEvent {
+        AnalyticsEvent(name: "entry_score_six")
     }
 
     public static func placeAttached(source: PlaceAttachSource) -> AnalyticsEvent {

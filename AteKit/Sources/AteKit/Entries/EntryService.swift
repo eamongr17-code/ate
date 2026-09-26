@@ -128,6 +128,12 @@ public protocol EntryService: Sendable {
     @discardableResult
     func sort(entryID: UUID, force: Bool, tagTokens: [TagToken]) async throws -> SortOutcome
 
+    /// The same, with the secret 6s (`six_tokens`, round 4): the score pills the person marked 6 on
+    /// the slider. A service that cannot send them (a fake, the in-memory preview) falls back to the
+    /// sort without — never an error.
+    @discardableResult
+    func sort(entryID: UUID, force: Bool, tagTokens: [TagToken], sixTokens: [TagToken]) async throws -> SortOutcome
+
     /// One entry, freshly read — what the receipt is drawn from.
     func entry(id: UUID) async throws -> EntryCard
 
@@ -171,6 +177,11 @@ public extension EntryService {
 
     func removePhotos(entryID: UUID, fromPosition position: Int, removedURLs: [String]) async throws {
         throw EntryWriteFailure.rejected("removePhotos unsupported")
+    }
+
+    @discardableResult
+    func sort(entryID: UUID, force: Bool, tagTokens: [TagToken], sixTokens: [TagToken]) async throws -> SortOutcome {
+        try await sort(entryID: entryID, force: force, tagTokens: tagTokens)
     }
 
     /// A sort with no tag chips — a re-sort, a correction, an edit.

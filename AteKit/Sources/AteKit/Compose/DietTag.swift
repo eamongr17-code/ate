@@ -86,12 +86,17 @@ public struct SortEntryRequest: Encodable, Sendable {
     public let force: Bool
     public let dryRun: Bool
     public let tagTokens: [TagToken]
+    /// The secret 6s — `six_tokens`, sent only when there are any.
+    public let sixTokens: [TagToken]
 
-    public init(entryID: UUID, force: Bool, dryRun: Bool = false, tagTokens: [TagToken] = []) {
+    public init(
+        entryID: UUID, force: Bool, dryRun: Bool = false, tagTokens: [TagToken] = [], sixTokens: [TagToken] = []
+    ) {
         self.entryID = entryID
         self.force = force
         self.dryRun = dryRun
         self.tagTokens = tagTokens
+        self.sixTokens = sixTokens
     }
 
     enum CodingKeys: String, CodingKey {
@@ -99,6 +104,7 @@ public struct SortEntryRequest: Encodable, Sendable {
         case entryID = "entry_id"
         case dryRun = "dry_run"
         case tagTokens = "tag_tokens"
+        case sixTokens = "six_tokens"
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -108,6 +114,9 @@ public struct SortEntryRequest: Encodable, Sendable {
         try container.encode(dryRun, forKey: .dryRun)
         if tagTokens.isEmpty == false {
             try container.encode(tagTokens, forKey: .tagTokens)
+        }
+        if sixTokens.isEmpty == false {
+            try container.encode(sixTokens, forKey: .sixTokens)
         }
     }
 }
@@ -144,7 +153,19 @@ public extension EntryComposition {
     /// part company at anything outside the Basic Multilingual Plane — an emoji earlier in the words
     /// is two UTF-16 units and one scalar — so the conversion is done, never assumed.
     var tagTokens: [TagToken] {
-        let tagSpans = spans.filter { $0.token.tag != nil }.map(\.span)
+        scalarTokens(for: spans.filter { $0.token.tag != nil }.map(\.span))
+    }
+
+    /// **The secret 6s** (`six_tokens`, round 4 contract): every score pill the person marked 6 on the
+    /// slider, located in Unicode scalars exactly as ``tagTokens`` are. The sorter never infers a 6
+    /// from prose, so these are the only 6s the server will ever record — and any sort that rebuilds
+    /// an entry's lines (a forced re-sort, "Print it again") has to carry them again, or the 6 falls
+    /// back to prose.
+    var sixTokens: [TagToken] {
+        scalarTokens(for: spans.filter { $0.token.score == .blownAway }.map(\.span))
+    }
+
+    private func scalarTokens(for tagSpans: [TextSpan]) -> [TagToken] {
         guard tagSpans.isEmpty == false else { return [] }
         // UTF-16 offset → scalar offset, one walk over the words.
         var scalarAt: [Int: Int] = [:]
