@@ -125,6 +125,14 @@ struct Round4ContractTests {
         #expect(sixes.map { $0.dishName.lowercased() } == ["tiramisu"], "only the marked six scores: \(lines)")
         let tiramisu = try #require(sixes.first)
 
+        // 0044: a forced re-sort WITHOUT six_tokens ("Print it again", a tag edit, the retry) keeps it.
+        let again: PlanReply = try await jess.supabase.functions.invoke("sort-entry", options: FunctionInvokeOptions(
+            method: .post, body: SortRequest(entryID: entry.uuidString.lowercased(), force: true, sixTokens: [])
+        ))
+        #expect(again.ok == true)
+        let resorted = try await card(jess, entry).items.filter { $0.score == 6 }
+        #expect(resorted.map { $0.dishName.lowercased() } == ["tiramisu"], "a re-sort wiped the marked 6")
+
         // It reads back as a 6 on the dish page and in the histogram (11 buckets, 6.0 last).
         let header: [DishHeader] = try await StagingRPC.rows(
             jess, "dish_summary", ["p_dish_id": StagingRPC.id(tiramisu.dishID)]
@@ -324,8 +332,10 @@ extension Round4ContractTests {
 
     struct SortRequest: Encodable, Sendable {
         let entryID: String
+        var force = false
         let sixTokens: [Span]
         enum CodingKeys: String, CodingKey {
+            case force
             case entryID = "entry_id"
             case sixTokens = "six_tokens"
         }

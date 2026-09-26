@@ -8,7 +8,9 @@
 // preview. (That a 6 then counts as a 6 in averages is SQL: supabase/tests/db/round4_test.mjs.)
 
 import { test, assert, assertEquals } from './harness.ts';
-import { attachSixTokens, parseSixTokens, sixEvidenceOffset, sixMarks, sixSpans, type SixToken } from './six.ts';
+import {
+  attachSixTokens, carriedSixTokens, parseSixTokens, sixEvidenceOffset, sixMarks, sixSpans, type SixToken,
+} from './six.ts';
 import { attachTagTokens, tagTokenSpans, type TagToken } from './tags.ts';
 import { parseEntry } from './parse.ts';
 import { buildRequest } from './model.ts';
@@ -172,4 +174,46 @@ test('six: a preview runs the same gate — a typed 6 is not a score there eithe
   const draft = 'Tiramisu 6';
   assertEquals(sort(draft, []).some((i) => i.score === 6), false);
   assertEquals(line(sort(draft, [mark(draft, '6')]), 'Tiramisu').score, 6);
+});
+
+// ---------------------------------------------------------------------------------------------------
+// 0044 — a re-sort without six_tokens keeps a marked 6 (QA on PR #71)
+// ---------------------------------------------------------------------------------------------------
+/** What sort-entry does on a re-sort: the stored 6s become marked tokens again, then the same pipeline. */
+function resort(body: string, stored: SortItem[], known: string[], tags: TagToken[] = []) {
+  const prior = stored.filter((i) => i.score === 6);
+  return sort(body, carriedSixTokens(body, prior), { known, tags });
+}
+
+test('six carry: a re-sort without six_tokens keeps the 6 (the QA probe)', () => {
+  const body = 'Tiramisu 6 and the gnocchi 4 GF';
+  const gf: TagToken = { offset: [...body].length - 2, length: 2 };
+  const first = sort(body, [mark(body, '6')], { tags: [gf] });
+  assertEquals(first.map((i) => [i.dish_name, i.score]), [['Tiramisu', 6], ['gnocchi', 4]]);
+  // the tag-only re-sort (Entry edit), "Print it again", the retry: no six_tokens at all
+  const again = resort(body, first, ['Tiramisu', 'Gnocchi'], [gf]);
+  assertEquals(again.map((i) => [i.dish_name, i.score, i.evidence_offset]), [['Tiramisu', 6, 9], ['Gnocchi', 4, 27]]);
+  assertEquals(line(again, 'Gnocchi').tags, ['gf']);
+});
+
+test('six carry: the 6 edited out of the words drops; so does one an edit moved', () => {
+  const body = 'Tiramisu 6 and the gnocchi 4';
+  const first = sort(body, [mark(body, '6')]);
+  const edited = 'Tiramisu 5 and the gnocchi 4';
+  assertEquals(carriedSixTokens(edited, first), []);
+  assertEquals(line(resort(edited, first, ['Tiramisu', 'Gnocchi']), 'Tiramisu').score, 5);
+  const moved = 'Honestly: Tiramisu 6 and the gnocchi 4';
+  assertEquals(carriedSixTokens(moved, first), [], 'not at the same span any more');
+  assertEquals(line(resort(moved, first, ['Tiramisu', 'Gnocchi']), 'Tiramisu').score, null);
+});
+
+test('six carry: a typed "6" is still never a score on a re-sort', () => {
+  const body = 'Tiramisu 6 and the gnocchi 6';
+  const first = sort(body, [mark(body, '6', 0)], { known: ['Gnocchi'] });
+  assertEquals(first.map((i) => [i.dish_name, i.score]), [['Tiramisu', 6], ['Gnocchi', null]]);
+  const again = resort(body, first, ['Tiramisu', 'Gnocchi']);
+  assertEquals(again.map((i) => [i.dish_name, i.score]), [['Tiramisu', 6], ['Gnocchi', null]]);
+  assertEquals(carriedSixTokens(body, [{ score_evidence: 'gnocchi 6', evidence_offset: 19 }]).length, 1,
+    'the helper maps spans; only STORED 6s are ever fed to it (index.ts priorSixes: score = 6)');
+  assertEquals(carriedSixTokens(body, [{ score_evidence: '6', evidence_offset: 3 }]), [], 'not at that span');
 });

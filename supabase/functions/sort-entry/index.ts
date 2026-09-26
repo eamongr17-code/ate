@@ -69,7 +69,15 @@ import { fencedPlaceNames, mentionForPlaceName, parseEntry, placeCandidateSpans 
 import { validatePlan } from './validate.ts';
 import { resolveMode, resolveModel, sortWithModel } from './model.ts';
 import { attachTagTokens, parseTagTokens, tagTokenSpans, tagTokenWords, type TagToken } from './tags.ts';
-import { attachSixTokens, parseSixTokens, sixMarks, sixSpans, type SixToken } from './six.ts';
+import {
+  attachSixTokens,
+  carriedSixTokens,
+  parseSixTokens,
+  sixMarks,
+  sixSpans,
+  type PriorSix,
+  type SixToken,
+} from './six.ts';
 import {
   coerceCachedPlan,
   consumeCachedPlan,
@@ -137,6 +145,7 @@ type EntryRow = {
   restaurant_id: string | null;
   restaurant_source: string | null;
   sort_status: string;
+  sort_plan: unknown;
 };
 
 type LocalMatch = { id: string; name: string; match_score: number; strong: boolean };
@@ -213,6 +222,28 @@ async function placeNameOf(
     return null;
   }
   return (data as { name?: string } | null)?.name ?? null;
+}
+
+/** The sorter-owned lines that hold a 6 now — or, for a placeless entry, its parked plan's. */
+async function priorSixes(admin: ReturnType<typeof adminClient>, row: EntryRow): Promise<PriorSix[]> {
+  const { data, error } = await admin
+    .from('reviews')
+    .select('score_evidence, evidence_offset')
+    .eq('entry_id', row.id)
+    .eq('score', 6)
+    .is('corrected_at', null);
+  if (error) {
+    console.error('sort-entry: prior sixes lookup failed:', error.message);
+    return [];
+  }
+  const lines = (data ?? []) as PriorSix[];
+  if (lines.length || row.restaurant_id || !Array.isArray(row.sort_plan)) return lines;
+  return (row.sort_plan as Array<Record<string, unknown>>)
+    .filter((i) => Number(i?.score) === 6)
+    .map((i) => ({
+      score_evidence: typeof i.score_evidence === 'string' ? i.score_evidence : null,
+      evidence_offset: typeof i.evidence_offset === 'number' ? i.evidence_offset : null,
+    }));
 }
 
 /** The 0039 table behind the preview cache. Errors throw; modelPlanWithCache treats them as a miss. */
@@ -458,7 +489,7 @@ Deno.serve(async (req) => {
   try {
     const { data: entry, error: loadError } = await admin
       .from('entries')
-      .select('id, author_id, body, restaurant_id, restaurant_source, sort_status')
+      .select('id, author_id, body, restaurant_id, restaurant_source, sort_status, sort_plan')
       .eq('id', entryId)
       .maybeSingle();
 
@@ -475,11 +506,14 @@ Deno.serve(async (req) => {
     }
 
     const userPinned = row.restaurant_source === 'user' && row.restaurant_id ? row.restaurant_id : null;
+    // 0044: a re-sort without six_tokens keeps a 6 the user marked before, while the words still say it
+    // at the same span (./six.ts carriedSixTokens; apply_entry_sort enforces the same rule).
+    const carried = carriedSixTokens(row.body, await priorSixes(admin, row));
     const planned = await planFor(admin, {
       authorId: row.author_id,
       body: row.body,
       tagTokens,
-      sixTokens,
+      sixTokens: [...sixTokens, ...carried],
       pinnedRestaurantId: userPinned,
       preview: false,
     });

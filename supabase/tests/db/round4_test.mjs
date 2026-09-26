@@ -268,3 +268,71 @@ test('0043: my_entry_places — the caller\'s places, busiest first; paged; owne
     ['Tipo 00', 'Tipo Far', 'Tipo Pasta Bar', 'Tipo Thai'], 'bob sees his own');
   assert.equal((await as(null, () => error(db.query(`select * from public.my_entry_places()`))))?.code, '42501');
 });
+
+// ---------------------------------------------------------------------------------------------------
+// 0044 — a re-sort without six_tokens keeps a marked 6 (QA on PR #71). Runs last: it adds entries.
+// ---------------------------------------------------------------------------------------------------
+const lines = (entry) => rows(`select d.name, v.score::float s, v.score_evidence ev, v.evidence_offset off, v.tags
+  from public.reviews v join public.dishes d on d.id = v.dish_id where v.entry_id = $1 order by v.entry_position`, [entry]);
+const edit = (entry, body) => as(A, () => db.query(`update public.entries set body = $2 where id = $1`, [entry, body]));
+
+test('0044: a re-sort without six_tokens keeps the 6 (the QA probe), tags and all', async () => {
+  const E = await visit(130, A, R1, 'Tiramisu 6 and the gnocchi 4 GF', [
+    { dish_name: 'Tiramisu', score: 6, score_evidence: '6', evidence_offset: 9 },
+    { dish_name: 'Gnocchi', score: 4, score_evidence: 'gnocchi 4', tags: ['gf'] },
+  ], '2026-09-20T09:00:00Z');
+  // the tag-only re-sort / "Print it again" / retry: the plan arrives with no 6 on the tiramisu
+  await sortAs(E, R1, [{ dish_name: 'Tiramisu' }, { dish_name: 'Gnocchi', score: 4, score_evidence: 'gnocchi 4' }]);
+  assert.deepEqual(await lines(E), [
+    { name: 'Tiramisu', s: 6, ev: '6', off: 9, tags: [] },
+    { name: 'Gnocchi', s: 4, ev: 'gnocchi 4', off: 19, tags: ['gf'] },
+  ]);
+  await sortAs(E, R1, [{ dish_name: 'Tiramisu' }, { dish_name: 'Gnocchi' }]);
+  assert.equal((await lines(E))[0].s, 6, 'and again — the carried 6 carries');
+});
+
+test('0044: the 6 edited out of the words drops; so does one an edit moved', async () => {
+  const E = id(130);
+  await edit(E, 'Honestly: Tiramisu 6 and the gnocchi 4 GF');
+  await sortAs(E, R1, [{ dish_name: 'Tiramisu' }]);
+  assert.deepEqual((await lines(E)).map((l) => [l.name, l.s, l.ev]), [['Tiramisu', null, null]], 'moved: not at its span');
+
+  const F = await visit(131, A, R1, 'Tiramisu 6 and the gnocchi 4', [
+    { dish_name: 'Tiramisu', score: 6, score_evidence: '6', evidence_offset: 9 },
+  ], '2026-09-21T09:00:00Z');
+  await edit(F, 'Tiramisu 5 and the gnocchi 4');
+  await sortAs(F, R1, [{ dish_name: 'Tiramisu', score: 5, score_evidence: 'Tiramisu 5' }]);
+  assert.deepEqual((await lines(F)).map((l) => [l.name, l.s]), [['Tiramisu', 5]]);
+  await edit(F, 'Tiramisu and the gnocchi 4');
+  await sortAs(F, R1, [{ dish_name: 'Tiramisu' }]);
+  assert.deepEqual((await lines(F)).map((l) => [l.name, l.s]), [['Tiramisu', null]]);
+});
+
+test('0044: a typed "6" is still never a score — only the line that held a marked 6 carries one', async () => {
+  const E = await visit(132, A, R1, 'Tiramisu 6 and the gnocchi 6', [
+    { dish_name: 'Tiramisu', score: 6, score_evidence: '6', evidence_offset: 9 },
+    { dish_name: 'Gnocchi' },
+  ], '2026-09-22T09:00:00Z');
+  await sortAs(E, R1, [{ dish_name: 'Gnocchi' }, { dish_name: 'Tiramisu' }]);
+  assert.deepEqual((await lines(E)).map((l) => [l.name, l.s, l.off]), [['Gnocchi', null, null], ['Tiramisu', 6, 9]],
+    'the 6 follows its line by match, not by position');
+  // an unscored plan whose prior line was scored 4 (not 6) carries nothing
+  const F = await visit(133, A, R1, 'Gnocchi 4 then 6 of us left', [{ dish_name: 'Gnocchi', score: 4, score_evidence: 'Gnocchi 4' }],
+    '2026-09-23T09:00:00Z');
+  await sortAs(F, R1, [{ dish_name: 'Gnocchi' }]);
+  assert.deepEqual((await lines(F)).map((l) => [l.name, l.s]), [['Gnocchi', null]]);
+});
+
+test('0044: a placeless entry\'s parked plan carries its 6 the same way', async () => {
+  const P = id(134);
+  await db.exec(`alter table public.entries disable trigger entries_place_required;`);
+  try {
+    await db.query(`insert into public.entries (id, author_id, body) values ($1, $2, 'Tiramisu 6 was it')`, [P, A]);
+  } finally {
+    await db.exec(`alter table public.entries enable trigger entries_place_required;`);
+  }
+  await sortAs(P, null, [{ dish_name: 'Tiramisu', score: 6, score_evidence: '6', evidence_offset: 9 }]);
+  await sortAs(P, null, [{ dish_name: 'Tiramisu' }]);
+  const plan = (await rows(`select sort_plan from public.entries where id = $1`, [P]))[0].sort_plan;
+  assert.deepEqual(plan.map((i) => [i.dish_name, i.score, i.evidence_offset]), [['Tiramisu', 6, 9]]);
+});

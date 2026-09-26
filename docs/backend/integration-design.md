@@ -151,7 +151,8 @@ the rule below is enforced in SQL, not by the caller remembering it. **Tag chips
 in `body` ("GF"); send where it sits in `tag_tokens` (UNICODE SCALARS, like every offset). The sorter reads
 it (`gf`, `gluten free`, `vegan`, `GF/DF`…) onto the dish it FOLLOWS. Unmarked words never tag; omitting
 `tag_tokens` on a re-sort removes nothing. **The secret 6 (0041):** a 6 exists only where the composer marked
-it — send each marked `6`/`6.0` in `six_tokens` (scalars). It scores the dish it follows; a typed "6" never does.
+it — send each marked `6`/`6.0` in `six_tokens` (scalars). It scores the dish it follows; a typed "6" never does. A re-sort without `six_tokens` keeps a 6 while the words
+still say it at the same span (0044); edit it out, or move it, and it drops — resend the tokens after a body edit.
 
 **Early sort (0039).** While composing, `{ "preview": true, "body": "<draft>", "tag_tokens": […], "six_tokens": […],
 "restaurant_id": "<uuid|null>" }` (no `entry_id`) → 200 `{ok, preview: true, cached, mode, model, entry_id: null,
@@ -248,7 +249,7 @@ PR, same rule as `place_locality()`); rows written before keep the mangle — re
 
 ## Wire-change log
 
-**Round 4 — 0041–0043 + sort-entry.** Additive: `six_tokens` (sort + preview); a `score` may be `6.0` anywhere a
+**Round 4 — 0041–0044 + sort-entry.** Additive: `six_tokens` (sort + preview); a `score` may be `6.0` anywhere a
 score or aggregate is read; filter params on `search_places`/`search_dishes`/`nearby_places` (drop+create, old
 calls bind); `search_cuisines`, `my_entries`, `my_entry_places`. **Behavioural:** `score_histogram` returns 11 rows.
 
