@@ -6,8 +6,10 @@
 // transactional RPC. It never touches `entries.body`.
 //
 //   POST /functions/v1/sort-entry
-//   body: { entry_id: uuid, force?: boolean, dry_run?: boolean }
+//   body: { entry_id: uuid, force?: boolean, dry_run?: boolean,
+//           tag_tokens?: [{ offset, length }] }        (0036 — scalar spans the client marked)
 //   → 200 { ok, mode, model, entry_id, sort_status, restaurant_id, place_query, place_offset, items[] }
+//     (every item carries `tags: string[]`, possibly [])
 //     (`model` is the model ID that produced the plan, null when the stub did)
 //     401 unauthorized · 403 not your entry · 404 unknown entry · 422 bad request
 //
@@ -42,11 +44,17 @@
 // location input. If the user named somewhere we don't have, the entry stays
 // placeless and the app offers the place sheet — and the plan is parked in
 // entries.sort_plan so attaching the place later still prints the receipt.
+//
+// DIETARY TAGS ARE NEVER INFERRED (0036). Only a span the CLIENT marked as a tag token
+// (`tag_tokens`) can become a tag, on the dish line it follows (./tags.ts). Prose says
+// nothing: "the salad was gluten free" tags no line. A re-sort without tokens never removes
+// a tag already on a line — apply_entry_sort carries them over, like a correction.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { fencedPlaceNames, mentionForPlaceName, parseEntry, placeCandidateSpans } from './parse.ts';
 import { validatePlan } from './validate.ts';
 import { resolveMode, resolveModel, sortWithModel } from './model.ts';
+import { attachTagTokens, parseTagTokens, tagTokenSpans } from './tags.ts';
 import type { PlaceCandidate, SorterMode, SortPlan } from './types.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -193,6 +201,7 @@ Deno.serve(async (req) => {
   const entryId = String((body as { entry_id?: unknown }).entry_id ?? '');
   const force = Boolean((body as { force?: unknown }).force);
   const dryRun = Boolean((body as { dry_run?: unknown }).dry_run);
+  const tagTokens = parseTagTokens((body as { tag_tokens?: unknown }).tag_tokens);
   if (!entryId) return json({ error: 'entry_id required' }, 422);
 
   const admin = adminClient();
@@ -263,10 +272,15 @@ Deno.serve(async (req) => {
       candidatePhrase: matched?.query ?? null,
       mentionPhrase: mention?.phrase ?? null,
     });
-    if (!plan) plan = parseEntry({ body: row.body, knownDishes: known, placeNames });
+    // A marked tag word is never a dish, nor the front half of one ("GF Salad 3.5").
+    const excludeSpans = tagTokenSpans(row.body, tagTokens);
+    if (!plan) plan = parseEntry({ body: row.body, knownDishes: known, placeNames, excludeSpans });
 
     // ---- 3. the same gate for every mode ----------------------------------
-    const validated = validatePlan(plan, { body: row.body, knownDishes: known });
+    // validatePlan rebuilds every item WITHOUT tags; the client's marked tokens are the only
+    // source of a tag, in every mode.
+    const gated = validatePlan(plan, { body: row.body, knownDishes: known });
+    const validated: SortPlan = { ...gated, items: attachTagTokens(gated.items, row.body, tagTokens) };
 
     if (dryRun) {
       return json({
