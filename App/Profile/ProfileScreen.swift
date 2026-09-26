@@ -111,8 +111,8 @@ struct ProfileScreen: View {
             AteEmptyState(title: "Nothing\nto read yet.")
         case .signedOut:
             AteEmptyState(title: "Nobody's\nsigned in.")
-        case .failed(let message):
-            AteEmptyState(title: message)
+        case .failed:
+            AteUnreachableState { Task { await store.refresh() } }
         case .ready:
             slips
         }
@@ -129,7 +129,10 @@ struct ProfileScreen: View {
                     onDish: { onDish($0.dishID) },
                     identifier: "profile.slip"
                 )
-                .task { await store.entries.loadMoreIfNeeded(after: entry) }
+                .task {
+                    AtePrefetch.photos(after: entry, in: store.entries.entries)
+                    await store.entries.loadMoreIfNeeded(after: entry)
+                }
             }
         }
         .padding(.horizontal, AteMetrics.listGutter)

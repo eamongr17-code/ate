@@ -122,6 +122,7 @@ extension AteShell {
         // A draft from before drafts had owners goes to the person who just signed in.
         services.drafts.adoptUnownedDraft()
         journal.invalidate()
+        feedArea.reloadSelection()
         if wasBrowsing {
             Task { await feed.refresh() }
         }

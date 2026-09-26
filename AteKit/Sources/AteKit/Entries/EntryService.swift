@@ -133,6 +133,11 @@ public protocol EntryService: Sendable {
     /// The person editing their **own** words. The only path that writes `entries.body`, and it is
     /// theirs: the server never rewrites it (data-model landmine 6).
     func updateBody(entryID: UUID, body: String) async throws
+
+    /// Delete one of your **own** entries: `delete_entry(p_entry_id)`, then its photos (and their
+    /// `_t.jpg` thumbnails) out of storage. The server refuses anybody else's.
+    @discardableResult
+    func delete(entryID: UUID) async throws -> EntryDeletion
 }
 
 public extension EntryService {
@@ -140,6 +145,12 @@ public extension EntryService {
     @discardableResult
     func sort(entryID: UUID, force: Bool) async throws -> SortOutcome {
         try await sort(entryID: entryID, force: force, tagTokens: [])
+    }
+
+    /// A seam that does not delete refuses, rather than pretending it did.
+    @discardableResult
+    func delete(entryID: UUID) async throws -> EntryDeletion {
+        throw EntryWriteFailure.rejected("delete is not supported here")
     }
 
     /// The handle alone, when that is all a caller needs.

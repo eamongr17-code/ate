@@ -17,7 +17,7 @@ public struct JournalDay: Identifiable, Sendable, Hashable {
 /// list of your own entries that does not contain the one you just wrote is a bug, not a cache miss.
 @MainActor
 @Observable
-public final class JournalStore {
+public final class JournalStore: EntryDeletionObserving {
 
     /// What the screen shows instead of entries.
     public enum Phase: Sendable, Equatable {
@@ -55,11 +55,14 @@ public final class JournalStore {
     public init(
         entries: any EntryService,
         pageSize: Int = 30,
-        calendar: Calendar = .autoupdatingCurrent
+        calendar: Calendar = .autoupdatingCurrent,
+        deletions: EntryDeletions? = nil
     ) {
         self.entryService = entries
         self.pageSize = pageSize
         self.calendar = calendar
+        // An entry deleted anywhere leaves the journal in the same turn.
+        deletions?.add(self)
     }
 
     // MARK: - Loading
@@ -165,6 +168,19 @@ public final class JournalStore {
         guard let index = entries.firstIndex(where: { $0.id == card.id }) else { return }
         entries[index] = card
         regroup()
+    }
+
+    /// An entry was deleted. It leaves the page now, keeps its id in `seenIDs` so a page read
+    /// before the delete landed cannot put it back, and an emptied journal is the first-day one.
+    public func remove(entryID: UUID) {
+        guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return }
+        entries.remove(at: index)
+        if entries.isEmpty, phase == .ready { phase = .empty }
+        regroup()
+    }
+
+    public func entryDeleted(_ entryID: UUID) {
+        remove(entryID: entryID)
     }
 
     public func entry(id: UUID) -> EntryCard? {

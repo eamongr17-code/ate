@@ -255,5 +255,15 @@ public enum EntryEvents {
         )
     }
 
+    /// One of your own entries was deleted — after the server agreed, never at the tap. How much
+    /// went with it is the question: a person deleting photo-heavy visits is telling us something
+    /// different from one clearing out a stray line.
+    public static func deleted(photoCount: Int, dishCount: Int) -> AnalyticsEvent {
+        AnalyticsEvent(
+            name: "entry_deleted",
+            parameters: ["photo_count": String(max(0, photoCount)), "dish_count": String(max(0, dishCount))]
+        )
+    }
+
     private static func flag(_ value: Bool) -> String { value ? "true" : "false" }
 }

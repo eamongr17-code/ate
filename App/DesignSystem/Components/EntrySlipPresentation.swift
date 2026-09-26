@@ -70,6 +70,12 @@ enum EntrySlipPresentation {
 
     // MARK: - The shape they share
 
+    /// An entry's photos in the order they were added, each named by its address — the same photo
+    /// is the same tile on every redraw, so a bookmark flipping never reloads a picture.
+    static func viewerPhotos(_ card: EntryCard) -> [AtePhoto] {
+        card.photos.sorted { $0.position < $1.position }.map { AtePhoto.remote($0.url) }
+    }
+
     /// The design's cluster: three photos, tilted. A fourth would be a fourth angle and a wider
     /// stack than the artboard draws — the rest stay on the entry.
     private static let maximumPhotos = 3
@@ -97,8 +103,9 @@ enum EntrySlipPresentation {
             words: showsWords
                 ? EntryPresentation.composition(for: card)
                 : EntryComposition(plain: "", spans: []),
-            photos: card.photos.prefix(maximumPhotos).map { AtePhoto(url: URL(string: $0.url)) }
+            photos: Array(viewerPhotos(card).prefix(maximumPhotos))
         )
+        slip.viewerPhotos = viewerPhotos(card)
         slip.wordsLineLimit = SlipAnatomy.wordsLineLimit(on: surface)
         return slip
     }

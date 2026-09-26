@@ -15,12 +15,28 @@ public protocol EntryFeedReading: Sendable {
     /// Throws ``AteAPIError/notAuthenticated`` when nobody is signed in rather than returning the
     /// empty page RLS would hand back: "signed out" and "nobody has written anything" are different
     /// screens and must never render as the same one.
-    func feedPage(after cursor: PageCursor?, pageSize: Int, includeOwn: Bool) async throws -> Page<EntryCard>
+    ///
+    /// - Parameter area: one of ``feedAreas(after:limit:)``'s names, or `nil` for everywhere.
+    func feedPage(
+        after cursor: PageCursor?,
+        pageSize: Int,
+        includeOwn: Bool,
+        area: String?
+    ) async throws -> Page<EntryCard>
+
+    /// One page of `feed_areas(p_limit, p_cursor_entry_count, p_cursor_area)` — where people have
+    /// been writing, busiest first, keyset `(entry_count desc, area asc)`. What the Feed's location
+    /// pill offers, beside "Everywhere". `nil` cursor = the first page.
+    func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea]
 }
 
 public extension EntryFeedReading {
+    func feedPage(after cursor: PageCursor?, pageSize: Int, includeOwn: Bool) async throws -> Page<EntryCard> {
+        try await feedPage(after: cursor, pageSize: pageSize, includeOwn: includeOwn, area: nil)
+    }
+
     func feedPage(after cursor: PageCursor?, pageSize: Int) async throws -> Page<EntryCard> {
-        try await feedPage(after: cursor, pageSize: pageSize, includeOwn: false)
+        try await feedPage(after: cursor, pageSize: pageSize, includeOwn: false, area: nil)
     }
 }
 
@@ -42,7 +58,8 @@ public struct EntryFeedClient: EntryFeedReading {
     public func feedPage(
         after cursor: PageCursor?,
         pageSize: Int,
-        includeOwn: Bool
+        includeOwn: Bool,
+        area: String?
     ) async throws -> Page<EntryCard> {
         // No session required: a signed-out browser reads this as `anon` (0034), and the server
         // answers every viewer-relative field as a stranger's — nothing saved, nothing "mine".
@@ -55,6 +72,9 @@ public struct EntryFeedClient: EntryFeedReading {
         parameters["p_cursor_created_at"] = cursor
             .map { .string(PostgRESTTimestamp.string(from: $0.createdAt)) } ?? .null
         parameters["p_cursor_id"] = cursor.map { .string($0.id.uuidString.lowercased()) } ?? .null
+        // Only when one is chosen: `p_area` defaults to null (everywhere, 0038), so "Everywhere" is
+        // the call as it always was and keeps working against a server without the migration.
+        if let area { parameters["p_area"] = .string(area) }
 
         let data = try await api.supabase
             .rpc("get_entry_feed", params: parameters)
@@ -62,5 +82,16 @@ public struct EntryFeedClient: EntryFeedReading {
             .data
         let rows = try PostgRESTDate.decoder.decode([EntryCard].self, from: data)
         return Page(items: rows, requestedLimit: limit)
+    }
+
+    public func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] {
+        let parameters: [String: AnyJSON] = [
+            "p_limit": .integer(FeedArea.clampedLimit(limit)),
+            // First page → nulls. Next page → the LAST row's `entry_count` AND `area` (0038).
+            "p_cursor_entry_count": cursor.map { .integer($0.count) } ?? .null,
+            "p_cursor_area": cursor.map { .string($0.area) } ?? .null
+        ]
+        let data = try await api.supabase.rpc("feed_areas", params: parameters).execute().data
+        return try FeedArea.decodeList(data)
     }
 }

@@ -38,7 +38,8 @@ struct ProfileDestination: View {
         _store = State(initialValue: ProfileStore(
             userID: userID,
             profiles: services.profiles,
-            savedDishes: services.savedDishes
+            savedDishes: services.savedDishes,
+            deletions: services.entryDeletions
         ))
     }
 
