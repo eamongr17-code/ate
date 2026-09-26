@@ -15,8 +15,6 @@ struct AteShadow: Equatable, Sendable {
     var blur: CGFloat
     var spread: CGFloat
 
-    /// The floating tab bar: `0 8px 22px -14px rgba(36,20,31,.4)`.
-    static let tabBar = AteShadow(colour: AteColor.ink.opacity(0.4), offsetY: 8, blur: 22, spread: -14)
     /// The composer's star popover: `0 18px 40px -18px rgba(36,20,31,.45)` (its 1.5px ink ring is a
     /// stroke, drawn by the panel itself).
     static let panel = AteShadow(colour: AteColor.ink.opacity(0.45), offsetY: 18, blur: 40, spread: -18)

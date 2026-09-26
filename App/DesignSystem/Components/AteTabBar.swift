@@ -1,6 +1,7 @@
 import SwiftUI
+import UIKit
 
-/// The five places the app goes. `compose` is not a destination — it is the ink circle in the middle,
+/// The four places the app goes. Compose is not one of them — it is the glass `+` beside the bar,
 /// and it presents rather than switches.
 enum AteTab: String, CaseIterable, Identifiable, Hashable {
     case journal, feed, search, you
@@ -26,111 +27,81 @@ enum AteTab: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
-/// **One floating pill, 66 high**: Journal · Feed · **+** · Search · You. Icon over a 10.5pt label;
-/// the current tab is foreground and bold, the rest are muted.
+/// What the shell's `TabView` selects: a tab, or the compose slot — which presents the composer and
+/// is never actually the selection.
 ///
-/// Hand-built rather than a `TabView` bar because the design puts a compose *action* in the middle of
-/// it — a slot that presents a sheet instead of selecting a tab — and floats the whole thing over
-/// content that fades away beneath it. Those are the two things a stock tab bar cannot be talked into.
-struct AteTabBar: View {
-    @Binding var selection: AteTab
-    let onCompose: () -> Void
+/// **The bar is iOS 26's own** (Liquid Glass, minimise on scroll, the system's re-tap, haptics and
+/// accessibility), with compose as the separate glass circle beside it. iOS 26 has no API for an
+/// *action* in that position; the one system slot that floats a circle there is the search role's,
+/// so compose takes it, and the shell's selection binding turns "selected" into "present".
+enum AteTabSlot: Hashable {
+    case tab(AteTab)
+    case compose
+}
 
-    @Environment(\.atePalette) private var palette
-
-    var body: some View {
-        HStack(spacing: 0) {
-            tab(.journal)
-            tab(.feed)
-            composeButton
-            tab(.search)
-            tab(.you)
-        }
-        .padding(.horizontal, 6)
-        .frame(height: AteMetrics.tabBarHeight)
-        .ateBackground(palette.chip, in: .capsule, shadow: .tabBar)
-        .padding(.horizontal, AteMetrics.tabBarInset)
-        // The design floats the bar 22 from the *screen's* bottom edge, not from the home
-        // indicator's — the indicator is drawn over it, which is what a floating bar is for.
-        .padding(.bottom, AteMetrics.tabBarBottom - AteScreen.safeArea.bottom)
-    }
-
-    private func tab(_ tab: AteTab) -> some View {
-        let isCurrent = tab == selection
-        return Button {
-            selection = tab
-        } label: {
-            VStack(spacing: 3) {
-                tab.icon.view(size: 22)
-                Text(tab.title)
-                    .ateText(isCurrent ? .tabLabelActive : .tabLabel)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 56)
-            .contentShape(.rect)
-        }
-        .foregroundStyle(isCurrent ? palette.fg : palette.muted)
-        .accessibilityLabel(tab.title)
-        .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
-    }
-
-    private var composeButton: some View {
-        Button(action: onCompose) {
-            AteIcon.compose.view(size: 26, lineWidth: 2.2)
-                .frame(width: AteMetrics.composeButton, height: AteMetrics.composeButton)
-                .background(palette.fg, in: .circle)
-                .foregroundStyle(palette.inverted)
-        }
-        .padding(.horizontal, 6)
-        .accessibilityLabel("New entry")
+extension AteTab {
+    /// The tab's label as the native bar takes it: the ported line icon over the title.
+    @MainActor
+    var nativeLabel: some View {
+        Label { Text(title) } icon: { icon.templateImage() }
     }
 }
 
-/// Design rule 10: lists and receipts that continue run off the bottom of the screen, and **content
-/// fades to the ground** under the floating bar — no rule, no bar background, no hard stop.
-struct AteTabScrim: View {
-    @Environment(\.atePalette) private var palette
+/// The native bar's one styling hook: its labels in the design's tab type (`tabLabel`, bold when
+/// current), through `UITabBarAppearance` — the documented way to style a system tab bar's titles,
+/// and one SwiftUI's `TabView` honours on iOS 26 (the older `UITabBarItem` proxy is ignored by the
+/// glass bar). Only the title attributes are set: the glass, its tint and its translucency stay the
+/// system's.
+@MainActor
+enum AteTabBarAppearance {
+    private static var isInstalled = false
 
-    var body: some View {
-        LinearGradient(
-            stops: [
-                .init(color: palette.ground, location: 0),
-                .init(color: palette.ground, location: 0.42),
-                .init(color: palette.ground.opacity(0), location: 1)
-            ],
-            startPoint: .bottom,
-            endPoint: .top
-        )
-        .frame(height: AteMetrics.scrimHeight)
-        // `.scrim` is pinned to the bottom of the screen, under the bar and under the indicator.
-        .padding(.bottom, -AteScreen.safeArea.bottom)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-}
-
-#if DEBUG
-private struct TabBarPreview: View {
-    @State private var selection = AteTab.journal
-
-    var body: some View {
-        ZStack(alignment: .bottom) {
-            ScrollView {
-                VStack(spacing: AteMetrics.slipGap) {
-                    ForEach(0..<12, id: \.self) { index in
-                        Text(verbatim: "Row \(index)")
-                            .ateText(.prose)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(AteMetrics.gutter)
-                    }
-                }
-            }
-            AteTabScrim()
-            AteTabBar(selection: $selection, onCompose: {})
+    static func install() {
+        guard isInstalled == false else { return }
+        isInstalled = true
+        let appearance = UITabBarAppearance()
+        for layout in [appearance.stackedLayoutAppearance, appearance.inlineLayoutAppearance,
+                       appearance.compactInlineLayoutAppearance] {
+            layout.normal.titleTextAttributes = [.font: AteFont.uiFont(for: .tabLabel)]
+            layout.selected.titleTextAttributes = [.font: AteFont.uiFont(for: .tabLabelActive)]
         }
-        .ateGround()
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
     }
 }
 
-#Preview("Tab bar") { TabBarPreview() }
-#endif
+extension AteIcon {
+    /// The icon as a template bitmap — the only form a native tab bar item accepts. Drawn from the
+    /// same artboard geometry and stroke as ``view(size:lineWidth:)``, so the native bar carries the
+    /// design's own line icons rather than SF Symbols.
+    @MainActor
+    func templateImage(
+        size: CGFloat = AteMetrics.tabIcon,
+        lineWidth: CGFloat = AteIconShape.strokeWidth
+    ) -> Image {
+        let key = "\(rawValue)-\(size)-\(lineWidth)"
+        if let cached = AteTemplateImages.cache[key] { return Image(uiImage: cached) }
+        let rect = CGRect(x: 0, y: 0, width: size, height: size)
+        let strokes = AteIconShape(paths: strokes).path(in: rect).cgPath
+        let fills = AteIconShape(paths: fills).path(in: rect).cgPath
+        let image = UIGraphicsImageRenderer(size: rect.size).image { context in
+            let cg = context.cgContext
+            cg.setFillColor(UIColor.black.cgColor)
+            cg.addPath(fills)
+            cg.fillPath()
+            cg.setStrokeColor(UIColor.black.cgColor)
+            cg.setLineWidth(lineWidth * size / AteVector.viewBox)
+            cg.setLineCap(.round)
+            cg.setLineJoin(.round)
+            cg.addPath(strokes)
+            cg.strokePath()
+        }.withRenderingMode(.alwaysTemplate)
+        AteTemplateImages.cache[key] = image
+        return Image(uiImage: image)
+    }
+}
+
+@MainActor
+private enum AteTemplateImages {
+    static var cache: [String: UIImage] = [:]
+}
