@@ -140,8 +140,12 @@ struct PlaceScreen: View {
                 Text("What to order")
                     .ateText(.receiptLabel)
                     .padding(.bottom, AteMetrics.regular)
+                // Letter tiles chosen for the menu as it reads, so neighbours never match (round 4).
+                let letters = DishLetter.neighbourly(store.dishes.map { ($0.dishID, $0.name) })
                 ForEach(Array(store.dishes.enumerated()), id: \.element.id) { index, dish in
-                    MenuDishRow(dish: dish, rank: index + 1, onPhoto: onMenuPhoto) { onDish(dish.dishID) }
+                    MenuDishRow(dish: dish, rank: index + 1, letter: letters[index], onPhoto: onMenuPhoto) {
+                        onDish(dish.dishID)
+                    }
                         .task { await store.loadMoreDishesIfNeeded(after: dish) }
                 }
             }
@@ -219,6 +223,8 @@ struct MenuDishRow: View {
     let dish: MenuDish
     /// 1-based, and a fact about the *list* rather than about the dish — so it is handed in.
     let rank: Int
+    /// The tile the menu chose for this row (``DishLetter/neighbourly(_:)``).
+    var letter: DishLetter?
     var onPhoto: () -> Void = {}
     let action: () -> Void
 
@@ -277,7 +283,7 @@ struct MenuDishRow: View {
     }
 
     private var photo: AtePhoto {
-        AtePhoto(id: dish.dishID, url: dish.coverURL, dish: DishLetter(dishID: dish.dishID, name: dish.name))
+        AtePhoto(id: dish.dishID, url: dish.coverURL, dish: letter ?? DishLetter(dishID: dish.dishID, name: dish.name))
     }
 
     private var rankLabel: some View {

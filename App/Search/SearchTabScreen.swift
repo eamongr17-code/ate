@@ -184,8 +184,9 @@ struct SearchTabScreen: View {
                         .task { await store.loadMoreIfNeeded(index: index) }
                 }
             case .dishes(let dishes):
+                let letters = DishLetter.neighbourly(dishes.map { ($0.dishID, $0.name) })
                 ForEach(Array(dishes.enumerated()), id: \.element.id) { index, dish in
-                    DishResultRow(dish: dish) {
+                    DishResultRow(dish: dish, letter: letters[index]) {
                         store.reportOpened()
                         onDish(dish.dishID)
                     }
@@ -200,9 +201,11 @@ struct SearchTabScreen: View {
                     .task { await store.loadMoreIfNeeded(index: index) }
                 }
             case .saved(let saved):
+                let letters = DishLetter.neighbourly(saved.map { ($0.dishID, $0.dishName) })
                 ForEach(Array(saved.enumerated()), id: \.element.id) { index, dish in
                     SavedDishRow(
                         dish: dish,
+                        letter: letters[index],
                         onTap: {
                             store.reportOpened()
                             onDish(dish.dishID)

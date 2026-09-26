@@ -41,12 +41,20 @@ struct SavedScreen: View {
     }
 
     private var groups: some View {
-        LazyVStack(alignment: .leading, spacing: 0) {
+        // The letter tiles are chosen for the shelf as it reads, top to bottom, so no two dishes
+        // one above the other share an accent (round 4).
+        let shelf = store.groups.flatMap(\.dishes)
+        let letters = Dictionary(
+            zip(shelf.map(\.id), DishLetter.neighbourly(shelf.map { ($0.dishID, $0.dishName) })),
+            uniquingKeysWith: { first, _ in first }
+        )
+        return LazyVStack(alignment: .leading, spacing: 0) {
             ForEach(store.groups) { group in
                 placeHead(group)
                 ForEach(group.dishes) { dish in
                     SavedDishRow(
                         dish: dish,
+                        letter: letters[dish.id],
                         onTap: { onDish(dish) },
                         onUnsave: { onUnsave(dish) }
                     )
@@ -54,7 +62,8 @@ struct SavedScreen: View {
                 }
             }
         }
-        .padding(.horizontal, AteMetrics.gutter)
+        // One card width everywhere (round 4): the shelf's rows sit on the segment's own edge.
+        .ateCardWidth()
     }
 
     /// `padding:18px 0 10px` — the place, its suburb, and the chevron onward.
@@ -94,6 +103,8 @@ struct SavedScreen: View {
 /// bookmark that unsaves it.
 struct SavedDishRow: View {
     let dish: SavedDish
+    /// The tile the shelf chose for this row, so it never matches the one above it.
+    var letter: DishLetter?
     var onTap: () -> Void
     var onUnsave: () -> Void
 
@@ -112,7 +123,10 @@ struct SavedDishRow: View {
                 Button(action: onTap) {
                     HStack(spacing: AteMetrics.regular) {
                         AteThumbnail(
-                            photo: .dish(dish.dishID, name: dish.dishName, cover: dish.dishCoverURL),
+                            photo: .dish(
+                                letter ?? DishLetter(dishID: dish.dishID, name: dish.dishName),
+                                cover: dish.dishCoverURL
+                            ),
                             side: Self.thumbnail
                         )
                         VStack(alignment: .leading, spacing: 2) {
@@ -194,7 +208,7 @@ private struct SavedSkeleton: View {
                 }
             }
         }
-        .padding(.horizontal, AteMetrics.gutter)
+        .ateCardWidth()
         .accessibilityHidden(true)
     }
 }

@@ -30,6 +30,11 @@ struct AtePhoto: Identifiable, Equatable {
     static func dish(_ dishID: UUID, name: String, cover: String?) -> AtePhoto {
         AtePhoto(id: dishID, url: cover.flatMap(URL.init(string:)), dish: DishLetter(dishID: dishID, name: name))
     }
+
+    /// …with the tile a list chose for it (``DishLetter/neighbourly(_:)``).
+    static func dish(_ letter: DishLetter, cover: String?) -> AtePhoto {
+        AtePhoto(id: letter.dishID, url: cover.flatMap(URL.init(string:)), dish: letter)
+    }
 }
 
 /// **The letter tile** (`NoPhotoA.dc.html`, 2026-09-26): what a dish with no photo shows wherever a
@@ -40,12 +45,26 @@ struct AtePhoto: Identifiable, Equatable {
 struct DishLetter: Equatable, Sendable {
     let dishID: UUID
     let name: String
+    /// Set by a list, where the dish's own accent would repeat the tile beside it
+    /// (``neighbourly(_:)``). `nil` is the dish's own.
+    var paletteIndex: Int?
 
     /// Coral, green, pink, sky, lilac — the accents less butter.
     static let accents: [Color] = [AteColor.coral, AteColor.green, AteColor.pink, AteColor.sky, AteColor.lilac]
 
-    var accent: Color { Self.accents[DishTileIdentity.paletteIndex(for: dishID, count: Self.accents.count)] }
+    var accent: Color {
+        Self.accents[paletteIndex ?? DishTileIdentity.paletteIndex(for: dishID, count: Self.accents.count)]
+    }
     var letter: String { DishTileIdentity.initial(for: name) }
+
+    /// **The letter tiles of a list, in the order it draws them** (round 4): neighbours never share
+    /// an accent, and the same list always paints the same way
+    /// (``DishTileIdentity/paletteIndices(for:count:)``). Every list of dish thumbnails builds its
+    /// tiles through this — Saved, a place's menu, the dish rows in Search, Ratings.
+    static func neighbourly(_ dishes: [(dishID: UUID, name: String)]) -> [DishLetter] {
+        let indices = DishTileIdentity.paletteIndices(for: dishes.map(\.dishID), count: accents.count)
+        return zip(dishes, indices).map { DishLetter(dishID: $0.dishID, name: $0.name, paletteIndex: $1) }
+    }
 }
 
 struct DishLetterTile: View {
@@ -150,6 +169,9 @@ struct PhotoCluster: View {
     var onTap: ((Int) -> Void)?
 
     @Environment(\.atePalette) private var palette
+    @Environment(\.atePhotoOriginRelay) private var originRelay
+    /// Where each tile sits, for the photo preview to grow out of (round 4).
+    @State private var frames = AtePhotoTileFrames()
 
     var body: some View {
         let cluster = HStack(spacing: -overlap) {
@@ -191,8 +213,15 @@ struct PhotoCluster: View {
         .modifier(RemovablePhoto(index: index, side: side, onRemove: onRemove))
 
         if let onTap {
-            Button { onTap(index) } label: { drawn.contentShape(.rect) }
+            Button {
+                originRelay?.note(frames.origin(
+                    radius: { _ in AteMetrics.photoRadius(side: side) },
+                    angle: { angle(at: $0) }
+                ))
+                onTap(index)
+            } label: { drawn.contentShape(.rect) }
                 .buttonStyle(.plain)
+                .atePhotoSource(frames, index: index)
                 .accessibilityLabel("Photo \(index + 1) of \(photos.count)")
                 .accessibilityIdentifier("photo.\(index)")
         } else {
@@ -262,6 +291,9 @@ struct PhotoCollage: View {
     var onTap: ((Int) -> Void)?
 
     @Environment(\.atePalette) private var palette
+    @Environment(\.atePhotoOriginRelay) private var originRelay
+    /// Where each tile sits, for the photo preview to grow out of (round 4).
+    @State private var frames = AtePhotoTileFrames()
 
     /// One photo's place in the collage, in the artboard's own numbers.
     struct Slot: Sendable {
@@ -304,6 +336,17 @@ struct PhotoCollage: View {
         case 1: single
         default: collage
         }
+    }
+
+    /// A tile's corner and tilt as drawn — what the photo preview starts from.
+    private func tileRadius(_ index: Int) -> CGFloat {
+        guard photos.count > 1, Self.slots.indices.contains(index) else { return Self.singleRadius }
+        return Self.slots[index].radius * (width + 2 * Self.bleed) / Self.designWidth
+    }
+
+    private func tileAngle(_ index: Int) -> Double {
+        guard photos.count > 1, Self.slots.indices.contains(index) else { return 0 }
+        return Self.slots[index].angle
     }
 
     // MARK: - Arrangements
@@ -356,8 +399,12 @@ struct PhotoCollage: View {
             .rotationEffect(.degrees(angle))
 
         if let onTap {
-            Button { onTap(index) } label: { content }
+            Button {
+                originRelay?.note(frames.origin(radius: tileRadius, angle: tileAngle))
+                onTap(index)
+            } label: { content }
                 .buttonStyle(.plain)
+                .atePhotoSource(frames, index: index)
                 .accessibilityLabel("Photo \(index + 1) of \(photos.count)")
         } else {
             content.accessibilityHidden(true)
