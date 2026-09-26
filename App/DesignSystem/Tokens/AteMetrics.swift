@@ -184,6 +184,9 @@ enum AteMetrics {
     /// height (66 + 22): design rule 10 wants the last slip to run off under the scrim rather than
     /// stop dead above it, and this is how much of it stays readable.
     static let tabBarScrollInset: CGFloat = 64
+    /// The tab icon inside iOS 26's native bar (the `-ate-tabbar A|B` prototype) — the artboard's
+    /// 22 plus the 2 the system bar's taller item box leaves around a symbol.
+    static let nativeTabIcon: CGFloat = 24
 
     /// Between a sheet's bands.
     static let sheetGap: CGFloat = 14

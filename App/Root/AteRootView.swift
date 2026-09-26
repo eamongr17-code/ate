@@ -75,7 +75,7 @@ struct AteShell: View {
     /// The one save, made once and handed down — it holds which dishes are mid-flight.
     @State private var saveAction: SaveAction
     /// Non-nil presents the composer, and carries what it was opened with.
-    @State private var composing: ComposerPresentation?
+    @State var composing: ComposerPresentation?
     /// The one stack every tab pushes onto. Hoisted here so Done in the composer can land on the new
     /// entry, at the journal's root, rather than under whatever was open before.
     @State var path: [Route] = []
@@ -88,7 +88,10 @@ struct AteShell: View {
     /// non-zero when the photo library has already been allowed; nothing here asks.
     @State private var photoCount = 0
     /// Bumped when a tab's own item is tapped again — the screen scrolls to the top.
-    @State private var scrollToTop = 0
+    @State var scrollToTop = 0
+    /// Native variant A only: true for the one turn UIKit's bar holds the borrowed compose slot as
+    /// its selection, so handing the real tab back is a change the bar actually hears.
+    @State var holdsComposeSlot = false
     @State var hasSession: Bool
     @State var isSigningIn = false
     /// Signed out, looking at the feed — and the ask that comes up when a browser tries to write.
@@ -196,7 +199,16 @@ struct AteShell: View {
         }
     }
 
+    @ViewBuilder
     var shell: some View {
+        if tabBarStyle.isNative {
+            nativeShell
+        } else {
+            customShell
+        }
+    }
+
+    private var customShell: some View {
         NavigationStack(path: $path) {
             ZStack(alignment: .bottom) {
                 current
@@ -212,16 +224,14 @@ struct AteShell: View {
                     .toolbar(.hidden, for: .navigationBar)
             }
         }
-        .fullScreenCover(item: $composing) { presentation in
-            ComposerScreen(presentation: presentation, services: services, onSaved: landOnEntry)
-        }
+        .fullScreenCover(item: $composing) { presentation in composerCover(presentation) }
         #if DEBUG
         .fullScreenCover(item: $debugSummary) { summary in debugSummaryScreen(summary) }
         #endif
     }
 
     @ViewBuilder
-    private func destination(_ route: Route) -> some View {
+    func destination(_ route: Route) -> some View {
         switch route {
         case .entry(let entry):
             EntryScreen(
@@ -312,27 +322,10 @@ struct AteShell: View {
         }
     }
 
-    /// A pushed page that keeps the floating bar under it. The stack's root bar is covered by the
-    /// push, so the page carries its own — and tapping a tab from one pops back to that tab.
-    @ViewBuilder
-    private func overTabBar(@ViewBuilder _ content: () -> some View) -> some View {
-        ZStack(alignment: .bottom) {
-            content()
-            AteTabScrim()
-            AteTabBar(
-                selection: Binding(get: { tab }, set: { tapped in
-                    guard mayOpen(tapped) else { return }
-                    tab = tapped
-                    path.removeAll()
-                }),
-                onCompose: { openComposer(.tabBar) }
-            )
-        }
-        .ateGround()
-    }
+    private var current: some View { screen(for: tab) }
 
     @ViewBuilder
-    private var current: some View {
+    func screen(for tab: AteTab) -> some View {
         switch tab {
         case .journal:
             JournalScreen(
@@ -398,7 +391,7 @@ struct AteShell: View {
 
     /// A hand-written binding because a tab bar's most-used gesture — tapping the tab you are already
     /// on — changes nothing and so never reaches `onChange`. The setter is where it can be heard.
-    private var selection: Binding<AteTab> {
+    var selection: Binding<AteTab> {
         Binding(
             get: { tab },
             set: { tapped in
@@ -425,7 +418,7 @@ struct AteShell: View {
         path.append(route)
     }
 
-    private func openComposer(_ origin: ComposerPresentation.Origin) {
+    func openComposer(_ origin: ComposerPresentation.Origin) {
         guard gate.permitsWrite(.compose) else { return }
         composing = ComposerPresentation(origin: origin)
     }
@@ -435,7 +428,7 @@ struct AteShell: View {
     ///
     /// An *edit* lands on the same page it came from, so the path is left where it is — replacing it
     /// would push a second copy of the entry the person is already looking at.
-    private func landOnEntry(_ card: EntryCard) {
+    func landOnEntry(_ card: EntryCard) {
         journal.insert(card)
         tab = .journal
         guard path.contains(where: { $0.entryID == card.id }) == false else { return }
