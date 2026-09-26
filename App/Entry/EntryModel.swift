@@ -22,12 +22,6 @@ final class EntryModel: SavedDishObserving {
         var id: UUID { item.id }
     }
 
-    /// Which photo the full-screen viewer opened on.
-    struct ViewingPhoto: Identifiable, Equatable {
-        let index: Int
-        var id: Int { index }
-    }
-
     /// What `Share` is about — `Identifiable` so it can present a cover.
     struct Sharing: Identifiable, Equatable {
         let artefact: ShareArtefact
@@ -42,7 +36,14 @@ final class EntryModel: SavedDishObserving {
     var correcting: Correcting?
     /// A report, block or correction that did not happen, said once (``ActionFailure``).
     var failure: ActionFailure?
-    var viewingPhoto: ViewingPhoto?
+    /// Why the entry could not be shown, when it could not — and only while there is nothing on
+    /// the page: a refresh that fails under a loaded entry leaves the entry where it is.
+    private(set) var loadFailure: LoadFailure?
+    /// The "…" menu's Delete, asking first.
+    var isConfirmingDelete = false
+    /// The delete did not go through. The entry is still here, and says so.
+    var deleteFailed = false
+    private(set) var isDeleting = false
     /// Non-nil presents `Share` — the coral screen the receipt actually leaves from.
     var sharing: Sharing?
 
@@ -73,8 +74,21 @@ final class EntryModel: SavedDishObserving {
     }
 
     func reload() async {
-        guard let card = try? await services.entries.entry(id: route.entryID) else { return }
-        apply(card, isStuck: await services.outbox.isStuck(entryID: route.entryID))
+        do {
+            let card = try await services.entries.entry(id: route.entryID)
+            loadFailure = nil
+            apply(card, isStuck: await services.outbox.isStuck(entryID: route.entryID))
+        } catch is CancellationError {
+            return
+        } catch {
+            if card == nil { loadFailure = LoadFailure(error) }
+        }
+    }
+
+    /// "Try again" on a page that could not reach Ate.
+    func retryLoad() async {
+        loadFailure = nil
+        await load()
     }
 
     /// Polls for the receipt while the sorter works. The app asked for the sort itself when the
@@ -100,7 +114,8 @@ final class EntryModel: SavedDishObserving {
         self.card = card
         // The words as written — a place named in them is plain text (ComposerPlaceB).
         composition = EntryPresentation.composition(for: card)
-        photos = card.photos.map { AtePhoto(url: URL(string: $0.url)) }
+        // Named by address, so a redraw (a bookmark, a correction) never reloads a photo.
+        photos = EntrySlipPresentation.viewerPhotos(card)
         state = EntryPresentation.state(for: card, handle: handle)
         // An entry the outbox has given up on is not "still printing" — it is not printed, and it
         // needs the one thing that can change that: somebody asking again.
@@ -220,6 +235,27 @@ final class EntryModel: SavedDishObserving {
     /// The bookmark changed somewhere — here, or on a list this page was opened from.
     func savedDishChanged(dishID: UUID, isSaved: Bool) {
         applySaved(dishID: dishID, to: isSaved)
+    }
+
+    // MARK: - Delete
+
+    /// Your own entry, gone: the server first, then the journal, the feed and any open profile
+    /// (``EntryDeletions``), then `entry_deleted`. Returns whether it went, so the page pops only
+    /// when there is nothing left to show.
+    func delete() async -> Bool {
+        guard let card, card.isMine, isDeleting == false else { return false }
+        isDeleting = true
+        defer { isDeleting = false }
+        let deleter = EntryDeleter(
+            entries: services.entries,
+            deletions: services.entryDeletions,
+            analytics: services.analytics
+        )
+        guard await deleter.delete(card) else {
+            deleteFailed = true
+            return false
+        }
+        return true
     }
 
     /// Report this entry. The author is reported from their profile; this is about the words.

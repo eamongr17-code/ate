@@ -64,19 +64,8 @@ enum AteColor {
     /// dimmed ``paper`` is left to the place menu and Welcome.
     static let slip = Color(light: .white, dark: Color(hex: 0x231B24))
 
-    // MARK: - The paper's depth (`EdgeFinal.dc.html`, 2026-09-26)
+    // MARK: - The paper's edge (`EdgeFinal.dc.html`, 2026-09-26; flat since round 3)
 
-    /// A slip's bottom tone: the warm off-white its gradient eases to, and the wave strip's fill.
-    /// Dark: the plum slip deepens from `#231B24` to `#1F1820`.
-    fileprivate static let slipBottom = Color(light: Color(hex: 0xF8F5F0), dark: Color(hex: 0x1F1820))
-    /// The ring around overlapping photos in a slip's lower half. The board gives light only
-    /// (`#FBF9F6`, between the two tones); dark takes the same midpoint of its own two.
-    fileprivate static let slipRing = Color(light: Color(hex: 0xFBF9F6), dark: Color(hex: 0x211A22))
-    /// Receipt paper (place menu, Welcome) ends in the same tone in light. In dark the paper is the
-    /// dimmed `#E6DFD3`, and its bottom tone is dimmed by the same ratio — the board draws no dark
-    /// paper, so this is the closest faithful value rather than a new colour.
-    fileprivate static let paperBottom = Color(light: Color(hex: 0xF8F5F0), dark: Color(hex: 0xE0D6C7))
-    fileprivate static let paperRing = Color(light: Color(hex: 0xFBF9F6), dark: Color(hex: 0xE3DACD))
     /// The one shadow a torn surface has: `drop-shadow(0 1px 0 rgba(36,20,31,.07))`; black 25% in dark.
     fileprivate static let contact = Color(light: ink.opacity(0.07), dark: Color.black.opacity(0.25))
 
@@ -87,26 +76,23 @@ enum AteColor {
     static let ground = Color(light: groundLight, dark: groundDark)
 }
 
-/// **A torn surface's tone** — `EdgeFinal`'s depth, as the four colours it is drawn in. Read by
+/// **A torn surface's tone** — one flat colour and its contact line. Read by
 /// ``SwiftUICore/View/ateTornPaper(_:topRadius:)``; never named at a call site.
+///
+/// Flat (Eamon, round 3): `EdgeFinal`'s ease from white to `#F8F5F0` is gone. The paper is one
+/// colour from its top to the tip of edge B — white on linen, `#231B24` on ink — so a photo's ring
+/// is simply the paper.
 struct AtePaperTone: Sendable {
-    var top: Color
-    var bottom: Color
-    /// The ring around overlapping photos in the paper's lower half (`.cluster{--surface:#FBF9F6}`).
-    var ring: Color
+    var fill: Color
     var contact: Color
 
-    /// Where the ease to the bottom tone begins, as a fraction of the paper's height.
-    static let holdFraction: CGFloat = 0.45
+    /// The ring around overlapping photos on this paper: the paper itself.
+    var ring: Color { fill }
 
     /// Journal, feed and profile slips; the Share, Summary and statement receipts.
-    static let slip = AtePaperTone(
-        top: AteColor.slip, bottom: AteColor.slipBottom, ring: AteColor.slipRing, contact: AteColor.contact
-    )
+    static let slip = AtePaperTone(fill: AteColor.slip, contact: AteColor.contact)
     /// Receipt paper — the place menu, Welcome.
-    static let paper = AtePaperTone(
-        top: AteColor.paper, bottom: AteColor.paperBottom, ring: AteColor.paperRing, contact: AteColor.contact
-    )
+    static let paper = AtePaperTone(fill: AteColor.paper, contact: AteColor.contact)
 }
 
 /// The six role colours, scoped to a surface. The direct equivalent of the prototype's CSS custom

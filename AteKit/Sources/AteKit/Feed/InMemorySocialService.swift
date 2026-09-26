@@ -31,7 +31,8 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
     /// The viewer's own Tipo 00 visit is in there too — never in the feed (it is theirs), but on the
     /// place's page, where your visits lead the list with a "You" byline (`RestaurantVisits`).
     public static func seededWithSaves() -> InMemorySocialService {
-        InMemorySocialService(entries: seededEntries + [ownVisit], saved: seededSaves)
+        let long = PreviewFaults.longFixtures ? longEntries : []
+        return InMemorySocialService(entries: long + seededEntries + [ownVisit], saved: seededSaves)
     }
 
     /// The viewer's visit, its lines pointed at the seed's own dishes — one tiramisu on the menu,
@@ -55,17 +56,38 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
     public func feedPage(
         after cursor: PageCursor?,
         pageSize: Int,
-        includeOwn: Bool
+        includeOwn: Bool,
+        area: String?
     ) async throws -> Page<EntryCard> {
-        lock.withLock {
+        if PreviewFaults.listsOffline { throw URLError(.notConnectedToInternet) }
+        return lock.withLock {
             // Every entry is public (0033): the only things that keep one off the feed are a block
             // and whose it is.
             let visible = entries
                 .filter { blocked.contains($0.authorID) == false }
                 .filter { includeOwn || $0.isMine == false }
+                .filter { area == nil || Self.area(of: $0) == area }
                 .map(applyingSaves)
             return page(of: visible, after: cursor, pageSize: pageSize)
         }
+    }
+
+    /// The feed's areas, as `feed_areas()` counts them: the locality of every visible entry's place.
+    public func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] {
+        lock.withLock {
+            let counts = entries
+                .filter { blocked.contains($0.authorID) == false && $0.isMine == false }
+                .compactMap(Self.area(of:))
+                .reduce(into: [String: Int]()) { $0[$1, default: 0] += 1 }
+            let ordered = FeedArea.ordered(counts.map { FeedArea(area: $0.key, count: $0.value) })
+            let after = cursor.map { cursor in ordered.filter { FeedArea.isAfter($0, cursor: cursor) } } ?? ordered
+            return Array(after.prefix(FeedArea.clampedLimit(limit)))
+        }
+    }
+
+    /// Where an entry is, for the area filter: its place's locality, as `p_area` matches it.
+    private static func area(of card: EntryCard) -> String? {
+        card.place?.locality ?? card.place?.city
     }
 
     // MARK: - Profiles
@@ -124,7 +146,8 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
     static var hidesCovers: Bool { ProcessInfo.processInfo.arguments.contains("-ate-preview-no-covers") }
 
     public func savedDishesPage(after cursor: PageCursor?, pageSize: Int) async throws -> Page<SavedDish> {
-        lock.withLock {
+        if PreviewFaults.listsOffline { throw URLError(.notConnectedToInternet) }
+        return lock.withLock {
             let rows = savedDishIDs.compactMap { dishID, savedAt -> SavedDish? in
                 guard let entry = entries.first(where: { card in
                     card.items.contains { $0.dishID == dishID }

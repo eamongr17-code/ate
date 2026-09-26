@@ -9,6 +9,9 @@ import SwiftUI
 /// takes it back off the shelf. The place is a heading over its dishes, not a row of its own.
 struct SavedScreen: View {
     let store: SavedDishesStore
+    /// Where this shelf begins on the screen, so its empty state is centred on the line every empty
+    /// state shares (``AteEmptyPlacement``).
+    var emptyTop: CGFloat = AteEmptyPlacement.bandTop
     /// The place head, and a row: both go somewhere that does not exist yet (slice 2).
     var onPlace: (UUID) -> Void = { _ in }
     var onDish: (SavedDish) -> Void = { _ in }
@@ -21,10 +24,13 @@ struct SavedScreen: View {
                 SavedSkeleton()
             case .empty:
                 AteEmptyState(title: "Nothing saved\nyet.")
+                    .ateEmptyPlacement(top: emptyTop)
             case .signedOut:
                 AteEmptyState(title: "Nobody's\nsigned in.")
-            case .failed(let message):
-                AteEmptyState(title: message)
+                    .ateEmptyPlacement(top: emptyTop)
+            case .failed:
+                AteUnreachableState { Task { await store.refresh() } }
+                    .ateEmptyPlacement(top: emptyTop)
             case .ready:
                 groups
             }

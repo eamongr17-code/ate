@@ -25,15 +25,23 @@ struct EntrySlip: View {
     /// The identifier a drive reaches for. The journal's slips have always been `journal.slip`.
     var identifier = "journal.slip"
 
+    @Environment(\.atePhotoViewer) private var showPhotos
+
     var body: some View {
         Group {
             if isInteractive {
                 // A slip with its own buttons in it cannot itself be a button — a tap inside a
                 // `Button`'s label belongs to the outer button. So the parts that open the entry
                 // say so one by one.
+                // …and the paper itself opens the entry wherever nothing else claims the tap — a
+                // feed slip of three dishes and no photos is all dish rows and a pin line, and
+                // without this it had no way into its entry at all. A child's own button wins.
                 paper { content(interactive: true) }
+                    .contentShape(.rect)
+                    .onTapGesture { onOpen?() }
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier(identifier)
+                    .accessibilityAction(named: "Open entry") { onOpen?() }
             } else {
                 Button {
                     onOpen?()
@@ -52,7 +60,7 @@ struct EntrySlip: View {
     /// inside a `Button`'s label belongs to the outer button — so its bands say what they open one
     /// by one instead.
     private var isInteractive: Bool {
-        onSave != nil || onProfile != nil || onPlace != nil || onDish != nil
+        onSave != nil || onProfile != nil || onPlace != nil || onDish != nil || slip.photos.isEmpty == false
     }
 
     private func paper(@ViewBuilder _ content: () -> some View) -> some View {
@@ -79,30 +87,30 @@ struct EntrySlip: View {
             if slip.dishes.isEmpty == false {
                 dishStack(interactive: interactive)
             }
-            // The words and the photos are one target: they are the entry, in miniature.
-            if hasBody {
+            // The words open the entry…
+            if slip.words.plain.isEmpty == false {
                 tappable(interactive: interactive, part: "body") {
-                    VStack(alignment: .leading, spacing: insets.gap) {
-                        if slip.words.plain.isEmpty == false {
-                            InlineTokenText(
-                                composition: slip.words,
-                                style: .slipProse,
-                                lineLimit: slip.wordsLineLimit,
-                                onScoreDish: onDish.map { open in { (dishID: UUID) in open(scoredDish(dishID)) } }
-                            )
-                        }
-                        if slip.photos.isEmpty == false {
-                            // Rings in the paper's lower half take its warmer tone (`.cluster`).
-                            PhotoCluster(
-                                photos: slip.photos,
-                                side: AteMetrics.clusterPhoto,
-                                surface: AtePaperTone.slip.ring,
-                                topPadding: AteMetrics.hairspace,
-                                bottomPadding: 0
-                            )
-                        }
-                    }
+                    InlineTokenText(
+                        composition: slip.words,
+                        style: .slipProse,
+                        lineLimit: slip.wordsLineLimit,
+                        onScoreDish: onDish.map { open in { (dishID: UUID) in open(scoredDish(dishID)) } }
+                    )
                 }
+            }
+            // …and a photo opens itself, full screen, never the entry. A sibling of the words'
+            // button rather than inside it: a tap inside a button's label belongs to that button.
+            if slip.photos.isEmpty == false {
+                PhotoCluster(
+                    photos: slip.photos,
+                    side: AteMetrics.clusterPhoto,
+                    surface: AtePaperTone.slip.ring,
+                    topPadding: AteMetrics.hairspace,
+                    bottomPadding: 0,
+                    onTap: interactive ? { index in
+                        showPhotos(slip.viewerPhotos.isEmpty ? slip.photos : slip.viewerPhotos, at: index)
+                    } : nil
+                )
             }
             // The foot line is its own band: the place goes to the place, everything above it goes
             // to the entry. (A sibling rather than a child of the body's button — a tap inside a
@@ -117,10 +125,6 @@ struct EntrySlip: View {
     /// the id — the dish page needs nothing more, and the pill never exists without a sorted line.
     private func scoredDish(_ dishID: UUID) -> AteSlip.Dish {
         slip.dishes.first { $0.dishID == dishID } ?? AteSlip.Dish(id: dishID, dishID: dishID, name: "")
-    }
-
-    private var hasBody: Bool {
-        slip.words.plain.isEmpty == false || slip.photos.isEmpty == false
     }
 
     /// Wraps a band in a button when the slip has its own controls, and leaves it alone when the

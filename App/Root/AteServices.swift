@@ -37,6 +37,9 @@ struct AteServices {
     /// The one place a bookmark's new state is announced. Everything that draws one listens, so a
     /// save made on an entry page is already true on the feed and the profile underneath it.
     let savedDishes = SavedDishBroadcast()
+    /// The one place a deleted entry is announced. The journal, the feed and any open profile drop
+    /// it in the same turn.
+    let entryDeletions = EntryDeletions()
     /// Entries that have not finished landing. Worked on every foreground.
     let outbox: EntryOutbox
     /// The camera roll, behind a seam — `Suggestions` and the composer's photo staging.

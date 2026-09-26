@@ -71,6 +71,7 @@ struct AteShell: View {
     /// Everyone else's entries, and the shelf a save fills. Held here rather than by the screens so
     /// a save made in the feed is already true on the shelf, and a block empties both at once.
     @State var feed: EntryListStore
+    @State var feedArea: FeedAreaModel // the feed's area, remembered per person
     @State private var saved: SavedDishesStore
     /// The one save, made once and handed down — it holds which dishes are mid-flight.
     @State private var saveAction: SaveAction
@@ -118,15 +119,10 @@ struct AteShell: View {
         if ComposerDebugLaunch.opensWelcome { hasSession = false }
         #endif
         _hasSession = State(initialValue: hasSession)
-        _journal = State(initialValue: JournalStore(entries: services.entries))
-        let feedReader = services.feed
+        _journal = State(initialValue: JournalStore(entries: services.entries, deletions: services.entryDeletions))
         let analytics = services.analytics
-        let feedStore = EntryListStore(
-            fallbackMessage: "Couldn't load the feed.",
-            savedDishes: services.savedDishes
-        ) { cursor, pageSize in
-            try await feedReader.feedPage(after: cursor, pageSize: pageSize, includeOwn: false)
-        }
+        let (feedStore, areaModel) = FeedScreen.stores(services: services)
+        _feedArea = State(initialValue: areaModel)
         // `feed_page_loaded` is reported where the page actually lands — a prefetched page and a
         // pulled one count the same, and a refresh cannot swallow its own first page by resetting
         // the count and filling it again in the same turn.
@@ -217,6 +213,7 @@ struct AteShell: View {
                     .toolbar(.hidden, for: .navigationBar)
             }
         }
+        .atePhotoViewerHost() // one full-screen viewer for every photo under the shell
         .fullScreenCover(item: $composing) { presentation in
             ComposerScreen(presentation: presentation, services: services, onSaved: landOnEntry)
         }
@@ -363,6 +360,7 @@ struct AteShell: View {
         case .feed:
             FeedScreen(
                 store: feed,
+                area: feedArea,
                 scrollToTopSignal: scrollToTop,
                 onOpen: { open(.entry(EntryRoute(entryID: $0.id))) },
                 onProfile: { open(.profile($0)) },
