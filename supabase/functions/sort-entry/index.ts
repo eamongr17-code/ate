@@ -6,8 +6,11 @@
 // transactional RPC. It never touches `entries.body`.
 //
 //   POST /functions/v1/sort-entry
-//   body: { entry_id: uuid, force?: boolean, dry_run?: boolean }
-//   → 200 { ok, mode, entry_id, sort_status, restaurant_id, place_query, place_offset, items[] }
+//   body: { entry_id: uuid, force?: boolean, dry_run?: boolean,
+//           tag_tokens?: [{ offset, length }] }        (0036 — scalar spans the client marked)
+//   → 200 { ok, mode, model, entry_id, sort_status, restaurant_id, place_query, place_offset, items[] }
+//     (every item carries `tags: string[]`, possibly [])
+//     (`model` is the model ID that produced the plan, null when the stub did)
 //     401 unauthorized · 403 not your entry · 404 unknown entry · 422 bad request
 //
 // `force` IS NOT A LICENCE TO DESTROY. A line the user corrected survives any re-sort:
@@ -24,9 +27,10 @@
 //   stub  (DEFAULT — CEO decision, no AI spend yet): ./parse.ts, a rule-based parser.
 //         No network, no key, fully deterministic, pinned by ~50 fixtures.
 //   model (ONLY when ANTHROPIC_API_KEY is present in the function secrets):
-//         ./model.ts, claude-haiku-4-5 with a forced tool call. Inert without the
-//         key — the code path is unreachable, not merely unused. A model failure
-//         falls back to the stub rather than failing the sort.
+//         ./model.ts with a forced tool call, on ATE_SORTER_MODEL (claude-haiku-4-5 by
+//         default, or claude-sonnet-5). Inert without the key — the code path is
+//         unreachable, not merely unused. A model failure falls back to the stub
+//         rather than failing the sort.
 //   ATE_SORTER_MODE=stub forces stub even with a key (eval/incident switch).
 //
 // BOTH modes go through ./validate.ts and then through apply_entry_sort's SQL checks
@@ -40,11 +44,17 @@
 // location input. If the user named somewhere we don't have, the entry stays
 // placeless and the app offers the place sheet — and the plan is parked in
 // entries.sort_plan so attaching the place later still prints the receipt.
+//
+// DIETARY TAGS ARE NEVER INFERRED (0036). Only a span the CLIENT marked as a tag token
+// (`tag_tokens`) can become a tag, on the dish line it follows (./tags.ts). Prose says
+// nothing: "the salad was gluten free" tags no line. A re-sort without tokens never removes
+// a tag already on a line — apply_entry_sort carries them over, like a correction.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { fencedPlaceNames, mentionForPlaceName, parseEntry, placeCandidateSpans } from './parse.ts';
 import { validatePlan } from './validate.ts';
-import { resolveMode, sortWithModel } from './model.ts';
+import { resolveMode, resolveModel, sortWithModel } from './model.ts';
+import { attachTagTokens, parseTagTokens, tagTokenSpans, tagTokenWords } from './tags.ts';
 import type { PlaceCandidate, SorterMode, SortPlan } from './types.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -53,6 +63,9 @@ const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
 
 const MODE: SorterMode = resolveMode(ANTHROPIC_KEY, Deno.env.get('ATE_SORTER_MODE'));
+const MODEL_ID = resolveModel(Deno.env.get('ATE_SORTER_MODEL'));
+/** What the response reports as `model`: the ID only when the model's plan was used. */
+const modelFor = (mode: SorterMode) => (mode === 'model' ? MODEL_ID : null);
 
 /** A local match must clear this to attach a place. Mirrors the search blend's bar. */
 const PLACE_MATCH_MIN = 0.55;
@@ -188,6 +201,7 @@ Deno.serve(async (req) => {
   const entryId = String((body as { entry_id?: unknown }).entry_id ?? '');
   const force = Boolean((body as { force?: unknown }).force);
   const dryRun = Boolean((body as { dry_run?: unknown }).dry_run);
+  const tagTokens = parseTagTokens((body as { tag_tokens?: unknown }).tag_tokens);
   if (!entryId) return json({ error: 'entry_id required' }, 422);
 
   const admin = adminClient();
@@ -237,9 +251,11 @@ Deno.serve(async (req) => {
     if (MODE === 'model') {
       plan = await sortWithModel({
         apiKey: ANTHROPIC_KEY,
+        model: MODEL_ID,
         body: row.body,
         knownDishes: known,
         placeCandidates: candidates.map((c) => c.phrase),
+        tagWords: tagTokenWords(row.body, tagTokens),
       });
       if (!plan) usedMode = 'stub'; // degrade, never fail
     }
@@ -257,16 +273,23 @@ Deno.serve(async (req) => {
       candidatePhrase: matched?.query ?? null,
       mentionPhrase: mention?.phrase ?? null,
     });
-    if (!plan) plan = parseEntry({ body: row.body, knownDishes: known, placeNames });
+    // A marked tag word is never a dish, nor the front half of one ("GF Salad 3.5").
+    const excludeSpans = tagTokenSpans(row.body, tagTokens);
+    if (!plan) plan = parseEntry({ body: row.body, knownDishes: known, placeNames, excludeSpans });
 
     // ---- 3. the same gate for every mode ----------------------------------
-    const validated = validatePlan(plan, { body: row.body, knownDishes: known });
+    // validatePlan rebuilds every item WITHOUT tags; the client's marked tokens are the only
+    // source of a tag, in every mode. attachTagTokens also cuts tag words out of any dish name
+    // (the model does not honour excludeSpans) and places each tag by span, never by name.
+    const gated = validatePlan(plan, { body: row.body, knownDishes: known });
+    const validated: SortPlan = { ...gated, items: attachTagTokens(gated.items, row.body, tagTokens, known) };
 
     if (dryRun) {
       return json({
         ok: true,
         dry_run: true,
         mode: usedMode,
+        model: modelFor(usedMode),
         entry_id: row.id,
         restaurant_id: restaurantId,
         place_query: mention?.phrase ?? validated.place_query,
@@ -298,6 +321,7 @@ Deno.serve(async (req) => {
     return json({
       ok: true,
       mode: usedMode,
+      model: modelFor(usedMode),
       entry_id: row.id,
       sort_status: result?.sort_status ?? 'sorted',
       restaurant_id: result?.restaurant_id ?? restaurantId,

@@ -9,7 +9,19 @@
 // is a config change, not a code change.
 
 import { test, assert, assertEquals } from './harness.ts';
-import { buildRequest, MODEL, modelEnabled, planFromResponse, resolveMode, sortWithModel } from './model.ts';
+import {
+  buildRequest,
+  callModel,
+  DEFAULT_MODEL,
+  isSorterModel,
+  modelEnabled,
+  planFromResponse,
+  resolveMode,
+  resolveModel,
+  SORTER_MODELS,
+  sortWithModel,
+  usageFromResponse,
+} from './model.ts';
 
 test('mode resolution: stub unless a key exists', () => {
   assertEquals(resolveMode('', undefined), 'stub');
@@ -42,12 +54,51 @@ test('WITHOUT a key, sortWithModel makes NO network call and returns null', asyn
   assertEquals(calls, 0);
 });
 
-test('the request is haiku, deterministic, and forced through the tool', () => {
+test('model ID: exactly the two evaluated aliases, haiku by default, no date suffixes', () => {
+  assertEquals(SORTER_MODELS, ['claude-haiku-4-5', 'claude-sonnet-5']);
+  assertEquals(DEFAULT_MODEL, 'claude-haiku-4-5');
+  assertEquals(resolveModel(undefined), 'claude-haiku-4-5');
+  assertEquals(resolveModel(null), 'claude-haiku-4-5');
+  assertEquals(resolveModel(''), 'claude-haiku-4-5');
+  assertEquals(resolveModel('  '), 'claude-haiku-4-5');
+  assertEquals(resolveModel('claude-haiku-4-5'), 'claude-haiku-4-5');
+  assertEquals(resolveModel('claude-sonnet-5'), 'claude-sonnet-5');
+  assertEquals(resolveModel(' claude-sonnet-5\n'), 'claude-sonnet-5', 'a pasted secret keeps its newline');
+});
+
+test('model ID: anything unevaluated runs the default, never a guess', () => {
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    for (const bad of ['claude-haiku-4-5-20251001', 'claude-sonnet-5-20260101', 'sonnet', 'CLAUDE-SONNET-5', 'claude-opus-5-5']) {
+      assertEquals(resolveModel(bad), DEFAULT_MODEL, bad);
+      assert(!isSorterModel(bad), bad);
+    }
+  } finally {
+    console.warn = warn;
+  }
+});
+
+test('the configured model is the one sent', () => {
+  for (const model of SORTER_MODELS) {
+    const payload = JSON.parse(buildRequest({ apiKey: 'sk-ant-xxx', body: 'Pasta 4.5', model }).body);
+    assertEquals(payload.model, model);
+    assertEquals(payload.tool_choice, { type: 'tool', name: 'sort_entry' }, `${model} is still forced through the tool`);
+  }
+});
+
+test('sonnet 5 gets no sampling parameters (it rejects them with a 400)', () => {
+  const req = buildRequest({ apiKey: 'sk-ant-xxx', body: 'Tipo 00. Pasta 4.5', knownDishes: ['Pasta'], model: 'claude-sonnet-5' });
+  const payload = JSON.parse(req.body);
+  assertEquals(payload.model, 'claude-sonnet-5');
+  assertEquals('temperature' in payload, false);
+});
+
+test('the request is haiku by default, deterministic, and forced through the tool', () => {
   const req = buildRequest({ apiKey: 'sk-ant-xxx', body: 'Tipo 00. Pasta 4.5', knownDishes: ['Pasta'] });
   const payload = JSON.parse(req.body);
 
-  assertEquals(payload.model, MODEL);
-  assertEquals(MODEL, 'claude-haiku-4-5-20251001');
+  assertEquals(payload.model, 'claude-haiku-4-5');
   assertEquals(payload.temperature, 0);
   assertEquals(payload.tool_choice, { type: 'tool', name: 'sort_entry' });
   assertEquals(payload.tools.length, 1);
@@ -115,4 +166,23 @@ test('a live tool call round-trips into a plan', async () => {
   const plan = await sortWithModel({ apiKey: 'sk-ant-xxx', body: 'Pasta 4.5', fetchImpl: spy });
   assertEquals(plan?.items[0].dish_name, 'Pasta');
   assertEquals(plan?.place_query, null);
+});
+
+test('usage is read off the reply for the eval; absent usage is null', () => {
+  assertEquals(usageFromResponse({ usage: { input_tokens: 812, output_tokens: 96 } }), { input_tokens: 812, output_tokens: 96 });
+  assertEquals(usageFromResponse({ content: [] }), null);
+  assertEquals(usageFromResponse(null), null);
+});
+
+test('callModel reports why it failed, without the key', async () => {
+  const spy = (() =>
+    Promise.resolve(
+      new Response(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: 'bad param' } }), {
+        status: 400,
+      }),
+    )) as unknown as typeof fetch;
+  const r = await callModel({ apiKey: 'sk-ant-secret', body: 'x', model: 'claude-sonnet-5', fetchImpl: spy });
+  assertEquals(r.plan, null);
+  assertEquals(r.error, 'HTTP 400: bad param');
+  assert(!JSON.stringify(r).includes('sk-ant-secret'));
 });

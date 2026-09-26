@@ -32,12 +32,17 @@ const sortOf = (f: Fixture) => {
 };
 
 test('corpus has the cases the harness promises', () => {
-  assert(fixtures.length >= 60, `expected at least 60 fixtures, got ${fixtures.length}`);
+  const graded = fixtures.filter((f) => !f.modelOnly).length;
+  assert(graded >= 60, `expected at least 60 stub-graded fixtures, got ${graded}`);
+  const modelOnly = fixtures.length - graded;
+  assert(modelOnly >= 10, `expected at least 10 model-only fixtures, got ${modelOnly}`);
   const ids = new Set(fixtures.map((f) => f.id));
   assertEquals(ids.size, fixtures.length, 'fixture ids must be unique');
 });
 
-for (const f of fixtures) {
+// The model-only entries are skipped HERE ONLY: the stub is not graded on writing it
+// cannot parse, but every rule test below still runs it over them.
+for (const f of fixtures.filter((f) => !f.modelOnly)) {
   test(`fixture ${f.id} — ${f.about}`, () => {
     const plan = sortOf(f);
     const declaresOffset = f.items.some((i) => 'evidence_offset' in i);

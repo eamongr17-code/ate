@@ -81,7 +81,11 @@ struct SuggestionsScreen: View {
             hasAsked = true
             _ = await library.requestAuthorization()
         }
-        clusters = PhotoSuggestions.cluster(await library.recent())
+        // Each sitting appears as its photos are confirmed as food, newest first. Leaving the screen
+        // cancels this task, which stops the looking.
+        for await food in library.recentProgressively() {
+            clusters = PhotoSuggestions.cluster(food)
+        }
     }
 }
 

@@ -1,13 +1,15 @@
 // supabase/functions/sort-entry/fixtures.ts
 //
-// THE EVAL CORPUS — 67 realistic entries with their expected sort.
+// THE EVAL CORPUS — realistic entries with their expected sort.
 //
 // This file has two jobs:
-//   1. It pins the deterministic stub parser (fixtures_test.ts asserts every item).
-//   2. It is the HARNESS THE REAL MODEL WILL BE JUDGED BY. When ANTHROPIC_API_KEY
-//      lands, run the same corpus through model mode and compare with the same
-//      assertions — nothing about the expectations is stub-specific, because they
-//      describe what the USER SAID, not how we found it.
+//   1. It pins the deterministic stub parser (fixtures_test.ts asserts every item,
+//      except the `modelOnly` entries at the end).
+//   2. It is the HARNESS THE REAL MODEL IS JUDGED BY: eval.ts runs the whole corpus
+//      through model mode and scores it with the same expectations — nothing about them
+//      is stub-specific, because they describe what the USER SAID, not how we found it.
+//      The `modelOnly` entries are free-form writing the rule-based stub cannot sort;
+//      they exist to measure the model, and only the rule checks run them in CI.
 //
 // Every expectation obeys the two rules, so a correct sorter of ANY kind passes:
 //   * `score` is non-null ONLY where the words contain an explicit number for that
@@ -53,6 +55,12 @@ export type Fixture = {
   /** a phrase that MUST appear among placeCandidates(body); null = the text names no place */
   place: string | null;
   items: FixtureItem[];
+  /**
+   * Free-form writing only the model is expected to sort. fixtures_test skips its item
+   * assertions (the stub is not graded on it) but still holds the stub to rules 7 and 9
+   * on it; eval.ts grades the model on it like any other fixture.
+   */
+  modelOnly?: true;
 };
 
 export const fixtures: Fixture[] = [
@@ -742,6 +750,130 @@ export const fixtures: Fixture[] = [
     resolvedPlace: { matchedName: 'Baby Pizza', candidatePhrase: 'Baby Pizza' },
     place: 'Baby Pizza',
     items: [],
+  },
+
+  // -------------------------------------------------------------------------
+  // MODEL-ONLY — how people actually type: run-ons, scores in words, the place
+  // mid-sentence, lowercase, double spaces, unscored dishes. No known menu and no
+  // resolved place, so nothing but the words to go on. The stub is not graded here.
+  // -------------------------------------------------------------------------
+  {
+    id: 'model-venue-run-on',
+    about: 'venue, three dishes and three scores in one breath, no punctuation',
+    body: 'Baby Pizza San Danielle Pizza 3.5 cacio e pepe pizza 4 and the tiramisu was a 3 kinda dry',
+    place: 'Baby Pizza',
+    modelOnly: true,
+    items: [
+      { dish_name: 'San Danielle Pizza', score: 3.5, note: null },
+      { dish_name: 'cacio e pepe pizza', score: 4, note: null },
+      { dish_name: 'tiramisu', score: 3, note: 'kinda dry' },
+    ],
+  },
+  {
+    id: 'model-scores-in-words',
+    about: 'every score spelled out, hedged ("honestly", "a solid", "maybe")',
+    body:
+      'Tipo 00 with Jess again, the pappardelle was honestly a four, the burnt butter gnocchi a solid three and a half and the tiramisu maybe a three',
+    place: 'Tipo 00',
+    modelOnly: true,
+    items: [
+      { dish_name: 'pappardelle', score: 4, note: null },
+      { dish_name: 'burnt butter gnocchi', score: 3.5, note: null },
+      { dish_name: 'tiramisu', score: 3, note: null },
+    ],
+  },
+  {
+    id: 'model-place-mid-sentence',
+    about: 'the place is named halfway through a run-on, after the night out',
+    body:
+      "had the best night then ended up at Hector's Deli on the way home and the reuben was a 4.5 easily the best sandwich this year",
+    place: "Hector's Deli",
+    modelOnly: true,
+    items: [{ dish_name: 'reuben', score: 4.5, note: 'easily the best sandwich this year' }],
+  },
+  {
+    id: 'model-unscored-then-scored',
+    about: 'a raved-about dish with no number (stays unscored) beside a scored one',
+    body: 'Lune on a Sunday, the plain croissant was so flaky it shattered everywhere and the twice baked almond 4 bit too sweet',
+    place: 'Lune',
+    modelOnly: true,
+    items: [
+      { dish_name: 'plain croissant', score: null, note: 'so flaky it shattered everywhere' },
+      { dish_name: 'twice baked almond', score: 4, note: 'bit too sweet' },
+    ],
+  },
+  {
+    id: 'model-sentiment-only',
+    about: 'superlatives everywhere and not one number: nothing is scored',
+    body: "Florentino Grill with dad, the veal cutlet was genuinely perfect and the chips were the best I've had in years",
+    place: 'Florentino Grill',
+    modelOnly: true,
+    items: [
+      { dish_name: 'veal cutlet', score: null, note: 'genuinely perfect' },
+      { dish_name: 'chips', score: null, note: "the best I've had in years" },
+    ],
+  },
+  {
+    id: 'model-counts-are-not-scores',
+    about: '"3 plates", "2 of us" are counts; only the 4 beside the potato is a score',
+    body: 'Shared 3 plates at Bar Liberty between 2 of us, smoked potato 4 crispy and salty, the flatbread a bit stale',
+    place: 'Bar Liberty',
+    modelOnly: true,
+    items: [
+      { dish_name: 'smoked potato', score: 4, note: 'crispy and salty' },
+      { dish_name: 'flatbread', score: null, note: 'a bit stale' },
+    ],
+  },
+  {
+    id: 'model-self-correction',
+    about: 'the user corrects their own score mid-sentence; the second number is the score',
+    body: 'Hochi Mama bao 4 no actually a 3.5 the bun was a bit doughy',
+    place: 'Hochi Mama',
+    modelOnly: true,
+    items: [{ dish_name: 'bao', score: 3.5, note: 'the bun was a bit doughy' }],
+  },
+  {
+    id: 'model-spoken-halves',
+    about: '"three point five" and "four and a half", no punctuation between dishes',
+    body: "Supernormal the lobster roll three point five tbh overhyped, peanut butter parfait four and a half I'd go back just for it",
+    place: 'Supernormal',
+    modelOnly: true,
+    items: [
+      { dish_name: 'lobster roll', score: 3.5, note: 'tbh overhyped' },
+      { dish_name: 'peanut butter parfait', score: 4.5, note: "I'd go back just for it" },
+    ],
+  },
+  {
+    id: 'model-lowercase-dish-first',
+    about: 'all lowercase, dish before the place, and the rest of the sentence is about the user',
+    body: 'spicy rigatoni 4.5 from tipo 00 again because I have zero self control',
+    place: 'tipo 00',
+    modelOnly: true,
+    items: [{ dish_name: 'spicy rigatoni', score: 4.5, note: null }],
+  },
+  {
+    id: 'model-price-time-run-on',
+    about: 'a clock time and a price in the same run-on as two real scores and an unscored dish',
+    body: 'Got to Kisume at 5 the omakase was $185 a head and worth it, toro nigiri a five, uni a 4 bit metallic tho',
+    place: 'Kisume',
+    modelOnly: true,
+    items: [
+      { dish_name: 'omakase', score: null, note: '$185 a head and worth it' },
+      { dish_name: 'toro nigiri', score: 5, note: null },
+      { dish_name: 'uni', score: 4, note: 'bit metallic tho' },
+    ],
+  },
+  {
+    id: 'model-double-spaces-slang',
+    about: 'double spaces, "w", slang, and a dish rated in slang but not in numbers',
+    body: 'Mamasita w the girls  fish tacos were a 4, the elote 4.5 messy but elite and the frozen marg  eliteeeee',
+    place: 'Mamasita',
+    modelOnly: true,
+    items: [
+      { dish_name: 'fish tacos', score: 4, note: null },
+      { dish_name: 'elote', score: 4.5, note: 'messy but elite' },
+      { dish_name: 'frozen marg', score: null, note: 'eliteeeee' },
+    ],
   },
 ];
 
