@@ -51,6 +51,8 @@ struct YouScreen: View {
     /// Eamon's resized header (2026-09-26), replacing `You.dc.html`'s 76pt avatar at 70.
     private static let contentTop: CGFloat = 62
     static let avatar: CGFloat = 56
+    /// "Your ratings ›" is one line of `.control` (15 × 1.2 = 18); a finger gets 44.
+    private static let ratingsHit = AteHitOutset(height: 18)
 
     // MARK: - Bands
 
@@ -117,9 +119,10 @@ struct YouScreen: View {
                         Spacer(minLength: 0)
                         AteIcon.chevron.view(size: 15)
                     }
-                    .contentShape(.rect)
+                    .ateHitArea(Self.ratingsHit)
                 }
                 .buttonStyle(.plain)
+                .ateHitFootprint(Self.ratingsHit)
                 .accessibilityIdentifier("you.ratings")
                 ScoreHistogramView(histogram: store.histogram, onSelect: onRatings)
             }
@@ -142,18 +145,17 @@ struct YouScreen: View {
                                     side: YouScreen.tileSide
                                 )
                                 .rotationEffect(.degrees(YouScreen.tileAngles[index % 4]))
-                                Text(dish.dishName)
-                                    .ateText(.tileCaption)
-                                    .multilineTextAlignment(.center)
-                                    // Two lines, as the artboard's longest caption takes. A dish
-                                    // name is never truncated in a slip's stack — there it IS the
-                                    // item — but here the tile is the item and the name labels it.
-                                    .lineLimit(2)
-                                    // A single word wider than the 80pt column ("Cheeseburger" is,
-                                    // in Bricolage at 12) breaks mid-word rather than wrapping.
-                                    // Shrinking it a fraction is the lesser of the two.
-                                    .minimumScaleFactor(0.82)
-                                    .foregroundStyle(AtePalette.automatic.fg)
+                                // Two lines, as the artboard's longest caption takes. A single
+                                // word wider than the 80pt column ("Cheeseburger" at the larger
+                                // text sizes) is set down until it fits rather than broken
+                                // mid-word (``WordFittingLabel``).
+                                AteExactText(
+                                    text: dish.dishName,
+                                    style: .tileCaption,
+                                    alignment: .center,
+                                    colour: AtePalette.automatic.fg,
+                                    lineLimit: 2
+                                )
                             }
                             .frame(width: YouScreen.tileColumn)
                             .contentShape(.rect)

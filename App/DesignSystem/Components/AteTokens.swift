@@ -127,8 +127,15 @@ struct ScoreToken: View {
     /// What the pill prints, when it is not one person's half-step. See ``init(average:prose:)``.
     var printed: String?
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         let style = AteTextStyle.scoreToken(inProse: prose)
+        // `.tok`'s own line box, `line-height:1.55` of the numeral it carries — measured off the
+        // numeral as it is actually set, so a pill on its own grows with Dynamic Type instead of
+        // clipping its digits. At the design's size it is `.78em × 1.55` of the prose exactly.
+        let height = AteFont.size(for: style, dynamicTypeSize: dynamicTypeSize)
+            * TokenPillMetrics.scoreHeightEm / 0.78
         HStack(spacing: TokenPillMetrics.iconGap) {
             AteIcon.starFilled.view(size: TokenPillMetrics.starSide)
             Text(printed ?? ScoreFormat.halfStep(rating.value))
@@ -137,9 +144,9 @@ struct ScoreToken: View {
         }
         .padding(.leading, TokenPillMetrics.scoreLeading)
         .padding(.trailing, TokenPillMetrics.scoreTrailing)
-        // `.tok`'s own line box: `.78em × 1.55` = 1.209em, which is 20.6 in 17pt prose. Not one em —
-        // that drew a squat capsule three and a half points short of the artboard's.
-        .frame(height: prose * TokenPillMetrics.scoreHeightEm)
+        // 1.209em, which is 20.6 in 17pt prose. Not one em — that drew a squat capsule three and a
+        // half points short of the artboard's.
+        .frame(height: height)
         .foregroundStyle(AteColor.ink)
         .background(AteColor.butter, in: .capsule)
         .overlay {
@@ -172,9 +179,14 @@ struct PlaceToken: View {
     var prose: CGFloat = 17
 
     @Environment(\.atePalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         let style = AteTextStyle.placeToken(inProse: prose)
+        // `.ptok`'s own line box, `line-height:1.5` of the name as it is set (1.2em of the prose at
+        // the design's size), so it grows with Dynamic Type rather than clipping.
+        let height = AteFont.size(for: style, dynamicTypeSize: dynamicTypeSize)
+            * TokenPillMetrics.placeHeightEm / 0.8
         HStack(spacing: TokenPillMetrics.iconGap) {
             AteIcon.place.view(size: TokenPillMetrics.pinSide)
             Text(name)
@@ -182,8 +194,7 @@ struct PlaceToken: View {
         }
         .padding(.leading, TokenPillMetrics.placeLeading)
         .padding(.trailing, TokenPillMetrics.placeTrailing)
-        // `.ptok`'s own line box: `.8em × 1.5` = 1.2em.
-        .frame(height: prose * TokenPillMetrics.placeHeightEm)
+        .frame(height: height)
         .foregroundStyle(palette.fg)
         .background(palette.field, in: .capsule)
         .accessibilityElement()

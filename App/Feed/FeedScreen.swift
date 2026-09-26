@@ -24,6 +24,7 @@ struct FeedScreen: View {
 
     @State private var isChoosingArea = false
     @State private var scrollToTopAfterArea = 0
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -65,15 +66,23 @@ struct FeedScreen: View {
     /// `padding:62px 12px 10px` (`FeedTight`) — the screen's name, and the area it is about. The
     /// pill opens the area sheet; "Everywhere" until the reader picks one.
     private var header: some View {
-        HStack {
+        // At the accessibility sizes the area pill goes under the title rather than breaking
+        // "Everywhere" mid-word beside it.
+        let stacks = dynamicTypeSize.isAccessibilitySize
+        let layout = stacks
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: AteMetrics.snug))
+            : AnyLayout(HStackLayout())
+        return layout {
             Text("Feed").ateTextLine(.screenTitle)
-            Spacer(minLength: AteMetrics.snug)
+            if stacks == false { Spacer(minLength: AteMetrics.snug) }
             AteChip(
                 icon: .place,
                 title: area?.selected ?? "Everywhere",
                 height: 40,
                 action: area == nil ? nil : { isChoosingArea = true }
             )
+            .accessibilityLabel("Area")
+            .accessibilityValue(area?.selected ?? "Everywhere")
             .accessibilityIdentifier("feed.area")
         }
         .padding(.horizontal, AteMetrics.listGutter)

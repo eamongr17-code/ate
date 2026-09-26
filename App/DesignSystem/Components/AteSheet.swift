@@ -93,7 +93,7 @@ struct AteSearchField: View {
             .submitLabel(.search)
         }
         .padding(.horizontal, horizontalPadding)
-        .frame(height: height)
+        .atePillHeight(height)
         .background(background ?? palette.field, in: .capsule)
     }
 }

@@ -331,10 +331,12 @@ final class ComposerModel: DictationTarget {
     // MARK: - The Diet key (prototype)
 
     /// A tag chip after the current dish (``EntryComposition/insertingTag(_:atDisplayOffset:)``).
-    func insertTag(_ tag: DietTag) -> AnalyticsEvent {
-        let (next, newCaret) = composition.insertingTag(tag, atDisplayOffset: caret)
-        apply(next, caret: newCaret)
+    /// `nil` when there is no dish to its left: nothing goes in (the key's caller says so with a
+    /// haptic, never with copy).
+    func insertTag(_ tag: DietTag) -> AnalyticsEvent? {
         focusRequest += 1
+        guard let (next, newCaret) = composition.insertingTag(tag, atDisplayOffset: caret) else { return nil }
+        apply(next, caret: newCaret)
         return EntryEvents.dishTagAdded(tag)
     }
 

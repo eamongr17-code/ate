@@ -103,6 +103,9 @@ struct DishScreen: View {
     }
 
     private static let heroPhoto: CGFloat = 150
+    /// The place link is drawn 32 tall under the dish; a finger gets 44.
+    private static let placeLinkHeight: CGFloat = 32
+    private static let placeLinkHit = AteHitOutset(height: placeLinkHeight)
     private static let heroOverlap: CGFloat = 44
 
     /// The dish at 38, and the place under it as the door back to the menu it came off.
@@ -119,10 +122,11 @@ struct DishScreen: View {
                     AteIcon.chevron.view(size: 15)
                 }
                 .foregroundStyle(AtePalette.automatic.muted)
-                .frame(minHeight: 32)
-                .contentShape(.rect)
+                .frame(minHeight: Self.placeLinkHeight)
+                .ateHitArea(Self.placeLinkHit)
             }
             .buttonStyle(.plain)
+            .ateHitFootprint(Self.placeLinkHit)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(summary.restaurantName)
             .accessibilityIdentifier("dish.place")

@@ -188,9 +188,16 @@ enum TokenPill {
 
     @ViewBuilder
     private static func view(for kind: EntryTokenKind, prose: CGFloat, isSelected: Bool) -> some View {
+        // `prose` is the words' point size as already scaled for Dynamic Type, and the attachment's
+        // bounds are measured from it — so the pill is drawn at the design's size of THAT prose, not
+        // scaled a second time (which put AX-size digits in a pill measured for the prose, clipped).
         switch kind {
-        case .score(let rating): ScoreToken(rating: rating, prose: prose, isSelected: isSelected)
-        case .place(let place): PlaceToken(name: place.name, prose: prose)
+        case .score(let rating):
+            ScoreToken(rating: rating, prose: prose, isSelected: isSelected)
+                .environment(\.dynamicTypeSize, .large)
+        case .place(let place):
+            PlaceToken(name: place.name, prose: prose)
+                .environment(\.dynamicTypeSize, .large)
         case .tag(let mark):
             DietTagChip(tag: mark.tag).padding(.horizontal, TokenPillMetrics.dietMarginInProse)
         }

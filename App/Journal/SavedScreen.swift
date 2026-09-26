@@ -17,6 +17,8 @@ struct SavedScreen: View {
     var onDish: (SavedDish) -> Void = { _ in }
     var onUnsave: (SavedDish) -> Void = { _ in }
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         Group {
             switch store.phase {
@@ -61,11 +63,18 @@ struct SavedScreen: View {
             onPlace(group.restaurantID)
         } label: {
             HStack(spacing: 6) {
-                Text(group.restaurantName).ateText(.slipPlace)
-                if let city = group.city {
-                    Text(city)
-                        .ateText(.meta)
-                        .foregroundStyle(AtePalette.automatic.muted)
+                // At the accessibility sizes the city goes under the place rather than squeezing
+                // it into a word a line.
+                let words = dynamicTypeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0))
+                    : AnyLayout(HStackLayout(spacing: 6))
+                words {
+                    Text(group.restaurantName).ateText(.slipPlace)
+                    if let city = group.city {
+                        Text(city)
+                            .ateText(.meta)
+                            .foregroundStyle(AtePalette.automatic.muted)
+                    }
                 }
                 Spacer(minLength: 0)
                 AteIcon.chevron.view(size: 15)
@@ -92,8 +101,12 @@ struct SavedDishRow: View {
     private static let height: CGFloat = 76
     private static let thumbnail: CGFloat = 56
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        VStack(spacing: 0) {
+        // At the accessibility sizes the score moves under the name, so the name has the row.
+        let stacks = dynamicTypeSize.isAccessibilitySize
+        return VStack(spacing: 0) {
             AteHairline()
             HStack(spacing: AteMetrics.regular) {
                 Button(action: onTap) {
@@ -111,9 +124,10 @@ struct SavedDishRow: View {
                                     .ateText(.meta)
                                     .foregroundStyle(AtePalette.automatic.muted)
                             }
+                            if stacks { score }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        score
+                        if stacks == false { score }
                     }
                     .frame(minHeight: Self.height)
                     .contentShape(.rect)

@@ -31,6 +31,9 @@ private struct AteLineBoxModifier: ViewModifier {
         content
             .ateText(style)
             .lineLimit(1)
+            // One line, always: at the accessibility sizes a title wider than its row is set down
+            // to fit rather than cut off (it never wraps, so it can never break a word).
+            .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 0.5 : 1)
             .frame(height: style.lineBox(dynamicTypeSize))
     }
 }

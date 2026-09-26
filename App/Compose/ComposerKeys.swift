@@ -27,8 +27,9 @@ struct ComposerKey: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) { label }
+        Button(action: action) { label.ateHitArea(hitOutset) }
             .buttonStyle(.plain)
+            .ateHitFootprint(hitOutset)
             .accessibilityLabel(value.map { "\(title): \($0)" } ?? title)
             .accessibilityIdentifier(identifier ?? "composer.key.\(title.lowercased())")
     }
@@ -53,7 +54,7 @@ struct ComposerKey: View {
                 }
                 .padding(.leading, 9)
                 .padding(.trailing, value == nil ? 13 : 14)
-                .frame(height: AteMetrics.keyHeight)
+                .atePillHeight(AteMetrics.keyHeight)
             }
             // Inverted is ink in both modes: `ComposerStars` draws an ink pill with butter lettering,
             // and the surface's own `fg` is cream in dark — butter on cream cannot be read.
@@ -65,6 +66,9 @@ struct ComposerKey: View {
 
     /// `max-width:150px` on a key holding a value.
     private static let valueMaxWidth: CGFloat = 150
+
+    /// A 40 key reaches 44 to a finger; the icon-only Diet key is 40 across as well.
+    var hitOutset: AteHitOutset { iconOnly ? .keyDisc : .key }
 }
 
 /// CSS `max-width` as SwiftUI does not have it: shrink-to-fit up to a cap, truncating past it. A
@@ -99,15 +103,21 @@ struct ComposerDoneButton: View {
             Text(title)
                 .ateText(.control)
                 .padding(.horizontal, 18)
-                .frame(height: 38)
+                .atePillHeight(Self.height)
                 .background(AtePalette.surface.fg, in: .capsule)
                 .foregroundStyle(AtePalette.surface.inverted)
+                .ateHitArea(Self.hitOutset)
         }
         .buttonStyle(.plain)
+        .ateHitFootprint(Self.hitOutset)
         .disabled(isEnabled == false || isBusy)
         .opacity(isEnabled ? 1 : 0.4)
         .padding(.trailing, AteMetrics.regular)
     }
+
+    /// The pill is drawn 38 tall; a finger gets 44.
+    private static let height: CGFloat = 38
+    private static let hitOutset = AteHitOutset(height: height)
 }
 
 /// **The composer's toolbar** (`Composer.dc.html`): camera · library · mic on the left, Score and
@@ -120,8 +130,17 @@ struct ComposerToolbar: View {
     let onCamera: () -> Void
     let onDictate: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        HStack(spacing: Self.gap) {
+        // At the accessibility sizes the keys' lettering needs the whole width — side by side with
+        // the three media keys, "Score" truncated to "Sco…" and the place to nothing. The keys take
+        // a line of their own under the media keys instead.
+        let stacks = dynamicTypeSize.isAccessibilitySize
+        let layout = stacks
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Self.gap))
+            : AnyLayout(HStackLayout(spacing: Self.gap))
+        return layout {
             HStack(spacing: 0) {
                 AteIconButton(icon: .camera, label: "Camera", tint: AtePalette.surface.fg) {
                     // The camera takes the keyboard's place: close the slider without raising it.
@@ -200,7 +219,13 @@ struct ComposerToolbar: View {
             ForEach(DietTag.allCases, id: \.self) { tag in
                 Button(tag.label) {
                     model.dismissScoring(refocus: false)
-                    analytics(model.insertTag(tag))
+                    // A chip belongs to the dish on its left; with none there, the key does
+                    // nothing but say so under the finger.
+                    guard let added = model.insertTag(tag) else {
+                        AteHaptics.refused()
+                        return
+                    }
+                    analytics(added)
                 }
                 .accessibilityLabel(tag.spokenName)
             }
@@ -215,10 +240,12 @@ struct ComposerToolbar: View {
                 action: {}
             )
             .label
+            .ateHitArea(.keyDisc)
         }
         .menuIndicator(.hidden)
         .buttonStyle(.plain)
         .fixedSize()
+        .ateHitFootprint(.keyDisc)
         .accessibilityLabel("Diet")
         .accessibilityIdentifier("composer.key.diet")
     }

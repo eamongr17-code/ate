@@ -70,7 +70,8 @@ struct SearchTabScreen: View {
 
     /// `gap:6px`, each pill 40 tall and 16 in; the current one is ink on the ground (`.ink`).
     private var scopes: some View {
-        HStack(spacing: AteMetrics.snug - 2) {
+        // Wraps rather than truncating to "P…" once the type outgrows one line.
+        AteFlow(spacing: AteMetrics.snug - 2) {
             ForEach(SearchScope.allCases) { scope in
                 let isCurrent = scope == store.scope
                 Button {
@@ -79,15 +80,16 @@ struct SearchTabScreen: View {
                     Text(scope.title)
                         .ateText(.controlSmall)
                         .padding(.horizontal, AteMetrics.loose)
-                        .frame(height: AteMetrics.keyHeight)
+                        .atePillHeight(AteMetrics.keyHeight)
                         .background(
                             isCurrent ? AtePalette.automatic.fg : AtePalette.automatic.chip,
                             in: .capsule
                         )
                         .foregroundStyle(isCurrent ? AtePalette.automatic.inverted : AtePalette.automatic.fg)
-                        .contentShape(.capsule)
+                        .ateHitArea(.key)
                 }
                 .buttonStyle(.plain)
+                .ateHitFootprint(.key)
                 .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
                 .accessibilityIdentifier("search.scope.\(scope.rawValue)")
             }

@@ -28,17 +28,35 @@ struct WelcomeScreen: View {
     @State private var failure: ActionFailure?
 
     var body: some View {
-        ZStack {
-            slip
-                .frame(maxHeight: .infinity, alignment: .top)
-            doors
-                .frame(maxHeight: .infinity, alignment: .bottom)
+        // The slip hangs from the top and the doors stand on the bottom. Stacked rather than
+        // layered, so however tall the type makes either one they cannot overlap — at the largest
+        // sizes the two outgrow the screen and the page scrolls, Apple's button always clear of the
+        // slip (App Review reads an obscured Sign in with Apple as a rejection). At the design's size
+        // the gap between them is simply the page's own, and nothing moves.
+        ViewThatFits(in: .vertical) {
+            page
+            ScrollView { page }
+                .scrollBounceBehavior(.basedOnSize)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay(alignment: .topTrailing) { debugDoor }
         .ateAccentGround(AteColor.coral)
         .ateFailureAlert($failure)
     }
+
+    private var page: some View {
+        VStack(spacing: 0) {
+            slip
+            // The photos hang off the slip's corners by offsets that take no room; the gap keeps
+            // the burger (136 tall, dropped 50 below the slip) off the button.
+            Spacer(minLength: Self.slipToDoors)
+            doors
+        }
+        .frame(maxWidth: .infinity, minHeight: AteScreen.height - AteScreen.safeArea.top - AteScreen.safeArea.bottom)
+    }
+
+    /// The burger's overhang under the slip (`136 × sin-ish tilt`, dropped 50) plus air.
+    private static let slipToDoors: CGFloat = 72
 
     /// The printed slip, tilted, with two photos escaping from behind it — the design's own
     /// composition, down to the angles and the overhangs.
@@ -104,12 +122,18 @@ struct WelcomeScreen: View {
                 // draws at the face's own underline position with no way to move it. Bricolage's
                 // descender at 15pt is ~3.3, so a 1pt rule one point under the text box lands where
                 // the markup puts it — and, unlike `.underline()`, it is the design's hairline.
-                VStack(spacing: 1) {
-                    Text(isPrompt ? "Not now" : "See what everyone's eating").ateText(.control)
-                    Rectangle().fill(AteColor.ink).frame(height: 1)
-                }
-                .fixedSize(horizontal: true, vertical: false)
-                .frame(minHeight: AteMetrics.hit)
+                //
+                // The rule hangs off the text as an overlay rather than stacking under it, so it is
+                // the text's own width without pinning the text to one line: at the accessibility
+                // sizes a one-line link was wider than the phone and dragged the whole page with it.
+                Text(isPrompt ? "Not now" : "See what everyone's eating")
+                    .ateText(.control)
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom, 2)
+                    .overlay(alignment: .bottom) {
+                        Rectangle().fill(AteColor.ink).frame(height: 1)
+                    }
+                    .frame(minHeight: AteMetrics.hit)
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)

@@ -271,8 +271,9 @@ struct EntrySlip: View {
         HStack(spacing: AteMetrics.regular) {
             Group {
                 if interactive, let onProfile {
-                    Button(action: onProfile) { bylineName(byline) }
+                    Button(action: onProfile) { bylineName(byline).ateHitArea(Self.bylineHit) }
                         .buttonStyle(.plain)
+                        .ateHitFootprint(Self.bylineHit)
                         .accessibilityLabel(byline.name)
                         .accessibilityIdentifier("slip.byline")
                 } else {
@@ -287,6 +288,9 @@ struct EntrySlip: View {
                 .layoutPriority(1)
         }
     }
+
+    /// The byline is the 28pt avatar's height; a finger gets 44.
+    private static let bylineHit = AteHitOutset(width: AteMetrics.avatar, height: AteMetrics.avatar)
 
     private func bylineName(_ byline: AteByline) -> some View {
         HStack(spacing: AteMetrics.snug) {

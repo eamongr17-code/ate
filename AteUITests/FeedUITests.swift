@@ -74,8 +74,10 @@ final class FeedUITests: XCTestCase {
         XCTAssertTrue(profileBookmark.waitForExistence(timeout: 5))
         let savedOnProfile = profileBookmark.isSelected
         app.buttons.matching(identifier: "profile.slip.body").firstMatch.tap()
-        let line = app.buttons.matching(identifier: "entry.save").firstMatch
-        XCTAssertTrue(line.waitForExistence(timeout: 10), "their entry's bill carries bookmarks")
+        // The entry page leads with the card's own dish rows (`EntryHier`), so its bookmark is the
+        // same component — and the same `slip.save` — as the one on the profile underneath it.
+        let line = app.otherElements["entry.dishes"].buttons.matching(identifier: "slip.save").firstMatch
+        XCTAssertTrue(line.waitForExistence(timeout: 10), "their entry's dish rows carry bookmarks")
         line.tap()
         XCTAssertTrue(waitUntil(timeout: 5) { line.isSelected != savedOnProfile },
                       "the line flips at the tap")
