@@ -23,6 +23,9 @@ struct SummaryScreen: View {
     let places: any PlaceDirectory
     let analytics: AnalyticsRecorder
     let onDone: () -> Void
+    /// The row as it lands — sorted, a place attached — so the journal slip under this screen is
+    /// the printed entry by the time Done returns to it.
+    var onUpdated: (EntryCard) -> Void = { _ in }
 
     @State private var sender = ShareSender()
     @State private var isPickingPlace = false
@@ -34,7 +37,8 @@ struct SummaryScreen: View {
         actions: EntrySummaryStore.Actions,
         places: any PlaceDirectory,
         analytics: @escaping AnalyticsRecorder,
-        onDone: @escaping () -> Void
+        onDone: @escaping () -> Void,
+        onUpdated: @escaping (EntryCard) -> Void = { _ in }
     ) {
         _store = State(initialValue: EntrySummaryStore(card: card, actions: actions))
         self.photos = photos
@@ -42,6 +46,7 @@ struct SummaryScreen: View {
         self.places = places
         self.analytics = analytics
         self.onDone = onDone
+        self.onUpdated = onUpdated
     }
 
     var body: some View {
@@ -56,6 +61,7 @@ struct SummaryScreen: View {
             onPrimary: primaryAction
         )
         .task { await store.watch() }
+        .onChange(of: store.card) { _, card in onUpdated(card) }
         .sheet(item: $sender.sending, onDismiss: { store.shareEnded() }, content: { sending in
             ShareSheet(sending: sending) { destination in
                 analytics(EntryEvents.receiptShared(

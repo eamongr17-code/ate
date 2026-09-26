@@ -95,7 +95,8 @@ struct ComposerScreen: View {
                     actions: .live(services.entries, tagTokens: summaryTagTokens),
                     places: services.places,
                     analytics: services.analytics,
-                    onDone: { dismiss() }
+                    onDone: { dismiss() },
+                    onUpdated: onSaved
                 )
                 .transition(.opacity)
             }
