@@ -130,7 +130,9 @@ enum ComposerDebugLaunch {
         }
         guard has(seedArgument) else { return }
         // `ComposerPlaceB`: the words, and Tipo 00 on the Place key rather than in them.
-        var draft = EntryDraft(composition: .previewComposerWords, restaurantID: tipoID, placeName: "Tipo 00")
+        // `-ate-seed-place "<name>"` puts a different name on the key — the long-name truncation.
+        let placeName = UserDefaults.standard.string(forKey: "ate-seed-place") ?? "Tipo 00"
+        var draft = EntryDraft(composition: .previewComposerWords, restaurantID: tipoID, placeName: placeName)
         // …with the artboard's own three photos already staged, so `Composer` can be photographed
         // as it is drawn rather than one cluster short of it.
         draft.photoFiles = seedPhotos(into: drafts.photoDirectory(for: draft.id))

@@ -22,10 +22,27 @@ struct ComposerKey: View {
     var value: String?
     /// What the drive reaches for, fixed whatever the key is showing.
     var identifier: String?
+    /// The icon alone, in a 40pt circle of the same fill — the Diet key.
+    var iconOnly = false
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button(action: action) { label }
+            .buttonStyle(.plain)
+            .accessibilityLabel(value.map { "\(title): \($0)" } ?? title)
+            .accessibilityIdentifier(identifier ?? "composer.key.\(title.lowercased())")
+    }
+
+    /// The key's face — shared with the Diet key, which is a menu rather than a button.
+    @ViewBuilder
+    var label: some View {
+        if iconOnly {
+            icon.view(size: iconSize)
+                .frame(width: AteMetrics.keyHeight, height: AteMetrics.keyHeight)
+                .background(isActive ? AteColor.ink : background, in: .circle)
+                .foregroundStyle(isActive ? background : foreground)
+                .contentShape(.circle)
+        } else {
             CappedWidth(maxWidth: value == nil ? .infinity : Self.valueMaxWidth) {
                 HStack(spacing: 5) {
                     icon.view(size: iconSize)
@@ -42,10 +59,8 @@ struct ComposerKey: View {
             // and the surface's own `fg` is cream in dark — butter on cream cannot be read.
             .background(isActive ? AteColor.ink : background, in: .capsule)
             .foregroundStyle(isActive ? background : foreground)
+            .contentShape(.capsule)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(value.map { "\(title): \($0)" } ?? title)
-        .accessibilityIdentifier(identifier ?? "composer.key.\(title.lowercased())")
     }
 
     /// `max-width:150px` on a key holding a value.
@@ -132,7 +147,9 @@ struct ComposerToolbar: View {
                 AteIconButton(icon: .voice, label: "Dictate", tint: AtePalette.surface.fg, action: onDictate)
                     .accessibilityIdentifier("composer.key.dictate")
             }
-            Spacer(minLength: 0)
+            .fixedSize()
+            // No spacer: its two extra gaps were the Place key's last 12 points. The keys push
+            // right on their own, as `justify-content:space-between` does.
             HStack(spacing: Self.gap) {
                 ComposerKey(
                     title: "Score",
@@ -164,11 +181,46 @@ struct ComposerToolbar: View {
                     model.dismissScoring(refocus: false)
                     model.isPickingPlace = true
                 }
+                // The place gives way first: Score and Diet keep their size, the name truncates.
+                .layoutPriority(-1)
+                dietKey
             }
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.vertical, AteMetrics.snug)
         .padding(.leading, AteMetrics.snug)
         .padding(.trailing, Self.trailing)
+    }
+
+    /// **The Diet key** (Eamon's layout C, round 3): an icon-only leaf beside the labelled Score and
+    /// Place pills, so the place's name keeps its room. A system menu of the five codes; the one
+    /// picked goes in as a tag chip after the current dish (``ComposerModel/insertTag(_:)``).
+    private var dietKey: some View {
+        Menu {
+            ForEach(DietTag.allCases, id: \.self) { tag in
+                Button(tag.label) {
+                    model.dismissScoring(refocus: false)
+                    analytics(model.insertTag(tag))
+                }
+                .accessibilityLabel(tag.spokenName)
+            }
+        } label: {
+            ComposerKey(
+                title: "Diet",
+                icon: .diet,
+                iconSize: 16,
+                background: ComposerKeyColor.place,
+                foreground: AteColor.ink,
+                iconOnly: true,
+                action: {}
+            )
+            .label
+        }
+        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+        .fixedSize()
+        .accessibilityLabel("Diet")
+        .accessibilityIdentifier("composer.key.diet")
     }
 
     /// `gap:6px`, between the groups and between the two keys.
