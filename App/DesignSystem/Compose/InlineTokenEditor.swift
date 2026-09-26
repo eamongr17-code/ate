@@ -56,6 +56,9 @@ struct InlineTokenEditor: UIViewRepresentable {
     var redoRequest = 0
     /// The token whose slider is open — `ComposerStars` rings it in ink while it is being scored.
     var selectedTokenID: UUID?
+    /// The caret is hidden (not moved, not resigned) while the focus is elsewhere — a pill being
+    /// scored. The keyboard stays exactly where it is.
+    var hidesCaret = false
     /// A token was tapped: reopen its slider or its sheet.
     var onTokenTap: (EntryToken) -> Void = { _ in }
     /// The caret moved. The host needs this to know where a new token should be inserted.
@@ -108,6 +111,9 @@ struct InlineTokenEditor: UIViewRepresentable {
         context.coordinator.update(binding: $composition, typography: typography, callbacks: callbacks)
         view.focusesOnAppear = focusesOnAppear
         view.isFocusSuspended = isFocusSuspended
+        // The caret is drawn in the tint; a clear tint is no caret, and the coral comes straight back.
+        let tint = hidesCaret ? UIColor.clear : UIColor(AteColor.coral)
+        if view.tintColor != tint { view.tintColor = tint }
         if isFocusSuspended, view.isFirstResponder { view.resignFirstResponder() }
         context.coordinator.focusIfRequested(focusRequest, in: view)
         context.coordinator.runUndoIfRequested(undo: undoRequest, redo: redoRequest, in: view)

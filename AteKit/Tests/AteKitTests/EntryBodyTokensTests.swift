@@ -86,6 +86,28 @@ struct EntryBodyTokensTests {
                 "the pill sits where the server said, not on the first 4.5")
     }
 
+    @Test("every score pill carries the dish its line was sorted to, so tapping it can open that dish")
+    func scorePillsKnowTheirDish() throws {
+        let body = "Tipo 00. The ragù 4.5 and the tiramisu 3.5."
+        let entry = card(body, items: [Line("Ragù", 4.5), Line("Tiramisu", 3.5)])
+        let composition = EntryBodyTokens.composition(for: entry)
+        let scores = composition.spans.filter { $0.token.score != nil }
+        #expect(scores.map(\.token.dishID) == entry.items.map(\.dishID))
+        // The place pill is not a dish, and never points at one.
+        #expect(composition.spans.first { $0.token.place != nil }?.token.dishID == nil)
+        // The slip drops a leading place, and a re-score rewrites a pill: neither loses the dish.
+        let dropped = composition.droppingLeadingPlace()
+        #expect(dropped.spans.compactMap(\.token.dishID) == entry.items.map(\.dishID))
+        let first = try #require(scores.first)
+        let rescored = composition.replacing(tokenID: first.token.id, with: .score(.maximum))
+        #expect(rescored.spans.first { $0.token.id == first.token.id }?.token.dishID == entry.items[0].dishID)
+    }
+
+    @Test("a pill the person typed carries no dish")
+    func draftPillsHaveNoDish() {
+        #expect(EntryToken(kind: .score(.minimum)).dishID == nil)
+    }
+
     @Test("the price-collision body: offsets put the pill on the score, never inside $14.50")
     func priceCollisionWithOffsets() {
         // The QA report's body. `score_evidence` here is the whole phrase — longer than the number,

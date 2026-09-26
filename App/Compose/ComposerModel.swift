@@ -10,15 +10,12 @@ import SwiftUI
 @MainActor
 @Observable
 final class ComposerModel: DictationTarget {
-    /// Which token the slider is open on, and the value under the finger.
-    struct Scoring: Identifiable, Equatable {
-        let id: UUID
-        var dishName: String
-        var rating: Rating?
-    }
-
     var composition: EntryComposition {
-        didSet { persist() }
+        didSet {
+            persist()
+            // A pill deleted or undone out from under the slider takes the slider with it.
+            if slider.isOpen { slider.retain(onlyIfPresentIn: Set(composition.spans.map(\.token.id))) }
+        }
     }
     /// Bumped to force the editor to rebuild its storage after a programmatic change.
     private(set) var revision = 0
@@ -26,7 +23,10 @@ final class ComposerModel: DictationTarget {
     private(set) var caretAfterRender: Int?
     /// Where the caret is now, as the editor reports it.
     var caret = 0
-    var scoring: Scoring?
+    /// The score slider: which pill it is open on, the value under the finger, and when it closes
+    /// (``ScoreSlider``, tested in AteKit).
+    private(set) var slider = ScoreSlider()
+    var scoring: ScoreSlider.Session? { slider.session }
     /// Up to five, in the order they were picked.
     private(set) var photos: [StagedPhoto] = []
     /// Bumped to pull the keyboard back after the slider or a sheet closes.
@@ -81,8 +81,8 @@ final class ComposerModel: DictationTarget {
         }
         if ComposerDebugLaunch.opensScoring {
             if let span = composition.spans.first(where: { $0.token.score != nil }) {
-                scoring = Scoring(
-                    id: span.token.id,
+                slider.open(
+                    tokenID: span.token.id,
                     dishName: dishName(before: span.token.id),
                     rating: span.token.score
                 )
@@ -186,7 +186,7 @@ final class ComposerModel: DictationTarget {
         let token = EntryToken(kind: .score(.minimum))
         let (next, newCaret) = composition.inserting(token, atDisplayOffset: caret)
         apply(next, caret: newCaret)
-        scoring = Scoring(id: token.id, dishName: dishName(before: token.id), rating: .minimum)
+        slider.open(tokenID: token.id, dishName: dishName(before: token.id), rating: .minimum)
         return EntryEvents.scoreTokenCreated(source: .key)
     }
 
@@ -198,21 +198,46 @@ final class ComposerModel: DictationTarget {
     /// Tapping an existing token reopens the thing that made it.
     func reopen(_ token: EntryToken) -> Bool {
         guard let rating = token.score else { return false }
-        scoring = Scoring(id: token.id, dishName: dishName(before: token.id), rating: rating)
+        slider.open(tokenID: token.id, dishName: dishName(before: token.id), rating: rating)
         return true
     }
 
-    func commitScore(_ rating: Rating, for tokenID: UUID) {
+    /// The finger moved on the slider. The pill in the words follows it **live** — the value is
+    /// written into the composition at every half-step, so the words are always what the panel says
+    /// and closing it, by any route, has nothing left to commit.
+    func slideScore(to rating: Rating) {
+        guard let tokenID = slider.session?.id, slider.slide(to: rating) else { return }
+        writeScore(rating, into: tokenID)
+    }
+
+    /// The finger lifted. The panel stays up for ``ScoreSlider/settleDelay`` so the number that was
+    /// set is seen, then goes — unless the finger came back, or the panel moved, in the meantime.
+    func finishScore(at rating: Rating) {
+        slideScore(to: rating)
+        guard let ticket = slider.finish(at: rating) else { return }
+        Task { [weak self] in
+            try? await Task.sleep(for: ScoreSlider.settleDelay)
+            guard let self else { return }
+            var closed = false
+            withAnimation(.snappy(duration: 0.2)) { closed = self.slider.settle(ticket) }
+            if closed { self.focusRequest += 1 }
+        }
+    }
+
+    /// Closes the slider now: a tap anywhere outside it, another key, Done, the mic. Always works.
+    ///
+    /// - Parameter refocus: false when something else takes the keyboard's place next (a sheet, the
+    ///   camera, dictation, Done) and pulling it back up would only flash.
+    func dismissScoring(refocus: Bool = true) {
+        guard slider.isOpen else { return }
+        withAnimation(.snappy(duration: 0.2)) { slider.dismiss() }
+        if refocus { focusRequest += 1 }
+    }
+
+    private func writeScore(_ rating: Rating, into tokenID: UUID) {
         composition = composition.replacing(tokenID: tokenID, with: .score(rating))
         revision += 1
         caretAfterRender = nil
-        withAnimation(.snappy(duration: 0.2)) { scoring = nil }
-        focusRequest += 1
-    }
-
-    func dismissScoring() {
-        scoring = nil
-        focusRequest += 1
     }
 
     /// Puts the caret back in the words — after a sheet, the slider, or a spell of dictation.
@@ -317,7 +342,11 @@ final class ComposerModel: DictationTarget {
     private func dishName(before tokenID: UUID) -> String {
         guard let span = composition.spans.first(where: { $0.token.id == tokenID }) else { return "This dish" }
         let units = Array(composition.plain.utf16)
-        let prefix = String(decoding: units[0..<min(span.span.location, units.count)], as: UTF16.self)
+        // From the end of the token before it, so an earlier pill's digits are never read as a name
+        // ("The ragù 0.5 0.5" titled the third panel "5 0 5").
+        let start = composition.spans.last { $0.span.endLocation <= span.span.location }?.span.endLocation ?? 0
+        let end = min(span.span.location, units.count)
+        let prefix = String(decoding: units[min(start, end)..<end], as: UTF16.self)
         let words = prefix
             .split(whereSeparator: { $0.isWhitespace || $0 == "," || $0 == "." })
             .suffix(3)

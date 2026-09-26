@@ -54,7 +54,7 @@ public enum EntryBodyTokens {
             guard let span = scoreSpan(for: item, score: score, in: card, body: body, claimed: claimed) else {
                 continue
             }
-            spans.append(EntryTokenSpan(token: EntryToken(kind: .score(score)), span: span))
+            spans.append(EntryTokenSpan(token: EntryToken(kind: .score(score), dishID: item.dishID), span: span))
             claimed.append(span)
         }
 

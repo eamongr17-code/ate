@@ -205,6 +205,8 @@ struct ComposerScreen: View {
                 undoRequest: undoRequest,
                 redoRequest: redoRequest,
                 selectedTokenID: model.scoring?.id,
+                // While the slider is open the focus is the pill, so the words show no caret.
+                hidesCaret: model.scoring != nil,
                 onTokenTap: reopen,
                 onCaretChange: { model.caret = $0 },
                 onScorePromoted: { wasDictated in
@@ -218,15 +220,26 @@ struct ComposerScreen: View {
             photoCluster
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
+            if model.scoring != nil {
+                // A tap anywhere in the writing area outside the panel closes it — and only closes
+                // it: the caret does not move, because the focus was the pill. Out to the screen's
+                // edges, past the well's inset, so the margins are not a dead zone.
+                Color.clear
+                    .contentShape(.rect)
+                    .onTapGesture { model.dismissScoring() }
+                    .padding(.horizontal, -Self.wellInset)
+                    .accessibilityHidden(true)
+            }
+
             if let scoring = model.scoring {
                 StarSlider(
                     dishName: scoring.dishName,
                     rating: Binding(
                         get: { model.scoring?.rating },
-                        set: { model.scoring?.rating = $0 }
+                        set: { if let rating = $0 { model.slideScore(to: rating) } }
                     )
                 ) { rating in
-                    model.commitScore(rating, for: scoring.id)
+                    model.finishScore(at: rating)
                 }
                 // `ComposerStars` pins the panel at `top:100px` inside a column that is itself 8
                 // below the header.
@@ -234,7 +247,7 @@ struct ComposerScreen: View {
                 .transition(.scale(scale: 0.96).combined(with: .opacity))
             }
         }
-        .padding(.horizontal, 22)
+        .padding(.horizontal, Self.wellInset)
         .padding(.top, AteMetrics.snug)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { editorWidth = $0 }
     }
@@ -258,6 +271,8 @@ struct ComposerScreen: View {
     }
 
     private static let placeholder = "What did you eat?"
+    /// The writing well's side inset.
+    private static let wellInset: CGFloat = 22
 
     /// Design rule 6: the mess is tilt and overlap, in a small static cluster. The composer's is the
     /// biggest of the three (90pt), and it sits on the control surface, so the separating ring is
@@ -289,6 +304,8 @@ struct ComposerScreen: View {
         HStack(spacing: Self.toolbarGap) {
             HStack(spacing: 0) {
                 AteIconButton(icon: .camera, label: "Camera", tint: AtePalette.surface.fg) {
+                    // The camera takes the keyboard's place: close the slider without raising it.
+                    model.dismissScoring(refocus: false)
                     takePhoto()
                 }
                 PhotosPicker(
@@ -303,6 +320,7 @@ struct ComposerScreen: View {
                         .contentShape(.rect)
                 }
                 .foregroundStyle(AtePalette.surface.fg)
+                .simultaneousGesture(TapGesture().onEnded { model.dismissScoring(refocus: false) })
                 .accessibilityLabel("Photo library")
                 AteIconButton(icon: .voice, label: "Dictate", tint: AtePalette.surface.fg) {
                     startDictation()
@@ -321,7 +339,12 @@ struct ComposerScreen: View {
                     // colour whether a place is attached or not.
                     isActive: model.scoring != nil
                 ) {
-                    services.analytics(model.insertScore())
+                    // The key is inverted while the panel is up, and pressing it again puts it away.
+                    if model.scoring != nil {
+                        model.dismissScoring()
+                    } else {
+                        services.analytics(model.insertScore())
+                    }
                 }
                 ComposerKey(
                     title: "Place",
@@ -330,6 +353,7 @@ struct ComposerScreen: View {
                     background: AtePalette.surface.field,
                     foreground: AtePalette.surface.fg
                 ) {
+                    model.dismissScoring(refocus: false)
                     model.isPickingPlace = true
                 }
             }
@@ -351,6 +375,7 @@ struct ComposerScreen: View {
     private func done() {
         guard isSaving == false, model.hasContent else { return }
         isSaving = true
+        model.dismissScoring(refocus: false)
         model.promotePendingScoreLiteral().map(services.analytics)
         if let editing = model.editing {
             rewrite(editing)
@@ -426,7 +451,7 @@ extension ComposerScreen {
     /// back in one edit when the microphone closes.
     private func startDictation() {
         guard isDictating == false else { return }
-        if model.scoring != nil { model.dismissScoring() }
+        model.dismissScoring(refocus: false)
         dictation = DictationController(
             target: model, transcriber: makeTranscriber(), analytics: services.analytics
         )

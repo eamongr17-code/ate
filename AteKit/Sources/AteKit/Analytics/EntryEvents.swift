@@ -205,6 +205,17 @@ public enum EntryEvents {
         )
     }
 
+    /// `Suggestions` left photos out for not being food (on-device Vision, ``FoodPhotoFilter``).
+    /// `count` is how many were left out, `kept` how many were offered — the ratio says whether the
+    /// threshold is right. Sent only by a pass that classified something new, so a warm cache is
+    /// silent and a launch is not a signal.
+    public static func suggestionFiltered(count: Int, kept: Int) -> AnalyticsEvent {
+        AnalyticsEvent(
+            name: "suggestion_filtered",
+            parameters: ["count": String(max(0, count)), "kept": String(max(0, kept))]
+        )
+    }
+
     public static func corrected(_ part: EntryCorrection) -> AnalyticsEvent {
         AnalyticsEvent(name: "entry_corrected", parameters: ["part": part.rawValue])
     }

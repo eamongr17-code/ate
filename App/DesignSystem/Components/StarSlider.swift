@@ -20,6 +20,10 @@ struct StarSlider: View {
 
     @Environment(\.atePalette) private var palette
     @State private var trackWidth: CGFloat = 0
+    /// True while a finger is on the track. SwiftUI resets it however the drag ends — lifted *or*
+    /// cancelled (a system gesture, a second finger) — and a cancelled drag never reaches `onEnded`.
+    /// Watching the reset is what stops a cancelled scrub leaving the panel up with no way out.
+    @GestureState private var isScrubbing = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.snug + 2) {
@@ -64,6 +68,10 @@ struct StarSlider: View {
         .contentShape(.rect)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { trackWidth = $0 }
         .gesture(scrub)
+        .onChange(of: isScrubbing) { wasScrubbing, scrubbing in
+            guard wasScrubbing, scrubbing == false, let rating else { return }
+            onFinish?(rating)
+        }
         .accessibilityElement()
         .accessibilityLabel("Score for \(dishName)")
         .accessibilityValue(RatingTrack.accessibilityValue(rating))
@@ -87,6 +95,7 @@ struct StarSlider: View {
 
     private var scrub: some Gesture {
         DragGesture(minimumDistance: 0)
+            .updating($isScrubbing) { _, scrubbing, _ in scrubbing = true }
             .onChanged { value in
                 let next = RatingTrack.rating(atX: Double(value.location.x), trackWidth: Double(trackWidth))
                 guard next != rating else { return }

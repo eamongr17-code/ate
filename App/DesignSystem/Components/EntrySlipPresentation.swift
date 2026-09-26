@@ -45,7 +45,7 @@ enum EntrySlipPresentation {
 
     private static func slip(_ card: EntryCard, surface: SlipAnatomy.Surface, meta: AteSlip.Meta) -> AteSlip {
         let showsWords = SlipAnatomy.showsWords(on: surface, dishCount: card.items.count)
-        return AteSlip(
+        var slip = AteSlip(
             id: card.id,
             dishes: card.items.map {
                 AteSlip.Dish(
@@ -68,6 +68,8 @@ enum EntrySlipPresentation {
                 : EntryComposition(plain: "", spans: []),
             photos: card.photos.prefix(maximumPhotos).map { AtePhoto(url: URL(string: $0.url)) }
         )
+        slip.wordsLineLimit = SlipAnatomy.wordsLineLimit(on: surface)
+        return slip
     }
 }
 
