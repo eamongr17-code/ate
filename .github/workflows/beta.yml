@@ -75,8 +75,8 @@ on:
         description: "Archive only (no signing, no upload)"
         type: boolean
         default: false
-  push:
-    branches: [main]
+  # Manual only: Eamon tests one build per finished feedback round (2026-09-26),
+  # so merges to main must not upload to TestFlight.
 
 concurrency:
   group: beta-${{ github.ref }}

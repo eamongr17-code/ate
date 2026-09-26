@@ -279,43 +279,45 @@ struct DetailRPCContractTests {
 
     @Test("dish_summary's stack and thumbnail are one derivation, and saved is the save state")
     func dishSummaryHeader() async throws {
-        let client = try await client()
-        let busiest = try #require(try await busiestDish(client).first, "staging needs a reviewed dish")
-        let rows: [DishSummaryRow] = try await StagingRPC.rows(
-            client, "dish_summary", ["p_dish_id": StagingRPC.id(busiest.dishID)]
-        )
-        let dish = try #require(rows.first)
+        try await StagingExclusive.shared.run {
+            let client = try await client()
+            let busiest = try #require(try await busiestDish(client).first, "staging needs a reviewed dish")
+            let rows: [DishSummaryRow] = try await StagingRPC.rows(
+                client, "dish_summary", ["p_dish_id": StagingRPC.id(busiest.dishID)]
+            )
+            let dish = try #require(rows.first)
 
-        #expect(dish.dishID == busiest.dishID)
-        #expect(dish.dishName.isEmpty == false)
-        #expect(dish.restaurantID == busiest.restaurantID)
-        #expect(dish.restaurantName.isEmpty == false)
-        // The aggregate is the view's, read before OR after this call — never a number of its own
-        // (a concurrent block in another suite moves both readings; see KeysetWalk).
-        let now = try #require(
-            try await client.findRow(DishStats.self) { $0.eq("dish_id", value: busiest.dishID.uuidString) }
-        )
-        #expect(
-            [busiest.score, now.score].contains(dish.score),
-            "the header score is dish_stats, not a client average"
-        )
-        #expect([busiest.reviewCount, now.reviewCount].contains(dish.reviewCount))
-        #expect(dish.scoredCount <= dish.reviewCount)
-        #expect((dish.score == nil) == (dish.scoredCount == 0), "a score nobody gave is an inferred one")
-        #expect(dish.peopleCount <= dish.reviewCount, "people are distinct reviewers; lines are not")
-        #expect(dish.restaurantCity != "" && dish.restaurantLocality != "")
+            #expect(dish.dishID == busiest.dishID)
+            #expect(dish.dishName.isEmpty == false)
+            #expect(dish.restaurantID == busiest.restaurantID)
+            #expect(dish.restaurantName.isEmpty == false)
+            // The aggregate is the view's, read before OR after this call — never a number of its own
+            // (a concurrent block in another suite moves both readings; see KeysetWalk).
+            let now = try #require(
+                try await client.findRow(DishStats.self) { $0.eq("dish_id", value: busiest.dishID.uuidString) }
+            )
+            #expect(
+                [busiest.score, now.score].contains(dish.score),
+                "the header score is dish_stats, not a client average"
+            )
+            #expect([busiest.reviewCount, now.reviewCount].contains(dish.reviewCount))
+            #expect(dish.scoredCount <= dish.reviewCount)
+            #expect((dish.score == nil) == (dish.scoredCount == 0), "a score nobody gave is an inferred one")
+            #expect(dish.peopleCount <= dish.reviewCount, "people are distinct reviewers; lines are not")
+            #expect(dish.restaurantCity != "" && dish.restaurantLocality != "")
 
-        // The stack IS the cover, ranked (0029): photos[0] is the thumbnail, no cover means no stack.
-        #expect(dish.photos.first?.url == dish.coverURL)
-        #expect(dish.coverURL != nil || dish.photos.isEmpty)
-        #expect(dish.photos.allSatisfy { $0.url.isEmpty == false })
+            // The stack IS the cover, ranked (0029): photos[0] is the thumbnail, no cover means no stack.
+            #expect(dish.photos.first?.url == dish.coverURL)
+            #expect(dish.coverURL != nil || dish.photos.isEmpty)
+            #expect(dish.photos.allSatisfy { $0.url.isEmpty == false })
 
-        // Two calls, one answer.
-        let saved = try await StagingRPC.raw(
-            client, "is_dish_saved", ["p_dish_id": StagingRPC.id(busiest.dishID)]
-        )
-        #expect(saved == "true" || saved == "false", "is_dish_saved must be a bare boolean")
-        #expect(dish.saved == (saved == "true"), "dish_summary.saved and is_dish_saved disagree")
+            // Two calls, one answer.
+            let saved = try await StagingRPC.raw(
+                client, "is_dish_saved", ["p_dish_id": StagingRPC.id(busiest.dishID)]
+            )
+            #expect(saved == "true" || saved == "false", "is_dish_saved must be a bare boolean")
+            #expect(dish.saved == (saved == "true"), "dish_summary.saved and is_dish_saved disagree")
+        }
     }
 
     // MARK: - get_dish_reviews

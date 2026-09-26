@@ -90,75 +90,79 @@ struct SocialContractTests {
     /// its provenance, then unsave it. Staging is left exactly as it was found.
     @Test("save_dish lands on my_saved_dishes with its provenance, and unsave_dish takes it off")
     func savingADishRoundTrips() async throws {
-        let client = try await client()
-        let saves = SaveClient(api: client)
-        let page = try await EntryFeedClient(api: client)
-            .feedPage(after: nil, pageSize: 20, includeOwn: false)
-        // A dish the viewer has NOT already saved, so the assertions are about this call.
-        let candidate = try #require(
-            page.items.lazy.compactMap { card -> (EntryCard, EntryCard.Item)? in
-                guard let item = card.items.first(where: { $0.saved == false }) else { return nil }
-                return (card, item)
-            }.first,
-            "staging needs one unsaved dish in the feed"
-        )
-        let (entry, item) = candidate
+        try await StagingExclusive.shared.run {
+            let client = try await client()
+            let saves = SaveClient(api: client)
+            let page = try await EntryFeedClient(api: client)
+                .feedPage(after: nil, pageSize: 20, includeOwn: false)
+            // A dish the viewer has NOT already saved, so the assertions are about this call.
+            let candidate = try #require(
+                page.items.lazy.compactMap { card -> (EntryCard, EntryCard.Item)? in
+                    guard let item = card.items.first(where: { $0.saved == false }) else { return nil }
+                    return (card, item)
+                }.first,
+                "staging needs one unsaved dish in the feed"
+            )
+            let (entry, item) = candidate
 
-        try await saves.save(dishID: item.dishID, sourceEntryID: entry.id)
-        defer { Task { try? await saves.unsave(dishID: item.dishID) } }
+            try await saves.save(dishID: item.dishID, sourceEntryID: entry.id)
+            defer { Task { try? await saves.unsave(dishID: item.dishID) } }
 
-        let shelf = try await saves.savedDishesPage(after: nil, pageSize: 200)
-        let saved = try #require(shelf.items.first { $0.dishID == item.dishID },
-                                 "a saved dish is on the shelf immediately")
-        #expect(saved.dishName.isEmpty == false)
-        #expect(saved.restaurantName.isEmpty == false)
-        #expect(saved.sourceEntryID == entry.id, "first provenance wins, and it is this entry")
-        #expect(saved.sourceUserID == entry.authorID)
+            let shelf = try await saves.savedDishesPage(after: nil, pageSize: 200)
+            let saved = try #require(shelf.items.first { $0.dishID == item.dishID },
+                                     "a saved dish is on the shelf immediately")
+            #expect(saved.dishName.isEmpty == false)
+            #expect(saved.restaurantName.isEmpty == false)
+            #expect(saved.sourceEntryID == entry.id, "first provenance wins, and it is this entry")
+            #expect(saved.sourceUserID == entry.authorID)
 
-        // Idempotent: saving again is not an error and does not move the provenance.
-        try await saves.save(dishID: item.dishID, sourceEntryID: nil)
-        let again = try await saves.savedDishesPage(after: nil, pageSize: 200)
-        #expect(again.items.filter { $0.dishID == item.dishID }.count == 1)
-        #expect(again.items.first { $0.dishID == item.dishID }?.sourceEntryID == entry.id)
+            // Idempotent: saving again is not an error and does not move the provenance.
+            try await saves.save(dishID: item.dishID, sourceEntryID: nil)
+            let again = try await saves.savedDishesPage(after: nil, pageSize: 200)
+            #expect(again.items.filter { $0.dishID == item.dishID }.count == 1)
+            #expect(again.items.first { $0.dishID == item.dishID }?.sourceEntryID == entry.id)
 
-        // …and the entry row the app re-reads agrees the viewer has it.
-        let reread = try await SupabaseEntryService(api: client).entry(id: entry.id)
-        #expect(reread.items.first { $0.dishID == item.dishID }?.saved == true)
+            // …and the entry row the app re-reads agrees the viewer has it.
+            let reread = try await SupabaseEntryService(api: client).entry(id: entry.id)
+            #expect(reread.items.first { $0.dishID == item.dishID }?.saved == true)
 
-        try await saves.unsave(dishID: item.dishID)
-        let after = try await saves.savedDishesPage(after: nil, pageSize: 200)
-        #expect(after.items.contains { $0.dishID == item.dishID } == false)
+            try await saves.unsave(dishID: item.dishID)
+            let after = try await saves.savedDishesPage(after: nil, pageSize: 200)
+            #expect(after.items.contains { $0.dishID == item.dishID } == false)
+        }
     }
 
     /// "Save this place": every line of one visit, provenance = that entry.
     @Test("save_entry_dishes saves the whole visit, and each line can be taken off again")
     func savingAWholeVisit() async throws {
-        let client = try await client()
-        let saves = SaveClient(api: client)
-        let page = try await EntryFeedClient(api: client)
-            .feedPage(after: nil, pageSize: 20, includeOwn: false)
-        let entry = try #require(
-            page.items.first { $0.items.count >= 2 && $0.items.contains { $0.saved == false } },
-            "staging needs a multi-dish entry with something unsaved on it"
-        )
-        let alreadySaved = Set(entry.items.filter(\.saved).map(\.dishID))
-        let mine = entry.items.map(\.dishID).filter { alreadySaved.contains($0) == false }
+        try await StagingExclusive.shared.run {
+            let client = try await client()
+            let saves = SaveClient(api: client)
+            let page = try await EntryFeedClient(api: client)
+                .feedPage(after: nil, pageSize: 20, includeOwn: false)
+            let entry = try #require(
+                page.items.first { $0.items.count >= 2 && $0.items.contains { $0.saved == false } },
+                "staging needs a multi-dish entry with something unsaved on it"
+            )
+            let alreadySaved = Set(entry.items.filter(\.saved).map(\.dishID))
+            let mine = entry.items.map(\.dishID).filter { alreadySaved.contains($0) == false }
 
-        let count = try await saves.saveEntryDishes(entryID: entry.id)
-        defer {
-            Task {
-                for dishID in mine { try? await saves.unsave(dishID: dishID) }
+            let count = try await saves.saveEntryDishes(entryID: entry.id)
+            defer {
+                Task {
+                    for dishID in mine { try? await saves.unsave(dishID: dishID) }
+                }
             }
+            #expect(count >= 0, "the RPC answers with how many it saved")
+
+            let reread = try await SupabaseEntryService(api: client).entry(id: entry.id)
+            #expect(reread.isEveryDishSaved, "every line of the visit is on the shelf")
+
+            for dishID in mine { try await saves.unsave(dishID: dishID) }
+            let after = try await SupabaseEntryService(api: client).entry(id: entry.id)
+            #expect(after.items.filter(\.saved).map(\.dishID).sorted() == alreadySaved.sorted(),
+                    "and taking them off leaves exactly what was there before")
         }
-        #expect(count >= 0, "the RPC answers with how many it saved")
-
-        let reread = try await SupabaseEntryService(api: client).entry(id: entry.id)
-        #expect(reread.isEveryDishSaved, "every line of the visit is on the shelf")
-
-        for dishID in mine { try await saves.unsave(dishID: dishID) }
-        let after = try await SupabaseEntryService(api: client).entry(id: entry.id)
-        #expect(after.items.filter(\.saved).map(\.dishID).sorted() == alreadySaved.sorted(),
-                "and taking them off leaves exactly what was there before")
     }
 
     /// The moderation calls the actions sheet makes. A report leaves a row for manual triage (which
