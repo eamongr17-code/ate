@@ -28,7 +28,8 @@ struct StatsDecodingTests {
         let rows = try PostgRESTDate.decoder.decode([ScoreBucket].self, from: json)
         let histogram = ScoreHistogram(rows)
 
-        #expect(histogram.buckets.count == 10)
+        // Ten half-steps and the secret 6 (round 4), whether or not the wire sent the 6.
+        #expect(histogram.buckets.count == 11)
         #expect(histogram.buckets.map(\.score) == ScoreHistogram.scores)
         #expect(histogram.dishCount(at: 4.5) == 19)
         // The two counts are different questions: two sittings of one dish is 1 dish, 2 reviews.
@@ -46,7 +47,7 @@ struct StatsDecodingTests {
             ScoreBucket(score: 4.0, dishCount: 3, reviewCount: 3),
             ScoreBucket(score: 5.0, dishCount: 1, reviewCount: 1)
         ])
-        #expect(histogram.buckets.count == 10)
+        #expect(histogram.buckets.count == 11)
         #expect(histogram.dishCount(at: 0.5) == 0)
         #expect(histogram.dishCount(at: 4) == 3)
     }
@@ -98,7 +99,8 @@ struct StatsDecodingTests {
         #expect(ScoreHistogram.snapped(4.4999999) == 4.5)
         #expect(ScoreHistogram.snapped(4.3) == 4.5)
         #expect(ScoreHistogram.snapped(0) == 0.5)
-        #expect(ScoreHistogram.snapped(9) == 5)
+        // The scale tops out at the secret 6 (round 4).
+        #expect(ScoreHistogram.snapped(9) == 6)
         #expect(ScoreHistogram.halfSteps(4.5) == 9)
     }
 

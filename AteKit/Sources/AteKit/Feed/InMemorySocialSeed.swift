@@ -15,19 +15,22 @@ public extension InMemorySocialService {
 
         static let tipo = EntryCard.Place(
             id: UUID(uuidString: "B7E00000-0000-4000-8000-000000000001")!,
-            name: "Tipo 00", address: "361 Little Bourke St", city: "Melbourne", locality: "CBD"
+            name: "Tipo 00", address: "361 Little Bourke St", city: "Melbourne", cuisine: "Italian",
+            locality: "CBD"
         )
         static let butchers = EntryCard.Place(
             id: UUID(uuidString: "B7E00000-0000-4000-8000-000000000002")!,
-            name: "Butchers Diner", address: "153 Bourke St", city: "Melbourne", locality: "CBD"
+            name: "Butchers Diner", address: "153 Bourke St", city: "Melbourne", cuisine: "Burgers",
+            locality: "CBD"
         )
         static let kisume = EntryCard.Place(
             id: UUID(uuidString: "B7E00000-0000-4000-8000-000000000003")!,
-            name: "Kisume", address: "175 Flinders Ln", city: "Melbourne", locality: "CBD"
+            name: "Kisume", address: "175 Flinders Ln", city: "Melbourne", cuisine: "Japanese",
+            locality: "CBD"
         )
         static let beatrix = EntryCard.Place(
             id: UUID(uuidString: "B7E00000-0000-4000-8000-000000000004")!,
-            name: "Beatrix", address: "688 Queensberry St", city: "Melbourne",
+            name: "Beatrix", address: "688 Queensberry St", city: "Melbourne", cuisine: "Bakery",
             locality: "North Melbourne"
         )
 
@@ -156,11 +159,21 @@ public extension InMemorySocialService {
                     dishID: derived(from: id, prefix: "D", index: index),
                     dishName: item.0,
                     score: item.1.map { Rating(rounding: $0) },
-                    position: index + 1
+                    position: index + 1,
+                    tags: seededTags[item.0] ?? []
                 )
             }
         )
     }
+
+    /// The chips the seeded people put on their lines (`DietTagsB`), so a dish page, a menu and a
+    /// search row have consensus tags to print in a preview drive.
+    private static let seededTags: [String: [DietTag]] = [
+        "Prawn spaghetti": [.gf],
+        "Tiramisu": [.v],
+        "Salmon roll": [.gf, .df],
+        "Raspberry cake": [.v]
+    ]
 
     /// A line's ids, derived from its entry's so the same fixture always mints the same dish — a
     /// preview whose ids move between launches cannot have a save state at all.

@@ -252,7 +252,8 @@ struct AteShell: View {
                 services: services,
                 saves: saveAction,
                 onPlace: { open(.place($0), from: .dish) },
-                onEntry: { open(.entry(EntryRoute(entryID: $0))) }
+                onEntry: { open(.entry(EntryRoute(entryID: $0))) },
+                onProfile: { open(.profile($0)) }
             )
         case .ratings(let score):
             // `Ratings.dc.html` keeps the tab bar, exactly like `Suggestions`: it is a page of You,
