@@ -113,8 +113,10 @@ public protocol EntryService: Sendable {
     func attach(photo: EntryPhotoUpload) async throws
 
     /// Ask the server to add structure. Idempotent; already-sorted entries come back untouched.
+    /// `tagTokens` are the composer's tag chips, in scalars — the server attaches each to the dish
+    /// it follows (contract #61).
     @discardableResult
-    func sort(entryID: UUID, force: Bool) async throws -> SortOutcome
+    func sort(entryID: UUID, force: Bool, tagTokens: [TagToken]) async throws -> SortOutcome
 
     /// One entry, freshly read — what the receipt is drawn from.
     func entry(id: UUID) async throws -> EntryCard
@@ -125,6 +127,8 @@ public protocol EntryService: Sendable {
     /// Corrections — the user's, always.
     func correctPlace(entryID: UUID, restaurantID: UUID) async throws -> EntryCard
     func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async throws
+    /// A dish line's dietary tags, as a whole set (`[]` clears them). Owner-only.
+    func setTags(reviewID: UUID, tags: [DietTag]) async throws
 
     /// The person editing their **own** words. The only path that writes `entries.body`, and it is
     /// theirs: the server never rewrites it (data-model landmine 6).
@@ -132,6 +136,12 @@ public protocol EntryService: Sendable {
 }
 
 public extension EntryService {
+    /// A sort with no tag chips — a re-sort, a correction, an edit.
+    @discardableResult
+    func sort(entryID: UUID, force: Bool) async throws -> SortOutcome {
+        try await sort(entryID: entryID, force: force, tagTokens: [])
+    }
+
     /// The handle alone, when that is all a caller needs.
     func currentHandle() async -> String? {
         try? await viewer().username

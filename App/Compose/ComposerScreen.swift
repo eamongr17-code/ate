@@ -5,10 +5,14 @@ import SwiftUI
 
 /// **`Composer`** — one screen, free prose, and the two things that are allowed to live inside it.
 ///
-/// The whole input model is here: you type the way you'd text a friend, and a score or a place
-/// becomes a pill *in the sentence* rather than a field beside it (PRODUCT.md decision 2). Nothing
-/// blocks writing — no place step, no dish step, no rating step, and the words are on disk before
-/// the next keystroke.
+/// The whole input model is here: you type the way you'd text a friend, and a score — or a dietary
+/// tag after a dish — becomes a pill *in the sentence* rather than a field beside it (PRODUCT.md
+/// decision 2). The place is the one thing that is not in the words: the Place key holds it
+/// (`ComposerPlaceB`). Nothing blocks writing — no place step, no dish step, no rating step, and the
+/// words are on disk before the next keystroke.
+///
+/// Done hands over to the **Summary** (`SummaryLoading` → `SummaryFinal`): the receipt printing on
+/// the coral ground, over the same cover, with the entry page already waiting beneath it.
 ///
 /// The screen is a control surface, not the app's ground (`Composer` is white; on a chip ground in
 /// dark, `field` recesses to the ink ground so the Place key stays visible — `AtePalette.surface`).
@@ -16,7 +20,7 @@ struct ComposerScreen: View {
     let presentation: ComposerPresentation
     let services: AteServices
     /// The entry, the instant its words are accepted — queued or landed. The shell puts it on the
-    /// journal and opens it, which is where the receipt prints.
+    /// journal and opens its page under this cover, where the Summary's Done lands.
     var onSaved: (EntryCard) -> Void = { _ in }
 
     @State private var model: ComposerModel
@@ -29,6 +33,10 @@ struct ComposerScreen: View {
     @State private var dictation: DictationController?
     @Environment(\.openURL) private var openURL
     @State private var isSaving = false
+    /// Set once a new entry's words are accepted: the Summary takes the cover.
+    @State private var summary: EntryCard?
+    /// …and the chips it was sorted with, so "Print it again" re-sorts with the same ones.
+    @State private var summaryTagTokens: [TagToken] = []
     /// The editor's width, for measuring where the words end.
     @State private var editorWidth: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -74,8 +82,21 @@ struct ComposerScreen: View {
                 )
                 .transition(.opacity)
             }
+            if let summary {
+                SummaryScreen(
+                    card: summary,
+                    photos: model.photos.map(\.photo),
+                    handle: summary.author?.username ?? "",
+                    actions: .live(services.entries, tagTokens: summaryTagTokens),
+                    places: services.places,
+                    analytics: services.analytics,
+                    onDone: { dismiss() }
+                )
+                .transition(.opacity)
+            }
         }
         .ateAnimation(.easeInOut(duration: 0.2), value: isDictating)
+        .ateAnimation(.easeInOut(duration: 0.25), value: summary?.id)
         .onChange(of: isDictating) { _, isOpen in
             // However the screen went away, the microphone goes with it.
             if isOpen == false {
@@ -201,7 +222,7 @@ struct ComposerScreen: View {
                 style: .composerProse,
                 placeholder: Self.placeholder,
                 focusRequest: model.focusRequest,
-                isFocusSuspended: isDictating,
+                isFocusSuspended: isDictating || summary != nil,
                 undoRequest: undoRequest,
                 redoRequest: redoRequest,
                 selectedTokenID: model.scoring?.id,
@@ -209,8 +230,8 @@ struct ComposerScreen: View {
                 hidesCaret: model.scoring != nil,
                 onTokenTap: reopen,
                 onCaretChange: { model.caret = $0 },
-                onScorePromoted: { wasDictated in
-                    services.analytics(model.scoreLiteralPromoted(wasDictated: wasDictated))
+                onTokenPromoted: { token, wasDictated in
+                    model.literalPromoted(token, wasDictated: wasDictated).map(services.analytics)
                 }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -297,76 +318,16 @@ struct ComposerScreen: View {
     /// `Composer.dc.html`'s `gap:18px` between the words and the photos.
     private static let wordsGap: CGFloat = 18
 
-    /// `Composer.dc.html`: camera · library · mic on the left, Score and Place on the right —
-    /// `padding:8px 14px 8px 8px; gap:6px; justify-content:space-between`. There is no third group:
-    /// every entry is public (Eamon, 2026-09-25), so the visibility key is gone.
+    /// `Composer.dc.html`'s toolbar — ``ComposerToolbar``.
     private var toolbar: some View {
-        HStack(spacing: Self.toolbarGap) {
-            HStack(spacing: 0) {
-                AteIconButton(icon: .camera, label: "Camera", tint: AtePalette.surface.fg) {
-                    // The camera takes the keyboard's place: close the slider without raising it.
-                    model.dismissScoring(refocus: false)
-                    takePhoto()
-                }
-                PhotosPicker(
-                    selection: $pickedItems,
-                    maxSelectionCount: EntryDraft.photoLimit,
-                    selectionBehavior: .ordered,
-                    matching: .images,
-                    photoLibrary: .shared()
-                ) {
-                    AteIcon.library.view(size: 22)
-                        .frame(width: AteMetrics.hit, height: AteMetrics.hit)
-                        .contentShape(.rect)
-                }
-                .foregroundStyle(AtePalette.surface.fg)
-                .simultaneousGesture(TapGesture().onEnded { model.dismissScoring(refocus: false) })
-                .accessibilityLabel("Photo library")
-                AteIconButton(icon: .voice, label: "Dictate", tint: AtePalette.surface.fg) {
-                    startDictation()
-                }
-                .accessibilityIdentifier("composer.key.dictate")
-            }
-            Spacer(minLength: 0)
-            HStack(spacing: Self.toolbarGap) {
-                ComposerKey(
-                    title: "Score",
-                    icon: .starFilled,
-                    background: AteColor.butter,
-                    foreground: AteColor.ink,
-                    // `ComposerStars`: while the slider is open the Score key inverts — ink pill,
-                    // butter lettering. The Place key never does; the design leaves it in the field
-                    // colour whether a place is attached or not.
-                    isActive: model.scoring != nil
-                ) {
-                    // The key is inverted while the panel is up, and pressing it again puts it away.
-                    if model.scoring != nil {
-                        model.dismissScoring()
-                    } else {
-                        services.analytics(model.insertScore())
-                    }
-                }
-                ComposerKey(
-                    title: "Place",
-                    icon: .place,
-                    iconSize: 16,
-                    background: AtePalette.surface.field,
-                    foreground: AtePalette.surface.fg
-                ) {
-                    model.dismissScoring(refocus: false)
-                    model.isPickingPlace = true
-                }
-            }
-        }
-        .padding(.vertical, AteMetrics.snug)
-        .padding(.leading, AteMetrics.snug)
-        .padding(.trailing, Self.toolbarTrailing)
+        ComposerToolbar(
+            model: model,
+            pickedItems: $pickedItems,
+            analytics: services.analytics,
+            onCamera: takePhoto,
+            onDictate: startDictation
+        )
     }
-
-    /// `gap:6px`, between the groups and between the two keys.
-    private static let toolbarGap: CGFloat = 6
-    /// `padding-right:14px` — the keys sit in from the edge, where the visibility key used to be.
-    private static let toolbarTrailing: CGFloat = 14
 
     // MARK: - Actions
 
@@ -394,11 +355,21 @@ struct ComposerScreen: View {
             }
             model.clearDraft()
             onSaved(card)
-            dismiss()
-            // Photos and the sorter, after the screen has gone. Detached from this view's lifetime
-            // on purpose: dismissing must not cancel the rest of the entry landing.
+            if case .saved = result {
+                // The Summary takes the cover; the entry page is already beneath it.
+                summaryTagTokens = request.tagTokens
+                summary = card
+            } else {
+                // Queued offline: there is no order number to print yet (the server allocates
+                // it), so there is no receipt to show — the entry page carries the wait.
+                dismiss()
+            }
+            // Photos and the sorter, while the receipt prints. Detached from this view's lifetime on
+            // purpose: Done on the Summary must not cancel the rest of the entry landing.
             Task.detached {
-                await submission.finish(entryID: request.id, photoPaths: request.photoPaths)
+                await submission.finish(
+                    entryID: request.id, photoPaths: request.photoPaths, tagTokens: request.tagTokens
+                )
             }
         }
     }
@@ -412,24 +383,34 @@ struct ComposerScreen: View {
     /// still picks up an entry that never got sorted, which is the honest half of the job. Re-sorting
     /// an edit *without* losing corrections needs the server to merge rather than rebuild; backend
     /// has it.
+    ///
+    /// Everything the keys set is kept (``EntryEdit``): a place picked on the Place key is attached
+    /// with `correct_entry_place`, and tag chips typed during the edit go to a forced re-sort as
+    /// `tag_tokens` — the one case where forcing is the point.
     private func rewrite(_ editing: ComposerPresentation.EditingEntry) {
-        let body = model.composition.plain
+        let edit = EntryEdit(
+            entryID: editing.id,
+            body: model.composition.plain,
+            originalRestaurantID: editing.restaurantID,
+            restaurantID: model.place?.id,
+            tagTokens: model.composition.tagTokens
+        )
         let entries = services.entries
-        let id = editing.id
+        let analytics = services.analytics
         Task {
-            try? await entries.updateBody(entryID: id, body: body)
+            if edit.changesPlace { analytics(EntryEvents.corrected(.place)) }
+            let card = (try? await edit.saveWordsAndPlace(to: entries)).flatMap { $0 }
             isSaving = false
-            if let card = try? await entries.entry(id: id) { onSaved(card) }
+            if let card { onSaved(card) }
             dismiss()
-            Task.detached {
-                _ = try? await entries.sort(entryID: id, force: false)
-            }
+            Task.detached { await edit.sort(on: entries) }
         }
     }
 
+    /// Tapping a pill reopens what made it — the slider, for a score. A tag chip has nothing to
+    /// reopen: backspace takes it, as it would a word.
     private func reopen(_ token: EntryToken) {
-        if model.reopen(token) { return }
-        if token.place != nil { model.isPickingPlace = true }
+        _ = model.reopen(token)
     }
 
     private func stage(_ items: [PhotosPickerItem]) async {
@@ -449,7 +430,7 @@ extension ComposerScreen {
     /// The keyboard goes down and `ComposerVoice` comes up over the words. The editor stays exactly
     /// where it is underneath; dictation writes into the same model, and the text view takes it all
     /// back in one edit when the microphone closes.
-    private func startDictation() {
+    func startDictation() {
         guard isDictating == false else { return }
         model.dismissScoring(refocus: false)
         dictation = DictationController(
@@ -463,7 +444,7 @@ extension ComposerScreen {
     /// The camera, if this phone has one and the person has let us use it. Refused, the key goes to
     /// Settings — the same answer the mic key gives, and for the same reason: there is nothing the app
     /// can say about it that the system does not already.
-    private func takePhoto() {
+    func takePhoto() {
         guard UIImagePickerController.isSourceTypeAvailable(.camera), model.canAddPhotos else { return }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:

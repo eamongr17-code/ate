@@ -162,7 +162,8 @@ struct InlineTokenAttributes {
     static func accessibilityLabel(for token: EntryToken) -> String {
         switch token.kind {
         case .score(let rating): "Score \(RatingTrack.accessibilityValue(rating))"
-        case .place(let place): "Place \(place.name)"
+        case .place(let place): place.name
+        case .tag(let mark): mark.tag.spokenName
         }
     }
 

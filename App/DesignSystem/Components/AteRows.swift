@@ -161,6 +161,9 @@ struct AteButton: View {
     /// `nil` fills the width it is given (a sheet's one pill). A number hugs the title with that much
     /// either side instead — `MainEmpty`'s `padding:0 28px`.
     var hugPadding: CGFloat?
+    /// The quieter of two pills side by side — `SummaryFinal`'s white Done beside the ink Share: the
+    /// surface's chip colour with its own foreground, where the primary is `fg` on `inverted`.
+    var isSecondary = false
     let action: () -> Void
 
     @Environment(\.atePalette) private var palette
@@ -174,8 +177,9 @@ struct AteButton: View {
             .padding(.horizontal, hugPadding ?? 0)
             .frame(maxWidth: hugPadding == nil ? .infinity : nil)
             .frame(height: height)
-            .background(palette.fg, in: .capsule)
-            .foregroundStyle(palette.inverted)
+            .background(isSecondary ? palette.chip : palette.fg, in: .capsule)
+            .foregroundStyle(isSecondary ? palette.fg : palette.inverted)
+            .contentShape(.capsule)
         }
         .buttonStyle(.plain)
     }

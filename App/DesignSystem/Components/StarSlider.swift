@@ -25,25 +25,31 @@ struct StarSlider: View {
     /// Watching the reset is what stops a cancelled scrub leaving the panel up with no way out.
     @GestureState private var isScrubbing = false
 
+    /// `RaterSize.dc.html` (2026-09-26): the dish and its score on one scale — the name in the
+    /// slip's dish voice at 22, the numeral at 28, baselines shared, `gap:14px`; the panel
+    /// `padding:18px 18px 16px; gap:12px`.
     var body: some View {
-        VStack(alignment: .leading, spacing: AteMetrics.snug + 2) {
-            HStack(alignment: .firstTextBaseline) {
+        VStack(alignment: .leading, spacing: AteMetrics.regular) {
+            HStack(alignment: .firstTextBaseline, spacing: Self.headerGap) {
                 Text(dishName)
-                    .ateText(.control)
-                    .lineLimit(1)
-                Spacer(minLength: AteMetrics.regular)
+                    .ateText(.sliderDish)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 // Design rule 7: an unscored dish is an empty star and NO text. Five empty stars
                 // already say it; a dash would be the app putting words in someone's mouth.
                 Text(rating.map { ScoreFormat.halfStep($0.value) } ?? "")
-                    .ateText(.scoreHero)
+                    .ateText(.sliderScore)
                     .monospacedDigit()
+                    .fixedSize()
                     .contentTransition(.numericText(value: rating?.value ?? 0))
                     .ateAnimation(AteMotion.scoreRoll, value: rating?.halfSteps ?? 0)
             }
             track
         }
-        .padding(.top, AteMetrics.loose)
-        .padding([.horizontal, .bottom], 18)
+        .padding(.top, 18)
+        .padding(.horizontal, 18)
+        .padding(.bottom, AteMetrics.loose)
         // `box-shadow:0 0 0 1.5px #24141F, 0 18px 40px -18px rgba(36,20,31,.45)` — a hairline ring
         // and a shadow tight under the panel, not a halo around it.
         .ateBackground(
@@ -56,6 +62,9 @@ struct StarSlider: View {
                 .strokeBorder(palette.fg, lineWidth: 1.5)
         }
     }
+
+    /// `gap:14px` between the name and the numeral.
+    private static let headerGap: CGFloat = 14
 
     private var track: some View {
         HStack(spacing: 0) {

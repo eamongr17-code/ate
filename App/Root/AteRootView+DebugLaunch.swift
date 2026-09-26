@@ -2,6 +2,13 @@ import SwiftUI
 import AteKit
 
 #if DEBUG
+/// What `-ate-open-summary` presents.
+struct DebugSummary: Identifiable {
+    let card: EntryCard
+    let isPrinting: Bool
+    var id: UUID { card.id }
+}
+
 /// The launch-argument drives: screens a simulator drive photographs, reachable from `simctl launch`
 /// because a simulator cannot be tapped from a shell. Debug only, and out of the view's own file so
 /// the shell stays readable — nothing here runs in a shipped build.
@@ -23,6 +30,53 @@ extension AteShell {
             }
             try? await Task.sleep(for: .milliseconds(100))
         }
+    }
+
+    /// `-ate-open-summary` (`-ate-summary-printing` for the loading state): the Summary that follows
+    /// Done, over the journal, on the design's own visit — the composer cannot be typed into from a
+    /// shell, so the screen after it is reached directly.
+    func openSummaryIfRequested() async {
+        guard ComposerDebugLaunch.opensSummary, debugSummary == nil else { return }
+        for _ in 0..<30 {
+            await journal.loadIfNeeded()
+            if let card = journal.entries.first(where: { $0.photos.count > 1 }) {
+                debugSummary = DebugSummary(card: card, isPrinting: ComposerDebugLaunch.summaryPrints)
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+    }
+
+    func debugSummaryScreen(_ summary: DebugSummary) -> some View {
+        let entries = services.entries
+        // Printing: the lines have not arrived, and a watch that never sees them arrive holds the
+        // skeleton on screen long enough to be photographed.
+        var start = summary.isPrinting ? summary.card.replacing(sortStatus: .pending, items: []) : summary.card
+        if ComposerDebugLaunch.summaryHasNoPlace {
+            // Written with no place: sorted, plan parked, nothing to print until one is attached.
+            let card = summary.card
+            start = EntryCard(
+                id: card.id, authorID: card.authorID, body: card.body, orderNumber: card.orderNumber,
+                sortStatus: .sorted, sortedAt: card.sortedAt, createdAt: card.createdAt,
+                author: card.author, photos: card.photos
+            )
+        }
+        let shown = start
+        return SummaryScreen(
+            card: shown,
+            photos: summary.card.photos.map { AtePhoto(url: URL(string: $0.url)) },
+            handle: summary.card.author?.username ?? "",
+            actions: summary.isPrinting
+                ? EntrySummaryStore.Actions(
+                    fetch: { _ in shown },
+                    correctPlace: { _, _ in shown },
+                    resort: { _ in }
+                )
+                : .live(entries, tagTokens: []),
+            places: services.places,
+            analytics: services.analytics,
+            onDone: { debugSummary = nil }
+        )
     }
 
     /// `-ate-open-you` / `-ate-open-ratings` / `-ate-open-recap`: the You branch a drive

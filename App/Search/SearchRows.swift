@@ -76,7 +76,11 @@ struct DishResultRow: View {
             VStack(spacing: 0) {
                 AteHairline()
                 HStack(spacing: AteMetrics.regular) {
-                    AteThumbnail(photo: AtePhoto(url: dish.coverURL), side: Self.thumbnail)
+                    AteThumbnail(
+                        photo: AtePhoto(id: dish.dishID, url: dish.coverURL,
+                                        dish: DishLetter(dishID: dish.dishID, name: dish.name)),
+                        side: Self.thumbnail
+                    )
                     VStack(alignment: .leading, spacing: AteMetrics.hairspace) {
                         Text(dish.name)
                             .ateText(.rowTitle)

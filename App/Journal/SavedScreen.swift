@@ -93,7 +93,7 @@ struct SavedDishRow: View {
                 Button(action: onTap) {
                     HStack(spacing: AteMetrics.regular) {
                         AteThumbnail(
-                            photo: AtePhoto(url: dish.dishCoverURL.flatMap(URL.init(string:))),
+                            photo: .dish(dish.dishID, name: dish.dishName, cover: dish.dishCoverURL),
                             side: Self.thumbnail
                         )
                         VStack(alignment: .leading, spacing: 2) {

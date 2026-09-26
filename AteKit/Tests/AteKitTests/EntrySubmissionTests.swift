@@ -11,6 +11,7 @@ private final class StubEntryService: EntryService, @unchecked Sendable {
     private(set) var created: [NewEntry] = []
     private(set) var attached: [EntryPhotoUpload] = []
     private(set) var sorted: [UUID] = []
+    private(set) var sortedTagTokens: [[TagToken]] = []
     private let lock = NSLock()
     private var cards: [UUID: EntryCard] = [:]
 
@@ -40,9 +41,12 @@ private final class StubEntryService: EntryService, @unchecked Sendable {
     }
 
     @discardableResult
-    func sort(entryID: UUID, force: Bool) async throws -> SortOutcome {
+    func sort(entryID: UUID, force: Bool, tagTokens: [TagToken]) async throws -> SortOutcome {
         if let sortError { throw sortError }
-        lock.withLock { sorted.append(entryID) }
+        lock.withLock {
+            sorted.append(entryID)
+            sortedTagTokens.append(tagTokens)
+        }
         return SortOutcome(entryID: entryID, status: .sorted, mode: "stub",
                            itemCount: 2, restaurantID: nil, didAttachPlace: true)
     }
@@ -62,6 +66,7 @@ private final class StubEntryService: EntryService, @unchecked Sendable {
         try await entry(id: entryID)
     }
     func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async throws {}
+    func setTags(reviewID: UUID, tags: [DietTag]) async throws {}
     func updateBody(entryID: UUID, body: String) async throws {}
 }
 
@@ -170,6 +175,32 @@ struct EntrySubmissionTests {
         #expect(sortEvent?.parameters["items"] == "2")
         // Everything done, nothing outstanding.
         #expect(await queue.pendingCount == 0)
+    }
+
+    @Test("the composer's tag chips ride to the sort; a sort the outbox owes later still has them")
+    func tagTokensReachTheSort() async {
+        let chips = [TagToken(offset: 9, length: 1)]
+        let service = StubEntryService()
+        let submission = EntrySubmission(entries: service, outbox: outbox(service))
+        let id = UUID()
+        _ = await submission.submit(request(id: id))
+        await submission.finish(entryID: id, photoPaths: [], tagTokens: chips)
+        #expect(service.sortedTagTokens == [chips])
+
+        // Offline at Done: the outbox's own sort, later, sends the same chips.
+        let offline = StubEntryService()
+        offline.createError = URLError(.notConnectedToInternet)
+        let queue = outbox(offline)
+        let late = EntrySubmission(entries: offline, outbox: queue)
+        let queuedID = UUID()
+        _ = await late.submit(NewEntryRequest(
+            id: queuedID, body: "Tiramisu v 3.0", restaurantID: nil, photoPaths: [],
+            createdAt: Date(timeIntervalSince1970: 1_789_000_000), scoreCount: 1, secondsFromOpen: 3,
+            tagTokens: chips
+        ))
+        offline.createError = nil
+        _ = await queue.run()
+        #expect(offline.sortedTagTokens == [chips])
     }
 
     @Test("a sort that fails leaves the entry queued and says so")

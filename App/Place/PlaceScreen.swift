@@ -3,9 +3,10 @@ import SwiftUI
 
 /// **`Restaurant`** — the place, and the one question it answers: what should I order here?
 ///
-/// Four bands, in the order `Restaurant.dc.html` sets them down: the name at 44, a row of chips
-/// carrying only the facts we actually hold, the ranked menu on receipt paper, and the entries
-/// written here — yours under "Your N visits", everyone else's under them.
+/// Three bands, in the order `Restaurant.dc.html` sets them down: the name at 44, a row of chips
+/// carrying only the facts we actually hold, the ranked menu on receipt paper — and then the visits
+/// written here as one stream with no heading (`RestaurantVisits`, 2026-09-26): yours first, each
+/// with a "You" byline, then everyone else's.
 ///
 /// The average in the header is **read**, never computed: it is the mean of per-dish averages
 /// (data-model §1.2), so averaging the menu below it would print a different, wrong number.
@@ -23,8 +24,11 @@ struct PlaceScreen: View {
             VStack(alignment: .leading, spacing: AteMetrics.loose) {
                 header
                 menu
-                visits
-                entries
+                // `gap:12px` — one list, yours woven in first.
+                VStack(alignment: .leading, spacing: AteMetrics.placeSlipGap) {
+                    visits
+                    entries
+                }
             }
             .padding(.top, AteMetrics.hairspace)
             .padding(.bottom, AteMetrics.tabBarScrollInset)
@@ -119,23 +123,20 @@ struct PlaceScreen: View {
             .padding(.bottom, 6 + AteMetrics.tornEdgeHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
             .atePaper()
-            .background(AteColor.paper, in: ReceiptPaper())
+            .ateTornPaper(.paper)
             .padding(.horizontal, AteMetrics.gutter)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("place.menu")
         }
     }
 
-    /// **Your N visits** — the viewer's own entries here, on the same dish-first slip the feed
-    /// uses. Absent at zero: a place you have never been to does not say so.
+    /// **Your visits** — the viewer's own entries here, on the same dish-first slip as everyone
+    /// else's and ahead of them, each signed "You". No band, no icon, no rules: a place you have never
+    /// been to simply has none of these.
     @ViewBuilder
     private var visits: some View {
         if store.hasVisits {
-            VStack(alignment: .leading, spacing: AteMetrics.slipGap) {
-                band(icon: .journal, title: store.myVisits == 1 ? "Your 1 visit" : "Your \(store.myVisits) visits")
-                    .accessibilityIdentifier("place.visits")
-                slips(store.visits, identifier: "place.visit") { EntrySlipPresentation.profile($0) }
-            }
+            slips(store.visits, identifier: "place.visit")
         }
     }
 
@@ -154,45 +155,22 @@ struct PlaceScreen: View {
                 .foregroundStyle(AtePalette.automatic.muted)
                 .frame(maxWidth: .infinity)
         case .ready:
-            slips(store.entries, identifier: "place.slip") { EntrySlipPresentation.feed($0) }
+            slips(store.entries, identifier: "place.slip")
         }
     }
 
     // MARK: - Pieces
 
-    /// The ruled band that names a section: an icon, a title, and rules above and below it — the
-    /// artboard's `border-top` + `border-bottom` row. No chevron: the list is directly underneath,
-    /// and an arrow pointing at something already on screen is a lie.
-    private func band(icon: AteIcon, title: String) -> some View {
-        VStack(spacing: 0) {
-            AteHairline()
-            HStack(spacing: AteMetrics.regular) {
-                icon.view(size: 20)
-                Text(title).ateText(.rowTitle)
-                Spacer(minLength: 0)
-            }
-            .frame(minHeight: AteMetrics.rowHeight)
-            AteHairline()
-        }
-        .padding(.horizontal, AteMetrics.gutter)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
-    }
-
-    private func slips(
-        _ list: EntryListStore,
-        identifier: String,
-        presentation: @escaping (EntryCard) -> AteSlip
-    ) -> some View {
-        LazyVStack(alignment: .leading, spacing: AteMetrics.slipGap) {
+    private func slips(_ list: EntryListStore, identifier: String) -> some View {
+        LazyVStack(alignment: .leading, spacing: AteMetrics.placeSlipGap) {
             ForEach(list.entries) { entry in
                 EntrySlip(
-                    slip: presentation(entry),
+                    slip: EntrySlipPresentation.placeVisit(entry),
                     onOpen: { onOpen(entry) },
                     onProfile: entry.isMine ? nil : { onProfile(entry.authorID) },
                     onSave: entry.isMine ? nil : { onSave(entry, $0) },
-                    // No `onPlace`: every slip here is at *this* place, so its pin would be a door
-                    // back into the room it is already in. It stays printed, and stays inert.
+                    // No `onPlace`, and no foot line to carry one: every slip here is at *this*
+                    // place, so a pin would be a door back into the room it is already in.
                     onDish: { onDish($0.dishID) },
                     identifier: identifier
                 )
@@ -214,6 +192,7 @@ struct MenuDishRow: View {
     /// `min-height:66px; gap:12px`, ruled at the top with the receipt's own dashed line.
     private static let height: CGFloat = 66
     private static let thumbnail: CGFloat = 48
+    private static let thumbnailRadius: CGFloat = 14
     /// `.lab` at `width:18px` — the rank column, so every dish name starts on the same vertical.
     private static let rankWidth: CGFloat = 18
 
@@ -225,9 +204,12 @@ struct MenuDishRow: View {
                     Text(String(format: "%02d", rank))
                         .ateText(.receiptLabel)
                         .frame(width: Self.rankWidth, alignment: .leading)
-                    AtePhotoTile(
-                        photo: AtePhoto(url: dish.coverURL),
-                        side: Self.thumbnail
+                    // `width:48px; border-radius:14px` — its cover, or its letter tile (`NoPhotoA`).
+                    AteThumbnail(
+                        photo: AtePhoto(id: dish.dishID, url: dish.coverURL,
+                                        dish: DishLetter(dishID: dish.dishID, name: dish.name)),
+                        side: Self.thumbnail,
+                        radius: Self.thumbnailRadius
                     )
                     VStack(alignment: .leading, spacing: 1) {
                         Text(dish.name)
@@ -315,7 +297,7 @@ private struct MenuSkeleton: View {
         .padding(.bottom, 6 + AteMetrics.tornEdgeHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
         .atePaper()
-        .background(AteColor.paper, in: ReceiptPaper())
+        .ateTornPaper(.paper)
         .accessibilityHidden(true)
     }
 }

@@ -93,11 +93,7 @@ struct EntryBodyTokensTests {
         let composition = EntryBodyTokens.composition(for: entry)
         let scores = composition.spans.filter { $0.token.score != nil }
         #expect(scores.map(\.token.dishID) == entry.items.map(\.dishID))
-        // The place pill is not a dish, and never points at one.
-        #expect(composition.spans.first { $0.token.place != nil }?.token.dishID == nil)
-        // The slip drops a leading place, and a re-score rewrites a pill: neither loses the dish.
-        let dropped = composition.droppingLeadingPlace()
-        #expect(dropped.spans.compactMap(\.token.dishID) == entry.items.map(\.dishID))
+        // A re-score rewrites a pill without losing the dish.
         let first = try #require(scores.first)
         let rescored = composition.replacing(tokenID: first.token.id, with: .score(.maximum))
         #expect(rescored.spans.first { $0.token.id == first.token.id }?.token.dishID == entry.items[0].dishID)
@@ -186,22 +182,19 @@ struct EntryBodyTokensTests {
                 "the matcher found the digits the stale window had lost")
     }
 
-    @Test("a stale place offset is used only while the words there still name the place")
+    @Test("a stale place offset still keeps a number in the place's name from becoming a score")
     func stalePlaceOffset() {
-        let body = "Went back to Tipo 00 with Jess."
+        // The window says "Went ba" (the body was edited since): the matcher finds the real name,
+        // claims it, and the ragù's pill goes on the 4.5 that is actually a score.
+        let body = "Went back to Bar 4.5 with Jess. The ragù 4.5 was unreal."
         let stale = card(
-            body, place: "Tipo 00", placeSpan: (0, 7),
+            body, place: "Bar 4.5", placeSpan: (0, 7),
             updatedAt: Date(timeIntervalSince1970: 1_789_009_999),
-            items: []
+            items: [Line("Ragù", 4.5)]
         )
         let composition = EntryBodyTokens.composition(for: stale)
         #expect(composition.spans.count == 1)
-        #expect(slice(composition.spans[0].span, of: body) == "Tipo 00",
-                "offset 0 now says \"Went ba\" — the matcher found the real name")
-
-        // The same offsets, not stale: the server's answer is taken as it stands.
-        let fresh = card(body, place: "Tipo 00", placeSpan: scalars(of: "Tipo 00", in: body), items: [])
-        #expect(slice(EntryBodyTokens.composition(for: fresh).spans[0].span, of: body) == "Tipo 00")
+        #expect(composition.spans[0].span.location == scalars(of: "4.5 was", in: body).0)
     }
 
     // MARK: - Unicode
@@ -292,26 +285,48 @@ struct EntryBodyTokensTests {
                 "the second line fell back to the occurrence next to its own dish")
     }
 
-    @Test("the place token is found, and a dish named in different case still matches")
-    func placeAndCaseInsensitiveDish() {
+    @Test("an old entry's place is plain text now, and a dish named in different case still matches")
+    func placeIsPlainText() {
+        // Written when the composer put the place in the words (ComposerPlaceB migration): the name
+        // stays exactly where it was typed, as words, and the entry keeps its place.
         let body = "Tipo 00 with Jess. The salmon roll 4.5 was the quiet star."
-        let composition = EntryBodyTokens.composition(for: card(
-            body, place: "Tipo 00", items: [Line("Salmon roll", 4.5)]
-        ))
-        #expect(composition.place?.name == "Tipo 00")
+        let entry = card(body, place: "Tipo 00", placeSpan: (0, 7), items: [Line("Salmon roll", 4.5)])
+        let composition = EntryBodyTokens.composition(for: entry)
+        #expect(composition.place == nil, "no place pill, ever")
+        #expect(composition.plain == body, "not one character of the words moves")
         #expect(composition.scores.map(\.value) == [4.5])
+        #expect(entry.place?.name == "Tipo 00", "the entry still has its place")
     }
 
-    @Test("a place the person typed in lower case still gets its pill, in their spelling")
-    func placeInTheirSpelling() {
-        let body = "tipo 00 with Jess again."
-        let composition = EntryBodyTokens.composition(for: card(
-            body, place: "Tipo 00", placeSpan: (0, 7), items: []
-        ))
-        #expect(composition.spans.count == 1)
-        #expect(slice(composition.spans[0].span, of: body) == "tipo 00")
-        #expect(composition.place?.name == "tipo 00", "the pill says what they wrote")
+    // MARK: - Dietary tags
+
+    @Test("a line's tags become chips straight after its dish, in the person's own spelling")
+    func tagsAfterTheDish() throws {
+        let body = "Tiramisu V 3.0 a bit flat. Jess's prawn spaghetti gf looked the business."
+        var entry = card(body, place: nil, items: [Line("Tiramisu", 3.0), Line("Prawn spaghetti", nil)])
+        entry = entry.replacing(items: [
+            EntryCard.Item(reviewID: UUID(), dishID: UUID(), dishName: "Tiramisu", score: Rating(exactly: 3),
+                           position: 1, tags: [.v]),
+            EntryCard.Item(reviewID: UUID(), dishID: UUID(), dishName: "Prawn spaghetti", position: 2,
+                           mentionOffset: scalars(of: "prawn spaghetti", in: body).0, mentionLength: 15,
+                           tags: [.gf])
+        ])
+        let composition = EntryBodyTokens.composition(for: entry)
+        let tags = composition.spans.filter { $0.token.tag != nil }
+        #expect(tags.map { $0.token.tag } == [.v, .gf])
+        #expect(slice(try #require(tags.first).span, of: body) == "V", "their capital, kept")
+        #expect(composition.scores.map(\.value) == [3.0])
         #expect(composition.plain == body)
+    }
+
+    @Test("a tag that is not straight after its dish is never drawn — nothing is invented")
+    func tagNotWhereItShouldBe() {
+        let body = "Tiramisu 3.0 and it was v good."
+        let entry = card(body, place: nil, items: []).replacing(items: [
+            EntryCard.Item(reviewID: UUID(), dishID: UUID(), dishName: "Tiramisu", score: Rating(exactly: 3),
+                           position: 1, tags: [.v])
+        ])
+        #expect(EntryBodyTokens.composition(for: entry).tags.isEmpty)
     }
 
     @Test("an unscored line contributes no pill, and a score absent from the words is dropped")
@@ -328,9 +343,8 @@ struct EntryBodyTokensTests {
     func previewFixtureUsesItsOffsets() {
         let composition = EntryBodyTokens.composition(for: .previewSorted)
         let body = EntryCard.previewSorted.body
-        #expect(composition.spans.count == 3, "one place, two scores — the unscored line has no pill")
-        #expect(slice(composition.spans[0].span, of: body) == "Tipo 00")
-        #expect(slice(composition.spans[1].span, of: body) == "4.5")
-        #expect(slice(composition.spans[2].span, of: body) == "3.0")
+        #expect(composition.spans.count == 2, "two scores — no place pill, and the unscored line has none")
+        #expect(slice(composition.spans[0].span, of: body) == "4.5")
+        #expect(slice(composition.spans[1].span, of: body) == "3.0")
     }
 }

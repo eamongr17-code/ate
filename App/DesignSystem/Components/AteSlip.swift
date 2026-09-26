@@ -16,14 +16,28 @@ struct AteSlip: Equatable, Identifiable {
         var name: String
         var score: Rating?
         var isSaved: Bool
+        /// Dietary tags, as linen chips after the name (`DietTagsB`).
+        var tags: [DietTag]
 
-        init(id: UUID, dishID: UUID, name: String, score: Rating? = nil, isSaved: Bool = false) {
+        init(
+            id: UUID, dishID: UUID, name: String, score: Rating? = nil, isSaved: Bool = false,
+            tags: [DietTag] = []
+        ) {
             self.id = id
             self.dishID = dishID
             self.name = name
             self.score = score
             self.isSaved = isSaved
+            self.tags = tags
         }
+    }
+
+    /// How close the slip sits to its neighbours. `FeedTight` (2026-09-26) tightens the feed's
+    /// slips only — `padding:10px 14px 12px; gap:8px` against the journal's `12/16/14` and `10`.
+    /// Dish rows keep their 44 minimum either way.
+    enum Density: Equatable {
+        case regular
+        case tight
     }
 
     /// What the right-hand end of the foot line says. Design rule 2: two values, left and right,
@@ -53,6 +67,7 @@ struct AteSlip: Equatable, Identifiable {
     var photos: [AtePhoto]
     /// Who wrote it — present in the feed, absent in your own journal and on their own profile.
     var byline: AteByline?
+    var density: Density = .regular
 
     init(
         id: UUID = UUID(),
@@ -82,6 +97,12 @@ struct AteByline: Equatable {
     var userID: UUID
     var handle: String
     /// "2h", "1d" — already written, because how an age is worded is a product decision
-    /// (``RelativeAge``), not a view's.
+    /// (``RelativeAge``), not a view's. On your own visit to a place, the day ("Sat 19 Sep").
     var age: String
+    /// Your own visit, woven into a place's list (`RestaurantVisits`): the byline reads "You"
+    /// rather than your handle.
+    var isYou = false
+
+    /// What the byline prints.
+    var name: String { isYou ? "You" : "@\(handle)" }
 }

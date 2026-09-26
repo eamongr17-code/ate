@@ -63,6 +63,8 @@ public enum ReceiptShareSource: String, Sendable, CaseIterable, Codable {
     case actions
     /// The share icon on a monthly statement (`Recap`).
     case statement
+    /// The Summary that follows Done in the composer — the receipt as the hero on the coral ground.
+    case summary
 }
 
 /// **The core loop's funnel**, built here so the names and parameters are asserted by tests and can
@@ -231,6 +233,26 @@ public enum EntryEvents {
         var parameters = ["source": source.rawValue]
         if let entryID { parameters["entry_id"] = entryID.uuidString.lowercased() }
         return AnalyticsEvent(name: "receipt_shared", parameters: parameters)
+    }
+
+    /// A dietary code typed after a dish became a tag chip in the composer (`DietTagsB`).
+    public static func dishTagAdded(_ tag: DietTag) -> AnalyticsEvent {
+        AnalyticsEvent(name: "dish_tag_added", parameters: ["code": tag.rawValue])
+    }
+
+    /// The Summary after Done: its ink **Share** was tapped (the share itself is still counted by
+    /// `receipt_shared`, with `source=summary`, at the moment the image leaves)…
+    public static func summaryShared(entryID: UUID) -> AnalyticsEvent {
+        AnalyticsEvent(name: "summary_shared", parameters: ["entry_id": entryID.uuidString.lowercased()])
+    }
+
+    /// …or its white **Done** was, and whether the receipt had printed by then — a Done before the
+    /// sort landed says the wait was longer than anyone would sit through.
+    public static func summaryDone(entryID: UUID, wasPrinted: Bool) -> AnalyticsEvent {
+        AnalyticsEvent(
+            name: "summary_done",
+            parameters: ["entry_id": entryID.uuidString.lowercased(), "printed": flag(wasPrinted)]
+        )
     }
 
     private static func flag(_ value: Bool) -> String { value ? "true" : "false" }

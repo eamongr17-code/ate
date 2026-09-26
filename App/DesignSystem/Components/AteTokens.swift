@@ -42,6 +42,7 @@ enum TokenPillMetrics {
         switch kind {
         case .score: prose * scoreHeightEm
         case .place: prose * placeHeightEm
+        case .tag: dietHeight
         }
     }
 
@@ -49,7 +50,51 @@ enum TokenPillMetrics {
         switch kind {
         case .score: descent(height: height(for: kind, prose: prose), icon: starSide)
         case .place: descent(height: height(for: kind, prose: prose), icon: pinSide)
+        case .tag: dietDescent(rise: dietRiseInProse)
         }
+    }
+
+    // `.diet` (`DietTagsB`): an absolute chip, not an em pill — 18 high, 6 either side, whatever the
+    // words around it are set in.
+
+    static let dietHeight: CGFloat = 18
+    static let dietPadding: CGFloat = 6
+    /// `.prose .diet{vertical-align:2px; margin:0 1px}` in the words…
+    static let dietRiseInProse: CGFloat = 2
+    static let dietMarginInProse: CGFloat = 1
+    /// …and `.dname .diet{margin-left:6px; vertical-align:3px}` after a dish's name, 4 apart.
+    static let dietRiseOnName: CGFloat = 3
+    static let dietGapOnName: CGFloat = 6
+    static let dietGapBetween: CGFloat = 4
+
+    /// How far the chip hangs below the baseline of the text it sits in. The chip is an
+    /// `inline-flex` whose baseline is its code's, centred in 18 on a `line-height:1` box — so its
+    /// baseline sits `9 + (ascender − descender) / 2` from its top — and `vertical-align` lifts that
+    /// baseline off the surrounding one.
+    static func dietDescent(rise: CGFloat) -> CGFloat {
+        let font = AteFont.uiFont(for: .dietTag)
+        let baselineFromTop = dietHeight / 2 + (font.ascender + font.descender) / 2
+        return dietHeight - baselineFromTop - rise
+    }
+}
+
+/// **A dietary tag** — `DietTagsB`'s linen chip: the code in capitals, Bricolage 600, muted, on the
+/// ground colour so it reads as the paper showing through rather than as an accent. No stroke. The
+/// same chip after a dish's name on a card and inline in the words.
+struct DietTagChip: View {
+    let tag: DietTag
+
+    var body: some View {
+        Text(tag.label)
+            .ateText(.dietTag)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, TokenPillMetrics.dietPadding)
+            .frame(height: TokenPillMetrics.dietHeight)
+            .foregroundStyle(AtePalette.automatic.muted)
+            .background(AteColor.ground, in: .capsule)
+            .accessibilityElement()
+            .accessibilityLabel(tag.spokenName)
     }
 }
 

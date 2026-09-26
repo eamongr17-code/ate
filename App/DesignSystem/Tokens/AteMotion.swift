@@ -17,6 +17,13 @@ enum AteMotion {
     /// A caret blink, and the voice pulse.
     static let caretBlink: Double = 1.0
     static let voicePulse: Double = 1.6
+    /// A receipt still printing (`SummaryLoading`): its skeleton lines breathe down to 45% and back,
+    /// 1.6s a breath, ease-in-out — half a cycle each way.
+    static let breathe = Animation.easeInOut(duration: 0.8).repeatForever(autoreverses: true)
+    static let breatheLow: Double = 0.45
+    /// The Summary's receipt settling from where it prints (`top:160`) to where it rests (`top:180`)
+    /// once the lines are in — the print's own ease, over the same 0.6s.
+    static let settle = Animation.easeOut(duration: printDuration)
 }
 
 extension View {

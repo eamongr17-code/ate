@@ -77,13 +77,12 @@ extension EntryComposition {
         )
     }
 
-    /// With a place token leading the sentence, as the composer and entry page show it.
-    static var previewWordsWithPlace: EntryComposition {
+    /// `ComposerPlaceB`'s words: the place is on the key, and the last number is still being typed.
+    static var previewComposerWords: EntryComposition {
         fixture(
-            "Tipo 00 with Jess for her birthday. The tagliatelle al ragù 4.5 was unreal, rich, "
-                + "glossy, gone in four minutes. Tiramisu 3.0 a bit flat after that.",
-            [.place(PlaceRef(id: UUID(), name: "Tipo 00")), .score(Rating(rounding: 4.5)),
-             .score(Rating(rounding: 3))]
+            "With Jess for her birthday. The tagliatelle al ragù 4.5 was unreal, rich, glossy, gone in "
+                + "four minutes. Tiramisu a bit flat after that, 3",
+            [.score(Rating(rounding: 4.5))]
         )
     }
 }

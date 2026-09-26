@@ -27,8 +27,27 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
 
     /// The artboards' feed with the artboards' bookmarks already filled — what `-ate-preview-data`
     /// launches into.
+    ///
+    /// The viewer's own Tipo 00 visit is in there too — never in the feed (it is theirs), but on the
+    /// place's page, where your visits lead the list with a "You" byline (`RestaurantVisits`).
     public static func seededWithSaves() -> InMemorySocialService {
-        InMemorySocialService(saved: seededSaves)
+        InMemorySocialService(entries: seededEntries + [ownVisit], saved: seededSaves)
+    }
+
+    /// The viewer's visit, its lines pointed at the seed's own dishes — one tiramisu on the menu,
+    /// not two that happen to share a name.
+    private static var ownVisit: EntryCard {
+        let visit = EntryCard.previewSorted
+        let menu = seededEntries.filter { $0.place?.id == visit.place?.id }.flatMap(\.items)
+        return visit.replacing(items: visit.items.map { item in
+            guard let dishID = menu.first(where: { $0.dishName == item.dishName })?.dishID else { return item }
+            return EntryCard.Item(
+                reviewID: item.reviewID, dishID: dishID, dishName: item.dishName, score: item.score,
+                note: item.note, position: item.position, evidenceOffset: item.evidenceOffset,
+                evidenceLength: item.evidenceLength, mentionOffset: item.mentionOffset,
+                mentionLength: item.mentionLength, tags: item.tags
+            )
+        })
     }
 
     // MARK: - Feed
@@ -102,6 +121,8 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
         }
     }
 
+    static var hidesCovers: Bool { ProcessInfo.processInfo.arguments.contains("-ate-preview-no-covers") }
+
     public func savedDishesPage(after cursor: PageCursor?, pageSize: Int) async throws -> Page<SavedDish> {
         lock.withLock {
             let rows = savedDishIDs.compactMap { dishID, savedAt -> SavedDish? in
@@ -116,7 +137,9 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
                     restaurantName: place.name,
                     restaurantCity: place.city,
                     dishScore: item.score?.value,
-                    dishCoverURL: entry.photos.first?.url,
+                    // `-ate-preview-no-covers`: dishes nobody has photographed, so the letter tile
+                    // (`NoPhotoA`) can be looked at on a simulator.
+                    dishCoverURL: Self.hidesCovers ? nil : entry.photos.first?.url,
                     sourceEntryID: entry.id,
                     sourceUserID: entry.authorID,
                     sourceUsername: entry.author?.username,

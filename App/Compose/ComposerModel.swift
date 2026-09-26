@@ -40,7 +40,9 @@ final class ComposerModel: DictationTarget {
     let editing: ComposerPresentation.EditingEntry?
     private let drafts: any EntryDraftStoring
     private let startedAt: Date
-    private var restaurantID: UUID?
+    /// **The place, held by the Place key** — never in the words (ComposerPlaceB, 2026-09-26). Set
+    /// only because the person tapped it (design rule 8); the key prints its name.
+    private(set) var place: PlaceRef?
 
     init(drafts: any EntryDraftStoring, editing: ComposerPresentation.EditingEntry? = nil) {
         self.drafts = drafts
@@ -48,7 +50,7 @@ final class ComposerModel: DictationTarget {
         if let editing {
             self.draftID = editing.id
             self.composition = Self.composition(for: editing)
-            self.restaurantID = editing.restaurantID
+            self.place = editing.restaurantID.map { PlaceRef(id: $0, name: editing.placeName ?? "") }
             self.startedAt = Date()
             let end = Self.composition(for: editing).displayString.utf16.count
             self.caret = end
@@ -58,8 +60,12 @@ final class ComposerModel: DictationTarget {
         }
         let resumed = drafts.load()
         self.draftID = resumed?.id ?? UUID()
+        // A draft saved with a place pill in its words has already had it turned back into text
+        // and moved here by `EntryDraft`'s own decoding — the migration happens at the read.
         self.composition = resumed?.composition ?? EntryComposition()
-        self.restaurantID = resumed?.restaurantID
+        self.place = resumed.flatMap { draft in
+            draft.restaurantID.map { PlaceRef(id: $0, name: draft.placeName ?? "") }
+        }
         self.startedAt = resumed?.startedAt ?? Date()
         // Resuming puts the caret after the last thing they wrote, not in front of it: a text view
         // opens at offset 0, which would have them typing into the middle of their own sentence.
@@ -113,7 +119,8 @@ final class ComposerModel: DictationTarget {
             // Every entry is public (Eamon, 2026-09-25: public/private is out of the product). The
             // draft's field stays so drafts already on disk still decode.
             isPublic: true,
-            restaurantID: restaurantID,
+            restaurantID: place?.id,
+            placeName: place?.name,
             photoFiles: photos.map(\.fileName),
             startedAt: startedAt
         )
@@ -135,24 +142,12 @@ final class ComposerModel: DictationTarget {
         drafts.save(draft)
     }
 
-    /// An existing entry's words, with the place token put back where the person named it. Scores
-    /// are deliberately NOT re-tokenised here: the sorter decided which numbers were scores, and
-    /// re-deciding on the client would be a second opinion about somebody's own sentence. They stay
-    /// as the plain digits they are, and typing beside them promotes them exactly as before.
+    /// An existing entry's words, as plain text. The place is the Place key's, never a pill in the
+    /// words; scores and tags are deliberately NOT re-tokenised: the sorter decided which numbers
+    /// were scores, and re-deciding on the client would be a second opinion about somebody's own
+    /// sentence. They stay as the characters they are, and typing beside them promotes as before.
     private static func composition(for editing: ComposerPresentation.EditingEntry) -> EntryComposition {
-        guard let name = editing.placeName,
-              let range = editing.body.range(of: name),
-              let lower = range.lowerBound.samePosition(in: editing.body.utf16) else {
-            return EntryComposition(plain: editing.body, spans: [])
-        }
-        let location = editing.body.utf16.distance(from: editing.body.utf16.startIndex, to: lower)
-        return EntryComposition(
-            plain: editing.body,
-            spans: [EntryTokenSpan(
-                token: EntryToken(kind: .place(PlaceRef(id: editing.restaurantID, name: name))),
-                span: TextSpan(location: location, length: name.utf16.count)
-            )]
-        )
+        EntryComposition(plain: editing.body, spans: [])
     }
 
     /// Done and gone: the draft has become an entry.
@@ -171,7 +166,8 @@ final class ComposerModel: DictationTarget {
             photoPaths: draft.photoFiles.map { photoDirectory.appending(path: $0).path() },
             createdAt: draft.startedAt,
             scoreCount: draft.composition.scores.count,
-            secondsFromOpen: draft.secondsFromOpen()
+            secondsFromOpen: draft.secondsFromOpen(),
+            tagTokens: draft.composition.tagTokens
         )
     }
 
@@ -190,9 +186,12 @@ final class ComposerModel: DictationTarget {
         return EntryEvents.scoreTokenCreated(source: .key)
     }
 
-    /// The editor promoted a number the person typed (or dictated) into a token on its own.
-    func scoreLiteralPromoted(wasDictated: Bool) -> AnalyticsEvent {
-        EntryEvents.scoreTokenCreated(source: wasDictated ? .dictation : .typed)
+    /// The editor promoted something the person typed (or dictated) into a token on its own: a
+    /// number into a score, or a dietary code after a dish into a tag chip.
+    func literalPromoted(_ token: EntryToken, wasDictated: Bool) -> AnalyticsEvent? {
+        if let tag = token.tag { return EntryEvents.dishTagAdded(tag) }
+        guard token.score != nil else { return nil }
+        return EntryEvents.scoreTokenCreated(source: wasDictated ? .dictation : .typed)
     }
 
     /// Tapping an existing token reopens the thing that made it.
@@ -277,54 +276,44 @@ final class ComposerModel: DictationTarget {
 
     // MARK: - The Place key
 
-    /// Design rule 8: a place is attached because it was **named or tapped**, never from location.
-    ///
-    /// A place already in the words is replaced where it stands. A new one lands **at the caret**,
-    /// like the score token does — dropping it at index 0 shoved it in front of a sentence somebody
-    /// was in the middle of writing. The one exception is a caret still at the start of text that
-    /// already has words in it, which means the editor has not been touched yet; there the place
-    /// goes at the end, where they are writing.
+    /// Design rule 8: a place is attached because it was **tapped**, never from location — and it
+    /// lives on the key, not in the words (ComposerPlaceB). Typing never makes one; picking one
+    /// again replaces it.
     func attach(place: PlaceRef) -> AnalyticsEvent {
-        restaurantID = place.id
-        if let existing = composition.spans.first(where: { $0.token.place != nil }) {
-            composition = composition.replacing(tokenID: existing.token.id, with: .place(place))
-            revision += 1
-            caretAfterRender = nil
-        } else {
-            let end = composition.displayString.utf16.count
-            let offset = (caret == 0 && end > 0) ? end : min(caret, end)
-            let (next, newCaret) = composition.inserting(EntryToken(kind: .place(place)), atDisplayOffset: offset)
-            apply(next, caret: newCaret)
-        }
+        self.place = place
         isPickingPlace = false
         focusRequest += 1
         persist()
         return EntryEvents.placeAttached(source: .picked)
     }
 
-    /// The place the words carry, if any — and therefore the `restaurant_id` the entry is written
-    /// with. A `nil` id means the person named somewhere we do not hold yet: the words keep the
-    /// name, the entry is written placeless, and the sorter parks its plan.
-    var place: PlaceRef? { composition.place }
-
-    /// What the place sheet opens pre-filled with: the words, never a location. The place already in
-    /// the sentence if there is one, otherwise nothing — guessing from the prose is the sorter's job.
-    var placeQuery: String { composition.place?.name ?? "" }
+    /// What the place sheet opens pre-filled with: the place already on the key, otherwise nothing —
+    /// guessing from the prose is the sorter's job, and a location is never a guess we make.
+    var placeQuery: String { place?.name ?? "" }
 
     // MARK: - Typing a number and moving on
 
-    /// Done, and the keyboard's own path: anything still sitting in the words as a bare number
-    /// becomes a token, exactly as it would when they moved on by typing.
+    /// Done, and the keyboard's own path: anything still sitting in the words as a bare number — or
+    /// a dietary code straight after a dish — becomes a token, exactly as it would when they moved
+    /// on by typing.
     @discardableResult
     func promotePendingScoreLiteral() -> AnalyticsEvent? {
         // `pendingScoreLiteral` refuses a span a token already covers. Without that, Done on
         // "tiramisu <pill>" re-found the pill's own digits, replaced it with a new token of the
         // same value, and reported a second `entry_score_token_created` for one score.
-        guard let found = composition.pendingScoreLiteral(atDisplayOffset: caret) else { return nil }
-        composition = composition.promoting(plainSpan: found.span, to: EntryToken(kind: .score(found.rating)))
-        revision += 1
-        caretAfterRender = nil
-        return EntryEvents.scoreTokenCreated(source: .typed)
+        if let found = composition.pendingScoreLiteral(atDisplayOffset: caret) {
+            composition = composition.promoting(plainSpan: found.span, to: EntryToken(kind: .score(found.rating)))
+            revision += 1
+            caretAfterRender = nil
+            return EntryEvents.scoreTokenCreated(source: .typed)
+        }
+        if let found = composition.pendingTagLiteral(atDisplayOffset: caret) {
+            composition = composition.promoting(plainSpan: found.span, to: EntryToken(kind: .tag(found.mark)))
+            revision += 1
+            caretAfterRender = nil
+            return EntryEvents.dishTagAdded(found.mark.tag)
+        }
+        return nil
     }
 
     // MARK: - Machinery
@@ -340,17 +329,10 @@ final class ComposerModel: DictationTarget {
     /// The words just before a token, as the name of what is being scored. A stand-in for the
     /// sorter, which is what will actually name the dish — so it is never written anywhere.
     private func dishName(before tokenID: UUID) -> String {
-        guard let span = composition.spans.first(where: { $0.token.id == tokenID }) else { return "This dish" }
-        let units = Array(composition.plain.utf16)
-        // From the end of the token before it, so an earlier pill's digits are never read as a name
-        // ("The ragù 0.5 0.5" titled the third panel "5 0 5").
-        let start = composition.spans.last { $0.span.endLocation <= span.span.location }?.span.endLocation ?? 0
-        let end = min(span.span.location, units.count)
-        let prefix = String(decoding: units[min(start, end)..<end], as: UTF16.self)
-        let words = prefix
-            .split(whereSeparator: { $0.isWhitespace || $0 == "," || $0 == "." })
-            .suffix(3)
-            .joined(separator: " ")
-        return words.isEmpty ? "This dish" : words
+        // ``EntryComposition/dishWords(beforeTokenID:)`` skips a tag chip in front of the pill.
+        // Set as a dish's name (`RaterSize` prints "Tagliatelle al ragù"): the first letter up, the
+        // rest exactly as written.
+        guard let words = composition.dishWords(beforeTokenID: tokenID) else { return "This dish" }
+        return words.prefix(1).uppercased() + words.dropFirst()
     }
 }

@@ -128,10 +128,7 @@ struct YouScreen: View {
                         Button { onDish(dish.dishID) } label: {
                             VStack(spacing: AteMetrics.snug) {
                                 AtePhotoTile(
-                                    photo: AtePhoto(
-                                        id: dish.dishID,
-                                        url: dish.coverURL.flatMap(URL.init(string:))
-                                    ),
+                                    photo: .dish(dish.dishID, name: dish.dishName, cover: dish.coverURL),
                                     side: YouScreen.tileSide
                                 )
                                 .rotationEffect(.degrees(YouScreen.tileAngles[index % 4]))

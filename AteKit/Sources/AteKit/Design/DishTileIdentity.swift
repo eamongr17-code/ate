@@ -9,6 +9,20 @@ import Foundation
 /// palette that reshuffles between launches, a name that doesn't degrade in a 44pt square.
 public enum DishTileIdentity {
 
+    // MARK: - Letter tile (`NoPhotoA.dc.html`, 2026-09-26)
+
+    /// The one letter a photo-less dish's tile prints: the first letter or digit of its name,
+    /// capitalised — "Tiramisu" → `T`, "cheeseburger" → `C`, "'nduja pizza" → `N`. Not the monogram's
+    /// stop-word logic: the board prints the name's own first letter, so "The Big Breakfast" is `T`.
+    /// A name with nothing to print falls back to the placeholder rather than an empty square.
+    public static func initial(for name: String) -> String {
+        guard let first = name.first(where: { $0.isLetter || $0.isNumber }) else { return initialPlaceholder }
+        return String(first).uppercased()
+    }
+
+    /// What a nameless dish's tile shows.
+    public static let initialPlaceholder = "?"
+
     // MARK: - Monogram (variant B)
 
     /// Two letters that stand for the dish: the initials of its first two *significant* words, or

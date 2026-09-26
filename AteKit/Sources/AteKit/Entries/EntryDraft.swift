@@ -19,6 +19,9 @@ public struct EntryDraft: Sendable, Hashable, Codable, Identifiable {
     /// Set only when the person named or tapped a place (design rule 8). `nil` means the entry is
     /// written placeless and the sorter parks its plan.
     public var restaurantID: UUID?
+    /// What the Place key prints while the draft is open — the place's name, held beside its id
+    /// because it is no longer anywhere in the words (ComposerPlaceB, 2026-09-26).
+    public var placeName: String?
     /// File names inside the draft's own photo directory, in the order they will be uploaded.
     /// Names, not URLs: a container path changes between launches, a file name does not.
     public var photoFiles: [String]
@@ -33,6 +36,7 @@ public struct EntryDraft: Sendable, Hashable, Codable, Identifiable {
         composition: EntryComposition = EntryComposition(),
         isPublic: Bool = true,
         restaurantID: UUID? = nil,
+        placeName: String? = nil,
         photoFiles: [String] = [],
         startedAt: Date = Date(),
         savedAt: Date = Date()
@@ -41,9 +45,33 @@ public struct EntryDraft: Sendable, Hashable, Codable, Identifiable {
         self.composition = composition
         self.isPublic = isPublic
         self.restaurantID = restaurantID
+        self.placeName = placeName
         self.photoFiles = photoFiles
         self.startedAt = startedAt
         self.savedAt = savedAt
+    }
+
+    /// Hand-written for the **place-token migration**. A draft saved before the place moved to the
+    /// Place key holds it as a pill in its words: the pill becomes plain text again (not one
+    /// character of the sentence changes) and the place it pointed at moves onto the draft, so the
+    /// key shows it and the entry is still written with it.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        let (words, legacyPlace) = try container.decode(EntryComposition.self, forKey: .composition)
+            .strippingPlaceTokens()
+        self.composition = words
+        self.isPublic = try container.decodeIfPresent(Bool.self, forKey: .isPublic) ?? true
+        let restaurantID = try container.decodeIfPresent(UUID.self, forKey: .restaurantID)
+        self.restaurantID = restaurantID ?? legacyPlace?.id
+        self.placeName = try container.decodeIfPresent(String.self, forKey: .placeName) ?? legacyPlace?.name
+        self.photoFiles = try container.decodeIfPresent([String].self, forKey: .photoFiles) ?? []
+        self.startedAt = try container.decode(Date.self, forKey: .startedAt)
+        self.savedAt = try container.decode(Date.self, forKey: .savedAt)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, composition, isPublic, restaurantID, placeName, photoFiles, startedAt, savedAt
     }
 
     /// At most five photos per entry (the composer's own cap; the column allows 24 positions).

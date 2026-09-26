@@ -69,26 +69,29 @@ final class CoreLoopUITests: XCTestCase {
         XCTAssertTrue(editor.waitForExistence(timeout: 5), "picking a place returns to the words")
         attach("05-composer-with-place")
 
-        // **A token brings its own gap, and keeps it.** The CEO's first entry arrived as
-        // "PJ’s Mexican cantinafishbowl margarita  was …": a place inserted where the words end got
-        // no trailing space, so the next word welded itself to the pill. A unit test covers the
-        // model; this covers the editor, where the pill is one character written through UIKit's own
-        // edit path and the space could still be eaten or moved on the way in.
-        editor.typeText("afterwards")
-        let withPlace = (editor.value as? String) ?? ""
-        XCTAssertTrue(withPlace.contains(" afterwards"),
-                      "the word typed after the place pill must not weld to it: \(withPlace)")
-        XCTAssertFalse(withPlace.contains("  "),
-                       "and nothing may leave a gap the person did not type: \(withPlace)")
+        // `ComposerPlaceB`: the place is held by the key, never put into the words.
+        XCTAssertEqual(app.buttons["composer.key.place"].label, "Place: Tipo 00",
+                       "the Place key shows the place it holds")
+        let words = (editor.value as? String) ?? ""
+        XCTAssertFalse(words.contains("Tipo 00"), "picking a place never writes it into the words: \(words)")
 
         app.buttons["composer.done"].tap()
 
-        // The entry page. The words are there immediately; the bill arrives when the sorter does.
-        let bill = app.otherElements["entry.bill"]
-        XCTAssertTrue(bill.waitForExistence(timeout: 15), "the bill should print on the page")
+        // The Summary: the receipt printing on the coral ground, Share coming on when it has.
+        let share = app.buttons["share.send"]
+        XCTAssertTrue(share.waitForExistence(timeout: 5), "Done hands over to the Summary")
+        let printed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: share)
+        XCTAssertEqual(XCTWaiter().wait(for: [printed], timeout: 15), .completed,
+                       "Share comes on once the receipt prints")
+        attach("06-summary-printed")
+        app.buttons["share.done"].tap()
+
+        // The entry page, already waiting beneath: the dish rows lead it, the words follow.
+        let dishes = app.otherElements["entry.dishes"]
+        XCTAssertTrue(dishes.waitForExistence(timeout: 15), "the dish rows lead the page")
         XCTAssertTrue(app.otherElements["entry.words"].exists,
-                      "and the words are on the same page, above it")
-        attach("06-entry-printed")
+                      "and the words are on the same page, under them")
+        attach("06b-entry-printed")
 
         // Back to the journal, where the entry now lives. "Back", not "Back to journal": the entry
         // page is reached from the feed and from a profile too now. Waited for: the page arrives
@@ -105,7 +108,7 @@ final class CoreLoopUITests: XCTestCase {
 
         // And a slip is a door: tapping the older one's body opens its entry, bill and all.
         app.buttons.matching(identifier: "journal.slip.body").element(boundBy: 1).tap()
-        XCTAssertTrue(app.otherElements["entry.bill"].waitForExistence(timeout: 5),
+        XCTAssertTrue(app.otherElements["entry.dishes"].waitForExistence(timeout: 5),
                       "tapping a slip opens its entry")
         attach("10-entry-from-journal")
     }

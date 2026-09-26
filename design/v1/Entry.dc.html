@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Ate: Entry D: B with C’s photos</title>
+<title>Ate: Entry, in the card's order</title>
 <script src="./support.js"></script>
 </head>
 <body>
@@ -15,66 +15,37 @@ a{color:inherit;text-decoration:none}a:hover{color:inherit}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:inherit}
 input{font:inherit;color:inherit}h1,h2,h3,p{margin:0;font-weight:inherit}
 .screen{--ground:#EFEAE2;--surface:#EFEAE2;--fg:#24141F;--muted:#5E5560;--chip:#FFFFFF;--paper:#FFFFFF;--field:#E4DED4;--hair:rgba(36,20,31,.14);width:390px;height:844px;box-sizing:border-box;position:relative;overflow:hidden;background:var(--ground);color:var(--fg);display:flex;flex-direction:column}
-.screen.dark{--ground:#17111B;--surface:#17111B;--fg:#FFFFFF;--muted:#B9AFBC;--chip:#2B2231;--paper:#E6DFD3;--field:#2B2231;--hair:rgba(255,255,255,.16)}
 .col{display:flex;flex-direction:column}.row{display:flex;align-items:center}
 .h{font-family:'Bricolage Grotesque','Helvetica Neue',Helvetica,sans-serif;font-weight:800;line-height:1;letter-spacing:-.035em}
 .ui{font-family:'Bricolage Grotesque','Helvetica Neue',Helvetica,sans-serif;font-weight:600;font-size:15px;line-height:1.2;letter-spacing:-.01em}
 .meta{font-family:'Bricolage Grotesque','Helvetica Neue',Helvetica,sans-serif;font-weight:500;font-size:13px;line-height:1.3;color:var(--muted)}
-.mono{font-family:'DM Mono',ui-monospace,Menlo,monospace}
-.lab{font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:11px;line-height:1.35;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .prose{font-size:17px;line-height:1.5;text-wrap:pretty}
-.clamp2,.clamp3{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}.clamp2{-webkit-line-clamp:2}.clamp3{-webkit-line-clamp:3}
-.slipwrap{display:block}
 .slip{background:var(--paper);color:#24141F;--surface:var(--paper);--fg:#24141F;--muted:#5E5560;--chip:#F3F0EB;--hair:rgba(36,20,31,.14);display:flex;flex-direction:column;border-radius:16px 16px 0 0}
-.slip.whole{border-radius:16px}
-.tear{display:block;height:8px;background:linear-gradient(135deg,var(--paper) 6px,transparent 0) left top/12px 12px repeat-x,linear-gradient(225deg,var(--paper) 6px,transparent 0) left top/12px 12px repeat-x}
-.rule{border-top:1.5px dashed rgba(36,20,31,.35)}
-.li{display:flex;align-items:baseline;gap:8px;font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:13px;line-height:1.65}
-.note{font-size:14px;line-height:1.35;font-style:italic;color:#5E5560;padding:0 0 6px 26px}
-.dots{flex-grow:1;min-width:16px;border-bottom:1.5px dotted rgba(36,20,31,.3);position:relative;top:-4px}
 .tok{display:inline-flex;align-items:center;gap:3px;padding:0 7px 0 5px;border-radius:999px;background:#F6D365;color:#24141F;font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:.78em;font-weight:500;font-style:normal;line-height:1.55;vertical-align:1px;white-space:nowrap}
 .photo{object-fit:cover;display:block;flex-shrink:0;box-shadow:0 0 0 3px var(--surface)}
-.sq{display:flex;align-items:center;justify-content:center;flex-shrink:0;color:rgba(36,20,31,.4)}
-.card{border-radius:24px;box-sizing:border-box;display:flex;flex-direction:column;color:#24141F;--fg:#24141F;--muted:#5E5560;--chip:#FFFFFF}
-.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px 0 10px;border-radius:999px;background:var(--chip);color:var(--fg);white-space:nowrap}
-.glass{background:var(--chip);box-sizing:border-box}
-.ink{background:var(--fg);color:var(--ground)}.pill{border-radius:999px}
 .hit{width:44px;height:44px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.btn{height:56px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:8px;font-family:'Bricolage Grotesque','Helvetica Neue',Helvetica,sans-serif;font-weight:700;font-size:16px;letter-spacing:-.01em}
-.scrim{position:absolute;left:0;right:0;bottom:0;height:160px;pointer-events:none;background:linear-gradient(to top,var(--ground) 42%,transparent)}
-.barcode{height:34px;background:repeating-linear-gradient(90deg,#24141F 0 2px,transparent 2px 5px,#24141F 5px 6px,transparent 6px 8px,#24141F 8px 11px,transparent 11px 13px)}
-.kbd{height:300px;flex-shrink:0;background:repeating-linear-gradient(45deg,#E6E0D6 0 8px,#EFEAE2 8px 16px);display:flex;align-items:center;justify-content:center}
-@keyframes blink{50%{opacity:0}}@keyframes pulse{50%{transform:scale(1.1)}}@keyframes print{from{opacity:0;transform:translateY(-24px)}}
-@media (prefers-reduced-motion:no-preference){.caret{animation:blink 1s steps(1) infinite}.pulse{animation:pulse 1.6s ease-in-out infinite}.print{animation:print .6s ease-out both}}
-.rowcard{display:flex;align-items:center;gap:12px;min-height:58px;padding:0 18px;border-radius:16px;background:var(--chip);box-sizing:border-box}
-.ptok{display:inline-flex;align-items:center;gap:3px;padding:0 8px 0 5px;border-radius:999px;background:var(--field);font-family:'Bricolage Grotesque','Helvetica Neue',Helvetica,sans-serif;font-size:.8em;font-weight:600;font-style:normal;line-height:1.5;vertical-align:1px;white-space:nowrap}
-
-.hero{position:relative;width:390px;height:340px;overflow:hidden;border-radius:0 0 28px 28px}
-.hero img{width:100%;height:100%;object-fit:cover;display:block;box-shadow:none;border-radius:0}
-.grad{position:absolute;left:0;right:0;bottom:0;height:60%;background:linear-gradient(to top,rgba(36,20,31,.55),transparent)}
-.dots{position:relative;top:0;border:0}
-.pips{display:flex;gap:5px;justify-content:center}.pips span{width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.5)}.pips span.on{background:#fff}
-.bill .li{font-size:14px;line-height:1.75}
-.bill .dots{flex-grow:1;min-width:16px;border-bottom:1.5px dotted rgba(36,20,31,.3);position:relative;top:-4px}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.trunc{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dish{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px}
+.dish+.dish{border-top:1px solid var(--hair)}
+.dname{font-size:20px;letter-spacing:-.03em;line-height:1.05;flex-grow:1;min-width:0;overflow-wrap:anywhere}
 </style>
 </helmet>
 <div class="screen">
-<div class="row" style="padding:60px 12px 0;justify-content:space-between;color:var(--fg);z-index:2"><a href="Main.dc.html" aria-label="Back" class="hit"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;display:block"><path d="M14.5 5l-7 7 7 7"></path></svg></a><div class="row"><a href="Composer.dc.html" aria-label="Edit" class="hit"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;display:block"><path d="M4 20l1-4.5L16.5 4 20 7.5 8.5 19z"></path></svg></a><a href="Share.dc.html" aria-label="Share" class="hit"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;display:block"><path d="M12 15V4M8 7.5l4-4 4 4M5 12v7.5h14V12"></path></svg></a></div></div>
-<div class="slipwrap" style="margin:8px 16px 0">
-<div class="slip" style="padding:22px 20px 0;gap:14px;border-radius:24px 24px 0 0;min-height:760px;overflow:hidden">
-<div class="row lab" style="justify-content:space-between;color:#24141F"><span>Order #0142</span><span>Sat 19 Sep 2026</span></div>
-<h1 class="h" style="font-size:38px">Tipo 00</h1>
-<div style="position:relative;height:252px;margin:0 -4px 10px">
+<div class="row" style="padding:60px 12px 0;justify-content:space-between;color:var(--fg);z-index:2"><a href="Main.dc.html" aria-label="Back" class="hit"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;display:block"><path d="M14.5 5l-7 7 7 7"></path></svg></a><div class="row"><a href="Composer.dc.html" aria-label="Edit" class="hit"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;display:block"><path d="M4 20l1-4.5L16.5 4 20 7.5 8.5 19z"></path></svg></a><a href="Summary.dc.html" aria-label="Share" class="hit"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;display:block"><path d="M12 15V4M8 7.5l4-4 4 4M5 12v7.5h14V12"></path></svg></a></div></div>
+<div style="margin:8px 16px 0">
+<div class="slip" style="padding:8px 20px 0;gap:16px;border-radius:24px 24px 0 0;min-height:760px;overflow:hidden">
+<div class="col">
+<a href="DishSheet.dc.html" class="dish"><span class="h dname">Tagliatelle al ragù</span><span class="row" style="gap:5px;align-items:baseline;flex-shrink:0"><span style="display:flex;align-self:center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="flex-shrink:0;display:block"><path d="M12 2.8l2.85 5.9 6.45.85-4.7 4.5 1.2 6.4L12 17.3l-5.8 3.15 1.2-6.4-4.7-4.5 6.45-.85z"></path></svg></span><span class="h" style="font-size:26px;letter-spacing:-.02em">4.5</span></span></a>
+<a href="DishSheet.dc.html" class="dish"><span class="h dname">Tiramisu</span><span class="row" style="gap:5px;align-items:baseline;flex-shrink:0"><span style="display:flex;align-self:center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="flex-shrink:0;display:block"><path d="M12 2.8l2.85 5.9 6.45.85-4.7 4.5 1.2 6.4L12 17.3l-5.8 3.15 1.2-6.4-4.7-4.5 6.45-.85z"></path></svg></span><span class="h" style="font-size:26px;letter-spacing:-.02em">3.0</span></span></a>
+<a href="DishSheet.dc.html" class="dish"><span class="h dname">Prawn spaghetti</span></a>
+</div>
+<p class="prose" style="font-size:17px">With Jess for her birthday. The tagliatelle al ragù <span class="tok"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="flex-shrink:0;display:block"><path d="M12 2.8l2.85 5.9 6.45.85-4.7 4.5 1.2 6.4L12 17.3l-5.8 3.15 1.2-6.4-4.7-4.5 6.45-.85z"></path></svg>4.5</span> was unreal, rich, glossy, gone in four minutes. Tiramisu <span class="tok"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="flex-shrink:0;display:block"><path d="M12 2.8l2.85 5.9 6.45.85-4.7 4.5 1.2 6.4L12 17.3l-5.8 3.15 1.2-6.4-4.7-4.5 6.45-.85z"></path></svg>3.0</span> a bit flat after that. Jess's prawn spaghetti looked the business.</p>
+<div style="position:relative;height:252px;margin:0 -4px">
 <span style="position:absolute;left:0;top:10px;display:flex"><img class="photo" src="/_blob/efcd4825762ec3851620429fab80d744" alt="Tagliatelle al ragu in a pan" style="width:200px;height:200px;border-radius:30px;transform:rotate(-4deg)"></span>
 <span style="position:absolute;left:142px;top:0;display:flex"><img class="photo" src="/_blob/262be298e768a9272b70efb6b3679bd9" alt="Prawn spaghetti in a pan" style="width:184px;height:184px;border-radius:28px;transform:rotate(5deg)"></span>
 <span style="position:absolute;left:96px;top:104px;display:flex"><img class="photo" src="/_blob/0c890b4c3116f550998bc4cb2c5ccbfc" alt="A slice of tiramisu" style="width:140px;height:140px;border-radius:24px;transform:rotate(-2deg)"></span>
 </div>
-<p class="prose" style="font-size:17px">With Jess for her birthday. The tagliatelle al ragù <span class="tok"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="flex-shrink:0;display:block"><path d="M12 2.8l2.85 5.9 6.45.85-4.7 4.5 1.2 6.4L12 17.3l-5.8 3.15 1.2-6.4-4.7-4.5 6.45-.85z"></path></svg>4.5</span> was unreal, rich, glossy, gone in four minutes. Tiramisu <span class="tok"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="flex-shrink:0;display:block"><path d="M12 2.8l2.85 5.9 6.45.85-4.7 4.5 1.2 6.4L12 17.3l-5.8 3.15 1.2-6.4-4.7-4.5 6.45-.85z"></path></svg>3.0</span> a bit flat after that. Jess's prawn spaghetti looked the business.</p>
-<div class="rule"></div>
-<div class="col bill" style="gap:0"><div class="li"><span style="color:var(--muted)">01</span><span>Tagliatelle al ragù</span><span class="dots"></span><span style="font-weight:500">4.5</span></div><div class="li"><span style="color:var(--muted)">02</span><span>Tiramisu</span><span class="dots"></span><span style="font-weight:500">3.0</span></div><div class="li"><span style="color:var(--muted)">03</span><span>Prawn spaghetti</span><span class="dots"></span><span style="color:var(--muted);display:flex;align-self:center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;display:block"><path d="M12 2.8l2.85 5.9 6.45.85-4.7 4.5 1.2 6.4L12 17.3l-5.8 3.15 1.2-6.4-4.7-4.5 6.45-.85z"></path></svg></span></div></div>
-<div class="rule"></div>
-<div class="row lab" style="justify-content:space-between;color:#24141F"><span>361 Little Bourke St</span><span>Avg 3.75</span></div>
+<a href="Restaurant.dc.html" class="row" style="gap:6px;min-height:44px;border-top:1px solid var(--hair);white-space:nowrap"><span style="display:flex;color:var(--muted)"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;display:block"><path d="M12 21s6.5-6 6.5-11a6.5 6.5 0 0 0-13 0c0 5 6.5 11 6.5 11z"></path><circle cx="12" cy="10" r="2.3"></circle></svg></span><span class="ui trunc" style="font-size:15px;flex:0 1 auto">Tipo 00</span><span class="meta" style="flex-shrink:0;margin-left:2px">CBD</span><span class="meta" style="flex-shrink:0;margin-left:auto;padding-left:8px">Sat 19 Sep</span></a>
 </div>
 </div>
 </div>

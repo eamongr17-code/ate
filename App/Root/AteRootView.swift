@@ -81,10 +81,8 @@ struct AteShell: View {
     @State var path: [Route] = []
     /// Where each pushed destination was opened from — the `source` its view event carries.
     ///
-    /// Kept beside the path rather than inside ``Route`` on purpose: a route is an *identity*, and
-    /// two pushes of the same place from two different screens must still be the same value to
-    /// `NavigationStack` (and to `path.contains`). Folding the source into the case would make them
-    /// different routes and quietly break every comparison on the path.
+    /// Kept beside the path rather than inside ``Route``: a route is an *identity*, and two pushes of
+    /// one place from two screens must stay equal to `NavigationStack` and `path.contains`.
     @State private var sources: [Route: DetailSource] = [:]
     /// How many recent photos are waiting to be written up — the journal header's badge. Only ever
     /// non-zero when the photo library has already been allowed; nothing here asks.
@@ -97,14 +95,17 @@ struct AteShell: View {
     @State var gate: SessionGate
     /// Apple's display name, first sign-in only: the handle screen's suggestion.
     @State var firstRunName: String?
-    /// The signed-in person's handle. A receipt is signed, so it is loaded once at the shell rather
-    /// than by whichever screen happens to need it first.
+    /// The signed-in person's handle — a receipt is signed, so it is loaded once, here.
     @State var handle: String?
     /// The You tab, held here rather than by the screen so switching away and back does not re-read
     /// five RPCs — and so a pull-to-refresh on it is the only thing that does.
     @State var you: YouStore
     /// The Search tab, held here so its query, segment and pages survive a trip to another tab.
     @State private var search: SearchStore
+    #if DEBUG
+    /// `-ate-open-summary`: the Summary a drive photographs without a composer to type into.
+    @State var debugSummary: DebugSummary?
+    #endif
     @Environment(\.scenePhase) private var scenePhase
 
     init(services: AteServices, onSessionEnded: @escaping () -> Void = {}) {
@@ -214,6 +215,9 @@ struct AteShell: View {
         .fullScreenCover(item: $composing) { presentation in
             ComposerScreen(presentation: presentation, services: services, onSaved: landOnEntry)
         }
+        #if DEBUG
+        .fullScreenCover(item: $debugSummary) { summary in debugSummaryScreen(summary) }
+        #endif
     }
 
     @ViewBuilder
@@ -352,6 +356,7 @@ struct AteShell: View {
             .task { await countPhotos() }
             #if DEBUG
             .task { await openNewestEntryIfRequested() }
+            .task { await openSummaryIfRequested() }
             .task {
                 guard ComposerDebugLaunch.opensSuggestions, path.isEmpty else { return }
                 path = [.suggestions]

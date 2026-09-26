@@ -116,9 +116,22 @@ enum AteMetrics {
     /// Between slips in a list.
     static let slipGap: CGFloat = 14
 
+    // `FeedTight.dc.html` (2026-09-26) — the feed alone, a notch closer: header bottom 14 → 10,
+    // slip gap 14 → 10, slip padding 12/16/14 → 10/14/12, band gap 10 → 8.
+    static let feedHeaderBottom: CGFloat = 10
+    static let feedSlipGap: CGFloat = 10
+    static let slipTightPaddingTop: CGFloat = 10
+    static let slipTightPadding: CGFloat = 14
+    static let slipTightPaddingBottom: CGFloat = 12
+    static let slipTightBandGap: CGFloat = 8
+
+    /// A place's list of visits: yours first, then everyone's, `gap:12px`, on the 20 gutter
+    /// (`RestaurantVisits`).
+    static let placeSlipGap: CGFloat = 12
+
     // MARK: - The page
     //
-    // `Entry.dc.html`'s own numbers. The entry is ONE white page on the linen ground — not a card and
+    // `EntryHier.dc.html`'s own numbers. The entry is ONE white page on the linen ground — not a card and
     // not a receipt — so it has its own small set: where it starts, how far it is inset, and the
     // rhythm inside it.
 
@@ -129,11 +142,12 @@ enum AteMetrics {
     /// Its top corners. The only 24 in the app, and the reason it reads as paper laid on the ground
     /// rather than a receipt (16) or a sheet (32).
     static let pageTop: CGFloat = 24
-    /// Inside the page: `padding:22px 20px 0`.
-    static let pagePaddingTop: CGFloat = 22
+    /// Inside the page: `padding:8px 20px 0` (`EntryHier`) — it opens straight on a 44pt dish row,
+    /// which carries its own air.
+    static let pagePaddingTop: CGFloat = 8
     static let pagePaddingSide: CGFloat = 20
-    /// Between the page's bands (`gap:14px`).
-    static let pageBandGap: CGFloat = 14
+    /// Between the page's bands (`gap:16px`).
+    static let pageBandGap: CGFloat = 16
     /// How far the page runs off the bottom of the screen: the artboard's `min-height:760` starts at
     /// 112 on an 844-tall page, so 28 of it is always past the fold (design rule 10).
     static let pageOvershoot: CGFloat = 28
@@ -221,10 +235,9 @@ enum AteMetrics {
 
     /// A receipt's barcode band.
     static let barcodeHeight: CGFloat = 34
-    /// A receipt's torn bottom edge.
-    static let tornEdgeHeight: CGFloat = 8
-    /// The period of one tooth in the torn edge.
-    static let tornEdgePeriod: CGFloat = 12
+    /// The wave strip under every torn surface (`EdgeFinal`: 4pt, scallops fitted to the width —
+    /// ``WaveEdge``).
+    static let tornEdgeHeight: CGFloat = 4
     /// The wordmark, in a receipt's footer row.
     static let wordmarkFooter: CGFloat = 18
     /// The wordmark, on a screen's header.

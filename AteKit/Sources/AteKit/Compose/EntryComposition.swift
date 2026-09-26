@@ -50,35 +50,25 @@ public struct EntryComposition: Hashable, Codable, Sendable {
 
     public var isEmpty: Bool { plain.isEmpty }
 
-    /// The place the person attached, if any. Design rule 8: a place is only ever attached because
-    /// they named it or tapped it, so this reads the token and nothing else — never a location.
+    /// A **legacy** place token, if these words still carry one (a draft saved before the place
+    /// moved to the Place key). Read only by ``strippingPlaceTokens()``'s callers.
     public var place: PlaceRef? { spans.compactMap(\.token.place).first }
 
     public var scores: [Rating] { spans.compactMap(\.token.score) }
 
-    /// The same words with a **leading place token** taken off the front.
+    public var tags: [DietTag] { spans.compactMap(\.token.tag) }
+
+    /// **The migration off inline place tokens** (ComposerPlaceB, 2026-09-26).
     ///
-    /// A journal slip already prints the place as its heading, and `Main.dc.html` starts its prose
-    /// at "With Jess for her birthday." — the pill is on the entry's own page, not in the list.
-    /// Only a token at the very start goes: a place named mid-sentence is part of the sentence.
-    public func droppingLeadingPlace() -> EntryComposition {
-        guard let first = spans.first, first.token.place != nil, first.span.location == 0 else {
-            return self
-        }
-        var units = Array(plain.utf16)
-        var cut = first.span.endLocation
-        // Take the space after it too, so the words do not start mid-gap.
-        if cut < units.count, units[cut] == 32 { cut += 1 }
-        units.removeSubrange(0..<cut)
-        let remaining = String(decoding: units, as: UTF16.self)
-        return EntryComposition(
-            plain: remaining.prefix(1).uppercased() + remaining.dropFirst(),
-            spans: spans.dropFirst().map {
-                EntryTokenSpan(
-                    token: $0.token,
-                    span: TextSpan(location: $0.span.location - cut, length: $0.span.length)
-                )
-            }
+    /// The place lives in the composer's Place key now, never in the words. A composition that still
+    /// holds a place pill — a draft written before — keeps **every character** (design rule 9: the
+    /// name the person typed stays in their sentence, as plain text) and loses only the pill. The
+    /// place it pointed at is handed back so the caller can keep it on the entry.
+    public func strippingPlaceTokens() -> (composition: EntryComposition, place: PlaceRef?) {
+        guard let place else { return (self, nil) }
+        return (
+            EntryComposition(plain: plain, spans: spans.filter { $0.token.place == nil }),
+            place
         )
     }
 
@@ -122,6 +112,15 @@ public struct EntryComposition: Hashable, Codable, Sendable {
     public func pendingScoreLiteral(atDisplayOffset offset: Int) -> (span: TextSpan, rating: Rating)? {
         let plainCaret = plainOffset(forDisplayOffset: offset)
         guard let found = ScoreLiteral.candidate(in: plain, caretUTF16: plainCaret) else { return nil }
+        guard spans.contains(where: { $0.span.intersects(found.span) }) == false else { return nil }
+        return found
+    }
+
+    /// The dietary code the person has just finished typing at `offset` — "tiramisu v" — **if it is
+    /// not already a token**. The same guard, for the same reason, as ``pendingScoreLiteral(atDisplayOffset:)``.
+    public func pendingTagLiteral(atDisplayOffset offset: Int) -> (span: TextSpan, mark: DietTagMark)? {
+        let plainCaret = plainOffset(forDisplayOffset: offset)
+        guard let found = DietTagLiteral.candidate(in: plain, caretUTF16: plainCaret) else { return nil }
         guard spans.contains(where: { $0.span.intersects(found.span) }) == false else { return nil }
         return found
     }

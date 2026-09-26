@@ -19,6 +19,7 @@ enum EntrySlipPresentation {
     /// visit of three dishes or more leaves its words to the entry (``SlipAnatomy``).
     static func feed(_ card: EntryCard, now: Date = Date()) -> AteSlip {
         var slip = slip(card, surface: .feed, meta: .none)
+        slip.density = .tight
         // A blocked or deleted author is simply absent from the row (contract). The entry is still
         // readable; it just loses its byline rather than taking the page down.
         if let author = card.author {
@@ -37,6 +38,36 @@ enum EntrySlipPresentation {
         slip(card, surface: .profile, meta: .age(RelativeAge.short(card.createdAt, now: now)))
     }
 
+    /// **A visit on a place's own page** (`RestaurantVisits`, 2026-09-26): one stream, yours first.
+    /// Every slip there carries the same byline row — yours reads "You" with the day you went, the
+    /// rest their handle and age — and none carries the foot line: the page IS the place, so a pin
+    /// would only name the room the reader is already in.
+    static func placeVisit(
+        _ card: EntryCard,
+        now: Date = Date(),
+        timeZone: TimeZone = .autoupdatingCurrent
+    ) -> AteSlip {
+        var slip = slip(card, surface: .feed, meta: .none)
+        slip.place = nil
+        slip.placeID = nil
+        slip.suburb = nil
+        if card.isMine {
+            slip.byline = AteByline(
+                userID: card.authorID,
+                handle: card.author?.username ?? "",
+                age: RelativeAge.day(card.createdAt, timeZone: timeZone),
+                isYou: true
+            )
+        } else if let author = card.author {
+            slip.byline = AteByline(
+                userID: author.id,
+                handle: author.username,
+                age: RelativeAge.short(card.createdAt, now: now)
+            )
+        }
+        return slip
+    }
+
     // MARK: - The shape they share
 
     /// The design's cluster: three photos, tilted. A fourth would be a fourth angle and a wider
@@ -53,18 +84,18 @@ enum EntrySlipPresentation {
                     dishID: $0.dishID,
                     name: $0.dishName,
                     score: $0.score,
-                    isSaved: $0.saved
+                    isSaved: $0.saved,
+                    tags: $0.tags
                 )
             },
             place: card.place?.name,
             placeID: card.place?.id,
             suburb: card.place?.suburb,
             meta: meta,
-            // The foot line already says the place, so a pill at the very start of the words is the
-            // same fact twice. A place named mid-sentence is part of the sentence and stays: the
-            // words themselves are never rewritten, only the decoration comes off.
+            // The words as written. A place named in them is plain text — the place is the foot
+            // line's, never a pill in the prose (ComposerPlaceB).
             words: showsWords
-                ? EntryPresentation.composition(for: card).droppingLeadingPlace()
+                ? EntryPresentation.composition(for: card)
                 : EntryComposition(plain: "", spans: []),
             photos: card.photos.prefix(maximumPhotos).map { AtePhoto(url: URL(string: $0.url)) }
         )
@@ -117,7 +148,7 @@ struct SlipSkeleton: View {
                 .padding(.bottom, AteMetrics.slipPaddingBottom + AteMetrics.tornEdgeHeight)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .ateSlip()
-                .background(AteColor.slip, in: ReceiptPaper())
+                .ateTornPaper()
             }
         }
         .accessibilityHidden(true)

@@ -20,6 +20,8 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
     /// …and with nothing in it: the first-day journal, which is the one state you cannot reach by
     /// writing something.
     public static let emptyLaunchArgument = "-ate-preview-empty"
+    /// …and with the design's visit carrying its dietary tags (`DietTagsB`).
+    public static let tagsLaunchArgument = "-ate-preview-tags"
 
     private let lock = NSLock()
     private var entries: [EntryCard] = []
@@ -49,10 +51,11 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
     /// croissant two days before it, so the receipt and both slips have something true to draw.
     public static func seeded(
         sortDelay: Duration = .milliseconds(900),
-        others: (any PreviewEntryLookup)? = nil
+        others: (any PreviewEntryLookup)? = nil,
+        tagged: Bool = false
     ) -> InMemoryEntryService {
-        InMemoryEntryService(entries: [.previewSorted, .previewCroissant], firstOrderNumber: 143,
-                             sortDelay: sortDelay, others: others)
+        InMemoryEntryService(entries: [tagged ? .previewSortedTagged : .previewSorted, .previewCroissant],
+                             firstOrderNumber: 143, sortDelay: sortDelay, others: others)
     }
 
     public func viewer() async throws -> ViewerProfile { profile }
@@ -98,7 +101,9 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
     }
 
     @discardableResult
-    public func sort(entryID: UUID, force: Bool) async throws -> SortOutcome {
+    /// The tag chips are not read here: the preview sorter finds a tag where the composer puts one,
+    /// straight after the dish, which is the same place the server attaches it.
+    public func sort(entryID: UUID, force: Bool, tagTokens: [TagToken]) async throws -> SortOutcome {
         if sortDelay > .zero { try? await Task.sleep(for: sortDelay) }
         return lock.withLock {
             guard let index = entries.firstIndex(where: { $0.id == entryID }) else {
@@ -118,7 +123,7 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
                 .map { offset, line in
                     EntryCard.Item(
                         reviewID: UUID(), dishID: UUID(), dishName: line.dishName,
-                        score: line.score, note: line.note, position: offset + 1
+                        score: line.score, note: line.note, position: offset + 1, tags: line.tags
                     )
                 }
             entries[index] = card.replacing(sortStatus: .sorted, sortedAt: Date(), items: items)
@@ -165,7 +170,7 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
             guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return }
             entries[index] = entries[index].replacing(
                 restaurantID: restaurantID,
-                place: EntryCard.Place(id: restaurantID, name: entries[index].place?.name ?? "This place")
+                place: Self.place(id: restaurantID)
             )
         }
         // A place correction re-resolves every line — or prints the parked plan, if the entry had
@@ -184,10 +189,28 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
                         reviewID: item.reviewID,
                         dishID: dishID ?? item.dishID,
                         dishName: dishName ?? item.dishName,
-                        score: item.score, note: item.note, position: item.position, saved: item.saved
+                        score: item.score, note: item.note, position: item.position, saved: item.saved,
+                        tags: item.tags
                     )
                 }
                 entries[index] = card.replacing(items: items)
+            }
+        }
+    }
+
+    public func setTags(reviewID: UUID, tags: [DietTag]) async throws {
+        lock.withLock {
+            for (index, card) in entries.enumerated() where card.items.contains(where: { $0.reviewID == reviewID }) {
+                entries[index] = card.replacing(items: card.items.map { item in
+                    guard item.reviewID == reviewID else { return item }
+                    return EntryCard.Item(
+                        reviewID: item.reviewID, dishID: item.dishID, dishName: item.dishName,
+                        score: item.score, note: item.note, position: item.position, saved: item.saved,
+                        evidenceOffset: item.evidenceOffset, evidenceLength: item.evidenceLength,
+                        mentionOffset: item.mentionOffset, mentionLength: item.mentionLength,
+                        corrected: item.corrected, tags: ReviewTagsPatch(tags: tags).tags
+                    )
+                })
             }
         }
     }

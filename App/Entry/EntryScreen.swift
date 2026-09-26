@@ -12,16 +12,16 @@ struct EntryRoute: Hashable, Identifiable {
 ///
 /// A single piece of white paper laid on the linen ground: 24pt top corners, 16 clear either side,
 /// and it runs off the bottom of the screen rather than stopping on it (design rule 10). On it, in
-/// order: the order number and the date, the place as the title, the photos as a tilted collage, the
-/// person's own words with their tokens, and the bill between two dashed rules with the address and
-/// the average under it.
+/// the card's own order (`EntryHier.dc.html`, 2026-09-26): **the dish rows**, the person's words
+/// with their tokens, the tilted photo collage, and the place line — pin, place, suburb, and the day
+/// at the right. The restaurant is not the title and there is no bill: the dish is the item.
 ///
-/// There is no receipt here. The receipt is the artefact Ate prints for **sharing** — it is rendered
-/// from `ReceiptView` at the moment of sharing and it has not changed — but the page a person reads
-/// their own entry on is a page, not a printout of one.
+/// There is no receipt here. The receipt is the artefact Ate prints for **sharing** — the Summary
+/// and Share screens — and the page a person reads their own entry on is a page, not a printout.
 ///
-/// Everything on it is still a correction: the title opens ``PlaceSheet``, a line opens ``DishSheet``
-/// (`entry_corrected`), because the structure is Ate's guess and the person has the last word on it.
+/// Everything on it is still a correction: the place line opens ``PlaceSheet`` and a dish row
+/// ``DishSheet`` (`entry_corrected`), one gesture away from opening their pages, because the
+/// structure is Ate's guess and the person has the last word on it.
 struct EntryScreen: View {
     let route: EntryRoute
     let services: AteServices
@@ -104,26 +104,20 @@ struct EntryScreen: View {
 
     // MARK: - The page
 
-    /// `.slip`: `padding:22px 20px 0`, `gap:14px`, `border-radius:24px 24px 0 0`, `min-height:760`.
+    /// `.slip`: `padding:8px 20px 0`, `gap:16px`, `border-radius:24px 24px 0 0`, `min-height:760`.
     private var page: some View {
         VStack(alignment: .leading, spacing: AteMetrics.pageBandGap) {
             if let card = model.card {
-                orderRow(card)
-                if let place = card.place {
-                    title(place, isMine: card.isMine)
-                }
-                photos
+                dishes(card)
                 words
-                AteDashedRule()
-                bill
-                AteDashedRule()
-                footer(card)
+                photos
+                placeLine(card)
             }
         }
         .padding(.top, AteMetrics.pagePaddingTop)
         .padding(.horizontal, AteMetrics.pagePaddingSide)
         // The artboard has no bottom padding — its page simply continues past the screen. Ours can be
-        // scrolled to the end, and a bill sitting on the cut edge would read as a crop.
+        // scrolled to the end, and a place line sitting on the cut edge would read as a crop.
         .padding(.bottom, AteMetrics.section)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(minHeight: pageMinimumHeight, alignment: .top)
@@ -137,73 +131,55 @@ struct EntryScreen: View {
         ))
     }
 
-    /// `ORDER #0142` left, the date right — the mono label row that opens the page.
-    private func orderRow(_ card: EntryCard) -> some View {
-        labelRow(
-            leading: "Order #\(String(format: "%04d", card.orderNumber))",
-            trailing: card.createdAt.formatted(AteReceipt.dateFormat)
-        )
-    }
-
-    /// The address and the average close it. Either may be missing — design rule 2 says put the two
-    /// values left and right or drop one; it never invents a separator or a placeholder.
-    private func footer(_ card: EntryCard) -> some View {
-        labelRow(
-            leading: card.place?.address,
-            trailing: card.avgScore.map {
-                "Avg \(ScoreFormat.entryAverage($0))"
-            }
-        )
-    }
-
+    /// **The dish rows lead** — or, until the sorter has answered, their shape.
     @ViewBuilder
-    private func labelRow(leading: String?, trailing: String?) -> some View {
-        if leading != nil || trailing != nil {
-            HStack(alignment: .firstTextBaseline, spacing: AteMetrics.snug) {
-                if let leading { Text(leading) }
-                Spacer(minLength: 0)
-                if let trailing { Text(trailing) }
+    private func dishes(_ card: EntryCard) -> some View {
+        switch model.state {
+        case .printed:
+            if model.dishes.isEmpty == false {
+                // Your own rows are corrections; somebody else's are bookmarks.
+                EntryDishRows(
+                    dishes: model.dishes,
+                    onOpen: { onDish($0.dishID) },
+                    onCorrect: card.isMine ? { dish in model.correct(dish) } : nil,
+                    onSave: card.isMine ? nil : { dish in Task { await model.toggleSave(dish: dish) } },
+                    tapOpensDetail: tapOpensDetail
+                )
             }
-            .ateText(.receiptLabel)
-            // `.lab` is muted by default; the page overrides it to full ink on both of its rows.
-            .foregroundStyle(AtePalette.slip.fg)
+        case .pending, .failed:
+            EntryPendingDishes(isFailed: model.state == .failed) {
+                Task { await model.retrySort() }
+            }
         }
     }
 
-    /// **The place, at 38 — and the open question.**
-    ///
-    /// It goes two places: the place's own page, and ``PlaceSheet``, which changes the place and
-    /// re-resolves every line at the new one. Which of them the *tap* opens is genuinely uncertain
-    /// — the artboard wired the tap to the sheet, before those pages existed — so both are built
-    /// and ``AteVariants/entryTapOpensDetail`` picks (AGENTS.md: two working variants, decided
-    /// on-device). The other is always one long press away, with a word on it.
-    ///
-    /// Somebody else's entry has no correction, so its title always opens the page.
-    private func title(_ place: EntryCard.Place, isMine: Bool) -> some View {
-        let openPage = { onPlace(place.id) }
-        let correct = { model.isCorrectingPlace = true }
-        let tapOpensPage = isMine == false || tapOpensDetail
-        return Button(action: tapOpensPage ? openPage : correct) {
-            AteExactText(text: place.name, style: .entryPlace, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(.rect)
+    /// **The place line** — pin, place, suburb, and the day. Its tap is the same open question the
+    /// dish rows carry (``AteVariants/entryTapOpensDetail``): the place's own page, or
+    /// ``PlaceSheet`` to change it — the other is always one long press away. Somebody else's entry
+    /// has no correction, so its line always opens the page. A place never attached is not guessed
+    /// at (design rule 8): the line carries only the day, and on your own entry it attaches one.
+    private func placeLine(_ card: EntryCard) -> some View {
+        let openPage: (() -> Void)? = card.place.map { place in { onPlace(place.id) } }
+        let correct: (() -> Void)? = card.isMine ? { model.isCorrectingPlace = true } : nil
+        let primary = tapOpensDetail ? (openPage ?? correct) : (correct ?? openPage)
+        let secondary: (title: String, action: () -> Void)? = if tapOpensDetail {
+            openPage == nil ? nil : correct.map { (title: "Change the place", action: $0) }
+        } else {
+            correct == nil ? nil : openPage.map { (title: "Open \(card.place?.name ?? "")", action: $0) }
         }
-        .buttonStyle(.plain)
-        .contextMenu {
-            if isMine {
-                Button(tapOpensPage ? "Change the place" : "Open \(place.name)") {
-                    tapOpensPage ? correct() : openPage()
-                }
-            }
+        return EntryPlaceLine(
+            place: card.place?.name,
+            suburb: card.place?.suburb,
+            day: RelativeAge.day(card.createdAt),
+            action: primary,
+            secondary: secondary
+        ) {
             variantSwitch
         }
-        .accessibilityLabel(place.name)
-        .accessibilityAddTraits(.isHeader)
-        .accessibilityIdentifier("entry.place")
     }
 
-    /// Which gesture owns a tap on the title and on a bill line. Always `true` in a Release build:
-    /// the variant machinery does not exist there, and the default is the one that ships.
+    /// Which gesture owns a tap on the place line and on a dish row. Always `true` in a Release
+    /// build: the variant machinery does not exist there, and the default is the one that ships.
     private var tapOpensDetail: Bool {
         #if DEBUG || BETA
         variants.entryTapOpensDetail
@@ -217,7 +193,6 @@ struct EntryScreen: View {
     @ViewBuilder
     private var variantSwitch: some View {
         #if DEBUG || BETA
-        Divider()
         Button(variants.entryTapSwitchTitle) {
             variants.entryTapOpensDetail.toggle()
         }
@@ -237,34 +212,14 @@ struct EntryScreen: View {
         }
     }
 
-    /// The person's own words, with their score and place pills still in them. `.prose` at 17 — the
-    /// biggest the words are anywhere outside the composer.
+    /// The person's own words, with their score pills and tag chips still in them. `.prose` at 17 —
+    /// the biggest the words are anywhere outside the composer. A place they named is plain text.
     @ViewBuilder
     private var words: some View {
         if model.composition.plain.isEmpty == false {
-            // A score pill is a link to its dish, exactly as a line of the bill is.
+            // A score pill is a link to its dish, exactly as a dish row is.
             InlineTokenText(composition: model.composition, style: .proseLarge, onScoreDish: onDish)
                 .accessibilityIdentifier("entry.words")
-        }
-    }
-
-    @ViewBuilder
-    private var bill: some View {
-        switch model.state {
-        case .printed(let receipt):
-            // Your own bill is a set of corrections; somebody else's is a set of bookmarks. The
-            // structure is Ate's guess only where the words were yours.
-            EntryBill(
-                items: receipt.items,
-                onOpen: { item in item.dishID.map(onDish) },
-                onCorrect: model.isMine ? { model.correcting = EntryModel.Correcting(item: $0) } : nil,
-                onSave: model.isMine ? nil : { item in Task { await model.toggleSave(item: item) } },
-                tapOpensDetail: tapOpensDetail
-            )
-        case .pending, .failed:
-            EntryPendingBill(state: model.state) {
-                Task { await model.retrySort() }
-            }
         }
     }
 

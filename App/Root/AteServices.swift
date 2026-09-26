@@ -136,7 +136,9 @@ struct AteServices {
         // that cannot be reached by writing something.
         let service = arguments.contains(InMemoryEntryService.emptyLaunchArgument)
             ? InMemoryEntryService(others: social)
-            : InMemoryEntryService.seeded(others: social)
+            : InMemoryEntryService.seeded(
+                others: social, tagged: arguments.contains(InMemoryEntryService.tagsLaunchArgument)
+            )
         return PreviewServices(
             entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
             feed: social, saves: social, profiles: social, stats: InMemoryStatsService(),

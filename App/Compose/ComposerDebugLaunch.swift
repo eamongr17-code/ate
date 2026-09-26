@@ -39,6 +39,11 @@ enum ComposerDebugLaunch {
     /// photographs those two pages on a simulator that cannot be tapped from a shell.
     static let placeArgument = "-ate-open-place"
     static let dishArgument = "-ate-open-dish"
+    /// The Summary after Done, printed — or, with ``summaryPrintingArgument``, still printing.
+    static let summaryArgument = "-ate-open-summary"
+    static let summaryPrintingArgument = "-ate-summary-printing"
+    /// …or written with no place, so its receipt waits on the Place key.
+    static let summaryNoPlaceArgument = "-ate-summary-no-place"
 
     /// Shows `Welcome` even when this build has a session — the one screen you cannot reach once
     /// you are signed in.
@@ -105,6 +110,11 @@ enum ComposerDebugLaunch {
     static var opensRecap: Bool { has(recapArgument) }
     static var opensShare: Bool { has(shareArgument) }
     static var opensPlace: Bool { has(placeArgument) }
+    static var opensSummary: Bool {
+        has(summaryArgument) || has(summaryPrintingArgument) || has(summaryNoPlaceArgument)
+    }
+    static var summaryPrints: Bool { has(summaryPrintingArgument) }
+    static var summaryHasNoPlace: Bool { has(summaryNoPlaceArgument) }
     static var opensDish: Bool { has(dishArgument) }
 
     /// Writes the seeded draft before the composer reads it — or wipes whatever a previous run left.
@@ -113,13 +123,14 @@ enum ComposerDebugLaunch {
             drafts.clear(draftID: drafts.load()?.id)
         }
         if has(voiceArgument), has(seedArgument) == false {
-            // `ComposerVoice.dc.html` opens on the words typed before the microphone: the place pill
-            // and "with Jess for her birthday." — the rest is what gets said.
-            drafts.save(EntryDraft(composition: .voiceOpeningWords))
+            // `ComposerVoice.dc.html` opens on the words typed before the microphone — "With Jess
+            // for her birthday." — the rest is what gets said. The place is on the key.
+            drafts.save(EntryDraft(composition: .voiceOpeningWords, restaurantID: tipoID, placeName: "Tipo 00"))
             return
         }
         guard has(seedArgument) else { return }
-        var draft = EntryDraft(composition: .previewWordsWithPlace)
+        // `ComposerPlaceB`: the words, and Tipo 00 on the Place key rather than in them.
+        var draft = EntryDraft(composition: .previewComposerWords, restaurantID: tipoID, placeName: "Tipo 00")
         // …with the artboard's own three photos already staged, so `Composer` can be photographed
         // as it is drawn rather than one cluster short of it.
         draft.photoFiles = seedPhotos(into: drafts.photoDirectory(for: draft.id))
@@ -137,21 +148,18 @@ enum ComposerDebugLaunch {
         }
     }
 
+    /// The preview directory's Tipo 00, so a seeded draft's place resolves to the real fixture.
+    private static let tipoID = UUID(uuidString: "B7E00000-0000-4000-8000-000000000001")
+
     private static func has(_ argument: String) -> Bool {
         ProcessInfo.processInfo.arguments.contains(argument)
     }
 }
 
 extension EntryComposition {
-    /// `ComposerVoice.dc.html`'s words before anybody spoke.
+    /// `ComposerVoice.dc.html`'s words before anybody spoke — the place is on the key now.
     static var voiceOpeningWords: EntryComposition {
-        EntryComposition(
-            plain: "Tipo 00 with Jess for her birthday.",
-            spans: [EntryTokenSpan(
-                token: EntryToken(kind: .place(PlaceRef(id: UUID(), name: "Tipo 00"))),
-                span: TextSpan(location: 0, length: 7)
-            )]
-        )
+        EntryComposition(plain: "With Jess for her birthday.", spans: [])
     }
 }
 #endif

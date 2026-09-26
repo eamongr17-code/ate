@@ -32,7 +32,7 @@ struct ComposerSpike: View {
     init() {
         let arguments = ProcessInfo.processInfo.arguments
         let seeded = arguments.contains("-ate-gallery-composer-seed")
-        let composition = seeded ? EntryComposition.previewWordsWithPlace : EntryComposition()
+        let composition = seeded ? EntryComposition.previewComposerWords : EntryComposition()
         _composition = State(initialValue: composition)
         if arguments.contains("-ate-gallery-composer-score"),
            let span = composition.spans.first(where: { $0.token.score != nil }) {

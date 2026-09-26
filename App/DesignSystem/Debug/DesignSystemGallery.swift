@@ -211,7 +211,6 @@ struct DesignSystemGallery: View {
                 + "where they share the room with a receipt and have to hold their own rhythm over "
                 + "three or four lines.")
                 .ateText(.prose)
-            Text("“Unreal. Rich, glossy, gone in four minutes.”").ateText(.proseNote)
         }
     }
 
@@ -334,7 +333,7 @@ struct DesignSystemGallery: View {
                 }
             }
             label("Inline tokens in read-only prose")
-            InlineTokenText(composition: .previewWordsWithPlace, style: .prose)
+            InlineTokenText(composition: .previewComposerWords, style: .prose)
         }
     }
 
