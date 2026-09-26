@@ -96,6 +96,23 @@ public extension InMemorySocialService {
         ]
     }
 
+    /// `-ate-preview-long`: a visit by somebody with a very long handle — three dishes and not one
+    /// photo, the slip that used to have no way into its entry — so the truncating byline and the
+    /// paper's own tap can be driven on a simulator.
+    static var longEntries: [EntryCard] {
+        [
+            entry(
+                id: "E0000000-0000-4000-8000-0000000000A1",
+                author: Seed.priya, username: "the.very.long.handle.of.someone.hungry",
+                orderNumber: 13, place: Seed.kisume,
+                body: "Three things, no photos, all good.",
+                createdAt: Seed.hoursAgo(1),
+                photos: [],
+                items: [("Salmon roll", 4.5), ("Wagyu nigiri", 5.0), ("Miso soup", 3.5)]
+            )
+        ]
+    }
+
     /// The two bookmarks `Feed.dc.html` draws filled: Jess's tiramisu and Marcus's cheeseburger.
     static var seededSaves: [UUID] {
         [

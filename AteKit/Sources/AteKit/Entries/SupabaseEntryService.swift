@@ -85,7 +85,7 @@ public struct SupabaseEntryService: EntryService {
         let paths = removedURLs.compactMap(Self.storagePath(fromPublicURL:))
         guard paths.isEmpty == false else { return }
         _ = try await api.supabase.storage.from(Self.photoBucket)
-            .remove(paths: paths + paths.map(PhotoThumbnail.path(for:)))
+            .remove(paths: PhotoAddress.withThumbnails(paths))
     }
 
     public func previewSort(_ input: EarlySortInput) async throws {
@@ -193,6 +193,33 @@ public struct SupabaseEntryService: EntryService {
             .update(["body": body], returning: .minimal)
             .eq("id", value: entryID.uuidString.lowercased())
             .execute()
+    }
+
+    // MARK: - Delete
+
+    /// `rpc delete_entry(p_entry_id) → {photo_paths}`, then the files. The row is the delete: once
+    /// the RPC has answered the entry is gone, so a storage failure is not the person's problem —
+    /// an orphaned file costs bytes, an entry that refuses to go costs trust.
+    @discardableResult
+    public func delete(entryID: UUID) async throws -> EntryDeletion {
+        let data: Data
+        do {
+            data = try await api.supabase
+                .rpc("delete_entry", params: ["p_entry_id": AnyJSON.string(entryID.uuidString.lowercased())])
+                .execute()
+                .data
+        } catch {
+            // `P0002`: no such entry — already deleted (a second tap, another device). The person
+            // asked for it to be gone, and it is (0037).
+            guard EntryDeletion.isAlreadyGone(code: (error as? PostgrestError)?.code) else { throw error }
+            return EntryDeletion(photoPaths: [])
+        }
+        let deletion = try EntryDeletion.decode(data)
+        let files = deletion.storageFiles
+        if files.isEmpty == false {
+            _ = try? await api.supabase.storage.from(EntryDeletion.bucket).remove(paths: files)
+        }
+        return deletion
     }
 
     // MARK: - Wire

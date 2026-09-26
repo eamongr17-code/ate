@@ -10,14 +10,10 @@ import UniformTypeIdentifiers
 public enum PhotoThumbnail {
     public static let maximumPixelSize = 480
     public static let compressionQuality = 0.8
-    public static let suffix = "_t"
-
-    /// `user/entry-0.jpg` → `user/entry-0_t.jpg`. Works on a storage path or a full URL string.
+    /// `user/entry-0.jpg` → `user/entry-0_t.jpg` — ``PhotoAddress``'s rule, the one the lists read
+    /// by, so where a thumbnail is written and where it is looked for cannot drift.
     public static func path(for original: String) -> String {
-        let slash = original.lastIndex(of: "/").map { original.index(after: $0) } ?? original.startIndex
-        let name = original[slash...]
-        guard let dot = name.lastIndex(of: ".") else { return original + suffix + ".jpg" }
-        return String(original[..<dot]) + suffix + ".jpg"
+        PhotoAddress.thumbnailPath(for: original) ?? original
     }
 
     /// The thumbnail's JPEG bytes, or `nil` when the data is not an image ImageIO can read.

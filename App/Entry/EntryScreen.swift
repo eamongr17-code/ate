@@ -46,6 +46,7 @@ struct EntryScreen: View {
     @State private var variants = AteVariants.shared
     #endif
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.atePhotoViewer) private var showPhotos
 
     init(
         route: EntryRoute,
@@ -71,9 +72,13 @@ struct EntryScreen: View {
 
     var body: some View {
         ScrollView {
-            page
-                .padding(.horizontal, AteMetrics.pageInset)
-                .padding(.top, AteMetrics.pageGap)
+            if let failure = model.loadFailure {
+                failed(failure)
+            } else {
+                page
+                    .padding(.horizontal, AteMetrics.pageInset)
+                    .padding(.top, AteMetrics.pageGap)
+            }
         }
         .scrollIndicators(.hidden)
         .ateGround()
@@ -88,8 +93,16 @@ struct EntryScreen: View {
         .sheet(isPresented: $model.isCorrectingPlace) { placeSheet }
         .sheet(item: $model.correcting) { correcting in dishSheet(correcting.item) }
         .sheet(isPresented: $isShowingActions) { actionsSheet }
-        .fullScreenCover(item: $model.viewingPhoto) { viewing in
-            AtePhotoViewer(photos: model.photos, index: viewing.index)
+        .ateFailureAlert($model.failure, analytics: services.analytics)
+        .confirmationDialog("Delete this entry?", isPresented: $model.isConfirmingDelete, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    if await model.delete() { dismiss() }
+                }
+            }
+        }
+        .alert("Couldn't reach Ate.", isPresented: $model.deleteFailed) {
+            Button("OK", role: .cancel) {}
         }
         // `Share.dc.html` — the coral screen, and the only place a receipt leaves from. The same
         // card the actions sheet's Share row presents, so the artefact is identical either way.
@@ -100,6 +113,26 @@ struct EntryScreen: View {
                 analytics: services.analytics
             )
         }
+    }
+
+    // MARK: - Failure
+
+    /// The page could not be drawn. Two different answers (``LoadFailure``): the phone or the
+    /// server let us down — say so, and offer the retry — or the entry itself is gone, deleted or
+    /// its author blocked, where a retry would be a button that never works. Either way the state
+    /// sits on the ground on the line every empty state shares, and Back is still in the top bar.
+    @ViewBuilder
+    private func failed(_ failure: LoadFailure) -> some View {
+        Group {
+            switch failure {
+            case .unreachable:
+                AteUnreachableState { Task { await model.retryLoad() } }
+            case .gone:
+                AteEmptyState(title: "This entry\nis gone.")
+                    .accessibilityIdentifier("entry.gone")
+            }
+        }
+        .ateEmptyPlacement(top: AteMetrics.contentTop + AteMetrics.hit)
     }
 
     // MARK: - The page
@@ -207,7 +240,7 @@ struct EntryScreen: View {
                 width: contentWidth,
                 surface: AteColor.slip
             ) { index in
-                model.viewingPhoto = EntryModel.ViewingPhoto(index: index)
+                showPhotos(model.photos, at: index)
             }
         }
     }
@@ -273,11 +306,17 @@ struct EntryScreen: View {
         } label: {
             HStack(spacing: AteMetrics.snug) {
                 AteAvatar(userID: byline.userID, handle: byline.handle)
+                // A long handle truncates (`.trunc`); the age beside it never does.
                 Text(verbatim: "@\(byline.handle)")
                     .ateText(.controlSmall)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 Text(byline.age)
                     .ateText(.meta)
                     .foregroundStyle(AtePalette.automatic.muted)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .layoutPriority(1)
             }
             .frame(minHeight: AteMetrics.hit)
             .contentShape(.rect)
@@ -293,7 +332,25 @@ struct EntryScreen: View {
             AteIconButton(icon: .share, label: "Share receipt", size: 22) { model.share() }
                 .disabled(model.receipt == nil)
                 .opacity(model.receipt == nil ? 0.35 : 1)
+            authorMenu
         }
+        .fixedSize()
+    }
+
+    /// The "…" on your own entry — the same mark somebody else's entry carries, opening the
+    /// system's own menu. Delete is the one thing in it, and it asks before it goes.
+    private var authorMenu: some View {
+        Menu {
+            Button("Delete", role: .destructive) { model.isConfirmingDelete = true }
+                .accessibilityIdentifier("entry.delete")
+        } label: {
+            AteIcon.more.view(size: 22)
+                .frame(width: AteMetrics.hit, height: AteMetrics.hit)
+                .contentShape(.rect)
+        }
+        .foregroundStyle(AtePalette.automatic.fg)
+        .accessibilityLabel("More")
+        .accessibilityIdentifier("entry.more")
     }
 
     /// The whole visit, at once — and the "…" that carries share, report and block. Disabled while
@@ -317,6 +374,7 @@ struct EntryScreen: View {
                 AteIconButton(icon: .more, label: "More", size: 22) { isShowingActions = true }
             }
         }
+        .fixedSize()
     }
 
     // MARK: - Sheets
@@ -353,6 +411,7 @@ struct EntryScreen: View {
                 title: "@\(byline.handle)",
                 blockTitle: "Block @\(byline.handle)",
                 onSavePlace: { Task { await model.toggleSaveEveryDish() } },
+                isPlaceSaved: model.isEveryDishSaved,
                 onShare: { [] },
                 onShareReceipt: { model.shareArtefact() },
                 analytics: services.analytics,

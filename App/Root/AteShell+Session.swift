@@ -1,4 +1,5 @@
 import AteKit
+import AuthenticationServices
 import SwiftUI
 
 /// **Getting in, and getting out.** Welcome, Sign in with Apple, the signed-out feed, the first-run
@@ -15,7 +16,8 @@ extension AteShell {
             debugDoor = { await signInToStaging() }
         }
         return WelcomeScreen(
-            onSignIn: { await signInWithApple() },
+            isPrompt: isPrompt,
+            onSignIn: { await signInWithApple($0, nonce: $1) },
             onBrowse: { browse(isPrompt: isPrompt) },
             onDebugSignIn: debugDoor,
             isBusy: isSigningIn
@@ -53,27 +55,30 @@ extension AteShell {
 
     // MARK: - Signing in
 
-    /// Sign in with Apple: Apple's sheet, then the token exchanged for a Supabase session.
-    func signInWithApple() async {
+    /// Sign in with Apple: what Apple's button came back with, then the token exchanged for a
+    /// Supabase session. Returns false when it failed in a way the person must be told about — a
+    /// closed sheet is not one of those.
+    @discardableResult
+    func signInWithApple(_ result: Result<ASAuthorization, any Error>, nonce: String) async -> Bool {
         services.analytics(AccountEvents.signInStarted(provider: .apple))
         isSigningIn = true
         defer { isSigningIn = false }
         let credential: AppleSignIn.Credential
         do {
-            credential = try await AppleSignIn.authorize()
+            credential = try AppleSignIn.credential(from: result, nonce: nonce)
         } catch let error as AppleSignInError {
             services.analytics(AccountEvents.signInFailed(provider: .apple, reason: error.reason))
-            return
+            return error.reason == .cancelled
         } catch {
             services.analytics(AccountEvents.signInFailed(provider: .apple, reason: .authorization))
-            return
+            return false
         }
         let signedIn: AppleSignIn.SignedIn
         do {
             signedIn = try await AppleSignIn.exchange(credential, with: services.api)
         } catch {
             services.analytics(AccountEvents.signInFailed(provider: .apple, reason: .exchange))
-            return
+            return false
         }
         if FirstRun.isNewAccount(
             isFirstAuthorization: credential.isFirstAuthorization,
@@ -90,6 +95,7 @@ extension AteShell {
         }
         services.analytics(AccountEvents.signInCompleted(provider: .apple))
         didSignIn()
+        return true
     }
 
     /// The seeded staging account — Debug and Beta only.
@@ -122,6 +128,7 @@ extension AteShell {
         // A draft from before drafts had owners goes to the person who just signed in.
         services.drafts.adoptUnownedDraft()
         journal.invalidate()
+        feedArea.reloadSelection()
         if wasBrowsing {
             Task { await feed.refresh() }
         }

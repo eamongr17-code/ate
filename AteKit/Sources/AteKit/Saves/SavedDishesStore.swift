@@ -26,6 +26,10 @@ public final class SavedDishesStore {
     public private(set) var phase: Phase = .loading
     public private(set) var isLoadingMore = false
     public private(set) var hasReachedEnd = false
+    /// The last dish the shelf let go of, while it can still be put back — the Undo pill.
+    public private(set) var undoable: SavedDish?
+    /// Where it sat, so Undo puts it back in its own place rather than at the top.
+    private var undoIndex: Int?
 
     private let saves: any DishSaving
     private let pageSize: Int
@@ -121,6 +125,8 @@ public final class SavedDishesStore {
         }
         do {
             try await saves.unsave(dishID: dish.dishID)
+            undoable = dish
+            undoIndex = index
             return true
         } catch {
             guard let index else { return false }
@@ -130,6 +136,39 @@ public final class SavedDishesStore {
             regroup()
             return false
         }
+    }
+
+    /// **Undo**, straight after an unsave: the row goes back where it was, and the dish is saved
+    /// again with the provenance it had — the entry it was saved off. Optimistic, like the unsave;
+    /// a refusal takes the row back out. Returns whether it landed.
+    @discardableResult
+    public func undoUnsave() async -> Bool {
+        guard let dish = undoable else { return false }
+        undoable = nil
+        let index = min(undoIndex ?? 0, dishes.count)
+        undoIndex = nil
+        guard seenIDs.insert(dish.dishID).inserted else { return false }
+        dishes.insert(dish, at: index)
+        phase = .ready
+        regroup()
+        do {
+            try await saves.save(dishID: dish.dishID, sourceEntryID: dish.sourceEntryID)
+            return true
+        } catch {
+            dishes.removeAll { $0.dishID == dish.dishID }
+            seenIDs.remove(dish.dishID)
+            if dishes.isEmpty { phase = .empty }
+            regroup()
+            return false
+        }
+    }
+
+    /// The Undo pill timed out, or the shelf moved on. Only the dish it was offered for is let go —
+    /// a later unsave's offer is not cancelled by an earlier one's clock.
+    public func expireUndo(for dish: SavedDish) {
+        guard undoable?.dishID == dish.dishID else { return }
+        undoable = nil
+        undoIndex = nil
     }
 
     // MARK: - Machinery

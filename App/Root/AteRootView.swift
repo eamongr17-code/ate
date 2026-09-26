@@ -71,9 +71,10 @@ struct AteShell: View {
     /// Everyone else's entries, and the shelf a save fills. Held here rather than by the screens so
     /// a save made in the feed is already true on the shelf, and a block empties both at once.
     @State var feed: EntryListStore
-    @State private var saved: SavedDishesStore
+    @State var feedArea: FeedAreaModel // the feed's area, remembered per person
+    @State var saved: SavedDishesStore
     /// The one save, made once and handed down — it holds which dishes are mid-flight.
-    @State private var saveAction: SaveAction
+    @State var saveAction: SaveAction
     /// Non-nil presents the composer, and carries what it was opened with.
     @State var composing: ComposerPresentation?
     /// The current tab's stack. Hoisted here so Done in the composer can land on the new entry, at
@@ -86,7 +87,7 @@ struct AteShell: View {
     @State private var sources: [Route: DetailSource] = [:]
     /// How many recent photos are waiting to be written up — the journal header's badge. Only ever
     /// non-zero when the photo library has already been allowed; nothing here asks.
-    @State private var photoCount = 0
+    @State var photoCount = 0
     /// Bumped when a tab's own item is tapped again — the screen scrolls to the top.
     @State var scrollToTop = 0
     /// Native variant A only: true for the one turn UIKit's bar holds the borrowed compose slot as
@@ -123,15 +124,10 @@ struct AteShell: View {
         if ComposerDebugLaunch.opensWelcome { hasSession = false }
         #endif
         _hasSession = State(initialValue: hasSession)
-        _journal = State(initialValue: JournalStore(entries: services.entries))
-        let feedReader = services.feed
+        _journal = State(initialValue: JournalStore(entries: services.entries, deletions: services.entryDeletions))
         let analytics = services.analytics
-        let feedStore = EntryListStore(
-            fallbackMessage: "Couldn't load the feed.",
-            savedDishes: services.savedDishes
-        ) { cursor, pageSize in
-            try await feedReader.feedPage(after: cursor, pageSize: pageSize, includeOwn: false)
-        }
+        let (feedStore, areaModel) = FeedScreen.stores(services: services)
+        _feedArea = State(initialValue: areaModel)
         // `feed_page_loaded` is reported where the page actually lands — a prefetched page and a
         // pulled one count the same, and a refresh cannot swallow its own first page by resetting
         // the count and filling it again in the same turn.
@@ -283,13 +279,8 @@ struct AteShell: View {
         case .suggestions:
             // `Suggestions.dc.html` keeps the tab bar under it — it is a page of the journal, not a
             // modal (`Route.keepsTabBar`).
-            SuggestionsScreen(library: services.photos) { cluster in
-                composing = ComposerPresentation(
-                    origin: .photoSuggestion,
-                    assetIdentifiers: cluster.items.map(\.id)
-                )
-            }
-            .ateGround()
+            suggestions
+                .ateGround()
         }
     }
 
@@ -329,6 +320,7 @@ struct AteShell: View {
         case .feed:
             FeedScreen(
                 store: feed,
+                area: feedArea,
                 scrollToTopSignal: scrollToTop,
                 onOpen: { open(.entry(EntryRoute(entryID: $0.id))) },
                 onProfile: { open(.profile($0)) },
@@ -404,15 +396,6 @@ struct AteShell: View {
         tab = .journal
         guard path.contains(where: { $0.entryID == card.id }) == false else { return }
         path = [] // a new entry: the Summary's Done lands on the Journal, the entry at its top
-    }
-
-    /// The header badge. Reads the camera roll only when it has already been allowed — the ask
-    /// belongs to `Suggestions`, and a launch that asks for photos is exactly what the design's
-    /// "nothing is ever assumed" rule is against.
-    private func countPhotos() async {
-        guard services.photos.isAuthorized else { return }
-        photoCount = PhotoSuggestions.cluster(await services.photos.recent())
-            .reduce(0) { $0 + $1.items.count }
     }
 
     private func drainOutbox() async {

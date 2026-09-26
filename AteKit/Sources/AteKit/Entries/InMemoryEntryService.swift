@@ -162,6 +162,11 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
     // MARK: - Read
 
     public func entry(id: UUID) async throws -> EntryCard {
+        switch PreviewFaults.entryFault {
+        case "offline": throw URLError(.notConnectedToInternet)
+        case "gone": throw AteAPIError.notFound(table: EntryCard.table, id: id)
+        default: break
+        }
         if let mine = lock.withLock({ entries.first { $0.id == id } }) { return mine }
         // Not the viewer's — the feed's, then. Opening somebody else's slip has to land on their
         // page, not on a not-found.
@@ -172,7 +177,8 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
     }
 
     public func journal(after cursor: PageCursor?, pageSize: Int) async throws -> Page<EntryCard> {
-        lock.withLock {
+        if PreviewFaults.listsOffline { throw URLError(.notConnectedToInternet) }
+        return lock.withLock {
             let ordered = entries.filter(\.isMine).sorted {
                 ($0.createdAt, $0.id.uuidString) > ($1.createdAt, $1.id.uuidString)
             }
@@ -253,6 +259,17 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
         }
     }
 
+    @discardableResult
+    public func delete(entryID: UUID) async throws -> EntryDeletion {
+        try lock.withLock {
+            guard let index = entries.firstIndex(where: { $0.id == entryID && $0.isMine }) else {
+                throw AteAPIError.notFound(table: EntryCard.table, id: entryID)
+            }
+            let card = entries.remove(at: index)
+            return EntryDeletion(photoPaths: card.photos.map { "\(profile.id)/\(card.id)-\($0.position).jpg" })
+        }
+    }
+
     /// The place a tapped id belongs to. Reads the same fixtures ``InMemoryPlaceDirectory`` offers,
     /// so a receipt printed in preview mode carries the address the sheet showed rather than a
     /// second, lesser copy of the same place.
@@ -262,6 +279,23 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
         }
         return EntryCard.Place(id: id, name: match.name, address: match.subtitle, city: "Melbourne")
     }
+}
+
+/// Failures a simulator drive can ask the in-memory services for, so the states they draw can be
+/// looked at without pulling the network: `-ate-preview-offline` (every list read fails),
+/// `-ate-preview-entry-fault offline|gone` (the entry page's read fails, one way or the other) and
+/// `-ate-preview-long` (a long-handle, photo-less, three-dish visit at the top of the feed).
+public enum PreviewFaults {
+    public static var listsOffline: Bool { arguments.contains("-ate-preview-offline") }
+    public static var longFixtures: Bool { arguments.contains("-ate-preview-long") }
+
+    public static var entryFault: String? {
+        guard let index = arguments.firstIndex(of: "-ate-preview-entry-fault"),
+              arguments.indices.contains(index + 1) else { return nil }
+        return arguments[index + 1]
+    }
+
+    private static var arguments: [String] { ProcessInfo.processInfo.arguments }
 }
 
 public extension ViewerProfile {

@@ -4,12 +4,13 @@ import CryptoKit
 import Foundation
 import Supabase
 
-/// **Sign in with Apple**, the native way: `ASAuthorizationController` → an Apple identity token →
-/// `supabase.auth.signInWithIdToken(.apple, …)`.
+/// **Sign in with Apple**, the native way: Apple's own `SignInWithAppleButton` → an Apple identity
+/// token → `supabase.auth.signInWithIdToken(.apple, …)`.
 ///
-/// Not `SignInWithAppleButton` and not a web redirect. The SwiftUI button draws Apple's own pill and
-/// `Welcome.dc.html` draws the app's, and a web flow would put Safari between the coral screen and
-/// the journal for no gain — the native controller is one sheet the person already trusts.
+/// The button is Apple's, logo and lettering and all — App Review requires the official control,
+/// so `Welcome` draws it in place of the artboard's hand-lettered pill (same 56 height, same
+/// capsule). Not a web redirect: that would put Safari between the coral screen and the journal
+/// for no gain.
 ///
 /// **The nonce is the whole security story.** A random string is generated here, its SHA-256 goes to
 /// Apple in the request, and the *raw* string goes to Supabase with the token. Supabase hashes it
@@ -31,16 +32,32 @@ struct AppleSignIn {
         let fullName: String?
     }
 
-    /// Runs Apple's sheet. Throws ``AppleSignInError`` — `cancelled` when the person closed it,
-    /// which the caller must not report as a breakage.
-    static func authorize() async throws -> Credential {
+    /// What the button asks Apple for: the name and email scopes, and the **hashed** nonce. Returns
+    /// the raw nonce, which the caller keeps for ``credential(from:nonce:)``.
+    static func prepare(_ request: ASAuthorizationAppleIDRequest) -> String {
         let nonce = randomNonce()
-        let request = ASAuthorizationAppleIDProvider().createRequest()
         request.requestedScopes = [.fullName, .email]
         request.nonce = sha256(nonce)
+        return nonce
+    }
 
-        let credential = try await AppleAuthorizationSession.run(request)
-        guard let tokenData = credential.identityToken,
+    /// What Apple came back with, from the button's completion. Throws ``AppleSignInError`` —
+    /// `cancelled` when the person closed the sheet, which the caller must not report as a breakage.
+    static func credential(
+        from result: Result<ASAuthorization, any Error>,
+        nonce: String
+    ) throws -> Credential {
+        let authorization: ASAuthorization
+        switch result {
+        case .success(let value):
+            authorization = value
+        case .failure(let error):
+            throw (error as? ASAuthorizationError)?.code == .canceled
+                ? AppleSignInError.cancelled
+                : AppleSignInError.authorization(error)
+        }
+        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+              let tokenData = credential.identityToken,
               let token = String(data: tokenData, encoding: .utf8) else {
             throw AppleSignInError.noIdentityToken
         }
@@ -112,63 +129,6 @@ enum AppleSignInError: Error {
         case .cancelled: .cancelled
         case .noIdentityToken: .noIdentityToken
         case .authorization: .authorization
-        }
-    }
-}
-
-/// The delegate `ASAuthorizationController` insists on, as one `await`.
-///
-/// It holds itself alive until the controller answers: `ASAuthorizationController` keeps only a weak
-/// delegate, so a locally-scoped one is deallocated the instant `performRequests()` returns and the
-/// callback never arrives. That is the classic silent-failure in this API, and the `retained`
-/// reference below is the fix.
-private final class AppleAuthorizationSession: NSObject, ASAuthorizationControllerDelegate,
-                                               ASAuthorizationControllerPresentationContextProviding {
-    private var continuation: CheckedContinuation<ASAuthorizationAppleIDCredential, any Error>?
-    private var retained: AppleAuthorizationSession?
-
-    @MainActor
-    static func run(_ request: ASAuthorizationAppleIDRequest) async throws -> ASAuthorizationAppleIDCredential {
-        let session = AppleAuthorizationSession()
-        return try await withCheckedThrowingContinuation { continuation in
-            session.continuation = continuation
-            session.retained = session
-            let controller = ASAuthorizationController(authorizationRequests: [request])
-            controller.delegate = session
-            controller.presentationContextProvider = session
-            controller.performRequests()
-        }
-    }
-
-    func authorizationController(
-        controller: ASAuthorizationController,
-        didCompleteWithAuthorization authorization: ASAuthorization
-    ) {
-        defer { retained = nil }
-        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-            continuation?.resume(throwing: AppleSignInError.noIdentityToken)
-            continuation = nil
-            return
-        }
-        continuation?.resume(returning: credential)
-        continuation = nil
-    }
-
-    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: any Error) {
-        defer { retained = nil }
-        let failure: AppleSignInError = (error as? ASAuthorizationError)?.code == .canceled
-            ? .cancelled
-            : .authorization(error)
-        continuation?.resume(throwing: failure)
-        continuation = nil
-    }
-
-    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        MainActor.assumeIsolated {
-            UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .flatMap(\.windows)
-                .first { $0.isKeyWindow } ?? ASPresentationAnchor()
         }
     }
 }

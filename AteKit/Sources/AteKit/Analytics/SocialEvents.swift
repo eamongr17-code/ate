@@ -55,6 +55,15 @@ public enum SocialEvents {
         AnalyticsEvent(name: "profile_viewed", parameters: ["is_me": isMe ? "true" : "false"])
     }
 
+    /// The Feed's location pill changed. `area` is the area's own name, or `everywhere`; `rank` is
+    /// its place in the busiest-first list (0 = busiest), absent for Everywhere — whether people
+    /// pick the top of the list or go looking is the question.
+    public static func feedAreaChanged(area: String?, rank: Int?) -> AnalyticsEvent {
+        var parameters = ["area": area ?? "everywhere"]
+        if let rank { parameters["rank"] = String(max(0, rank)) }
+        return AnalyticsEvent(name: "feed_area_changed", parameters: parameters)
+    }
+
     public static func userBlocked() -> AnalyticsEvent {
         AnalyticsEvent(name: "user_blocked")
     }

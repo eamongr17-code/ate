@@ -25,6 +25,10 @@ struct AteSheet<Content: View>: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
                     .ateText(.sheetTitle)
+                    // A handle is the Actions sheet's title, and handles run long: one line, cut
+                    // at its tail, never under the X.
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 Spacer(minLength: AteMetrics.snug)
                 // The design puts an X beside every sheet title. The grabber alone is a gesture;
                 // the X is the affordance, and both are native.

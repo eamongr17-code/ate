@@ -17,6 +17,12 @@ public final class PlacePageStore {
         case ready(PlaceSummary)
         /// Deleted, never there, or behind a block. Every read tolerates a missing row (contract).
         case unavailable
+        /// The read never came back — offline, or the server fell over. Not the same as a place
+        /// that is not there: this one is worth another try, and the page offers one.
+        case unreachable
+
+        /// Either way the page has said all it will: its one line, and nothing under it.
+        public var isFailure: Bool { self == .unavailable || self == .unreachable }
     }
 
     /// Where "what to order" has got to. Its own state: an empty menu is not an error and must not
@@ -60,6 +66,7 @@ public final class PlacePageStore {
         pageSize: Int = 20,
         menuPageSize: Int = PlacePageStore.menuPageSize,
         savedDishes: SavedDishBroadcast? = nil,
+        deletions: EntryDeletions? = nil,
         analytics: @escaping AnalyticsRecorder = { _ in }
     ) {
         self.restaurantID = restaurantID
@@ -85,6 +92,10 @@ public final class PlacePageStore {
                 restaurantID: restaurantID, scope: .others, after: cursor, pageSize: size
             )
         }
+        // A visit deleted anywhere — this page's own entry page, the journal — leaves both lists in
+        // the same turn, like every other list of entries.
+        visits.listen(to: deletions)
+        entries.listen(to: deletions)
     }
 
     // MARK: - What the view reads
@@ -134,6 +145,22 @@ public final class PlacePageStore {
         _ = await (header, dishes, mine, theirs)
     }
 
+    /// "Try again", after a header that never came back. The same reads a pull to refresh makes,
+    /// with the header back to its skeleton while they are in the air.
+    public func retry() async {
+        guard header == .unreachable else { return }
+        analytics(RecoveryEvents.detailRetried(.place))
+        header = .loading
+        await refresh()
+    }
+
+    /// Only a row the server said is not there is "not here". Everything else — a timeout, a 500,
+    /// no network — is "couldn't reach Ate", and gets a retry.
+    private static func isMissing(_ error: AteAPIError) -> Bool {
+        if case .notFound = error { return true }
+        return false
+    }
+
     private func loadHeaderIfNeeded() async {
         guard hasLoadedHeader == false else { return }
         do {
@@ -145,7 +172,9 @@ public final class PlacePageStore {
             return
         } catch {
             hasLoadedHeader = true
-            header = .unavailable
+            let isMissing = (error as? AteAPIError).map(Self.isMissing) == true
+            header = isMissing ? .unavailable : .unreachable
+            if isMissing == false { analytics(RecoveryEvents.detailUnreachable(.place)) }
         }
     }
 

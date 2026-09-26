@@ -15,14 +15,14 @@ struct AddPlaceSheet: View {
     @State private var suburb = ""
     @State private var street = ""
     @State private var isSaving = false
-    /// The add did not land: the fields keep what was typed and the pill says "Try again".
-    @State private var didFail = false
+    /// The place that could not be added, said once (``ActionFailure``).
+    @State private var failure: ActionFailure?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         AteSheet(
             title: "New place",
-            primary: (didFail ? "Try again" : "Add place", add),
+            primary: ("Add place", add),
             isPrimaryBusy: isSaving
         ) {
             VStack(alignment: .leading, spacing: AteMetrics.sheetGap) {
@@ -36,6 +36,7 @@ struct AddPlaceSheet: View {
         // `AddPlace.dc.html` is 560 of 844.
         .presentationDetents([.height(AteScreen.sheetHeight(560))])
         .onAppear { if name.isEmpty { name = suggestedName } }
+        .ateFailureAlert($failure)
     }
 
     private func field(_ label: String, text: Binding<String>, prompt: String? = nil) -> some View {
@@ -58,7 +59,6 @@ struct AddPlaceSheet: View {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false, isSaving == false else { return }
         isSaving = true
-        didFail = false
         Task {
             defer { isSaving = false }
             do {
@@ -68,13 +68,13 @@ struct AddPlaceSheet: View {
                     street: street.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
                 guard place.id != nil else {
-                    didFail = true
+                    failure = .addPlace
                     return
                 }
                 onAdded(place)
                 dismiss()
             } catch {
-                didFail = true
+                failure = .addPlace
             }
         }
     }

@@ -65,6 +65,9 @@ struct AteSlip: Equatable, Identifiable {
     /// (``SlipAnatomy/wordsLineLimit(on:)``: the journal does, the feed and a profile clamp at two).
     var wordsLineLimit: Int? = SlipAnatomy.clampedWordLines
     var photos: [AtePhoto]
+    /// Every photo of the entry, for the full-screen viewer a tap on one opens — the slip draws at
+    /// most three, the viewer swipes through them all. Empty means "the ones drawn".
+    var viewerPhotos: [AtePhoto] = []
     /// Who wrote it — present in the feed, absent in your own journal and on their own profile.
     var byline: AteByline?
     var density: Density = .regular

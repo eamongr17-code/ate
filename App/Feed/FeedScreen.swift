@@ -9,6 +9,8 @@ import SwiftUI
 /// the journal with a byline on it (`get_entry_feed` excludes them server-side).
 struct FeedScreen: View {
     let store: EntryListStore
+    /// Which area the feed is about — the location pill, and what it reloads.
+    var area: FeedAreaModel?
     /// Bumped when the Feed tab is tapped while already current.
     var scrollToTopSignal = 0
     var onOpen: (EntryCard) -> Void = { _ in }
@@ -19,6 +21,9 @@ struct FeedScreen: View {
     var onDish: (UUID) -> Void = { _ in }
     var onSave: (EntryCard, AteSlip.Dish) -> Void = { _, _ in }
     var onViewed: () -> Void = {}
+
+    @State private var isChoosingArea = false
+    @State private var scrollToTopAfterArea = 0
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -34,23 +39,42 @@ struct FeedScreen: View {
             .onChange(of: scrollToTopSignal) { _, _ in
                 withAnimation { proxy.scrollTo(Self.topAnchor, anchor: .top) }
             }
+            .onChange(of: scrollToTopAfterArea) { _, _ in
+                proxy.scrollTo(Self.topAnchor, anchor: .top)
+            }
         }
         .task {
             onViewed()
             await store.loadIfNeeded()
         }
+        .sheet(isPresented: $isChoosingArea) {
+            if let area {
+                FeedAreaSheet(model: area) { choice in
+                    guard area.choose(choice) else { return }
+                    scrollToTopAfterArea += 1
+                    Task { await store.reload() }
+                }
+            }
+        }
     }
 
     private static let topAnchor = "feed.top"
+    /// `padding:62px 12px 10px` under a 40 title: where the slips — or an empty state — begin.
+    private static let headerBottom: CGFloat = 62 + 40 + AteMetrics.feedHeaderBottom
 
-    /// `padding:62px 12px 10px` (`FeedTight`) — the screen's name, and the city it is about.
+    /// `padding:62px 12px 10px` (`FeedTight`) — the screen's name, and the area it is about. The
+    /// pill opens the area sheet; "Everywhere" until the reader picks one.
     private var header: some View {
         HStack {
             Text("Feed").ateTextLine(.screenTitle)
             Spacer(minLength: AteMetrics.snug)
-            // Static: Melbourne is the launch market, and a chip that could be changed would be a
-            // promise of a second city we are not making (PRODUCT.md — density beats breadth).
-            AteChip(icon: .place, title: "Melbourne", height: 40)
+            AteChip(
+                icon: .place,
+                title: area?.selected ?? "Everywhere",
+                height: 40,
+                action: area == nil ? nil : { isChoosingArea = true }
+            )
+            .accessibilityIdentifier("feed.area")
         }
         .padding(.horizontal, AteMetrics.listGutter)
         .ateContentTop(62)
@@ -67,13 +91,13 @@ struct FeedScreen: View {
         case .empty:
             // Honest: nobody else has written anything yet. Not an error, and not an instruction.
             AteEmptyState(title: "Nobody's written\nanything yet.")
-                .padding(.top, AteMetrics.snug)
+                .ateEmptyPlacement(top: Self.headerBottom)
         case .signedOut:
             AteEmptyState(title: "Nobody's\nsigned in.")
-                .padding(.top, AteMetrics.snug)
-        case .failed(let message):
-            AteEmptyState(title: message)
-                .padding(.top, AteMetrics.snug)
+                .ateEmptyPlacement(top: Self.headerBottom)
+        case .failed:
+            AteUnreachableState { Task { await store.refresh() } }
+                .ateEmptyPlacement(top: Self.headerBottom)
         case .ready:
             slips
         }
@@ -92,6 +116,8 @@ struct FeedScreen: View {
                     identifier: "feed.slip"
                 )
                 .task { await store.loadMoreIfNeeded(after: entry) }
+                // Its own task, so the row scrolling away cancels the prefetch with it.
+                .task { await AtePrefetch.photos(after: entry, in: store.entries) }
             }
             if let message = store.inlineErrorMessage {
                 Text(message)

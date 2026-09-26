@@ -55,31 +55,18 @@ struct ReceiptPaper: Shape {
 }
 
 extension View {
-    /// Lays this content on torn paper: `EdgeFinal`'s tone (white to 45% of the paper, easing to the
-    /// bottom tone at its edge, the strip solid in that tone), the edge-B silhouette, and one contact
-    /// line under the whole of it — `y 1, blur 0`, no other shadow. The content leaves
-    /// ``AteMetrics/tornEdgeHeight`` of bottom padding for the strip.
+    /// Lays this content on torn paper: one flat tone to the tip of the edge (no gradient — Eamon,
+    /// round 3), the edge-B silhouette, and one contact line under the whole of it — `y 1, blur 0`,
+    /// no other shadow. The content leaves ``AteMetrics/tornEdgeHeight`` of bottom padding for the
+    /// strip.
     func ateTornPaper(
         _ tone: AtePaperTone = .slip,
         topRadius: CGFloat = AteMetrics.receiptTop
     ) -> some View {
         background {
-            GeometryReader { proxy in
-                let height = max(proxy.size.height, 1)
-                let paper = max(0, height - AteMetrics.tornEdgeHeight) / height
-                ReceiptPaper(topRadius: topRadius)
-                    .fill(LinearGradient(
-                        stops: [
-                            .init(color: tone.top, location: 0),
-                            .init(color: tone.top, location: paper * AtePaperTone.holdFraction),
-                            .init(color: tone.bottom, location: paper),
-                            .init(color: tone.bottom, location: 1)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ))
-                    .shadow(color: tone.contact, radius: 0, x: 0, y: 1)
-            }
+            ReceiptPaper(topRadius: topRadius)
+                .fill(tone.fill)
+                .shadow(color: tone.contact, radius: 0, x: 0, y: 1)
         }
     }
 }

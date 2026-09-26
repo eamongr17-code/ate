@@ -27,6 +27,7 @@ extension AteShell {
         }
         .tabBarMinimizeBehavior(.onScrollDown)
         .tint(AtePalette.automatic.fg)
+        .atePhotoViewerHost() // one full-screen viewer for every photo under the shell
         .fullScreenCover(item: $composing) { presentation in composerCover(presentation) }
         #if DEBUG
         .fullScreenCover(item: $debugSummary) { summary in debugSummaryScreen(summary) }
@@ -38,6 +39,13 @@ extension AteShell {
             NavigationStack(path: path(for: tab)) {
                 screen(for: tab)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // The Saved shelf's Undo, on the tab's root only. Inside the tab, so it sits in
+                    // the safe area the native bar leaves — above it, however the bar is drawn.
+                    .overlay(alignment: .bottom) {
+                        if tab == .journal {
+                            SavedUndoPill(store: saved) { Task { await saveAction.undoUnsaveFromShelf() } }
+                        }
+                    }
                     .ateGround()
                     .toolbar(.hidden, for: .navigationBar)
                     .ateSwipeBack()

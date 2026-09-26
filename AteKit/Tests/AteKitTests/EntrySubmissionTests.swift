@@ -51,6 +51,19 @@ private final class StubEntryService: EntryService, @unchecked Sendable {
                            itemCount: 2, restaurantID: nil, didAttachPlace: true)
     }
 
+    /// Run inside `delete`, before it answers — how a test sees what the outbox held at that moment.
+    var onDelete: (@Sendable () async -> Void)?
+    var refusesDelete = false
+    private(set) var deleted: [UUID] = []
+
+    @discardableResult
+    func delete(entryID: UUID) async throws -> EntryDeletion {
+        await onDelete?()
+        if refusesDelete { throw EntryWriteFailure.rejected("no") }
+        lock.withLock { deleted.append(entryID) }
+        return EntryDeletion(photoPaths: [])
+    }
+
     func entry(id: UUID) async throws -> EntryCard {
         try lock.withLock {
             guard let card = cards[id] else { throw AteAPIError.notFound(table: "entry_cards", id: id) }
@@ -138,6 +151,57 @@ struct EntrySubmissionTests {
         // The server allocates the number; a local placeholder does not invent one.
         #expect(card.orderNumber == 0)
         #expect(await queue.pendingCount == 1)
+    }
+
+    @MainActor
+    @Test("deleting a queued entry empties its outbox item BEFORE delete_entry, and nothing re-uploads")
+    func deleteForgetsTheOutboxFirst() async {
+        let service = StubEntryService()
+        service.createError = URLError(.notConnectedToInternet)
+        let queue = outbox(service)
+        let submission = EntrySubmission(entries: service, outbox: queue)
+        let id = UUID()
+        guard case .queued(let card) = await submission.submit(request(id: id)) else {
+            Issue.record("expected the entry to be queued")
+            return
+        }
+        #expect(await queue.pendingCount == 1)
+
+        let seenAtDelete = Counter()
+        service.onDelete = { await seenAtDelete.set(await queue.pendingCount) }
+        let deleter = EntryDeleter(
+            entries: service, deletions: EntryDeletions(), analytics: { _ in }, outbox: queue
+        )
+        #expect(await deleter.delete(card))
+        #expect(await seenAtDelete.value == 0, "the outbox item was still there when delete_entry ran")
+
+        // Back online: the queue has nothing for it — no insert to resurrect it, no orphan upload.
+        service.createError = nil
+        #expect(await queue.run().isEmpty)
+        #expect(service.created.isEmpty)
+        #expect(service.attached.isEmpty)
+        #expect(service.sorted.isEmpty)
+    }
+
+    @MainActor
+    @Test("a refused delete puts the entry's unfinished work back in the outbox")
+    func refusedDeleteRestoresTheOutbox() async {
+        let service = StubEntryService()
+        service.createError = URLError(.notConnectedToInternet)
+        service.refusesDelete = true
+        let queue = outbox(service)
+        let submission = EntrySubmission(entries: service, outbox: queue)
+        guard case .queued(let card) = await submission.submit(request()) else {
+            Issue.record("expected the entry to be queued")
+            return
+        }
+        let deleter = EntryDeleter(
+            entries: service, deletions: EntryDeletions(), analytics: { _ in }, outbox: queue
+        )
+        #expect(await deleter.delete(card) == false)
+        #expect(await queue.pendingCount == 1)
+        service.createError = nil
+        #expect(await queue.run() == [card.id])
     }
 
     @Test("a refusal is not queued — retrying a 42501 forever is a promise the app can't keep")
@@ -345,4 +409,9 @@ private final class Mutex<Value>: @unchecked Sendable {
         defer { lock.unlock() }
         return body(&value)
     }
+}
+
+private actor Counter {
+    private(set) var value = -1
+    func set(_ next: Int) { value = next }
 }

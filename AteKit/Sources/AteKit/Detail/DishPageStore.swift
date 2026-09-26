@@ -10,13 +10,19 @@ import Observation
 /// "the same action works identically everywhere" survives a fourth surface (AGENTS.md rule 2).
 @MainActor
 @Observable
-public final class DishPageStore: SavedDishObserving {
+public final class DishPageStore: SavedDishObserving, EntryDeletionObserving {
 
     public enum Header: Sendable, Equatable {
         case loading
         case ready(DishSummary)
         /// Deleted, never there, or behind a block.
         case unavailable
+        /// The read never came back — offline, or the server fell over. Not the same as a place
+        /// that is not there: this one is worth another try, and the page offers one.
+        case unreachable
+
+        /// Either way the page has said all it will: its one line, and nothing under it.
+        public var isFailure: Bool { self == .unavailable || self == .unreachable }
     }
 
     public enum Reviews: Sendable, Equatable {
@@ -63,6 +69,7 @@ public final class DishPageStore: SavedDishObserving {
         dishes: any DishPageReading,
         pageSize: Int = DishPageStore.reviewPageSize,
         savedDishes: SavedDishBroadcast? = nil,
+        deletions: EntryDeletions? = nil,
         analytics: @escaping AnalyticsRecorder = { _ in }
     ) {
         self.dishID = dishID
@@ -71,6 +78,7 @@ public final class DishPageStore: SavedDishObserving {
         self.pageSize = pageSize
         self.analytics = analytics
         savedDishes?.add(self)
+        deletions?.add(self)
     }
 
     // MARK: - What the view reads
@@ -118,6 +126,22 @@ public final class DishPageStore: SavedDishObserving {
         _ = await (header, list)
     }
 
+    /// "Try again", after a header that never came back. The same reads a pull to refresh makes,
+    /// with the header back to its skeleton while they are in the air.
+    public func retry() async {
+        guard header == .unreachable else { return }
+        analytics(RecoveryEvents.detailRetried(.dish))
+        header = .loading
+        await refresh()
+    }
+
+    /// Only a row the server said is not there is "not here". Everything else — a timeout, a 500,
+    /// no network — is "couldn't reach Ate", and gets a retry.
+    private static func isMissing(_ error: AteAPIError) -> Bool {
+        if case .notFound = error { return true }
+        return false
+    }
+
     private func loadHeaderIfNeeded() async {
         guard hasLoadedHeader == false else { return }
         do {
@@ -130,7 +154,9 @@ public final class DishPageStore: SavedDishObserving {
             return
         } catch {
             hasLoadedHeader = true
-            header = .unavailable
+            let isMissing = (error as? AteAPIError).map(Self.isMissing) == true
+            header = isMissing ? .unavailable : .unreachable
+            if isMissing == false { analytics(RecoveryEvents.detailUnreachable(.dish)) }
         }
     }
 
@@ -205,6 +231,14 @@ public final class DishPageStore: SavedDishObserving {
     public func savedDishChanged(dishID: UUID, isSaved: Bool) {
         guard dishID == self.dishID else { return }
         self.isSaved = isSaved
+    }
+
+    /// An entry was deleted somewhere. A review is a quote from a visit, so the visit's review
+    /// leaves the list in the same turn; the aggregate catches up on the next read.
+    public func entryDeleted(_ entryID: UUID) {
+        guard reviews.contains(where: { $0.entryID == entryID }) else { return }
+        reviews.removeAll { $0.entryID == entryID }
+        if reviews.isEmpty, phase == .ready { phase = .empty }
     }
 
     // MARK: - Machinery

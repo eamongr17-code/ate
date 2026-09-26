@@ -162,8 +162,15 @@ public struct AccountClient: AccountServing {
         try await api.rpc("handle_available", parameters: ["p_handle": .string(handle)])
     }
 
+    /// Throws ``HandleTaken`` when the unique index refused — somebody took it between the check
+    /// and the write. Every other failure is passed through as it came: it is not a verdict on the
+    /// handle, and the screen must not say it is.
     public func setHandle(_ handle: String) async throws {
-        try await updateProfile(["username": handle])
+        do {
+            try await updateProfile(["username": handle])
+        } catch let error as PostgrestError where error.code == "23505" {
+            throw HandleTaken()
+        }
     }
 
     public func setName(_ name: String) async throws {
