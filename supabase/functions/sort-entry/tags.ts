@@ -20,7 +20,7 @@
 // item without them, and attachTagTokens is the only thing that sets `tags` afterwards. So
 // "never invents a tag" holds in every sorter mode by construction.
 
-import { scalarLength, sliceScalars } from './offsets.ts';
+import { scalarLength, scalarOffset, sliceScalars } from './offsets.ts';
 import type { SortItem } from './types.ts';
 
 /** The closed set, in its canonical order. Matches `reviews_tags_closed_set` (0036). */
@@ -107,11 +107,23 @@ export function tagTokenSpans(body: string, tokens: TagToken[]): Array<[number, 
   const spans: Array<[number, number]> = [];
   for (const t of tokens) {
     if (t.offset + t.length > scalars.length) continue;
+    // only a span that SAYS a tag is fenced: a mis-marked "Pasta" must not erase the dish.
+    if (!tagCodesFor(scalars.slice(t.offset, t.offset + t.length).join('')).length) continue;
     const start = scalars.slice(0, t.offset).join('').length;
     const end = start + scalars.slice(t.offset, t.offset + t.length).join('').length;
     spans.push([start, end]);
   }
   return spans;
+}
+
+/** The marked words themselves, in body order — what the model is told are tags, not dishes. */
+export function tagTokenWords(body: string, tokens: TagToken[]): string[] {
+  const bodyLength = scalarLength(body ?? '');
+  return [...tokens]
+    .filter((t) => t.offset + t.length <= bodyLength)
+    .sort((a, b) => a.offset - b.offset)
+    .map((t) => sliceScalars(body, t.offset, t.length))
+    .filter((w) => tagCodesFor(w).length > 0);
 }
 
 /** UTF-16 index of a scalar offset (the inverse of offsets.ts's scalarOffset). */
@@ -131,7 +143,7 @@ function trimLeadingTags(item: SortItem, body: string, spans: Array<[number, num
   let at = body.indexOf(note, from);
   if (at < 0) at = body.indexOf(note);
   if (at < 0) return note;
-  const end = at + note.length;
+  let end = at + note.length;
   let cursor = at;
   let cut = false;
   for (;;) {
@@ -141,27 +153,115 @@ function trimLeadingTags(item: SortItem, body: string, spans: Array<[number, num
     cursor = span[1];
     cut = true;
   }
+  // …and a note that ENDS on one ("loved it GF" from a model) — same cut from the other side.
+  for (;;) {
+    let scan = end;
+    while (scan > cursor && /[\s,.;:…—–-]/.test(body[scan - 1])) scan--;
+    const span = spans.find(([s, e]) => e === scan && s >= cursor);
+    if (!span) break;
+    end = span[0];
+    cut = true;
+  }
   if (!cut) return note;
-  const rest = body.slice(cursor, end).replace(/^[\s,.;:…—–-]+/, '').trim();
+  const rest = body.slice(cursor, end).replace(/^[\s,.;:…—–-]+/, '').replace(/[\s,;:—–-]+$/, '').trim();
   return rest.length ? rest : null;
 }
 
-/** A model may propose a tag word as a dish ("GF"). A marked tag is never a dish. */
-function isTagWord(item: SortItem, spans: Array<[number, number]>, body: string): boolean {
-  if (typeof item.mention_offset !== 'number' || !item.mention_text) return false;
+/** Punctuation and joiners that are never part of a dish name at either end of a run. */
+const EDGE = /[\s,.;:!?…—–\-()/&+|]/u;
+
+/**
+ * A MODEL does not honour excludeSpans: it may name "GF Salad" or "Pasta GF", or offer "GF" as a
+ * dish. Cut every tag span out of the item's mention and keep the longest remaining run as the
+ * dish ("GF Salad" → "Salad", "Pasta GF" → "Pasta"); a mention that was only tags is dropped. The
+ * name is re-derived from the body slice (the menu's spelling when it is on the menu), so the
+ * mention stays a verbatim slice at a true offset. An item with no verified mention (a menu dish
+ * the model named without quoting) has no span to compare and is left as it is.
+ */
+function stripTagSpans(
+  item: SortItem,
+  body: string,
+  spans: Array<[number, number]>,
+  knownByKey: Map<string, string>,
+): SortItem | null {
+  if (typeof item.mention_offset !== 'number' || !item.mention_text) return item;
   const s = utf16Index(body, item.mention_offset);
   const e = s + item.mention_text.length;
-  return spans.some(([a, b]) => a <= s && e <= b);
+  if (body.slice(s, e) !== item.mention_text) return item;
+  const cuts = spans.filter(([a, b]) => a < e && b > s).sort((x, y) => x[0] - y[0]);
+  if (!cuts.length) return item;
+
+  // the runs of the mention that no tag span covers, trimmed of edge punctuation
+  const runs: Array<[number, number]> = [];
+  let cursor = s;
+  for (const [a, b] of cuts) {
+    if (a > cursor) runs.push([cursor, Math.min(a, e)]);
+    cursor = Math.max(cursor, b);
+  }
+  if (cursor < e) runs.push([cursor, e]);
+
+  let best: [number, number] | null = null;
+  for (let [a, b] of runs) {
+    while (a < b && EDGE.test(body[a])) a++;
+    while (b > a && EDGE.test(body[b - 1])) b--;
+    if (!/[\p{L}\p{N}]/u.test(body.slice(a, b))) continue;
+    if (!best || b - a > best[1] - best[0]) best = [a, b];
+  }
+  if (!best) return null;
+
+  const slice = body.slice(best[0], best[1]);
+  const name = slice.replace(/\s+/g, ' ');
+  return {
+    ...item,
+    dish_name: knownByKey.get(name.toLowerCase()) ?? name,
+    mention_text: slice,
+    mention_offset: scalarOffset(body, best[0]),
+  };
+}
+
+/** After stripping, "Pasta" and "Pasta GF" are one dish: first line wins, gaps are filled. */
+function mergeSameDish(items: SortItem[]): SortItem[] {
+  const out: SortItem[] = [];
+  const index = new Map<string, number>();
+  for (const it of items) {
+    const key = it.dish_name.toLowerCase();
+    const at = index.get(key);
+    if (at === undefined) {
+      index.set(key, out.length);
+      out.push(it);
+      continue;
+    }
+    const kept = out[at];
+    if (kept.score === null && it.score !== null) {
+      kept.score = it.score;
+      kept.score_evidence = it.score_evidence;
+      kept.evidence_offset = it.evidence_offset;
+    }
+    if (!kept.note && it.note) kept.note = it.note;
+  }
+  return out;
 }
 
 /**
- * Put each marked token's codes on the line it follows. Every returned item carries `tags`
- * (possibly `[]`), canonical. Items are copied, never mutated.
+ * Put each marked token's codes on the line it follows — by SPAN, never by name: the item whose
+ * mention starts nearest before the token. Tag words are first cut out of every mention (a model
+ * may have swallowed them), so a tag can never name a dish or mint one. Every returned item
+ * carries `tags` (possibly `[]`), canonical. Items are copied, never mutated.
  */
-export function attachTagTokens(items: SortItem[], body: string, tokens: TagToken[]): SortItem[] {
+export function attachTagTokens(
+  items: SortItem[],
+  body: string,
+  tokens: TagToken[],
+  knownDishes: string[] = [],
+): SortItem[] {
   const spans = tagTokenSpans(body, tokens);
-  const out = items
-    .filter((it) => !isTagWord(it, spans, body))
+  const knownByKey = new Map(knownDishes.map((d) => [d.trim().replace(/\s+/g, ' ').toLowerCase(), d.trim()]));
+  const stripped: SortItem[] = [];
+  for (const it of items) {
+    const kept = spans.length ? stripTagSpans({ ...it }, body, spans, knownByKey) : { ...it };
+    if (kept) stripped.push(kept);
+  }
+  const out = mergeSameDish(stripped)
     .map((it) => ({ ...it, note: spans.length ? trimLeadingTags(it, body, spans) : it.note, tags: [] as string[] }));
   const bodyLength = scalarLength(body ?? '');
   for (const t of tokens) {

@@ -13,11 +13,13 @@ import {
   canonicalTags,
   parseTagTokens,
   tagCodesFor,
+  tagTokenWords,
   tagTokenSpans,
   TAG_CODES,
   type TagToken,
 } from './tags.ts';
 import { parseEntry } from './parse.ts';
+import { buildRequest, planFromResponse } from './model.ts';
 import { validateItem, validatePlan } from './validate.ts';
 import type { SortItem } from './types.ts';
 
@@ -37,7 +39,7 @@ function mark(body: string, ...words: string[]): TagToken[] {
 function sort(body: string, tokens: TagToken[], knownDishes: string[] = []) {
   const plan = parseEntry({ body, knownDishes, excludeSpans: tagTokenSpans(body, tokens) });
   const gated = validatePlan(plan, { body, knownDishes });
-  return attachTagTokens(gated.items, body, tokens);
+  return attachTagTokens(gated.items, body, tokens, knownDishes);
 }
 
 const lines = (items: SortItem[]) => items.map((i) => [i.dish_name, i.score, i.tags]);
@@ -174,4 +176,109 @@ test('offsets are UNICODE SCALARS: an emoji before the token does not shift it',
 test('a menu dish keeps its spelling and still takes the tag', () => {
   const body = 'the margherita 4.5 gf';
   assertEquals(lines(sort(body, mark(body, 'gf'), ['Margherita'])), [['Margherita', 4.5, ['gf']]]);
+});
+
+// ---------------------------------------------------------------------------
+// MODEL MODE — production. The model never sees excludeSpans, so its plan can swallow a
+// tag word into a dish. These plans go through the real model path (planFromResponse on an
+// injected Messages API reply, no network), then the same gate index.ts runs.
+// ---------------------------------------------------------------------------
+type ModelItem = { dish_name: string; score?: number; score_evidence?: string; note?: string };
+
+function sortModel(body: string, tokens: TagToken[], items: ModelItem[], knownDishes: string[] = []) {
+  const plan = planFromResponse({ content: [{ type: 'tool_use', name: 'sort_entry', input: { items } }] });
+  assert(plan !== null, 'the injected reply must parse as a plan');
+  const gated = validatePlan(plan!, { body, knownDishes });
+  return attachTagTokens(gated.items, body, tokens, knownDishes);
+}
+
+test('MODEL "GF Salad": the tag goes on the pasta it follows, and the dish is Salad', () => {
+  const body = 'Pasta 4.5 GF Salad 3.5';
+  const out = sortModel(body, mark(body, 'GF'), [
+    { dish_name: 'Pasta', score: 4.5, score_evidence: '4.5' },
+    { dish_name: 'GF Salad', score: 3.5, score_evidence: '3.5' },
+  ]);
+  assertEquals(lines(out), [['Pasta', 4.5, ['gf']], ['Salad', 3.5, []]]);
+  assertEquals([out[1].mention_text, out[1].mention_offset], ['Salad', 13]);
+});
+
+test('MODEL "Pasta GF": no dish called "Pasta GF" is minted; the tag is the pasta\'s', () => {
+  const body = 'Pasta GF 4.5';
+  const out = sortModel(body, mark(body, 'GF'), [{ dish_name: 'Pasta GF', score: 4.5, score_evidence: '4.5' }]);
+  assertEquals(lines(out), [['Pasta', 4.5, ['gf']]]);
+  assertEquals([out[0].mention_text, out[0].mention_offset], ['Pasta', 0]);
+});
+
+test('MODEL "Pasta" and "Pasta GF" in one plan collapse to one line', () => {
+  const body = 'Pasta GF 4.5, then more Pasta';
+  const out = sortModel(body, mark(body, 'GF'), [
+    { dish_name: 'Pasta GF', score: 4.5, score_evidence: '4.5' },
+    { dish_name: 'Pasta' },
+  ]);
+  assertEquals(lines(out), [['Pasta', 4.5, ['gf']]]);
+});
+
+test('MODEL offers the tag itself as a dish: dropped', () => {
+  const body = 'Pasta 4.5 GF';
+  const out = sortModel(body, mark(body, 'GF'), [
+    { dish_name: 'Pasta', score: 4.5, score_evidence: '4.5' },
+    { dish_name: 'GF' },
+  ]);
+  assertEquals(lines(out), [['Pasta', 4.5, ['gf']]]);
+});
+
+test('MODEL on the menu: the stripped name takes the menu\'s spelling', () => {
+  const body = 'the margherita gf 4.5';
+  const out = sortModel(
+    body, mark(body, 'gf'), [{ dish_name: 'margherita gf', score: 4.5, score_evidence: '4.5' }], ['Margherita'],
+  );
+  assertEquals(lines(out), [['Margherita', 4.5, ['gf']]]);
+});
+
+test('MODEL accents: "GF Crème brûlée" → Crème brûlée, the tag on the dish before it', () => {
+  const body = 'Café gourmand 4 GF Crème brûlée 4.5 DF';
+  const out = sortModel(body, mark(body, 'GF', 'DF'), [
+    { dish_name: 'Café gourmand', score: 4, score_evidence: '4' },
+    { dish_name: 'GF Crème brûlée', score: 4.5, score_evidence: '4.5' },
+  ]);
+  assertEquals(lines(out), [['Café gourmand', 4, ['gf']], ['Crème brûlée', 4.5, ['df']]]);
+});
+
+test('MODEL emoji: scalar offsets survive astral characters before the dish and the tag', () => {
+  const body = '🍝🍝 Pasta VG 4.5 🥗 NF Salad 3';
+  const tokens = mark(body, 'VG', 'NF');
+  assertEquals(tokens, [{ offset: 9, length: 2 }, { offset: 18, length: 2 }]); // scalars, not UTF-16 (21)
+  const out = sortModel(body, tokens, [
+    { dish_name: 'Pasta VG', score: 4.5, score_evidence: '4.5' },
+    { dish_name: 'NF Salad', score: 3, score_evidence: '3' },
+  ]);
+  assertEquals(lines(out), [['Pasta', 4.5, ['vg', 'nf']], ['Salad', 3, []]]);
+  assertEquals(out.map((i) => i.mention_offset), [3, 21]);
+});
+
+test('MODEL note ending on a tag does not repeat it', () => {
+  const body = 'Tiramisu 4 loved it GF';
+  const out = sortModel(body, mark(body, 'GF'), [
+    { dish_name: 'Tiramisu', score: 4, score_evidence: '4', note: 'loved it GF' },
+  ]);
+  assertEquals([out[0].note, out[0].tags], ['loved it', ['gf']]);
+});
+
+test('a mis-marked non-tag word fences nothing: the dish survives', () => {
+  const body = 'Pasta 4.5 GF';
+  const out = sortModel(body, [{ offset: 0, length: 5 }, ...mark(body, 'GF')], [
+    { dish_name: 'Pasta', score: 4.5, score_evidence: '4.5' },
+  ]);
+  assertEquals(lines(out), [['Pasta', 4.5, ['gf']]]);
+});
+
+test('the model is TOLD the marked words are tags (and nothing when there are none)', () => {
+  const body = 'Pasta 4.5 GF V';
+  const words = tagTokenWords(body, mark(body, 'V', 'GF'));
+  assertEquals(words, ['GF', 'V']);
+  const withTags = JSON.parse(buildRequest({ apiKey: 'sk-ant-x', body, tagWords: words }).body);
+  const text = withTags.messages[0].content as string;
+  assert(text.includes('DIETARY TAG WORDS the diner marked (GF | V)'), text);
+  const without = JSON.parse(buildRequest({ apiKey: 'sk-ant-x', body }).body).messages[0].content as string;
+  assert(!without.includes('DIETARY TAG'), 'no tag line without tags');
 });

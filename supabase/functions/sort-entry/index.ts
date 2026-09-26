@@ -54,7 +54,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { fencedPlaceNames, mentionForPlaceName, parseEntry, placeCandidateSpans } from './parse.ts';
 import { validatePlan } from './validate.ts';
 import { resolveMode, resolveModel, sortWithModel } from './model.ts';
-import { attachTagTokens, parseTagTokens, tagTokenSpans } from './tags.ts';
+import { attachTagTokens, parseTagTokens, tagTokenSpans, tagTokenWords } from './tags.ts';
 import type { PlaceCandidate, SorterMode, SortPlan } from './types.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -255,6 +255,7 @@ Deno.serve(async (req) => {
         body: row.body,
         knownDishes: known,
         placeCandidates: candidates.map((c) => c.phrase),
+        tagWords: tagTokenWords(row.body, tagTokens),
       });
       if (!plan) usedMode = 'stub'; // degrade, never fail
     }
@@ -278,9 +279,10 @@ Deno.serve(async (req) => {
 
     // ---- 3. the same gate for every mode ----------------------------------
     // validatePlan rebuilds every item WITHOUT tags; the client's marked tokens are the only
-    // source of a tag, in every mode.
+    // source of a tag, in every mode. attachTagTokens also cuts tag words out of any dish name
+    // (the model does not honour excludeSpans) and places each tag by span, never by name.
     const gated = validatePlan(plan, { body: row.body, knownDishes: known });
-    const validated: SortPlan = { ...gated, items: attachTagTokens(gated.items, row.body, tagTokens) };
+    const validated: SortPlan = { ...gated, items: attachTagTokens(gated.items, row.body, tagTokens, known) };
 
     if (dryRun) {
       return json({
