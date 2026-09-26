@@ -219,7 +219,13 @@ struct ComposerToolbar: View {
             ForEach(DietTag.allCases, id: \.self) { tag in
                 Button(tag.label) {
                     model.dismissScoring(refocus: false)
-                    analytics(model.insertTag(tag))
+                    // A chip belongs to the dish on its left; with none there, the key does
+                    // nothing but say so under the finger.
+                    guard let added = model.insertTag(tag) else {
+                        AteHaptics.refused()
+                        return
+                    }
+                    analytics(added)
                 }
                 .accessibilityLabel(tag.spokenName)
             }

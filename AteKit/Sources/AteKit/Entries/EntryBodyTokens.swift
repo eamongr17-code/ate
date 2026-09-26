@@ -46,8 +46,9 @@ public enum EntryBodyTokens {
             claimed.append(span)
         }
 
+        let mentions = card.items.compactMap { mention(of: $0, in: body) }
         for item in card.items {
-            for span in tagSpans(for: item, in: body, claimed: claimed) {
+            for span in tagSpans(for: item, in: body, mentions: mentions, claimed: claimed) {
                 spans.append(span)
                 claimed.append(span.span)
             }
@@ -87,43 +88,102 @@ public enum EntryBodyTokens {
 
     // MARK: - Where the tags are
 
-    /// A line's dietary chips: the codes the sorter read, found **straight after the dish's
-    /// mention** — "tiramisu v 3.0" — which is the only place the composer ever makes one. Without a
-    /// mention there is nothing honest to anchor on, so no chip is drawn (the dish row still carries
-    /// the tag); a code that is not where it should be is left as the words it is.
+    /// A line's dietary chips: the codes the sorter read, found where the sorter found them.
+    ///
+    /// The sorter attaches a chip to **the dish named nearest before it** (`sort-entry/tags.ts`,
+    /// `attachTagTokens`) — which is also the Diet key's rule: a chip belongs to the nearest dish to
+    /// its left. So a line's chips are looked for in its **stretch**: from the end of its mention to
+    /// the next line's mention. Two ways in, both biased hard toward leaving words alone:
+    ///
+    /// - **straight after the mention** ("tiramisu v 3.0"), any case — the typed chip's only place;
+    /// - **anywhere later in the stretch**, but only in the chip's own capitals ("the salmon roll 4.5
+    ///   was great, GF") — the Diet key's chip wherever the caret was. Lower case that far from the
+    ///   dish is prose ("it was v good"), and stays prose.
+    ///
+    /// Without a mention there is nothing honest to anchor on, so no chip is drawn (the dish row still
+    /// carries the tag).
     private static func tagSpans(
         for item: EntryCard.Item,
         in body: BodyOffsets,
+        mentions: [TextSpan],
         claimed: [TextSpan]
     ) -> [EntryTokenSpan] {
-        guard item.tags.isEmpty == false else { return [] }
-        let mention = body.span(scalarOffset: item.mentionOffset, scalarLength: item.mentionLength)
-            ?? body.occurrences(of: item.dishName).first
-        guard let mention else { return [] }
+        guard item.tags.isEmpty == false, let mention = mention(of: item, in: body) else { return [] }
         let units = body.units
-        var cursor = mention.endLocation
+        let stretchEnd = mentions
+            .map(\.location)
+            .filter { $0 >= mention.endLocation }
+            .min() ?? units.count
         var remaining = Set(item.tags)
         var spans: [EntryTokenSpan] = []
-        while remaining.isEmpty == false {
-            var start = cursor
-            while start < units.count, units[start] == 32 { start += 1 }
-            guard start > cursor else { break }
-            var end = start
-            while end < units.count, isASCIILetter(units[end]) { end += 1 }
-            guard end > start else { break }
-            let text = String(decoding: units[start..<end], as: UTF16.self)
-            guard let tag = DietTag(code: text), remaining.contains(tag) else { break }
+
+        func claim(_ start: Int, _ end: Int, text: String) {
+            guard let tag = DietTag(code: text), remaining.contains(tag) else { return }
             let span = TextSpan(location: start, length: end - start)
-            guard isFree(span, claimed) else { break }
+            guard isFree(span, claimed), isFree(span, spans.map(\.span)) else { return }
             // The chip carries its line's dish, so an edit that deletes it can clear that line's
             // tag (``EditTagDiff``) instead of forcing a re-sort.
             spans.append(EntryTokenSpan(
                 token: EntryToken(kind: .tag(DietTagMark(tag: tag, text: text)), dishID: item.dishID), span: span
             ))
             remaining.remove(tag)
+        }
+
+        // Straight after the dish, one word after another: "tiramisu V GF 3.0".
+        var cursor = mention.endLocation
+        while remaining.isEmpty == false {
+            var start = cursor
+            while start < stretchEnd, units[start] == 32 { start += 1 }
+            guard start > cursor else { break }
+            var end = start
+            while end < stretchEnd, isASCIILetter(units[end]) { end += 1 }
+            guard end > start, end == stretchEnd || isWordBoundary(units[end]) else { break }
+            let text = String(decoding: units[start..<end], as: UTF16.self)
+            let before = spans.count
+            claim(start, end, text: text)
+            guard spans.count > before else { break }
             cursor = end
         }
-        return spans
+
+        // Later in the stretch: whole words in the chip's own capitals.
+        for code in capitalCodes(in: units, from: cursor, to: stretchEnd) where remaining.isEmpty == false {
+            claim(code.span.location, code.span.endLocation, text: code.text)
+        }
+        return spans.sorted { $0.span.location < $1.span.location }
+    }
+
+    /// Whole words between `start` and `end` written as a chip prints them: "GF", "VG", "V".
+    private static func capitalCodes(
+        in units: [UInt16], from start: Int, to end: Int
+    ) -> [(span: TextSpan, text: String)] {
+        var found: [(span: TextSpan, text: String)] = []
+        var index = start
+        while index < end {
+            guard isASCIILetter(units[index]), index == 0 || isWordBoundary(units[index - 1]) else {
+                index += 1
+                continue
+            }
+            var wordEnd = index
+            while wordEnd < end, isASCIILetter(units[wordEnd]) { wordEnd += 1 }
+            let text = String(decoding: units[index..<wordEnd], as: UTF16.self)
+            let isWhole = wordEnd == units.count || isWordBoundary(units[wordEnd])
+            if isWhole, let tag = DietTag(code: text), text == tag.label {
+                found.append((TextSpan(location: index, length: wordEnd - index), text))
+            }
+            index = wordEnd
+        }
+        return found
+    }
+
+    private static func mention(of item: EntryCard.Item, in body: BodyOffsets) -> TextSpan? {
+        body.span(scalarOffset: item.mentionOffset, scalarLength: item.mentionLength)
+            ?? body.occurrences(of: item.dishName).first
+    }
+
+    /// Not a letter or a digit: "GFX" and "GF2" are not chips.
+    private static func isWordBoundary(_ unit: UInt16) -> Bool {
+        guard let scalar = Unicode.Scalar(unit) else { return true }
+        return CharacterSet.alphanumerics.contains(scalar) == false
     }
 
     private static func isASCIILetter(_ unit: UInt16) -> Bool {

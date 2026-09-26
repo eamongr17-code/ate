@@ -329,6 +329,64 @@ struct EntryBodyTokensTests {
         #expect(EntryBodyTokens.composition(for: entry).tags.isEmpty)
     }
 
+    /// A sorted line with its mention and tags, for the Diet key's four cases as they come back.
+    private struct Tagged {
+        let dish: String
+        let score: Double?
+        let tags: [DietTag]
+        init(_ dish: String, _ score: Double?, _ tags: [DietTag]) {
+            self.dish = dish
+            self.score = score
+            self.tags = tags
+        }
+    }
+
+    private func tagged(_ body: String, _ dishes: [Tagged]) -> EntryCard {
+        card(body, place: nil, items: []).replacing(items: dishes.enumerated().map { index, line in
+            EntryCard.Item(
+                reviewID: UUID(), dishID: UUID(), dishName: line.dish,
+                score: line.score.flatMap { Rating(exactly: $0) },
+                position: index + 1,
+                mentionOffset: scalars(of: line.dish.lowercased(), in: body.lowercased()).0,
+                mentionLength: line.dish.unicodeScalars.count, tags: line.tags
+            )
+        })
+    }
+
+    @Test("saved: a chip right after its dish prints as a chip")
+    func savedChipRightAfterTheDish() throws {
+        let body = "The salmon roll GF was great."
+        let chips = EntryBodyTokens.composition(for: tagged(body, [Tagged("Salmon roll", nil, [.gf])])).spans
+            .filter { $0.token.tag != nil }
+        #expect(chips.map { slice($0.span, of: body) } == ["GF"])
+    }
+
+    @Test("saved: a chip between a dish and its score prints as a chip, the score as a pill")
+    func savedChipBeforeTheScore() {
+        let body = "The salmon roll GF 4.5 was great."
+        let composition = EntryBodyTokens.composition(for: tagged(body, [Tagged("Salmon roll", 4.5, [.gf])]))
+        #expect(composition.tags == [.gf])
+        #expect(composition.scores.map(\.value) == [4.5])
+    }
+
+    @Test("saved: a chip several words after its dish prints as a chip — never as plain \"GF\"")
+    func savedChipSeveralWordsLater() throws {
+        let body = "Final pass drive. The salmon roll 4.5 was great, GF and the tiramisu too."
+        let entry = tagged(body, [Tagged("Salmon roll", 4.5, [.gf]), Tagged("Tiramisu", nil, [])])
+        let chips = EntryBodyTokens.composition(for: entry).spans.filter { $0.token.tag != nil }
+        #expect(chips.count == 1)
+        let chip = try #require(chips.first)
+        #expect(slice(chip.span, of: body) == "GF")
+        #expect(chip.token.dishID == entry.items[0].dishID, "it belongs to the dish on its left")
+    }
+
+    @Test("saved: a chip is only looked for up to the next dish — never borrowed from another line")
+    func savedChipStopsAtTheNextDish() {
+        let body = "The salmon roll 4.5, then the tiramisu GF."
+        let entry = tagged(body, [Tagged("Salmon roll", 4.5, [.gf]), Tagged("Tiramisu", nil, [])])
+        #expect(EntryBodyTokens.composition(for: entry).tags.isEmpty, "that GF is the tiramisu's words")
+    }
+
     @Test("an unscored line contributes no pill, and a score absent from the words is dropped")
     func nothingIsInvented() {
         let body = "The prawn spaghetti looked the business."

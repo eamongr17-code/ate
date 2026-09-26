@@ -19,31 +19,44 @@ struct StarSlider: View {
     var onFinish: ((Rating) -> Void)?
 
     @Environment(\.atePalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var trackWidth: CGFloat = 0
     /// True while a finger is on the track. SwiftUI resets it however the drag ends — lifted *or*
     /// cancelled (a system gesture, a second finger) — and a cancelled drag never reaches `onEnded`.
     /// Watching the reset is what stops a cancelled scrub leaving the panel up with no way out.
     @GestureState private var isScrubbing = false
 
+    /// Design rule 7: an unscored dish is an empty star and NO text. Five empty stars already say
+    /// it; a dash would be the app putting words in someone's mouth.
+    private var score: some View {
+        Text(rating.map { ScoreFormat.halfStep($0.value) } ?? "")
+            .ateText(.sliderScore)
+            .monospacedDigit()
+            .fixedSize()
+            .contentTransition(.numericText(value: rating?.value ?? 0))
+            .ateAnimation(AteMotion.scoreRoll, value: rating?.halfSteps ?? 0)
+    }
+
     /// `RaterSize.dc.html` (2026-09-26): the dish and its score on one scale — the name in the
     /// slip's dish voice at 22, the numeral at 28, baselines shared, `gap:14px`; the panel
     /// `padding:18px 18px 16px; gap:12px`.
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.regular) {
-            HStack(alignment: .firstTextBaseline, spacing: Self.headerGap) {
-                Text(dishName)
-                    .ateText(.sliderDish)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                // Design rule 7: an unscored dish is an empty star and NO text. Five empty stars
-                // already say it; a dash would be the app putting words in someone's mouth.
-                Text(rating.map { ScoreFormat.halfStep($0.value) } ?? "")
-                    .ateText(.sliderScore)
-                    .monospacedDigit()
-                    .fixedSize()
-                    .contentTransition(.numericText(value: rating?.value ?? 0))
-                    .ateAnimation(AteMotion.scoreRoll, value: rating?.halfSteps ?? 0)
+            if dynamicTypeSize.isAccessibilitySize {
+                // At the accessibility sizes the name beside a 28pt-and-up numeral has a word's
+                // width and broke mid-word ("Tagliatell / e"): it takes the panel's width, never
+                // breaking a word (``WordFittingLabel``), with the score under it.
+                AteExactText(text: dishName, style: .sliderDish, alignment: .leading, lineLimit: 2)
+                score
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: Self.headerGap) {
+                    Text(dishName)
+                        .ateText(.sliderDish)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    score
+                }
             }
             track
         }
@@ -136,6 +149,12 @@ enum AteHaptics {
     /// one tap rather than nine in a scrub, so it can afford to be felt.
     static func save() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    /// A key that had nothing to act on — the Diet key with no dish before the caret. The system's
+    /// own error pattern, the lightest thing that says "not here" without a word of copy.
+    static func refused() {
+        UINotificationFeedbackGenerator().notificationOccurred(.error)
     }
 
     /// An entry saved — Done in the composer landing. The system's own success pattern.

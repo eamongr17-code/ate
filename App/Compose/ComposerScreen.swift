@@ -267,6 +267,9 @@ struct ComposerScreen: View {
             // toolbar went off the top and bottom with it.
             photoCluster
                 .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .topLeading)
+                // …and what hangs past the well's foot is cut there, not drawn under the toolbar's
+                // keys. Only top and bottom: the tilted photos lean past the well's sides.
+                .mask { Rectangle().padding(.horizontal, -Self.wellInset) }
                 .opacity(model.scoring == nil ? 1 : 0)
                 .allowsHitTesting(model.scoring == nil)
 
@@ -293,13 +296,14 @@ struct ComposerScreen: View {
                 }
                 // `ComposerStars` pins the panel at `top:100px` inside a column that is itself 8
                 // below the header.
-                .padding(.top, 100 - AteMetrics.snug)
+                // At the accessibility sizes the panel is several times taller: it opens at the top of
+                // the well, and a panel taller than the well runs on over it rather than pushing the
+                // toolbar down under the keyboard.
+                .padding(.top, dynamicTypeSize.isAccessibilitySize ? 0 : 100 - AteMetrics.snug)
+                .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .top)
                 .transition(.scale(scale: 0.96).combined(with: .opacity))
             }
         }
-        // …and what hangs past the well's foot is cut there, not drawn under the toolbar's keys. Only
-        // top and bottom: the tilted photos lean past the well's sides.
-        .mask { Rectangle().padding(.horizontal, -Self.wellInset) }
         .padding(.horizontal, Self.wellInset)
         .padding(.top, AteMetrics.snug)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { editorWidth = $0 }

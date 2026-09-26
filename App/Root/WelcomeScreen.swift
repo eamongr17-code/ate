@@ -28,17 +28,35 @@ struct WelcomeScreen: View {
     @State private var failure: ActionFailure?
 
     var body: some View {
-        ZStack {
-            slip
-                .frame(maxHeight: .infinity, alignment: .top)
-            doors
-                .frame(maxHeight: .infinity, alignment: .bottom)
+        // The slip hangs from the top and the doors stand on the bottom. Stacked rather than
+        // layered, so however tall the type makes either one they cannot overlap — at the largest
+        // sizes the two outgrow the screen and the page scrolls, Apple's button always clear of the
+        // slip (App Review reads an obscured Sign in with Apple as a rejection). At the design's size
+        // the gap between them is simply the page's own, and nothing moves.
+        ViewThatFits(in: .vertical) {
+            page
+            ScrollView { page }
+                .scrollBounceBehavior(.basedOnSize)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay(alignment: .topTrailing) { debugDoor }
         .ateAccentGround(AteColor.coral)
         .ateFailureAlert($failure)
     }
+
+    private var page: some View {
+        VStack(spacing: 0) {
+            slip
+            // The photos hang off the slip's corners by offsets that take no room; the gap keeps
+            // the burger (136 tall, dropped 50 below the slip) off the button.
+            Spacer(minLength: Self.slipToDoors)
+            doors
+        }
+        .frame(maxWidth: .infinity, minHeight: AteScreen.height - AteScreen.safeArea.top - AteScreen.safeArea.bottom)
+    }
+
+    /// The burger's overhang under the slip (`136 × sin-ish tilt`, dropped 50) plus air.
+    private static let slipToDoors: CGFloat = 72
 
     /// The printed slip, tilted, with two photos escaping from behind it — the design's own
     /// composition, down to the angles and the overhangs.

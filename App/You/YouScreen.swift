@@ -145,18 +145,17 @@ struct YouScreen: View {
                                     side: YouScreen.tileSide
                                 )
                                 .rotationEffect(.degrees(YouScreen.tileAngles[index % 4]))
-                                Text(dish.dishName)
-                                    .ateText(.tileCaption)
-                                    .multilineTextAlignment(.center)
-                                    // Two lines, as the artboard's longest caption takes. A dish
-                                    // name is never truncated in a slip's stack — there it IS the
-                                    // item — but here the tile is the item and the name labels it.
-                                    .lineLimit(2)
-                                    // A single word wider than the 80pt column ("Cheeseburger" is,
-                                    // in Bricolage at 12) breaks mid-word rather than wrapping.
-                                    // Shrinking it a fraction is the lesser of the two.
-                                    .minimumScaleFactor(0.82)
-                                    .foregroundStyle(AtePalette.automatic.fg)
+                                // Two lines, as the artboard's longest caption takes. A single
+                                // word wider than the 80pt column ("Cheeseburger" at the larger
+                                // text sizes) is set down until it fits rather than broken
+                                // mid-word (``WordFittingLabel``).
+                                AteExactText(
+                                    text: dish.dishName,
+                                    style: .tileCaption,
+                                    alignment: .center,
+                                    colour: AtePalette.automatic.fg,
+                                    lineLimit: 2
+                                )
                             }
                             .frame(width: YouScreen.tileColumn)
                             .contentShape(.rect)
