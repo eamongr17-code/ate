@@ -66,6 +66,7 @@ public final class PlacePageStore {
         pageSize: Int = 20,
         menuPageSize: Int = PlacePageStore.menuPageSize,
         savedDishes: SavedDishBroadcast? = nil,
+        deletions: EntryDeletions? = nil,
         analytics: @escaping AnalyticsRecorder = { _ in }
     ) {
         self.restaurantID = restaurantID
@@ -91,6 +92,10 @@ public final class PlacePageStore {
                 restaurantID: restaurantID, scope: .others, after: cursor, pageSize: size
             )
         }
+        // A visit deleted anywhere — this page's own entry page, the journal — leaves both lists in
+        // the same turn, like every other list of entries.
+        visits.listen(to: deletions)
+        entries.listen(to: deletions)
     }
 
     // MARK: - What the view reads

@@ -139,20 +139,12 @@ struct SearchTabScreen: View {
         } action: { resultsTop = $0 + AteScreen.safeArea.top }
     }
 
-    /// **The one position rule for a state with nothing under it** — the Journal's (`MainEmpty`):
-    /// the line centred in what is left of the page, 22 under the control above it and 110 clear of
-    /// the bottom edge. Here the control above is the segment row, which the results sit 16 under.
+    /// **The one position rule for a state with nothing under it** (``AteEmptyPlacement``): centred
+    /// on the same screen line as every other empty state, measured from where the results begin.
     private func centred(_ state: some View) -> some View {
-        state
-            .frame(maxWidth: .infinity)
-            .frame(height: max(0, AteScreen.height - resultsTop - SearchTabScreen.emptyGapExtra
-                - SearchTabScreen.emptyBottom))
-            .padding(.top, SearchTabScreen.emptyGapExtra)
+        state.ateEmptyPlacement(top: resultsTop)
     }
 
-    /// `MainEmpty`'s 22 under the segment, less the 16 the column already puts there.
-    private static let emptyGapExtra: CGFloat = 22 - AteMetrics.loose
-    private static let emptyBottom: CGFloat = 110
     nonisolated private static let contentSpace = "search.content"
 
     @ViewBuilder

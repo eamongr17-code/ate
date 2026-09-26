@@ -89,17 +89,14 @@ struct SuggestionsScreen: View {
         .background(AtePalette.automatic.ground)
     }
 
-    /// The journal's own rule for a state with nothing under it (`MainEmpty`): the line centred in
-    /// what is left of the page, between the header and 110 above the bottom edge.
+    /// The one rule for a state with nothing under it (``AteEmptyPlacement``): centred on the same
+    /// screen line as every other empty state.
     private func centred(_ state: some View) -> some View {
-        state
-            .frame(maxWidth: .infinity)
-            .frame(height: max(0, AteScreen.height - SuggestionsScreen.headerBottom - SuggestionsScreen.bottomClear))
+        state.ateEmptyPlacement(top: SuggestionsScreen.headerBottom)
     }
 
-    /// Where the header ends on the page: the 60 content top, the 44 back arrow, the list's 8.
+    /// Where the list begins on the page: the 60 content top, the 44 back arrow, the list's 8.
     private static let headerBottom: CGFloat = AteMetrics.contentTop + AteMetrics.hit + AteMetrics.snug
-    private static let bottomClear: CGFloat = 110
 
     // MARK: - A row
 

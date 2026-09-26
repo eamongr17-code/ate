@@ -108,3 +108,49 @@ struct AteLegalTests {
         #expect(AteLegal.arePlaceholders, "flip this test the day the real domain lands")
     }
 }
+
+@MainActor
+@Suite("Place and dish pages drop a deleted entry")
+struct DetailDeletionTests {
+    private let placeID = UUID()
+    private let dishID = UUID()
+    private let author = EntryCard.Author(id: UUID(), username: "jessw")
+
+    private func card(_ id: UUID) -> EntryCard {
+        EntryCard(
+            id: id, authorID: author.id, body: "Good.", orderNumber: 1, sortStatus: .sorted,
+            createdAt: Date(timeIntervalSince1970: 1_789_776_000), isMine: false, author: author,
+            place: EntryCard.Place(id: placeID, name: "Tipo 00")
+        )
+    }
+
+    private func review(_ entry: UUID) -> DishReview {
+        DishReview(
+            reviewID: UUID(), entryID: entry, author: author, score: nil, note: nil,
+            createdAt: Date(timeIntervalSince1970: 1_789_776_000), isMine: false
+        )
+    }
+
+    @Test("A deleted visit leaves the place page's list, and its review leaves the dish page")
+    func deletedEntryVanishes() async {
+        let source = FakePlaceDishSource()
+        let gone = UUID()
+        source.seed(place: PlaceSummary(restaurantID: placeID, name: "Tipo 00"), entries: [card(gone), card(UUID())])
+        source.seed(
+            dish: DishSummary(dishID: dishID, name: "Ragù", restaurantID: placeID, restaurantName: "Tipo 00"),
+            reviews: [review(gone), review(UUID())]
+        )
+        let deletions = EntryDeletions()
+        let place = PlacePageStore(restaurantID: placeID, places: source, deletions: deletions)
+        let dish = DishPageStore(dishID: dishID, dishes: source, deletions: deletions)
+        await place.load()
+        await dish.load()
+        #expect(place.entries.entries.count == 2)
+        #expect(dish.reviews.count == 2)
+
+        deletions.send(gone)
+        #expect(place.entries.entries.map(\.id).contains(gone) == false)
+        #expect(dish.reviews.contains { $0.entryID == gone } == false)
+        #expect(dish.reviews.count == 1)
+    }
+}

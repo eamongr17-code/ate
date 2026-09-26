@@ -10,7 +10,7 @@ import Observation
 /// "the same action works identically everywhere" survives a fourth surface (AGENTS.md rule 2).
 @MainActor
 @Observable
-public final class DishPageStore: SavedDishObserving {
+public final class DishPageStore: SavedDishObserving, EntryDeletionObserving {
 
     public enum Header: Sendable, Equatable {
         case loading
@@ -69,6 +69,7 @@ public final class DishPageStore: SavedDishObserving {
         dishes: any DishPageReading,
         pageSize: Int = DishPageStore.reviewPageSize,
         savedDishes: SavedDishBroadcast? = nil,
+        deletions: EntryDeletions? = nil,
         analytics: @escaping AnalyticsRecorder = { _ in }
     ) {
         self.dishID = dishID
@@ -77,6 +78,7 @@ public final class DishPageStore: SavedDishObserving {
         self.pageSize = pageSize
         self.analytics = analytics
         savedDishes?.add(self)
+        deletions?.add(self)
     }
 
     // MARK: - What the view reads
@@ -229,6 +231,14 @@ public final class DishPageStore: SavedDishObserving {
     public func savedDishChanged(dishID: UUID, isSaved: Bool) {
         guard dishID == self.dishID else { return }
         self.isSaved = isSaved
+    }
+
+    /// An entry was deleted somewhere. A review is a quote from a visit, so the visit's review
+    /// leaves the list in the same turn; the aggregate catches up on the next read.
+    public func entryDeleted(_ entryID: UUID) {
+        guard reviews.contains(where: { $0.entryID == entryID }) else { return }
+        reviews.removeAll { $0.entryID == entryID }
+        if reviews.isEmpty, phase == .ready { phase = .empty }
     }
 
     // MARK: - Machinery

@@ -66,13 +66,11 @@ struct PlaceScreen: View {
         case .unavailable:
             // Deleted, or behind a block. Say that, and nothing else (design rule 1).
             AteEmptyState(title: "This place\nisn't here.")
-                .padding(.top, AteMetrics.section)
+                .ateEmptyPlacement(top: AteDetailPage.contentTop)
         case .unreachable:
             // The read never came back. Not the same as a place that is gone: this one gets a retry.
-            AteEmptyState(title: "Couldn't\nreach Ate.", actionTitle: "Try again") {
-                Task { await store.retry() }
-            }
-            .padding(.top, AteMetrics.section)
+            AteUnreachableState { Task { await store.retry() } }
+                .ateEmptyPlacement(top: AteDetailPage.contentTop)
             .accessibilityIdentifier("place.unreachable")
         case .ready(let summary):
             VStack(alignment: .leading, spacing: 10) {
@@ -325,4 +323,10 @@ private struct MenuSkeletonLines: View {
             }
         }
     }
+}
+
+/// Where a pushed detail page's content begins on the screen: the 60 content top, the 44 back
+/// arrow, and the page's 2 — what its "isn't here" and "couldn't reach Ate" are centred from.
+enum AteDetailPage {
+    static let contentTop: CGFloat = AteMetrics.contentTop + AteMetrics.hit + AteMetrics.hairspace
 }
