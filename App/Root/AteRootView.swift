@@ -201,6 +201,11 @@ struct AteShell: View {
             ZStack(alignment: .bottom) {
                 current
                 AteTabScrim()
+                // Above the scrim, or the fade washes the pill out. Only the shelf's own unsave
+                // offers one (`SaveAction`), and it lives four seconds.
+                if tab == .journal {
+                    SavedUndoPill(store: saved) { Task { await saveAction.undoUnsaveFromShelf() } }
+                }
                 AteTabBar(selection: selection, onCompose: { openComposer(.tabBar) })
             }
             .ignoresSafeArea(.keyboard)
@@ -344,8 +349,7 @@ struct AteShell: View {
                 // to the rest of the app or counted — the store puts its row back on a refusal.
                 onUnsave: { dish in
                     Task { await saveAction.unsaveFromShelf(dish) }
-                },
-                onUndoUnsave: { Task { await saveAction.undoUnsaveFromShelf() } }
+                }
             )
             .task { await countPhotos() }
             #if DEBUG

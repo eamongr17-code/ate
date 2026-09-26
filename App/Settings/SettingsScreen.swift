@@ -16,6 +16,7 @@ struct SettingsScreen: View {
     var onBack: () -> Void = {}
 
     @State private var photo: PhotosPickerItem?
+    @State private var isPickingPhoto = false
     @State private var isConfirmingDelete = false
     /// The data went but the login survived: the session is already over, once the alert is read.
     @State private var endsSessionAfterAlert = false
@@ -92,12 +93,12 @@ struct SettingsScreen: View {
     /// than replacing it with a control of its own. Once there is a photo — on file, or just picked —
     /// it sits where the row's value would, as a byline-sized disc, dimmed while it uploads.
     private var photoRow: some View {
-        PhotosPicker(selection: $photo, matching: .images, photoLibrary: .shared()) {
-            AteSettingsRow(title: "Photo") {
-                avatarDisc
-            }
+        AteSettingsRow(title: "Photo") {
+            avatarDisc
+        } action: {
+            isPickingPhoto = true
         }
-        .buttonStyle(.plain)
+        .photosPicker(isPresented: $isPickingPhoto, selection: $photo, matching: .images, photoLibrary: .shared())
     }
 
     @ViewBuilder

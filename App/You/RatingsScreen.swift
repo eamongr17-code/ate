@@ -50,7 +50,9 @@ struct RatingsScreen: View {
                         selected: store.score,
                         onSelect: { score in
                             Task {
-                                await store.select(score)
+                                // Latest tap wins: one overtaken by a newer tap neither scrolls nor
+                                // counts, so the page always ends on the bar that is lit.
+                                guard await store.select(score) else { return }
                                 onViewed(score)
                                 scroll(to: score, with: proxy)
                             }

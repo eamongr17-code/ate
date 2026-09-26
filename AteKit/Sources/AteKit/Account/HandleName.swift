@@ -56,6 +56,13 @@ public enum HandleName {
     }
 }
 
+/// `setHandle` refused because the handle is somebody else's: the `profiles.username` unique index
+/// (Postgres `23505`). The one write failure that means "taken" — anything else is a save that can
+/// be tried again.
+public struct HandleTaken: Error, Equatable, Sendable {
+    public init() {}
+}
+
 /// What is known about the handle in the field, right now.
 ///
 /// `unknown` is deliberately distinct from `taken`: a check that could not be made must not read as

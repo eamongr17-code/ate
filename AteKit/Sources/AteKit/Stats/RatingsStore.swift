@@ -52,9 +52,14 @@ public final class RatingsStore {
     /// for its next page (`nil` before its first page).
     private var position = 0
     private var cursor: PageCursor?
-    private var isFetching = false
+    /// The page in the air, if any. Everybody who wants the next page while one is loading waits on
+    /// this one rather than giving up — a bar tapped mid-load still gets walked to its group.
+    private var pageTask: Task<Void, Never>?
     /// Bumped by a refresh, so a page in the air for the old walk cannot land on the new one.
     private var generation = 0
+    /// Bumped by every bar tap. Latest wins: a tap whose walk is overtaken by a newer tap stops
+    /// walking, and reports that it is no longer the one on screen.
+    private var selection = 0
 
     public init(score: Double, stats: any StatsReading, pageSize: Int = StatsClient.defaultDishLimit) {
         self.score = ScoreHistogram.snapped(score)
@@ -104,7 +109,6 @@ public final class RatingsStore {
         position = 0
         cursor = nil
         didFail = false
-        isFetching = false
         // The first screenful — and, when the page was opened on a bar, everything down to it.
         await reveal(score)
         if groups.isEmpty { await loadNextPage() }
@@ -121,35 +125,55 @@ public final class RatingsStore {
     /// How close to the end a row has to be before the next page is asked for.
     private static let prefetchDistance = 5
 
-    /// A bar, tapped: light it, and read down the list until its group has rows on screen. The view
-    /// scrolls to the group once this returns. A bar with nothing behind it is not a link.
-    public func select(_ next: Double) async {
+    /// A bar, tapped: light it, and read down the list until its group has rows on screen.
+    ///
+    /// **Returns whether this tap is still the one on screen** once its group is there — the view
+    /// scrolls, and counts the view, only on `true`. Two quick taps: the first returns `false` (it
+    /// was overtaken), the second `true`, so the page ends on the bar that is lit. A bar with
+    /// nothing behind it is not a link, and returns `false`.
+    @discardableResult
+    public func select(_ next: Double) async -> Bool {
         let snapped = ScoreHistogram.snapped(next)
-        guard histogram.dishCount(at: snapped) > 0 else { return }
+        guard histogram.dishCount(at: snapped) > 0 else { return false }
+        selection += 1
+        let mine = selection
         score = snapped
-        await reveal(snapped)
+        await reveal(snapped, while: { self.selection == mine })
+        return selection == mine && group(at: snapped) != nil
     }
 
     /// Reads pages in order until the group for `score` has started, or the list is exhausted, or a
     /// page fails. Every page it reads is one the person would have scrolled past anyway.
-    private func reveal(_ score: Double) async {
+    ///
+    /// `wanted` is asked before every page: a walk nobody is waiting for any more (its tap was
+    /// overtaken) stops where it is.
+    private func reveal(_ score: Double, while wanted: () -> Bool = { true }) async {
         let step = ScoreHistogram.halfSteps(score)
         guard order.contains(where: { ScoreHistogram.halfSteps($0) == step }) else { return }
-        while group(at: score) == nil, isExhausted == false, didFail == false {
-            let before = position
-            let cursorBefore = cursor
+        let generationAtStart = generation
+        while group(at: score) == nil, isExhausted == false, didFail == false, wanted() {
             await loadNextPage()
-            // Nothing moved — another read holds the walk. Stop rather than spin.
-            if position == before, cursor == cursorBefore, group(at: score) == nil { return }
+            // A refresh started a new walk; that walk reveals for itself.
+            guard generationAtStart == generation else { return }
         }
     }
 
-    /// One page of the group being read, or the first page of the next one.
+    /// One page of the group being read, or the first page of the next one. While a page is in the
+    /// air this waits for it instead — the caller's next look at the list sees that page landed.
     public func loadNextPage() async {
-        guard isFetching == false, isExhausted == false, didFail == false,
-              let viewer = await viewerID() else { return }
-        isFetching = true
-        defer { isFetching = false }
+        if let pageTask {
+            await pageTask.value
+            return
+        }
+        guard isExhausted == false, didFail == false else { return }
+        let task = Task { await fetchPage() }
+        pageTask = task
+        await task.value
+    }
+
+    private func fetchPage() async {
+        defer { pageTask = nil }
+        guard let viewer = await viewerID(), isExhausted == false, didFail == false else { return }
         let generationAtStart = generation
         let wanted = order[position]
         let after = cursor

@@ -130,7 +130,15 @@ public extension InMemoryStatsService {
             dish("Prawn toast", "Hochi Mama", 4.0, 5),
             dish("Salmon roll", "Kisumé", 4.0, 38),
             dish("Penne alla vodka", "Di Stasio", 3.5, 12),
-            dish("Tiramisu", "Tipo 00", 3.0, 300)
+            dish("Tiramisu", "Tipo 00", 3.0, 300),
+            dish("Gnocchi", "Tipo 00", 3.0, 44),
+            dish("Pad see ew", "Soi 38", 3.0, 51),
+            dish("Fish tacos", "Mamasita", 2.5, 60),
+            dish("Caesar salad", "Hardware Société", 2.5, 64),
+            dish("Hot chips", "Butchers Diner", 2.0, 70),
+            dish("Croissant", "Lune", 1.5, 90),
+            dish("Soggy toastie", "Station café", 1.0, 120),
+            dish("Burnt toast", "Home", 0.5, 150)
         ]
     }()
 

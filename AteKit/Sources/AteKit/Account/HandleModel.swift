@@ -29,8 +29,9 @@ public final class HandleModel {
     public private(set) var status: HandleStatus = .empty
     /// True while Continue is writing.
     public private(set) var isSaving = false
-    /// Set when the write itself was refused — the one failure the person has to be told about,
-    /// because their tap did nothing.
+    /// Set when the write failed for any reason but the handle being taken — offline, a 500. The
+    /// handle keeps its mark and Continue stays on, so the same tap can be made again; the screen
+    /// says the save did not happen.
     public private(set) var didFailToSave = false
 
     /// The handle already on the profile, when this screen is an edit rather than a first run.
@@ -104,13 +105,21 @@ public final class HandleModel {
             try await account.setHandle(typed)
             analytics(AccountEvents.handleSet(isFirstRun: isFirstRun))
             return typed
-        } catch {
-            didFailToSave = true
-            // The one case worth re-reading: the unique index refused because somebody took it
-            // between the check and the write.
+        } catch is HandleTaken {
+            // The unique index refused: somebody took it between the check and the write. That,
+            // and only that, is "taken".
             status = .taken
             return nil
+        } catch {
+            // Not a verdict on the handle. It keeps its mark; the save is simply to be tried again.
+            didFailToSave = true
+            return nil
         }
+    }
+
+    /// The save failure has been shown.
+    public func acknowledgeSaveFailure() {
+        didFailToSave = false
     }
 
     // MARK: - The check

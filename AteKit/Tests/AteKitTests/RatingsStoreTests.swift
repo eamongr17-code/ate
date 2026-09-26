@@ -110,6 +110,67 @@ struct RatingsStoreTests {
         #expect(store.groups.map(\.score) == [5, 4, 2.5])
     }
 
+    /// Every page takes a moment, so a second tap lands while the first tap's walk is mid-page.
+    private final class Slow: StatsReading, @unchecked Sendable {
+        private let inner: InMemoryStatsService
+        init(_ inner: InMemoryStatsService) { self.inner = inner }
+        func viewerID() async throws -> UUID { try await inner.viewerID() }
+        func summary(userID: UUID) async throws -> ProfileSummary { try await inner.summary(userID: userID) }
+        func histogram(userID: UUID) async throws -> ScoreHistogram { try await inner.histogram(userID: userID) }
+        func dishes(
+            userID: UUID, score: Double, after cursor: PageCursor?, pageSize: Int
+        ) async throws -> Page<ScoredDish> {
+            try await Task.sleep(for: .milliseconds(15))
+            return try await inner.dishes(userID: userID, score: score, after: cursor, pageSize: pageSize)
+        }
+        func months(
+            userID: UUID, timeZone: TimeZone, after cursor: StatementMonth?, limit: Int
+        ) async throws -> [StatementMonthSummary] {
+            try await inner.months(userID: userID, timeZone: timeZone, after: cursor, limit: limit)
+        }
+        func statement(userID: UUID, month: StatementMonth, timeZone: TimeZone) async throws -> MonthlyStatement {
+            try await inner.statement(userID: userID, month: month, timeZone: timeZone)
+        }
+    }
+
+    @Test("Two quick taps end on the second bar's group, and only the second counts as viewed")
+    func latestTapWins() async throws {
+        let store = RatingsStore(score: 5, stats: Slow(Self.fixture()), pageSize: 1)
+        await store.loadIfNeeded()
+        var viewed: [Double] = []
+        // What the screen does with a tap: scroll and count only if it is still the lit bar.
+        func tap(_ score: Double) async -> Bool {
+            let current = await store.select(score)
+            if current { viewed.append(score) }
+            return current
+        }
+
+        // 2.5 sits behind every 5.0 and 4.0 page; 4.0 is tapped while the walk is mid-page.
+        let first = Task { await tap(2.5) }
+        try await Task.sleep(for: .milliseconds(5))
+        let second = Task { await tap(4) }
+        let secondIsCurrent = await second.value
+        let firstIsCurrent = await first.value
+
+        #expect(secondIsCurrent)
+        #expect(firstIsCurrent == false)
+        #expect(store.score == 4)
+        #expect(store.group(at: 4) != nil, "the second tap's walk waited on the page in the air")
+        #expect(viewed == [4])
+    }
+
+    @Test("A walk that finds a page in the air waits for it rather than giving up")
+    func revealWaitsForTheInFlightPage() async {
+        let store = RatingsStore(score: 5, stats: Slow(Self.fixture()), pageSize: 1)
+        await store.loadIfNeeded()
+        let prefetch = Task { await store.loadNextPage() }
+        await Task.yield()
+        let reached = await store.select(2.5)
+        await prefetch.value
+        #expect(reached)
+        #expect(store.group(at: 2.5) != nil)
+    }
+
     @Test("Opened on a bar, the page already holds that bar's group")
     func opensOnABar() async {
         let store = RatingsStore(score: 4, stats: Self.fixture(), pageSize: 1)

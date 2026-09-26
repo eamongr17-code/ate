@@ -210,18 +210,37 @@ struct HandleModelTests {
         #expect(events.first(named: "handle_set")?.parameters["is_first_run"] == "true")
     }
 
-    @Test("a refused write keeps the screen, and says the handle went")
-    func refusedWriteStays() async throws {
+    @Test("a write that fails for any other reason keeps the handle's mark and can be tried again")
+    func failedWriteIsRetryable() async throws {
         let account = InMemoryAccountService(taken: [])
         let model = model(account)
         model.type("eamon")
         try await settle(model) { model.status == .available }
         account.failure = AteAPIError.notAuthenticated
 
-        let saved = await model.save()
-        #expect(saved == nil)
+        #expect(await model.save() == nil)
         #expect(model.didFailToSave)
+        #expect(model.status == .available, "offline is not a verdict on the handle")
+        #expect(model.canContinue)
+
+        model.acknowledgeSaveFailure()
+        account.failure = nil
+        #expect(await model.save() == "eamon")
+    }
+
+    @Test("only the unique index refusing is 'taken'")
+    func uniquenessViolationIsTaken() async throws {
+        // Free when checked; somebody takes it before Continue lands.
+        let account = InMemoryAccountService(taken: [])
+        let model = model(account)
+        model.type("jessw")
+        try await settle(model) { model.status == .available }
+        account.take("jessw")
+
+        #expect(await model.save() == nil)
         #expect(model.status == .taken)
+        #expect(model.didFailToSave == false, "taken is its mark, not a save error")
+        #expect(model.canContinue == false)
     }
 
     @Test("an unchanged handle needs no write at all")

@@ -42,8 +42,15 @@ public final class InMemoryAccountService: AccountServing, @unchecked Sendable {
         }
     }
 
+    /// Somebody else claims a handle — the race between the check and the write.
+    public func take(_ handle: String) {
+        lock.withLock { _ = taken.insert(handle) }
+    }
+
     public func setHandle(_ handle: String) async throws {
         try check()
+        // The unique index, in memory: somebody else's handle is refused the way Postgres refuses it.
+        if lock.withLock({ taken.contains(handle) && handle != profile.username }) { throw HandleTaken() }
         lock.withLock {
             taken.remove(profile.username)
             profile = AccountProfile(id: profile.id, username: handle, avatarURL: profile.avatarURL)

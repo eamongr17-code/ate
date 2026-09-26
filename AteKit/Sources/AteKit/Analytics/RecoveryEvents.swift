@@ -14,6 +14,7 @@ public enum ActionFailure: String, Sendable, CaseIterable, Identifiable {
     case addPlace = "add_place"
     case signIn = "sign_in"
     case avatar = "avatar_upload"
+    case handle = "handle_save"
 
     public var id: String { rawValue }
 
@@ -27,6 +28,7 @@ public enum ActionFailure: String, Sendable, CaseIterable, Identifiable {
         case .addPlace: "Couldn't add the place."
         case .signIn: "Couldn't sign in."
         case .avatar: "Couldn't change your photo."
+        case .handle: "Couldn't save your handle."
         }
     }
 }

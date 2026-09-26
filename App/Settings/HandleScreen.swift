@@ -54,6 +54,12 @@ struct HandleScreen: View {
         }
         // Continue rides above the keyboard — the artboard draws the page without one.
         .ateGround()
+        // A save that did not happen for any reason but the handle being taken: said once, and
+        // Continue is still there to try again.
+        .ateFailureAlert(Binding(
+            get: { model.didFailToSave ? .handle : nil },
+            set: { if $0 == nil { model.acknowledgeSaveFailure() } }
+        ))
         .onAppear {
             isFocused = true
             #if DEBUG

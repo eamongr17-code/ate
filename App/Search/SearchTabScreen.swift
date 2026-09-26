@@ -153,7 +153,7 @@ struct SearchTabScreen: View {
     /// `MainEmpty`'s 22 under the segment, less the 16 the column already puts there.
     private static let emptyGapExtra: CGFloat = 22 - AteMetrics.loose
     private static let emptyBottom: CGFloat = 110
-    private static let contentSpace = "search.content"
+    nonisolated private static let contentSpace = "search.content"
 
     @ViewBuilder
     private var rows: some View {
