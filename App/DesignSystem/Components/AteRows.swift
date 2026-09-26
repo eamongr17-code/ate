@@ -140,12 +140,16 @@ struct AteChip: View {
         }
         .padding(.leading, icon == nil ? 12 : 10)
         .padding(.trailing, 12)
-        .frame(height: height)
+        .atePillHeight(height)
         .background(palette.chip, in: .capsule)
         .foregroundStyle(palette.fg)
 
         if let action {
-            Button(action: action) { content }.buttonStyle(.plain)
+            // A 32 (or the feed's 40) pill reaches 44 to a finger.
+            let hit = AteHitOutset(height: height)
+            Button(action: action) { content.ateHitArea(hit) }
+                .buttonStyle(.plain)
+                .ateHitFootprint(hit)
         } else {
             content
         }
@@ -176,7 +180,7 @@ struct AteButton: View {
             }
             .padding(.horizontal, hugPadding ?? 0)
             .frame(maxWidth: hugPadding == nil ? .infinity : nil)
-            .frame(height: height)
+            .atePillHeight(height)
             .background(isSecondary ? palette.chip : palette.fg, in: .capsule)
             .foregroundStyle(isSecondary ? palette.fg : palette.inverted)
             .contentShape(.capsule)
@@ -216,18 +220,22 @@ struct AteSegments<Value: Hashable>: View {
                     Text(option.title)
                         .ateText(.controlSmall)
                         .frame(maxWidth: .infinity)
-                        .frame(height: AteMetrics.segmentHeight)
+                        .atePillHeight(AteMetrics.segmentHeight)
                         .background(isCurrent ? palette.chip : .clear, in: .capsule)
                         .foregroundStyle(isCurrent ? palette.fg : palette.muted)
-                        .contentShape(.rect)
+                        .ateHitArea(Self.hitOutset)
                 }
                 .buttonStyle(.plain)
+                .ateHitFootprint(Self.hitOutset)
                 .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
             }
         }
         .padding(AteMetrics.tight)
         .background(palette.field, in: .capsule)
     }
+
+    /// A segment is drawn 36 tall; a finger gets 44 (the outset lands on the pill's own rim).
+    private static var hitOutset: AteHitOutset { AteHitOutset(height: AteMetrics.segmentHeight) }
 }
 
 #if DEBUG

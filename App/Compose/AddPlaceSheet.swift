@@ -50,7 +50,7 @@ struct AddPlaceSheet: View {
             .ateText(.rowTitle)
             .textFieldStyle(.plain)
             .padding(.horizontal, AteMetrics.loose)
-            .frame(height: 52)
+            .atePillHeight(52)
             .background(AtePalette.surface.field, in: .capsule)
         }
     }

@@ -43,25 +43,39 @@ struct SlipDishRow: View {
         let metrics = DishRowMetrics(dynamicTypeSize: dynamicTypeSize)
         return HStack(alignment: .top, spacing: Self.bookmarkGap) {
             target {
-                ViewThatFits(in: .horizontal) {
-                    // One line: the name centred on the 26pt score slot, filled or empty.
-                    HStack(alignment: .center, spacing: AteMetrics.regular) {
+                if dynamicTypeSize.isAccessibilitySize {
+                    // At the accessibility sizes a name beside a 26pt-and-up score has a word's
+                    // width to wrap in, and broke mid-word ("Tagliatell / e"). The score drops
+                    // under the name instead, still printed like a price at the right.
+                    VStack(alignment: .trailing, spacing: 0) {
                         name(metrics: metrics)
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
+                            .lineLimit(3)
+                            .truncationMode(.tail)
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         score(lift: metrics.scoreLift)
                     }
-                    .frame(minHeight: metrics.scoreBox)
-                    // Wrapping: the first line's baseline shared with the score's.
-                    HStack(alignment: .top, spacing: AteMetrics.regular) {
-                        name(metrics: metrics)
-                            .lineLimit(2)
-                            .truncationMode(.tail)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, dish.score == nil ? 0 : metrics.baselineStep)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        score(lift: metrics.scoreLift)
+                } else {
+                    ViewThatFits(in: .horizontal) {
+                        // One line: the name centred on the 26pt score slot, filled or empty.
+                        HStack(alignment: .center, spacing: AteMetrics.regular) {
+                            name(metrics: metrics)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            score(lift: metrics.scoreLift)
+                        }
+                        .frame(minHeight: metrics.scoreBox)
+                        // Wrapping: the first line's baseline shared with the score's.
+                        HStack(alignment: .top, spacing: AteMetrics.regular) {
+                            name(metrics: metrics)
+                                .lineLimit(2)
+                                .truncationMode(.tail)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.top, dish.score == nil ? 0 : metrics.baselineStep)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            score(lift: metrics.scoreLift)
+                        }
                     }
                 }
             }

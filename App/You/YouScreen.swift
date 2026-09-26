@@ -51,6 +51,8 @@ struct YouScreen: View {
     /// Eamon's resized header (2026-09-26), replacing `You.dc.html`'s 76pt avatar at 70.
     private static let contentTop: CGFloat = 62
     static let avatar: CGFloat = 56
+    /// "Your ratings ›" is one line of `.control` (15 × 1.2 = 18); a finger gets 44.
+    private static let ratingsHit = AteHitOutset(height: 18)
 
     // MARK: - Bands
 
@@ -117,9 +119,10 @@ struct YouScreen: View {
                         Spacer(minLength: 0)
                         AteIcon.chevron.view(size: 15)
                     }
-                    .contentShape(.rect)
+                    .ateHitArea(Self.ratingsHit)
                 }
                 .buttonStyle(.plain)
+                .ateHitFootprint(Self.ratingsHit)
                 .accessibilityIdentifier("you.ratings")
                 ScoreHistogramView(histogram: store.histogram, onSelect: onRatings)
             }

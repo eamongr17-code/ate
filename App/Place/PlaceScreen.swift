@@ -87,7 +87,8 @@ struct PlaceScreen: View {
     /// when we hold it: a place with no cuisine on file shows three chips, never a placeholder
     /// (design rule 8).
     private var facts: some View {
-        HStack(spacing: 6) {
+        // Wraps onto a second line at the accessibility sizes rather than truncating a chip.
+        AteFlow(spacing: 6) {
             ForEach(store.facts) { fact in
                 switch fact {
                 case .rating(let value):
@@ -209,15 +210,20 @@ struct MenuDishRow: View {
 
     /// The receipt it is printed on — light type on the plum slip in dark, ink on white in light.
     @Environment(\.atePalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        Button(action: action) {
+        // At the accessibility sizes the score moves under the dish, so the name has the row.
+        let stacks = dynamicTypeSize.isAccessibilitySize
+        return Button(action: action) {
             VStack(spacing: 0) {
                 AteDashedLine(opacity: 0.25)
                 HStack(spacing: AteMetrics.regular) {
                     Text(String(format: "%02d", rank))
                         .ateText(.receiptLabel)
-                        .frame(width: Self.rankWidth, alignment: .leading)
+                        // 18 wide at the design's size; the two digits never break across lines.
+                        .fixedSize()
+                        .frame(minWidth: Self.rankWidth, alignment: .leading)
                     // `width:48px; border-radius:14px` — its cover, or its letter tile (`NoPhotoA`).
                     AteThumbnail(
                         photo: AtePhoto(id: dish.dishID, url: dish.coverURL,
@@ -237,9 +243,10 @@ struct MenuDishRow: View {
                             }
                             .foregroundStyle(palette.muted)
                         }
+                        if stacks { score }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    score
+                    if stacks == false { score }
                 }
                 .frame(minHeight: Self.height)
                 .contentShape(.rect)

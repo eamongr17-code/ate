@@ -27,17 +27,25 @@ struct PlaceResultRow: View {
     /// `.placeline`'s `gap:5px`, between the place and its suburb.
     private static let suburbGap: CGFloat = 5
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        Button(action: action) {
+        // At the accessibility sizes the suburb and the score left the name no room at all ("…"):
+        // the three stack instead, the name first.
+        let stacks = dynamicTypeSize.isAccessibilitySize
+        let words = stacks
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: Self.suburbGap))
+        return Button(action: action) {
             VStack(spacing: 0) {
                 AteHairline()
                 HStack(spacing: AteMetrics.regular) {
                     AteIcon.place.view(size: 20)
-                    HStack(alignment: .firstTextBaseline, spacing: Self.suburbGap) {
+                    words {
                         Text(place.name)
                             .ateText(.rowTitle)
                             .foregroundStyle(AtePalette.automatic.fg)
-                            .lineLimit(1)
+                            .lineLimit(stacks ? 3 : 1)
                             .truncationMode(.tail)
                         if let suburb = place.locality {
                             Text(suburb)
@@ -47,9 +55,10 @@ struct PlaceResultRow: View {
                                 .fixedSize()
                                 .layoutPriority(1)
                         }
+                        if stacks { SearchScoreMark(score: place.score) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    SearchScoreMark(score: place.score)
+                    if stacks == false { SearchScoreMark(score: place.score) }
                 }
                 .frame(minHeight: Self.height)
                 .contentShape(.rect)
@@ -71,8 +80,12 @@ struct DishResultRow: View {
     static let height: CGFloat = 76
     private static let thumbnail: CGFloat = 56
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        Button(action: action) {
+        // At the accessibility sizes the score moves under the place, so the name has the row.
+        let stacks = dynamicTypeSize.isAccessibilitySize
+        return Button(action: action) {
             VStack(spacing: 0) {
                 AteHairline()
                 HStack(spacing: AteMetrics.regular) {
@@ -90,9 +103,10 @@ struct DishResultRow: View {
                         Text(dish.restaurantName)
                             .ateText(.meta)
                             .foregroundStyle(AtePalette.automatic.muted)
+                        if stacks { SearchScoreMark(score: dish.score) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    SearchScoreMark(score: dish.score)
+                    if stacks == false { SearchScoreMark(score: dish.score) }
                 }
                 .frame(minHeight: Self.height)
                 .contentShape(.rect)

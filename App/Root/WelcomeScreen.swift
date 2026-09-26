@@ -104,12 +104,18 @@ struct WelcomeScreen: View {
                 // draws at the face's own underline position with no way to move it. Bricolage's
                 // descender at 15pt is ~3.3, so a 1pt rule one point under the text box lands where
                 // the markup puts it — and, unlike `.underline()`, it is the design's hairline.
-                VStack(spacing: 1) {
-                    Text(isPrompt ? "Not now" : "See what everyone's eating").ateText(.control)
-                    Rectangle().fill(AteColor.ink).frame(height: 1)
-                }
-                .fixedSize(horizontal: true, vertical: false)
-                .frame(minHeight: AteMetrics.hit)
+                //
+                // The rule hangs off the text as an overlay rather than stacking under it, so it is
+                // the text's own width without pinning the text to one line: at the accessibility
+                // sizes a one-line link was wider than the phone and dragged the whole page with it.
+                Text(isPrompt ? "Not now" : "See what everyone's eating")
+                    .ateText(.control)
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom, 2)
+                    .overlay(alignment: .bottom) {
+                        Rectangle().fill(AteColor.ink).frame(height: 1)
+                    }
+                    .frame(minHeight: AteMetrics.hit)
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
