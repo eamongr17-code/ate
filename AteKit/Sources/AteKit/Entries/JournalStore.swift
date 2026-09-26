@@ -49,6 +49,8 @@ public final class JournalStore: EntryDeletionObserving {
     private let pageSize: Int
     private let calendar: Calendar
     private var nextCursor: JournalCursor?
+    /// Entries written while a filter was up, kept at the top of the journal read that replaces it.
+    private var pinned: [EntryCard] = []
     private var seenIDs: Set<UUID> = []
     private var hasLoadedOnce = false
     private var needsRefresh = false
@@ -122,7 +124,9 @@ public final class JournalStore: EntryDeletionObserving {
         isLoadingFirstPage = true
         generation += 1
         let generationAtStart = generation
-        defer { isLoadingFirstPage = false }
+        // Only the load that is still current may say loading is over: a superseded one finishing
+        // late must not clear the flag under the load that replaced it.
+        defer { if generationAtStart == generation { isLoadingFirstPage = false } }
 
         if entries.isEmpty { phase = .loading }
 
@@ -133,6 +137,7 @@ public final class JournalStore: EntryDeletionObserving {
             needsRefresh = false
             reset()
             append(page)
+            keepPinned()
             phase = entries.isEmpty ? .empty : .ready
             inlineErrorMessage = nil
         } catch is CancellationError {
@@ -167,7 +172,18 @@ public final class JournalStore: EntryDeletionObserving {
             query = JournalQuery()
             reset()
             needsRefresh = true
+            // The filtered page still in flight is superseded, exactly as `apply` does it — so it
+            // cannot land over the journal and wipe the entry just written (QA a).
+            generation += 1
+            isLoadingFirstPage = false
+            // …and the entry stays on top of the page read behind it, landed on the server or not.
+            pinned.append(card)
             Task { await loadFirstPage() }
+        }
+        // A place the filter has never offered: its list is asked for again (QA b).
+        if let place = card.place, places.isEmpty == false, places.contains(where: { $0.id == place.id }) == false {
+            places = []
+            Task { await loadPlaces() }
         }
         if let index = entries.firstIndex(where: { $0.id == card.id }) {
             entries[index] = card
@@ -231,6 +247,14 @@ public final class JournalStore: EntryDeletionObserving {
             })
         }
         return try await querying.myEntries(query, after: cursor, pageSize: pageSize)
+    }
+
+    /// The pinned entries the page did not bring back go on top, newest first; then they are done.
+    private func keepPinned() {
+        let missing = pinned.filter { seenIDs.insert($0.id).inserted }
+        entries.insert(contentsOf: missing.sorted { $0.createdAt > $1.createdAt }, at: 0)
+        pinned = []
+        regroup()
     }
 
     // MARK: - Filter and sort (round 4)

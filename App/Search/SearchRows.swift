@@ -75,6 +75,8 @@ struct PlaceResultRow: View {
 /// tilts), the dish's dietary chips after its name, the place under it (`SearchResults.dc.html`).
 struct DishResultRow: View {
     let dish: DishResult
+    /// The tile the list chose for this row (``DishLetter/neighbourly(_:)``).
+    var letter: DishLetter?
     let action: () -> Void
 
     static let height: CGFloat = 76
@@ -91,7 +93,7 @@ struct DishResultRow: View {
                 HStack(spacing: AteMetrics.regular) {
                     AteThumbnail(
                         photo: AtePhoto(id: dish.dishID, url: dish.coverURL,
-                                        dish: DishLetter(dishID: dish.dishID, name: dish.name)),
+                                        dish: letter ?? DishLetter(dishID: dish.dishID, name: dish.name)),
                         side: Self.thumbnail
                     )
                     VStack(alignment: .leading, spacing: AteMetrics.hairspace) {

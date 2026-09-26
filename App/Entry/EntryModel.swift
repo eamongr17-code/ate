@@ -53,6 +53,9 @@ final class EntryModel: SavedDishObserving {
     private var handle = ""
     private var hasReportedPrint = false
     private var hasReportedOpen = false
+    private var hasRetriedQuietly = false
+    /// The bookmarks broadcast while this page was open — laid over every later read.
+    private var saveEdits = EntrySaveEdits()
     #if DEBUG
     private var hasReadOnce = false
     #endif
@@ -96,22 +99,31 @@ final class EntryModel: SavedDishObserving {
             loadFailure = nil
             apply(card, isStuck: await services.outbox.isStuck(entryID: route.entryID))
         } catch {
-            // A read cut short — the page left the screen mid-flight, which throws either Swift's
-            // cancellation or URLSession's own — is not a failure to report: the page's task runs
-            // again when it is back. Everything else is, but only over an empty page; a refresh
-            // that fails under a loaded entry leaves the entry where it is.
-            guard Self.isCancellation(error) == false else { return }
-            if card == nil { loadFailure = LoadFailure(error) }
+            // ``EntryRefreshFailure``: a cut-short read is nothing; **gone is gone even over a card
+            // it was drawn from** (a stale card must not look live); anything else keeps the card
+            // and tries once more, quietly, or shows the retry over an empty page.
+            switch EntryRefreshFailure(error, hasCard: card != nil) {
+            case .ignore:
+                return
+            case .gone:
+                card = nil
+                loadFailure = .gone
+            case .unreachable:
+                loadFailure = .unreachable
+            case .keepCardAndRetry:
+                guard hasRetriedQuietly == false else { return }
+                hasRetriedQuietly = true
+                try? await Task.sleep(for: Self.quietRetryDelay)
+                guard Task.isCancelled == false else { return }
+                await reload()
+            }
         }
     }
 
     /// Whether the page has anything of the entry to draw yet.
     var isLoaded: Bool { card != nil }
 
-    static func isCancellation(_ error: any Error) -> Bool {
-        if error is CancellationError { return true }
-        return (error as? URLError)?.code == .cancelled
-    }
+    private static let quietRetryDelay = Duration.seconds(2)
 
     /// "Try again" on a page that could not reach Ate.
     func retryLoad() async {
@@ -126,7 +138,18 @@ final class EntryModel: SavedDishObserving {
         for _ in 0..<Self.sortPollCount {
             try? await Task.sleep(for: Self.sortPollInterval)
             guard Task.isCancelled == false else { return }
-            guard let card = try? await services.entries.entry(id: route.entryID) else { continue }
+            let card: EntryCard
+            do {
+                card = try await services.entries.entry(id: route.entryID)
+            } catch {
+                // Deleted while it was printing: the page says so rather than polling a ghost.
+                if EntryRefreshFailure(error, hasCard: true) == .gone {
+                    self.card = nil
+                    loadFailure = .gone
+                    return
+                }
+                continue
+            }
             apply(card)
             if card.sortStatus != .pending { return }
         }
@@ -135,7 +158,9 @@ final class EntryModel: SavedDishObserving {
     private static let sortPollInterval = Duration.milliseconds(700)
     private static let sortPollCount = 12
 
-    private func apply(_ card: EntryCard, isStuck: Bool = false, isSeed: Bool = false) {
+    private func apply(_ read: EntryCard, isStuck: Bool = false, isSeed: Bool = false) {
+        // Every bookmark this page has heard about stays over a row read before it landed (QA c).
+        let card = saveEdits.applied(to: read)
         #if DEBUG
         let isFirstRead = self.card == nil || hasReadOnce == false
         hasReadOnce = hasReadOnce || isSeed == false
@@ -263,6 +288,7 @@ final class EntryModel: SavedDishObserving {
 
     /// The bookmark changed somewhere — here, or on a list this page was opened from.
     func savedDishChanged(dishID: UUID, isSaved: Bool) {
+        saveEdits.note(dishID: dishID, isSaved: isSaved)
         applySaved(dishID: dishID, to: isSaved)
     }
 

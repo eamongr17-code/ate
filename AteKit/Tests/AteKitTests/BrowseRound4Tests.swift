@@ -243,6 +243,67 @@ struct BrowseRound4Tests {
         #expect(store.entries.count == 1)
     }
 
+    @Test("writing while a filtered page is still loading: the stale page cannot wipe the new entry")
+    func insertSupersedesAFilteredLoad() async {
+        let service = InMemoryEntryService(entries: [Self.card(2026, 9, 1, at: Self.lune)])
+        let gate = GatedJournalQuery(entries: service)
+        let store = JournalStore(entries: service, pageSize: 5, querying: gate)
+        await store.loadIfNeeded()
+        let lune = JournalQuery(place: JournalPlace(restaurantID: Self.lune.id, name: "Lune"))
+        let filtering = Task { await store.apply(lune) }
+        await gate.waitUntilAsked()
+        // Written while the filtered page is on the wire — and not on the server yet.
+        let written = Self.card(2026, 9, 20)
+        store.insert(written)
+        #expect(store.query.isDefault)
+        await gate.open()
+        await filtering.value
+        for _ in 0..<50 where store.phase == .loading { await Task.yield() }
+        #expect(store.entries.first?.id == written.id, "the entry just written is still on top")
+        #expect(store.query.isDefault, "and the journal is not the filtered list")
+    }
+
+    @Test("an entry at a place the filter has never offered asks for the places again")
+    func newPlaceReloadsPlaces() async {
+        let service = InMemoryEntryService(entries: [Self.card(2026, 9, 1, at: Self.lune)])
+        let places = CountingPlaces(places: [JournalPlace(restaurantID: Self.lune.id, name: "Lune")])
+        let store = JournalStore(entries: service, querying: places)
+        await store.loadIfNeeded()
+        await store.loadPlaces()
+        #expect(await places.asked == 1)
+        store.insert(Self.card(2026, 9, 18, at: Self.lune))
+        #expect(await places.asked == 1, "a place already offered asks nothing")
+        await places.add(JournalPlace(restaurantID: Self.tipo.id, name: "Tipo 00"))
+        store.insert(Self.card(2026, 9, 20, at: Self.tipo))
+        for _ in 0..<100 where store.places.count < 2 { await Task.yield() }
+        #expect(store.places.map(\.name) == ["Lune", "Tipo 00"])
+    }
+
+    // MARK: - The entry page's refresh (QA)
+
+    @Test("gone is gone even over the card the page was drawn from; other failures keep the card")
+    func refreshFailures() {
+        let gone = AteAPIError.notFound(table: "entry_cards", id: UUID())
+        #expect(EntryRefreshFailure(gone, hasCard: true) == .gone)
+        #expect(EntryRefreshFailure(gone, hasCard: false) == .gone)
+        #expect(EntryRefreshFailure(URLError(.timedOut), hasCard: true) == .keepCardAndRetry)
+        #expect(EntryRefreshFailure(URLError(.timedOut), hasCard: false) == .unreachable)
+        #expect(EntryRefreshFailure(URLError(.cancelled), hasCard: true) == .ignore)
+        #expect(EntryRefreshFailure(CancellationError(), hasCard: false) == .ignore)
+    }
+
+    @Test("a bookmark heard before the refresh answers survives the older row, tags and all")
+    func saveEditsOutliveOlderReads() {
+        let read = Self.card(2026, 9, 1, tags: [.gf])
+        let dish = read.items[0].dishID
+        var edits = EntrySaveEdits()
+        edits.note(dishID: dish, isSaved: true)
+        let shown = edits.applied(to: read)
+        #expect(shown.items[0].saved)
+        #expect(shown.items[0].tags == [.gf], "a bookmark never strips a line's tags")
+        #expect(EntrySaveEdits().applied(to: read) == read)
+    }
+
     // MARK: - Letter tiles
 
     @Test("neighbouring letter tiles never share an accent, and a list always paints the same way")
@@ -292,5 +353,63 @@ struct BrowseRound4Tests {
         #expect(opened.parameters == ["variant": "A", "photo_count": "3"])
         #expect(BrowseEvents.journalFilterOpened(variant: "A").name == "journal_filter_opened")
         #expect(BrowseEvents.entryOpened(seeded: true).parameters == ["seeded": "true"])
+    }
+}
+
+/// A journal query that holds its first answer until the test lets it go — a filtered page "on the
+/// wire" for as long as a test needs one.
+private actor GatedJournalQuery: JournalQuerying {
+    private let inner: InMemoryJournalQuery
+    private var isOpen = false
+    private var asked = false
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+    private var askWaiters: [CheckedContinuation<Void, Never>] = []
+
+    init(entries: any EntryService) {
+        inner = InMemoryJournalQuery(entries: entries)
+    }
+
+    func myEntries(
+        _ query: JournalQuery, after cursor: JournalCursor?, pageSize: Int
+    ) async throws -> JournalQueryPage {
+        asked = true
+        askWaiters.forEach { $0.resume() }
+        askWaiters = []
+        if isOpen == false { await withCheckedContinuation { waiting.append($0) } }
+        return try await inner.myEntries(query, after: cursor, pageSize: pageSize)
+    }
+
+    func myEntryPlaces() async throws -> [JournalPlace] { try await inner.myEntryPlaces() }
+
+    func waitUntilAsked() async {
+        if asked { return }
+        await withCheckedContinuation { askWaiters.append($0) }
+    }
+
+    func open() {
+        isOpen = true
+        waiting.forEach { $0.resume() }
+        waiting = []
+    }
+}
+
+/// Places on demand, counting how often they were asked for.
+private actor CountingPlaces: JournalQuerying {
+    private var places: [JournalPlace]
+    private(set) var asked = 0
+
+    init(places: [JournalPlace]) { self.places = places }
+
+    func add(_ place: JournalPlace) { places.append(place) }
+
+    func myEntries(
+        _ query: JournalQuery, after cursor: JournalCursor?, pageSize: Int
+    ) async throws -> JournalQueryPage {
+        JournalQueryPage(items: [], nextCursor: nil)
+    }
+
+    func myEntryPlaces() async throws -> [JournalPlace] {
+        asked += 1
+        return places
     }
 }

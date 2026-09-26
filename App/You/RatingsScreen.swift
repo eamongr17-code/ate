@@ -126,13 +126,19 @@ struct RatingsScreen: View {
     /// empty chart has already said so, and a sentence explaining an empty list is exactly the
     /// helper copy design rule 1 forbids.
     private var groups: some View {
-        LazyVStack(alignment: .leading, spacing: 0) {
+        // Letter tiles chosen down the whole page, so no two neighbours match (round 4).
+        let all = store.groups.flatMap(\.dishes)
+        let letters = Dictionary(
+            zip(all.map(\.id), DishLetter.neighbourly(all.map { ($0.dishID, $0.dishName) })),
+            uniquingKeysWith: { first, _ in first }
+        )
+        return LazyVStack(alignment: .leading, spacing: 0) {
             ForEach(store.groups) { group in
                 VStack(alignment: .leading, spacing: AteMetrics.loose) {
                     scoreLine(group)
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(group.dishes) { dish in
-                            row(dish)
+                            row(dish, letter: letters[dish.id])
                                 .task { await store.loadMoreIfNeeded(after: dish) }
                         }
                     }
@@ -176,13 +182,16 @@ struct RatingsScreen: View {
 
     /// The artboard's row, unchanged: ruled at the top, so the first row is parted from the score
     /// line and the last ends on the ground rather than on a line.
-    private func row(_ dish: ScoredDish) -> some View {
+    private func row(_ dish: ScoredDish, letter: DishLetter?) -> some View {
         Button { onDish(dish.dishID) } label: {
             VStack(spacing: 0) {
                 AteHairline()
                 HStack(spacing: AteMetrics.regular) {
                     AteThumbnail(
-                        photo: .dish(dish.dishID, name: dish.dishName, cover: dish.coverURL),
+                        photo: .dish(
+                            letter ?? DishLetter(dishID: dish.dishID, name: dish.dishName),
+                            cover: dish.coverURL
+                        ),
                         side: RatingsScreen.thumbnail
                     )
                     VStack(alignment: .leading, spacing: AteMetrics.hairspace) {
