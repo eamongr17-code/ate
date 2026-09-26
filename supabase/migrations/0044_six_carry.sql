@@ -6,14 +6,16 @@
 -- the user marked on the first sort was therefore lost: "Tiramisu 6 and the gnocchi 4 GF" went from
 -- Tiramisu 6 to unscored after a tag-only re-sort.
 --
--- The fix carries it SERVER-SIDE, exactly the way 0036 carries tags (T3): the lines about to be
--- replaced are remembered (now also when they hold a 6, with where its evidence sat); a rebuilt line
--- that matches its predecessor (same dish name, same mention, or same evidence — first unclaimed wins)
--- and arrives with NO score keeps the 6 — but ONLY while the body still says that evidence at that
--- same span. That preserves an earlier user mark and infers nothing: a 6 edited out of the words (or
--- moved by an edit in front of it) drops, and a typed "6" is still never a score. The parked plan of a
--- placeless entry carries the same way. sort-entry applies the same rule before its gate (six.ts
--- carriedSixTokens), so the plan it returns already shows the 6; this is the rule of record.
+-- The fix carries it SERVER-SIDE, keyed to the LINE, on the same matching 0036 uses to carry tags
+-- (T3): the lines about to be replaced are remembered (now also when they hold a 6, with their
+-- evidence and where it sat relative to the dish's mention). A rebuilt line that matches its
+-- predecessor (same dish name, same mention, or same evidence — first unclaimed wins) and arrives
+-- with NO score keeps the 6 when its own score-evidence span — the same distance from THIS line's
+-- mention — still reads the evidence as a lone 6, wherever the line now sits. So a word typed earlier
+-- in the entry keeps it; the 6 changed to a 4 prints 4 (the new score wins, nothing is carried); the
+-- dish removed takes its 6 with it. It preserves an earlier user mark and infers nothing: a typed "6"
+-- is still never a score. Parked plans (placeless entries) carry the same way. sort-entry applies the
+-- same rule after its gate (six.ts carryPriorSixes) so the plan it returns agrees; this is the record.
 --
 -- Same signature ⇒ create or replace; the body is 0041's verbatim but for the prior-line capture and
 -- the carry inside T3. WIRE IMPACT: none (behavioural fix: a re-sort without six_tokens keeps a 6).
@@ -66,6 +68,7 @@ declare
   -- 0044
   v_p_ev        text;
   v_p_off       int;
+  v_p_at        int;
 begin
   select * into v_entry from public.entries where id = p_entry_id for update;
   if v_entry.id is null then
@@ -105,11 +108,11 @@ begin
 
   -- T3: remember the tags on the lines about to be replaced, in receipt order. An entry with
   -- no lines at all (placeless) inherits from its parked plan instead.
-  -- 0044: …and a marked 6 (score + where its evidence sat), carried on the same match.
+  -- 0044: …and a marked 6 (its evidence, and where it sat relative to the dish's mention).
   select coalesce(jsonb_agg(jsonb_build_object(
            'name', lower(d.name), 'mention', lower(r.mention_text),
            'evidence', r.score_evidence, 'tags', to_jsonb(r.tags),
-           'six', r.score = 6, 'offset', r.evidence_offset)
+           'six', r.score = 6, 'offset', r.evidence_offset, 'moffset', r.mention_offset)
          order by r.entry_position nulls last, r.created_at, r.id), '[]'::jsonb)
     into v_prior
   from public.reviews r
@@ -123,7 +126,8 @@ begin
              'evidence', x.item ->> 'score_evidence',
              'tags', to_jsonb(public.dish_tags_from_json(x.item -> 'tags')),
              'six', (x.item ->> 'score') in ('6', '6.0'),
-             'offset', case when (x.item ->> 'evidence_offset') ~ '^\d{1,9}$' then (x.item ->> 'evidence_offset')::int end)
+             'offset', case when (x.item ->> 'evidence_offset') ~ '^\d{1,9}$' then (x.item ->> 'evidence_offset')::int end,
+             'moffset', case when (x.item ->> 'mention_offset') ~ '^\d{1,9}$' then (x.item ->> 'mention_offset')::int end)
            order by x.ord), '[]'::jsonb)
       into v_prior
     from jsonb_array_elements(v_entry.sort_plan) with ordinality as x(item, ord)
@@ -256,17 +260,22 @@ begin
         v_prior_taken := v_prior_taken || v_prior_ix;
         v_tags := public.dish_tags_from_json(
           to_jsonb(public.dish_tags_from_json(v_prior -> (v_prior_ix - 1)::int -> 'tags') || v_tags));
-        -- 0044 SIX CARRY: the replaced line held a user-marked 6 and this one has no score. Keep the
-        -- 6 only while the words still say it AT THE SAME SPAN — an earlier mark, preserved; never a
-        -- 6 read off the prose. Edited out (or moved) → dropped.
-        if v_score is null and (v_prior -> (v_prior_ix - 1)::int ->> 'six')::boolean then
+        -- 0044 SIX CARRY, keyed to the LINE: the replaced line held a user-marked 6 and this rebuilt
+        -- line (matched to it above, as tags are) has no score. Its score-evidence span sat a fixed
+        -- distance from its dish's mention; if the words at that distance from THIS line's mention
+        -- still read the evidence — a lone 6 — the 6 stays, wherever the line now sits. An earlier
+        -- mark, preserved; never a 6 read off the prose. Changed (the new score wins) or removed → gone.
+        if v_score is null and v_m_off is not null and (v_prior -> (v_prior_ix - 1)::int ->> 'six')::boolean then
           v_p_ev  := v_prior -> (v_prior_ix - 1)::int ->> 'evidence';
           v_p_off := (v_prior -> (v_prior_ix - 1)::int ->> 'offset')::int;
-          if v_p_ev is not null and v_p_off is not null and position('6' in v_p_ev) > 0
-             and substring(v_entry.body from v_p_off + 1 for char_length(v_p_ev)) = v_p_ev then
+          v_p_at  := v_m_off + v_p_off - (v_prior -> (v_prior_ix - 1)::int ->> 'moffset')::int;
+          if v_p_ev is not null and v_p_at is not null and v_p_at >= 0 and position('6' in v_p_ev) > 0
+             and substring(v_entry.body from v_p_at + 1 for char_length(v_p_ev)) = v_p_ev
+             and (v_p_at = 0 or substring(v_entry.body from v_p_at for 1) !~ '[0-9.]')
+             and substring(v_entry.body from v_p_at + char_length(v_p_ev) + 1 for 2) !~ '^([0-9]|[.][0-9])' then
             v_score    := 6;
             v_evidence := v_p_ev;
-            v_e_off    := v_p_off;
+            v_e_off    := v_p_at;
           end if;
         end if;
       end if;
@@ -327,7 +336,7 @@ begin
 end; $$;
 
 comment on function public.apply_entry_sort(uuid, uuid, jsonb, text, text, int, jsonb) is
-  'The sorter''s single transactional write: place + N dish reviews + where each finding sits in the body. PRESERVES every review the user corrected (corrected_at not null) — dish, score, evidence and note — and replaces only the sorter''s own lines, forced or not. Drops any score whose evidence is not a substring of the body (rule 7) and any note that is not (rule 9). Tags (0036): items[].tags are client-marked codes, filtered to the closed set; a re-sort never removes a tag. p_meta (0039) → entries.sort_meta ({cache_hit, model}). Scores 0.5-5.0 in half steps, or 6 evidenced by a "6" (0041); a re-sort keeps a replaced line''s 6 while the body still says it at the same span (0044). service_role only.';
+  'The sorter''s single transactional write: place + N dish reviews + where each finding sits in the body. PRESERVES every review the user corrected (corrected_at not null) — dish, score, evidence and note — and replaces only the sorter''s own lines, forced or not. Drops any score whose evidence is not a substring of the body (rule 7) and any note that is not (rule 9). Tags (0036): items[].tags are client-marked codes, filtered to the closed set; a re-sort never removes a tag. p_meta (0039) → entries.sort_meta ({cache_hit, model}). Scores 0.5-5.0 in half steps, or 6 evidenced by a "6" (0041); a re-sort keeps a replaced line''s 6 while the rebuilt line''s evidence span (same distance from its mention) still reads it (0044). service_role only.';
 
 revoke all on function public.apply_entry_sort(uuid, uuid, jsonb, text, text, int, jsonb) from public, anon, authenticated;
 grant execute on function public.apply_entry_sort(uuid, uuid, jsonb, text, text, int, jsonb) to service_role;

@@ -25,8 +25,11 @@
 --
 -- Search is signed-in only (0031) — there are no anon twins to change, and none are added.
 --
+-- search_dishes also gains an OUT column, `tags text[]` — the dish's chips, the same rule as
+-- dish_summary.tags (carried by at least half of its lines, and by at least one) — for the Search row.
+--
 -- WIRE IMPACT
---   ADDITIVE: three trailing optional params on search_places / search_dishes / nearby_places (named
+--   ADDITIVE: search_dishes.tags (appended OUT column); three trailing optional params on search_places / search_dishes / nearby_places (named
 --     calls without them bind unchanged); new RPC search_cuisines(); helpers search_filter_keys,
 --     place_has_tagged_dish. OUT columns unchanged. New params ⇒ DROP-then-CREATE (landmine 7), then
 --     re-grant.
@@ -186,7 +189,8 @@ returns table (
   scored_count        int,
   people_count        int,
   cover_url           text,
-  match_tier          int
+  match_tier          int,
+  tags                text[]
 )
 language sql
 stable
@@ -225,19 +229,24 @@ as $$
       and (p_min_score is null or ds.score >= p_min_score)
       and (q.tags is null or public.dish_consensus_tags(d.id) @> q.tags)
   )
-  select h.dish_id, h.dish_name, h.restaurant_id, h.restaurant_name, h.restaurant_locality,
-         h.score, h.review_count, h.scored_count, h.people_count, h.cover_url, h.match_tier
-  from hits h
-  where p_cursor_dish_id is null
-     or (h.match_tier, -h.review_count, h.dish_name, h.dish_id)
-        > (coalesce(p_cursor_match_tier, 0), -coalesce(p_cursor_review_count, 0),
-           coalesce(p_cursor_dish_name, ''), p_cursor_dish_id)
-  order by h.match_tier, h.review_count desc, h.dish_name, h.dish_id
-  limit (select lim from q);
+  -- the page first, THEN its chips: dish_consensus_tags runs once per returned row, not per hit
+  select pg.*, public.dish_consensus_tags(pg.dish_id) as tags
+  from (
+    select h.dish_id, h.dish_name, h.restaurant_id, h.restaurant_name, h.restaurant_locality,
+           h.score, h.review_count, h.scored_count, h.people_count, h.cover_url, h.match_tier
+    from hits h
+    where p_cursor_dish_id is null
+       or (h.match_tier, -h.review_count, h.dish_name, h.dish_id)
+          > (coalesce(p_cursor_match_tier, 0), -coalesce(p_cursor_review_count, 0),
+             coalesce(p_cursor_dish_name, ''), p_cursor_dish_id)
+    order by h.match_tier, h.review_count desc, h.dish_name, h.dish_id
+    limit (select lim from q)
+  ) pg
+  order by pg.match_tier, pg.review_count desc, pg.dish_name, pg.dish_id;
 $$;
 
 comment on function public.search_dishes(text, int, int, int, text, uuid, text[], text[], numeric) is
-  'Search tab, Dishes scope: cover · dish · place · score in ONE call (design/v1/SearchResults). Only dishes with a review the viewer can see. Filters (0042, NULL/empty = off): p_cuisines (the place''s, any), p_tags (the dish''s consensus chips carry every code), p_min_score (score >=). Keyset (match_tier, review_count, dish_name, dish_id), same filters on every page.';
+  'Search tab, Dishes scope: cover · dish · place · score in ONE call (design/v1/SearchResults). Only dishes with a review the viewer can see. Filters (0042, NULL/empty = off): p_cuisines (the place''s, any), p_tags (the dish''s consensus chips carry every code), p_min_score (score >=). `tags` = the dish''s chips (dish_consensus_tags, as dish_summary). Keyset (match_tier, review_count, dish_name, dish_id), same filters on every page.';
 
 -- ===========================================================================
 -- 3. nearby_places — 0031's body + the three filters.

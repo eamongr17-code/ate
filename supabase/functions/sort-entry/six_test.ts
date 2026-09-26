@@ -9,7 +9,7 @@
 
 import { test, assert, assertEquals } from './harness.ts';
 import {
-  attachSixTokens, carriedSixTokens, parseSixTokens, sixEvidenceOffset, sixMarks, sixSpans, type SixToken,
+  attachSixTokens, carryPriorSixes, parseSixTokens, sixEvidenceOffset, sixMarks, sixSpans, type SixToken,
 } from './six.ts';
 import { attachTagTokens, tagTokenSpans, type TagToken } from './tags.ts';
 import { parseEntry } from './parse.ts';
@@ -179,10 +179,10 @@ test('six: a preview runs the same gate — a typed 6 is not a score there eithe
 // ---------------------------------------------------------------------------------------------------
 // 0044 — a re-sort without six_tokens keeps a marked 6 (QA on PR #71)
 // ---------------------------------------------------------------------------------------------------
-/** What sort-entry does on a re-sort: the stored 6s become marked tokens again, then the same pipeline. */
+/** What sort-entry does on a re-sort: the plan without tokens, then the stored 6s carried by LINE. */
 function resort(body: string, stored: SortItem[], known: string[], tags: TagToken[] = []) {
   const prior = stored.filter((i) => i.score === 6);
-  return sort(body, carriedSixTokens(body, prior), { known, tags });
+  return carryPriorSixes(sort(body, [], { known, tags }), body, prior);
 }
 
 test('six carry: a re-sort without six_tokens keeps the 6 (the QA probe)', () => {
@@ -196,15 +196,22 @@ test('six carry: a re-sort without six_tokens keeps the 6 (the QA probe)', () =>
   assertEquals(line(again, 'Gnocchi').tags, ['gf']);
 });
 
-test('six carry: the 6 edited out of the words drops; so does one an edit moved', () => {
+test('six carry: a word inserted before the dish keeps the 6, at its new offset', () => {
   const body = 'Tiramisu 6 and the gnocchi 4';
   const first = sort(body, [mark(body, '6')]);
-  const edited = 'Tiramisu 5 and the gnocchi 4';
-  assertEquals(carriedSixTokens(edited, first), []);
-  assertEquals(line(resort(edited, first, ['Tiramisu', 'Gnocchi']), 'Tiramisu').score, 5);
-  const moved = 'Honestly: Tiramisu 6 and the gnocchi 4';
-  assertEquals(carriedSixTokens(moved, first), [], 'not at the same span any more');
-  assertEquals(line(resort(moved, first, ['Tiramisu', 'Gnocchi']), 'Tiramisu').score, null);
+  const edited = '🍝 Honestly the Tiramisu 6 and the gnocchi 4';
+  const it = line(resort(edited, first, ['Tiramisu', 'Gnocchi']), 'Tiramisu');
+  assertEquals([it.score, it.score_evidence, it.evidence_offset], [6, '6', 24]);
+});
+
+test('six carry: the 6 changed to 4 gives 4; the dish removed drops it; a 6 grown into 6.5 drops', () => {
+  const body = 'Tiramisu 6 and the gnocchi 4';
+  const first = sort(body, [mark(body, '6')]);
+  const four = resort('Tiramisu 4 and the gnocchi 4', first, ['Tiramisu', 'Gnocchi']);
+  assertEquals(four.map((i) => [i.dish_name, i.score]), [['Tiramisu', 4], ['Gnocchi', 4]]);
+  const gone = resort('Just the gnocchi 4 and a 6 of us', first, ['Tiramisu', 'Gnocchi']);
+  assertEquals(gone.map((i) => [i.dish_name, i.score]), [['Gnocchi', 4]]);
+  assertEquals(line(resort('Tiramisu 6.5 and the gnocchi 4', first, ['Tiramisu', 'Gnocchi']), 'Tiramisu').score, null);
 });
 
 test('six carry: a typed "6" is still never a score on a re-sort', () => {
@@ -213,7 +220,6 @@ test('six carry: a typed "6" is still never a score on a re-sort', () => {
   assertEquals(first.map((i) => [i.dish_name, i.score]), [['Tiramisu', 6], ['Gnocchi', null]]);
   const again = resort(body, first, ['Tiramisu', 'Gnocchi']);
   assertEquals(again.map((i) => [i.dish_name, i.score]), [['Tiramisu', 6], ['Gnocchi', null]]);
-  assertEquals(carriedSixTokens(body, [{ score_evidence: 'gnocchi 6', evidence_offset: 19 }]).length, 1,
-    'the helper maps spans; only STORED 6s are ever fed to it (index.ts priorSixes: score = 6)');
-  assertEquals(carriedSixTokens(body, [{ score_evidence: '6', evidence_offset: 3 }]), [], 'not at that span');
+  // nothing marked before → nothing to carry, however the words read
+  assertEquals(carryPriorSixes(sort(body, [], { known: ['Tiramisu', 'Gnocchi'] }), body, []).some((i) => i.score === 6), false);
 });

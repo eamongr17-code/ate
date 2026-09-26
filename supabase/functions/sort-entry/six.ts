@@ -121,31 +121,57 @@ export function attachSixTokens(items: SortItem[], spans: readonly SixSpan[]): S
   return out;
 }
 
-/** A stored line's score evidence and where it sat (reviews row or parked-plan item). */
-export type PriorSix = { score_evidence: string | null; evidence_offset: number | null };
+/** A stored line that held a 6: its dish, where it was named, its evidence and where that sat. */
+export type PriorSix = {
+  dish_name: string | null;
+  mention_text: string | null;
+  mention_offset: number | null;
+  score_evidence: string | null;
+  evidence_offset: number | null;
+};
+
+const LONE_SIX = /(?<![\d.])6(?:\.0)?(?!\d|\.\d)/;
 
 /**
- * A RE-SORT KEEPS A MARKED 6 (0044). Three client paths re-sort without `six_tokens` (a tag added in
- * Entry edit, "Print it again", the retry), and the sort rebuilds every uncorrected line — so a 6 the
- * user marked earlier would be wiped. Each prior line that held a 6 becomes a marked token again, but
- * ONLY while the body still says its evidence at the SAME span: an earlier mark, preserved — never a
- * 6 read off the prose. A 6 edited out of the words, or moved by an edit before it, is gone.
+ * A RE-SORT KEEPS A MARKED 6 (0044), keyed to the LINE. Three client paths re-sort without
+ * `six_tokens` (a tag added in Entry edit, "Print it again", the retry) and the sort rebuilds every
+ * uncorrected line. A rebuilt line that matches a predecessor which held a 6 — same dish name or same
+ * mention, first unclaimed wins (the matching tags use) — and arrives UNSCORED keeps the 6 when its own
+ * score-evidence span, the same distance from THIS line's mention, still reads the evidence as a lone
+ * 6. So a word typed earlier keeps it; a 6 changed to a 4 prints 4 (the line already has a score); the
+ * dish removed takes it along. An earlier mark preserved, never a 6 read off the prose.
  * apply_entry_sort carries by the same rule (the rule of record); this keeps the returned plan honest.
+ * Items are copied, never mutated.
  */
-export function carriedSixTokens(body: string, prior: readonly PriorSix[]): SixToken[] {
-  const out: SixToken[] = [];
-  for (const p of prior) {
-    const ev = p?.score_evidence;
-    const off = p?.evidence_offset;
-    if (!ev || typeof off !== 'number' || !Number.isInteger(off) || off < 0) continue;
-    if (sliceScalars(body ?? '', off, scalarLength(ev)) !== ev) continue;
-    let last: RegExpExecArray | null = null;
-    const lone = /(?<![\d.])6(?:\.0)?(?!\d|\.\d)/g;
-    for (let m = lone.exec(ev); m; m = lone.exec(ev)) last = m;
-    if (!last) continue;
-    out.push({ offset: off + scalarLength(ev.slice(0, last.index)), length: scalarLength(last[0]) });
-  }
-  return out;
+export function carryPriorSixes(items: SortItem[], body: string, prior: readonly PriorSix[]): SortItem[] {
+  const text = body ?? '';
+  const scalars = [...text];
+  const claimed = new Set<number>();
+  return items.map((item) => {
+    const it = { ...item };
+    const name = it.dish_name.toLowerCase();
+    const mention = it.mention_text?.toLowerCase() ?? null;
+    const at = prior.findIndex((p, i) =>
+      !claimed.has(i) &&
+      ((p.dish_name ?? '').trim().toLowerCase() === name || (mention !== null && p.mention_text?.toLowerCase() === mention)));
+    if (at < 0) return it;
+    claimed.add(at);
+    const p = prior[at];
+    const ev = p.score_evidence;
+    if (it.score !== null || typeof it.mention_offset !== 'number' || !ev || !LONE_SIX.test(ev)) return it;
+    if (typeof p.evidence_offset !== 'number' || typeof p.mention_offset !== 'number') return it;
+    const pos = it.mention_offset + p.evidence_offset - p.mention_offset;
+    const len = scalarLength(ev);
+    if (pos < 0 || sliceScalars(text, pos, len) !== ev) return it;
+    // still a lone six where it sits: not the tail of "16" nor the head of "6.5"
+    if (/[\d.]/.test(scalars[pos - 1] ?? '') || /^(?:\d|\.\d)/.test(scalars.slice(pos + len, pos + len + 2).join(''))) {
+      return it;
+    }
+    it.score = 6;
+    it.score_evidence = ev;
+    it.evidence_offset = pos;
+    return it;
+  });
 }
 
 /** The marked sixes with the words just before each — what the model is told (not offsets). */

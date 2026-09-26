@@ -1,10 +1,10 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0044` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0045` define it. Forward-only; applied migrations
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
 account deletion **0032**; **every entry public 0033**; signed-out browse **0034**; dietary tags **0036**;
-round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry) **0041–0044**.
+round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry, dish-row chips) **0041–0045**.
 
 The atom the USER creates is an **entry** = one visit. The atom AGGREGATES are built from is still a
 per-dish **review**, now *linked* to an entry, not replaced by it. A **sorter** turns the words into
@@ -20,7 +20,7 @@ Three design rules are enforced in the database, not just in the app (`docs/DESI
 
 | Rule | Enforcement |
 |---|---|
-| 7 — a score is only ever the user's, never inferred | `reviews.score` is NULLABLE; `apply_entry_sort` drops any score whose `score_evidence` is not a literal substring of `entries.body`. **The secret 6 (0041)** exists only on a span the client marked (`six_tokens`) — a typed "6" is never a score. A re-sort keeps a line's 6 while the body still says its evidence at the same span (0044) |
+| 7 — a score is only ever the user's, never inferred | `reviews.score` is NULLABLE; `apply_entry_sort` drops any score whose `score_evidence` is not a literal substring of `entries.body`. **The secret 6 (0041)** exists only on a span the client marked (`six_tokens`) — a typed "6" is never a score. A re-sort keeps a line's 6 on the rebuilt line matched to it (as tags are) while that line's evidence span — same distance from its mention — still reads a lone 6 (0044) |
 | 8 — a place attaches only when named or tapped | `restaurant_source ∈ (user, sorter)`, CHECKed with `restaurant_id`; no code path reads location. **A new entry must carry one** (0040 INSERT trigger → `23502 place_required`); pre-0040 placeless rows stay legal |
 | 9 — the words are never rewritten | `entries.body` is written once by the client; UPDATE on entries is column-granted to `(body, visibility)` only, and the sorter writes nowhere near it. Dish notes must be substrings of the body |
 | the user's fix outranks the sorter | `reviews.corrected_at` / `entries.place_corrected_at`; `apply_entry_sort` deletes only lines with `corrected_at IS NULL`, so a re-sort (forced or not) cannot overwrite a correction (0024) |
@@ -142,7 +142,7 @@ except where noted; **entries = visits, reviews = receipt lines, and they are no
 | RPC | What it returns / counts |
 |---|---|
 | `place_summary(place)` | the header in one call. `entry_count` = VISITS here, `review_count` = LINES (18 lines from 8 visits at Tipo 00 — printing the wrong one is a lie); `my_visits`/`my_last_visit` = the "Your N visits" row; `locality` = `place_locality(address, city)`; `avg_rating` = mean of per-dish averages; empty text arrives as NULL, never `''` |
-| `place_dishes(place, …)` | "what to order", and the order is the ported `DishRanking` rule (0030): `review_count` desc → `score` desc (unscored last) → name → id. **Review count LEADS** — one 5.0 from one person must not lead a menu. A dish with NO line is excluded (an abandoned "add a new dish" shell); an unscored dish WITH a line stays. 4-part keyset |
+| `place_dishes(place, …)` | "what to order", and the order is the ported `DishRanking` rule (0030): `review_count` desc → `score` desc (unscored last) → name → id. **Review count LEADS** — one 5.0 from one person must not lead a menu. A dish with NO line is excluded (an abandoned "add a new dish" shell); an unscored dish WITH a line stays. 4-part keyset. `tags` (0045) = the `dish_summary.tags` rule; `search_dishes` rows carry it too (0042) |
 | `dish_summary(dish)` | dish + place + aggregates + `photos` (`photos[0].url` == `cover_url`) + the viewer's `saved` / `my_last_score`. A dish's "orders" IS `review_count`: one entry prints one line per dish. **`tags` (0036)** = codes carried by **at least half** of the lines `review_count` counts, and by at least one (`dish_consensus_tags`) — 1 of 1 and 1 of 2 list it, 1 of 3 does not |
 | `get_dish_reviews(dish, …)` | one row per LINE, the caller's own first then newest (3-part keyset). `entry_id` is **NULL on a pre-entries line**; `photos[]` is the review's ENTRY's, so it can hold another dish's photo |
 | `get_entries_at_place(place, scope, …)` | `setof entry_cards` — the ONE entry shape, never review rows. `scope ∈ mine\|others\|all` |
@@ -200,4 +200,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0034–0035 | `signed_out_browse` · `account_integrity` | anon EXECUTE on the browse reads via plpgsql dispatch → `browse.*` DEFINER, no table grant · `delete_account` atomic + verified; always a profile; deactivated hidden; `entry_cards.place.locality` |
 | 0036 | `dish_tags.sql` | `reviews.tags` + closed-set CHECK + canonicalising trigger; `apply_entry_sort` takes/keeps tags; `correct_entry_place` prints parked tags; `items[].tags`; `dish_summary.tags` (drop+create, browse twin too) |
 | 0037–0040 | `delete_entry` · `feed_areas` · `sort_preview_cache` · `place_required` | `delete_entry()` · `feed_areas()` + `get_entry_feed(p_area)` (drop+create, browse twin too) · preview cache + rate tables, purge fn + entries-delete trigger, `entries.sort_meta`, `apply_entry_sort(p_meta)` (drop+create), `delete_account` checks both · INSERT-only place trigger |
-| 0041–0044 | `secret_six` · `search_filters` · `journal_filters` · `six_carry` | CHECK admits 6, histogram 11 rows, `apply_entry_sort` admits an evidenced 6 · filter params (drop+create) + `search_cuisines`, `place_has_tagged_dish` · `my_entries`, `my_entry_places` · a re-sort carries a marked 6 (T3, like tags) |
+| 0041–0045 | `secret_six` · `search_filters` · `journal_filters` · `six_carry` · `place_dishes_tags` | CHECK admits 6, histogram 11 rows, `apply_entry_sort` admits an evidenced 6 · filter params (drop+create) + `search_cuisines`, `place_has_tagged_dish` · `my_entries`, `my_entry_places` · a re-sort carries a marked 6 by line (T3, like tags) · `place_dishes.tags` (drop+create, browse twin too); `search_dishes.tags` rides 0042 |

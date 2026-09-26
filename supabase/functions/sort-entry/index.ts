@@ -71,7 +71,7 @@ import { resolveMode, resolveModel, sortWithModel } from './model.ts';
 import { attachTagTokens, parseTagTokens, tagTokenSpans, tagTokenWords, type TagToken } from './tags.ts';
 import {
   attachSixTokens,
-  carriedSixTokens,
+  carryPriorSixes,
   parseSixTokens,
   sixMarks,
   sixSpans,
@@ -228,7 +228,7 @@ async function placeNameOf(
 async function priorSixes(admin: ReturnType<typeof adminClient>, row: EntryRow): Promise<PriorSix[]> {
   const { data, error } = await admin
     .from('reviews')
-    .select('score_evidence, evidence_offset')
+    .select('score_evidence, evidence_offset, mention_text, mention_offset, dishes(name)')
     .eq('entry_id', row.id)
     .eq('score', 6)
     .is('corrected_at', null);
@@ -236,11 +236,20 @@ async function priorSixes(admin: ReturnType<typeof adminClient>, row: EntryRow):
     console.error('sort-entry: prior sixes lookup failed:', error.message);
     return [];
   }
-  const lines = (data ?? []) as PriorSix[];
+  const lines: PriorSix[] = ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
+    dish_name: (r.dishes as { name?: string } | null)?.name ?? null,
+    mention_text: typeof r.mention_text === 'string' ? r.mention_text : null,
+    mention_offset: typeof r.mention_offset === 'number' ? r.mention_offset : null,
+    score_evidence: typeof r.score_evidence === 'string' ? r.score_evidence : null,
+    evidence_offset: typeof r.evidence_offset === 'number' ? r.evidence_offset : null,
+  }));
   if (lines.length || row.restaurant_id || !Array.isArray(row.sort_plan)) return lines;
   return (row.sort_plan as Array<Record<string, unknown>>)
     .filter((i) => Number(i?.score) === 6)
     .map((i) => ({
+      dish_name: typeof i.dish_name === 'string' ? i.dish_name : null,
+      mention_text: typeof i.mention_text === 'string' ? i.mention_text : null,
+      mention_offset: typeof i.mention_offset === 'number' ? i.mention_offset : null,
       score_evidence: typeof i.score_evidence === 'string' ? i.score_evidence : null,
       evidence_offset: typeof i.evidence_offset === 'number' ? i.evidence_offset : null,
     }));
@@ -506,19 +515,22 @@ Deno.serve(async (req) => {
     }
 
     const userPinned = row.restaurant_source === 'user' && row.restaurant_id ? row.restaurant_id : null;
-    // 0044: a re-sort without six_tokens keeps a 6 the user marked before, while the words still say it
-    // at the same span (./six.ts carriedSixTokens; apply_entry_sort enforces the same rule).
-    const carried = carriedSixTokens(row.body, await priorSixes(admin, row));
     const planned = await planFor(admin, {
       authorId: row.author_id,
       body: row.body,
       tagTokens,
-      sixTokens: [...sixTokens, ...carried],
+      sixTokens,
       pinnedRestaurantId: userPinned,
       preview: false,
     });
     if (planned.limited) throw new Error('unreachable: the real sort is never rate-limited');
-    const { usedMode, cacheHit, cacheKey, restaurantId, mention, validated } = planned;
+    const { usedMode, cacheHit, cacheKey, restaurantId, mention } = planned;
+    // 0044: a re-sort without six_tokens keeps a 6 the user marked before, on the line that carried it
+    // (./six.ts carryPriorSixes; apply_entry_sort enforces the same rule of record).
+    const validated: SortPlan = {
+      ...planned.validated,
+      items: carryPriorSixes(planned.validated.items, row.body, await priorSixes(admin, row)),
+    };
 
     if (dryRun) {
       return json({

@@ -69,7 +69,7 @@ their own order: `place_dishes` `(review_count, score, name, dish_id)`, `feed_ar
 | Journal — place filter | `rpc my_entry_places()` | `{restaurant_id, name, locality, entry_count}[]` — where your entries are, busiest first. Optional keyset `(p_limit, p_cursor_entry_count, p_cursor_name, p_cursor_restaurant_id)`; no args = all |
 | Entry · Share | `GET /rest/v1/entry_cards?id=eq.<uuid>` | one `entry_card` |
 | Place — header | `rpc place_summary(p_restaurant_id)` | `{restaurant_id, name, address, city, cuisine, cover_url, avg_rating, review_count, people_count, dish_count, my_visits, my_last_visit, locality, entry_count}` — **`locality` is the second chip** (`city` is unreliable, see below); `entry_count` = visits here, `review_count` = receipt lines; every text field is `null`, never `''` |
-| Place — what to order | `rpc place_dishes(p_restaurant_id, p_limit, p_cursor_review_count, p_cursor_score, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, score, people_count, review_count, cover_url}[]` — **`review_count` DESC leads**, then `score` DESC (unscored last), then name, then id: the ported `DishRanking` rule, so one 5.0 from one person cannot lead the menu. **Never re-sort it client-side.** A dish with no line at all is not returned. **4-part keyset: pass all four from the last row** (`p_cursor_score` may be null) |
+| Place — what to order | `rpc place_dishes(p_restaurant_id, p_limit, p_cursor_review_count, p_cursor_score, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, score, people_count, review_count, cover_url, tags}[]` — `tags` = the dish's chips, the `dish_summary.tags` rule (0045). **`review_count` DESC leads**, then `score` DESC (unscored last), then name, then id: the ported `DishRanking` rule, so one 5.0 from one person cannot lead the menu. **Never re-sort it client-side.** A dish with no line at all is not returned. **4-part keyset: pass all four from the last row** (`p_cursor_score` may be null) |
 | Place — entries | `rpc get_entries_at_place(p_restaurant_id, p_scope, cursor…)` | `entry_cards[]`; `p_scope ∈ 'all'|'mine'|'others'` |
 | Dish — header | `rpc dish_summary(p_dish_id)` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_city, score, review_count, scored_count, people_count, cover_url, saved, my_last_score, photos, restaurant_locality, tags}` — `photos` = `[{url, entry_id}]` newest first for the header stack, `[]` when none, and **`photos[0].url == cover_url`**; `tags` = codes **at least half** of the `review_count` lines carry (and ≥1), `[]` when none |
 | Dish — reviews | `rpc get_dish_reviews(p_dish_id, p_cursor_mine, p_cursor_created_at, p_cursor_id, p_page_size)` | `{review_id, entry_id, author{…}, score, note, created_at, is_mine, photos[]}[]` — **mine first**, then newest. Keyset is 3-part: pass `is_mine`, `created_at`, `id` from the last row. **`entry_id` is nullable** (a pre-entries line has no entry to open — decode optional, hide the tap); `photos[]` is the review's ENTRY's |
@@ -80,7 +80,7 @@ their own order: `place_dishes` `(review_count, score, name, dish_id)`, `feed_ar
 | Recap picker | `rpc statement_months(p_user_id, p_tz, p_cursor_month, p_limit)` | `{month (date), orders}[]`, newest first; `orders` is that month's ENTRY count. Keyset: pass the last row's `month` |
 | Recap | `rpc monthly_statement(p_user_id, p_month, p_tz)` | one jsonb (below) |
 | Search — Places | `rpc search_places(p_query, p_limit, p_cursor_match_tier, p_cursor_review_count, p_cursor_name, p_cursor_id)` | `{restaurant_id, name, cuisine, locality, avg_rating, review_count, people_count, dish_count, cover_url, match_tier}[]` |
-| Search — Dishes | `rpc search_dishes(p_query, p_limit, p_cursor_match_tier, p_cursor_review_count, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_locality, score, review_count, scored_count, people_count, cover_url, match_tier}[]` — the whole row in one call |
+| Search — Dishes | `rpc search_dishes(p_query, p_limit, p_cursor_match_tier, p_cursor_review_count, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_locality, score, review_count, scored_count, people_count, cover_url, match_tier, tags}[]` — the whole row in one call; `tags` as `dish_summary.tags` (0042) |
 | Search — People | `rpc search_people(p_query, p_limit, p_cursor_match_tier, p_cursor_username, p_cursor_user_id)` | `{user_id, username, name, avatar_url, city, is_me, match_tier}[]` — handle OR name; you can find yourself (`is_me`) |
 | Search — Saved | `rpc search_saved(p_query, p_limit, p_cursor_saved_at, p_cursor_dish_id)` | `my_saved_dishes`' columns + `restaurant_locality`; dish OR place name; **empty/null query = the whole list** |
 | Search — Nearby (before typing) | `rpc nearby_places(p_lat, p_lng, p_radius_m, p_limit, p_cursor_distance_m, p_cursor_id)` | `{restaurant_id, name, cuisine, locality, avg_rating, review_count, people_count, dish_count, cover_url, distance_m}[]` — places we hold, nearest first; no Google call |
@@ -151,8 +151,8 @@ the rule below is enforced in SQL, not by the caller remembering it. **Tag chips
 in `body` ("GF"); send where it sits in `tag_tokens` (UNICODE SCALARS, like every offset). The sorter reads
 it (`gf`, `gluten free`, `vegan`, `GF/DF`…) onto the dish it FOLLOWS. Unmarked words never tag; omitting
 `tag_tokens` on a re-sort removes nothing. **The secret 6 (0041):** a 6 exists only where the composer marked
-it — send each marked `6`/`6.0` in `six_tokens` (scalars). It scores the dish it follows; a typed "6" never does. A re-sort without `six_tokens` keeps a 6 while the words
-still say it at the same span (0044); edit it out, or move it, and it drops — resend the tokens after a body edit.
+it — send each marked `6`/`6.0` in `six_tokens` (scalars). It scores the dish it follows; a typed "6" never does. A re-sort without `six_tokens` keeps a 6 on its LINE
+(0044): wherever the dish now sits, if its score span still reads a lone 6. Changed to a 4 → 4; dish removed → gone.
 
 **Early sort (0039).** While composing, `{ "preview": true, "body": "<draft>", "tag_tokens": […], "six_tokens": […],
 "restaurant_id": "<uuid|null>" }` (no `entry_id`) → 200 `{ok, preview: true, cached, mode, model, entry_id: null,
@@ -249,7 +249,7 @@ PR, same rule as `place_locality()`); rows written before keep the mangle — re
 
 ## Wire-change log
 
-**Round 4 — 0041–0044 + sort-entry.** Additive: `six_tokens` (sort + preview); a `score` may be `6.0` anywhere a
+**Round 4 — 0041–0045 + sort-entry.** Additive: `six_tokens` (sort + preview); `tags` on `place_dishes` (+ browse) and `search_dishes` rows; a `score` may be `6.0` anywhere a
 score or aggregate is read; filter params on `search_places`/`search_dishes`/`nearby_places` (drop+create, old
 calls bind); `search_cuisines`, `my_entries`, `my_entry_places`. **Behavioural:** `score_histogram` returns 11 rows.
 
