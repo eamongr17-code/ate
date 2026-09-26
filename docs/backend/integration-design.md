@@ -34,8 +34,9 @@ Journal slip, Feed slip, Entry page and Share receipt are the same data at four 
 paraphrase), `position` (1-based), `saved` (the viewer's own save state), `cover_url` (the DISH's cover photo,
 null when the dish has none — **not** a photo from this entry; `photos[]` is that), `evidence_offset` +
 `evidence_length` (where the SCORE is in `body`), `mention_offset` + `mention_length` (where the DISH is
-named), `corrected` (the user fixed this line; no re-sort overwrites it). Every `*_offset`/`*_length` is null
-when we cannot point at it — then draw no token.
+named), `corrected` (the user fixed this line; no re-sort overwrites it), `tags` (0036: dietary codes, a
+subset of `gf df v vg nf` in that order, deduped, **`[]` never null** — the dish row's chips). Every
+`*_offset`/`*_length` is null when we cannot point at it — then draw no token.
 
 **Inline tokens: place them, never search for them. Every `*_offset` is a 0-based UNICODE SCALAR (code-point)
 offset into `body`, and every `*_length` counts UNICODE SCALARS.** Not UTF-16: one emoji earlier in the body
@@ -67,7 +68,7 @@ their own order: `place_dishes` `(review_count, score, name, dish_id)`, `stateme
 | Place — header | `rpc place_summary(p_restaurant_id)` | `{restaurant_id, name, address, city, cuisine, cover_url, avg_rating, review_count, people_count, dish_count, my_visits, my_last_visit, locality, entry_count}` — **`locality` is the second chip** (`city` is unreliable, see below); `entry_count` = visits here, `review_count` = receipt lines; every text field is `null`, never `''` |
 | Place — what to order | `rpc place_dishes(p_restaurant_id, p_limit, p_cursor_review_count, p_cursor_score, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, score, people_count, review_count, cover_url}[]` — **`review_count` DESC leads**, then `score` DESC (unscored last), then name, then id: the ported `DishRanking` rule, so one 5.0 from one person cannot lead the menu. **Never re-sort it client-side.** A dish with no line at all is not returned. **4-part keyset: pass all four from the last row** (`p_cursor_score` may be null) |
 | Place — entries | `rpc get_entries_at_place(p_restaurant_id, p_scope, cursor…)` | `entry_cards[]`; `p_scope ∈ 'all'|'mine'|'others'` |
-| Dish — header | `rpc dish_summary(p_dish_id)` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_city, score, review_count, scored_count, people_count, cover_url, saved, my_last_score, photos, restaurant_locality}` — `photos` = `[{url, entry_id}]` newest first for the header stack, `[]` when none, and **`photos[0].url == cover_url`** |
+| Dish — header | `rpc dish_summary(p_dish_id)` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_city, score, review_count, scored_count, people_count, cover_url, saved, my_last_score, photos, restaurant_locality, tags}` — `photos` = `[{url, entry_id}]` newest first for the header stack, `[]` when none, and **`photos[0].url == cover_url`**; `tags` = codes **at least half** of the `review_count` lines carry (and ≥1), `[]` when none |
 | Dish — reviews | `rpc get_dish_reviews(p_dish_id, p_cursor_mine, p_cursor_created_at, p_cursor_id, p_page_size)` | `{review_id, entry_id, author{…}, score, note, created_at, is_mine, photos[]}[]` — **mine first**, then newest. Keyset is 3-part: pass `is_mine`, `created_at`, `id` from the last row. **`entry_id` is nullable** (a pre-entries line has no entry to open — decode optional, hide the tap); `photos[]` is the review's ENTRY's |
 | Saved | `GET /rest/v1/my_saved_dishes?order=saved_at.desc,dish_id.desc&limit=N` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_city, dish_score, dish_cover_url, source_entry_id, source_user_id, source_username, saved_at, cover_url}[]` — keyset below; client groups by restaurant |
 | You · Profile header | `rpc profile_summary(p_user_id)` | `{user_id, username, name, avatar_url, bio, city, created_at, orders, places, dishes, scored, avg_score, is_me}` — `orders`/`places` count ENTRIES, `dishes`/`scored`/`avg_score` count receipt LINES (and now agree with `score_histogram`) |
@@ -124,7 +125,8 @@ Upload to `review-photos/<auth.uid()>/<file>` → public URL → `POST /rest/v1/
 
 ### Sort it
 ```
-POST /functions/v1/sort-entry     { "entry_id": "<uuid>", "force": false, "dry_run": false }
+POST /functions/v1/sort-entry     { "entry_id": "<uuid>", "force": false, "dry_run": false,
+                                    "tag_tokens": [{ "offset": 23, "length": 2 }] }   // optional, 0036
 → 200 { ok, mode: "stub"|"model", model, entry_id, sort_status, restaurant_id,
         place_query, place_offset, items:[…] }
   401 unauthorized · 403 not your entry · 404 unknown entry · 422 entry_id missing · 500 sort failed
@@ -132,7 +134,10 @@ POST /functions/v1/sort-entry     { "entry_id": "<uuid>", "force": false, "dry_r
 Call it right after the insert (and on retry for anything left `pending`/`failed`). Idempotent: an
 already-sorted entry returns `{ok: true, skipped: "already sorted"}` unless `force`; `dry_run` returns the
 plan without writing. Then refetch `entry_cards?id=eq.<uuid>`. **`force` cannot destroy a correction** —
-the rule below is enforced in SQL, not by the caller remembering it.
+the rule below is enforced in SQL, not by the caller remembering it. **Tag chips:** the chip prints its word
+in `body` ("GF"); send where it sits in `tag_tokens` (UNICODE SCALARS, like every offset). The sorter reads
+it (`gf`, `gluten free`, `vegan`, `GF/DF`…) onto the dish it FOLLOWS. Unmarked words never tag; omitting
+`tag_tokens` on a re-sort removes nothing.
 
 ### Corrections (the user's, always)
 | Action | Call |
@@ -140,6 +145,7 @@ the rule below is enforced in SQL, not by the caller remembering it.
 | Fix the place | `rpc correct_entry_place(p_entry_id, p_restaurant_id)` → the entry row. Re-resolves every line's dish at the new place, or prints the parked plan if the entry had none. Pins `restaurant_source='user'`, records `place_corrected_at`, clears the place token |
 | Fix a line's dish | `rpc correct_entry_dish(p_review_id, p_dish_id, p_dish_name)` → dish uuid. Pass `p_dish_id` for a menu pick, `p_dish_name` to name one. Score and note untouched |
 | Set / clear a score | `PATCH /rest/v1/reviews?id=eq.<uuid>` `{ "score": 4.5 }` (or `null`). Half steps 0.5–5.0 |
+| Set a line's tags | `PATCH /rest/v1/reviews?id=eq.<uuid>` `{ "tags": ["gf", "v"] }` — the WHOLE set (`[]` clears). Canonicalised server-side; a code outside the five is `23514`; owner only. Not a correction |
 | Edit the words | `PATCH /rest/v1/entries?id=eq.<uuid>` `{ "body": "…" }`. (A `{visibility}` PATCH still succeeds and changes nothing — remove the control) |
 | Delete a visit | `DELETE /rest/v1/entries?id=eq.<uuid>` (cascades photos + its reviews) |
 
@@ -218,6 +224,9 @@ changes, make it config, do not fork the function. `restaurants.city` is written
 PR, same rule as `place_locality()`); rows written before keep the mangle — read `locality`.
 
 ## Wire-change log
+
+**Additive — 0036.** `reviews.tags`, `entry_cards.items[].tags`, `dish_summary.tags` (+ browse twin),
+sort-entry `tag_tokens` in and `items[].tags` out. A re-sort never removes a tag.
 
 **Additive — sort-entry.** `model` (string|null) on sort and dry-run 200s (not on `skipped`). `mode` values unchanged.
 

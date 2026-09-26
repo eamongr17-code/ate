@@ -87,6 +87,13 @@ test('the configured model is the one sent', () => {
   }
 });
 
+test('sonnet 5 gets no sampling parameters (it rejects them with a 400)', () => {
+  const req = buildRequest({ apiKey: 'sk-ant-xxx', body: 'Tipo 00. Pasta 4.5', knownDishes: ['Pasta'], model: 'claude-sonnet-5' });
+  const payload = JSON.parse(req.body);
+  assertEquals(payload.model, 'claude-sonnet-5');
+  assertEquals('temperature' in payload, false);
+});
+
 test('the request is haiku by default, deterministic, and forced through the tool', () => {
   const req = buildRequest({ apiKey: 'sk-ant-xxx', body: 'Tipo 00. Pasta 4.5', knownDishes: ['Pasta'] });
   const payload = JSON.parse(req.body);

@@ -32,6 +32,12 @@ export type SortItem = {
   mention_text: string | null;
   /** Scalar offset of `mention_text` in the body. */
   mention_offset: number | null;
+  /**
+   * Dietary tag codes (gf · df · v · vg · nf), canonical order. Set ONLY by
+   * ./tags.ts attachTagTokens from spans the client marked as tag tokens — never by the
+   * parser or the model (validateItem drops anything they put here). Absent before that step.
+   */
+  tags?: string[];
 };
 
 /** What the sorter proposes for one entry. */
