@@ -195,6 +195,20 @@ struct PlacePageStoreTests {
         #expect(store.summary == nil)
     }
 
+    @Test("a header that never came back is unreachable, not missing — and a retry recovers it")
+    func unreachableIsNotMissing() async {
+        let source = FakePlaceDishSource()
+        source.seed(place: summary())
+        source.failSummary(FakePlaceDishSource.Failure(message: "offline"))
+        let store = store(source)
+        await store.load()
+        #expect(store.header == .unreachable)
+
+        source.failSummary(nil)
+        await store.retry()
+        #expect(store.name == "Tipo 00")
+    }
+
     @Test("a menu that fails does not take the header down with it")
     func menuFailsAlone() async {
         let source = FakePlaceDishSource()

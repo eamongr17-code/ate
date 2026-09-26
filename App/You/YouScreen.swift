@@ -9,7 +9,7 @@ import SwiftUI
 /// pep talk would be helper copy (design rule 1).
 struct YouScreen: View {
     let store: YouStore
-    /// A histogram bar, or "Your ratings ›".
+    /// A histogram bar (the page scrolled to that bar's group), or "Your ratings ›" (its top).
     var onRatings: (Double) -> Void = { _ in }
     /// A dish tile.
     var onDish: (UUID) -> Void = { _ in }
@@ -40,7 +40,6 @@ struct YouScreen: View {
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
         .scrollIndicators(.hidden)
-        .overlay(alignment: .topTrailing) { settings }
         .refreshable { await store.refresh() }
         .task {
             await store.loadIfNeeded()
@@ -48,18 +47,12 @@ struct YouScreen: View {
         }
     }
 
-    /// `padding:70px 20px 0` — You starts a little lower than the rest, because the 76pt avatar is
-    /// the biggest thing at the top of any screen in the app.
-    private static let contentTop: CGFloat = 70
+    /// The header is a 56pt row, so the page starts where `Feed` and `Search` start theirs (62) —
+    /// Eamon's resized header (2026-09-26), replacing `You.dc.html`'s 76pt avatar at 70.
+    private static let contentTop: CGFloat = 62
+    static let avatar: CGFloat = 56
 
     // MARK: - Bands
-
-    /// `top:60px; right:12px` — the way into Settings.
-    private var settings: some View {
-        AteIconButton(icon: .settings, label: "Settings", size: 22, action: onSettings)
-            .padding(.trailing, AteMetrics.regular)
-            .ateContentTop()
-    }
 
     @ViewBuilder
     private var header: some View {
@@ -70,25 +63,41 @@ struct YouScreen: View {
             // No session, or the header would not load. The page says who is missing and stops.
             AteEmptyState(title: "Nobody's\nsigned in.")
         case .ready(let summary):
-            HStack(spacing: AteMetrics.loose) {
-                AteAvatar(
-                    userID: summary.userID,
-                    handle: summary.username,
-                    side: 76,
-                    textStyle: .avatarMonogram
-                )
-                VStack(alignment: .leading, spacing: AteMetrics.tight) {
-                    Text(verbatim: "@\(summary.username)")
-                        .ateTextLine(.profileTitle)
-                    if let city = summary.city, city.isEmpty == false {
-                        Text(city)
-                            .ateText(.meta)
-                            .foregroundStyle(AtePalette.automatic.muted)
-                    }
+            header(summary)
+        }
+    }
+
+    /// **The header** — approved by Eamon 2026-09-26 over `You.dc.html`'s (avatar and handle too
+    /// big, the gear too close, long handles unhandled): a 56pt avatar, the handle at 26 on ONE line
+    /// that truncates at its tail, and the gear in the same row with a fixed gap between it and the
+    /// handle — so a long handle ends in an ellipsis instead of running under the gear.
+    private func header(_ summary: ProfileSummary) -> some View {
+        HStack(spacing: AteMetrics.regular) {
+            AteAvatar(
+                userID: summary.userID,
+                handle: summary.username,
+                side: YouScreen.avatar,
+                textStyle: .avatarMonogramCompact
+            )
+            VStack(alignment: .leading, spacing: AteMetrics.hairspace) {
+                Text(verbatim: "@\(summary.username)")
+                    .ateText(.youHandleCompact)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                if let city = summary.city, city.isEmpty == false {
+                    Text(city)
+                        .ateText(.meta)
+                        .foregroundStyle(AtePalette.automatic.muted)
+                        .lineLimit(1)
                 }
-                Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
+            AteIconButton(icon: .settings, label: "Settings", size: 22, action: onSettings)
+                .padding(.leading, AteMetrics.tight)
+                // The glyph sits on the gutter, like every other trailing mark; the hit area
+                // hangs past it.
+                .padding(.trailing, -(AteMetrics.hit - 22) / 2)
         }
     }
 
@@ -99,7 +108,8 @@ struct YouScreen: View {
         if store.histogram.isEmpty == false {
             VStack(alignment: .leading, spacing: AteMetrics.snug) {
                 Button {
-                    guard let score = store.histogram.busiestScore else { return }
+                    // The whole page, from its top: every group, the highest first.
+                    guard let score = store.histogram.highestScore else { return }
                     onRatings(score)
                 } label: {
                     HStack(spacing: AteMetrics.snug) {
@@ -196,14 +206,14 @@ struct YouScreen: View {
 private struct YouHeaderSkeleton: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: AteMetrics.loose) {
+            HStack(spacing: AteMetrics.regular) {
                 Circle()
                     .fill(AtePalette.automatic.hairline)
-                    .frame(width: 76, height: 76)
+                    .frame(width: YouScreen.avatar, height: YouScreen.avatar)
                 VStack(alignment: .leading, spacing: AteMetrics.snug) {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(AtePalette.automatic.hairline)
-                        .frame(width: 150, height: 26)
+                        .frame(width: 150, height: 22)
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(AtePalette.automatic.hairline)
                         .frame(width: 90, height: 13)

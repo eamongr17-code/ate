@@ -22,6 +22,9 @@ struct SearchTabScreen: View {
     var onUnsave: (SavedDish) async -> Bool = { _ in true }
 
     @State private var location = AteLocation()
+    /// Where the results start on the page — measured, so an empty state can be centred in what is
+    /// left below the segments whatever size the title and field were drawn at.
+    @State private var resultsTop: CGFloat = 0
 
     var body: some View {
         ScrollView {
@@ -46,6 +49,7 @@ struct SearchTabScreen: View {
             .padding(.horizontal, AteMetrics.gutter)
             .ateContentTop(62)
             .padding(.bottom, AteMetrics.tabBarScrollInset)
+            .coordinateSpace(.named(SearchTabScreen.contentSpace))
         }
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.immediately)
@@ -116,21 +120,32 @@ struct SearchTabScreen: View {
             case .empty:
                 // An empty shelf with nothing typed is the shelf's own state, word for word; an
                 // answer that found nothing is the search's.
-                AteEmptyState(
+                centred(AteEmptyState(
                     title: store.scope == .saved && store.isSearching == false
                         ? "Nothing saved\nyet."
                         : "Nothing\nfound."
-                )
-                .padding(.top, AteMetrics.snug)
+                ))
             case .failed(let message):
-                AteEmptyState(title: message)
-                    .padding(.top, AteMetrics.snug)
+                centred(AteEmptyState(title: message))
             case .ready:
                 rows
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        // Measured in the scrolled content's own space, so a pull or a bounce does not move it; the
+        // content starts under the status bar, which is added back to put it on the page.
+        .onGeometryChange(for: CGFloat.self) {
+            $0.frame(in: .named(SearchTabScreen.contentSpace)).minY
+        } action: { resultsTop = $0 + AteScreen.safeArea.top }
     }
+
+    /// **The one position rule for a state with nothing under it** (``AteEmptyPlacement``): centred
+    /// on the same screen line as every other empty state, measured from where the results begin.
+    private func centred(_ state: some View) -> some View {
+        state.ateEmptyPlacement(top: resultsTop)
+    }
+
+    nonisolated private static let contentSpace = "search.content"
 
     @ViewBuilder
     private var rows: some View {

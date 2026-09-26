@@ -15,6 +15,8 @@ struct AddPlaceSheet: View {
     @State private var suburb = ""
     @State private var street = ""
     @State private var isSaving = false
+    /// The place that could not be added, said once (``ActionFailure``).
+    @State private var failure: ActionFailure?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -33,6 +35,7 @@ struct AddPlaceSheet: View {
         // `AddPlace.dc.html` is 560 of 844.
         .presentationDetents([.height(AteScreen.sheetHeight(560))])
         .onAppear { if name.isEmpty { name = suggestedName } }
+        .ateFailureAlert($failure)
     }
 
     private func field(_ label: String, text: Binding<String>, prompt: String? = nil) -> some View {
@@ -61,7 +64,10 @@ struct AddPlaceSheet: View {
                 name: trimmed,
                 suburb: suburb.trimmingCharacters(in: .whitespacesAndNewlines),
                 street: street.trimmingCharacters(in: .whitespacesAndNewlines)
-            ) else { return }
+            ) else {
+                failure = .addPlace
+                return
+            }
             onAdded(place)
             dismiss()
         }

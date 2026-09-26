@@ -163,6 +163,63 @@ struct SavedDishesStoreTests {
         #expect(store.dishes.map(\.dishID) == [second.dishID], "and the row it kept is still there")
     }
 
+    @Test("Undo puts the row back in its own place and saves it again, with its provenance")
+    func undoUnsave() async {
+        let entry = UUID()
+        let first = saved("Prawn spaghetti", at: tipo, placeName: "Tipo 00", minutesAgo: 1)
+        let middle = SavedDish(
+            dishID: UUID(), dishName: "Tiramisu", restaurantID: tipo, restaurantName: "Tipo 00",
+            restaurantCity: "CBD", dishScore: 4.5, sourceEntryID: entry, sourceUsername: "jessw",
+            savedAt: Date(timeIntervalSince1970: 1_789_776_000 - 120)
+        )
+        let last = saved("Burrata", at: tipo, placeName: "Tipo 00", minutesAgo: 3)
+        let saves = FakeSaves(pages: [[first, middle, last]])
+        let store = SavedDishesStore(saves: saves, pageSize: 10)
+        await store.loadIfNeeded()
+
+        await store.unsave(middle)
+        #expect(store.undoable?.dishID == middle.dishID)
+        #expect(await store.undoUnsave())
+        #expect(store.dishes.map(\.dishID) == [first.dishID, middle.dishID, last.dishID])
+        #expect(saves.saved.map(\.dish) == [middle.dishID])
+        #expect(saves.saved.map(\.entry) == [entry])
+        #expect(store.undoable == nil, "one undo per unsave")
+        #expect(await store.undoUnsave() == false)
+    }
+
+    @Test("A refused undo takes the row back out; a refused unsave offers no undo")
+    func undoRefused() async {
+        let only = saved("Prawn spaghetti", at: tipo, placeName: "Tipo 00", minutesAgo: 1)
+        let saves = FakeSaves(pages: [[only]])
+        let store = SavedDishesStore(saves: saves, pageSize: 10)
+        await store.loadIfNeeded()
+        await store.unsave(only)
+        saves.refuses = true
+        #expect(await store.undoUnsave() == false)
+        #expect(store.dishes.isEmpty)
+        #expect(store.phase == .empty)
+
+        let refusing = FakeSaves(pages: [[only]])
+        refusing.refuses = true
+        let third = SavedDishesStore(saves: refusing, pageSize: 10)
+        await third.unsave(only)
+        #expect(third.undoable == nil)
+    }
+
+    @Test("An old unsave's clock does not take away a newer unsave's undo")
+    func expireOnlyItsOwn() async {
+        let first = saved("Prawn spaghetti", at: tipo, placeName: "Tipo 00", minutesAgo: 1)
+        let second = saved("Tiramisu", at: tipo, placeName: "Tipo 00", minutesAgo: 2)
+        let store = SavedDishesStore(saves: FakeSaves(pages: [[first, second]]), pageSize: 10)
+        await store.loadIfNeeded()
+        await store.unsave(first)
+        await store.unsave(second)
+        store.expireUndo(for: first)
+        #expect(store.undoable?.dishID == second.dishID)
+        store.expireUndo(for: second)
+        #expect(store.undoable == nil)
+    }
+
     @Test("Unsaving the last row leaves the empty state")
     func unsaveEverything() async {
         let only = saved("Prawn spaghetti", at: tipo, placeName: "Tipo 00", minutesAgo: 1)

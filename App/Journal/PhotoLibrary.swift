@@ -175,8 +175,13 @@ final class SystemPhotoLibrary: AtePhotoLibrary {
 /// driven and screenshotted against its artboard with no permission and no camera roll.
 @MainActor
 final class PreviewPhotoLibrary: AtePhotoLibrary {
-    var isAuthorized: Bool { true }
-    func requestAuthorization() async -> Bool { true }
+    /// `-ate-deny-photos` — the refused permission; `-ate-no-photos` — a roll with nothing in the
+    /// window. The two `Suggestions` states a simulator drive cannot otherwise reach.
+    private static let denies = ProcessInfo.processInfo.arguments.contains("-ate-deny-photos")
+    private static let isEmpty = ProcessInfo.processInfo.arguments.contains("-ate-no-photos")
+
+    var isAuthorized: Bool { Self.denies == false }
+    func requestAuthorization() async -> Bool { Self.denies == false }
 
     private struct Sitting {
         let offsetDays: Int
@@ -194,6 +199,7 @@ final class PreviewPhotoLibrary: AtePhotoLibrary {
     ]
 
     func recent() async -> [PhotoSuggestionItem] {
+        guard Self.denies == false, Self.isEmpty == false else { return [] }
         let calendar = Calendar.autoupdatingCurrent
         let now = Date()
         return Self.sittings.flatMap { sitting -> [PhotoSuggestionItem] in

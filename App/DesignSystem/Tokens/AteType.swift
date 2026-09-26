@@ -121,6 +121,8 @@ extension AteTextStyle {
     )
     /// "Pick a handle." — first run's one question, at the size of a place heading its own page.
     static var handleTitle: AteTextStyle { placeTitle }
+    /// "Your ratings" — `.h` at 38 on `Ratings.dc.html`, the entry page's title size, not a tab's 40.
+    static var ratingsTitle: AteTextStyle { entryPlace }
     /// What is typed into the handle field. `.h` at 30 — and at **−2%**, not `.h`'s own −3.5%:
     /// `Handle.dc.html` overrides the tracking on that one input, because a handle is read letter
     /// by letter and the title's tight setting closes `@e` up into one shape.

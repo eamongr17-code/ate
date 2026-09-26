@@ -33,6 +33,7 @@ struct DishDestination: View {
             source: source,
             dishes: services.dishPages,
             savedDishes: services.savedDishes,
+            deletions: services.entryDeletions,
             analytics: services.analytics
         ))
     }

@@ -9,6 +9,9 @@ import SwiftUI
 /// takes it back off the shelf. The place is a heading over its dishes, not a row of its own.
 struct SavedScreen: View {
     let store: SavedDishesStore
+    /// Where this shelf begins on the screen, so its empty state is centred on the line every empty
+    /// state shares (``AteEmptyPlacement``).
+    var emptyTop: CGFloat = AteEmptyPlacement.bandTop
     /// The place head, and a row: both go somewhere that does not exist yet (slice 2).
     var onPlace: (UUID) -> Void = { _ in }
     var onDish: (SavedDish) -> Void = { _ in }
@@ -21,10 +24,13 @@ struct SavedScreen: View {
                 SavedSkeleton()
             case .empty:
                 AteEmptyState(title: "Nothing saved\nyet.")
+                    .ateEmptyPlacement(top: emptyTop)
             case .signedOut:
                 AteEmptyState(title: "Nobody's\nsigned in.")
-            case .failed(let message):
-                AteEmptyState(title: message)
+                    .ateEmptyPlacement(top: emptyTop)
+            case .failed:
+                AteUnreachableState { Task { await store.refresh() } }
+                    .ateEmptyPlacement(top: emptyTop)
             case .ready:
                 groups
             }
@@ -176,5 +182,41 @@ private struct SavedSkeleton: View {
         }
         .padding(.horizontal, AteMetrics.gutter)
         .accessibilityHidden(true)
+    }
+}
+
+/// **Undo**, after an unsave on the shelf — one ink pill, floating above the tab bar for four
+/// seconds and then gone. The app's own pill (``AteButton``), hugging one word: no toast, no
+/// sentence about what happened (design rule 1) — the row leaving is what happened, and this is
+/// the way back.
+struct SavedUndoPill: View {
+    let store: SavedDishesStore
+    let onUndo: () -> Void
+
+    /// How long the way back stays open.
+    private static let lifetime = Duration.seconds(4)
+    /// A row's gap above whatever the tab leaves at the bottom — the native bar's safe area, full
+    /// size or minimised.
+    private static let bottom: CGFloat = AteMetrics.regular
+    private static let height: CGFloat = AteMetrics.hit
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack {
+            if let dish = store.undoable {
+                AteButton(title: "Undo", height: Self.height, hugPadding: 22, action: onUndo)
+                    .accessibilityLabel("Undo, put back \(dish.dishName)")
+                    .accessibilityIdentifier("saved.undo")
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                    .task(id: dish.dishID) {
+                        try? await Task.sleep(for: Self.lifetime)
+                        guard Task.isCancelled == false else { return }
+                        store.expireUndo(for: dish)
+                    }
+            }
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: store.undoable?.dishID)
+        .padding(.bottom, Self.bottom)
     }
 }

@@ -69,16 +69,15 @@ struct JournalScreen: View {
     }
 
     private static let topAnchor = "journal.top"
-    /// `Saved`'s empty state keeps its old place under the segment.
-    private static let emptyTop: CGFloat = 48
-    /// `MainEmpty`: `padding:16px 12px 110px; gap:22px; flex:1` — the first-day state is centred in
-    /// what is left of the page between the segment (22 under it) and 110 above the bottom edge.
+    /// `MainEmpty`: `padding:16px 12px 110px; gap:22px; flex:1` — the first-day state sits 22 under
+    /// the segment, centred on the one line every empty state shares (``AteEmptyPlacement``).
     private static let firstDayGap: CGFloat = 22
-    private static let firstDayBottom: CGFloat = 110
     /// Where the segment ends on the page: the 60 content top, the 44 header, the 16 above the
     /// segment and the segment's own 44.
     private static let segmentBottom: CGFloat = AteMetrics.contentTop + AteMetrics.hit + AteMetrics.loose
         + AteMetrics.segmentHeight + 2 * AteMetrics.tight
+    /// Where a shelf's empty state begins on the screen — Journal and Saved alike.
+    private static let emptyTop: CGFloat = segmentBottom + firstDayGap
 
     private var header: some View {
         HStack {
@@ -113,11 +112,12 @@ struct JournalScreen: View {
             // the margin a slip gets.
             SavedScreen(
                 store: saved,
+                emptyTop: Self.emptyTop,
                 onPlace: onSavedPlace,
                 onDish: onSavedDish,
                 onUnsave: onUnsave
             )
-            .padding(.top, saved.groups.isEmpty ? Self.emptyTop : AteMetrics.slipGap)
+            .padding(.top, saved.phase == .ready || saved.phase == .loading ? AteMetrics.slipGap : Self.firstDayGap)
         }
     }
 
@@ -130,8 +130,8 @@ struct JournalScreen: View {
             firstDay(AteEmptyState(title: "Nothing\non the tab.", actionTitle: "Write your first", action: onCompose))
         case .signedOut:
             firstDay(AteEmptyState(title: "Nobody's\nsigned in."))
-        case .failed(let message):
-            firstDay(AteEmptyState(title: message))
+        case .failed:
+            firstDay(AteUnreachableState { Task { await store.refresh() } })
         case .ready:
             slips
         }
@@ -139,10 +139,8 @@ struct JournalScreen: View {
 
     /// `MainEmpty` — the state, centred in the page under the segment. No paper: an empty journal
     /// has not printed anything, so it does not wear the receipt.
-    private func firstDay(_ state: AteEmptyState) -> some View {
-        state
-            .frame(maxWidth: .infinity)
-            .frame(height: max(0, AteScreen.height - Self.segmentBottom - Self.firstDayGap - Self.firstDayBottom))
+    private func firstDay(_ state: some View) -> some View {
+        state.ateEmptyPlacement(top: Self.emptyTop)
     }
 
     private var slips: some View {
@@ -155,6 +153,8 @@ struct JournalScreen: View {
                     onDish: { onDish($0.dishID) }
                 )
                 .task { await store.loadMoreIfNeeded(after: entry) }
+                // Its own task, so the row scrolling away cancels the prefetch with it.
+                .task { await AtePrefetch.photos(after: entry, in: store.entries) }
             }
             if let message = store.inlineErrorMessage {
                 Text(message)

@@ -17,7 +17,7 @@ import Observation
 /// (they differ only in which RPC they call) and so a test can drive paging with no network at all.
 @MainActor
 @Observable
-public final class EntryListStore: SavedDishObserving {
+public final class EntryListStore: SavedDishObserving, EntryDeletionObserving {
 
     /// What the screen shows instead of entries.
     public enum Phase: Sendable, Equatable {
@@ -75,6 +75,12 @@ public final class EntryListStore: SavedDishObserving {
         savedDishes?.add(self)
     }
 
+    /// Listens for deletes as it listens for saves: an entry deleted anywhere leaves this list in
+    /// the same turn.
+    public func listen(to deletions: EntryDeletions?) {
+        deletions?.add(self)
+    }
+
     // MARK: - Loading
 
     public func loadIfNeeded() async {
@@ -85,6 +91,17 @@ public final class EntryListStore: SavedDishObserving {
     /// Pull to refresh, and what a block does to every open list. Existing rows stay on screen until
     /// the new first page arrives, so a refresh never flashes empty.
     public func refresh() async {
+        await loadFirstPage()
+    }
+
+    /// Starts again from nothing — the list is about something else now (the Feed's area changed),
+    /// so the old rows must not stand in for the new ones while they load.
+    public func reload() async {
+        generation += 1
+        reset()
+        inlineErrorMessage = nil
+        phase = .loading
+        isLoadingFirstPage = false
         await loadFirstPage()
     }
 
@@ -168,6 +185,18 @@ public final class EntryListStore: SavedDishObserving {
         entries.removeAll { $0.authorID == authorID }
         seenIDs = Set(entries.map(\.id))
         if entries.isEmpty, phase == .ready { phase = .empty }
+    }
+
+    /// An entry was deleted: it leaves now, and a later page that still carries it (read before
+    /// the delete landed) cannot bring it back.
+    public func remove(entryID: UUID) {
+        guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return }
+        entries.remove(at: index)
+        if entries.isEmpty, phase == .ready { phase = .empty }
+    }
+
+    public func entryDeleted(_ entryID: UUID) {
+        remove(entryID: entryID)
     }
 
     public func entry(id: UUID) -> EntryCard? {

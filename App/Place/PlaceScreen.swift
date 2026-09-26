@@ -23,11 +23,15 @@ struct PlaceScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: AteMetrics.loose) {
                 header
-                menu
-                // `gap:12px` — one list, yours woven in first.
-                VStack(alignment: .leading, spacing: AteMetrics.placeSlipGap) {
-                    visits
-                    entries
+                // A place that is not there, or could not be reached, is its one line and nothing
+                // under it — no menu skeleton waiting on a page that has already said it failed.
+                if store.header.isFailure == false {
+                    menu
+                    // `gap:12px` — one list, yours woven in first.
+                    VStack(alignment: .leading, spacing: AteMetrics.placeSlipGap) {
+                        visits
+                        entries
+                    }
                 }
             }
             .padding(.top, AteMetrics.hairspace)
@@ -62,6 +66,12 @@ struct PlaceScreen: View {
         case .unavailable:
             // Deleted, or behind a block. Say that, and nothing else (design rule 1).
             AteEmptyState(title: "This place\nisn't here.")
+                .ateEmptyPlacement(top: AteDetailPage.contentTop)
+        case .unreachable:
+            // The read never came back. Not the same as a place that is gone: this one gets a retry.
+            AteUnreachableState { Task { await store.retry() } }
+                .ateEmptyPlacement(top: AteDetailPage.contentTop)
+            .accessibilityIdentifier("place.unreachable")
         case .ready(let summary):
             VStack(alignment: .leading, spacing: 10) {
                 AteExactText(text: summary.name, style: .placeTitle, alignment: .leading)
@@ -94,7 +104,9 @@ struct PlaceScreen: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// **What to order** — the ranked menu, on the one piece of receipt paper this page carries.
+    /// **What to order** — the ranked menu, on the one receipt this page carries. It wears the
+    /// receipt palette — white in light, the plum slip in dark with light type (Eamon, 2026-09-26:
+    /// the dimmed linen paper read as a hole in the ink ground) — and keeps its torn edge.
     @ViewBuilder
     private var menu: some View {
         switch store.menu {
@@ -110,7 +122,6 @@ struct PlaceScreen: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text("What to order")
                     .ateText(.receiptLabel)
-                    .foregroundStyle(AtePalette.paper.fg)
                     .padding(.bottom, AteMetrics.regular)
                 ForEach(Array(store.dishes.enumerated()), id: \.element.id) { index, dish in
                     MenuDishRow(dish: dish, rank: index + 1) { onDish(dish.dishID) }
@@ -122,8 +133,8 @@ struct PlaceScreen: View {
             // `padding:16px 16px 6px`, plus the paper's own torn edge under it.
             .padding(.bottom, 6 + AteMetrics.tornEdgeHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .atePaper()
-            .ateTornPaper(.paper)
+            .ateSlip()
+            .ateTornPaper()
             .padding(.horizontal, AteMetrics.gutter)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("place.menu")
@@ -196,6 +207,9 @@ struct MenuDishRow: View {
     /// `.lab` at `width:18px` — the rank column, so every dish name starts on the same vertical.
     private static let rankWidth: CGFloat = 18
 
+    /// The receipt it is printed on — light type on the plum slip in dark, ink on white in light.
+    @Environment(\.atePalette) private var palette
+
     var body: some View {
         Button(action: action) {
             VStack(spacing: 0) {
@@ -221,7 +235,7 @@ struct MenuDishRow: View {
                                 AteIcon.feed.view(size: 13)
                                 Text(dish.peopleCount.formatted()).ateText(.meta)
                             }
-                            .foregroundStyle(AtePalette.paper.muted)
+                            .foregroundStyle(palette.muted)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -270,9 +284,25 @@ private struct PlaceHeaderSkeleton: View {
 /// …and the menu, drawn as the paper it is waiting for.
 private struct MenuSkeleton: View {
     var body: some View {
+        MenuSkeletonLines()
+            .padding(.top, AteMetrics.loose)
+            .padding(.horizontal, AteMetrics.loose)
+            .padding(.bottom, 6 + AteMetrics.tornEdgeHeight)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .ateSlip()
+            .ateTornPaper()
+            .accessibilityHidden(true)
+    }
+}
+
+/// The skeleton's lines, reading the slip's own hairline so they sit on the receipt in both modes.
+private struct MenuSkeletonLines: View {
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(AtePalette.paper.hairline)
+                .fill(palette.hairline)
                 .frame(width: 96, height: 11)
                 .padding(.bottom, AteMetrics.regular)
             ForEach(0..<3, id: \.self) { _ in
@@ -280,11 +310,11 @@ private struct MenuSkeleton: View {
                     AteDashedLine(opacity: 0.25)
                     HStack(spacing: AteMetrics.regular) {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(AtePalette.paper.hairline)
+                            .fill(palette.hairline)
                             .frame(width: 48, height: 48)
                             .padding(.leading, 18 + AteMetrics.regular)
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(AtePalette.paper.hairline)
+                            .fill(palette.hairline)
                             .frame(width: 150, height: 16)
                         Spacer(minLength: 0)
                     }
@@ -292,12 +322,11 @@ private struct MenuSkeleton: View {
                 }
             }
         }
-        .padding(.top, AteMetrics.loose)
-        .padding(.horizontal, AteMetrics.loose)
-        .padding(.bottom, 6 + AteMetrics.tornEdgeHeight)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .atePaper()
-        .ateTornPaper(.paper)
-        .accessibilityHidden(true)
     }
+}
+
+/// Where a pushed detail page's content begins on the screen: the 60 content top, the 44 back
+/// arrow, and the page's 2 — what its "isn't here" and "couldn't reach Ate" are centred from.
+enum AteDetailPage {
+    static let contentTop: CGFloat = AteMetrics.contentTop + AteMetrics.hit + AteMetrics.hairspace
 }

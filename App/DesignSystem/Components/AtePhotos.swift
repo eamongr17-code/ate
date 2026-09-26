@@ -20,6 +20,12 @@ struct AtePhoto: Identifiable, Equatable {
         self.dish = dish
     }
 
+    /// A photo on the server, named by its address — so the same photo is the same tile on every
+    /// redraw, and a card re-rendering around it (a bookmark flipping) never reloads it.
+    static func remote(_ address: String) -> AtePhoto {
+        AtePhoto(id: PhotoAddress.stableID(for: address), url: URL(string: address))
+    }
+
     /// A dish's thumbnail: its cover, or its letter tile.
     static func dish(_ dishID: UUID, name: String, cover: String?) -> AtePhoto {
         AtePhoto(id: dishID, url: cover.flatMap(URL.init(string:)), dish: DishLetter(dishID: dishID, name: name))
@@ -42,7 +48,7 @@ struct DishLetter: Equatable, Sendable {
     var letter: String { DishTileIdentity.initial(for: name) }
 }
 
-private struct DishLetterTile: View {
+struct DishLetterTile: View {
     let dish: DishLetter
 
     var body: some View {
@@ -69,7 +75,7 @@ struct AtePhotoTile: View {
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: AteMetrics.photoRadius(side: side), style: .continuous)
-        return AtePhotoContent(photo: photo)
+        return AtePhotoContent(photo: photo, size: .forSide(side))
         .frame(width: side, height: side)
         .clipShape(shape)
         .overlay {
@@ -84,74 +90,31 @@ struct AtePhotoTile: View {
     }
 }
 
-/// What actually fills a tile: a picked image, a photo still coming down the wire, or the space it
-/// will take. Never a spinner — the design asks for skeletons of the real component.
+/// What actually fills a tile: a picked image, a photo coming down the wire, or the space it will
+/// take. Never a spinner and never a shimmer — a still tile in the surface's field colour, which the
+/// picture fades into (``AteRemotePhoto``).
 ///
 /// `.fill` everywhere a photo is a tile; `.fit` in the full-screen viewer, which is the one place the
 /// whole photo is the point.
 struct AtePhotoContent: View {
     let photo: AtePhoto
     var contentMode: ContentMode = .fill
+    /// How much of the photo to fetch and decode — a list's squircle asks for the thumbnail.
+    var size: AtePhotoSize = .large
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
         if let image = photo.image {
-            fitted(image)
+            image.resizable().aspectRatio(contentMode: contentMode)
         } else if let url = photo.url {
-            #if DEBUG
-            if let bundled = Self.bundled(url) {
-                fitted(bundled)
-            } else {
-                remote(url)
-            }
-            #else
-            remote(url)
-            #endif
+            AteRemotePhoto(url: url, size: size, contentMode: contentMode, failure: photo.dish)
         } else if let dish = photo.dish {
             DishLetterTile(dish: dish)
         } else {
             palette.field
         }
     }
-
-    private func fitted(_ image: Image) -> some View {
-        image.resizable().aspectRatio(contentMode: contentMode)
-    }
-
-    /// Loading holds the space in the field colour; a photo that will not load becomes the dish's
-    /// letter tile where there is a dish to name — a failed load is not an empty square either.
-    private func remote(_ url: URL) -> some View {
-        AsyncImage(url: url) { phase in
-            switch phase {
-            case .success(let loaded):
-                fitted(loaded)
-            case .failure:
-                if let dish = photo.dish { DishLetterTile(dish: dish) } else { palette.field }
-            default:
-                palette.field
-            }
-        }
-    }
-
-    #if DEBUG
-    /// The prototype photos, for `-ate-preview-data`. `asset://ragu` is the design's own fixture;
-    /// `preview://<entry>/<n>` is what the in-memory service mints when a written entry's photos
-    /// "upload", so a drive sees food rather than grey squares.
-    private static func bundled(_ url: URL) -> Image? {
-        switch url.scheme {
-        case "asset":
-            return url.host().map { Image("Photos/\($0)") }
-        case "preview":
-            let index = Int(url.lastPathComponent) ?? 0
-            return Image("Photos/\(names[abs(index) % names.count])")
-        default:
-            return nil
-        }
-    }
-
-    private static let names = ["ragu", "prawn", "tiramisu", "sushi", "burger", "pizza", "cake", "penne"]
-    #endif
 }
 
 /// **The mess.** Design rule 6: photos tilt and overlap *only* in small static clusters — the entry
@@ -180,18 +143,15 @@ struct PhotoCluster: View {
     /// different numbers passes its own (the dish hero's ``AtePhotoAngles/dishHero``) rather than
     /// forking the component or living with a degree of drift.
     var angles: [Double] = AtePhotoAngles.slip
+    /// A photo was tapped — the full-screen viewer, opened on it. `nil` leaves the cluster a picture.
+    var onTap: ((Int) -> Void)?
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        HStack(spacing: -overlap) {
+        let cluster = HStack(spacing: -overlap) {
             ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
-                AtePhotoTile(
-                    photo: photo,
-                    side: side,
-                    ring: photos.count > 1 ? (surface ?? palette.ground) : nil
-                )
-                    .rotationEffect(.degrees(angle(at: index)))
+                tile(photo, at: index)
                     .zIndex(Double(photos.count - index))
             }
         }
@@ -200,8 +160,33 @@ struct PhotoCluster: View {
         // Every artboard insets a cluster by 6 on the leading edge, so the first photo's tilt has
         // somewhere to go.
         .padding(.leading, 6)
-        .accessibilityElement()
-        .accessibilityLabel(photos.count == 1 ? "1 photo" : "\(photos.count) photos")
+
+        if onTap == nil {
+            cluster
+                .accessibilityElement()
+                .accessibilityLabel(photos.count == 1 ? "1 photo" : "\(photos.count) photos")
+        } else {
+            cluster.accessibilityElement(children: .contain)
+        }
+    }
+
+    @ViewBuilder
+    private func tile(_ photo: AtePhoto, at index: Int) -> some View {
+        let drawn = AtePhotoTile(
+            photo: photo,
+            side: side,
+            ring: photos.count > 1 ? (surface ?? palette.ground) : nil
+        )
+        .rotationEffect(.degrees(angle(at: index)))
+
+        if let onTap {
+            Button { onTap(index) } label: { drawn.contentShape(.rect) }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Photo \(index + 1) of \(photos.count)")
+                .accessibilityIdentifier("photo.\(index)")
+        } else {
+            drawn
+        }
     }
 
     /// Fixed per position rather than random, so the same entry always looks the same — a cluster
@@ -324,7 +309,7 @@ struct PhotoCollage: View {
     @ViewBuilder
     private func tile(index: Int, size: CGSize, radius: CGFloat, angle: Double, ring: Color?) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        let content = AtePhotoContent(photo: photos[index])
+        let content = AtePhotoContent(photo: photos[index], size: .large)
             .frame(width: size.width, height: size.height)
             .clipShape(shape)
             .overlay {
@@ -356,7 +341,7 @@ struct AteThumbnail: View {
     var radius: CGFloat = AteMetrics.receiptTop
 
     var body: some View {
-        AtePhotoContent(photo: photo)
+        AtePhotoContent(photo: photo, size: .forSide(side))
             .frame(width: side, height: side)
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .accessibilityHidden(true)

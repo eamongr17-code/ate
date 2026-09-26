@@ -30,7 +30,8 @@ public final class ProfileStore {
         userID: UUID,
         profiles: any ProfileReading,
         pageSize: Int = 20,
-        savedDishes: SavedDishBroadcast? = nil
+        savedDishes: SavedDishBroadcast? = nil,
+        deletions: EntryDeletions? = nil
     ) {
         self.userID = userID
         self.profiles = profiles
@@ -41,6 +42,7 @@ public final class ProfileStore {
         ) { [profiles] cursor, size in
             try await profiles.entriesPage(authorID: userID, after: cursor, pageSize: size)
         }
+        entries.listen(to: deletions)
     }
 
     public func load() async {

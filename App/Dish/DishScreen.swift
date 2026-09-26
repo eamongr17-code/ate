@@ -17,6 +17,8 @@ struct DishScreen: View {
     var onSave: (DishSummary) -> Void = { _ in }
 
     @Environment(\.dismiss) private var dismiss
+    /// The shared full-screen viewer (browse lane, round 3): a hero photo opens it, swipeable.
+    @Environment(\.atePhotoViewer) private var showPhotos
 
     var body: some View {
         ScrollView {
@@ -27,6 +29,13 @@ struct DishScreen: View {
                         .padding(.horizontal, AteMetrics.gutter)
                 case .unavailable:
                     AteEmptyState(title: "This dish\nisn't here.")
+                        .ateEmptyPlacement(top: AteDetailPage.contentTop)
+                case .unreachable:
+                    // The read never came back — not the same as a dish that is gone, and worth
+                    // another try.
+                    AteUnreachableState { Task { await store.retry() } }
+                        .ateEmptyPlacement(top: AteDetailPage.contentTop)
+                    .accessibilityIdentifier("dish.unreachable")
                 case .ready(let summary):
                     hero
                     title(summary)
@@ -76,7 +85,7 @@ struct DishScreen: View {
     /// nothing at the top of the page, which is worse than starting on the name.
     @ViewBuilder
     private var hero: some View {
-        let photos = store.heroPhotoURLs.map { AtePhoto(url: URL(string: $0)) }
+        let photos = store.heroPhotoURLs.map { AtePhoto.remote($0) }
         if photos.isEmpty == false {
             PhotoCluster(
                 photos: photos,
@@ -84,7 +93,8 @@ struct DishScreen: View {
                 topPadding: 6,
                 bottomPadding: 0,
                 overlap: Self.heroOverlap,
-                angles: AtePhotoAngles.dishHero
+                angles: AtePhotoAngles.dishHero,
+                onTap: { showPhotos(photos, at: $0) }
             )
             // The cluster already insets 6 for its own tilt; the artboard's is 8.
             .padding(.leading, AteMetrics.gutter - 6 + 2)

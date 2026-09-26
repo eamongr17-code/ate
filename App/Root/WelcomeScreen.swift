@@ -1,3 +1,5 @@
+import AteKit
+import AuthenticationServices
 import SwiftUI
 
 /// **`Welcome`** — the coral ground, the wordmark printed on a tilted slip, and two ways in: Sign in
@@ -5,15 +7,25 @@ import SwiftUI
 ///
 /// It is also the sign-in *prompt*: when a signed-out browser tries to write or save, this is the
 /// screen that comes up, because it is the one that already asks the question. There is no second
-/// "please sign in" sheet, and no copy explaining why — design rule 1.
+/// "please sign in" sheet, and no copy explaining why — design rule 1. As the prompt, its link reads
+/// "Not now": the person is already seeing what everyone's eating, and is being asked to stop.
+///
+/// A sign-in that fails (not one the person closed) says so, once, in the app's one failure alert.
 struct WelcomeScreen: View {
-    /// Sign in with Apple.
-    let onSignIn: () async -> Void
-    /// "See what everyone's eating" — the signed-out way in, and Not Now when this is the prompt.
+    /// True when this is the ask over the signed-out feed, rather than the front door.
+    var isPrompt = false
+    /// What Apple's button came back with, and the raw nonce its request was made with. Returns
+    /// false when the sign-in failed in a way worth telling the person.
+    let onSignIn: (Result<ASAuthorization, any Error>, String) async -> Bool
+    /// "See what everyone's eating" — the signed-out way in; "Not now" when this is the prompt.
     let onBrowse: () -> Void
     /// The seeded staging account. Non-nil only in Debug and Beta.
     var onDebugSignIn: (() async -> Void)?
     var isBusy = false
+
+    /// The raw nonce of the request in the air. Its hash went to Apple; this goes to Supabase.
+    @State private var nonce = ""
+    @State private var failure: ActionFailure?
 
     var body: some View {
         ZStack {
@@ -25,6 +37,7 @@ struct WelcomeScreen: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay(alignment: .topTrailing) { debugDoor }
         .ateAccentGround(AteColor.coral)
+        .ateFailureAlert($failure)
     }
 
     /// The printed slip, tilted, with two photos escaping from behind it — the design's own
@@ -70,13 +83,16 @@ struct WelcomeScreen: View {
             AteBarcode()
             Text("Made to order")
                 .ateText(.receiptLabel)
-                .foregroundStyle(AtePalette.paper.muted)
+                .foregroundStyle(AtePalette.slip.muted)
         }
         .padding(.top, 34)
         .padding(.horizontal, 18)
         .padding(.bottom, 18 + AteMetrics.tornEdgeHeight)
-        .atePaper()
-        .ateTornPaper(.paper)
+        // The receipt palette, like every receipt Ate prints: white in light, and in dark the plum
+        // slip with light type — the same slip `Share` prints on the same coral (DESIGN.md), not
+        // the dimmed linen paper, which read as a hole in the page.
+        .ateSlip()
+        .ateTornPaper()
     }
 
     /// `left:20; right:20; bottom:40; gap:6` — the pill, then the link.
@@ -89,7 +105,7 @@ struct WelcomeScreen: View {
                 // descender at 15pt is ~3.3, so a 1pt rule one point under the text box lands where
                 // the markup puts it — and, unlike `.underline()`, it is the design's hairline.
                 VStack(spacing: 1) {
-                    Text("See what everyone's eating").ateText(.control)
+                    Text(isPrompt ? "Not now" : "See what everyone's eating").ateText(.control)
                     Rectangle().fill(AteColor.ink).frame(height: 1)
                 }
                 .fixedSize(horizontal: true, vertical: false)
@@ -104,22 +120,23 @@ struct WelcomeScreen: View {
         .ateContentBottom(40)
     }
 
-    /// The artboard's pill, lettered exactly as it is drawn: ink, **white** (not the ground — the
-    /// markup sets `#FFFFFF` here and `.ink`'s inverted linen on `Handle`'s Continue, and the two
-    /// really are different), 56 tall, full width, Bricolage 700/16.
+    /// **Apple's own button** — App Review requires the official `SignInWithAppleButton`, with
+    /// Apple's logo and lettering, so it stands where the artboard's hand-lettered ink pill stood:
+    /// the same 56 height, full width, and the same capsule (Apple permits the corner radius). Its
+    /// type is Apple's, not Bricolage — the one control in the app whose face is not ours to set.
     private var appleButton: some View {
-        Button {
-            Task { await onSignIn() }
-        } label: {
-            Text("Sign in with Apple")
-                .ateText(.button)
-                .frame(maxWidth: .infinity)
-                .frame(height: AteMetrics.buttonHeight)
-                .background(AteColor.ink, in: .capsule)
-                .foregroundStyle(AtePalette.accent(AteColor.coral).inverted)
-                .opacity(isBusy ? 0.6 : 1)
+        SignInWithAppleButton(.signIn) { request in
+            nonce = AppleSignIn.prepare(request)
+        } onCompletion: { result in
+            let requested = nonce
+            Task {
+                if await onSignIn(result, requested) == false { failure = .signIn }
+            }
         }
-        .buttonStyle(.plain)
+        .signInWithAppleButtonStyle(.black)
+        .frame(height: AteMetrics.buttonHeight)
+        .clipShape(.capsule)
+        .opacity(isBusy ? 0.6 : 1)
         .disabled(isBusy)
         .accessibilityIdentifier("welcome.signIn")
     }
@@ -150,6 +167,6 @@ struct WelcomeScreen: View {
 
 #if DEBUG
 #Preview("Welcome") {
-    WelcomeScreen(onSignIn: {}, onBrowse: {})
+    WelcomeScreen(onSignIn: { _, _ in true }, onBrowse: {})
 }
 #endif

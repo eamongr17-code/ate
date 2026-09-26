@@ -39,6 +39,7 @@ struct PlaceDestination: View {
             source: source,
             places: services.placePages,
             savedDishes: services.savedDishes,
+            deletions: services.entryDeletions,
             analytics: services.analytics
         ))
     }

@@ -83,6 +83,20 @@ struct DishPageStoreTests {
         #expect(store.header == .unavailable)
     }
 
+    @Test("a header that never came back is unreachable, not missing — and a retry recovers it")
+    func unreachableIsNotMissing() async {
+        let source = FakePlaceDishSource()
+        source.seed(dish: summary())
+        source.failSummary(FakePlaceDishSource.Failure(message: "offline"))
+        let store = store(source)
+        await store.load()
+        #expect(store.header == .unreachable)
+
+        source.failSummary(nil)
+        await store.retry()
+        #expect(store.name == "Tagliatelle al ragù")
+    }
+
     // MARK: - Reviews
 
     @Test("You comes first, then everybody else newest first")
