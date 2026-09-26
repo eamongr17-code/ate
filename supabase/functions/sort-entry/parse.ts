@@ -895,15 +895,25 @@ export function parseEntry(input: ParseInput): SortPlan {
   const known = input.knownDishes ?? [];
   // The place's own name is off limits to the dish hunt, exactly like an explicit
   // excludeSpan — a venue is never a dish and never the front half of one.
+  // A marked six is a number, never part of a dish name ("Tiramisu 6 pasta 4" is two dishes).
+  const sixes = (input.sixSpans ?? []).filter(([s, e]) => s >= 0 && e > s && e <= body.length);
   const exclude = [
     ...(input.excludeSpans ?? []),
     ...placeNameSpans(body, input.placeNames ?? []),
+    ...sixes,
   ];
   const noteStyle = input.noteStyle ?? 'clause';
 
   if (!body.trim()) return { place_query: null, place_offset: null, items: [] };
 
-  const numbers = findNumbers(body);
+  // THE SECRET 6 (0041): the client's marked sixes join the numbers as self-evident hits worth 6.
+  const sixHits: NumberHit[] = sixes.map(([start, end]) => ({
+    start, end, text: body.slice(start, end), value: 6, selfEvident: true,
+  }));
+  const numbers = [
+    ...findNumbers(body).filter((n) => !sixHits.some((h) => n.start < h.end && n.end > h.start)),
+    ...sixHits,
+  ].sort((a, b) => a.start - b.start);
   const knownHits = findKnownDishes(body, known, exclude);
   // Every mention gets a line here, including repeats: a dish scored on its second
   // mention must still find its number. validatePlan merges the duplicates (first

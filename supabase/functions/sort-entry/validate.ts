@@ -11,7 +11,9 @@
 //   * a DISH survives only if its name appears in the words or is already on the
 //     matched restaurant's menu — a model may not conjure a dish nobody mentioned;
 //   * an OFFSET survives only if the body really says that text there (./offsets.ts),
-//     and is otherwise recomputed from the first occurrence, never guessed.
+//     and is otherwise recomputed from the first occurrence, never guessed;
+//   * a 6 (0041, the secret score) survives only if its evidence covers a span the CLIENT
+//     marked as a six (./six.ts) — the one score above 5, and never one read off the prose.
 //
 // Substring tests are CASE-SENSITIVE on purpose: Postgres `position(x in y)` is
 // case-sensitive, so anything this module lets through on a looser test would be
@@ -20,6 +22,7 @@
 
 import { findNumbers } from './parse.ts';
 import { scalarLength, scalarOffset, verifiedScalarOffset } from './offsets.ts';
+import { sixEvidenceOffset, type SixSpan } from './six.ts';
 import type { SortItem, SortPlan } from './types.ts';
 
 export const MAX_ITEMS = 24;
@@ -35,6 +38,8 @@ const isHalfStep = (n: number) => n >= 0.5 && n <= 5 && Math.abs(n * 2 - Math.ro
 export type ValidateOptions = {
   body: string;
   knownDishes?: string[];
+  /** The client-marked sixes (./six.ts sixSpans). Without them no 6 survives. */
+  sixSpans?: SixSpan[];
 };
 
 export function validateItem(item: SortItem, opts: ValidateOptions): SortItem | null {
@@ -60,10 +65,21 @@ export function validateItem(item: SortItem, opts: ValidateOptions): SortItem | 
   // ---- score + evidence ---------------------------------------------------
   let score: number | null = typeof item.score === 'number' ? item.score : null;
   if (score !== null && !Number.isFinite(score)) score = null;
-  if (score !== null && !isHalfStep(score)) score = null;
+  const six = score === 6;
+  if (score !== null && !six && !isHalfStep(score)) score = null;
 
   let evidence: string | null = item.score_evidence ? String(item.score_evidence).trim() : null;
-  if (score !== null) {
+  let sixOffset: number | null = null;
+  if (score !== null && six) {
+    // THE SECRET 6: only on a span the client marked, wherever the evidence sits.
+    sixOffset = evidence && body.includes(evidence)
+      ? sixEvidenceOffset(body, evidence, item?.evidence_offset, opts.sixSpans ?? [])
+      : null;
+    if (sixOffset === null) {
+      score = null;
+      evidence = null;
+    }
+  } else if (score !== null) {
     if (!evidence || !body.includes(evidence) || !evidenceSupportsScore(evidence, score)) {
       score = null;
       evidence = null;
@@ -88,7 +104,7 @@ export function validateItem(item: SortItem, opts: ValidateOptions): SortItem | 
   // The parser supplies the exact occurrence it matched. A model supplies text only, so
   // the offset is recovered here from the first occurrence — the same fallback
   // apply_entry_sort uses, so TypeScript and SQL cannot disagree about the answer.
-  const evidenceOffset = evidence ? verifiedScalarOffset(body, evidence, item?.evidence_offset) : null;
+  const evidenceOffset = evidence ? sixOffset ?? verifiedScalarOffset(body, evidence, item?.evidence_offset) : null;
 
   let mentionText = typeof item?.mention_text === 'string' ? item.mention_text : null;
   let mentionOffset = mentionText ? verifiedScalarOffset(body, mentionText, item?.mention_offset) : null;

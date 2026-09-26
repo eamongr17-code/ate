@@ -65,6 +65,8 @@ their own order: `place_dishes` `(review_count, score, name, dish_id)`, `feed_ar
 | Feed | `rpc get_entry_feed(p_cursor_created_at, p_cursor_id, p_page_size, p_include_own, p_area)` | `entry_cards[]` — every entry, blocked users already gone. `p_include_own` defaults **false** (your visits live in Journal). `p_area` (0038): null = everywhere; else a `feed_areas` `area` → only rows whose `place.locality` matches (trimmed, case-insensitive). Same keyset |
 | Feed — area picker | `rpc feed_areas(p_limit, p_cursor_entry_count, p_cursor_area)` | `{area, entry_count}[]`, busiest first then A→Z — the localities of what the Feed shows you (your own excluded, so no listed area opens empty). `p_limit` default 30, max 100; keyset `(entry_count, area)` — pass both from the last row |
 | Journal · Profile | `rpc get_entries_by_author(p_author_id, cursor…, p_page_size)` | `entry_cards[]` — the same rows whoever asks (a blocked author: `[]`) |
+| Journal — filter + sort (0043) | `rpc my_entries(p_sort, p_restaurant_id, p_min_score, p_tag, p_from, p_to, p_limit, p_cursor_created_at, p_cursor_id, p_cursor_best_score, p_tz)` | `{id, created_at, best_score}[]`, YOUR entries only, in order — then read the cards with `entry_cards?id=in.(…)` and keep this order. `p_sort` `newest` (default) · `oldest` · `top` (best line score, unscored last), else `22023`. All filters optional: place; `best_score >= p_min_score`; one tag code; visit dates inclusive in `p_tz` (default `Australia/Melbourne`; pass the device zone). Keyset: pass all three fields of the last row. `p_limit` 30, max 100 |
+| Journal — place filter | `rpc my_entry_places()` | `{restaurant_id, name, locality, entry_count}[]` — where your entries are, busiest first. Optional keyset `(p_limit, p_cursor_entry_count, p_cursor_name, p_cursor_restaurant_id)`; no args = all |
 | Entry · Share | `GET /rest/v1/entry_cards?id=eq.<uuid>` | one `entry_card` |
 | Place — header | `rpc place_summary(p_restaurant_id)` | `{restaurant_id, name, address, city, cuisine, cover_url, avg_rating, review_count, people_count, dish_count, my_visits, my_last_visit, locality, entry_count}` — **`locality` is the second chip** (`city` is unreliable, see below); `entry_count` = visits here, `review_count` = receipt lines; every text field is `null`, never `''` |
 | Place — what to order | `rpc place_dishes(p_restaurant_id, p_limit, p_cursor_review_count, p_cursor_score, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, score, people_count, review_count, cover_url}[]` — **`review_count` DESC leads**, then `score` DESC (unscored last), then name, then id: the ported `DishRanking` rule, so one 5.0 from one person cannot lead the menu. **Never re-sort it client-side.** A dish with no line at all is not returned. **4-part keyset: pass all four from the last row** (`p_cursor_score` may be null) |
@@ -73,7 +75,7 @@ their own order: `place_dishes` `(review_count, score, name, dish_id)`, `feed_ar
 | Dish — reviews | `rpc get_dish_reviews(p_dish_id, p_cursor_mine, p_cursor_created_at, p_cursor_id, p_page_size)` | `{review_id, entry_id, author{…}, score, note, created_at, is_mine, photos[]}[]` — **mine first**, then newest. Keyset is 3-part: pass `is_mine`, `created_at`, `id` from the last row. **`entry_id` is nullable** (a pre-entries line has no entry to open — decode optional, hide the tap); `photos[]` is the review's ENTRY's |
 | Saved | `GET /rest/v1/my_saved_dishes?order=saved_at.desc,dish_id.desc&limit=N` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_city, dish_score, dish_cover_url, source_entry_id, source_user_id, source_username, saved_at, cover_url}[]` — keyset below; client groups by restaurant |
 | You · Profile header | `rpc profile_summary(p_user_id)` | `{user_id, username, name, avatar_url, bio, city, created_at, orders, places, dishes, scored, avg_score, is_me}` — `orders`/`places` count ENTRIES, `dishes`/`scored`/`avg_score` count receipt LINES (and now agree with `score_histogram`) |
-| Ratings histogram | `rpc score_histogram(p_user_id)` | 10 rows `{score, dish_count, review_count}` for 0.5…5.0, **zeros included** — draw bars straight from it. The label ("36 dishes") is `dish_count` |
+| Ratings histogram | `rpc score_histogram(p_user_id)` | **11 rows** `{score, dish_count, review_count}` for 0.5…5.0 then **6.0** (0041), **zeros included** — draw bars straight from it. The label ("36 dishes") is `dish_count` |
 | Ratings bar tap · "Your 5.0s" | `rpc dishes_by_score(p_user_id, p_score, p_limit, p_cursor_created_at, p_cursor_id)` | `{review_id, entry_id, dish_id, dish_name, restaurant_id, restaurant_name, score, note, created_at, cover_url}[]`, newest first, keyset `(created_at, id)`. `cover_url` is the DISH's photo (the tile), `created_at` is the visit's date, `entry_id` is **nullable** |
 | Recap picker | `rpc statement_months(p_user_id, p_tz, p_cursor_month, p_limit)` | `{month (date), orders}[]`, newest first; `orders` is that month's ENTRY count. Keyset: pass the last row's `month` |
 | Recap | `rpc monthly_statement(p_user_id, p_month, p_tz)` | one jsonb (below) |
@@ -82,9 +84,15 @@ their own order: `place_dishes` `(review_count, score, name, dish_id)`, `feed_ar
 | Search — People | `rpc search_people(p_query, p_limit, p_cursor_match_tier, p_cursor_username, p_cursor_user_id)` | `{user_id, username, name, avatar_url, city, is_me, match_tier}[]` — handle OR name; you can find yourself (`is_me`) |
 | Search — Saved | `rpc search_saved(p_query, p_limit, p_cursor_saved_at, p_cursor_dish_id)` | `my_saved_dishes`' columns + `restaurant_locality`; dish OR place name; **empty/null query = the whole list** |
 | Search — Nearby (before typing) | `rpc nearby_places(p_lat, p_lng, p_radius_m, p_limit, p_cursor_distance_m, p_cursor_id)` | `{restaurant_id, name, cuisine, locality, avg_rating, review_count, people_count, dish_count, cover_url, distance_m}[]` — places we hold, nearest first; no Google call |
+| Search — filter choices | `rpc search_cuisines()` | `{cuisine, place_count}[]`, busiest first — pass `cuisine` back in `p_cuisines` |
 | Composer place sheet | `rpc search_all(p_query, p_limit_per_kind)` | `{kind, id, title, subtitle, score, match_rank, detail}[]`, unpaged; the Search TAB uses the scope RPCs |
 | Handle availability | `rpc handle_available(p_handle)` | bool, **case-insensitive** (citext; `Eamon` = `eamon`), trims, 1–30 chars; the character set is the client's rule. **Use this, not a `profiles` select** — RLS can make a taken handle look free |
 | Settings — blocked | `rpc my_blocks(p_limit, p_cursor_created_at, p_cursor_blocked_id)` | `{blocked_id, username, name, avatar_url, city, created_at}[]`, newest first. **Not** a `blocks` embed: `profiles` RLS nulls exactly these people |
+
+**Search filters (0042):** `search_places`, `search_dishes`, `nearby_places` take optional trailing `p_cuisines text[]`
+(any, case-insensitive), `p_tags text[]` (`gf df v vg nf`; a dish's chips carry EVERY code — one plate that is
+both; a place matches when one of its dishes does; an unknown code matches nothing) and `p_min_score numeric`
+(`avg_rating`/`score` ≥). NULL or `[]` = off. Keysets unchanged — **send the same filters on every page**.
 
 **Search scopes (0031):** matching is accent-insensitive (`ragu` finds `ragù`) and needs ≥2 characters
 (fewer → `[]`); rows come ranked `match_tier` (0 exact · 1 prefix · 2 word-start · 3 contains) → `review_count`
@@ -130,7 +138,8 @@ variant goes beside it at `<path minus extension>_t.jpg` (same owner-folder poli
 ### Sort it
 ```
 POST /functions/v1/sort-entry     { "entry_id": "<uuid>", "force": false, "dry_run": false,
-                                    "tag_tokens": [{ "offset": 23, "length": 2 }] }   // optional, 0036
+                                    "tag_tokens": [{ "offset": 23, "length": 2 }],    // optional, 0036
+                                    "six_tokens": [{ "offset": 9, "length": 1 }] }    // optional, 0041
 → 200 { ok, mode: "stub"|"model", model, entry_id, sort_status, restaurant_id,
         place_query, place_offset, items:[…] }
   401 unauthorized · 403 not your entry · 404 unknown entry · 422 entry_id missing · 500 sort failed
@@ -141,14 +150,15 @@ plan without writing. Then refetch `entry_cards?id=eq.<uuid>`. **`force` cannot 
 the rule below is enforced in SQL, not by the caller remembering it. **Tag chips:** the chip prints its word
 in `body` ("GF"); send where it sits in `tag_tokens` (UNICODE SCALARS, like every offset). The sorter reads
 it (`gf`, `gluten free`, `vegan`, `GF/DF`…) onto the dish it FOLLOWS. Unmarked words never tag; omitting
-`tag_tokens` on a re-sort removes nothing.
+`tag_tokens` on a re-sort removes nothing. **The secret 6 (0041):** a 6 exists only where the composer marked
+it — send each marked `6`/`6.0` in `six_tokens` (scalars). It scores the dish it follows; a typed "6" never does.
 
-**Early sort (0039).** While composing, `{ "preview": true, "body": "<draft>", "tag_tokens": […],
+**Early sort (0039).** While composing, `{ "preview": true, "body": "<draft>", "tag_tokens": […], "six_tokens": […],
 "restaurant_id": "<uuid|null>" }` (no `entry_id`) → 200 `{ok, preview: true, cached, mode, model, entry_id: null,
 restaurant_id, place_query, place_offset, items}` — the sort's plan shape. **Writes no entry and no line.** 422
 bad draft (>10k chars, bad uuid) · 429 `{error, retry_after}` over 12 previews / 10 min (a repeat of a cached
 draft is free) — ignore it; Done still sorts. In model mode the model's plan is cached 15 min under (you,
-sha256(body), tag_tokens, restaurant_id); **send exactly the body, tokens and place you will INSERT** and the
+sha256(body), tag_tokens, six_tokens, restaurant_id); **send exactly the body, tokens and place you will INSERT** and the
 sort after Done reuses it — no second model call (`entries.sort_meta.cache_hit`) — then deletes it. The plan
 holds draft words, so expired rows are purged on every preview and deleting an entry or account purges yours.
 
@@ -157,7 +167,7 @@ holds draft words, so expired rows are purged on every preview and deleting an e
 |---|---|
 | Fix the place | `rpc correct_entry_place(p_entry_id, p_restaurant_id)` → the entry row. Re-resolves every line's dish at the new place, or prints the parked plan if the entry had none. Pins `restaurant_source='user'`, records `place_corrected_at`, clears the place token |
 | Fix a line's dish | `rpc correct_entry_dish(p_review_id, p_dish_id, p_dish_name)` → dish uuid. Pass `p_dish_id` for a menu pick, `p_dish_name` to name one. Score and note untouched |
-| Set / clear a score | `PATCH /rest/v1/reviews?id=eq.<uuid>` `{ "score": 4.5 }` (or `null`). Half steps 0.5–5.0 |
+| Set / clear a score | `PATCH /rest/v1/reviews?id=eq.<uuid>` `{ "score": 4.5 }` (or `null`). Half steps 0.5–5.0, or `6` (0041); else `23514` |
 | Set a line's tags | `PATCH /rest/v1/reviews?id=eq.<uuid>` `{ "tags": ["gf", "v"] }` — the WHOLE set (`[]` clears). Canonicalised server-side; a code outside the five is `23514`; owner only. Not a correction |
 | Edit the words | `PATCH /rest/v1/entries?id=eq.<uuid>` `{ "body": "…" }`. (A `{visibility}` PATCH still succeeds and changes nothing — remove the control) |
 | Delete a visit | `rpc delete_entry(p_entry_id)` → `{photo_paths: [String]}` (0037), then `storage.from("review-photos").remove(paths: photo_paths)`. Paths are bucket-relative (`<uid>/<file>`), originals + their `_t.jpg`, yours only. Cascades photos rows, lines, their tags; dishes/places stay; aggregates move at once. `42501` not yours · `P0002` already gone (treat as done). A raw `DELETE /rest/v1/entries` still works but leaks the files |
@@ -238,34 +248,22 @@ PR, same rule as `place_locality()`); rows written before keep the mangle — re
 
 ## Wire-change log
 
+**Round 4 — 0041–0043 + sort-entry.** Additive: `six_tokens` (sort + preview); a `score` may be `6.0` anywhere a
+score or aggregate is read; filter params on `search_places`/`search_dishes`/`nearby_places` (drop+create, old
+calls bind); `search_cuisines`, `my_entries`, `my_entry_places`. **Behavioural:** `score_histogram` returns 11 rows.
+
 **Round 3 — 0037–0040 + sort-entry.** Additive: `delete_entry`, `feed_areas`, `get_entry_feed(p_area)` (default
 null = today's feed; drop+create, old calls bind), sort-entry `preview`, `sort_meta` on `correct_entry_place`'s
 returned row. **Breaking (sequenced via the lead):** an `entries` INSERT without `restaurant_id` is `23502
 place_required` — no build that allows a placeless Done may be live when 0040 lands.
 
-**Additive — 0036.** `reviews.tags`, `entry_cards.items[].tags`, `dish_summary.tags` (+ browse twin),
-sort-entry `tag_tokens` in and `items[].tags` out. A re-sort never removes a tag.
-
-**Additive — sort-entry.** `model` (string|null) on sort and dry-run 200s (not on `skipped`). `mode` values unchanged.
-
-**Behavioural — 0035.** `delete_account` raises instead of a partial `ok`; sign-up always creates a profile
-(or fails whole); deactivated profiles vanish from every read. `deactivate_account` is retired (not
-executable), and a `profiles` PATCH may touch only `username, name, avatar_url, bio, city` (else `42501`). Additive: `entry_cards.place.locality`.
-
-**Additive — 0034.** anon may EXECUTE the nine browse reads above (401/42501 → rows). Signed-in callers: same
-parameters, columns and query. Client: drop the `requireCurrentUserID()` guard on those reads when browsing.
-
-**Behavioural — 0033 (2026-09-25): every entry is public.** Every formerly-private entry flips public and
-now appears in the feed, on profiles, place/dish pages, search, and everyone's counts, averages and covers
-(numbers can move). `visibility` stays on `entries`/`entry_cards`, always `public`, so no decoder breaks;
-an insert/PATCH sending `private` succeeds and lands public. **Follow-up (breaking, sequenced):** drop the
-column once no TestFlight build reads or writes it.
-
-**Earlier (0018–0032, all additive or sequenced):** entries/photos/saves/blocks/reports and their RPCs; the
-correction + offset columns; covers from `entry_photos`; `place_summary.locality`/`entry_count`, `dish_summary`
-`photos`; Search scopes (accent-insensitive); `delete_account()`/`my_blocks()`. Behavioural: `place_dishes` is the
-`DishRanking` order (`p_cursor_people` → `p_cursor_review_count`); `profile_summary` counts lines by `reviewer_id`;
-empty text is `null`; `most_*` null at 1; a report `reason` outside the vocabulary is `23514`.
+**Earlier (0018–0036, all additive or sequenced):** entries/photos/saves/blocks/reports and their RPCs; the
+correction + offset columns; covers from `entry_photos`; Search scopes; `delete_account()`/`my_blocks()`; the anon
+browse reads (0034); `reviews.tags` + `tag_tokens` (0036); sort-entry `model`. Behavioural: **every entry public**
+(0033 — `visibility` pinned `public`; dropping the column is a sequenced follow-up); `delete_account` raises rather
+than half-deletes, deactivated profiles vanish, a `profiles` PATCH is column-limited (0035); `place_dishes` is the
+`DishRanking` order; `profile_summary` counts lines by `reviewer_id`; empty text is `null`; `most_*` null at 1; a
+report `reason` outside the vocabulary is `23514`.
 
 **Breaking — sequenced with iOS through the lead:** (1) `reviews.score` NOT NULL → **NULLABLE**, decode as
 optional (V1 Swift is written against this from the start, so nothing shipped is broken today); (2) SELECT

@@ -7,17 +7,18 @@
 //
 //   POST /functions/v1/sort-entry
 //   body: { entry_id: uuid, force?: boolean, dry_run?: boolean,
-//           tag_tokens?: [{ offset, length }] }        (0036 — scalar spans the client marked)
+//           tag_tokens?: [{ offset, length }],         (0036 — scalar spans the client marked)
+//           six_tokens?: [{ offset, length }] }        (0041 — the secret 6, client-marked only)
 //   → 200 { ok, mode, model, entry_id, sort_status, restaurant_id, place_query, place_offset, items[] }
 //     (every item carries `tags: string[]`, possibly [])
 //     (`model` is the model ID that produced the plan, null when the stub did)
 //     401 unauthorized · 403 not your entry · 404 unknown entry · 422 bad request
 //
-//   EARLY SORT (round 3, 0039): { preview: true, body, tag_tokens?, restaurant_id? }
+//   EARLY SORT (round 3, 0039): { preview: true, body, tag_tokens?, six_tokens?, restaurant_id? }
 //   → 200 { ok, preview: true, cached, mode, model, entry_id: null, restaurant_id, place_query,
 //           place_offset, items[] } · 422 bad draft · 429 rate limited (12 per 10 min per author)
 //   Runs on a DRAFT and writes nothing to entries or reviews. In model mode the model's raw plan
-//   is cached 15 min under (author, sha256(body), tag_tokens, restaurant_id, model); the real
+//   is cached 15 min under (author, sha256(body), tag_tokens, six_tokens, restaurant_id, model); the real
 //   sort after Done reuses it on a key match — no second model call — records
 //   entries.sort_meta = { cache_hit, model } in the same transaction, then deletes the consumed
 //   row. Every preview also purges expired plans (bounded). (./preview.ts)
@@ -58,12 +59,17 @@
 // (`tag_tokens`) can become a tag, on the dish line it follows (./tags.ts). Prose says
 // nothing: "the salad was gluten free" tags no line. A re-sort without tokens never removes
 // a tag already on a line — apply_entry_sort carries them over, like a correction.
+//
+// THE SECRET 6 IS NEVER INFERRED EITHER (0041). Scores are 0.5-5.0; a 6 exists only on a span the
+// client marked (`six_tokens`, ./six.ts). A typed "6" is not a score: the parser's numbers stop at 5
+// and validate.ts drops any 6 whose evidence does not cover a marked span, in every mode.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { fencedPlaceNames, mentionForPlaceName, parseEntry, placeCandidateSpans } from './parse.ts';
 import { validatePlan } from './validate.ts';
 import { resolveMode, resolveModel, sortWithModel } from './model.ts';
 import { attachTagTokens, parseTagTokens, tagTokenSpans, tagTokenWords, type TagToken } from './tags.ts';
+import { attachSixTokens, parseSixTokens, sixMarks, sixSpans, type SixToken } from './six.ts';
 import {
   coerceCachedPlan,
   consumeCachedPlan,
@@ -292,12 +298,15 @@ async function planFor(
     authorId: string;
     body: string;
     tagTokens: TagToken[];
+    /** The client-marked sixes (0041). The only way a 6 is ever written. */
+    sixTokens: SixToken[];
     /** A place the USER chose (composer tap / preview's restaurant_id). Never overwritten. */
     pinnedRestaurantId: string | null;
     preview: boolean;
   },
 ): Promise<Planned> {
-  const { body, tagTokens } = opts;
+  const { body, tagTokens, sixTokens } = opts;
+  const sixes = sixSpans(body, sixTokens);
 
   // ---- 1. the place, from the words only (unless the user pinned one) ----
   const candidates = placeCandidateSpans(body);
@@ -327,7 +336,7 @@ async function planFor(
   if (MODE === 'model') {
     // Early sort (0039): the preview stores the model's raw plan; the real sort reuses it when the
     // words, the marked tokens, the place and the model are all the same. No second call.
-    const key = await previewCacheKey({ body, tagTokens, restaurantId, model: MODEL_ID });
+    const key = await previewCacheKey({ body, tagTokens, sixTokens, restaurantId, model: MODEL_ID });
     cacheKey = key;
     const got = await modelPlanWithCache({
       cache: previewCache(admin),
@@ -344,6 +353,7 @@ async function planFor(
           knownDishes: known,
           placeCandidates: candidates.map((c) => c.phrase),
           tagWords: tagTokenWords(body, tagTokens),
+          sixMarks: sixMarks(body, sixes),
         }),
     });
     if (got.limited) return { limited: true };
@@ -369,14 +379,21 @@ async function planFor(
   });
   // A marked tag word is never a dish, nor the front half of one ("GF Salad 3.5").
   const excludeSpans = tagTokenSpans(body, tagTokens);
-  if (!plan) plan = parseEntry({ body, knownDishes: known, placeNames, excludeSpans });
+  if (!plan) {
+    plan = parseEntry({
+      body, knownDishes: known, placeNames, excludeSpans, sixSpans: sixes.map((s): [number, number] => [s.start, s.end]),
+    });
+  }
 
   // ---- 3. the same gate for every mode, cached or not --------------------
   // validatePlan rebuilds every item WITHOUT tags; the client's marked tokens are the only
   // source of a tag, in every mode. attachTagTokens also cuts tag words out of any dish name
   // (the model does not honour excludeSpans) and places each tag by span, never by name.
-  const gated = validatePlan(plan, { body, knownDishes: known });
-  const validated: SortPlan = { ...gated, items: attachTagTokens(gated.items, body, tagTokens, known) };
+  // A 6 survives only on a marked span (validatePlan), and a marked six nobody claimed goes to the
+  // dish named just before it (attachSixTokens) — after the tag pass, which may re-cut mentions.
+  const gated = validatePlan(plan, { body, knownDishes: known, sixSpans: sixes });
+  const tagged = attachTagTokens(gated.items, body, tagTokens, known);
+  const validated: SortPlan = { ...gated, items: attachSixTokens(tagged, sixes) };
 
   return { limited: false, usedMode, cacheHit, cacheKey, restaurantId, mention, validated };
 }
@@ -396,6 +413,7 @@ Deno.serve(async (req) => {
   const dryRun = Boolean((body as { dry_run?: unknown }).dry_run);
   const preview = (body as { preview?: unknown }).preview === true;
   const tagTokens = parseTagTokens((body as { tag_tokens?: unknown }).tag_tokens);
+  const sixTokens = parseSixTokens((body as { six_tokens?: unknown }).six_tokens);
 
   const admin = adminClient();
 
@@ -409,6 +427,7 @@ Deno.serve(async (req) => {
         authorId: userId,
         body: draft.body,
         tagTokens,
+        sixTokens,
         pinnedRestaurantId: draft.restaurantId,
         preview: true,
       });
@@ -460,6 +479,7 @@ Deno.serve(async (req) => {
       authorId: row.author_id,
       body: row.body,
       tagTokens,
+      sixTokens,
       pinnedRestaurantId: userPinned,
       preview: false,
     });

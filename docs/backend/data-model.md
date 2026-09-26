@@ -1,10 +1,10 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0040` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0043` define it. Forward-only; applied migrations
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
 account deletion **0032**; **every entry public 0033**; signed-out browse **0034**; dietary tags **0036**;
-round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**.
+round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal) **0041–0043**.
 
 The atom the USER creates is an **entry** = one visit. The atom AGGREGATES are built from is still a
 per-dish **review**, now *linked* to an entry, not replaced by it. A **sorter** turns the words into
@@ -20,7 +20,7 @@ Three design rules are enforced in the database, not just in the app (`docs/DESI
 
 | Rule | Enforcement |
 |---|---|
-| 7 — a score is only ever the user's, never inferred | `reviews.score` is NULLABLE; `apply_entry_sort` drops any score whose `score_evidence` is not a literal substring of `entries.body` |
+| 7 — a score is only ever the user's, never inferred | `reviews.score` is NULLABLE; `apply_entry_sort` drops any score whose `score_evidence` is not a literal substring of `entries.body`. **The secret 6 (0041)** exists only on a span the client marked (`six_tokens`) — a typed "6" is never a score |
 | 8 — a place attaches only when named or tapped | `restaurant_source ∈ (user, sorter)`, CHECKed with `restaurant_id`; no code path reads location. **A new entry must carry one** (0040 INSERT trigger → `23502 place_required`); pre-0040 placeless rows stay legal |
 | 9 — the words are never rewritten | `entries.body` is written once by the client; UPDATE on entries is column-granted to `(body, visibility)` only, and the sorter writes nowhere near it. Dish notes must be substrings of the body |
 | the user's fix outranks the sorter | `reviews.corrected_at` / `entries.place_corrected_at`; `apply_entry_sort` deletes only lines with `corrected_at IS NULL`, so a re-sort (forced or not) cannot overwrite a correction (0024) |
@@ -63,7 +63,7 @@ score; provenance, never displayed), and 0024's fix-provenance: `corrected_at` (
 line — `correct_entry_dish`, or any author UPDATE of `dish_id`/`score`/`note`; monotone, never cleared),
 `corrected_from_name` (the name the line carried when first corrected, the key a re-sort matches on),
 `evidence_offset`, `mention_text`, `mention_offset`. **Breaking for readers:** `score` is **NULLABLE** —
-unscored is the normal case; `reviews_score_halfstep` is untouched (a NULL CHECK passes). A sorter-written
+unscored is the normal case; `reviews_score_halfstep` passes NULL, 0.5–5.0 in half steps, or **exactly 6** (0041; 5.5 is `23514`). A sorter-written
 line inherits the entry's `created_at`, so `reviews.created_at` IS the visit's date.
 **Multiple reviews per (user, dish) remain allowed by design** (sittings). No constraint, ever.
 **`tags` text[] NOT NULL `{}` (0036)**: dietary codes, CHECK `reviews_tags_closed_set` (`<@ {gf,df,v,vg,nf}`,
@@ -75,11 +75,9 @@ never removes a tag** — a rebuilt line inherits its predecessor's (R3 matching
 `(user_id, dish_id)` **PK** + `source_entry_id` (→ entries, SET NULL), `source_user_id` (→ profiles,
 SET NULL), `created_at`. A DISH at its restaurant with provenance ("from @jessw"), private to the saver.
 
-### `blocks` (0019)
-`(blocker_id, blocked_id)` PK, no self-block. One-way, enforced **both ways** by `blocked_with(uuid)` (SECURITY DEFINER — it reads `blocks` without recursing through RLS).
-
-### `reports` (0019, 0028)
-`id`, `reporter_id`, exactly one of `entry_id` / `profile_id` (CHECK), `reason`, `note`,
+### `blocks` (0019) · `reports` (0019, 0028)
+Blocks: `(blocker_id, blocked_id)` PK, no self-block. One-way, enforced **both ways** by `blocked_with(uuid)` (SECURITY DEFINER — it reads `blocks` without recursing through RLS).
+Reports: `id`, `reporter_id`, exactly one of `entry_id` / `profile_id` (CHECK), `reason`, `note`,
 `status ∈ (open, actioned, dismissed)`. Reporter-visible only; triaged with the service role. 0028 closes
 `reason` to `spam | abuse | wrong_place | not_food | other` or **NULL**; the CHECK is `NOT VALID` (new rows
 only — real reports are never rewritten to validate it). The RPCs lower-case + trim; anything else is `23514`.
@@ -87,7 +85,7 @@ only — real reports are never rewritten to validate it). The RPCs lower-case +
 ### `sort_preview_cache` · `sort_preview_rate` (0039)
 Server-internal (RLS on, no policy, service_role only; cascade from `auth.users`). The cache: the model's RAW
 draft plan (verbatim draft text), PK `(author_id, cache_key)` (total — upserted), 15-min `expires_at`; key =
-sha256(sha256(body), tag_tokens, restaurant_id, model). Rows are DELETED: bounded purge of expired rows on every
+sha256(sha256(body), tag_tokens, restaurant_id, model[, six_tokens when marked]). Rows are DELETED: bounded purge of expired rows on every
 preview, the consuming sort deletes its row, an entries-delete trigger purges the author's. Rate: 12 / 10 min.
 
 ### `profiles` — changed (0018)
@@ -150,15 +148,16 @@ except where noted; **entries = visits, reviews = receipt lines, and they are no
 | `get_entries_at_place(place, scope, …)` | `setof entry_cards` — the ONE entry shape, never review rows. `scope ∈ mine\|others\|all` |
 | `get_entries_by_author(author, …)` | `setof entry_cards`. Every entry is public (0033): yours and a stranger's read the same; a blocked author reads empty |
 | `profile_summary(user)` | `orders`/`places` count ENTRIES (visits, distinct places). `dishes`/`scored`/`avg_score` count LINES **by `reviewer_id`**, pre-entries lines included — so You and Ratings can no longer disagree (they did: 40 vs 60) |
-| `score_histogram(user)` | ten half-step buckets, zeros included, by `reviewer_id`. `dish_count` = distinct dishes at that score (the "36 dishes" label), `review_count` = times given. Unchanged |
+| `score_histogram(user)` | **eleven** buckets — ten half steps, then 6.0 (0041) — zeros included, by `reviewer_id`. `dish_count` = distinct dishes at that score (the "36 dishes" label), `review_count` = times given. A 6 counts as 6 in every average and ranking; nothing caps at 5 |
 | `dishes_by_score(user, score, …)` | one row per LINE at exactly that score, newest first, + the dish's `cover_url` for the tile. `created_at` is the VISIT's date. Keyset `(created_at, id)` |
 | `statement_months(user, tz, …)` | the months that have a statement, newest first, + each month's ENTRY count. Keyset on `month` |
 | `monthly_statement(user, month, tz)` | one jsonb. orders/places/new_places count ENTRIES; dishes/stars/average cover scored LINES; `most_ordered`/`most_visited` are **NULL below a count of 2** — once is not a habit |
 | `is_dish_saved(dish)` | the caller's own save state. The same answer as `dish_summary.saved` and `entry_cards.items[].saved`; unchanged |
-| `search_places` · `search_dishes` · `search_people` (0031) | the Search tab's scopes. Match = `search_key()` (trimmed, **accent-folded**, lower) substring, ≥2 chars; ranked by `match_tier` (0 exact · 1 prefix · 2 word-start · 3 contains), then `review_count` desc (people: handle). A dish needs ≥1 line the viewer can see. Keysets are 4/4/3-part |
+| `search_places` · `search_dishes` · `search_people` (0031) | the Search tab's scopes. Match = `search_key()` (trimmed, **accent-folded**, lower) substring, ≥2 chars; ranked by `match_tier` (0 exact · 1 prefix · 2 word-start · 3 contains), then `review_count` desc (people: handle). A dish needs ≥1 line the viewer can see. Keysets are 4/4/3-part. **Filters (0042)** on places/dishes/`nearby_places`: `p_cuisines` (any, case-insensitive), `p_tags` (a DISH's consensus chips carry every code; a PLACE matches if one of its dishes does), `p_min_score` (the printed aggregate); NULL/empty = off, keysets unchanged. `search_cuisines()` = the choices |
 | `search_saved(query, …)` · `nearby_places(lat, lng, …)` (0031) | Saved scope = `my_saved_dishes`' row + `restaurant_locality`, empty query = the whole list, keyset `(saved_at, dish_id)`. Nearby = places we hold + viewer-relative score, PostGIS only, keyset `(distance_m, restaurant_id)` |
 | `my_blocks(…)` (0032) | whom the caller blocked, with handle/name/avatar. DEFINER: `profiles` RLS hides exactly these people |
 | `feed_areas(limit, cursor…)` (0038) | `place_locality()` of the entries the Feed shows you (own excluded), grouped case-insensitively; keyset `(entry_count desc, area)`, 30 a page. `get_entry_feed(…, p_area)` filters on the same string |
+| `my_entries(sort, filters…)` · `my_entry_places()` (0043) | the caller's OWN entry ids (filtered by `author_id = auth.uid()`, not just RLS): `newest`/`oldest` keyset `(created_at, id)`, `top` = `best_score` (max line score) desc NULLS LAST, then `(created_at, id)` desc. Filters: place, min best score, one tag, visit dates in `p_tz`. Places = where your entries are, busiest first |
 | `delete_entry(entry)` (0037) | owner-only, DEFINER. FK cascades take photos rows, lines (+ tags, likes, comments, notifications), reports; saves keep the dish (`source_entry_id` → NULL); catalogue stays. Returns the files to purge |
 
 ## RLS
@@ -201,3 +200,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0034–0035 | `signed_out_browse` · `account_integrity` | anon EXECUTE on the browse reads via plpgsql dispatch → `browse.*` DEFINER, no table grant · `delete_account` atomic + verified; always a profile; deactivated hidden; `entry_cards.place.locality` |
 | 0036 | `dish_tags.sql` | `reviews.tags` + closed-set CHECK + canonicalising trigger; `apply_entry_sort` takes/keeps tags; `correct_entry_place` prints parked tags; `items[].tags`; `dish_summary.tags` (drop+create, browse twin too) |
 | 0037–0040 | `delete_entry` · `feed_areas` · `sort_preview_cache` · `place_required` | `delete_entry()` · `feed_areas()` + `get_entry_feed(p_area)` (drop+create, browse twin too) · preview cache + rate tables, purge fn + entries-delete trigger, `entries.sort_meta`, `apply_entry_sort(p_meta)` (drop+create), `delete_account` checks both · INSERT-only place trigger |
+| 0041–0043 | `secret_six` · `search_filters` · `journal_filters` | CHECK admits 6, histogram 11 rows, `apply_entry_sort` admits an evidenced 6 · filter params (drop+create) + `search_cuisines`, `place_has_tagged_dish` · `my_entries`, `my_entry_places` |
