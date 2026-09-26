@@ -9,7 +9,7 @@ import SwiftUI
 /// pep talk would be helper copy (design rule 1).
 struct YouScreen: View {
     let store: YouStore
-    /// A histogram bar, or "Your ratings ›".
+    /// A histogram bar (the page scrolled to that bar's group), or "Your ratings ›" (its top).
     var onRatings: (Double) -> Void = { _ in }
     /// A dish tile.
     var onDish: (UUID) -> Void = { _ in }
@@ -36,11 +36,11 @@ struct YouScreen: View {
                 statement
             }
             .padding(.horizontal, AteMetrics.gutter)
-            .ateContentTop(YouScreen.contentTop)
+            .ateContentTop(variant == .b ? YouScreen.contentTopB : YouScreen.contentTop)
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
         .scrollIndicators(.hidden)
-        .overlay(alignment: .topTrailing) { settings }
+        .overlay(alignment: .topTrailing) { if variant == .a { settings } }
         .refreshable { await store.refresh() }
         .task {
             await store.loadIfNeeded()
@@ -51,6 +51,10 @@ struct YouScreen: View {
     /// `padding:70px 20px 0` — You starts a little lower than the rest, because the 76pt avatar is
     /// the biggest thing at the top of any screen in the app.
     private static let contentTop: CGFloat = 70
+    /// B's header is a 56pt row, so it starts where `Feed` and `Search` start their content (62).
+    private static let contentTopB: CGFloat = 62
+
+    private var variant: YouHeaderVariant { YouHeaderVariant.current }
 
     // MARK: - Bands
 
@@ -69,6 +73,8 @@ struct YouScreen: View {
         case .unavailable:
             // No session, or the header would not load. The page says who is missing and stops.
             AteEmptyState(title: "Nobody's\nsigned in.")
+        case .ready(let summary) where variant == .b:
+            compactHeader(summary)
         case .ready(let summary):
             HStack(spacing: AteMetrics.loose) {
                 AteAvatar(
@@ -78,7 +84,7 @@ struct YouScreen: View {
                     textStyle: .avatarMonogram
                 )
                 VStack(alignment: .leading, spacing: AteMetrics.tight) {
-                    Text(verbatim: "@\(summary.username)")
+                    Text(verbatim: "@\(displayHandle(summary))")
                         .ateTextLine(.profileTitle)
                     if let city = summary.city, city.isEmpty == false {
                         Text(city)
@@ -92,6 +98,49 @@ struct YouScreen: View {
         }
     }
 
+    /// **B** — the prototype (``YouHeaderVariant``): a 56pt avatar, the handle at 26 on ONE line that
+    /// truncates at its tail, and the gear in the same row with a fixed gap between it and the
+    /// handle — so a long handle ends in an ellipsis instead of running under the gear.
+    private func compactHeader(_ summary: ProfileSummary) -> some View {
+        HStack(spacing: AteMetrics.regular) {
+            AteAvatar(
+                userID: summary.userID,
+                handle: displayHandle(summary),
+                side: YouScreen.avatarB,
+                textStyle: .avatarMonogramCompact
+            )
+            VStack(alignment: .leading, spacing: AteMetrics.hairspace) {
+                Text(verbatim: "@\(displayHandle(summary))")
+                    .ateText(.youHandleCompact)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                if let city = summary.city, city.isEmpty == false {
+                    Text(city)
+                        .ateText(.meta)
+                        .foregroundStyle(AtePalette.automatic.muted)
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            AteIconButton(icon: .settings, label: "Settings", size: 22, action: onSettings)
+                .padding(.leading, AteMetrics.tight)
+                // The glyph sits on the gutter, like every other trailing mark; the hit area
+                // hangs past it.
+                .padding(.trailing, -(AteMetrics.hit - 22) / 2)
+        }
+    }
+
+    private static let avatarB: CGFloat = 56
+
+    /// The handle on file — or, in a Debug drive, the one `-ate-you-handle` stood in for it.
+    private func displayHandle(_ summary: ProfileSummary) -> String {
+        guard let override = YouHeaderVariant.handleOverride, override.isEmpty == false else {
+            return summary.username
+        }
+        return override.hasPrefix("@") ? String(override.dropFirst()) : override
+    }
+
     /// "Your ratings ›" and the chart. Absent entirely until something has been scored — an empty
     /// chart under a heading is a heading about nothing.
     @ViewBuilder
@@ -99,7 +148,8 @@ struct YouScreen: View {
         if store.histogram.isEmpty == false {
             VStack(alignment: .leading, spacing: AteMetrics.snug) {
                 Button {
-                    guard let score = store.histogram.busiestScore else { return }
+                    // The whole page, from its top: every group, the highest first.
+                    guard let score = store.histogram.highestScore else { return }
                     onRatings(score)
                 } label: {
                     HStack(spacing: AteMetrics.snug) {
