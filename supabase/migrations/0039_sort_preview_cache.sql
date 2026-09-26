@@ -11,8 +11,17 @@
 --                        (supabase/functions/sort-entry/preview.ts). `plan` is the model's output
 --                        BEFORE validation: the real sort re-runs every gate (validate.ts, tags.ts,
 --                        apply_entry_sort's SQL checks) on it, so a cached plan can loosen nothing.
---                        `expires_at` = created + 15 min; a read ignores expired rows and every
---                        rate-limit hit prunes the author's expired ones.
+--                        THE PLAN HOLDS VERBATIM DRAFT TEXT (notes and score evidence are slices of
+--                        the words), so it does not linger:
+--                          * `expires_at` = created + 15 min, and a read ignores expired rows;
+--                          * every preview call runs `sort_preview_purge_expired()` — a BOUNDED delete
+--                            (200 oldest expired rows, on an `expires_at` index) of EVERYONE'S expired
+--                            plans, so an author who never previews again is still purged. (No pg_cron:
+--                            it is not enabled on these projects, and enabling it is a platform change.)
+--                          * the real sort DELETES the row it consumed, once its write commits;
+--                          * deleting an entry (delete_entry, a raw DELETE, or the account cascade)
+--                            purges that author's plans — trigger `entries_purge_preview_cache`;
+--                          * delete_account's verification now includes both tables (0035 idiom).
 --   sort_preview_rate    per-author fixed-window counter (0013's places_rate_limit pattern):
 --                        `sort_preview_rate_hit(author, window_s, limit)` records a preview that is
 --                        about to run a sort and says whether it is within the limit (12 / 10 min).
@@ -56,6 +65,38 @@ comment on table public.sort_preview_cache is
 alter table public.sort_preview_cache enable row level security;
 revoke all on public.sort_preview_cache from public, anon, authenticated;
 grant select, insert, update, delete on public.sort_preview_cache to service_role;
+
+create index if not exists sort_preview_cache_expires_idx on public.sort_preview_cache (expires_at);
+
+-- Bounded, so a preview never pays for a backlog: at most p_max rows per call, oldest first.
+create or replace function public.sort_preview_purge_expired(p_max integer default 200)
+returns integer
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_n integer;
+begin
+  delete from public.sort_preview_cache c
+  using (
+    select x.author_id, x.cache_key
+    from public.sort_preview_cache x
+    where x.expires_at < now()
+    order by x.expires_at
+    limit least(greatest(coalesce(p_max, 200), 1), 1000)
+  ) old
+  where c.author_id = old.author_id and c.cache_key = old.cache_key;
+  get diagnostics v_n = row_count;
+  return v_n;
+end; $$;
+
+comment on function public.sort_preview_purge_expired(integer) is
+  'Round 3: deletes up to p_max expired sort_preview_cache rows (anyone''s), oldest first. sort-entry calls it on every preview. service_role only.';
+
+revoke all on function public.sort_preview_purge_expired(integer) from public, anon, authenticated;
+grant execute on function public.sort_preview_purge_expired(integer) to service_role;
 
 -- ===========================================================================
 -- 2. The preview rate limit (0013's shape: atomic upsert on a TOTAL PK, self-pruning).
@@ -102,16 +143,11 @@ begin
    where author_id = p_author_id
      and window_start < v_window;
 
-  -- the cache's housekeeping rides the same call: this author's expired plans
-  delete from public.sort_preview_cache
-   where author_id = p_author_id
-     and expires_at < now();
-
   return v_hits <= p_limit;
 end; $$;
 
 comment on function public.sort_preview_rate_hit(uuid, integer, integer) is
-  'Round 3: records one sort-entry preview for the author in the current fixed window; true when within p_limit (else the function answers 429). Also prunes the author''s old windows and expired sort_preview_cache rows. service_role only.';
+  'Round 3: records one sort-entry preview for the author in the current fixed window; true when within p_limit (else the function answers 429). Also prunes the author''s old windows. service_role only.';
 
 revoke all on function public.sort_preview_rate_hit(uuid, integer, integer) from public, anon, authenticated;
 grant execute on function public.sort_preview_rate_hit(uuid, integer, integer) to service_role;
@@ -414,3 +450,88 @@ comment on function public.apply_entry_sort(uuid, uuid, jsonb, text, text, int, 
 
 revoke all on function public.apply_entry_sort(uuid, uuid, jsonb, text, text, int, jsonb) from public, anon, authenticated;
 grant execute on function public.apply_entry_sort(uuid, uuid, jsonb, text, text, int, jsonb) to service_role;
+
+-- ===========================================================================
+-- 5. Deleting entries purges the author's preview plans — every path: delete_entry (0037), a raw
+--    `DELETE /rest/v1/entries`, and the account cascade. Statement-level with a transition table, so
+--    delete_account's hundreds of cascaded rows cost one purge, not hundreds.
+-- ===========================================================================
+create or replace function public.trg_entries_purge_preview_cache()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  delete from public.sort_preview_cache c
+  where c.author_id in (select distinct g.author_id from gone g);
+  return null;
+end; $$;
+
+revoke execute on function public.trg_entries_purge_preview_cache() from public, anon, authenticated;
+
+drop trigger if exists entries_purge_preview_cache on public.entries;
+create trigger entries_purge_preview_cache
+  after delete on public.entries
+  referencing old table as gone
+  for each statement execute function public.trg_entries_purge_preview_cache();
+
+-- ===========================================================================
+-- 6. delete_account — 0035's body verbatim, plus the two 0039 tables in its "nothing personal
+--    survived" check (both already cascade from auth.users; this makes a missed cascade a RAISE).
+--    Same signature: create-or-replace, grants restated.
+-- ===========================================================================
+create or replace function public.delete_account()
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_uid     uuid := (select auth.uid());
+  v_deleted int;
+begin
+  if v_uid is null then
+    raise exception 'delete_account requires an authenticated caller' using errcode = '42501';
+  end if;
+
+  -- Everything personal hangs off this row by `on delete cascade` (header of 0035). Any failure
+  -- here — privilege, trigger, FK — propagates and rolls the whole call back.
+  delete from auth.users where id = v_uid;
+  get diagnostics v_deleted = row_count;
+  if v_deleted <> 1 then
+    raise exception 'delete_account: no auth user % to delete', v_uid using errcode = 'P0002';
+  end if;
+
+  -- Verify, don't trust: if a future table forgets its cascade, this refuses to report success —
+  -- and, by raising, un-deletes everything above.
+  if exists (select 1 from public.profiles       where id = v_uid)
+  or exists (select 1 from public.entries        where author_id = v_uid)
+  or exists (select 1 from public.reviews        where reviewer_id = v_uid)
+  or exists (select 1 from public.saves          where user_id = v_uid)
+  or exists (select 1 from public.blocks         where blocker_id = v_uid or blocked_id = v_uid)
+  or exists (select 1 from public.reports        where reporter_id = v_uid or profile_id = v_uid)
+  or exists (select 1 from public.comments       where user_id = v_uid)
+  or exists (select 1 from public.lists          where owner_id = v_uid)
+  or exists (select 1 from public.follows        where follower_id = v_uid or followee_id = v_uid)
+  or exists (select 1 from public.review_likes   where user_id = v_uid)
+  or exists (select 1 from public.comment_likes  where user_id = v_uid)
+  or exists (select 1 from public.review_tags    where tagged_user_id = v_uid or tagger_id = v_uid)
+  or exists (select 1 from public.notifications  where recipient_id = v_uid or actor_id = v_uid)
+  or exists (select 1 from public.sort_preview_cache where author_id = v_uid)
+  or exists (select 1 from public.sort_preview_rate  where author_id = v_uid)
+  then
+    raise exception 'delete_account: personal rows survived the cascade for %', v_uid
+      using errcode = 'P0001';
+  end if;
+
+  -- Shape unchanged from 0032 so shipped decoders keep working; it can no longer say false.
+  return jsonb_build_object('ok', true, 'auth_user_deleted', true);
+end; $$;
+
+comment on function public.delete_account() is
+  'Deletes the CALLER''S account: the auth user, and by FK cascade every personal row (profile, entries, photos, lines, saves, blocks, reports, comments, lists, follows, likes, tags, notifications). Verifies nothing survived. RAISES on any failure and deletes nothing — never a false success. Returns {ok: true, auth_user_deleted: true}. Storage objects are the client''s to purge first. App Store 5.1.1(v).';
+
+revoke all on function public.delete_account() from public, anon;
+grant execute on function public.delete_account() to authenticated;

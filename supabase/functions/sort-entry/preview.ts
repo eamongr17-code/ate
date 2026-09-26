@@ -7,9 +7,16 @@
 //     "tag_tokens": [{ offset, length }], "restaurant_id": "<uuid>" }
 //
 // and get back the same plan shape a sort returns — WITHOUT writing entries or reviews. The
-// point is spend and latency: the model's RAW plan is cached server-side for 15 minutes under
-// (author, sha256(body), tag_tokens, restaurant_id, model), and the real sort after Done reuses
-// it when the key matches instead of calling the model a second time.
+// point is spend and latency: the model's RAW plan is cached server-side under (author,
+// sha256(body), tag_tokens, restaurant_id, model), and the real sort after Done reuses it when
+// the key matches instead of calling the model a second time.
+//
+// THE CACHED PLAN HOLDS VERBATIM DRAFT TEXT — its notes and score evidence are slices of the
+// words — so its life is short and ends in a DELETE, not just an expiry (migration 0039):
+//   * it is reusable for 15 minutes (`expires_at`; reads ignore anything older);
+//   * every preview call purges expired rows, everyone's, bounded (sort_preview_purge_expired);
+//   * the real sort deletes the row it consumed once its write commits (consumeCachedPlan);
+//   * deleting an entry or the account purges the author's rows (a trigger on entries + cascade).
 //
 // What is cached is the model's output BEFORE any gate. Both paths then run the same
 // validate.ts → tags.ts → apply_entry_sort chain on it, so a cached plan can never loosen a
@@ -60,7 +67,8 @@ export type PreviewKeyParts = {
 
 /**
  * The cache key (the author is the other half of the table's PK). sha256 of the body, then of
- * the whole tuple, so the row holds no user text and the key has one fixed shape (64 hex).
+ * the whole tuple, so the KEY carries no user text and has one fixed shape (64 hex). The row's
+ * `plan` still does (see the header) — which is why rows are deleted, not left to expire.
  */
 export async function previewCacheKey(k: PreviewKeyParts): Promise<string> {
   const bodyHash = await sha256Hex(k.body ?? '');
@@ -119,6 +127,7 @@ export function coerceCachedPlan(raw: unknown): SortPlan | null {
 export type PreviewCache = {
   get(authorId: string, key: string): Promise<SortPlan | null>;
   put(authorId: string, key: string, plan: SortPlan, model: string): Promise<void>;
+  remove(authorId: string, key: string): Promise<void>;
 };
 
 export type CachedPlan = {
@@ -170,4 +179,24 @@ export async function modelPlanWithCache(opts: {
 /** What `entries.sort_meta` records for a sort (0039). */
 export function sortMeta(usedModel: boolean, cacheHit: boolean, model: string | null) {
   return { cache_hit: usedModel && cacheHit, model: usedModel ? model : null };
+}
+
+/**
+ * After the real sort's write COMMITS: a plan that came from the cache has served its one purpose,
+ * so its row (verbatim draft text) is deleted. A miss had no row to delete; a failed write keeps it
+ * so the retry can still reuse it. Never throws — the sort already succeeded.
+ */
+export async function consumeCachedPlan(opts: {
+  cache: PreviewCache | null;
+  authorId: string;
+  key: string | null;
+  cacheHit: boolean;
+}): Promise<boolean> {
+  if (!opts.cache || !opts.cacheHit || !opts.key) return false;
+  try {
+    await opts.cache.remove(opts.authorId, opts.key);
+    return true;
+  } catch {
+    return false;
+  }
 }

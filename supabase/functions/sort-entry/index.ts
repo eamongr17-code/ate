@@ -18,8 +18,9 @@
 //           place_offset, items[] } · 422 bad draft · 429 rate limited (12 per 10 min per author)
 //   Runs on a DRAFT and writes nothing to entries or reviews. In model mode the model's raw plan
 //   is cached 15 min under (author, sha256(body), tag_tokens, restaurant_id, model); the real
-//   sort after Done reuses it on a key match — no second model call — and records
-//   entries.sort_meta = { cache_hit, model } in the same transaction (./preview.ts).
+//   sort after Done reuses it on a key match — no second model call — records
+//   entries.sort_meta = { cache_hit, model } in the same transaction, then deletes the consumed
+//   row. Every preview also purges expired plans (bounded). (./preview.ts)
 //
 // `force` IS NOT A LICENCE TO DESTROY. A line the user corrected survives any re-sort:
 // apply_entry_sort (0024) keeps corrected rows, dish and score intact, and only re-parses
@@ -65,6 +66,7 @@ import { resolveMode, resolveModel, sortWithModel } from './model.ts';
 import { attachTagTokens, parseTagTokens, tagTokenSpans, tagTokenWords, type TagToken } from './tags.ts';
 import {
   coerceCachedPlan,
+  consumeCachedPlan,
   modelPlanWithCache,
   PREVIEW_RATE_LIMIT,
   PREVIEW_RATE_WINDOW_SECONDS,
@@ -237,7 +239,19 @@ function previewCache(admin: ReturnType<typeof adminClient>): PreviewCache {
       );
       if (error) throw new Error(`preview cache write: ${error.message}`);
     },
+    async remove(authorId, key) {
+      const { error } = await admin.from('sort_preview_cache').delete()
+        .eq('author_id', authorId)
+        .eq('cache_key', key);
+      if (error) throw new Error(`preview cache delete: ${error.message}`);
+    },
   };
+}
+
+/** Every preview sweeps expired plans (anyone's, bounded — 0039). Housekeeping: never fails a preview. */
+async function purgeExpiredPreviews(admin: ReturnType<typeof adminClient>): Promise<void> {
+  const { error } = await admin.rpc('sort_preview_purge_expired', { p_max: 200 });
+  if (error) console.error('sort-entry: preview purge failed:', error.message);
 }
 
 /** The spend guard. Fails CLOSED: a preview is optional, the real sort after Done is not. */
@@ -260,6 +274,8 @@ type Planned =
     limited: false;
     usedMode: SorterMode;
     cacheHit: boolean;
+    /** The preview-cache key this plan was looked up under (model mode only). */
+    cacheKey: string | null;
     restaurantId: string | null;
     mention: PlaceCandidate | null;
     validated: SortPlan;
@@ -307,10 +323,12 @@ async function planFor(
   let plan: SortPlan | null = null;
   let usedMode: SorterMode = MODE;
   let cacheHit = false;
+  let cacheKey: string | null = null;
   if (MODE === 'model') {
     // Early sort (0039): the preview stores the model's raw plan; the real sort reuses it when the
     // words, the marked tokens, the place and the model are all the same. No second call.
     const key = await previewCacheKey({ body, tagTokens, restaurantId, model: MODEL_ID });
+    cacheKey = key;
     const got = await modelPlanWithCache({
       cache: previewCache(admin),
       authorId: opts.authorId,
@@ -360,7 +378,7 @@ async function planFor(
   const gated = validatePlan(plan, { body, knownDishes: known });
   const validated: SortPlan = { ...gated, items: attachTagTokens(gated.items, body, tagTokens, known) };
 
-  return { limited: false, usedMode, cacheHit, restaurantId, mention, validated };
+  return { limited: false, usedMode, cacheHit, cacheKey, restaurantId, mention, validated };
 }
 
 Deno.serve(async (req) => {
@@ -386,6 +404,7 @@ Deno.serve(async (req) => {
     const draft = parsePreviewRequest(body);
     if ('error' in draft) return json({ error: draft.error }, 422);
     try {
+      await purgeExpiredPreviews(admin);
       const planned = await planFor(admin, {
         authorId: userId,
         body: draft.body,
@@ -445,7 +464,7 @@ Deno.serve(async (req) => {
       preview: false,
     });
     if (planned.limited) throw new Error('unreachable: the real sort is never rate-limited');
-    const { usedMode, cacheHit, restaurantId, mention, validated } = planned;
+    const { usedMode, cacheHit, cacheKey, restaurantId, mention, validated } = planned;
 
     if (dryRun) {
       return json({
@@ -489,6 +508,9 @@ Deno.serve(async (req) => {
     }
 
     const result = (Array.isArray(written) ? written[0] : written) as { sort_status?: string; restaurant_id?: string } | null;
+
+    // The write committed: a plan reused from a preview is consumed — its row holds draft text.
+    await consumeCachedPlan({ cache: previewCache(admin), authorId: row.author_id, key: cacheKey, cacheHit });
 
     return json({
       ok: true,

@@ -226,6 +226,16 @@ struct Round3ContractTests {
             #expect(areas.allSatisfy { $0.entryCount > 0 && $0.area.isEmpty == false })
             guard let top = areas.first else { continue }
 
+            // Keyset: (entry_count desc, area asc) — page 2 starts right after page 1's last row.
+            let pageOne: [Area] = try await StagingRPC.rows(viewer, "feed_areas", ["p_limit": .integer(1)])
+            #expect(pageOne.first?.area == top.area)
+            let pageTwo: [Area] = try await StagingRPC.rows(viewer, "feed_areas", [
+                "p_limit": .integer(1),
+                "p_cursor_entry_count": .integer(top.entryCount),
+                "p_cursor_area": .string(top.area)
+            ])
+            #expect(pageTwo.first?.area == areas.dropFirst().first?.area, "the keyset skips nothing")
+
             let page: [FeedRow] = try await StagingRPC.rows(viewer, "get_entry_feed", [
                 "p_page_size": .integer(50), "p_area": .string(top.area)
             ])

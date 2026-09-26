@@ -57,13 +57,13 @@ back to plain text, never to a search.
 
 Every list is keyset-paginated; **no OFFSET anywhere.** First page → pass nulls; next page → pass the LAST
 row's key — EVERY field of it. `(created_at, id)` DESC on every entry and review list; ranked lists key on
-their own order: `place_dishes` `(review_count, score, name, dish_id)`, `statement_months` `month`, Saved
+their own order: `place_dishes` `(review_count, score, name, dish_id)`, `feed_areas` `(entry_count, area)`, `statement_months` `month`, Saved
 `(saved_at, dish_id)`, Search scopes `(match_tier, review_count|username, name, id)`, Nearby `(distance_m, id)`.
 
 | Screen | Call | Returns |
 |---|---|---|
 | Feed | `rpc get_entry_feed(p_cursor_created_at, p_cursor_id, p_page_size, p_include_own, p_area)` | `entry_cards[]` — every entry, blocked users already gone. `p_include_own` defaults **false** (your visits live in Journal). `p_area` (0038): null = everywhere; else a `feed_areas` `area` → only rows whose `place.locality` matches (trimmed, case-insensitive). Same keyset |
-| Feed — area picker | `rpc feed_areas()` | `{area, entry_count}[]`, busiest first then A→Z — the localities of what the Feed shows you (your own excluded, so no listed area opens empty). Unpaged |
+| Feed — area picker | `rpc feed_areas(p_limit, p_cursor_entry_count, p_cursor_area)` | `{area, entry_count}[]`, busiest first then A→Z — the localities of what the Feed shows you (your own excluded, so no listed area opens empty). `p_limit` default 30, max 100; keyset `(entry_count, area)` — pass both from the last row |
 | Journal · Profile | `rpc get_entries_by_author(p_author_id, cursor…, p_page_size)` | `entry_cards[]` — the same rows whoever asks (a blocked author: `[]`) |
 | Entry · Share | `GET /rest/v1/entry_cards?id=eq.<uuid>` | one `entry_card` |
 | Place — header | `rpc place_summary(p_restaurant_id)` | `{restaurant_id, name, address, city, cuisine, cover_url, avg_rating, review_count, people_count, dish_count, my_visits, my_last_visit, locality, entry_count}` — **`locality` is the second chip** (`city` is unreliable, see below); `entry_count` = visits here, `review_count` = receipt lines; every text field is `null`, never `''` |
@@ -149,7 +149,8 @@ restaurant_id, place_query, place_offset, items}` — the sort's plan shape. **W
 bad draft (>10k chars, bad uuid) · 429 `{error, retry_after}` over 12 previews / 10 min (a repeat of a cached
 draft is free) — ignore it; Done still sorts. In model mode the model's plan is cached 15 min under (you,
 sha256(body), tag_tokens, restaurant_id); **send exactly the body, tokens and place you will INSERT** and the
-sort after Done reuses it — no second model call (`entries.sort_meta.cache_hit`).
+sort after Done reuses it — no second model call (`entries.sort_meta.cache_hit`) — then deletes it. The plan
+holds draft words, so expired rows are purged on every preview and deleting an entry or account purges yours.
 
 ### Corrections (the user's, always)
 | Action | Call |

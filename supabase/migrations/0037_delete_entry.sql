@@ -11,6 +11,8 @@
 --   review_likes, comments (+ comment_likes), review_tags, notifications (0003/0010/0011, cascade) ·
 --   reports.entry_id (0019, cascade) · entries_private_before_0033 (cascade). Dietary tags are a
 --   column on the review, so they go with it.
+--   And, by 0039's `entries_purge_preview_cache` trigger, every early-sort plan the author has cached
+--   (they hold verbatim draft text).
 -- WHAT STAYS: dishes and restaurants (shared catalogue — a dish this entry created stays, as a shell
 --   `place_dishes`/search already hide until someone logs it); saves (the SAVER'S rows —
 --   `saves.source_entry_id` is SET NULL, provenance handle `source_user_id` survives);

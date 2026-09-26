@@ -86,8 +86,9 @@ only — real reports are never rewritten to validate it). The RPCs lower-case +
 
 ### `sort_preview_cache` · `sort_preview_rate` (0039)
 Server-internal (RLS on, no policy, service_role only; cascade from `auth.users`). The cache: the model's RAW
-draft plan, PK `(author_id, cache_key)` (total — upserted), 15-min `expires_at`; key = sha256(sha256(body),
-tag_tokens, restaurant_id, model). The rate table: 0013's fixed window, 12 previews / 10 min / author.
+draft plan (verbatim draft text), PK `(author_id, cache_key)` (total — upserted), 15-min `expires_at`; key =
+sha256(sha256(body), tag_tokens, restaurant_id, model). Rows are DELETED: bounded purge of expired rows on every
+preview, the consuming sort deletes its row, an entries-delete trigger purges the author's. Rate: 12 / 10 min.
 
 ### `profiles` — changed (0018)
 Additive: `entry_seq` int (the order-number counter; never client-writable), `city` text (under the handle on You/Profile). `username` is `citext UNIQUE` — the handle.
@@ -157,7 +158,7 @@ except where noted; **entries = visits, reviews = receipt lines, and they are no
 | `search_places` · `search_dishes` · `search_people` (0031) | the Search tab's scopes. Match = `search_key()` (trimmed, **accent-folded**, lower) substring, ≥2 chars; ranked by `match_tier` (0 exact · 1 prefix · 2 word-start · 3 contains), then `review_count` desc (people: handle). A dish needs ≥1 line the viewer can see. Keysets are 4/4/3-part |
 | `search_saved(query, …)` · `nearby_places(lat, lng, …)` (0031) | Saved scope = `my_saved_dishes`' row + `restaurant_locality`, empty query = the whole list, keyset `(saved_at, dish_id)`. Nearby = places we hold + viewer-relative score, PostGIS only, keyset `(distance_m, restaurant_id)` |
 | `my_blocks(…)` (0032) | whom the caller blocked, with handle/name/avatar. DEFINER: `profiles` RLS hides exactly these people |
-| `feed_areas()` (0038) | `place_locality()` of the entries the Feed shows you (own excluded), grouped case-insensitively, busiest first. `get_entry_feed(…, p_area)` filters on the same string |
+| `feed_areas(limit, cursor…)` (0038) | `place_locality()` of the entries the Feed shows you (own excluded), grouped case-insensitively; keyset `(entry_count desc, area)`, 30 a page. `get_entry_feed(…, p_area)` filters on the same string |
 | `delete_entry(entry)` (0037) | owner-only, DEFINER. FK cascades take photos rows, lines (+ tags, likes, comments, notifications), reports; saves keep the dish (`source_entry_id` → NULL); catalogue stays. Returns the files to purge |
 
 ## RLS
@@ -199,4 +200,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0030–0033 | `place_dishes_order` · `search_scopes` · `apple_auth_account_blocks` · `entries_always_public` | `DishRanking` order · Search scopes, `nearby_places` · Apple-safe sign-up, `delete_account()`, `my_blocks()` · **every entry public (prod data flip; undo list `entries_private_before_0033`)** |
 | 0034–0035 | `signed_out_browse` · `account_integrity` | anon EXECUTE on the browse reads via plpgsql dispatch → `browse.*` DEFINER, no table grant · `delete_account` atomic + verified; always a profile; deactivated hidden; `entry_cards.place.locality` |
 | 0036 | `dish_tags.sql` | `reviews.tags` + closed-set CHECK + canonicalising trigger; `apply_entry_sort` takes/keeps tags; `correct_entry_place` prints parked tags; `items[].tags`; `dish_summary.tags` (drop+create, browse twin too) |
-| 0037–0040 | `delete_entry` · `feed_areas` · `sort_preview_cache` · `place_required` | `delete_entry()` · `feed_areas()` + `get_entry_feed(p_area)` (drop+create, browse twin too) · preview cache + rate tables, `entries.sort_meta`, `apply_entry_sort(p_meta)` (drop+create) · INSERT-only place trigger |
+| 0037–0040 | `delete_entry` · `feed_areas` · `sort_preview_cache` · `place_required` | `delete_entry()` · `feed_areas()` + `get_entry_feed(p_area)` (drop+create, browse twin too) · preview cache + rate tables, purge fn + entries-delete trigger, `entries.sort_meta`, `apply_entry_sort(p_meta)` (drop+create), `delete_account` checks both · INSERT-only place trigger |

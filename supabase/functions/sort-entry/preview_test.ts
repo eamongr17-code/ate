@@ -15,6 +15,7 @@ import { test, assert, assertEquals } from './harness.ts';
 import {
   canonicalTagTokens,
   coerceCachedPlan,
+  consumeCachedPlan,
   modelPlanWithCache,
   parsePreviewRequest,
   PREVIEW_MAX_BODY,
@@ -37,11 +38,16 @@ const PLAN: SortPlan = {
   }],
 };
 
-function memoryCache(): PreviewCache & { rows: Map<string, SortPlan>; puts: number } {
+function memoryCache(): PreviewCache & { rows: Map<string, SortPlan>; puts: number; removes: number } {
   const rows = new Map<string, SortPlan>();
   const c = {
     rows,
     puts: 0,
+    removes: 0,
+    async remove(a: string, k: string) {
+      c.removes++;
+      rows.delete(`${a}|${k}`);
+    },
     async get(a: string, k: string) {
       return rows.get(`${a}|${k}`) ?? null;
     },
@@ -170,6 +176,7 @@ test('a cache that throws degrades to a model call, never a failure', async () =
   const broken: PreviewCache = {
     get: async () => { throw new Error('db down'); },
     put: async () => { throw new Error('db down'); },
+    remove: async () => { throw new Error('db down'); },
   };
   const model = countingModel();
   const got = await modelPlanWithCache({ cache: broken, authorId: 'u1', key: 'k', model: 'm', store: true, run: model.run });
@@ -197,4 +204,30 @@ test('preview request: the draft is required; a place is optional but must be a 
     { body: 'x', restaurantId: 'a1b2c3d4-0000-4000-8000-000000000001' },
   );
   assertEquals(parsePreviewRequest({ body: 'x'.repeat(PREVIEW_MAX_BODY + 1) }), { error: 'body too long for preview' });
+});
+
+test('CONSUME: after the real sort writes, the plan it reused is deleted — the next lookup is a MISS', async () => {
+  const cache = memoryCache();
+  const model = countingModel();
+  await modelPlanWithCache({ cache, authorId: 'u1', key: 'k', model: 'm', store: true, run: model.run, admit: async () => true });
+  const real = await modelPlanWithCache({ cache, authorId: 'u1', key: 'k', model: 'm', store: false, run: model.run });
+  assertEquals(await consumeCachedPlan({ cache, authorId: 'u1', key: 'k', cacheHit: real.cacheHit }), true);
+  assertEquals([cache.rows.size, cache.removes], [0, 1], 'the consumed row (verbatim draft text) is gone');
+  const again = await modelPlanWithCache({ cache, authorId: 'u1', key: 'k', model: 'm', store: false, run: model.run });
+  assertEquals([again.cacheHit, model.calls], [false, 2]);
+});
+
+test('CONSUME is a no-op on a miss, without a key, and never throws', async () => {
+  const cache = memoryCache();
+  cache.rows.set('u1|k', PLAN);
+  assertEquals(await consumeCachedPlan({ cache, authorId: 'u1', key: 'k', cacheHit: false }), false);
+  assertEquals(await consumeCachedPlan({ cache, authorId: 'u1', key: null, cacheHit: true }), false);
+  assertEquals(await consumeCachedPlan({ cache: null, authorId: 'u1', key: 'k', cacheHit: true }), false);
+  assertEquals([cache.rows.size, cache.removes], [1, 0], 'a miss deletes nothing');
+  const broken: PreviewCache = {
+    get: async () => null,
+    put: async () => {},
+    remove: async () => { throw new Error('db down'); },
+  };
+  assertEquals(await consumeCachedPlan({ cache: broken, authorId: 'u1', key: 'k', cacheHit: true }), false);
 });
