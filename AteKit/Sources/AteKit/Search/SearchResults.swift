@@ -50,6 +50,8 @@ public struct DishResult: Identifiable, Sendable, Hashable {
     public let score: Double?
     public let coverURLString: String?
     public let peopleCount: Int
+    /// The dish's consensus dietary tags — the same chips its own page prints. `[]` for none.
+    public let tags: [DietTag]
 
     public var id: UUID { dishID }
 
@@ -61,7 +63,8 @@ public struct DishResult: Identifiable, Sendable, Hashable {
         restaurantLocality: String? = nil,
         score: Double?,
         coverURLString: String? = nil,
-        peopleCount: Int = 0
+        peopleCount: Int = 0,
+        tags: [DietTag] = []
     ) {
         self.dishID = dishID
         self.name = name
@@ -71,6 +74,7 @@ public struct DishResult: Identifiable, Sendable, Hashable {
         self.score = score
         self.coverURLString = coverURLString
         self.peopleCount = peopleCount
+        self.tags = tags
     }
 
     init(_ row: SearchDishRow) {
@@ -82,7 +86,8 @@ public struct DishResult: Identifiable, Sendable, Hashable {
             restaurantLocality: row.restaurantLocality,
             score: row.score,
             coverURLString: row.coverURL,
-            peopleCount: row.peopleCount
+            peopleCount: row.peopleCount,
+            tags: DietTag.decoding(row.tags ?? [])
         )
     }
 

@@ -109,6 +109,16 @@ public final class DishPageStore: SavedDishObserving, EntryDeletionObserving {
     public static let heroPhotoCount = 2
     /// `nil` = nobody has scored it. Rendered as an empty star row, never as 0.0.
     public var score: Double? { summary?.score }
+
+    /// **The header and the first page of reviews are both in** (round 4: staged loading). Until
+    /// then the page is its full-layout skeleton; then it fills in once. A failed header settles it.
+    public var isSettled: Bool {
+        switch header {
+        case .loading: false
+        case .unavailable, .unreachable: true
+        case .ready: phase != .loading
+        }
+    }
     public var peopleCount: Int { summary?.peopleCount ?? 0 }
 
     // MARK: - Loading

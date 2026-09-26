@@ -5,8 +5,13 @@ import SwiftUI
 /// save it.
 ///
 /// In the order `Dish.dc.html` sets them down: a tilted pair of photos, the name at 38, the place
-/// as a link under it, the aggregate at 64 with its stars and how many people, then the reviews —
-/// **You first**, then everyone else newest first.
+/// as a link under it, the aggregate at 64 with its stars, how many people and the dish's dietary
+/// chips, then the reviews — **You first**, then everyone else newest first.
+///
+/// Round 4 (Eamon's notes on build 79): a review is who and how much — avatar, handle, score, no
+/// words; the row opens their entry and the avatar or handle opens them. The page sits on the list
+/// gutter (12, the Journal's), and it arrives whole: a still skeleton of the full layout until the
+/// header and the first reviews are both in, then one fade.
 ///
 /// The bookmark in the top bar is the *same* save the feed's dish rows make: one ``SaveAction``,
 /// one broadcast, so a dish saved here is already saved on the feed underneath (AGENTS.md rule 2).
@@ -14,6 +19,8 @@ struct DishScreen: View {
     let store: DishPageStore
     var onPlace: (UUID) -> Void = { _ in }
     var onReview: (DishReview) -> Void = { _ in }
+    /// The avatar or handle on a review: that person's profile.
+    var onProfile: (UUID) -> Void = { _ in }
     var onSave: (DishSummary) -> Void = { _ in }
 
     @Environment(\.dismiss) private var dismiss
@@ -23,10 +30,14 @@ struct DishScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: AteMetrics.loose) {
-                switch store.header {
+                switch store.isSettled ? store.header : .loading {
                 case .loading:
-                    DishHeaderSkeleton()
-                        .padding(.horizontal, AteMetrics.gutter)
+                    VStack(alignment: .leading, spacing: AteMetrics.loose) {
+                        DishHeaderSkeleton()
+                        ReviewSkeleton()
+                    }
+                    .padding(.horizontal, AteMetrics.listGutter)
+                    .transition(.opacity)
                 case .unavailable:
                     AteEmptyState(title: "This dish\nisn't here.")
                         .ateEmptyPlacement(top: AteDetailPage.contentTop)
@@ -37,12 +48,16 @@ struct DishScreen: View {
                         .ateEmptyPlacement(top: AteDetailPage.contentTop)
                     .accessibilityIdentifier("dish.unreachable")
                 case .ready(let summary):
-                    hero
-                    title(summary)
-                    aggregate(summary)
-                    reviews
+                    VStack(alignment: .leading, spacing: AteMetrics.loose) {
+                        hero
+                        title(summary)
+                        aggregate(summary)
+                        reviews
+                    }
+                    .transition(.opacity)
                 }
             }
+            .ateAnimation(AteMotion.fillIn, value: store.isSettled)
             .padding(.top, AteMetrics.hairspace)
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
@@ -96,8 +111,8 @@ struct DishScreen: View {
                 angles: AtePhotoAngles.dishHero,
                 onTap: { showPhotos(photos, at: $0) }
             )
-            // The cluster already insets 6 for its own tilt; the artboard's is 8.
-            .padding(.leading, AteMetrics.gutter - 6 + 2)
+            // The cluster already insets 6 for its own tilt; the artboard's is 8 past the gutter.
+            .padding(.leading, AteMetrics.listGutter - 6 + 2)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -131,30 +146,49 @@ struct DishScreen: View {
             .accessibilityLabel(summary.restaurantName)
             .accessibilityIdentifier("dish.place")
         }
-        .padding(.horizontal, AteMetrics.gutter)
+        .padding(.horizontal, AteMetrics.listGutter)
     }
 
     /// `gap:14px` — the number at 64, and beside it the star row and how many people.
     ///
     /// An unrated dish prints neither: design rule 7 says a score is never inferred, so there is no
     /// "0.0", no row of grey stars and no mark — the score slot is simply empty.
+    ///
+    /// The dish's dietary chips (round 4; the artboard predates tags) ride on the people line — the
+    /// line nearest both the name and the score: the consensus of what people tagged it.
     private func aggregate(_ summary: DishSummary) -> some View {
         HStack(alignment: .center, spacing: 14) {
             if let score = summary.score {
+                // Fixed digits: the secret 6.0 is exactly as wide as any 5.
                 Text(ScoreFormat.average(score))
                     .ateText(.dishScore)
                     .monospacedDigit()
-                    .accessibilityLabel("Rated \(ScoreFormat.average(score)) out of 5")
+                    .fixedSize()
+                    .accessibilityLabel("Rated \(ScoreFormat.average(score))")
                 VStack(alignment: .leading, spacing: 6) {
                     starRow(for: score)
-                    people(summary)
+                    meta(summary)
                 }
             } else {
-                people(summary)
+                meta(summary)
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, AteMetrics.gutter)
+        .padding(.horizontal, AteMetrics.listGutter)
+    }
+
+    /// How many people, then the chips. Either can be absent; both absent is no line at all.
+    @ViewBuilder
+    private func meta(_ summary: DishSummary) -> some View {
+        if summary.peopleCount > 0 || summary.tags.isEmpty == false {
+            AteFlow(spacing: AteMetrics.snug) {
+                people(summary)
+                if summary.tags.isEmpty == false {
+                    DietTagChips(tags: summary.tags, fill: AtePalette.automatic.field)
+                        .accessibilityIdentifier("dish.tags")
+                }
+            }
+        }
     }
 
     /// Five 20pt stars, filled by the fraction the average earns — whole, half, or empty, all at
@@ -204,8 +238,12 @@ struct DishScreen: View {
         case .ready:
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(store.reviews) { review in
-                    DishReviewRow(review: review) { onReview(review) }
-                        .task { await store.loadMoreIfNeeded(after: review) }
+                    DishReviewRow(
+                        review: review,
+                        onOpen: { onReview(review) },
+                        onProfile: review.author.map { author in { onProfile(author.id) } }
+                    )
+                    .task { await store.loadMoreIfNeeded(after: review) }
                 }
                 if let message = store.inlineErrorMessage {
                     Text(message)
@@ -215,59 +253,81 @@ struct DishScreen: View {
                         .padding(.top, AteMetrics.regular)
                 }
             }
-            .padding(.horizontal, AteMetrics.gutter)
+            .padding(.horizontal, AteMetrics.listGutter)
         }
     }
 }
 
-/// One review: a 36pt avatar, who it was, the score as a butter pill, and their words underneath.
+/// **One review: who, and how much** (round 4) — a 36pt avatar, the handle, and their score as the
+/// butter pill at the right. No words: the words are one tap away, in the entry.
 ///
-/// Tapping it opens the visit it came out of — a review is a quote from an entry. A legacy review
-/// carries no `entry_id` (migration 0018), and that row is printed exactly the same way and simply
-/// does not open: a control that goes nowhere is worse than no control.
+/// Two doors, side by side rather than nested (a button inside a button's label is never heard):
+/// the avatar and handle open **the person**, the rest of the row opens **the visit** it came out
+/// of. A legacy review carries no `entry_id` (0018) and a blocked or deleted author no name — that
+/// half is simply not a control then, because a control that goes nowhere is worse than none.
 struct DishReviewRow: View {
     let review: DishReview
-    let action: () -> Void
+    let onOpen: () -> Void
+    var onProfile: (() -> Void)?
+
+    /// `padding:14px 0` around a 36pt avatar, `gap:12px`.
+    private static let avatar: CGFloat = 36
+    private static let padding: CGFloat = 14
 
     var body: some View {
-        Group {
-            if review.entryID == nil {
-                row
-            } else {
-                Button(action: action) { row }
-                    .buttonStyle(.plain)
+        VStack(spacing: 0) {
+            AteHairline()
+            HStack(spacing: 0) {
+                person
+                visit
             }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(review.isMine ? "dish.review.mine" : "dish.review")
     }
 
-    private var row: some View {
-        VStack(spacing: 0) {
-            AteHairline()
-            HStack(alignment: .top, spacing: AteMetrics.regular) {
-                AteAvatar(
-                    userID: review.author?.id ?? review.reviewID,
-                    handle: handle,
-                    side: 36,
-                    textStyle: .avatarInitialMedium
-                )
-                VStack(alignment: .leading, spacing: AteMetrics.tight) {
-                    HStack(spacing: AteMetrics.snug) {
-                        Text(name).ateText(.controlSmall)
-                        Spacer(minLength: 0)
-                        score
-                    }
-                    if let note = review.note, note.isEmpty == false {
-                        Text(note)
-                            .ateText(.proseLarge)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-            }
-            .padding(.vertical, 14)
-            .contentShape(.rect)
+    @ViewBuilder
+    private var person: some View {
+        let label = HStack(spacing: AteMetrics.regular) {
+            AteAvatar(
+                userID: review.author?.id ?? review.reviewID,
+                handle: handle,
+                side: Self.avatar,
+                textStyle: .avatarInitialMedium
+            )
+            Text(name)
+                .ateText(.controlSmall)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .padding(.vertical, Self.padding)
+        .padding(.trailing, AteMetrics.regular)
+        .contentShape(.rect)
+        if let onProfile {
+            Button(action: onProfile) { label }
+                .buttonStyle(.plain)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("dish.review.person")
+        } else {
+            label.accessibilityElement(children: .combine)
+        }
+    }
+
+    @ViewBuilder
+    private var visit: some View {
+        let label = HStack(spacing: 0) {
+            Spacer(minLength: 0)
+            score
+        }
+        .frame(maxWidth: .infinity, minHeight: Self.avatar + Self.padding * 2)
+        .contentShape(.rect)
+        if review.entryID == nil {
+            label
+        } else {
+            Button(action: onOpen) { label }
+                .buttonStyle(.plain)
+                .accessibilityLabel(scoreLabel)
+                .accessibilityIdentifier("dish.review.entry")
         }
     }
 
@@ -280,6 +340,10 @@ struct DishReviewRow: View {
     }
 
     private var handle: String { review.author?.username ?? "?" }
+
+    private var scoreLabel: String {
+        review.score.map { "\(name), \(ScoreFormat.halfStep($0.value))" } ?? name
+    }
 
     /// Design rule 7: an unrated review leaves the score slot empty — no number, no zero, no mark.
     @ViewBuilder
@@ -316,19 +380,17 @@ private struct ReviewSkeleton: View {
             ForEach(0..<3, id: \.self) { _ in
                 VStack(spacing: 0) {
                     AteHairline()
-                    HStack(alignment: .top, spacing: AteMetrics.regular) {
+                    HStack(spacing: AteMetrics.regular) {
                         Circle()
                             .fill(AtePalette.automatic.hairline)
                             .frame(width: 36, height: 36)
-                        VStack(alignment: .leading, spacing: AteMetrics.snug) {
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(AtePalette.automatic.hairline)
-                                .frame(width: 88, height: 12)
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(AtePalette.automatic.hairline)
-                                .frame(height: 12)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(AtePalette.automatic.hairline)
+                            .frame(width: 88, height: 12)
+                        Spacer(minLength: 0)
+                        Capsule()
+                            .fill(AtePalette.automatic.hairline)
+                            .frame(width: 46, height: 20)
                     }
                     .padding(.vertical, 14)
                 }

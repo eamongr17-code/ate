@@ -3,8 +3,9 @@ import SwiftUI
 
 /// **`You`** — the record, as a statement.
 ///
-/// Who you are, the three totals on receipt paper, the shape of your own scoring, the dishes you
-/// gave five to, and the way into this month's statement. Nothing here is an invitation: a journal
+/// Who you are, the three totals on receipt paper, the shape of your own scoring and the dishes you
+/// gave five to. The way into the monthly statement is hidden for now (round 4) — the row, the
+/// `Recap` page and its route are all kept, behind ``showsStatement``. Nothing here is an invitation: a journal
 /// with nothing in it shows zeros and an empty chart, because zeros *are* the state and a first-run
 /// pep talk would be helper copy (design rule 1).
 struct YouScreen: View {
@@ -20,21 +21,35 @@ struct YouScreen: View {
     /// Fired once per appearance.
     var onViewed: () -> Void = {}
 
+    /// Round 4: the statement's entry point is off. Flip to bring the row back; nothing else changes.
+    static let showsStatement = false
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                header
-                if let summary = store.summary {
-                    AteStatsSlip(cells: [
-                        (summary.orders.formatted(), "Orders"),
-                        (summary.places.formatted(), "Places"),
-                        (summary.dishes.formatted(), "Dishes")
-                    ])
+            // The page fills in once (round 4): the whole layout as still shapes until every band is
+            // in, then one fade — never a header with the chart popping in under it.
+            Group {
+                if store.phase == .loading {
+                    YouPageSkeleton()
+                        .transition(.opacity)
+                } else {
+                    VStack(alignment: .leading, spacing: 18) {
+                        header
+                        if let summary = store.summary {
+                            AteStatsSlip(cells: [
+                                (summary.orders.formatted(), "Orders"),
+                                (summary.places.formatted(), "Places"),
+                                (summary.dishes.formatted(), "Dishes")
+                            ])
+                        }
+                        ratings
+                        perfect
+                        if Self.showsStatement { statement }
+                    }
+                    .transition(.opacity)
                 }
-                ratings
-                perfect
-                statement
             }
+            .ateAnimation(AteMotion.fillIn, value: store.phase == .loading)
             .padding(.horizontal, AteMetrics.gutter)
             .ateContentTop(YouScreen.contentTop)
             .padding(.bottom, AteMetrics.tabBarScrollInset)
@@ -200,6 +215,37 @@ struct YouScreen: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("you.statement")
         }
+    }
+}
+
+/// **The whole page before it has arrived** — header, totals, the chart and the tiles, as the still
+/// shapes they are waiting for (round 4: staged loading; no shimmer, no breathing).
+private struct YouPageSkeleton: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            YouHeaderSkeleton()
+            VStack(alignment: .leading, spacing: AteMetrics.snug) {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(AtePalette.automatic.hairline)
+                    .frame(width: 104, height: 18)
+                ScoreHistogramSkeleton()
+            }
+            VStack(alignment: .leading, spacing: AteMetrics.snug + 2) {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(AtePalette.automatic.hairline)
+                    .frame(width: 84, height: 18)
+                HStack(alignment: .top, spacing: 0) {
+                    ForEach(0..<4, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: AteMetrics.photoRadius(side: 78), style: .continuous)
+                            .fill(AtePalette.automatic.hairline)
+                            .frame(width: 78, height: 78)
+                            .frame(width: 80)
+                        if index < 3 { Spacer(minLength: 0) }
+                    }
+                }
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
 

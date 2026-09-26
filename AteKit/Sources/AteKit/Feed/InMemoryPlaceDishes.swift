@@ -63,7 +63,8 @@ extension InMemorySocialService: PlacePageReading, DishPageReading {
                 score: scores.isEmpty ? nil : (scores.reduce(0, +) / Double(scores.count)).rounded(toPlaces: 1),
                 peopleCount: Set(rows.map(\.entry.authorID)).count,
                 reviewCount: rows.count,
-                coverURLString: rows.compactMap { $0.entry.photos.first?.url }.first
+                coverURLString: rows.compactMap { $0.entry.photos.first?.url }.first,
+                tags: DishTagConsensus.tags(lines: rows.map(\.item.tags))
             )
         }
         // The server's own order since 0030 — which is DishRanking's rule, so the pure type that
@@ -118,7 +119,8 @@ extension InMemorySocialService: PlacePageReading, DishPageReading {
                 line.entry.photos.map { DishPhoto(url: $0.url, entryID: line.entry.id) }
             },
             isSaved: first.item.saved,
-            myLastScore: lines.filter(\.entry.isMine).compactMap(\.item.score?.value).first
+            myLastScore: lines.filter(\.entry.isMine).compactMap(\.item.score?.value).first,
+            tags: DishTagConsensus.tags(lines: lines.map(\.item.tags))
         )
     }
 

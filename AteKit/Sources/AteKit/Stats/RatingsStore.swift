@@ -39,6 +39,10 @@ public final class RatingsStore {
     /// The groups read so far, highest score first. A group with no rows is never in here.
     public private(set) var groups: [Group] = []
     public private(set) var isLoading = true
+    /// The first read — the chart and the first screenful of groups — has finished, however it went
+    /// (round 4: staged loading). Until then the page is its full-layout skeleton; a later pull to
+    /// refresh keeps what is on screen rather than going back to it.
+    public private(set) var isSettled = false
     /// A page failed. The list stops where it is; a pull to refresh starts it again.
     public private(set) var didFail = false
 
@@ -94,7 +98,12 @@ public final class RatingsStore {
         generation += 1
         let generationAtStart = generation
         isLoading = true
-        defer { if generationAtStart == generation { isLoading = false } }
+        defer {
+            if generationAtStart == generation {
+                isLoading = false
+                isSettled = true
+            }
+        }
         guard let viewer = await viewerID() else { return }
         guard let chart = try? await stats.histogram(userID: viewer) else {
             guard generationAtStart == generation else { return }

@@ -131,6 +131,10 @@ public struct MenuDish: Sendable, Hashable, Codable, Identifiable, DishRankable 
     /// of its cursor. One 5.0 from one person does not outrank a 4.4 from twelve.
     public let reviewCount: Int
     public let coverURLString: String?
+    /// The dish's consensus dietary tags, by `dish_summary`'s rule (0036). Read with
+    /// `decodeIfPresent`: a `place_dishes` that does not carry the column yet still serves a menu —
+    /// one that simply prints no chips.
+    public let tags: [DietTag]
 
     public var id: UUID { dishID }
     public var coverURL: URL? { coverURLString.flatMap(URL.init(string:)) }
@@ -147,7 +151,8 @@ public struct MenuDish: Sendable, Hashable, Codable, Identifiable, DishRankable 
         score: Double? = nil,
         peopleCount: Int = 0,
         reviewCount: Int = 0,
-        coverURLString: String? = nil
+        coverURLString: String? = nil,
+        tags: [DietTag] = []
     ) {
         self.dishID = dishID
         self.name = name
@@ -155,10 +160,22 @@ public struct MenuDish: Sendable, Hashable, Codable, Identifiable, DishRankable 
         self.peopleCount = peopleCount
         self.reviewCount = reviewCount
         self.coverURLString = coverURLString
+        self.tags = tags
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.dishID = try container.decode(UUID.self, forKey: .dishID)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.score = try container.decodeIfPresent(Double.self, forKey: .score)
+        self.peopleCount = try container.decode(Int.self, forKey: .peopleCount)
+        self.reviewCount = try container.decode(Int.self, forKey: .reviewCount)
+        self.coverURLString = try container.decodeIfPresent(String.self, forKey: .coverURLString)
+        self.tags = DietTag.decoding(try container.decodeIfPresent([String].self, forKey: .tags) ?? [])
     }
 
     enum CodingKeys: String, CodingKey {
-        case score
+        case score, tags
         case dishID = "dish_id"
         case name = "dish_name"
         case peopleCount = "people_count"

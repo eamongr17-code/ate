@@ -122,6 +122,18 @@ public final class PlacePageStore {
         return facts
     }
 
+    /// **Every piece of the first read is in** (round 4: staged loading). Until then the page draws
+    /// its full-layout skeleton and nothing real — header, menu and visits fill in once, together,
+    /// rather than popping in one by one. A header that failed settles the page at once: its one
+    /// line is all there is to show.
+    public var isSettled: Bool {
+        switch header {
+        case .loading: false
+        case .unavailable, .unreachable: true
+        case .ready: menu != .loading && visits.phase != .loading && entries.phase != .loading
+        }
+    }
+
     /// "Your 3 visits" — the band is absent at zero rather than saying "no visits".
     public var myVisits: Int { summary?.myVisits ?? 0 }
     public var hasVisits: Bool { myVisits > 0 }
