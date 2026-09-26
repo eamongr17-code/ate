@@ -80,41 +80,6 @@ enum StagingContract {
     }
 }
 
-/// Cursor walks and visibility writers are mutually exclusive within one test process.
-///
-/// Swift Testing runs suites in parallel. `blockingHidesThem` blocks a seeded author for four round
-/// trips and `blocked_with()` hides that author's rows from every read while it holds — so a walk
-/// running at the same moment loses rows that are back by the time it finishes, and no snapshot
-/// taken before or after can tell that from a pager skipping them. Every walk and every test that
-/// changes what the viewer can see runs inside this lock. Fair (FIFO) and never blocks a thread.
-actor StagingExclusive {
-    static let shared = StagingExclusive()
-    private var held = false
-    private var waiters: [CheckedContinuation<Void, Never>] = []
-
-    func run<T: Sendable>(_ body: @Sendable () async throws -> T) async rethrows -> T {
-        await acquire()
-        defer { release() }
-        return try await body()
-    }
-
-    private func acquire() async {
-        if held == false {
-            held = true
-            return
-        }
-        await withCheckedContinuation { waiters.append($0) }
-    }
-
-    private func release() {
-        if waiters.isEmpty {
-            held = false
-        } else {
-            waiters.removeFirst().resume()
-        }
-    }
-}
-
 @Suite("Staging contract", .enabled(if: StagingContract.isEnabled), .serialized)
 struct StagingContractTests {
     func client() async throws -> AteAPIClient {
@@ -279,50 +244,80 @@ struct StagingContractTests {
 
     @Test("dish_stats keeps the unrated dish at NULL, not 0")
     func dishStatsNullScore() async throws {
-        let client = try await client()
+        try await StagingExclusive.shared.run {
+            try await StatsProbe.run { probe in
+                // An unrated dish WITH a line — the case the view must not turn into a 0 — beside a
+                // rated one, both of this run's making.
+                let unscored = try await probe.writeUnscored("affogato")
+                let pasta = try #require(try await probe.write("pasta 4.5").first)
+                try await probe.write("pasta 3.5")
 
-        let rated = try await client.fetchAll(DishStats.self) { $0.not("score", operator: .is, value: "null").limit(5) }
-        #expect(rated.isEmpty == false)
-        #expect(rated.allSatisfy { ($0.score ?? 0) > 0 })
-        #expect(rated.allSatisfy { $0.reviewCount > 0 })
+                let stats = try await probe.dishStats()
+                #expect(Set(stats.map(\.dishID)) == [unscored.dishID, pasta.dishID])
 
-        // The trap the brief names: staging really does serve these rows.
-        let unrated = try await client.fetchAll(DishStats.self) { $0.is("score", value: nil).limit(5) }
-        #expect(unrated.isEmpty == false)
-        #expect(unrated.allSatisfy { $0.score == nil && $0.isRated == false })
-        // Since 0018 an unscored LINE is the normal case, so an unrated dish usually has reviews;
-        // the seed keeps at least one such dish (Affogato at Tipo 00) so this stays exercised.
-        #expect(unrated.contains { $0.reviewCount > 0 }, "no unrated dish with a line on staging — reseed one")
+                let rated = try #require(stats.first { $0.dishID == pasta.dishID })
+                #expect(rated.score == 4.0)
+                #expect(rated.reviewCount == 2)
 
-        // The view keys on dish_id, not id — proves AteRecord.primaryKeyColumn.
-        let one = try #require(rated.first)
-        #expect(try await client.fetchByID(DishStats.self, id: one.dishID).dishID == one.dishID)
+                let unrated = try #require(stats.first { $0.dishID == unscored.dishID })
+                #expect(unrated.score == nil && unrated.isRated == false)
+                #expect(unrated.reviewCount == 1, "the unscored line still counts as a line")
+
+                // Asked for the way the readers ask: `score IS NULL` finds it, `IS NOT NULL` doesn't —
+                // so the server holds NULL, not a 0 the decoder happened to accept.
+                let place = probe.place.uuidString.lowercased()
+                let isNull = try await probe.client.fetchAll(DishStats.self) {
+                    $0.eq("restaurant_id", value: place).is("score", value: nil)
+                }
+                #expect(isNull.map(\.dishID) == [unscored.dishID])
+                let notNull = try await probe.client.fetchAll(DishStats.self) {
+                    $0.eq("restaurant_id", value: place).not("score", operator: .is, value: "null")
+                }
+                #expect(notNull.map(\.dishID) == [pasta.dishID])
+
+                // The view keys on dish_id, not id — proves AteRecord.primaryKeyColumn.
+                #expect(try await probe.client.fetchByID(DishStats.self, id: pasta.dishID).dishID == pasta.dishID)
+            }
+        }
     }
 
     @Test("restaurant_stats rating really is the mean of per-dish averages")
     func restaurantStatsIsMeanOfDishAverages() async throws {
-        let client = try await client()
-        let stats = try await client.fetchAll(RestaurantStats.self) {
-            $0.not("avg_rating", operator: .is, value: "null").limit(3)
-        }
-        #expect(stats.isEmpty == false)
+        try await StagingExclusive.shared.run {
+            try await StatsProbe.run { probe in
+                // Only an unscored line so far: the place is unrated — NULL, never 0 — yet counted.
+                var lines = [try await probe.writeUnscored("affogato")]
+                let unrated = try await probe.restaurantStats()
+                #expect(unrated.avgRating == nil && unrated.isRated == false)
+                #expect(unrated.reviewCount == 1)
 
-        for restaurant in stats {
-            let dishes = try await client.fetchAll(DishStats.self) {
-                $0.eq("restaurant_id", value: restaurant.restaurantID.uuidString)
+                // Pasta 5, 4, 4.5 (mean 4.5) and salad 2.5: the mean of dish means is 3.5, the flat
+                // mean of the four scores is 4.0. Halves only, so no rounding boundary is in play.
+                lines += try await probe.write("pasta 5. salad 2.5")
+                lines += try await probe.write("pasta 4")
+                lines += try await probe.write("pasta 4.5")
+
+                let byDish = Dictionary(grouping: lines, by: \.dishID)
+                try #require(byDish.count == 3, "expected affogato, pasta and salad lines: \(lines)")
+                let dishMeans: [Double] = byDish.values.compactMap { dishLines in
+                    let scores = dishLines.compactMap { $0.score?.value }
+                    return scores.isEmpty ? nil : scores.reduce(0, +) / Double(scores.count)
+                }  // unrated dishes excluded from the mean
+                let meanOfMeans = dishMeans.reduce(0, +) / Double(dishMeans.count)
+                let allScores = lines.compactMap { $0.score?.value }
+                let flatMean = allScores.reduce(0, +) / Double(allScores.count)
+                try #require(meanOfMeans == 3.5 && flatMean == 4.0, "the sorter changed the fixture: \(lines)")
+
+                let restaurant = try await probe.restaurantStats()
+                let dishes = try await probe.dishStats()
+                #expect(restaurant.avgRating == meanOfMeans)
+                // NOT the flat mean of all reviews — that is the legacy client's selector bug.
+                #expect(restaurant.avgRating != flatMean)
+                // Every line counts, scored or not, and it is the sum of the dish rows.
+                #expect(restaurant.reviewCount == lines.count)
+                #expect(restaurant.reviewCount == dishes.reduce(into: 0) { $0 += $1.reviewCount })
             }
-            let scores: [Double] = dishes.compactMap(\.score)  // unrated dishes excluded from the mean
-            let total: Double = scores.reduce(0, +)
-            let mean: Double = total / Double(scores.count)
-            let expected: Double = (mean * 10).rounded() / 10
-            #expect(restaurant.avgRating == expected)
-            // NOT the flat mean of all reviews — that is the legacy client's selector bug.
-            let dishReviewTotal: Int = dishes.reduce(into: 0) { $0 += $1.reviewCount }
-            #expect(restaurant.reviewCount == dishReviewTotal)
         }
-
-        let unrated = try await client.fetchAll(RestaurantStats.self) { $0.is("avg_rating", value: nil).limit(1) }
-        #expect(unrated.first?.avgRating == nil)
     }
 
     @Test("get_feed pages through the RPC cursor")

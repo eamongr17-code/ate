@@ -156,14 +156,16 @@ struct PlaceDishContractTests {
 
     @Test("is_dish_saved agrees with dish_summary.saved — one answer, two ways to ask")
     func savedFlagsAgree() async throws {
-        let client = try await client()
-        let (_, dishes) = try await aPlaceWithDishes(client)
-        let first = try #require(dishes.first)
-        let dishClient = DishPageClient(api: client)
+        try await StagingExclusive.shared.run {
+            let client = try await client()
+            let (_, dishes) = try await aPlaceWithDishes(client)
+            let first = try #require(dishes.first)
+            let dishClient = DishPageClient(api: client)
 
-        let summary = try await dishClient.dishSummary(dishID: first.dishID)
-        let flag = try await dishClient.isDishSaved(dishID: first.dishID)
-        #expect(summary.isSaved == flag)
+            let summary = try await dishClient.dishSummary(dishID: first.dishID)
+            let flag = try await dishClient.isDishSaved(dishID: first.dishID)
+            #expect(summary.isSaved == flag)
+        }
     }
 
     @Test("get_dish_reviews puts mine first and walks the three-part keyset cleanly")
