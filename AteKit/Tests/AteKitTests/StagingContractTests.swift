@@ -290,9 +290,13 @@ struct StagingContractTests {
         let unrated = try await client.fetchAll(DishStats.self) { $0.is("score", value: nil).limit(5) }
         #expect(unrated.isEmpty == false)
         #expect(unrated.allSatisfy { $0.score == nil && $0.isRated == false })
-        // Since 0018 an unscored LINE is the normal case, so an unrated dish usually has reviews;
-        // the seed keeps at least one such dish (Affogato at Tipo 00) so this stays exercised.
-        #expect(unrated.contains { $0.reviewCount > 0 }, "no unrated dish with a line on staging — reseed one")
+        // An unrated dish with lines (the seed's Affogato), asked for directly: never-reviewed dishes
+        // other runs' sorts minted are unrated too, and must not crowd it out of a first five.
+        let unratedWithLines = try await client.fetchAll(DishStats.self) {
+            $0.is("score", value: nil).gt("review_count", value: 0).limit(5)
+        }
+        #expect(unratedWithLines.isEmpty == false, "no unrated dish with a line on staging — reseed one")
+        #expect(unratedWithLines.allSatisfy { $0.score == nil && $0.reviewCount > 0 })
 
         // The view keys on dish_id, not id — proves AteRecord.primaryKeyColumn.
         let one = try #require(rated.first)
