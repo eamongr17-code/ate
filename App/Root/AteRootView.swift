@@ -124,7 +124,9 @@ struct AteShell: View {
         if ComposerDebugLaunch.opensWelcome { hasSession = false }
         #endif
         _hasSession = State(initialValue: hasSession)
-        _journal = State(initialValue: JournalStore(entries: services.entries, deletions: services.entryDeletions))
+        _journal = State(initialValue: JournalStore(
+            entries: services.entries, deletions: services.entryDeletions, querying: services.journalQuerying
+        ))
         let analytics = services.analytics
         let (feedStore, areaModel) = FeedScreen.stores(services: services)
         _feedArea = State(initialValue: areaModel)
@@ -227,7 +229,7 @@ struct AteShell: View {
                 userID: userID,
                 services: services,
                 saves: saveAction,
-                onOpen: { open(.entry(EntryRoute(entryID: $0.id))) },
+                onOpen: { open(.entry($0)) },
                 onPlace: { open(.place($0), from: .profile) },
                 onDish: { open(.dish($0), from: .profile) },
                 onBlocked: { blocked in
@@ -242,7 +244,7 @@ struct AteShell: View {
                 services: services,
                 saves: saveAction,
                 onDish: { open(.dish($0), from: .place) },
-                onOpen: { open(.entry(EntryRoute(entryID: $0.id))) },
+                onOpen: { open(.entry($0)) },
                 onProfile: { open(.profile($0)) }
             )
         case .dish(let dishID):
@@ -296,7 +298,7 @@ struct AteShell: View {
                 scrollToTopSignal: scrollToTop,
                 photoCount: photoCount,
                 onCompose: { openComposer(.journalEmpty) },
-                onOpen: { open(.entry(EntryRoute(entryID: $0.id))) },
+                onOpen: { open(.entry($0)) },
                 onSuggestions: { open(.suggestions) },
                 onPlace: { open(.place($0), from: .journal) },
                 onDish: { open(.dish($0), from: .journal) },
@@ -322,7 +324,7 @@ struct AteShell: View {
                 store: feed,
                 area: feedArea,
                 scrollToTopSignal: scrollToTop,
-                onOpen: { open(.entry(EntryRoute(entryID: $0.id))) },
+                onOpen: { open(.entry($0)) },
                 onProfile: { open(.profile($0)) },
                 onPlace: { open(.place($0), from: .feed) },
                 onDish: { open(.dish($0), from: .feed) },

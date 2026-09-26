@@ -25,10 +25,25 @@ struct ProfileScreen: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                header
-                content
+            // The header and the entries are two reads. Until both have answered the whole page is
+            // its skeleton — the header's shape over the slips' — and then it fills in once, rather
+            // than a name popping in over a list that is still coming (round 4).
+            Group {
+                if isSettled {
+                    VStack(alignment: .leading, spacing: 18) {
+                        header
+                        content
+                    }
+                    .transition(.opacity)
+                } else {
+                    VStack(alignment: .leading, spacing: 18) {
+                        ProfileHeaderSkeleton().ateCardWidth()
+                        SlipSkeleton().ateCardWidth()
+                    }
+                    .transition(.opacity)
+                }
             }
+            .ateAnimation(AteMotion.fillIn, value: isSettled)
             .padding(.top, AteMetrics.tight)
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
@@ -42,6 +57,11 @@ struct ProfileScreen: View {
         }
         .sheet(isPresented: $isShowingActions) { actions }
         .ateFailureAlert($failure)
+    }
+
+    /// Both reads have answered, whichever way.
+    private var isSettled: Bool {
+        store.header != .loading && store.entries.phase != .loading
     }
 
     // MARK: - Bands
@@ -68,7 +88,7 @@ struct ProfileScreen: View {
         switch store.header {
         case .loading:
             ProfileHeaderSkeleton()
-                .padding(.horizontal, AteMetrics.listGutter)
+                .ateCardWidth()
         case .unavailable:
             // A blocked or deleted author is simply not there (contract). Say that, and nothing else.
             AteEmptyState(title: "This person\nisn't here.")
@@ -108,7 +128,7 @@ struct ProfileScreen: View {
         switch store.entries.phase {
         case .loading:
             SlipSkeleton()
-                .padding(.horizontal, AteMetrics.listGutter)
+                .ateCardWidth()
         case .empty:
             // Nothing public. Not an error, and not an invitation to do anything about it.
             AteEmptyState(title: "Nothing\nto read yet.")
@@ -137,7 +157,7 @@ struct ProfileScreen: View {
                 .task { await AtePrefetch.photos(after: entry, in: store.entries.entries) }
             }
         }
-        .padding(.horizontal, AteMetrics.listGutter)
+        .ateCardWidth()
     }
 
     @ViewBuilder

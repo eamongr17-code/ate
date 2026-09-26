@@ -24,6 +24,9 @@ enum AteScreen {
 
     static var width: CGFloat { size.width }
     static var height: CGFloat { size.height }
+    /// Every card's width — a slip, the entry page, a receipt: the screen less the card gutter either
+    /// side (366 on the 390 artboard).
+    static var cardWidth: CGFloat { width - 2 * AteMetrics.cardGutter }
 
     static var safeArea: UIEdgeInsets {
         if let cached { return cached }
@@ -61,6 +64,12 @@ private struct AteContentTop: ViewModifier {
 }
 
 extension View {
+    /// Lays a card — slip, entry page, receipt — at the one card width (``AteMetrics/cardGutter``
+    /// either side). Every surface that sets a card on the ground uses this, so they cannot drift.
+    func ateCardWidth() -> some View {
+        padding(.horizontal, AteMetrics.cardGutter)
+    }
+
     /// The bottom half of the same rule: a control the markup pins `bottom:40px` from the bottom of
     /// the *page* (Welcome's pill, Handle's Continue) sits 40 from the bottom of the screen, not 40
     /// above the home indicator.
@@ -80,9 +89,15 @@ enum AteMetrics {
 
     /// **The screen gutter.** 20pt, everywhere a screen is not a list of slips.
     static let gutter: CGFloat = 20
-    /// **The list gutter** — 12pt either side of the slips in the journal, the feed and a profile,
-    /// and of the headers above them (`padding:… 12px`), so a slip is as wide as the phone allows.
-    static let listGutter: CGFloat = 12
+    /// **The card gutter — one slip and receipt width everywhere.** 12pt either side of every card
+    /// the app lays on the ground: the journal's, the feed's and a profile's slips, the entry page, a
+    /// place's visits and its menu, the dish page's, Saved, Search's, and the Share/Summary receipt.
+    /// `Main.dc.html`'s `W = 366 (Journal/Feed, 12 gutter)` is the width they all take (round 4:
+    /// one width everywhere). Lay a card out with ``SwiftUICore/View/ateCardWidth()``; measure one
+    /// against ``AteScreen/cardWidth``.
+    static let cardGutter: CGFloat = 12
+    /// **The list gutter** — the headers above a column of cards sit on the cards' own edge.
+    static let listGutter: CGFloat = cardGutter
     /// Where content starts under the status bar.
     static let contentTop: CGFloat = 60
     /// Inside a slip or a receipt, either side.
@@ -135,8 +150,9 @@ enum AteMetrics {
     // not a receipt — so it has its own small set: where it starts, how far it is inset, and the
     // rhythm inside it.
 
-    /// The page's side margins (`.slipwrap` `margin:8px 16px 0`).
-    static let pageInset: CGFloat = 16
+    /// The page's side margins: the card gutter, so the page is exactly as wide as the slip it was
+    /// opened from (`.slipwrap` drew `margin:8px 16px 0`; round 4 made every card one width).
+    static let pageInset: CGFloat = cardGutter
     /// …and its clearance under the top bar.
     static let pageGap: CGFloat = 8
     /// Its top corners. The only 24 in the app, and the reason it reads as paper laid on the ground

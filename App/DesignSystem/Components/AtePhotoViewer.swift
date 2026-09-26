@@ -1,3 +1,4 @@
+import AteKit
 import SwiftUI
 import UIKit
 
@@ -27,46 +28,112 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// Hosts the full-screen photo viewer for everything beneath this view.
+    /// Hosts the photo preview for everything beneath this view — the full-screen viewer, or the
+    /// round 4 exploration picked with `-ate-photo-preview A|B|C` (``AtePhotoPreviewStyle``).
     func atePhotoViewerHost() -> some View {
-        modifier(AtePhotoViewerHost())
+        modifier(AtePhotoViewerHost(style: BrowseExplorations.photoPreview))
     }
 }
 
-/// What the viewer is showing: every photo of one entry (or one dish), and where it opened.
+/// What the viewer is showing: every photo of one entry (or one dish), where it opened, and — when a
+/// tile opened it — where each photo sits on the page, so a preview can grow out of it and shrink
+/// back into it.
 private struct AtePhotoViewing: Identifiable {
     let id = UUID()
     let photos: [AtePhoto]
     let index: Int
+    var origin: AtePhotoOrigin?
 }
 
 private struct AtePhotoViewerHost: ViewModifier {
+    let style: AtePhotoPreviewStyle
+
+    /// The full-screen cover: today's viewer, and the native zoom (B).
     @State private var viewing: AtePhotoViewing?
+    /// The in-place overlay: the floating card (A) and the prints (C).
+    @State private var lifting: AtePhotoViewing?
+    /// The zoom's current photo, so it shrinks back into the tile the reader swiped to.
+    @State private var zoomIndex = 0
+    @State private var relay = AtePhotoOriginRelay()
+    @Namespace private var zoomSpace
 
     func body(content: Content) -> some View {
-        let binding = $viewing
+        let viewingBinding = $viewing
+        let liftingBinding = $lifting
+        let relay = relay
+        let style = style
         content
+            .environment(\.atePhotoOriginRelay, relay)
+            .environment(\.atePhotoZoomNamespace, style == .zoom ? zoomSpace : nil)
             .environment(\.atePhotoViewer, AtePhotoViewerAction { photos, index in
                 guard photos.isEmpty == false else { return }
-                // The viewer fades itself in; the cover's own slide-up would be a sheet, not a photo.
-                var transaction = Transaction()
-                transaction.disablesAnimations = true
-                withTransaction(transaction) {
-                    binding.wrappedValue = AtePhotoViewing(
-                        photos: photos,
-                        index: min(max(0, index), photos.count - 1)
-                    )
+                let shown = AtePhotoViewing(
+                    photos: photos,
+                    index: min(max(0, index), photos.count - 1),
+                    origin: relay.take()
+                )
+                AteTelemetry.record(BrowseEvents.photoPreviewOpened(
+                    variant: style.telemetryName, photoCount: photos.count
+                ))
+                switch style {
+                case .viewer:
+                    // The viewer fades itself in; the cover's own slide-up would be a sheet, not a photo.
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) { viewingBinding.wrappedValue = shown }
+                case .zoom:
+                    viewingBinding.wrappedValue = shown
+                case .card, .prints:
+                    liftingBinding.wrappedValue = shown
                 }
             })
             .fullScreenCover(item: $viewing) { viewing in
-                AtePhotoViewer(photos: viewing.photos, index: viewing.index) {
-                    var transaction = Transaction()
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) { binding.wrappedValue = nil }
-                }
-                // Clear, so dragging the photo down shows the page it came from underneath.
-                .presentationBackground(.clear)
+                cover(viewing)
             }
+            .overlay {
+                if let lifting {
+                    AtePhotoLift(
+                        photos: lifting.photos,
+                        index: lifting.index,
+                        origin: lifting.origin,
+                        treatment: style == .prints ? .prints : .card
+                    ) {
+                        liftingBinding.wrappedValue = nil
+                    }
+                    .id(lifting.id)
+                }
+            }
+    }
+
+    @ViewBuilder
+    private func cover(_ viewing: AtePhotoViewing) -> some View {
+        let binding = $viewing
+        if style == .zoom {
+            AtePhotoViewer(
+                photos: viewing.photos,
+                index: viewing.index,
+                dragsToDismiss: false,
+                onIndex: { zoomIndex = $0 },
+                onClose: { binding.wrappedValue = nil }
+            )
+            .navigationTransition(.zoom(sourceID: zoomSource(viewing), in: zoomSpace))
+            .onAppear { zoomIndex = viewing.index }
+        } else {
+            AtePhotoViewer(photos: viewing.photos, index: viewing.index) {
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) { binding.wrappedValue = nil }
+            }
+            // Clear, so dragging the photo down shows the page it came from underneath.
+            .presentationBackground(.clear)
+        }
+    }
+
+    /// The tile the zoom grows from and returns to: the one now showing, when the page has it (a
+    /// slip's cluster shows three of an entry's photos), else the one that was tapped.
+    private func zoomSource(_ viewing: AtePhotoViewing) -> String {
+        let tiles = viewing.origin?.tiles ?? [:]
+        return tiles[zoomIndex]?.sourceID ?? tiles[viewing.index]?.sourceID ?? "photo.none"
     }
 }
 
@@ -83,6 +150,9 @@ struct AtePhotoViewer: View {
     let photos: [AtePhoto]
     /// Which one was tapped.
     @State var index: Int
+    /// Off under the native zoom (B), whose own drag-down owns the dismissal.
+    var dragsToDismiss = true
+    var onIndex: (Int) -> Void = { _ in }
     var onClose: () -> Void
 
     @State private var isZoomed = false
@@ -94,9 +164,17 @@ struct AtePhotoViewer: View {
     private static let dismissDistance: CGFloat = 110
     private static let dismissVelocity: CGFloat = 900
 
-    init(photos: [AtePhoto], index: Int, onClose: @escaping () -> Void) {
+    init(
+        photos: [AtePhoto],
+        index: Int,
+        dragsToDismiss: Bool = true,
+        onIndex: @escaping (Int) -> Void = { _ in },
+        onClose: @escaping () -> Void
+    ) {
         self.photos = photos
         _index = State(initialValue: index)
+        self.dragsToDismiss = dragsToDismiss
+        self.onIndex = onIndex
         self.onClose = onClose
     }
 
@@ -110,6 +188,7 @@ struct AtePhotoViewer: View {
                     ZoomablePhoto(
                         photo: photo,
                         isZoomed: position == index ? $isZoomed : .constant(false),
+                        dragsToDismiss: dragsToDismiss,
                         onDrag: { drag = $0 },
                         onDragEnd: finishDrag
                     )
@@ -132,8 +211,15 @@ struct AtePhotoViewer: View {
         .accessibilityIdentifier("entry.photoViewer")
         .accessibilityAction(.escape) { close() }
         .onAppear {
+            // Under the zoom the transition itself brings the photo in; a fade on top of it would
+            // start the grow from black.
+            guard dragsToDismiss else {
+                isShowing = true
+                return
+            }
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { isShowing = true }
         }
+        .onChange(of: index) { _, index in onIndex(index) }
     }
 
     /// The black thins as the photo is dragged away, so the page underneath shows through.
@@ -150,6 +236,10 @@ struct AtePhotoViewer: View {
     }
 
     private func close(flinging: Bool = false) {
+        guard dragsToDismiss else {
+            onClose()
+            return
+        }
         let animation: Animation? = reduceMotion ? nil : .easeIn(duration: 0.18)
         withAnimation(animation) {
             if flinging { drag = AteScreen.height }
@@ -168,6 +258,7 @@ struct AtePhotoViewer: View {
 private struct ZoomablePhoto: UIViewRepresentable {
     let photo: AtePhoto
     @Binding var isZoomed: Bool
+    var dragsToDismiss = true
     let onDrag: (CGFloat) -> Void
     let onDragEnd: (CGFloat, CGFloat) -> Void
 
@@ -195,6 +286,7 @@ private struct ZoomablePhoto: UIViewRepresentable {
         }
         coordinator.onDrag = onDrag
         coordinator.onDragEnd = onDragEnd
+        coordinator.dragsToDismiss = dragsToDismiss
         coordinator.show(photo)
     }
 
@@ -208,6 +300,7 @@ private struct ZoomablePhoto: UIViewRepresentable {
         var onZoom: (Bool) -> Void = { _ in }
         var onDrag: (CGFloat) -> Void = { _ in }
         var onDragEnd: (CGFloat, CGFloat) -> Void = { _, _ in }
+        var dragsToDismiss = true
         var loading: Task<Void, Never>?
         private var shownURL: URL?
 
@@ -267,7 +360,8 @@ private struct ZoomablePhoto: UIViewRepresentable {
         func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
             guard let pan = recognizer as? UIPanGestureRecognizer, pan.view === scrollView,
                   pan !== scrollView?.panGestureRecognizer else { return true }
-            guard let scrollView, scrollView.zoomScale <= scrollView.minimumZoomScale + 0.01 else { return false }
+            guard dragsToDismiss, let scrollView,
+                  scrollView.zoomScale <= scrollView.minimumZoomScale + 0.01 else { return false }
             let velocity = pan.velocity(in: scrollView)
             return abs(velocity.y) > abs(velocity.x) * 1.2
         }

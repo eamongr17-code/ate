@@ -24,6 +24,9 @@ enum AteMotion {
     /// The Summary's receipt settling from where it prints (`top:160`) to where it rests (`top:180`)
     /// once the lines are in — the print's own ease, over the same 0.6s.
     static let settle = Animation.easeOut(duration: printDuration)
+    /// A screen that was loading in pieces filling in, **once**: its still skeleton fades to the
+    /// real thing in one step (round 4 — no shimmer, no piece-by-piece pop-in).
+    static let fillIn = Animation.easeOut(duration: 0.2)
 }
 
 extension View {
