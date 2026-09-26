@@ -123,7 +123,9 @@ extension ComposerScreen {
             originalPhotos: editing.photos,
             photos: model.editedPhotos,
             // Against the chips the edit opened with: only a NEW chip forces the re-sort.
-            tags: EditTagDiff(original: editing.composition, current: model.composition, items: editing.items)
+            tags: EditTagDiff(original: editing.composition, current: model.composition, items: editing.items),
+            // Words changed → a forced re-sort carrying them (round 4); photos only → no sort.
+            originalBody: editing.composition.plain
         )
         let entries = services.entries
         let analytics = services.analytics

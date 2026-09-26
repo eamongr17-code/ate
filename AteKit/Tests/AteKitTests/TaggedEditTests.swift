@@ -63,7 +63,8 @@ struct TaggedEditTests {
         EntryEdit(
             entryID: entryID, body: now.plain, originalRestaurantID: nil, restaurantID: nil,
             tagTokens: now.tagTokens, originalPhotos: [EntryCard.Photo(url: "a", position: 0)], photos: photos,
-            tags: EditTagDiff(original: opened, current: now, items: card.items)
+            tags: EditTagDiff(original: opened, current: now, items: card.items),
+            originalBody: opened.plain
         )
     }
 
@@ -72,7 +73,7 @@ struct TaggedEditTests {
         #expect(EntryBodyTokens.composition(for: card).tags == [.v])
     }
 
-    @Test("a typo-only edit on a tagged entry does not force the sort")
+    @Test("a typo fix changes the words, so the sort is forced (round 4: the server keeps hand corrections)")
     func typoOnly() async throws {
         let opened = EntryBodyTokens.composition(for: card)
         let typo = opened.applyingPlainEdit(replacing: TextSpan(location: 0, length: 8), with: "Tiramisù")
@@ -81,17 +82,17 @@ struct TaggedEditTests {
         let change = edit(opened, typo)
         try await change.save(to: recorder)
         await change.sort(on: recorder)
-        #expect(recorder.calls == ["body", "sort force=false"])
+        #expect(recorder.calls == ["body", "sort force=true"])
     }
 
-    @Test("a photo-only edit on a tagged entry does not force the sort")
+    @Test("a photo-only edit makes no sort call at all")
     func photoOnly() async throws {
         let opened = EntryBodyTokens.composition(for: card)
         let recorder = SortRecorder()
         let change = edit(opened, opened, photos: [])
         try await change.save(to: recorder)
         await change.sort(on: recorder)
-        #expect(recorder.calls == ["body", "remove from 0", "sort force=false"])
+        #expect(recorder.calls == ["body", "remove from 0"])
     }
 
     @Test("adding a new tag chip forces the sort")
@@ -107,7 +108,7 @@ struct TaggedEditTests {
         #expect(recorder.calls == ["body", "sort force=true"])
     }
 
-    @Test("deleting a chip PATCHes its line's tags and does not force the sort")
+    @Test("deleting a chip PATCHes its line's tags; the words changed, so the sort is forced")
     func removedChip() async throws {
         let opened = EntryBodyTokens.composition(for: card)
         let chip = try #require(opened.spans.first { $0.token.tag != nil })
@@ -116,6 +117,6 @@ struct TaggedEditTests {
         let change = edit(opened, removed)
         try await change.save(to: recorder)
         await change.sort(on: recorder)
-        #expect(recorder.calls == ["body", "tags []", "sort force=false"])
+        #expect(recorder.calls == ["body", "tags []", "sort force=true"])
     }
 }

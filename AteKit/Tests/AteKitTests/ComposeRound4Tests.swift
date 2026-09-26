@@ -224,11 +224,72 @@ struct SixTokensTests {
     }
 }
 
+@Suite("Editing the words reaches the server")
+struct EditResortTests {
+    private func score(_ value: Double, at location: Int) -> EntryTokenSpan {
+        let token = EntryToken(kind: .score(Rating(exactly: value)!))
+        return EntryTokenSpan(token: token, span: TextSpan(location: location, length: 3))
+    }
+
+    private func edit(
+        from opened: EntryComposition, to now: EntryComposition, photos: [EntryEdit.Photo]? = nil
+    ) -> EntryEdit {
+        EntryEdit(
+            entryID: UUID(), body: now.plain, originalRestaurantID: nil, restaurantID: nil,
+            tagTokens: now.tagTokens, sixTokens: now.sixTokens,
+            originalPhotos: [EntryCard.Photo(url: "a", position: 0)], photos: photos,
+            tags: EditTagDiff(original: opened, current: now, items: []),
+            originalBody: opened.plain
+        )
+    }
+
+    @Test("a score changed in an edit (3.5 → 4.0) goes to a forced sort of the new words")
+    func changedScore() async throws {
+        let opened = EntryComposition(plain: "Tiramisu 3.5 honestly", spans: [score(3.5, at: 9)])
+        let now = opened.replacing(tokenID: opened.spans[0].token.id, with: .score(Rating(exactly: 4)!))
+        let service = SixRecorder()
+        let change = edit(from: opened, to: now)
+        try await change.save(to: service)
+        await change.sort(on: service)
+        #expect(service.forced == [true])
+        #expect(service.sortedBodies == ["Tiramisu 4.0 honestly"])
+    }
+
+    @Test("a photo-only edit makes no sort call")
+    func photoOnly() async throws {
+        let opened = EntryComposition(plain: "Tiramisu 3.5", spans: [score(3.5, at: 9)])
+        let service = SixRecorder()
+        let change = edit(from: opened, to: opened, photos: [])
+        await change.sort(on: service)
+        #expect(service.forced.isEmpty)
+        #expect(change.skipsSort)
+    }
+
+    @Test("a 6 given in an edit is sent as six_tokens on the forced sort")
+    func sixAddedInAnEdit() async throws {
+        let opened = EntryComposition(plain: "Tiramisu 4.0", spans: [score(4, at: 9)])
+        let now = opened.replacing(tokenID: opened.spans[0].token.id, with: .score(.blownAway))
+        let service = SixRecorder()
+        let change = edit(from: opened, to: now)
+        try await change.save(to: service)
+        await change.sort(on: service)
+        #expect(service.forced == [true])
+        #expect(service.sixes == [[TagToken(offset: 9, length: 3)]])
+        #expect(service.sortedBodies == ["Tiramisu 6.0"])
+    }
+}
+
 /// Records the six tokens every sort was asked with.
 private final class SixRecorder: EntryService, @unchecked Sendable {
     private let lock = NSLock()
     private var log: [[TagToken]] = []
+    private var forces: [Bool] = []
+    private var bodies: [String] = []
     var sixes: [[TagToken]] { lock.withLock { log } }
+    var forced: [Bool] { lock.withLock { forces } }
+    /// The body the server holds at each sort — what it sorts from.
+    var sortedBodies: [String] { lock.withLock { bodies } }
+    private var body = ""
 
     func viewer() async throws -> ViewerProfile { .preview }
     func authorID() async throws -> UUID { UUID() }
@@ -238,7 +299,11 @@ private final class SixRecorder: EntryService, @unchecked Sendable {
         try await sort(entryID: entryID, force: force, tagTokens: tagTokens, sixTokens: [])
     }
     func sort(entryID: UUID, force: Bool, tagTokens: [TagToken], sixTokens: [TagToken]) async throws -> SortOutcome {
-        lock.withLock { log.append(sixTokens) }
+        lock.withLock {
+            log.append(sixTokens)
+            forces.append(force)
+            bodies.append(body)
+        }
         return SortOutcome(
             entryID: entryID, status: .sorted, mode: "stub", itemCount: 1, restaurantID: nil, didAttachPlace: false
         )
@@ -252,7 +317,7 @@ private final class SixRecorder: EntryService, @unchecked Sendable {
     func correctPlace(entryID: UUID, restaurantID: UUID) async throws -> EntryCard { try await entry(id: entryID) }
     func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async throws {}
     func setTags(reviewID: UUID, tags: [DietTag]) async throws {}
-    func updateBody(entryID: UUID, body: String) async throws {}
+    func updateBody(entryID: UUID, body: String) async throws { lock.withLock { self.body = body } }
 }
 
 // MARK: - Scores followed by punctuation, and scores said in words
@@ -308,6 +373,9 @@ struct ScorePhraseTests {
         ("the ragù 4 point 5", 4.5, "4 point 5"),
         ("the ragù was a solid four", 4.0, "four"),
         ("the ragù was a four", 4.0, "four"),
+        ("the ragù, gave it four", 4.0, "four"),
+        ("tiramisu gave it a five", 5.0, "five"),
+        ("the ragù solid four", 4.0, "four"),
         ("tiramisu an easy five", 5.0, "five"),
         ("the ragù 4 out of 5", 4.0, "4 out of 5"),
         ("the ragù four out of five", 4.0, "four out of five"),
@@ -336,6 +404,13 @@ struct ScorePhraseTests {
         "the ragù four point three",    // not a half-step
         "the ragù zero point five out of ten",
         "the ragù seven out of five",
+        "four of us had the ragù",
+        "the ragù for four of us",
+        "a table for four",
+        "the ragù a four",                // an article alone is not a scoring phrase
+        "there were four and a half",
+        "the ragù. Four and a half",      // a new sentence, not straight after the dish
+        "we shared it with four",
         "we waited four and a half",    // a duration
         "the queue took about four point five"
     ])

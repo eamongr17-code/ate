@@ -10,8 +10,12 @@ import Foundation
 ///
 /// - with its half spelled out — `four and a half`, `four point five`, `4 1/2`, `4½`;
 /// - out of five — `four out of five`, `4 out of 5`, `4.5 out of 5`;
-/// - or after an article and at most one word of judgement — `a four`, `a solid four`,
-///   `an easy five` (``judgements``).
+/// - or, bare, straight after a scoring phrase — `was a four`, `gave it four`, `a solid four`,
+///   `an easy five` (``scoringPhrases``, ``judgements``).
+///
+/// And a number word only ever straight after a scoring phrase or a dish — never after a word of
+/// quantity, time or company (``quantityWords``): "four of us", "a table for four", "waited four
+/// and a half" stay prose.
 ///
 /// A bare typed digit is ``ScoreLiteral``'s, not this. And the secret 6 is never a phrase: "six out
 /// of five" is prose (round 4 contract — a 6 is only ever marked on the slider).
@@ -30,14 +34,20 @@ public enum ScorePhrase {
         let words = Self.words(before: end, in: units)
         guard words.isEmpty == false else { return nil }
 
-        let half = halfSpelled(words).flatMap { match in
-            // "we waited four and a half" is a duration, not a score: a half-step said after a word
-            // of quantity or time is left alone. (Out of five needs no such care — it says what it is.)
-            match.first > 0 && quantityWords.contains(words[match.first - 1].text) ? nil : match
-        }
-        for match in [outOfFive(words), half, judged(words)] {
+        for match in [outOfFive(words), halfSpelled(words), judged(words)] {
             guard let match, let rating = Rating(exactly: match.value),
                   rating <= .maximum else { continue }
+            // **Conservative about words** (round 4): a number spelled out only counts straight after
+            // a scoring phrase ("was a", "gave it", "solid") or straight after a dish — never after a
+            // word of quantity, time or company ("four of us", "waited four and a half"). A bare
+            // "four" needs the scoring phrase. Digits keep their own, older rule.
+            let lead = leadIn(words, before: match.first)
+            if wordNumbers[words[match.first].text] != nil {
+                let bare = match.first == words.count - 1
+                guard lead == .scoring || (bare == false && lead == .dish) else { continue }
+            } else if lead == .count {
+                continue
+            }
             let start = words[match.first].range.location
             // A dish before it: the same test a typed number passes — words, not a symbol or a list.
             guard ScoreLiteral.hasWordsBefore(units, start: start) else { continue }
@@ -88,16 +98,39 @@ public enum ScorePhrase {
     }
 
     /// `a four`, `a solid four`: a number WORD after an article and at most one judgement.
+    /// A bare number word — accepted only after a scoring phrase (``leadIn(_:before:)``).
     private static func judged(_ words: [Word]) -> Match? {
-        let count = words.count
-        guard count >= 2, let value = wordNumbers[words[count - 1].text] else { return nil }
-        let before = words[count - 2].text
-        if articles.contains(before) { return (count - 1, value) }
-        if count >= 3, judgements.contains(before), articles.contains(words[count - 3].text) {
-            return (count - 1, value)
-        }
-        return nil
+        guard words.count >= 2, let value = wordNumbers[words[words.count - 1].text] else { return nil }
+        return (words.count - 1, value)
     }
+
+    // MARK: - What comes before
+
+    private enum LeadIn { case scoring, dish, count, none }
+
+    /// What the words just before a phrase make of it: a scoring phrase ("was a", "gave it a",
+    /// "a solid"), a dish (any other word — the end of a dish's name), or a count (a word of
+    /// quantity, time or company). `none` at the start of the words.
+    private static func leadIn(_ words: [Word], before index: Int) -> LeadIn {
+        let before = words[..<index].map { $0.text.trimmingCharacters(in: .punctuationCharacters) }
+        guard let last = before.last else { return .none }
+        if scoringPhrases.contains(where: { before.count >= $0.count && Array(before.suffix($0.count)) == $0 }) {
+            return .scoring
+        }
+        if judgements.contains(last), before.count >= 2, articles.contains(before[before.count - 2]) { return .scoring }
+        if quantityWords.contains(last) || articles.contains(last) { return .count }
+        // A word that ends a sentence or a clause is not a dish's name either.
+        if let raw = words[index - 1].text.last, ".!?;:".contains(raw) { return .count }
+        return .dish
+    }
+
+    /// What people say right before a score.
+    static let scoringPhrases: [[String]] = [
+        ["was", "a"], ["was", "an"], ["is", "a"], ["is", "an"], ["solid"], ["a", "solid"],
+        ["gave", "it"], ["gave", "it", "a"], ["give", "it"], ["give", "it", "a"],
+        ["rated", "it"], ["rated", "it", "a"], ["rate", "it"], ["rate", "it", "a"], ["scored"], ["scored", "a"],
+        ["easy"], ["strong"]
+    ]
 
     // MARK: - Words
 
@@ -141,7 +174,9 @@ public enum ScorePhrase {
     /// Words that make the number after them a quantity or a time.
     static let quantityWords: Set<String> = [
         "for", "about", "around", "after", "had", "of", "waited", "took", "than", "only", "nearly",
-        "almost", "over", "under", "like", "maybe", "roughly", "at", "in", "ate", "ordered", "were", "us"
+        "almost", "over", "under", "like", "maybe", "roughly", "at", "in", "ate", "ordered", "were", "us",
+        "the", "with", "and", "we", "our", "my", "those", "these", "them", "they", "there", "table",
+        "party", "people", "honestly", "just", "another", "all", "are", "is", "was", "be", "been"
     ]
     /// The words people put between "a" and a score. Closed on purpose: an open slot would let "a
     /// party of four" through.
