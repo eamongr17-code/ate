@@ -158,13 +158,13 @@ struct ShareStage: View {
             }
     }
 
-    /// How much larger the Summary draws its receipt: the paper runs to 32 from each edge of the
-    /// screen rather than the artboard's 52 (326 of 390, against 286).
+    /// How much larger the Summary draws its receipt: the paper runs to 38 from each edge of the
+    /// screen rather than the artboard's 52 (314 of 390, against 286).
     static var heroScale: CGFloat {
         let screen = AteScreen.width
         return max(1, (screen - 2 * heroInset) / ShareCard.width)
     }
-    private static let heroInset: CGFloat = 32
+    private static let heroInset: CGFloat = 38
     /// Room above and below for the photos, which hang past the paper.
     private static let heroAir: CGFloat = 44
     private static let printingLift: CGFloat = 20

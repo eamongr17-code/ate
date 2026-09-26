@@ -11,7 +11,10 @@ extension InlineTokenEditor.Coordinator {
     /// rect in the text view once layout has placed it.
     func sweepSpecialPills(_ spans: [EntryTokenSpan], in view: InlineTokenTextView) {
         for span in spans {
-            guard let rating = span.token.score, ScoreStyle.of(rating).shimmers,
+            // Not while the slider is open on it: the panel covers the pill, and the sweep is for
+            // the moment it is seen — when the panel settles away and the words re-render.
+            guard span.token.id != selectedTokenID,
+                  let rating = span.token.score, ScoreStyle.of(rating).shimmers,
                   sweptPills.insert("\(span.token.id)-\(rating.halfSteps)").inserted else { continue }
             let tokenID = span.token.id
             DispatchQueue.main.async { [weak view] in

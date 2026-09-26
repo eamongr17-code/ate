@@ -35,6 +35,7 @@ extension InlineTokenEditor {
 
         private var style: AteTextStyle { typography.style }
         private var palette: AtePalette { typography.palette }
+        var selectedTokenID: UUID? { typography.selectedTokenID }
         private var dynamicTypeSize: DynamicTypeSize { typography.dynamicTypeSize }
         private var displayScale: CGFloat { typography.displayScale }
         private var colorScheme: ColorScheme { typography.colorScheme }
