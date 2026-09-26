@@ -172,21 +172,12 @@ enum AteMetrics {
 
     /// The minimum hit target, and the size of the square a toolbar icon sits in.
     static let hit: CGFloat = 44
-    /// The floating tab bar pill.
-    static let tabBarHeight: CGFloat = 66
-    static let tabBarInset: CGFloat = 16
-    static let tabBarBottom: CGFloat = 22
-    /// The ink circle in the middle of the tab bar.
-    static let composeButton: CGFloat = 54
-    /// How far the ground fades up from under the tab bar (design rule 10).
-    static let scrimHeight: CGFloat = 160
-    /// Bottom inset for a tab screen's scrolling content. Deliberately *less* than the bar's own
-    /// height (66 + 22): design rule 10 wants the last slip to run off under the scrim rather than
-    /// stop dead above it, and this is how much of it stays readable.
+    /// Bottom inset for a tab screen's scrolling content, so the last slip clears the glass bar
+    /// (design rule 10: it runs off under the bar rather than stopping dead above it).
     static let tabBarScrollInset: CGFloat = 64
-    /// The tab icon inside iOS 26's native bar (the `-ate-tabbar A|B` prototype) — the artboard's
-    /// 22 plus the 2 the system bar's taller item box leaves around a symbol.
-    static let nativeTabIcon: CGFloat = 24
+    /// A tab icon in the system bar — the artboard's 22 plus the 2 the bar's item box leaves
+    /// around a symbol.
+    static let tabIcon: CGFloat = 24
 
     /// Between a sheet's bands.
     static let sheetGap: CGFloat = 14

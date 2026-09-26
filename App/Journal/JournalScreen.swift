@@ -55,7 +55,7 @@ struct JournalScreen: View {
                     .id(Self.topAnchor)
                     shelfContent
                 }
-                // Design rule 10: the last slip runs off under the tab bar's scrim rather than
+                // Design rule 10: the last slip runs off under the tab bar rather than
                 // stopping dead above it.
                 .padding(.bottom, AteMetrics.tabBarScrollInset)
             }

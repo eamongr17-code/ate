@@ -55,8 +55,8 @@ struct AteRootView: View {
     }
 }
 
-/// **The shell**: the four tabs, the floating bar, the `+` that presents the composer, and the one
-/// navigation stack the core loop travels on.
+/// **The shell**: the four tabs on the system's glass bar, the `+` beside it that presents the
+/// composer, and the navigation path the core loop travels on.
 ///
 /// Journal is home (PRODUCT.md decision 1) and selection always starts there — no last tab is
 /// persisted, because a journal you land in is a different product from a feed you land in.
@@ -76,8 +76,8 @@ struct AteShell: View {
     @State private var saveAction: SaveAction
     /// Non-nil presents the composer, and carries what it was opened with.
     @State var composing: ComposerPresentation?
-    /// The one stack every tab pushes onto. Hoisted here so Done in the composer can land on the new
-    /// entry, at the journal's root, rather than under whatever was open before.
+    /// The current tab's stack. Hoisted here so Done in the composer can land on the new entry, at
+    /// the journal's root, rather than under whatever was open before.
     @State var path: [Route] = []
     /// Where each pushed destination was opened from — the `source` its view event carries.
     ///
@@ -114,6 +114,8 @@ struct AteShell: View {
     init(services: AteServices, onSessionEnded: @escaping () -> Void = {}) {
         self.services = services
         self.onSessionEnded = onSessionEnded
+        // Before the first bar exists: an appearance proxy only styles bars created after it is set.
+        AteTabBarAppearance.install()
         let gate = SessionGate(analytics: services.analytics)
         _gate = State(initialValue: gate)
         var hasSession = services.hasSession
@@ -199,36 +201,7 @@ struct AteShell: View {
         }
     }
 
-    @ViewBuilder
-    var shell: some View {
-        if tabBarStyle.isNative {
-            nativeShell
-        } else {
-            customShell
-        }
-    }
-
-    private var customShell: some View {
-        NavigationStack(path: $path) {
-            ZStack(alignment: .bottom) {
-                current
-                AteTabScrim()
-                AteTabBar(selection: selection, onCompose: { openComposer(.tabBar) })
-            }
-            .ignoresSafeArea(.keyboard)
-            .ateGround()
-            .toolbar(.hidden, for: .navigationBar)
-            .ateSwipeBack()
-            .navigationDestination(for: Route.self) { route in
-                destination(route)
-                    .toolbar(.hidden, for: .navigationBar)
-            }
-        }
-        .fullScreenCover(item: $composing) { presentation in composerCover(presentation) }
-        #if DEBUG
-        .fullScreenCover(item: $debugSummary) { summary in debugSummaryScreen(summary) }
-        #endif
-    }
+    var shell: some View { tabShell }
 
     @ViewBuilder
     func destination(_ route: Route) -> some View {
@@ -288,14 +261,13 @@ struct AteShell: View {
         case .ratings(let score):
             // `Ratings.dc.html` keeps the tab bar, exactly like `Suggestions`: it is a page of You,
             // not a modal.
-            overTabBar {
-                RatingsScreen(
-                    score: score,
-                    stats: services.stats,
-                    onDish: { open(.dish($0)) },
-                    onViewed: { services.analytics(YouEvents.ratingsViewed(score: $0)) }
-                )
-            }
+            RatingsScreen(
+                score: score,
+                stats: services.stats,
+                onDish: { open(.dish($0)) },
+                onViewed: { services.analytics(YouEvents.ratingsViewed(score: $0)) }
+            )
+            .ateGround()
         case .statement(let month):
             // `Recap.dc.html` draws no tab bar — a statement is a printout you hold, on its own.
             RecapScreen(
@@ -310,15 +282,14 @@ struct AteShell: View {
             settings(page)
         case .suggestions:
             // `Suggestions.dc.html` keeps the tab bar under it — it is a page of the journal, not a
-            // modal. The stack's root bar is covered by the push, so the screen carries its own.
-            overTabBar {
-                SuggestionsScreen(library: services.photos) { cluster in
-                    composing = ComposerPresentation(
-                        origin: .photoSuggestion,
-                        assetIdentifiers: cluster.items.map(\.id)
-                    )
-                }
+            // modal (`Route.keepsTabBar`).
+            SuggestionsScreen(library: services.photos) { cluster in
+                composing = ComposerPresentation(
+                    origin: .photoSuggestion,
+                    assetIdentifiers: cluster.items.map(\.id)
+                )
             }
+            .ateGround()
         }
     }
 

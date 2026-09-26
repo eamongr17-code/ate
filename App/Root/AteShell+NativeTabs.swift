@@ -1,82 +1,39 @@
 import AteKit
 import SwiftUI
 
-/// **The native shell** — the `-ate-tabbar A|B` prototype of the bottom bar as iOS 26's own
-/// `TabView`. Everything the custom shell does still happens (one path, one composer, the same
-/// screens and routes); only the bar, and where compose lives, change.
+/// **The shell's tab bar** — iOS 26's own `TabView`: Liquid Glass, minimised on scroll down, the
+/// system's re-tap, haptics and accessibility, with compose as the glass `+` beside the bar.
+/// Each tab owns a `NavigationStack`; the shell's one `path` is always the current tab's.
 extension AteShell {
-    var tabBarStyle: AteTabBarStyle { AteTabBarStyle.current }
-
-    /// The composer, presented over whichever shell is up.
+    /// The composer, presented over the tabs.
     func composerCover(_ presentation: ComposerPresentation) -> some View {
         ComposerScreen(presentation: presentation, services: services, onSaved: landOnEntry)
     }
 
-    /// A pushed page that keeps the floating bar under it. The stack's root bar is covered by the
-    /// push, so the page carries its own — and tapping a tab from one pops back to that tab.
-    @ViewBuilder
-    func overTabBar(@ViewBuilder _ content: () -> some View) -> some View {
-        if tabBarStyle.isNative {
-            // The native bar is the TabView's own and stays up through the push.
-            content().ateGround()
-        } else {
-            customOverTabBar(content)
-        }
-    }
-
-    private func customOverTabBar(_ content: () -> some View) -> some View {
-        ZStack(alignment: .bottom) {
-            content()
-            AteTabScrim()
-            AteTabBar(
-                selection: Binding(get: { tab }, set: { tapped in
-                    guard mayOpen(tapped) else { return }
-                    tab = tapped
-                    path.removeAll()
-                }),
-                onCompose: { openComposer(.tabBar) }
-            )
-        }
-        .ateGround()
-    }
-
-    @ViewBuilder
-    var nativeShell: some View {
-        let tabs = TabView(selection: nativeSelection) {
-            nativeTab(.journal)
-            nativeTab(.feed)
-            nativeTab(.search)
-            nativeTab(.you)
-            if tabBarStyle == .nativeA {
-                // iOS 26 has no API for an action beside the bar; the one system slot that floats a
-                // separate glass circle there is the search role's. It is borrowed for `+`, and the
-                // selection binding turns "selected" into "present the composer".
-                Tab(value: AteTabSlot.compose, role: .search) {
-                    Color.clear
-                } label: {
-                    Label { Text("New entry") } icon: { AteIcon.compose.templateImage() }
-                }
+    var tabShell: some View {
+        TabView(selection: tabSelection) {
+            tab(.journal)
+            tab(.feed)
+            tab(.search)
+            tab(.you)
+            // iOS 26 has no API for an action beside the bar; the one system slot that floats a
+            // separate glass circle there is the search role's. It is borrowed for `+`, and the
+            // selection binding turns "selected" into "present the composer" (`AteTabSlot`).
+            Tab(value: AteTabSlot.compose, role: .search) {
+                Color.clear
+            } label: {
+                Label { Text("New entry") } icon: { AteIcon.compose.templateImage() }
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
         .tint(AtePalette.automatic.fg)
-
-        Group {
-            if tabBarStyle == .nativeB {
-                tabs.tabViewBottomAccessory {
-                    AteComposeAccessory { openComposer(.tabBar) }
-                }
-            } else {
-                tabs
-            }
-        }
         .fullScreenCover(item: $composing) { presentation in composerCover(presentation) }
         #if DEBUG
         .fullScreenCover(item: $debugSummary) { summary in debugSummaryScreen(summary) }
         #endif
     }
 
-    private func nativeTab(_ tab: AteTab) -> some TabContent<AteTabSlot> {
+    private func tab(_ tab: AteTab) -> some TabContent<AteTabSlot> {
         Tab(value: AteTabSlot.tab(tab)) {
             NavigationStack(path: path(for: tab)) {
                 screen(for: tab)
@@ -98,7 +55,7 @@ extension AteShell {
     }
 
     /// Each tab has its own stack, and the shell's one `path` is the current tab's — switching tabs
-    /// clears it, exactly as the custom bar does, so no other stack can be holding anything.
+    /// clears it (a tab is a place, not a layer), so no other stack can be holding anything.
     private func path(for tab: AteTab) -> Binding<[Route]> {
         Binding(
             get: { self.tab == tab ? path : [] },
@@ -109,9 +66,9 @@ extension AteShell {
         )
     }
 
-    /// The custom bar's own selection (re-tap scrolls to top, a gated tab asks first), with the
-    /// compose slot turned into a presentation that never becomes the selection.
-    private var nativeSelection: Binding<AteTabSlot> {
+    /// The shell's selection (re-tap scrolls to top, a gated tab asks first), with the compose slot
+    /// turned into a presentation that never becomes the selection.
+    private var tabSelection: Binding<AteTabSlot> {
         Binding(
             get: { holdsComposeSlot ? .compose : .tab(tab) },
             set: { slot in
