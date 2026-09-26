@@ -133,9 +133,12 @@ export function buildRequest(opts: {
   model?: SorterModel;
   knownDishes?: string[];
   placeCandidates?: string[];
+  /** The words the client marked as dietary tag chips (0036), verbatim, in body order. */
+  tagWords?: string[];
 }): ModelRequest {
   const known = (opts.knownDishes ?? []).slice(0, 200);
   const places = (opts.placeCandidates ?? []).slice(0, 8);
+  const tags = (opts.tagWords ?? []).filter((w) => w.trim()).slice(0, 40);
 
   const user = [
     'THE DINER\'S WORDS (verbatim, between the markers):',
@@ -147,6 +150,12 @@ export function buildRequest(opts: {
       ? `KNOWN MENU DISHES AT THE MATCHED PLACE (prefer these spellings when they match): ${known.join(' | ')}`
       : 'KNOWN MENU DISHES: none supplied (no place matched yet).',
     places.length ? `PLACE-NAME CANDIDATES found in the text: ${places.join(' | ')}` : '',
+    // 0036: the chips are dietary TAGS the diner attached, never dish words. The server cuts
+    // them out of any dish name anyway (tags.ts); this keeps the model from building on them.
+    tags.length
+      ? `DIETARY TAG WORDS the diner marked (${tags.join(' | ')}): these are tags, NOT part of any dish. ` +
+        'Never include them in dish_name or note, and never return one as a dish.'
+      : '',
     '',
     'Call sort_entry.',
   ]
@@ -217,6 +226,7 @@ export type ModelCallOptions = {
   model?: SorterModel;
   knownDishes?: string[];
   placeCandidates?: string[];
+  tagWords?: string[];
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
 };
@@ -241,6 +251,7 @@ export async function callModel(opts: ModelCallOptions): Promise<ModelCall> {
     model: opts.model,
     knownDishes: opts.knownDishes,
     placeCandidates: opts.placeCandidates,
+    tagWords: opts.tagWords,
   });
   const doFetch = opts.fetchImpl ?? fetch;
   const controller = new AbortController();

@@ -1,9 +1,9 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0035` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0036` define it. Forward-only; applied migrations
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
-account deletion **0032**; **every entry public 0033** (public/private removed); signed-out browse **0034**.
+account deletion **0032**; **every entry public 0033**; signed-out browse **0034**; dietary tags **0036**.
 
 The atom the USER creates is an **entry** = one visit. The atom AGGREGATES are built from is still a
 per-dish **review**, now *linked* to an entry, not replaced by it. A **sorter** turns the words into
@@ -64,6 +64,10 @@ line — `correct_entry_dish`, or any author UPDATE of `dish_id`/`score`/`note`;
 unscored is the normal case; `reviews_score_halfstep` is untouched (a NULL CHECK passes). A sorter-written
 line inherits the entry's `created_at`, so `reviews.created_at` IS the visit's date.
 **Multiple reviews per (user, dish) remain allowed by design** (sittings). No constraint, ever.
+**`tags` text[] NOT NULL `{}` (0036)**: dietary codes, CHECK `reviews_tags_closed_set` (`<@ {gf,df,v,vg,nf}`,
+else `23514`), trigger-canonicalised (lower, deduped, list order, NULL → `{}`). The USER'S, never inferred:
+the author's PATCH (owner-only RLS; not a correction) or client-marked tag tokens via the sorter. **A re-sort
+never removes a tag** — a rebuilt line inherits its predecessor's (R3 matching). Not `review_tags` (people).
 
 ### `saves` (0020)
 `(user_id, dish_id)` **PK** + `source_entry_id` (→ entries, SET NULL), `source_user_id` (→ profiles,
@@ -85,9 +89,8 @@ Additive: `entry_seq` int (the order-number counter; never client-writable), `ci
 ## Unchanged from Wave 0
 
 `restaurants` (Google-Places-backed, `source ∈ (places, manual)`, `google_place_id` partial-unique
-`WHERE NOT NULL`, PostGIS `location`; `city` is a bare suburb on stub/manual rows but a mangled
-`"<street>, <suburb STATE post>"` on live `op=details` rows — read `place_locality()`, never `city`, for a
-label; `places-search` stores a bare suburb from 0031's PR on, forward-only, no backfill) · `dishes` (UGC, identity `(restaurant_id, lower(name))` partial unique
+`WHERE NOT NULL`, PostGIS `location`; `city` may be a mangled `"<street>, <suburb STATE post>"` on rows
+resolved before 0031's PR — read `place_locality()`, never `city`) · `dishes` (UGC, identity `(restaurant_id, lower(name))` partial unique
 `WHERE merged_into_dish_id IS NULL`, merge tombstones) · storage buckets `review-photos` + `avatars`
 (public-read via the **bucket flag**, own-folder write).
 
@@ -117,7 +120,7 @@ label; `places-search` stores a bare suburb from 0031's PR on, forward-only, no 
 |---|---|---|
 | `dish_stats` | `dish_id, restaurant_id, score, review_count, cover_url, scored_count, people_count` | `score` = avg of non-null scores (NULL = nobody scored it); `people_count` = distinct reviewers |
 | `restaurant_stats` | `restaurant_id, avg_rating, review_count, cover_url, people_count, dish_count` | `avg_rating` = **mean of per-dish averages**, null-score dishes excluded |
-| `entry_cards` | the one entry shape (see `integration-design.md`) | Journal slip / Feed slip / Entry page / Share receipt are all this row; carries the token offsets + `items[].corrected` + `items[].cover_url` |
+| `entry_cards` | the one entry shape (see `integration-design.md`) | Journal slip / Feed slip / Entry page / Share receipt are all this row; carries the token offsets + `items[].corrected` / `cover_url` / `tags` |
 | `my_saved_dishes` | saved dish + place + dish aggregate + provenance handle | caller-scoped; page on the keyset `(saved_at desc, dish_id desc)`. `cover_url` == the older `dish_cover_url` |
 
 **`cover_url` comes from the photos we actually have (0026).** `dish_cover_url(dish)` /
@@ -138,7 +141,7 @@ except where noted; **entries = visits, reviews = receipt lines, and they are no
 |---|---|
 | `place_summary(place)` | the header in one call. `entry_count` = VISITS here, `review_count` = LINES (18 lines from 8 visits at Tipo 00 — printing the wrong one is a lie); `my_visits`/`my_last_visit` = the "Your N visits" row; `locality` = `place_locality(address, city)`; `avg_rating` = mean of per-dish averages; empty text arrives as NULL, never `''` |
 | `place_dishes(place, …)` | "what to order", and the order is the ported `DishRanking` rule (0030): `review_count` desc → `score` desc (unscored last) → name → id. **Review count LEADS** — one 5.0 from one person must not lead a menu. A dish with NO line is excluded (an abandoned "add a new dish" shell); an unscored dish WITH a line stays. 4-part keyset |
-| `dish_summary(dish)` | dish + place + aggregates + `photos` (`photos[0].url` == `cover_url`) + the viewer's `saved` / `my_last_score`. A dish's "orders" IS `review_count`: one entry prints one line per dish |
+| `dish_summary(dish)` | dish + place + aggregates + `photos` (`photos[0].url` == `cover_url`) + the viewer's `saved` / `my_last_score`. A dish's "orders" IS `review_count`: one entry prints one line per dish. **`tags` (0036)** = codes carried by **at least half** of the lines `review_count` counts, and by at least one (`dish_consensus_tags`) — 1 of 1 and 1 of 2 list it, 1 of 3 does not |
 | `get_dish_reviews(dish, …)` | one row per LINE, the caller's own first then newest (3-part keyset). `entry_id` is **NULL on a pre-entries line**; `photos[]` is the review's ENTRY's, so it can hold another dish's photo |
 | `get_entries_at_place(place, scope, …)` | `setof entry_cards` — the ONE entry shape, never review rows. `scope ∈ mine\|others\|all` |
 | `get_entries_by_author(author, …)` | `setof entry_cards`. Every entry is public (0033): yours and a stranger's read the same; a blocked author reads empty |
@@ -176,9 +179,8 @@ directions without any query having to remember.
 `(id, author_id, body, visibility, restaurant_id, created_at)` on `entries` and UPDATE only
 `(body, visibility)`. `order_number`, every `sort_*`, `restaurant_source` and 0024's `place_*` are
 unwritable by clients on every path — the trigger and the 0021/0024 RPCs are their only writers.
-`restaurant_id` is insertable (the composer's pick) but not updatable: place corrections go through
-`correct_entry_place`, which re-resolves the dishes. `reviews` has no column grants, so an author can PATCH
-their own `score`/`note` — the sanctioned path, recorded by the correction trigger. Nothing beyond those.
+`restaurant_id` is insertable, not updatable (`correct_entry_place` re-resolves the dishes). `reviews` has
+no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanctioned path.
 
 ## Migration index
 
@@ -186,15 +188,13 @@ their own `score`/`note` — the sanctioned path, recorded by the correction tri
 |---|---|---|
 | 0001–0017 | — | Wave 0 core, RLS, views, storage, Places, manual restaurants, search blend |
 | 0018 | `entries.sql` | entries + entry_photos; reviews.entry_id/entry_position/score_evidence; score nullable; profiles.entry_seq/city; order-number trigger; RLS + column grants |
-| 0019 | `moderation.sql` | blocks + reports; `blocked_with`; block-aware SELECT policies; `handle_available`; block/report RPCs |
-| 0020 | `saves.sql` | saves + `my_saved_dishes` + save/unsave RPCs |
+| 0019–0020 | `moderation.sql` · `saves.sql` | blocks + reports; `blocked_with`; block-aware SELECT policies; `handle_available`; block/report RPCs · saves + `my_saved_dishes` + save/unsave RPCs |
 | 0021 | `sort_write_path.sql` | `find_or_create_dish`, `apply_entry_sort`, `mark_entry_sort_failed`, `correct_entry_place`, `correct_entry_dish` |
-| 0022–0023 | `entry_reads.sql` · `stats_search.sql` | `entry_cards`; feed/journal/place/dish readers; stat columns · `profile_summary`, histogram, `dishes_by_score`, statements, `search_all` |
-| 0024–0025 | `corrections_and_offsets.sql` · `entry_cards_offsets.sql` | correction provenance + preservation rule in `apply_entry_sort`; `verified_offset`; correction trigger; `entry_cards` token offsets + `corrected` |
-| 0026–0028 | `entry_photo_covers.sql` · `unsave_entry_dishes.sql` · `report_reason.sql` | covers see `entry_photos`; `cover_url` on saved + receipt lines; `unsave_entry_dishes`; `reports_reason_ck` (NOT VALID) |
+| 0022–0025 | `entry_reads` · `stats_search` · `corrections_and_offsets` · `entry_cards_offsets` | `entry_cards` + readers; `profile_summary`, histogram, statements, `search_all` · correction provenance + preservation rule; `verified_offset`; token offsets + `corrected` |
+| 0026–0028 | `entry_photo_covers` · `unsave_entry_dishes` · `report_reason` | covers see `entry_photos`; `cover_url` on saved + receipt lines; `unsave_entry_dishes`; `reports_reason_ck` (NOT VALID) |
 | 0029 | `detail_you_reads.sql` | the Place/Dish/You/Ratings/Recap audit: `place_locality`, `dish_photos`; `place_summary` + `locality`/`entry_count`; `dish_summary` + `photos`/`restaurant_locality`; `dishes_by_score` + `cover_url` + cursor; cursors on `place_dishes`/`statement_months`; `profile_summary` counts lines by `reviewer_id`; `monthly_statement` + `username`, no x1 "most ordered" |
-| 0030 | `place_dishes_order.sql` | "what to order" becomes the ported `DishRanking` order (review_count desc → score desc nulls last → name → id), never-logged dishes excluded, keyset rewritten to match (`p_cursor_people` → `p_cursor_review_count`) |
-| 0031–0032 | `search_scopes.sql` · `apple_auth_account_blocks.sql` | Search scopes + `search_key` accent fold + `nearby_places`; Apple-safe `handle_new_user`, `delete_account()`, `my_blocks()` |
+| 0030–0032 | `place_dishes_order` · `search_scopes` · `apple_auth_account_blocks` | ported `DishRanking` order for "what to order" (`p_cursor_people` → `p_cursor_review_count`) · Search scopes, `search_key`, `nearby_places` · Apple-safe `handle_new_user`, `delete_account()`, `my_blocks()` |
 | 0033 | `entries_always_public.sql` | **flips every private entry public (prod data)**, undo list in `entries_private_before_0033`; trigger pins `public`; `entries`/`reviews` SELECT = own or not blocked; feed drops its filter; total feed index |
 | 0034 | `signed_out_browse.sql` | anon EXECUTE on the 9 browse reads (feed, place ×3, dish ×3, profile ×2); plpgsql dispatch → `browse.*` DEFINER; no table grant |
 | 0035 | `account_integrity.sql` | `delete_account` atomic + verified (raises, never a false ok); `handle_new_user` always leaves a profile; deactivated profiles hidden; `deactivate_account` retired; profiles UPDATE column-granted; `entry_cards.place.locality` |
+| 0036 | `dish_tags.sql` | `reviews.tags` + closed-set CHECK + canonicalising trigger; `apply_entry_sort` takes/keeps tags; `correct_entry_place` prints parked tags; `items[].tags`; `dish_summary.tags` (drop+create, browse twin too) |
