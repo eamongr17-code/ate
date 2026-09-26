@@ -191,6 +191,8 @@ enum TokenPill {
         switch kind {
         case .score(let rating): ScoreToken(rating: rating, prose: prose, isSelected: isSelected)
         case .place(let place): PlaceToken(name: place.name, prose: prose)
+        case .tag(let mark):
+            DietTagChip(tag: mark.tag).padding(.horizontal, TokenPillMetrics.dietMarginInProse)
         }
     }
 

@@ -96,11 +96,8 @@ final class EntryModel: SavedDishObserving {
         let isFirstRead = self.card == nil
         #endif
         self.card = card
-        // The page's own title already says the place, so a pill at the very start of the words is
-        // the same fact twice — exactly the cut the journal slip makes. A place named mid-sentence
-        // is part of the sentence and stays, and the words themselves are never rewritten: only the
-        // decoration comes off.
-        composition = EntryPresentation.composition(for: card).droppingLeadingPlace()
+        // The words as written — a place named in them is plain text (ComposerPlaceB).
+        composition = EntryPresentation.composition(for: card)
         photos = card.photos.map { AtePhoto(url: URL(string: $0.url)) }
         state = EntryPresentation.state(for: card, handle: handle)
         // An entry the outbox has given up on is not "still printing" — it is not printed, and it
@@ -130,12 +127,24 @@ final class EntryModel: SavedDishObserving {
         ))
     }
 
-    /// The receipt, when there is one: the bill's contents, plus everything only the artefact prints
-    /// (the notes, the handle, the barcode). The share button is off until it exists — a receipt is
-    /// the only thing this screen has to share, and the page itself is not one.
+    /// The receipt, when there is one: the dish rows as line items, plus everything only the artefact
+    /// prints (the order number, the handle, the barcode). The share button is off until it exists —
+    /// a receipt is the only thing this screen has to share, and the page itself is not one.
     var receipt: AteReceipt? {
         if case .printed(let receipt) = state { return receipt }
         return nil
+    }
+
+    /// The page's dish rows — the card's own, tags and bookmarks and all.
+    var dishes: [AteSlip.Dish] {
+        guard let card else { return [] }
+        return EntryPresentation.dishes(for: card)
+    }
+
+    /// A dish row asked for its correction: ``DishSheet`` opens on the line it came from.
+    func correct(_ dish: AteSlip.Dish) {
+        guard let item = receipt?.items.first(where: { $0.id == dish.id }) else { return }
+        correcting = Correcting(item: item)
     }
 
     // MARK: - Actions
@@ -189,9 +198,9 @@ final class EntryModel: SavedDishObserving {
 
     /// One line's bookmark. A save is one dish, wherever it is tapped — and the page hears about
     /// it the same way the feed underneath it does, through the broadcast.
-    func toggleSave(item: AteReceipt.Item) async {
-        guard let card, let dishID = item.dishID else { return }
-        await saves.toggle(dishID: dishID, entryID: card.id, isSaved: item.isSaved, source: .entry)
+    func toggleSave(dish: AteSlip.Dish) async {
+        guard let card else { return }
+        await saves.toggle(dishID: dish.dishID, entryID: card.id, isSaved: dish.isSaved, source: .entry)
     }
 
     /// The bookmark in the top bar: every dish on this visit, at once — `save_entry_dishes`, which
@@ -288,22 +297,37 @@ enum EntryPresentation {
         case .failed:
             return .failed
         case .sorted:
-            guard let place = card.place else { return .pending }
-            return .printed(AteReceipt(
-                id: card.id,
-                place: place.name,
-                placeID: place.id,
-                address: place.address,
-                items: card.items.map {
-                    AteReceipt.Item(
-                        id: $0.reviewID, name: $0.dishName, score: $0.score, note: $0.note,
-                        dishID: $0.dishID, isSaved: $0.saved
-                    )
-                },
-                orderNumber: card.orderNumber,
-                date: card.createdAt,
-                handle: card.author?.username ?? handle
-            ))
+            return .printed(receipt(for: card, handle: handle))
+        }
+    }
+
+    /// The receipt a sorted entry prints: **dish rows and scores only** — never a note under a line
+    /// (Eamon, 2026-09-26). A place never attached prints no header rather than a guess.
+    static func receipt(for card: EntryCard, handle: String) -> AteReceipt {
+        AteReceipt(
+            id: card.id,
+            place: card.place?.name ?? "",
+            placeID: card.place?.id,
+            address: card.place?.address,
+            items: card.items.map {
+                AteReceipt.Item(
+                    id: $0.reviewID, name: $0.dishName, score: $0.score,
+                    dishID: $0.dishID, isSaved: $0.saved
+                )
+            },
+            orderNumber: card.orderNumber,
+            date: card.createdAt,
+            handle: card.author?.username ?? handle
+        )
+    }
+
+    /// The page's dish rows: the same rows a slip draws, from the same fields.
+    static func dishes(for card: EntryCard) -> [AteSlip.Dish] {
+        card.items.map {
+            AteSlip.Dish(
+                id: $0.reviewID, dishID: $0.dishID, name: $0.dishName,
+                score: $0.score, isSaved: $0.saved, tags: $0.tags
+            )
         }
     }
 }

@@ -1,3 +1,4 @@
+import AteKit
 import SwiftUI
 
 /// A photo, or the space held for one. `image == nil` is a photo that hasn't loaded yet — never an
@@ -8,11 +9,51 @@ struct AtePhoto: Identifiable, Equatable {
     /// A photo that lives on the server. Loaded by the tile itself, so a caller never has to hold an
     /// image cache — and a photo still arriving holds its space rather than collapsing the cluster.
     var url: URL?
+    /// Set where the photo is **a dish's** thumbnail: with no photo, or one that will not load, the
+    /// tile is the dish's letter on its own accent (`NoPhotoA`) — never an empty grey square.
+    var dish: DishLetter?
 
-    init(id: UUID = UUID(), image: Image? = nil, url: URL? = nil) {
+    init(id: UUID = UUID(), image: Image? = nil, url: URL? = nil, dish: DishLetter? = nil) {
         self.id = id
         self.image = image
         self.url = url
+        self.dish = dish
+    }
+
+    /// A dish's thumbnail: its cover, or its letter tile.
+    static func dish(_ dishID: UUID, name: String, cover: String?) -> AtePhoto {
+        AtePhoto(id: dishID, url: cover.flatMap(URL.init(string:)), dish: DishLetter(dishID: dishID, name: name))
+    }
+}
+
+/// **The letter tile** (`NoPhotoA.dc.html`, 2026-09-26): what a dish with no photo shows wherever a
+/// dish thumbnail appears — the slot keeps its shape, filled with one accent and the dish's first
+/// letter in Bricolage 800 (26 on a 56 tile), ink on it like every accent. The accent is the dish's:
+/// picked from its id (``DishTileIdentity/paletteIndex(for:count:)``, stable across launches), and
+/// **never butter**, which means a score.
+struct DishLetter: Equatable, Sendable {
+    let dishID: UUID
+    let name: String
+
+    /// Coral, green, pink, sky, lilac — the accents less butter.
+    static let accents: [Color] = [AteColor.coral, AteColor.green, AteColor.pink, AteColor.sky, AteColor.lilac]
+
+    var accent: Color { Self.accents[DishTileIdentity.paletteIndex(for: dishID, count: Self.accents.count)] }
+    var letter: String { DishTileIdentity.initial(for: name) }
+}
+
+private struct DishLetterTile: View {
+    let dish: DishLetter
+
+    var body: some View {
+        GeometryReader { proxy in
+            Text(dish.letter)
+                .ateText(.dishInitial(tile: min(proxy.size.width, proxy.size.height)))
+                .foregroundStyle(AteColor.ink)
+                .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+        .background(dish.accent)
+        .accessibilityHidden(true)
     }
 }
 
@@ -67,6 +108,8 @@ struct AtePhotoContent: View {
             #else
             remote(url)
             #endif
+        } else if let dish = photo.dish {
+            DishLetterTile(dish: dish)
         } else {
             palette.field
         }
@@ -76,11 +119,18 @@ struct AtePhotoContent: View {
         image.resizable().aspectRatio(contentMode: contentMode)
     }
 
+    /// Loading holds the space in the field colour; a photo that will not load becomes the dish's
+    /// letter tile where there is a dish to name — a failed load is not an empty square either.
     private func remote(_ url: URL) -> some View {
-        AsyncImage(url: url) { loaded in
-            fitted(loaded)
-        } placeholder: {
-            palette.field
+        AsyncImage(url: url) { phase in
+            switch phase {
+            case .success(let loaded):
+                fitted(loaded)
+            case .failure:
+                if let dish = photo.dish { DishLetterTile(dish: dish) } else { palette.field }
+            default:
+                palette.field
+            }
         }
     }
 
@@ -215,10 +265,10 @@ struct PhotoCollage: View {
     /// screen's page is 318 across, and `margin:0 -4px` makes the collage 326.
     static let designWidth: CGFloat = 326
     static let designContentWidth: CGFloat = 318
-    /// `margin:0 -4px 10px` — the collage runs 4 into the page's side padding…
+    /// `margin:0 -4px` — the collage runs 4 into the page's side padding…
     static let bleed: CGFloat = 4
-    /// …and keeps 10 clear beneath it, on top of the page's own band gap.
-    static let spaceBelow: CGFloat = 10
+    /// …and nothing more beneath it than the page's own band gap (`EntryHier` drops the old 10).
+    static let spaceBelow: CGFloat = 0
     /// A lone photo is not a collage: straight, full content width, 220 tall, 24 radius.
     static let singleHeight: CGFloat = 220
     static let singleRadius: CGFloat = 24
@@ -302,13 +352,13 @@ struct PhotoCollage: View {
 struct AteThumbnail: View {
     let photo: AtePhoto
     var side: CGFloat = AteMetrics.thumbnail
-
-    @Environment(\.atePalette) private var palette
+    /// 16, the design's thumbnail corner; the place menu's 48pt tiles draw 14.
+    var radius: CGFloat = AteMetrics.receiptTop
 
     var body: some View {
         AtePhotoContent(photo: photo)
             .frame(width: side, height: side)
-            .clipShape(RoundedRectangle(cornerRadius: AteMetrics.receiptTop, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .accessibilityHidden(true)
     }
 }

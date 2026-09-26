@@ -153,7 +153,7 @@ private struct StatementSkeleton: View {
         .padding(.bottom, AteMetrics.loose + AteMetrics.tornEdgeHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
         .ateSlip()
-        .background(AteColor.slip, in: ReceiptPaper())
+        .ateTornPaper()
         .accessibilityHidden(true)
     }
 }

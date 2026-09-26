@@ -19,7 +19,7 @@ private final class PagedEntryService: EntryService, @unchecked Sendable {
     func create(_ entry: NewEntry) async throws -> EntryCard { throw AteAPIError.notAuthenticated }
     func attach(photo: EntryPhotoUpload) async throws {}
     @discardableResult
-    func sort(entryID: UUID, force: Bool) async throws -> SortOutcome {
+    func sort(entryID: UUID, force: Bool, tagTokens: [TagToken]) async throws -> SortOutcome {
         SortOutcome(entryID: entryID, status: .sorted, mode: "stub", itemCount: 0,
                     restaurantID: nil, didAttachPlace: false)
     }
@@ -39,6 +39,7 @@ private final class PagedEntryService: EntryService, @unchecked Sendable {
         throw AteAPIError.notFound(table: "e", id: entryID)
     }
     func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async throws {}
+    func setTags(reviewID: UUID, tags: [DietTag]) async throws {}
     func updateBody(entryID: UUID, body: String) async throws {}
 }
 

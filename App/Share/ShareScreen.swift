@@ -4,10 +4,12 @@ import UIKit
 
 /// **`Share`** — the coral screen an artefact is sent from.
 ///
-/// Done, the card, and one ink pill. The card is ``ShareCard``, which is also exactly what is
-/// rendered to a PNG, so what a person approves and what lands in the thread are the same picture
-/// (`Share.dc.html`). Colour is punctuation: the coral ground is the one place the app shouts, and
-/// it shouts at the moment the receipt leaves.
+/// The receipt as the hero, and two pills at the foot: **Done** (white, secondary) and **Share**
+/// (ink, primary) — the layout `SummaryFinal.dc.html` gives the moment after Done in the composer,
+/// and the one every share uses, so the same action looks and behaves the same wherever it starts
+/// (the entry page, an actions sheet, a statement). The card is ``ShareCard``, which is also exactly
+/// what is rendered to a PNG, so what a person approves and what lands in the thread are the same
+/// picture. Colour is punctuation: the coral ground is the one place the app shouts.
 struct ShareScreen: View {
     let artefact: ShareArtefact
     /// Where the share began — the entry page, an actions sheet, a statement. The north-star event's
@@ -16,65 +18,37 @@ struct ShareScreen: View {
     let analytics: AnalyticsRecorder
 
     @State private var photos: [AtePhoto] = []
-    @State private var sending: SendingImage?
-    /// True after a render that produced nothing. The button carries the state and nothing else
-    /// does — see ``send()``.
-    @State private var didFail = false
+    @State private var sender = ShareSender()
     @Environment(\.dismiss) private var dismiss
 
-    /// The rendered picture — `Identifiable` so it can present the system sheet.
-    private struct SendingImage: Identifiable {
-        let id = UUID()
-        let image: UIImage
-    }
-
     var body: some View {
-        VStack(spacing: 0) {
-            doneRow
-            ShareCard(artefact: artefact, photos: photos)
-                .padding(.horizontal, ShareCard.inset)
-                .padding(.top, ShareScreen.cardTop)
-            Spacer(minLength: AteMetrics.section)
-            AteButton(icon: .share, title: didFail ? "Try again" : "Share", action: send)
-                .padding(.horizontal, AteMetrics.gutter)
-                .padding(.bottom, ShareScreen.buttonBottom)
-                .accessibilityIdentifier("share.send")
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .ateAccentGround(AteColor.coral)
+        ShareStage(
+            artefact: artefact,
+            photos: photos,
+            isPrinting: false,
+            breathes: false,
+            didFail: sender.didFail,
+            onDone: { dismiss() },
+            onShare: send
+        )
         .task {
             photos = await SharePhotos.resolve(artefact.photoURLs)
             #if DEBUG
             dumpForDriveIfRequested()
             // `-ate-fail-share-render` taps Share for the drive too: the failure is a state of the
             // button, and a simulator cannot be tapped from a shell.
-            if forcesRenderFailure { send() }
+            if ShareSender.forcesRenderFailure { send() }
             #endif
         }
-        .sheet(item: $sending) { sending in
+        .sheet(item: $sender.sending) { sending in
             ShareSheet(items: [sending.image])
         }
     }
 
-    /// `margin:30px …` under the Done row.
-    private static let cardTop: CGFloat = 30
-    /// `bottom:40px`.
-    private static let buttonBottom: CGFloat = 40
-
-    /// `padding:60px 12px 0`, the one word on this screen, right-aligned. Text rather than an icon:
-    /// it is a dismissal, and design rule 1's "icons before labels" is about *actions*.
-    private var doneRow: some View {
-        HStack(spacing: 0) {
-            Spacer(minLength: 0)
-            Button("Done") { dismiss() }
-                .ateText(.rowTitle)
-                .foregroundStyle(AteColor.ink)
-                .padding(.horizontal, AteMetrics.regular)
-                .frame(height: AteMetrics.hit)
-                .accessibilityIdentifier("share.done")
+    private func send() {
+        sender.send(artefact: artefact, photos: photos) {
+            analytics(EntryEvents.receiptShared(entryID: artefact.entryID, source: source))
         }
-        .padding(.horizontal, AteMetrics.regular)
-        .ateContentTop()
     }
 
     #if DEBUG
@@ -92,25 +66,89 @@ struct ShareScreen: View {
         try? data.write(to: documents.appending(path: "share-export.png"), options: .atomic)
     }
     #endif
+}
 
-    /// Render, count it, and hand it to the system. The event fires here — at the tap that sends it
-    /// — not when this screen opened: looking at a receipt is not sharing one.
-    ///
-    /// **A render that fails is never silent.** It does not open the system sheet and it does not
-    /// count as a share; the button says what to do next in the same voice "Print it again" uses on
-    /// an entry that would not sort — one word on the control itself, no toast, no banner and no
-    /// line of explanation (design rule 1).
-    private func send() {
-        guard let image = rendered() else {
+/// **The coral stage** a receipt stands on — `SummaryLoading` / `SummaryFinal`: the card tilted on
+/// the ground with its two photos, `margin:180px 52px 0` from the top of the screen (`160` while it
+/// is still printing, settling down to 180 as the lines arrive — the print's own motion), and the
+/// two pills pinned `bottom:40px`, `left/right:20px`, `gap:10px`.
+struct ShareStage: View {
+    let artefact: ShareArtefact
+    var photos: [AtePhoto]
+    var isPrinting: Bool
+    var breathes: Bool
+    /// The last render produced nothing: the Share pill says what to do next, and nothing else does.
+    var didFail = false
+    let onDone: () -> Void
+    let onShare: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            ShareCard(artefact: artefact, photos: photos, isPrinting: isPrinting, breathes: breathes)
+                .padding(.horizontal, ShareCard.inset)
+                .ateContentTop(isPrinting ? Self.printingTop : Self.cardTop)
+                .ateAnimation(AteMotion.settle, value: isPrinting)
+            VStack {
+                Spacer(minLength: 0)
+                actions
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .ateAccentGround(AteColor.coral)
+    }
+
+    /// `SummaryFinal`: Done `width:118px`, white; Share fills the rest, ink, with its icon. While the
+    /// receipt prints, Share is there but off (`opacity:.35`) — there is nothing to send yet.
+    private var actions: some View {
+        HStack(spacing: Self.actionGap) {
+            AteButton(title: "Done", isSecondary: true, action: onDone)
+                .frame(width: Self.doneWidth)
+                .accessibilityIdentifier("share.done")
+            AteButton(icon: .share, title: didFail ? "Try again" : "Share", action: onShare)
+                .disabled(isPrinting)
+                .opacity(isPrinting ? Self.disabledOpacity : 1)
+                .accessibilityIdentifier("share.send")
+        }
+        .padding(.horizontal, AteMetrics.gutter)
+        .ateContentBottom(Self.actionsBottom)
+    }
+
+    /// `margin-top:180px` — and `160` while printing (`SummaryLoading`).
+    static let cardTop: CGFloat = 180
+    static let printingTop: CGFloat = 160
+    /// `bottom:40px`.
+    private static let actionsBottom: CGFloat = 40
+    private static let actionGap: CGFloat = 10
+    private static let doneWidth: CGFloat = 118
+    private static let disabledOpacity: Double = 0.35
+}
+
+/// Render, and hand it to the system. **A render that fails is never silent**: it does not open the
+/// sheet and does not count as a share; the pill says "Try again" — one word on the control itself,
+/// no toast, no banner (design rule 1).
+struct ShareSender {
+    /// The rendered picture — `Identifiable` so it can present the system sheet.
+    struct Sending: Identifiable {
+        let id = UUID()
+        let image: UIImage
+    }
+
+    var sending: Sending?
+    var didFail = false
+
+    @MainActor
+    mutating func send(artefact: ShareArtefact, photos: [AtePhoto], onSent: () -> Void) {
+        guard let image = Self.render(artefact: artefact, photos: photos) else {
             didFail = true
             return
         }
         didFail = false
-        analytics(EntryEvents.receiptShared(entryID: artefact.entryID, source: source))
-        sending = SendingImage(image: image)
+        onSent()
+        sending = Sending(image: image)
     }
 
-    private func rendered() -> UIImage? {
+    @MainActor
+    private static func render(artefact: ShareArtefact, photos: [AtePhoto]) -> UIImage? {
         #if DEBUG
         if forcesRenderFailure { return nil }
         #endif
@@ -120,7 +158,7 @@ struct ShareScreen: View {
     #if DEBUG
     /// `-ate-fail-share-render`: the one state that cannot be reached by using the app, made
     /// reachable so it can be driven and looked at like every other.
-    private var forcesRenderFailure: Bool {
+    static var forcesRenderFailure: Bool {
         ProcessInfo.processInfo.arguments.contains("-ate-fail-share-render")
     }
     #endif

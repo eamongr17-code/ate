@@ -139,6 +139,9 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
         public let mentionLength: Int?
         /// The author fixed this line themselves; no re-sort, forced or not, overwrites it.
         public let corrected: Bool
+        /// The dish's dietary tags, as the sorter read them out of the words (`tags: [String]`,
+        /// lowercase codes). Optional on the wire: a row served before the column existed has none.
+        public let tags: [DietTag]
 
         public var id: UUID { reviewID }
 
@@ -147,7 +150,7 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
                     note: String? = nil, position: Int, saved: Bool = false,
                     evidenceOffset: Int? = nil, evidenceLength: Int? = nil,
                     mentionOffset: Int? = nil, mentionLength: Int? = nil,
-                    corrected: Bool = false) {
+                    corrected: Bool = false, tags: [DietTag] = []) {
             self.reviewID = reviewID
             self.dishID = dishID
             self.dishName = dishName
@@ -160,6 +163,7 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
             self.mentionOffset = mentionOffset
             self.mentionLength = mentionLength
             self.corrected = corrected
+            self.tags = tags
         }
 
         /// Hand-written for one reason: `corrected` is a plain `Bool` in the app and a column that
@@ -179,10 +183,11 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
             self.mentionOffset = try container.decodeIfPresent(Int.self, forKey: .mentionOffset)
             self.mentionLength = try container.decodeIfPresent(Int.self, forKey: .mentionLength)
             self.corrected = try container.decodeIfPresent(Bool.self, forKey: .corrected) ?? false
+            self.tags = DietTag.decoding(try container.decodeIfPresent([String].self, forKey: .tags) ?? [])
         }
 
         enum CodingKeys: String, CodingKey {
-            case score, note, position, saved, corrected
+            case score, note, position, saved, corrected, tags
             case reviewID = "review_id"
             case dishID = "dish_id"
             case dishName = "dish_name"
@@ -328,55 +333,73 @@ public extension EntryCard {
 #if DEBUG
 public extension EntryCard {
     /// The design's own entry, sorted — the fixture every preview and the in-memory service start
-    /// from, so what a screenshot shows and what `design/v1` draws are the same words.
-    static let previewSorted = EntryCard(
-        id: UUID(uuidString: "A7E00000-0000-4000-8000-000000000142")!,
-        authorID: UUID(uuidString: "5C4B0D0E-0000-4000-8000-000000000001")!,
-        body: "Tipo 00 with Jess for her birthday. The tagliatelle al ragù 4.5 was unreal, rich, "
-            + "glossy, gone in four minutes. Tiramisu 3.0 a bit flat after that. Jess's prawn "
-            + "spaghetti looked the business.",
-        restaurantID: UUID(uuidString: "B7E00000-0000-4000-8000-000000000001")!,
-        restaurantSource: "user",
-        orderNumber: 142,
-        sortStatus: .sorted,
-        // Sat 19 Sep 2026, 8:14 pm in Melbourne — the artboard's day.
-        sortedAt: Date(timeIntervalSince1970: 1_789_812_940),
-        createdAt: Date(timeIntervalSince1970: 1_789_812_840),
-        author: Author(id: UUID(uuidString: "5C4B0D0E-0000-4000-8000-000000000001")!,
-                       username: "eamon", city: "Melbourne"),
-        place: Place(id: UUID(uuidString: "B7E00000-0000-4000-8000-000000000001")!,
-                     name: "Tipo 00", address: "361 Little Bourke St", city: "Melbourne",
-                     locality: "CBD"),
-        // The artboard's own three photos, bundled as prototype assets.
-        photos: [
-            Photo(url: "asset://ragu", position: 1),
-            Photo(url: "asset://prawn", position: 2),
-            Photo(url: "asset://tiramisu", position: 3)
-        ],
-        items: [
-            // The notes read as `Entry.dc.html` prints them — the sorter lifts a sentence and the
-            // receipt sets it as one. The offsets are the real ones for this body, in scalars, so a
-            // preview, a screenshot and a UI drive all render through the offset path the server
-            // feeds (`-ate-preview-data`'s locally sorted entries carry none, and exercise the
-            // fallback — both halves of ``EntryBodyTokens`` are reachable on a simulator).
-            Item(reviewID: UUID(uuidString: "C7E00000-0000-4000-8000-000000000001")!,
-                 dishID: UUID(uuidString: "D7E00000-0000-4000-8000-000000000001")!,
-                 dishName: "Tagliatelle al ragù", score: Rating(rounding: 4.5),
-                 note: "Unreal. Rich, glossy, gone in four minutes.", position: 1,
-                 evidenceOffset: 60, evidenceLength: 3, mentionOffset: 40, mentionLength: 19),
-            Item(reviewID: UUID(uuidString: "C7E00000-0000-4000-8000-000000000002")!,
-                 dishID: UUID(uuidString: "D7E00000-0000-4000-8000-000000000002")!,
-                 dishName: "Tiramisu", score: Rating(rounding: 3),
-                 note: "A bit flat after that.", position: 2,
-                 evidenceOffset: 121, evidenceLength: 3, mentionOffset: 112, mentionLength: 8),
-            Item(reviewID: UUID(uuidString: "C7E00000-0000-4000-8000-000000000003")!,
-                 dishID: UUID(uuidString: "D7E00000-0000-4000-8000-000000000003")!,
-                 dishName: "Prawn spaghetti", position: 3,
-                 mentionOffset: 155, mentionLength: 15)
-        ],
-        placeOffset: 0,
-        placeLength: 7
-    )
+    /// from, so what a screenshot shows and what `design/v1` draws are the same words. Written the
+    /// way the composer writes now: the place is on the entry, not in the words (ComposerPlaceB).
+    static let previewSorted = previewTipo(tagged: false)
+
+    /// …and the same visit with its dietary tags (`DietTagsB`): "Tiramisu v", "prawn spaghetti gf".
+    static let previewSortedTagged = previewTipo(tagged: true)
+
+    private static func previewTipo(tagged: Bool) -> EntryCard {
+        let body = tagged
+            ? "With Jess for her birthday. The tagliatelle al ragù 4.5 was unreal, rich, glossy, gone in "
+                + "four minutes. Tiramisu v 3.0 a bit flat after that. Jess's prawn spaghetti gf looked the "
+                + "business."
+            : "With Jess for her birthday. The tagliatelle al ragù 4.5 was unreal, rich, glossy, gone in "
+                + "four minutes. Tiramisu 3.0 a bit flat after that. Jess's prawn spaghetti looked the "
+                + "business."
+        // Offsets in Unicode scalars, found rather than hand-counted — the unit the server serves.
+        func offset(of needle: String) -> Int? {
+            body.range(of: needle).map { body.unicodeScalars.distance(from: body.startIndex, to: $0.lowerBound) }
+        }
+        return EntryCard(
+            id: UUID(uuidString: "A7E00000-0000-4000-8000-000000000142")!,
+            authorID: UUID(uuidString: "5C4B0D0E-0000-4000-8000-000000000001")!,
+            body: body,
+            restaurantID: UUID(uuidString: "B7E00000-0000-4000-8000-000000000001")!,
+            restaurantSource: "user",
+            orderNumber: 142,
+            sortStatus: .sorted,
+            // Sat 19 Sep 2026, 8:14 pm in Melbourne — the artboard's day.
+            sortedAt: Date(timeIntervalSince1970: 1_789_812_940),
+            createdAt: Date(timeIntervalSince1970: 1_789_812_840),
+            author: Author(id: UUID(uuidString: "5C4B0D0E-0000-4000-8000-000000000001")!,
+                           username: "eamon", city: "Melbourne"),
+            place: Place(id: UUID(uuidString: "B7E00000-0000-4000-8000-000000000001")!,
+                         name: "Tipo 00", address: "361 Little Bourke St", city: "Melbourne",
+                         locality: "CBD"),
+            // The artboard's own three photos, bundled as prototype assets.
+            photos: [
+                Photo(url: "asset://ragu", position: 1),
+                Photo(url: "asset://prawn", position: 2),
+                Photo(url: "asset://tiramisu", position: 3)
+            ],
+            items: [
+                // The offsets are the real ones for this body, so a preview, a screenshot and a UI
+                // drive all render through the offset path the server feeds (`-ate-preview-data`'s
+                // locally sorted entries carry none, and exercise the fallback — both halves of
+                // ``EntryBodyTokens`` are reachable on a simulator).
+                Item(reviewID: UUID(uuidString: "C7E00000-0000-4000-8000-000000000001")!,
+                     dishID: UUID(uuidString: "D7E00000-0000-4000-8000-000000000001")!,
+                     dishName: "Tagliatelle al ragù", score: Rating(rounding: 4.5),
+                     note: "Unreal. Rich, glossy, gone in four minutes.", position: 1,
+                     evidenceOffset: offset(of: "4.5"), evidenceLength: 3,
+                     mentionOffset: offset(of: "tagliatelle al ragù"), mentionLength: 19),
+                Item(reviewID: UUID(uuidString: "C7E00000-0000-4000-8000-000000000002")!,
+                     dishID: UUID(uuidString: "D7E00000-0000-4000-8000-000000000002")!,
+                     dishName: "Tiramisu", score: Rating(rounding: 3),
+                     note: "A bit flat after that.", position: 2,
+                     evidenceOffset: offset(of: "3.0"), evidenceLength: 3,
+                     mentionOffset: offset(of: "Tiramisu"), mentionLength: 8,
+                     tags: tagged ? [.v] : []),
+                Item(reviewID: UUID(uuidString: "C7E00000-0000-4000-8000-000000000003")!,
+                     dishID: UUID(uuidString: "D7E00000-0000-4000-8000-000000000003")!,
+                     dishName: "Prawn spaghetti", position: 3,
+                     mentionOffset: offset(of: "prawn spaghetti"), mentionLength: 15,
+                     tags: tagged ? [.gf] : [])
+            ]
+        )
+    }
 
     /// `Main.dc.html`'s second slip: one dish, one photo, Thu 17 Sep.
     static let previewCroissant: EntryCard = {

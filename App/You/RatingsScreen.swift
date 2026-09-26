@@ -117,10 +117,7 @@ struct RatingsScreen: View {
                 AteHairline()
                 HStack(spacing: AteMetrics.regular) {
                     AteThumbnail(
-                        photo: AtePhoto(
-                            id: dish.dishID,
-                            url: dish.coverURL.flatMap(URL.init(string:))
-                        ),
+                        photo: .dish(dish.dishID, name: dish.dishName, cover: dish.coverURL),
                         side: RatingsScreen.thumbnail
                     )
                     VStack(alignment: .leading, spacing: AteMetrics.hairspace) {

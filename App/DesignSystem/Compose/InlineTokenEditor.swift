@@ -63,10 +63,11 @@ struct InlineTokenEditor: UIViewRepresentable {
     var onTokenTap: (EntryToken) -> Void = { _ in }
     /// The caret moved. The host needs this to know where a new token should be inserted.
     var onCaretChange: (Int) -> Void = { _ in }
-    /// The editor promoted a number the person had typed into a score token on its own. The flag is
+    /// The editor promoted something the person had typed into a token on its own — a number into a
+    /// score, a dietary code after a dish into a tag chip (`DietTagsB`). The flag is
     /// true when it arrived by dictation rather than the keyboard — the two are different products
     /// and the funnel has to be able to tell them apart.
-    var onScorePromoted: (_ wasDictated: Bool) -> Void = { _ in }
+    var onTokenPromoted: (_ token: EntryToken, _ wasDictated: Bool) -> Void = { _, _ in }
 
     @Environment(\.atePalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -148,7 +149,7 @@ struct InlineTokenEditor: UIViewRepresentable {
     }
 
     private var callbacks: Callbacks {
-        Callbacks(onTokenTap: onTokenTap, onCaretChange: onCaretChange, onScorePromoted: onScorePromoted)
+        Callbacks(onTokenTap: onTokenTap, onCaretChange: onCaretChange, onTokenPromoted: onTokenPromoted)
     }
 
     struct Typography: Equatable {
@@ -165,6 +166,6 @@ struct InlineTokenEditor: UIViewRepresentable {
     struct Callbacks {
         var onTokenTap: (EntryToken) -> Void
         var onCaretChange: (Int) -> Void
-        var onScorePromoted: (Bool) -> Void
+        var onTokenPromoted: (EntryToken, Bool) -> Void
     }
 }

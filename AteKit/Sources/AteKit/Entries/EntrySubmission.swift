@@ -12,6 +12,9 @@ public struct NewEntryRequest: Sendable, Hashable {
     public let createdAt: Date
     public let scoreCount: Int
     public let secondsFromOpen: Int
+    /// The composer's tag chips, in scalars — carried to the sort, and kept with the entry in the
+    /// outbox so a sort that runs later still has them.
+    public let tagTokens: [TagToken]
 
     public init(
         id: UUID,
@@ -20,7 +23,8 @@ public struct NewEntryRequest: Sendable, Hashable {
         photoPaths: [String],
         createdAt: Date,
         scoreCount: Int,
-        secondsFromOpen: Int
+        secondsFromOpen: Int,
+        tagTokens: [TagToken] = []
     ) {
         self.id = id
         self.body = body
@@ -29,6 +33,7 @@ public struct NewEntryRequest: Sendable, Hashable {
         self.createdAt = createdAt
         self.scoreCount = scoreCount
         self.secondsFromOpen = secondsFromOpen
+        self.tagTokens = tagTokens
     }
 }
 
@@ -100,7 +105,8 @@ public struct EntrySubmission: Sendable {
             await outbox.enqueue(QueuedEntry(
                 entry: QueuedInsert(entry),
                 pendingPhotos: photos(of: request),
-                hasInserted: true
+                hasInserted: true,
+                tagTokens: request.tagTokens
             ))
             return .saved(card)
         } catch {
@@ -111,7 +117,9 @@ public struct EntrySubmission: Sendable {
             }
             await outbox.enqueue(QueuedEntry(
                 entry: QueuedInsert(entry),
-                pendingPhotos: photos(of: request)
+                pendingPhotos: photos(of: request),
+                hasInserted: false,
+                tagTokens: request.tagTokens
             ))
             analytics(EntryEvents.saved(savedEvent(request, queued: true)))
             return .queued(placeholder(for: entry, request: request))
@@ -121,7 +129,7 @@ public struct EntrySubmission: Sendable {
     /// Steps two and three: the photos, then the sorter. Returns the entry as it now stands, or
     /// `nil` when nothing could be reached — in which case the outbox already has the rest.
     @discardableResult
-    public func finish(entryID: UUID, photoPaths: [String]) async -> EntryCard? {
+    public func finish(entryID: UUID, photoPaths: [String], tagTokens: [TagToken] = []) async -> EntryCard? {
         var uploaded: Set<Int> = []
         for (position, path) in photoPaths.enumerated() {
             // A file that has gone (the system reclaimed the cache) is not a retryable failure —
@@ -143,7 +151,7 @@ public struct EntrySubmission: Sendable {
         let startedAt = now()
         var didSort = false
         do {
-            let outcome = try await entries.sort(entryID: entryID, force: false)
+            let outcome = try await entries.sort(entryID: entryID, force: false, tagTokens: tagTokens)
             didSort = true
             analytics(EntryEvents.sortCompleted(
                 mode: outcome.mode,
@@ -206,8 +214,9 @@ public struct EntrySubmission: Sendable {
 }
 
 extension QueuedEntry {
-    init(entry: QueuedInsert, pendingPhotos: [QueuedPhoto], hasInserted: Bool) {
+    init(entry: QueuedInsert, pendingPhotos: [QueuedPhoto], hasInserted: Bool, tagTokens: [TagToken] = []) {
         self.init(entry: entry, pendingPhotos: pendingPhotos)
         self.hasInserted = hasInserted
+        self.tagTokens = tagTokens.isEmpty ? nil : tagTokens
     }
 }

@@ -35,6 +35,10 @@ public struct QueuedEntry: Sendable, Hashable, Codable, Identifiable {
     /// Set once the INSERT has been accepted (including as a `23505`).
     public var hasInserted = false
 
+    /// The composer's tag chips, for the sort this entry is still owed. Optional so a queue written
+    /// before tags existed still reads.
+    public var tagTokens: [TagToken]?
+
     /// The server refused rather than failed to answer. Retrying cannot help, so the queue stops
     /// immediately instead of burning eight foregrounds to arrive at the same place.
     public var isBlocked = false
@@ -238,7 +242,9 @@ public actor EntryOutbox {
         }
         item.pendingPhotos = remaining
         if item.needsSort {
-            let outcome = try await entries.sort(entryID: item.entry.id, force: false)
+            let outcome = try await entries.sort(
+                entryID: item.entry.id, force: false, tagTokens: item.tagTokens ?? []
+            )
             item.needsSort = false
             analytics(EntryEvents.sortCompleted(
                 mode: outcome.mode,

@@ -13,6 +13,10 @@ struct ShareCard: View {
     /// The photos behind the paper, already resolved to images — ``ImageRenderer`` snapshots
     /// synchronously and would capture an `AsyncImage`'s placeholder.
     var photos: [AtePhoto] = []
+    /// The Summary while the sorter works: the receipt prints what is known and leaves skeleton
+    /// lines for the rest (`SummaryLoading`). Never set on an export — only a printed receipt leaves.
+    var isPrinting = false
+    var breathes = true
 
     /// `margin:30px 52px 0` — the card's side inset on the 390pt page.
     static let inset: CGFloat = 52
@@ -38,7 +42,7 @@ struct ShareCard: View {
     private var receipt: some View {
         switch artefact {
         case .entry(let receipt, _):
-            ReceiptView(receipt: receipt)
+            ReceiptView(receipt: receipt, isPrinting: isPrinting, breathes: breathes)
         case .statement(let statement, let handle):
             StatementReceiptView(statement: statement, handle: handle)
         }

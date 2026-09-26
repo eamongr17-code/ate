@@ -68,12 +68,12 @@ public struct SupabaseEntryService: EntryService {
     }
 
     @discardableResult
-    public func sort(entryID: UUID, force: Bool) async throws -> SortOutcome {
+    public func sort(entryID: UUID, force: Bool, tagTokens: [TagToken]) async throws -> SortOutcome {
         let response: SortResponse = try await api.supabase.functions.invoke(
             "sort-entry",
             options: FunctionInvokeOptions(
                 method: .post,
-                body: SortRequest(entryID: entryID, force: force, dryRun: false)
+                body: SortEntryRequest(entryID: entryID, force: force, tagTokens: tagTokens)
             )
         )
         return SortOutcome(
@@ -140,6 +140,15 @@ public struct SupabaseEntryService: EntryService {
         _ = try await api.supabase.rpc("correct_entry_dish", params: parameters).execute()
     }
 
+    /// `PATCH /rest/v1/reviews?id=eq.<review_id>` with the whole set (contract #61).
+    public func setTags(reviewID: UUID, tags: [DietTag]) async throws {
+        _ = try await api.supabase
+            .from("reviews")
+            .update(ReviewTagsPatch(tags: tags), returning: .minimal)
+            .eq("id", value: reviewID.uuidString.lowercased())
+            .execute()
+    }
+
     public func updateBody(entryID: UUID, body: String) async throws {
         _ = try await api.supabase
             .from("entries")
@@ -166,18 +175,6 @@ public struct SupabaseEntryService: EntryService {
         }
     }
 
-    private struct SortRequest: Encodable, Sendable {
-        let entryID: UUID
-        let force: Bool
-        let dryRun: Bool
-
-        enum CodingKeys: String, CodingKey {
-            case force
-            case entryID = "entry_id"
-            case dryRun = "dry_run"
-        }
-    }
-
     private struct SortResponse: Decodable, Sendable {
         let ok: Bool?
         let mode: String?
@@ -194,6 +191,8 @@ public struct SupabaseEntryService: EntryService {
         }
     }
 
+    /// Deliberately no `tags`: a forced re-sort answers `items[].tags: []` while the database keeps
+    /// each line's inherited set, so a line's tags are read from `entry_cards` and nowhere else.
     private struct SortResponseItem: Decodable, Sendable {
         let dishName: String?
 

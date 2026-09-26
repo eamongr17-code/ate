@@ -42,10 +42,16 @@ public struct PlaceRef: Hashable, Codable, Sendable {
     }
 }
 
-/// What lives inline in the person's prose. Exactly two things, per the design: a score and a place.
+/// What lives inline in the person's prose: a score, and a dish's dietary tag.
+///
+/// `place` is **legacy, decode-only** (ComposerPlaceB, 2026-09-26): the place moved out of the words
+/// and into the composer's Place key. Drafts saved before that still hold place tokens, so the case
+/// stays for decoding them — ``EntryComposition/strippingPlaceTokens()`` turns one back into plain
+/// text the moment it is read, and nothing constructs one any more.
 public enum EntryTokenKind: Hashable, Codable, Sendable {
     case score(Rating)
     case place(PlaceRef)
+    case tag(DietTagMark)
 
     /// The characters this token occupies in the **plain** text — the words that are saved verbatim.
     /// A score prints like a price (one decimal, design rule 7); a place prints as its name.
@@ -56,6 +62,7 @@ public enum EntryTokenKind: Hashable, Codable, Sendable {
         switch self {
         case .score(let rating): ScoreFormat.halfStep(rating.value)
         case .place(let place): place.name
+        case .tag(let mark): mark.text
         }
     }
 }
@@ -85,6 +92,11 @@ public struct EntryToken: Identifiable, Hashable, Codable, Sendable {
 
     public var place: PlaceRef? {
         if case .place(let place) = kind { return place }
+        return nil
+    }
+
+    public var tag: DietTag? {
+        if case .tag(let mark) = kind { return mark.tag }
         return nil
     }
 }

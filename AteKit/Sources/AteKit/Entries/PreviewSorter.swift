@@ -17,6 +17,8 @@ public enum PreviewSorter {
         public var dishName: String
         public var score: Rating?
         public var note: String?
+        /// Dietary codes written straight after the dish — "tiramisu v 3.0".
+        public var tags: [DietTag] = []
     }
 
     public static func sort(body: String) -> [Line] {
@@ -57,7 +59,14 @@ public enum PreviewSorter {
     private static func line(from sentence: String) -> Line? {
         let words = sentence.split(separator: " ").map(String.init)
         guard let scoreIndex = words.firstIndex(where: { rating(for: $0) != nil }) else { return nil }
-        let name = dishName(from: words[..<scoreIndex])
+        // Tags sit between the dish and its score; they are not part of its name.
+        var nameEnd = scoreIndex
+        var tags: [DietTag] = []
+        while nameEnd > 0, let tag = DietTag(code: words[nameEnd - 1]) {
+            tags.insert(tag, at: 0)
+            nameEnd -= 1
+        }
+        let name = dishName(from: words[..<nameEnd])
         guard name.isEmpty == false else { return nil }
         let rest = words[(scoreIndex + 1)...].joined(separator: " ")
         let terminated = rest.last.map { ",.;:!?".contains($0) } ?? true
@@ -65,7 +74,8 @@ public enum PreviewSorter {
             dishName: name,
             score: rating(for: words[scoreIndex]),
             // A note is only ever a literal slice of what they wrote — never a paraphrase.
-            note: rest.isEmpty ? nil : (terminated ? rest : rest + ".")
+            note: rest.isEmpty ? nil : (terminated ? rest : rest + "."),
+            tags: tags
         )
     }
 

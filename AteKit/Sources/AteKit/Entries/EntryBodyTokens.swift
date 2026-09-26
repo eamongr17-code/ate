@@ -38,15 +38,19 @@ public enum EntryBodyTokens {
         /// Ranges already spoken for, so two lines with the same score never claim one occurrence.
         var claimed: [TextSpan] = []
 
+        // **No place pill** (ComposerPlaceB, 2026-09-26). The place lives on the entry, never in the
+        // words: an entry written when the composer still put it there shows the name as the plain
+        // text it always was, and keeps its place. The span is still claimed, so a dish or a number
+        // inside the place's name ("Tipo 00") can never be mistaken for a line of the bill.
         if let place = card.place, let span = placeSpan(for: place, in: card, body: body) {
-            // The pill is labelled with the BODY'S spelling, not the catalogue's: it stands in front
-            // of the words it covers, and "tipo 00" is what they wrote (design rule 9). The id still
-            // comes from the row, so tapping it opens the right place.
-            spans.append(EntryTokenSpan(
-                token: EntryToken(kind: .place(PlaceRef(id: place.id, name: body.text(in: span)))),
-                span: span
-            ))
             claimed.append(span)
+        }
+
+        for item in card.items {
+            for span in tagSpans(for: item, in: body, claimed: claimed) {
+                spans.append(span)
+                claimed.append(span.span)
+            }
         }
 
         for item in card.items {
@@ -79,6 +83,47 @@ public enum EntryBodyTokens {
         }
         // The matcher. Case-insensitive, so the pill survives a capital the person did not type.
         return body.occurrences(of: place.name).first
+    }
+
+    // MARK: - Where the tags are
+
+    /// A line's dietary chips: the codes the sorter read, found **straight after the dish's
+    /// mention** — "tiramisu v 3.0" — which is the only place the composer ever makes one. Without a
+    /// mention there is nothing honest to anchor on, so no chip is drawn (the dish row still carries
+    /// the tag); a code that is not where it should be is left as the words it is.
+    private static func tagSpans(
+        for item: EntryCard.Item,
+        in body: BodyOffsets,
+        claimed: [TextSpan]
+    ) -> [EntryTokenSpan] {
+        guard item.tags.isEmpty == false else { return [] }
+        let mention = body.span(scalarOffset: item.mentionOffset, scalarLength: item.mentionLength)
+            ?? body.occurrences(of: item.dishName).first
+        guard let mention else { return [] }
+        let units = body.units
+        var cursor = mention.endLocation
+        var remaining = Set(item.tags)
+        var spans: [EntryTokenSpan] = []
+        while remaining.isEmpty == false {
+            var start = cursor
+            while start < units.count, units[start] == 32 { start += 1 }
+            guard start > cursor else { break }
+            var end = start
+            while end < units.count, isASCIILetter(units[end]) { end += 1 }
+            guard end > start else { break }
+            let text = String(decoding: units[start..<end], as: UTF16.self)
+            guard let tag = DietTag(code: text), remaining.contains(tag) else { break }
+            let span = TextSpan(location: start, length: end - start)
+            guard isFree(span, claimed) else { break }
+            spans.append(EntryTokenSpan(token: EntryToken(kind: .tag(DietTagMark(tag: tag, text: text))), span: span))
+            remaining.remove(tag)
+            cursor = end
+        }
+        return spans
+    }
+
+    private static func isASCIILetter(_ unit: UInt16) -> Bool {
+        (unit >= 65 && unit <= 90) || (unit >= 97 && unit <= 122)
     }
 
     // MARK: - Where the score is

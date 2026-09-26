@@ -43,7 +43,7 @@ struct FeedScreen: View {
 
     private static let topAnchor = "feed.top"
 
-    /// `padding:62px 12px 14px` — the screen's name, and the city it is about.
+    /// `padding:62px 12px 10px` (`FeedTight`) — the screen's name, and the city it is about.
     private var header: some View {
         HStack {
             Text("Feed").ateTextLine(.screenTitle)
@@ -54,7 +54,7 @@ struct FeedScreen: View {
         }
         .padding(.horizontal, AteMetrics.listGutter)
         .ateContentTop(62)
-        .padding(.bottom, AteMetrics.slipGap)
+        .padding(.bottom, AteMetrics.feedHeaderBottom)
         .id(Self.topAnchor)
     }
 
@@ -80,7 +80,7 @@ struct FeedScreen: View {
     }
 
     private var slips: some View {
-        LazyVStack(alignment: .leading, spacing: AteMetrics.slipGap) {
+        LazyVStack(alignment: .leading, spacing: AteMetrics.feedSlipGap) {
             ForEach(store.entries) { entry in
                 EntrySlip(
                     slip: EntrySlipPresentation.feed(entry),

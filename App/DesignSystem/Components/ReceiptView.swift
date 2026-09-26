@@ -9,9 +9,11 @@ struct AteReceipt: Equatable, Identifiable {
         var name: String
         /// `nil` is a dish that was named but not scored. Design rule 7: its score column is empty —
         /// no star, no zero.
+        ///
+        /// There is deliberately no note here. **A receipt prints dish rows and scores only — never a
+        /// per-dish quote under a line** (Eamon, 2026-09-26: Share, Summary, statement, anywhere), so
+        /// the model cannot carry one for a view to print.
         var score: Rating?
-        /// The sentence the sorter lifted out of the person's own words for this dish.
-        var note: String?
         /// The dish itself — what a save saves, and where a line links to. Absent on a fixture that
         /// has no dish behind it.
         var dishID: UUID?
@@ -23,14 +25,12 @@ struct AteReceipt: Equatable, Identifiable {
             id: UUID = UUID(),
             name: String,
             score: Rating? = nil,
-            note: String? = nil,
             dishID: UUID? = nil,
             isSaved: Bool = false
         ) {
             self.id = id
             self.name = name
             self.score = score
-            self.note = note
             self.dishID = dishID
             self.isSaved = isSaved
         }
@@ -91,12 +91,20 @@ struct AteReceipt: Equatable, Identifiable {
 /// container, not a reason for a second component.
 ///
 /// Its parts, in order: the place and its address / a dashed rule / numbered line items with dot
-/// leaders and right-aligned scores, each dish's note quoted in italic beneath it / a dashed rule /
-/// order number and date, dish count and average / the barcode / the handle and the wordmark / the
-/// torn bottom edge.
+/// leaders and right-aligned scores — **dish rows and scores only, never a quote under a line** / a
+/// dashed rule / order number and date, dish count and average / the barcode / the handle and the
+/// wordmark / edge B.
 ///
+/// **Printing** (`SummaryLoading.dc.html`): what is known prints at once — the place, the order
+/// number, the date, the handle — and the lines still being sorted are skeleton bars with a slow
+/// breath. No words say so.
 struct ReceiptView: View {
     let receipt: AteReceipt
+    /// The lines are still being sorted: skeleton rows where the items and the count will be.
+    var isPrinting = false
+    /// …and whether the skeleton breathes. It stops once the wait is over (the sort failed or ran
+    /// long) — a bar that pulses forever is a spinner by another name.
+    var breathes = true
     /// How far the place sits from the paper's top edge. 22 on a share card; `Entry` sets 32,
     /// because the words card covers the first sixteen of it.
     var topPadding: CGFloat = 22
@@ -112,9 +120,17 @@ struct ReceiptView: View {
 
     var body: some View {
         VStack(spacing: AteMetrics.snug + 2) {
-            header
+            // A receipt whose place was never named prints without a header rather than a guess
+            // (design rule 8).
+            if receipt.place.isEmpty == false {
+                header
+            }
             AteDashedRule()
-            lineItems
+            if isPrinting {
+                ReceiptSkeletonLines(breathes: breathes)
+            } else {
+                lineItems
+            }
             AteDashedRule()
             totals
             AteBarcode()
@@ -124,7 +140,7 @@ struct ReceiptView: View {
         .padding(.horizontal, AteMetrics.slipPadding)
         .padding(.bottom, AteMetrics.regular + 2 + AteMetrics.tornEdgeHeight)
         .ateSlip()
-        .background(AteColor.slip, in: ReceiptPaper(topRadius: topRadius))
+        .ateTornPaper(topRadius: topRadius)
     }
 
     // MARK: - Bands
@@ -156,20 +172,6 @@ struct ReceiptView: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(receipt.items.enumerated()), id: \.element.id) { index, item in
                 lineItem(item, number: index + 1)
-                if let note = item.note {
-                    // `.note`: 14 italic on `line-height:1.35`, inset 26, 6 under. Straight quotes,
-                    // as the artboard prints them — a receipt is a printout, not a typeset page.
-                    // An exact line box, so a note that wraps stacks the way the design stacks it.
-                    AteExactText(
-                        text: "\"\(note)\"",
-                        style: .proseNote,
-                        alignment: .leading,
-                        colour: AtePalette.slip.muted
-                    )
-                    .padding(.leading, 26)
-                    .padding(.bottom, 6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
             }
         }
     }
@@ -217,11 +219,23 @@ struct ReceiptView: View {
                 Spacer(minLength: AteMetrics.snug)
                 Text(receipt.date.formatted(AteReceipt.dateFormat))
             }
-            HStack {
-                Text(receipt.items.count == 1 ? "1 dish" : "\(receipt.items.count) dishes")
-                Spacer(minLength: AteMetrics.snug)
-                if let average = receipt.average {
-                    Text(verbatim: "Avg \(ScoreFormat.entryAverage(average))")
+            if isPrinting {
+                // `height:15px; justify-content:space-between` — the count and the average, not
+                // known until the lines are.
+                HStack {
+                    ReceiptSkeletonBar(width: 58)
+                    Spacer(minLength: AteMetrics.snug)
+                    ReceiptSkeletonBar(width: 52)
+                }
+                .frame(height: 15)
+                .ateBreathing(breathes)
+            } else {
+                HStack {
+                    Text(receipt.items.count == 1 ? "1 dish" : "\(receipt.items.count) dishes")
+                    Spacer(minLength: AteMetrics.snug)
+                    if let average = receipt.average {
+                        Text(verbatim: "Avg \(ScoreFormat.entryAverage(average))")
+                    }
                 }
             }
         }
@@ -240,6 +254,73 @@ struct ReceiptView: View {
     }
 }
 
+/// The line items while they are being sorted — `SummaryLoading`'s `.skrow`s: the number, the dish,
+/// and the score as blank bars, `height:21.5px`, `padding:2px 0 4px`. The third row has no score, as
+/// the board draws it: an unrated dish is an empty slot even before it has a name.
+private struct ReceiptSkeletonLines: View {
+    var breathes: Bool
+
+    /// Name widths, and whether a score bar follows — straight off the board.
+    private static let rows: [(name: CGFloat, scored: Bool)] = [(138, true), (74, true), (112, false)]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(Self.rows.enumerated()), id: \.offset) { _, row in
+                HStack(spacing: AteMetrics.snug) {
+                    ReceiptSkeletonBar(width: 16)
+                    ReceiptSkeletonBar(width: row.name)
+                    Spacer(minLength: 0)
+                    if row.scored { ReceiptSkeletonBar(width: 22) }
+                }
+                .frame(height: 21.5)
+            }
+        }
+        .padding(.top, AteMetrics.hairspace)
+        .padding(.bottom, AteMetrics.tight)
+        .ateBreathing(breathes)
+        .accessibilityHidden(true)
+    }
+}
+
+/// `.sk` — `height:9px; border-radius:5px; background:rgba(36,20,31,.10)`.
+private struct ReceiptSkeletonBar: View {
+    let width: CGFloat
+
+    var body: some View {
+        Capsule()
+            .fill(AtePalette.slip.fg.opacity(0.10))
+            .frame(width: width, height: 9)
+    }
+}
+
+private struct ReceiptBreathing: ViewModifier {
+    let isOn: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isDim = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isDim ? AteMotion.breatheLow : 1)
+            .onAppear { start() }
+            .onChange(of: isOn) { _, _ in start() }
+    }
+
+    private func start() {
+        guard isOn, reduceMotion == false else {
+            withAnimation(.easeOut(duration: 0.2)) { isDim = false }
+            return
+        }
+        withAnimation(AteMotion.breathe) { isDim = true }
+    }
+}
+
+private extension View {
+    /// `@keyframes breathe{50%{opacity:.45}}`, 1.6s ease-in-out, forever — gated on Reduce Motion.
+    func ateBreathing(_ isOn: Bool) -> some View {
+        modifier(ReceiptBreathing(isOn: isOn))
+    }
+}
+
 // Fixtures are `DEBUG || BETA`, not `DEBUG`: the debug gallery ships to TestFlight, and a component
 // that can't be shown there is a component nobody can judge. Previews stay `DEBUG`.
 #if DEBUG || BETA
@@ -249,9 +330,8 @@ extension AteReceipt {
         place: "Tipo 00",
         address: "361 Little Bourke St",
         items: [
-            Item(name: "Tagliatelle al ragù", score: Rating(rounding: 4.5),
-                 note: "Unreal. Rich, glossy, gone in four minutes."),
-            Item(name: "Tiramisu", score: Rating(rounding: 3), note: "A bit flat after that."),
+            Item(name: "Tagliatelle al ragù", score: Rating(rounding: 4.5)),
+            Item(name: "Tiramisu", score: Rating(rounding: 3)),
             Item(name: "Prawn spaghetti")
         ],
         orderNumber: 142,
@@ -262,7 +342,7 @@ extension AteReceipt {
     static let previewSingle = AteReceipt(
         place: "Butchers Diner",
         address: "224 Little Bourke St",
-        items: [Item(name: "Cheeseburger", score: Rating(rounding: 4.5), note: "Would queue again.")],
+        items: [Item(name: "Cheeseburger", score: Rating(rounding: 4.5))],
         orderNumber: 143,
         date: Date(timeIntervalSince1970: 1_789_200_000),
         handle: "eamon"

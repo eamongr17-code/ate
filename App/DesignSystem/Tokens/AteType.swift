@@ -115,10 +115,6 @@ extension AteTextStyle {
     static let statValue = AteTextStyle(
         voice: .display, size: 28, weight: 800, trackingEm: -0.03, lineHeight: 1.0, textStyle: .title2
     )
-    /// The live numeral on the star slider. 40pt.
-    static let scoreHero = AteTextStyle(
-        voice: .display, size: 40, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
-    )
     /// A pushed page's own name, beside a back arrow: "From your photos". 24pt.
     static let pageTitle = AteTextStyle(
         voice: .display, size: 24, weight: 800, trackingEm: -0.025, lineHeight: 1.0, textStyle: .title2
@@ -194,6 +190,29 @@ extension AteTextStyle {
     static let slipPlaceName = AteTextStyle(
         voice: .display, size: 13, weight: 600, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote
     )
+    /// A dietary tag's code in its linen chip (`DietTagsB`): Bricolage 600 at 10.5, capitals,
+    /// tracking 6%, `line-height:1`. Capped — the chip is a fixed 18pt.
+    static let dietTag = AteTextStyle(
+        voice: .display, size: 10.5, weight: 600, trackingEm: 0.06, lineHeight: 1.0,
+        textStyle: .caption2, maximumSize: 13, uppercase: true
+    )
+    /// The dish on the score slider's panel (`RaterSize`): `.h` at 22, `-.03em`, `line-height:1.05`
+    /// — the slip's dish voice, a step up, so the name and the number read on one scale.
+    static let sliderDish = AteTextStyle(
+        voice: .display, size: 22, weight: 800, trackingEm: -0.03, lineHeight: 1.05, textStyle: .title2
+    )
+    /// …and the live numeral beside it: `.h` at 28, `-.02em`, tabular.
+    static let sliderScore = AteTextStyle(
+        voice: .display, size: 28, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title2
+    )
+    /// The letter on a photo-less dish's tile (`NoPhotoA`): `.h` 800 at 26 on a 56 tile, `-.02em`,
+    /// scaled with the tile and never with Dynamic Type — it is a picture of the dish, not a label.
+    static func dishInitial(tile side: CGFloat) -> AteTextStyle {
+        AteTextStyle(
+            voice: .display, size: side * 26 / 56, weight: 800, trackingEm: -0.02, lineHeight: 1.0,
+            textStyle: .title2, maximumSize: side * 26 / 56
+        )
+    }
     /// A letter in a byline's avatar circle. No tracking — a monogram is centred, not set.
     static let avatarInitial = AteTextStyle(
         voice: .display, size: 12, weight: 800, trackingEm: 0, lineHeight: 1.0,
@@ -237,22 +256,9 @@ extension AteTextStyle {
     static let proseCompact = AteTextStyle(
         voice: .prose, size: 15, weight: 400, lineHeight: 1.4, textStyle: .body
     )
-    /// A dish's note, quoted under its line item. Italic, 14pt.
-    static let proseNote = AteTextStyle(
-        voice: .prose, size: 14, weight: 400, italic: true, lineHeight: 1.35, textStyle: .subheadline
-    )
 
-    // Receipts and the entry page's bill — DM Mono, and only here.
+    // Receipts — DM Mono, and only here. Dish rows and scores only: no note under a line, ever.
 
-    /// A line in the entry page's bill. 14pt on 1.75 (`.bill .li` overrides `.li`'s 13/1.65): the
-    /// page is read at arm's length, a receipt is read in the hand.
-    static let billLine = AteTextStyle(
-        voice: .mono, size: 14, weight: 400, lineHeight: 1.75, textStyle: .subheadline, maximumSize: 21
-    )
-    /// …and the score at the end of it.
-    static let billScore = AteTextStyle(
-        voice: .mono, size: 14, weight: 500, lineHeight: 1.75, textStyle: .subheadline, maximumSize: 21
-    )
     /// A receipt line item. 13pt.
     static let receiptLine = AteTextStyle(
         voice: .mono, size: 13, weight: 400, lineHeight: 1.65, textStyle: .footnote, maximumSize: 20

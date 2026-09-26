@@ -48,7 +48,7 @@ final class FeedUITests: XCTestCase {
 
         // The slip's body is the door to the entry.
         app.buttons.matching(identifier: "feed.slip.body").firstMatch.tap()
-        XCTAssertTrue(app.otherElements["entry.bill"].waitForExistence(timeout: 10),
+        XCTAssertTrue(app.otherElements["entry.dishes"].waitForExistence(timeout: 10),
                       "tapping a slip opens the entry, bill and all")
         // Somebody else's entry: a byline where the pencil is on your own, and a bookmark per line.
         let byline = app.buttons["entry.byline"]

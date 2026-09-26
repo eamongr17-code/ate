@@ -26,11 +26,9 @@ extension InlineTokenEditor {
         private var servedRedoRequest = 0
         /// One promotion check per runloop turn, however many changes landed in it.
         private var hasPendingPromotion = false
-        /// The promotion the last change made available, noticed while that change was still the
-        /// present tense. See ``scheduleScorePromotion(in:)``.
+        /// The promotion the last change made available, noticed while it was still true.
         private var noticedPromotion: Promotion?
-        /// The last token this editor promoted, kept so a *redo* of that promotion can put the pill
-        /// back rather than leaving a bare placeholder for ``normaliseTokens(in:)`` to delete.
+        /// The last token promoted, so a *redo* of it puts the pill back (``normaliseTokens(in:)``).
         private var lastPromotedToken: EntryToken?
         /// Every document this editor has written, so undo or redo landing back on one gets its pills.
         private var rendered = RenderedTokenHistory()
@@ -63,10 +61,8 @@ extension InlineTokenEditor {
         ///
         /// UIKit's `_UITextUndoOperationTyping` describes an edit in terms of the storage it was made
         /// against. Writing `textStorage` directly — which a wholesale `attributedText =` and the old
-        /// promotion both did — leaves operations that *crash* when they run:
-        /// `-[_UITextUndoOperationTyping _undoRedo]` → `NSTextStorage coordinateEditing:`. Two taps of
-        /// Cmd+Z after a score promoted did exactly that, and a shake or a three-finger swipe reach
-        /// the same operation.
+        /// promotion both did — leaves operations that *crash* when they run (`_undoRedo` →
+        /// `NSTextStorage coordinateEditing:`; two Cmd+Z after a score promoted, a shake, a swipe).
         ///
         /// The fix is to stop going around undo rather than to fight it. `replace(_:withText:)` is the
         /// text view's own edit, so UIKit registers a coherent operation and typing undo keeps
@@ -405,15 +401,20 @@ extension InlineTokenEditor {
             ) else { return nil }
 
             let model = composition(from: view)
-            // `pendingScoreLiteral` refuses a span a token already covers, so a pill put there by
-            // the Score key is never "promoted" into a second, identical pill.
-            guard let found = model.pendingScoreLiteral(atDisplayOffset: caret.location - 1) else { return nil }
+            // Both finders refuse a span a token already covers, so a Score-key pill is never
+            // "promoted" twice. A number becomes a score; "tiramisu v" a tag chip (`DietTagsB`).
+            let offset = caret.location - 1
+            let score = model.pendingScoreLiteral(atDisplayOffset: offset)
+                .map { (span: $0.span, kind: EntryTokenKind.score($0.rating)) }
+            let tag = model.pendingTagLiteral(atDisplayOffset: offset)
+                .map { (span: $0.span, kind: EntryTokenKind.tag($0.mark)) }
+            guard let found = score ?? tag else { return nil }
 
             let start = model.displayOffset(forPlainOffset: found.span.location)
             let end = model.displayOffset(forPlainOffset: found.span.endLocation)
             let range = NSRange(location: start, length: end - start)
             guard let literal = text(at: range, in: view) else { return nil }
-            return Promotion(range: range, literal: literal, token: EntryToken(kind: .score(found.rating)))
+            return Promotion(range: range, literal: literal, token: EntryToken(kind: found.kind))
         }
 
         /// Whether the words still say there what they said when this was noticed.
@@ -452,7 +453,7 @@ extension InlineTokenEditor {
             // `primaryLanguage == "dictation"` is how UIKit reports that the text arrived from the
             // keyboard's mic rather than its keys. It is the only signal there is, and being wrong
             // costs one mislabelled funnel event — never a word of anybody's entry.
-            callbacks.onScorePromoted(view.textInputMode?.primaryLanguage == "dictation")
+            callbacks.onTokenPromoted(promotion.token, view.textInputMode?.primaryLanguage == "dictation")
         }
 
         // MARK: Tapping — a token, or the writing area

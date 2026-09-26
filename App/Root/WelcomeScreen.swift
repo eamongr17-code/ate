@@ -76,7 +76,7 @@ struct WelcomeScreen: View {
         .padding(.horizontal, 18)
         .padding(.bottom, 18 + AteMetrics.tornEdgeHeight)
         .atePaper()
-        .background(AteColor.paper, in: ReceiptPaper())
+        .ateTornPaper(.paper)
     }
 
     /// `left:20; right:20; bottom:40; gap:6` — the pill, then the link.

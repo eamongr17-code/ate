@@ -53,7 +53,7 @@ struct StatementReceiptView: View {
         .padding(.bottom, AteMetrics.loose + AteMetrics.tornEdgeHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
         .ateSlip()
-        .background(AteColor.slip, in: ReceiptPaper())
+        .ateTornPaper()
     }
 
     /// `gap:11px` between the statement's bands.
