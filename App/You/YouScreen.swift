@@ -36,11 +36,10 @@ struct YouScreen: View {
                 statement
             }
             .padding(.horizontal, AteMetrics.gutter)
-            .ateContentTop(variant == .b ? YouScreen.contentTopB : YouScreen.contentTop)
+            .ateContentTop(YouScreen.contentTop)
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
         .scrollIndicators(.hidden)
-        .overlay(alignment: .topTrailing) { if variant == .a { settings } }
         .refreshable { await store.refresh() }
         .task {
             await store.loadIfNeeded()
@@ -48,22 +47,12 @@ struct YouScreen: View {
         }
     }
 
-    /// `padding:70px 20px 0` — You starts a little lower than the rest, because the 76pt avatar is
-    /// the biggest thing at the top of any screen in the app.
-    private static let contentTop: CGFloat = 70
-    /// B's header is a 56pt row, so it starts where `Feed` and `Search` start their content (62).
-    private static let contentTopB: CGFloat = 62
-
-    private var variant: YouHeaderVariant { YouHeaderVariant.current }
+    /// The header is a 56pt row, so the page starts where `Feed` and `Search` start theirs (62) —
+    /// Eamon's resized header (2026-09-26), replacing `You.dc.html`'s 76pt avatar at 70.
+    private static let contentTop: CGFloat = 62
+    static let avatar: CGFloat = 56
 
     // MARK: - Bands
-
-    /// `top:60px; right:12px` — the way into Settings.
-    private var settings: some View {
-        AteIconButton(icon: .settings, label: "Settings", size: 22, action: onSettings)
-            .padding(.trailing, AteMetrics.regular)
-            .ateContentTop()
-    }
 
     @ViewBuilder
     private var header: some View {
@@ -73,44 +62,25 @@ struct YouScreen: View {
         case .unavailable:
             // No session, or the header would not load. The page says who is missing and stops.
             AteEmptyState(title: "Nobody's\nsigned in.")
-        case .ready(let summary) where variant == .b:
-            compactHeader(summary)
         case .ready(let summary):
-            HStack(spacing: AteMetrics.loose) {
-                AteAvatar(
-                    userID: summary.userID,
-                    handle: summary.username,
-                    side: 76,
-                    textStyle: .avatarMonogram
-                )
-                VStack(alignment: .leading, spacing: AteMetrics.tight) {
-                    Text(verbatim: "@\(displayHandle(summary))")
-                        .ateTextLine(.profileTitle)
-                    if let city = summary.city, city.isEmpty == false {
-                        Text(city)
-                            .ateText(.meta)
-                            .foregroundStyle(AtePalette.automatic.muted)
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-            .accessibilityElement(children: .combine)
+            header(summary)
         }
     }
 
-    /// **B** — the prototype (``YouHeaderVariant``): a 56pt avatar, the handle at 26 on ONE line that
-    /// truncates at its tail, and the gear in the same row with a fixed gap between it and the
+    /// **The header** — approved by Eamon 2026-09-26 over `You.dc.html`'s (avatar and handle too
+    /// big, the gear too close, long handles unhandled): a 56pt avatar, the handle at 26 on ONE line
+    /// that truncates at its tail, and the gear in the same row with a fixed gap between it and the
     /// handle — so a long handle ends in an ellipsis instead of running under the gear.
-    private func compactHeader(_ summary: ProfileSummary) -> some View {
+    private func header(_ summary: ProfileSummary) -> some View {
         HStack(spacing: AteMetrics.regular) {
             AteAvatar(
                 userID: summary.userID,
-                handle: displayHandle(summary),
-                side: YouScreen.avatarB,
+                handle: summary.username,
+                side: YouScreen.avatar,
                 textStyle: .avatarMonogramCompact
             )
             VStack(alignment: .leading, spacing: AteMetrics.hairspace) {
-                Text(verbatim: "@\(displayHandle(summary))")
+                Text(verbatim: "@\(summary.username)")
                     .ateText(.youHandleCompact)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -129,16 +99,6 @@ struct YouScreen: View {
                 // hangs past it.
                 .padding(.trailing, -(AteMetrics.hit - 22) / 2)
         }
-    }
-
-    private static let avatarB: CGFloat = 56
-
-    /// The handle on file — or, in a Debug drive, the one `-ate-you-handle` stood in for it.
-    private func displayHandle(_ summary: ProfileSummary) -> String {
-        guard let override = YouHeaderVariant.handleOverride, override.isEmpty == false else {
-            return summary.username
-        }
-        return override.hasPrefix("@") ? String(override.dropFirst()) : override
     }
 
     /// "Your ratings ›" and the chart. Absent entirely until something has been scored — an empty
@@ -246,14 +206,14 @@ struct YouScreen: View {
 private struct YouHeaderSkeleton: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: AteMetrics.loose) {
+            HStack(spacing: AteMetrics.regular) {
                 Circle()
                     .fill(AtePalette.automatic.hairline)
-                    .frame(width: 76, height: 76)
+                    .frame(width: YouScreen.avatar, height: YouScreen.avatar)
                 VStack(alignment: .leading, spacing: AteMetrics.snug) {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(AtePalette.automatic.hairline)
-                        .frame(width: 150, height: 26)
+                        .frame(width: 150, height: 22)
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(AtePalette.automatic.hairline)
                         .frame(width: 90, height: 13)

@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// The two sizes the **You header B** prototype asks for (``YouHeaderVariant``) — kept apart from
-/// the ratified table in `AteType.swift` until Eamon picks A or B, so taking B out is deleting this
-/// file.
+/// The two sizes of the **You header** Eamon approved on 2026-09-26 (over `You.dc.html`'s 76pt
+/// avatar and 32pt handle). Their own file only because `AteType.swift` is at its length limit.
 extension AteTextStyle {
     /// The handle at 26, a step down from a profile's 32, because it now shares its row with the gear.
     static let youHandleCompact = AteTextStyle(
