@@ -115,7 +115,11 @@ public enum EntryBodyTokens {
             guard let tag = DietTag(code: text), remaining.contains(tag) else { break }
             let span = TextSpan(location: start, length: end - start)
             guard isFree(span, claimed) else { break }
-            spans.append(EntryTokenSpan(token: EntryToken(kind: .tag(DietTagMark(tag: tag, text: text))), span: span))
+            // The chip carries its line's dish, so an edit that deletes it can clear that line's
+            // tag (``EditTagDiff``) instead of forcing a re-sort.
+            spans.append(EntryTokenSpan(
+                token: EntryToken(kind: .tag(DietTagMark(tag: tag, text: text)), dishID: item.dishID), span: span
+            ))
             remaining.remove(tag)
             cursor = end
         }

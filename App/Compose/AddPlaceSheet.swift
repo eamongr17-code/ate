@@ -22,7 +22,8 @@ struct AddPlaceSheet: View {
     var body: some View {
         AteSheet(
             title: "New place",
-            primary: ("Add place", add)
+            primary: ("Add place", add),
+            isPrimaryBusy: isSaving
         ) {
             VStack(alignment: .leading, spacing: AteMetrics.sheetGap) {
                 field("Name", text: $name)
@@ -60,16 +61,21 @@ struct AddPlaceSheet: View {
         isSaving = true
         Task {
             defer { isSaving = false }
-            guard let place = try? await directory.add(
-                name: trimmed,
-                suburb: suburb.trimmingCharacters(in: .whitespacesAndNewlines),
-                street: street.trimmingCharacters(in: .whitespacesAndNewlines)
-            ) else {
+            do {
+                let place = try await directory.add(
+                    name: trimmed,
+                    suburb: suburb.trimmingCharacters(in: .whitespacesAndNewlines),
+                    street: street.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+                guard place.id != nil else {
+                    failure = .addPlace
+                    return
+                }
+                onAdded(place)
+                dismiss()
+            } catch {
                 failure = .addPlace
-                return
             }
-            onAdded(place)
-            dismiss()
         }
     }
 }

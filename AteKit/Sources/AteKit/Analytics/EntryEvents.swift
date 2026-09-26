@@ -65,6 +65,8 @@ public enum ReceiptShareSource: String, Sendable, CaseIterable, Codable {
     case statement
     /// The Summary that follows Done in the composer — the receipt as the hero on the coral ground.
     case summary
+    /// "Instagram Stories" in the share sheet: the receipt as a sticker in IG's story editor.
+    case instagramStories = "instagram_stories"
 }
 
 /// **The core loop's funnel**, built here so the names and parameters are asserted by tests and can
@@ -253,6 +255,24 @@ public enum EntryEvents {
             name: "summary_done",
             parameters: ["entry_id": entryID.uuidString.lowercased(), "printed": flag(wasPrinted)]
         )
+    }
+
+    /// An early sort (`sort-entry`, `preview: true`) went out while the person was still writing.
+    /// `nth` is its place in the session's ration of twelve — the distribution says whether the
+    /// trigger fires once at a pause or chatters.
+    public static func earlySortSent(nth: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "entry_early_sort_sent", parameters: ["nth": String(max(0, nth))])
+    }
+
+    /// Done could not save. The composer stays open with "Try again" on the pill; `edit` separates a
+    /// new entry from a rewrite of an old one.
+    public static func saveFailed(isEdit: Bool, reason: String) -> AnalyticsEvent {
+        AnalyticsEvent(name: "entry_save_failed", parameters: ["edit": flag(isEdit), "reason": reason])
+    }
+
+    /// A staged photo was taken back out of the composer. `photo_count` is how many are left.
+    public static func photoRemoved(photoCount: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "entry_photo_removed", parameters: ["photo_count": String(max(0, photoCount))])
     }
 
     /// One of your own entries was deleted — after the server agreed, never at the tap. How much

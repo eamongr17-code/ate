@@ -69,7 +69,7 @@ struct VoiceComposerScreen: View {
                 onClose()
             }
             Spacer(minLength: AteMetrics.snug)
-            ComposerDoneButton(isEnabled: composer.hasContent) {
+            ComposerDoneButton(isEnabled: composer.canSave) {
                 model.stop(refocus: false)
                 onDone()
             }
@@ -197,12 +197,17 @@ private struct VoicePulse: View {
         RoundedRectangle(cornerRadius: VoiceComposerScreen.pulseRadius, style: .continuous)
             .fill(AteColor.coral)
             .scaleEffect(isExpanded ? 1.1 : 1)
-            .onAppear {
-                guard reduceMotion == false, isAnimating else { return }
-                withAnimation(
-                    .easeInOut(duration: AteMotion.voicePulse / 2).repeatForever(autoreverses: true)
-                ) {
-                    isExpanded = true
+            // Follows the listening state, not the first frame: the microphone is still starting
+            // when this appears, so an `onAppear` start never fired and the square sat still.
+            .onChange(of: isAnimating && reduceMotion == false, initial: true) { _, pulses in
+                if pulses {
+                    withAnimation(
+                        .easeInOut(duration: AteMotion.voicePulse / 2).repeatForever(autoreverses: true)
+                    ) {
+                        isExpanded = true
+                    }
+                } else {
+                    withAnimation(.easeOut(duration: 0.2)) { isExpanded = false }
                 }
             }
             .accessibilityHidden(true)

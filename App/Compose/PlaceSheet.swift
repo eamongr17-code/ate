@@ -29,7 +29,8 @@ struct PlaceSheet: View {
                 get: { model?.query ?? initialQuery },
                 set: { model?.query = $0 }
             ),
-            primary: primary
+            primary: primary,
+            isPrimaryBusy: model?.isResolving ?? false
         ) {
             if let model {
                 content(model)
@@ -56,9 +57,14 @@ struct PlaceSheet: View {
         }
     }
 
+    /// "Use …" is there from the tap, and holds still until the row it names is real: a Google
+    /// prediction resolves to a restaurant first, and a place with no row is never attached.
     private var primary: (title: String, action: () -> Void)? {
-        guard let picked = model?.picked else { return nil }
-        return ("Use \(picked.name)", { onPick(picked) })
+        guard let model, let picked = model.picked else { return nil }
+        return ("Use \(picked.name)", {
+            guard model.isResolving == false, let resolved = model.picked, resolved.id != nil else { return }
+            onPick(resolved)
+        })
     }
 
     @ViewBuilder
@@ -154,6 +160,8 @@ final class PlaceSearchModel {
     /// simply is not drawn.
     private(set) var nearby: [PlaceSuggestion] = []
     private(set) var picked: PlaceRef?
+    /// A tapped Google result is being turned into a restaurant row.
+    private(set) var isResolving = false
     private(set) var isSearching = false
     /// True while the results are the empty-query default rather than a search.
     private(set) var isShowingRecents = true
@@ -207,9 +215,19 @@ final class PlaceSearchModel {
     func pick(_ suggestion: PlaceSuggestion) async {
         pickedSuggestionID = suggestion.id
         picked = PlaceRef(id: suggestion.restaurantID, name: suggestion.name)
-        guard let resolved = try? await directory.resolve(suggestion) else { return }
+        guard suggestion.restaurantID == nil else {
+            isResolving = false
+            return
+        }
+        isResolving = true
+        let resolved = try? await directory.resolve(suggestion)
+        // A later tap owns the pill now; this answer is for a row nobody is pointing at.
         guard pickedSuggestionID == suggestion.id else { return }
-        picked = resolved
+        isResolving = false
+        // Failed to resolve: the row stays marked, but there is nothing real to attach, so the pill
+        // goes rather than offering a place that would attach nothing.
+        picked = resolved?.id == nil ? nil : resolved
+        if picked == nil { pickedSuggestionID = nil }
     }
 
     private func schedule() {

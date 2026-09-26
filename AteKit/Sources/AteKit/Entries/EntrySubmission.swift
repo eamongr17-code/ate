@@ -53,6 +53,16 @@ public enum EntrySubmissionResult: Sendable, Equatable {
         case .rejected: nil
         }
     }
+
+    /// The server refused an entry with no place (`23502 place_required`, backend #66). The
+    /// composer's Done gate should make this unreachable; if it arrives anyway, the composer goes
+    /// back to its no-place state rather than offering a retry that cannot succeed.
+    public var isPlaceRequired: Bool {
+        guard case .rejected(let message) = self else { return false }
+        return message.contains(Self.placeRequired)
+    }
+
+    static let placeRequired = "place_required"
 }
 
 /// **The save path, as one testable sequence.**
@@ -126,33 +136,48 @@ public struct EntrySubmission: Sendable {
         }
     }
 
-    /// Steps two and three: the photos, then the sorter. Returns the entry as it now stands, or
-    /// `nil` when nothing could be reached — in which case the outbox already has the rest.
+    /// Steps two and three: the photos **and** the sorter, at the same time. The sorter reads the
+    /// words alone, so nothing about it waits on bytes going up — the receipt prints while the
+    /// photos are still uploading. Returns the entry as it now stands, or `nil` when nothing could
+    /// be reached — in which case the outbox already has the rest.
     @discardableResult
     public func finish(entryID: UUID, photoPaths: [String], tagTokens: [TagToken] = []) async -> EntryCard? {
-        var uploaded: Set<Int> = []
-        for (position, path) in photoPaths.enumerated() {
-            // A file that has gone (the system reclaimed the cache) is not a retryable failure —
-            // count it as done rather than queueing an upload of nothing, forever.
-            guard let data = try? Data(contentsOf: URL(filePath: path)) else {
-                uploaded.insert(position)
-                continue
-            }
-            do {
-                try await entries.attach(photo: EntryPhotoUpload(
-                    entryID: entryID, position: position, data: data
-                ))
-                uploaded.insert(position)
-            } catch {
-                break // the rest will fail the same way; the outbox has them.
-            }
-        }
+        async let uploaded = upload(entryID: entryID, photoPaths: photoPaths)
+        let didSort = await sort(entryID: entryID, tagTokens: tagTokens)
+        await outbox.recordProgress(entryID: entryID, uploadedPositions: await uploaded, didSort: didSort)
+        return try? await entries.entry(id: entryID)
+    }
 
+    /// Every photo at once. The positions that landed (or whose file has gone — the system
+    /// reclaimed the cache, which no retry can fix) come back; the rest stay in the outbox.
+    private func upload(entryID: UUID, photoPaths: [String]) async -> Set<Int> {
+        let entries = self.entries
+        return await withTaskGroup(of: Int?.self) { group in
+            for (position, path) in photoPaths.enumerated() {
+                group.addTask {
+                    guard let data = try? Data(contentsOf: URL(filePath: path)) else { return position }
+                    do {
+                        try await entries.attach(photo: EntryPhotoUpload(
+                            entryID: entryID, position: position, data: data
+                        ))
+                        return position
+                    } catch {
+                        return nil
+                    }
+                }
+            }
+            var done: Set<Int> = []
+            for await position in group {
+                if let position { done.insert(position) }
+            }
+            return done
+        }
+    }
+
+    private func sort(entryID: UUID, tagTokens: [TagToken]) async -> Bool {
         let startedAt = now()
-        var didSort = false
         do {
             let outcome = try await entries.sort(entryID: entryID, force: false, tagTokens: tagTokens)
-            didSort = true
             analytics(EntryEvents.sortCompleted(
                 mode: outcome.mode,
                 itemCount: outcome.itemCount,
@@ -164,11 +189,11 @@ public struct EntrySubmission: Sendable {
             if outcome.didAttachPlace {
                 analytics(EntryEvents.placeAttached(source: .named))
             }
+            return true
         } catch {
             analytics(EntryEvents.sortFailed(reason: reason(for: error)))
+            return false
         }
-        await outbox.recordProgress(entryID: entryID, uploadedPositions: uploaded, didSort: didSort)
-        return try? await entries.entry(id: entryID)
     }
 
     // MARK: - Pieces

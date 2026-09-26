@@ -30,6 +30,14 @@ struct ComposerPresentation: Identifiable, Hashable {
         let body: String
         let restaurantID: UUID?
         let placeName: String?
+        /// The words with their score pills and tag chips rebuilt from the receipt's own lines
+        /// (`EntryBodyTokens`: the server's offsets, verified) — not plain digits.
+        var composition: EntryComposition
+        /// The photos the entry has, by position — loaded into the composer so they can be kept,
+        /// removed, or added to.
+        var photos: [EntryCard.Photo] = []
+        /// The receipt's lines, so a chip deleted during the edit clears its own line's tag.
+        var items: [EntryCard.Item] = []
     }
 
     static func edit(_ card: EntryCard) -> ComposerPresentation {
@@ -39,7 +47,10 @@ struct ComposerPresentation: Identifiable, Hashable {
                 id: card.id,
                 body: card.body,
                 restaurantID: card.restaurantID,
-                placeName: card.place?.name
+                placeName: card.place?.name,
+                composition: EntryBodyTokens.composition(for: card),
+                photos: card.photos.sorted { $0.position < $1.position },
+                items: card.items
             )
         )
     }

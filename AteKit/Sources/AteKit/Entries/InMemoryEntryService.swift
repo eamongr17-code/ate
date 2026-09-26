@@ -94,10 +94,35 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
             let card = entries[index]
             var photos = card.photos
             photos.removeAll { $0.position == photo.position }
-            photos.append(EntryCard.Photo(url: "preview://\(photo.entryID)/\(photo.position)",
+            photos.append(EntryCard.Photo(url: "preview://\(photo.entryID)/\(photo.name ?? String(photo.position))",
                                           position: photo.position))
             entries[index] = card.replacing(photos: photos.sorted { $0.position < $1.position })
         }
+    }
+
+    public func attachExisting(entryID: UUID, position: Int, url: String) async throws {
+        lock.withLock {
+            guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return }
+            var photos = entries[index].photos
+            photos.removeAll { $0.position == position }
+            photos.append(EntryCard.Photo(url: url, position: position))
+            entries[index] = entries[index].replacing(photos: photos.sorted { $0.position < $1.position })
+        }
+    }
+
+    public func removePhotos(entryID: UUID, fromPosition position: Int, removedURLs: [String]) async throws {
+        lock.withLock {
+            guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return }
+            let photos = entries[index].photos.filter { $0.position < position }
+            entries[index] = entries[index].replacing(photos: photos)
+        }
+    }
+
+    /// Previews asked for — a drive reads it to see the early sort fire.
+    public private(set) var previewSorts: [EarlySortInput] = []
+
+    public func previewSort(_ input: EarlySortInput) async throws {
+        lock.withLock { previewSorts.append(input) }
     }
 
     @discardableResult

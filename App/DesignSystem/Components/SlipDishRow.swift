@@ -104,12 +104,12 @@ struct SlipDishRow: View {
     /// it follows exactly as the markup's inline `<span class="diet">` does.
     private func name(metrics: DishRowMetrics) -> some View {
         var text = Text(dish.name)
-        if dish.tags.isEmpty == false,
-           let strip = DietTagStrip.image(tags: dish.tags, scale: displayScale, colorScheme: colorScheme) {
-            text = Text("\(text)\(Text(Image(uiImage: strip)).baselineOffset(-DietTagStrip.descent))")
+        if dish.tags.isEmpty == false {
+            text = Text("\(text)\(DietTagRun.text(tags: dish.tags, dynamicTypeSize: dynamicTypeSize))")
         }
         return text
             .ateTextExact(.slipDish)
+            .textRenderer(DietTagRun.Renderer(dynamicTypeSize: dynamicTypeSize))
             .offset(y: -metrics.nameLift)
             .accessibilityLabel(([dish.name] + dish.tags.map(\.spokenName)).joined(separator: ", "))
     }
@@ -175,35 +175,72 @@ struct SlipDishRow: View {
     }
 }
 
-/// A dish's tags as one picture that can ride inside the name's `Text`: 6 after the name, 4 apart.
-/// Rasterised once per set — the same chips, drawn by ``DietTagChip``, as the words carry.
-@MainActor
-enum DietTagStrip {
-    /// `.dname .diet{vertical-align:3px}`.
-    static var descent: CGFloat { TokenPillMetrics.dietDescent(rise: TokenPillMetrics.dietRiseOnName) }
+/// **A dish's tags as text** riding inside the name's `Text`: 6 after the name, 4 apart, each
+/// code in the chip's own voice, lifted 3 (`.dname .diet`). Real glyphs, so they scale with Dynamic
+/// Type (to the chip style's cap) and wrap with the word they follow; ``Renderer`` paints each
+/// chip's linen capsule behind its code. No picture is involved anywhere.
+enum DietTagRun {
+    /// Marks a chip's characters — its padding and its code — so the renderer can find them.
+    struct Chip: TextAttribute {
+        let index: Int
+    }
 
-    static func image(tags: [DietTag], scale: CGFloat, colorScheme: ColorScheme) -> UIImage? {
-        let key = Key(tags: tags, scale: scale, colorScheme: colorScheme)
-        if let cached = cache[key] { return cached }
-        let renderer = ImageRenderer(content:
-            HStack(spacing: TokenPillMetrics.dietGapBetween) {
-                ForEach(tags, id: \.self) { DietTagChip(tag: $0) }
+    static func text(tags: [DietTag], dynamicTypeSize: DynamicTypeSize) -> Text {
+        let font = AteFont.uiFont(for: .dietTag, dynamicTypeSize: dynamicTypeSize)
+        let scale = scale(dynamicTypeSize)
+        var run = Text(verbatim: "")
+        for (index, tag) in tags.enumerated() {
+            let gap = index == 0 ? TokenPillMetrics.dietGapOnName : TokenPillMetrics.dietGapBetween
+            let pad = spacer(TokenPillMetrics.dietPadding * scale, font: font)
+            let code = Text(verbatim: tag.label)
+                .font(Font(font))
+                .tracking(font.pointSize * AteTextStyle.dietTag.trackingEm)
+                .foregroundStyle(AtePalette.automatic.muted)
+            let chip = Text("\(pad)\(code)\(pad)")
+                .baselineOffset(TokenPillMetrics.dietRiseOnName * scale)
+                .customAttribute(Chip(index: index))
+            run = Text("\(run)\(spacer(gap * scale, font: font))\(chip)")
+        }
+        return run
+    }
+
+    /// How far Dynamic Type has taken the chip from its drawn 10.5 (capped with the style).
+    static func scale(_ dynamicTypeSize: DynamicTypeSize) -> CGFloat {
+        AteFont.uiFont(for: .dietTag, dynamicTypeSize: dynamicTypeSize).pointSize / AteTextStyle.dietTag.size
+    }
+
+    /// A space exactly `width` wide: an em space (U+2003, one em by definition) set at `width`
+    /// points. Kerning a normal space was ignored at a run's edge.
+    private static func spacer(_ width: CGFloat, font: UIFont) -> Text {
+        Text(verbatim: "\u{2003}").font(Font(font.withSize(max(0.5, width))))
+    }
+
+    /// Paints each chip's capsule — 18 high (scaled), on the ground colour — under its code.
+    struct Renderer: TextRenderer {
+        let dynamicTypeSize: DynamicTypeSize
+
+        func draw(layout: Text.Layout, in context: inout GraphicsContext) {
+            let font = AteFont.uiFont(for: .dietTag, dynamicTypeSize: dynamicTypeSize)
+            let scale = DietTagRun.scale(dynamicTypeSize)
+            let height = TokenPillMetrics.dietHeight * scale
+            // The chip's baseline sits `height/2 + (ascender + descender)/2` below its top.
+            let baselineFromTop = height / 2 + (font.ascender + font.descender) / 2
+            for line in layout {
+                var chips: [Int: CGRect] = [:]
+                var baselines: [Int: CGFloat] = [:]
+                for run in line {
+                    guard let chip = run[Chip.self] else { continue }
+                    let bounds = run.typographicBounds
+                    chips[chip.index] = chips[chip.index].map { $0.union(bounds.rect) } ?? bounds.rect
+                    baselines[chip.index] = bounds.origin.y
+                }
+                for (index, rect) in chips {
+                    let baseline = baselines[index] ?? rect.maxY
+                    let capsule = CGRect(x: rect.minX, y: baseline - baselineFromTop, width: rect.width, height: height)
+                    context.fill(Capsule().path(in: capsule), with: .color(AteColor.ground))
+                }
+                context.draw(line)
             }
-            .padding(.leading, TokenPillMetrics.dietGapOnName)
-            .environment(\.colorScheme, colorScheme)
-        )
-        renderer.scale = scale > 0 ? scale : 3
-        renderer.isOpaque = false
-        guard let image = renderer.uiImage else { return nil }
-        cache[key] = image
-        return image
+        }
     }
-
-    private struct Key: Hashable {
-        let tags: [DietTag]
-        let scale: CGFloat
-        let colorScheme: ColorScheme
-    }
-
-    private static var cache: [Key: UIImage] = [:]
 }

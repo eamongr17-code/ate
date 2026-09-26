@@ -24,6 +24,9 @@ enum AteIcon: String, CaseIterable {
     /// The one "…" that carries everything you can do about a person or an entry, and the two
     /// answers underneath it.
     case more, flag, block
+    /// The composer's Diet key (layout C, Eamon, round 3). The artboards draw no dietary icon; this
+    /// leaf is authored in their line style (24 grid, 1.8 stroke, round caps).
+    case diet
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
@@ -83,6 +86,8 @@ enum AteIcon: String, CaseIterable {
             [AteVector.circle(12, 12, 8.5), Self.path("M6 6l12 12")]
         case .stop:
             []
+        case .diet:
+            [Self.path("M5 19C5 10.5 10.5 5 19 5c0 8.5-5.5 14-14 14z"), Self.path("M5 19l8.5-8.5")]
         }
     }
 

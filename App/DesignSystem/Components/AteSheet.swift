@@ -12,6 +12,9 @@ struct AteSheet<Content: View>: View {
     var searchText: Binding<String>?
     /// The one ink pill, if this sheet has a commit action at all.
     var primary: (title: String, action: () -> Void)?
+    /// The pill is waiting on something (a Google result resolving): it holds still, dimmed the way
+    /// every off pill in the app is, until the thing it would commit is real.
+    var isPrimaryBusy = false
     @ViewBuilder var content: Content
 
     @Environment(\.atePalette) private var palette
@@ -44,16 +47,24 @@ struct AteSheet<Content: View>: View {
             .scrollBounceBehavior(.basedOnSize)
             if let primary {
                 AteButton(title: primary.title, action: primary.action)
+                    .disabled(isPrimaryBusy)
+                    .opacity(isPrimaryBusy ? Self.busyOpacity : 1)
+                    .accessibilityIdentifier("sheet.primary")
                     // `margin-bottom:34px` — the sheet's own clearance above the home indicator.
                     .padding(.bottom, AteMetrics.sheetBottom)
             }
         }
         .padding(.horizontal, AteMetrics.gutter)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(palette.chip)
-        .presentationCornerRadius(AteMetrics.sheetTop)
+        // The system's own sheet shape: its corners follow the display's (concentric at the bottom
+        // of a partial-height sheet), which a fixed corner radius cannot. The chip colour fills
+        // that shape rather than a rectangle inside it.
+        .presentationBackground(palette.chip)
         .presentationDragIndicator(.visible)
     }
+
+    /// `opacity:.35` — the Summary's off Share, the same off state.
+    private static var busyOpacity: Double { 0.35 }
 }
 
 /// A pill search field. The design's only text input outside the composer.

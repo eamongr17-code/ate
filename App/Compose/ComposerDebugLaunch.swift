@@ -76,6 +76,8 @@ enum ComposerDebugLaunch {
     static let denyDictationArgument = "-ate-deny-dictation"
     /// A camera capture without a camera: the artboard's ragù lands through the camera key's own path.
     static let fakeCameraArgument = "-ate-fake-camera"
+    /// …or the camera's full-screen cover itself, as a stand-in that shoots after a few seconds.
+    static let fakeCameraCoverArgument = "-ate-fake-camera-cover"
 
     /// Lets the scripted dictation finish, closes the microphone, then runs the text view's own undo —
     /// and, with ``voiceRedoArgument``, its redo. The one way to watch "undo across a dictation" on a
@@ -90,6 +92,7 @@ enum ComposerDebugLaunch {
     static var fakesDictation: Bool { has(fakeDictationArgument) || has(voiceArgument) }
     static var deniesDictation: Bool { has(denyDictationArgument) }
     static var fakesCameraCapture: Bool { has(fakeCameraArgument) }
+    static var fakesCameraCover: Bool { has(fakeCameraCoverArgument) }
     static var parksCaretAfterToken: Bool { has(caretAfterTokenArgument) }
     static var drivesUndo: Bool { has(undoDriveArgument) }
     static var opensComposer: Bool { has(openArgument) || has(voiceArgument) || has(fakeCameraArgument) }
@@ -130,7 +133,9 @@ enum ComposerDebugLaunch {
         }
         guard has(seedArgument) else { return }
         // `ComposerPlaceB`: the words, and Tipo 00 on the Place key rather than in them.
-        var draft = EntryDraft(composition: .previewComposerWords, restaurantID: tipoID, placeName: "Tipo 00")
+        // `-ate-seed-place "<name>"` puts a different name on the key — the long-name truncation.
+        let placeName = UserDefaults.standard.string(forKey: "ate-seed-place") ?? "Tipo 00"
+        var draft = EntryDraft(composition: .previewComposerWords, restaurantID: tipoID, placeName: placeName)
         // …with the artboard's own three photos already staged, so `Composer` can be photographed
         // as it is drawn rather than one cluster short of it.
         draft.photoFiles = seedPhotos(into: drafts.photoDirectory(for: draft.id))

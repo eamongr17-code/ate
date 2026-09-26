@@ -12,7 +12,7 @@ import SwiftUI
 /// where the place prints; picking one attaches it (`correct_entry_place`), the parked plan prints,
 /// and Share comes on. A print that could not finish offers "Print it again". Done is always there.
 ///
-/// Done lands on the entry's own page, which the shell has already put under this screen.
+/// Done lands on the Journal, with the new entry at the top of it.
 struct SummaryScreen: View {
     @State private var store: EntrySummaryStore
     /// The composer's staged photos — the entry's own are still uploading, and these are the same
@@ -23,6 +23,9 @@ struct SummaryScreen: View {
     let places: any PlaceDirectory
     let analytics: AnalyticsRecorder
     let onDone: () -> Void
+    /// The row as it lands — sorted, a place attached — so the journal slip under this screen is
+    /// the printed entry by the time Done returns to it.
+    var onUpdated: (EntryCard) -> Void = { _ in }
 
     @State private var sender = ShareSender()
     @State private var isPickingPlace = false
@@ -34,7 +37,8 @@ struct SummaryScreen: View {
         actions: EntrySummaryStore.Actions,
         places: any PlaceDirectory,
         analytics: @escaping AnalyticsRecorder,
-        onDone: @escaping () -> Void
+        onDone: @escaping () -> Void,
+        onUpdated: @escaping (EntryCard) -> Void = { _ in }
     ) {
         _store = State(initialValue: EntrySummaryStore(card: card, actions: actions))
         self.photos = photos
@@ -42,6 +46,7 @@ struct SummaryScreen: View {
         self.places = places
         self.analytics = analytics
         self.onDone = onDone
+        self.onUpdated = onUpdated
     }
 
     var body: some View {
@@ -56,18 +61,26 @@ struct SummaryScreen: View {
             onPrimary: primaryAction
         )
         .task { await store.watch() }
+        .onChange(of: store.card) { _, card in onUpdated(card) }
         .sheet(item: $sender.sending, onDismiss: { store.shareEnded() }, content: { sending in
-            ShareSheet(items: [sending.image])
+            ShareSheet(sending: sending) { destination in
+                analytics(EntryEvents.receiptShared(
+                    entryID: store.card.id, source: destination == .instagramStories ? .instagramStories : .summary
+                ))
+            }
         })
         .sheet(isPresented: $isPickingPlace) {
             // The composer's own sheet — the same action looks and works the same everywhere.
             PlaceSheet(directory: places) { place in
-                isPickingPlace = false
+                // The sheet only ever hands back a resolved row (`PlaceSheet`'s "Use …" waits).
                 guard let id = place.id else { return }
+                isPickingPlace = false
                 analytics(EntryEvents.placeAttached(source: .picked))
                 Task { await store.attachPlace(id) }
             }
         }
+        // A container, so the pills keep their own identifiers under it.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("summary")
     }
 
@@ -107,9 +120,7 @@ struct SummaryScreen: View {
     private func share() {
         guard let event = store.share() else { return }
         analytics(event)
-        sender.send(artefact: artefact, photos: Array(photos.prefix(2))) {
-            analytics(EntryEvents.receiptShared(entryID: store.card.id, source: .summary))
-        }
+        sender.send(artefact: artefact, photos: Array(photos.prefix(2)))
         // A render that produced nothing opens no sheet — Share is live again at once.
         if sender.sending == nil { store.shareEnded() }
     }

@@ -17,6 +17,8 @@ enum AteColor {
     // MARK: - Accents (the same in both modes; always carry `ink` text)
 
     static let coral = Color(hex: 0xF0623F)
+    /// The same coral as a hex string — what Instagram Stories takes for a story's background.
+    static let coralHex = "#F0623F"
     /// Score tokens and the ratings histogram. The one colour a score is ever printed on.
     static let butter = Color(hex: 0xF6D365)
     static let green = Color(hex: 0x3ECF64)
@@ -24,6 +26,10 @@ enum AteColor {
     static let sky = Color(hex: 0x36AEE6)
     static let lilac = Color(hex: 0xB9A5EA)
     static let destructive = Color(hex: 0xB3261E)
+
+    /// The light field (`#E4DED4`) as an absolute colour — the composer's Place key, which stays
+    /// linen in both modes the way the Score key stays butter (round 3).
+    static let linenField = Color(hex: 0xE4DED4)
 
     /// Near-black. The text colour on every accent and on every piece of receipt paper, in both
     /// modes — and the fill of the `+` button and the one ink pill per sheet.

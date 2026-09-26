@@ -22,10 +22,27 @@ struct ComposerKey: View {
     var value: String?
     /// What the drive reaches for, fixed whatever the key is showing.
     var identifier: String?
+    /// The icon alone, in a 40pt circle of the same fill — the Diet key.
+    var iconOnly = false
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button(action: action) { label }
+            .buttonStyle(.plain)
+            .accessibilityLabel(value.map { "\(title): \($0)" } ?? title)
+            .accessibilityIdentifier(identifier ?? "composer.key.\(title.lowercased())")
+    }
+
+    /// The key's face — shared with the Diet key, which is a menu rather than a button.
+    @ViewBuilder
+    var label: some View {
+        if iconOnly {
+            icon.view(size: iconSize)
+                .frame(width: AteMetrics.keyHeight, height: AteMetrics.keyHeight)
+                .background(isActive ? AteColor.ink : background, in: .circle)
+                .foregroundStyle(isActive ? background : foreground)
+                .contentShape(.circle)
+        } else {
             CappedWidth(maxWidth: value == nil ? .infinity : Self.valueMaxWidth) {
                 HStack(spacing: 5) {
                     icon.view(size: iconSize)
@@ -38,12 +55,12 @@ struct ComposerKey: View {
                 .padding(.trailing, value == nil ? 13 : 14)
                 .frame(height: AteMetrics.keyHeight)
             }
-            .background(isActive ? AtePalette.surface.fg : background, in: .capsule)
+            // Inverted is ink in both modes: `ComposerStars` draws an ink pill with butter lettering,
+            // and the surface's own `fg` is cream in dark — butter on cream cannot be read.
+            .background(isActive ? AteColor.ink : background, in: .capsule)
             .foregroundStyle(isActive ? background : foreground)
+            .contentShape(.capsule)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(value.map { "\(title): \($0)" } ?? title)
-        .accessibilityIdentifier(identifier ?? "composer.key.\(title.lowercased())")
     }
 
     /// `max-width:150px` on a key holding a value.
@@ -71,13 +88,15 @@ private struct CappedWidth: Layout {
 /// **Done** — the ink pill both composer screens carry in the same corner. One component, so the key
 /// that saves the entry looks and behaves the same whether you were typing or talking.
 struct ComposerDoneButton: View {
+    /// "Done", or "Try again" after a save that did not land.
+    var title = "Done"
     var isEnabled: Bool
     var isBusy = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text("Done")
+            Text(title)
                 .ateText(.control)
                 .padding(.horizontal, 18)
                 .frame(height: 38)
@@ -111,7 +130,8 @@ struct ComposerToolbar: View {
                 }
                 PhotosPicker(
                     selection: $pickedItems,
-                    maxSelectionCount: EntryDraft.photoLimit,
+                    // Picks append to what is staged, so the picker offers only what is left.
+                    maxSelectionCount: max(1, EntryDraft.photoLimit - model.photos.count),
                     selectionBehavior: .ordered,
                     matching: .images,
                     photoLibrary: .shared()
@@ -121,12 +141,15 @@ struct ComposerToolbar: View {
                         .contentShape(.rect)
                 }
                 .foregroundStyle(AtePalette.surface.fg)
+                .disabled(model.canAddPhotos == false)
                 .simultaneousGesture(TapGesture().onEnded { model.dismissScoring(refocus: false) })
                 .accessibilityLabel("Photo library")
                 AteIconButton(icon: .voice, label: "Dictate", tint: AtePalette.surface.fg, action: onDictate)
                     .accessibilityIdentifier("composer.key.dictate")
             }
-            Spacer(minLength: 0)
+            .fixedSize()
+            // No spacer: its two extra gaps were the Place key's last 12 points. The keys push
+            // right on their own, as `justify-content:space-between` does.
             HStack(spacing: Self.gap) {
                 ComposerKey(
                     title: "Score",
@@ -150,23 +173,66 @@ struct ComposerToolbar: View {
                     title: "Place",
                     icon: .place,
                     iconSize: 16,
-                    background: AtePalette.surface.field,
-                    foreground: AtePalette.surface.fg,
+                    background: ComposerKeyColor.place,
+                    foreground: AteColor.ink,
                     value: model.place.flatMap { $0.name.isEmpty ? nil : $0.name },
                     identifier: "composer.key.place"
                 ) {
                     model.dismissScoring(refocus: false)
                     model.isPickingPlace = true
                 }
+                // The place gives way first: Score and Diet keep their size, the name truncates.
+                .layoutPriority(-1)
+                dietKey
             }
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.vertical, AteMetrics.snug)
         .padding(.leading, AteMetrics.snug)
         .padding(.trailing, Self.trailing)
     }
 
+    /// **The Diet key** (Eamon's layout C, round 3): an icon-only leaf beside the labelled Score and
+    /// Place pills, so the place's name keeps its room. A system menu of the five codes; the one
+    /// picked goes in as a tag chip after the current dish (``ComposerModel/insertTag(_:)``).
+    private var dietKey: some View {
+        Menu {
+            ForEach(DietTag.allCases, id: \.self) { tag in
+                Button(tag.label) {
+                    model.dismissScoring(refocus: false)
+                    analytics(model.insertTag(tag))
+                }
+                .accessibilityLabel(tag.spokenName)
+            }
+        } label: {
+            ComposerKey(
+                title: "Diet",
+                icon: .diet,
+                iconSize: 16,
+                background: ComposerKeyColor.place,
+                foreground: AteColor.ink,
+                iconOnly: true,
+                action: {}
+            )
+            .label
+        }
+        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+        .fixedSize()
+        .accessibilityLabel("Diet")
+        .accessibilityIdentifier("composer.key.diet")
+    }
+
     /// `gap:6px`, between the groups and between the two keys.
     private static let gap: CGFloat = 6
     /// `padding-right:14px` — the keys sit in from the edge, where the visibility key used to be.
     private static let trailing: CGFloat = 14
+}
+
+/// The composer keys' fills. The Score key is butter in both modes; the Place key is the linen
+/// field it is drawn in (`Composer.dc.html`: `--field:#E4DED4`), **also in both modes** — in dark,
+/// the surface's own field (ink `#17111B` on the plum surface) read as a hole in the toolbar
+/// (Eamon, round 3). Like the Score key it carries ink either way.
+enum ComposerKeyColor {
+    static let place = AteColor.linenField
 }

@@ -68,7 +68,8 @@ struct YouEventsTests {
         ])
         #expect(EntryEvents.receiptShared(entryID: id, source: .actions)
             .parameters["source"] == "actions")
-        #expect(ReceiptShareSource.allCases.map(\.rawValue) == ["entry", "actions", "statement", "summary"])
+        #expect(ReceiptShareSource.allCases.map(\.rawValue)
+            == ["entry", "actions", "statement", "summary", "instagram_stories"])
     }
 
     /// A statement is a receipt with no entry behind it. An empty string would read as a real id in
