@@ -124,7 +124,13 @@ public extension InMemoryStatsService {
             dish("Cheeseburger", "Butchers Diner", 5.0, 3),
             dish("Salmon roll", "Kisumé", 5.0, 11),
             dish("Margherita", "400 Gradi", 5.0, 26),
-            dish("Raspberry cake", "Beatrix", 5.0, 33)
+            dish("Raspberry cake", "Beatrix", 5.0, 33),
+            // Below the artboard's bar, so the one-page list has more than two groups to scroll
+            // through — and one from last year, whose date carries its year.
+            dish("Prawn toast", "Hochi Mama", 4.0, 5),
+            dish("Salmon roll", "Kisumé", 4.0, 38),
+            dish("Penne alla vodka", "Di Stasio", 3.5, 12),
+            dish("Tiramisu", "Tipo 00", 3.0, 300)
         ]
     }()
 

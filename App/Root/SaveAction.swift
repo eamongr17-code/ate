@@ -85,9 +85,22 @@ final class SaveAction {
 
         AteHaptics.save()
         guard await shelf.unsave(dish) else { return false }
+        // The Undo pill belongs to the shelf; an unsave made elsewhere offers none.
+        if source != .savedList { shelf.expireUndo(for: dish) }
         analytics(SocialEvents.saveToggled(source: source, isSaved: false))
         broadcast.send(dishID: dish.dishID, isSaved: false)
         return true
+    }
+
+    /// **Undo**, on the Saved shelf's pill: the dish the shelf just let go of goes back on it, saved
+    /// again with the entry it was first saved off, and every list that draws it hears so.
+    func undoUnsaveFromShelf() async {
+        guard let dish = shelf.undoable, inFlight.insert(dish.dishID).inserted else { return }
+        defer { inFlight.remove(dish.dishID) }
+        AteHaptics.save()
+        analytics(RecoveryEvents.unsaveUndone())
+        guard await shelf.undoUnsave() else { return }
+        broadcast.send(dishID: dish.dishID, isSaved: true)
     }
 
     /// "Save this place" — every line of one entry, provenance = that entry

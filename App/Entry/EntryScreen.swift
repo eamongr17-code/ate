@@ -88,6 +88,7 @@ struct EntryScreen: View {
         .sheet(isPresented: $model.isCorrectingPlace) { placeSheet }
         .sheet(item: $model.correcting) { correcting in dishSheet(correcting.item) }
         .sheet(isPresented: $isShowingActions) { actionsSheet }
+        .ateFailureAlert($model.failure, analytics: services.analytics)
         .fullScreenCover(item: $model.viewingPhoto) { viewing in
             AtePhotoViewer(photos: model.photos, index: viewing.index)
         }
@@ -353,6 +354,7 @@ struct EntryScreen: View {
                 title: "@\(byline.handle)",
                 blockTitle: "Block @\(byline.handle)",
                 onSavePlace: { Task { await model.toggleSaveEveryDish() } },
+                isPlaceSaved: model.isEveryDishSaved,
                 onShare: { [] },
                 onShareReceipt: { model.shareArtefact() },
                 analytics: services.analytics,

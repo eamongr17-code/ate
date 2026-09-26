@@ -28,6 +28,8 @@ struct JournalScreen: View {
     var onSavedDish: (SavedDish) -> Void = { _ in }
     /// The bookmark on a saved row: it only ever unsaves.
     var onUnsave: (SavedDish) -> Void = { _ in }
+    /// …and the Undo pill that follows it.
+    var onUndoUnsave: () -> Void = {}
 
     enum Shelf: Hashable {
         case journal, saved
@@ -65,6 +67,9 @@ struct JournalScreen: View {
                 withAnimation { proxy.scrollTo(Self.topAnchor, anchor: .top) }
             }
             .task { await store.loadIfNeeded() }
+        }
+        .overlay(alignment: .bottom) {
+            if shelf == .saved { SavedUndoPill(store: saved, onUndo: onUndoUnsave) }
         }
     }
 

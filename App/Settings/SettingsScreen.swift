@@ -20,6 +20,11 @@ struct SettingsScreen: View {
     /// The data went but the login survived: the session is already over, once the alert is read.
     @State private var endsSessionAfterAlert = false
     @State private var deletedUserID: UUID?
+    /// The photo just picked, drawn in the row while it uploads and after it lands — the row shows
+    /// what the person chose rather than nothing until the next launch.
+    @State private var avatarPreview: UIImage?
+    /// A write that did not happen, said once (``ActionFailure``).
+    @State private var failure: ActionFailure?
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -73,6 +78,7 @@ struct SettingsScreen: View {
                 if endsSessionAfterAlert { onDeleted(deletedUserID) }
             }
         }
+        .ateFailureAlert($failure)
         .task { await model.loadIfNeeded() }
         // Back from the handle page: the row shows what the server now holds.
         .onAppear { Task { await model.reloadIfLoaded() } }
@@ -83,12 +89,36 @@ struct SettingsScreen: View {
     }
 
     /// Photo. The row is drawn with a chevron and no value, so the picker is put *behind* it rather
-    /// than replacing it with a control of its own.
+    /// than replacing it with a control of its own. Once there is a photo — on file, or just picked —
+    /// it sits where the row's value would, as a byline-sized disc, dimmed while it uploads.
     private var photoRow: some View {
         PhotosPicker(selection: $photo, matching: .images, photoLibrary: .shared()) {
-            AteSettingsRow(title: "Photo")
+            AteSettingsRow(title: "Photo") {
+                avatarDisc
+            }
         }
         .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var avatarDisc: some View {
+        Group {
+            if let avatarPreview {
+                Image(uiImage: avatarPreview)
+                    .resizable()
+                    .scaledToFill()
+            } else if let url = model.avatarURL {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    AtePalette.automatic.field
+                }
+            }
+        }
+        .frame(width: AteMetrics.avatar, height: AteMetrics.avatar)
+        .clipShape(.circle)
+        .opacity(model.isUploadingAvatar ? 0.5 : 1)
+        .accessibilityHidden(true)
     }
 
     /// Whatever the library hands over (a 12MP HEIC, usually) is drawn down to an avatar before it
@@ -96,7 +126,10 @@ struct SettingsScreen: View {
     private func upload(_ item: PhotosPickerItem) async {
         defer { photo = nil }
         guard let data = try? await item.loadTransferable(type: Data.self),
-              let image = UIImage(data: data) else { return }
+              let image = UIImage(data: data) else {
+            failure = .avatar
+            return
+        }
         let side = SettingsScreen.avatarPixels
         let scale = min(1, side / max(image.size.width, image.size.height))
         let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
@@ -105,8 +138,19 @@ struct SettingsScreen: View {
         let drawn = UIGraphicsImageRenderer(size: size, format: format).image { _ in
             image.draw(in: CGRect(origin: .zero, size: size))
         }
-        guard let jpeg = drawn.jpegData(compressionQuality: 0.85) else { return }
+        guard let jpeg = drawn.jpegData(compressionQuality: 0.85) else {
+            failure = .avatar
+            return
+        }
+        let previous = avatarPreview
+        avatarPreview = drawn
         await model.setAvatar(AvatarUpload(data: jpeg))
+        if model.didFail {
+            // The row goes back to what the server still has, and the person is told.
+            avatarPreview = previous
+            model.acknowledgeFailure()
+            failure = .avatar
+        }
     }
 
     private static let avatarPixels: CGFloat = 512

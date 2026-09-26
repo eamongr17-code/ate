@@ -17,6 +17,12 @@ public final class DishPageStore: SavedDishObserving {
         case ready(DishSummary)
         /// Deleted, never there, or behind a block.
         case unavailable
+        /// The read never came back — offline, or the server fell over. Not the same as a place
+        /// that is not there: this one is worth another try, and the page offers one.
+        case unreachable
+
+        /// Either way the page has said all it will: its one line, and nothing under it.
+        public var isFailure: Bool { self == .unavailable || self == .unreachable }
     }
 
     public enum Reviews: Sendable, Equatable {
@@ -118,6 +124,22 @@ public final class DishPageStore: SavedDishObserving {
         _ = await (header, list)
     }
 
+    /// "Try again", after a header that never came back. The same reads a pull to refresh makes,
+    /// with the header back to its skeleton while they are in the air.
+    public func retry() async {
+        guard header == .unreachable else { return }
+        analytics(RecoveryEvents.detailRetried(.dish))
+        header = .loading
+        await refresh()
+    }
+
+    /// Only a row the server said is not there is "not here". Everything else — a timeout, a 500,
+    /// no network — is "couldn't reach Ate", and gets a retry.
+    private static func isMissing(_ error: AteAPIError) -> Bool {
+        if case .notFound = error { return true }
+        return false
+    }
+
     private func loadHeaderIfNeeded() async {
         guard hasLoadedHeader == false else { return }
         do {
@@ -130,7 +152,9 @@ public final class DishPageStore: SavedDishObserving {
             return
         } catch {
             hasLoadedHeader = true
-            header = .unavailable
+            let isMissing = (error as? AteAPIError).map(Self.isMissing) == true
+            header = isMissing ? .unavailable : .unreachable
+            if isMissing == false { analytics(RecoveryEvents.detailUnreachable(.dish)) }
         }
     }
 

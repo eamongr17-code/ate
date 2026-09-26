@@ -4,9 +4,10 @@ import Foundation
 ///
 /// Two behaviours, both of which the screen is unusable without:
 ///
-/// 1. **The field can only hold a legal handle.** Every keystroke is sanitised (``HandleName``), so
-///    the artboard's single green check really is the only state the screen needs: there is no
-///    error copy to write, and design rule 1 forbids one anyway.
+/// 1. **The field says what is wrong without a word.** The `@` and capitals are folded away as you
+///    type (``HandleName/normalise(_:)``); anything else illegal stays in the field and marks it
+///    malformed. Checking, taken and malformed each have their own mark, and Continue waits for
+///    the one green check.
 /// 2. **One check per pause, never one per keystroke.** `handle_available` is a round trip; typing
 ///    "eamon" would fire five, and the answers can land out of order — which is how a field ends up
 ///    green on a taken handle. So a burst is debounced to its last value, the previous check is
@@ -40,18 +41,22 @@ public final class HandleModel {
     @ObservationIgnored private let account: any AccountServing
     @ObservationIgnored private let analytics: AnalyticsRecorder
     @ObservationIgnored private let debounce: Duration
+    @ObservationIgnored private let retry: Duration
     @ObservationIgnored private var check: Task<Void, Never>?
 
     /// 350ms: long enough that a word typed at speed is one round trip, short enough that the check
     /// has landed before a thumb reaches Continue.
     public static let defaultDebounce = Duration.milliseconds(350)
+    /// How long a check that did not come back waits before it asks again.
+    public static let defaultRetry = Duration.seconds(2)
 
     public init(
         account: any AccountServing,
         analytics: @escaping AnalyticsRecorder = { _ in },
         current: String? = nil,
         isFirstRun: Bool,
-        debounce: Duration = HandleModel.defaultDebounce
+        debounce: Duration = HandleModel.defaultDebounce,
+        retry: Duration = HandleModel.defaultRetry
     ) {
         self.account = account
         self.analytics = analytics
@@ -62,6 +67,7 @@ public final class HandleModel {
         self.current = isFirstRun && sanitised.map(HandleName.isPlaceholder) == true ? nil : sanitised
         self.isFirstRun = isFirstRun
         self.debounce = debounce
+        self.retry = retry
         if let current = self.current, current.isEmpty == false {
             self.typed = current
             self.status = .available
@@ -77,7 +83,7 @@ public final class HandleModel {
     /// What the field should hold after a keystroke. The view hands over whatever the text field
     /// produced, including the `@` it draws, and gets back what is legal.
     public func type(_ text: String) {
-        typed = HandleName.sanitise(text)
+        typed = HandleName.normalise(text)
     }
 
     /// Continue: writes `profiles.username`. Returns the handle that was written, or nil if the
@@ -142,6 +148,13 @@ public final class HandleModel {
         } catch {
             guard typed == handle else { return }
             status = .unknown
+            // Continue waits for an answer, so the model goes and gets one — the field keeps its
+            // checking mark and asks again until the network comes back or the field moves on.
+            check = Task { [weak self, retry] in
+                try? await Task.sleep(for: retry)
+                guard Task.isCancelled == false, let self, self.typed == handle else { return }
+                await self.ask(handle)
+            }
             return
         }
         // The field moved on while the answer was in the air. A late reply about a handle nobody is

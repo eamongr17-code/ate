@@ -178,3 +178,38 @@ private struct SavedSkeleton: View {
         .accessibilityHidden(true)
     }
 }
+
+/// **Undo**, after an unsave on the shelf — one ink pill, floating above the tab bar for four
+/// seconds and then gone. The app's own pill (``AteButton``), hugging one word: no toast, no
+/// sentence about what happened (design rule 1) — the row leaving is what happened, and this is
+/// the way back.
+struct SavedUndoPill: View {
+    let store: SavedDishesStore
+    let onUndo: () -> Void
+
+    /// How long the way back stays open.
+    private static let lifetime = Duration.seconds(4)
+    /// The pill sits a row's gap above the floating tab bar: its 22 from the bottom, its 66, and 12.
+    private static let bottom: CGFloat = AteMetrics.tabBarBottom + AteMetrics.tabBarHeight + AteMetrics.regular
+    private static let height: CGFloat = AteMetrics.hit
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack {
+            if let dish = store.undoable {
+                AteButton(title: "Undo", height: Self.height, hugPadding: 22, action: onUndo)
+                    .accessibilityLabel("Undo, put back \(dish.dishName)")
+                    .accessibilityIdentifier("saved.undo")
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                    .task(id: dish.dishID) {
+                        try? await Task.sleep(for: Self.lifetime)
+                        guard Task.isCancelled == false else { return }
+                        store.expireUndo(for: dish)
+                    }
+            }
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: store.undoable?.dishID)
+        .ateContentBottom(Self.bottom)
+    }
+}

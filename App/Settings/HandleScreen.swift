@@ -1,12 +1,12 @@
 import AteKit
 import SwiftUI
 
-/// **`Handle`** — "Pick a handle.", one ruled field, the green check, Continue.
+/// **`Handle`** — "Pick a handle.", one ruled field, its mark, Continue.
 ///
 /// The same screen twice: the last step of a first sign-in (no way back — Continue is the only way
-/// on), and the Handle row in Settings (pushed, with a back arrow). The check is the artboard's only
-/// state; everything the field could get wrong is made impossible to type instead (``HandleName``),
-/// so there is no error line to write (design rule 1).
+/// on), and the Handle row in Settings (pushed, with a back arrow). The field says checking, free,
+/// taken or not-a-handle with a mark in the check's slot and never with a line of copy (design
+/// rule 1); Continue stays off until the mark is the green check.
 struct HandleScreen: View {
     @State var model: HandleModel
     /// The handle that was written — or the unchanged one, when Continue had nothing to write.
@@ -54,7 +54,14 @@ struct HandleScreen: View {
         }
         // Continue rides above the keyboard — the artboard draws the page without one.
         .ateGround()
-        .onAppear { isFocused = true }
+        .onAppear {
+            isFocused = true
+            #if DEBUG
+            // `-ate-handle-text <text>` — types into the field, so a drive can photograph the
+            // checking, taken and malformed marks on a simulator that cannot be typed into.
+            if let text = UserDefaults.standard.string(forKey: "ate-handle-text") { model.type(text) }
+            #endif
+        }
     }
 
     /// `gap:10px; padding-bottom:10px; border-bottom:2px solid var(--fg)`.
@@ -90,16 +97,45 @@ struct HandleScreen: View {
         }
     }
 
-    /// The 30pt green disc with an 18pt check — drawn for exactly one state, and holding its space
-    /// in every other so the field does not reflow as the answer comes and goes.
+    /// **The field's one mark**, in the artboard's 30pt slot — which always holds its space, so the
+    /// field never reflows as the answer comes and goes.
+    ///
+    /// The artboard draws one state, the green disc with its check. The other three are built from
+    /// the same disc so the four read as one family and never as copy (design rule 1):
+    /// - **checking** — the system's own small activity indicator, muted;
+    /// - **taken** — a coral disc with the block mark: somebody has it;
+    /// - **malformed** — a field-coloured disc with an ✕: this can't be a handle.
+    @ViewBuilder
     private var check: some View {
-        AteIcon.check.view(size: HandleScreen.checkIcon)
-            .foregroundStyle(AteColor.ink)
+        switch model.status.mark {
+        case .none:
+            Color.clear
+                .frame(width: HandleScreen.checkDisc, height: HandleScreen.checkDisc)
+                .accessibilityHidden(true)
+        case .checking:
+            ProgressView()
+                .controlSize(.small)
+                .tint(palette.muted)
+                .frame(width: HandleScreen.checkDisc, height: HandleScreen.checkDisc)
+                .accessibilityLabel("Checking")
+        case .available:
+            disc(.check, fill: AteColor.green, glyph: AteColor.ink)
+                .accessibilityLabel("Available")
+        case .taken:
+            disc(.block, fill: AteColor.coral, glyph: AteColor.ink)
+                .accessibilityLabel("Taken")
+        case .malformed:
+            disc(.close, fill: palette.field, glyph: palette.fg)
+                .accessibilityLabel("Not a handle")
+        }
+    }
+
+    private func disc(_ icon: AteIcon, fill: Color, glyph: Color) -> some View {
+        icon.view(size: HandleScreen.checkIcon)
+            .foregroundStyle(glyph)
             .frame(width: HandleScreen.checkDisc, height: HandleScreen.checkDisc)
-            .background(AteColor.green, in: .circle)
-            .opacity(model.status.showsCheck ? 1 : 0)
-            .accessibilityHidden(model.status.showsCheck == false)
-            .accessibilityLabel("Available")
+            .background(fill, in: .circle)
+            .accessibilityIdentifier("handle.mark")
     }
 
     private static let top: CGFloat = 120

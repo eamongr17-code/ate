@@ -40,6 +40,8 @@ final class EntryModel: SavedDishObserving {
     private(set) var state: State = .pending
     var isCorrectingPlace = false
     var correcting: Correcting?
+    /// A report, block or correction that did not happen, said once (``ActionFailure``).
+    var failure: ActionFailure?
     var viewingPhoto: ViewingPhoto?
     /// Non-nil presents `Share` — the coral screen the receipt actually leaves from.
     var sharing: Sharing?
@@ -228,6 +230,7 @@ final class EntryModel: SavedDishObserving {
             services.analytics(SocialEvents.entryReported())
             return true
         } catch {
+            failure = .report
             return false
         }
     }
@@ -240,6 +243,7 @@ final class EntryModel: SavedDishObserving {
             services.analytics(SocialEvents.userBlocked())
             return card.authorID
         } catch {
+            failure = .block
             return nil
         }
     }
@@ -261,7 +265,10 @@ final class EntryModel: SavedDishObserving {
         services.analytics(EntryEvents.corrected(.place))
         guard let updated = try? await services.entries.correctPlace(
             entryID: route.entryID, restaurantID: id
-        ) else { return }
+        ) else {
+            failure = .correctPlace
+            return
+        }
         apply(updated)
     }
 
@@ -269,9 +276,11 @@ final class EntryModel: SavedDishObserving {
     func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async {
         correcting = nil
         services.analytics(EntryEvents.corrected(.dish))
-        try? await services.entries.correctDish(
-            reviewID: reviewID, dishID: dishID, dishName: dishName
-        )
+        do {
+            try await services.entries.correctDish(reviewID: reviewID, dishID: dishID, dishName: dishName)
+        } catch {
+            failure = .correctDish
+        }
         await reload()
     }
 }

@@ -93,7 +93,7 @@ extension AteShell {
                 continue
             }
             await you.loadIfNeeded()
-            if ComposerDebugLaunch.opensRatings, let score = you.histogram.busiestScore {
+            if ComposerDebugLaunch.opensRatings, let score = you.histogram.highestScore {
                 path = [.ratings(score: score)]
                 return
             }

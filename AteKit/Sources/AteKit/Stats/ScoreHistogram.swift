@@ -94,6 +94,12 @@ public struct ScoreHistogram: Sendable, Hashable {
         }?.score
     }
 
+    /// The highest score with anything behind it — the first group on `Ratings`, which is where
+    /// "Your ratings ›" opens the page: at its top, with nothing scrolled past.
+    public var highestScore: Double? {
+        buckets.last { $0.dishCount > 0 }?.score
+    }
+
     /// 1…10 for 0.5…5.0. Rounded, because the wire value is a decimal string parsed into a binary
     /// double and 4.5 is only exactly 4.5 by luck.
     public static func halfSteps(_ score: Double) -> Int { Int((score * 2).rounded()) }

@@ -52,9 +52,28 @@ struct HandleNameTests {
         }
     }
 
-    @Test("a check that could not be made does not block Continue")
-    func unknownStillContinues() {
-        #expect(HandleStatus.unknown.allowsContinue)
+    @Test("typing keeps what is illegal, so the field can say so; the @ and capitals fold away")
+    func normaliseKeepsWhatWasTyped() {
+        #expect(HandleName.normalise("@Eamon") == "eamon")
+        #expect(HandleName.normalise("eamon gracias") == "eamon gracias")
+        #expect(HandleName.normalise("e.amon") == "e.amon")
+        #expect(HandleName.normalise(String(repeating: "a", count: 40)).count == 30)
+        #expect(HandleName.isWellFormed(HandleName.normalise("e.amon")) == false)
+    }
+
+    @Test("checking, taken and malformed each carry their own mark")
+    func marksAreDistinct() {
+        #expect(HandleStatus.empty.mark == .none)
+        #expect(HandleStatus.checking.mark == .checking)
+        #expect(HandleStatus.unknown.mark == .checking)
+        #expect(HandleStatus.available.mark == .available)
+        #expect(HandleStatus.taken.mark == .taken)
+        #expect(HandleStatus.malformed.mark == .malformed)
+    }
+
+    @Test("Continue waits for a handle that is well formed and known to be free")
+    func onlyAvailableContinues() {
+        #expect(HandleStatus.unknown.allowsContinue == false)
         #expect(HandleStatus.available.allowsContinue)
         #expect(HandleStatus.taken.allowsContinue == false)
         #expect(HandleStatus.checking.allowsContinue == false)
@@ -133,14 +152,16 @@ struct HandleModelTests {
         #expect(model.status == .taken)
     }
 
-    @Test("illegal input never reaches the server")
+    @Test("illegal input is marked malformed and never reaches the server")
     func neverChecksAMalformedHandle() async throws {
         let account = InMemoryAccountService(taken: [])
         let model = model(account)
-        model.type("!!!")
+        model.type("eamon.gracias")
         try await Task.sleep(for: .milliseconds(80))
-        #expect(model.status == .empty, "nothing legal was typed, so there is nothing to check")
+        #expect(model.status == .malformed)
+        #expect(model.canContinue == false)
         #expect(account.checked.isEmpty)
+        #expect(await model.save() == nil)
     }
 
     @Test("editing from Settings: your own handle is yours, with no round trip")
@@ -157,13 +178,20 @@ struct HandleModelTests {
         #expect(account.checked == ["eamonn"], "the server was asked about a handle we already own")
     }
 
-    @Test("a check that fails leaves Continue alive")
-    func failedCheckIsUnknown() async throws {
+    @Test("a check that fails keeps Continue off and asks again until it has an answer")
+    func failedCheckRetries() async throws {
         let account = InMemoryAccountService(taken: [])
         account.failure = AteAPIError.notAuthenticated
-        let model = model(account)
+        let model = HandleModel(
+            account: account, current: nil, isFirstRun: true,
+            debounce: Self.debounce, retry: Self.debounce
+        )
         model.type("eamon")
         try await settle(model) { model.status == .unknown }
+        #expect(model.canContinue == false)
+        #expect(model.status.mark == .checking)
+        account.failure = nil
+        try await settle(model) { model.status == .available }
         #expect(model.canContinue)
     }
 

@@ -19,6 +19,8 @@ struct ProfileScreen: View {
     var onReported: () -> Void = {}
 
     @State private var isShowingActions = false
+    /// A report or block that did not happen, said once (``ActionFailure``).
+    @State private var failure: ActionFailure?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -39,6 +41,7 @@ struct ProfileScreen: View {
             if case .ready(let summary) = store.header { onViewed(summary.isMe) }
         }
         .sheet(isPresented: $isShowingActions) { actions }
+        .ateFailureAlert($failure)
     }
 
     // MARK: - Bands
@@ -145,12 +148,15 @@ struct ProfileScreen: View {
                 onShare: { ProfileShare.link(for: handle).map { [$0] } ?? [] },
                 onReport: {
                     Task {
-                        if await store.report() { onReported() }
+                        if await store.report() { onReported() } else { failure = .report }
                     }
                 },
                 onBlock: {
                     Task {
-                        guard await store.block() else { return }
+                        guard await store.block() else {
+                            failure = .block
+                            return
+                        }
                         onBlocked()
                     }
                 }
@@ -183,11 +189,11 @@ private struct ProfileHeaderSkeleton: View {
     }
 }
 
-/// Where a shared profile points. A placeholder host until the real one is registered — the link is
-/// the artefact, and it is built in one place so the day the domain lands it changes once.
+/// Where a shared profile points — off the app's one domain constant (``AteLegal/site``), which is
+/// still a placeholder until Eamon registers the real one.
 enum ProfileShare {
     static func link(for handle: String) -> URL? {
-        URL(string: "https://ate.app/@\(handle)")
+        AteLegal.profile(handle: handle)
     }
 }
 

@@ -27,6 +27,15 @@ struct DishScreen: View {
                         .padding(.horizontal, AteMetrics.gutter)
                 case .unavailable:
                     AteEmptyState(title: "This dish\nisn't here.")
+                        .padding(.top, AteMetrics.section)
+                case .unreachable:
+                    // The read never came back — not the same as a dish that is gone, and worth
+                    // another try.
+                    AteEmptyState(title: "Couldn't\nreach Ate.", actionTitle: "Try again") {
+                        Task { await store.retry() }
+                    }
+                    .padding(.top, AteMetrics.section)
+                    .accessibilityIdentifier("dish.unreachable")
                 case .ready(let summary):
                     hero
                     title(summary)

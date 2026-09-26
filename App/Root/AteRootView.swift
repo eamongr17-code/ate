@@ -75,7 +75,7 @@ struct AteShell: View {
     /// The one save, made once and handed down — it holds which dishes are mid-flight.
     @State private var saveAction: SaveAction
     /// Non-nil presents the composer, and carries what it was opened with.
-    @State private var composing: ComposerPresentation?
+    @State var composing: ComposerPresentation?
     /// The one stack every tab pushes onto. Hoisted here so Done in the composer can land on the new
     /// entry, at the journal's root, rather than under whatever was open before.
     @State var path: [Route] = []
@@ -86,7 +86,7 @@ struct AteShell: View {
     @State private var sources: [Route: DetailSource] = [:]
     /// How many recent photos are waiting to be written up — the journal header's badge. Only ever
     /// non-zero when the photo library has already been allowed; nothing here asks.
-    @State private var photoCount = 0
+    @State var photoCount = 0
     /// Bumped when a tab's own item is tapped again — the screen scrolls to the top.
     @State private var scrollToTop = 0
     @State var hasSession: Bool
@@ -301,14 +301,7 @@ struct AteShell: View {
         case .suggestions:
             // `Suggestions.dc.html` keeps the tab bar under it — it is a page of the journal, not a
             // modal. The stack's root bar is covered by the push, so the screen carries its own.
-            overTabBar {
-                SuggestionsScreen(library: services.photos) { cluster in
-                    composing = ComposerPresentation(
-                        origin: .photoSuggestion,
-                        assetIdentifiers: cluster.items.map(\.id)
-                    )
-                }
-            }
+            overTabBar { suggestions }
         }
     }
 
@@ -351,7 +344,8 @@ struct AteShell: View {
                 // to the rest of the app or counted — the store puts its row back on a refusal.
                 onUnsave: { dish in
                     Task { await saveAction.unsaveFromShelf(dish) }
-                }
+                },
+                onUndoUnsave: { Task { await saveAction.undoUnsaveFromShelf() } }
             )
             .task { await countPhotos() }
             #if DEBUG
@@ -440,15 +434,6 @@ struct AteShell: View {
         tab = .journal
         guard path.contains(where: { $0.entryID == card.id }) == false else { return }
         path = [.entry(EntryRoute(entryID: card.id))]
-    }
-
-    /// The header badge. Reads the camera roll only when it has already been allowed — the ask
-    /// belongs to `Suggestions`, and a launch that asks for photos is exactly what the design's
-    /// "nothing is ever assumed" rule is against.
-    private func countPhotos() async {
-        guard services.photos.isAuthorized else { return }
-        photoCount = PhotoSuggestions.cluster(await services.photos.recent())
-            .reduce(0) { $0 + $1.items.count }
     }
 
     private func drainOutbox() async {

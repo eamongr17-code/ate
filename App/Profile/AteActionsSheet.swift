@@ -17,6 +17,11 @@ struct AteActionsSheet: View {
     let blockTitle: String
     /// Absent on a profile.
     var onSavePlace: (() -> Void)?
+    /// Whether every dish of this visit is already saved — the row's state. It is a toggle and
+    /// shows which way it will go: an outline "Save this place", or a filled "Place saved" that
+    /// takes them off again. Before, it read "Save this place" either way, and on a visit whose
+    /// dishes were all saved, that label unsaved every one of them.
+    var isPlaceSaved = false
     /// What to hand the system share sheet directly — a link to a profile. An empty array cancels
     /// quietly. Ignored when ``onShareReceipt`` answers with an artefact.
     var onShare: () -> [Any]
@@ -54,11 +59,16 @@ struct AteActionsSheet: View {
         AteSheet(title: title) {
             VStack(spacing: 0) {
                 if let onSavePlace {
-                    row(icon: .save, title: "Save this place") {
+                    // Flips in place rather than closing the sheet, so the state it went to is seen.
+                    row(
+                        icon: isPlaceSaved ? .saved : .save,
+                        title: isPlaceSaved ? "Place saved" : "Save this place",
+                        identifier: "actions.Save this place"
+                    ) {
                         guard mayWrite(.save) else { return }
                         onSavePlace()
-                        dismiss()
                     }
+                    .accessibilityAddTraits(isPlaceSaved ? [.isButton, .isSelected] : .isButton)
                 }
                 row(icon: .share, title: "Share") {
                     if let artefact = onShareReceipt?() {
@@ -116,7 +126,13 @@ struct AteActionsSheet: View {
     }
 
     /// `min-height:60px; gap:14px`, ruled at the top — the sheet's own row.
-    private func row(icon: AteIcon, title: String, tint: Color? = nil, action: @escaping () -> Void) -> some View {
+    private func row(
+        icon: AteIcon,
+        title: String,
+        tint: Color? = nil,
+        identifier: String? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             VStack(spacing: 0) {
                 AteHairline()
@@ -131,7 +147,7 @@ struct AteActionsSheet: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(tint ?? AtePalette.surface.fg)
-        .accessibilityIdentifier("actions.\(title)")
+        .accessibilityIdentifier(identifier ?? "actions.\(title)")
     }
 }
 
@@ -147,7 +163,7 @@ private struct ActionsPreview: View {
                     title: "@jessw",
                     blockTitle: "Block @jessw",
                     onSavePlace: {},
-                    onShare: { [URL(string: "https://ate.app/@jessw")!] },
+                    onShare: { [AteLegal.site] },
                     onReport: {},
                     onBlock: {}
                 )
