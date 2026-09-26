@@ -1,9 +1,10 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0036` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0040` define it. Forward-only; applied migrations
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
-account deletion **0032**; **every entry public 0033**; signed-out browse **0034**; dietary tags **0036**.
+account deletion **0032**; **every entry public 0033**; signed-out browse **0034**; dietary tags **0036**;
+round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**.
 
 The atom the USER creates is an **entry** = one visit. The atom AGGREGATES are built from is still a
 per-dish **review**, now *linked* to an entry, not replaced by it. A **sorter** turns the words into
@@ -20,7 +21,7 @@ Three design rules are enforced in the database, not just in the app (`docs/DESI
 | Rule | Enforcement |
 |---|---|
 | 7 — a score is only ever the user's, never inferred | `reviews.score` is NULLABLE; `apply_entry_sort` drops any score whose `score_evidence` is not a literal substring of `entries.body` |
-| 8 — a place attaches only when named or tapped | `entries.restaurant_id` nullable + `restaurant_source ∈ (user, sorter)`, CHECKed together; no code path reads location |
+| 8 — a place attaches only when named or tapped | `restaurant_source ∈ (user, sorter)`, CHECKed with `restaurant_id`; no code path reads location. **A new entry must carry one** (0040 INSERT trigger → `23502 place_required`); pre-0040 placeless rows stay legal |
 | 9 — the words are never rewritten | `entries.body` is written once by the client; UPDATE on entries is column-granted to `(body, visibility)` only, and the sorter writes nowhere near it. Dish notes must be substrings of the body |
 | the user's fix outranks the sorter | `reviews.corrected_at` / `entries.place_corrected_at`; `apply_entry_sort` deletes only lines with `corrected_at IS NULL`, so a re-sort (forced or not) cannot overwrite a correction (0024) |
 
@@ -38,7 +39,8 @@ Three design rules are enforced in the database, not just in the app (`docs/DESI
 | `order_number` | int NOT NULL | "Order #0142". Server-allocated per author; UNIQUE `(author_id, order_number)` |
 | `sort_status` | text NOT NULL, default `'pending'` | `pending` \| `sorted` \| `failed` |
 | `sort_mode` / `sort_error` / `sorted_at` | text / text / timestamptz | sorter bookkeeping |
-| `sort_plan` | jsonb NULL | last validated plan. Internal (re-apply source + eval audit); not on the read view |
+| `sort_plan` | jsonb NULL | last validated plan, a jsonb ARRAY (the parked plan). Internal; not on the read view |
+| `sort_meta` | jsonb NULL | 0039: `{cache_hit, model}` — did the sort reuse a preview's model plan. Internal |
 | `created_at` | timestamptz | **client-settable** so an offline entry keeps when they ate |
 | `updated_at` | timestamptz | trigger-maintained |
 | `place_corrected_at` | timestamptz NULL | the author overrode the place (0024); once set, no place mention is recorded again |
@@ -82,6 +84,11 @@ SET NULL), `created_at`. A DISH at its restaurant with provenance ("from @jessw"
 `reason` to `spam | abuse | wrong_place | not_food | other` or **NULL**; the CHECK is `NOT VALID` (new rows
 only — real reports are never rewritten to validate it). The RPCs lower-case + trim; anything else is `23514`.
 
+### `sort_preview_cache` · `sort_preview_rate` (0039)
+Server-internal (RLS on, no policy, service_role only; cascade from `auth.users`). The cache: the model's RAW
+draft plan, PK `(author_id, cache_key)` (total — upserted), 15-min `expires_at`; key = sha256(sha256(body),
+tag_tokens, restaurant_id, model). The rate table: 0013's fixed window, 12 previews / 10 min / author.
+
 ### `profiles` — changed (0018)
 Additive: `entry_seq` int (the order-number counter; never client-writable), `city` text (under the handle on You/Profile). `username` is `citext UNIQUE` — the handle.
 `delete_account()` deletes the auth user; FK cascades take every personal row (verified, else it RAISES — 0035), the catalogue stays. `handle_new_user` always leaves a profile (handle `ate<hex>` when no usable email). `deleted_at` hides a profile from everyone but its owner (0035).
@@ -92,9 +99,8 @@ Additive: `entry_seq` int (the order-number counter; never client-writable), `ci
 `WHERE NOT NULL`, PostGIS `location`; `city` may be a mangled `"<street>, <suburb STATE post>"` on rows
 resolved before 0031's PR — read `place_locality()`, never `city`) · `dishes` (UGC, identity `(restaurant_id, lower(name))` partial unique
 `WHERE merged_into_dish_id IS NULL`, merge tombstones) · storage buckets `review-photos` + `avatars`
-(public-read via the **bucket flag**, own-folder write).
-
-**Dormant in V1:** `comments`, `review_likes`, `comment_likes`, `follows`, `lists`, `list_dishes`, `review_tags`, `notifications`.
+(public-read via the **bucket flag**, own-folder write — any name under `<uid>/`, so round 3's `_t.jpg`
+thumbnails need no policy). **Dormant in V1:** `comments`, `review_likes`, `comment_likes`, `follows`, `lists`, `list_dishes`, `review_tags`, `notifications`.
 
 ## Landmines — do not re-learn
 
@@ -123,15 +129,12 @@ resolved before 0031's PR — read `place_locality()`, never `city`) · `dishes`
 | `entry_cards` | the one entry shape (see `integration-design.md`) | Journal slip / Feed slip / Entry page / Share receipt are all this row; carries the token offsets + `items[].corrected` / `cover_url` / `tags` |
 | `my_saved_dishes` | saved dish + place + dish aggregate + provenance handle | caller-scoped; page on the keyset `(saved_at desc, dish_id desc)`. `cover_url` == the older `dish_cover_url` |
 
-**`cover_url` comes from the photos we actually have (0026).** `dish_cover_url(dish)` /
-`restaurant_cover_url(restaurant)` are the single derivation, live (nothing stored, so nothing stale): the
-newest visible review that HAS a photo, where a photo is `coalesce(reviews.photo_url, the first
-entry_photo of that review's entry)`. `dish_photos(dish)` (0029) is the same ranking as a list, so
-`photos[0].url` == `cover_url`. An entry with photos but no dish lines covers nothing: no review row.
+**`cover_url` comes from the photos we actually have (0026).** `dish_cover_url`/`restaurant_cover_url` derive it
+live: the newest visible review with a photo (`coalesce(reviews.photo_url, its entry's first entry_photo)`).
+`dish_photos(dish)` (0029) is the same ranking as a list (`photos[0].url` == `cover_url`).
 
-All are `security_invoker = true`, so **aggregates are viewer-relative — through blocks only**: every entry
-is public (0033), so the one thing RLS hides is a blocked author (either direction), whose lines count in
-nobody's numbers or covers but their own.
+All are `security_invoker = true`, so **aggregates are viewer-relative — through blocks only** (every entry is
+public, 0033): a blocked author's lines count in nobody's numbers or covers but their own.
 
 **The read RPCs, and what each number COUNTS** (wire shapes + cursors: `integration-design.md`). All are
 SECURITY INVOKER, so every count is viewer-relative and a NULL score is never a zero. Revised in 0029
@@ -154,6 +157,8 @@ except where noted; **entries = visits, reviews = receipt lines, and they are no
 | `search_places` · `search_dishes` · `search_people` (0031) | the Search tab's scopes. Match = `search_key()` (trimmed, **accent-folded**, lower) substring, ≥2 chars; ranked by `match_tier` (0 exact · 1 prefix · 2 word-start · 3 contains), then `review_count` desc (people: handle). A dish needs ≥1 line the viewer can see. Keysets are 4/4/3-part |
 | `search_saved(query, …)` · `nearby_places(lat, lng, …)` (0031) | Saved scope = `my_saved_dishes`' row + `restaurant_locality`, empty query = the whole list, keyset `(saved_at, dish_id)`. Nearby = places we hold + viewer-relative score, PostGIS only, keyset `(distance_m, restaurant_id)` |
 | `my_blocks(…)` (0032) | whom the caller blocked, with handle/name/avatar. DEFINER: `profiles` RLS hides exactly these people |
+| `feed_areas()` (0038) | `place_locality()` of the entries the Feed shows you (own excluded), grouped case-insensitively, busiest first. `get_entry_feed(…, p_area)` filters on the same string |
+| `delete_entry(entry)` (0037) | owner-only, DEFINER. FK cascades take photos rows, lines (+ tags, likes, comments, notifications), reports; saves keep the dish (`source_entry_id` → NULL); catalogue stays. Returns the files to purge |
 
 ## RLS
 
@@ -162,7 +167,7 @@ nine RPCs that dispatch on `current_user = 'anon'` to DEFINER twins in the unexp
 
 | Table | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
-| `entries` | own, or not blocked (0033) | self | self (cols `body, visibility` only) | self |
+| `entries` | own, or not blocked (0033) | self, `restaurant_id` required (0040) | self (cols `body, visibility` only) | self (or `delete_entry`) |
 | `entry_photos` | parent entry visible | parent entry is own | own | own |
 | `reviews` | own, or not blocked (0033) | author | author | author |
 | `profiles` | self, or (not deactivated AND not blocked) | self | self (cols `username, name, avatar_url, bio, city`) | — (`delete_account()` RPC) |
@@ -188,13 +193,10 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 |---|---|---|
 | 0001–0017 | — | Wave 0 core, RLS, views, storage, Places, manual restaurants, search blend |
 | 0018 | `entries.sql` | entries + entry_photos; reviews.entry_id/entry_position/score_evidence; score nullable; profiles.entry_seq/city; order-number trigger; RLS + column grants |
-| 0019–0020 | `moderation.sql` · `saves.sql` | blocks + reports; `blocked_with`; block-aware SELECT policies; `handle_available`; block/report RPCs · saves + `my_saved_dishes` + save/unsave RPCs |
-| 0021 | `sort_write_path.sql` | `find_or_create_dish`, `apply_entry_sort`, `mark_entry_sort_failed`, `correct_entry_place`, `correct_entry_dish` |
+| 0019–0021 | `moderation` · `saves` · `sort_write_path` | blocks + reports, `blocked_with`, block-aware SELECT · saves + `my_saved_dishes` · `find_or_create_dish`, `apply_entry_sort`, `mark_entry_sort_failed`, `correct_entry_place`/`_dish` |
 | 0022–0025 | `entry_reads` · `stats_search` · `corrections_and_offsets` · `entry_cards_offsets` | `entry_cards` + readers; `profile_summary`, histogram, statements, `search_all` · correction provenance + preservation rule; `verified_offset`; token offsets + `corrected` |
-| 0026–0028 | `entry_photo_covers` · `unsave_entry_dishes` · `report_reason` | covers see `entry_photos`; `cover_url` on saved + receipt lines; `unsave_entry_dishes`; `reports_reason_ck` (NOT VALID) |
-| 0029 | `detail_you_reads.sql` | the Place/Dish/You/Ratings/Recap audit: `place_locality`, `dish_photos`; `place_summary` + `locality`/`entry_count`; `dish_summary` + `photos`/`restaurant_locality`; `dishes_by_score` + `cover_url` + cursor; cursors on `place_dishes`/`statement_months`; `profile_summary` counts lines by `reviewer_id`; `monthly_statement` + `username`, no x1 "most ordered" |
-| 0030–0032 | `place_dishes_order` · `search_scopes` · `apple_auth_account_blocks` | ported `DishRanking` order for "what to order" (`p_cursor_people` → `p_cursor_review_count`) · Search scopes, `search_key`, `nearby_places` · Apple-safe `handle_new_user`, `delete_account()`, `my_blocks()` |
-| 0033 | `entries_always_public.sql` | **flips every private entry public (prod data)**, undo list in `entries_private_before_0033`; trigger pins `public`; `entries`/`reviews` SELECT = own or not blocked; feed drops its filter; total feed index |
-| 0034 | `signed_out_browse.sql` | anon EXECUTE on the 9 browse reads (feed, place ×3, dish ×3, profile ×2); plpgsql dispatch → `browse.*` DEFINER; no table grant |
-| 0035 | `account_integrity.sql` | `delete_account` atomic + verified (raises, never a false ok); `handle_new_user` always leaves a profile; deactivated profiles hidden; `deactivate_account` retired; profiles UPDATE column-granted; `entry_cards.place.locality` |
+| 0026–0029 | `entry_photo_covers` · `unsave_entry_dishes` · `report_reason` · `detail_you_reads` | covers see `entry_photos` · `unsave_entry_dishes` · `reports_reason_ck` (NOT VALID) · the Place/Dish/You audit: `place_locality`, `dish_photos`, cursors, `profile_summary` by `reviewer_id` |
+| 0030–0033 | `place_dishes_order` · `search_scopes` · `apple_auth_account_blocks` · `entries_always_public` | `DishRanking` order · Search scopes, `nearby_places` · Apple-safe sign-up, `delete_account()`, `my_blocks()` · **every entry public (prod data flip; undo list `entries_private_before_0033`)** |
+| 0034–0035 | `signed_out_browse` · `account_integrity` | anon EXECUTE on the browse reads via plpgsql dispatch → `browse.*` DEFINER, no table grant · `delete_account` atomic + verified; always a profile; deactivated hidden; `entry_cards.place.locality` |
 | 0036 | `dish_tags.sql` | `reviews.tags` + closed-set CHECK + canonicalising trigger; `apply_entry_sort` takes/keeps tags; `correct_entry_place` prints parked tags; `items[].tags`; `dish_summary.tags` (drop+create, browse twin too) |
+| 0037–0040 | `delete_entry` · `feed_areas` · `sort_preview_cache` · `place_required` | `delete_entry()` · `feed_areas()` + `get_entry_feed(p_area)` (drop+create, browse twin too) · preview cache + rate tables, `entries.sort_meta`, `apply_entry_sort(p_meta)` (drop+create) · INSERT-only place trigger |

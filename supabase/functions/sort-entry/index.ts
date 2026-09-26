@@ -13,6 +13,14 @@
 //     (`model` is the model ID that produced the plan, null when the stub did)
 //     401 unauthorized · 403 not your entry · 404 unknown entry · 422 bad request
 //
+//   EARLY SORT (round 3, 0039): { preview: true, body, tag_tokens?, restaurant_id? }
+//   → 200 { ok, preview: true, cached, mode, model, entry_id: null, restaurant_id, place_query,
+//           place_offset, items[] } · 422 bad draft · 429 rate limited (12 per 10 min per author)
+//   Runs on a DRAFT and writes nothing to entries or reviews. In model mode the model's raw plan
+//   is cached 15 min under (author, sha256(body), tag_tokens, restaurant_id, model); the real
+//   sort after Done reuses it on a key match — no second model call — and records
+//   entries.sort_meta = { cache_hit, model } in the same transaction (./preview.ts).
+//
 // `force` IS NOT A LICENCE TO DESTROY. A line the user corrected survives any re-sort:
 // apply_entry_sort (0024) keeps corrected rows, dish and score intact, and only re-parses
 // the lines the sorter still owns. Forcing is therefore safe by construction rather than
@@ -54,7 +62,18 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { fencedPlaceNames, mentionForPlaceName, parseEntry, placeCandidateSpans } from './parse.ts';
 import { validatePlan } from './validate.ts';
 import { resolveMode, resolveModel, sortWithModel } from './model.ts';
-import { attachTagTokens, parseTagTokens, tagTokenSpans, tagTokenWords } from './tags.ts';
+import { attachTagTokens, parseTagTokens, tagTokenSpans, tagTokenWords, type TagToken } from './tags.ts';
+import {
+  coerceCachedPlan,
+  modelPlanWithCache,
+  PREVIEW_RATE_LIMIT,
+  PREVIEW_RATE_WINDOW_SECONDS,
+  PREVIEW_TTL_SECONDS,
+  parsePreviewRequest,
+  previewCacheKey,
+  sortMeta,
+  type PreviewCache,
+} from './preview.ts';
 import type { PlaceCandidate, SorterMode, SortPlan } from './types.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -188,6 +207,162 @@ async function placeNameOf(
   return (data as { name?: string } | null)?.name ?? null;
 }
 
+/** The 0039 table behind the preview cache. Errors throw; modelPlanWithCache treats them as a miss. */
+function previewCache(admin: ReturnType<typeof adminClient>): PreviewCache {
+  return {
+    async get(authorId, key) {
+      const { data, error } = await admin
+        .from('sort_preview_cache')
+        .select('plan')
+        .eq('author_id', authorId)
+        .eq('cache_key', key)
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle();
+      if (error) throw new Error(`preview cache read: ${error.message}`);
+      return coerceCachedPlan((data as { plan?: unknown } | null)?.plan);
+    },
+    async put(authorId, key, plan, model) {
+      const now = Date.now();
+      const { error } = await admin.from('sort_preview_cache').upsert(
+        {
+          author_id: authorId,
+          cache_key: key,
+          plan,
+          model,
+          created_at: new Date(now).toISOString(),
+          expires_at: new Date(now + PREVIEW_TTL_SECONDS * 1000).toISOString(),
+        },
+        // (author_id, cache_key) is the table's PRIMARY KEY — a total unique, a legal arbiter.
+        { onConflict: 'author_id,cache_key' },
+      );
+      if (error) throw new Error(`preview cache write: ${error.message}`);
+    },
+  };
+}
+
+/** The spend guard. Fails CLOSED: a preview is optional, the real sort after Done is not. */
+async function admitPreview(admin: ReturnType<typeof adminClient>, authorId: string): Promise<boolean> {
+  const { data, error } = await admin.rpc('sort_preview_rate_hit', {
+    p_author_id: authorId,
+    p_window_seconds: PREVIEW_RATE_WINDOW_SECONDS,
+    p_limit: PREVIEW_RATE_LIMIT,
+  });
+  if (error) {
+    console.error('sort-entry: preview rate check failed:', error.message);
+    return false;
+  }
+  return data === true;
+}
+
+type Planned =
+  | { limited: true }
+  | {
+    limited: false;
+    usedMode: SorterMode;
+    cacheHit: boolean;
+    restaurantId: string | null;
+    mention: PlaceCandidate | null;
+    validated: SortPlan;
+  };
+
+/**
+ * Words (+ marked tag tokens + an optional pinned place) → the validated plan. The one pipeline
+ * for a sort, a dry run and a preview; only the preview stores into the cache and pays the rate
+ * limit, and only the real sort writes.
+ */
+async function planFor(
+  admin: ReturnType<typeof adminClient>,
+  opts: {
+    authorId: string;
+    body: string;
+    tagTokens: TagToken[];
+    /** A place the USER chose (composer tap / preview's restaurant_id). Never overwritten. */
+    pinnedRestaurantId: string | null;
+    preview: boolean;
+  },
+): Promise<Planned> {
+  const { body, tagTokens } = opts;
+
+  // ---- 1. the place, from the words only (unless the user pinned one) ----
+  const candidates = placeCandidateSpans(body);
+  const userPinned = Boolean(opts.pinnedRestaurantId);
+  const matched = userPinned ? null : await resolvePlace(admin, candidates);
+  const restaurantId = userPinned ? opts.pinnedRestaurantId : matched?.restaurant_id ?? null;
+
+  // ---- 2. the dishes, and WHERE the place is named -----------------------
+  const [known, pinnedName] = await Promise.all([
+    knownDishesAt(admin, restaurantId),
+    userPinned ? placeNameOf(admin, restaurantId) : Promise.resolve(null),
+  ]);
+  // The client draws its place token off this offset. When the sorter matched the
+  // place, it is the phrase that matched; when the USER pinned it (composer tap), it
+  // is the candidate phrase that says that restaurant's name — and nothing at all if
+  // the words never named it.
+  const mention: PlaceCandidate | null = userPinned
+    ? mentionForPlaceName(candidates, pinnedName)
+    : matched
+    ? { phrase: matched.query, offset: matched.offset }
+    : null;
+
+  let plan: SortPlan | null = null;
+  let usedMode: SorterMode = MODE;
+  let cacheHit = false;
+  if (MODE === 'model') {
+    // Early sort (0039): the preview stores the model's raw plan; the real sort reuses it when the
+    // words, the marked tokens, the place and the model are all the same. No second call.
+    const key = await previewCacheKey({ body, tagTokens, restaurantId, model: MODEL_ID });
+    const got = await modelPlanWithCache({
+      cache: previewCache(admin),
+      authorId: opts.authorId,
+      key,
+      model: MODEL_ID,
+      store: opts.preview,
+      admit: opts.preview ? () => admitPreview(admin, opts.authorId) : undefined,
+      run: () =>
+        sortWithModel({
+          apiKey: ANTHROPIC_KEY,
+          model: MODEL_ID,
+          body,
+          knownDishes: known,
+          placeCandidates: candidates.map((c) => c.phrase),
+          tagWords: tagTokenWords(body, tagTokens),
+        }),
+    });
+    if (got.limited) return { limited: true };
+    plan = got.plan;
+    cacheHit = got.cacheHit;
+    if (!plan) usedMode = 'stub'; // degrade, never fail
+  } else if (opts.preview && !(await admitPreview(admin, opts.authorId))) {
+    return { limited: true };
+  }
+  // The PLACE'S OWN NAME is not a dish and not the front half of one. Without this the
+  // walk in front of a score eats the tail of the venue: "Baby Pizza San Danielle Pizza
+  // 3.5" produced a dish called "Pizza San Danielle Pizza" (staging, 2026-09-24).
+  //
+  // fencedPlaceNames decides what may be fenced. It is handed everything this scope knows
+  // — including the candidate phrase and the mention — and keeps only the ROW NAMES: the
+  // matched candidate here is "Baby Pizza San Danielle", and fencing that run took the
+  // dish down to `Pizza` on the live re-sort.
+  const placeNames = fencedPlaceNames({
+    pinnedName,
+    matchedName: matched?.name ?? null,
+    candidatePhrase: matched?.query ?? null,
+    mentionPhrase: mention?.phrase ?? null,
+  });
+  // A marked tag word is never a dish, nor the front half of one ("GF Salad 3.5").
+  const excludeSpans = tagTokenSpans(body, tagTokens);
+  if (!plan) plan = parseEntry({ body, knownDishes: known, placeNames, excludeSpans });
+
+  // ---- 3. the same gate for every mode, cached or not --------------------
+  // validatePlan rebuilds every item WITHOUT tags; the client's marked tokens are the only
+  // source of a tag, in every mode. attachTagTokens also cuts tag words out of any dish name
+  // (the model does not honour excludeSpans) and places each tag by span, never by name.
+  const gated = validatePlan(plan, { body, knownDishes: known });
+  const validated: SortPlan = { ...gated, items: attachTagTokens(gated.items, body, tagTokens, known) };
+
+  return { limited: false, usedMode, cacheHit, restaurantId, mention, validated };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
@@ -201,10 +376,46 @@ Deno.serve(async (req) => {
   const entryId = String((body as { entry_id?: unknown }).entry_id ?? '');
   const force = Boolean((body as { force?: unknown }).force);
   const dryRun = Boolean((body as { dry_run?: unknown }).dry_run);
+  const preview = (body as { preview?: unknown }).preview === true;
   const tagTokens = parseTagTokens((body as { tag_tokens?: unknown }).tag_tokens);
-  if (!entryId) return json({ error: 'entry_id required' }, 422);
 
   const admin = adminClient();
+
+  // ---- EARLY SORT: a draft, not an entry. Reads only; writes nothing but the cache. ----
+  if (preview) {
+    const draft = parsePreviewRequest(body);
+    if ('error' in draft) return json({ error: draft.error }, 422);
+    try {
+      const planned = await planFor(admin, {
+        authorId: userId,
+        body: draft.body,
+        tagTokens,
+        pinnedRestaurantId: draft.restaurantId,
+        preview: true,
+      });
+      if (planned.limited) {
+        return json({ error: 'rate limited', retry_after: PREVIEW_RATE_WINDOW_SECONDS }, 429);
+      }
+      return json({
+        ok: true,
+        preview: true,
+        cached: planned.cacheHit,
+        mode: planned.usedMode,
+        model: modelFor(planned.usedMode),
+        entry_id: null,
+        restaurant_id: planned.restaurantId,
+        place_query: planned.mention?.phrase ?? planned.validated.place_query,
+        place_offset: planned.mention?.offset ?? planned.validated.place_offset,
+        items: planned.validated.items,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('sort-entry: preview failed:', message);
+      return json({ error: 'preview failed' }, 500);
+    }
+  }
+
+  if (!entryId) return json({ error: 'entry_id required' }, 422);
 
   try {
     const { data: entry, error: loadError } = await admin
@@ -225,64 +436,16 @@ Deno.serve(async (req) => {
       return json({ ok: true, skipped: 'already sorted', mode: MODE, entry_id: row.id, sort_status: row.sort_status });
     }
 
-    // ---- 1. the place, from the words only ---------------------------------
-    const candidates = placeCandidateSpans(row.body);
-    const userPinned = row.restaurant_source === 'user' && row.restaurant_id;
-    const matched = userPinned ? null : await resolvePlace(admin, candidates);
-    const restaurantId = userPinned ? row.restaurant_id : matched?.restaurant_id ?? null;
-
-    // ---- 2. the dishes, and WHERE the place is named -----------------------
-    const [known, pinnedName] = await Promise.all([
-      knownDishesAt(admin, restaurantId),
-      userPinned ? placeNameOf(admin, restaurantId) : Promise.resolve(null),
-    ]);
-    // The client draws its place token off this offset. When the sorter matched the
-    // place, it is the phrase that matched; when the USER pinned it (composer tap), it
-    // is the candidate phrase that says that restaurant's name — and nothing at all if
-    // the words never named it.
-    const mention: PlaceCandidate | null = userPinned
-      ? mentionForPlaceName(candidates, pinnedName)
-      : matched
-      ? { phrase: matched.query, offset: matched.offset }
-      : null;
-
-    let plan: SortPlan | null = null;
-    let usedMode: SorterMode = MODE;
-    if (MODE === 'model') {
-      plan = await sortWithModel({
-        apiKey: ANTHROPIC_KEY,
-        model: MODEL_ID,
-        body: row.body,
-        knownDishes: known,
-        placeCandidates: candidates.map((c) => c.phrase),
-        tagWords: tagTokenWords(row.body, tagTokens),
-      });
-      if (!plan) usedMode = 'stub'; // degrade, never fail
-    }
-    // The PLACE'S OWN NAME is not a dish and not the front half of one. Without this the
-    // walk in front of a score eats the tail of the venue: "Baby Pizza San Danielle Pizza
-    // 3.5" produced a dish called "Pizza San Danielle Pizza" (staging, 2026-09-24).
-    //
-    // fencedPlaceNames decides what may be fenced. It is handed everything this scope knows
-    // — including the candidate phrase and the mention — and keeps only the ROW NAMES: the
-    // matched candidate here is "Baby Pizza San Danielle", and fencing that run took the
-    // dish down to `Pizza` on the live re-sort.
-    const placeNames = fencedPlaceNames({
-      pinnedName,
-      matchedName: matched?.name ?? null,
-      candidatePhrase: matched?.query ?? null,
-      mentionPhrase: mention?.phrase ?? null,
+    const userPinned = row.restaurant_source === 'user' && row.restaurant_id ? row.restaurant_id : null;
+    const planned = await planFor(admin, {
+      authorId: row.author_id,
+      body: row.body,
+      tagTokens,
+      pinnedRestaurantId: userPinned,
+      preview: false,
     });
-    // A marked tag word is never a dish, nor the front half of one ("GF Salad 3.5").
-    const excludeSpans = tagTokenSpans(row.body, tagTokens);
-    if (!plan) plan = parseEntry({ body: row.body, knownDishes: known, placeNames, excludeSpans });
-
-    // ---- 3. the same gate for every mode ----------------------------------
-    // validatePlan rebuilds every item WITHOUT tags; the client's marked tokens are the only
-    // source of a tag, in every mode. attachTagTokens also cuts tag words out of any dish name
-    // (the model does not honour excludeSpans) and places each tag by span, never by name.
-    const gated = validatePlan(plan, { body: row.body, knownDishes: known });
-    const validated: SortPlan = { ...gated, items: attachTagTokens(gated.items, row.body, tagTokens, known) };
+    if (planned.limited) throw new Error('unreachable: the real sort is never rate-limited');
+    const { usedMode, cacheHit, restaurantId, mention, validated } = planned;
 
     if (dryRun) {
       return json({
@@ -299,7 +462,7 @@ Deno.serve(async (req) => {
     }
 
     // ---- 4. one transactional write ---------------------------------------
-    const { data: written, error: applyError } = await admin.rpc('apply_entry_sort', {
+    const args = {
       p_entry_id: row.id,
       p_restaurant_id: restaurantId,
       p_items: validated.items,
@@ -308,7 +471,16 @@ Deno.serve(async (req) => {
       // verifies the offset against the body before it stores it.
       p_place_query: mention?.phrase ?? null,
       p_place_offset: mention?.offset ?? null,
+    };
+    // 0039: sort bookkeeping (was the model's plan reused from a preview?), same transaction.
+    let { data: written, error: applyError } = await admin.rpc('apply_entry_sort', {
+      ...args,
+      p_meta: sortMeta(usedMode === 'model', cacheHit, MODEL_ID),
     });
+    if (applyError && /p_meta|PGRST202|could not find the function/i.test(`${applyError.code ?? ''} ${applyError.message}`)) {
+      // deployed ahead of migration 0039: write without the bookkeeping rather than fail the sort
+      ({ data: written, error: applyError } = await admin.rpc('apply_entry_sort', args));
+    }
 
     if (applyError) {
       console.error('sort-entry: apply_entry_sort failed:', applyError.message);
