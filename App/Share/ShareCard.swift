@@ -17,6 +17,8 @@ struct ShareCard: View {
     /// lines for the rest (`SummaryLoading`). Never set on an export — only a printed receipt leaves.
     var isPrinting = false
     var breathes = true
+    /// The Summary's placeless receipt: the Place key sits where the place prints.
+    var onAddPlace: (() -> Void)?
 
     /// `margin:30px 52px 0` — the card's side inset on the 390pt page.
     static let inset: CGFloat = 52
@@ -42,7 +44,7 @@ struct ShareCard: View {
     private var receipt: some View {
         switch artefact {
         case .entry(let receipt, _):
-            ReceiptView(receipt: receipt, isPrinting: isPrinting, breathes: breathes)
+            ReceiptView(receipt: receipt, isPrinting: isPrinting, breathes: breathes, onAddPlace: onAddPlace)
         case .statement(let statement, let handle):
             StatementReceiptView(statement: statement, handle: handle)
         }

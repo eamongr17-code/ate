@@ -113,6 +113,33 @@ public struct SortEntryRequest: Encodable, Sendable {
 }
 
 public extension EntryComposition {
+    /// **The words a token is about** — up to three words before it, as the score slider's title.
+    ///
+    /// Read from the end of the last *score* before it, so an earlier pill's digits are never read
+    /// as a name ("The ragù 0.5 0.5" once titled a panel "5 0 5"). Tag chips are skipped over, not
+    /// stopped at: "Tiramisu v ★" is about the tiramisu, and a chip's letters are not part of its
+    /// name. A stand-in for the sorter, which is what really names the dish, so it is never written
+    /// anywhere; `nil` when there are no words to use.
+    func dishWords(beforeTokenID tokenID: UUID) -> String? {
+        guard let target = spans.first(where: { $0.token.id == tokenID }) else { return nil }
+        let units = Array(plain.utf16)
+        let start = spans
+            .last { $0.span.endLocation <= target.span.location && $0.token.tag == nil }?
+            .span.endLocation ?? 0
+        let end = min(target.span.location, units.count)
+        guard start < end else { return nil }
+        // The window, with every tag chip inside it blanked out.
+        var window = Array(units[start..<end])
+        for tag in spans where tag.token.tag != nil && tag.span.location >= start && tag.span.endLocation <= end {
+            for index in (tag.span.location - start)..<(tag.span.endLocation - start) { window[index] = 32 }
+        }
+        let words = String(decoding: window, as: UTF16.self)
+            .split(whereSeparator: { $0.isWhitespace || $0 == "," || $0 == "." })
+            .suffix(3)
+            .joined(separator: " ")
+        return words.isEmpty ? nil : words
+    }
+
     /// Every tag chip in these words, located in Unicode scalars for the sort request. The two units
     /// part company at anything outside the Basic Multilingual Plane — an emoji earlier in the words
     /// is two UTF-16 units and one scalar — so the conversion is done, never assumed.

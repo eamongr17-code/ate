@@ -170,7 +170,7 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
             guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return }
             entries[index] = entries[index].replacing(
                 restaurantID: restaurantID,
-                place: EntryCard.Place(id: restaurantID, name: entries[index].place?.name ?? "This place")
+                place: Self.place(id: restaurantID)
             )
         }
         // A place correction re-resolves every line — or prints the parked plan, if the entry had

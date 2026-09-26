@@ -35,6 +35,8 @@ struct ComposerScreen: View {
     @State private var isSaving = false
     /// Set once a new entry's words are accepted: the Summary takes the cover.
     @State private var summary: EntryCard?
+    /// …and the chips it was sorted with, so "Print it again" re-sorts with the same ones.
+    @State private var summaryTagTokens: [TagToken] = []
     /// The editor's width, for measuring where the words end.
     @State private var editorWidth: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -85,7 +87,8 @@ struct ComposerScreen: View {
                     card: summary,
                     photos: model.photos.map(\.photo),
                     handle: summary.author?.username ?? "",
-                    fetch: { [entries = services.entries] id in try await entries.entry(id: id) },
+                    actions: .live(services.entries, tagTokens: summaryTagTokens),
+                    places: services.places,
                     analytics: services.analytics,
                     onDone: { dismiss() }
                 )
@@ -354,6 +357,7 @@ struct ComposerScreen: View {
             onSaved(card)
             if case .saved = result {
                 // The Summary takes the cover; the entry page is already beneath it.
+                summaryTagTokens = request.tagTokens
                 summary = card
             } else {
                 // Queued offline: there is no order number to print yet (the server allocates
@@ -379,18 +383,27 @@ struct ComposerScreen: View {
     /// still picks up an entry that never got sorted, which is the honest half of the job. Re-sorting
     /// an edit *without* losing corrections needs the server to merge rather than rebuild; backend
     /// has it.
+    ///
+    /// Everything the keys set is kept (``EntryEdit``): a place picked on the Place key is attached
+    /// with `correct_entry_place`, and tag chips typed during the edit go to a forced re-sort as
+    /// `tag_tokens` — the one case where forcing is the point.
     private func rewrite(_ editing: ComposerPresentation.EditingEntry) {
-        let body = model.composition.plain
+        let edit = EntryEdit(
+            entryID: editing.id,
+            body: model.composition.plain,
+            originalRestaurantID: editing.restaurantID,
+            restaurantID: model.place?.id,
+            tagTokens: model.composition.tagTokens
+        )
         let entries = services.entries
-        let id = editing.id
+        let analytics = services.analytics
         Task {
-            try? await entries.updateBody(entryID: id, body: body)
+            if edit.changesPlace { analytics(EntryEvents.corrected(.place)) }
+            let card = (try? await edit.saveWordsAndPlace(to: entries)).flatMap { $0 }
             isSaving = false
-            if let card = try? await entries.entry(id: id) { onSaved(card) }
+            if let card { onSaved(card) }
             dismiss()
-            Task.detached {
-                _ = try? await entries.sort(entryID: id, force: false)
-            }
+            Task.detached { await edit.sort(on: entries) }
         }
     }
 

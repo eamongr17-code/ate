@@ -105,6 +105,9 @@ struct ReceiptView: View {
     /// …and whether the skeleton breathes. It stops once the wait is over (the sort failed or ran
     /// long) — a bar that pulses forever is a spinner by another name.
     var breathes = true
+    /// A receipt that cannot print without a place (the Summary, when the plan is parked): the
+    /// place slot is the composer's own Place key, and tapping it attaches one. No words beside it.
+    var onAddPlace: (() -> Void)?
     /// How far the place sits from the paper's top edge. 22 on a share card; `Entry` sets 32,
     /// because the words card covers the first sixteen of it.
     var topPadding: CGFloat = 22
@@ -124,6 +127,17 @@ struct ReceiptView: View {
             // (design rule 8).
             if receipt.place.isEmpty == false {
                 header
+            } else if let onAddPlace {
+                ComposerKey(
+                    title: "Place",
+                    icon: .place,
+                    iconSize: 16,
+                    background: AtePalette.slip.field,
+                    foreground: AtePalette.slip.fg,
+                    identifier: "summary.place",
+                    action: onAddPlace
+                )
+                .frame(maxWidth: .infinity)
             }
             AteDashedRule()
             if isPrinting {

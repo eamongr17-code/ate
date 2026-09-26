@@ -51,12 +51,29 @@ extension AteShell {
         let entries = services.entries
         // Printing: the lines have not arrived, and a watch that never sees them arrive holds the
         // skeleton on screen long enough to be photographed.
-        let shown = summary.isPrinting ? summary.card.replacing(sortStatus: .pending, items: []) : summary.card
+        var start = summary.isPrinting ? summary.card.replacing(sortStatus: .pending, items: []) : summary.card
+        if ComposerDebugLaunch.summaryHasNoPlace {
+            // Written with no place: sorted, plan parked, nothing to print until one is attached.
+            let card = summary.card
+            start = EntryCard(
+                id: card.id, authorID: card.authorID, body: card.body, orderNumber: card.orderNumber,
+                sortStatus: .sorted, sortedAt: card.sortedAt, createdAt: card.createdAt,
+                author: card.author, photos: card.photos
+            )
+        }
+        let shown = start
         return SummaryScreen(
             card: shown,
             photos: summary.card.photos.map { AtePhoto(url: URL(string: $0.url)) },
             handle: summary.card.author?.username ?? "",
-            fetch: { id in summary.isPrinting ? shown : try await entries.entry(id: id) },
+            actions: summary.isPrinting
+                ? EntrySummaryStore.Actions(
+                    fetch: { _ in shown },
+                    correctPlace: { _, _ in shown },
+                    resort: { _ in }
+                )
+                : .live(entries, tagTokens: []),
+            places: services.places,
             analytics: services.analytics,
             onDone: { debugSummary = nil }
         )

@@ -329,19 +329,10 @@ final class ComposerModel: DictationTarget {
     /// The words just before a token, as the name of what is being scored. A stand-in for the
     /// sorter, which is what will actually name the dish — so it is never written anywhere.
     private func dishName(before tokenID: UUID) -> String {
-        guard let span = composition.spans.first(where: { $0.token.id == tokenID }) else { return "This dish" }
-        let units = Array(composition.plain.utf16)
-        // From the end of the token before it, so an earlier pill's digits are never read as a name
-        // ("The ragù 0.5 0.5" titled the third panel "5 0 5").
-        let start = composition.spans.last { $0.span.endLocation <= span.span.location }?.span.endLocation ?? 0
-        let end = min(span.span.location, units.count)
-        let prefix = String(decoding: units[min(start, end)..<end], as: UTF16.self)
-        let words = prefix
-            .split(whereSeparator: { $0.isWhitespace || $0 == "," || $0 == "." })
-            .suffix(3)
-            .joined(separator: " ")
-        // Set as a dish's name (`RaterSize` prints "Tagliatelle al ragù"): the first letter up,
-        // the rest exactly as written.
-        return words.isEmpty ? "This dish" : words.prefix(1).uppercased() + words.dropFirst()
+        // ``EntryComposition/dishWords(beforeTokenID:)`` skips a tag chip in front of the pill.
+        // Set as a dish's name (`RaterSize` prints "Tagliatelle al ragù"): the first letter up, the
+        // rest exactly as written.
+        guard let words = composition.dishWords(beforeTokenID: tokenID) else { return "This dish" }
+        return words.prefix(1).uppercased() + words.dropFirst()
     }
 }

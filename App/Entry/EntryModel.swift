@@ -297,6 +297,12 @@ enum EntryPresentation {
         case .failed:
             return .failed
         case .sorted:
+            // **An empty receipt is never printed or shared.** A placeless entry sorts to no lines —
+            // its plan is parked until a place is attached, which the place line does — so it is
+            // still waiting, not printed. A place with nothing on it is the sorter finding no dish
+            // it could stand behind: the retry is the honest answer.
+            guard card.place != nil else { return .pending }
+            guard card.items.isEmpty == false else { return .failed }
             return .printed(receipt(for: card, handle: handle))
         }
     }

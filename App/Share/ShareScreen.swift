@@ -27,9 +27,9 @@ struct ShareScreen: View {
             photos: photos,
             isPrinting: false,
             breathes: false,
-            didFail: sender.didFail,
+            primary: .share(isEnabled: true, didFail: sender.didFail),
             onDone: { dismiss() },
-            onShare: send
+            onPrimary: send
         )
         .task {
             photos = await SharePhotos.resolve(artefact.photoURLs)
@@ -73,18 +73,29 @@ struct ShareScreen: View {
 /// is still printing, settling down to 180 as the lines arrive — the print's own motion), and the
 /// two pills pinned `bottom:40px`, `left/right:20px`, `gap:10px`.
 struct ShareStage: View {
+    /// The ink pill: Share (with its icon, off while there is nothing to send), or — when a print
+    /// could not finish — "Print it again", in the words the entry page already uses.
+    enum Primary: Equatable {
+        case share(isEnabled: Bool, didFail: Bool)
+        case reprint(isEnabled: Bool)
+    }
+
     let artefact: ShareArtefact
     var photos: [AtePhoto]
     var isPrinting: Bool
     var breathes: Bool
-    /// The last render produced nothing: the Share pill says what to do next, and nothing else does.
-    var didFail = false
+    var primary: Primary
+    /// The receipt has no place and cannot print without one: its place slot is the Place key.
+    var onAddPlace: (() -> Void)?
     let onDone: () -> Void
-    let onShare: () -> Void
+    let onPrimary: () -> Void
 
     var body: some View {
         ZStack(alignment: .top) {
-            ShareCard(artefact: artefact, photos: photos, isPrinting: isPrinting, breathes: breathes)
+            ShareCard(
+                artefact: artefact, photos: photos, isPrinting: isPrinting, breathes: breathes,
+                onAddPlace: onAddPlace
+            )
                 .padding(.horizontal, ShareCard.inset)
                 .ateContentTop(isPrinting ? Self.printingTop : Self.cardTop)
                 .ateAnimation(AteMotion.settle, value: isPrinting)
@@ -104,10 +115,18 @@ struct ShareStage: View {
             AteButton(title: "Done", isSecondary: true, action: onDone)
                 .frame(width: Self.doneWidth)
                 .accessibilityIdentifier("share.done")
-            AteButton(icon: .share, title: didFail ? "Try again" : "Share", action: onShare)
-                .disabled(isPrinting)
-                .opacity(isPrinting ? Self.disabledOpacity : 1)
-                .accessibilityIdentifier("share.send")
+            switch primary {
+            case .share(let isEnabled, let didFail):
+                AteButton(icon: .share, title: didFail ? "Try again" : "Share", action: onPrimary)
+                    .disabled(isEnabled == false)
+                    .opacity(isEnabled ? 1 : Self.disabledOpacity)
+                    .accessibilityIdentifier("share.send")
+            case .reprint(let isEnabled):
+                AteButton(title: "Print it again", action: onPrimary)
+                    .disabled(isEnabled == false)
+                    .opacity(isEnabled ? 1 : Self.disabledOpacity)
+                    .accessibilityIdentifier("summary.reprint")
+            }
         }
         .padding(.horizontal, AteMetrics.gutter)
         .ateContentBottom(Self.actionsBottom)

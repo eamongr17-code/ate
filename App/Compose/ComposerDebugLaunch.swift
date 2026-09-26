@@ -42,6 +42,8 @@ enum ComposerDebugLaunch {
     /// The Summary after Done, printed — or, with ``summaryPrintingArgument``, still printing.
     static let summaryArgument = "-ate-open-summary"
     static let summaryPrintingArgument = "-ate-summary-printing"
+    /// …or written with no place, so its receipt waits on the Place key.
+    static let summaryNoPlaceArgument = "-ate-summary-no-place"
 
     /// Shows `Welcome` even when this build has a session — the one screen you cannot reach once
     /// you are signed in.
@@ -108,8 +110,11 @@ enum ComposerDebugLaunch {
     static var opensRecap: Bool { has(recapArgument) }
     static var opensShare: Bool { has(shareArgument) }
     static var opensPlace: Bool { has(placeArgument) }
-    static var opensSummary: Bool { has(summaryArgument) || has(summaryPrintingArgument) }
+    static var opensSummary: Bool {
+        has(summaryArgument) || has(summaryPrintingArgument) || has(summaryNoPlaceArgument)
+    }
     static var summaryPrints: Bool { has(summaryPrintingArgument) }
+    static var summaryHasNoPlace: Bool { has(summaryNoPlaceArgument) }
     static var opensDish: Bool { has(dishArgument) }
 
     /// Writes the seeded draft before the composer reads it — or wipes whatever a previous run left.
