@@ -34,6 +34,12 @@ public struct EntryEdit: Sendable {
     /// The place on the Place key now.
     public let restaurantID: UUID?
     public let tagTokens: [TagToken]
+    /// Whether the sort after the edit is forced: only when the edit added a tag chip that was not
+    /// there when it opened (``EditTagDiff/hasNewTags``). A forced sort rebuilds every uncorrected
+    /// line, so a typo or a photo must never trigger one.
+    public let forcesSort: Bool
+    /// Chips deleted during the edit: each line's remaining set, PATCHed as a whole (`setTags`).
+    public let tagRemovals: [EditTagDiff.Removal]
     /// The photos the entry had when the composer opened on it, by position.
     public let originalPhotos: [EntryCard.Photo]
     /// The photos staged now, in order. `nil` leaves the entry's photos alone.
@@ -46,13 +52,17 @@ public struct EntryEdit: Sendable {
         restaurantID: UUID?,
         tagTokens: [TagToken],
         originalPhotos: [EntryCard.Photo] = [],
-        photos: [Photo]? = nil
+        photos: [Photo]? = nil,
+        tags: EditTagDiff? = nil
     ) {
         self.entryID = entryID
         self.body = body
         self.originalRestaurantID = originalRestaurantID
         self.restaurantID = restaurantID
         self.tagTokens = tagTokens
+        // No baseline (a caller that only ever adds chips): any chip is new, as before.
+        self.forcesSort = tags?.hasNewTags ?? (tagTokens.isEmpty == false)
+        self.tagRemovals = tags?.removals ?? []
         self.originalPhotos = originalPhotos.sorted { $0.position < $1.position }
         self.photos = photos
     }
@@ -91,6 +101,9 @@ public struct EntryEdit: Sendable {
         if changesPhotos, let photos {
             try await savePhotos(photos, to: entries)
         }
+        for removal in tagRemovals {
+            try await entries.setTags(reviewID: removal.reviewID, tags: removal.remaining)
+        }
         return try await entries.entry(id: entryID)
     }
 
@@ -125,10 +138,10 @@ public struct EntryEdit: Sendable {
         }
     }
 
-    /// Step four, after the composer has gone: forced with the chips, unforced without. A sort is
+    /// Step four, after the composer has gone: forced only for a NEW chip, unforced otherwise. A sort is
     /// the server adding structure, not the person's write — a failure leaves the words as saved,
     /// and the entry page offers "Print it again".
     public func sort(on entries: any EntryService) async {
-        _ = try? await entries.sort(entryID: entryID, force: tagTokens.isEmpty == false, tagTokens: tagTokens)
+        _ = try? await entries.sort(entryID: entryID, force: forcesSort, tagTokens: tagTokens)
     }
 }

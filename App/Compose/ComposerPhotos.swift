@@ -67,18 +67,20 @@ enum ComposerPhotoStaging {
     static let maximumDimension: CGFloat = 1600
     static let compressionQuality: CGFloat = 0.8
 
-    /// Library picks **append** to what is already staged — a second trip to the picker adds to
-    /// the cluster rather than replacing it. A pick already staged is not staged twice; the cap is
-    /// the entry's five.
+    /// Library picks, staged: **only the new photos** come back. Loading takes a while, and the
+    /// cluster can change underneath it (a photo removed with a long press), so the caller merges
+    /// these into the list as it is **when they land** (``ComposerModel/addPhotos(_:)``) — handing
+    /// back a whole list snapshotted at the start would resurrect a photo removed meanwhile.
     static func stage(
         _ items: [PhotosPickerItem],
         in directory: URL,
         existing: [StagedPhoto]
     ) async -> [StagedPhoto] {
-        var staged = existing
-        for item in items where staged.count < EntryDraft.photoLimit {
+        var staged: [StagedPhoto] = []
+        for item in items where existing.count + staged.count < EntryDraft.photoLimit {
             let key = item.itemIdentifier ?? UUID().uuidString
-            guard staged.contains(where: { $0.id == key }) == false,
+            guard existing.contains(where: { $0.id == key }) == false,
+                  staged.contains(where: { $0.id == key }) == false,
                   let data = try? await item.loadTransferable(type: Data.self),
                   let source = UIImage(data: data),
                   let jpeg = downscaled(source) else { continue }

@@ -76,6 +76,8 @@ enum ComposerDebugLaunch {
     static let denyDictationArgument = "-ate-deny-dictation"
     /// A camera capture without a camera: the artboard's ragù lands through the camera key's own path.
     static let fakeCameraArgument = "-ate-fake-camera"
+    /// …or the camera's full-screen cover itself, as a stand-in that shoots after a few seconds.
+    static let fakeCameraCoverArgument = "-ate-fake-camera-cover"
 
     /// Lets the scripted dictation finish, closes the microphone, then runs the text view's own undo —
     /// and, with ``voiceRedoArgument``, its redo. The one way to watch "undo across a dictation" on a
@@ -90,6 +92,7 @@ enum ComposerDebugLaunch {
     static var fakesDictation: Bool { has(fakeDictationArgument) || has(voiceArgument) }
     static var deniesDictation: Bool { has(denyDictationArgument) }
     static var fakesCameraCapture: Bool { has(fakeCameraArgument) }
+    static var fakesCameraCover: Bool { has(fakeCameraCoverArgument) }
     static var parksCaretAfterToken: Bool { has(caretAfterTokenArgument) }
     static var drivesUndo: Bool { has(undoDriveArgument) }
     static var opensComposer: Bool { has(openArgument) || has(voiceArgument) || has(fakeCameraArgument) }

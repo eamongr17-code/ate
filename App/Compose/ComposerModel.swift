@@ -152,6 +152,16 @@ final class ComposerModel: DictationTarget {
         persist()
     }
 
+    /// Appends photos that finished staging, against the cluster **as it is now** — anything
+    /// already there is skipped, and the cap is the entry's five.
+    func addPhotos(_ added: [StagedPhoto]) {
+        for photo in added where photos.count < EntryDraft.photoLimit {
+            guard photos.contains(where: { $0.id == photo.id }) == false else { continue }
+            photos.append(photo)
+        }
+        persist()
+    }
+
     /// Takes one staged photo back out. Its file stays in the draft's folder until the draft goes —
     /// an undo-free removal should not be the thing that deletes bytes.
     func removePhoto(id: String) -> AnalyticsEvent {

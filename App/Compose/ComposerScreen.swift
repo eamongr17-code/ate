@@ -83,7 +83,7 @@ struct ComposerScreen: View {
                         isDictating = false
                         done()
                     },
-                    onClose: { dismiss() }
+                    onClose: { close() }
                 )
                 .transition(.opacity)
             }
@@ -123,15 +123,16 @@ struct ComposerScreen: View {
             }
         }
         .fullScreenCover(isPresented: $isTakingPhoto) {
-            CameraPicker { image in captured(image) }
-                .ignoresSafeArea()
+            cameraCover
         }
         .onChange(of: pickedItems) { _, items in
             guard items.isEmpty == false else { return }
             Task { await stage(items) }
         }
         .onChange(of: model.earlySortInput) { _, input in earlySort?.edited(input) }
-        .onDisappear { earlySort?.stop() }
+        // No `onDisappear` stop: presenting the camera's cover disappears this view, and the early
+        // sort must survive it. It stops on Done and on close (``close()``); a dismissed composer's
+        // scheduler is released with its state, and its tasks hold it weakly.
         .onAppear {
             services.analytics(EntryEvents.composerOpened(
                 source: origin,
@@ -153,6 +154,7 @@ struct ComposerScreen: View {
             captured(image)
         }
         if ComposerDebugLaunch.opensVoice { startDictation() }
+        if ComposerDebugLaunch.fakesCameraCover { isTakingPhoto = true }
         if ComposerDebugLaunch.drivesVoiceUndo {
             Task {
                 try? await Task.sleep(for: .seconds(7))
@@ -210,7 +212,7 @@ struct ComposerScreen: View {
 
     private var header: some View {
         HStack {
-            AteIconButton(icon: .close, label: "Close") { dismiss() }
+            AteIconButton(icon: .close, label: "Close") { close() }
             Spacer(minLength: AteMetrics.snug)
             #if DEBUG
             if ComposerDebugLaunch.drivesUndo {
@@ -353,5 +355,32 @@ struct ComposerScreen: View {
             onCamera: takePhoto,
             onDictate: startDictation
         )
+    }
+
+    /// The composer is going away for good: nothing further goes early, and a preview in flight for
+    /// words that were not saved is dropped.
+    func close() {
+        earlySort?.stop(cancellingInFlight: true)
+        dismiss()
+    }
+
+    @ViewBuilder
+    private var cameraCover: some View {
+        #if DEBUG
+        if ComposerDebugLaunch.fakesCameraCover {
+            // The simulator has no camera: a stand-in cover that "shoots" the ragù and closes, so the
+            // cover's effect on the composer beneath it (the early sort) can be driven.
+            Color.black.ignoresSafeArea()
+                .task {
+                    try? await Task.sleep(for: .seconds(3))
+                    if let image = UIImage(named: "Photos/ragu") { captured(image) }
+                    isTakingPhoto = false
+                }
+        } else {
+            CameraPicker { image in captured(image) }.ignoresSafeArea()
+        }
+        #else
+        CameraPicker { image in captured(image) }.ignoresSafeArea()
+        #endif
     }
 }

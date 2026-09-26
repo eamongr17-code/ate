@@ -88,7 +88,9 @@ extension ComposerScreen {
             restaurantID: model.place?.id,
             tagTokens: model.composition.tagTokens,
             originalPhotos: editing.photos,
-            photos: model.editedPhotos
+            photos: model.editedPhotos,
+            // Against the chips the edit opened with: only a NEW chip forces the re-sort.
+            tags: EditTagDiff(original: editing.composition, current: model.composition, items: editing.items)
         )
         let entries = services.entries
         let analytics = services.analytics
@@ -122,12 +124,13 @@ extension ComposerScreen {
     /// Library picks append to the cluster; the picker then clears, so the next trip to it starts
     /// fresh rather than re-offering (and re-staging) what is already there.
     func stage(_ items: [PhotosPickerItem]) async {
-        let staged = await ComposerPhotoStaging.stage(
+        let added = await ComposerPhotoStaging.stage(
             items,
             in: model.photoDirectory,
             existing: model.photos
         )
-        model.setPhotos(staged)
+        // Merged at commit time, not overwritten with the list as it was when loading began.
+        model.addPhotos(added)
         pickedItems = []
     }
 
@@ -137,7 +140,12 @@ extension ComposerScreen {
         let entries = services.entries
         let analytics = services.analytics
         let scheduler = EarlySortScheduler(
-            onSent: { analytics(EntryEvents.earlySortSent(nth: $0)) },
+            onSent: { nth in
+                analytics(EntryEvents.earlySortSent(nth: nth))
+                #if DEBUG
+                print("[ate] early sort sent #\(nth)")
+                #endif
+            },
             send: { try await entries.previewSort($0) }
         )
         earlySort = scheduler
