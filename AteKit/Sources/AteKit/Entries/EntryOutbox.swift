@@ -244,6 +244,31 @@ public actor EntryOutbox {
 
     /// Whether the queue has given up on an entry. The entry page asks, so a stuck entry says so on
     /// its own paper instead of sitting silently in a JSON file nobody opens.
+    /// What the queue still holds for an entry — the chips and 6s its sort is owed, among the rest.
+    public func queued(entryID: UUID) -> QueuedEntry? {
+        queue.first { $0.id == entryID }
+    }
+
+    /// Whether any of an entry's photos are still waiting to go up (their files must stay put).
+    public func hasPendingPhotos(entryID: UUID) -> Bool {
+        queue.first { $0.id == entryID }?.pendingPhotos.isEmpty == false
+    }
+
+    /// **A photo that finished writing after its entry was saved** (round 4: Done stops waiting on a
+    /// slow pick). It joins the entry's queued work, or — the entry already landed — queues on its
+    /// own, inserted, with nothing left to sort. The next run uploads it at its position.
+    public func addLatePhoto(_ photo: QueuedPhoto, to insert: QueuedInsert) {
+        if let index = queue.firstIndex(where: { $0.id == insert.id }) {
+            guard queue[index].pendingPhotos.contains(photo) == false else { return }
+            queue[index].pendingPhotos.append(photo)
+        } else {
+            var item = QueuedEntry(entry: insert, pendingPhotos: [photo], needsSort: false)
+            item.hasInserted = true
+            queue.append(item)
+        }
+        persist()
+    }
+
     public func isStuck(entryID: UUID) -> Bool {
         queue.first { $0.id == entryID }?.isStuck ?? false
     }

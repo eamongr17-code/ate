@@ -156,6 +156,29 @@ public struct EntrySubmission: Sendable {
         return try? await entries.entry(id: entryID)
     }
 
+    /// **A photo that was still being written when Done stopped waiting for it** (round 4). It goes
+    /// up now if it can; if it cannot, it is queued in the outbox and attached when it lands — the
+    /// photo is never dropped. Returns whether it is up.
+    @discardableResult
+    public func attachLate(_ request: NewEntryRequest, path: String, position: Int) async -> Bool {
+        guard let data = try? Data(contentsOf: URL(filePath: path)) else {
+            analytics(EntryEvents.photoFailed(stage: "late"))
+            return false
+        }
+        do {
+            try await entries.attach(photo: EntryPhotoUpload(entryID: request.id, position: position, data: data))
+            return true
+        } catch {
+            guard let authorID = try? await entries.authorID() else { return false }
+            let insert = QueuedInsert(NewEntry(
+                id: request.id, authorID: authorID, body: request.body,
+                restaurantID: request.restaurantID, createdAt: request.createdAt
+            ))
+            await outbox.addLatePhoto(QueuedPhoto(position: position, path: path), to: insert)
+            return false
+        }
+    }
+
     /// Every photo at once. The positions that landed (or whose file has gone — the system
     /// reclaimed the cache, which no retry can fix) come back; the rest stay in the outbox.
     private func upload(entryID: UUID, photoPaths: [String]) async -> Set<Int> {

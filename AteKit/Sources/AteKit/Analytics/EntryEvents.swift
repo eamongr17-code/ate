@@ -282,6 +282,18 @@ public enum EntryEvents {
         AnalyticsEvent(name: "entry_save_failed", parameters: ["edit": flag(isEdit), "reason": reason])
     }
 
+    /// Done stopped waiting on picks still being written (a slow iCloud original): the entry was
+    /// saved without them, and they follow through the outbox. `count` is how many were late.
+    public static func photoLate(count: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "entry_photo_late", parameters: ["count": String(max(0, count))])
+    }
+
+    /// A picked photo could not be read at all — `stage` is `pick` (in the composer) or `late`
+    /// (after Done). Never silent.
+    public static func photoFailed(stage: String) -> AnalyticsEvent {
+        AnalyticsEvent(name: "entry_photo_failed", parameters: ["stage": stage])
+    }
+
     /// A staged photo was taken back out of the composer. `photo_count` is how many are left.
     public static func photoRemoved(photoCount: Int) -> AnalyticsEvent {
         AnalyticsEvent(name: "entry_photo_removed", parameters: ["photo_count": String(max(0, photoCount))])

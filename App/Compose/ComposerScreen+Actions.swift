@@ -27,9 +27,14 @@ extension ComposerScreen {
         model.promotePendingScoreLiteral().map(services.analytics)
 
         Task {
-            // A pick still being written is part of the entry: it goes up with it, not without it.
-            while model.hasPendingPhotos {
-                try? await Task.sleep(for: .milliseconds(50))
+            // A pick still being written is part of the entry: it goes up with it — but Done waits on it
+            // only so long (a slow iCloud original). Past that the entry saves without it, and it
+            // follows through the outbox the moment it lands (``stage(_:)``).
+            let photosReady = await BoundedWait.until(timeout: BoundedWait.pendingPhotos) {
+                model.hasPendingPhotos == false
+            }
+            if photosReady == false {
+                services.analytics(EntryEvents.photoLate(count: model.photos.filter(\.isPending).count))
             }
             if let editing = model.editing {
                 rewrite(editing)
@@ -42,12 +47,17 @@ extension ComposerScreen {
     private func submit() async {
         let draft = model.draft
         let request = model.request(from: draft, photoDirectory: model.photoDirectory)
+        // Picks still being written are not in this request: from here on, one that lands follows the
+        // entry up on its own. (Same main-actor turn as the snapshot, so none can slip between.)
+        if model.hasPendingPhotos { model.handOffLatePhotos(to: request) }
         let submission = services.submission
         let analytics = services.analytics
 
         let result = await submission.submit(request)
         isSaving = false
         guard let card = result.card else {
+            // Nothing was saved: a pick that lands now stays in the composer for the next Done.
+            model.cancelLateHandoff()
             giveBackTheKeyboard()
             if result.isPlaceRequired {
                 // Unreachable past the Done gate, but if the server says it: no place, so the
@@ -180,10 +190,24 @@ extension ComposerScreen {
                 let staged = await ComposerPhotoStaging.stage(item, in: directory) { preview in
                     model.previewPhoto(id: id, image: preview)
                 }
-                if let staged {
-                    model.finishPhoto(id: id, fileName: staged.fileName, image: staged.image)
-                } else {
+                guard let staged else {
+                    // Unreadable: said, never silent — the tile goes, the refusal is felt and counted.
                     model.dropPhoto(id: id)
+                    AteHaptics.refused()
+                    services.analytics(EntryEvents.photoFailed(stage: "pick"))
+                    return
+                }
+                model.finishPhoto(id: id, fileName: staged.fileName, image: staged.image)
+                // Landed after Done stopped waiting: it goes on the saved entry, at the next position.
+                if let late = model.claimLatePosition() {
+                    let path = directory.appending(path: staged.fileName).path()
+                    let submission = services.submission
+                    let outbox = services.outbox
+                    Task.detached {
+                        if await submission.attachLate(late.request, path: path, position: late.position) == false {
+                            await outbox.run()
+                        }
+                    }
                 }
             }
         }

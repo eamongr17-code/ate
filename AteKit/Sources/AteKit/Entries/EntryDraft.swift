@@ -108,6 +108,9 @@ public protocol EntryDraftStoring: Sendable {
     /// the id matches, so a late call from a composer that was already finished cannot delete the
     /// draft somebody started afterwards.
     func clear(draftID: UUID?)
+    /// Removes the draft but **leaves its staged photos on disk** — Done, whose photos are still to
+    /// be uploaded from those very files (the upload runs after the draft is gone).
+    func clear(draftID: UUID?, keepingPhotos: Bool)
     /// Where a draft's staged photos live. Created on demand.
     func photoDirectory(for draftID: UUID) -> URL
     /// Hands a draft written before drafts had owners to whoever is signed in now.
@@ -123,4 +126,6 @@ public extension EntryDraftStoring {
     func adoptUnownedDraft() {}
     func discardUnowned() {}
     func discardDrafts(of userID: UUID) {}
+    /// A store that keeps no photos of its own (memory, tests) clears the draft the ordinary way.
+    func clear(draftID: UUID?, keepingPhotos: Bool) { clear(draftID: draftID) }
 }

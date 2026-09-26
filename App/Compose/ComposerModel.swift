@@ -196,7 +196,8 @@ final class ComposerModel: DictationTarget {
     /// Every mutation ends here. The words are on disk before the next keystroke, which is what
     /// "your words save instantly" means while they are still being written.
     private func persist() {
-        guard editing == nil else { return }
+        // Saved and gone: a late pick landing afterwards must not write the draft back.
+        guard editing == nil, isFinished == false else { return }
         guard hasContent else {
             drafts.clear(draftID: draftID)
             return
@@ -205,8 +206,33 @@ final class ComposerModel: DictationTarget {
     }
 
     /// Done and gone: the draft has become an entry.
+    /// The photos stay on disk: they upload from these files after the draft is gone (round 4 — the
+    /// draft's folder used to be deleted before the upload read it).
     func clearDraft() {
-        drafts.clear(draftID: draftID)
+        isFinished = true
+        drafts.clear(draftID: draftID, keepingPhotos: true)
+    }
+
+    /// The entry is saved; the draft is not to be written again.
+    private var isFinished = false
+
+    /// Set once Done has saved the entry **without** a pick still being written: where that pick
+    /// goes when it lands, and the next free position on the entry.
+    private(set) var lateHandoff: (request: NewEntryRequest, nextPosition: Int)?
+
+    func handOffLatePhotos(to request: NewEntryRequest) {
+        lateHandoff = (request, request.photoPaths.count)
+    }
+
+    func cancelLateHandoff() {
+        lateHandoff = nil
+    }
+
+    /// A late pick has landed on disk: its position on the saved entry, taken in the order they land.
+    func claimLatePosition() -> (request: NewEntryRequest, position: Int)? {
+        guard let handoff = lateHandoff else { return nil }
+        lateHandoff = (handoff.request, handoff.nextPosition + 1)
+        return (handoff.request, handoff.nextPosition)
     }
 
     /// What the save path is handed. The body is the words **verbatim** — `composition.plain`, with
