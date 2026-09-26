@@ -6,7 +6,7 @@ Swift client against without asking a question** — if something is missing, th
 migrations reach staging on merge and prod only via the explicit CI job. Auth: Supabase Auth (Apple +
 email; see Account below); every call carries the user's token. `anon` has no table access (a raw read →
 `[]` or `42501`). **Every entry is public (0033).** **Signed out (0034):** with the publishable key alone, only
-`get_entry_feed`, `get_entries_by_author`, `get_entries_at_place`, `place_summary`, `place_dishes`,
+`get_entry_feed`, `feed_areas`, `get_entries_by_author`, `get_entries_at_place`, `place_summary`, `place_dishes`,
 `dish_summary`, `get_dish_reviews`, `profile_summary` and `is_dish_saved` answer — same shapes, with
 `is_mine`/`is_me`/`saved`/`items[].saved` = `false`, `my_visits` = 0, `my_last_*` = null, scope `mine` = `[]`.
 Everything else (the Entry page's `entry_cards` read, search, stats, every write) needs a session.
@@ -57,12 +57,13 @@ back to plain text, never to a search.
 
 Every list is keyset-paginated; **no OFFSET anywhere.** First page → pass nulls; next page → pass the LAST
 row's key — EVERY field of it. `(created_at, id)` DESC on every entry and review list; ranked lists key on
-their own order: `place_dishes` `(review_count, score, name, dish_id)`, `statement_months` `month`, Saved
+their own order: `place_dishes` `(review_count, score, name, dish_id)`, `feed_areas` `(entry_count, area)`, `statement_months` `month`, Saved
 `(saved_at, dish_id)`, Search scopes `(match_tier, review_count|username, name, id)`, Nearby `(distance_m, id)`.
 
 | Screen | Call | Returns |
 |---|---|---|
-| Feed | `rpc get_entry_feed(p_cursor_created_at, p_cursor_id, p_page_size, p_include_own)` | `entry_cards[]` — every entry, blocked users already gone. `p_include_own` defaults **false** (your visits live in Journal) |
+| Feed | `rpc get_entry_feed(p_cursor_created_at, p_cursor_id, p_page_size, p_include_own, p_area)` | `entry_cards[]` — every entry, blocked users already gone. `p_include_own` defaults **false** (your visits live in Journal). `p_area` (0038): null = everywhere; else a `feed_areas` `area` → only rows whose `place.locality` matches (trimmed, case-insensitive). Same keyset |
+| Feed — area picker | `rpc feed_areas(p_limit, p_cursor_entry_count, p_cursor_area)` | `{area, entry_count}[]`, busiest first then A→Z — the localities of what the Feed shows you (your own excluded, so no listed area opens empty). `p_limit` default 30, max 100; keyset `(entry_count, area)` — pass both from the last row |
 | Journal · Profile | `rpc get_entries_by_author(p_author_id, cursor…, p_page_size)` | `entry_cards[]` — the same rows whoever asks (a blocked author: `[]`) |
 | Entry · Share | `GET /rest/v1/entry_cards?id=eq.<uuid>` | one `entry_card` |
 | Place — header | `rpc place_summary(p_restaurant_id)` | `{restaurant_id, name, address, city, cuisine, cover_url, avg_rating, review_count, people_count, dish_count, my_visits, my_last_visit, locality, entry_count}` — **`locality` is the second chip** (`city` is unreliable, see below); `entry_count` = visits here, `review_count` = receipt lines; every text field is `null`, never `''` |
@@ -111,9 +112,11 @@ the STAR GLYPHS round to the half. An entry's `avg_score` keeps 2 decimals (`Avg
 ```
 POST /rest/v1/entries
 { "id": <client uuid>, "author_id": <me>, "body": "…",     // no "visibility": deprecated, any value lands public
-  "restaurant_id": <uuid|null>,          // only if the user TAPPED a place in the composer
+  "restaurant_id": <uuid>,               // REQUIRED (0040): the place the user tapped
   "created_at": "<when they wrote it>" }  // optional; send it for offline entries
 ```
+- **`restaurant_id` is required (0040).** Without it the insert fails `23502` with message `place_required`
+  (the order number is not consumed). Pre-0040 placeless entries keep working (edits, sorts, `correct_entry_place`).
 - **INSERT, never upsert.** On `23505` (duplicate key) the entry already landed — treat as success.
 - Sending `restaurant_id` stamps `restaurant_source = 'user'`, which the sorter will not overwrite.
 - The response carries the server-assigned `order_number` + `sort_status: "pending"`. Never send
@@ -121,7 +124,8 @@ POST /rest/v1/entries
 
 ### Photos (as each upload finishes)
 Upload to `review-photos/<auth.uid()>/<file>` → public URL → `POST /rest/v1/entry_photos`
-`{entry_id, position, photo_url}` with `Prefer: resolution=merge-duplicates` on `(entry_id, position)`.
+`{entry_id, position, photo_url}` with `Prefer: resolution=merge-duplicates` on `(entry_id, position)`. The small
+variant goes beside it at `<path minus extension>_t.jpg` (same owner-folder policy; no row of its own).
 
 ### Sort it
 ```
@@ -139,6 +143,15 @@ in `body` ("GF"); send where it sits in `tag_tokens` (UNICODE SCALARS, like ever
 it (`gf`, `gluten free`, `vegan`, `GF/DF`…) onto the dish it FOLLOWS. Unmarked words never tag; omitting
 `tag_tokens` on a re-sort removes nothing.
 
+**Early sort (0039).** While composing, `{ "preview": true, "body": "<draft>", "tag_tokens": […],
+"restaurant_id": "<uuid|null>" }` (no `entry_id`) → 200 `{ok, preview: true, cached, mode, model, entry_id: null,
+restaurant_id, place_query, place_offset, items}` — the sort's plan shape. **Writes no entry and no line.** 422
+bad draft (>10k chars, bad uuid) · 429 `{error, retry_after}` over 12 previews / 10 min (a repeat of a cached
+draft is free) — ignore it; Done still sorts. In model mode the model's plan is cached 15 min under (you,
+sha256(body), tag_tokens, restaurant_id); **send exactly the body, tokens and place you will INSERT** and the
+sort after Done reuses it — no second model call (`entries.sort_meta.cache_hit`) — then deletes it. The plan
+holds draft words, so expired rows are purged on every preview and deleting an entry or account purges yours.
+
 ### Corrections (the user's, always)
 | Action | Call |
 |---|---|
@@ -147,7 +160,7 @@ it (`gf`, `gluten free`, `vegan`, `GF/DF`…) onto the dish it FOLLOWS. Unmarked
 | Set / clear a score | `PATCH /rest/v1/reviews?id=eq.<uuid>` `{ "score": 4.5 }` (or `null`). Half steps 0.5–5.0 |
 | Set a line's tags | `PATCH /rest/v1/reviews?id=eq.<uuid>` `{ "tags": ["gf", "v"] }` — the WHOLE set (`[]` clears). Canonicalised server-side; a code outside the five is `23514`; owner only. Not a correction |
 | Edit the words | `PATCH /rest/v1/entries?id=eq.<uuid>` `{ "body": "…" }`. (A `{visibility}` PATCH still succeeds and changes nothing — remove the control) |
-| Delete a visit | `DELETE /rest/v1/entries?id=eq.<uuid>` (cascades photos + its reviews) |
+| Delete a visit | `rpc delete_entry(p_entry_id)` → `{photo_paths: [String]}` (0037), then `storage.from("review-photos").remove(paths: photo_paths)`. Paths are bucket-relative (`<uid>/<file>`), originals + their `_t.jpg`, yours only. Cascades photos rows, lines, their tags; dishes/places stay; aggregates move at once. `42501` not yours · `P0002` already gone (treat as done). A raw `DELETE /rest/v1/entries` still works but leaks the files |
 
 Any of the first three marks the line `corrected` (`reviews.corrected_at`; a bare `score`/`note` PATCH by the
 author counts). **A corrected line is the user's, and a re-sort — forced or not — preserves it:**
@@ -225,6 +238,11 @@ PR, same rule as `place_locality()`); rows written before keep the mangle — re
 
 ## Wire-change log
 
+**Round 3 — 0037–0040 + sort-entry.** Additive: `delete_entry`, `feed_areas`, `get_entry_feed(p_area)` (default
+null = today's feed; drop+create, old calls bind), sort-entry `preview`, `sort_meta` on `correct_entry_place`'s
+returned row. **Breaking (sequenced via the lead):** an `entries` INSERT without `restaurant_id` is `23502
+place_required` — no build that allows a placeless Done may be live when 0040 lands.
+
 **Additive — 0036.** `reviews.tags`, `entry_cards.items[].tags`, `dish_summary.tags` (+ browse twin),
 sort-entry `tag_tokens` in and `items[].tags` out. A re-sort never removes a tag.
 
@@ -243,25 +261,11 @@ now appears in the feed, on profiles, place/dish pages, search, and everyone's c
 an insert/PATCH sending `private` succeeds and lands public. **Follow-up (breaking, sequenced):** drop the
 column once no TestFlight build reads or writes it.
 
-**Additive — 0032.** `delete_account()`, `my_blocks(…)`. Behaviour: a new user with no usable email gets
-handle `ate<8 hex>` (never one derived from an Apple relay address). Auth config: Apple native provider on.
-
-**Additive — 0031.** `search_places`/`search_dishes`/`search_people`/`search_saved`/`nearby_places`; helper
-`search_key`/`search_pattern`/`search_tier`. Behaviour, same shape: `search_all` matches accent-insensitively
-(more rows) and a no-cuisine place's `subtitle` is its locality, not the street-mangled `city`.
-
-**Behavioural — 0030.** `place_dishes` is the ported `DishRanking` order (`review_count` desc → `score` desc,
-unscored last → name → id) and drops never-logged dishes; `p_cursor_people` → `p_cursor_review_count`
-(breaking on that parameter alone; nothing shipped sends it).
-
-**Additive — 0029.** `place_summary` + `locality`/`entry_count`; `dish_summary` + `photos`/`restaurant_locality`;
-`dishes_by_score` + `cover_url`; cursors on `place_dishes`/`dishes_by_score`/`statement_months`;
-`monthly_statement` + `username`. Behaviour: `profile_summary` counts lines by `reviewer_id` (numbers rise for
-legacy users); empty text is `null`, not `''`; `most_ordered`/`most_visited` null at 1; `entry_id` is nullable.
-
-**Additive — 0018–0028.** The tables, columns, RPCs and views above, the correction + offset columns, and
-`cover_url` on `entry_cards.items[]`/`my_saved_dishes`. Behaviour: covers see `entry_photos`; a report
-`reason` outside the five-word vocabulary is `23514`.
+**Earlier (0018–0032, all additive or sequenced):** entries/photos/saves/blocks/reports and their RPCs; the
+correction + offset columns; covers from `entry_photos`; `place_summary.locality`/`entry_count`, `dish_summary`
+`photos`; Search scopes (accent-insensitive); `delete_account()`/`my_blocks()`. Behavioural: `place_dishes` is the
+`DishRanking` order (`p_cursor_people` → `p_cursor_review_count`); `profile_summary` counts lines by `reviewer_id`;
+empty text is `null`; `most_*` null at 1; a report `reason` outside the vocabulary is `23514`.
 
 **Breaking — sequenced with iOS through the lead:** (1) `reviews.score` NOT NULL → **NULLABLE**, decode as
 optional (V1 Swift is written against this from the start, so nothing shipped is broken today); (2) SELECT
@@ -275,4 +279,5 @@ are simply not there, so tolerate an absent author; (3) `authenticated` may writ
 `23505` on an entry insert = already accepted. `42501` = RLS/grant refusal (not yours, or a column you may not
 write). `23503` = missing FK (unknown dish/restaurant). `23514` = a CHECK refused the value (e.g. a report
 `reason` outside the five-word vocabulary). `22023` = bad RPC argument (e.g. `correct_entry_dish`
-before the entry has a place). `429` from `places-search` = rate limited.
+before the entry has a place). `23502 place_required` = an entry insert with no place (0040). `P0002` from
+`delete_entry` = already gone. `429` from `places-search` or a sort-entry preview = rate limited.

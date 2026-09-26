@@ -1,0 +1,13 @@
+{
+  "name": "ate-db-tests",
+  "private": true,
+  "type": "module",
+  "description": "The whole migration chain applied to an in-process Postgres (PGlite, WASM) with a minimal Supabase shape, plus SQL-level contract tests. No Docker, no network after install, never touches staging or prod.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@electric-sql/pglite-postgis": "0.2.8"
+  }
+}

@@ -311,8 +311,8 @@ struct DesignSystemGallery: View {
         VStack(alignment: .leading, spacing: AteMetrics.loose) {
             label("Segments, chips, rows, button")
             GalleryControls()
-            label("Tab bar")
-            AteTabBarSpecimen()
+            label("Tab icons")
+            AteTabIconSpecimen()
         }
     }
 
@@ -396,12 +396,13 @@ private struct GalleryControls: View {
     }
 }
 
-private struct AteTabBarSpecimen: View {
-    @State private var tab = AteTab.journal
-
+/// The bar itself is the system's; what the design owns is its icons, as the bar receives them.
+private struct AteTabIconSpecimen: View {
     var body: some View {
-        AteTabBar(selection: $tab, onCompose: {})
-            .background(AteColor.ground)
+        HStack(spacing: AteMetrics.section) {
+            ForEach(AteTab.allCases) { tab in tab.nativeLabel.labelStyle(.iconOnly) }
+            AteIcon.compose.templateImage()
+        }
     }
 }
 
