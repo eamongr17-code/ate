@@ -245,35 +245,38 @@ struct StagingContractTests {
     @Test("dish_stats keeps the unrated dish at NULL, not 0")
     func dishStatsNullScore() async throws {
         try await StagingExclusive.shared.run {
-            try await StatsProbe.run { probe in
+            try await StatsProbe.run(at: "Ate Contract — stats A") { probe in
                 // An unrated dish WITH a line — the case the view must not turn into a 0 — beside a
-                // rated one, both of this run's making.
-                let unscored = try await probe.writeUnscored("affogato")
+                // rated one. The place is reused across runs, so expectations come off the raw lines.
+                let affogato = try await probe.writeUnscored("affogato")
                 let pasta = try #require(try await probe.write("pasta 4.5").first)
-                try await probe.write("pasta 3.5")
+                let second = try #require(try await probe.write("pasta 3.5").first)
+                let mine: Set<UUID> = [affogato.reviewID, pasta.reviewID, second.reviewID]
 
-                let stats = try await probe.dishStats()
-                #expect(Set(stats.map(\.dishID)) == [unscored.dishID, pasta.dishID])
+                let snap = try await probe.settled { snap in
+                    mine.isSubset(of: snap.lines.map(\.id))
+                        && snap.lines(of: affogato.dishID).allSatisfy { $0.score == nil }
+                }
 
-                let rated = try #require(stats.first { $0.dishID == pasta.dishID })
-                #expect(rated.score == 4.0)
-                #expect(rated.reviewCount == 2)
+                for (dish, lines) in Dictionary(grouping: snap.lines, by: \.dishID) {
+                    let row = try #require(snap.dishes.first { $0.dishID == dish }, "no dish_stats row for \(dish)")
+                    #expect(StatsProbe.Snapshot.same(row.score, snap.dishScore(dish)), "\(row) vs \(lines)")
+                    #expect(row.reviewCount == lines.count)
+                }
+                let rated = try #require(snap.dishes.first { $0.dishID == pasta.dishID })
+                #expect((rated.score ?? 0) > 0)
 
-                let unrated = try #require(stats.first { $0.dishID == unscored.dishID })
+                let unrated = try #require(snap.dishes.first { $0.dishID == affogato.dishID })
                 #expect(unrated.score == nil && unrated.isRated == false)
-                #expect(unrated.reviewCount == 1, "the unscored line still counts as a line")
+                #expect(unrated.reviewCount == snap.lines(of: affogato.dishID).count, "unscored lines still count")
+                #expect(unrated.reviewCount >= 1)
 
                 // Asked for the way the readers ask: `score IS NULL` finds it, `IS NOT NULL` doesn't —
                 // so the server holds NULL, not a 0 the decoder happened to accept.
-                let place = probe.place.uuidString.lowercased()
-                let isNull = try await probe.client.fetchAll(DishStats.self) {
-                    $0.eq("restaurant_id", value: place).is("score", value: nil)
-                }
-                #expect(isNull.map(\.dishID) == [unscored.dishID])
-                let notNull = try await probe.client.fetchAll(DishStats.self) {
-                    $0.eq("restaurant_id", value: place).not("score", operator: .is, value: "null")
-                }
-                #expect(notNull.map(\.dishID) == [pasta.dishID])
+                #expect(snap.nullDishes.contains(affogato.dishID))
+                #expect(snap.nullDishes.contains(pasta.dishID) == false)
+                #expect(snap.scoredDishes.contains(pasta.dishID))
+                #expect(snap.scoredDishes.contains(affogato.dishID) == false)
 
                 // The view keys on dish_id, not id — proves AteRecord.primaryKeyColumn.
                 #expect(try await probe.client.fetchByID(DishStats.self, id: pasta.dishID).dishID == pasta.dishID)
@@ -284,38 +287,41 @@ struct StagingContractTests {
     @Test("restaurant_stats rating really is the mean of per-dish averages")
     func restaurantStatsIsMeanOfDishAverages() async throws {
         try await StagingExclusive.shared.run {
-            try await StatsProbe.run { probe in
-                // Only an unscored line so far: the place is unrated — NULL, never 0 — yet counted.
+            try await StatsProbe.run(at: "Ate Contract — stats B") { probe in
+                // Only unscored lines at the place: it is unrated — NULL, never 0 — yet counted.
                 var lines = [try await probe.writeUnscored("affogato")]
-                let unrated = try await probe.restaurantStats()
-                #expect(unrated.avgRating == nil && unrated.isRated == false)
-                #expect(unrated.reviewCount == 1)
+                let first = lines[0].reviewID
+                let unscored = try await probe.settled { snap in
+                    snap.lines.contains { $0.id == first } && snap.lines.allSatisfy { $0.score == nil }
+                }
+                #expect(unscored.restaurant.avgRating == nil && unscored.restaurant.isRated == false)
+                #expect(unscored.restaurant.reviewCount == unscored.lines.count)
 
-                // Pasta 5, 4, 4.5 (mean 4.5) and salad 2.5: the mean of dish means is 3.5, the flat
-                // mean of the four scores is 4.0. Halves only, so no rounding boundary is in play.
+                // Pasta 5, 4, 4.5 (mean 4.5) and salad 2.5: this run's mean of dish means is 3.5 and
+                // its flat mean 4.0 — the fixture tells the two apart on its own.
                 lines += try await probe.write("pasta 5. salad 2.5")
                 lines += try await probe.write("pasta 4")
                 lines += try await probe.write("pasta 4.5")
+                let own = StatsProbe.Snapshot(
+                    lines: Set(lines.map { .init(id: $0.reviewID, dishID: $0.dishID, score: $0.score?.value) }),
+                    dishes: [], restaurant: unscored.restaurant, nullDishes: [], scoredDishes: []
+                )
+                try #require(Set(lines.map(\.dishID)).count == 3, "expected affogato, pasta and salad: \(lines)")
+                try #require(
+                    own.meanOfDishMeans == 3.5 && own.flatMean == 4.0, "the sorter changed the fixture: \(lines)"
+                )
 
-                let byDish = Dictionary(grouping: lines, by: \.dishID)
-                try #require(byDish.count == 3, "expected affogato, pasta and salad lines: \(lines)")
-                let dishMeans: [Double] = byDish.values.compactMap { dishLines in
-                    let scores = dishLines.compactMap { $0.score?.value }
-                    return scores.isEmpty ? nil : scores.reduce(0, +) / Double(scores.count)
-                }  // unrated dishes excluded from the mean
-                let meanOfMeans = dishMeans.reduce(0, +) / Double(dishMeans.count)
-                let allScores = lines.compactMap { $0.score?.value }
-                let flatMean = allScores.reduce(0, +) / Double(allScores.count)
-                try #require(meanOfMeans == 3.5 && flatMean == 4.0, "the sorter changed the fixture: \(lines)")
-
-                let restaurant = try await probe.restaurantStats()
-                let dishes = try await probe.dishStats()
-                #expect(restaurant.avgRating == meanOfMeans)
+                // Asserted over every line the place holds (a concurrent run's too), read consistently.
+                let mine = Set(lines.map(\.reviewID))
+                let snap = try await probe.settled { snap in
+                    mine.isSubset(of: snap.lines.map(\.id)) && snap.meanOfDishMeans != snap.flatMean
+                }
+                #expect(StatsProbe.Snapshot.same(snap.restaurant.avgRating, snap.meanOfDishMeans))
                 // NOT the flat mean of all reviews — that is the legacy client's selector bug.
-                #expect(restaurant.avgRating != flatMean)
+                #expect(StatsProbe.Snapshot.same(snap.restaurant.avgRating, snap.flatMean) == false)
                 // Every line counts, scored or not, and it is the sum of the dish rows.
-                #expect(restaurant.reviewCount == lines.count)
-                #expect(restaurant.reviewCount == dishes.reduce(into: 0) { $0 += $1.reviewCount })
+                #expect(snap.restaurant.reviewCount == snap.lines.count)
+                #expect(snap.restaurant.reviewCount == snap.dishes.reduce(into: 0) { $0 += $1.reviewCount })
             }
         }
     }
