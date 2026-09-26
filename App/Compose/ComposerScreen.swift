@@ -304,7 +304,8 @@ struct ComposerScreen: View {
         HStack(spacing: Self.toolbarGap) {
             HStack(spacing: 0) {
                 AteIconButton(icon: .camera, label: "Camera", tint: AtePalette.surface.fg) {
-                    model.dismissScoring()
+                    // The camera takes the keyboard's place: close the slider without raising it.
+                    model.dismissScoring(refocus: false)
                     takePhoto()
                 }
                 PhotosPicker(
@@ -319,7 +320,7 @@ struct ComposerScreen: View {
                         .contentShape(.rect)
                 }
                 .foregroundStyle(AtePalette.surface.fg)
-                .simultaneousGesture(TapGesture().onEnded { model.dismissScoring() })
+                .simultaneousGesture(TapGesture().onEnded { model.dismissScoring(refocus: false) })
                 .accessibilityLabel("Photo library")
                 AteIconButton(icon: .voice, label: "Dictate", tint: AtePalette.surface.fg) {
                     startDictation()

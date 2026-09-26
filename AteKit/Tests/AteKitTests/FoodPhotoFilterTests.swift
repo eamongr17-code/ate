@@ -103,12 +103,110 @@ struct FoodPhotoFilterTests {
         #expect(await filter.knownVerdicts.isEmpty)
     }
 
+    @Test("Cancelling stops between photos, keeps what was learnt, and the next pass resumes from there")
+    func cancellation() async {
+        let calls = Counter()
+        let gate = Gate()
+        let filter = FoodPhotoFilter { id in
+            await calls.bump(id)
+            if id == "b" { await gate.hold() }
+            return Self.burger
+        }
+        let items = ["a", "b", "c", "d"].map { Self.item($0) }
+        let pass = Task { await filter.filter(items) }
+        await gate.untilHeld()
+        pass.cancel()
+        await gate.release()
+        let result = await pass.value
+        #expect(result.isComplete == false)
+        #expect(result.kept.map(\.id) == ["a", "b"], "the photo in hand finishes; nothing after it starts")
+        #expect(await calls.byID == ["a": 1, "b": 1])
+        #expect(await filter.knownVerdicts == ["a": true, "b": true])
+
+        let resumed = await filter.filter(items)
+        #expect(resumed.isComplete)
+        #expect(resumed.kept.map(\.id) == ["a", "b", "c", "d"])
+        #expect(await calls.byID == ["a": 1, "b": 1, "c": 1, "d": 1], "the cache survived the cancel")
+    }
+
+    @Test("Progressively: newest first, one snapshot per food photo confirmed, then the whole pass")
+    func streams() async {
+        let table: [String: [PhotoLabel]] = [
+            "older-burger": Self.burger, "hill": Self.landscape, "newest-ragu": Self.raguInItsPan
+        ]
+        let filter = FoodPhotoFilter { table[$0] }
+        // Handed over oldest first, on purpose: the stream orders them itself.
+        let items = [
+            Self.item("older-burger", minutesAgo: 300),
+            Self.item("hill", minutesAgo: 200),
+            Self.item("newest-ragu", minutesAgo: 10)
+        ]
+        var snapshots: [FoodPhotoResult] = []
+        for await snapshot in filter.progressively(items) { snapshots.append(snapshot) }
+        #expect(snapshots.map { $0.kept.map(\.id) } == [
+            ["newest-ragu"], ["newest-ragu", "older-burger"], ["newest-ragu", "older-burger"]
+        ])
+        #expect(snapshots.map(\.isComplete) == [false, false, true])
+        #expect(snapshots.last?.dropped == 1)
+    }
+
+    @Test("Walking away from the stream cancels the pass behind it")
+    func streamTerminationCancels() async throws {
+        let calls = Counter()
+        let gate = Gate()
+        let filter = FoodPhotoFilter { id in
+            await calls.bump(id)
+            if id == "b" { await gate.hold() }
+            return Self.burger
+        }
+        let items = ["a", "b", "c", "d"].enumerated().map { Self.item($1, minutesAgo: Double($0)) }
+        for await snapshot in filter.progressively(items) {
+            #expect(snapshot.kept.map(\.id) == ["a"])
+            break
+        }
+        // Whether the cancel landed before "b" started or while it was in hand, nothing after it
+        // may start. Opened for good, so a "b" that never started cannot wedge the test.
+        await gate.release()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(await calls.byID["c"] == nil)
+        #expect(await calls.byID["d"] == nil)
+    }
+
     @Test("suggestion_filtered carries what was left out and what was kept")
     func event() {
         let event = EntryEvents.suggestionFiltered(count: 7, kept: 5)
         #expect(event.name == "suggestion_filtered")
         #expect(event.parameters == ["count": "7", "kept": "5"])
         #expect(EntryEvents.suggestionFiltered(count: -1, kept: -1).parameters == ["count": "0", "kept": "0"])
+    }
+
+    /// Parks one classification until the test lets it go — the moment a cancel can land mid-pass.
+    private actor Gate {
+        private var held: CheckedContinuation<Void, Never>?
+        private var arrival: CheckedContinuation<Void, Never>?
+        private var isHeld = false
+        private var isOpen = false
+
+        func hold() async {
+            guard isOpen == false else { return }
+            await withCheckedContinuation { continuation in
+                held = continuation
+                isHeld = true
+                arrival?.resume()
+                arrival = nil
+            }
+        }
+
+        func untilHeld() async {
+            guard isHeld == false else { return }
+            await withCheckedContinuation { arrival = $0 }
+        }
+
+        func release() {
+            isOpen = true
+            held?.resume()
+            held = nil
+        }
     }
 
     private actor Counter {

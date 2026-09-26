@@ -67,10 +67,23 @@ public actor FoodPhotoFilter {
 
     /// The items that are food, in the order given. Anything that cannot be classified is left out:
     /// `Suggestions` offers meals, and "don't know" is not one.
-    public func filter(_ items: [PhotoSuggestionItem]) async -> FoodPhotoResult {
+    ///
+    /// **Stops when its task is cancelled** — leaving `Suggestions` must not keep Vision running
+    /// through the rest of the camera roll. It stops *between* photos: every verdict already learnt
+    /// stays in the cache, and the result says it is incomplete. `progress` hears the food found so
+    /// far each time another photo is confirmed.
+    public func filter(
+        _ items: [PhotoSuggestionItem],
+        progress: (@Sendable (FoodPhotoResult) -> Void)? = nil
+    ) async -> FoodPhotoResult {
         var kept: [PhotoSuggestionItem] = []
         var classified = 0
+        var looked = 0
         for item in items {
+            if Task.isCancelled {
+                return FoodPhotoResult(kept: kept, dropped: looked - kept.count,
+                                       newlyClassified: classified, isComplete: false)
+            }
             let verdict: Bool?
             if let known = verdicts[item.id] {
                 verdict = known
@@ -82,9 +95,30 @@ public actor FoodPhotoFilter {
             } else {
                 verdict = nil
             }
-            if verdict == true { kept.append(item) }
+            looked += 1
+            if verdict == true {
+                kept.append(item)
+                progress?(FoodPhotoResult(kept: kept, dropped: looked - kept.count,
+                                          newlyClassified: classified, isComplete: false))
+            }
         }
         return FoodPhotoResult(kept: kept, dropped: items.count - kept.count, newlyClassified: classified)
+    }
+
+    /// **The same pass, as it happens**, newest photo first: one snapshot each time another photo
+    /// is confirmed as food, then a last one with `isComplete` (or not, if it was cut short).
+    ///
+    /// Ending the iteration — the screen going away — cancels the pass between photos.
+    public nonisolated func progressively(_ items: [PhotoSuggestionItem]) -> AsyncStream<FoodPhotoResult> {
+        let newestFirst = items.sorted { $0.createdAt > $1.createdAt }
+        return AsyncStream { continuation in
+            let pass = Task {
+                let result = await self.filter(newestFirst) { continuation.yield($0) }
+                continuation.yield(result)
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in pass.cancel() }
+        }
     }
 
     private func labels(for id: String) async -> [PhotoLabel]? {
@@ -105,4 +139,13 @@ public struct FoodPhotoResult: Equatable, Sendable {
     public let dropped: Int
     /// How many went through the classifier this time (the rest were already known).
     public let newlyClassified: Int
+    /// False for a snapshot taken mid-pass, and for a pass that was cancelled.
+    public let isComplete: Bool
+
+    public init(kept: [PhotoSuggestionItem], dropped: Int, newlyClassified: Int, isComplete: Bool = true) {
+        self.kept = kept
+        self.dropped = dropped
+        self.newlyClassified = newlyClassified
+        self.isComplete = isComplete
+    }
 }

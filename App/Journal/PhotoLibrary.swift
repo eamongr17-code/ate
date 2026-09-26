@@ -14,9 +14,26 @@ protocol AtePhotoLibrary {
     func requestAuthorization() async -> Bool
     /// Recent photos **of food**, newest first. Empty when there is no permission.
     func recent() async -> [PhotoSuggestionItem]
+    /// The same photos as they are confirmed — the food found so far, growing, newest first — so
+    /// `Suggestions` fills in as it goes instead of waiting on the whole roll. Ending the iteration
+    /// stops the looking.
+    func recentProgressively() -> AsyncStream<[PhotoSuggestionItem]>
     func thumbnail(id: String, side: CGFloat) async -> Image?
     /// The bytes the composer stages, at the size it keeps.
     func image(id: String, maximumDimension: CGFloat) async -> UIImage?
+}
+
+extension AtePhotoLibrary {
+    /// A library with nothing to work out yields its photos once.
+    func recentProgressively() -> AsyncStream<[PhotoSuggestionItem]> {
+        AsyncStream { continuation in
+            let task = Task { @MainActor in
+                continuation.yield(await self.recent())
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
 }
 
 /// The real one.
@@ -46,6 +63,47 @@ final class SystemPhotoLibrary: AtePhotoLibrary {
     }
 
     func recent() async -> [PhotoSuggestionItem] {
+        let items = windowItems()
+        #if targetEnvironment(simulator)
+        return items
+        #else
+        let result = await food.filter(items)
+        remember(result, of: items)
+        return result.kept
+        #endif
+    }
+
+    func recentProgressively() -> AsyncStream<[PhotoSuggestionItem]> {
+        let items = windowItems()
+        #if targetEnvironment(simulator)
+        return AsyncStream { continuation in
+            continuation.yield(items)
+            continuation.finish()
+        }
+        #else
+        let snapshots = food.progressively(items)
+        return AsyncStream { continuation in
+            let relay = Task { @MainActor in
+                var last: FoodPhotoResult?
+                // Cancelling this loop (the screen went away) ends the inner stream, which
+                // cancels the classifying behind it between photos.
+                for await snapshot in snapshots {
+                    last = snapshot
+                    continuation.yield(snapshot.kept)
+                }
+                if let last { self.remember(last, of: items) }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in relay.cancel() }
+        }
+        #endif
+    }
+
+    /// The photos `Suggestions` could show: the window it looks back over, newest first. Vision's
+    /// classifier does not run on the simulator (no Neural Engine: "Failed to create espresso
+    /// context", and the CPU fallback labels every image the same), so a simulator offers all of
+    /// them rather than none. The rule itself is tested in AteKit.
+    private func windowItems() -> [PhotoSuggestionItem] {
         guard isAuthorized else { return [] }
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
@@ -53,27 +111,27 @@ final class SystemPhotoLibrary: AtePhotoLibrary {
         options.fetchLimit = 120
         let result = PHAsset.fetchAssets(with: options)
         var items: [PhotoSuggestionItem] = []
-        // Only what `Suggestions` could show is worth classifying: the window it looks back over.
         let since = Date().addingTimeInterval(-PhotoSuggestions.window)
         result.enumerateObjects { asset, _, _ in
             guard let created = asset.creationDate, created >= since else { return }
             items.append(PhotoSuggestionItem(id: asset.localIdentifier, createdAt: created))
         }
-        #if targetEnvironment(simulator)
-        // Vision's classifier does not run on the simulator (no Neural Engine: "Failed to create
-        // espresso context", and the CPU fallback returns the same labels for every image), so a
-        // simulator offers every recent photo rather than none. The rule itself is tested in AteKit.
         return items
-        #else
-        let filtered = await food.filter(items)
-        if filtered.newlyClassified > 0 {
-            // Only the window's verdicts are kept: a photo that has aged out is never asked about.
-            let ids = Set(items.map(\.id))
+    }
+
+    /// Keeps what a pass learnt — a cancelled one too — and counts only a pass that finished.
+    private func remember(_ result: FoodPhotoResult, of items: [PhotoSuggestionItem]) {
+        guard result.newlyClassified > 0 else { return }
+        let food = food
+        let analytics = analytics
+        // Only the window's verdicts are kept: a photo that has aged out is never asked about.
+        let ids = Set(items.map(\.id))
+        Task {
             FoodPhotoVerdicts.save(await food.knownVerdicts.filter { ids.contains($0.key) })
-            analytics(EntryEvents.suggestionFiltered(count: filtered.dropped, kept: filtered.kept.count))
         }
-        return filtered.kept
-        #endif
+        if result.isComplete {
+            analytics(EntryEvents.suggestionFiltered(count: result.dropped, kept: result.kept.count))
+        }
     }
 
     func thumbnail(id: String, side: CGFloat) async -> Image? {
