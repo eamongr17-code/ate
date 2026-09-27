@@ -82,25 +82,6 @@ extension AteSettingsRow where Trailing == EmptyView {
     }
 }
 
-/// A pushed page's header: back arrow, then its name. `padding:60px 12px 0`, `gap:2px`, `.h` at 24.
-/// One component because Settings, Appearance, How Ate uses AI and Blocked people all draw it and
-/// must draw it identically.
-struct AtePageHeader: View {
-    let title: String
-    let onBack: () -> Void
-
-    var body: some View {
-        HStack(spacing: AteMetrics.hairspace) {
-            AteIconButton(icon: .back, label: "Back", size: 24, action: onBack)
-            Text(title)
-                .ateText(.pageTitle)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.horizontal, AteMetrics.regular)
-        .ateContentTop()
-    }
-}
-
 #if DEBUG
 private struct SettingsRowsPreview: View {
     var body: some View {

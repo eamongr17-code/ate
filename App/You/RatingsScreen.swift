@@ -22,7 +22,6 @@ struct RatingsScreen: View {
     /// The score the page was opened on. Scrolled to once, when its group first arrives.
     private let opening: Double
     @State private var hasScrolledToOpening = false
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
@@ -61,7 +60,7 @@ struct RatingsScreen: View {
             }
             .scrollIndicators(.hidden)
             .ateGround()
-            .safeAreaInset(edge: .top, spacing: 0) { topBar }
+            .ateNavigationBar() // the system's glass back button (round 4)
             .refreshable { await store.refresh() }
             .task {
                 await store.loadIfNeeded()
@@ -110,17 +109,6 @@ struct RatingsScreen: View {
     }
 
     static func groupID(_ score: Double) -> String { "ratings.group.\(ScoreHistogram.halfSteps(score))" }
-
-    /// `padding:60px 12px 0` — back, and nothing else. The page's name is its title.
-    private var topBar: some View {
-        HStack(spacing: 0) {
-            AteIconButton(icon: .back, label: "Back", size: 24) { dismiss() }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, AteMetrics.regular)
-        .ateContentTop()
-        .background(AtePalette.automatic.ground)
-    }
 
     /// Every group read so far, highest first. Nothing scored draws nothing under the chart: the
     /// empty chart has already said so, and a sentence explaining an empty list is exactly the

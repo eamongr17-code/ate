@@ -27,33 +27,28 @@ struct FeedScreen: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                // The scroll view's content IS the lazy stack, and every slip is one of its own
-                // rows — never a `LazyVStack` inside a `VStack` under the header. Nested like that,
-                // the scroll view re-sizes all of its content on each pass, which re-places the lazy
-                // stack, which flips a slip it is prefetching below the fold between two states, and
-                // the flip dirties the content size again: coming back to a Feed scrolled to
-                // mid-list locked the main thread for minutes. As the stack's own rows, it settles.
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    header
-                    content
-                }
-                // Loading is the column of skeleton slips, still; the feed replaces it in one fade.
-                // On the stack rather than around `content`, so no wrapper stands between the lazy
-                // stack and its slips; the header does not change with the phase.
-                .ateAnimation(AteMotion.fillIn, value: store.phase)
-                .padding(.bottom, AteMetrics.tabBarScrollInset)
+        ScrollView {
+            // The scroll view's content IS the lazy stack, and every slip is one of its own rows —
+            // never a `LazyVStack` inside a `VStack` under the header. Nested like that, the scroll
+            // view re-sizes all of its content on each pass, which re-places the lazy stack, which
+            // flips a slip it is prefetching below the fold between two states, and the flip dirties
+            // the content size again: coming back to a Feed scrolled to mid-list locked the main
+            // thread for minutes. As the stack's own rows, it settles.
+            LazyVStack(alignment: .leading, spacing: 0) {
+                header
+                content
             }
-            .scrollIndicators(.hidden)
-            .refreshable { await store.refresh() }
-            .onChange(of: scrollToTopSignal) { _, _ in
-                withAnimation { proxy.scrollTo(Self.topAnchor, anchor: .top) }
-            }
-            .onChange(of: scrollToTopAfterArea) { _, _ in
-                proxy.scrollTo(Self.topAnchor, anchor: .top)
-            }
+            // Loading is the column of skeleton slips, still; the feed replaces it in one fade. On
+            // the stack rather than around `content`, so no wrapper stands between the lazy stack
+            // and its slips; the header does not change with the phase.
+            .ateAnimation(AteMotion.fillIn, value: store.phase)
+            .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
+        .scrollIndicators(.hidden)
+        .refreshable { await store.refresh() }
+        // The title and the area slide away on the way down and come back on the way up.
+        // A new area starts at the top too.
+        .ateTabRootHeader(scrollToTop: scrollToTopSignal + scrollToTopAfterArea) { header }
         .task {
             onViewed()
             await store.loadIfNeeded()

@@ -27,6 +27,9 @@ enum AteMotion {
     /// A page that loads in pieces filling in once, over its still skeleton (round 4: no blinking,
     /// no shimmer — a still placeholder, then one fade). Gate with ``SwiftUICore/View/ateAnimation(_:value:)``.
     static let fillIn = Animation.easeOut(duration: 0.3)
+    /// Chrome, not theatre: a tab root's header sliding away on the way down and back on the way up
+    /// — the system bars' own quick, unbouncy pace, so it moves with the glass tab bar beside it.
+    static let headerSlide = Animation.snappy(duration: 0.25)
 }
 
 extension View {

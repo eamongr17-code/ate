@@ -13,7 +13,6 @@ struct SettingsScreen: View {
     var onSignedOut: () -> Void = {}
     /// Delete account finished; carries whose account it was.
     var onDeleted: (UUID?) -> Void = { _ in }
-    var onBack: () -> Void = {}
 
     @State private var photo: PhotosPickerItem?
     @State private var isPickingPhoto = false
@@ -29,7 +28,7 @@ struct SettingsScreen: View {
     @Environment(\.openURL) private var openURL
 
     var body: some View {
-        AteSettingsPage(title: "Settings", onBack: onBack) {
+        AteSettingsPage(title: "Settings") {
             VStack(spacing: 0) {
                 AteSettingsRow(title: "Handle", value: model.displayHandle) { onOpen(.handle(current: model.handle)) }
                 photoRow

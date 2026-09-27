@@ -2,7 +2,7 @@ import AteKit
 import SwiftUI
 
 /// **The shell's tab bar** — iOS 26's own `TabView`: Liquid Glass, minimised on scroll down, the
-/// system's re-tap, haptics and accessibility, with compose as the glass `+` beside the bar.
+/// system's re-tap and accessibility, with compose as the glass `+` beside the bar.
 /// Each tab owns a `NavigationStack`; the shell's one `path` is always the current tab's.
 extension AteShell {
     /// The composer, presented over the tabs.
@@ -25,7 +25,9 @@ extension AteShell {
                 Label { Text("New entry") } icon: { AteIcon.compose.templateImage() }
             }
         }
-        .tabBarMinimizeBehavior(.onScrollDown)
+        // Minimised on the way down; on the way up the whole bar comes back with the tab root's header
+        // (`AteTabRootHeader`). `.never` for that moment is the one lever that re-expands it.
+        .tabBarMinimizeBehavior(holdsTabBarOpen ? .never : .onScrollDown)
         .tint(AtePalette.automatic.fg)
         .atePhotoViewerHost() // one full-screen viewer for every photo under the shell
         .fullScreenCover(item: $composing) { presentation in composerCover(presentation) }
@@ -39,6 +41,27 @@ extension AteShell {
             NavigationStack(path: path(for: tab)) {
                 screen(for: tab)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // The bar's shadow, under the native glass, from the top of its strip down —
+                    // only while the app's model says the bar is at full size (`AteHeaderTrack`,
+                    // which errs to minimised), fading as it minimises.
+                    .overlay(alignment: .bottom) {
+                        AteTabBarShadow()
+                            .opacity(self.tab == tab && tabBarLooksExpanded ? 1 : 0)
+                            .ateAnimation(AteMotion.headerSlide, value: tabBarLooksExpanded)
+                            .alignmentGuide(.bottom) { $0[.top] }
+                    }
+                    #if DEBUG
+                    .overlay(alignment: .topLeading) {
+                        // The shadow is hidden from VoiceOver; UI tests read whether it is drawn here,
+                        // against the bar's real state (`TabChromeUITests`).
+                        if ComposerDebugLaunch.isUITesting, self.tab == tab {
+                            Color.clear.frame(width: 1, height: 1)
+                                .accessibilityElement()
+                                .accessibilityIdentifier("tabbar.shadow")
+                                .accessibilityValue(tabBarLooksExpanded ? "shown" : "hidden")
+                        }
+                    }
+                    #endif
                     // The Saved shelf's Undo, on the tab's root only. Inside the tab, so it sits in
                     // the safe area the native bar leaves — above it, however the bar is drawn.
                     .overlay(alignment: .bottom) {
@@ -50,12 +73,22 @@ extension AteShell {
                     .toolbar(.hidden, for: .navigationBar)
                     .ateSwipeBack()
                     .ateTabBarFollowsPop()
+                    // Coming back to a tab, its tracker re-reports in full (`AteChromeTracker`).
+                    .environment(\.ateIsCurrentTab, self.tab == tab)
+                    .environment(\.ateChromeChanged) { chrome in
+                        guard self.tab == tab else { return }
+                        if holdsTabBarOpen != chrome.isFloating { holdsTabBarOpen = chrome.isFloating }
+                        if tabBarLooksExpanded != chrome.isBarExpanded { tabBarLooksExpanded = chrome.isBarExpanded }
+                    }
                     .navigationDestination(for: Route.self) { route in
                         destination(route)
-                            .toolbar(.hidden, for: .navigationBar)
-                            // The design keeps the bar only under the pages of a tab (Ratings,
-                            // Suggestions); an entry, a place, a statement are pages on their own.
-                            .toolbar(route.keepsTabBar ? .visible : .hidden, for: .tabBar)
+                            // The system bar, see-through: its glass back button and the page's
+                            // corner controls (`ateNavigationBar`).
+                            .ateNavigationBarHost()
+                            // Every page pushed from a tab hides the bar — Ratings and Suggestions
+                            // too (round 4). The root's `ateTabBarFollowsPop` brings it back with
+                            // the pop itself.
+                            .toolbar(.hidden, for: .tabBar)
                     }
             }
         } label: {
@@ -96,14 +129,5 @@ extension AteShell {
                 }
             }
         )
-    }
-}
-
-private extension Route {
-    var keepsTabBar: Bool {
-        switch self {
-        case .ratings, .suggestions: true
-        default: false
-        }
     }
 }

@@ -27,7 +27,6 @@ struct FeedAreaSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
         .task { await model.loadAreas() }
     }
 

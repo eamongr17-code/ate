@@ -21,7 +21,6 @@ struct ProfileScreen: View {
     @State private var isShowingActions = false
     /// A report or block that did not happen, said once (``ActionFailure``).
     @State private var failure: ActionFailure?
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ScrollView {
@@ -49,7 +48,13 @@ struct ProfileScreen: View {
         }
         .scrollIndicators(.hidden)
         .ateGround()
-        .safeAreaInset(edge: .top, spacing: 0) { topBar }
+        // The system's glass back button, and "…" in glass — only for somebody else: there is no
+        // reporting or blocking yourself (round 4).
+        .ateNavigationBar(trailing: {
+            if store.isSomebodyElse {
+                AteIconButton(icon: .more, label: "More", size: 22) { isShowingActions = true }
+            }
+        })
         .refreshable { await store.refresh() }
         .task {
             await store.load()
@@ -65,23 +70,6 @@ struct ProfileScreen: View {
     }
 
     // MARK: - Bands
-
-    /// `padding:60px 12px 0` — back, and the one "…" that carries everything you can do about a
-    /// person (design rule 1: icons before labels).
-    private var topBar: some View {
-        HStack(spacing: 0) {
-            AteIconButton(icon: .back, label: "Back", size: 24) { dismiss() }
-            Spacer(minLength: AteMetrics.snug)
-            // Only for somebody else: there is no reporting or blocking yourself, and Search will
-            // push your own page soon enough.
-            if store.isSomebodyElse {
-                AteIconButton(icon: .more, label: "More", size: 22) { isShowingActions = true }
-            }
-        }
-        .padding(.horizontal, AteMetrics.regular)
-        .ateContentTop()
-        .background(AtePalette.automatic.ground)
-    }
 
     @ViewBuilder
     private var header: some View {

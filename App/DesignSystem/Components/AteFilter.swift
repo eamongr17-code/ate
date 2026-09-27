@@ -118,7 +118,6 @@ struct AteFilterSheet<Content: View>: View {
             .padding(.top, AteMetrics.tight)
             .padding(.bottom, AteMetrics.loose)
         }
-        .presentationDetents([.large])
     }
 }
 

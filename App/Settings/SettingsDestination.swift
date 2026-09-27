@@ -67,8 +67,7 @@ struct SettingsDestination: View {
                 model: model,
                 onOpen: onOpen,
                 onSignedOut: onSignedOut,
-                onDeleted: onDeleted,
-                onBack: { dismiss() }
+                onDeleted: onDeleted
             )
         case .handle(let current):
             HandleScreen(
@@ -81,17 +80,15 @@ struct SettingsDestination: View {
                 onDone: { handle in
                     if handle != current { onHandleChanged(handle) }
                     dismiss()
-                },
-                onBack: { dismiss() }
+                }
             )
         case .appearance:
-            AppearanceScreen(model: model, onBack: { dismiss() })
+            AppearanceScreen(model: model)
         case .artificialIntelligence:
-            AIScreen(onBack: { dismiss() })
+            AIScreen()
         case .blocked:
             BlockedPeopleScreen(
-                store: BlockedPeopleStore(account: services.account, analytics: services.analytics),
-                onBack: { dismiss() }
+                store: BlockedPeopleStore(account: services.account, analytics: services.analytics)
             )
         }
     }

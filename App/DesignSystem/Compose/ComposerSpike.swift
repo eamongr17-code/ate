@@ -254,7 +254,6 @@ struct ComposerSpike: View {
                 }
             }
         }
-        .presentationDetents([.medium])
     }
 
     private static let places = ["Tipo 00", "Kisume", "Butchers Diner", "400 Gradi"]

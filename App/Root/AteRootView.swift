@@ -88,11 +88,18 @@ struct AteShell: View {
     /// How many recent photos are waiting to be written up — the journal header's badge. Only ever
     /// non-zero when the photo library has already been allowed; nothing here asks.
     @State var photoCount = 0
-    /// Bumped when a tab's own item is tapped again — the screen scrolls to the top.
-    @State var scrollToTop = 0
+    /// Bumped when a tab's own item is tapped again — that tab's screen scrolls to the top. Per tab:
+    /// every tab stays alive under the `TabView`, and one shared counter scrolled all of them.
+    @State var scrollToTop: [AteTab: Int] = [:]
     /// Native variant A only: true for the one turn UIKit's bar holds the borrowed compose slot as
     /// its selection, so handing the real tab back is a change the bar actually hears.
     @State var holdsComposeSlot = false
+    /// The current tab root's header is back on screen mid-list, so the tab bar is held expanded
+    /// with it (`AteShell+NativeTabs`).
+    @State var holdsTabBarOpen = false
+    /// The app's model of the glass bar's size — public API gives no reading of it — which is when
+    /// its shadow shows (`AteTabBarShadow`).
+    @State var tabBarLooksExpanded = true
     @State var hasSession: Bool
     @State var isSigningIn = false
     /// Signed out, looking at the feed — and the ask that comes up when a browser tries to write.
@@ -258,8 +265,8 @@ struct AteShell: View {
                 onProfile: { open(.profile($0)) }
             )
         case .ratings(let score):
-            // `Ratings.dc.html` keeps the tab bar, exactly like `Suggestions`: it is a page of You,
-            // not a modal.
+            // `Ratings.dc.html` drew the tab bar under it; since round 4 every pushed page hides it
+            // (Eamon's call, build 79), this one included.
             RatingsScreen(
                 score: score,
                 stats: services.stats,
@@ -280,8 +287,8 @@ struct AteShell: View {
         case .settings(let page):
             settings(page)
         case .suggestions:
-            // `Suggestions.dc.html` keeps the tab bar under it — it is a page of the journal, not a
-            // modal (`Route.keepsTabBar`).
+            // `Suggestions.dc.html` drew the tab bar under it; since round 4 every pushed page
+            // hides it, this one included.
             suggestions
                 .ateGround()
         }
@@ -296,7 +303,7 @@ struct AteShell: View {
             JournalScreen(
                 store: journal,
                 saved: saved,
-                scrollToTopSignal: scrollToTop,
+                scrollToTopSignal: scrollToTop[.journal, default: 0],
                 photoCount: photoCount,
                 onCompose: { openComposer(.journalEmpty) },
                 onOpen: { open(.entry($0)) },
@@ -324,7 +331,7 @@ struct AteShell: View {
             FeedScreen(
                 store: feed,
                 area: feedArea,
-                scrollToTopSignal: scrollToTop,
+                scrollToTopSignal: scrollToTop[.feed, default: 0],
                 onOpen: { open(.entry($0)) },
                 onProfile: { open(.profile($0)) },
                 onPlace: { open(.place($0), from: .feed) },
@@ -364,11 +371,13 @@ struct AteShell: View {
                 guard tapped == tab else {
                     guard mayOpen(tapped) else { return }
                     tab = tapped
+                    holdsTabBarOpen = false
+                    tabBarLooksExpanded = true // a tab is chosen on the full bar
                     // A tab is a place, not a layer: switching one leaves nothing pushed behind it.
                     path.removeAll()
                     return
                 }
-                scrollToTop += 1
+                scrollToTop[tab, default: 0] += 1
             }
         )
     }
@@ -398,7 +407,8 @@ struct AteShell: View {
         journal.insert(card)
         tab = .journal
         guard path.contains(where: { $0.entryID == card.id }) == false else { return }
-        path = [] // a new entry: the Summary's Done lands on the Journal, the entry at its top
+        path = [] // a new entry: the Summary's Done lands on the Journal, the entry at its top —
+        scrollToTop[.journal, default: 0] += 1 // on screen, however far down the list was left
     }
 
     private func drainOutbox() async {
