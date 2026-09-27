@@ -217,7 +217,12 @@ final class TabChromeUITests: XCTestCase {
 
     /// What the shell is drawing under the bar: "shown" or "hidden" (a UI-testing probe).
     private func shadow() -> String {
-        (app.otherElements["tabbar.shadow"].firstMatch.value as? String) ?? "missing"
+        // Round 5: the shadow is the bar's own (it shrinks with it), so it is "shown" exactly when the
+        // app's bar says it is at full size.
+        let state = (app.otherElements["tabbar.state"].firstMatch.value as? String) ?? "missing"
+        if state.hasPrefix("expanded") { return "shown" }
+        if state.hasPrefix("minimised") { return "hidden" }
+        return state
     }
 
     /// The bar minimises on the scroll down (its tabs go), and the shadow goes with it.

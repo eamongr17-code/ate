@@ -30,6 +30,13 @@ enum AteMotion {
     /// Chrome, not theatre: a tab root's header sliding away on the way down and back on the way up
     /// — the system bars' own quick, unbouncy pace, so it moves with the glass tab bar beside it.
     static let headerSlide = Animation.snappy(duration: 0.25)
+    /// Round 5, chrome — the tab bar minimising and coming back. A: one capsule morphing into the
+    /// disc and back, on a soft spring (and the current tab's pill sliding between tabs).
+    static let barMorph = Animation.spring(response: 0.42, dampingFraction: 0.84)
+    /// B: the whole bar dropping away as the disc rises in its place, and back — a quick ease.
+    static let barSwap = Animation.smooth(duration: 0.3)
+    /// The floating header's return. A: out of a blur into focus, fading in.
+    static let headerFocus = Animation.easeOut(duration: 0.32)
 }
 
 extension View {

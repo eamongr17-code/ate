@@ -396,13 +396,21 @@ private struct GalleryControls: View {
     }
 }
 
-/// The bar itself is the system's; what the design owns is its icons, as the bar receives them.
+/// The app's own tab bar (round 5), full and minimised.
 private struct AteTabIconSpecimen: View {
+    @State private var full = AteTabChrome(current: .journal)
+    @State private var minimised: AteTabChrome = {
+        let chrome = AteTabChrome(current: .journal)
+        chrome.isExpanded = false
+        return chrome
+    }()
+
     var body: some View {
-        HStack(spacing: AteMetrics.section) {
-            ForEach(AteTab.allCases) { tab in tab.nativeLabel.labelStyle(.iconOnly) }
-            AteIcon.compose.templateImage()
+        VStack(spacing: AteMetrics.section) {
+            AteTabBar(chrome: full, onSelect: { full.select($0) }, onExpand: {}, onCompose: {})
+            AteTabBar(chrome: minimised, onSelect: { _ in }, onExpand: {}, onCompose: {})
         }
+        .frame(maxWidth: .infinity)
     }
 }
 

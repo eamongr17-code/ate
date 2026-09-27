@@ -85,6 +85,25 @@ enum AteColor {
     static let ground = Color(light: groundLight, dark: groundDark)
 }
 
+/// **The chrome's glass** (round 5): the app's own frosted surface for the tab bar, the `+`, the
+/// top-corner buttons and the month marker — replacing iOS 26's Liquid Glass, which clashed with
+/// everything around it. Each colour is read off the system bar it replaces, at rest over the
+/// ground (build 80, iPhone 17 Pro): the frost over the ground comes out at `fill`, the rim is its
+/// hairline edge, `selection` is the current tab's pill, and the two item tones are the ink the
+/// system rendered its icons and labels in.
+enum AteGlassColor {
+    /// Laid over the backdrop blur at ``tintOpacity``.
+    static let tint = Color(light: Color(hex: 0xFFF9F1), dark: Color(hex: 0x251E2A))
+    static let tintOpacity: Double = 0.94
+    static let rim = Color(light: Color.white.opacity(0.75), dark: Color(hex: 0x4B3B56))
+    static let selection = Color(light: Color(hex: 0xECE5DC), dark: Color(hex: 0x473F4C))
+    static let item = Color(light: Color(hex: 0x1E1810), dark: Color(hex: 0xF9F2FE))
+    static let itemCurrent = Color(light: Color(hex: 0x1A070E), dark: Color.white)
+    /// The status-bar frost's wash over its blur: the ground, so the frost reads as linen (or ink),
+    /// never grey.
+    static let frostWash = Color(light: Color(hex: 0xEFEAE2), dark: Color(hex: 0x17111B))
+}
+
 /// **A torn surface's tone** — one flat colour and its contact line. Read by
 /// ``SwiftUICore/View/ateTornPaper(_:topRadius:)``; never named at a call site.
 ///

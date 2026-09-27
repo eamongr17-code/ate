@@ -91,15 +91,11 @@ struct AteShell: View {
     /// Bumped when a tab's own item is tapped again — that tab's screen scrolls to the top. Per tab:
     /// every tab stays alive under the `TabView`, and one shared counter scrolled all of them.
     @State var scrollToTop: [AteTab: Int] = [:]
-    /// Native variant A only: true for the one turn UIKit's bar holds the borrowed compose slot as
-    /// its selection, so handing the real tab back is a change the bar actually hears.
-    @State var holdsComposeSlot = false
-    /// The current tab root's header is back on screen mid-list, so the tab bar is held expanded
-    /// with it (`AteShell+NativeTabs`).
-    @State var holdsTabBarOpen = false
-    /// The app's model of the glass bar's size — public API gives no reading of it — which is when
-    /// its shadow shows (`AteTabBarShadow`).
-    @State var tabBarLooksExpanded = true
+    /// What the tab bar shows — the current tab, full or minimised — read by every tab root's bar.
+    /// `tab` stays the shell's own; this follows it (`AteShell+Tabs`).
+    @State var chrome = AteTabChrome(current: .journal)
+    /// The page's bottom safe area, read from layout (`AteShell+Tabs`).
+    @State var bottomInset = AteTabBarMetrics.homeIndicatorInset
     @State var hasSession: Bool
     @State var isSigningIn = false
     /// Signed out, looking at the feed — and the ask that comes up when a browser tries to write.
@@ -122,8 +118,6 @@ struct AteShell: View {
     init(services: AteServices, onSessionEnded: @escaping () -> Void = {}) {
         self.services = services
         self.onSessionEnded = onSessionEnded
-        // Before the first bar exists: an appearance proxy only styles bars created after it is set.
-        AteTabBarAppearance.install()
         let gate = SessionGate(analytics: services.analytics)
         _gate = State(initialValue: gate)
         var hasSession = services.hasSession
@@ -371,8 +365,7 @@ struct AteShell: View {
                 guard tapped == tab else {
                     guard mayOpen(tapped) else { return }
                     tab = tapped
-                    holdsTabBarOpen = false
-                    tabBarLooksExpanded = true // a tab is chosen on the full bar
+                    chrome.select(tapped) // the pill slides over; a tab is chosen on the full bar
                     // A tab is a place, not a layer: switching one leaves nothing pushed behind it.
                     path.removeAll()
                     return
