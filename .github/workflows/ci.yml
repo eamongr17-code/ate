@@ -95,6 +95,10 @@ jobs:
   contract:
     name: Contract tests vs staging
     runs-on: macos-26
+    # One suite against shared staging at a time: overlapping runs sweep each other's rows.
+    concurrency:
+      group: staging-contract
+      cancel-in-progress: false
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
