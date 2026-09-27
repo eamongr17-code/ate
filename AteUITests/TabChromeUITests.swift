@@ -251,10 +251,14 @@ final class TabChromeUITests: XCTestCase {
                       "the bar is back with the swipe from \(page)", line: line)
     }
 
+    /// A full swipe back, edge to edge. The edge pan only starts recognising a little way in, so a
+    /// 330pt drag could hand UIKit well under half the width, and it cancelled the pop (seen on the
+    /// recording of a failed run: the page came 40% across and settled back). Released at the far
+    /// edge, the pop commits on position alone, whatever the synthesised velocity.
     private func swipeBack() {
         let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
-        edge.press(forDuration: 0.05, thenDragTo: edge.withOffset(CGVector(dx: 330, dy: 0)),
-                   withVelocity: .fast, thenHoldForDuration: 0)
+        let far = app.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5))
+        edge.press(forDuration: 0.05, thenDragTo: far, withVelocity: .fast, thenHoldForDuration: 0)
     }
 
     /// A tab, by name — expanding a minimised bar first (its one visible item is the current tab).

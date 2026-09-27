@@ -69,14 +69,16 @@ final class TabBarUITests: XCTestCase {
     func testTheBarPassesTheAccessibilityAudit() throws {
         let app = launch(["-ate-open-feed"])
         XCTAssertTrue(app.buttons["tabbar.compose"].waitForExistence(timeout: 10))
-        let barOnly: (XCUIAccessibilityAuditIssue) -> Bool = { issue in
-            guard let identifier = issue.element?.identifier else { return true }
-            return identifier == "tabbar.state" || identifier.hasPrefix("tabbar.") == false
-        }
-        try app.performAccessibilityAudit(for: [.hitRegion, .sufficientElementDescription], barOnly)
+        try app.performAccessibilityAudit(for: [.hitRegion, .sufficientElementDescription]) { @Sendable issue in Self.ignored(issue) }
         app.swipeUp()
         XCTAssertTrue(waitUntil(timeout: 3) { state(app) == "minimised feed" })
-        try app.performAccessibilityAudit(for: [.hitRegion, .sufficientElementDescription], barOnly)
+        try app.performAccessibilityAudit(for: [.hitRegion, .sufficientElementDescription]) { @Sendable issue in Self.ignored(issue) }
+    }
+
+    /// Everything but the bar's own controls, and the bar's Debug probe.
+    nonisolated private static func ignored(_ issue: XCUIAccessibilityAuditIssue) -> Bool {
+        guard let identifier = issue.element?.identifier else { return true }
+        return identifier == "tabbar.state" || identifier.hasPrefix("tabbar.") == false
     }
 
     private func state(_ app: XCUIApplication) -> String {
