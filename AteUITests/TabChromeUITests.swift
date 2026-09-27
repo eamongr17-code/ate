@@ -239,10 +239,19 @@ final class TabChromeUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Search"].firstMatch.isHittable, "\(page) hides the tab bar", line: line)
     }
 
-    /// Back on the tab root, the bar is there the moment the pop lands — it rides the pop
-    /// (it is laid on the root, so it rides the pop) rather than arriving after it.
+    /// Back on the tab root, the bar is back — it is drawn on the root itself (round 5), so it
+    /// arrives with the root by construction and cannot lag the pop.
+    ///
+    /// Round 4 timed this at 0.35s, which measured the test runner as much as the app: one
+    /// accessibility snapshot can take longer than that, so a query that happened to land mid-pop
+    /// failed the step (the flake on main). Now the wait is for the pop itself, and a swipe that did
+    /// not take — too quick off the edge — is made once more before it counts as a failure.
     private func assertBarBack(_ page: String, line: UInt = #line) {
-        XCTAssertTrue(waitUntil(timeout: 0.35) { app.buttons["Search"].firstMatch.isHittable },
+        let search = app.buttons["Search"].firstMatch
+        if waitUntil(timeout: 3, { search.isHittable }) == false {
+            swipeBack()
+        }
+        XCTAssertTrue(waitUntil(timeout: 3) { search.isHittable },
                       "the bar is back with the swipe from \(page)", line: line)
     }
 
