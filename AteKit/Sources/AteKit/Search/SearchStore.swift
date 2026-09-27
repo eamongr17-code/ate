@@ -53,8 +53,16 @@ public final class SearchStore {
     public private(set) var filters = SearchFilters.none
     /// `search_cuisines()`, once the cuisine filter has asked for it.
     public private(set) var cuisines: [CuisineCount] = []
-    /// `search_cities()`, read each time the filter opens.
-    public private(set) var cities: [AteCity] = []
+    /// `search_cities()` — the filter's cities, read ahead.
+    @ObservationIgnored public let cityList: AteCityList
+    public var cities: [AteCity] { cityList.cities }
+    public var hasLoadedCities: Bool { cityList.hasLoaded }
+    public func loadCities() async { await cityList.load() }
+    public func loadCitiesIfNeeded() async { await cityList.loadIfNeeded() }
+    /// Whether the cuisine list has answered once (round 5: read ahead, so the filter sheet opens full).
+    public private(set) var hasLoadedCuisines = false
+    private var cuisinesFailed = false
+    @ObservationIgnored private var cuisinesRead: Task<Void, Never>?
 
     /// True while the Places scope is showing the standing `Nearby` list rather than a search —
     /// the one section label the artboard draws.
@@ -119,6 +127,7 @@ public final class SearchStore {
         savedDishes: SavedDishBroadcast? = nil
     ) {
         self.service = service
+        cityList = AteCityList { try await service.searchCities() }
         self.scope = scope
         self.query = query
         self.pageSize = pageSize
@@ -185,14 +194,25 @@ public final class SearchStore {
     }
 
     /// The cuisine picker opened. Read once; a failure leaves the list empty and asks again next time.
-    public func loadCities() async {
-        guard let list = try? await service.searchCities() else { return }
-        cities = list
-    }
-
+    /// A read already on its way is joined, not repeated, so a sheet waiting on this waits for the
+    /// cuisines to actually land.
     public func loadCuisines() async {
-        guard cuisines.isEmpty else { return }
-        cuisines = (try? await service.cuisines()) ?? []
+        if let cuisinesRead {
+            await cuisinesRead.value
+            return
+        }
+        guard hasLoadedCuisines == false || cuisinesFailed else { return }
+        let service = service
+        let read = Task {
+            // A failure is an answer for the sheet that is up, and the next open asks again.
+            let loaded = try? await service.cuisines()
+            cuisinesFailed = loaded == nil
+            if let loaded { cuisines = loaded }
+            hasLoadedCuisines = true
+        }
+        cuisinesRead = read
+        await read.value
+        cuisinesRead = nil
     }
 
     // MARK: - Paging

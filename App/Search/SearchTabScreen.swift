@@ -84,19 +84,22 @@ struct SearchTabScreen: View {
         .onScrollPhaseChange { _, phase in
             if phase == .interacting { isFieldFocused = false }
         }
-        .sheet(isPresented: $isFiltering) {
+        .ateSheet(isPresented: $isFiltering, name: "search_filter",
+                  prepare: { await store.loadCitiesIfNeeded() }, content: {
             AteBrowseFilterSheet(
                 initial: AteBrowseFilterDraft(band: store.filters.band, city: store.filters.city),
                 cities: store.cities,
+                areCitiesLoaded: store.hasLoadedCities,
                 showsSort: false
             ) { draft in
                 var filters = SearchFilters(city: draft.city)
                 filters.band = draft.band
                 store.setFilters(filters)
             }
-            .task { await store.loadCities() }
-        }
+        })
         .task { await store.start() }
+        // Read ahead, so the filter sheet rises with its cities in it (#83's rule).
+        .task { await store.loadCitiesIfNeeded() }
         .task(id: store.scope) { await askWhereWeAre() }
         .task { openDebugState() }
     }
@@ -116,7 +119,7 @@ struct SearchTabScreen: View {
             text: Binding(get: { store.query }, set: { store.query = $0 }),
             height: Self.fieldHeight,
             horizontalPadding: 18,
-            background: AtePalette.automatic.chip,
+            background: AtePalette.automatic.raised,
             textStyle: .searchField
         )
         .focused($isFieldFocused)

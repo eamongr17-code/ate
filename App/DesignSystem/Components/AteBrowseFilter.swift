@@ -16,6 +16,9 @@ struct AteBrowseFilterDraft: Hashable {
 /// Nothing is applied until Done.
 struct AteBrowseFilterSheet: View {
     let cities: [AteCity]
+    /// Whether ``cities`` has answered — until it has, the sheet stands at full height with still
+    /// pills where they will be (#83).
+    let areCitiesLoaded: Bool
     let showsSort: Bool
     let onDone: (AteBrowseFilterDraft) -> Void
 
@@ -24,17 +27,19 @@ struct AteBrowseFilterSheet: View {
     init(
         initial: AteBrowseFilterDraft,
         cities: [AteCity],
+        areCitiesLoaded: Bool = true,
         showsSort: Bool,
         onDone: @escaping (AteBrowseFilterDraft) -> Void
     ) {
         self.cities = cities
+        self.areCitiesLoaded = areCitiesLoaded
         self.showsSort = showsSort
         self.onDone = onDone
         _draft = State(initialValue: initial)
     }
 
     var body: some View {
-        AteFilterSheet {
+        AteFilterSheet(isLoading: areCitiesLoaded == false) {
             if showsSort {
                 AteSegments(
                     options: JournalSort.allCases.map { AteSegment($0, $0.title) },
@@ -46,7 +51,8 @@ struct AteBrowseFilterSheet: View {
             // failed) still lets a city be taken off.
             AteCityPicker(
                 options: AteCityOption.cities(cities, keeping: draft.city),
-                selection: draft.city ?? AteCityOption.everywhereID
+                selection: draft.city ?? AteCityOption.everywhereID,
+                isLoading: areCitiesLoaded == false
             ) { option in
                 draft.city = option.id == AteCityOption.everywhereID ? nil : option.id
             }

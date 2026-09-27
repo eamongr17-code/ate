@@ -32,8 +32,8 @@ public final class SavedDishesStore {
     private var undoIndex: Int?
     /// What the shelf is narrowed to (round 5, 0049) — the Journal's range and city, shared.
     public private(set) var filter = SavedDishFilter.none
-    /// `my_saved_cities()`, read each time the filter opens.
-    public private(set) var cities: [AteCity] = []
+    /// `my_saved_cities()` — the shelf's filter's cities.
+    @ObservationIgnored public let cityList: AteCityList
 
     private let saves: any DishSaving
     private let pageSize: Int
@@ -47,6 +47,7 @@ public final class SavedDishesStore {
 
     public init(saves: any DishSaving, pageSize: Int = 50) {
         self.saves = saves
+        cityList = AteCityList { try await saves.mySavedCities() }
         self.pageSize = pageSize
     }
 
@@ -125,11 +126,10 @@ public final class SavedDishesStore {
         await loadFirstPage()
     }
 
-    /// The cities the filter offers. A failure keeps the last list.
-    public func loadCities() async {
-        guard let list = try? await saves.mySavedCities() else { return }
-        cities = list
-    }
+    public var cities: [AteCity] { cityList.cities }
+    public var hasLoadedCities: Bool { cityList.hasLoaded }
+    public func loadCities() async { await cityList.load() }
+    public func loadCitiesIfNeeded() async { await cityList.loadIfNeeded() }
 
     // MARK: - Unsaving
 

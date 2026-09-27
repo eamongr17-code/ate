@@ -47,7 +47,7 @@ struct FeedLocationHeader: View {
             .padding(.leading, 12)
             .padding(.trailing, 14)
             .atePillHeight(Self.chipHeight)
-            .background(AtePalette.automatic.chip, in: .capsule)
+            .background(AtePalette.automatic.raised, in: .capsule)
             .foregroundStyle(AtePalette.automatic.fg)
             .ateHitArea(hit)
         }
@@ -74,14 +74,15 @@ struct FeedLocationSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        AteSheet(title: "Where?") {
-            AteCityPicker(options: options, selection: selection, title: nil) { option in
+        AteSheet(title: "Where?", isLoading: model.hasLoadedCities == false) {
+            AteCityPicker(
+                options: options, selection: selection, title: nil, isLoading: model.hasLoadedCities == false
+            ) { option in
                 onChoose(Self.location(of: option))
                 dismiss()
             }
             .padding(.bottom, AteMetrics.loose)
         }
-        .task { await model.loadCities() }
     }
 
     private static let nearMeID = "@near-me"

@@ -44,7 +44,11 @@ struct FeedScreen: View {
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
         .scrollIndicators(.hidden)
-        .refreshable { await store.refresh() }
+        .refreshable {
+            async let cities: Void? = area?.loadCities()
+            await store.refresh()
+            _ = await cities
+        }
         // The title and the area slide away on the way down and come back on the way up.
         // A new area starts at the top too.
         .ateTabRootHeader(scrollToTop: scrollToTopSignal + scrollToTopAfterArea) { header }
@@ -56,13 +60,17 @@ struct FeedScreen: View {
             if JournalDebugLaunch.opensFeedLocation { isChoosingArea = true }
             #endif
         }
-        .sheet(isPresented: $isChoosingArea) {
+        // Read ahead, so the location sheet rises with its cities in it (#83's rule) — they move
+        // with the feed's own refresh, not on every open.
+        .task { await area?.loadCitiesIfNeeded() }
+        .ateSheet(isPresented: $isChoosingArea, name: "feed_location",
+                  prepare: { await area?.loadCitiesIfNeeded() }, content: {
             if let area {
                 FeedLocationSheet(model: area) { choice in
                     Task { await choose(choice, in: area) }
                 }
             }
-        }
+        })
     }
 
     // MARK: - Where

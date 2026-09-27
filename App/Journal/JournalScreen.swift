@@ -109,12 +109,19 @@ struct JournalScreen: View {
             // shelf is simply there, at its top — no scroll animating back up to it.
             .onChange(of: shelf) { _, _ in shelfChanged += 1 }
             .task { await store.loadIfNeeded() }
+            // Read ahead, so the filter sheet opens with its places in it (round 5).
+            // Read ahead, so the filter sheet rises with its cities in it (#83's rule).
+            .task { await store.loadCitiesIfNeeded() }
+            .task { await saved.loadCitiesIfNeeded() }
             // The Saved shelf loads when it is chosen, and stops if it is left mid-read — the task
             // the shelf's own view carried when it was one view rather than rows of this stack.
             .task(id: shelf) {
                 if shelf == .saved { await saved.loadIfNeeded() }
             }
-            .sheet(isPresented: $isFiltering) {
+            // The sheet rises full (#83's `ateSheet`): the shelf's cities are read ahead, and waited
+            // for here if they have not answered yet.
+            .ateSheet(isPresented: $isFiltering, name: "journal_filter",
+                      prepare: { await loadCitiesIfNeeded() }, content: {
                 AteBrowseFilterSheet(
                     initial: AteBrowseFilterDraft(
                         sort: store.query.sort, band: store.query.band, city: store.query.city
@@ -122,12 +129,12 @@ struct JournalScreen: View {
                     // Each shelf offers the cities it holds: you can save a dish in a city you have
                     // never written in.
                     cities: shelf == .journal ? store.cities : saved.cities,
+                    areCitiesLoaded: shelf == .journal ? store.hasLoadedCities : saved.hasLoadedCities,
                     showsSort: shelf == .journal
                 ) { draft in
                     apply(draft)
                 }
-                .task { await loadCities() }
-            }
+            })
             .task { await openDebugState() }
         }
     }
@@ -172,10 +179,11 @@ struct JournalScreen: View {
         apply(AteBrowseFilterDraft(sort: query.sort, band: query.band, city: query.city))
     }
 
-    private func loadCities() async {
+    /// What the sheet waits on before it rises: the shelf's own cities, if they have not answered.
+    private func loadCitiesIfNeeded() async {
         switch shelf {
-        case .journal: await store.loadCities()
-        case .saved: await saved.loadCities()
+        case .journal: await store.loadCitiesIfNeeded()
+        case .saved: await saved.loadCitiesIfNeeded()
         }
     }
 
@@ -254,9 +262,14 @@ struct JournalScreen: View {
     /// Pull to refresh reloads whichever shelf is showing — the gesture belongs to the screen, and
     /// the screen is two lists.
     private func refresh() async {
+        // The shelf's cities move with it: a pull reads them again too.
         switch shelf {
-        case .journal: await store.refresh()
-        case .saved: await saved.refresh()
+        case .journal:
+            Task { await store.loadCities() }
+            await store.refresh()
+        case .saved:
+            Task { await saved.loadCities() }
+            await saved.refresh()
         }
     }
 

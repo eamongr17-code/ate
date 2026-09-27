@@ -76,8 +76,11 @@ public final class FeedAreaModel {
 
     /// What the Feed is about. Near me until the person picks otherwise; remembered per person.
     public private(set) var location: FeedLocation
-    /// `feed_cities()`, busiest first — the picker.
-    public private(set) var cities: [AteCity] = []
+    /// `feed_cities()`, busiest first — the picker, read ahead so its sheet rises full.
+    @ObservationIgnored public let cityList: AteCityList
+    public var cities: [AteCity] { cityList.cities }
+    public var hasLoadedCities: Bool { cityList.hasLoaded }
+    public func loadCitiesIfNeeded() async { await cityList.loadIfNeeded() }
     /// `resolve_city`'s answer for "near me". `nil` before it has answered, and when no city has
     /// food at all (then near me is everywhere).
     public private(set) var nearMe: AteCity?
@@ -96,6 +99,11 @@ public final class FeedAreaModel {
     var resolving: Task<Void, Never>?
     public private(set) var isLoadingAreas = false
     public private(set) var hasReachedEnd = false
+    /// Whether a first page has ever answered — the sheet opens on it rather than on nothing.
+    public private(set) var hasLoadedAreas = false
+    /// Whether the first read has answered at all — a page or a failure. What the sheet waits on.
+    public private(set) var hasAnsweredAreas = false
+    @ObservationIgnored private var firstRead: Task<Void, Never>?
 
     private let reader: any EntryFeedReading
     private let store: any AteKeyValueStore
@@ -113,6 +121,7 @@ public final class FeedAreaModel {
     ) {
         self.pageSize = FeedArea.clampedLimit(pageSize)
         self.reader = reader
+        cityList = AteCityList { try await reader.feedCities() }
         self.store = store
         self.owner = owner
         self.analytics = analytics
@@ -151,11 +160,8 @@ public final class FeedAreaModel {
         }
     }
 
-    /// The picker's list. Quietly keeps the last good one on a failure.
-    public func loadCities() async {
-        guard let list = try? await reader.feedCities() else { return }
-        cities = list
-    }
+    /// The picker's list, read afresh. Quietly keeps the last good one on a failure.
+    public func loadCities() async { await cityList.load() }
 
     /// Works out near me from a point (`nil`: no permission, or no fix). Returns whether the city
     /// the Feed reads changed. Only a real answer counts — a row, or `[]` (no city has food, so near
@@ -227,7 +233,8 @@ public final class FeedAreaModel {
         "ate.feedArea.\(userID?.uuidString.lowercased() ?? "signedOut")"
     }
 
-    /// The sheet's first page, every time it opens — counts move. Quietly keeps the last good list
+    /// The first page — read ahead as the Feed opens and again on its pull to refresh, so the sheet
+    /// opens full and its counts move with the feed (round 5). Quietly keeps the last good list
     /// on a failure: the sheet still offers Everywhere and the current choice, which is all a
     /// failure should leave.
     public func loadAreas() async {
@@ -235,10 +242,34 @@ public final class FeedAreaModel {
         let generationAtStart = generation
         isLoadingAreas = true
         defer { isLoadingAreas = false }
-        guard let page = try? await reader.feedAreas(after: nil, limit: pageSize),
-              generationAtStart == generation else { return }
+        let answer = try? await reader.feedAreas(after: nil, limit: pageSize)
+        guard generationAtStart == generation else { return }
+        // A failure still answers the sheet (Everywhere and the current choice stand); a later
+        // open asks again, because `hasLoadedAreas` only records a real page.
+        guard let page = answer else {
+            hasAnsweredAreas = true
+            return
+        }
+        hasAnsweredAreas = true
         areas = FeedArea.ordered(page)
         hasReachedEnd = page.count < pageSize
+        hasLoadedAreas = true
+    }
+
+    /// The first page, once: what the Feed reads ahead so its area sheet opens full (round 5).
+    ///
+    /// A read already on its way is joined rather than skipped, so a sheet waiting on this waits for
+    /// the areas to actually land.
+    public func loadAreasIfNeeded() async {
+        if let firstRead {
+            await firstRead.value
+            return
+        }
+        guard hasLoadedAreas == false else { return }
+        let read = Task { await loadAreas() }
+        firstRead = read
+        await read.value
+        firstRead = nil
     }
 
     /// Called as a row appears: the next page once the last few are on screen.

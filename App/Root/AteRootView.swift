@@ -192,6 +192,8 @@ struct AteShell: View {
         // "The first write asks for sign-in": Welcome again, over the feed, with its link as Not Now.
         .fullScreenCover(isPresented: $gate.isAsking) { welcome(isPrompt: true) }
         .environment(gate)
+        // ate://entry/<id>, on every screen the shell shows — Welcome and the handle step too.
+        .ateEntryLinks(linkSituation) { openLinkedEntry($0, browseFirst: $1) }
         .task { await autoSignInIfRequested() }
         #if DEBUG
         .task { await openDebugScreenIfRequested() }

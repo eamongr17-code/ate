@@ -43,6 +43,11 @@ public final class JournalStore: EntryDeletionObserving {
     public private(set) var query = JournalQuery()
     /// The place filter's choices, once asked for (``loadPlaces()``).
     public private(set) var places: [JournalPlace] = []
+    /// Whether the place list has answered once — none is an answer too (round 5: read ahead, so the
+    /// filter sheet opens full).
+    public private(set) var hasLoadedPlaces = false
+    private var placesFailed = false
+    @ObservationIgnored private var placesRead: Task<Void, Never>?
 
     private let entryService: any EntryService
     private let querying: (any JournalQuerying)?
@@ -69,6 +74,7 @@ public final class JournalStore: EntryDeletionObserving {
     ) {
         self.entryService = entries
         self.querying = querying
+        cityList = AteCityList { try await querying?.myEntryCities() ?? [] }
         self.pageSize = pageSize
         self.calendar = calendar
         // An entry deleted anywhere leaves the journal in the same turn.
@@ -181,9 +187,15 @@ public final class JournalStore: EntryDeletionObserving {
             Task { await loadFirstPage() }
         }
         // A place the filter has never offered: its list is asked for again (QA b).
-        if let place = card.place, places.isEmpty == false, places.contains(where: { $0.id == place.id }) == false {
-            places = []
+        // The old list stands until the new one lands, so an open sheet never empties under the thumb.
+        if let place = card.place, hasLoadedPlaces, places.contains(where: { $0.id == place.id }) == false {
+            hasLoadedPlaces = false
             Task { await loadPlaces() }
+        }
+        // The same for a city (round 5): an entry in a city the filter has never offered.
+        if let slug = AteCity.slug(for: card.place?.city), cityList.hasLoaded,
+           cityList.cities.contains(where: { $0.city == slug }) == false {
+            Task { await cityList.load() }
         }
         if let index = entries.firstIndex(where: { $0.id == card.id }) {
             entries[index] = card
@@ -274,19 +286,38 @@ public final class JournalStore: EntryDeletionObserving {
         await loadFirstPage()
     }
 
-    /// The cities the filter offers (`my_entry_cities`), read each time the sheet opens — a first
-    /// entry in a new city belongs in it straight away.
-    public private(set) var cities: [AteCity] = []
-
-    public func loadCities() async {
-        guard let querying, let list = try? await querying.myEntryCities() else { return }
-        cities = list
-    }
+    /// The cities the filter offers (`my_entry_cities`), read ahead so the sheet rises full.
+    @ObservationIgnored public let cityList: AteCityList
+    public var cities: [AteCity] { cityList.cities }
+    public var hasLoadedCities: Bool { cityList.hasLoaded }
+    public func loadCities() async { await cityList.load() }
+    public func loadCitiesIfNeeded() async { await cityList.loadIfNeeded() }
 
     /// The places the place filter offers — asked for once, when the filter is first opened.
+    ///
+    /// A read already on its way is joined, not repeated, so a sheet waiting on this waits for the
+    /// places to actually land.
     public func loadPlaces() async {
-        guard places.isEmpty, let querying else { return }
-        places = (try? await querying.myEntryPlaces()) ?? []
+        if let placesRead {
+            await placesRead.value
+            return
+        }
+        guard hasLoadedPlaces == false || placesFailed else { return }
+        guard let querying else {
+            hasLoadedPlaces = true
+            return
+        }
+        let read = Task {
+            // A failure is an answer for the sheet that is up (no still rows left standing), and
+            // the next open asks again.
+            let loaded = try? await querying.myEntryPlaces()
+            placesFailed = loaded == nil
+            if let loaded { places = loaded }
+            hasLoadedPlaces = true
+        }
+        placesRead = read
+        await read.value
+        placesRead = nil
     }
 
     /// The one place `entries` is read back into shape. Every mutation ends here, so a day split

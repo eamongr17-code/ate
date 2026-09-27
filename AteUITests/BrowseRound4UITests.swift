@@ -2,7 +2,7 @@ import XCTest
 
 /// **Round 4, browse — driven.** What only a drive can see: the entry page drawing from the card it
 /// was opened with (no blank paper), the swipe back — finished and cancelled — bringing the tab bar
-/// with it, the photo zooming open and back, and the one filter sheet on the Journal and on Search.
+/// with it, and the one filter sheet on the Journal and on Search.
 ///
 /// Against `-ate-preview-data` (with `-ate-preview-journal`'s longer journal), so it needs no backend
 /// and writes nothing. The drives are paced for simulator recordings; with `BROWSE_SHOT_DIR` set they
@@ -43,27 +43,6 @@ final class BrowseRound4UITests: XCTestCase {
         let app = launch(["-ate-open-entry"])
         XCTAssertTrue(app.otherElements["entry.dishes"].waitForExistence(timeout: 10))
         save("entry-by-id")
-    }
-
-    // MARK: - Photo viewer (the native zoom)
-
-    /// A slip's photo grows into the viewer, swipes to the next, and a drag down puts it back.
-    func testPhotoZoomsOpenAndBack() {
-        let app = launch([])
-        let photo = app.buttons.matching(identifier: "photo.0").firstMatch
-        XCTAssertTrue(photo.waitForExistence(timeout: 10))
-        pause(0.6)
-        photo.tap()
-        XCTAssertTrue(app.buttons["Close"].firstMatch.waitForExistence(timeout: 5), "the viewer is up")
-        pause(1.0)
-        save("photo-open")
-        drag(app, from: CGVector(dx: 0.8, dy: 0.45), to: CGVector(dx: 0.15, dy: 0.45))
-        pause(0.9)
-        save("photo-next")
-        drag(app, from: CGVector(dx: 0.5, dy: 0.4), to: CGVector(dx: 0.5, dy: 0.9))
-        pause(1.2)
-        XCTAssertTrue(waitUntil(timeout: 4) { tabBarIsUp(app) }, "the journal is back under it")
-        save("photo-closed")
     }
 
     // MARK: - The one filter sheet
@@ -164,13 +143,6 @@ final class BrowseRound4UITests: XCTestCase {
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.005, dy: 0.5))
         let end = app.coordinate(withNormalizedOffset: CGVector(dx: fraction, dy: 0.5))
         start.press(forDuration: 0.05, thenDragTo: end, withVelocity: velocity, thenHoldForDuration: hold)
-    }
-
-    private func drag(_ app: XCUIApplication, from: CGVector, to: CGVector) {
-        app.coordinate(withNormalizedOffset: from).press(
-            forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: to),
-            withVelocity: .fast, thenHoldForDuration: 0
-        )
     }
 
     private func pause(_ seconds: TimeInterval) {

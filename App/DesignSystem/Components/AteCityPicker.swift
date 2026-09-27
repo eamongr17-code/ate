@@ -20,9 +20,14 @@ struct AteCityOption: Identifiable, Hashable {
 /// Picking never closes anything by itself — the caller decides (the filter sheet waits for Done;
 /// the Feed's sheet closes on the pick).
 struct AteCityPicker: View {
+    private static let stillPillWidths: [CGFloat] = [96, 72, 88]
+
     let options: [AteCityOption]
     let selection: String
     var title: String? = "City"
+    /// The cities are still arriving: still pills where they will be (#83's rule — the sheet rises
+    /// full, never jumps).
+    var isLoading = false
     let onPick: (AteCityOption) -> Void
 
     var body: some View {
@@ -40,6 +45,12 @@ struct AteCityPicker: View {
                     onPick(option)
                 }
                 .accessibilityIdentifier("city.\(option.id)")
+            }
+            if isLoading {
+                ForEach(Self.stillPillWidths, id: \.self) { width in
+                    AteSkeletonBar(width: width, height: AteFilterPill.height, palette: .surface)
+                        .accessibilityHidden(true)
+                }
             }
         }
     }
