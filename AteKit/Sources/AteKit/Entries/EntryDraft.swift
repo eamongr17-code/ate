@@ -132,3 +132,14 @@ public extension EntryDraftStoring {
     func clear(draftID: UUID?, keepingPhotos: Bool) { clear(draftID: draftID) }
     var draftPhotosRoot: URL? { nil }
 }
+
+public extension EntryDraftStoring {
+    /// **Every photo the saved draft still references** — whatever the composer is doing now. An
+    /// edit's composer works in the entry's own folder, and a parked new-entry draft (kept for days)
+    /// lives in another: the sweep must keep the draft's files either way.
+    var draftReferencedPhotoPaths: Set<String> {
+        guard let draft = load() else { return [] }
+        let directory = photoDirectory(for: draft.id)
+        return Set(draft.photoFiles.map { directory.appending(path: $0).path() })
+    }
+}

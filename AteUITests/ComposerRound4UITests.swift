@@ -50,16 +50,22 @@ final class ComposerRound4UITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.keyboards.element.waitForExistence(timeout: 10))
         app.buttons["Photo library"].tap()
-        sleep(3)
-        let cancel = app.buttons["Cancel"].firstMatch
-        if cancel.waitForExistence(timeout: 5) { cancel.tap() } else {
-            app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15))
-                .press(forDuration: 0.05, thenDragTo: app.windows.firstMatch.coordinate(
-                    withNormalizedOffset: CGVector(dx: 0.5, dy: 0.99)))
-        }
-        sleep(2)
+        let cancel = app.buttons.matching(identifier: "Cancel").firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 30), "the picker is up")
+        cancel.tap()
+        // The picker has gone once the composer's own keys take taps again.
+        let place = app.buttons["composer.key.place"]
+        let back = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: place)
+        XCTAssertEqual(XCTWaiter().wait(for: [back], timeout: 10), .completed)
         attach("r4-after-picker")
-        if app.keyboards.element.exists == false { assertToolbarAtFoot() }
+        if app.keyboards.element.exists == false {
+            let limit = app.windows.firstMatch.frame.height - 100
+            let atFoot = XCTNSPredicateExpectation(
+                predicate: NSPredicate { element, _ in ((element as? XCUIElement)?.frame.maxY ?? 0) > limit },
+                object: place
+            )
+            XCTAssertEqual(XCTWaiter().wait(for: [atFoot], timeout: 5), .completed, "the toolbar sits at the foot")
+        }
     }
 
     /// The leaf swaps the toolbar for the five codes; a code goes in after the dish and the toolbar
@@ -100,17 +106,25 @@ final class ComposerRound4UITests: XCTestCase {
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
         editor.typeText("The ragù")
         app.buttons["Photo library"].tap()
-        // The system picker runs out of process: its grid is reached by where it draws, not by name.
-        // The out-of-process picker loads its grid slowly on a cold simulator.
-        sleep(9)
-        let window = app.windows.firstMatch
-        window.coordinate(withNormalizedOffset: CGVector(dx: 0.17, dy: 0.52)).tap()
-        sleep(1)
-        window.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.15)).tap()
-        XCTAssertTrue(app.otherElements["1 photo"].firstMatch.waitForExistence(timeout: 2),
+        // The system picker's grid, by its own identifier — waited for, however slowly it loads.
+        let firstPhoto = app.images.matching(identifier: "PXGGridLayout-Info").firstMatch
+        XCTAssertTrue(firstPhoto.waitForExistence(timeout: 30), "the picker shows the library")
+        // The grid reports itself before it takes touches (it is still sliding up): wait for that.
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: firstPhoto)
+        _ = XCTWaiter().wait(for: [ready], timeout: 10)
+        // The tile's own point, not a blind screen position — it works whatever the grid's state.
+        firstPhoto.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let add = app.buttons.matching(NSPredicate(
+            format: "(label == 'Add' OR identifier == 'Add' OR label == 'Done') AND identifier != 'composer.done'"
+        )).firstMatch
+        XCTAssertTrue(add.waitForExistence(timeout: 10), "a pick can be confirmed")
+        add.tap()
+        XCTAssertTrue(app.otherElements["1 photo"].firstMatch.waitForExistence(timeout: 3),
                       "the pick is in the cluster as the picker closes")
         attach("r4-pick-at-once")
-        sleep(2)
+        // The preview replaces the still tile: the cluster's tile draws an image.
+        let tile = app.otherElements["composer.photos"].images.firstMatch
+        XCTAssertTrue(tile.waitForExistence(timeout: 10))
         attach("r4-pick-loaded")
     }
 

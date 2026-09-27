@@ -227,6 +227,34 @@ struct LatePhotoTests {
         #expect(FileManager.default.fileExists(atPath: oldStray.path()) == false, "old and unreferenced: swept")
     }
 
+    @Test("editing an entry never sweeps a parked draft's photos, however old")
+    func sweepKeepsTheParkedDraft() throws {
+        let owner = UUID()
+        let store = EntryDraftStore(containerName: "Tests-\(UUID().uuidString)", owner: { owner })
+        let root = try #require(store.draftPhotosRoot)
+        // A new-entry draft parked a day and a half ago, with a photo.
+        var draft = EntryDraft(composition: EntryComposition(plain: "The ragù", spans: []))
+        draft.photoFiles = ["parked.jpg"]
+        store.save(draft)
+        let parked = store.photoDirectory(for: draft.id).appending(path: "parked.jpg")
+        try Data([1]).write(to: parked)
+        try age(parked, hours: 36)
+        // Now the composer is editing an entry: its own folder is the entry's, and it references
+        // only that folder's files.
+        let entryID = UUID()
+        let editFolder = store.photoDirectory(for: entryID)
+        let editing = editFolder.appending(path: "added.jpg")
+        let stray = editFolder.appending(path: "removed-long-ago.jpg")
+        try Data([2]).write(to: editing)
+        try Data([3]).write(to: stray)
+        try age(stray, hours: 36)
+        let keep = Set([editing.path()]).union(store.draftReferencedPhotoPaths)
+        StagedFiles.sweep(root, keeping: keep)
+        #expect(FileManager.default.fileExists(atPath: parked.path()), "the parked draft keeps its photo")
+        #expect(FileManager.default.fileExists(atPath: editing.path()))
+        #expect(FileManager.default.fileExists(atPath: stray.path()) == false, "old and unreferenced: swept")
+    }
+
     @Test("a recorded file stays until the server shows its row — an upload returning is not enough")
     func confirmNeedsTheRow() async throws {
         let ledger = StagedPhotoLedger(storeURL: nil)

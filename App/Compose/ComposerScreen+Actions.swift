@@ -246,6 +246,8 @@ extension ComposerScreen {
         keep.formUnion(await services.outbox.pendingPhotoPaths)
         let directory = model.photoDirectory
         keep.formUnion(model.photos.compactMap(\.fileName).map { directory.appending(path: $0).path() })
+        // …and the saved draft's, which is not this composer's when it is editing an entry.
+        keep.formUnion(services.drafts.draftReferencedPhotoPaths)
         let referenced = keep
         await Task.detached(priority: .utility) { StagedFiles.sweep(root, keeping: referenced) }.value
     }
