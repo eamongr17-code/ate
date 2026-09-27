@@ -112,9 +112,12 @@ struct DetailRound5Tests {
     // MARK: - A link waits until it can open
 
     private static func situation(
-        session: Bool = true, browsing: Bool = false, owesHandle: Bool = false, covered: Bool = false
+        session: Bool = true, browsing: Bool = false, owesHandle: Bool = false, covered: Bool = false,
+        shellUp: Bool = true
     ) -> EntryLinkInbox.Situation {
-        EntryLinkInbox.Situation(hasSession: session, isBrowsing: browsing, owesHandle: owesHandle, isCovered: covered)
+        EntryLinkInbox.Situation(
+            hasSession: session, isBrowsing: browsing, owesHandle: owesHandle, isCovered: covered, isShellUp: shellUp
+        )
     }
 
     @Test func aLinkOnTheShellOpensAtOnce() {
@@ -127,16 +130,25 @@ struct DetailRound5Tests {
     @Test func aLinkOnWelcomeBrowsesThenOpens() {
         var inbox = EntryLinkInbox()
         inbox.receive(Self.id)
-        #expect(inbox.next(Self.situation(session: false)) == .browseAndOpen(Self.id))
-        inbox.receive(Self.id)
+        #expect(inbox.next(Self.situation(session: false, shellUp: false)) == .browse)
+        #expect(inbox.pending == Self.id, "still held while the shell comes up")
+        #expect(inbox.next(Self.situation(session: false, browsing: true, shellUp: false)) == .wait)
         #expect(inbox.next(Self.situation(session: false, browsing: true)) == .open(Self.id))
+    }
+
+    /// QA on #83: a push made in the turn the shell first appears was lost — the link waits for it.
+    @Test func aLinkWaitsForTheShellToBeUp() {
+        var inbox = EntryLinkInbox()
+        inbox.receive(Self.id)
+        #expect(inbox.next(Self.situation(shellUp: false)) == .wait)
+        #expect(inbox.next(Self.situation()) == .open(Self.id))
     }
 
     @Test func aLinkWaitsForTheHandleStepAndForWhateverIsUp() {
         var inbox = EntryLinkInbox()
         inbox.receive(Self.id)
         #expect(inbox.next(Self.situation(owesHandle: true)) == .wait)
-        #expect(inbox.next(Self.situation(covered: true)) == .wait, "under the composer or the sign-in ask")
+        #expect(inbox.next(Self.situation(covered: true)) == .wait, "under the composer, a sheet or the preview")
         #expect(inbox.pending == Self.id, "still held")
         #expect(inbox.next(Self.situation()) == .open(Self.id))
     }
