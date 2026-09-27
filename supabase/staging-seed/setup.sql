@@ -7,9 +7,24 @@
 -- The guard refuses to run anywhere but staging (cvoitgoaosofkougmarn): the staging demo account's
 -- fixed id must exist, photo URLs must point at the staging project, and none may point at prod.
 
+-- The guard, inline, BEFORE anything is created: nothing below runs on a database that is not staging.
+do $$
+begin
+  if not exists (select 1 from auth.users
+                  where id = '3e801ac3-88ab-4763-a686-aeab9b79c624' and email = 'eamon@ate.test')
+     or not exists (select 1 from public.entry_photos
+                     where photo_url like 'https://cvoitgoaosofkougmarn.supabase.co/%')
+     or exists (select 1 from public.entry_photos
+                 where photo_url like 'https://vyaexmnajnbryimbkgkf.supabase.co/%') then
+    raise exception 'staging_seed: this database is not STAGING (cvoitgoaosofkougmarn) — refusing';
+  end if;
+end;
+$$;
+
 create schema if not exists staging_seed;
 revoke all on schema staging_seed from public, anon, authenticated;
 
+-- The same guard, callable: every later batch (and remove.sql) runs it first.
 create or replace function staging_seed.assert_staging()
 returns void
 language plpgsql
@@ -36,16 +51,22 @@ create table if not exists staging_seed.registry (
   batch text not null default 'r6',
   primary key (tbl, id)
 );
+-- A save has no id of its own (PK = user, dish), so the registry keeps the seeded row's created_at too:
+-- (user, dish, saved_at) IS that row. Unsave + a real re-save makes a new row with a new created_at,
+-- which removal therefore never touches.
 create table if not exists staging_seed.saves (
-  user_id uuid not null,
-  dish_id uuid not null,
-  batch   text not null default 'r6',
+  user_id  uuid not null,
+  dish_id  uuid not null,
+  batch    text not null default 'r6',
+  saved_at timestamptz,
   primary key (user_id, dish_id)
 );
+alter table staging_seed.saves add column if not exists saved_at timestamptz;
 
--- Photos already in staging storage from the earlier demo seed: @ate.test folders only (never a real
--- account's), optionally excluding one folder — an author must never be handed a photo from their
--- OWN folder, or deleting the synthetic entry in the app would delete a file their real entry uses.
+-- Photos already in staging storage from the earlier demo seed, from the OTHER demo accounts only:
+-- never eamon@ate.test's folder (those files are his real entries' photos — they must not appear on
+-- synthetic accounts), never a real account's, never a seeded account's, and never the author's own
+-- (deleting the synthetic entry in the app would then delete a file a real entry uses).
 create or replace function staging_seed.photo_pool(p_exclude_folder text)
 returns text[]
 language sql
@@ -56,7 +77,12 @@ as $$
   from storage.objects o
   where o.bucket_id = 'review-photos'
     and o.name ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}-[0-9]+\.jpg$'
-    and split_part(o.name, '/', 1) in (select u.id::text from auth.users u where u.email like '%@ate.test')
+    and split_part(o.name, '/', 1) in (
+          select u.id::text from auth.users u
+           where u.email like '%@ate.test'
+             and u.email <> 'eamon@ate.test'
+             and u.id <> '3e801ac3-88ab-4763-a686-aeab9b79c624'
+             and not exists (select 1 from staging_seed.registry r where r.tbl = 'users' and r.id = u.id))
     and split_part(o.name, '/', 1) is distinct from p_exclude_folder;
 $$;
 
@@ -70,8 +96,7 @@ declare
   v_at timestamptz := (j ->> 'created_at')::timestamptz;
 begin
   if exists (select 1 from auth.users where id = v_id) then
-    insert into staging_seed.registry (tbl, id) values ('users', v_id) on conflict do nothing;
-    return;
+    return;                                  -- not ours to register (a re-run finds it registered already)
   end if;
   insert into auth.users
     (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at,
@@ -104,7 +129,9 @@ begin
           extensions.ST_SetSRID(extensions.ST_MakePoint((j ->> 'lng')::float8, (j ->> 'lat')::float8), 4326)::geography,
           (j ->> 'created_at')::timestamptz)
   on conflict (id) do nothing;
-  insert into staging_seed.registry (tbl, id) values ('restaurants', (j ->> 'id')::uuid) on conflict do nothing;
+  if found then                              -- only a row this call inserted is ours
+    insert into staging_seed.registry (tbl, id) values ('restaurants', (j ->> 'id')::uuid) on conflict do nothing;
+  end if;
 end;
 $$;
 
@@ -175,7 +202,8 @@ begin
   insert into public.saves (user_id, dish_id, source_entry_id, source_user_id, created_at)
   values (v_user, v_dish, v_src, v_by, (j ->> 'at')::timestamptz);
   if not exists (select 1 from staging_seed.registry where tbl = 'users' and id = v_user) then
-    insert into staging_seed.saves (user_id, dish_id) values (v_user, v_dish) on conflict do nothing;
+    insert into staging_seed.saves (user_id, dish_id, saved_at) values (v_user, v_dish, (j ->> 'at')::timestamptz)
+    on conflict do nothing;
   end if;
 end;
 $$;

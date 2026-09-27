@@ -26,9 +26,12 @@ declare
   v_places  int;
   v_kept    text;
 begin
+  -- The seeded ROW only: same user, dish AND created_at. A real re-save (unsave, save again) is a new
+  -- row with a new created_at and stays; so does any save the registry holds no timestamp for.
   delete from public.saves s
    using staging_seed.saves r
-   where s.user_id = r.user_id and s.dish_id = r.dish_id;
+   where s.user_id = r.user_id and s.dish_id = r.dish_id
+     and r.saved_at is not null and s.created_at = r.saved_at;
   get diagnostics v_saves = row_count;
   delete from staging_seed.saves;
 

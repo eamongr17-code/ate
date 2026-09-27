@@ -66,12 +66,14 @@ struct Round6ContractTests {
         let client = try await StagingContract.Backend.shared.client()
         let now = Date()
         let quarter = now.addingTimeInterval(-90 * 86_400)
+        var recentRows = 0
         for query in ["ba", "ca", "ra"] {
             let base: [String: AnyJSON] = ["p_query": .string(query), "p_limit": .integer(50)]
             let allTime: [Place] = try await StagingRPC.rows(client, "search_places", base)
             let recent: [Place] = try await StagingRPC.rows(
                 client, "search_places", base.merging(Self.window(quarter, now)) { $1 }
             )
+            recentRows += recent.count
             let totals = Dictionary(allTime.map { ($0.restaurantID, $0.reviewCount) }, uniquingKeysWith: { a, _ in a })
             for row in recent {
                 #expect(row.reviewCount > 0, "a place with no line in the window is not a result")
@@ -89,6 +91,8 @@ struct Round6ContractTests {
             )
             #expect(dishes.allSatisfy { $0.reviewCount > 0 && $0.scoredCount <= $0.reviewCount })
         }
+        // Staging's seeded diners ate out all quarter: a window that finds nothing is the bug, not an answer.
+        #expect(recentRows > 0, "the last 90 days found no place at all")
         let near: [Place] = try await StagingRPC.rows(client, "nearby_places", [
             "p_lat": .double(-37.8136), "p_lng": .double(144.9631), "p_radius_m": .double(20_000),
             "p_from": .string("2000-01-01"), "p_to": .string("2000-12-31"), "p_tz": .string(Self.zone)

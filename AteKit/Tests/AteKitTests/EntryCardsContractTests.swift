@@ -286,9 +286,13 @@ struct EntryCardsContractTests {
                 #expect(score >= 0.5 && score <= 6) // 6: the secret six (0041)
             }
         }
-        // Sorted by the server, not by us — the client groups, it does not re-order. Case-insensitive,
-        // as the database collates ("Pho Basil" before "PJ's"), not Swift's byte order.
-        let names = rows.map { $0.restaurantName.lowercased() }
+        // Sorted by the server, not by us — the client groups, it does not re-order. Compared the way
+        // the database collates: case-, accent- and punctuation-blind at the first level ("Pho Basil"
+        // before "PJ's"; "Cutler & Co" beside "Cutler Co"), so only letters and digits count here.
+        let names = rows.map {
+            String($0.restaurantName.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+                .filter { $0.isLetter || $0.isNumber })
+        }
         #expect(zip(names, names.dropFirst()).allSatisfy { $0 <= $1 }, "\(names)")
     }
 
