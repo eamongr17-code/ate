@@ -37,12 +37,17 @@ struct EntryCardsContractTests {
         limit: Int = 50,
         refine: @Sendable (PostgrestFilterBuilder) -> PostgrestFilterBuilder = { $0 }
     ) async throws -> [EntryCard] {
-        let data = try await refine(client.supabase.from(EntryCard.table).select(EntryCard.columns))
-            .order("created_at", ascending: false)
-            .order("id", ascending: false)
-            .limit(limit)
-            .execute()
-            .data
+        // Inside the staging lock: a page of the view is the heaviest single read in the suites (every
+        // line carries its dish's cover), and against the seeded staging it timed out (57014) when it
+        // landed on top of the parallel cursor walks.
+        let data = try await StagingExclusive.shared.run {
+            try await refine(client.supabase.from(EntryCard.table).select(EntryCard.columns))
+                .order("created_at", ascending: false)
+                .order("id", ascending: false)
+                .limit(limit)
+                .execute()
+                .data
+        }
         return try PostgRESTDate.decoder.decode([EntryCard].self, from: data)
     }
 
