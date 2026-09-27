@@ -51,7 +51,7 @@ struct SearchTabScreen: View {
                     text: Binding(get: { store.query }, set: { store.query = $0 }),
                     height: 52,
                     horizontalPadding: 18,
-                    background: AtePalette.automatic.chip,
+                    background: AtePalette.automatic.raised,
                     textStyle: .searchField
                 )
                 .focused($isFieldFocused)

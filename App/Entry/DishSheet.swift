@@ -175,16 +175,16 @@ private struct DishSheetPresenter: ViewModifier {
     let placeName: @MainActor () -> String?
     let onPick: (AteReceipt.Item, UUID?, String?) -> Void
 
-    @State private var menu: DishMenu?
+    @State private var holder = AteSheetHolder<DishMenu>()
 
     func body(content: Content) -> some View {
-        let holder = $menu
+        let holder = holder
         content.ateSheet(item: $item, name: "dish", prepare: { _ in
             let fresh = DishMenu(directory: directory, placeID: placeID())
-            holder.wrappedValue = fresh
+            holder.value = fresh
             await fresh.load()
         }, content: { correcting in
-            if let menu {
+            AteSheetHolderView(holder: holder) { menu in
                 DishSheet(menu: menu, placeName: placeName(), item: correcting.item) { dishID, dishName in
                     onPick(correcting.item, dishID, dishName)
                 }

@@ -1,7 +1,8 @@
 import XCTest
 
 /// **Round 5, detail + share**: a link opens the entry it points at, somebody else's entry is shared
-/// as a link (never their receipt), and a sheet rises with its rows already in it.
+/// as a link (never their receipt), a sheet rises with its rows already in it, a photo floats over
+/// the blurred page, the Diet key unfolds its codes, and the share receipt leads with the dishes.
 ///
 /// Against `-ate-preview-data`, so it writes nothing.
 final class DetailRound5UITests: XCTestCase {
@@ -66,6 +67,87 @@ final class DetailRound5UITests: XCTestCase {
         XCTAssertTrue(app.buttons["place.add"].exists)
         XCTAssertGreaterThan(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'row.'")).count, 0,
                              "its places are in the sheet as it rises")
+    }
+
+    // MARK: - The photo, over the blurred page
+
+    func testAPhotoFloatsOverThePageSwipesPinchesAndGoesBack() {
+        launch(["-ate-open-entry"])
+        let photo = app.buttons["photo.1"].firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 10))
+        sleep(1)
+        photo.tap()
+        let preview = app.descendants(matching: .any)["photo.preview"].firstMatch
+        XCTAssertTrue(preview.waitForExistence(timeout: 5), "the photo is up over the page")
+        let card = app.descendants(matching: .any)["photo.preview.card"].firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 3))
+        XCTAssertEqual(card.label, "Photo 2 of 3", "it opens on the photo that was tapped")
+        sleep(1)
+        let middle = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+        middle.press(forDuration: 0.05, thenDragTo: middle.withOffset(CGVector(dx: -260, dy: 0)),
+                     withVelocity: .fast, thenHoldForDuration: 0)
+        XCTAssertTrue(waitUntil(timeout: 3) { card.label == "Photo 3 of 3" }, "a swipe pages to the next")
+        middle.press(forDuration: 0.05, thenDragTo: middle.withOffset(CGVector(dx: 260, dy: 0)),
+                     withVelocity: .fast, thenHoldForDuration: 0)
+        XCTAssertTrue(waitUntil(timeout: 3) { card.label == "Photo 2 of 3" }, "and back")
+        card.pinch(withScale: 2.2, velocity: 2)
+        sleep(1)
+        card.doubleTap()
+        sleep(1)
+        XCTAssertTrue(preview.exists, "zooming does not put it away")
+        middle.press(forDuration: 0.05, thenDragTo: middle.withOffset(CGVector(dx: 0, dy: 420)),
+                     withVelocity: .fast, thenHoldForDuration: 0)
+        XCTAssertTrue(waitUntil(timeout: 5) { preview.exists == false }, "a swipe down puts it away")
+        photo.tap()
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        sleep(1)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.06)).tap()
+        XCTAssertTrue(waitUntil(timeout: 5) { preview.exists == false }, "a tap outside puts it away")
+    }
+
+    // MARK: - The Diet key
+
+    func testTheDietKeyUnfoldsItsCodesAndFoldsThemBack() {
+        launch(["-ate-open-composer", "-ate-seed-draft"])
+        let diet = app.buttons["composer.key.diet"].firstMatch
+        XCTAssertTrue(diet.waitForExistence(timeout: 10))
+        diet.tap()
+        let back = app.buttons["composer.diet.back"].firstMatch
+        XCTAssertTrue(back.waitForExistence(timeout: 3), "the codes are up")
+        for code in ["gf", "df", "v", "vg", "nf"] {
+            XCTAssertTrue(app.buttons["composer.diet.\(code)"].waitForExistence(timeout: 2), code)
+        }
+        back.tap()
+        XCTAssertTrue(diet.waitForExistence(timeout: 3), "the keys are back")
+        XCTAssertTrue(waitUntil(timeout: 3) { back.exists == false }, "the codes fold away")
+        diet.tap()
+        let code = app.buttons["composer.diet.gf"].firstMatch
+        XCTAssertTrue(code.waitForExistence(timeout: 3))
+        code.tap()
+        XCTAssertTrue(diet.waitForExistence(timeout: 3), "a code goes in and the keys come back")
+    }
+
+    // MARK: - The share receipt
+
+    func testTheShareReceiptLeadsWithTheDishes() {
+        launch(["-ate-open-share"])
+        let send = app.buttons["share.send"].firstMatch
+        XCTAssertTrue(send.waitForExistence(timeout: 10), "Share is up")
+        let dish = app.staticTexts["Tagliatelle al ragù"].firstMatch
+        let place = app.staticTexts.matching(NSPredicate(format: "label ==[c] 'Tipo 00'")).firstMatch
+        XCTAssertTrue(dish.waitForExistence(timeout: 5))
+        XCTAssertTrue(place.exists)
+        XCTAssertLessThan(dish.frame.minY, place.frame.minY, "the dishes lead; the place is under them")
+        XCTAssertGreaterThan(dish.frame.height, place.frame.height, "the dish is the headline, the place fine print")
+    }
+
+    private func waitUntil(timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() { return true }
+            _ = app.wait(for: .runningForeground, timeout: 0.1)
+        }
+        return condition()
     }
 
     private func launch(_ arguments: [String]) {

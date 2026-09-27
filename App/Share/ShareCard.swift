@@ -98,10 +98,12 @@ enum ShareArtefact: Equatable {
         }
     }
 
-    /// What the system share sheet announces the picture as.
+    /// What the system share sheet announces the picture as — the dishes, as the receipt leads with
+    /// them (round 5); the place only when nothing has been sorted into a dish.
     var exportName: String {
         switch self {
-        case .entry(let receipt, _): "\(receipt.place) — Ate"
+        case .entry(let receipt, _):
+            "\(receipt.items.isEmpty ? receipt.place : receipt.items.map(\.name).joined(separator: ", ")) — Ate"
         case .statement(let statement, _): "\(statement.month.title) — Ate"
         }
     }

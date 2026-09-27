@@ -112,6 +112,29 @@ private struct AtePreparedItemSheet<Item: Identifiable, Sheet: View>: ViewModifi
     }
 }
 
+// MARK: - What a prepared sheet shows
+
+/// What a prepared sheet opens on, made by its `prepare` and read by its content — by reference, so
+/// the sheet sees it the moment it is made rather than through a copy of its presenter captured
+/// before (a sheet that rose on a stale copy drew nothing at all).
+@MainActor
+@Observable
+final class AteSheetHolder<Value: AnyObject> {
+    var value: Value?
+}
+
+/// Draws a prepared sheet's content once its holder has a value.
+struct AteSheetHolderView<Value: AnyObject, Content: View>: View {
+    let holder: AteSheetHolder<Value>
+    @ViewBuilder let content: (Value) -> Content
+
+    var body: some View {
+        if let value = holder.value {
+            content(value)
+        }
+    }
+}
+
 // MARK: - Still rows
 
 /// **Rows that have not arrived**, drawn still in a sheet that went up before them: a radio row's

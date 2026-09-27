@@ -167,16 +167,18 @@ private struct PlaceSheetPresenter: ViewModifier {
     let selected: @MainActor () -> UUID?
     let onPick: (PlaceRef) -> Void
 
-    @State private var model: PlaceSearchModel?
+    /// The search the sheet opens on, held by reference: the sheet's content reads it as it changes,
+    /// rather than a copy of this modifier captured before the read began.
+    @State private var holder = AteSheetHolder<PlaceSearchModel>()
 
     func body(content: Content) -> some View {
-        let holder = $model
+        let holder = holder
         content.ateSheet(isPresented: $isPresented, name: "place", prepare: {
             let fresh = PlaceSearchModel(directory: directory, query: initialQuery(), selected: selected())
-            holder.wrappedValue = fresh
+            holder.value = fresh
             await fresh.start()
         }, content: {
-            if let model {
+            AteSheetHolderView(holder: holder) { model in
                 PlaceSheet(model: model, directory: directory, onPick: onPick)
             }
         })

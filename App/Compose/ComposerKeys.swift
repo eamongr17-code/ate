@@ -108,7 +108,7 @@ struct ComposerDoneButton: View {
                 .ateText(.control)
                 .padding(.horizontal, 18)
                 .atePillHeight(Self.height)
-                .background(AtePalette.surface.fg, in: .capsule)
+                .background(AtePalette.surface.solid, in: .capsule)
                 .foregroundStyle(AtePalette.surface.inverted)
                 .ateHitArea(Self.hitOutset)
         }
@@ -144,26 +144,11 @@ struct ComposerToolbar: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        Group {
-            switch AteExplore.diet {
-            case "A": ComposerDietSlide(isChoosingDiet: isChoosingDiet, keys: keys, back: dietBack, code: dietCode)
-            case "B": ComposerDietUnfold(isChoosingDiet: isChoosingDiet, keys: keys, back: dietBack, code: dietCode)
-            default:
-                Group {
-                    if isChoosingDiet {
-                        dietRow
-                            .transition(.opacity)
-                    } else {
-                        keys
-                            .transition(.opacity)
-                    }
-                }
-                .ateAnimation(.easeInOut(duration: 0.15), value: isChoosingDiet)
-            }
-        }
-        .padding(.vertical, AteMetrics.snug)
-        .padding(.leading, AteMetrics.snug)
-        .padding(.trailing, Self.trailing)
+        // The codes unfold out of the Diet key and fold back into it (round 5, Eamon picked B).
+        ComposerDietUnfold(isChoosingDiet: isChoosingDiet, keys: keys, back: dietBack, code: dietCode)
+            .padding(.vertical, AteMetrics.snug)
+            .padding(.leading, AteMetrics.snug)
+            .padding(.trailing, Self.trailing)
     }
 
     private var keys: some View {
@@ -258,17 +243,7 @@ struct ComposerToolbar: View {
         }
     }
 
-    /// The five codes, each the same linen pill as the Place key, behind a back arrow.
-    private var dietRow: some View {
-        HStack(spacing: Self.gap) {
-            dietBack
-            ForEach(DietTag.allCases, id: \.self) { tag in
-                dietCode(tag)
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
+    /// The back arrow in front of the five codes.
     private var dietBack: some View {
         AteIconButton(icon: .back, label: "Back", tint: AtePalette.surface.fg) {
             isChoosingDiet = false
@@ -276,6 +251,7 @@ struct ComposerToolbar: View {
         .accessibilityIdentifier("composer.diet.back")
     }
 
+    /// One code — the same pill as the Place key.
     private func dietCode(_ tag: DietTag) -> some View {
         ComposerKey(
             title: tag.label,
@@ -304,7 +280,7 @@ struct ComposerToolbar: View {
     }
 
     /// `gap:6px`, between the groups and between the two keys.
-    private static let gap: CGFloat = 6
+    static let gap: CGFloat = 6
     /// `padding-right:14px` — the keys sit in from the edge, where the visibility key used to be.
     private static let trailing: CGFloat = 14
 }

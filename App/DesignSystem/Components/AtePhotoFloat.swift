@@ -2,27 +2,20 @@ import AteKit
 import SwiftUI
 
 /// **A photo, floating over the page it was tapped on** (round 5, Eamon: "the image should show up
-/// above a blurred-out screen"). The page stays where it is, blurred and dimmed; the photo grows out
-/// of the tile it was tapped on to a rounded card in the middle of the screen.
+/// above a blurred-out screen"; he picked B, the card with its neighbours peeking). The page stays
+/// where it is, blurred and dimmed; the photo grows out of the tile it was tapped on into a 4:5
+/// card a little narrower than the screen, the entry's other photos peeking in at its edges and a
+/// row of dots under it.
 ///
 /// - Swipe sideways for the entry's other photos.
 /// - Pinch to zoom (the card grows over the blur), drag to look around while zoomed, double-tap to
-///   zoom in or back out; pinching it smaller than it rests puts it away.
+///   zoom in or back out; pinching it well below its resting size puts it away.
 /// - Swipe down, or tap the blurred page, and it shrinks back into its tile.
 ///
-/// Two layouts under exploration (`-ate-r5-photo A|B`):
-/// - **A — whole**: the photo at its own shape, as large as the screen allows; nothing else.
-/// - **B — peek**: a 4:5 card a little narrower than the screen, the photos either side peeking in
-///   at its edges, and a row of dots under it.
+/// With Reduce Motion it fades in and out rather than growing and shrinking.
 struct AtePhotoFloat: View {
-    enum Layout: Equatable {
-        case whole
-        case peek
-    }
-
     let photos: [AtePhoto]
     let origin: AtePhotoOrigin?
-    let layout: Layout
     let onClose: () -> Void
 
     @State private var index: Int
@@ -32,62 +25,65 @@ struct AtePhotoFloat: View {
     /// The zoom at rest, and the pinch in progress on top of it.
     @State private var zoom: CGFloat = 1
     @State private var pinch: CGFloat = 1
-    /// Where a zoomed photo has been dragged to, and the drag in progress.
+    /// Where a zoomed photo has been dragged to.
     @State private var pan: CGSize = .zero
-    /// Each photo's own shape (width / height) once known — layout A draws it whole.
-    @State private var aspects: [Int: CGFloat] = [:]
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(photos: [AtePhoto], index: Int, origin: AtePhotoOrigin?, layout: Layout, onClose: @escaping () -> Void) {
+    init(photos: [AtePhoto], index: Int, origin: AtePhotoOrigin?, onClose: @escaping () -> Void) {
         self.photos = photos
         self.origin = origin
-        self.layout = layout
         self.onClose = onClose
         _index = State(initialValue: index)
     }
 
     private static let dismissDistance: CGFloat = 110
     private static let pageDistance: CGFloat = 80
+    /// The card's corner — a photo's squircle at the size it is drawn.
     private static let cardRadius: CGFloat = 28
+    /// The card's share of the card width: what leaves room for the neighbours to peek.
+    private static let cardShare: CGFloat = 0.84
+    /// The neighbours sit a touch smaller, so the one in front reads as in front.
+    private static let neighbourScale: CGFloat = 0.92
     private static let maxZoom: CGFloat = 4
+    private static let dotSide: CGFloat = 6
     private static let open = Animation.spring(duration: 0.42, bounce: 0.16)
     private static let shut = Animation.spring(duration: 0.34, bounce: 0.06)
 
     var body: some View {
         GeometryReader { proxy in
             let screen = proxy.size
+            let rest = target(screen)
             ZStack(alignment: .topLeading) {
                 backdrop
                     .opacity(backdropOpacity)
                     .contentShape(.rect)
                     .onTapGesture { close() }
                     .accessibilityHidden(true)
-                if layout == .peek || axis == .horizontal { neighbours(screen) }
-                card(index, screen: screen)
-                if layout == .peek, photos.count > 1 {
+                neighbours(rest)
+                card(rest)
+                if photos.count > 1 {
                     dots
-                        .position(x: screen.width / 2, y: target(index, screen).maxY + 24)
+                        .position(x: screen.width / 2, y: rest.maxY + AteMetrics.section)
                         .opacity(isOpen && drag.height == 0 && isZoomed == false ? 1 : 0)
                 }
             }
         }
         .ignoresSafeArea()
         .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isModal)
         .accessibilityIdentifier("photo.preview")
         .accessibilityAction(.escape) { close() }
         .task {
-            measureAspects()
             // A turn after insertion, so the grow is its own transaction rather than riding the one
             // that put the overlay on screen.
             await Task.yield()
             withAnimation(reduceMotion ? .easeOut(duration: 0.2) : Self.open) { isOpen = true }
-            await loadAspects()
         }
     }
 
     // MARK: - The page behind
 
-    /// The page, blurred and dimmed — the system's material over an ink wash, so it reads in both modes.
+    /// The page, blurred and dimmed — the system's material under an ink wash, in both modes.
     private var backdrop: some View {
         Rectangle()
             .fill(.ultraThinMaterial)
@@ -103,60 +99,39 @@ struct AtePhotoFloat: View {
 
     private var isZoomed: Bool { zoom * pinch > 1.01 }
 
-    /// Where the photo at `position` rests.
-    private func target(_ position: Int, _ screen: CGSize) -> CGRect {
-        switch layout {
-        case .whole:
-            let maxWidth = screen.width - 2 * AteMetrics.cardGutter
-            let maxHeight = screen.height * 0.74
-            let aspect = aspects[position] ?? 0.8
-            var width = maxWidth
-            var height = width / aspect
-            if height > maxHeight {
-                height = maxHeight
-                width = height * aspect
-            }
-            return CGRect(x: (screen.width - width) / 2, y: (screen.height - height) / 2 - 8,
-                          width: width, height: height)
-        case .peek:
-            let width = (screen.width - 2 * AteMetrics.cardGutter) * 0.84
-            let height = min(width * 1.25, screen.height * 0.66)
-            return CGRect(x: (screen.width - width) / 2, y: (screen.height - height) / 2 - 20,
-                          width: width, height: height)
-        }
+    /// Where the photo rests: 4:5, centred a touch above the middle.
+    private func target(_ screen: CGSize) -> CGRect {
+        let width = (screen.width - 2 * AteMetrics.cardGutter) * Self.cardShare
+        let height = min(width * 1.25, screen.height * 0.66)
+        return CGRect(x: (screen.width - width) / 2, y: (screen.height - height) / 2 - 20,
+                      width: width, height: height)
     }
 
     /// How far the next photo sits from this one.
-    private func step(_ screen: CGSize) -> CGFloat {
-        switch layout {
-        case .whole: screen.width
-        case .peek: target(index, screen).width + AteMetrics.regular
-        }
-    }
+    private func step(_ rest: CGRect) -> CGFloat { rest.width + AteMetrics.regular }
 
     // MARK: - The card
 
-    private func card(_ position: Int, screen: CGSize) -> some View {
-        let from = origin?.tiles[position]
-        let rest = target(position, screen)
+    private func card(_ rest: CGRect) -> some View {
+        let from = origin?.tiles[index]
         let frame = isOpen ? rest : (from?.frame ?? rest)
-        let horizontal = axis == .horizontal ? drag.width : 0
+        let horizontal = axis == .horizontal && isZoomed == false ? drag.width : 0
         let vertical = axis == .vertical && isZoomed == false ? drag.height : 0
         let dragScale = max(0.6, 1 - max(0, vertical) / 900)
         let scale = isOpen ? dragScale * zoom * pinch : (from == nil ? 0.9 : 1)
-        let panned = isZoomed ? CGSize(width: pan.width + (axis == nil ? 0 : drag.width),
-                                       height: pan.height + (axis == nil ? 0 : drag.height)) : .zero
+        let panned = isZoomed ? CGSize(width: pan.width + drag.width, height: pan.height + drag.height) : .zero
         let radius = isOpen ? Self.cardRadius : (from?.radius ?? Self.cardRadius)
-        return face(photos[position], size: frame.size, radius: radius)
+        return face(photos[index], size: frame.size, radius: radius)
             .rotationEffect(.degrees(isOpen ? 0 : (from?.angle ?? 0)))
             .scaleEffect(scale)
             .opacity(isOpen || from != nil ? 1 : 0)
             .position(x: frame.midX + horizontal + panned.width, y: frame.midY + vertical + panned.height)
-            .gesture(dragGesture(screen))
+            .gesture(dragGesture(rest))
             .simultaneousGesture(pinchGesture)
             .onTapGesture(count: 2) { toggleZoom() }
-            .accessibilityLabel("Photo \(position + 1) of \(photos.count)")
+            .accessibilityLabel("Photo \(index + 1) of \(photos.count)")
             .accessibilityAddTraits(.isImage)
+            .accessibilityIdentifier("photo.preview.card")
     }
 
     private func face(_ photo: AtePhoto, size: CGSize, radius: CGFloat) -> some View {
@@ -167,29 +142,25 @@ struct AtePhotoFloat: View {
             .ateBackground(AteColor.ink, in: shape, shadow: .panel)
     }
 
-    /// The photos either side — waiting just off the edges (A) or peeking in at them (B) — moving
-    /// with the drag.
-    private func neighbours(_ screen: CGSize) -> some View {
-        let offsets = [index - 1, index + 1].filter(photos.indices.contains)
+    /// The photos either side, peeking in at the edges and moving with the drag.
+    private func neighbours(_ rest: CGRect) -> some View {
         let horizontal = axis == .horizontal ? drag.width : 0
-        return ForEach(offsets, id: \.self) { position in
-            let rest = target(position, screen)
-            let shift = CGFloat(position - index) * step(screen)
+        return ForEach([index - 1, index + 1].filter(photos.indices.contains), id: \.self) { position in
             face(photos[position], size: rest.size, radius: Self.cardRadius)
-                .scaleEffect(layout == .peek ? 0.92 : 1)
+                .scaleEffect(Self.neighbourScale)
                 .opacity(isOpen && isZoomed == false && drag.height <= 0 ? 1 : 0)
-                .position(x: rest.midX + shift + horizontal, y: rest.midY)
+                .position(x: rest.midX + CGFloat(position - index) * step(rest) + horizontal, y: rest.midY)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         }
     }
 
     private var dots: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Self.dotSide) {
             ForEach(photos.indices, id: \.self) { position in
                 Circle()
-                    .fill(Color.white.opacity(position == index ? 1 : 0.45))
-                    .frame(width: 6, height: 6)
+                    .fill(AteColor.overPhoto.opacity(position == index ? 1 : 0.45))
+                    .frame(width: Self.dotSide, height: Self.dotSide)
             }
         }
         .accessibilityHidden(true)
@@ -197,15 +168,13 @@ struct AtePhotoFloat: View {
 
     // MARK: - Gestures
 
-    private func dragGesture(_ screen: CGSize) -> some Gesture {
+    private func dragGesture(_ rest: CGRect) -> some Gesture {
         DragGesture(minimumDistance: 8)
             .onChanged { value in
                 if axis == nil {
                     axis = abs(value.translation.width) > abs(value.translation.height) ? .horizontal : .vertical
                 }
-                if isZoomed {
-                    drag = value.translation
-                } else if axis == .horizontal, photos.count < 2 {
+                if isZoomed == false, axis == .horizontal, photos.count < 2 {
                     // A single photo has nowhere to page to; the drag only resists.
                     drag = CGSize(width: value.translation.width / 4, height: 0)
                 } else {
@@ -228,7 +197,7 @@ struct AtePhotoFloat: View {
                         withAnimation(Self.shut) { drag = .zero } completion: { axis = nil }
                     }
                 case .horizontal:
-                    page(by: value, screen: screen)
+                    page(by: value, rest: rest)
                 case nil:
                     break
                 }
@@ -266,7 +235,7 @@ struct AtePhotoFloat: View {
         }
     }
 
-    private func page(by value: DragGesture.Value, screen: CGSize) {
+    private func page(by value: DragGesture.Value, rest: CGRect) {
         let travelled = value.predictedEndTranslation.width
         let direction = abs(travelled) > Self.pageDistance ? (travelled < 0 ? 1 : -1) : 0
         let next = index + direction
@@ -275,7 +244,7 @@ struct AtePhotoFloat: View {
             return
         }
         withAnimation(reduceMotion ? nil : Self.shut) {
-            drag = CGSize(width: CGFloat(-direction) * step(screen), height: 0)
+            drag = CGSize(width: CGFloat(-direction) * step(rest), height: 0)
         } completion: {
             index = next
             drag = .zero
@@ -293,31 +262,5 @@ struct AtePhotoFloat: View {
         } completion: {
             onClose()
         }
-    }
-
-    // MARK: - Each photo's shape
-
-    /// What is already decoded, at once — so the card opens at the right shape.
-    private func measureAspects() {
-        for (position, photo) in photos.enumerated() {
-            if let url = photo.url, let image = AteImagePipeline.shared.bestCached(url, size: .full)?.image {
-                aspects[position] = Self.aspect(image.size)
-            }
-        }
-    }
-
-    /// …and the rest as they arrive.
-    private func loadAspects() async {
-        guard layout == .whole else { return }
-        for (position, photo) in photos.enumerated() where aspects[position] == nil {
-            guard let url = photo.url,
-                  let image = await AteImagePipeline.shared.image(url, size: .large) else { continue }
-            withAnimation(reduceMotion ? nil : Self.shut) { aspects[position] = Self.aspect(image.size) }
-        }
-    }
-
-    private static func aspect(_ size: CGSize) -> CGFloat? {
-        guard size.width > 0, size.height > 0 else { return nil }
-        return size.width / size.height
     }
 }

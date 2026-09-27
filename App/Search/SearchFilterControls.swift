@@ -19,7 +19,7 @@ struct SearchPill: View {
                 .lineLimit(1)
                 .padding(.horizontal, AteMetrics.loose)
                 .atePillHeight(height)
-                .background(isOn ? AtePalette.automatic.fg : AtePalette.automatic.chip, in: .capsule)
+                .background(isOn ? AtePalette.automatic.solid : AtePalette.automatic.raised, in: .capsule)
                 .foregroundStyle(isOn ? AtePalette.automatic.inverted : AtePalette.automatic.fg)
                 .ateHitArea(hit)
         }

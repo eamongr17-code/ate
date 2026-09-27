@@ -17,7 +17,7 @@ struct AteFilterButton: View {
         Button(action: action) {
             AteIcon.filter.view(size: 20)
                 .frame(width: AteMetrics.hit, height: AteMetrics.hit)
-                .background(isActive ? palette.fg : palette.chip, in: .circle)
+                .background(isActive ? palette.solid : palette.raised, in: .circle)
                 .foregroundStyle(isActive ? palette.inverted : palette.fg)
                 .contentShape(.circle)
         }
@@ -60,7 +60,7 @@ struct AteFilterPill: View {
         .padding(.leading, 14)
         .padding(.trailing, onRemove == nil ? 14 : 10)
         .frame(height: Self.height)
-        .background(isOn ? palette.fg : palette.chip, in: .capsule)
+        .background(isOn ? palette.solid : palette.chip, in: .capsule)
         .foregroundStyle(isOn ? palette.inverted : palette.fg)
         .fixedSize()
     }
