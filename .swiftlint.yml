@@ -46,3 +46,12 @@ opt_in_rules:
   - contains_over_first_not_nil
   - redundant_nil_coalescing
   - unneeded_parentheses_in_closure_argument
+
+custom_rules:
+  # Lucide is the one icon set (round 5): every icon is an `AteIcon` case, never an SF Symbol.
+  no_sf_symbols:
+    name: "No SF Symbols"
+    included: "/App/.*\\.swift$"
+    regex: '(Image|UIImage|Label)\s*\([^)]*\b(systemName|systemImage)\s*:'
+    message: "Icons come from Lucide via AteIcon; add a case rather than using an SF Symbol."
+    severity: error
