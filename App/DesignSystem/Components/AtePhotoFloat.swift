@@ -60,7 +60,7 @@ struct AtePhotoFloat: View {
                     .onTapGesture { close() }
                     .accessibilityHidden(true)
                 neighbours(rest)
-                card(rest)
+                card(rest, screen: screen)
                 if photos.count > 1 {
                     dots
                         .position(x: screen.width / 2, y: rest.maxY + AteMetrics.section)
@@ -73,6 +73,7 @@ struct AtePhotoFloat: View {
         .accessibilityAddTraits(.isModal)
         .accessibilityIdentifier("photo.preview")
         .accessibilityAction(.escape) { close() }
+        .accessibilityAction(named: Text("Close")) { close() }
         .task {
             // A turn after insertion, so the grow is its own transaction rather than riding the one
             // that put the overlay on screen.
@@ -112,26 +113,37 @@ struct AtePhotoFloat: View {
 
     // MARK: - The card
 
-    private func card(_ rest: CGRect) -> some View {
+    private func card(_ rest: CGRect, screen: CGSize) -> some View {
         let from = origin?.tiles[index]
         let frame = isOpen ? rest : (from?.frame ?? rest)
         let horizontal = axis == .horizontal && isZoomed == false ? drag.width : 0
         let vertical = axis == .vertical && isZoomed == false ? drag.height : 0
         let dragScale = max(0.6, 1 - max(0, vertical) / 900)
         let scale = isOpen ? dragScale * zoom * pinch : (from == nil ? 0.9 : 1)
-        let panned = isZoomed ? CGSize(width: pan.width + drag.width, height: pan.height + drag.height) : .zero
+        let travelled = CGSize(width: pan.width + drag.width, height: pan.height + drag.height)
+        let panned = isZoomed ? clamped(travelled, rest: rest, screen: screen) : .zero
         let radius = isOpen ? Self.cardRadius : (from?.radius ?? Self.cardRadius)
         return face(photos[index], size: frame.size, radius: radius)
             .rotationEffect(.degrees(isOpen ? 0 : (from?.angle ?? 0)))
             .scaleEffect(scale)
             .opacity(isOpen || from != nil ? 1 : 0)
             .position(x: frame.midX + horizontal + panned.width, y: frame.midY + vertical + panned.height)
-            .gesture(dragGesture(rest))
+            .gesture(dragGesture(rest, screen: screen))
             .simultaneousGesture(pinchGesture)
             .onTapGesture(count: 2) { toggleZoom() }
             .accessibilityLabel("Photo \(index + 1) of \(photos.count)")
             .accessibilityAddTraits(.isImage)
             .accessibilityIdentifier("photo.preview.card")
+            // VoiceOver: swipe up or down on the photo to page through the entry's photos, and the
+            // Close action (or the escape scrub) to put it away.
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: step(to: index + 1)
+                case .decrement: step(to: index - 1)
+                @unknown default: break
+                }
+            }
+            .accessibilityAction(named: Text("Close")) { close() }
     }
 
     private func face(_ photo: AtePhoto, size: CGSize, radius: CGFloat) -> some View {
@@ -168,7 +180,7 @@ struct AtePhotoFloat: View {
 
     // MARK: - Gestures
 
-    private func dragGesture(_ rest: CGRect) -> some Gesture {
+    private func dragGesture(_ rest: CGRect, screen: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 8)
             .onChanged { value in
                 if axis == nil {
@@ -183,8 +195,9 @@ struct AtePhotoFloat: View {
             }
             .onEnded { value in
                 if isZoomed {
-                    pan = CGSize(width: pan.width + value.translation.width,
-                                 height: pan.height + value.translation.height)
+                    let travelled = CGSize(width: pan.width + value.translation.width,
+                                           height: pan.height + value.translation.height)
+                    pan = clamped(travelled, rest: rest, screen: screen)
                     drag = .zero
                     axis = nil
                     return
@@ -232,6 +245,27 @@ struct AtePhotoFloat: View {
             } else {
                 zoom = 2.5
             }
+        }
+    }
+
+    /// A zoomed photo pans only as far as it overhangs the screen, so an edge can be brought into
+    /// view but the photo can never be dragged off it. Re-clamped as it is drawn, so zooming back
+    /// out pulls it home.
+    private func clamped(_ offset: CGSize, rest: CGRect, screen: CGSize) -> CGSize {
+        let scale = zoom * pinch
+        let spareX = max(0, (rest.width * scale - screen.width) / 2 + abs(rest.midX - screen.width / 2))
+        let spareY = max(0, (rest.height * scale - screen.height) / 2 + abs(rest.midY - screen.height / 2))
+        return CGSize(width: min(spareX, max(-spareX, offset.width)),
+                      height: min(spareY, max(-spareY, offset.height)))
+    }
+
+    /// Pages without a drag — VoiceOver's adjustable action.
+    private func step(to next: Int) {
+        guard photos.indices.contains(next) else { return }
+        withAnimation(reduceMotion ? nil : Self.shut) {
+            index = next
+            zoom = 1
+            pan = .zero
         }
     }
 

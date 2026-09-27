@@ -40,6 +40,10 @@ private struct AtePreparedSheet<Sheet: View>: ViewModifier {
     /// What the system is actually showing. Trails `isPresented` by the read.
     @State private var isShowing = false
     @State private var preparing: Task<Void, Never>?
+    /// Which ask the read in flight belongs to — a newer ask owns `preparing`.
+    @State private var attempt = UUID()
+    /// The sheet's content has come on screen for the current ask.
+    @State private var didRise = false
 
     func body(content: Content) -> some View {
         content
@@ -47,9 +51,12 @@ private struct AtePreparedSheet<Sheet: View>: ViewModifier {
                 get: { isShowing },
                 set: { shown in
                     isShowing = shown
-                    if shown == false { isPresented = false }
+                    if shown == false {
+                        didRise = false
+                        isPresented = false
+                    }
                 }
-            ), content: sheet)
+            ), content: { sheet().onAppear { didRise = true } })
             .onChange(of: isPresented, initial: true) { _, wanted in
                 if wanted {
                     begin()
@@ -64,12 +71,23 @@ private struct AtePreparedSheet<Sheet: View>: ViewModifier {
     private func begin() {
         guard isShowing == false, preparing == nil else { return }
         let name = name
+        let ask = UUID()
+        attempt = ask
+        didRise = false
         preparing = Task {
             let ready = await SheetReadiness.wait(for: prepare)
+            guard attempt == ask else { return }
             preparing = nil
             guard Task.isCancelled == false, isPresented else { return }
             AteTelemetry.record(LinkEvents.sheetOpened(name, ready: ready))
             isShowing = true
+            // Something else went up over the page during the wait (another sheet, a cover): the
+            // system cannot present this one, and a flag left standing would make its key dead for
+            // the rest of the session. It is let go, so the next tap asks again.
+            try? await Task.sleep(for: SheetReadiness.riseGrace)
+            guard attempt == ask, isShowing, didRise == false else { return }
+            isShowing = false
+            isPresented = false
         }
     }
 }
@@ -82,6 +100,8 @@ private struct AtePreparedItemSheet<Item: Identifiable, Sheet: View>: ViewModifi
 
     @State private var showing: Item?
     @State private var preparing: Task<Void, Never>?
+    @State private var attempt = UUID()
+    @State private var didRise = false
 
     func body(content: Content) -> some View {
         content
@@ -89,9 +109,12 @@ private struct AtePreparedItemSheet<Item: Identifiable, Sheet: View>: ViewModifi
                 get: { showing },
                 set: { next in
                     showing = next
-                    if next == nil { item = nil }
+                    if next == nil {
+                        didRise = false
+                        item = nil
+                    }
                 }
-            ), content: sheet)
+            ), content: { sheet($0).onAppear { didRise = true } })
             .onChange(of: item?.id, initial: true) { _, id in
                 preparing?.cancel()
                 preparing = nil
@@ -100,15 +123,28 @@ private struct AtePreparedItemSheet<Item: Identifiable, Sheet: View>: ViewModifi
                     return
                 }
                 guard showing?.id != wanted.id else { return }
-                let name = name
-                preparing = Task {
-                    let ready = await SheetReadiness.wait { await prepare(wanted) }
-                    preparing = nil
-                    guard Task.isCancelled == false, item?.id == wanted.id else { return }
-                    AteTelemetry.record(LinkEvents.sheetOpened(name, ready: ready))
-                    showing = wanted
-                }
+                begin(wanted)
             }
+    }
+
+    private func begin(_ wanted: Item) {
+        let name = name
+        let ask = UUID()
+        attempt = ask
+        didRise = false
+        preparing = Task {
+            let ready = await SheetReadiness.wait { await prepare(wanted) }
+            guard attempt == ask else { return }
+            preparing = nil
+            guard Task.isCancelled == false, item?.id == wanted.id else { return }
+            AteTelemetry.record(LinkEvents.sheetOpened(name, ready: ready))
+            showing = wanted
+            // As above: a sheet the system could not put up is let go, never left standing.
+            try? await Task.sleep(for: SheetReadiness.riseGrace)
+            guard attempt == ask, showing?.id == wanted.id, didRise == false else { return }
+            showing = nil
+            item = nil
+        }
     }
 }
 

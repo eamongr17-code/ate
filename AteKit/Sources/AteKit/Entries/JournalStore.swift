@@ -47,6 +47,7 @@ public final class JournalStore: EntryDeletionObserving {
     /// filter sheet opens full).
     public private(set) var hasLoadedPlaces = false
     private var placesFailed = false
+    @ObservationIgnored private var placesRead: Task<Void, Never>?
 
     private let entryService: any EntryService
     private let querying: (any JournalQuerying)?
@@ -280,18 +281,30 @@ public final class JournalStore: EntryDeletionObserving {
     }
 
     /// The places the place filter offers — asked for once, when the filter is first opened.
+    ///
+    /// A read already on its way is joined, not repeated, so a sheet waiting on this waits for the
+    /// places to actually land.
     public func loadPlaces() async {
+        if let placesRead {
+            await placesRead.value
+            return
+        }
         guard hasLoadedPlaces == false || placesFailed else { return }
         guard let querying else {
             hasLoadedPlaces = true
             return
         }
-        // A failure is an answer for the sheet that is up (no still rows left standing), and the
-        // next open asks again.
-        let loaded = try? await querying.myEntryPlaces()
-        placesFailed = loaded == nil
-        if let loaded { places = loaded }
-        hasLoadedPlaces = true
+        let read = Task {
+            // A failure is an answer for the sheet that is up (no still rows left standing), and
+            // the next open asks again.
+            let loaded = try? await querying.myEntryPlaces()
+            placesFailed = loaded == nil
+            if let loaded { places = loaded }
+            hasLoadedPlaces = true
+        }
+        placesRead = read
+        await read.value
+        placesRead = nil
     }
 
     /// The one place `entries` is read back into shape. Every mutation ends here, so a day split

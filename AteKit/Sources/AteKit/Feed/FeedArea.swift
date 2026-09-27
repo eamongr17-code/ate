@@ -77,6 +77,7 @@ public final class FeedAreaModel {
     public private(set) var hasLoadedAreas = false
     /// Whether the first read has answered at all — a page or a failure. What the sheet waits on.
     public private(set) var hasAnsweredAreas = false
+    @ObservationIgnored private var firstRead: Task<Void, Never>?
 
     private let reader: any EntryFeedReading
     private let store: any AteKeyValueStore
@@ -129,9 +130,19 @@ public final class FeedAreaModel {
     }
 
     /// The first page, once: what the Feed reads ahead so its area sheet opens full (round 5).
+    ///
+    /// A read already on its way is joined rather than skipped, so a sheet waiting on this waits for
+    /// the areas to actually land.
     public func loadAreasIfNeeded() async {
-        guard hasLoadedAreas == false, isLoadingAreas == false else { return }
-        await loadAreas()
+        if let firstRead {
+            await firstRead.value
+            return
+        }
+        guard hasLoadedAreas == false else { return }
+        let read = Task { await loadAreas() }
+        firstRead = read
+        await read.value
+        firstRead = nil
     }
 
     /// Called as a row appears: the next page once the last few are on screen.

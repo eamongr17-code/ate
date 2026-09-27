@@ -18,8 +18,8 @@ public final class SessionGate {
         case you
         case report
         case block
-        /// Somebody's entry page. Not a write, but `entry_cards` is not an `anon` read (0034), so a
-        /// browser is asked rather than shown a page that cannot load.
+        /// Somebody's entry page. No longer asked for — `get_entry_card` answers signed out (0048) —
+        /// kept so the funnel's history still decodes.
         case entry
     }
 

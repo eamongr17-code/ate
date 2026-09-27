@@ -10,6 +10,9 @@ import Synchronization
 public enum SheetReadiness {
     /// How long a tap waits for a sheet's read before the sheet goes up without it.
     public static let limit: Duration = .milliseconds(700)
+    /// How long a sheet that was asked to go up has to actually appear before the ask is let go
+    /// (something else was already up over the page, and the system refused it).
+    public static let riseGrace: Duration = .milliseconds(1500)
 
     /// Runs `work` and returns when it has finished (`true`) or when `limit` has passed (`false`).
     @MainActor

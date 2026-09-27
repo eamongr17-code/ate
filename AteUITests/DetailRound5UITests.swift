@@ -24,6 +24,51 @@ final class DetailRound5UITests: XCTestCase {
                       "the link pushed somebody else's entry, byline and all")
     }
 
+    /// Signed out, cold: the link launches the app on Welcome, which goes straight into browsing and
+    /// opens the entry — a read needs no account (0048).
+    func testALinkOnAColdStartSignedOutOpensTheEntry() throws {
+        continueAfterFailure = false
+        app = XCUIApplication()
+        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open-welcome"]
+        app.terminate()
+        app.open(try XCTUnwrap(URL(string: Self.feedEntry)))
+        confirmOpen()
+        XCTAssertTrue(app.buttons["entry.byline"].firstMatch.waitForExistence(timeout: 15),
+                      "the link opened the entry, not the sign-in ask")
+        XCTAssertFalse(app.buttons["welcome.signIn"].exists)
+    }
+
+    /// Signed out, warm: sitting on Welcome, a link opens the entry over the feed.
+    func testALinkOnWelcomeOpensTheEntry() throws {
+        launch(["-ate-open-welcome"])
+        XCTAssertTrue(app.buttons["welcome.browse"].firstMatch.waitForExistence(timeout: 10), "Welcome is up")
+        app.open(try XCTUnwrap(URL(string: Self.feedEntry)))
+        confirmOpen()
+        XCTAssertTrue(app.buttons["entry.byline"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["welcome.signIn"].exists, "nobody was asked to sign in to read")
+    }
+
+    /// Mid-onboarding: the link waits for the handle step, and opens once Continue is pressed.
+    func testALinkDuringTheHandleStepOpensAfterIt() throws {
+        launch(["-ate-open-first-run-handle"])
+        let next = app.buttons["handle.continue"].firstMatch
+        XCTAssertTrue(next.waitForExistence(timeout: 10), "the handle step is up")
+        app.open(try XCTUnwrap(URL(string: Self.feedEntry)))
+        confirmOpen()
+        XCTAssertTrue(next.waitForExistence(timeout: 5), "the step is not skipped")
+        XCTAssertFalse(app.buttons["entry.byline"].exists, "the entry waits")
+        XCTAssertTrue(waitUntil(timeout: 5) { next.isEnabled })
+        next.tap()
+        XCTAssertTrue(app.buttons["entry.byline"].firstMatch.waitForExistence(timeout: 10),
+                      "the link opened once the step was done")
+    }
+
+    /// The simulator asks before a custom scheme opens its app; a phone tapping a link does not.
+    private func confirmOpen() {
+        let confirm = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Open"]
+        if confirm.waitForExistence(timeout: 3) { confirm.tap() }
+    }
+
     func testSomebodyElsesEntrySharesALinkNotTheirReceipt() {
         launch(["-ate-open-feed"])
         let slip = app.descendants(matching: .any).matching(identifier: "feed.slip.body").firstMatch
@@ -101,7 +146,8 @@ final class DetailRound5UITests: XCTestCase {
         photo.tap()
         XCTAssertTrue(preview.waitForExistence(timeout: 5))
         sleep(1)
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.06)).tap()
+        // Above the card and below the status bar, on the blurred page.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.14)).tap()
         XCTAssertTrue(waitUntil(timeout: 5) { preview.exists == false }, "a tap outside puts it away")
     }
 

@@ -109,6 +109,57 @@ struct DetailRound5Tests {
         #expect(await reader.calls == 2, "the next open asks again")
     }
 
+    // MARK: - A link waits until it can open
+
+    private static func situation(
+        session: Bool = true, browsing: Bool = false, owesHandle: Bool = false, covered: Bool = false
+    ) -> EntryLinkInbox.Situation {
+        EntryLinkInbox.Situation(hasSession: session, isBrowsing: browsing, owesHandle: owesHandle, isCovered: covered)
+    }
+
+    @Test func aLinkOnTheShellOpensAtOnce() {
+        var inbox = EntryLinkInbox()
+        inbox.receive(Self.id)
+        #expect(inbox.next(Self.situation()) == .open(Self.id))
+        #expect(inbox.next(Self.situation()) == .wait, "once")
+    }
+
+    @Test func aLinkOnWelcomeBrowsesThenOpens() {
+        var inbox = EntryLinkInbox()
+        inbox.receive(Self.id)
+        #expect(inbox.next(Self.situation(session: false)) == .browseAndOpen(Self.id))
+        inbox.receive(Self.id)
+        #expect(inbox.next(Self.situation(session: false, browsing: true)) == .open(Self.id))
+    }
+
+    @Test func aLinkWaitsForTheHandleStepAndForWhateverIsUp() {
+        var inbox = EntryLinkInbox()
+        inbox.receive(Self.id)
+        #expect(inbox.next(Self.situation(owesHandle: true)) == .wait)
+        #expect(inbox.next(Self.situation(covered: true)) == .wait, "under the composer or the sign-in ask")
+        #expect(inbox.pending == Self.id, "still held")
+        #expect(inbox.next(Self.situation()) == .open(Self.id))
+    }
+
+    @Test func theNewestLinkWins() {
+        var inbox = EntryLinkInbox()
+        let other = UUID()
+        inbox.receive(Self.id)
+        inbox.receive(other)
+        #expect(inbox.next(Self.situation()) == .open(other))
+    }
+
+    @Test func aSheetWaitingOnAReadAheadWaitsForItToLand() async {
+        let reader = SlowAreas()
+        let model = FeedAreaModel(reader: reader, store: InMemoryKeyValueStore(), owner: { nil })
+        let ahead = Task { await model.loadAreasIfNeeded() }
+        await Task.yield()
+        await model.loadAreasIfNeeded() // the sheet's prepare, while the read-ahead is in flight
+        #expect(model.hasLoadedAreas, "joined the read, did not skip past it")
+        await ahead.value
+        #expect(await reader.calls == 1)
+    }
+
     // MARK: - Events
 
     @Test func linkEventsCarryIDsOnly() {
@@ -118,6 +169,23 @@ struct DetailRound5Tests {
         #expect(LinkEvents.linkOpened(.entry(Self.id)).parameters["recognised"] == "true")
         #expect(LinkEvents.linkOpened(nil).parameters == ["recognised": "false"])
         #expect(LinkEvents.sheetOpened("place", ready: false).parameters == ["sheet": "place", "ready": "false"])
+    }
+}
+
+/// One area, slowly.
+private actor SlowAreas: EntryFeedReading {
+    var calls = 0
+
+    func feedPage(
+        after cursor: PageCursor?, pageSize: Int, includeOwn: Bool, area: String?
+    ) async throws -> Page<EntryCard> {
+        Page(items: [], nextCursor: nil)
+    }
+
+    func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] {
+        calls += 1
+        try? await Task.sleep(for: .milliseconds(80))
+        return [FeedArea(area: "CBD", count: 9)]
     }
 }
 
