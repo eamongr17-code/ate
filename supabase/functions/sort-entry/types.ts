@@ -8,7 +8,10 @@
 export type SortItem = {
   /** The dish, as the user's words name it. Resolved to a dishes row by 0021's find_or_create_dish. */
   dish_name: string;
-  /** The user's score, 0.5-5.0 in half steps, or null when they never gave a number (DESIGN rule 7). */
+  /**
+   * The user's score, 0.5-5.0 in half steps — or 6, the secret score, ONLY on a span the client
+   * marked (./six.ts, 0041) — or null when they never gave a number (DESIGN rule 7).
+   */
   score: number | null;
   /**
    * The LITERAL slice of the entry body that justified `score`. apply_entry_sort
@@ -66,6 +69,12 @@ export type ParseInput = {
   knownDishes?: string[];
   /** Character spans to ignore when hunting for dishes (e.g. the matched place name). */
   excludeSpans?: Array<[number, number]>;
+  /**
+   * UTF-16 [start, end) spans the CLIENT marked as a score of 6 (./six.ts sixSpans). Each is a
+   * self-evident number worth 6, found exactly as a "4.5" would be. The parser's own number
+   * grammar stops at 5, so nothing else — least of all a typed "6" — is ever a 6.
+   */
+  sixSpans?: Array<[number, number]>;
   /**
    * The attached place's name(s) — the restaurant row's name and the phrase in the words
    * that matched it. Wherever they appear in `body` they are excluded from the dish hunt,

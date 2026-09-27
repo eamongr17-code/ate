@@ -28,15 +28,16 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// Hosts the photo preview for everything beneath this view — the full-screen viewer, or the
-    /// round 4 exploration picked with `-ate-photo-preview A|B|C` (``AtePhotoPreviewStyle``).
+    /// Hosts the photo viewer for everything beneath this view. A photo opens with the system's own
+    /// `.zoom` transition, growing out of the tile that was tapped and shrinking back into it on a
+    /// swipe down (round 4, Eamon picked B).
     func atePhotoViewerHost() -> some View {
-        modifier(AtePhotoViewerHost(style: BrowseExplorations.photoPreview))
+        modifier(AtePhotoViewerHost())
     }
 }
 
 /// What the viewer is showing: every photo of one entry (or one dish), where it opened, and — when a
-/// tile opened it — where each photo sits on the page, so a preview can grow out of it and shrink
+/// tile opened it — where each photo sits on the page, so the zoom can grow out of it and shrink
 /// back into it.
 private struct AtePhotoViewing: Identifiable {
     let id = UUID()
@@ -46,87 +47,38 @@ private struct AtePhotoViewing: Identifiable {
 }
 
 private struct AtePhotoViewerHost: ViewModifier {
-    let style: AtePhotoPreviewStyle
-
-    /// The full-screen cover: today's viewer, and the native zoom (B).
     @State private var viewing: AtePhotoViewing?
-    /// The in-place overlay: the floating card (A) and the prints (C).
-    @State private var lifting: AtePhotoViewing?
-    /// The zoom's current photo, so it shrinks back into the tile the reader swiped to.
+    /// The photo showing now, so the zoom shrinks back into the tile the reader swiped to.
     @State private var zoomIndex = 0
     @State private var relay = AtePhotoOriginRelay()
     @Namespace private var zoomSpace
 
     func body(content: Content) -> some View {
         let viewingBinding = $viewing
-        let liftingBinding = $lifting
         let relay = relay
-        let style = style
         content
             .environment(\.atePhotoOriginRelay, relay)
-            .environment(\.atePhotoZoomNamespace, style == .zoom ? zoomSpace : nil)
+            .environment(\.atePhotoZoomNamespace, zoomSpace)
             .environment(\.atePhotoViewer, AtePhotoViewerAction { photos, index in
                 guard photos.isEmpty == false else { return }
-                let shown = AtePhotoViewing(
+                AteTelemetry.record(BrowseEvents.photoPreviewOpened(photoCount: photos.count))
+                viewingBinding.wrappedValue = AtePhotoViewing(
                     photos: photos,
                     index: min(max(0, index), photos.count - 1),
                     origin: relay.take()
                 )
-                AteTelemetry.record(BrowseEvents.photoPreviewOpened(
-                    variant: style.telemetryName, photoCount: photos.count
-                ))
-                switch style {
-                case .viewer:
-                    // The viewer fades itself in; the cover's own slide-up would be a sheet, not a photo.
-                    var transaction = Transaction()
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) { viewingBinding.wrappedValue = shown }
-                case .zoom:
-                    viewingBinding.wrappedValue = shown
-                case .card, .prints:
-                    liftingBinding.wrappedValue = shown
-                }
             })
             .fullScreenCover(item: $viewing) { viewing in
-                cover(viewing)
+                AtePhotoViewer(
+                    photos: viewing.photos,
+                    index: viewing.index,
+                    dragsToDismiss: false,
+                    onIndex: { zoomIndex = $0 },
+                    onClose: { viewingBinding.wrappedValue = nil }
+                )
+                .navigationTransition(.zoom(sourceID: zoomSource(viewing), in: zoomSpace))
+                .onAppear { zoomIndex = viewing.index }
             }
-            .overlay {
-                if let lifting {
-                    AtePhotoLift(
-                        photos: lifting.photos,
-                        index: lifting.index,
-                        origin: lifting.origin,
-                        treatment: style == .prints ? .prints : .card
-                    ) {
-                        liftingBinding.wrappedValue = nil
-                    }
-                    .id(lifting.id)
-                }
-            }
-    }
-
-    @ViewBuilder
-    private func cover(_ viewing: AtePhotoViewing) -> some View {
-        let binding = $viewing
-        if style == .zoom {
-            AtePhotoViewer(
-                photos: viewing.photos,
-                index: viewing.index,
-                dragsToDismiss: false,
-                onIndex: { zoomIndex = $0 },
-                onClose: { binding.wrappedValue = nil }
-            )
-            .navigationTransition(.zoom(sourceID: zoomSource(viewing), in: zoomSpace))
-            .onAppear { zoomIndex = viewing.index }
-        } else {
-            AtePhotoViewer(photos: viewing.photos, index: viewing.index) {
-                var transaction = Transaction()
-                transaction.disablesAnimations = true
-                withTransaction(transaction) { binding.wrappedValue = nil }
-            }
-            // Clear, so dragging the photo down shows the page it came from underneath.
-            .presentationBackground(.clear)
-        }
     }
 
     /// The tile the zoom grows from and returns to: the one now showing, when the page has it (a

@@ -8,9 +8,9 @@ import SwiftUI
 /// you keep is the first thing you see. Saved lives beside it because a dish you meant to eat belongs
 /// next to the dishes you did.
 ///
-/// Round 4's exploration rides on it behind `-ate-journal-filter A|B` (``JournalFilterEntry``): a
-/// light way to find an entry — order, place, rating, diet, month — without a search, and quiet
-/// month markers while the list scrolls. With no argument the journal is exactly as it was.
+/// Round 4: a light way to find an entry without a search — the filter control beside the segment
+/// opens the one filter sheet (order, rating, diet, month, place; `my_entries`), the active filters
+/// sit under it as removable pills, and quiet month markers show while the list scrolls.
 struct JournalScreen: View {
     let store: JournalStore
     /// The shelf beside it. Held by the shell rather than this screen, because a save made in the
@@ -44,8 +44,6 @@ struct JournalScreen: View {
         return .journal
         #endif
     }()
-    /// Which filter entry point this run is exploring (none, in a shipped build).
-    private let filterEntry = BrowseExplorations.journalFilter
     @State private var isFiltering = false
     /// The month of the slip at the top of the screen, and whether the list is moving.
     @State private var topMonth: JournalPeriod?
@@ -131,17 +129,17 @@ struct JournalScreen: View {
 
     // MARK: - The segment and the filters
 
-    /// The segment — and, exploring A, the filter control beside it (on the journal shelf only: the
-    /// shelf of saves is not what it filters).
+    /// The segment, and the filter control beside it (on the journal shelf only: the shelf of saves
+    /// is not what it filters).
     private var segmentRow: some View {
         HStack(spacing: AteMetrics.snug) {
             AteSegments(
                 options: [AteSegment(Shelf.journal, "Journal"), AteSegment(Shelf.saved, "Saved")],
                 selection: $shelf
             )
-            if filterEntry == .sheet, shelf == .journal {
-                JournalFilterButton(isActive: store.query.isDefault == false) {
-                    AteTelemetry.record(BrowseEvents.journalFilterOpened(variant: filterEntry.telemetryName))
+            if shelf == .journal {
+                AteFilterButton(isActive: store.query.isDefault == false, identifier: "journal.filter") {
+                    AteTelemetry.record(BrowseEvents.filterOpened(on: .journal))
                     Task { await store.loadPlaces() }
                     isFiltering = true
                 }
@@ -150,37 +148,14 @@ struct JournalScreen: View {
         .padding(.horizontal, AteMetrics.listGutter)
     }
 
-    /// A: the active filters as removable pills. B: the whole pill row. Nothing, by default.
+    /// The active filters, as removable pills under the segment. Nothing when nothing is on.
     @ViewBuilder
     private var filters: some View {
-        if shelf == .journal {
-            switch filterEntry {
-            case .none:
-                EmptyView()
-            case .sheet:
-                if store.query.isDefault == false {
-                    ScrollView(.horizontal) {
-                        HStack(spacing: AteMetrics.snug) {
-                            JournalActivePills(query: store.query, onChange: apply)
-                        }
-                        .padding(.horizontal, AteMetrics.listGutter)
-                    }
-                    .scrollIndicators(.hidden)
-                    .padding(.top, AteMetrics.regular)
-                }
-            case .pillRow:
-                JournalFilterRow(
-                    query: store.query,
-                    places: store.places,
-                    periods: periods,
-                    onChange: apply,
-                    onOpen: {
-                        AteTelemetry.record(BrowseEvents.journalFilterOpened(variant: filterEntry.telemetryName))
-                    }
-                )
-                .padding(.top, AteMetrics.regular)
-                .task { await store.loadPlaces() }
+        if shelf == .journal, store.query.isDefault == false {
+            AteActiveFilters(filters: store.query.activeFilters, identifier: "journal.filter.pill") { filter in
+                apply(store.query.removing(filter))
             }
+            .padding(.top, AteMetrics.regular)
         }
     }
 
@@ -191,23 +166,20 @@ struct JournalScreen: View {
     private func apply(_ query: JournalQuery) {
         Task {
             await store.apply(query)
-            AteTelemetry.record(BrowseEvents.journalQueried(
-                query, variant: filterEntry.telemetryName, resultCount: store.entries.count
-            ))
+            AteTelemetry.record(BrowseEvents.journalQueried(query, resultCount: store.entries.count))
         }
     }
 
     // MARK: - Month markers
 
     private func noteTopMonth(_ visible: [UUID]) {
-        guard filterEntry != .none else { return }
         guard let top = store.entries.first(where: { visible.contains($0.id) }) else { return }
         topMonth = JournalPeriod.month(of: top.createdAt)
     }
 
     @ViewBuilder
     private var monthMarker: some View {
-        let shows = filterEntry != .none && isScrolling && isPastHeader
+        let shows = isScrolling && isPastHeader
             && store.query.sort.isChronological && shelf == .journal
         ZStack {
             if shows, let topMonth {

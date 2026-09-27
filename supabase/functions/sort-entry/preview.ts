@@ -8,8 +8,9 @@
 //
 // and get back the same plan shape a sort returns — WITHOUT writing entries or reviews. The
 // point is spend and latency: the model's RAW plan is cached server-side under (author,
-// sha256(body), tag_tokens, restaurant_id, model), and the real sort after Done reuses it when
-// the key matches instead of calling the model a second time.
+// sha256(body), tag_tokens, six_tokens, restaurant_id, model), and the real sort after Done reuses
+// it when the key matches instead of calling the model a second time. (six_tokens joined the key in
+// round 4: a plan the model made without knowing a six was marked is not the same plan.)
 //
 // THE CACHED PLAN HOLDS VERBATIM DRAFT TEXT — its notes and score evidence are slices of the
 // words — so its life is short and ends in a DELETE, not just an expiry (migration 0039):
@@ -27,6 +28,7 @@
 
 import type { SortItem, SortPlan } from './types.ts';
 import type { TagToken } from './tags.ts';
+import type { SixToken } from './six.ts';
 
 /** How long a preview plan stays reusable. Mirrors the table default in 0039. */
 export const PREVIEW_TTL_SECONDS = 15 * 60;
@@ -38,8 +40,8 @@ export const PREVIEW_MAX_BODY = 10_000;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Tag tokens in a form that does not depend on the order the client listed them in. */
-export function canonicalTagTokens(tokens: readonly TagToken[]): Array<[number, number]> {
+/** Tag (or six) tokens in a form that does not depend on the order the client listed them in. */
+export function canonicalTagTokens(tokens: readonly (TagToken | SixToken)[]): Array<[number, number]> {
   const seen = new Set<string>();
   const out: Array<[number, number]> = [];
   for (const t of tokens) {
@@ -60,6 +62,8 @@ export async function sha256Hex(text: string): Promise<string> {
 export type PreviewKeyParts = {
   body: string;
   tagTokens: readonly TagToken[];
+  /** The client-marked sixes (0041). Absent/empty keeps the pre-round-4 key. */
+  sixTokens?: readonly SixToken[];
   restaurantId: string | null;
   /** The model ID the plan came from: a plan from another model is not the same plan. */
   model: string;
@@ -72,12 +76,15 @@ export type PreviewKeyParts = {
  */
 export async function previewCacheKey(k: PreviewKeyParts): Promise<string> {
   const bodyHash = await sha256Hex(k.body ?? '');
+  const sixes = canonicalTagTokens(k.sixTokens ?? []);
   return sha256Hex(JSON.stringify([
     'ate-sort-preview/v1',
     bodyHash,
     canonicalTagTokens(k.tagTokens),
     (k.restaurantId ?? '').toLowerCase() || null,
     k.model,
+    // appended only when marked, so a draft with no six keeps the key it had before round 4
+    ...(sixes.length ? [['six', sixes]] : []),
   ]));
 }
 
