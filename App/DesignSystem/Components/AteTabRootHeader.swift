@@ -18,11 +18,14 @@ import SwiftUI
 /// the signal was once shared).
 extension View {
     /// Apply to the tab root's `ScrollView`. `scrollToTop` is bumped when the tab is re-tapped.
+    /// `jumpToTop` is bumped when the page's content is swapped (the Journal's other shelf): the
+    /// top, at once, with nothing animating.
     func ateTabRootHeader<Header: View>(
         scrollToTop: Int,
+        jumpToTop: Int = 0,
         @ViewBuilder header: () -> Header
     ) -> some View {
-        modifier(AteTabRootHeader(scrollToTop: scrollToTop, header: header()))
+        modifier(AteTabRootHeader(scrollToTop: scrollToTop, jumpToTop: jumpToTop, header: header()))
     }
 
     /// A tab root with no floating header (Search, You) still tells the shell which way it is being
@@ -108,6 +111,7 @@ private struct AteTabBarTracking: ViewModifier {
 
 private struct AteTabRootHeader<Header: View>: ViewModifier {
     let scrollToTop: Int
+    let jumpToTop: Int
     let header: Header
 
     /// Starts with nothing to seek: an `edge` position is resolved against a list's scroll targets on
@@ -141,6 +145,11 @@ private struct AteTabRootHeader<Header: View>: ViewModifier {
             }
             .onChange(of: scrollToTop) { _, _ in
                 withAnimation(reduceMotion ? nil : .default) { position.scrollTo(edge: .top) }
+            }
+            .onChange(of: jumpToTop) { _, _ in
+                var jump = Transaction(animation: nil)
+                jump.disablesAnimations = true
+                withTransaction(jump) { position.scrollTo(edge: .top) }
             }
     }
 }

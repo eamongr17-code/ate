@@ -71,6 +71,18 @@ public struct FeedArea: Sendable, Hashable, Identifiable, Decodable {
 public final class FeedAreaModel {
     public private(set) var areas: [FeedArea] = []
     public private(set) var selected: String?
+
+    // MARK: Round 5 — the city (see ``FeedLocation``)
+
+    /// What the Feed is about. Near me until the person picks otherwise; remembered per person.
+    public private(set) var location: FeedLocation
+    /// `feed_cities()`, busiest first — the picker.
+    public private(set) var cities: [AteCity] = []
+    /// `resolve_city`'s answer for "near me". `nil` before it has answered, and when no city has
+    /// food at all (then near me is everywhere).
+    public private(set) var nearMe: AteCity?
+    /// Whether near me has been worked out at least once this session.
+    public private(set) var hasResolvedNearMe = false
     public private(set) var isLoadingAreas = false
     public private(set) var hasReachedEnd = false
 
@@ -94,6 +106,74 @@ public final class FeedAreaModel {
         self.owner = owner
         self.analytics = analytics
         selected = store.value(forKey: Self.key(for: owner()))
+        location = FeedLocation(stored: store.value(forKey: Self.locationKey(for: owner())))
+    }
+
+    /// Where a person's city choice is filed. Signed out has its own.
+    public static func locationKey(for userID: UUID?) -> String {
+        "ate.feedLocation.\(userID?.uuidString.lowercased() ?? "signedOut")"
+    }
+
+    /// The `p_city` every page is read with: the chosen city, near me's city, or `nil` (everywhere).
+    public var city: String? {
+        switch location {
+        case .everywhere: nil
+        case .city(let slug): slug
+        case .nearMe: nearMe?.city
+        }
+    }
+
+    /// Near me, and the phone really is in that city — the only time the control says "Near me".
+    public var isNearMe: Bool { location == .nearMe && nearMe?.isNearby == true }
+
+    /// What the control prints for where the feed is: a city's name, or "Everywhere".
+    public var locationTitle: String {
+        switch location {
+        case .everywhere: return "Everywhere"
+        case .city(let slug): return Self.name(of: slug, in: cities + [nearMe].compactMap { $0 })
+        case .nearMe: return nearMe?.name ?? "Everywhere"
+        }
+    }
+
+    /// A slug's display name, or the slug itself made readable when the list does not hold it.
+    static func name(of slug: String, in cities: [AteCity]) -> String {
+        cities.first { $0.city == slug }?.name
+            ?? slug.split(separator: "-").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
+    }
+
+    /// The picker's list. Quietly keeps the last good one on a failure.
+    public func loadCities() async {
+        guard let list = try? await reader.feedCities() else { return }
+        cities = list
+    }
+
+    /// Works out near me from where the phone is (`nil`: no permission, or no fix). Returns whether
+    /// the city the Feed reads changed, so the caller reloads only when there is something new.
+    @discardableResult
+    public func resolveNearMe(latitude: Double?, longitude: Double?) async -> Bool {
+        let before = city
+        if let answer = try? await reader.resolveCity(latitude: latitude, longitude: longitude) {
+            nearMe = answer
+        } else if hasResolvedNearMe == false {
+            nearMe = nil
+        }
+        hasResolvedNearMe = true
+        return city != before
+    }
+
+    /// Picks what the Feed is about. Returns whether the city it reads changed.
+    @discardableResult
+    public func choose(location next: FeedLocation) -> Bool {
+        guard next != location else { return false }
+        let before = city
+        location = next
+        store.setValue(next.stored, forKey: Self.locationKey(for: owner()))
+        analytics(SocialEvents.feedLocationChanged(
+            next,
+            isNearby: next == .nearMe ? nearMe?.isNearby : nil,
+            rank: { if case .city(let slug) = next { return cities.firstIndex { $0.city == slug } }; return nil }()
+        ))
+        return city != before
     }
 
     /// The key a person's choice is filed under. Signed out has its own.
@@ -137,6 +217,7 @@ public final class FeedAreaModel {
     /// Re-reads the remembered choice — after a sign-in, when "whose phone is this" changed.
     public func reloadSelection() {
         selected = store.value(forKey: Self.key(for: owner()))
+        location = FeedLocation(stored: store.value(forKey: Self.locationKey(for: owner())))
     }
 
     /// Picks an area (`nil` = everywhere). Returns whether anything changed, so the caller reloads

@@ -167,12 +167,15 @@ public final class SearchStore {
     public func setFilters(_ next: SearchFilters) {
         guard next != filters else { return }
         filters = next
-        generation += 1
         for filtered in SearchScope.allCases where SearchFilters.applies(to: filtered) {
             states[filtered]?.answered = nil
         }
         analytics(SearchEvents.searchFiltered(next))
-        guard SearchFilters.applies(to: scope), isBelowMinimumLength == false else { return }
+        // Only a scope the filters narrow has an answer to throw away. Bumping the generation on
+        // People dropped the answer already in the air, and the rows sat on the skeleton for good.
+        guard SearchFilters.applies(to: scope) else { return }
+        generation += 1
+        guard isBelowMinimumLength == false else { return }
         pending?.cancel()
         pending = Task { [weak self] in await self?.run() }
     }

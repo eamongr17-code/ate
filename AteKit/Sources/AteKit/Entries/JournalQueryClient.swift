@@ -59,6 +59,10 @@ public struct JournalQueryClient: JournalQuerying {
             "p_from": .null,
             "p_to": .null
         ]
+        // Round 5, pending the backend lane's contract: sent only when set, so every call the live
+        // function already answers is unchanged.
+        if let maxScore = query.maxScore { parameters["p_max_score"] = .double(maxScore) }
+        if let city = query.city { parameters["p_city"] = .string(city) }
         if let period = query.period {
             let days = period.days()
             parameters["p_from"] = .string(Self.day(days.from))

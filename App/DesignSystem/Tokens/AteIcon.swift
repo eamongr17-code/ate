@@ -30,6 +30,8 @@ enum AteIcon: String, CaseIterable {
     /// The journal's filter and sort (round 4 exploration A). Not drawn by the artboards: two
     /// sliders authored in their line style (24 grid, 1.8 stroke, round caps). Needs Eamon's eye.
     case filter
+    /// The Feed's Near me (round 5) — Lucide's `navigation`, ahead of the icon sweep.
+    case navigation
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
@@ -94,6 +96,8 @@ enum AteIcon: String, CaseIterable {
         case .filter:
             [Self.path("M4 8h8.5M16.5 8H20M4 16h3.5M11.5 16H20"),
              AteVector.circle(14.5, 8, 2), AteVector.circle(9.5, 16, 2)]
+        case .navigation:
+            [Self.path("M3 11L22 2L13 21L11 13Z")]
         }
     }
 

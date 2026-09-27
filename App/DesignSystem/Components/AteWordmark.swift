@@ -9,6 +9,8 @@ import SwiftUI
 struct AteWordmark: View {
     /// Cap height in points. The design uses 30 on a screen header and 18 in a receipt's footer.
     var height: CGFloat = AteMetrics.wordmarkHeader
+    /// A colour of its own rather than the surface's ink — the launch moment's white on coral.
+    var colour: Color?
 
     /// The supplied artwork's aspect (758 × 359).
     private static let aspect: CGFloat = 758.0 / 359.0
@@ -21,7 +23,7 @@ struct AteWordmark: View {
             .resizable()
             .scaledToFit()
             .frame(width: (height * Self.aspect).rounded(), height: height)
-            .foregroundStyle(palette.fg)
+            .foregroundStyle(colour ?? palette.fg)
             .accessibilityLabel("Ate")
     }
 }

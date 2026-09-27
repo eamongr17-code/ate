@@ -49,6 +49,8 @@ struct JournalScreen: View {
     /// shelf — so the new list starts at its top, under the header and its pills. Nothing about the
     /// layout gets it there by itself: a lazy list keeps its offset while its rows are replaced.
     @State private var listChanged = 0
+    /// Bumped when the other shelf is chosen: a jump to the top, without the scroll animating.
+    @State private var shelfChanged = 0
     /// The month of the slip at the top of the screen, and whether the list is moving.
     @State private var topMonth: JournalPeriod?
     @State private var isScrolling = false
@@ -64,13 +66,7 @@ struct JournalScreen: View {
                 // the Feed's main thread for minutes (`FeedScreen`). The month markers read the
                 // slips' ids off this stack, so it is the scroll-target layout.
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        header
-                        segmentRow
-                            .padding(.top, AteMetrics.loose)
-                            .id(Self.topAnchor)
-                        filters
-                    }
+                    chrome
                     // The shelf's fade is the shelf's: a filter changes the query and the phase in
                     // one go, and its pills arrive at once, as they always have.
                     .animation(nil, value: store.phase)
@@ -94,7 +90,7 @@ struct JournalScreen: View {
                 noteTopMonth(visible)
             }
             .onScrollGeometryChange(for: Bool.self) { geometry in
-                geometry.contentOffset.y + geometry.contentInsets.top > Self.segmentBottom
+                geometry.contentOffset.y + geometry.contentInsets.top > Self.headerBottom
             } action: { _, past in
                 isPastHeader = past
             }
@@ -102,8 +98,10 @@ struct JournalScreen: View {
             // The logo and the segment slide away on the way down and come straight back on the way
             // up; a re-tap scrolls to the page's true top (the segment anchor put the logo under the
             // status bar).
-            .ateTabRootHeader(scrollToTop: scrollToTopSignal + listChanged) { chrome }
-            .onChange(of: shelf) { _, _ in listChanged += 1 }
+            .ateTabRootHeader(scrollToTop: scrollToTopSignal + listChanged, jumpToTop: shelfChanged) { chrome }
+            // Round 5 (Eamon: "the Journal/Saved tab doesn't need to animate like that"): the other
+            // shelf is simply there, at its top — no scroll animating back up to it.
+            .onChange(of: shelf) { _, _ in shelfChanged += 1 }
             .task { await store.loadIfNeeded() }
             // The Saved shelf loads when it is chosen, and stops if it is left mid-read — the task
             // the shelf's own view carried when it was one view rather than rows of this stack.
@@ -111,80 +109,66 @@ struct JournalScreen: View {
                 if shelf == .saved { await saved.loadIfNeeded() }
             }
             .sheet(isPresented: $isFiltering) {
-                JournalFilterSheet(initial: store.query, places: store.places, periods: periods) { query in
+                AteBrowseFilterSheet(
+                    initial: AteBrowseFilterDraft(
+                        sort: store.query.sort, band: store.query.band, city: store.query.city
+                    ),
+                    cities: JSExplore.fakeCities,
+                    showsSort: true
+                ) { draft in
+                    var query = JournalQuery(sort: draft.sort, city: draft.city)
+                    query.band = draft.band
                     apply(query)
                 }
             }
+            .task { await openDebugState() }
         }
     }
 
-    private static let topAnchor = "journal.top"
-
-    /// The logo row, the segment and whatever filters ride under it — the header that floats: the
-    /// same views as the top of the page, so the copy is the header to the point.
+    /// The header — logo, the Journal | Saved segment, the filter control, the photo stack and the
+    /// active pills — once in the page and once as the header that floats back over it: the same
+    /// view both times, so the copy is the header to the point.
     private var chrome: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-            segmentRow
-                .padding(.top, AteMetrics.loose)
-            filters
-        }
+        JournalHeader(
+            variant: Self.variant,
+            shelf: $shelf,
+            photoCount: photoCount,
+            isFiltered: store.query.isDefault == false,
+            activeFilters: store.query.isDefault ? [] : store.query.activeFilters,
+            onSuggestions: onSuggestions,
+            onFilter: openFilter,
+            onRemove: { apply(store.query.removing($0)) }
+        )
     }
+
+    private static let variant = JSExplore.journalHeader
 
     /// `MainEmpty`: `padding:16px 12px 110px; gap:22px; flex:1` — the first-day state sits 22 under
     /// the segment, centred on the one line every empty state shares (``AteEmptyPlacement``).
     private static let firstDayGap: CGFloat = 22
-    /// Where the segment ends on the page: the 60 content top, the 44 header, the 16 above the
-    /// segment and the segment's own 44.
-    private static let segmentBottom: CGFloat = AteMetrics.contentTop + AteMetrics.hit + AteMetrics.loose
-        + AteMetrics.segmentHeight + 2 * AteMetrics.tight
+    /// Where the header ends on the page (its pills aside).
+    private static var headerBottom: CGFloat { AteMetrics.contentTop + JournalHeader.height(variant) }
     /// Where a shelf's empty state begins on the screen — Journal and Saved alike.
-    private static let emptyTop: CGFloat = segmentBottom + firstDayGap
+    private static var emptyTop: CGFloat { headerBottom + firstDayGap }
 
-    private var header: some View {
-        HStack {
-            AteWordmark()
-            Spacer(minLength: AteMetrics.snug)
-            PhotoStackButton(count: photoCount, action: onSuggestions)
-        }
-        .padding(.horizontal, AteMetrics.listGutter)
-        .ateContentTop()
+    /// The filter control — the same on both shelves (round 5, Eamon: "the same filter options
+    /// should persist on the Saved view, so the button layout should be the same").
+    private func openFilter() {
+        AteTelemetry.record(BrowseEvents.filterOpened(on: .journal))
+        isFiltering = true
     }
 
-    // MARK: - The segment and the filters
-
-    /// The segment, and the filter control beside it (on the journal shelf only: the shelf of saves
-    /// is not what it filters).
-    private var segmentRow: some View {
-        HStack(spacing: AteMetrics.snug) {
-            AteSegments(
-                options: [AteSegment(Shelf.journal, "Journal"), AteSegment(Shelf.saved, "Saved")],
-                selection: $shelf
-            )
-            if shelf == .journal {
-                AteFilterButton(isActive: store.query.isDefault == false, identifier: "journal.filter") {
-                    AteTelemetry.record(BrowseEvents.filterOpened(on: .journal))
-                    Task { await store.loadPlaces() }
-                    isFiltering = true
-                }
-            }
+    private func openDebugState() async {
+        #if DEBUG
+        if JSExplore.journalFiltered {
+            // Only what the live `my_entries` already answers: an order, and "4.0 and up".
+            apply(JournalQuery(sort: .top, minScore: 4))
         }
-        .padding(.horizontal, AteMetrics.listGutter)
-    }
-
-    /// The active filters, as removable pills under the segment. Nothing when nothing is on.
-    @ViewBuilder
-    private var filters: some View {
-        if shelf == .journal, store.query.isDefault == false {
-            AteActiveFilters(filters: store.query.activeFilters, identifier: "journal.filter.pill") { filter in
-                apply(store.query.removing(filter))
-            }
-            .padding(.top, AteMetrics.regular)
-        }
-    }
-
-    private var periods: [JournalPeriod] {
-        JournalPeriods.offered(oldest: store.entries.last?.createdAt)
+        guard JSExplore.journalFilterOpen else { return }
+        // Once the demo filter has landed, so the sheet opens on it.
+        try? await Task.sleep(for: .seconds(2))
+        isFiltering = true
+        #endif
     }
 
     private func apply(_ query: JournalQuery) {

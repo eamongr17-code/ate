@@ -110,6 +110,9 @@ extension InMemorySocialService: SearchReading {
         if let minimum = filters.minimumScore {
             guard let score, score >= minimum else { return false }
         }
+        if let maximum = filters.maximumScore {
+            guard let score, score <= maximum else { return false }
+        }
         return true
     }
 

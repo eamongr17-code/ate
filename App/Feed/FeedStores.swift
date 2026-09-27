@@ -21,8 +21,11 @@ extension FeedScreen {
             fallbackMessage: "Couldn't load the feed.",
             savedDishes: services.savedDishes
         ) { cursor, pageSize in
-            let chosen = await area.selected
-            return try await reader.feedPage(after: cursor, pageSize: pageSize, includeOwn: false, area: chosen)
+            // The city (round 5) replaces the locality area: every page is read with the same one.
+            let city = await area.city
+            return try await reader.feedPage(
+                after: cursor, pageSize: pageSize, includeOwn: false, area: nil, city: city
+            )
         }
         list.listen(to: services.entryDeletions)
         return (list, area)

@@ -9,6 +9,11 @@ import SwiftUI
 struct AteFilterButton: View {
     let isActive: Bool
     var identifier = "filter"
+    /// 44 by default; beside Search's 52 field, the field's height (round 5 exploration).
+    var side: CGFloat = AteMetrics.hit
+    /// Off where no filter applies (Search's People): the mark goes muted and the tap does nothing,
+    /// but the control stays exactly where it is.
+    var isAvailable = true
     let action: () -> Void
 
     @Environment(\.atePalette) private var palette
@@ -16,12 +21,13 @@ struct AteFilterButton: View {
     var body: some View {
         Button(action: action) {
             AteIcon.filter.view(size: 20)
-                .frame(width: AteMetrics.hit, height: AteMetrics.hit)
+                .frame(width: side, height: side)
                 .background(isActive ? palette.fg : palette.chip, in: .circle)
-                .foregroundStyle(isActive ? palette.inverted : palette.fg)
+                .foregroundStyle(isActive ? palette.inverted : isAvailable ? palette.fg : palette.muted)
                 .contentShape(.circle)
         }
         .buttonStyle(.plain)
+        .allowsHitTesting(isAvailable)
         .accessibilityLabel("Filter")
         .accessibilityValue(isActive ? "On" : "Off")
         .accessibilityIdentifier(identifier)
@@ -35,6 +41,8 @@ struct AteFilterButton: View {
 struct AteFilterPill: View {
     let title: String
     var isOn = false
+    /// A mark before the title — the city picker's Near me.
+    var icon: AteIcon?
     var onRemove: (() -> Void)?
 
     @Environment(\.atePalette) private var palette
@@ -43,6 +51,7 @@ struct AteFilterPill: View {
 
     var body: some View {
         HStack(spacing: 6) {
+            if let icon { icon.view(size: 14) }
             Text(title)
                 .ateText(.controlSmall)
                 .lineLimit(1)
@@ -57,7 +66,7 @@ struct AteFilterPill: View {
                 .accessibilityLabel("Remove \(title)")
             }
         }
-        .padding(.leading, 14)
+        .padding(.leading, icon == nil ? 14 : 12)
         .padding(.trailing, onRemove == nil ? 14 : 10)
         .frame(height: Self.height)
         .background(isOn ? palette.fg : palette.chip, in: .capsule)
@@ -152,12 +161,13 @@ struct AteFilterSection<Content: View>: View {
 struct AteFilterChoice: View {
     let title: String
     let isOn: Bool
+    var icon: AteIcon?
     var accessibilityName: String?
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            AteFilterPill(title: title, isOn: isOn)
+            AteFilterPill(title: title, isOn: isOn, icon: icon)
                 .environment(\.atePalette, isOn ? .surface : Self.onSurface)
         }
         .buttonStyle(.plain)

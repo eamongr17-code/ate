@@ -16,12 +16,33 @@ public struct SearchFilters: Sendable, Hashable {
     /// Canonical order (gf, df, v, vg, nf) whatever order they were tapped in.
     public private(set) var tags: [DietTag]
     public var minimumScore: Double?
+    /// The top of the score range (round 5); `nil` is open, so a 6 clears it.
+    public var maximumScore: Double?
+    /// The city a place is in (round 5). A display string until the backend's city contract lands.
+    public var city: String?
 
-    public init(cuisines: [String] = [], tags: [DietTag] = [], minimumScore: Double? = nil) {
+    public init(
+        cuisines: [String] = [],
+        tags: [DietTag] = [],
+        minimumScore: Double? = nil,
+        maximumScore: Double? = nil,
+        city: String? = nil
+    ) {
         var seen = Set<String>()
         self.cuisines = cuisines.filter { seen.insert($0.lowercased()).inserted }
         self.tags = DietTag.allCases.filter(tags.contains)
         self.minimumScore = minimumScore
+        self.maximumScore = maximumScore
+        self.city = city
+    }
+
+    /// The score range the two ends describe — what the range slider edits.
+    public var band: ScoreBand {
+        get { ScoreBand(minScore: minimumScore, maxScore: maximumScore) }
+        set {
+            minimumScore = newValue.minScore
+            maximumScore = newValue.maxScore
+        }
     }
 
     public static let none = SearchFilters()
@@ -29,10 +50,14 @@ public struct SearchFilters: Sendable, Hashable {
     /// The bars a minimum score can be set at. "Any" is `nil`.
     public static let minimumScores: [Double] = [3.0, 3.5, 4.0, 4.5]
 
-    public var isEmpty: Bool { cuisines.isEmpty && tags.isEmpty && minimumScore == nil }
+    public var isEmpty: Bool {
+        cuisines.isEmpty && tags.isEmpty && minimumScore == nil && maximumScore == nil && city == nil
+    }
 
     /// How many filters are on — what the single Filter pill counts.
-    public var count: Int { cuisines.count + tags.count + (minimumScore == nil ? 0 : 1) }
+    public var count: Int {
+        cuisines.count + tags.count + (band.isAll ? 0 : 1) + (city == nil ? 0 : 1)
+    }
 
     public static func applies(to scope: SearchScope) -> Bool {
         scope == .places || scope == .dishes
@@ -95,7 +120,7 @@ public struct SearchFilters: Sendable, Hashable {
 
     /// "4.0+", or `nil` for any score.
     public var scoreSummary: String? {
-        minimumScore.map { "\(ScoreFormat.halfStep($0))+" }
+        maximumScore == nil ? minimumScore.map { "\(ScoreFormat.halfStep($0))+" } : band.title
     }
 
     // MARK: - The active pills (round 4: the same pills as the Journal)
@@ -106,6 +131,7 @@ public struct SearchFilters: Sendable, Hashable {
             case cuisine(String)
             case tag(DietTag)
             case minimumScore
+            case city
         }
 
         public let kind: Kind
@@ -116,6 +142,7 @@ public struct SearchFilters: Sendable, Hashable {
             case .cuisine(let cuisine): "cuisine.\(cuisine.lowercased())"
             case .tag(let tag): "tag.\(tag.rawValue)"
             case .minimumScore: "minScore"
+            case .city: "city"
             }
         }
     }
@@ -123,7 +150,8 @@ public struct SearchFilters: Sendable, Hashable {
     /// Cuisines in the order picked, tags in their canonical order, then the score — "Italian",
     /// "GF", "4.0+".
     public var pills: [Pill] {
-        cuisines.map { Pill(kind: .cuisine($0), title: $0) }
+        (city.map { [Pill(kind: .city, title: $0)] } ?? [])
+            + cuisines.map { Pill(kind: .cuisine($0), title: $0) }
             + tags.map { Pill(kind: .tag($0), title: $0.label) }
             + (scoreSummary.map { [Pill(kind: .minimumScore, title: $0)] } ?? [])
     }
@@ -137,7 +165,11 @@ public struct SearchFilters: Sendable, Hashable {
             return tags.contains(tag) ? toggling(tag: tag) : self
         case .minimumScore:
             var next = self
-            next.minimumScore = nil
+            next.band = .all
+            return next
+        case .city:
+            var next = self
+            next.city = nil
             return next
         }
     }
@@ -151,6 +183,10 @@ public struct SearchFilters: Sendable, Hashable {
         if cuisines.isEmpty == false { parameters["p_cuisines"] = .array(cuisines.map { .string($0) }) }
         if tags.isEmpty == false { parameters["p_tags"] = .array(tags.map { .string($0.rawValue) }) }
         if let minimumScore { parameters["p_min_score"] = .double(minimumScore) }
+        // Round 5, pending the backend lane's contract: sent only when set, so every call the
+        // live functions already answer is unchanged.
+        if let maximumScore { parameters["p_max_score"] = .double(maximumScore) }
+        if let city { parameters["p_city"] = .string(city) }
         return parameters
     }
 }

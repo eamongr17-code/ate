@@ -23,6 +23,7 @@ struct FeedScreen: View {
     var onViewed: () -> Void = {}
 
     @State private var isChoosingArea = false
+    @State private var location = AteLocation()
     @State private var scrollToTopAfterArea = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -51,49 +52,64 @@ struct FeedScreen: View {
         .ateTabRootHeader(scrollToTop: scrollToTopSignal + scrollToTopAfterArea) { header }
         .task {
             onViewed()
+            // Near me is worked out before the first page, so the feed opens on the right city
+            // rather than everywhere-then-somewhere.
+            await prepareLocation()
             await store.loadIfNeeded()
+            #if DEBUG
+            if JSExplore.feedLocationOpen { isChoosingArea = true }
+            #endif
         }
         .sheet(isPresented: $isChoosingArea) {
             if let area {
-                FeedAreaSheet(model: area) { choice in
-                    guard area.choose(choice) else { return }
-                    scrollToTopAfterArea += 1
-                    Task { await store.reload() }
+                FeedLocationSheet(model: area) { choice in
+                    Task { await choose(choice, in: area) }
                 }
             }
         }
     }
 
-    private static let topAnchor = "feed.top"
-    /// `padding:62px 12px 10px` under a 40 title: where the slips — or an empty state — begin.
-    private static let headerBottom: CGFloat = 62 + 40 + AteMetrics.feedHeaderBottom
+    // MARK: - Where
 
-    /// `padding:62px 12px 10px` (`FeedTight`) — the screen's name, and the area it is about. The
-    /// pill opens the area sheet; "Everywhere" until the reader picks one.
-    private var header: some View {
-        // At the accessibility sizes the area pill goes under the title rather than breaking
-        // "Everywhere" mid-word beside it.
-        let stacks = dynamicTypeSize.isAccessibilitySize
-        let layout = stacks
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: AteMetrics.snug))
-            : AnyLayout(HStackLayout())
-        return layout {
-            Text("Feed").ateTextLine(.screenTitle)
-            if stacks == false { Spacer(minLength: AteMetrics.snug) }
-            AteChip(
-                icon: .place,
-                title: area?.selected ?? "Everywhere",
-                height: 40,
-                action: area == nil ? nil : { isChoosingArea = true }
-            )
-            .accessibilityLabel("Area")
-            .accessibilityValue(area?.selected ?? "Everywhere")
-            .accessibilityIdentifier("feed.area")
+    /// Near me needs the phone's location — asked for here, the first time the Feed is opened on
+    /// near me (never at launch). A refusal, or no fix, is answered by `resolve_city` with the
+    /// busiest city; no city with food at all is everywhere.
+    private func prepareLocation() async {
+        guard let area, area.location == .nearMe, area.hasResolvedNearMe == false else { return }
+        let coordinate = await location.current()
+        await area.resolveNearMe(latitude: coordinate?.latitude, longitude: coordinate?.longitude)
+        AteTelemetry.record(SocialEvents.feedNearMeResolved(
+            hadLocation: coordinate != nil,
+            isNearby: area.nearMe?.isNearby == true,
+            found: area.nearMe != nil
+        ))
+    }
+
+    private func choose(_ choice: FeedLocation, in area: FeedAreaModel) async {
+        var changed = area.choose(location: choice)
+        if choice == .nearMe, area.hasResolvedNearMe == false {
+            await prepareLocation()
+            changed = true
         }
-        .padding(.horizontal, AteMetrics.listGutter)
-        .ateContentTop(62)
-        .padding(.bottom, AteMetrics.feedHeaderBottom)
-        .id(Self.topAnchor)
+        guard changed else { return }
+        scrollToTopAfterArea += 1
+        await store.reload()
+    }
+
+    private static let topAnchor = "feed.top"
+    /// `padding:62px 12px 10px` under a 40 title: where the slips — or an empty state — begin. B's
+    /// "Near me" line sits over the title.
+    private static var headerBottom: CGFloat {
+        62 + 40 + AteMetrics.feedHeaderBottom + (JSExplore.feedLocation == .b ? 17 : 0)
+    }
+
+    /// `padding:62px 12px 10px` (`FeedTight`) — the screen's name, and where it is about.
+    private var header: some View {
+        FeedLocationHeader(model: area) { isChoosingArea = true }
+            .padding(.horizontal, AteMetrics.listGutter)
+            .ateContentTop(62)
+            .padding(.bottom, AteMetrics.feedHeaderBottom)
+            .id(Self.topAnchor)
     }
 
     @ViewBuilder

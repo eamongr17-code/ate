@@ -28,9 +28,42 @@ public protocol EntryFeedReading: Sendable {
     /// been writing, busiest first, keyset `(entry_count desc, area asc)`. What the Feed's location
     /// pill offers, beside "Everywhere". `nil` cursor = the first page.
     func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea]
+
+    /// One page of the feed in one city (`p_city`, 0046–0048) — `nil` is everywhere. The same
+    /// `p_city` goes with every page.
+    func feedPage(
+        after cursor: PageCursor?,
+        pageSize: Int,
+        includeOwn: Bool,
+        area: String?,
+        city: String?
+    ) async throws -> Page<EntryCard>
+
+    /// `feed_cities()` — the cities the Feed has food in, busiest first. Unpaged (a handful).
+    func feedCities() async throws -> [AteCity]
+
+    /// `resolve_city(p_lat, p_lng)` — "near me": the city the point is in (`isNearby`), else the
+    /// nearest city with food, else (no point) the busiest; `nil` when no city has food at all.
+    func resolveCity(latitude: Double?, longitude: Double?) async throws -> AteCity?
 }
 
 public extension EntryFeedReading {
+    /// A reader that knows no cities answers every city with the whole feed's page and offers none —
+    /// the in-memory drives and the tests' fakes.
+    func feedPage(
+        after cursor: PageCursor?,
+        pageSize: Int,
+        includeOwn: Bool,
+        area: String?,
+        city: String?
+    ) async throws -> Page<EntryCard> {
+        try await feedPage(after: cursor, pageSize: pageSize, includeOwn: includeOwn, area: area)
+    }
+
+    func feedCities() async throws -> [AteCity] { [] }
+
+    func resolveCity(latitude: Double?, longitude: Double?) async throws -> AteCity? { nil }
+
     func feedPage(after cursor: PageCursor?, pageSize: Int, includeOwn: Bool) async throws -> Page<EntryCard> {
         try await feedPage(after: cursor, pageSize: pageSize, includeOwn: includeOwn, area: nil)
     }
@@ -61,6 +94,16 @@ public struct EntryFeedClient: EntryFeedReading {
         includeOwn: Bool,
         area: String?
     ) async throws -> Page<EntryCard> {
+        try await feedPage(after: cursor, pageSize: pageSize, includeOwn: includeOwn, area: area, city: nil)
+    }
+
+    public func feedPage(
+        after cursor: PageCursor?,
+        pageSize: Int,
+        includeOwn: Bool,
+        area: String?,
+        city: String?
+    ) async throws -> Page<EntryCard> {
         // No session required: a signed-out browser reads this as `anon` (0034), and the server
         // answers every viewer-relative field as a stranger's — nothing saved, nothing "mine".
         let limit = min(Self.maximumPageSize, max(1, pageSize))
@@ -75,6 +118,8 @@ public struct EntryFeedClient: EntryFeedReading {
         // Only when one is chosen: `p_area` defaults to null (everywhere, 0038), so "Everywhere" is
         // the call as it always was and keeps working against a server without the migration.
         if let area { parameters["p_area"] = .string(area) }
+        // The same for a city (0046–0048): absent is everywhere, the call as it always was.
+        if let city { parameters["p_city"] = .string(city) }
 
         let data = try await api.supabase
             .rpc("get_entry_feed", params: parameters)
@@ -93,5 +138,21 @@ public struct EntryFeedClient: EntryFeedReading {
         ]
         let data = try await api.supabase.rpc("feed_areas", params: parameters).execute().data
         return try FeedArea.decodeList(data)
+    }
+
+    public func feedCities() async throws -> [AteCity] {
+        let data = try await api.supabase.rpc("feed_cities").execute().data
+        return try JSONDecoder().decode([AteCity].self, from: data)
+    }
+
+    public func resolveCity(latitude: Double?, longitude: Double?) async throws -> AteCity? {
+        // POST, never GET (lead's contract note): the coordinates go in the body, so they never
+        // land in a URL log. `rpc` posts unless told `get: true`.
+        let parameters: [String: AnyJSON] = [
+            "p_lat": latitude.map { .double($0) } ?? .null,
+            "p_lng": longitude.map { .double($0) } ?? .null
+        ]
+        let data = try await api.supabase.rpc("resolve_city", params: parameters).execute().data
+        return try JSONDecoder().decode([AteCity].self, from: data).first
     }
 }
