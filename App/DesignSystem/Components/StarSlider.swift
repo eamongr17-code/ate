@@ -232,7 +232,7 @@ private struct SixthStar: View {
                 ForEach(0..<8, id: \.self) { index in
                     let angle = Angle.degrees(Double(index) * 45 + 22.5)
                     Circle()
-                        .fill(index.isMultiple(of: 2) ? ScoreStyle.sixthStar : AteColor.butter)
+                        .fill(index.isMultiple(of: 2) ? ScoreStyle.sixthStar : AteColor.scoreMark)
                         .frame(width: 5, height: 5)
                         .offset(
                             x: cos(angle.radians) * (12 + 22 * progress),

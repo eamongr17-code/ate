@@ -56,6 +56,7 @@ private struct AtePhotoViewerHost: ViewModifier {
     func body(content: Content) -> some View {
         let viewingBinding = $viewing
         let relay = relay
+        let floats = Self.floatLayout != nil
         content
             .environment(\.atePhotoOriginRelay, relay)
             .environment(\.atePhotoZoomNamespace, zoomSpace)
@@ -68,7 +69,20 @@ private struct AtePhotoViewerHost: ViewModifier {
                     origin: relay.take()
                 )
             })
-            .fullScreenCover(item: $viewing) { viewing in
+            // Round 5 exploration (`-ate-r5-photo A|B`): the photo floats over the blurred page.
+            .overlay {
+                if let viewing, let layout = Self.floatLayout {
+                    AtePhotoFloat(
+                        photos: viewing.photos,
+                        index: viewing.index,
+                        origin: viewing.origin,
+                        layout: layout,
+                        onClose: { viewingBinding.wrappedValue = nil }
+                    )
+                    .id(viewing.id)
+                }
+            }
+            .fullScreenCover(item: floats ? .constant(nil) : $viewing) { viewing in
                 AtePhotoViewer(
                     photos: viewing.photos,
                     index: viewing.index,
@@ -79,6 +93,12 @@ private struct AtePhotoViewerHost: ViewModifier {
                 .navigationTransition(.zoom(sourceID: zoomSource(viewing), in: zoomSpace))
                 .onAppear { zoomIndex = viewing.index }
             }
+    }
+
+    private static let floatLayout: AtePhotoFloat.Layout? = switch AteExplore.photo {
+    case "A": .whole
+    case "B": .peek
+    default: nil
     }
 
     /// The tile the zoom grows from and returns to: the one now showing, when the page has it (a

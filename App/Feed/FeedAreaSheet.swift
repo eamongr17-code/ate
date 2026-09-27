@@ -13,10 +13,10 @@ struct FeedAreaSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        AteSheet(title: "Which area?", isLoading: model.hasLoadedAreas == false) {
+        AteSheet(title: "Which area?", isLoading: model.hasAnsweredAreas == false) {
             VStack(spacing: 0) {
                 AteRadioRow(title: "Everywhere", isSelected: model.selected == nil) { choose(nil) }
-                if model.hasLoadedAreas == false { AteSheetSkeletonRows(count: 8) }
+                if model.hasAnsweredAreas == false { AteSheetSkeletonRows(count: 8) }
                 ForEach(rows) { area in
                     AteRadioRow(
                         title: area.area,

@@ -78,6 +78,58 @@ enum AteColor {
     /// The one shadow a torn surface has: `drop-shadow(0 1px 0 rgba(36,20,31,.07))`; black 25% in dark.
     fileprivate static let contact = Color(light: ink.opacity(0.07), dark: Color.black.opacity(0.25))
 
+    // MARK: - A score's yellow, and the composer's keys, per mode (round 5)
+    //
+    // Eamon (round 5): "soften the yellow colour for rating pills in dark mode", and recolour the
+    // place/dietary keys for dark. Light is untouched. Two dark answers are under exploration
+    // (`-ate-r5-dark A|B`); with neither, dark is today's.
+    //
+    // - **A — soft butter**: the pill a duller, deeper butter that still carries ink; the keys a
+    //   lifted plum carrying the light foreground, instead of linen.
+    // - **B — butter on ink**: the pill a butter-tinted ink with butter numerals — the yellow is the
+    //   type, not the fill; the keys recess into the surface (the dark field) with light type.
+
+    /// A person's score pill (``ScoreStyle``) and the composer's Score key.
+    static let scoreFill: Color = switch AteExplore.dark {
+    case "A": Color(light: butter, dark: Color(hex: 0xCDB060))
+    case "B": Color(light: butter, dark: Color(hex: 0x3D3428))
+    default: butter
+    }
+    /// The numerals and star on ``scoreFill``.
+    static let scoreInk: Color = switch AteExplore.dark {
+    case "B": Color(light: ink, dark: butter)
+    default: ink
+    }
+    /// A score drawn as a mark rather than a pill: a filled star, a histogram bar.
+    static let scoreMark: Color = switch AteExplore.dark {
+    case "A": Color(light: butter, dark: Color(hex: 0xCDB060))
+    case "B": Color(light: butter, dark: Color(hex: 0xC9AD5C))
+    default: butter
+    }
+    /// The composer's Place and Diet keys and the diet codes — linen in light.
+    static let keyFill: Color = switch AteExplore.dark {
+    case "A": Color(light: linenField, dark: Color(hex: 0x4A3F50))
+    case "B": Color(light: linenField, dark: fieldDark)
+    default: linenField
+    }
+    /// The lettering on ``keyFill``.
+    static let keyInk: Color = switch AteExplore.dark {
+    case "A", "B": Color(light: ink, dark: fgDark)
+    default: ink
+    }
+
+    /// A diet tag chip's fill on a card — the ground showing through, in light.
+    static let tagFill: Color = switch AteExplore.dark {
+    case "A": Color(light: ground, dark: Color(hex: 0x3A3040))
+    default: ground
+    }
+    /// Its lettering.
+    static let tagInk: Color = switch AteExplore.dark {
+    case "A": Color(light: mutedLight, dark: mutedDark)
+    case "B": Color(light: mutedLight, dark: fgDark)
+    default: Color(light: mutedLight, dark: mutedDark)
+    }
+
     // MARK: - Screen backgrounds
 
     /// The ground, adapting to the mode. The one role colour available outside the palette, because

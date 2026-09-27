@@ -46,6 +46,7 @@ public final class JournalStore: EntryDeletionObserving {
     /// Whether the place list has answered once — none is an answer too (round 5: read ahead, so the
     /// filter sheet opens full).
     public private(set) var hasLoadedPlaces = false
+    private var placesFailed = false
 
     private let entryService: any EntryService
     private let querying: (any JournalQuerying)?
@@ -280,9 +281,16 @@ public final class JournalStore: EntryDeletionObserving {
 
     /// The places the place filter offers — asked for once, when the filter is first opened.
     public func loadPlaces() async {
-        guard hasLoadedPlaces == false, let querying else { return }
-        guard let loaded = try? await querying.myEntryPlaces() else { return }
-        places = loaded
+        guard hasLoadedPlaces == false || placesFailed else { return }
+        guard let querying else {
+            hasLoadedPlaces = true
+            return
+        }
+        // A failure is an answer for the sheet that is up (no still rows left standing), and the
+        // next open asks again.
+        let loaded = try? await querying.myEntryPlaces()
+        placesFailed = loaded == nil
+        if let loaded { places = loaded }
         hasLoadedPlaces = true
     }
 

@@ -75,6 +75,8 @@ public final class FeedAreaModel {
     public private(set) var hasReachedEnd = false
     /// Whether a first page has ever answered — the sheet opens on it rather than on nothing.
     public private(set) var hasLoadedAreas = false
+    /// Whether the first read has answered at all — a page or a failure. What the sheet waits on.
+    public private(set) var hasAnsweredAreas = false
 
     private let reader: any EntryFeedReading
     private let store: any AteKeyValueStore
@@ -112,8 +114,15 @@ public final class FeedAreaModel {
         let generationAtStart = generation
         isLoadingAreas = true
         defer { isLoadingAreas = false }
-        guard let page = try? await reader.feedAreas(after: nil, limit: pageSize),
-              generationAtStart == generation else { return }
+        let answer = try? await reader.feedAreas(after: nil, limit: pageSize)
+        guard generationAtStart == generation else { return }
+        // A failure still answers the sheet (Everywhere and the current choice stand); a later
+        // open asks again, because `hasLoadedAreas` only records a real page.
+        guard let page = answer else {
+            hasAnsweredAreas = true
+            return
+        }
+        hasAnsweredAreas = true
         areas = FeedArea.ordered(page)
         hasReachedEnd = page.count < pageSize
         hasLoadedAreas = true

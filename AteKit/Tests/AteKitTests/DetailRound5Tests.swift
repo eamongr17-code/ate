@@ -99,6 +99,16 @@ struct DetailRound5Tests {
         #expect(await reader.calls == 1)
     }
 
+    @Test func aFailedReadStillAnswersTheSheetAndIsAskedAgain() async {
+        let reader = CountingAreas(failing: true)
+        let model = FeedAreaModel(reader: reader, store: InMemoryKeyValueStore(), owner: { nil })
+        await model.loadAreasIfNeeded()
+        #expect(model.hasAnsweredAreas, "no still rows left standing in an open sheet")
+        #expect(model.hasLoadedAreas == false)
+        await model.loadAreasIfNeeded()
+        #expect(await reader.calls == 2, "the next open asks again")
+    }
+
     // MARK: - Events
 
     @Test func linkEventsCarryIDsOnly() {
@@ -114,6 +124,11 @@ struct DetailRound5Tests {
 /// Two areas, and how many times they were asked for.
 private actor CountingAreas: EntryFeedReading {
     var calls = 0
+    let failing: Bool
+
+    init(failing: Bool = false) {
+        self.failing = failing
+    }
 
     func feedPage(
         after cursor: PageCursor?, pageSize: Int, includeOwn: Bool, area: String?
@@ -123,6 +138,7 @@ private actor CountingAreas: EntryFeedReading {
 
     func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] {
         calls += 1
+        if failing { throw URLError(.notConnectedToInternet) }
         return [FeedArea(area: "CBD", count: 9), FeedArea(area: "Fitzroy", count: 4)]
     }
 }

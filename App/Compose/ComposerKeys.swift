@@ -18,6 +18,8 @@ struct ComposerKey: View {
     /// Inverted, the way `ComposerStars` draws the Score key while its slider is open: the pill
     /// becomes ink and the lettering becomes the colour the pill used to be.
     var isActive = false
+    /// The lettering while inverted, when the pill's own colour will not read on ink.
+    var activeForeground: Color?
     /// What the key holds, printed in place of its title — the Place key's chosen place
     /// (`ComposerPlaceB`: "Tipo 00", `max-width:150px; padding:0 14px 0 9px`, truncating).
     var value: String?
@@ -42,7 +44,7 @@ struct ComposerKey: View {
             icon.view(size: iconSize)
                 .frame(width: AteMetrics.keyHeight, height: AteMetrics.keyHeight)
                 .background(isActive ? AteColor.ink : background, in: .circle)
-                .foregroundStyle(isActive ? background : foreground)
+                .foregroundStyle(isActive ? (activeForeground ?? background) : foreground)
                 .contentShape(.circle)
         } else {
             CappedWidth(maxWidth: value == nil ? .infinity : Self.valueMaxWidth) {
@@ -61,7 +63,7 @@ struct ComposerKey: View {
             // Inverted is ink in both modes: `ComposerStars` draws an ink pill with butter lettering,
             // and the surface's own `fg` is cream in dark — butter on cream cannot be read.
             .background(isActive ? AteColor.ink : background, in: .capsule)
-            .foregroundStyle(isActive ? background : foreground)
+            .foregroundStyle(isActive ? (activeForeground ?? background) : foreground)
             .contentShape(.capsule)
         }
     }
@@ -143,15 +145,22 @@ struct ComposerToolbar: View {
 
     var body: some View {
         Group {
-            if isChoosingDiet {
-                dietRow
-                    .transition(.opacity)
-            } else {
-                keys
-                    .transition(.opacity)
+            switch AteExplore.diet {
+            case "A": ComposerDietSlide(isChoosingDiet: isChoosingDiet, keys: keys, back: dietBack, code: dietCode)
+            case "B": ComposerDietUnfold(isChoosingDiet: isChoosingDiet, keys: keys, back: dietBack, code: dietCode)
+            default:
+                Group {
+                    if isChoosingDiet {
+                        dietRow
+                            .transition(.opacity)
+                    } else {
+                        keys
+                            .transition(.opacity)
+                    }
+                }
+                .ateAnimation(.easeInOut(duration: 0.15), value: isChoosingDiet)
             }
         }
-        .ateAnimation(.easeInOut(duration: 0.15), value: isChoosingDiet)
         .padding(.vertical, AteMetrics.snug)
         .padding(.leading, AteMetrics.snug)
         .padding(.trailing, Self.trailing)
@@ -199,11 +208,12 @@ struct ComposerToolbar: View {
                 ComposerKey(
                     title: "Score",
                     icon: .starFilled,
-                    background: AteColor.butter,
-                    foreground: AteColor.ink,
+                    background: AteColor.scoreFill,
+                    foreground: AteColor.scoreInk,
                     // `ComposerStars`: while the slider is open the Score key inverts — ink pill,
                     // butter lettering. The Place key never does.
-                    isActive: model.scoring != nil
+                    isActive: model.scoring != nil,
+                    activeForeground: AteColor.butter
                 ) {
                     AteHaptics.key()
                     // The key is inverted while the panel is up, and pressing it again puts it away.
@@ -220,7 +230,7 @@ struct ComposerToolbar: View {
                     icon: .place,
                     iconSize: 16,
                     background: ComposerKeyColor.place,
-                    foreground: AteColor.ink,
+                    foreground: ComposerKeyColor.placeInk,
                     value: model.place.flatMap { $0.name.isEmpty ? nil : $0.name },
                     identifier: "composer.key.place"
                 ) {
@@ -235,7 +245,7 @@ struct ComposerToolbar: View {
                     icon: .diet,
                     iconSize: 16,
                     background: ComposerKeyColor.place,
-                    foreground: AteColor.ink,
+                    foreground: ComposerKeyColor.placeInk,
                     iconOnly: true
                 ) {
                     AteHaptics.key()
@@ -251,25 +261,33 @@ struct ComposerToolbar: View {
     /// The five codes, each the same linen pill as the Place key, behind a back arrow.
     private var dietRow: some View {
         HStack(spacing: Self.gap) {
-            AteIconButton(icon: .back, label: "Back", tint: AtePalette.surface.fg) {
-                isChoosingDiet = false
-            }
-            .accessibilityIdentifier("composer.diet.back")
+            dietBack
             ForEach(DietTag.allCases, id: \.self) { tag in
-                ComposerKey(
-                    title: tag.label,
-                    icon: nil,
-                    background: ComposerKeyColor.place,
-                    foreground: AteColor.ink,
-                    identifier: "composer.diet.\(tag.rawValue)"
-                ) {
-                    pick(tag)
-                }
-                .accessibilityLabel(tag.spokenName)
-                .fixedSize()
+                dietCode(tag)
             }
             Spacer(minLength: 0)
         }
+    }
+
+    private var dietBack: some View {
+        AteIconButton(icon: .back, label: "Back", tint: AtePalette.surface.fg) {
+            isChoosingDiet = false
+        }
+        .accessibilityIdentifier("composer.diet.back")
+    }
+
+    private func dietCode(_ tag: DietTag) -> some View {
+        ComposerKey(
+            title: tag.label,
+            icon: nil,
+            background: ComposerKeyColor.place,
+            foreground: ComposerKeyColor.placeInk,
+            identifier: "composer.diet.\(tag.rawValue)"
+        ) {
+            pick(tag)
+        }
+        .accessibilityLabel(tag.spokenName)
+        .fixedSize()
     }
 
     /// A chip belongs to the dish on its left; with none there, nothing goes in and the pill says so
@@ -296,5 +314,6 @@ struct ComposerToolbar: View {
 /// the surface's own field (ink `#17111B` on the plum surface) read as a hole in the toolbar
 /// (Eamon, round 3). Like the Score key it carries ink either way.
 enum ComposerKeyColor {
-    static let place = AteColor.linenField
+    static let place = AteColor.keyFill
+    static let placeInk = AteColor.keyInk
 }

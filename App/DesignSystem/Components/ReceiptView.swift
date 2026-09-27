@@ -119,31 +119,36 @@ struct ReceiptView: View {
     var onPlaceTap: (() -> Void)?
     var onItemTap: ((AteReceipt.Item) -> Void)?
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.dynamicTypeSize) var dynamicTypeSize
 
     var body: some View {
         VStack(spacing: AteMetrics.snug + 2) {
-            // A receipt whose place was never named prints without a header rather than a guess
-            // (design rule 8).
-            if receipt.place.isEmpty == false {
-                header
-            } else if let onAddPlace {
-                ComposerKey(
-                    title: "Place",
-                    icon: .place,
-                    iconSize: 16,
-                    background: AtePalette.slip.field,
-                    foreground: AtePalette.slip.fg,
-                    identifier: "summary.place",
-                    action: onAddPlace
-                )
-                .frame(maxWidth: .infinity)
-            }
-            AteDashedRule()
-            if isPrinting {
-                ReceiptSkeletonLines(breathes: breathes)
-            } else {
-                lineItems
+            switch Self.lead {
+            case "A", "B":
+                // Round 5 exploration: the dishes and their scores lead; the place is fine print.
+                if isPrinting {
+                    ReceiptSkeletonLines(breathes: breathes)
+                } else if Self.lead == "A" {
+                    leadDishes
+                } else {
+                    ticketLines
+                }
+                AteDashedRule()
+                placeSlot
+            default:
+                // A receipt whose place was never named prints without a header rather than a guess
+                // (design rule 8).
+                if receipt.place.isEmpty == false {
+                    header
+                } else {
+                    addPlaceKey
+                }
+                AteDashedRule()
+                if isPrinting {
+                    ReceiptSkeletonLines(breathes: breathes)
+                } else {
+                    lineItems
+                }
             }
             AteDashedRule()
             totals
@@ -158,6 +163,23 @@ struct ReceiptView: View {
     }
 
     // MARK: - Bands
+
+    /// The Summary's placeless receipt: the composer's own Place key where the place prints.
+    @ViewBuilder
+    var addPlaceKey: some View {
+        if let onAddPlace {
+            ComposerKey(
+                title: "Place",
+                icon: .place,
+                iconSize: 16,
+                background: AtePalette.slip.field,
+                foreground: AtePalette.slip.fg,
+                identifier: "summary.place",
+                action: onAddPlace
+            )
+            .frame(maxWidth: .infinity)
+        }
+    }
 
     @ViewBuilder
     private var header: some View {

@@ -209,7 +209,7 @@ enum DietTagRun {
             let code = Text(verbatim: tag.label)
                 .font(Font(font))
                 .tracking(font.pointSize * AteTextStyle.dietTag.trackingEm)
-                .foregroundStyle(AtePalette.automatic.muted)
+                .foregroundStyle(AteColor.tagInk)
             let chip = Text("\(pad)\(code)\(pad)")
                 .baselineOffset(TokenPillMetrics.dietRiseOnName * scale)
                 .customAttribute(Chip(index: index))
@@ -233,7 +233,7 @@ enum DietTagRun {
     struct Renderer: TextRenderer {
         let dynamicTypeSize: DynamicTypeSize
         /// Linen by default; ``DietTagChip/fill`` explains the one exception.
-        var fill: Color = AteColor.ground
+        var fill: Color = AteColor.tagFill
 
         func draw(layout: Text.Layout, in context: inout GraphicsContext) {
             let font = AteFont.uiFont(for: .dietTag, dynamicTypeSize: dynamicTypeSize)
