@@ -175,7 +175,11 @@ final class TabChromeUITests: XCTestCase {
     /// QA on #75: scroll a tab down, switch away and back, scroll down again — the bar minimised and
     /// its full-size shadow stayed over empty linen. The shadow is never drawn under a minimised bar.
     func testTheShadowNeverOutlastsTheBarAcrossTabSwitches() {
-        for (start, other, arguments) in [("Journal", "Feed", [String]()), ("Feed", "Journal", ["-ate-open-feed"])] {
+        // The longer journal: since round 5's one-bar header the two-entry fixture no longer scrolls
+        // far enough for the system to minimise the bar.
+        for (start, other, arguments) in [
+            ("Journal", "Feed", ["-ate-preview-journal"]), ("Feed", "Journal", ["-ate-open-feed"])
+        ] {
             launch(arguments)
             XCTAssertTrue(app.buttons["Search"].waitForExistence(timeout: 10))
             XCTAssertEqual(shadow(), "shown", "\(start): at rest, the full bar has its shadow")

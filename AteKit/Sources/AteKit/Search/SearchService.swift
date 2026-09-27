@@ -25,6 +25,15 @@ public protocol SearchReading: Sendable {
         -> SearchPage<DishResult>
     /// `search_cuisines()` — what the cuisine filter offers.
     func cuisines() async throws -> [CuisineCount]
+    /// Your shelf, searched and narrowed (0049). Defaulted in `SearchFilters.swift`.
+    func savedDishes(matching query: String?, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int)
+        async throws -> SearchPage<SavedDish>
+    /// Nearby, narrowed (0047: the range and the city, like `search_places`). Defaulted in
+    /// `SearchFilters.swift`.
+    func nearbyPlaces(origin: SearchOrigin, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int)
+        async throws -> SearchPage<PlaceResult>
+    /// `search_cities()` (0047) — the cities of the places we hold, busiest first: the City filter.
+    func searchCities() async throws -> [AteCity]
 }
 
 /// The live Search tab: `search_places`, `search_dishes`, `search_people`, `search_saved` and
@@ -56,12 +65,22 @@ public struct SearchClient: SearchReading {
         after cursor: SearchCursor?,
         pageSize: Int
     ) async throws -> SearchPage<PlaceResult> {
-        var parameters: [String: AnyJSON] = [
+        try await nearbyPlaces(origin: origin, filters: .none, after: cursor, pageSize: pageSize)
+    }
+
+    public func nearbyPlaces(
+        origin: SearchOrigin,
+        filters: SearchFilters,
+        after cursor: SearchCursor?,
+        pageSize: Int
+    ) async throws -> SearchPage<PlaceResult> {
+        var parameters: [String: AnyJSON] = filters.parameters
+        parameters.merge([
             "p_lat": .double(origin.latitude),
             "p_lng": .double(origin.longitude),
             "p_radius_m": .double(Self.nearbyRadiusMeters),
             "p_limit": .integer(pageSize)
-        ]
+        ]) { _, own in own }
         if case .nearby(let distance, let id) = cursor {
             parameters["p_cursor_distance_m"] = .double(distance)
             parameters["p_cursor_id"] = .string(id.uuidString.lowercased())
@@ -130,11 +149,24 @@ public struct SearchClient: SearchReading {
         after cursor: SearchCursor?,
         pageSize: Int
     ) async throws -> SearchPage<SavedDish> {
+        try await savedDishes(matching: query, filters: .none, after: cursor, pageSize: pageSize)
+    }
+
+    public func savedDishes(
+        matching query: String?,
+        filters: SearchFilters,
+        after cursor: SearchCursor?,
+        pageSize: Int
+    ) async throws -> SearchPage<SavedDish> {
         try await api.requireCurrentUserID()
         var parameters: [String: AnyJSON] = [
             "p_query": query.map { .string($0) } ?? .null,
             "p_limit": .integer(pageSize)
         ]
+        // 0049: the range and the city (cuisine and diet are the Places and Dishes scopes' own).
+        if let minimumScore = filters.minimumScore { parameters["p_min_score"] = .double(minimumScore) }
+        if let maximumScore = filters.maximumScore { parameters["p_max_score"] = .double(maximumScore) }
+        if let city = filters.city { parameters["p_city"] = .string(city) }
         if case .saved(let savedAt, let dishID) = cursor {
             parameters["p_cursor_saved_at"] = .string(PostgRESTTimestamp.string(from: savedAt))
             parameters["p_cursor_dish_id"] = .string(dishID.uuidString.lowercased())
@@ -148,6 +180,10 @@ public struct SearchClient: SearchReading {
     /// `search_cuisines()` — every cuisine we hold a place for, and how many.
     public func cuisines() async throws -> [CuisineCount] {
         try await api.rpc("search_cuisines", parameters: [:])
+    }
+
+    public func searchCities() async throws -> [AteCity] {
+        try await api.rpc("search_cities", parameters: [:])
     }
 
     // MARK: - Machinery

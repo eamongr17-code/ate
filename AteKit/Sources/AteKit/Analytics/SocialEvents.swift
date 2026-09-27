@@ -64,6 +64,26 @@ public enum SocialEvents {
         return AnalyticsEvent(name: "feed_area_changed", parameters: parameters)
     }
 
+    /// The Feed's location changed (round 5): `location_kind` near_me / city / everywhere; `city` the
+    /// slug when one was picked; `is_nearby` whether near me really was near; `rank` a picked city's
+    /// place in the busiest-first list.
+    public static func feedLocationChanged(_ location: FeedLocation, isNearby: Bool?, rank: Int?) -> AnalyticsEvent {
+        var parameters = ["location_kind": location.telemetryName]
+        if case .city(let slug) = location { parameters["city"] = slug }
+        if let isNearby { parameters["is_nearby"] = isNearby ? "true" : "false" }
+        if let rank { parameters["rank"] = String(max(0, rank)) }
+        return AnalyticsEvent(name: "feed_location_changed", parameters: parameters)
+    }
+
+    /// Near me was worked out: whether the phone gave a location, and whether it was in a city.
+    public static func feedNearMeResolved(hadLocation: Bool, isNearby: Bool, found: Bool) -> AnalyticsEvent {
+        AnalyticsEvent(name: "feed_near_me_resolved", parameters: [
+            "had_location": hadLocation ? "true" : "false",
+            "is_nearby": isNearby ? "true" : "false",
+            "found": found ? "true" : "false"
+        ])
+    }
+
     public static func userBlocked() -> AnalyticsEvent {
         AnalyticsEvent(name: "user_blocked")
     }

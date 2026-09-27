@@ -71,6 +71,32 @@ public struct FeedArea: Sendable, Hashable, Identifiable, Decodable {
 public final class FeedAreaModel {
     public private(set) var areas: [FeedArea] = []
     public private(set) var selected: String?
+
+    // MARK: Round 5 — the city (see ``FeedLocation``)
+
+    /// What the Feed is about. Near me until the person picks otherwise; remembered per person.
+    public private(set) var location: FeedLocation
+    /// `feed_cities()`, busiest first — the picker, read ahead so its sheet rises full.
+    @ObservationIgnored public let cityList: AteCityList
+    public var cities: [AteCity] { cityList.cities }
+    public var hasLoadedCities: Bool { cityList.hasLoaded }
+    public func loadCitiesIfNeeded() async { await cityList.loadIfNeeded() }
+    /// `resolve_city`'s answer for "near me". `nil` before it has answered, and when no city has
+    /// food at all (then near me is everywhere).
+    public private(set) var nearMe: AteCity?
+    /// Whether near me has had a real answer (a city, or "no city has food") this session. A
+    /// failed or cancelled read is not one: the next load asks again.
+    public internal(set) var hasResolvedNearMe = false
+
+    // Near me's machinery — `FeedArea+NearMe.swift`.
+    /// Where the phone is, asked by the app (`nil`: refused, restricted or no fix). Unset, near me
+    /// is answered without a point — the busiest city.
+    public var locate: (@MainActor () async -> (latitude: Double, longitude: Double)?)?
+    /// Near me moved after the feed was read — the app reloads it.
+    public var onNearMeChanged: (@MainActor () -> Void)?
+    /// The city the feed was last read with, so a later answer knows whether it changed anything.
+    var servedCity: String??
+    var resolving: Task<Void, Never>?
     public private(set) var isLoadingAreas = false
     public private(set) var hasReachedEnd = false
     /// Whether a first page has ever answered — the sheet opens on it rather than on nothing.
@@ -95,10 +121,111 @@ public final class FeedAreaModel {
     ) {
         self.pageSize = FeedArea.clampedLimit(pageSize)
         self.reader = reader
+        cityList = AteCityList { try await reader.feedCities() }
         self.store = store
         self.owner = owner
         self.analytics = analytics
         selected = store.value(forKey: Self.key(for: owner()))
+        location = FeedLocation(stored: store.value(forKey: Self.locationKey(for: owner())))
+    }
+
+    /// Where a person's city choice is filed. Signed out has its own.
+    public static func locationKey(for userID: UUID?) -> String {
+        "ate.feedLocation.\(userID?.uuidString.lowercased() ?? "signedOut")"
+    }
+
+    /// The `p_city` every page is read with: the chosen city, near me's city, or `nil` (everywhere).
+    public var city: String? {
+        switch location {
+        case .everywhere: nil
+        case .city(let slug): slug
+        case .nearMe: nearMe?.city
+        }
+    }
+
+    /// Near me, and the phone really is in that city — the only time the control names a city
+    /// beside "Near me".
+    public var isNearMe: Bool { location == .nearMe && nearMe?.isNearby == true }
+
+    /// Near me, not worked out yet — the control says "Near me" and nothing else, rather than a
+    /// city (or Everywhere) it is about to take back.
+    public var isResolvingNearMe: Bool { location == .nearMe && hasResolvedNearMe == false && nearMe == nil }
+
+    /// What the control prints for where the feed is: a city's name, or "Everywhere".
+    public var locationTitle: String {
+        switch location {
+        case .everywhere: return "Everywhere"
+        case .city(let slug): return AteCity.displayName(for: slug, in: cities + [nearMe].compactMap { $0 })
+        case .nearMe: return nearMe?.name ?? (hasResolvedNearMe ? "Everywhere" : "Near me")
+        }
+    }
+
+    /// The picker's list, read afresh. Quietly keeps the last good one on a failure.
+    public func loadCities() async { await cityList.load() }
+
+    /// Works out near me from a point (`nil`: no permission, or no fix). Returns whether the city
+    /// the Feed reads changed. Only a real answer counts — a row, or `[]` (no city has food, so near
+    /// me is everywhere); a failure or a cancellation leaves near me as it was, unresolved, to be
+    /// asked again.
+    @discardableResult
+    public func resolveNearMe(latitude: Double?, longitude: Double?) async -> Bool {
+        let before = city
+        let answer: AteCity?
+        do {
+            answer = try await reader.resolveCity(latitude: latitude, longitude: longitude)
+        } catch {
+            return false
+        }
+        nearMe = answer
+        hasResolvedNearMe = true
+        remember(answer)
+        analytics(SocialEvents.feedNearMeResolved(
+            hadLocation: latitude != nil, isNearby: answer?.isNearby == true, found: answer != nil
+        ))
+        return city != before
+    }
+
+    /// Stand-in for near me while the real answer is on its way: the last one this phone had, or
+    /// the busiest city (`resolve_city` with no point). Never marks near me resolved.
+    func fallBack() async {
+        guard nearMe == nil, hasResolvedNearMe == false else { return }
+        if let last = lastNearMe {
+            nearMe = last
+            return
+        }
+        let busiest = try? await reader.resolveCity(latitude: nil, longitude: nil)
+        // The real answer may have landed while the busiest city was being asked for: it wins.
+        guard nearMe == nil, hasResolvedNearMe == false, let busiest else { return }
+        nearMe = busiest
+    }
+
+    private static let lastNearMeKey = "ate.feedNearMe.last"
+
+    /// The last near me this phone was given — not a person's, the phone's.
+    var lastNearMe: AteCity? {
+        guard let stored = store.value(forKey: Self.lastNearMeKey) else { return nil }
+        let parts = stored.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+        guard parts.count == 3, parts[0].isEmpty == false else { return nil }
+        return AteCity(city: parts[0], name: parts[1], isNearby: parts[2] == "1")
+    }
+
+    private func remember(_ city: AteCity?) {
+        store.setValue(city.map { "\($0.city)|\($0.name)|\($0.isNearby ? "1" : "0")" }, forKey: Self.lastNearMeKey)
+    }
+
+    /// Picks what the Feed is about. Returns whether the city it reads changed.
+    @discardableResult
+    public func choose(location next: FeedLocation) -> Bool {
+        guard next != location else { return false }
+        let before = city
+        location = next
+        store.setValue(next.stored, forKey: Self.locationKey(for: owner()))
+        analytics(SocialEvents.feedLocationChanged(
+            next,
+            isNearby: next == .nearMe ? nearMe?.isNearby : nil,
+            rank: { if case .city(let slug) = next { return cities.firstIndex { $0.city == slug } }; return nil }()
+        ))
+        return city != before
     }
 
     /// The key a person's choice is filed under. Signed out has its own.
@@ -167,6 +294,7 @@ public final class FeedAreaModel {
     /// Re-reads the remembered choice — after a sign-in, when "whose phone is this" changed.
     public func reloadSelection() {
         selected = store.value(forKey: Self.key(for: owner()))
+        location = FeedLocation(stored: store.value(forKey: Self.locationKey(for: owner())))
     }
 
     /// Picks an area (`nil` = everywhere). Returns whether anything changed, so the caller reloads

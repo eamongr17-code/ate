@@ -53,6 +53,12 @@ public final class SearchStore {
     public private(set) var filters = SearchFilters.none
     /// `search_cuisines()`, once the cuisine filter has asked for it.
     public private(set) var cuisines: [CuisineCount] = []
+    /// `search_cities()` — the filter's cities, read ahead.
+    @ObservationIgnored public let cityList: AteCityList
+    public var cities: [AteCity] { cityList.cities }
+    public var hasLoadedCities: Bool { cityList.hasLoaded }
+    public func loadCities() async { await cityList.load() }
+    public func loadCitiesIfNeeded() async { await cityList.loadIfNeeded() }
     /// Whether the cuisine list has answered once (round 5: read ahead, so the filter sheet opens full).
     public private(set) var hasLoadedCuisines = false
     private var cuisinesFailed = false
@@ -121,6 +127,7 @@ public final class SearchStore {
         savedDishes: SavedDishBroadcast? = nil
     ) {
         self.service = service
+        cityList = AteCityList { try await service.searchCities() }
         self.scope = scope
         self.query = query
         self.pageSize = pageSize
@@ -171,18 +178,22 @@ public final class SearchStore {
     public func setFilters(_ next: SearchFilters) {
         guard next != filters else { return }
         filters = next
-        generation += 1
         for filtered in SearchScope.allCases where SearchFilters.applies(to: filtered) {
             states[filtered]?.answered = nil
         }
         analytics(SearchEvents.searchFiltered(next))
-        guard SearchFilters.applies(to: scope), isBelowMinimumLength == false else { return }
+        // Only a scope the filters narrow has an answer to throw away. Bumping the generation on
+        // People dropped the answer already in the air, and the rows sat on the skeleton for good.
+        guard SearchFilters.applies(to: scope) else { return }
+        generation += 1
+        // Nothing typed: the standing lists (Nearby, the shelf) are narrowed too — QA on #84, the
+        // pill said "4.5+" over rows that were not. Only a scope with nothing to show waits.
+        guard isBelowMinimumLength == false || scope.hasStandingList else { return }
         pending?.cancel()
         pending = Task { [weak self] in await self?.run() }
     }
 
     /// The cuisine picker opened. Read once; a failure leaves the list empty and asks again next time.
-    ///
     /// A read already on its way is joined, not repeated, so a sheet waiting on this waits for the
     /// cuisines to actually land.
     public func loadCuisines() async {
@@ -371,7 +382,9 @@ public final class SearchStore {
         case (.places, nil):
             // `run()` never gets here without one; a page asked for after a refusal is empty.
             guard let origin else { return LoadedPage(rows: .places([])) }
-            let page = try await service.nearbyPlaces(origin: origin, after: cursor, pageSize: pageSize)
+            let page = try await service.nearbyPlaces(
+                origin: origin, filters: filters, after: cursor, pageSize: pageSize
+            )
             return LoadedPage(rows: .places(page.rows), next: page.next)
         case (.dishes, let query?):
             let page = try await service.dishes(query: query, filters: filters, after: cursor, pageSize: pageSize)
@@ -380,7 +393,9 @@ public final class SearchStore {
             let page = try await service.people(query: query, after: cursor, pageSize: pageSize)
             return LoadedPage(rows: .people(page.rows), next: page.next)
         case (.saved, let query):
-            let page = try await service.savedDishes(matching: query, after: cursor, pageSize: pageSize)
+            let page = try await service.savedDishes(
+                matching: query, filters: filters, after: cursor, pageSize: pageSize
+            )
             return LoadedPage(rows: .saved(page.rows), next: page.next)
         case (.dishes, nil), (.people, nil):
             return LoadedPage(rows: .empty(for: scope))

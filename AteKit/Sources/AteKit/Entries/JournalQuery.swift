@@ -98,33 +98,58 @@ public struct JournalQuery: Hashable, Sendable {
     public var minScore: Double?
     public var tag: DietTag?
     public var period: JournalPeriod?
+    /// The top of the score range (round 5). `nil` is open — a 6 clears "5.0 and up".
+    public var maxScore: Double?
+    /// The city the entries were eaten in (round 5: a place is filtered by city, never by
+    /// restaurant). A display string until the backend's city contract lands.
+    public var city: String?
 
     public init(
         sort: JournalSort = .newest,
         place: JournalPlace? = nil,
         minScore: Double? = nil,
         tag: DietTag? = nil,
-        period: JournalPeriod? = nil
+        period: JournalPeriod? = nil,
+        maxScore: Double? = nil,
+        city: String? = nil
     ) {
         self.sort = sort
         self.place = place
         self.minScore = minScore
         self.tag = tag
         self.period = period
+        self.maxScore = maxScore
+        self.city = city
+    }
+
+    /// The score range the two ends describe — what the range slider edits.
+    public var band: ScoreBand {
+        get { ScoreBand(minScore: minScore, maxScore: maxScore) }
+        set {
+            minScore = newValue.minScore
+            maxScore = newValue.maxScore
+        }
     }
 
     /// The minimum-score choices the filter offers: whole stars, the way a person thinks about them.
     public static let minScoreSteps: [Double] = [3, 4, 5]
 
-    public var hasFilters: Bool { place != nil || minScore != nil || tag != nil || period != nil }
+    public var hasFilters: Bool {
+        place != nil || minScore != nil || maxScore != nil || tag != nil || period != nil || city != nil
+    }
     public var isDefault: Bool { sort == .newest && hasFilters == false }
 
     /// The active filters, as the removable pills under the segment draw them, in a fixed order.
     public var pills: [JournalQueryPill] {
         var pills: [JournalQueryPill] = []
         if sort != .newest { pills.append(.sort(sort)) }
+        if let city { pills.append(.city(city)) }
         if let place { pills.append(.place(place)) }
-        if let minScore { pills.append(.minScore(minScore)) }
+        if maxScore != nil {
+            pills.append(.band(band))
+        } else if let minScore {
+            pills.append(.minScore(minScore))
+        }
         if let tag { pills.append(.tag(tag)) }
         if let period { pills.append(.period(period)) }
         return pills
@@ -137,6 +162,8 @@ public struct JournalQuery: Hashable, Sendable {
         case .sort: next.sort = .newest
         case .place: next.place = nil
         case .minScore: next.minScore = nil
+        case .band: next.band = .all
+        case .city: next.city = nil
         case .tag: next.tag = nil
         case .period: next.period = nil
         }
@@ -150,6 +177,10 @@ public struct JournalQuery: Hashable, Sendable {
         if let minScore {
             guard let best = card.bestScore, best >= minScore else { return false }
         }
+        if let maxScore {
+            guard let best = card.bestScore, best <= maxScore else { return false }
+        }
+        if let city, AteCity.slug(for: card.place?.city) != city { return false }
         if let tag, card.items.contains(where: { $0.tags.contains(tag) }) == false { return false }
         if let period, period.contains(card.createdAt, calendar: calendar) == false { return false }
         return true
@@ -178,6 +209,8 @@ public struct JournalQuery: Hashable, Sendable {
         var names: [String] = []
         if place != nil { names.append("place") }
         if minScore != nil { names.append("min_score") }
+        if maxScore != nil { names.append("max_score") }
+        if city != nil { names.append("city") }
         if tag != nil { names.append("tag") }
         if period != nil { names.append("period") }
         return names.isEmpty ? "none" : names.joined(separator: ",")
@@ -189,6 +222,8 @@ public enum JournalQueryPill: Hashable, Sendable, Identifiable {
     case sort(JournalSort)
     case place(JournalPlace)
     case minScore(Double)
+    case band(ScoreBand)
+    case city(String)
     case tag(DietTag)
     case period(JournalPeriod)
 
@@ -197,6 +232,8 @@ public enum JournalQueryPill: Hashable, Sendable, Identifiable {
         case .sort: "sort"
         case .place: "place"
         case .minScore: "minScore"
+        case .band: "score"
+        case .city: "city"
         case .tag: "tag"
         case .period: "period"
         }
@@ -208,6 +245,8 @@ public enum JournalQueryPill: Hashable, Sendable, Identifiable {
         case .sort(let sort): sort.title
         case .place(let place): place.name
         case .minScore(let score): ScoreFormat.halfStep(score) + "+"
+        case .band(let band): band.title ?? ""
+        case .city(let city): AteCity.displayName(for: city)
         case .tag(let tag): tag.label
         case .period(let period): period.title()
         }
@@ -268,4 +307,12 @@ public protocol JournalQuerying: Sendable {
         pageSize: Int
     ) async throws -> JournalQueryPage
     func myEntryPlaces() async throws -> [JournalPlace]
+    /// `my_entry_cities()` (0047) — the cities your own entries are in, busiest first: the filter's
+    /// City choices.
+    func myEntryCities() async throws -> [AteCity]
+}
+
+public extension JournalQuerying {
+    /// A reader without `my_entry_cities` offers no cities — the filter shows Everywhere alone.
+    func myEntryCities() async throws -> [AteCity] { [] }
 }

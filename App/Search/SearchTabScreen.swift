@@ -3,12 +3,15 @@ import SwiftUI
 
 /// **`Search`** — the field, and whatever answers it.
 ///
-/// Before a character is typed the tab is the field and **Nearby** (design rule 1: a screen with
-/// nothing to say says nothing). The four scopes — Places, Dishes, People, Saved — appear once
-/// typing starts, Instagram-style, on Places (round 4). Nearby is a list *ranked* by where the phone
-/// is; nothing on it is attached to anything until it is tapped, which is design rule 8 with no
-/// asterisk. The phone is asked through the same location path the composer's `PlaceSheet` uses
-/// (`AteLocation`), and a refusal costs exactly that list.
+/// Round 5 (Eamon: "the category pills jump around … rethink"): nothing on this page moves when the
+/// scope changes. The four scopes — Places, Dishes, People, Saved — are one equal-width segment,
+/// always there, typed or not, with the one filter control at its end; the filter stays put on every
+/// scope (muted on People, which it does not narrow), and its pills sit under it.
+///
+/// Before a character is typed, Places is **Nearby** and Saved is the shelf. Nearby is a list
+/// *ranked* by where the phone is; nothing on it is attached to anything until it is tapped (design
+/// rule 8, no asterisk). The phone is asked through the same location path the composer's
+/// `PlaceSheet` uses (`AteLocation`), and a refusal costs exactly that list.
 ///
 /// The keyboard always has a way down (round 4 bug): a drag anywhere on the page, a tap anywhere
 /// that is not the field or a control, and the Search key.
@@ -45,37 +48,16 @@ struct SearchTabScreen: View {
                 Text("Search")
                     .ateText(.screenTitle)
                     .accessibilityAddTraits(.isHeader)
-                // `Search.dc.html`: 52 tall, 18 in, on the chip rather than the field.
-                AteSearchField(
-                    prompt: "Places, dishes, people",
-                    text: Binding(get: { store.query }, set: { store.query = $0 }),
-                    height: 52,
-                    horizontalPadding: 18,
-                    background: AtePalette.automatic.raised,
-                    textStyle: .searchField
-                )
-                .focused($isFieldFocused)
-                .onSubmit { isFieldFocused = false }
-                .onGeometryChange(for: CGRect.self) {
-                    $0.frame(in: .named(SearchTabScreen.contentSpace))
-                } action: { fieldFrame = $0 }
-                .accessibilityIdentifier("search.field")
-                if store.showsScopes {
-                    scopes
-                        .transition(.opacity)
-                    // The same active pills the Journal draws, under the control that set them.
-                    if SearchFilters.applies(to: store.scope) {
-                        AteActiveFilters(filters: store.filters.activeFilters, identifier: "search.filter.pill") {
-                            store.setFilters(store.filters.removing($0))
-                        }
-                        // The pills scroll edge to edge; the page's own gutter is given back.
-                        .padding(.horizontal, -AteMetrics.listGutter)
-                        .transition(.opacity)
-                    }
+                field
+                scopes
+                // The same active pills the Journal draws, in the one place filters live.
+                AteActiveFilters(filters: activeFilters, identifier: "search.filter.pill") {
+                    store.setFilters(store.filters.removing($0))
                 }
+                // The pills scroll edge to edge; the page's own gutter is given back.
+                .padding(.horizontal, -AteMetrics.listGutter)
                 results
             }
-            .ateAnimation(AteMotion.fillIn, value: store.showsScopes)
             .padding(.horizontal, AteMetrics.listGutter)
             .ateContentTop(62)
             .padding(.bottom, AteMetrics.tabBarScrollInset)
@@ -102,14 +84,50 @@ struct SearchTabScreen: View {
         .onScrollPhaseChange { _, phase in
             if phase == .interacting { isFieldFocused = false }
         }
-        .ateSheet(isPresented: $isFiltering, name: "search_filter", prepare: { await store.loadCuisines() }, content: {
-            SearchFilterSheet(store: store)
+        .ateSheet(isPresented: $isFiltering, name: "search_filter",
+                  prepare: { await store.loadCitiesIfNeeded() }, content: {
+            AteBrowseFilterSheet(
+                initial: AteBrowseFilterDraft(band: store.filters.band, city: store.filters.city),
+                cities: store.cities,
+                areCitiesLoaded: store.hasLoadedCities,
+                showsSort: false
+            ) { draft in
+                var filters = SearchFilters(city: draft.city)
+                filters.band = draft.band
+                store.setFilters(filters)
+            }
         })
         .task { await store.start() }
-        // Read ahead, so the filter sheet opens with its cuisines in it (round 5).
-        .task { await store.loadCuisines() }
+        // Read ahead, so the filter sheet rises with its cities in it (#83's rule).
+        .task { await store.loadCitiesIfNeeded() }
         .task(id: store.scope) { await askWhereWeAre() }
         .task { openDebugState() }
+    }
+
+    /// The filters on, as pills, whatever the scope — they hold their place rather than coming and
+    /// going with it.
+    private var activeFilters: [AteActiveFilter] {
+        store.filters.activeFilters
+    }
+
+    private static let fieldHeight: CGFloat = 52
+
+    private var field: some View {
+        // `Search.dc.html`: 52 tall, 18 in, on the chip rather than the field.
+        AteSearchField(
+            prompt: "Places, dishes, people",
+            text: Binding(get: { store.query }, set: { store.query = $0 }),
+            height: Self.fieldHeight,
+            horizontalPadding: 18,
+            background: AtePalette.automatic.raised,
+            textStyle: .searchField
+        )
+        .focused($isFieldFocused)
+        .onSubmit { isFieldFocused = false }
+        .onGeometryChange(for: CGRect.self) {
+            $0.frame(in: .named(SearchTabScreen.contentSpace))
+        } action: { fieldFrame = $0 }
+        .accessibilityIdentifier("search.field")
     }
 
     /// The one thing this screen asks the phone for, and only while Nearby is what would be shown.
@@ -123,30 +141,29 @@ struct SearchTabScreen: View {
 
     // MARK: - Segments
 
-    /// `gap:6px`, each pill 40 tall and 16 in; the current one is ink on the ground (`.ink`). The
-    /// filter control sits at the end of the row — the Journal's, beside what it narrows — on the
-    /// scopes a filter applies to (Places, Dishes).
+    /// One segment of four equal widths — the Journal's control, so nothing reflows when the scope
+    /// changes — and the filter control at its end.
     private var scopes: some View {
-        HStack(alignment: .top, spacing: AteMetrics.snug) {
-            // Wraps rather than truncating to "P…" once the type outgrows one line.
-            AteFlow(spacing: AteMetrics.snug - 2) {
-                ForEach(SearchScope.allCases) { scope in
-                    SearchPill(
-                        title: scope.title,
-                        isOn: scope == store.scope,
-                        identifier: "search.scope.\(scope.rawValue)"
-                    ) { store.select(scope) }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            if SearchFilters.applies(to: store.scope) {
-                AteFilterButton(isActive: store.filters.isEmpty == false, identifier: "search.filter") {
-                    AteTelemetry.record(BrowseEvents.filterOpened(on: .search))
-                    isFiltering = true
-                }
-                // The 44 disc centres on the scopes' 40 pill.
-                .padding(.vertical, -2)
-            }
+        HStack(spacing: AteMetrics.snug) {
+            AteSegments(
+                options: SearchScope.allCases.map { AteSegment($0, $0.title) },
+                selection: Binding(get: { store.scope }, set: { store.select($0) }),
+                identifier: "search.scope"
+            )
+            filterButton
+        }
+    }
+
+    /// The one filter control, always in the same place whatever the scope — off (muted) where no
+    /// filter applies, so nothing ever appears, disappears or moves.
+    private var filterButton: some View {
+        AteFilterButton(
+            isActive: SearchFilters.applies(to: store.scope) && store.filters.isEmpty == false,
+            identifier: "search.filter",
+            isAvailable: SearchFilters.applies(to: store.scope)
+        ) {
+            AteTelemetry.record(BrowseEvents.filterOpened(on: .search))
+            isFiltering = true
         }
     }
 

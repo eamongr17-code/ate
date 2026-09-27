@@ -38,7 +38,12 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UILaunchScreen</key>
-	<dict/>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchGround</string>
+		<key>UIImageName</key>
+		<string>LaunchWordmark</string>
+	</dict>
 	<!-- The three voices (docs/DESIGN.md), all OFL, bundled from App/Resources/Fonts.
 	     A synchronized Xcode group copies them to the bundle root, which is where these
 	     paths point. AteType.swift also registers them at runtime as a safety net, so
@@ -57,10 +62,11 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<true/>
 	</dict>
-	<!-- Asked only when the place sheet is first opened, never at launch, and only to list the
-	     places near you. Design rule 8 stands: nothing is ever attached from a location. -->
+	<!-- Asked the first time something needs it — the Feed opening on Near me, Search's Nearby, the
+	     place sheet — never at launch. Design rule 8 stands: nothing is ever attached from a
+	     location, and resolve_city never stores the point. Round 5 copy, approved by Eamon. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Ate lists the places near you when you're choosing where an entry happened. Nothing is attached until you tap one.</string>
+	<string>Ate shows what people are eating in your city, and lists places near you when you choose where an entry happened. Nothing is attached until you tap one.</string>
 
 	<!-- The composer's camera key. -->
 	<key>NSCameraUsageDescription</key>

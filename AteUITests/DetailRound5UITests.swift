@@ -92,12 +92,13 @@ final class DetailRound5UITests: XCTestCase {
         let area = app.buttons["feed.area"].firstMatch
         XCTAssertTrue(area.waitForExistence(timeout: 10))
         area.tap()
-        let title = app.staticTexts["Which area?"].firstMatch
+        // Round 5: the area sheet became the location sheet — Near me, Everywhere, the cities.
+        let title = app.staticTexts["Where?"].firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 5))
-        // The moment the sheet is there, its areas are too: read ahead, not after it rose.
-        XCTAssertTrue(app.buttons["row.Everywhere"].exists)
-        XCTAssertGreaterThan(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'row.'")).count, 1,
-                             "the areas are in the sheet as it rises")
+        // The moment the sheet is there, its cities are too: read ahead, not after it rose.
+        XCTAssertTrue(app.buttons["city.@everywhere"].exists)
+        XCTAssertGreaterThan(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'city.'")).count, 2,
+                             "the cities are in the sheet as it rises")
     }
 
     func testThePlaceSheetRisesWithItsPlacesInIt() {

@@ -24,7 +24,6 @@ struct FeedScreen: View {
 
     @State private var isChoosingArea = false
     @State private var scrollToTopAfterArea = 0
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         ScrollView {
@@ -46,62 +45,56 @@ struct FeedScreen: View {
         }
         .scrollIndicators(.hidden)
         .refreshable {
-            async let areas: Void? = area?.loadAreas()
+            async let cities: Void? = area?.loadCities()
             await store.refresh()
-            _ = await areas
+            _ = await cities
         }
         // The title and the area slide away on the way down and come back on the way up.
         // A new area starts at the top too.
         .ateTabRootHeader(scrollToTop: scrollToTopSignal + scrollToTopAfterArea) { header }
         .task {
             onViewed()
+            // The first page works near me out itself (`FeedAreaModel.cityForFirstPage`).
             await store.loadIfNeeded()
+            #if DEBUG
+            if JournalDebugLaunch.opensFeedLocation { isChoosingArea = true }
+            #endif
         }
-        // Read ahead, so the area sheet opens with its areas in it (round 5) — its counts move with
-        // the feed's own refresh, not on every open.
-        .task { await area?.loadAreasIfNeeded() }
-        .ateSheet(isPresented: $isChoosingArea, name: "feed_area",
-                  prepare: { await area?.loadAreasIfNeeded() }, content: {
+        // Read ahead, so the location sheet rises with its cities in it (#83's rule) — they move
+        // with the feed's own refresh, not on every open.
+        .task { await area?.loadCitiesIfNeeded() }
+        .ateSheet(isPresented: $isChoosingArea, name: "feed_location",
+                  prepare: { await area?.loadCitiesIfNeeded() }, content: {
             if let area {
-                FeedAreaSheet(model: area) { choice in
-                    guard area.choose(choice) else { return }
-                    scrollToTopAfterArea += 1
-                    Task { await store.reload() }
+                FeedLocationSheet(model: area) { choice in
+                    Task { await choose(choice, in: area) }
                 }
             }
         })
+    }
+
+    // MARK: - Where
+
+    /// A pick from the sheet. Near me picked again is a retry — the phone may have moved, or the
+    /// last read failed — so it reads again even when the city looks the same.
+    private func choose(_ choice: FeedLocation, in area: FeedAreaModel) async {
+        let changed = area.choose(location: choice)
+        guard changed || choice == .nearMe else { return }
+        scrollToTopAfterArea += 1
+        await store.reload()
     }
 
     private static let topAnchor = "feed.top"
     /// `padding:62px 12px 10px` under a 40 title: where the slips — or an empty state — begin.
     private static let headerBottom: CGFloat = 62 + 40 + AteMetrics.feedHeaderBottom
 
-    /// `padding:62px 12px 10px` (`FeedTight`) — the screen's name, and the area it is about. The
-    /// pill opens the area sheet; "Everywhere" until the reader picks one.
+    /// `padding:62px 12px 10px` (`FeedTight`) — the screen's name, and where it is about.
     private var header: some View {
-        // At the accessibility sizes the area pill goes under the title rather than breaking
-        // "Everywhere" mid-word beside it.
-        let stacks = dynamicTypeSize.isAccessibilitySize
-        let layout = stacks
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: AteMetrics.snug))
-            : AnyLayout(HStackLayout())
-        return layout {
-            Text("Feed").ateTextLine(.screenTitle)
-            if stacks == false { Spacer(minLength: AteMetrics.snug) }
-            AteChip(
-                icon: .place,
-                title: area?.selected ?? "Everywhere",
-                height: 40,
-                action: area == nil ? nil : { isChoosingArea = true }
-            )
-            .accessibilityLabel("Area")
-            .accessibilityValue(area?.selected ?? "Everywhere")
-            .accessibilityIdentifier("feed.area")
-        }
-        .padding(.horizontal, AteMetrics.listGutter)
-        .ateContentTop(62)
-        .padding(.bottom, AteMetrics.feedHeaderBottom)
-        .id(Self.topAnchor)
+        FeedLocationHeader(model: area) { isChoosingArea = true }
+            .padding(.horizontal, AteMetrics.listGutter)
+            .ateContentTop(62)
+            .padding(.bottom, AteMetrics.feedHeaderBottom)
+            .id(Self.topAnchor)
     }
 
     @ViewBuilder

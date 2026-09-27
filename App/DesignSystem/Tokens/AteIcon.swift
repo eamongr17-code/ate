@@ -32,6 +32,8 @@ enum AteIcon: String, CaseIterable {
     case dish
     /// Clear a field or dismiss a cover — Lucide's circle-x, filled, with the cross knocked out.
     case clear
+    /// The Feed's Near me — Lucide's navigation.
+    case navigation
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
@@ -119,6 +121,8 @@ M11 20a10 10 0 0010-10 25.9 25.9 0 00-1.04-7.281 1 1 0 00-1.755-.325C15.833 5.5 
              Self.path("M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7")]
         case .clear: // circle-x
             [AteVector.circle(12, 12, 10)]
+        case .navigation: // navigation
+            [Self.path("M3 11L22 2L13 21L11 13Z")]
         }
     }
 

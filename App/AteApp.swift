@@ -21,6 +21,7 @@ struct AteApp: App {
     var body: some Scene {
         WindowGroup {
             AteRootView(environment: environment)
+                .ateLaunchMoment()
         }
     }
 

@@ -37,6 +37,9 @@ public enum SearchEvents {
             "cuisine_count": String(filters.cuisines.count),
             "tags": filters.tags.map(\.rawValue).joined(separator: ","),
             "min_score": filters.minimumScore.map { ScoreFormat.halfStep($0) } ?? "none",
+            // Round 5: the top of the range (none = open), and whether a city is on — never which.
+            "max_score": filters.maximumScore.map { ScoreFormat.halfStep($0) } ?? "none",
+            "has_city": filters.city == nil ? "false" : "true",
             "filter_count": String(filters.count)
         ])
     }

@@ -74,6 +74,7 @@ public final class JournalStore: EntryDeletionObserving {
     ) {
         self.entryService = entries
         self.querying = querying
+        cityList = AteCityList { try await querying?.myEntryCities() ?? [] }
         self.pageSize = pageSize
         self.calendar = calendar
         // An entry deleted anywhere leaves the journal in the same turn.
@@ -191,6 +192,11 @@ public final class JournalStore: EntryDeletionObserving {
             hasLoadedPlaces = false
             Task { await loadPlaces() }
         }
+        // The same for a city (round 5): an entry in a city the filter has never offered.
+        if let slug = AteCity.slug(for: card.place?.city), cityList.hasLoaded,
+           cityList.cities.contains(where: { $0.city == slug }) == false {
+            Task { await cityList.load() }
+        }
         if let index = entries.firstIndex(where: { $0.id == card.id }) {
             entries[index] = card
         } else {
@@ -279,6 +285,13 @@ public final class JournalStore: EntryDeletionObserving {
         isLoadingFirstPage = false
         await loadFirstPage()
     }
+
+    /// The cities the filter offers (`my_entry_cities`), read ahead so the sheet rises full.
+    @ObservationIgnored public let cityList: AteCityList
+    public var cities: [AteCity] { cityList.cities }
+    public var hasLoadedCities: Bool { cityList.hasLoaded }
+    public func loadCities() async { await cityList.load() }
+    public func loadCitiesIfNeeded() async { await cityList.loadIfNeeded() }
 
     /// The places the place filter offers — asked for once, when the filter is first opened.
     ///

@@ -1,0 +1,111 @@
+import AteKit
+import SwiftUI
+
+/// **What the Feed is about** (round 5, Eamon: "by default it should be set to 'near me' and be
+/// based on the user's location, not showing them anything outside a logical area … but they should
+/// be able to set the location to other cities"; his pick: the chip).
+///
+/// "Feed" stays the title; the chip beside it says where — the Near me mark with "Near me" and the
+/// city it resolved to, or a pin and the city (or Everywhere). It opens ``FeedLocationSheet``.
+struct FeedLocationHeader: View {
+    let model: FeedAreaModel?
+    let onTap: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    static let chipHeight: CGFloat = 40
+
+    var body: some View {
+        // At the accessibility sizes the chip goes under the title rather than breaking beside it.
+        let stacks = dynamicTypeSize.isAccessibilitySize
+        let layout = stacks
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: AteMetrics.snug))
+            : AnyLayout(HStackLayout())
+        return layout {
+            Text("Feed").ateTextLine(.screenTitle)
+            if stacks == false { Spacer(minLength: AteMetrics.snug) }
+            chip
+        }
+    }
+
+    private var chip: some View {
+        let hit = AteHitOutset(height: Self.chipHeight)
+        return Button(action: onTap) {
+            HStack(spacing: AteMetrics.snug - 2) {
+                (isNear || isResolving ? AteIcon.navigation : AteIcon.place).view(size: isNear || isResolving ? 14 : 16)
+                if isNear {
+                    Text("Near me").ateText(.controlSmall)
+                    // Two values side by side, never " · " (design rule 2).
+                    Text(title)
+                        .ateText(.controlSmall)
+                        .foregroundStyle(AtePalette.automatic.muted)
+                } else {
+                    Text(title).ateText(.controlSmall)
+                }
+            }
+            .lineLimit(1)
+            .padding(.leading, 12)
+            .padding(.trailing, 14)
+            .atePillHeight(Self.chipHeight)
+            .background(AtePalette.automatic.raised, in: .capsule)
+            .foregroundStyle(AtePalette.automatic.fg)
+            .ateHitArea(hit)
+        }
+        .buttonStyle(.plain)
+        .ateHitFootprint(hit)
+        .disabled(model == nil)
+        .accessibilityLabel("Location")
+        .accessibilityValue(isNear ? "Near me, \(title)" : title)
+        .accessibilityIdentifier("feed.area")
+    }
+
+    private var isNear: Bool { model?.isNearMe ?? false }
+    private var isResolving: Bool { model?.isResolvingNearMe ?? false }
+    private var title: String { model?.locationTitle ?? "Everywhere" }
+}
+
+/// **Where the Feed is about** — the sheet behind the chip: Near me, Everywhere, then every city with
+/// food, busiest first, as the one city picker's pills (``AteCityPicker``, the filter sheet's own).
+/// A pick closes it.
+struct FeedLocationSheet: View {
+    let model: FeedAreaModel
+    let onChoose: (FeedLocation) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        AteSheet(title: "Where?", isLoading: model.hasLoadedCities == false) {
+            AteCityPicker(
+                options: options, selection: selection, title: nil, isLoading: model.hasLoadedCities == false
+            ) { option in
+                onChoose(Self.location(of: option))
+                dismiss()
+            }
+            .padding(.bottom, AteMetrics.loose)
+        }
+    }
+
+    private static let nearMeID = "@near-me"
+
+    private var options: [AteCityOption] {
+        let nearMe = AteCityOption(id: Self.nearMeID, title: "Near me", icon: .navigation)
+        let slug: String? = if case .city(let slug) = model.location { slug } else { nil }
+        return [nearMe] + AteCityOption.cities(model.cities, keeping: slug, named: model.locationTitle)
+    }
+
+    private var selection: String {
+        switch model.location {
+        case .nearMe: Self.nearMeID
+        case .everywhere: AteCityOption.everywhereID
+        case .city(let slug): slug
+        }
+    }
+
+    private static func location(of option: AteCityOption) -> FeedLocation {
+        switch option.id {
+        case nearMeID: .nearMe
+        case AteCityOption.everywhereID: .everywhere
+        default: .city(option.id)
+        }
+    }
+}

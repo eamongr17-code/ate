@@ -20,7 +20,7 @@ final class QueryFromMidListUITests: XCTestCase {
         hittable(app.buttons.matching(identifier: "journal.filter"))?.tap()
         XCTAssertTrue(app.buttons["Top rated"].waitForExistence(timeout: 5))
         app.buttons["Top rated"].tap()
-        app.buttons["4.0+"].firstMatch.tap()
+        app.raiseLowestScore(to: 4)
         app.buttons["sheet.primary"].tap()
         assertAtTop(app, rows: "journal.slip.dish", pill: "Remove 4.0+", header: "journal.suggestions",
                     first: "Almond croissant")
@@ -52,8 +52,7 @@ final class QueryFromMidListUITests: XCTestCase {
         XCTAssertLessThan(control.frame.minY, resting - 60, "precondition: scrolled down the page")
         XCTAssertTrue(control.isHittable, "precondition: the control is still on screen")
         control.tap()
-        XCTAssertTrue(app.buttons["4.0+"].firstMatch.waitForExistence(timeout: 5))
-        app.buttons["4.0+"].firstMatch.tap()
+        app.raiseLowestScore(to: 4)
         app.buttons["sheet.primary"].tap()
         assertAtTop(app, rows: "search.dish", pill: "Remove 4.0+", header: "search.field", first: nil)
         XCTAssertEqual(control.frame.minY, resting, accuracy: 2, "the page is back at its top")

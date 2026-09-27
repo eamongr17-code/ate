@@ -35,6 +35,11 @@ public struct JournalQueryClient: JournalQuerying {
         return JournalQueryPage(items: ordered, nextCursor: next)
     }
 
+    public func myEntryCities() async throws -> [AteCity] {
+        let data = try await api.supabase.rpc("my_entry_cities").execute().data
+        return try JSONDecoder().decode([AteCity].self, from: data)
+    }
+
     public func myEntryPlaces() async throws -> [JournalPlace] {
         let data = try await api.supabase.rpc("my_entry_places").execute().data
         return try JSONDecoder().decode([JournalPlace].self, from: data)
@@ -59,6 +64,9 @@ public struct JournalQueryClient: JournalQuerying {
             "p_from": .null,
             "p_to": .null
         ]
+        // Round 5 (0047): the top of the score range (open at 5.0, so never sent there) and a city.
+        parameters["p_max_score"] = query.maxScore.map { .double($0) } ?? .null
+        parameters["p_city"] = query.city.map { .string($0) } ?? .null
         if let period = query.period {
             let days = period.days()
             parameters["p_from"] = .string(Self.day(days.from))

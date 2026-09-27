@@ -119,6 +119,8 @@ enum AteColor {
     /// The ground, adapting to the mode. The one role colour available outside the palette, because
     /// something has to paint the window before a palette exists.
     static let ground = Color(light: groundLight, dark: groundDark)
+    /// The dark ground on its own — the app icon's dark appearance, which the launch moment wears.
+    static let groundInk = groundDark
 }
 
 /// **The chrome's glass** (round 5): the app's own frosted surface for the tab bar, the `+`, the

@@ -30,6 +30,10 @@ public final class SavedDishesStore {
     public private(set) var undoable: SavedDish?
     /// Where it sat, so Undo puts it back in its own place rather than at the top.
     private var undoIndex: Int?
+    /// What the shelf is narrowed to (round 5, 0049) — the Journal's range and city, shared.
+    public private(set) var filter = SavedDishFilter.none
+    /// `my_saved_cities()` — the shelf's filter's cities.
+    @ObservationIgnored public let cityList: AteCityList
 
     private let saves: any DishSaving
     private let pageSize: Int
@@ -43,6 +47,7 @@ public final class SavedDishesStore {
 
     public init(saves: any DishSaving, pageSize: Int = 50) {
         self.saves = saves
+        cityList = AteCityList { try await saves.mySavedCities() }
         self.pageSize = pageSize
     }
 
@@ -75,7 +80,8 @@ public final class SavedDishesStore {
         isLoadingMore = true
         defer { isLoadingMore = false }
         let generationAtStart = generation
-        guard let page = try? await saves.savedDishesPage(after: cursor, pageSize: pageSize) else { return }
+        guard let page = try? await saves.savedDishesPage(after: cursor, pageSize: pageSize, filter: filter)
+        else { return }
         guard generationAtStart == generation else { return }
         append(page)
     }
@@ -89,7 +95,7 @@ public final class SavedDishesStore {
 
         if dishes.isEmpty { phase = .loading }
         do {
-            let page = try await saves.savedDishesPage(after: nil, pageSize: pageSize)
+            let page = try await saves.savedDishesPage(after: nil, pageSize: pageSize, filter: filter)
             guard generationAtStart == generation else { return }
             hasLoadedOnce = true
             reset()
@@ -106,6 +112,24 @@ public final class SavedDishesStore {
                 : .failed(message: "Couldn't load what you saved.")
         }
     }
+
+    // MARK: - Filters (round 5)
+
+    /// Narrows the shelf. A filtered shelf is a different list, so it is read again from the top —
+    /// on its skeleton, the Journal's rule. Nothing happens for the filter it already has.
+    public func apply(_ next: SavedDishFilter) async {
+        guard next != filter else { return }
+        filter = next
+        reset()
+        phase = .loading
+        isLoadingFirstPage = false
+        await loadFirstPage()
+    }
+
+    public var cities: [AteCity] { cityList.cities }
+    public var hasLoadedCities: Bool { cityList.hasLoaded }
+    public func loadCities() async { await cityList.load() }
+    public func loadCitiesIfNeeded() async { await cityList.loadIfNeeded() }
 
     // MARK: - Unsaving
 

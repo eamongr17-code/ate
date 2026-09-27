@@ -47,7 +47,8 @@ final class BrowseRound4UITests: XCTestCase {
 
     // MARK: - The one filter sheet
 
-    /// The Journal: the control beside the segment, the sheet, and the pills it leaves.
+    /// The Journal: the control on the bar, the sheet (order, the ruler, the city pills), and the
+    /// pills it leaves.
     func testJournalFilterSheet() {
         let app = launch([])
         let control = app.buttons["journal.filter"]
@@ -58,23 +59,29 @@ final class BrowseRound4UITests: XCTestCase {
         pause(0.6)
         app.buttons["Top rated"].tap()
         pause(0.4)
-        app.buttons["4.0+"].firstMatch.tap()
+        app.raiseLowestScore(to: 4)
+        XCTAssertEqual(app.scoreRangeValue, "4.0+", "the ruler's lower end snaps to 4.0; the top stays open")
+        let melbourne = app.cityPill("melbourne")
+        XCTAssertTrue(melbourne.waitForExistence(timeout: 5), "the cities the journal holds, as pills")
+        melbourne.tap()
         pause(0.6)
         save("journal-filter-sheet")
         app.buttons["sheet.primary"].tap()
         let pill = app.buttons["Remove 4.0+"]
         XCTAssertTrue(pill.waitForExistence(timeout: 5), "the filter shows as a removable pill")
+        XCTAssertTrue(app.buttons["Remove Melbourne"].exists, "and the city beside it")
         pause(1.0)
         save("journal-filter-applied")
         pill.tap()
+        pause(0.8)
+        app.buttons["Remove Melbourne"].tap()
         pause(0.8)
         app.buttons["Remove Top rated"].tap()
         pause(0.8)
         scrollForMonthMarker(app, name: "journal-month-marker")
     }
 
-    /// Search: the same control at the end of the scopes, the same sheet with Search's sections, the
-    /// same pills.
+    /// Search: the same control at the end of the scopes, the same sheet (no order), the same pills.
     func testSearchFilterSheet() {
         let app = launch(["-ate-open-search", "-ate-search-scope", "dishes", "-ate-search-query", "ra"])
         let control = app.buttons["search.filter"]
@@ -82,21 +89,23 @@ final class BrowseRound4UITests: XCTestCase {
         pause(0.8)
         save("search-filter-closed")
         control.tap()
-        XCTAssertTrue(app.buttons["4.0+"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.scoreRuler.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Top rated"].exists, "Search has no order")
         pause(0.6)
-        app.buttons["4.0+"].firstMatch.tap()
-        pause(0.4)
-        app.buttons["vegetarian"].firstMatch.tap()
+        app.raiseLowestScore(to: 4)
+        let melbourne = app.cityPill("melbourne")
+        XCTAssertTrue(melbourne.waitForExistence(timeout: 5))
+        melbourne.tap()
         pause(0.6)
         save("search-filter-sheet")
         app.buttons["sheet.primary"].tap()
         XCTAssertTrue(app.buttons["Remove 4.0+"].waitForExistence(timeout: 5), "the same removable pills")
-        XCTAssertTrue(app.buttons["Remove V"].exists)
+        XCTAssertTrue(app.buttons["Remove Melbourne"].exists)
         pause(1.0)
         save("search-filter-applied")
-        app.buttons["Remove V"].tap()
+        app.buttons["Remove Melbourne"].tap()
         pause(0.8)
-        XCTAssertFalse(app.buttons["Remove V"].exists, "a pill takes its filter away")
+        XCTAssertFalse(app.buttons["Remove Melbourne"].exists, "a pill takes its filter away")
         save("search-filter-removed")
     }
 

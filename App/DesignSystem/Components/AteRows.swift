@@ -207,6 +207,10 @@ struct AteSegment<Value: Hashable>: Identifiable {
 struct AteSegments<Value: Hashable>: View {
     let options: [AteSegment<Value>]
     @Binding var selection: Value
+    /// Hugs its titles rather than filling the row — a segment that shares its row with other
+    /// controls (round 5 exploration).
+    var hugs = false
+    var identifier: String?
 
     @Environment(\.atePalette) private var palette
 
@@ -219,7 +223,10 @@ struct AteSegments<Value: Hashable>: View {
                 } label: {
                     Text(option.title)
                         .ateText(.controlSmall)
-                        .frame(maxWidth: .infinity)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: hugs, vertical: false)
+                        .padding(.horizontal, hugs ? Self.hugPadding : 0)
+                        .frame(maxWidth: hugs ? nil : .infinity)
                         .atePillHeight(AteMetrics.segmentHeight)
                         .background(isCurrent ? palette.raised : .clear, in: .capsule)
                         .foregroundStyle(isCurrent ? palette.fg : palette.muted)
@@ -228,6 +235,7 @@ struct AteSegments<Value: Hashable>: View {
                 .buttonStyle(.plain)
                 .ateHitFootprint(Self.hitOutset)
                 .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
+                .accessibilityIdentifier(identifier.map { "\($0).\(option.title.lowercased())" } ?? option.title)
             }
         }
         .padding(AteMetrics.tight)
@@ -235,6 +243,7 @@ struct AteSegments<Value: Hashable>: View {
     }
 
     /// A segment is drawn 36 tall; a finger gets 44 (the outset lands on the pill's own rim).
+    private static var hugPadding: CGFloat { 14 }
     private static var hitOutset: AteHitOutset { AteHitOutset(height: AteMetrics.segmentHeight) }
 }
 
