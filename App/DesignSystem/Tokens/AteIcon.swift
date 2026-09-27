@@ -1,14 +1,15 @@
 import SwiftUI
 
-/// **Every icon in the app, drawn the way `design/v1` draws it.**
+/// **Every icon in the app, from Lucide — the one icon set Ate uses.**
 ///
-/// Design rule 1 is "icons before labels", which makes the icon set load-bearing — and the artboards
-/// draw their own. So each case below carries the artboard's own geometry (24-unit viewBox, 1.8
-/// stroke, round caps and joins) rather than the nearest SF Symbol: a `mappin` is not the prototype's
-/// pin, `text.page` is not its receipt, and at 22pt the difference is the whole character of the
-/// chrome. The strings are copied out of the markup unedited.
+/// Eamon picked Lucide (ISC, `lucide-static` 1.48.0) in round 5 as the single set, used exclusively
+/// from here on; the licence is in `THIRD_PARTY_NOTICES`. Each case carries the Lucide glyph's own
+/// geometry — 24-unit viewBox, round caps and joins — copied out of the package's SVG unedited, so
+/// the icons ship as vectors with no runtime dependency. The name beside each case is the Lucide
+/// icon it is.
 ///
-/// No SF Symbol appears anywhere the design draws its own icon.
+/// No SF Symbol appears in `App/` (SwiftLint's `no_sf_symbols` holds that line); a new icon is a new
+/// case here, taken from Lucide.
 enum AteIcon: String, CaseIterable {
     // Tabs
     case journal, feed, search, you, compose
@@ -18,120 +19,165 @@ enum AteIcon: String, CaseIterable {
 
     // Actions
     case share, edit, save, saved, camera, library, voice, close, back, check, chevron, settings
-    /// Stop dictating — the filled square inside the ink circle on `ComposerVoice.dc.html`. The third
-    /// icon the design fills, and the only one that is a shape rather than a drawing.
+    /// Stop dictating — the filled square inside the ink circle on `ComposerVoice.dc.html`.
     case stop
     /// The one "…" that carries everything you can do about a person or an entry, and the two
     /// answers underneath it.
     case more, flag, block
-    /// The composer's Diet key (layout C, Eamon, round 3). The artboards draw no dietary icon; this
-    /// leaf is authored in their line style (24 grid, 1.8 stroke, round caps).
+    /// The composer's Diet key.
     case diet
-    /// The journal's filter and sort (round 4 exploration A). Not drawn by the artboards: two
-    /// sliders authored in their line style (24 grid, 1.8 stroke, round caps). Needs Eamon's eye.
+    /// The journal's filter and sort.
     case filter
-    /// The Feed's Near me (round 5) — Lucide's `navigation`, ahead of the icon sweep.
+    /// A dish, where a picture of one is missing.
+    case dish
+    /// Clear a field or dismiss a cover — Lucide's circle-x, filled, with the cross knocked out.
+    case clear
+    /// The Feed's Near me — Lucide's navigation.
     case navigation
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
         switch self {
-        case .journal:
-            [Self.path("M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21z"), Self.path("M9 8h6M9 12h6")]
-        case .feed:
-            [AteVector.circle(9, 9, 3.2),
-             Self.path("M3 19c.8-3.4 3.2-4.8 6-4.8s5.2 1.4 6 4.8"),
-             Self.path("M15.5 6.2a3.2 3.2 0 0 1 0 5.8M17.5 14.6c1.9.6 3.1 2 3.6 4.4")]
-        case .search:
-            [AteVector.circle(11, 11, 6.5), Self.path("M16 16l4.5 4.5")]
-        case .you:
-            [AteVector.circle(12, 8.5, 3.5), Self.path("M5 20c1-4 4-5.5 7-5.5s6 1.5 7 5.5")]
-        case .compose:
-            [Self.path("M12 5v14M5 12h14")]
-        case .star:
+        case .journal: // receipt-text
+            [Self.path("""
+M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 \
+1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 \
+1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.93\
+3-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.\
+7.2 1 1 0 0 1-1-1z
+"""), Self.path("M13 16H8"), Self.path("M14 8H8"), Self.path("M16 12H8")]
+        case .feed: // users
+            [Self.path("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"), Self.path("M16 3.128a4 4 0 0 1 0 7.744"),
+             Self.path("M22 21v-2a4 4 0 0 0-3-3.87"), AteVector.circle(9, 7, 4)]
+        case .search: // search
+            [Self.path("m21 21-4.34-4.34"), AteVector.circle(11, 11, 8)]
+        case .you: // user
+            [Self.path("M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"), AteVector.circle(12, 7, 4)]
+        case .compose: // plus
+            [Self.path("M5 12h14"), Self.path("M12 5v14")]
+        case .star, .starFilled: // star
             [Self.starPath]
-        case .starFilled:
-            []
-        case .place:
-            [Self.path("M12 21s6.5-6 6.5-11a6.5 6.5 0 0 0-13 0c0 5 6.5 11 6.5 11z"),
-             AteVector.circle(12, 10, 2.3)]
-        case .photoStack:
-            [AteVector.rectangle(3.5, 7.5, 14, 12, 3), Self.path("M7 4.5h10.5a3 3 0 0 1 3 3V16")]
-        case .share:
-            [Self.path("M12 15V4M8 7.5l4-4 4 4M5 12v7.5h14V12")]
-        case .edit:
-            [Self.path("M4 20l1-4.5L16.5 4 20 7.5 8.5 19z")]
-        case .save:
+        case .place: // map-pin
+            [Self.path("""
+M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0
+"""), AteVector.circle(12, 10, 3)]
+        case .photoStack: // images
+            [Self.path("m22 11-1.296-1.296a2.4 2.4 0 0 0-3.408 0L11 16"),
+             Self.path("M4 8a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2"),
+             Self.imagesDot, AteVector.rectangle(8, 2, 14, 14, 2)]
+        case .share: // share
+            [Self.path("M12 2v13"), Self.path("m16 6-4-4-4 4"),
+             Self.path("M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8")]
+        case .edit: // pencil
+            [Self.path("""
+M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1\
+.32a2 2 0 0 0 .83-.497z
+"""), Self.path("m15 5 4 4")]
+        case .save, .saved: // bookmark
             [Self.bookmarkPath]
-        case .saved:
-            []
-        case .camera:
-            [Self.path("M4 8h3l1.5-2h7L17 8h3v11H4z"), AteVector.circle(12, 13, 3.5)]
-        case .library:
-            [AteVector.rectangle(3.5, 5, 17, 14, 2),
-             Self.path("M4 16l4.5-4.5 4 4 3-3L20 17"),
-             AteVector.circle(9, 9.5, 1.3)]
-        case .voice:
-            [AteVector.rectangle(9, 3, 6, 11, 3), Self.path("M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3")]
-        case .close:
-            [Self.path("M6 6l12 12M18 6L6 18")]
-        case .back:
-            [Self.path("M14.5 5l-7 7 7 7")]
-        case .check:
-            [Self.path("M5 12.5l4.5 4.5L19 7.5")]
-        case .chevron:
-            [Self.path("M9.5 5l7 7-7 7")]
-        case .settings:
-            [AteVector.circle(12, 12, 3), Self.gearPath]
-        case .more:
-            [AteVector.circle(6, 12, 1.2), AteVector.circle(12, 12, 1.2), AteVector.circle(18, 12, 1.2)]
-        case .flag:
-            [Self.path("M6 21V4M6 5h11l-2 3.5 2 3.5H6")]
-        case .block:
-            [AteVector.circle(12, 12, 8.5), Self.path("M6 6l12 12")]
-        case .stop:
-            []
-        case .diet:
-            [Self.path("M5 19C5 10.5 10.5 5 19 5c0 8.5-5.5 14-14 14z"), Self.path("M5 19l8.5-8.5")]
-        case .filter:
-            [Self.path("M4 8h8.5M16.5 8H20M4 16h3.5M11.5 16H20"),
-             AteVector.circle(14.5, 8, 2), AteVector.circle(9.5, 16, 2)]
-        case .navigation:
+        case .camera: // camera
+            [Self.path("""
+M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V\
+9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z
+"""), AteVector.circle(12, 13, 3)]
+        case .library: // image
+            [AteVector.rectangle(3, 3, 18, 18, 2), AteVector.circle(9, 9, 2),
+             Self.path("m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21")]
+        case .voice: // mic
+            [Self.path("M12 19v3"), Self.path("M19 10v2a7 7 0 0 1-14 0v-2"), AteVector.rectangle(9, 2, 6, 13, 3)]
+        case .close: // x
+            [Self.path("M18 6 6 18"), Self.path("m6 6 12 12")]
+        case .back: // chevron-left
+            [Self.path("m15 18-6-6 6-6")]
+        case .check: // check
+            [Self.path("M20 6 9 17l-5-5")]
+        case .chevron: // chevron-right
+            [Self.path("m9 18 6-6-6-6")]
+        case .settings: // settings
+            [Self.gearPath, AteVector.circle(12, 12, 3)]
+        case .more: // ellipsis
+            [AteVector.circle(12, 12, 1), AteVector.circle(19, 12, 1), AteVector.circle(5, 12, 1)]
+        case .flag: // flag
+            // Lucide writes one segment as a quadratic, `q2 0 3.067-.8`; it is carried here as the
+            // identical cubic (`c1.333 0 2.356-.267 3.067-.8`), the only form `AteVector` reads.
+            [Self.path("""
+M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2c1.333 0 2.356-.267 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 \
+0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528
+""")]
+        case .block: // ban
+            [AteVector.circle(12, 12, 10), Self.path("M4.929 4.929 19.07 19.071")]
+        case .stop: // square
+            [Self.stopSquare]
+        case .diet: // leaf
+            [Self.path("""
+M11 20a10 10 0 0010-10 25.9 25.9 0 00-1.04-7.281 1 1 0 00-1.755-.325C15.833 5.5 13 5.5 9.8 6.1A7 7 0 0011 20
+"""), Self.path("M2 21a5 5 0 012.911-4.544C7.613 15.212 8.351 15.24 11 13")]
+        case .filter: // sliders-horizontal
+            [Self.path("M10 5H3"), Self.path("M12 19H3"), Self.path("M14 3v4"), Self.path("M16 17v4"),
+             Self.path("M21 12h-9"), Self.path("M21 19h-5"), Self.path("M21 5h-7"), Self.path("M8 10v4"),
+             Self.path("M8 12H3")]
+        case .dish: // utensils
+            [Self.path("M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"), Self.path("M7 2v20"),
+             Self.path("M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7")]
+        case .clear: // circle-x
+            [AteVector.circle(12, 12, 10)]
+        case .navigation: // navigation
             [Self.path("M3 11L22 2L13 21L11 13Z")]
         }
     }
 
-    /// What is filled. Only the three icons the design ever fills.
+    /// What is filled. Lucide draws no filled glyphs, so a filled state is the outline's own path,
+    /// filled — and still stroked, so the filled and empty states have the same silhouette.
     var fills: [Path] {
         switch self {
         case .starFilled: [Self.starPath]
         case .saved: [Self.bookmarkPath]
-        case .stop: [AteVector.rectangle(7, 7, 10, 10, 2)]
+        case .stop: [Self.stopSquare]
+        case .clear: [AteVector.circle(12, 12, 10)]
+        // `images` fills its own sun, in the SVG.
+        case .photoStack: [Self.imagesDot]
         default: []
         }
     }
 
-    private static let starPath = path(
-        "M12 2.8l2.85 5.9 6.45.85-4.7 4.5 1.2 6.4L12 17.3l-5.8 3.15 1.2-6.4-4.7-4.5 6.45-.85z"
-    )
-    private static let bookmarkPath = path("M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z")
-    private static let gearPath = path("""
-M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 \
-0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 \
-1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 \
-1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l\
--.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3\
-a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 \
-2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 \
-2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z
+    /// What is knocked out of the fill, at the stroke's width — the cross in ``clear``.
+    var cutouts: [Path] {
+        switch self {
+        case .clear: [Self.path("m15 9-6 6"), Self.path("m9 9 6 6")]
+        default: []
+        }
+    }
+
+    private static let starPath = path("""
+M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3\
+.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.97\
+3 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.\
+906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z
 """)
+    private static let bookmarkPath = path("""
+M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 \
+2 0 0 1 2-2z
+""")
+    private static let gearPath = path("""
+M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 \
+0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3\
+.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.\
+319-1.915
+""")
+    private static let imagesDot = AteVector.circle(13, 7, 1)
+    /// Lucide's `square` (`x=3 y=3 18×18 rx=2`), drawn down to the artboard's stop: a 10-unit square
+    /// centred in the key (`ComposerVoice.dc.html`), stroke included. A full-size Lucide square would
+    /// fill the ink circle it sits in.
+    private static let stopSquare = AteVector.rectangle(3, 3, 18, 18, 2).applying(
+        CGAffineTransform(translationX: 12, y: 12).scaledBy(x: 0.506, y: 0.506).translatedBy(x: -12, y: -12)
+    )
 
     private static func path(_ data: String) -> Path { AteVector.path(data) }
 }
 
 extension AteIcon {
-    /// An icon at a size, in the current foreground colour. The stroke is 1.8 in the design's own
-    /// 24-unit space, so it thins and thickens with the icon exactly as the SVG does.
+    /// An icon at a size, in the current foreground colour. The stroke is in the 24-unit box, so it
+    /// thins and thickens with the icon exactly as the SVG does.
     func view(size: CGFloat, lineWidth: CGFloat = AteIconShape.strokeWidth) -> some View {
         AteIconView(icon: self, size: size, lineWidth: lineWidth)
     }
@@ -139,14 +185,20 @@ extension AteIcon {
 
 /// One icon's geometry, scaled into whatever box it is given.
 struct AteIconShape: Shape {
-    /// The artboards' stroke: 1.8 in a 24-unit viewBox.
+    /// The line weight: 1.8 in the 24-unit box — Lucide's own 2, at ``opticalScale``.
     static let strokeWidth: CGFloat = 1.8
+    /// Lucide draws to a 2-unit margin, the old hand-drawn set to about 3.5, so at the same point size
+    /// Lucide's glyphs read a size larger. Drawn at 90% about the centre they keep the ink box — and,
+    /// with Lucide's 2 stroke, the 1.8 weight — every call site was laid out against.
+    static let opticalScale: CGFloat = 0.9
 
     let paths: [Path]
 
     func path(in rect: CGRect) -> Path {
-        let scale = min(rect.width, rect.height) / AteVector.viewBox
-        let transform = CGAffineTransform(translationX: rect.minX, y: rect.minY)
+        let side = min(rect.width, rect.height)
+        let scale = side / AteVector.viewBox * Self.opticalScale
+        let inset = side * (1 - Self.opticalScale) / 2
+        let transform = CGAffineTransform(translationX: rect.minX + inset, y: rect.minY + inset)
             .scaledBy(x: scale, y: scale)
         var combined = Path()
         for path in paths {
@@ -156,13 +208,14 @@ struct AteIconShape: Shape {
     }
 }
 
-/// The drawn icon: fills first, then strokes, both in the inherited foreground colour.
+/// The drawn icon: fills, then strokes, then any knock-out, all in the inherited foreground colour.
 struct AteIconView: View {
     let icon: AteIcon
     let size: CGFloat
     var lineWidth: CGFloat = AteIconShape.strokeWidth
 
     var body: some View {
+        let style = StrokeStyle(lineWidth: lineWidth * size / AteVector.viewBox, lineCap: .round, lineJoin: .round)
         ZStack {
             let fills = icon.fills
             if fills.isEmpty == false {
@@ -170,14 +223,14 @@ struct AteIconView: View {
             }
             let strokes = icon.strokes
             if strokes.isEmpty == false {
-                AteIconShape(paths: strokes)
-                    .stroke(style: StrokeStyle(
-                        lineWidth: lineWidth * size / AteVector.viewBox,
-                        lineCap: .round,
-                        lineJoin: .round
-                    ))
+                AteIconShape(paths: strokes).stroke(style: style)
+            }
+            let cutouts = icon.cutouts
+            if cutouts.isEmpty == false {
+                AteIconShape(paths: cutouts).stroke(style: style).blendMode(.destinationOut)
             }
         }
+        .compositingGroup()
         .frame(width: size, height: size)
         .accessibilityHidden(true)
     }

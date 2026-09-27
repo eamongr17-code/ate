@@ -464,8 +464,7 @@ extension AtePhoto {
     static func swatch(_ colour: Color) -> AtePhoto {
         let renderer = ImageRenderer(content:
             colour.frame(width: 200, height: 200).overlay(
-                Image(systemName: "fork.knife")
-                    .font(.system(size: 64))
+                AteIcon.dish.view(size: 64)
                     .foregroundStyle(AteColor.ink.opacity(0.25))
             )
         )
