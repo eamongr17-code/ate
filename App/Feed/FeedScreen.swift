@@ -23,7 +23,6 @@ struct FeedScreen: View {
     var onViewed: () -> Void = {}
 
     @State private var isChoosingArea = false
-    @State private var location = AteLocation()
     @State private var scrollToTopAfterArea = 0
 
     var body: some View {
@@ -51,9 +50,7 @@ struct FeedScreen: View {
         .ateTabRootHeader(scrollToTop: scrollToTopSignal + scrollToTopAfterArea) { header }
         .task {
             onViewed()
-            // Near me is worked out before the first page, so the feed opens on the right city
-            // rather than everywhere-then-somewhere.
-            await prepareLocation()
+            // The first page works near me out itself (`FeedAreaModel.cityForFirstPage`).
             await store.loadIfNeeded()
             #if DEBUG
             if JournalDebugLaunch.opensFeedLocation { isChoosingArea = true }
@@ -70,27 +67,11 @@ struct FeedScreen: View {
 
     // MARK: - Where
 
-    /// Near me needs the phone's location — asked for here, the first time the Feed is opened on
-    /// near me (never at launch). A refusal, or no fix, is answered by `resolve_city` with the
-    /// busiest city; no city with food at all is everywhere.
-    private func prepareLocation() async {
-        guard let area, area.location == .nearMe, area.hasResolvedNearMe == false else { return }
-        let coordinate = await location.current()
-        await area.resolveNearMe(latitude: coordinate?.latitude, longitude: coordinate?.longitude)
-        AteTelemetry.record(SocialEvents.feedNearMeResolved(
-            hadLocation: coordinate != nil,
-            isNearby: area.nearMe?.isNearby == true,
-            found: area.nearMe != nil
-        ))
-    }
-
+    /// A pick from the sheet. Near me picked again is a retry — the phone may have moved, or the
+    /// last read failed — so it reads again even when the city looks the same.
     private func choose(_ choice: FeedLocation, in area: FeedAreaModel) async {
-        var changed = area.choose(location: choice)
-        if choice == .nearMe, area.hasResolvedNearMe == false {
-            await prepareLocation()
-            changed = true
-        }
-        guard changed else { return }
+        let changed = area.choose(location: choice)
+        guard changed || choice == .nearMe else { return }
         scrollToTopAfterArea += 1
         await store.reload()
     }

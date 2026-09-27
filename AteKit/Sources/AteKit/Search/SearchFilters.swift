@@ -238,4 +238,11 @@ extension SearchReading {
     }
 
     public func searchCities() async throws -> [AteCity] { [] }
+
+    public func nearbyPlaces(
+        origin: SearchOrigin, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int
+    ) async throws -> SearchPage<PlaceResult> {
+        guard filters.isEmpty else { return SearchPage(rows: [], next: nil) }
+        return try await nearbyPlaces(origin: origin, after: cursor, pageSize: pageSize)
+    }
 }

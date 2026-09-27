@@ -93,6 +93,18 @@ extension InMemorySocialService: SearchReading {
         return SearchPage(rows: kept, next: nil)
     }
 
+    public func nearbyPlaces(
+        origin: SearchOrigin, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int
+    ) async throws -> SearchPage<PlaceResult> {
+        let rows = try await nearbyPlaces(origin: origin, after: cursor, pageSize: pageSize).rows
+        let lines = visibleEntriesEverywhere()
+        let kept = rows.filter { place in
+            let located = lines.first { $0.place?.id == place.restaurantID }?.place
+            return Self.passes(filters, cuisine: located?.cuisine, city: located?.city, score: place.score)
+        }
+        return SearchPage(rows: kept, next: nil)
+    }
+
     public func searchCities() async throws -> [AteCity] {
         var seen = Set<UUID>()
         let places = visibleEntriesEverywhere().compactMap(\.place).filter { seen.insert($0.id).inserted }

@@ -202,11 +202,11 @@ struct JournalScreen: View {
     /// One choice from the sheet, or a pill taken off: the Journal's query, and the same range and
     /// city on the Saved shelf. Only a shelf whose list changes is read again.
     private func apply(_ draft: AteBrowseFilterDraft) {
-        // The order is only on the Journal's sheet; from Saved the draft carries it unchanged.
-        var query = store.query
-        query.sort = draft.sort
+        // A whole new query from the draft (the order is only on the Journal's sheet; from Saved the
+        // draft carries it unchanged). Nothing else survives — no place, diet or period left over
+        // from before round 5, which no control can reach any more (QA on #84).
+        var query = JournalQuery(sort: draft.sort, city: draft.city)
         query.band = draft.band
-        query.city = draft.city
         let shelfFilter = SavedDishFilter(band: draft.band, city: draft.city)
         guard query != store.query || shelfFilter != saved.filter else { return }
         listChanged += 1
@@ -277,7 +277,7 @@ struct JournalScreen: View {
                 store: saved,
                 emptyTop: emptyTop,
                 top: saved.phase == .ready || saved.phase == .loading ? AteMetrics.slipGap : Self.firstDayGap,
-                onClear: { apply(AteBrowseFilterDraft(sort: store.query.sort)) },
+                onClear: { apply(AteBrowseFilterDraft()) },
                 onPlace: onSavedPlace,
                 onDish: onSavedDish,
                 onUnsave: onUnsave
@@ -296,7 +296,8 @@ struct JournalScreen: View {
         case .empty:
             if store.query.hasFilters {
                 firstDay(AteEmptyState(title: "Nothing\nlike that.", actionTitle: "Clear") {
-                    apply(AteBrowseFilterDraft(sort: store.query.sort))
+                    // Clear is the whole query: the order, the range, the city.
+                    apply(AteBrowseFilterDraft())
                 })
             } else {
                 firstDay(AteEmptyState(

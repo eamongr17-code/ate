@@ -229,16 +229,16 @@ struct DetailRound4Tests {
         #expect(log.first(named: "search_filtered")?.parameters["min_score"] == "4.0")
     }
 
-    @Test("Nearby is never filtered")
-    func nearbyUnfiltered() async {
+    /// Round 5 reverses round 4's rule (QA on #84): a pill over Nearby is a filter on Nearby.
+    @Test("Nearby is filtered too")
+    func nearbyFiltered() async {
         let service = FakeSearchService()
         service.seed(nearby: [.fixture("Tipo 00", score: nil)])
         let store = searchStore(service)
         store.setFilters(SearchFilters(minimumScore: 4.5))
         await store.setOrigin(SearchOrigin(latitude: -37.8, longitude: 144.9))
         await store.start()
-        #expect(store.rows.count == 1)
-        #expect(service.filtersAsked.isEmpty)
+        #expect(store.rows.isEmpty, "an unscored place never clears 4.5")
     }
 
     @Test("a filter set toggles, keeps its order canonical, and prints its pills without a dot")

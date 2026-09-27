@@ -51,7 +51,7 @@
 	</dict>
 	<!-- Asked the first time something needs it — the Feed opening on Near me, Search's Nearby, the
 	     place sheet — never at launch. Design rule 8 stands: nothing is ever attached from a
-	     location, and resolve_city never stores the point. Round 5 copy: Eamon to approve. -->
+	     location, and resolve_city never stores the point. Round 5 copy, approved by Eamon. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Ate shows what people are eating in your city, and lists places near you when you choose where an entry happened. Nothing is attached until you tap one.</string>
 

@@ -177,7 +177,9 @@ public final class SearchStore {
         // People dropped the answer already in the air, and the rows sat on the skeleton for good.
         guard SearchFilters.applies(to: scope) else { return }
         generation += 1
-        guard isBelowMinimumLength == false else { return }
+        // Nothing typed: the standing lists (Nearby, the shelf) are narrowed too — QA on #84, the
+        // pill said "4.5+" over rows that were not. Only a scope with nothing to show waits.
+        guard isBelowMinimumLength == false || scope.hasStandingList else { return }
         pending?.cancel()
         pending = Task { [weak self] in await self?.run() }
     }
@@ -360,7 +362,9 @@ public final class SearchStore {
         case (.places, nil):
             // `run()` never gets here without one; a page asked for after a refusal is empty.
             guard let origin else { return LoadedPage(rows: .places([])) }
-            let page = try await service.nearbyPlaces(origin: origin, after: cursor, pageSize: pageSize)
+            let page = try await service.nearbyPlaces(
+                origin: origin, filters: filters, after: cursor, pageSize: pageSize
+            )
             return LoadedPage(rows: .places(page.rows), next: page.next)
         case (.dishes, let query?):
             let page = try await service.dishes(query: query, filters: filters, after: cursor, pageSize: pageSize)
