@@ -55,3 +55,11 @@ custom_rules:
     regex: '(Image|UIImage|Label)\s*\([^)]*\b(systemName|systemImage)\s*:'
     message: "Icons come from Lucide via AteIcon; add a case rather than using an SF Symbol."
     severity: error
+  # An outer `accessibilityHidden(false)` overrides hiding inside it (round 5): a conditional hide
+  # goes through `ateAccessibilityHidden(_:)`, which applies only `true`.
+  accessibility_hidden_bool:
+    name: "Conditional accessibilityHidden"
+    included: "/App/.*\\.swift$"
+    regex: '\.accessibilityHidden\((?!true\))'
+    message: "Use ateAccessibilityHidden(_:) for a conditional hide; accessibilityHidden(false) overrides children."
+    severity: error

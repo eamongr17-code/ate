@@ -9,8 +9,9 @@ import SwiftUI
 /// The header stays where it always was, in the scroll content, so every position below it — slips,
 /// empty states, the refresh control — is where the artboard puts it and the screen's layout is
 /// untouched: on the way down it simply scrolls away. On the way up a second copy of the same view
-/// slides in over the list, pinned where the header rests, and slides back out on the next scroll
-/// down; back at the top it goes, and the header in the page is the one there again.
+/// comes back over the list, pinned where the header rests — out of a blur into focus on a light
+/// frosted scrim (round 5, a gradual overlay rather than a hard cut) — and goes the same way on the
+/// next scroll down; back at the top it goes, and the header in the page is the one there again.
 ///
 /// It also owns the tab's scroll-to-top: the ScrollView's own top edge, insets included. An anchor on
 /// a view in the content lands that view at the top of the visible area, which on the Journal put
@@ -82,11 +83,10 @@ private struct AteChromeTracker: ViewModifier {
                     track = next
                     return
                 }
-                // A change of direction slides the header; arriving back at the top just hands over
-                // to the header in the page, which is already exactly there.
-                let slides = next.offset > AteHeaderTrack.topSlack && reduceMotion == false
-                let motion = AteChromeVariant.header == .a ? AteMotion.headerFocus : AteMotion.headerSlide
-                withAnimation(slides ? motion : nil) { track = next }
+                // A change of direction brings the header into focus (or lets it go); arriving back
+                // at the top just hands over to the header in the page, which is already exactly there.
+                let moves = next.offset > AteHeaderTrack.topSlack && reduceMotion == false
+                withAnimation(moves ? AteMotion.headerFocus : nil) { track = next }
                 report(next.isBarExpanded)
             }
             .onScrollPhaseChange { _, phase in
@@ -149,9 +149,9 @@ private struct AteTabRootHeader<Header: View>: ViewModifier {
                 if track.isFloating {
                     header
                         .background {
-                            // A frost from the top of the screen that feathers out under the
-                            // header (round 5) — not the solid ground that cut across the list.
-                            AteHeaderScrim(variant: AteChromeVariant.header)
+                            // A light frost from the top of the screen that feathers out under
+                            // the header (round 5) — not the solid ground that cut across the list.
+                            AteHeaderScrim()
                         }
                         .transition(.ateHeaderReturn)
                 }

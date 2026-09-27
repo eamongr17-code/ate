@@ -37,12 +37,12 @@ struct AteTabArrival: Equatable {
 
 /// **The tab bar** (round 5: the app's own, in place of iOS 26's `TabView` bar, which clashed with
 /// everything custom around it). It keeps the system bar's look, pixel for pixel at rest: a glass
-/// capsule of four tabs — the ported line icon (24) over a brand label (Bricolage 10.5; bold and on
+/// capsule of four tabs — the line icon (24) over a brand label (Bricolage 10.5; bold and on
 /// a pill when current) — and a separate glass `+` beside it, with the round-4 light shadow.
 ///
 /// It minimises on the way down to the current tab alone in a small disc (the `+` shrinks beside
-/// it), and comes back whole on the way up or on a tap of that disc — animated both ways
-/// (`-ate-r5-nav`: A a spring morph, B a drop-and-rise swap). Each tab root carries its own, so it
+/// it), and comes back whole on the way up or on a tap of that disc — one capsule morphing into the
+/// disc and back on a soft spring (round 5, Eamon's pick). Each tab root carries its own, so it
 /// slides away with the root on a push and back in with it on a pop, the finger driving it.
 struct AteTabBar: View {
     let chrome: AteTabChrome
@@ -67,14 +67,11 @@ struct AteTabBar: View {
     var body: some View {
         let width = AteScreen.width - 2 * Metrics.inset
         ZStack(alignment: .topLeading) {
-            switch AteChromeVariant.nav {
-            case .a: morph(width: width)
-            case .b: swap(width: width)
-            }
+            morph(width: width)
             plus(width: width)
         }
         .frame(width: width, height: Metrics.height, alignment: .topLeading)
-        .animation(reduceMotion ? nil : motion, value: isExpanded)
+        .animation(reduceMotion ? nil : AteMotion.barMorph, value: isExpanded)
         .onAppear(perform: syncPill)
         .onChange(of: arrival) { _, _ in syncPill() }
         .onChange(of: current) { _, _ in syncPill() }
@@ -87,19 +84,11 @@ struct AteTabBar: View {
                 .accessibilityValue("\(isExpanded ? "expanded" : "minimised") \(current.rawValue)")
         }
         #endif
-        // Only ever `true` here: an outer `accessibilityHidden(false)` overrode the minimised bar's
-        // own hiding of its tabs.
-        .modifier(AteAccessibilityHiddenIf(isHidden: root.map { $0 != current } ?? false))
+        // Only the tab on screen has a bar anyone can reach.
+        .ateAccessibilityHidden(root.map { $0 != current } ?? false)
     }
 
-    private var motion: Animation {
-        switch AteChromeVariant.nav {
-        case .a: AteMotion.barMorph
-        case .b: AteMotion.barSwap
-        }
-    }
-
-    // MARK: - Variant A: one capsule that morphs into the disc and back
+    // MARK: - One capsule that morphs into the disc and back
 
     private func morph(width: CGFloat) -> some View {
         let capsule = capsuleRect(width: width)
@@ -125,39 +114,6 @@ struct AteTabBar: View {
                     .offset(x: capsule.minX, y: capsule.minY)
             }
             .allowsHitTesting(false)
-            controls
-        }
-    }
-
-    // MARK: - Variant B: the full bar drops away as the disc rises in its place (and back)
-
-    private func swap(width: CGFloat) -> some View {
-        let capsuleWidth = width - Metrics.gap - Metrics.height
-        return ZStack(alignment: .topLeading) {
-            ZStack(alignment: .topLeading) {
-                AteGlassSurface(shape: Capsule(), shadow: .bar)
-                    .frame(width: capsuleWidth, height: Metrics.height)
-                selectionPill(capsuleWidth: capsuleWidth)
-                ForEach(AteTab.allCases) { tab in
-                    itemFace(tab, showsLabel: true).position(slotCentre(tab))
-                }
-            }
-            .frame(width: capsuleWidth, height: Metrics.height, alignment: .topLeading)
-            .scaleEffect(isExpanded ? 1 : 0.92, anchor: .bottomLeading)
-            .offset(y: isExpanded ? 0 : Metrics.swapDrop)
-            .opacity(isExpanded ? 1 : 0)
-            .allowsHitTesting(false)
-
-            ZStack {
-                AteGlassSurface(shape: Circle(), shadow: .bar)
-                AteTabBarItemIcon(tab: current, isCurrent: true)
-            }
-            .frame(width: Metrics.minimised, height: Metrics.minimised)
-            .scaleEffect(isExpanded ? 0.6 : 1)
-            .offset(x: Metrics.discInset, y: Metrics.discInset + (isExpanded ? Metrics.swapDrop : 0))
-            .opacity(isExpanded ? 0 : 1)
-            .allowsHitTesting(false)
-
             controls
         }
     }
@@ -311,8 +267,6 @@ enum AteTabBarMetrics {
     static let iconTop: CGFloat = 12
     static let labelGap: CGFloat = 2
     static let plusIcon: CGFloat = 24
-    /// Variant B: how far the full bar drops as it goes.
-    static let swapDrop: CGFloat = 14
     /// The strip a tab root keeps clear for the bar: from the bar's top to the screen's bottom.
     static var reserve: CGFloat { height + bottom }
     /// What a tab root's list adds under its last row, past the home indicator's own inset, so it
@@ -322,17 +276,4 @@ enum AteTabBarMetrics {
     static func rootClearance(bottomInset: CGFloat) -> CGFloat { max(0, reserve - bottomInset) }
     /// A Face ID phone's home-indicator inset: the first frame's guess, before layout has said.
     static let homeIndicatorInset: CGFloat = 34
-}
-
-/// Hides a subtree from VoiceOver when asked, and otherwise leaves its own choices alone.
-private struct AteAccessibilityHiddenIf: ViewModifier {
-    let isHidden: Bool
-
-    func body(content: Content) -> some View {
-        if isHidden {
-            content.accessibilityHidden(true)
-        } else {
-            content
-        }
-    }
 }

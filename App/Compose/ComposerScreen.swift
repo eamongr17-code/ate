@@ -80,9 +80,9 @@ struct ComposerScreen: View {
                 // screen at the tap. Nothing dims and nothing new appears; the controls just stop
                 // answering — to a finger, and to VoiceOver (the photo X and Close by their guards).
                 Group {
-                    editor.accessibilityHidden(isFrozen)
+                    editor.ateAccessibilityHidden(isFrozen)
                     photoStrip
-                    toolbar.accessibilityHidden(isFrozen)
+                    toolbar.ateAccessibilityHidden(isFrozen)
                 }
                 .allowsHitTesting(isFrozen == false)
             }

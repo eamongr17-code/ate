@@ -66,7 +66,7 @@ struct ScoreHistogramView: View {
         .accessibilityElement()
         .accessibilityLabel("\(ScoreFormat.halfStep(score)): \(ScoreFormat.dishCount(count))")
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
-        .accessibilityHidden(count == 0)
+        .ateAccessibilityHidden(count == 0)
     }
 
     private func height(for score: Double) -> CGFloat {
