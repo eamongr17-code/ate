@@ -121,10 +121,12 @@ struct Round3ContractTests {
         return id
     }
 
-    func count(_ client: AteAPIClient, _ table: String, _ column: String) async throws -> Int {
-        let me = try await client.requireCurrentUserID()
-        let response = try await client.supabase.from(table).select("id", head: true, count: .exact)
-            .eq(column, value: me.uuidString.lowercased()).execute()
+    /// Rows of `table` (selected as `columns`) whose `column` contains `nonce` — this run's, nobody else's.
+    /// `reviews` reaches the nonce through its entry (`entries!inner(body)`, filter `entries.body`).
+    func ownRows(_ client: AteAPIClient, _ table: String, _ columns: String, _ column: String, _ nonce: String)
+        async throws -> Int {
+        let response = try await client.supabase.from(table).select(columns, head: true, count: .exact)
+            .ilike(column, pattern: "%\(nonce)%").execute()
         return try #require(response.count, "PostgREST returned no count header")
     }
 
@@ -254,10 +256,11 @@ struct Round3ContractTests {
     func previewWritesNothing() async throws {
         try await guarded { jess in
             let place = try await somePlace(jess)
-            let entriesBefore = try await count(jess, "entries", "author_id")
-            let linesBefore = try await count(jess, "reviews", "reviewer_id")
-
-            let body = "\(Self.marker) pasta 4.5 GF and the tiramisu 3.5"
+            // Count only THIS run's rows: jess is shared, and overlapping CI runs write her entries. A
+            // nonce in the draft marks anything this preview could have written: an entry carries the
+            // body, and a line only ever exists on an entry (apply_entry_sort writes lines for one).
+            let nonce = "q" + UUID().uuidString.lowercased().filter(\.isLetter)
+            let body = "\(Self.marker) \(nonce). Pasta 4.5 GF and the tiramisu 3.5"
             let gf = try #require(body.range(of: "GF"))
             let offset = body.unicodeScalars.distance(from: body.unicodeScalars.startIndex, to: gf.lowerBound)
             let reply: PreviewReply = try await jess.supabase.functions.invoke(
@@ -271,8 +274,9 @@ struct Round3ContractTests {
             #expect(reply.entryID == nil)
             #expect(reply.items.isEmpty == false, "the draft names two dishes")
 
-            #expect(try await count(jess, "entries", "author_id") == entriesBefore, "a preview wrote an entry")
-            #expect(try await count(jess, "reviews", "reviewer_id") == linesBefore, "a preview wrote a line")
+            #expect(try await ownRows(jess, "entries", "id", "body", nonce) == 0, "a preview wrote an entry")
+            #expect(try await ownRows(jess, "reviews", "id,entries!inner(body)", "entries.body", nonce) == 0,
+                    "a preview wrote a line")
         }
     }
 

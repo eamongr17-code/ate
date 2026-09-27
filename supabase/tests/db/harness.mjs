@@ -31,6 +31,8 @@ export async function boot() {
       throw new Error(`migration ${f} failed: ${e.message}`);
     }
   }
+  // Supabase grants the API roles USAGE on `extensions` (search_key() calls extensions.unaccent).
+  await db.exec('grant usage on schema extensions to anon, authenticated, service_role;');
   return db;
 }
 

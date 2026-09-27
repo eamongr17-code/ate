@@ -104,7 +104,8 @@ const TOOL = {
             dish_name: { type: 'string', description: 'The dish as the text names it.' },
             score: {
               type: 'number',
-              description: 'The score the user explicitly gave, 0.5-5 in half steps. Omit when they gave no number.',
+              description:
+                'The score the user explicitly gave, 0.5-5 in half steps — or 6, only for a six the diner MARKED (listed in the message). Omit when they gave no number.',
             },
             score_evidence: {
               type: 'string',
@@ -135,10 +136,13 @@ export function buildRequest(opts: {
   placeCandidates?: string[];
   /** The words the client marked as dietary tag chips (0036), verbatim, in body order. */
   tagWords?: string[];
+  /** Each client-marked six (0041) with the words just before it (./six.ts sixMarks), in body order. */
+  sixMarks?: string[];
 }): ModelRequest {
   const known = (opts.knownDishes ?? []).slice(0, 200);
   const places = (opts.placeCandidates ?? []).slice(0, 8);
   const tags = (opts.tagWords ?? []).filter((w) => w.trim()).slice(0, 40);
+  const sixes = (opts.sixMarks ?? []).filter((w) => w.trim()).slice(0, 24);
 
   const user = [
     'THE DINER\'S WORDS (verbatim, between the markers):',
@@ -156,6 +160,12 @@ export function buildRequest(opts: {
       ? `DIETARY TAG WORDS the diner marked (${tags.join(' | ')}): these are tags, NOT part of any dish. ` +
         'Never include them in dish_name or note, and never return one as a dish.'
       : '',
+    // 0041: the secret 6 exists only where the diner marked it. The server keeps a 6 only when its
+    // evidence covers a marked span, so this is guidance; the rule is enforced in validate.ts.
+    sixes.length
+      ? `MARKED SIXES — the diner scored these a 6, their top score (each ends at the marked 6): ${sixes.join(' | ')}. ` +
+        'Give the dish each one scores score 6, with score_evidence containing that 6. Any other 6 in the text is NOT a score.'
+      : 'No six is marked: a 6 in the text is never a score.',
     '',
     'Call sort_entry.',
   ]
@@ -227,6 +237,7 @@ export type ModelCallOptions = {
   knownDishes?: string[];
   placeCandidates?: string[];
   tagWords?: string[];
+  sixMarks?: string[];
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
 };
@@ -252,6 +263,7 @@ export async function callModel(opts: ModelCallOptions): Promise<ModelCall> {
     knownDishes: opts.knownDishes,
     placeCandidates: opts.placeCandidates,
     tagWords: opts.tagWords,
+    sixMarks: opts.sixMarks,
   });
   const doFetch = opts.fetchImpl ?? fetch;
   const controller = new AbortController();
