@@ -86,6 +86,52 @@ struct ChromeRound4Tests {
         #expect(track.isBarExpanded)
     }
 
+    /// QA on #75: scrolled down, away to another tab and back, then down again — the bar minimised
+    /// and the shadow stayed, because the model still said "minimised" from before and the scroll
+    /// down was no change. Coming back to a tab puts the model on the full bar it was chosen on.
+    @Test func comingBackToATabPutsTheModelOnTheFullBar() {
+        var track = AteHeaderTrack()
+        scroll(&track, through: [0, 100, 300])
+        #expect(track.isBarExpanded == false)
+        track.tabBecameCurrent()
+        #expect(track.isBarExpanded)
+        #expect(track.isFloating == false, "where the header was is left alone")
+        scroll(&track, through: [310, 330])
+        #expect(track.isBarExpanded == false, "the next scroll down reads as the change it is")
+    }
+
+    /// The system may minimise the bar on a drag into the bottom bounce; the model errs to minimised.
+    @Test func aDragIntoTheBottomBounceCountsAsMinimised() {
+        // Back on a tab left at the very bottom — the full bar — and dragged into the bounce.
+        var returned = AteHeaderTrack()
+        scroll(&returned, through: [0, 800, 1990])
+        returned.tabBecameCurrent()
+        #expect(returned.isBarExpanded)
+        scroll(&returned, through: [2004, 2012])
+        #expect(returned.isBarExpanded == false)
+
+        // A list too short to scroll, pulled up past its end — and at rest at the top again.
+        var short = AteHeaderTrack()
+        scroll(&short, through: [0, 3, 8], max: 0)
+        #expect(short.isBarExpanded == false)
+        scroll(&short, through: [0], max: 0)
+        #expect(short.isBarExpanded)
+
+        // With the header floating the shell holds the bar open: the bounce cannot minimise it.
+        var held = AteHeaderTrack()
+        scroll(&held, through: [0, 800, 1990, 1980, 1975])
+        #expect(held.isFloating)
+        scroll(&held, through: [2000, 2010])
+        #expect(held.isBarExpanded)
+
+        // The system's own bounce (a fling landing) is not a drag.
+        var flung = AteHeaderTrack()
+        scroll(&flung, through: [0, 800, 1990])
+        flung.tabBecameCurrent()
+        scroll(&flung, through: [2000, 2010], byPerson: false)
+        #expect(flung.isBarExpanded)
+    }
+
     // MARK: - The fitted sheet
 
     @Test func aSheetWithAPillFitsHeadContentAndPill() {

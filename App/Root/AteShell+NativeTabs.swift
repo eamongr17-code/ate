@@ -42,13 +42,26 @@ extension AteShell {
                 screen(for: tab)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     // The bar's shadow, under the native glass, from the top of its strip down —
-                    // only while the bar is at full size, fading as it minimises.
+                    // only while the app's model says the bar is at full size (`AteHeaderTrack`,
+                    // which errs to minimised), fading as it minimises.
                     .overlay(alignment: .bottom) {
                         AteTabBarShadow()
                             .opacity(self.tab == tab && tabBarLooksExpanded ? 1 : 0)
                             .ateAnimation(AteMotion.headerSlide, value: tabBarLooksExpanded)
                             .alignmentGuide(.bottom) { $0[.top] }
                     }
+                    #if DEBUG
+                    .overlay(alignment: .topLeading) {
+                        // The shadow is hidden from VoiceOver; UI tests read whether it is drawn here,
+                        // against the bar's real state (`TabChromeUITests`).
+                        if ComposerDebugLaunch.isUITesting, self.tab == tab {
+                            Color.clear.frame(width: 1, height: 1)
+                                .accessibilityElement()
+                                .accessibilityIdentifier("tabbar.shadow")
+                                .accessibilityValue(tabBarLooksExpanded ? "shown" : "hidden")
+                        }
+                    }
+                    #endif
                     // The Saved shelf's Undo, on the tab's root only. Inside the tab, so it sits in
                     // the safe area the native bar leaves — above it, however the bar is drawn.
                     .overlay(alignment: .bottom) {
@@ -60,6 +73,8 @@ extension AteShell {
                     .toolbar(.hidden, for: .navigationBar)
                     .ateSwipeBack()
                     .ateTabBarFollowsPop()
+                    // Coming back to a tab, its tracker re-reports in full (`AteChromeTracker`).
+                    .environment(\.ateIsCurrentTab, self.tab == tab)
                     .environment(\.ateChromeChanged) { chrome in
                         guard self.tab == tab else { return }
                         if holdsTabBarOpen != chrome.isFloating { holdsTabBarOpen = chrome.isFloating }

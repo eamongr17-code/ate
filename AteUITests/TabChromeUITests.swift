@@ -172,7 +172,61 @@ final class TabChromeUITests: XCTestCase {
         save("chrome-journal-landed")
     }
 
+    /// QA on #75: scroll a tab down, switch away and back, scroll down again — the bar minimised and
+    /// its full-size shadow stayed over empty linen. The shadow is never drawn under a minimised bar.
+    func testTheShadowNeverOutlastsTheBarAcrossTabSwitches() {
+        for (start, other, arguments) in [("Journal", "Feed", [String]()), ("Feed", "Journal", ["-ate-open-feed"])] {
+            launch(arguments)
+            XCTAssertTrue(app.buttons["Search"].waitForExistence(timeout: 10))
+            XCTAssertEqual(shadow(), "shown", "\(start): at rest, the full bar has its shadow")
+            app.swipeUp()
+            assertShadowGoesWithTheBar("\(start), scrolled down")
+            tap(other)
+            sleep(1)
+            tap(start)
+            XCTAssertTrue(waitUntil(timeout: 3) { app.buttons["Search"].isHittable }, "\(start): back on the full bar")
+            XCTAssertEqual(shadow(), "shown", "\(start): back on the full bar, with its shadow")
+            app.swipeUp()
+            assertShadowGoesWithTheBar("\(start), scrolled down again after switching back")
+            save("chrome-shadow-\(start)-after-switching")
+            app.terminate()
+        }
+    }
+
+    /// The bottom bounce: back on a tab left at the very bottom, a drag into the bounce may minimise
+    /// the bar — and if it does, the shadow goes with it.
+    func testTheShadowGoesWithTheBarInTheBottomBounce() {
+        launch(["-ate-open-feed"])
+        XCTAssertTrue(app.buttons["Search"].waitForExistence(timeout: 10))
+        for _ in 0..<12 { app.swipeUp(velocity: .fast) }
+        sleep(2)
+        tap("Journal")
+        sleep(1)
+        tap("Feed")
+        XCTAssertTrue(waitUntil(timeout: 3) { app.buttons["Search"].isHittable })
+        let middle = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+        middle.press(forDuration: 0.05, thenDragTo: middle.withOffset(CGVector(dx: 0, dy: -160)))
+        sleep(1)
+        if app.buttons["Search"].exists == false {
+            XCTAssertEqual(shadow(), "hidden", "a bar minimised in the bounce has no shadow")
+        }
+        save("chrome-shadow-bottom-bounce")
+    }
+
     // MARK: - Helpers
+
+    /// What the shell is drawing under the bar: "shown" or "hidden" (a UI-testing probe).
+    private func shadow() -> String {
+        (app.otherElements["tabbar.shadow"].firstMatch.value as? String) ?? "missing"
+    }
+
+    /// The bar minimises on the scroll down (its tabs go), and the shadow goes with it.
+    private func assertShadowGoesWithTheBar(_ moment: String, line: UInt = #line) {
+        XCTAssertTrue(waitUntil(timeout: 3) { app.buttons["Search"].exists == false },
+                      "\(moment): the bar minimises", line: line)
+        XCTAssertTrue(waitUntil(timeout: 1) { shadow() == "hidden" },
+                      "\(moment): the minimised bar has no shadow (it reads \(shadow()))", line: line)
+    }
 
     private func assertBarHidden(_ page: String, line: UInt = #line) {
         sleep(1)

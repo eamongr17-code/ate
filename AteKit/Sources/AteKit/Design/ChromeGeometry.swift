@@ -50,6 +50,10 @@ public struct AteHeaderTrack: Equatable, Sendable {
         // Past the bottom (the bounce) is not the reader choosing a direction, and neither is the
         // system moving the content.
         let end = sample.maxOffset - 0.5
+        // …but the system may minimise the bar on a drag into the bounce, and nothing says whether it
+        // did: the model errs to minimised, so a full-size shadow is never left under a small bar.
+        // Not while the header floats — the shell holds the bar open then, and it cannot minimise.
+        if isPersonScrolling, sample.offset >= end, isFloating == false { isBarExpanded = false }
         guard isPersonScrolling, sample.offset < end, previous > 0, previous < end else { return }
         let delta = sample.offset - previous
         if (delta > 0) != (travel > 0) { travel = 0 }
@@ -62,6 +66,14 @@ public struct AteHeaderTrack: Equatable, Sendable {
             isFloating = true
             isBarExpanded = true
         }
+    }
+
+    /// The tab this tracks became the current one. A tab is only ever chosen on the full bar, so
+    /// the bar is at full size now whatever this tab last saw — and the next scroll down, which
+    /// minimises it, has to read as a change.
+    public mutating func tabBecameCurrent() {
+        isBarExpanded = true
+        travel = 0
     }
 }
 

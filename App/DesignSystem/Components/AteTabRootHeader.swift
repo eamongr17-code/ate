@@ -45,6 +45,8 @@ extension EnvironmentValues {
     /// back with a scroll up (the system's minimised bar only re-expands after a long way up) and
     /// show the bar's shadow only when the bar is at full size.
     @Entry var ateChromeChanged: (AteChromeState) -> Void = { _ in }
+    /// Whether this tab root's tab is the one on screen — set by the shell per tab.
+    @Entry var ateIsCurrentTab = true
 }
 
 /// The scroll reading both modifiers share: the direction, and nothing but a person's own scrolling.
@@ -55,6 +57,7 @@ private struct AteChromeTracker: ViewModifier {
     @State private var isPersonScrolling = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.ateChromeChanged) private var onChanged
+    @Environment(\.ateIsCurrentTab) private var isCurrentTab
 
     func body(content: Content) -> some View {
         content
@@ -81,6 +84,16 @@ private struct AteChromeTracker: ViewModifier {
             }
             .onScrollPhaseChange { _, phase in
                 isPersonScrolling = phase == .interacting || phase == .decelerating
+            }
+            .onChange(of: isCurrentTab) { _, isCurrent in
+                // A fling cut short by a tab switch never reports its end: left standing, the
+                // system moving this list (the bar resizing beside it) would read as a person.
+                isPersonScrolling = false
+                guard isCurrent else { return }
+                // Chosen on the full bar: the model goes back to it, and the shell hears the whole
+                // state — not only a change — so the two agree before the next scroll (QA on #75).
+                track.tabBecameCurrent()
+                onChanged(AteChromeState(isFloating: track.isFloating, isBarExpanded: track.isBarExpanded))
             }
     }
 }
