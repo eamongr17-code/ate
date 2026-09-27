@@ -17,23 +17,25 @@ struct Round5QAFixTests {
         let store = SearchStore(service: service, scope: .places, pageSize: 10, debounce: .milliseconds(20))
         await store.setOrigin(SearchOrigin(latitude: -37.81, longitude: 144.96))
         #expect(store.rows.count == 2 && store.isShowingNearby)
-        store.setFilters(SearchFilters(minimumScore: 4.5))
+        let filters = SearchFilters(minimumScore: 4.5)
+        store.setFilters(filters)
         await store.settle()
-        // The fake cannot filter, and answers a filter it cannot apply with nothing (never with the
-        // unfiltered rows): an empty list here is Nearby asked again, filtered.
-        #expect(store.rows.isEmpty, "Nearby was read again with the filter")
+        #expect(service.filtersAsked.last == filters, "Nearby was read again, with the filter")
+        #expect(store.rows.count == 1, "and only what clears it is left")
     }
 
     @Test("a filter narrows the Saved shelf with nothing typed")
     func savedFiltered() async {
         let service = FakeSearchService()
-        service.seed(saved: [.fixture("Ragù"), .fixture("Toast")])
+        service.seed(saved: [.fixture("Ragù", score: 4.6), .fixture("Toast", score: 3.5)])
         let store = SearchStore(service: service, scope: .saved, pageSize: 10, debounce: .milliseconds(20))
         await store.start()
         #expect(store.rows.count == 2)
-        store.setFilters(SearchFilters(city: "melbourne"))
+        let filters = SearchFilters(minimumScore: 4.5)
+        store.setFilters(filters)
         await store.settle()
-        #expect(store.rows.isEmpty, "the shelf was read again with the filter")
+        #expect(service.filtersAsked.last == filters, "the shelf was read again, with the filter")
+        #expect(store.rows.count == 1, "and only what clears it is left")
     }
 
     // MARK: - 2–4. Near me
@@ -124,6 +126,59 @@ struct Round5QAFixTests {
         #expect(await model.cityForFirstPage(wait: .zero) == "geelong")
         try? await Task.sleep(for: .milliseconds(100))
         #expect(reader.calls == before + 1, "a pull to refresh (or near me picked again) retries")
+    }
+
+    /// `resolve_city` failing fast — inside the wait — used to leave the first page on Everywhere.
+    private final class FailingResolver: EntryFeedReading, @unchecked Sendable {
+        var failsWithPoint = true
+        func feedPage(
+            after cursor: PageCursor?, pageSize: Int, includeOwn: Bool, area: String?
+        ) async throws -> Page<EntryCard> {
+            Page(items: [], requestedLimit: pageSize)
+        }
+        func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] { [] }
+        func resolveCity(latitude: Double?, longitude: Double?) async throws -> AteCity? {
+            if latitude != nil, failsWithPoint { throw URLError(.timedOut) }
+            return AteCity(city: "melbourne", name: "Melbourne", entryCount: 30)
+        }
+    }
+
+    @Test("a read that fails inside the wait still falls back — never Everywhere under Near me")
+    func fastFailureFallsBack() async {
+        let model = FeedAreaModel(reader: FailingResolver(), store: Memory(), owner: { nil })
+        model.locate = { (latitude: -38.1, longitude: 144.3) }
+        #expect(await model.cityForFirstPage(wait: .seconds(2)) == "melbourne")
+        #expect(model.hasResolvedNearMe == false, "and the next first page asks again")
+    }
+
+    /// The busiest city comes back slowly, and the real answer lands while it is on its way.
+    private final class RacingResolver: EntryFeedReading, @unchecked Sendable {
+        let geelong = AteCity(city: "geelong", name: "Geelong", isNearby: true)
+        func feedPage(
+            after cursor: PageCursor?, pageSize: Int, includeOwn: Bool, area: String?
+        ) async throws -> Page<EntryCard> {
+            Page(items: [], requestedLimit: pageSize)
+        }
+        func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] { [] }
+        func resolveCity(latitude: Double?, longitude: Double?) async throws -> AteCity? {
+            guard latitude == nil else { return geelong }
+            try? await Task.sleep(for: .milliseconds(200))
+            return AteCity(city: "melbourne", name: "Melbourne", entryCount: 30)
+        }
+    }
+
+    @Test("a real answer that lands while the busiest city is being fetched is not overwritten")
+    func realAnswerWinsTheRace() async {
+        let model = FeedAreaModel(reader: RacingResolver(), store: Memory(), owner: { nil })
+        model.locate = {
+            try? await Task.sleep(for: .milliseconds(80))
+            return (latitude: -38.1, longitude: 144.3)
+        }
+        // The wait runs out at 20ms; the fallback asks for the busiest (200ms); the real answer
+        // lands at ~80ms, inside that await.
+        _ = await model.cityForFirstPage(wait: .milliseconds(20))
+        try? await Task.sleep(for: .milliseconds(300))
+        #expect(model.city == "geelong" && model.isNearMe, "the real answer stands")
     }
 
     // MARK: - 5. Clear

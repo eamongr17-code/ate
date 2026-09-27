@@ -182,12 +182,15 @@ public final class FeedAreaModel {
     /// Stand-in for near me while the real answer is on its way: the last one this phone had, or
     /// the busiest city (`resolve_city` with no point). Never marks near me resolved.
     func fallBack() async {
-        guard nearMe == nil else { return }
+        guard nearMe == nil, hasResolvedNearMe == false else { return }
         if let last = lastNearMe {
             nearMe = last
-        } else if let busiest = try? await reader.resolveCity(latitude: nil, longitude: nil) {
-            nearMe = busiest
+            return
         }
+        let busiest = try? await reader.resolveCity(latitude: nil, longitude: nil)
+        // The real answer may have landed while the busiest city was being asked for: it wins.
+        guard nearMe == nil, hasResolvedNearMe == false, let busiest else { return }
+        nearMe = busiest
     }
 
     private static let lastNearMeKey = "ate.feedNearMe.last"

@@ -230,7 +230,7 @@ struct DetailRound4Tests {
     }
 
     /// Round 5 reverses round 4's rule (QA on #84): a pill over Nearby is a filter on Nearby.
-    @Test("Nearby is filtered too")
+    @Test("Nearby is narrowed by the filters too (round 5)")
     func nearbyFiltered() async {
         let service = FakeSearchService()
         service.seed(nearby: [.fixture("Tipo 00", score: nil)])
@@ -238,6 +238,7 @@ struct DetailRound4Tests {
         store.setFilters(SearchFilters(minimumScore: 4.5))
         await store.setOrigin(SearchOrigin(latitude: -37.8, longitude: 144.9))
         await store.start()
+        #expect(service.filtersAsked.last == SearchFilters(minimumScore: 4.5), "Nearby is asked with the filters")
         #expect(store.rows.isEmpty, "an unscored place never clears 4.5")
     }
 

@@ -17,8 +17,11 @@ extension FeedAreaModel {
         servedCity = nil
         if location == .nearMe {
             let task = startResolving()
-            if hasResolvedNearMe == false, await Self.finishes(task, within: wait) == false {
-                await fallBack()
+            if hasResolvedNearMe == false {
+                _ = await Self.finishes(task, within: wait)
+                // Still no answer — the wait ran out, or the read failed inside it: a stand-in,
+                // never Everywhere under a Near me chip (QA on #84).
+                if hasResolvedNearMe == false { await fallBack() }
             }
         }
         let served = city

@@ -126,6 +126,21 @@ final class FakeSearchService: SearchReading, @unchecked Sendable {
     /// The filters every filtered read was asked with, in order.
     var filtersAsked: [SearchFilters] { lock.withLock { state.filtersAsked } }
 
+    func nearbyPlaces(origin: SearchOrigin, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int)
+        async throws -> SearchPage<PlaceResult> {
+        lock.withLock { state.filtersAsked.append(filters) }
+        let page = try await nearbyPlaces(origin: origin, after: cursor, pageSize: pageSize)
+        return SearchPage(rows: page.rows.filter { Self.clears(filters, $0.score) }, next: page.next)
+    }
+
+    func savedDishes(matching query: String?, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int)
+        async throws -> SearchPage<SavedDish> {
+        lock.withLock { state.filtersAsked.append(filters) }
+        let page = try await savedDishes(matching: query, after: cursor, pageSize: pageSize)
+        let shelf = SavedDishFilter(band: filters.band, city: filters.city)
+        return SearchPage(rows: page.rows.filter(shelf.matches), next: page.next)
+    }
+
     func places(query: String, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int)
         async throws -> SearchPage<PlaceResult> {
         lock.withLock { state.filtersAsked.append(filters) }
