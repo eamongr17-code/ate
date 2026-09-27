@@ -148,12 +148,23 @@ public struct EntrySubmission: Sendable {
     /// words alone, so nothing about it waits on bytes going up — the receipt prints while the
     /// photos are still uploading. Returns the entry as it now stands, or `nil` when nothing could
     /// be reached — in which case the outbox already has the rest.
+    ///
+    /// `sorted` hears the moment the sorter has answered — the entry as it then stands, or `nil`
+    /// when it could not be read — without waiting on the photos (round 5: "Posting…" holds on the
+    /// sort, never on an upload).
     @discardableResult
     public func finish(
-        entryID: UUID, photoPaths: [String], tagTokens: [TagToken] = [], sixTokens: [TagToken] = []
+        entryID: UUID,
+        photoPaths: [String],
+        tagTokens: [TagToken] = [],
+        sixTokens: [TagToken] = [],
+        sorted: (@Sendable (EntryCard?) async -> Void)? = nil
     ) async -> EntryCard? {
         async let uploaded = upload(entryID: entryID, photoPaths: photoPaths)
         let didSort = await sort(entryID: entryID, tagTokens: tagTokens, sixTokens: sixTokens)
+        if let sorted {
+            await sorted(didSort ? try? await entries.entry(id: entryID) : nil)
+        }
         await outbox.recordProgress(entryID: entryID, uploadedPositions: await uploaded, didSort: didSort)
         let card = try? await entries.entry(id: entryID)
         if let card { await outbox.staged.confirm(entryID: entryID, card: card) }

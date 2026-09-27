@@ -269,6 +269,25 @@ public enum EntryEvents {
         )
     }
 
+    /// "Posting…" ended and the Summary came up (round 5): `outcome` is whether the sort answered
+    /// inside the hold (`sorted`), answered with nothing to print (`unprinted`), or was still out
+    /// (`late`); `ms` is how long the pill held, from the tap. The distribution sets ``PostHold``.
+    public static func postHeld(outcome: PostHold.Outcome, milliseconds: Int) -> AnalyticsEvent {
+        AnalyticsEvent(
+            name: "entry_post_held",
+            parameters: ["outcome": outcome.rawValue, "ms": String(max(0, milliseconds))]
+        )
+    }
+
+    /// The Summary's receipt entered — whole, once its shape was final. `wait_ms` is how long the
+    /// coral ground stood without it (0 when "Posting…" covered the whole sort).
+    public static func summaryReceiptEntered(entryID: UUID, waitMilliseconds: Int) -> AnalyticsEvent {
+        AnalyticsEvent(
+            name: "summary_receipt_entered",
+            parameters: ["entry_id": entryID.uuidString.lowercased(), "wait_ms": String(max(0, waitMilliseconds))]
+        )
+    }
+
     /// An early sort (`sort-entry`, `preview: true`) went out while the person was still writing.
     /// `nth` is its place in the session's ration of twelve — the distribution says whether the
     /// trigger fires once at a pause or chatters.

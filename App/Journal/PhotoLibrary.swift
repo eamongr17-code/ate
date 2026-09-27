@@ -10,7 +10,10 @@ import SwiftUI
 protocol AtePhotoLibrary {
     /// Whether the person has already said yes. Never asks.
     var isAuthorized: Bool { get }
-    /// Asks — only ever from `Suggestions`, never at launch.
+    /// The person has never been asked: the system prompt can still appear, once.
+    var canAsk: Bool { get }
+    /// Asks: from `Suggestions`, or once on the Summary after a post (``PhotoAccessAsk``), never
+    /// at launch.
     func requestAuthorization() async -> Bool
     /// Recent photos **of food**, newest first. Empty when there is no permission.
     func recent() async -> [PhotoSuggestionItem]
@@ -55,6 +58,10 @@ final class SystemPhotoLibrary: AtePhotoLibrary {
         case .authorized, .limited: true
         default: false
         }
+    }
+
+    var canAsk: Bool {
+        PHPhotoLibrary.authorizationStatus(for: .readWrite) == .notDetermined
     }
 
     func requestAuthorization() async -> Bool {
@@ -179,9 +186,50 @@ final class PreviewPhotoLibrary: AtePhotoLibrary {
     /// window. The two `Suggestions` states a simulator drive cannot otherwise reach.
     private static let denies = ProcessInfo.processInfo.arguments.contains("-ate-deny-photos")
     private static let isEmpty = ProcessInfo.processInfo.arguments.contains("-ate-no-photos")
+    /// `-ate-photos-undetermined`: never asked yet — the Summary's one ask says yes, no system
+    /// prompt in between.
+    private static let startsUndetermined = ProcessInfo.processInfo.arguments.contains("-ate-photos-undetermined")
+    private var hasBeenAsked = false
+    private var wasGranted = false
 
-    var isAuthorized: Bool { Self.denies == false }
-    func requestAuthorization() async -> Bool { Self.denies == false }
+    /// A UI-test run starts from nothing: one test's dismissed sittings are not the next test's
+    /// empty journal header.
+    init() {
+        guard ProcessInfo.processInfo.arguments.contains("-ate-ui-testing") else { return }
+        let defaults = UserDefaults.standard
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("ate.dismissedSuggestions.") {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    var isAuthorized: Bool { Self.denies == false && (Self.startsUndetermined == false || wasGranted) }
+    var canAsk: Bool { Self.startsUndetermined && hasBeenAsked == false && Self.denies == false }
+    func requestAuthorization() async -> Bool {
+        hasBeenAsked = true
+        guard Self.startsUndetermined else { return Self.denies == false }
+        wasGranted = await Self.standInPrompt()
+        return wasGranted
+    }
+
+    /// The system's photo prompt, stood in for on a preview run: an alert a UI test can see and
+    /// answer, so "asked once, and never again" can be driven. Debug only; never in a build.
+    private static func standInPrompt() async -> Bool {
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              var top = scene.keyWindow?.rootViewController else { return true }
+        while let presented = top.presentedViewController { top = presented }
+        let presenter = top
+        return await withCheckedContinuation { continuation in
+            let alert = UIAlertController(title: "Photos", message: nil, preferredStyle: .alert)
+            alert.view.accessibilityIdentifier = "debug.photoPrompt"
+            alert.addAction(UIAlertAction(title: "Don't Allow", style: .cancel) { _ in
+                continuation.resume(returning: false)
+            })
+            alert.addAction(UIAlertAction(title: "Allow", style: .default) { _ in
+                continuation.resume(returning: true)
+            })
+            presenter.present(alert, animated: true)
+        }
+    }
 
     private struct Sitting {
         let offsetDays: Int
@@ -199,7 +247,7 @@ final class PreviewPhotoLibrary: AtePhotoLibrary {
     ]
 
     func recent() async -> [PhotoSuggestionItem] {
-        guard Self.denies == false, Self.isEmpty == false else { return [] }
+        guard isAuthorized, Self.isEmpty == false else { return [] }
         let calendar = Calendar.autoupdatingCurrent
         let now = Date()
         return Self.sittings.flatMap { sitting -> [PhotoSuggestionItem] in
