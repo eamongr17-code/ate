@@ -73,6 +73,25 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
         }
     }
 
+    /// The feed's cities, as `feed_cities()` counts them: the city of every visible entry's place
+    /// (round 5), busiest first.
+    public func feedCities() async throws -> [AteCity] {
+        lock.withLock {
+            AteCity.counted(entries
+                .filter { blocked.contains($0.authorID) == false && $0.isMine == false }
+                .map { $0.place?.city })
+        }
+    }
+
+    /// `resolve_city`, in memory: with a point, the busiest city, near; without one, the same city,
+    /// not near — the launch market is one city, and nothing here has geometry.
+    public func resolveCity(latitude: Double?, longitude: Double?) async throws -> AteCity? {
+        guard let busiest = try await feedCities().first else { return nil }
+        return AteCity(
+            city: busiest.city, name: busiest.name, entryCount: busiest.entryCount, isNearby: latitude != nil
+        )
+    }
+
     /// The feed's areas, as `feed_areas()` counts them: the locality of every visible entry's place.
     public func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] {
         lock.withLock {
