@@ -1,10 +1,10 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0049` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0051` define it. Forward-only; applied migrations
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
 account deletion **0032**; **every entry public 0033**; signed-out browse **0034**; dietary tags **0036**;
-round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry, dish-row chips) **0041–0045**; round 5 (cities, range + city filters, share read, saved filters) **0046–0049**.
+round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry, dish-row chips) **0041–0045**; round 5 (cities, range + city filters, share read, saved filters) **0046–0049**; round 6 (date windows, menu by rating) **0050–0051**.
 
 The atom the USER creates is an **entry** = one visit. The atom AGGREGATES are built from is still a
 per-dish **review**, now *linked* to an entry, not replaced by it. A **sorter** turns the words into
@@ -110,6 +110,8 @@ resolved before 0031's PR — read `place_locality()`, never `city`) · `dishes`
 (public-read via the **bucket flag**, own-folder write — any name under `<uid>/`, so round 3's `_t.jpg`
 thumbnails need no policy). **Dormant in V1:** `comments`, `review_likes`, `comment_likes`, `follows`, `lists`, `list_dishes`, `review_tags`, `notifications`.
 
+**Staging dummy data (round 6)** lives outside the chain in `supabase/staging-seed/` (generator, `setup.sql` registry + guard, `remove.sql`): staging only, every row it made listed in `staging_seed.registry`.
+
 ## Landmines — do not re-learn
 
 1. **PostgREST upsert needs a TOTAL unique constraint.** A partial index cannot be an `ON CONFLICT`
@@ -151,7 +153,7 @@ except where noted; **entries = visits, reviews = receipt lines, and they are no
 | RPC | What it returns / counts |
 |---|---|
 | `place_summary(place)` | the header in one call. `entry_count` = VISITS here, `review_count` = LINES (18 lines from 8 visits at Tipo 00 — printing the wrong one is a lie); `my_visits`/`my_last_visit` = the "Your N visits" row; `locality` = `place_locality(address, city)`; `avg_rating` = mean of per-dish averages; empty text arrives as NULL, never `''` |
-| `place_dishes(place, …)` | "what to order", and the order is the ported `DishRanking` rule (0030): `review_count` desc → `score` desc (unscored last) → name → id. **Review count LEADS** — one 5.0 from one person must not lead a menu. A dish with NO line is excluded (an abandoned "add a new dish" shell); an unscored dish WITH a line stays. 4-part keyset. `tags` (0045) = the `dish_summary.tags` rule; `search_dishes` rows carry it too (0042) |
+| `place_dishes(place, …)` | "what to order", ranked **by rating (0051, Eamon)**: printed `score` desc (a 6 above every 5) → `review_count` desc → name → id; unscored after every scored dish. A single 5.0 now leads (0030's review-count-first `DishRanking` rule is retired). A dish with NO line is excluded (an abandoned "add a new dish" shell); an unscored dish WITH a line stays. 4-part keyset. `tags` (0045) = the `dish_summary.tags` rule; `search_dishes` rows carry it too (0042) |
 | `dish_summary(dish)` | dish + place + aggregates + `photos` (`photos[0].url` == `cover_url`) + the viewer's `saved` / `my_last_score`. A dish's "orders" IS `review_count`: one entry prints one line per dish. **`tags` (0036)** = codes carried by **at least half** of the lines `review_count` counts, and by at least one (`dish_consensus_tags`) — 1 of 1 and 1 of 2 list it, 1 of 3 does not |
 | `get_dish_reviews(dish, …)` | one row per LINE, the caller's own first then newest (3-part keyset). `entry_id` is **NULL on a pre-entries line**; `photos[]` is the review's ENTRY's, so it can hold another dish's photo |
 | `get_entries_at_place(place, scope, …)` | `setof entry_cards` — the ONE entry shape, never review rows. `scope ∈ mine\|others\|all` |
@@ -168,6 +170,7 @@ except where noted; **entries = visits, reviews = receipt lines, and they are no
 | `feed_areas(limit, cursor…)` (0038) | `place_locality()` of the entries the Feed shows you (own excluded), grouped case-insensitively; keyset `(entry_count desc, area)`, 30 a page. `get_entry_feed(…, p_area)` filters on the same string |
 | `feed_cities()` · `resolve_city(lat, lng)` (0046) | cities the Feed has entries in for you (feed_areas' counting), busiest first · "near me": the city with food holding the point (`is_nearby`), else nearest with food, else (no point) busiest; no row when no city has food. `get_entry_feed(…, p_city)` filters on `place_cities` |
 | range + city filters (0047) | `p_max_score` + `p_city` on `my_entries`/`search_places`/`search_dishes`/`nearby_places`. `score_in_range`: no bound = all; any bound drops unscored; **max ≥ 5 is open** (a 6, or a 5.3 average, stays in). `my_entry_cities()` · `search_cities()` = the pickers. **0049:** the same on `search_saved` (on `dish_score`) + `my_saved_cities()` |
+| date windows (0050) | `p_from`/`p_to`/`p_tz` on `search_places`/`search_dishes`/`nearby_places` (only lines whose visit day is in the window count toward the row's numbers; a row with none drops out; cover + chips stay all-time) and `search_saved` (the save's day). my_entries' rule, `in_window()` |
 | `get_entry_card(entry)` (0048) | one `entry_cards` row or `[]`; signed in = the view under RLS, anon = browse twin (public, live author) — the share-link read |
 | `my_entries(sort, filters…)` · `my_entry_places()` (0043) | the caller's OWN entry ids (filtered by `author_id = auth.uid()`, not just RLS): `newest`/`oldest` keyset `(created_at, id)`, `top` = `best_score` (max line score) desc NULLS LAST, then `(created_at, id)` desc. Filters: place, min best score, one tag, visit dates in `p_tz`. Places = where your entries are, busiest first |
 | `delete_entry(entry)` (0037) | owner-only, DEFINER. FK cascades take photos rows, lines (+ tags, likes, comments, notifications), reports; saves keep the dish (`source_entry_id` → NULL); catalogue stays. Returns the files to purge |
@@ -215,3 +218,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0037–0040 | `delete_entry` · `feed_areas` · `sort_preview_cache` · `place_required` | `delete_entry()` · `feed_areas()` + `get_entry_feed(p_area)` (drop+create, browse twin too) · preview cache + rate tables, purge fn + entries-delete trigger, `entries.sort_meta`, `apply_entry_sort(p_meta)` (drop+create), `delete_account` checks both · INSERT-only place trigger |
 | 0041–0045 | `secret_six` · `search_filters` · `journal_filters` · `six_carry` · `place_dishes_tags` | CHECK admits 6, histogram 11 rows, `apply_entry_sort` admits an evidenced 6 · filter params (drop+create) + `search_cuisines`, `place_has_tagged_dish` · `my_entries`, `my_entry_places` · a re-sort carries a marked 6 by line (T3, like tags) · `place_dishes.tags` (drop+create, browse twin too); `search_dishes.tags` rides 0042 |
 | 0046–0049 | `cities` · `range_and_city_filters` · `entry_card_read` · `saved_filters` | `cities` + `city_at` + `place_cities` view, `feed_cities`, `resolve_city`, `get_entry_feed(p_city)` (drop+create, browse twin too) · `score_in_range`; `p_max_score`/`p_city` on my_entries + three search reads (drop+create), `my_entry_cities`, `search_cities` · `get_entry_card` + browse twin · `search_saved` range + city (drop+create), `my_saved_cities` |
+| 0050–0051 | `date_windows` · `what_to_order_by_rating` | `in_window`; `p_from`/`p_to`/`p_tz` on the three search reads + `search_saved` (drop+create) · `place_dishes` ordered by rating (create or replace, browse twin too) |

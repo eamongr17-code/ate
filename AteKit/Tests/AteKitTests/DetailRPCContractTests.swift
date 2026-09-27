@@ -118,17 +118,10 @@ struct DetailRPCContractTests {
 
     // MARK: - place_dishes
 
-    /// The order is the PRODUCT's, and the product's rule already exists in Swift, ported from the
-    /// legacy repo with its test cases: `DishRanking`. So the oracle here is that type, applied to
-    /// the rows the server itself returned — one read, nothing to race, and it fails if the server
-    /// ever ranks by anything else (0022 ranked score-first: a lonely 5.0 led the menu).
-    ///
-    /// The one thing this cannot pin is a COLLATION disagreement on an exotic tie: `lower(name)` in
-    /// Postgres versus `localizedCaseInsensitiveCompare` in Swift agree on case and on ASCII, and the
-    /// `id` tiebreak (byte order == uppercase-hex order) settles everything they call equal. Two
-    /// dishes at the same review count and score whose names differ only by an accent would land
-    /// here, and that is the right place for it to land.
-    @Test("place_dishes is DishRanking's order, drops never-logged dishes, and pages on 4 parts")
+    /// The order is the PRODUCT's and it lives in the server's ORDER BY (0051: by the printed
+    /// score, then review count, then name, then id; unscored last). The oracle is `MenuOrder`,
+    /// applied to the rows the server itself returned — one read, nothing to race.
+    @Test("place_dishes ranks by rating (0051), drops never-logged dishes, and pages on 4 parts")
     func placeDishesRanksAndPages() async throws {
         try await StagingExclusive.shared.run {
             let client = try await client()
@@ -136,33 +129,12 @@ struct DetailRPCContractTests {
             let whole = try await placeDishPage(client, place: stats.restaurantID, size: 200)
             #expect(whole.isEmpty == false, "the busiest place has no dishes — place_dishes lost its join")
 
-            // The ported rule, over the server's own rows: re-ranking them must change nothing.
-            let ranked = DishRanking.rank(
-                dishes: whole.map { row in
-                    Dish(id: row.dishID, name: row.dishName, restaurantID: stats.restaurantID, createdAt: .now)
-                },
-                stats: whole.map { row in
-                    DishStats(
-                        dishID: row.dishID, restaurantID: stats.restaurantID,
-                        score: row.score, reviewCount: row.reviewCount
-                    )
-                }
-            )
-            #expect(
-                ranked.map(\.id) == whole.map(\.dishID),
-                """
-                place_dishes is not DishRanking's order — review count leads, then score (unscored last), \
-                then name, then id. Server: \(whole.map { "\($0.dishName) \($0.reviewCount)×" }). \
-                Rule: \(ranked.map { "\($0.name) \($0.reviewCount)×" })
-                """
-            )
-            // Review count leads; score only breaks its ties, with the unscored last inside a tie.
-            for (upper, lower) in zip(whole, whole.dropFirst()) {
-                #expect(upper.reviewCount >= lower.reviewCount, "review_count is the first key")
-                if upper.reviewCount == lower.reviewCount {
-                    #expect((upper.score ?? -1) >= (lower.score ?? -1), "score is the second key, nulls last")
-                }
+            // Score leads (nulls last), review count breaks its ties, then name, then id.
+            let keys = whole.map {
+                MenuOrder.Key(score: $0.score, reviewCount: $0.reviewCount, name: $0.dishName, id: $0.dishID)
             }
+            let shown = whole.map { "\($0.dishName) \($0.score.map { "\($0)" } ?? "-") \($0.reviewCount)×" }
+            #expect(MenuOrder.isRanked(keys), "place_dishes is not ranked by rating: \(shown)")
             // A dish nobody has logged is an abandoned "add a new dish" shell, not a menu item (0030).
             // An UNSCORED dish WITH a line is a menu item and must still be here — so the menu is
             // exactly the dishes this viewer can see a line for, no more and no less. Stated as a set

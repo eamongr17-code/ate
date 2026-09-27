@@ -90,14 +90,15 @@ struct StagingContractTests {
     /// `count=exact`. The walk tests use this instead of a floor copied off the seed: the same
     /// `reviews_select_visible` policy (0019) governs this count and the feed/diary select, so the
     /// number is the contract — "walked everything" stays true as staging grows.
-    /// Every review id the viewer can read right now, in one request. Staging holds a few hundred
-    /// rows; the 5,000 cap is far above that and fails loudly (not silently) if it is ever reached.
-    func visibleReviewIDs(_ client: AteAPIClient) async throws -> Set<UUID> {
+    /// The ids of the newest `count` review rows the viewer can read, in the feed's own order
+    /// (created_at desc, id desc). Staging holds thousands of lines since the round-6 seed (and
+    /// PostgREST serves at most 1,000 a request), so the walks below cover a window, not everything.
+    func newestReviewIDs(_ client: AteAPIClient, count: Int) async throws -> [UUID] {
         struct IDRow: Decodable { let id: UUID }
         let rows: [IDRow] = try await client.supabase.from(Review.table).select("id")
-            .range(from: 0, to: 4_999).execute().value
-        try #require(rows.count < 5_000, "visibleReviewIDs hit its cap; page it")
-        return Set(rows.map(\.id))
+            .order("created_at", ascending: false).order("id", ascending: false)
+            .limit(count).execute().value
+        return rows.map(\.id)
     }
 
     func visibleReviewCount(
@@ -349,11 +350,10 @@ struct StagingContractTests {
         }
     }
 
-    @Test("the V1 global feed walks every review the viewer can read, once, embeds and all")
+    @Test("the V1 global feed walks the newest reviews the viewer can read, once, in order, embeds and all")
     func globalFeedWalksEverything() async throws {
         try await StagingExclusive.shared.run {
             let client = try await client()
-            let me = try await client.requireCurrentUserID()
             let feed = GlobalFeedClient(api: client)
 
             // Two id snapshots bracket the walk. Staging is written to while CI runs (other contract
@@ -362,17 +362,20 @@ struct StagingContractTests {
             // twice on 2026-09-24 with nothing wrong in the pager. What the walk owes is every row that
             // existed BOTH before and after it — the ids in both snapshots. Inserts above the cursor
             // and deletes below it fall out of that intersection by construction.
-            let before = try await visibleReviewIDs(client)
+            // A window of the newest rows (the whole table is thousands of lines since the round-6
+            // seed); the walk goes `margin` rows past it so a skip inside the window cannot hide.
+            let window = 150
+            let margin = 30
+            let before = try await newestReviewIDs(client, count: window)
             #expect(before.isEmpty == false, "an empty reviews table can't test a feed walk")
 
-            // Small pages on purpose: the seed has nine clusters of reviews sharing a timestamp to the
-            // microsecond, so a small page size guarantees several boundaries land inside a tie.
+            // Small pages on purpose: every line of an entry shares its timestamp to the microsecond,
+            // so a small page size guarantees several boundaries land inside a tie.
             let pageSize = 5
             var request: PageRequest? = PageRequest(limit: pageSize)
             var seen: [FeedEntry] = []
             var pages = 0
-            // Derived from the count, so a growing staging can't silently truncate the walk into a pass.
-            let pageCap = before.count / pageSize + 8
+            let pageCap = (window + margin) / pageSize + 1
 
             while let current = request, pages < pageCap {
                 let page = try await feed.feedPage(current)
@@ -381,16 +384,17 @@ struct StagingContractTests {
                 pages += 1
             }
 
-            #expect(request == nil, "the walk must end because the stream ran out, not because it hit the cap")
-            let after = try await visibleReviewIDs(client)
-            let stable = before.intersection(after)
+            #expect(request == nil || seen.count >= window + margin, "the walk stopped short of its window")
+            let after = try await newestReviewIDs(client, count: window)
+            let stable = Set(before).intersection(after)
             let seenIDs = Set(seen.map(\.id))
             let skipped = stable.subtracting(seenIDs)
             #expect(skipped.isEmpty, "the walk skipped rows that existed throughout: \(skipped)")
             #expect(seenIDs.count == seen.count, "the walk served a row twice")
 
-            // Global, not follow-scoped: unlike get_feed, the viewer's own reviews are in it.
-            #expect(seen.contains { $0.review.reviewerID == me })
+            // Global, not follow-scoped: unlike get_feed, the viewer's own reviews are in it (when the
+            // window holds one), and so are everyone else's.
+            #expect(Set(seen.map(\.review.reviewerID)).count > 1, "a global feed is more than one person")
             // And an unscored line item is renderable — the 0018 case that broke this very test. A row
             // with no number is a row, not an error.
             #expect(seen.contains { $0.review.score == nil }, "the feed must carry unscored reviews too")
