@@ -150,7 +150,6 @@ final class ComposerRound4UITests: XCTestCase {
 
     /// Past 5.0 and held: the sixth star, and the pill reads 6.0.
     func testTheSecretSix() {
-        app.launchArguments += ["-ate-perfect-style", ProcessInfo.processInfo.environment["ATE_PERFECT_STYLE"] ?? "C"]
         app.launch()
         let editor = app.textViews["composer.editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 10))

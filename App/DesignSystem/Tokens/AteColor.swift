@@ -26,6 +26,9 @@ enum AteColor {
     static let sky = Color(hex: 0x36AEE6)
     static let lilac = Color(hex: 0xB9A5EA)
     static let destructive = Color(hex: 0xB3261E)
+    /// **Brick** — the secret 6's pill (round 4, Eamon: coral with ink text read too weak). Carries
+    /// WHITE, the one fill that does: 5.97:1, against coral-and-ink's 5.46. Nowhere else.
+    static let brick = Color(hex: 0xB23A1E)
 
     /// The light field (`#E4DED4`) as an absolute colour — the composer's Place key, which stays
     /// linen in both modes the way the Score key stays butter (round 3).
