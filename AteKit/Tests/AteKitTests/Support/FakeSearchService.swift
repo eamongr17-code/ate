@@ -33,6 +33,7 @@ final class FakeSearchService: SearchReading, @unchecked Sendable {
         var failure: Failure?
         /// How long each scope's reads take — long enough to switch segments while one is in the air.
         var latency: [SearchScope: Duration] = [:]
+        var filtersAsked: [SearchFilters] = []
     }
 
     // MARK: - Seeding
@@ -118,6 +119,38 @@ final class FakeSearchService: SearchReading, @unchecked Sendable {
         let offset = Self.offset(after: cursor, in: all.map(\.id))
         try await record(Call(scope: .saved, query: query, offset: offset))
         return Self.page(all, offset: offset, pageSize: pageSize) { .saved(savedAt: $0.savedAt, dishID: $0.dishID) }
+    }
+
+    // MARK: - Filters
+
+    /// The filters every filtered read was asked with, in order.
+    var filtersAsked: [SearchFilters] { lock.withLock { state.filtersAsked } }
+
+    func places(query: String, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int)
+        async throws -> SearchPage<PlaceResult> {
+        lock.withLock { state.filtersAsked.append(filters) }
+        let page = try await places(query: query, after: cursor, pageSize: pageSize)
+        return SearchPage(rows: page.rows.filter { Self.clears(filters, $0.score) }, next: page.next)
+    }
+
+    func dishes(query: String, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int)
+        async throws -> SearchPage<DishResult> {
+        lock.withLock { state.filtersAsked.append(filters) }
+        let page = try await dishes(query: query, after: cursor, pageSize: pageSize)
+        let rows = page.rows.filter { dish in
+            Self.clears(filters, dish.score)
+                && filters.dishMatchesTags(dish.tags)
+        }
+        return SearchPage(rows: rows, next: page.next)
+    }
+
+    func cuisines() async throws -> [CuisineCount] {
+        [CuisineCount(cuisine: "Italian", placeCount: 3), CuisineCount(cuisine: "Japanese", placeCount: 1)]
+    }
+
+    private static func clears(_ filters: SearchFilters, _ score: Double?) -> Bool {
+        guard let minimum = filters.minimumScore else { return true }
+        return (score ?? -1) >= minimum
     }
 
     // MARK: - Machinery

@@ -109,6 +109,28 @@ public final class DishPageStore: SavedDishObserving, EntryDeletionObserving {
     public static let heroPhotoCount = 2
     /// `nil` = nobody has scored it. Rendered as an empty star row, never as 0.0.
     public var score: Double? { summary?.score }
+
+    /// **The header and the first page of reviews are both in** (round 4: staged loading). Until
+    /// then the page is its full-layout skeleton; then it fills in once. A failed header settles it.
+    ///
+    /// **Latched** (QA, round 4): a pull to refresh on a dish with no reviews puts the list back to
+    /// `.loading`, and must never swap the page for its skeleton again.
+    public var isSettled: Bool { hasSettled || isLiveSettled }
+
+    /// Set once the first read has settled; a refresh never clears it.
+    private var hasSettled = false
+
+    private func latchSettled() {
+        if isLiveSettled { hasSettled = true }
+    }
+
+    private var isLiveSettled: Bool {
+        switch header {
+        case .loading: false
+        case .unavailable, .unreachable: true
+        case .ready: phase != .loading
+        }
+    }
     public var peopleCount: Int { summary?.peopleCount ?? 0 }
 
     // MARK: - Loading
@@ -117,6 +139,7 @@ public final class DishPageStore: SavedDishObserving, EntryDeletionObserving {
         async let header: Void = loadHeaderIfNeeded()
         async let list: Void = loadFirstPageIfNeeded()
         _ = await (header, list)
+        latchSettled()
     }
 
     public func refresh() async {
@@ -124,6 +147,7 @@ public final class DishPageStore: SavedDishObserving, EntryDeletionObserving {
         async let header: Void = loadHeaderIfNeeded()
         async let list: Void = loadFirstPage()
         _ = await (header, list)
+        latchSettled()
     }
 
     /// "Try again", after a header that never came back. The same reads a pull to refresh makes,

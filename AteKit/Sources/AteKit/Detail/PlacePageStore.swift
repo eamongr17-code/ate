@@ -122,6 +122,30 @@ public final class PlacePageStore {
         return facts
     }
 
+    /// **Every piece of the first read is in** (round 4: staged loading). Until then the page draws
+    /// its full-layout skeleton and nothing real — header, menu and visits fill in once, together,
+    /// rather than popping in one by one. A header that failed settles the page at once: its one
+    /// line is all there is to show.
+    ///
+    /// **Latched** (QA, round 4): once the page has settled it stays settled, so a pull to refresh —
+    /// which puts an empty list back to `.loading` — never swaps the page for its skeleton again.
+    public var isSettled: Bool { hasSettled || isLiveSettled }
+
+    /// Set once the first read has settled; a refresh never clears it.
+    private var hasSettled = false
+
+    private func latchSettled() {
+        if isLiveSettled { hasSettled = true }
+    }
+
+    private var isLiveSettled: Bool {
+        switch header {
+        case .loading: false
+        case .unavailable, .unreachable: true
+        case .ready: menu != .loading && visits.phase != .loading && entries.phase != .loading
+        }
+    }
+
     /// "Your 3 visits" — the band is absent at zero rather than saying "no visits".
     public var myVisits: Int { summary?.myVisits ?? 0 }
     public var hasVisits: Bool { myVisits > 0 }
@@ -134,6 +158,7 @@ public final class PlacePageStore {
         async let mine: Void = visits.loadIfNeeded()
         async let theirs: Void = entries.loadIfNeeded()
         _ = await (header, dishes, mine, theirs)
+        latchSettled()
     }
 
     public func refresh() async {
@@ -143,6 +168,7 @@ public final class PlacePageStore {
         async let mine: Void = visits.refresh()
         async let theirs: Void = entries.refresh()
         _ = await (header, dishes, mine, theirs)
+        latchSettled()
     }
 
     /// "Try again", after a header that never came back. The same reads a pull to refresh makes,

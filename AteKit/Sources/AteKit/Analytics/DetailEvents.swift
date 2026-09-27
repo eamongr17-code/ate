@@ -60,6 +60,12 @@ public enum LogCTAOrigin: String, Sendable, CaseIterable, Codable {
     case restaurantDetail = "restaurant_detail"
 }
 
+/// Where a dish page's review row sent the reader.
+public enum DishReviewTarget: String, Sendable {
+    case entry
+    case profile
+}
+
 /// The detail screens' contribution to the funnel. `log_cta_tapped` is the join between browsing
 /// and `log_started` — it fires whether or not the log flow is wired yet, so the drop-off between
 /// intent and the sheet is measurable from the day the sheet lands.
@@ -76,6 +82,17 @@ public enum DetailEvents {
             name: "restaurant_detail_viewed",
             parameters: ["restaurant_id": identifier(restaurantID), "source": source.rawValue]
         )
+    }
+
+    /// A review row on a dish page was opened (round 4): the row opens the visit, the avatar and
+    /// handle open the person. `target` is `entry` or `profile`.
+    public static func dishReviewOpened(target: DishReviewTarget) -> AnalyticsEvent {
+        AnalyticsEvent(name: "dish_review_opened", parameters: ["target": target.rawValue])
+    }
+
+    /// A dish's photo on a place's menu opened the photo viewer (round 4).
+    public static func menuPhotoOpened() -> AnalyticsEvent {
+        AnalyticsEvent(name: "menu_photo_opened", parameters: [:])
     }
 
     public static func logCTATapped(from origin: LogCTAOrigin) -> AnalyticsEvent {

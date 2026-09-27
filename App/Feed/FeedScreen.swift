@@ -91,12 +91,19 @@ struct FeedScreen: View {
         .id(Self.topAnchor)
     }
 
-    @ViewBuilder
+    /// Loading is the column of skeleton slips, still; the feed replaces it in one fade.
     private var content: some View {
+        Group { phaseContent }
+            .ateAnimation(AteMotion.fillIn, value: store.phase)
+    }
+
+    @ViewBuilder
+    private var phaseContent: some View {
         switch store.phase {
         case .loading:
             SlipSkeleton(hasByline: true)
-                .padding(.horizontal, AteMetrics.listGutter)
+                .ateCardWidth()
+                .transition(.opacity)
         case .empty:
             // Honest: nobody else has written anything yet. Not an error, and not an instruction.
             AteEmptyState(title: "Nobody's written\nanything yet.")
@@ -109,6 +116,7 @@ struct FeedScreen: View {
                 .ateEmptyPlacement(top: Self.headerBottom)
         case .ready:
             slips
+                .transition(.opacity)
         }
     }
 
@@ -136,7 +144,7 @@ struct FeedScreen: View {
                     .padding(.top, AteMetrics.regular)
             }
         }
-        .padding(.horizontal, AteMetrics.listGutter)
+        .ateCardWidth()
     }
 }
 

@@ -95,6 +95,26 @@ public enum DishTileIdentity {
         return Int(stableHash(of: id) % UInt64(count))
     }
 
+    /// **Palette steps for dishes shown one after another** (round 4): each dish keeps its own
+    /// ``paletteIndex(for:count:)`` unless that would repeat the tile directly above it, in which
+    /// case it steps to another accent — chosen from its own hash, so the same list always paints
+    /// the same way. Never two neighbours alike (given two or more accents), never random.
+    public static func paletteIndices(for ids: [UUID], count: Int) -> [Int] {
+        guard count > 1 else { return ids.map { _ in 0 } }
+        var indices: [Int] = []
+        indices.reserveCapacity(ids.count)
+        for id in ids {
+            var index = paletteIndex(for: id, count: count)
+            if let previous = indices.last, previous == index {
+                // A step of 1…count−1 from the clash can never land back on it.
+                let step = 1 + Int((stableHash(of: id) / UInt64(count)) % UInt64(count - 1))
+                index = (index + step) % count
+            }
+            indices.append(index)
+        }
+        return indices
+    }
+
     static func stableHash(of id: UUID) -> UInt64 {
         var hash: UInt64 = 0xcbf2_9ce4_8422_2325
         withUnsafeBytes(of: id.uuid) { bytes in

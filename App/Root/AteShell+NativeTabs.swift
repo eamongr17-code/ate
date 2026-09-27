@@ -49,6 +49,7 @@ extension AteShell {
                     .ateGround()
                     .toolbar(.hidden, for: .navigationBar)
                     .ateSwipeBack()
+                    .ateTabBarFollowsPop()
                     .navigationDestination(for: Route.self) { route in
                         destination(route)
                             .toolbar(.hidden, for: .navigationBar)

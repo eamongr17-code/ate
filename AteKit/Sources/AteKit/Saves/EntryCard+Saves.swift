@@ -19,7 +19,15 @@ public extension EntryCard {
                 score: item.score,
                 note: item.note,
                 position: item.position,
-                saved: isSaved
+                saved: isSaved,
+                // Everything else on the line stays: a bookmark must not strip its tag chips or
+                // the offsets its score pill is drawn from.
+                evidenceOffset: item.evidenceOffset,
+                evidenceLength: item.evidenceLength,
+                mentionOffset: item.mentionOffset,
+                mentionLength: item.mentionLength,
+                corrected: item.corrected,
+                tags: item.tags
             )
         })
     }

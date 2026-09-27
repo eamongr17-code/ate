@@ -1,11 +1,35 @@
 import AteKit
 import SwiftUI
 
-/// Where an entry is opened from.
+/// Where an entry is opened from — and, when it was opened from a card, the card itself.
+///
+/// The card is what makes the page instant: a Journal, Feed, Profile or Place slip already holds the
+/// whole row, so the page draws from it on the push and only *refreshes* from the server. It is a
+/// payload, not part of the route's identity — two pushes of one entry are the same route to
+/// `NavigationStack` and `path.contains`, whatever snapshot each carried.
 struct EntryRoute: Hashable, Identifiable {
     let entryID: UUID
+    var card: EntryCard?
+
+    init(entryID: UUID, card: EntryCard? = nil) {
+        self.entryID = entryID
+        self.card = card
+    }
+
+    /// Opened from a card: the page draws from it at once.
+    init(_ card: EntryCard) {
+        self.init(entryID: card.id, card: card)
+    }
 
     var id: UUID { entryID }
+
+    static func == (lhs: EntryRoute, rhs: EntryRoute) -> Bool { lhs.entryID == rhs.entryID }
+    func hash(into hasher: inout Hasher) { hasher.combine(entryID) }
+}
+
+extension Route {
+    /// The entry a card opens, carrying the card so the page never starts blank.
+    static func entry(_ card: EntryCard) -> Route { .entry(EntryRoute(card)) }
 }
 
 /// **`Entry`** — the whole entry, on one page.
@@ -75,8 +99,9 @@ struct EntryScreen: View {
             if let failure = model.loadFailure {
                 failed(failure)
             } else {
+                // One card width everywhere (round 4): the page is as wide as the slip it came from.
                 page
-                    .padding(.horizontal, AteMetrics.pageInset)
+                    .ateCardWidth()
                     .padding(.top, AteMetrics.pageGap)
             }
         }
@@ -139,14 +164,23 @@ struct EntryScreen: View {
 
     /// `.slip`: `padding:8px 20px 0`, `gap:16px`, `border-radius:24px 24px 0 0`, `min-height:760`.
     private var page: some View {
-        VStack(alignment: .leading, spacing: AteMetrics.pageBandGap) {
+        // The card in hand draws the page on the push; an entry opened by id alone is its skeleton —
+        // the same bands, still — until the read answers, and then fills in once (round 4).
+        ZStack(alignment: .topLeading) {
             if let card = model.card {
-                dishes(card)
-                words
-                photos
-                placeLine(card)
+                VStack(alignment: .leading, spacing: AteMetrics.pageBandGap) {
+                    dishes(card)
+                    words
+                    photos
+                    placeLine(card)
+                }
+                .transition(.opacity)
+            } else {
+                EntryPageSkeleton()
+                    .transition(.opacity)
             }
         }
+        .ateAnimation(AteMotion.fillIn, value: model.isLoaded)
         .padding(.top, AteMetrics.pagePaddingTop)
         .padding(.horizontal, AteMetrics.pagePaddingSide)
         // The artboard has no bottom padding — its page simply continues past the screen. Ours can be

@@ -45,21 +45,16 @@ struct RatingsScreen: View {
                     AteExactText(text: "Your ratings", style: .ratingsTitle, alignment: .leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .accessibilityAddTraits(.isHeader)
-                    ScoreHistogramView(
-                        histogram: store.histogram,
-                        selected: store.score,
-                        onSelect: { score in
-                            Task {
-                                // Latest tap wins: one overtaken by a newer tap neither scrolls nor
-                                // counts, so the page always ends on the bar that is lit.
-                                guard await store.select(score) else { return }
-                                onViewed(score)
-                                scroll(to: score, with: proxy)
-                            }
-                        }
-                    )
-                    groups
+                    // The chart and the groups fill in once, together (round 4: staged loading).
+                    if store.isSettled {
+                        settled(proxy)
+                            .transition(.opacity)
+                    } else {
+                        RatingsSkeleton()
+                            .transition(.opacity)
+                    }
                 }
+                .ateAnimation(AteMotion.fillIn, value: store.isSettled)
                 .padding(.horizontal, AteMetrics.gutter)
                 .padding(.top, AteMetrics.hairspace)
                 .padding(.bottom, AteMetrics.tabBarScrollInset)
@@ -76,9 +71,31 @@ struct RatingsScreen: View {
                 guard hasScrolledToOpening == false else { return }
                 hasScrolledToOpening = true
                 if store.groups.first?.score != opening {
+                    // After the fill-in has laid the groups out.
+                    await Task.yield()
                     scroll(to: opening, with: proxy, animated: false)
                 }
             }
+        }
+    }
+
+    /// The chart and every group read so far.
+    private func settled(_ proxy: ScrollViewProxy) -> some View {
+        VStack(alignment: .leading, spacing: AteMetrics.loose) {
+            ScoreHistogramView(
+                histogram: store.histogram,
+                selected: store.score,
+                onSelect: { score in
+                    Task {
+                        // Latest tap wins: one overtaken by a newer tap neither scrolls nor
+                        // counts, so the page always ends on the bar that is lit.
+                        guard await store.select(score) else { return }
+                        onViewed(score)
+                        scroll(to: score, with: proxy)
+                    }
+                }
+            )
+            groups
         }
     }
 
@@ -109,13 +126,19 @@ struct RatingsScreen: View {
     /// empty chart has already said so, and a sentence explaining an empty list is exactly the
     /// helper copy design rule 1 forbids.
     private var groups: some View {
-        LazyVStack(alignment: .leading, spacing: 0) {
+        // Letter tiles chosen down the whole page, so no two neighbours match (round 4).
+        let all = store.groups.flatMap(\.dishes)
+        let letters = Dictionary(
+            zip(all.map(\.id), DishLetter.neighbourly(all.map { ($0.dishID, $0.dishName) })),
+            uniquingKeysWith: { first, _ in first }
+        )
+        return LazyVStack(alignment: .leading, spacing: 0) {
             ForEach(store.groups) { group in
                 VStack(alignment: .leading, spacing: AteMetrics.loose) {
                     scoreLine(group)
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(group.dishes) { dish in
-                            row(dish)
+                            row(dish, letter: letters[dish.id])
                                 .task { await store.loadMoreIfNeeded(after: dish) }
                         }
                     }
@@ -159,13 +182,16 @@ struct RatingsScreen: View {
 
     /// The artboard's row, unchanged: ruled at the top, so the first row is parted from the score
     /// line and the last ends on the ground rather than on a line.
-    private func row(_ dish: ScoredDish) -> some View {
+    private func row(_ dish: ScoredDish, letter: DishLetter?) -> some View {
         Button { onDish(dish.dishID) } label: {
             VStack(spacing: 0) {
                 AteHairline()
                 HStack(spacing: AteMetrics.regular) {
                     AteThumbnail(
-                        photo: .dish(dish.dishID, name: dish.dishName, cover: dish.coverURL),
+                        photo: .dish(
+                            letter ?? DishLetter(dishID: dish.dishID, name: dish.dishName),
+                            cover: dish.coverURL
+                        ),
                         side: RatingsScreen.thumbnail
                     )
                     VStack(alignment: .leading, spacing: AteMetrics.hairspace) {
@@ -196,6 +222,38 @@ struct RatingsScreen: View {
     /// the thumbnail sets it.
     private static let rowHeight: CGFloat = 76
     private static let thumbnail: CGFloat = 56
+}
+
+/// **The page before it has arrived** — the chart, a score line and a screenful of rows as still
+/// shapes, so the page does not assemble itself in front of the reader.
+private struct RatingsSkeleton: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: AteMetrics.loose) {
+            ScoreHistogramSkeleton()
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(AtePalette.automatic.hairline)
+                .frame(width: 170, height: 30)
+                .padding(.top, AteMetrics.tight)
+            VStack(spacing: 0) {
+                ForEach(0..<5, id: \.self) { _ in
+                    VStack(spacing: 0) {
+                        AteHairline()
+                        HStack(spacing: AteMetrics.regular) {
+                            RoundedRectangle(cornerRadius: AteMetrics.receiptTop, style: .continuous)
+                                .fill(AtePalette.automatic.hairline)
+                                .frame(width: 56, height: 56)
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(AtePalette.automatic.hairline)
+                                .frame(width: 150, height: 16)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(minHeight: 76)
+                    }
+                }
+            }
+        }
+        .accessibilityHidden(true)
+    }
 }
 
 #if DEBUG

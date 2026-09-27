@@ -54,7 +54,8 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
         others: (any PreviewEntryLookup)? = nil,
         tagged: Bool = false
     ) -> InMemoryEntryService {
-        InMemoryEntryService(entries: [tagged ? .previewSortedTagged : .previewSorted, .previewCroissant],
+        InMemoryEntryService(entries: [tagged ? .previewSortedTagged : .previewSorted, .previewCroissant]
+                                + EntryCard.previewJournalIfRequested,
                              firstOrderNumber: 143, sortDelay: sortDelay, others: others)
     }
 

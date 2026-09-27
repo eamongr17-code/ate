@@ -232,6 +232,8 @@ enum DietTagRun {
     /// Paints each chip's capsule — 18 high (scaled), on the ground colour — under its code.
     struct Renderer: TextRenderer {
         let dynamicTypeSize: DynamicTypeSize
+        /// Linen by default; ``DietTagChip/fill`` explains the one exception.
+        var fill: Color = AteColor.ground
 
         func draw(layout: Text.Layout, in context: inout GraphicsContext) {
             let font = AteFont.uiFont(for: .dietTag, dynamicTypeSize: dynamicTypeSize)
@@ -251,7 +253,7 @@ enum DietTagRun {
                 for (index, rect) in chips {
                     let baseline = baselines[index] ?? rect.maxY
                     let capsule = CGRect(x: rect.minX, y: baseline - baselineFromTop, width: rect.width, height: height)
-                    context.fill(Capsule().path(in: capsule), with: .color(AteColor.ground))
+                    context.fill(Capsule().path(in: capsule), with: .color(fill))
                 }
                 context.draw(line)
             }

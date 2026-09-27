@@ -52,22 +52,42 @@ final class EntryModel: SavedDishObserving {
     private let saves: SaveAction
     private var handle = ""
     private var hasReportedPrint = false
+    private var hasReportedOpen = false
+    private var hasRetriedQuietly = false
+    /// The bookmarks broadcast while this page was open — laid over every later read.
+    private var saveEdits = EntrySaveEdits()
+    #if DEBUG
+    private var hasReadOnce = false
+    #endif
 
     init(route: EntryRoute, services: AteServices, saves: SaveAction) {
         self.route = route
         self.services = services
         self.saves = saves
-        #if DEBUG
-        // Not before the entry has loaded: the sheet opens on the place it is correcting, and one
-        // opened against a card that is not there yet shows "Recent" instead of "Best match".
-        #endif
+        // **Drawn from the card in hand** (round 4): a slip already holds the whole row, so the page
+        // is complete on the push and the read below only refreshes it. Without one (an entry opened
+        // by id) the page is its skeleton until the read answers — never an empty sheet of paper.
+        // Drawn only: SwiftUI builds (and throws away) this model on every re-render of the stack,
+        // so nothing it reports can happen here — that waits for `load()`, once per page.
+        if let seed = route.card { apply(seed, isSeed: true) }
     }
 
     // MARK: - Loading
 
     func load() async {
-        handle = await services.entries.currentHandle() ?? handle
+        if hasReportedOpen == false {
+            hasReportedOpen = true
+            services.analytics(BrowseEvents.entryOpened(seeded: route.card != nil))
+        }
+        // The handle only signs a receipt whose row carries no author, so it is read beside the
+        // entry rather than in front of it. It used to be awaited first: two round trips in series
+        // before the page could draw a thing, which is most of the blank page that was reported.
+        async let signature = services.entries.currentHandle()
         await reload()
+        if let read = await signature {
+            handle = read
+            if let card, case .printed = state { state = EntryPresentation.state(for: card, handle: handle) }
+        }
         // An entry that arrived here unsorted keeps asking, quietly, until it is: the person was
         // told their words were saved, and the receipt is the other half of that.
         if card?.sortStatus == .pending, state != .failed { await waitForSort() }
@@ -78,12 +98,32 @@ final class EntryModel: SavedDishObserving {
             let card = try await services.entries.entry(id: route.entryID)
             loadFailure = nil
             apply(card, isStuck: await services.outbox.isStuck(entryID: route.entryID))
-        } catch is CancellationError {
-            return
         } catch {
-            if card == nil { loadFailure = LoadFailure(error) }
+            // ``EntryRefreshFailure``: a cut-short read is nothing; **gone is gone even over a card
+            // it was drawn from** (a stale card must not look live); anything else keeps the card
+            // and tries once more, quietly, or shows the retry over an empty page.
+            switch EntryRefreshFailure(error, hasCard: card != nil) {
+            case .ignore:
+                return
+            case .gone:
+                card = nil
+                loadFailure = .gone
+            case .unreachable:
+                loadFailure = .unreachable
+            case .keepCardAndRetry:
+                guard hasRetriedQuietly == false else { return }
+                hasRetriedQuietly = true
+                try? await Task.sleep(for: Self.quietRetryDelay)
+                guard Task.isCancelled == false else { return }
+                await reload()
+            }
         }
     }
+
+    /// Whether the page has anything of the entry to draw yet.
+    var isLoaded: Bool { card != nil }
+
+    private static let quietRetryDelay = Duration.seconds(2)
 
     /// "Try again" on a page that could not reach Ate.
     func retryLoad() async {
@@ -98,7 +138,18 @@ final class EntryModel: SavedDishObserving {
         for _ in 0..<Self.sortPollCount {
             try? await Task.sleep(for: Self.sortPollInterval)
             guard Task.isCancelled == false else { return }
-            guard let card = try? await services.entries.entry(id: route.entryID) else { continue }
+            let card: EntryCard
+            do {
+                card = try await services.entries.entry(id: route.entryID)
+            } catch {
+                // Deleted while it was printing: the page says so rather than polling a ghost.
+                if EntryRefreshFailure(error, hasCard: true) == .gone {
+                    self.card = nil
+                    loadFailure = .gone
+                    return
+                }
+                continue
+            }
             apply(card)
             if card.sortStatus != .pending { return }
         }
@@ -107,9 +158,12 @@ final class EntryModel: SavedDishObserving {
     private static let sortPollInterval = Duration.milliseconds(700)
     private static let sortPollCount = 12
 
-    private func apply(_ card: EntryCard, isStuck: Bool = false) {
+    private func apply(_ read: EntryCard, isStuck: Bool = false, isSeed: Bool = false) {
+        // Every bookmark this page has heard about stays over a row read before it landed (QA c).
+        let card = saveEdits.applied(to: read)
         #if DEBUG
-        let isFirstRead = self.card == nil
+        let isFirstRead = self.card == nil || hasReadOnce == false
+        hasReadOnce = hasReadOnce || isSeed == false
         #endif
         self.card = card
         // The words as written — a place named in them is plain text (ComposerPlaceB).
@@ -120,7 +174,7 @@ final class EntryModel: SavedDishObserving {
         // An entry the outbox has given up on is not "still printing" — it is not printed, and it
         // needs the one thing that can change that: somebody asking again.
         if isStuck, case .pending = state { state = .failed }
-        guard case .printed(let receipt) = state else { return }
+        guard isSeed == false, case .printed(let receipt) = state else { return }
         report(receipt)
         #if DEBUG
         if ComposerDebugLaunch.opensDishSheet, correcting == nil, let first = receipt.items.first {
@@ -234,6 +288,7 @@ final class EntryModel: SavedDishObserving {
 
     /// The bookmark changed somewhere — here, or on a list this page was opened from.
     func savedDishChanged(dishID: UUID, isSaved: Bool) {
+        saveEdits.note(dishID: dishID, isSaved: isSaved)
         applySaved(dishID: dishID, to: isSaved)
     }
 
