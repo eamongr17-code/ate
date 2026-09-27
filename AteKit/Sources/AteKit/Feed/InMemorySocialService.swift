@@ -32,7 +32,8 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
     /// place's page, where your visits lead the list with a "You" byline (`RestaurantVisits`).
     public static func seededWithSaves() -> InMemorySocialService {
         let long = PreviewFaults.longFixtures ? longEntries : []
-        return InMemorySocialService(entries: long + seededEntries + [ownVisit], saved: seededSaves)
+        let deep = PreviewFaults.deepFixtures ? deepEntries : []
+        return InMemorySocialService(entries: long + seededEntries + deep + [ownVisit], saved: seededSaves)
     }
 
     /// The viewer's visit, its lines pointed at the seed's own dishes — one tiramisu on the menu,

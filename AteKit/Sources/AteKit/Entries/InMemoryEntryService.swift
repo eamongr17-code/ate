@@ -285,10 +285,17 @@ public final class InMemoryEntryService: EntryService, @unchecked Sendable {
 /// Failures a simulator drive can ask the in-memory services for, so the states they draw can be
 /// looked at without pulling the network: `-ate-preview-offline` (every list read fails),
 /// `-ate-preview-entry-fault offline|gone` (the entry page's read fails, one way or the other) and
-/// `-ate-preview-long` (a long-handle, photo-less, three-dish visit at the top of the feed).
+/// `-ate-preview-long` (a long-handle, photo-less, three-dish visit at the top of the feed) and
+/// `-ate-preview-deep` (long profile, place and dish lists).
 public enum PreviewFaults {
     public static var listsOffline: Bool { arguments.contains("-ate-preview-offline") }
     public static var longFixtures: Bool { arguments.contains("-ate-preview-long") }
+    /// `-ate-preview-deep`, and only inside a UI-test run (`-ate-ui-testing`): the long profile,
+    /// place and dish lists a responsiveness drive scrolls to mid-list (``InMemorySocialService/deepEntries``).
+    /// Asked for by name so every other drive keeps the artboards' short lists.
+    public static var deepFixtures: Bool {
+        arguments.contains("-ate-preview-deep") && arguments.contains("-ate-ui-testing")
+    }
 
     public static var entryFault: String? {
         guard let index = arguments.firstIndex(of: "-ate-preview-entry-fault"),

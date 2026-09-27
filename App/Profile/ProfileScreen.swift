@@ -27,15 +27,19 @@ struct ProfileScreen: View {
             // The header and the entries are two reads. Until both have answered the whole page is
             // its skeleton — the header's shape over the slips' — and then it fills in once, rather
             // than a name popping in over a list that is still coming (round 4).
-            Group {
+            //
+            // The page is one lazy stack and every slip is one of its own rows, 18 under the band
+            // above it — never a `LazyVStack` of slips inside a `VStack` under the header, which is
+            // the shape that locked the Feed's main thread for minutes (`FeedScreen`).
+            LazyVStack(alignment: .leading, spacing: 0) {
                 if isSettled {
-                    VStack(alignment: .leading, spacing: 18) {
-                        header
-                        content
-                    }
-                    .transition(.opacity)
+                    header
+                        .transition(.opacity)
+                    content
+                        .padding(.top, Self.bandGap)
+                        .transition(.opacity)
                 } else {
-                    VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: Self.bandGap) {
                         ProfileHeaderSkeleton().ateCardWidth()
                         SlipSkeleton().ateCardWidth()
                     }
@@ -129,23 +133,27 @@ struct ProfileScreen: View {
         }
     }
 
+    /// `gap:18px` — between the header and the slips, and between one slip and the next.
+    private static let bandGap: CGFloat = 18
+
+    /// The slips, as rows of the page's own lazy stack (see `body`). Each is ``bandGap`` under the
+    /// band before it — the header, or the slip above — from the padding `body` gives `content`,
+    /// which a `ForEach` hands to every row.
     private var slips: some View {
-        LazyVStack(alignment: .leading, spacing: 18) {
-            ForEach(store.entries.entries) { entry in
-                EntrySlip(
-                    slip: EntrySlipPresentation.profile(entry),
-                    onOpen: { onOpen(entry) },
-                    onSave: { onSave(entry, $0) },
-                    onPlace: onPlace,
-                    onDish: { onDish($0.dishID) },
-                    identifier: "profile.slip"
-                )
-                .task { await store.entries.loadMoreIfNeeded(after: entry) }
-                // Its own task, so the row scrolling away cancels the prefetch with it.
-                .task { await AtePrefetch.photos(after: entry, in: store.entries.entries) }
-            }
+        ForEach(store.entries.entries) { entry in
+            EntrySlip(
+                slip: EntrySlipPresentation.profile(entry),
+                onOpen: { onOpen(entry) },
+                onSave: { onSave(entry, $0) },
+                onPlace: onPlace,
+                onDish: { onDish($0.dishID) },
+                identifier: "profile.slip"
+            )
+            .task { await store.entries.loadMoreIfNeeded(after: entry) }
+            // Its own task, so the row scrolling away cancels the prefetch with it.
+            .task { await AtePrefetch.photos(after: entry, in: store.entries.entries) }
+            .ateCardWidth()
         }
-        .ateCardWidth()
     }
 
     @ViewBuilder

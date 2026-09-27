@@ -116,6 +116,42 @@ public extension InMemorySocialService {
         ]
     }
 
+    /// `-ate-preview-deep` (UI tests only): sixteen more of Jess's visits to Tipo 00, older than
+    /// anything the artboards draw, each with the same prawn spaghetti — and every other one the
+    /// same tiramisu — as her birthday visit. So the pages the debug launch opens off the first feed
+    /// entry (her profile, Tipo 00, the prawn spaghetti) are long enough to scroll to mid-list,
+    /// while the top of the feed stays the artboard's.
+    static var deepEntries: [EntryCard] {
+        let birthday = "E0000000-0000-4000-8000-000000000001"
+        let prawn = derived(from: birthday, prefix: "D", index: 0)
+        let tiramisu = derived(from: birthday, prefix: "D", index: 1)
+        let words = [
+            "Back for the prawn spaghetti. It does not change and that is the point.",
+            "Quick lunch at the bar.",
+            "Brought Mum. She ordered for the table and was right about everything.",
+            "Prawns again. The chilli was a notch louder tonight.",
+            "Late one. Tiramisu to finish, obviously."
+        ]
+        let photos = [["prawn"], ["prawn", "tiramisu"], [], ["ragu", "prawn", "tiramisu"]]
+        return (0..<16).map { index in
+            let id = String(format: "E0000000-0000-4000-8000-0000000D%04X", index + 1)
+            var items: [(String, Double?)] = [("Prawn spaghetti", index.isMultiple(of: 5) ? nil : 4.5)]
+            if index.isMultiple(of: 2) { items.append(("Tiramisu", 4.0)) }
+            let visit = entry(
+                id: id, author: Seed.jess, username: "jessw", orderNumber: 70 - index, place: Seed.tipo,
+                body: words[index % words.count], createdAt: Seed.hoursAgo(150 + 30 * Double(index)),
+                photos: photos[index % photos.count], items: items
+            )
+            // The same two dishes on the menu, not sixteen that happen to share their names.
+            return visit.replacing(items: visit.items.map { item in
+                EntryCard.Item(
+                    reviewID: item.reviewID, dishID: item.position == 1 ? prawn : tiramisu,
+                    dishName: item.dishName, score: item.score, position: item.position, tags: item.tags
+                )
+            })
+        }
+    }
+
     /// The two bookmarks `Feed.dc.html` draws filled: Jess's tiramisu and Marcus's cheeseburger.
     static var seededSaves: [UUID] {
         [

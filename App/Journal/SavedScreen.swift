@@ -12,6 +12,9 @@ struct SavedScreen: View {
     /// Where this shelf begins on the screen, so its empty state is centred on the line every empty
     /// state shares (``AteEmptyPlacement``).
     var emptyTop: CGFloat = AteEmptyPlacement.bandTop
+    /// The margin above the shelf. The shelf is rows of the journal's own lazy stack, not one view
+    /// in it, so the margin goes on its first row rather than around the whole.
+    var top: CGFloat = 0
     /// The place head, and a row: both go somewhere that does not exist yet (slice 2).
     var onPlace: (UUID) -> Void = { _ in }
     var onDish: (SavedDish) -> Void = { _ in }
@@ -19,27 +22,34 @@ struct SavedScreen: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    /// **Rows, not a list of its own.** The shelf sits in the journal's scroll view, and a
+    /// `LazyVStack` nested in that page's content is the shape that locked the Feed's main thread
+    /// (`FeedScreen`) — so every place head and dish here is a row of the journal's own lazy stack.
+    /// The journal also starts the shelf's load, when the shelf is chosen (`JournalScreen`).
+    @ViewBuilder
     var body: some View {
-        Group {
-            switch store.phase {
-            case .loading:
-                SavedSkeleton()
-            case .empty:
-                AteEmptyState(title: "Nothing saved\nyet.")
-                    .ateEmptyPlacement(top: emptyTop)
-            case .signedOut:
-                AteEmptyState(title: "Nobody's\nsigned in.")
-                    .ateEmptyPlacement(top: emptyTop)
-            case .failed:
-                AteUnreachableState { Task { await store.refresh() } }
-                    .ateEmptyPlacement(top: emptyTop)
-            case .ready:
-                groups
-            }
+        switch store.phase {
+        case .loading:
+            SavedSkeleton()
+                .padding(.top, top)
+        case .empty:
+            AteEmptyState(title: "Nothing saved\nyet.")
+                .ateEmptyPlacement(top: emptyTop)
+                .padding(.top, top)
+        case .signedOut:
+            AteEmptyState(title: "Nobody's\nsigned in.")
+                .ateEmptyPlacement(top: emptyTop)
+                .padding(.top, top)
+        case .failed:
+            AteUnreachableState { Task { await store.refresh() } }
+                .ateEmptyPlacement(top: emptyTop)
+                .padding(.top, top)
+        case .ready:
+            groups
         }
-        .task { await store.loadIfNeeded() }
     }
 
+    @ViewBuilder
     private var groups: some View {
         // The letter tiles are chosen for the shelf as it reads, top to bottom, so no two dishes
         // one above the other share an accent (round 4).
@@ -48,22 +58,27 @@ struct SavedScreen: View {
             zip(shelf.map(\.id), DishLetter.neighbourly(shelf.map { ($0.dishID, $0.dishName) })),
             uniquingKeysWith: { first, _ in first }
         )
-        return LazyVStack(alignment: .leading, spacing: 0) {
-            ForEach(store.groups) { group in
-                placeHead(group)
-                ForEach(group.dishes) { dish in
-                    SavedDishRow(
-                        dish: dish,
-                        letter: letters[dish.id],
-                        onTap: { onDish(dish) },
-                        onUnsave: { onUnsave(dish) }
-                    )
-                    .task { await store.loadMoreIfNeeded(after: dish) }
-                }
+        let first = store.groups.first?.id
+        if store.groups.isEmpty {
+            // What the shelf's own (empty) stack used to hold: its margin, and nothing.
+            Color.clear.frame(height: 0).padding(.top, top)
+        }
+        ForEach(store.groups) { group in
+            placeHead(group)
+                .padding(.top, group.id == first ? top : 0)
+                // One card width everywhere (round 4): the shelf's rows sit on the segment's edge.
+                .ateCardWidth()
+            ForEach(group.dishes) { dish in
+                SavedDishRow(
+                    dish: dish,
+                    letter: letters[dish.id],
+                    onTap: { onDish(dish) },
+                    onUnsave: { onUnsave(dish) }
+                )
+                .task { await store.loadMoreIfNeeded(after: dish) }
+                .ateCardWidth()
             }
         }
-        // One card width everywhere (round 4): the shelf's rows sit on the segment's own edge.
-        .ateCardWidth()
     }
 
     /// `padding:18px 0 10px` — the place, its suburb, and the chevron onward.

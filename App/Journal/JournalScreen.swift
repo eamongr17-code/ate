@@ -55,14 +55,28 @@ struct JournalScreen: View {
     var body: some View {
         ScrollViewReader { _ in
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    header
-                    segmentRow
-                        .padding(.top, AteMetrics.loose)
-                        .id(Self.topAnchor)
-                    filters
+                // One lazy stack, and every slip — or saved dish — is one of its own rows: never a
+                // `LazyVStack` of slips inside a `VStack` under the header, the shape that locked
+                // the Feed's main thread for minutes (`FeedScreen`). The month markers read the
+                // slips' ids off this stack, so it is the scroll-target layout.
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        header
+                        segmentRow
+                            .padding(.top, AteMetrics.loose)
+                            .id(Self.topAnchor)
+                        filters
+                    }
+                    // The shelf's fade is the shelf's: a filter changes the query and the phase in
+                    // one go, and its pills arrive at once, as they always have.
+                    .animation(nil, value: store.phase)
                     shelfContent
                 }
+                .scrollTargetLayout()
+                // Loading is the column of skeleton slips, still; the entries replace it in one
+                // fade. On the stack rather than around the shelf, so no wrapper stands between the
+                // stack and its slips.
+                .ateAnimation(AteMotion.fillIn, value: store.phase)
                 // Design rule 10: the last slip runs off under the tab bar rather than
                 // stopping dead above it.
                 .padding(.bottom, AteMetrics.tabBarScrollInset)
@@ -86,6 +100,11 @@ struct JournalScreen: View {
             // status bar).
             .ateTabRootHeader(scrollToTop: scrollToTopSignal) { chrome }
             .task { await store.loadIfNeeded() }
+            // The Saved shelf loads when it is chosen, and stops if it is left mid-read — the task
+            // the shelf's own view carried when it was one view rather than rows of this stack.
+            .task(id: shelf) {
+                if shelf == .saved { await saved.loadIfNeeded() }
+            }
             .sheet(isPresented: $isFiltering) {
                 JournalFilterSheet(initial: store.query, places: store.places, periods: periods) { query in
                     apply(query)
@@ -208,84 +227,94 @@ struct JournalScreen: View {
         switch shelf {
         case .journal:
             // `Main` parts the segment from the first slip by the column's own 14; `MainEmpty`
-            // centres its state in the page below (`firstDay`).
-            journalShelf.padding(.top, store.phase == .ready || store.phase == .loading
-                ? AteMetrics.slipGap : Self.firstDayGap)
+            // centres its state in the page below (`firstDay`). Each case puts its own gap above
+            // it: the shelf is rows of this page's stack, not one view in it.
+            journalShelf
         case .saved:
             // `Saved.dc.html` parts the segment from the first place head by the column's own 14,
             // and the head carries its own 18 on top of that. An empty shelf is a slip, and gets
-            // the margin a slip gets.
+            // the margin a slip gets. The shelf is rows of this page's stack, so it puts that
+            // margin on its first row itself.
             SavedScreen(
                 store: saved,
                 emptyTop: Self.emptyTop,
+                top: saved.phase == .ready || saved.phase == .loading ? AteMetrics.slipGap : Self.firstDayGap,
                 onPlace: onSavedPlace,
                 onDish: onSavedDish,
                 onUnsave: onUnsave
             )
-            .padding(.top, saved.phase == .ready || saved.phase == .loading ? AteMetrics.slipGap : Self.firstDayGap)
         }
     }
 
     /// Loading is the column of skeleton slips, still; the entries replace it in one fade.
     @ViewBuilder
     private var journalShelf: some View {
-        Group {
-            switch store.phase {
-            case .loading:
-                SlipSkeleton().ateCardWidth()
-                    .transition(.opacity)
-            case .empty:
-                if store.query.hasFilters {
-                    firstDay(AteEmptyState(title: "Nothing\nlike that.", actionTitle: "Clear") {
-                        apply(JournalQuery(sort: store.query.sort))
-                    })
-                } else {
-                    firstDay(AteEmptyState(
-                        title: "Nothing\non the tab.", actionTitle: "Write your first", action: onCompose
-                    ))
-                }
-            case .signedOut:
-                firstDay(AteEmptyState(title: "Nobody's\nsigned in."))
-            case .failed:
-                firstDay(AteUnreachableState { Task { await store.refresh() } })
-            case .ready:
-                slips
-                    .transition(.opacity)
+        switch store.phase {
+        case .loading:
+            SlipSkeleton().ateCardWidth()
+                .padding(.top, AteMetrics.slipGap)
+                .transition(.opacity)
+        case .empty:
+            if store.query.hasFilters {
+                firstDay(AteEmptyState(title: "Nothing\nlike that.", actionTitle: "Clear") {
+                    apply(JournalQuery(sort: store.query.sort))
+                })
+            } else {
+                firstDay(AteEmptyState(
+                    title: "Nothing\non the tab.", actionTitle: "Write your first", action: onCompose
+                ))
             }
+        case .signedOut:
+            firstDay(AteEmptyState(title: "Nobody's\nsigned in."))
+        case .failed:
+            firstDay(AteUnreachableState { Task { await store.refresh() } })
+        case .ready:
+            slips
+                .transition(.opacity)
         }
-        .ateAnimation(AteMotion.fillIn, value: store.phase)
     }
 
     /// `MainEmpty` — the state, centred in the page under the segment. No paper: an empty journal
     /// has not printed anything, so it does not wear the receipt.
     private func firstDay(_ state: some View) -> some View {
         state.ateEmptyPlacement(top: Self.emptyTop)
+            .padding(.top, Self.firstDayGap)
     }
 
+    /// The slips, as rows of the page's own lazy stack (see `body`), each `slipGap` under the row
+    /// before it.
+    ///
+    /// The gap is **its own row**, not padding on the slip: the month markers ask which slips are
+    /// 20% on screen (`onScrollTargetVisibilityChange`), and a slip's row has to be exactly the
+    /// slip for that answer to be the one it has always been.
+    @ViewBuilder
     private var slips: some View {
-        LazyVStack(alignment: .leading, spacing: AteMetrics.slipGap) {
-            ForEach(store.entries) { entry in
-                EntrySlip(
-                    slip: EntrySlipPresentation.journal(entry),
-                    onOpen: { onOpen(entry) },
-                    onPlace: onPlace,
-                    onDish: { onDish($0.dishID) }
-                )
-                .id(entry.id)
-                .task { await store.loadMoreIfNeeded(after: entry) }
-                // Its own task, so the row scrolling away cancels the prefetch with it.
-                .task { await AtePrefetch.photos(after: entry, in: store.entries) }
-            }
-            if let message = store.inlineErrorMessage {
-                Text(message)
-                    .ateText(.meta)
-                    .foregroundStyle(AtePalette.automatic.muted)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, AteMetrics.regular)
-            }
+        ForEach(store.entries) { entry in
+            Color.clear
+                .frame(height: AteMetrics.slipGap)
+                .accessibilityHidden(true)
+                .id("\(entry.id.uuidString).gap")
+            EntrySlip(
+                slip: EntrySlipPresentation.journal(entry),
+                onOpen: { onOpen(entry) },
+                onPlace: onPlace,
+                onDish: { onDish($0.dishID) }
+            )
+            .task { await store.loadMoreIfNeeded(after: entry) }
+            // Its own task, so the row scrolling away cancels the prefetch with it.
+            .task { await AtePrefetch.photos(after: entry, in: store.entries) }
+            .ateCardWidth()
+            .id(entry.id)
         }
-        .scrollTargetLayout()
-        .ateCardWidth()
+        if let message = store.inlineErrorMessage {
+            Text(message)
+                .ateText(.meta)
+                .foregroundStyle(AtePalette.automatic.muted)
+                .frame(maxWidth: .infinity)
+                .padding(.top, AteMetrics.regular)
+                .padding(.top, AteMetrics.slipGap)
+                .ateCardWidth()
+        }
     }
 }
 

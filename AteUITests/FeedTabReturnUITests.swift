@@ -6,7 +6,9 @@ import XCTest
 /// every layout pass — which on a device is the watchdog killing the app.
 ///
 /// The loop only closes at particular scroll depths (a slip sitting just below the fold), so the drag
-/// is fixed: 250pt on the preview feed lands in it, three times out of three, before the fix.
+/// is fixed: 250pt on the preview feed lands in it, three times out of three, before the fix. The
+/// Journal, a profile, a place's visits and a dish's reviews had the same nested shape and are
+/// flat now too; their drives guard them (none of them reproduced the loop at these depths).
 ///
 /// A hung app still "passes" an existence check eventually (XCTest gives up waiting for idle after a
 /// minute and carries on), so the assertion is on the clock. Against `-ate-preview-data`, so it needs
@@ -37,6 +39,44 @@ final class FeedTabReturnUITests: XCTestCase {
             assertAnswers(round: round, "the Journal") {
                 tab("Journal", in: app)
                 return slip("journal", in: app)
+            }
+        }
+    }
+
+    // MARK: - Pushed pages
+
+    // A pushed page hides the tab bar, so "away and back" is an entry pushed over it and popped.
+    // `-ate-preview-deep` makes the pages the debug launch opens (the first feed entry's author,
+    // place and dish) long enough to be mid-list.
+
+    func testReturningToAScrolledProfileStaysResponsive() {
+        returnsToPushedPage(opening: "-ate-open-profile", list: "profile.slip.dish", door: "profile.slip.body")
+    }
+
+    func testReturningToAScrolledPlaceStaysResponsive() {
+        returnsToPushedPage(opening: "-ate-open-place", list: "place.slip.dish", door: "place.slip.body")
+    }
+
+    func testReturningToAScrolledDishStaysResponsive() {
+        returnsToPushedPage(opening: "-ate-open-dish", list: "dish.review.entry", door: "dish.review.entry")
+    }
+
+    private func returnsToPushedPage(opening: String, list: String, door: String, line: UInt = #line) {
+        let app = launch([opening, "-ate-preview-deep"])
+        let row = app.buttons.matching(identifier: list).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10), line: line)
+        for round in 0..<3 {
+            drag(app, by: -250)
+            let doors = app.buttons.matching(identifier: door).allElementsBoundByIndex
+            guard let open = doors.first(where: { $0.isHittable }) else {
+                return XCTFail("round \(round): no \(door) on screen", line: line)
+            }
+            open.tap()
+            XCTAssertTrue(app.otherElements["entry.dishes"].waitForExistence(timeout: 5),
+                          "round \(round): the entry is up", line: line)
+            assertAnswers(round: round, opening, line: line) {
+                app.buttons["Back"].firstMatch.tap()
+                return row
             }
         }
     }
