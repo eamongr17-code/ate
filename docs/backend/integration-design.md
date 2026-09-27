@@ -6,10 +6,10 @@ Swift client against without asking a question** — if something is missing, th
 migrations reach staging on merge and prod only via the explicit CI job. Auth: Supabase Auth (Apple +
 email; see Account below); every call carries the user's token. `anon` has no table access (a raw read →
 `[]` or `42501`). **Every entry is public (0033).** **Signed out (0034):** with the publishable key alone, only
-`get_entry_feed`, `feed_areas`, `get_entries_by_author`, `get_entries_at_place`, `place_summary`, `place_dishes`,
+`get_entry_feed`, `feed_areas`, `feed_cities`, `resolve_city`, `get_entry_card`, `get_entries_by_author`, `get_entries_at_place`, `place_summary`, `place_dishes`,
 `dish_summary`, `get_dish_reviews`, `profile_summary` and `is_dish_saved` answer — same shapes, with
 `is_mine`/`is_me`/`saved`/`items[].saved` = `false`, `my_visits` = 0, `my_last_*` = null, scope `mine` = `[]`.
-Everything else (the Entry page's `entry_cards` read, search, stats, every write) needs a session.
+Everything else (the raw `entry_cards` view — use `get_entry_card` — search, stats, every write) needs a session.
 
 ## The one row shape — `entry_cards`
 
@@ -62,12 +62,14 @@ their own order: `place_dishes` `(review_count, score, name, dish_id)`, `feed_ar
 
 | Screen | Call | Returns |
 |---|---|---|
-| Feed | `rpc get_entry_feed(p_cursor_created_at, p_cursor_id, p_page_size, p_include_own, p_area)` | `entry_cards[]` — every entry, blocked users already gone. `p_include_own` defaults **false** (your visits live in Journal). `p_area` (0038): null = everywhere; else a `feed_areas` `area` → only rows whose `place.locality` matches (trimmed, case-insensitive). Same keyset |
+| Feed | `rpc get_entry_feed(p_cursor_created_at, p_cursor_id, p_page_size, p_include_own, p_area, p_city)` | `entry_cards[]` — every entry, blocked users already gone. `p_include_own` defaults **false** (your visits live in Journal). `p_area` (0038): a `feed_areas` `area` (locality match). `p_city` (0046): a city slug → only entries whose place maps to it; unknown → `[]`. Null = everywhere; both compose. Same keyset, same filters every page |
+| Feed — city picker · near me (0046) | `rpc feed_cities()` · `rpc resolve_city(p_lat, p_lng)` | `{city, name, region, lat, lng, radius_m, entry_count}[]` — cities with food for you, busiest first, unpaged · 0 or 1 such row + `distance_m`, `is_nearby`: the city with food holding the point (true), else the nearest with food (false); no point → busiest (false, `distance_m` null); `[]` = no city has food → `p_city` null. The point is never stored |
 | Feed — area picker | `rpc feed_areas(p_limit, p_cursor_entry_count, p_cursor_area)` | `{area, entry_count}[]`, busiest first then A→Z — the localities of what the Feed shows you (your own excluded, so no listed area opens empty). `p_limit` default 30, max 100; keyset `(entry_count, area)` — pass both from the last row |
 | Journal · Profile | `rpc get_entries_by_author(p_author_id, cursor…, p_page_size)` | `entry_cards[]` — the same rows whoever asks (a blocked author: `[]`) |
 | Journal — filter + sort (0043) | `rpc my_entries(p_sort, p_restaurant_id, p_min_score, p_tag, p_from, p_to, p_limit, p_cursor_created_at, p_cursor_id, p_cursor_best_score, p_tz)` | `{id, created_at, best_score}[]`, YOUR entries only, in order — then read the cards with `entry_cards?id=in.(…)` and keep this order. `p_sort` `newest` (default) · `oldest` · `top` (best line score, unscored last), else `22023`. All filters optional: place; `best_score >= p_min_score`; one tag code; visit dates inclusive in `p_tz` (default `Australia/Melbourne`; pass the device zone). Keyset: pass all three fields of the last row. `p_limit` 30, max 100 |
+| Journal · Search — range + city (0047) | `p_max_score`, `p_city` appended to `my_entries`, `search_places`, `search_dishes`, `nearby_places` · pickers `rpc my_entry_cities()` → `{city, name, region, entry_count}[]`, `rpc search_cities()` → `{city, name, region, place_count}[]` | No bound = every row; ANY bound drops unscored; `>= p_min_score`; `<= p_max_score` **unless it is ≥ 5 — the top is open**, so a 6 (or a 5.3 average) stays in `[x, 5]`; only 6s = `p_min_score: 6`. `p_restaurant_id` still works. Keysets unchanged |
 | Journal — place filter | `rpc my_entry_places()` | `{restaurant_id, name, locality, entry_count}[]` — where your entries are, busiest first. Optional keyset `(p_limit, p_cursor_entry_count, p_cursor_name, p_cursor_restaurant_id)`; no args = all |
-| Entry · Share | `GET /rest/v1/entry_cards?id=eq.<uuid>` | one `entry_card` |
+| Entry · Share link (`ate://entry/<id>`) | `rpc get_entry_card(p_entry_id)` (0048; or `GET /rest/v1/entry_cards?id=eq.<uuid>` signed in) | one `entry_card`, or `[]` = not visible / gone → "unavailable", never an error. **Works signed out** (`is_mine`/`saved` false) |
 | Place — header | `rpc place_summary(p_restaurant_id)` | `{restaurant_id, name, address, city, cuisine, cover_url, avg_rating, review_count, people_count, dish_count, my_visits, my_last_visit, locality, entry_count}` — **`locality` is the second chip** (`city` is unreliable, see below); `entry_count` = visits here, `review_count` = receipt lines; every text field is `null`, never `''` |
 | Place — what to order | `rpc place_dishes(p_restaurant_id, p_limit, p_cursor_review_count, p_cursor_score, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, score, people_count, review_count, cover_url, tags}[]` — `tags` = the dish's chips, the `dish_summary.tags` rule (0045). **`review_count` DESC leads**, then `score` DESC (unscored last), then name, then id: the ported `DishRanking` rule, so one 5.0 from one person cannot lead the menu. **Never re-sort it client-side.** A dish with no line at all is not returned. **4-part keyset: pass all four from the last row** (`p_cursor_score` may be null) |
 | Place — entries | `rpc get_entries_at_place(p_restaurant_id, p_scope, cursor…)` | `entry_cards[]`; `p_scope ∈ 'all'|'mine'|'others'` |
@@ -82,7 +84,7 @@ their own order: `place_dishes` `(review_count, score, name, dish_id)`, `feed_ar
 | Search — Places | `rpc search_places(p_query, p_limit, p_cursor_match_tier, p_cursor_review_count, p_cursor_name, p_cursor_id)` | `{restaurant_id, name, cuisine, locality, avg_rating, review_count, people_count, dish_count, cover_url, match_tier}[]` |
 | Search — Dishes | `rpc search_dishes(p_query, p_limit, p_cursor_match_tier, p_cursor_review_count, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_locality, score, review_count, scored_count, people_count, cover_url, match_tier, tags}[]` — the whole row in one call; `tags` as `dish_summary.tags` (0042) |
 | Search — People | `rpc search_people(p_query, p_limit, p_cursor_match_tier, p_cursor_username, p_cursor_user_id)` | `{user_id, username, name, avatar_url, city, is_me, match_tier}[]` — handle OR name; you can find yourself (`is_me`) |
-| Search — Saved | `rpc search_saved(p_query, p_limit, p_cursor_saved_at, p_cursor_dish_id)` | `my_saved_dishes`' columns + `restaurant_locality`; dish OR place name; **empty/null query = the whole list** |
+| Search — Saved · Saved shelf filtered | `rpc search_saved(p_query, p_limit, p_cursor_saved_at, p_cursor_dish_id, p_min_score, p_max_score, p_city)` · picker `rpc my_saved_cities()` | `my_saved_dishes`' columns + `restaurant_locality`; dish OR place name; **empty/null query = the whole list**. 0049: range on `dish_score` (the Journal's rule: max ≥ 5 is open) + city · `{city, name, region, dish_count}[]` |
 | Search — Nearby (before typing) | `rpc nearby_places(p_lat, p_lng, p_radius_m, p_limit, p_cursor_distance_m, p_cursor_id)` | `{restaurant_id, name, cuisine, locality, avg_rating, review_count, people_count, dish_count, cover_url, distance_m}[]` — places we hold, nearest first; no Google call |
 | Search — filter choices | `rpc search_cuisines()` | `{cuisine, place_count}[]`, busiest first — pass `cuisine` back in `p_cuisines` |
 | Composer place sheet | `rpc search_all(p_query, p_limit_per_kind)` | `{kind, id, title, subtitle, score, match_rank, detail}[]`, unpaged; the Search TAB uses the scope RPCs |
@@ -248,6 +250,10 @@ changes, make it config, do not fork the function. `restaurants.city` is written
 PR, same rule as `place_locality()`); rows written before keep the mangle — read `locality`.
 
 ## Wire-change log
+
+**Round 5 — 0046–0049.** All additive: `p_min_score`/`p_max_score`/`p_city` on `search_saved` + `my_saved_cities` (0049); `p_city` on `get_entry_feed` (+ browse); `p_max_score`/`p_city` on `my_entries`,
+`search_places`, `search_dishes`, `nearby_places` (drop+create, old calls bind); `feed_cities`, `resolve_city`, `my_entry_cities`,
+`search_cities`, `get_entry_card`; table `cities`, view `place_cities`. Nothing existing changes shape or behaviour.
 
 **Round 4 — 0041–0045 + sort-entry.** Additive: `six_tokens` (sort + preview); `tags` on `place_dishes` (+ browse) and `search_dishes` rows; a `score` may be `6.0` anywhere a
 score or aggregate is read; filter params on `search_places`/`search_dishes`/`nearby_places` (drop+create, old
