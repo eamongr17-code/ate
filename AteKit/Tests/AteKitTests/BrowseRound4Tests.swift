@@ -340,19 +340,36 @@ struct BrowseRound4Tests {
     func queriedEvent() {
         let event = BrowseEvents.journalQueried(
             JournalQuery(sort: .oldest, place: JournalPlace(restaurantID: UUID(), name: "Secret"), tag: .df),
-            variant: "B", resultCount: 7
+            resultCount: 7
         )
         #expect(event.name == "journal_queried")
-        #expect(event.parameters == ["sort": "oldest", "filters": "place,tag", "variant": "B", "result_count": "7"])
+        #expect(event.parameters == ["sort": "oldest", "filters": "place,tag", "result_count": "7"])
         #expect(event.parameters.values.contains("Secret") == false)
     }
 
-    @Test("the photo preview and the entry page report which variant and whether they were seeded")
+    @Test("the photo viewer, the one filter sheet and the entry page report what they need")
     func otherEvents() {
-        let opened = BrowseEvents.photoPreviewOpened(variant: "A", photoCount: 3)
-        #expect(opened.parameters == ["variant": "A", "photo_count": "3"])
-        #expect(BrowseEvents.journalFilterOpened(variant: "A").name == "journal_filter_opened")
+        #expect(BrowseEvents.photoPreviewOpened(photoCount: 3).parameters == ["photo_count": "3"])
+        let journal = BrowseEvents.filterOpened(on: .journal)
+        #expect(journal.name == "filter_opened" && journal.parameters == ["surface": "journal"])
+        #expect(BrowseEvents.filterOpened(on: .search).parameters == ["surface": "search"])
         #expect(BrowseEvents.entryOpened(seeded: true).parameters == ["seeded": "true"])
+    }
+
+    // MARK: - Search's active pills (the same pills as the Journal)
+
+    @Test("search filters become pills — each cuisine, each tag, the score — and each removes itself")
+    func searchPills() {
+        let filters = SearchFilters(cuisines: ["Italian", "Thai"], tags: [.v, .gf], minimumScore: 4)
+        #expect(filters.pills.map(\.title) == ["Italian", "Thai", "GF", "V", "4.0+"])
+        #expect(Set(filters.pills.map(\.id)).count == 5)
+        let noThai = filters.removing(filters.pills[1])
+        #expect(noThai.cuisines == ["Italian"] && noThai.tags == [.gf, .v] && noThai.minimumScore == 4)
+        let noGF = filters.removing(filters.pills[2])
+        #expect(noGF.tags == [.v])
+        let noScore = filters.removing(filters.pills[4])
+        #expect(noScore.minimumScore == nil && noScore.count == 4)
+        #expect(SearchFilters.none.pills.isEmpty)
     }
 }
 

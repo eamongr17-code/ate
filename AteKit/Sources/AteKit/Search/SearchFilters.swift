@@ -98,6 +98,50 @@ public struct SearchFilters: Sendable, Hashable {
         minimumScore.map { "\(ScoreFormat.halfStep($0))+" }
     }
 
+    // MARK: - The active pills (round 4: the same pills as the Journal)
+
+    /// One active filter as a removable pill: each cuisine, each tag, and the minimum score.
+    public struct Pill: Sendable, Hashable, Identifiable {
+        public enum Kind: Sendable, Hashable {
+            case cuisine(String)
+            case tag(DietTag)
+            case minimumScore
+        }
+
+        public let kind: Kind
+        public let title: String
+
+        public var id: String {
+            switch kind {
+            case .cuisine(let cuisine): "cuisine.\(cuisine.lowercased())"
+            case .tag(let tag): "tag.\(tag.rawValue)"
+            case .minimumScore: "minScore"
+            }
+        }
+    }
+
+    /// Cuisines in the order picked, tags in their canonical order, then the score — "Italian",
+    /// "GF", "4.0+".
+    public var pills: [Pill] {
+        cuisines.map { Pill(kind: .cuisine($0), title: $0) }
+            + tags.map { Pill(kind: .tag($0), title: $0.label) }
+            + (scoreSummary.map { [Pill(kind: .minimumScore, title: $0)] } ?? [])
+    }
+
+    /// The filters without the pill the reader took away.
+    public func removing(_ pill: Pill) -> SearchFilters {
+        switch pill.kind {
+        case .cuisine(let cuisine):
+            return contains(cuisine: cuisine) ? toggling(cuisine: cuisine) : self
+        case .tag(let tag):
+            return tags.contains(tag) ? toggling(tag: tag) : self
+        case .minimumScore:
+            var next = self
+            next.minimumScore = nil
+            return next
+        }
+    }
+
     // MARK: - The wire
 
     /// Only the filters that are on. Absent is "no filter" — and an unfiltered search is exactly
