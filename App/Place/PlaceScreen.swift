@@ -26,7 +26,11 @@ struct PlaceScreen: View {
 
     var body: some View {
         ScrollView {
-            Group {
+            // One lazy stack, and every visit is one of its own rows — never a `LazyVStack` of slips
+            // inside a `VStack` under the menu, the shape that locked the Feed's main thread for
+            // minutes (`FeedScreen`). The gaps the nested stacks used to give are each row's own
+            // top padding.
+            LazyVStack(alignment: .leading, spacing: 0) {
                 if store.isSettled {
                     VStack(alignment: .leading, spacing: AteMetrics.loose) {
                         header
@@ -34,14 +38,20 @@ struct PlaceScreen: View {
                         // nothing under it.
                         if store.header.isFailure == false {
                             menu
-                            // `gap:12px` — one list, yours woven in first.
-                            VStack(alignment: .leading, spacing: AteMetrics.placeSlipGap) {
-                                visits
-                                entries
-                            }
                         }
                     }
                     .transition(.opacity)
+                    if store.header.isFailure == false {
+                        // `gap:12px` — one list, yours woven in first, `loose` under the menu.
+                        visits
+                            .transition(.opacity)
+                        entries
+                            .transition(.opacity)
+                        if hasVisitsBand == false, hasEntriesBand == false {
+                            // The list with nothing in it still held its place under the menu.
+                            gap(AteMetrics.loose)
+                        }
+                    }
                 } else {
                     PlacePageSkeleton()
                         .transition(.opacity)
@@ -154,18 +164,21 @@ struct PlaceScreen: View {
     /// been to simply has none of these.
     @ViewBuilder
     private var visits: some View {
-        if store.hasVisits {
-            slips(store.visits, identifier: "place.visit")
+        if hasVisitsBand {
+            slips(store.visits, identifier: "place.visit", lead: AteMetrics.loose)
         }
     }
 
-    /// Everybody else's visits here, newest first.
+    /// Everybody else's visits here, newest first — `gap:12px` under yours, or `loose` under the
+    /// menu when you have none.
     @ViewBuilder
     private var entries: some View {
+        let lead = hasVisitsBand ? AteMetrics.placeSlipGap : AteMetrics.loose
         switch store.entries.phase {
         case .loading:
             SlipSkeleton(count: 1, hasByline: true)
                 .padding(.horizontal, AteMetrics.listGutter)
+                .padding(.top, lead)
         case .empty, .signedOut:
             EmptyView()
         case .failed(let message):
@@ -173,30 +186,53 @@ struct PlaceScreen: View {
                 .ateText(.meta)
                 .foregroundStyle(AtePalette.automatic.muted)
                 .frame(maxWidth: .infinity)
+                .padding(.top, lead)
         case .ready:
-            slips(store.entries, identifier: "place.slip")
+            slips(store.entries, identifier: "place.slip", lead: lead)
+        }
+    }
+
+    /// Whether your visits hold a place in the list — even before they have loaded, as their own
+    /// stack did.
+    private var hasVisitsBand: Bool { store.hasVisits }
+
+    /// Whether everybody else's do.
+    private var hasEntriesBand: Bool {
+        switch store.entries.phase {
+        case .empty, .signedOut: false
+        case .loading, .failed, .ready: true
         }
     }
 
     // MARK: - Pieces
 
-    private func slips(_ list: EntryListStore, identifier: String) -> some View {
-        LazyVStack(alignment: .leading, spacing: AteMetrics.placeSlipGap) {
-            ForEach(list.entries) { entry in
-                EntrySlip(
-                    slip: EntrySlipPresentation.placeVisit(entry),
-                    onOpen: { onOpen(entry) },
-                    onProfile: entry.isMine ? nil : { onProfile(entry.authorID) },
-                    onSave: entry.isMine ? nil : { onSave(entry, $0) },
-                    // No `onPlace`, and no foot line to carry one: every slip here is at *this*
-                    // place, so a pin would be a door back into the room it is already in.
-                    onDish: { onDish($0.dishID) },
-                    identifier: identifier
-                )
-                .task { await list.loadMoreIfNeeded(after: entry) }
-            }
+    /// A list's slips as rows of the page's lazy stack: `lead` above the first, `gap:12px` between.
+    /// A list with no slips yet still holds its place, as its own stack used to.
+    @ViewBuilder
+    private func slips(_ list: EntryListStore, identifier: String, lead: CGFloat) -> some View {
+        if list.entries.isEmpty {
+            gap(lead)
         }
-        .padding(.horizontal, AteMetrics.listGutter)
+        ForEach(list.entries) { entry in
+            EntrySlip(
+                slip: EntrySlipPresentation.placeVisit(entry),
+                onOpen: { onOpen(entry) },
+                onProfile: entry.isMine ? nil : { onProfile(entry.authorID) },
+                onSave: entry.isMine ? nil : { onSave(entry, $0) },
+                // No `onPlace`, and no foot line to carry one: every slip here is at *this*
+                // place, so a pin would be a door back into the room it is already in.
+                onDish: { onDish($0.dishID) },
+                identifier: identifier
+            )
+            .task { await list.loadMoreIfNeeded(after: entry) }
+            .padding(.top, entry.id == list.entries.first?.id ? lead : AteMetrics.placeSlipGap)
+            .padding(.horizontal, AteMetrics.listGutter)
+        }
+    }
+
+    /// An empty row `height` tall — the space an empty stack used to take in the page.
+    private func gap(_ height: CGFloat) -> some View {
+        Color.clear.frame(height: 0).padding(.top, height)
     }
 }
 

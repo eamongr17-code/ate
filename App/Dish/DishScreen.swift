@@ -28,7 +28,10 @@ struct DishScreen: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: AteMetrics.loose) {
+            // One lazy stack, and every review is one of its own rows — never a `LazyVStack` of
+            // reviews inside a `VStack` under the header, the shape that locked the Feed's main
+            // thread for minutes (`FeedScreen`).
+            LazyVStack(alignment: .leading, spacing: 0) {
                 switch store.isSettled ? store.header : .loading {
                 case .loading:
                     VStack(alignment: .leading, spacing: AteMetrics.loose) {
@@ -51,9 +54,12 @@ struct DishScreen: View {
                         hero
                         title(summary)
                         aggregate(summary)
-                        reviews
                     }
                     .transition(.opacity)
+                    // The reviews are rows of this stack, not a band inside the header's; each case
+                    // puts the header's `loose` gap above its first row itself.
+                    reviews
+                        .transition(.opacity)
                 }
             }
             .ateAnimation(AteMotion.fillIn, value: store.isSettled)
@@ -220,34 +226,50 @@ struct DishScreen: View {
         case .loading:
             ReviewSkeleton()
                 .padding(.horizontal, AteMetrics.gutter)
+                .padding(.top, AteMetrics.loose)
         case .empty:
             // Nobody has written about it yet. Honest, and not an instruction.
             AteEmptyState(title: "Nobody's written\nabout this yet.")
+                .padding(.top, AteMetrics.loose)
         case .signedOut:
             AteEmptyState(title: "Nobody's\nsigned in.")
+                .padding(.top, AteMetrics.loose)
         case .failed(let message):
             AteEmptyState(title: message)
+                .padding(.top, AteMetrics.loose)
         case .ready:
-            LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(store.reviews) { review in
-                    DishReviewRow(
-                        review: review,
-                        onOpen: { onReview(review) },
-                        // Your own "You" is not a door, exactly as on a place's visits: the You
-                        // tab is your profile. The row still opens your entry.
-                        onProfile: review.isMine ? nil : review.author.map { author in { onProfile(author.id) } }
-                    )
-                    .task { await store.loadMoreIfNeeded(after: review) }
-                }
-                if let message = store.inlineErrorMessage {
-                    Text(message)
-                        .ateText(.meta)
-                        .foregroundStyle(AtePalette.automatic.muted)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, AteMetrics.regular)
-                }
-            }
+            reviewRows
+        }
+    }
+
+    /// The reviews, one row each of the page's lazy stack (see `body`), touching — the rows carry
+    /// their own hairline — with the header's `loose` gap above the first.
+    @ViewBuilder
+    private var reviewRows: some View {
+        if store.reviews.isEmpty, store.inlineErrorMessage == nil {
+            // What the list's own (empty) stack used to hold: the gap above it, and nothing.
+            Color.clear.frame(height: 0).padding(.top, AteMetrics.loose)
+        }
+        ForEach(store.reviews) { review in
+            DishReviewRow(
+                review: review,
+                onOpen: { onReview(review) },
+                // Your own "You" is not a door, exactly as on a place's visits: the You
+                // tab is your profile. The row still opens your entry.
+                onProfile: review.isMine ? nil : review.author.map { author in { onProfile(author.id) } }
+            )
+            .task { await store.loadMoreIfNeeded(after: review) }
+            .padding(.top, review.id == store.reviews.first?.id ? AteMetrics.loose : 0)
             .padding(.horizontal, AteMetrics.listGutter)
+        }
+        if let message = store.inlineErrorMessage {
+            Text(message)
+                .ateText(.meta)
+                .foregroundStyle(AtePalette.automatic.muted)
+                .frame(maxWidth: .infinity)
+                .padding(.top, AteMetrics.regular)
+                .padding(.top, store.reviews.isEmpty ? AteMetrics.loose : 0)
+                .padding(.horizontal, AteMetrics.listGutter)
         }
     }
 }
