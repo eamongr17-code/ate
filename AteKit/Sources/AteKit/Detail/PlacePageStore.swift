@@ -38,6 +38,10 @@ public final class PlacePageStore {
     public static let menuPageSize = PlacePageClient.maximumDishes
 
     public let restaurantID: UUID
+    /// The place's name as the row that opened it printed it (round 6) — the page's title at once,
+    /// before the header read answers. `nil` when nothing on hand knew it.
+    public let previewName: String?
+    private let previews: PlacePreviews?
     public let source: DetailSource
 
     public private(set) var header: Header = .loading
@@ -67,9 +71,12 @@ public final class PlacePageStore {
         menuPageSize: Int = PlacePageStore.menuPageSize,
         savedDishes: SavedDishBroadcast? = nil,
         deletions: EntryDeletions? = nil,
+        previews: PlacePreviews? = nil,
         analytics: @escaping AnalyticsRecorder = { _ in }
     ) {
         self.restaurantID = restaurantID
+        self.previews = previews
+        self.previewName = previews?.name(for: restaurantID)
         self.source = source
         self.places = places
         self.menuPageSize = menuPageSize
@@ -193,6 +200,7 @@ public final class PlacePageStore {
             let summary = try await places.placeSummary(restaurantID: restaurantID)
             hasLoadedHeader = true
             header = .ready(summary)
+            previews?.note(restaurantID, name: summary.name)
             recordViewIfNeeded()
         } catch is CancellationError {
             return

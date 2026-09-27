@@ -94,7 +94,11 @@ struct EntrySlip: View {
                         composition: slip.words,
                         style: .slipProse,
                         lineLimit: slip.wordsLineLimit,
-                        onScoreDish: onDish.map { open in { (dishID: UUID) in open(scoredDish(dishID)) } }
+                        onScoreDish: onDish.map { open in { (dishID: UUID) in
+                            let dish = scoredDish(dishID)
+                            notePreview(dish)
+                            open(dish)
+                        } }
                     )
                 }
             }
@@ -173,8 +177,22 @@ struct EntrySlip: View {
     /// score are the item, and the item has a page. Without one it falls back to opening the entry,
     /// which is what a slip did before those pages existed. `nil` when the whole slip is one button.
     private func dishAction(_ dish: AteSlip.Dish, interactive: Bool) -> (() -> Void)? {
-        if let onDish { return { onDish(dish) } }
+        if let onDish {
+            return {
+                notePreview(dish)
+                onDish(dish)
+            }
+        }
         return interactive ? onOpen : nil
+    }
+
+    /// What this slip knows about a dish, left for its page to draw from at once (round 6): the name
+    /// and the place. Not the score — on a slip that is one person's, never the dish's aggregate.
+    private func notePreview(_ dish: AteSlip.Dish) {
+        guard dish.name.isEmpty == false else { return }
+        DishPreviews.shared.note(DishPreview(
+            dishID: dish.dishID, name: dish.name, restaurantID: slip.placeID, restaurantName: slip.place
+        ))
     }
 
     // MARK: - The foot line
@@ -236,6 +254,8 @@ struct EntrySlip: View {
 
         if interactive, let onPlace, let placeID = slip.placeID {
             Button {
+                // Its page draws the name at once (round 6).
+                if let place = slip.place { PlacePreviews.shared.note(placeID, name: place) }
                 onPlace(placeID)
             } label: {
                 name

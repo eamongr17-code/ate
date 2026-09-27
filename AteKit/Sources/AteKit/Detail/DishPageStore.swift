@@ -48,8 +48,12 @@ public final class DishPageStore: SavedDishObserving, EntryDeletionObserving {
     public private(set) var inlineErrorMessage: String?
     /// The viewer's bookmark, wherever it was last changed.
     public private(set) var isSaved = false
+    /// What the surface this page was opened from already knew (round 6) — drawn at once, before
+    /// the reads answer, in the header's own final layout.
+    public let preview: DishPreview?
 
     private let dishes: any DishPageReading
+    private let previews: DishPreviews?
     private let analytics: AnalyticsRecorder
     private let pageSize: Int
     private var nextCursor: DishReviewCursor?
@@ -70,12 +74,15 @@ public final class DishPageStore: SavedDishObserving, EntryDeletionObserving {
         pageSize: Int = DishPageStore.reviewPageSize,
         savedDishes: SavedDishBroadcast? = nil,
         deletions: EntryDeletions? = nil,
+        previews: DishPreviews? = nil,
         analytics: @escaping AnalyticsRecorder = { _ in }
     ) {
         self.dishID = dishID
         self.source = source
         self.dishes = dishes
         self.pageSize = pageSize
+        self.previews = previews
+        self.preview = previews?.preview(for: dishID)
         self.analytics = analytics
         savedDishes?.add(self)
         deletions?.add(self)
@@ -173,6 +180,8 @@ public final class DishPageStore: SavedDishObserving, EntryDeletionObserving {
             hasLoadedHeader = true
             header = .ready(summary)
             isSaved = summary.isSaved
+            // The next time this dish is opened, from anywhere, it draws whole at once.
+            previews?.note(DishPreview(summary))
             recordViewIfNeeded()
         } catch is CancellationError {
             return

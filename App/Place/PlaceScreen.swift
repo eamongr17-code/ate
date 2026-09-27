@@ -52,6 +52,21 @@ struct PlaceScreen: View {
                             gap(AteMetrics.loose)
                         }
                     }
+                } else if let name = store.previewName {
+                    // The name the opening row printed, in its final place (round 6); the chips, the
+                    // menu and a visit wait as still shapes at their sizes.
+                    VStack(alignment: .leading, spacing: AteMetrics.loose) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            AteExactText(text: name, style: .placeTitle, alignment: .leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .accessibilityAddTraits(.isHeader)
+                            PlaceChipsSkeleton()
+                        }
+                        MenuSkeleton()
+                        SlipSkeleton(count: 1, hasByline: true)
+                    }
+                    .padding(.horizontal, AteMetrics.listGutter)
+                    .transition(.opacity)
                 } else {
                     PlacePageSkeleton()
                         .transition(.opacity)
@@ -141,6 +156,14 @@ struct PlaceScreen: View {
                 let letters = DishLetter.neighbourly(store.dishes.map { ($0.dishID, $0.name) })
                 ForEach(Array(store.dishes.enumerated()), id: \.element.id) { index, dish in
                     MenuDishRow(dish: dish, rank: index + 1, letter: letters[index], onPhoto: onMenuPhoto) {
+                        // Everything this row printed, for the dish page to draw at once (round 6):
+                        // the aggregate here IS the dish's, and its cover says whether it has photos.
+                        DishPreviews.shared.note(DishPreview(
+                            dishID: dish.dishID, name: dish.name,
+                            restaurantID: store.restaurantID, restaurantName: store.name,
+                            score: dish.score, photoURL: dish.coverURLString,
+                            hasPhotos: dish.coverURLString != nil
+                        ))
                         onDish(dish.dishID)
                     }
                         .task { await store.loadMoreDishesIfNeeded(after: dish) }
@@ -364,12 +387,20 @@ private struct PlaceHeaderSkeleton: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(AtePalette.automatic.hairline)
                 .frame(width: 220, height: 40)
-            HStack(spacing: 6) {
-                ForEach([64.0, 58.0, 82.0], id: \.self) { width in
-                    Capsule()
-                        .fill(AtePalette.automatic.hairline)
-                        .frame(width: width, height: AteMetrics.chipHeight)
-                }
+            PlaceChipsSkeleton()
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// The header's chips before they have arrived, at the chips' own height.
+private struct PlaceChipsSkeleton: View {
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach([64.0, 58.0, 82.0], id: \.self) { width in
+                Capsule()
+                    .fill(AtePalette.automatic.hairline)
+                    .frame(width: width, height: AteMetrics.chipHeight)
             }
         }
         .accessibilityHidden(true)

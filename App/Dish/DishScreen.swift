@@ -25,6 +25,7 @@ struct DishScreen: View {
 
     /// The shared full-screen viewer (browse lane, round 3): a hero photo opens it, swipeable.
     @Environment(\.atePhotoViewer) private var showPhotos
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         ScrollView {
@@ -34,12 +35,27 @@ struct DishScreen: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 switch store.isSettled ? store.header : .loading {
                 case .loading:
-                    VStack(alignment: .leading, spacing: AteMetrics.loose) {
-                        DishHeaderSkeleton()
+                    if let preview = store.preview {
+                        // What the row that opened it knew, drawn at once in the page's own layout
+                        // (round 6); the rest waits as still shapes at their final sizes.
+                        VStack(alignment: .leading, spacing: AteMetrics.loose) {
+                            previewHero(preview)
+                            title(name: preview.name, place: preview.restaurantName, placeID: preview.restaurantID)
+                            previewAggregate(preview)
+                        }
+                        .transition(.opacity)
                         ReviewSkeleton()
+                            .padding(.horizontal, AteMetrics.listGutter)
+                            .padding(.top, AteMetrics.loose)
+                            .transition(.opacity)
+                    } else {
+                        VStack(alignment: .leading, spacing: AteMetrics.loose) {
+                            DishHeaderSkeleton()
+                            ReviewSkeleton()
+                        }
+                        .padding(.horizontal, AteMetrics.listGutter)
+                        .transition(.opacity)
                     }
-                    .padding(.horizontal, AteMetrics.listGutter)
-                    .transition(.opacity)
                 case .unavailable:
                     AteEmptyState(title: "This dish\nisn't here.")
                         .ateEmptyPlacement(top: AteDetailPage.contentTop)
@@ -52,7 +68,7 @@ struct DishScreen: View {
                 case .ready(let summary):
                     VStack(alignment: .leading, spacing: AteMetrics.loose) {
                         hero
-                        title(summary)
+                        title(name: summary.name, place: summary.restaurantName, placeID: summary.restaurantID)
                         aggregate(summary)
                     }
                     .transition(.opacity)
@@ -121,30 +137,94 @@ struct DishScreen: View {
     private static let placeLinkHit = AteHitOutset(height: placeLinkHeight)
     private static let heroOverlap: CGFloat = 44
 
-    /// The dish at 38, and the place under it as the door back to the menu it came off.
-    private func title(_ summary: DishSummary) -> some View {
+    /// The dish at 38, and the place under it as the door back to the menu it came off. Before the
+    /// read, a place the opening row did not know is a still bar at the link's own height.
+    private func title(name: String, place: String?, placeID: UUID?) -> some View {
         VStack(alignment: .leading, spacing: AteMetrics.tight) {
-            AteExactText(text: summary.name, style: .entryPlace, alignment: .leading)
+            AteExactText(text: name, style: .entryPlace, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityAddTraits(.isHeader)
-            Button {
-                onPlace(summary.restaurantID)
-            } label: {
-                HStack(spacing: 2) {
-                    Text(summary.restaurantName).ateText(.rowTitle)
-                    AteIcon.chevron.view(size: 15)
+            if let place {
+                Button {
+                    guard let placeID else { return }
+                    PlacePreviews.shared.note(placeID, name: place)
+                    onPlace(placeID)
+                } label: {
+                    HStack(spacing: 2) {
+                        Text(place).ateText(.rowTitle)
+                        AteIcon.chevron.view(size: 15)
+                    }
+                    .foregroundStyle(AtePalette.automatic.muted)
+                    .frame(minHeight: Self.placeLinkHeight)
+                    .ateHitArea(Self.placeLinkHit)
                 }
-                .foregroundStyle(AtePalette.automatic.muted)
-                .frame(minHeight: Self.placeLinkHeight)
-                .ateHitArea(Self.placeLinkHit)
+                .buttonStyle(.plain)
+                .ateHitFootprint(Self.placeLinkHit)
+                .disabled(placeID == nil)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(place)
+                .accessibilityIdentifier("dish.place")
+            } else {
+                AteSkeletonBar(width: 110, height: 14, palette: .automatic)
+                    .frame(height: Self.placeLinkHeight)
             }
-            .buttonStyle(.plain)
-            .ateHitFootprint(Self.placeLinkHit)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(summary.restaurantName)
-            .accessibilityIdentifier("dish.place")
         }
         .padding(.horizontal, AteMetrics.listGutter)
+    }
+
+    // MARK: - Before the read (round 6)
+
+    /// The hero as the opening row knew it: its photo (the read may add the second), none when the
+    /// row knew the dish has none, and a still squircle when it could not tell.
+    @ViewBuilder
+    private func previewHero(_ preview: DishPreview) -> some View {
+        if let url = preview.photoURL {
+            PhotoCluster(
+                photos: [AtePhoto.remote(url)],
+                side: Self.heroPhoto,
+                topPadding: 6,
+                bottomPadding: 0,
+                overlap: Self.heroOverlap,
+                angles: AtePhotoAngles.dishHero
+            )
+            .padding(.leading, AteMetrics.listGutter - 6 + 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else if preview.hasPhotos != false {
+            RoundedRectangle(cornerRadius: AteMetrics.photoRadius(side: Self.heroPhoto), style: .continuous)
+                .fill(AtePalette.automatic.hairline)
+                .frame(width: Self.heroPhoto, height: Self.heroPhoto)
+                .padding(.top, 6)
+                .padding(.leading, AteMetrics.listGutter + 2)
+                .accessibilityHidden(true)
+        }
+    }
+
+    /// The aggregate as the opening row printed it — or its shape, still, until the read answers.
+    private func previewAggregate(_ preview: DishPreview) -> some View {
+        HStack(alignment: .center, spacing: 14) {
+            if let score = preview.score {
+                Text(ScoreFormat.average(score))
+                    .ateText(.dishScore)
+                    .monospacedDigit()
+                    .fixedSize()
+                    .accessibilityLabel("Rated \(ScoreFormat.average(score))")
+                VStack(alignment: .leading, spacing: 6) {
+                    starRow(for: score)
+                    AteSkeletonBar(width: 72, height: 12, palette: .automatic)
+                }
+            } else {
+                // The number's own box at 64, and the stars' row and the people line beside it.
+                AteSkeletonBar(width: 96, height: 52, palette: .automatic)
+                    .frame(height: AteTextStyle.dishScore.lineBox(dynamicTypeSize))
+                VStack(alignment: .leading, spacing: 6) {
+                    AteSkeletonBar(width: 108, height: 18, palette: .automatic)
+                    AteSkeletonBar(width: 72, height: 12, palette: .automatic)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, AteMetrics.listGutter)
+        .accessibilityHidden(preview.score == nil)
     }
 
     /// `gap:14px` — the number at 64, and beside it the star row and how many people.
@@ -224,8 +304,9 @@ struct DishScreen: View {
     private var reviews: some View {
         switch store.phase {
         case .loading:
+            // On the list gutter, where the rows it stands for will be.
             ReviewSkeleton()
-                .padding(.horizontal, AteMetrics.gutter)
+                .padding(.horizontal, AteMetrics.listGutter)
                 .padding(.top, AteMetrics.loose)
         case .empty:
             // Nobody has written about it yet. Honest, and not an instruction.

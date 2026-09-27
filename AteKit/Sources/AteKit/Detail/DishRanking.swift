@@ -42,9 +42,9 @@ extension RankedDish: DishRankable {}
 /// naturally (review_count 0) rather than needing a special case, and a `nil` score never compares
 /// as 0 — it sorts *after* every real score at the same review count.
 ///
-/// **This is not the order `place_dishes` returns.** That RPC sorts `score desc nulls last,
-/// people_count desc, name`, which is score-first and therefore lets the lonely 5.0 lead. The rule
-/// the product actually wants is the one above, so the page re-ranks what the server sends.
+/// **The server owns the menu's order.** Since 0030 `place_dishes` returns this very order, and the
+/// place page shows it as it arrives — it never re-sorts (``PlacePageStore``). This type is the
+/// rule written down: the in-memory stand-in sorts with it, and the tests pin it.
 public enum DishRanking {
     public static func rank(dishes: [Dish], stats: [DishStats]) -> [RankedDish] {
         let statsByDish = Dictionary(stats.map { ($0.dishID, $0) }, uniquingKeysWith: { first, _ in first })

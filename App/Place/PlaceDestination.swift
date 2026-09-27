@@ -34,12 +34,18 @@ struct PlaceDestination: View {
         self.onDish = onDish
         self.onOpen = onOpen
         self.onProfile = onProfile
+        #if DEBUG
+        let reads = SlowDetailReads.places(services.placePages)
+        #else
+        let reads = services.placePages
+        #endif
         _store = State(initialValue: PlacePageStore(
             restaurantID: restaurantID,
             source: source,
-            places: services.placePages,
+            places: reads,
             savedDishes: services.savedDishes,
             deletions: services.entryDeletions,
+            previews: PlacePreviews.shared,
             analytics: services.analytics
         ))
     }
