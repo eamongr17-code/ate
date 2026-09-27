@@ -85,16 +85,13 @@ enum ComposerDebugLaunch {
     static let voiceUndoArgument = "-ate-voice-undo"
     static let voiceRedoArgument = "-ate-voice-redo"
 
-    /// Round 5: holds the sort back 6s after Post, so the slow case — the hold running out, the
-    /// Summary standing without its receipt — can be driven on a sorter that answers fast.
-    static let slowSortArgument = "-ate-r5-slow-sort"
+    /// Holds the sort back 6s after Post, so the slow case (the hold running out, the Summary
+    /// standing without its receipt) can be driven on a sorter that answers fast.
+    static let slowSortArgument = "-ate-slow-sort"
     static let slowSortDelay: Duration = .seconds(6)
 
     static var isUITesting: Bool { has(uiTestingArgument) }
     static var slowsSort: Bool { has(slowSortArgument) }
-    /// …and stages two of the artboard's photos, so the Summary's photos can be seen landing.
-    static let r5PhotosArgument = "-ate-r5-photos"
-    static var stagesTwoPhotos: Bool { has(r5PhotosArgument) }
     static var drivesVoiceUndo: Bool { has(voiceUndoArgument) || has(voiceRedoArgument) }
     static var drivesVoiceRedo: Bool { has(voiceRedoArgument) }
     static var opensVoice: Bool { has(voiceArgument) }

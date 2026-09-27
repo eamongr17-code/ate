@@ -62,9 +62,6 @@ extension ComposerScreen {
         let analytics = services.analytics
 
         let result = await submission.submit(request)
-        #if DEBUG
-        NSLog("[ate] words saved after %dms", PostHold.milliseconds(since: startedAt))
-        #endif
         guard let card = result.card else {
             isSaving = false
             // Nothing was saved: a pick that lands now stays in the composer for the next Post.
@@ -100,12 +97,7 @@ extension ComposerScreen {
                 photoPaths: request.photoPaths,
                 tagTokens: request.tagTokens,
                 sixTokens: request.sixTokens,
-                sorted: { card in
-                    #if DEBUG
-                    NSLog("[ate] sort answered after %dms", PostHold.milliseconds(since: startedAt))
-                    #endif
-                    await sorted.fulfil(card)
-                }
+                sorted: { await sorted.fulfil($0) }
             )
         }
 
@@ -123,9 +115,6 @@ extension ComposerScreen {
         let outcome = PostHold.outcome(landed)
         let heldFor = PostHold.milliseconds(since: startedAt)
         analytics(EntryEvents.postHeld(outcome: outcome, milliseconds: heldFor))
-        #if DEBUG
-        NSLog("[ate] post held: %@ after %dms, entry %@", outcome.rawValue, heldFor, card.id.uuidString)
-        #endif
         let shown = landed.flatMap { $0 } ?? card
 
         // The Summary takes the cover; the entry page is already beneath it.
@@ -298,16 +287,10 @@ extension ComposerScreen {
             onSent: { nth in
                 analytics(EntryEvents.earlySortSent(nth: nth))
                 #if DEBUG
-                NSLog("[ate] early sort sent #%d", nth)
+                print("[ate] early sort sent #\(nth)")
                 #endif
             },
-            send: { input in
-                #if DEBUG
-                let sentAt = ContinuousClock.now
-                defer { NSLog("[ate] early sort done in %dms", PostHold.milliseconds(since: sentAt)) }
-                #endif
-                try await entries.previewSort(input)
-            }
+            send: { try await entries.previewSort($0) }
         )
         earlySort = scheduler
         scheduler.edited(model.earlySortInput)

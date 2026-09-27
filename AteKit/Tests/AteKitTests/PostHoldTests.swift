@@ -208,3 +208,20 @@ struct PostEventsTests {
         #expect(event.parameters == ["entry_id": id.uuidString.lowercased(), "wait_ms": "0"])
     }
 }
+
+@Suite("Round 5: the one quiet ask for photos")
+struct PhotoAccessAskTests {
+    @Test("asked only when never asked, and only over a printed receipt")
+    func onlyOnce() {
+        #expect(PhotoAccessAsk.shouldAsk(canAsk: true, isPrinted: true))
+        #expect(PhotoAccessAsk.shouldAsk(canAsk: false, isPrinted: true) == false, "asked before, or refused")
+        #expect(PhotoAccessAsk.shouldAsk(canAsk: true, isPrinted: false) == false, "never over a wait")
+    }
+
+    @Test("its answer is counted")
+    func counted() {
+        let event = SuggestionEvents.photoAccessAsked(granted: false)
+        #expect(event.name == "photo_access_asked")
+        #expect(event.parameters == ["source": "summary", "granted": "false"])
+    }
+}

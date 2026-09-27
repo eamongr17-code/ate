@@ -12,9 +12,8 @@ final class PostStagingDrive: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         let env = ProcessInfo.processInfo.environment
-        app.launchArguments = ["-ate-debug-signin", "-ate-ui-testing", "-ate-r5-photos",
-                               "-ate-r5-compose", env["ATE_VARIANT"] ?? "A"]
-        if env["ATE_SLOW_SORT"] == "1" { app.launchArguments.append("-ate-r5-slow-sort") }
+        app.launchArguments = ["-ate-debug-signin", "-ate-ui-testing"]
+        if env["ATE_SLOW_SORT"] == "1" { app.launchArguments.append("-ate-slow-sort") }
         if env["ATE_DARK"] == "1" { app.launchArguments += ["-AppleInterfaceStyle", "Dark"] }
     }
 

@@ -105,6 +105,7 @@ struct ComposerScreen: View {
                     actions: .live(services.entries, tagTokens: summaryTagTokens, sixTokens: summarySixTokens),
                     sorted: summarySorted,
                     wasLate: summaryWasLate,
+                    photoLibrary: services.photos,
                     places: services.places,
                     analytics: services.analytics,
                     onDone: { dismiss() },
@@ -170,11 +171,6 @@ struct ComposerScreen: View {
     private func runDebugLaunch() {
         if ComposerDebugLaunch.fakesCameraCapture, let image = UIImage(named: "Photos/ragu") {
             captured(image)
-        }
-        if ComposerDebugLaunch.stagesTwoPhotos, model.photos.isEmpty {
-            for name in ["ragu", "tiramisu"] {
-                if let image = UIImage(named: "Photos/\(name)") { captured(image) }
-            }
         }
         if ComposerDebugLaunch.opensVoice { startDictation() }
         if ComposerDebugLaunch.fakesCameraCover { isTakingPhoto = true }

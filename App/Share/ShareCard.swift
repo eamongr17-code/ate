@@ -22,10 +22,8 @@ struct ShareCard: View {
     /// Where the Summary's receipt is in its entrance (``ReceiptEntrance``). At rest everywhere else,
     /// and on every export.
     var pose: ReceiptPose = .settled
-    /// While feeding (A), the paper is clipped at its own foot — the slot it rises out of.
+    /// While it feeds, the paper is clipped at its own foot: the slot it rises out of.
     var isFeeding = false
-    /// While unfolding (B), the paper is drawn as two halves, the lower one folded back.
-    var isUnfolding = false
 
     /// `margin:30px 52px 0` — the card's side inset on the 390pt page.
     static let inset: CGFloat = 52
@@ -51,7 +49,7 @@ struct ShareCard: View {
     @ViewBuilder
     private var paper: some View {
         if isFeeding {
-            // A: the paper rises out of a slot at its own foot. Everything below the foot is inside
+            // The paper rises out of a slot at its own foot. Everything below the foot is inside
             // the printer; the mask reaches 1pt past it for the contact shadow, and well past the
             // other three sides.
             receipt
@@ -64,33 +62,8 @@ struct ShareCard: View {
                         .padding(.top, -Self.maskReach)
                         .padding(.bottom, -1)
                 }
-        } else if isUnfolding {
-            // B: two copies of the one receipt, halved at the fold; the lower one swings down flat.
-            ZStack {
-                receipt
-                    .mask { half(upper: true) }
-                receipt
-                    .mask { half(upper: false) }
-                    .rotation3DEffect(
-                        .degrees(pose.fold), axis: (x: 1, y: 0, z: 0), anchor: .center, perspective: 0.45
-                    )
-                    .accessibilityHidden(true)
-                    .allowsHitTesting(false)
-            }
         } else {
             receipt
-        }
-    }
-
-    /// One half of the paper, as a mask: the upper reaches up and out, the lower down and out (for
-    /// its contact shadow), and they meet at the fold.
-    private func half(upper: Bool) -> some View {
-        GeometryReader { proxy in
-            let reach = Self.maskReach
-            let fold = proxy.size.height / 2
-            Rectangle()
-                .frame(width: proxy.size.width + 2 * reach, height: fold + reach)
-                .offset(x: -reach, y: upper ? -reach : fold)
         }
     }
 

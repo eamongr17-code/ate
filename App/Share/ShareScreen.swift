@@ -198,9 +198,9 @@ struct ShareStage: View {
     private static let disabledOpacity: Double = 0.35
 }
 
-/// **The Summary's receipt, entering** (``ReceiptEntranceStyle``): it is only ever made once its
-/// shape is final, so its first frame is the first frame of its entrance, and nothing about it
-/// changes size after.
+/// **The Summary's receipt, entering: the printer feed** (``ReceiptEntrance``). It is only ever
+/// made once its shape is final, so its first frame is the first frame of its entrance, and nothing
+/// about it changes size after.
 private struct EnteringReceipt: View {
     let artefact: ShareArtefact
     let photos: [AtePhoto]
@@ -211,75 +211,36 @@ private struct EnteringReceipt: View {
     let printingLift: CGFloat
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private let style = ReceiptEntranceStyle.current
-    @State private var pose: ReceiptPose
-    @State private var isFeeding: Bool
-    @State private var isUnfolding: Bool
-
-    init(
-        artefact: ShareArtefact, photos: [AtePhoto], isPrinting: Bool, breathes: Bool,
-        onAddPlace: (() -> Void)?, scale: CGFloat, printingLift: CGFloat
-    ) {
-        self.artefact = artefact
-        self.photos = photos
-        self.isPrinting = isPrinting
-        self.breathes = breathes
-        self.onAddPlace = onAddPlace
-        self.scale = scale
-        self.printingLift = printingLift
-        let style = ReceiptEntranceStyle.current
-        _pose = State(initialValue: .start(style))
-        _isFeeding = State(initialValue: style == .feed)
-        _isUnfolding = State(initialValue: style == .fold)
-    }
+    @State private var pose = ReceiptPose.start
+    @State private var isFeeding = true
 
     var body: some View {
         ScaledToFit(scale: scale) {
             ShareCard(
                 artefact: artefact, photos: photos, isPrinting: isPrinting, breathes: breathes,
-                onAddPlace: onAddPlace, pose: pose, isFeeding: isFeeding, isUnfolding: isUnfolding
+                onAddPlace: onAddPlace, pose: pose, isFeeding: isFeeding
             )
         }
         // A placeless receipt sits a little high, and settles once a place prints it.
         .offset(y: isPrinting ? -printingLift : 0)
         .ateAnimation(AteMotion.settle, value: isPrinting)
-        // B's arrival: a small drop from above, and in.
-        .offset(y: AteMotion.printOffset * (1 - pose.arrived))
-        .opacity(pose.arrived)
         .task { await enter() }
     }
 
     private func enter() async {
         guard reduceMotion == false else {
-            settle()
+            pose = .settled
+            isFeeding = false
             return
         }
         try? await Task.sleep(for: ReceiptEntrance.groundLead)
-        switch style {
-        case .feed:
-            withAnimation(ReceiptEntrance.feedRise) { pose.fed = 1 }
-            try? await Task.sleep(for: ReceiptEntrance.feedRiseTime)
-            isFeeding = false
-            withAnimation(ReceiptEntrance.tear) { pose.tilt = ReceiptPose.restingTilt }
-            try? await Task.sleep(for: ReceiptEntrance.tearLead)
-        case .fold:
-            withAnimation(ReceiptEntrance.arrive) { pose.arrived = 1 }
-            try? await Task.sleep(for: ReceiptEntrance.arriveLead)
-            withAnimation(ReceiptEntrance.unfold) { pose.fold = 0 }
-            try? await Task.sleep(for: ReceiptEntrance.unfoldTime)
-        }
-        withAnimation(ReceiptEntrance.photosLand) { pose.photos = 1 }
-        if style == .fold {
-            // Flat by now: one receipt again, the same pixels.
-            try? await Task.sleep(for: .milliseconds(400))
-            isUnfolding = false
-        }
-    }
-
-    private func settle() {
-        pose = .settled
+        withAnimation(ReceiptEntrance.feedRise) { pose.fed = 1 }
+        try? await Task.sleep(for: ReceiptEntrance.feedRiseTime)
+        // All the way out: one receipt again, the same pixels, torn off.
         isFeeding = false
-        isUnfolding = false
+        withAnimation(ReceiptEntrance.tear) { pose.tilt = ReceiptPose.restingTilt }
+        try? await Task.sleep(for: ReceiptEntrance.tearLead)
+        withAnimation(ReceiptEntrance.photosLand) { pose.photos = 1 }
     }
 }
 

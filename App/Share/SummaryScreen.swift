@@ -34,6 +34,8 @@ struct SummaryScreen: View {
     let sorted: Latch<EntryCard?>?
     /// "Posting…" ran out before the sort answered: the receipt is still to come.
     let wasLate: Bool
+    /// The camera roll, for the one quiet ask (``PhotoAccessAsk``). `nil` asks nothing.
+    let photoLibrary: (any AtePhotoLibrary)?
 
     @State private var sender = ShareSender()
     @State private var isPickingPlace = false
@@ -48,6 +50,7 @@ struct SummaryScreen: View {
         actions: EntrySummaryStore.Actions,
         sorted: Latch<EntryCard?>? = nil,
         wasLate: Bool = false,
+        photoLibrary: (any AtePhotoLibrary)? = nil,
         places: any PlaceDirectory,
         analytics: @escaping AnalyticsRecorder,
         onDone: @escaping () -> Void,
@@ -56,6 +59,7 @@ struct SummaryScreen: View {
         _store = State(initialValue: EntrySummaryStore(card: card, actions: actions))
         self.sorted = sorted
         self.wasLate = wasLate
+        self.photoLibrary = photoLibrary
         self.photos = photos
         self.handle = handle
         self.places = places
@@ -79,6 +83,7 @@ struct SummaryScreen: View {
         )
         .task { await store.watch() }
         .task { await hear() }
+        .task(id: store.phase == .printed) { await askForPhotosOnce() }
         .onChange(of: store.card) { _, card in onUpdated(card) }
         .onChange(of: store.showsReceipt, initial: true) { _, shows in countEntrance(shows) }
         .sheet(item: $sender.sending, onDismiss: { store.shareEnded() }, content: { sending in
@@ -124,6 +129,22 @@ struct SummaryScreen: View {
         store.adopt(card)
     }
 
+    /// **The one ask for the camera roll** (round 5): someone who was never asked would never see
+    /// "From your photos", which only appears when there is something to suggest. So once a receipt
+    /// has printed and settled, the system's own prompt comes up, once, with its purpose string and
+    /// nothing of ours. Granted, the journal's photo-stack button appears when the Summary closes;
+    /// refused, it stays hidden, and nothing asks again.
+    private func askForPhotosOnce() async {
+        guard let photoLibrary,
+              PhotoAccessAsk.shouldAsk(canAsk: photoLibrary.canAsk, isPrinted: store.phase == .printed)
+        else { return }
+        try? await Task.sleep(for: PhotoAccessAsk.delay)
+        guard Task.isCancelled == false, photoLibrary.canAsk else { return }
+        let granted = await photoLibrary.requestAuthorization()
+        analytics(SuggestionEvents.photoAccessAsked(granted: granted))
+        if granted { NotificationCenter.default.post(name: .atePhotoAccessGranted, object: nil) }
+    }
+
     /// As long as the store itself watches (30 polls of 0.7s).
     private static let patience: Duration = .seconds(21)
 
@@ -131,9 +152,6 @@ struct SummaryScreen: View {
     private func countEntrance(_ shows: Bool) {
         guard shows, hasCountedEntrance == false, store.phase == .printed else { return }
         hasCountedEntrance = true
-        #if DEBUG
-        NSLog("[ate] receipt entered after %dms on the Summary", PostHold.milliseconds(since: appearedAt))
-        #endif
         analytics(EntryEvents.summaryReceiptEntered(
             entryID: store.card.id,
             waitMilliseconds: wasLate ? PostHold.milliseconds(since: appearedAt) : 0
@@ -166,4 +184,10 @@ struct SummaryScreen: View {
         // A render that produced nothing opens no sheet — Share is live again at once.
         if sender.sending == nil { store.shareEnded() }
     }
+}
+
+extension Notification.Name {
+    /// The Summary's one ask for the camera roll was answered yes: the journal counts its
+    /// suggestions again, so "From your photos" can appear.
+    static let atePhotoAccessGranted = Notification.Name("ate.photoAccessGranted")
 }

@@ -35,7 +35,7 @@ final class ComposeRound5UITests: XCTestCase {
     /// The sort outlasts the hold: the Summary stands with its pills and no receipt, then the receipt
     /// enters, printed — Share only ever comes on with it.
     func testALateSortEntersWhenFinal() {
-        app.launchArguments += ["-ate-open-composer", "-ate-seed-draft", "-ate-r5-slow-sort"]
+        app.launchArguments += ["-ate-open-composer", "-ate-seed-draft", "-ate-slow-sort"]
         app.launch()
         let post = app.buttons["composer.post"]
         XCTAssertTrue(post.waitForExistence(timeout: 10))
@@ -77,6 +77,31 @@ final class ComposeRound5UITests: XCTestCase {
         XCTAssertFalse(app.buttons["journal.suggestions"].waitForExistence(timeout: 2),
                        "and no button to an empty page")
         attach("r5-journal-after-last-dismiss")
+    }
+
+    /// Never asked for photos: no button on the journal. The first post's Summary asks once, and
+    /// granted, the button is there when the Summary closes.
+    func testTheFirstPostAsksForPhotosOnce() {
+        app.launchArguments += ["-ate-photos-undetermined"]
+        app.launch()
+        XCTAssertTrue(app.buttons["New entry"].waitForExistence(timeout: 10))
+        sleep(1)
+        XCTAssertFalse(app.buttons["journal.suggestions"].exists, "never asked, nothing to suggest yet")
+        app.terminate()
+
+        app.launchArguments += ["-ate-open-composer", "-ate-seed-draft"]
+        app.launch()
+        let post = app.buttons["composer.post"]
+        XCTAssertTrue(post.waitForExistence(timeout: 10))
+        post.tap()
+        let done = app.buttons["share.done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 8))
+        // The receipt enters and settles, then the one ask (the preview library says yes).
+        sleep(4)
+        done.tap()
+        XCTAssertTrue(app.buttons["journal.suggestions"].waitForExistence(timeout: 8),
+                      "granted: the photo-stack button is on the journal")
+        attach("r5-journal-after-ask")
     }
 
     private func attach(_ name: String) {
