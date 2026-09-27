@@ -74,15 +74,17 @@ struct YouRPCContractTests {
         }
     }
 
-    @Test("score_histogram is ten half-step buckets with the zeros left in")
+    @Test("score_histogram is ten half-step buckets plus the secret 6.0, with the zeros left in")
     func histogramIsTenBuckets() async throws {
         let client = try await client()
         let buckets = try await histogram(client, try await me(client))
 
-        #expect(buckets.count == 10, "the chart draws ten bars and fills no gaps of its own")
-        #expect(buckets.map(\.score) == buckets.map(\.score).sorted(), "buckets ascend 0.5 → 5.0")
+        // 0041: ten half steps, then the secret 6 — eleven bars, no gaps filled client-side.
+        #expect(buckets.count == 11, "the chart draws eleven bars and fills no gaps of its own")
+        #expect(buckets.map(\.score) == buckets.map(\.score).sorted(), "buckets ascend 0.5 → 5.0, then 6.0")
         #expect(buckets.first?.score == Rating(exactly: 0.5))
-        #expect(buckets.last?.score == Rating(exactly: 5.0))
+        #expect(buckets.dropLast().last?.score == Rating(exactly: 5.0))
+        #expect(buckets.last?.score == Rating(exactly: 6.0))
         // A dish can be scored twice at the same value (sittings), never the other way round.
         #expect(buckets.allSatisfy { $0.dishCount <= $0.reviewCount })
         #expect(buckets.contains { $0.reviewCount == 0 }, "a zero bucket must still arrive as a row")
@@ -203,7 +205,7 @@ struct YouRPCContractTests {
         #expect(statement.dishes >= 0)
         #expect(statement.stars >= 0)
         if let average = statement.average {
-            #expect(average >= 0.5 && average <= 5.0, "an average outside the scale is not an average")
+            #expect(average >= 0.5 && average <= 6.0, "an average outside 0.5…6 is not an average")
             #expect(statement.dishes > 0)
         }
         // "Top of the month": at most three, best first.
