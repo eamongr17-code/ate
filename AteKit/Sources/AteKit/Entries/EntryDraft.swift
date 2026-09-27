@@ -108,6 +108,9 @@ public protocol EntryDraftStoring: Sendable {
     /// the id matches, so a late call from a composer that was already finished cannot delete the
     /// draft somebody started afterwards.
     func clear(draftID: UUID?)
+    /// Removes the draft but **leaves its staged photos on disk** — Done, whose photos are still to
+    /// be uploaded from those very files (the upload runs after the draft is gone).
+    func clear(draftID: UUID?, keepingPhotos: Bool)
     /// Where a draft's staged photos live. Created on demand.
     func photoDirectory(for draftID: UUID) -> URL
     /// Hands a draft written before drafts had owners to whoever is signed in now.
@@ -116,6 +119,8 @@ public protocol EntryDraftStoring: Sendable {
     func discardUnowned()
     /// Deletes one person's draft and staged photos — their account is gone.
     func discardDrafts(of userID: UUID)
+    /// Where every draft's photo folder lives — what the sweep walks. `nil`: nothing to sweep.
+    var draftPhotosRoot: URL? { get }
 }
 
 public extension EntryDraftStoring {
@@ -123,4 +128,18 @@ public extension EntryDraftStoring {
     func adoptUnownedDraft() {}
     func discardUnowned() {}
     func discardDrafts(of userID: UUID) {}
+    /// A store that keeps no photos of its own (memory, tests) clears the draft the ordinary way.
+    func clear(draftID: UUID?, keepingPhotos: Bool) { clear(draftID: draftID) }
+    var draftPhotosRoot: URL? { nil }
+}
+
+public extension EntryDraftStoring {
+    /// **Every photo the saved draft still references** — whatever the composer is doing now. An
+    /// edit's composer works in the entry's own folder, and a parked new-entry draft (kept for days)
+    /// lives in another: the sweep must keep the draft's files either way.
+    var draftReferencedPhotoPaths: Set<String> {
+        guard let draft = load() else { return [] }
+        let directory = photoDirectory(for: draft.id)
+        return Set(draft.photoFiles.map { directory.appending(path: $0).path() })
+    }
 }

@@ -20,7 +20,7 @@ extension InlineTokenEditor {
         private var renderedRevision = -1
         private var renderedTypography: Typography?
         /// Set while we are writing the storage ourselves, so the derive-back pass stays quiet.
-        private var isRendering = false
+        var isRendering = false
         private var servedFocusRequest = 0
         private var servedUndoRequest = 0
         private var servedRedoRequest = 0
@@ -35,6 +35,7 @@ extension InlineTokenEditor {
 
         private var style: AteTextStyle { typography.style }
         private var palette: AtePalette { typography.palette }
+        var selectedTokenID: UUID? { typography.selectedTokenID }
         private var dynamicTypeSize: DynamicTypeSize { typography.dynamicTypeSize }
         private var displayScale: CGFloat { typography.displayScale }
         private var colorScheme: ColorScheme { typography.colorScheme }
@@ -149,7 +150,12 @@ extension InlineTokenEditor {
                 )
             }
             storage.endEditing()
+            sweepSpecialPills(spans, in: view)
         }
+
+        /// Pills already swept, by token and value — a sweep is once per pill per score, however many
+        /// times the words are re-rendered around it.
+        var sweptPills: Set<String> = []
 
         /// Writes a composition into the text view, putting the caret where the host asked for it — or
         /// leaving it where it was, if the host had no opinion.
@@ -381,6 +387,8 @@ extension InlineTokenEditor {
             /// ago can never land on characters that have changed since.
             let literal: String
             let token: EntryToken
+            /// Said in words ("four and a half") rather than typed as a number.
+            var isPhrase = false
         }
 
         /// "Typing a number after a dish becomes a score token." Read-only: the condition is the
@@ -392,13 +400,11 @@ extension InlineTokenEditor {
             let lastCharacter = storage.attributedSubstring(
                 from: NSRange(location: caret.location - 1, length: 1)
             ).string
-            let previous = caret.location >= 2
-                ? storage.attributedSubstring(from: NSRange(location: caret.location - 2, length: 1)).string
-                : ""
-            guard ScoreLiteral.isMoveOn(
-                lastCharacter,
-                afterDigit: previous.count == 1 && previous.first?.isNumber == true
-            ) else { return nil }
+            // A `.` after a digit waits only while it could still be a decimal: after "4.5" it is the
+            // sentence ending, and "it was a 4.5." promotes at it (round 4).
+            guard ScoreLiteral.isMoveOn(lastCharacter, typedAt: caret.location - 1, in: storage.string) else {
+                return nil
+            }
 
             let model = composition(from: view)
             // Both finders refuse a span a token already covers, so a Score-key pill is never
@@ -414,7 +420,10 @@ extension InlineTokenEditor {
             let end = model.displayOffset(forPlainOffset: found.span.endLocation)
             let range = NSRange(location: start, length: end - start)
             guard let literal = text(at: range, in: view) else { return nil }
-            return Promotion(range: range, literal: literal, token: EntryToken(kind: found.kind))
+            return Promotion(
+                range: range, literal: literal, token: EntryToken(kind: found.kind),
+                isPhrase: score != nil && model.isPhrase(found.span)
+            )
         }
 
         /// Whether the words still say there what they said when this was noticed.
@@ -453,7 +462,9 @@ extension InlineTokenEditor {
             // `primaryLanguage == "dictation"` is how UIKit reports that the text arrived from the
             // keyboard's mic rather than its keys. It is the only signal there is, and being wrong
             // costs one mislabelled funnel event — never a word of anybody's entry.
-            callbacks.onTokenPromoted(promotion.token, view.textInputMode?.primaryLanguage == "dictation")
+            callbacks.onTokenPromoted(
+                promotion.token, view.textInputMode?.primaryLanguage == "dictation", promotion.isPhrase
+            )
         }
 
         // MARK: Tapping — a token, or the writing area
@@ -484,17 +495,6 @@ extension InlineTokenEditor {
             // `closestPosition` snaps to a character boundary, so a tap in the middle of a pill can
             // land on either side of it: check both.
             return model.token(atDisplayOffset: offset) ?? model.token(atDisplayOffset: offset - 1)
-        }
-
-        // MARK: UIGestureRecognizerDelegate
-
-        /// Never take the tap away from the text view's own interaction — caret placement, selection
-        /// handles and the loupe are all native behaviour we are not in the business of replacing.
-        func gestureRecognizer(
-            _ gestureRecognizer: UIGestureRecognizer,
-            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
-        ) -> Bool {
-            true
         }
     }
 }

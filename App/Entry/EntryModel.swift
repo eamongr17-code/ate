@@ -242,7 +242,15 @@ final class EntryModel: SavedDishObserving {
         if await services.outbox.isStuck(entryID: route.entryID) {
             await services.outbox.retry(entryID: route.entryID)
         } else {
-            _ = try? await services.entries.sort(entryID: route.entryID, force: true)
+            // Forced, and carrying the entry's chips and 6s (round 4) — from the outbox, which kept
+            // them while the first sort was owed, or rebuilt from its lines. A 6 is never inferred, so
+            // a re-print without them would print it as prose.
+            let tokens = ResortTokens.resolve(
+                queued: await services.outbox.queued(entryID: route.entryID), card: card
+            )
+            _ = try? await services.entries.sort(
+                entryID: route.entryID, force: true, tagTokens: tokens.tags, sixTokens: tokens.sixes
+            )
         }
         await reload()
     }

@@ -152,12 +152,38 @@ final class ComposerModel: DictationTarget {
         persist()
     }
 
-    /// Appends photos that finished staging, against the cluster **as it is now** — anything
-    /// already there is skipped, and the cap is the entry's five.
-    func addPhotos(_ added: [StagedPhoto]) {
-        photos = StagedMerge.appending(added, to: photos, id: \.id, limit: EntryDraft.photoLimit)
+    /// Library picks, in the cluster **now** as still tiles (round 4: a pick appears the instant the
+    /// picker closes). Against the cluster as it is — a photo already there is skipped, and the cap is
+    /// the entry's five. Returns the ids that went in, which the caller then writes to disk.
+    func beginPhotos(ids: [String]) -> [String] {
+        let pending = ids.map(StagedPhoto.init(pendingID:))
+        let before = Set(photos.map(\.id))
+        photos = StagedMerge.appending(pending, to: photos, id: \.id, limit: EntryDraft.photoLimit)
+        return photos.map(\.id).filter { before.contains($0) == false }
+    }
+
+    /// A pending pick has something to draw.
+    func previewPhoto(id: String, image: Image) {
+        guard let index = photos.firstIndex(where: { $0.id == id }), photos[index].isPending else { return }
+        photos[index].image = image
+    }
+
+    /// A pending pick is on disk: it is a photo like any other now, and the draft keeps it.
+    func finishPhoto(id: String, fileName: String, image: Image) {
+        guard let index = photos.firstIndex(where: { $0.id == id }) else { return }
+        photos[index].fileName = fileName
+        photos[index].image = image
+        photos[index].isPending = false
         persist()
     }
+
+    /// A pick that could not be read goes back out of the cluster.
+    func dropPhoto(id: String) {
+        photos.removeAll { $0.id == id && $0.isPending }
+    }
+
+    /// Done waits on these: a photo on screen but not on disk would be a photo Done drops.
+    var hasPendingPhotos: Bool { photos.contains(where: \.isPending) }
 
     /// Takes one staged photo back out. Its file stays in the draft's folder until the draft goes —
     /// an undo-free removal should not be the thing that deletes bytes.
@@ -170,7 +196,8 @@ final class ComposerModel: DictationTarget {
     /// Every mutation ends here. The words are on disk before the next keystroke, which is what
     /// "your words save instantly" means while they are still being written.
     private func persist() {
-        guard editing == nil else { return }
+        // Saved and gone: a late pick landing afterwards must not write the draft back.
+        guard editing == nil, isFinished == false else { return }
         guard hasContent else {
             drafts.clear(draftID: draftID)
             return
@@ -179,8 +206,53 @@ final class ComposerModel: DictationTarget {
     }
 
     /// Done and gone: the draft has become an entry.
+    /// The photos stay on disk: they upload from these files after the draft is gone (round 4 — the
+    /// draft's folder used to be deleted before the upload read it).
     func clearDraft() {
-        drafts.clear(draftID: draftID)
+        isFinished = true
+        drafts.clear(draftID: draftID, keepingPhotos: true)
+        // Nothing is pruned here: a pick can be on disk before it is recorded. Files go by the one
+        // rule (``StagedPhotoLedger``) or, unreferenced and a day old, to the sweep.
+    }
+
+    /// The entry is saved; the draft is not to be written again.
+    private var isFinished = false
+
+    /// Set when Done snapshots the entry **without** a pick still being written: where such a pick
+    /// goes when it lands, and the next free position on the entry.
+    private(set) var lateHandoff: (request: NewEntryRequest, nextPosition: Int)?
+    /// The entry's words have landed (or queued): late picks may follow it up. Until then they wait
+    /// in ``landedLate`` — an upload racing the entry's own create would have nothing to attach to.
+    private(set) var isEntrySaved = false
+    private var landedLate: [(path: String, position: Int)] = []
+
+    func handOffLatePhotos(to request: NewEntryRequest) {
+        lateHandoff = (request, request.photoPaths.count)
+    }
+
+    /// Nothing was saved: a pick that lands now stays in the composer for the next Done.
+    func cancelLateHandoff() {
+        lateHandoff = nil
+        landedLate = []
+    }
+
+    /// A late pick is on disk: it takes the next position on the saved entry.
+    func landLate(fileName: String) {
+        guard let handoff = lateHandoff else { return }
+        lateHandoff = (handoff.request, handoff.nextPosition + 1)
+        landedLate.append((photoDirectory.appending(path: fileName).path(), handoff.nextPosition))
+    }
+
+    /// The entry is saved: from now on late picks go straight up.
+    func markEntrySaved() {
+        isEntrySaved = true
+    }
+
+    /// The late picks ready to go up — only once the entry is saved. Each is handed out once.
+    func takeLatePhotos() -> (request: NewEntryRequest, photos: [(path: String, position: Int)])? {
+        guard isEntrySaved, let handoff = lateHandoff, landedLate.isEmpty == false else { return nil }
+        defer { landedLate = [] }
+        return (handoff.request, landedLate)
     }
 
     /// What the save path is handed. The body is the words **verbatim** — `composition.plain`, with
@@ -195,7 +267,8 @@ final class ComposerModel: DictationTarget {
             createdAt: draft.startedAt,
             scoreCount: draft.composition.scores.count,
             secondsFromOpen: draft.secondsFromOpen(),
-            tagTokens: draft.composition.tagTokens
+            tagTokens: draft.composition.tagTokens,
+            sixTokens: draft.composition.sixTokens
         )
     }
 
@@ -216,10 +289,10 @@ final class ComposerModel: DictationTarget {
 
     /// The editor promoted something the person typed (or dictated) into a token on its own: a
     /// number into a score, or a dietary code after a dish into a tag chip.
-    func literalPromoted(_ token: EntryToken, wasDictated: Bool) -> AnalyticsEvent? {
+    func literalPromoted(_ token: EntryToken, wasDictated: Bool, isPhrase: Bool = false) -> AnalyticsEvent? {
         if let tag = token.tag { return EntryEvents.dishTagAdded(tag) }
         guard token.score != nil else { return nil }
-        return EntryEvents.scoreTokenCreated(source: wasDictated ? .dictation : .typed)
+        return EntryEvents.scoreTokenCreated(source: wasDictated ? .dictation : .typed, isPhrase: isPhrase)
     }
 
     /// Tapping an existing token reopens the thing that made it.
@@ -239,9 +312,25 @@ final class ComposerModel: DictationTarget {
 
     /// The finger lifted. The panel stays up for ``ScoreSlider/settleDelay`` so the number that was
     /// set is seen, then goes — unless the finger came back, or the panel moved, in the meantime.
-    func finishScore(at rating: Rating) {
+    ///
+    /// Returns `entry_score_six` the first time a pill ends a slide on the secret 6.
+    @discardableResult
+    func finishScore(at rating: Rating) -> AnalyticsEvent? {
+        let tokenID = slider.session?.id
         slideScore(to: rating)
-        guard let ticket = slider.finish(at: rating) else { return }
+        var event: AnalyticsEvent?
+        if rating == .blownAway, let tokenID, sixedTokens.insert(tokenID).inserted {
+            event = EntryEvents.scoreSix()
+        }
+        guard let ticket = slider.finish(at: rating) else { return event }
+        defer { settle(ticket) }
+        return event
+    }
+
+    /// Pills that have already been counted as a 6.
+    private var sixedTokens: Set<UUID> = []
+
+    private func settle(_ ticket: Int) {
         Task { [weak self] in
             try? await Task.sleep(for: ScoreSlider.settleDelay)
             guard let self else { return }
@@ -351,10 +440,11 @@ final class ComposerModel: DictationTarget {
         // "tiramisu <pill>" re-found the pill's own digits, replaced it with a new token of the
         // same value, and reported a second `entry_score_token_created` for one score.
         if let found = composition.pendingScoreLiteral(atDisplayOffset: caret) {
+            let isPhrase = composition.isPhrase(found.span)
             composition = composition.promoting(plainSpan: found.span, to: EntryToken(kind: .score(found.rating)))
             revision += 1
             caretAfterRender = nil
-            return EntryEvents.scoreTokenCreated(source: .typed)
+            return EntryEvents.scoreTokenCreated(source: .typed, isPhrase: isPhrase)
         }
         if let found = composition.pendingTagLiteral(atDisplayOffset: caret) {
             composition = composition.promoting(plainSpan: found.span, to: EntryToken(kind: .tag(found.mark)))

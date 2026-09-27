@@ -21,6 +21,9 @@ public enum ScoreLiteral {
     public static func candidate(in plain: String, caretUTF16 caret: Int) -> (span: TextSpan, rating: Rating)? {
         let units = Array(plain.utf16)
         guard caret > 0, caret <= units.count else { return nil }
+        // A full stop straight after the number is the sentence ending, not a decimal being typed —
+        // "it was a 4.5." — unless a digit follows it, when it is the decimal of "4.5" mid-number.
+        guard let caret = endIgnoringFullStop(units, caret: caret), caret > 0 else { return nil }
 
         // Walk back over digits and at most one decimal separator.
         var start = caret
@@ -43,6 +46,9 @@ public enum ScoreLiteral {
 
         // What leads in: a space, a comma-space, a dash — never a symbol, digit or letter.
         guard hasWordsBefore(units, start: start) else { return nil }
+        // "… out of 5" is the scale, never a score of its own (``ScorePhrase`` reads the whole
+        // phrase; a "6 out of 5" is prose, and its 5 must not become a pill on the way).
+        guard followsOutOf(units, start: start) == false else { return nil }
         // What follows: nothing, or a boundary. A unit or a slash means it was never a score.
         guard isTerminated(units, at: caret) else { return nil }
 
@@ -69,15 +75,45 @@ public enum ScoreLiteral {
         return isMoveOn(text)
     }
 
+    /// The same question, with the words in hand: `text` was just typed at UTF-16 offset `index` of
+    /// `string`. A `.` straight after a digit is a decimal separator **only while it still could be
+    /// one** — after "4" it may be the start of "4.5", but after "4.5" it can only be a full stop,
+    /// and "it was a 4.5." has to promote at it (round 4: the pill used to wait for a space that a
+    /// sentence's last word never gets).
+    public static func isMoveOn(_ text: String, typedAt index: Int, in string: String) -> Bool {
+        guard text == "." else { return isMoveOn(text) }
+        let units = Array(string.utf16)
+        guard index > 0, index <= units.count, isDigit(units[index - 1]) else { return isMoveOn(text) }
+        var start = index
+        while start > 0, isDigit(units[start - 1]) { start -= 1 }
+        // "4.5." — the number already has its decimal; "10." — two digits are never a half-step.
+        let hasDecimal = start > 0 && units[start - 1] == dot
+        return hasDecimal || index - start > 1
+    }
+
+    static func followsOutOf(_ units: [UInt16], start: Int) -> Bool {
+        let before = String(decoding: units[..<start], as: UTF16.self).lowercased()
+        let trimmed = before.trimmingCharacters(in: .whitespaces)
+        return trimmed.hasSuffix(" out of") || trimmed == "out of"
+    }
+
+    /// Where the number ends if the character before `caret` is a sentence's full stop: one back,
+    /// or `nil` when a digit follows the dot (it is a decimal separator mid-number).
+    static func endIgnoringFullStop(_ units: [UInt16], caret: Int) -> Int? {
+        guard caret > 0, units[caret - 1] == dot else { return caret }
+        if caret < units.count, isDigit(units[caret]) { return nil }
+        return caret - 1
+    }
+
     // MARK: - Pieces
 
-    private static let dot = UInt16(46) // .
+    static let dot = UInt16(46) // .
     /// What may sit between the words and the number: space, tab, newline, comma, and the three
     /// dashes a phone keyboard can produce.
     private static let separators: Set<UInt16> = [32, 9, 10, 44, 45, 8211, 8212]
     private static let moveOnScalars = Set<Unicode.Scalar>(",.!?;:".unicodeScalars)
 
-    private static func isDigit(_ unit: UInt16) -> Bool { unit >= 48 && unit <= 57 }
+    static func isDigit(_ unit: UInt16) -> Bool { unit >= 48 && unit <= 57 }
 
     /// A half step in 0.5…5.0, written with at most one decimal place.
     private static func rating(for literal: String) -> Rating? {
@@ -92,7 +128,7 @@ public enum ScoreLiteral {
 
     /// There has to be a word before the number. A number at the very start of the text, or after a
     /// symbol, is not somebody scoring a dish.
-    private static func hasWordsBefore(_ units: [UInt16], start: Int) -> Bool {
+    static func hasWordsBefore(_ units: [UInt16], start: Int) -> Bool {
         var index = start
         var sawSeparator = false
         while index > 0 {
@@ -116,7 +152,7 @@ public enum ScoreLiteral {
 
     /// Nothing may follow but a boundary. A letter after the number is a unit ("4.5km"); a slash is
     /// a fraction the person wrote out themselves.
-    private static func isTerminated(_ units: [UInt16], at caret: Int) -> Bool {
+    static func isTerminated(_ units: [UInt16], at caret: Int) -> Bool {
         guard caret < units.count else { return true }
         let unit = units[caret]
         if isDigit(unit) { return false }

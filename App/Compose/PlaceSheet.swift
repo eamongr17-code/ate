@@ -51,8 +51,11 @@ struct PlaceSheet: View {
         }
         .sheet(isPresented: $isAddingPlace) {
             AddPlaceSheet(directory: directory, suggestedName: model?.query ?? "") { place in
-                isAddingPlace = false
+                // Both sheets go in ONE step (round 4, bug c): the place sheet is dismissed with
+                // "New place" still on it, which takes the pair down together. Closing "New place"
+                // first showed "Where was this?" for a beat before it went too.
                 onPick(place)
+                dismiss()
             }
         }
     }

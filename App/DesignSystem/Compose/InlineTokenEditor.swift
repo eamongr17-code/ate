@@ -67,7 +67,8 @@ struct InlineTokenEditor: UIViewRepresentable {
     /// score, a dietary code after a dish into a tag chip (`DietTagsB`). The flag is
     /// true when it arrived by dictation rather than the keyboard — the two are different products
     /// and the funnel has to be able to tell them apart.
-    var onTokenPromoted: (_ token: EntryToken, _ wasDictated: Bool) -> Void = { _, _ in }
+    /// `isPhrase`: the score was said in words ("four and a half") rather than typed as a number.
+    var onTokenPromoted: (_ token: EntryToken, _ wasDictated: Bool, _ isPhrase: Bool) -> Void = { _, _, _ in }
 
     @Environment(\.atePalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -166,6 +167,6 @@ struct InlineTokenEditor: UIViewRepresentable {
     struct Callbacks {
         var onTokenTap: (EntryToken) -> Void
         var onCaretChange: (Int) -> Void
-        var onTokenPromoted: (EntryToken, Bool) -> Void
+        var onTokenPromoted: (EntryToken, Bool, Bool) -> Void
     }
 }

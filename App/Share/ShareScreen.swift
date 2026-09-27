@@ -95,30 +95,81 @@ struct ShareStage: View {
     var onAddPlace: (() -> Void)?
     let onDone: () -> Void
     let onPrimary: () -> Void
+    /// **The Summary's stage** (round 4, Eamon): the receipt takes more of the screen — drawn larger,
+    /// still tilted, centred in the band above the pills — and arrives with a small slide and settle.
+    /// `Share` keeps the artboard's own placement.
+    var isHero = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var bandHeight: CGFloat = 0
+    @State private var hasArrived = false
 
     /// The card scrolls in its own band above the pills: a long receipt continues down that band
     /// and stops above them, never running underneath.
     var body: some View {
         VStack(spacing: Self.actionGap * 2) {
             ScrollView {
-                ShareCard(
-                    artefact: artefact, photos: photos, isPrinting: isPrinting, breathes: breathes,
-                    onAddPlace: onAddPlace
-                )
-                    .padding(.horizontal, ShareCard.inset)
-                    .ateContentTop(isPrinting ? Self.printingTop : Self.cardTop)
-                    // The lower photo hangs past the paper's foot; its tilt needs the room.
-                    .padding(.bottom, Self.cardFoot)
-                    .frame(maxWidth: .infinity)
-                    .ateAnimation(AteMotion.settle, value: isPrinting)
+                if isHero {
+                    heroCard
+                } else {
+                    card
+                        .padding(.horizontal, ShareCard.inset)
+                        .ateContentTop(isPrinting ? Self.printingTop : Self.cardTop)
+                        // The lower photo hangs past the paper's foot; its tilt needs the room.
+                        .padding(.bottom, Self.cardFoot)
+                        .frame(maxWidth: .infinity)
+                        .ateAnimation(AteMotion.settle, value: isPrinting)
+                }
             }
             .scrollBounceBehavior(.basedOnSize)
             .scrollIndicators(.hidden)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { bandHeight = $0 }
             actions
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ateAccentGround(AteColor.coral)
     }
+
+    private var card: some View {
+        ShareCard(
+            artefact: artefact, photos: photos, isPrinting: isPrinting, breathes: breathes,
+            onAddPlace: onAddPlace
+        )
+    }
+
+    /// The Summary's receipt: the same card, scaled as a whole (so what is seen is still exactly the
+    /// picture that is shared), centred in the band, and settling in once.
+    private var heroCard: some View {
+        ScaledToFit(scale: Self.heroScale) { card }
+            // While it prints it sits a little high, and settles as the lines arrive — the print's
+            // own motion, as on `Share`.
+            .offset(y: isPrinting ? -Self.printingLift : 0)
+            .ateAnimation(AteMotion.settle, value: isPrinting)
+            // The entrance: a small slide down and a settle, the way paper leaves a printer.
+            .offset(y: hasArrived || reduceMotion ? 0 : AteMotion.printOffset)
+            .rotationEffect(.degrees(hasArrived || reduceMotion ? 0 : Self.arrivalTilt))
+            .opacity(hasArrived || reduceMotion ? 1 : 0)
+            .padding(.vertical, Self.heroAir)
+            .frame(maxWidth: .infinity, minHeight: bandHeight)
+            .onAppear {
+                withAnimation(reduceMotion ? nil : .spring(duration: AteMotion.printDuration, bounce: 0.22)) {
+                    hasArrived = true
+                }
+            }
+    }
+
+    /// How much larger the Summary draws its receipt: the paper runs to 38 from each edge of the
+    /// screen rather than the artboard's 52 (314 of 390, against 286).
+    static var heroScale: CGFloat {
+        let screen = AteScreen.width
+        return max(1, (screen - 2 * heroInset) / ShareCard.width)
+    }
+    private static let heroInset: CGFloat = 38
+    /// Room above and below for the photos, which hang past the paper.
+    private static let heroAir: CGFloat = 44
+    private static let printingLift: CGFloat = 20
+    /// The extra turn the receipt arrives with, before it settles to its own −3°.
+    private static let arrivalTilt: Double = 2
 
     /// `SummaryFinal`: Done `width:118px`, white; Share fills the rest, ink, with its icon. While the
     /// receipt prints, Share is there but off (`opacity:.35`) — there is nothing to send yet.
@@ -235,3 +286,34 @@ enum SharePhotos {
     )
 }
 #endif
+
+/// A view drawn at `scale` **and laid out at that size** — `scaleEffect` alone draws larger but
+/// still takes the old room, so a larger receipt would overlap whatever sits around it.
+private struct ScaledToFit<Content: View>: View {
+    let scale: CGFloat
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        ScaledLayout(scale: scale) {
+            content.scaleEffect(scale)
+        }
+    }
+}
+
+private struct ScaledLayout: Layout {
+    let scale: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let child = subviews.first else { return .zero }
+        let inner = child.sizeThatFits(ProposedViewSize(
+            width: proposal.width.map { $0 / scale }, height: proposal.height.map { $0 / scale }
+        ))
+        return CGSize(width: inner.width * scale, height: inner.height * scale)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard let child = subviews.first else { return }
+        let inner = ProposedViewSize(width: bounds.width / scale, height: bounds.height / scale)
+        child.place(at: CGPoint(x: bounds.midX, y: bounds.midY), anchor: .center, proposal: inner)
+    }
+}

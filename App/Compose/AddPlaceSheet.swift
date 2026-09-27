@@ -17,7 +17,6 @@ struct AddPlaceSheet: View {
     @State private var isSaving = false
     /// The place that could not be added, said once (``ActionFailure``).
     @State private var failure: ActionFailure?
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         AteSheet(
@@ -71,8 +70,9 @@ struct AddPlaceSheet: View {
                     failure = .addPlace
                     return
                 }
+                // The place sheet under this one dismisses the pair of them — this sheet does not
+                // close itself first (round 4).
                 onAdded(place)
-                dismiss()
             } catch {
                 failure = .addPlace
             }
