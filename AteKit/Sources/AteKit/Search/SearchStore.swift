@@ -53,6 +53,8 @@ public final class SearchStore {
     public private(set) var filters = SearchFilters.none
     /// `search_cuisines()`, once the cuisine filter has asked for it.
     public private(set) var cuisines: [CuisineCount] = []
+    /// Whether the cuisine list has answered once (round 5: read ahead, so the filter sheet opens full).
+    public private(set) var hasLoadedCuisines = false
 
     /// True while the Places scope is showing the standing `Nearby` list rather than a search —
     /// the one section label the artboard draws.
@@ -179,8 +181,10 @@ public final class SearchStore {
 
     /// The cuisine picker opened. Read once; a failure leaves the list empty and asks again next time.
     public func loadCuisines() async {
-        guard cuisines.isEmpty else { return }
-        cuisines = (try? await service.cuisines()) ?? []
+        guard hasLoadedCuisines == false else { return }
+        guard let loaded = try? await service.cuisines() else { return }
+        cuisines = loaded
+        hasLoadedCuisines = true
     }
 
     // MARK: - Paging

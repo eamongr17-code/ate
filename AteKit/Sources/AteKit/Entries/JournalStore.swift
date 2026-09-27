@@ -43,6 +43,9 @@ public final class JournalStore: EntryDeletionObserving {
     public private(set) var query = JournalQuery()
     /// The place filter's choices, once asked for (``loadPlaces()``).
     public private(set) var places: [JournalPlace] = []
+    /// Whether the place list has answered once — none is an answer too (round 5: read ahead, so the
+    /// filter sheet opens full).
+    public private(set) var hasLoadedPlaces = false
 
     private let entryService: any EntryService
     private let querying: (any JournalQuerying)?
@@ -181,8 +184,9 @@ public final class JournalStore: EntryDeletionObserving {
             Task { await loadFirstPage() }
         }
         // A place the filter has never offered: its list is asked for again (QA b).
-        if let place = card.place, places.isEmpty == false, places.contains(where: { $0.id == place.id }) == false {
-            places = []
+        // The old list stands until the new one lands, so an open sheet never empties under the thumb.
+        if let place = card.place, hasLoadedPlaces, places.contains(where: { $0.id == place.id }) == false {
+            hasLoadedPlaces = false
             Task { await loadPlaces() }
         }
         if let index = entries.firstIndex(where: { $0.id == card.id }) {
@@ -276,8 +280,10 @@ public final class JournalStore: EntryDeletionObserving {
 
     /// The places the place filter offers — asked for once, when the filter is first opened.
     public func loadPlaces() async {
-        guard places.isEmpty, let querying else { return }
-        places = (try? await querying.myEntryPlaces()) ?? []
+        guard hasLoadedPlaces == false, let querying else { return }
+        guard let loaded = try? await querying.myEntryPlaces() else { return }
+        places = loaded
+        hasLoadedPlaces = true
     }
 
     /// The one place `entries` is read back into shape. Every mutation ends here, so a day split

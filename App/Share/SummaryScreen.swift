@@ -70,15 +70,13 @@ struct SummaryScreen: View {
                 ))
             }
         })
-        .sheet(isPresented: $isPickingPlace) {
-            // The composer's own sheet — the same action looks and works the same everywhere.
-            PlaceSheet(directory: places) { place in
-                // The sheet only ever hands back a resolved row (`PlaceSheet`'s "Use …" waits).
-                guard let id = place.id else { return }
-                isPickingPlace = false
-                analytics(EntryEvents.placeAttached(source: .picked))
-                Task { await store.attachPlace(id) }
-            }
+        // The composer's own sheet — the same action looks and works the same everywhere.
+        .atePlaceSheet(isPresented: $isPickingPlace, directory: places) { place in
+            // The sheet only ever hands back a resolved row (`PlaceSheet`'s "Use …" waits).
+            guard let id = place.id else { return }
+            isPickingPlace = false
+            analytics(EntryEvents.placeAttached(source: .picked))
+            Task { await store.attachPlace(id) }
         }
         // A container, so the pills keep their own identifiers under it.
         .accessibilityElement(children: .contain)

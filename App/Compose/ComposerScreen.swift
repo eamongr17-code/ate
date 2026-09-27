@@ -122,15 +122,13 @@ struct ComposerScreen: View {
                 dictation = nil
             }
         }
-        .sheet(isPresented: $model.isPickingPlace) {
-            PlaceSheet(
-                directory: services.places,
-                initialQuery: model.placeQuery,
-                selected: model.place?.id
-            ) { place in
-                model.attach(place: place).map(services.analytics)
-            }
-        }
+        .atePlaceSheet(
+            isPresented: $model.isPickingPlace,
+            directory: services.places,
+            initialQuery: { model.placeQuery },
+            selected: { model.place?.id },
+            onPick: { place in model.attach(place: place).map(services.analytics) }
+        )
         .fullScreenCover(isPresented: $isTakingPhoto) {
             cameraCover
         }

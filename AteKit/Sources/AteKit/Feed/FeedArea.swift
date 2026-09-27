@@ -73,6 +73,8 @@ public final class FeedAreaModel {
     public private(set) var selected: String?
     public private(set) var isLoadingAreas = false
     public private(set) var hasReachedEnd = false
+    /// Whether a first page has ever answered — the sheet opens on it rather than on nothing.
+    public private(set) var hasLoadedAreas = false
 
     private let reader: any EntryFeedReading
     private let store: any AteKeyValueStore
@@ -101,7 +103,8 @@ public final class FeedAreaModel {
         "ate.feedArea.\(userID?.uuidString.lowercased() ?? "signedOut")"
     }
 
-    /// The sheet's first page, every time it opens — counts move. Quietly keeps the last good list
+    /// The first page — read ahead as the Feed opens and again on its pull to refresh, so the sheet
+    /// opens full and its counts move with the feed (round 5). Quietly keeps the last good list
     /// on a failure: the sheet still offers Everywhere and the current choice, which is all a
     /// failure should leave.
     public func loadAreas() async {
@@ -113,6 +116,13 @@ public final class FeedAreaModel {
               generationAtStart == generation else { return }
         areas = FeedArea.ordered(page)
         hasReachedEnd = page.count < pageSize
+        hasLoadedAreas = true
+    }
+
+    /// The first page, once: what the Feed reads ahead so its area sheet opens full (round 5).
+    public func loadAreasIfNeeded() async {
+        guard hasLoadedAreas == false, isLoadingAreas == false else { return }
+        await loadAreas()
     }
 
     /// Called as a row appears: the next page once the last few are on screen.

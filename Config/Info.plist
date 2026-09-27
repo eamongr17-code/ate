@@ -20,6 +20,19 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Links into the app: a shared entry is ate://entry/<id> (AteKit's AteLinks). App-only until
+	     a domain is picked; then AteLinks.base moves to https and universal links join this. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ate</string>
+			</array>
+		</dict>
+	</array>
 	<!-- Only standard HTTPS/ATS crypto — exempt. Declared here so TestFlight builds
 	     don't stall on the manual export-compliance question on every upload. -->
 	<key>ITSAppUsesNonExemptEncryption</key>

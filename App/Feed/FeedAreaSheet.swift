@@ -13,9 +13,10 @@ struct FeedAreaSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        AteSheet(title: "Which area?") {
+        AteSheet(title: "Which area?", isLoading: model.hasLoadedAreas == false) {
             VStack(spacing: 0) {
                 AteRadioRow(title: "Everywhere", isSelected: model.selected == nil) { choose(nil) }
+                if model.hasLoadedAreas == false { AteSheetSkeletonRows(count: 8) }
                 ForEach(rows) { area in
                     AteRadioRow(
                         title: area.area,
@@ -27,7 +28,6 @@ struct FeedAreaSheet: View {
                 }
             }
         }
-        .task { await model.loadAreas() }
     }
 
     /// The areas, plus the remembered choice if it has dropped off the list — it is still the

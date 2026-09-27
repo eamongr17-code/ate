@@ -30,6 +30,7 @@ extension AteShell {
         .tabBarMinimizeBehavior(holdsTabBarOpen ? .never : .onScrollDown)
         .tint(AtePalette.automatic.fg)
         .atePhotoViewerHost() // one full-screen viewer for every photo under the shell
+        .ateOpensEntryLinks { open(.entry(EntryRoute(entryID: $0)), from: .link) } // ate://entry/<id>
         .fullScreenCover(item: $composing) { presentation in composerCover(presentation) }
         #if DEBUG
         .fullScreenCover(item: $debugSummary) { summary in debugSummaryScreen(summary) }

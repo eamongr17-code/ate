@@ -105,16 +105,24 @@ struct JournalScreen: View {
             .ateTabRootHeader(scrollToTop: scrollToTopSignal + listChanged) { chrome }
             .onChange(of: shelf) { _, _ in listChanged += 1 }
             .task { await store.loadIfNeeded() }
+            // Read ahead, so the filter sheet opens with its places in it (round 5).
+            .task { await store.loadPlaces() }
             // The Saved shelf loads when it is chosen, and stops if it is left mid-read — the task
             // the shelf's own view carried when it was one view rather than rows of this stack.
             .task(id: shelf) {
                 if shelf == .saved { await saved.loadIfNeeded() }
             }
-            .sheet(isPresented: $isFiltering) {
-                JournalFilterSheet(initial: store.query, places: store.places, periods: periods) { query in
+            .ateSheet(isPresented: $isFiltering, name: "journal_filter",
+                      prepare: { await store.loadPlaces() }, content: {
+                JournalFilterSheet(
+                    initial: store.query,
+                    places: store.places,
+                    arePlacesLoaded: store.hasLoadedPlaces,
+                    periods: periods
+                ) { query in
                     apply(query)
                 }
-            }
+            })
         }
     }
 
@@ -164,7 +172,6 @@ struct JournalScreen: View {
             if shelf == .journal {
                 AteFilterButton(isActive: store.query.isDefault == false, identifier: "journal.filter") {
                     AteTelemetry.record(BrowseEvents.filterOpened(on: .journal))
-                    Task { await store.loadPlaces() }
                     isFiltering = true
                 }
             }

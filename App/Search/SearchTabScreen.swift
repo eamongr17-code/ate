@@ -102,8 +102,12 @@ struct SearchTabScreen: View {
         .onScrollPhaseChange { _, phase in
             if phase == .interacting { isFieldFocused = false }
         }
-        .sheet(isPresented: $isFiltering) { SearchFilterSheet(store: store) }
+        .ateSheet(isPresented: $isFiltering, name: "search_filter", prepare: { await store.loadCuisines() }, content: {
+            SearchFilterSheet(store: store)
+        })
         .task { await store.start() }
+        // Read ahead, so the filter sheet opens with its cuisines in it (round 5).
+        .task { await store.loadCuisines() }
         .task(id: store.scope) { await askWhereWeAre() }
         .task { openDebugState() }
     }

@@ -22,22 +22,16 @@ struct AteActionsSheet: View {
     /// takes them off again. Before, it read "Save this place" either way, and on a visit whose
     /// dishes were all saved, that label unsaved every one of them.
     var isPlaceSaved = false
-    /// What to hand the system share sheet directly — a link to a profile. An empty array cancels
-    /// quietly. Ignored when ``onShareReceipt`` answers with an artefact.
+    /// What to hand the system share sheet — a link to the profile, or to the entry. Somebody else's
+    /// entry leaves as a link that opens it in Ate, never as their receipt (round 5): the receipt is
+    /// what Ate prints for its author. An empty array cancels quietly.
     var onShare: () -> [Any]
-    /// An entry's share card, when this sheet is about an entry. It presents the **same** `Share`
-    /// screen the entry page's share icon does — one action, one artefact, everywhere it appears
-    /// (AGENTS.md rule 2).
-    var onShareReceipt: (() -> ShareArtefact?)?
-    /// Where `receipt_shared` is sent from. Only used on the receipt path.
-    var analytics: AnalyticsRecorder = { _ in }
     var onReport: () -> Void
     var onBlock: () -> Void
 
     @State private var isConfirmingReport = false
     @State private var isConfirmingBlock = false
     @State private var sharing: SharePayload?
-    @State private var sharingReceipt: SharingReceipt?
     /// A browser tapped a write. The sheet goes first and `Welcome` asks once it has gone — a cover
     /// cannot be presented from under a sheet that is still up.
     @State private var askOnceGone: SessionGate.Trigger?
@@ -48,11 +42,6 @@ struct AteActionsSheet: View {
     private struct SharePayload: Identifiable {
         let id = UUID()
         let items: [Any]
-    }
-
-    private struct SharingReceipt: Identifiable {
-        let artefact: ShareArtefact
-        var id: UUID { artefact.entryID ?? UUID() }
     }
 
     var body: some View {
@@ -71,10 +60,6 @@ struct AteActionsSheet: View {
                     .accessibilityAddTraits(isPlaceSaved ? [.isButton, .isSelected] : .isButton)
                 }
                 row(icon: .share, title: "Share") {
-                    if let artefact = onShareReceipt?() {
-                        sharingReceipt = SharingReceipt(artefact: artefact)
-                        return
-                    }
                     let items = onShare()
                     guard items.isEmpty == false else { return }
                     sharing = SharePayload(items: items)
@@ -109,9 +94,6 @@ struct AteActionsSheet: View {
         }
         .sheet(item: $sharing) { payload in
             ShareSheet(items: payload.items)
-        }
-        .fullScreenCover(item: $sharingReceipt) { sharing in
-            ShareScreen(artefact: sharing.artefact, source: .actions, analytics: analytics)
         }
     }
 

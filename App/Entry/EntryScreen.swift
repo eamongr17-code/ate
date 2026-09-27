@@ -116,8 +116,22 @@ struct EntryScreen: View {
         .onChange(of: model.card) { _, card in
             if let card { onChange(card) }
         }
-        .sheet(isPresented: $model.isCorrectingPlace) { placeSheet }
-        .sheet(item: $model.correcting) { correcting in dishSheet(correcting.item) }
+        .atePlaceSheet(
+            isPresented: $model.isCorrectingPlace,
+            directory: services.places,
+            initialQuery: { model.card?.place?.name ?? "" },
+            selected: { model.card?.restaurantID },
+            onPick: { place in Task { await model.correctPlace(place) } }
+        )
+        .ateDishSheet(
+            item: $model.correcting,
+            directory: services.places,
+            placeID: { model.card?.restaurantID },
+            placeName: { model.card?.place?.name },
+            onPick: { item, dishID, dishName in
+                Task { await model.correctDish(reviewID: item.id, dishID: dishID, dishName: dishName) }
+            }
+        )
         .sheet(isPresented: $isShowingActions) { actionsSheet }
         .ateFailureAlert($model.failure, analytics: services.analytics)
         .confirmationDialog("Delete this entry?", isPresented: $model.isConfirmingDelete, titleVisibility: .visible) {
@@ -405,29 +419,6 @@ struct EntryScreen: View {
 
     // MARK: - Sheets
 
-    /// The place. The *same* sheet the composer's Place key opens — the same action has to work
-    /// identically everywhere it appears.
-    private var placeSheet: some View {
-        PlaceSheet(
-            directory: services.places,
-            initialQuery: model.card?.place?.name ?? "",
-            selected: model.card?.restaurantID
-        ) { place in
-            Task { await model.correctPlace(place) }
-        }
-    }
-
-    private func dishSheet(_ item: AteReceipt.Item) -> some View {
-        DishSheet(
-            directory: services.places,
-            placeID: model.card?.restaurantID,
-            placeName: model.card?.place?.name,
-            item: item
-        ) { dishID, dishName in
-            Task { await model.correctDish(reviewID: item.id, dishID: dishID, dishName: dishName) }
-        }
-    }
-
     /// The same sheet a profile's "…" opens — save this place, share, report, block — pointed at
     /// this visit and its author.
     @ViewBuilder
@@ -438,9 +429,11 @@ struct EntryScreen: View {
                 blockTitle: "Block @\(byline.handle)",
                 onSavePlace: { Task { await model.toggleSaveEveryDish() } },
                 isPlaceSaved: model.isEveryDishSaved,
-                onShare: { [] },
-                onShareReceipt: { model.shareArtefact() },
-                analytics: services.analytics,
+                // Somebody else's visit leaves as a link to it, never as their receipt (round 5).
+                onShare: {
+                    guard let card = model.card else { return [] }
+                    return EntryLinkShare.items(for: card, handle: byline.handle)
+                },
                 onReport: { Task { await model.report() } },
                 onBlock: {
                     Task {

@@ -104,6 +104,12 @@ public struct AteSheetFit: Equatable, Sendable {
         (head + body + (hasFoot ? foot : bottom) + gap * (hasFoot ? 2 : 1)).rounded(.up)
     }
 
+    /// Holds the sheet at least this tall — a sheet that went up before its rows arrived stands at
+    /// its full height while they fill in, rather than growing under the thumb when they land.
+    public mutating func reserve(_ height: CGFloat) {
+        tallest = max(tallest, height.rounded(.up))
+    }
+
     private mutating func grow() {
         guard head > 0, hasFoot == false || foot > 0 else { return }
         tallest = max(tallest, height)
