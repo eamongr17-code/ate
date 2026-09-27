@@ -146,7 +146,6 @@ private struct SheetPreview: View {
                         }
                     }
                 }
-                .presentationDetents([.large])
             }
     }
 }

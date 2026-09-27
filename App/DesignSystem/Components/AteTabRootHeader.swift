@@ -24,25 +24,40 @@ extension View {
     ) -> some View {
         modifier(AteTabRootHeader(scrollToTop: scrollToTop, header: header()))
     }
+
+    /// A tab root with no floating header (Search, You) still tells the shell which way it is being
+    /// scrolled — the tab bar's shadow and its re-expansion follow every tab the same way.
+    func ateTabBarTracking() -> some View {
+        modifier(AteTabBarTracking())
+    }
 }
 
-private struct AteTabRootHeader<Header: View>: ViewModifier {
-    let scrollToTop: Int
-    let header: Header
+/// What a tab root's scrolling says about the chrome around it.
+struct AteChromeState: Equatable {
+    /// The floating header is up — and the shell holds the tab bar open with it.
+    var isFloating = false
+    /// The app's model of the glass tab bar: at full size, or minimised by a scroll down.
+    var isBarExpanded = true
+}
 
-    /// Starts with nothing to seek: an `edge` position is resolved against a list's scroll targets on
-    /// its first layout, which landed the Journal on its first slip rather than its top.
-    @State private var position = ScrollPosition(idType: UUID.self)
-    @State private var track = AteHeaderTrack()
+extension EnvironmentValues {
+    /// Told whenever the current tab root's chrome changes, so the shell can bring the whole tab bar
+    /// back with a scroll up (the system's minimised bar only re-expands after a long way up) and
+    /// show the bar's shadow only when the bar is at full size.
+    @Entry var ateChromeChanged: (AteChromeState) -> Void = { _ in }
+}
+
+/// The scroll reading both modifiers share: the direction, and nothing but a person's own scrolling.
+private struct AteChromeTracker: ViewModifier {
+    @Binding var track: AteHeaderTrack
     /// Only a person's own scrolling picks a direction — not a programmatic scroll, and not the
     /// system moving the content when the bar beside it resizes.
     @State private var isPersonScrolling = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.ateHeaderRevealed) private var onRevealed
+    @Environment(\.ateChromeChanged) private var onChanged
 
     func body(content: Content) -> some View {
         content
-            .scrollPosition($position)
             .onScrollGeometryChange(for: AteHeaderTrack.Sample.self) { geometry in
                 AteHeaderTrack.Sample(
                     offset: geometry.contentOffset.y + geometry.contentInsets.top,
@@ -52,19 +67,50 @@ private struct AteTabRootHeader<Header: View>: ViewModifier {
             } action: { _, sample in
                 var next = track
                 next.update(sample, isPersonScrolling: isPersonScrolling)
-                guard next.isFloating != track.isFloating else {
+                let state = AteChromeState(isFloating: next.isFloating, isBarExpanded: next.isBarExpanded)
+                let was = AteChromeState(isFloating: track.isFloating, isBarExpanded: track.isBarExpanded)
+                guard state != was else {
                     track = next
                     return
                 }
-                // A change of direction slides it; arriving back at the top just hands over to the
-                // header in the page, which is already exactly there.
+                // A change of direction slides the header; arriving back at the top just hands over
+                // to the header in the page, which is already exactly there.
                 let slides = next.offset > AteHeaderTrack.topSlack && reduceMotion == false
                 withAnimation(slides ? AteMotion.headerSlide : nil) { track = next }
-                onRevealed(next.isFloating)
+                onChanged(state)
             }
             .onScrollPhaseChange { _, phase in
                 isPersonScrolling = phase == .interacting || phase == .decelerating
             }
+    }
+}
+
+private struct AteTabBarTracking: ViewModifier {
+    @State private var track = AteHeaderTrack()
+
+    func body(content: Content) -> some View {
+        content.modifier(AteChromeTracker(track: $track))
+    }
+}
+
+private struct AteTabRootHeader<Header: View>: ViewModifier {
+    let scrollToTop: Int
+    let header: Header
+
+    /// Starts with nothing to seek: an `edge` position is resolved against a list's scroll targets on
+    /// its first layout, which landed the Journal on its first slip rather than its top.
+    ///
+    /// Untyped, so it never holds a slip: typed to the lists' `UUID`s, SwiftUI wrote the top slip
+    /// into it as the person scrolled and then held that slip still through every change to the
+    /// list — an entry written above it landed out of view (QA). All it does is the re-tap's top.
+    @State private var position = ScrollPosition()
+    @State private var track = AteHeaderTrack()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .scrollPosition($position)
+            .modifier(AteChromeTracker(track: $track))
             .overlay(alignment: .top) {
                 // Only while it is needed: back over the list. At the top (and pulled past it) the
                 // header in the content is the one on screen, touched and read aloud.
@@ -84,11 +130,4 @@ private struct AteTabRootHeader<Header: View>: ViewModifier {
                 withAnimation(reduceMotion ? nil : .default) { position.scrollTo(edge: .top) }
             }
     }
-}
-
-extension EnvironmentValues {
-    /// Told whenever a tab root's header comes back (`true`) or slides away (`false`) — so the shell
-    /// can bring the whole tab bar back with it. The system's minimised bar only re-expands after a
-    /// long way up; the design wants both back at the first flick up.
-    @Entry var ateHeaderRevealed: (Bool) -> Void = { _ in }
 }

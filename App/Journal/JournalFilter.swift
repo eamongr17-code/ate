@@ -158,7 +158,6 @@ struct JournalFilterSheet: View {
             .padding(.top, AteMetrics.tight)
             .padding(.bottom, AteMetrics.loose)
         }
-        .presentationDetents([.large])
     }
 
     private func label(_ text: String) -> some View {

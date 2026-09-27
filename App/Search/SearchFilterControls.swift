@@ -121,7 +121,6 @@ struct SearchFilterSheet: View {
                 if picker == .rating || picker == .all { section(.rating) { ratingRows } }
             }
         }
-        .presentationDetents(picker == .all ? [.large] : [.medium, .large])
         .task { await store.loadCuisines() }
     }
 

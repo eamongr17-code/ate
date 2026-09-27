@@ -71,6 +71,21 @@ struct ChromeRound4Tests {
         #expect(track.isFloating == false)
     }
 
+    /// The bar's shadow follows the app's model of the bar: gone on the way down, back on the way
+    /// up and at the top.
+    @Test func theBarIsExpandedAtTheTopAndOnTheWayUpOnly() {
+        var track = AteHeaderTrack()
+        #expect(track.isBarExpanded)
+        scroll(&track, through: [0, 100, 300])
+        #expect(track.isBarExpanded == false)
+        scroll(&track, through: [290, 280])
+        #expect(track.isBarExpanded)
+        scroll(&track, through: [290, 300])
+        #expect(track.isBarExpanded == false)
+        scroll(&track, through: [0])
+        #expect(track.isBarExpanded)
+    }
+
     // MARK: - The fitted sheet
 
     @Test func aSheetWithAPillFitsHeadContentAndPill() {

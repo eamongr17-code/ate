@@ -134,6 +134,44 @@ final class TabChromeUITests: XCTestCase {
         save("chrome-journal-retap")
     }
 
+    /// QA on #75: the tab root's scroll position held the slip at the top of the screen through a
+    /// change to the list, so an entry written from a scrolled Journal landed above the screen. Done
+    /// lands on the Journal's true top with the new entry on it.
+    func testAnEntryWrittenFromAScrolledJournalLandsOnScreen() {
+        launch()
+        let button = app.buttons["journal.suggestions"].firstMatch
+        XCTAssertTrue(button.waitForExistence(timeout: 10))
+        let home = button.frame.minY
+        app.swipeUp()
+        app.swipeUp()
+        sleep(1)
+        XCTAssertFalse(button.isHittable, "the Journal is scrolled away from its top")
+
+        tap("New entry")
+        let editor = app.textViews["composer.editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        let marker = "Landed from the middle"
+        editor.typeText("\(marker) of the list.")
+        app.buttons["composer.key.place"].tap()
+        let row = app.buttons["row.Tipo 00"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.tap()
+        app.buttons["Use Tipo 00"].tap()
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        app.buttons["composer.done"].tap()
+        let done = app.buttons["share.done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 10), "Done hands over to the Summary")
+        done.tap()
+
+        XCTAssertTrue(waitUntil(timeout: 5) { abs(button.frame.minY - home) < 0.5 },
+                      "the Journal is back at its true top")
+        let written = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", marker)).firstMatch
+        XCTAssertTrue(waitUntil(timeout: 5) { written.exists && written.isHittable },
+                      "the entry just written is on screen")
+        save("chrome-journal-landed")
+    }
+
     // MARK: - Helpers
 
     private func assertBarHidden(_ page: String, line: UInt = #line) {

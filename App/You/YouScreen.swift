@@ -56,6 +56,7 @@ struct YouScreen: View {
         }
         .scrollIndicators(.hidden)
         .refreshable { await store.refresh() }
+        .ateTabBarTracking() // the tab bar's shadow and re-expansion, as on every tab
         .task {
             await store.loadIfNeeded()
             onViewed()

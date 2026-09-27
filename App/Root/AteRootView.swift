@@ -97,6 +97,9 @@ struct AteShell: View {
     /// The current tab root's header is back on screen mid-list, so the tab bar is held expanded
     /// with it (`AteShell+NativeTabs`).
     @State var holdsTabBarOpen = false
+    /// The app's model of the glass bar's size — public API gives no reading of it — which is when
+    /// its shadow shows (`AteTabBarShadow`).
+    @State var tabBarLooksExpanded = true
     @State var hasSession: Bool
     @State var isSigningIn = false
     /// Signed out, looking at the feed — and the ask that comes up when a browser tries to write.
@@ -369,6 +372,7 @@ struct AteShell: View {
                     guard mayOpen(tapped) else { return }
                     tab = tapped
                     holdsTabBarOpen = false
+                    tabBarLooksExpanded = true // a tab is chosen on the full bar
                     // A tab is a place, not a layer: switching one leaves nothing pushed behind it.
                     path.removeAll()
                     return
@@ -403,7 +407,8 @@ struct AteShell: View {
         journal.insert(card)
         tab = .journal
         guard path.contains(where: { $0.entryID == card.id }) == false else { return }
-        path = [] // a new entry: the Summary's Done lands on the Journal, the entry at its top
+        path = [] // a new entry: the Summary's Done lands on the Journal, the entry at its top —
+        scrollToTop[.journal, default: 0] += 1 // on screen, however far down the list was left
     }
 
     private func drainOutbox() async {

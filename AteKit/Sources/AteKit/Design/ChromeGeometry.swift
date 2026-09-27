@@ -23,6 +23,10 @@ public struct AteHeaderTrack: Equatable, Sendable {
     public private(set) var offset: CGFloat = 0
     /// Back over the list: raised by a scroll up, lowered by a scroll down or by reaching the top.
     public private(set) var isFloating = false
+    /// Whether the glass tab bar is (as far as the app can tell) at full size: the system minimises
+    /// it on a scroll down, and the shell holds it open whenever the header floats. Public API gives
+    /// no reading of the bar's own state, so this is the app's model of it — what draws its shadow.
+    public private(set) var isBarExpanded = true
     /// Movement in the current direction, so a jitter of a point or two does not flip the header.
     private var travel: CGFloat = 0
 
@@ -39,6 +43,7 @@ public struct AteHeaderTrack: Equatable, Sendable {
         // At the top, or pulled past it: the header in the page is on screen.
         guard sample.offset > Self.topSlack else {
             isFloating = false
+            isBarExpanded = true
             travel = 0
             return
         }
@@ -49,8 +54,14 @@ public struct AteHeaderTrack: Equatable, Sendable {
         let delta = sample.offset - previous
         if (delta > 0) != (travel > 0) { travel = 0 }
         travel += delta
-        if travel > Self.hysteresis { isFloating = false }
-        if travel < -Self.hysteresis { isFloating = true }
+        if travel > Self.hysteresis {
+            isFloating = false
+            isBarExpanded = false
+        }
+        if travel < -Self.hysteresis {
+            isFloating = true
+            isBarExpanded = true
+        }
     }
 }
 

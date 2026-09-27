@@ -41,7 +41,14 @@ extension AteShell {
             NavigationStack(path: path(for: tab)) {
                 screen(for: tab)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .ateTabBarShadow() // parts the glass from the page, translucent still
+                    // The bar's shadow, under the native glass, from the top of its strip down —
+                    // only while the bar is at full size, fading as it minimises.
+                    .overlay(alignment: .bottom) {
+                        AteTabBarShadow()
+                            .opacity(self.tab == tab && tabBarLooksExpanded ? 1 : 0)
+                            .ateAnimation(AteMotion.headerSlide, value: tabBarLooksExpanded)
+                            .alignmentGuide(.bottom) { $0[.top] }
+                    }
                     // The Saved shelf's Undo, on the tab's root only. Inside the tab, so it sits in
                     // the safe area the native bar leaves — above it, however the bar is drawn.
                     .overlay(alignment: .bottom) {
@@ -53,9 +60,10 @@ extension AteShell {
                     .toolbar(.hidden, for: .navigationBar)
                     .ateSwipeBack()
                     .ateTabBarFollowsPop()
-                    .environment(\.ateHeaderRevealed) { revealed in
-                        guard self.tab == tab, holdsTabBarOpen != revealed else { return }
-                        holdsTabBarOpen = revealed
+                    .environment(\.ateChromeChanged) { chrome in
+                        guard self.tab == tab else { return }
+                        if holdsTabBarOpen != chrome.isFloating { holdsTabBarOpen = chrome.isFloating }
+                        if tabBarLooksExpanded != chrome.isBarExpanded { tabBarLooksExpanded = chrome.isBarExpanded }
                     }
                     .navigationDestination(for: Route.self) { route in
                         destination(route)
