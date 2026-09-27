@@ -177,8 +177,8 @@ struct StatsContractTests {
             #expect(visited.restaurantName.isEmpty == false)
             #expect(visited.count >= 2)
         }
-        // The average covers scored lines only, so it can never exceed the scale.
-        if let average = statement.average { #expect(average > 0 && average <= 5) }
+        // The average covers scored lines only, so it can never exceed the scale — whose top is the secret 6 (0041).
+        if let average = statement.average { #expect(average > 0 && average <= 6) }
     }
 
     /// Month boundaries are local wall-clock. The same month asked for in two zones is a different
