@@ -144,12 +144,17 @@ struct Round4ContractTests {
         #expect(buckets.map(\.score) == [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6])
         #expect((buckets.last?.reviewCount ?? 0) >= 1)
 
-        // The author's PATCH: 6 is legal, 5.5 is not.
-        try await jess.supabase.from("reviews").update(["score": 6.0], returning: .minimal)
-            .eq("id", value: tiramisu.reviewID.uuidString.lowercased()).execute()
+        // The author's PATCH: 6 is legal, 5.5 is not. The forced re-sort above REPLACED the sorter's
+        // lines (new review ids), so patch the line as it is now — a PATCH on a gone id touches zero
+        // rows and PostgREST calls that success, which is why the row count is asserted too.
+        let line = try #require(resorted.first).reviewID.uuidString.lowercased()
+        struct Patched: Decodable { let id: UUID }
+        let patched: [Patched] = try await jess.supabase.from("reviews")
+            .update(["score": 6.0], returning: .representation).eq("id", value: line).select("id").execute().value
+        #expect(patched.count == 1, "the author's PATCH must reach their own line")
         await refused("PATCH 5.5", code: "23514") {
             try await jess.supabase.from("reviews").update(["score": 5.5], returning: .minimal)
-                .eq("id", value: tiramisu.reviewID.uuidString.lowercased()).execute()
+                .eq("id", value: line).execute()
         }
     }
 
