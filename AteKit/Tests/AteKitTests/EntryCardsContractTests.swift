@@ -278,7 +278,7 @@ struct EntryCardsContractTests {
             // Saved dishes group by restaurant on the client, so the grouping key has to be there.
             #expect(row.restaurantID != row.dishID)
             if let score = row.dishScore {
-                #expect(score >= 0.5 && score <= 5)
+                #expect(score >= 0.5 && score <= 6) // 6: the secret six (0041)
             }
         }
         // Sorted by the server, not by us — the client groups, it does not re-order.

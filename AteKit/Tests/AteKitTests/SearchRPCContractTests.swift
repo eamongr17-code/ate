@@ -63,7 +63,7 @@ struct SearchRPCContractTests {
         for row in first.rows {
             #expect(row.name.isEmpty == false)
             #expect(row.locality.map { $0.contains(",") } != true, "a suburb, never a street line")
-            if let score = row.score { #expect(score > 0 && score <= 5) }
+            if let score = row.score { #expect(score > 0 && score <= 6) } // 6: the secret six (0041)
         }
 
         let (walked, wide) = try await walk {
@@ -105,7 +105,7 @@ struct SearchRPCContractTests {
         for row in first.rows {
             #expect(row.name.isEmpty == false)
             #expect(row.restaurantName.isEmpty == false)
-            if let score = row.score { #expect(score > 0 && score <= 5) }
+            if let score = row.score { #expect(score > 0 && score <= 6) } // 6: the secret six (0041)
             #expect(row.coverURLString?.isEmpty != true, "absent is null, never an empty string")
         }
 
