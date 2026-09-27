@@ -72,6 +72,12 @@ public struct AteHeaderTrack: Equatable, Sendable {
     /// the bar is at full size now whatever this tab last saw — and the next scroll down, which
     /// minimises it, has to read as a change.
     public mutating func tabBecameCurrent() {
+        expandBar()
+    }
+
+    /// The minimised bar was tapped open (or a tab chosen on it): it is at full size now, and the
+    /// next scroll down — which minimises it again — starts from nothing.
+    public mutating func expandBar() {
         isBarExpanded = true
         travel = 0
     }

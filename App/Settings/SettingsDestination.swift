@@ -82,6 +82,8 @@ struct SettingsDestination: View {
                     dismiss()
                 }
             )
+            // Pushed from Settings: the back button, and no name (the page's title is its own).
+            .ateNavigationBar()
         case .appearance:
             AppearanceScreen(model: model)
         case .artificialIntelligence:

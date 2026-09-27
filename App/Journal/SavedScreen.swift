@@ -238,7 +238,7 @@ struct SavedUndoPill: View {
 
     /// How long the way back stays open.
     private static let lifetime = Duration.seconds(4)
-    /// A row's gap above whatever the tab leaves at the bottom — the native bar's safe area, full
+    /// A row's gap above whatever the tab leaves at the bottom — the tab bar's strip, full
     /// size or minimised.
     private static let bottom: CGFloat = AteMetrics.regular
     private static let height: CGFloat = AteMetrics.hit

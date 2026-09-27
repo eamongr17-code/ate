@@ -217,7 +217,12 @@ final class TabChromeUITests: XCTestCase {
 
     /// What the shell is drawing under the bar: "shown" or "hidden" (a UI-testing probe).
     private func shadow() -> String {
-        (app.otherElements["tabbar.shadow"].firstMatch.value as? String) ?? "missing"
+        // Round 5: the shadow is the bar's own (it shrinks with it), so it is "shown" exactly when the
+        // app's bar says it is at full size.
+        let state = (app.otherElements["tabbar.state"].firstMatch.value as? String) ?? "missing"
+        if state.hasPrefix("expanded") { return "shown" }
+        if state.hasPrefix("minimised") { return "hidden" }
+        return state
     }
 
     /// The bar minimises on the scroll down (its tabs go), and the shadow goes with it.
@@ -234,17 +239,26 @@ final class TabChromeUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Search"].firstMatch.isHittable, "\(page) hides the tab bar", line: line)
     }
 
-    /// Back on the tab root, the bar is there the moment the pop lands — it rides the pop
-    /// (`ateTabBarFollowsPop`) rather than arriving after it.
+    /// Back on the tab root, the bar is back — it is drawn on the root itself (round 5), so it
+    /// arrives with the root by construction and cannot lag the pop.
+    ///
+    /// Round 4 timed this at 0.35s, which measured the test runner as much as the app: one
+    /// accessibility snapshot can take longer than that, so a query that happened to land mid-pop
+    /// failed the step (the flake on main). Now the wait is for the pop itself — and a swipe that
+    /// did not pop fails here, with no second try.
     private func assertBarBack(_ page: String, line: UInt = #line) {
-        XCTAssertTrue(waitUntil(timeout: 0.35) { app.buttons["Search"].firstMatch.isHittable },
+        XCTAssertTrue(waitUntil(timeout: 3) { app.buttons["Search"].firstMatch.isHittable },
                       "the bar is back with the swipe from \(page)", line: line)
     }
 
+    /// A full swipe back, edge to edge. The edge pan only starts recognising a little way in, so a
+    /// 330pt drag could hand UIKit well under half the width, and it cancelled the pop (seen on the
+    /// recording of a failed run: the page came 40% across and settled back). Released at the far
+    /// edge, the pop commits on position alone, whatever the synthesised velocity.
     private func swipeBack() {
         let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
-        edge.press(forDuration: 0.05, thenDragTo: edge.withOffset(CGVector(dx: 330, dy: 0)),
-                   withVelocity: .fast, thenHoldForDuration: 0)
+        let far = app.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5))
+        edge.press(forDuration: 0.05, thenDragTo: far, withVelocity: .fast, thenHoldForDuration: 0)
     }
 
     /// A tab, by name — expanding a minimised bar first (its one visible item is the current tab).

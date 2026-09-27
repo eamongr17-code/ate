@@ -21,8 +21,12 @@ struct AteShadow: Equatable, Sendable {
 
     /// The glass tab bar's lift off the page (round 4, Eamon's pick): very light, wide and low, ink on
     /// linen; in dark mode the contact shadow's black, a touch stronger because ink on ink needs it.
-    static let tabBarLight = AteShadow(colour: AteColor.ink.opacity(0.12), offsetY: 4, blur: 28, spread: 0)
+    static let tabBarLight = AteShadow(colour: AteColor.ink.opacity(0.26), offsetY: 8, blur: 44, spread: 0)
     static let tabBarDark = AteShadow(colour: .black.opacity(0.45), offsetY: 4, blur: 28, spread: 0)
+    /// The smaller glass controls' lift (round 5: the top-corner buttons, the month marker) — the
+    /// soft halo iOS 26's glass buttons cast, which the custom glass keeps.
+    static let glassLight = AteShadow(colour: AteColor.ink.opacity(0.10), offsetY: 6, blur: 24, spread: 0)
+    static let glassDark = AteShadow(colour: .black.opacity(0.40), offsetY: 6, blur: 24, spread: 0)
 }
 
 extension View {
