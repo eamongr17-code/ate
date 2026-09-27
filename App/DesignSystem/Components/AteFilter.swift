@@ -17,7 +17,7 @@ struct AteFilterButton: View {
         Button(action: action) {
             AteIcon.filter.view(size: 20)
                 .frame(width: AteMetrics.hit, height: AteMetrics.hit)
-                .background(isActive ? palette.fg : palette.chip, in: .circle)
+                .background(isActive ? palette.solid : palette.raised, in: .circle)
                 .foregroundStyle(isActive ? palette.inverted : palette.fg)
                 .contentShape(.circle)
         }
@@ -60,7 +60,7 @@ struct AteFilterPill: View {
         .padding(.leading, 14)
         .padding(.trailing, onRemove == nil ? 14 : 10)
         .frame(height: Self.height)
-        .background(isOn ? palette.fg : palette.chip, in: .capsule)
+        .background(isOn ? palette.solid : palette.chip, in: .capsule)
         .foregroundStyle(isOn ? palette.inverted : palette.fg)
         .fixedSize()
     }
@@ -102,6 +102,8 @@ struct AteActiveFilters: View {
 /// caller holds the draft and lays out its sections with ``AteFilterSection``, ``AteFilterChoice``
 /// and ``AteSegments``; the sheet is the same wherever it opens.
 struct AteFilterSheet<Content: View>: View {
+    /// A section's options are still arriving: the sheet stands at full height (``AteSheet``).
+    var isLoading = false
     @ViewBuilder var content: Content
     let onDone: () -> Void
 
@@ -111,7 +113,7 @@ struct AteFilterSheet<Content: View>: View {
         AteSheet(title: "Filter", primary: ("Done", {
             onDone()
             dismiss()
-        })) {
+        }), isLoading: isLoading) {
             VStack(alignment: .leading, spacing: AteMetrics.section) {
                 content
             }

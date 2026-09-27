@@ -25,10 +25,14 @@ struct ScoreStyle: Hashable {
     let shimmers: Bool
 
     /// Every other score: butter, ink.
-    static let standard = ScoreStyle(fill: AteColor.butter, ink: AteColor.ink, star: AteColor.ink, shimmers: false)
+    static let standard = ScoreStyle(
+        fill: AteColor.scoreFill, ink: AteColor.scoreInk, star: AteColor.scoreInk, shimmers: false
+    )
 
     /// A perfect 5.0.
-    static let perfect = ScoreStyle(fill: AteColor.butter, ink: AteColor.ink, star: AteColor.ink, shimmers: true)
+    static let perfect = ScoreStyle(
+        fill: AteColor.scoreFill, ink: AteColor.scoreInk, star: AteColor.scoreInk, shimmers: true
+    )
 
     /// The secret 6.
     static let blownAway = ScoreStyle(fill: AteColor.brick, ink: .white, star: .white, shimmers: true)

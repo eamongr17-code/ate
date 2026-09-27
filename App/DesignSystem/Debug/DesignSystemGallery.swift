@@ -265,7 +265,7 @@ struct DesignSystemGallery: View {
     private var receiptSpecimen: some View {
         VStack(alignment: .leading, spacing: AteMetrics.section) {
             label("Receipt — what Share prints; the entry page is a page, not a receipt")
-            ReceiptView(receipt: .preview, onPlaceTap: {}, onItemTap: { _ in })
+            ReceiptView(receipt: .preview)
             ReceiptView(receipt: .previewSingle)
             label("Shapes")
             AteDashedRule()

@@ -86,7 +86,7 @@ struct DietTagChip: View {
     /// The ground showing through. Linen on paper and slips (the markup's own); on the linen ground
     /// itself — the dish page, a search row — the ground's recessed `field` tone, since a linen chip
     /// on linen is no chip at all (round 4).
-    var fill: Color = AteColor.ground
+    var fill: Color = AteColor.tagFill
 
     var body: some View {
         Text(tag.label)
@@ -95,7 +95,7 @@ struct DietTagChip: View {
             .fixedSize()
             .padding(.horizontal, TokenPillMetrics.dietPadding)
             .frame(height: TokenPillMetrics.dietHeight)
-            .foregroundStyle(AtePalette.automatic.muted)
+            .foregroundStyle(AteColor.tagInk)
             .background(fill, in: .capsule)
             .accessibilityElement()
             .accessibilityLabel(tag.spokenName)
@@ -233,7 +233,7 @@ struct AteStar: View {
             // quarter in the slider's equal columns.
             ZStack {
                 AteIconShape(paths: AteIcon.starFilled.fills)
-                    .fill(AteColor.butter)
+                    .fill(AteColor.scoreMark)
                 outline
             }
             .frame(width: side, height: side)

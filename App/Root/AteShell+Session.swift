@@ -38,7 +38,8 @@ extension AteShell {
     /// Continue yet, including one that was killed on the handle screen.
     var owesHandle: Bool {
         #if DEBUG
-        if SettingsDebugLaunch.opensFirstRunHandle { return true }
+        // …until Continue: a drive can walk through the step as a person does.
+        if SettingsDebugLaunch.opensFirstRunHandle { return handle == nil }
         #endif
         return services.preferences.owesHandle(signedInAs: services.api.currentUserID)
     }
@@ -154,14 +155,13 @@ extension AteShell {
         Task { await you.refresh() }
     }
 
-    /// Journal and You are yours. A browser tapping either is asked to sign in, and stays put.
-    /// An entry page reads `entry_cards`, which a browser cannot (0034): the card stays, and the
-    /// browser is asked to sign in.
+    /// Every page is a read, and every read answers signed out — an entry page too, since
+    /// `get_entry_card` (0048). Only writes ask for sign-in.
     func mayOpen(_ route: Route) -> Bool {
-        guard case .entry = route else { return true }
-        return gate.permitsWrite(.entry)
+        true
     }
 
+    /// Journal and You are yours. A browser tapping either is asked to sign in, and stays put.
     func mayOpen(_ tapped: AteTab) -> Bool {
         switch tapped {
         case .journal: gate.permitsWrite(.journal)

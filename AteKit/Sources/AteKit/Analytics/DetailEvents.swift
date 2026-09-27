@@ -39,6 +39,8 @@ public enum DetailSource: String, Sendable, CaseIterable, Codable {
     case place
     /// The dish page — its place line.
     case dish
+    /// A link into the app — a shared entry (`ate://entry/<id>`).
+    case link
 }
 
 /// Which affordance a "log" call to action was tapped on.
