@@ -49,9 +49,13 @@ struct FeedScreen: View {
             await store.refresh()
             _ = await cities
         }
-        // The title and the area slide away on the way down and come back on the way up.
-        // A new area starts at the top too.
-        .ateTabRootHeader(scrollToTop: scrollToTopSignal + scrollToTopAfterArea) { header }
+        // The title and the area scroll away on the way down; on the way up the compact header comes
+        // back — "Feed", small, and the same location chip (round 6). A new area starts at the top.
+        .ateTabRootHeader(scrollToTop: scrollToTopSignal + scrollToTopAfterArea) {
+            AteCompactHeader(title: "Feed") {
+                FeedLocationChip(model: area) { isChoosingArea = true }
+            }
+        }
         .task {
             onViewed()
             // The first page works near me out itself (`FeedAreaModel.cityForFirstPage`).

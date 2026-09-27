@@ -12,12 +12,16 @@ extension View {
     /// The status bar's depth is read from layout (this screen's own safe area), never from the
     /// window: asking UIKit for the window's insets while the shell's body is being built re-entered
     /// layout and tripped an AttributeGraph cycle that froze the shell.
-    func ateStatusBarFrost() -> some View {
-        modifier(AteStatusBarFrost())
+    ///
+    /// `isHidden` while a compact header floats over the page (round 6): its own frost runs from the
+    /// top of the screen, and two frosts stacked read as a heavier band.
+    func ateStatusBarFrost(isHidden: Bool = false) -> some View {
+        modifier(AteStatusBarFrost(isHidden: isHidden))
     }
 }
 
 private struct AteStatusBarFrost: ViewModifier {
+    let isHidden: Bool
     @State private var depth: CGFloat = 0
 
     func body(content: Content) -> some View {
@@ -25,6 +29,8 @@ private struct AteStatusBarFrost: ViewModifier {
             .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { depth = $0 }
             .overlay(alignment: .top) {
                 AteFrost(depth: depth)
+                    .opacity(isHidden ? 0 : 1)
+                    .ateAnimation(AteMotion.headerFocus, value: isHidden)
                     .ignoresSafeArea(edges: .top)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
@@ -62,38 +68,10 @@ enum AteFrostMetrics {
     static let foot: CGFloat = 6
     /// The ground laid over the blur.
     static let wash: Double = 0.55
-    /// The floating header's scrim: its feather below the header, and its wash.
-    static let headerFeather: CGFloat = 32
-    static let headerWash: Double = 0.6
     /// The floating header's arrival: the blur it comes into focus from, and the few points it
     /// settles down through.
     static let focusBlur: CGFloat = 14
     static let focusDrop: CGFloat = -10
-}
-
-/// **The floating header's backdrop** (round 5, Eamon's pick) — in place of the solid ground that
-/// ended in a hard line across the list: a light frost the header's own height, from the top of the
-/// screen, feathering out over 32 below it.
-struct AteHeaderScrim: View {
-    var body: some View {
-        VStack(spacing: 0) {
-            frost
-            frost
-                .frame(height: AteFrostMetrics.headerFeather)
-                .mask { LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom) }
-        }
-        .padding(.bottom, -AteFrostMetrics.headerFeather)
-        .ignoresSafeArea(edges: .top)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-
-    private var frost: some View {
-        ZStack {
-            Rectangle().fill(.ultraThinMaterial)
-            Rectangle().fill(AteGlassColor.frostWash.opacity(AteFrostMetrics.headerWash))
-        }
-    }
 }
 
 /// The floating header's arrival: out of a blur into focus, fading in, from a few points above —

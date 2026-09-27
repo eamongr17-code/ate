@@ -52,7 +52,11 @@ final class TabChromeUITests: XCTestCase {
         let middle = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
         middle.press(forDuration: 0.05, thenDragTo: middle.withOffset(CGVector(dx: 0, dy: 120)))
         XCTAssertTrue(waitUntil(timeout: 2) { onScreen() != nil }, "the header is back on the way up")
-        XCTAssertEqual(onScreen()?.frame.minY ?? 0, home, accuracy: 0.5, "pinned where it rests at the top")
+        // Round 6: what comes back is the compact header — its chip in the row just under the status
+        // bar, not the big header's copy — and no title as big as the page's.
+        let chipTop = onScreen()?.frame.minY ?? 0
+        XCTAssertGreaterThan(chipTop, 50, "under the status bar")
+        XCTAssertLessThan(chipTop, home + 16, "in the compact row at the top, not further down the page")
         XCTAssertTrue(waitUntil(timeout: 2) { app.buttons["Search"].isHittable }, "and the bar is whole again")
         save("chrome-feed-scrolled-up")
     }
