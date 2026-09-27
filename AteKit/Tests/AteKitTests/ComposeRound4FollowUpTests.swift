@@ -131,6 +131,84 @@ struct LatePhotoTests {
         #expect(EntryEvents.photoLate(count: 2).parameters == ["count": "2"])
     }
 
+    @Test("a late photo queued before Done's own enqueue lands is merged in, never dropped")
+    func lateBeforeEnqueue() async throws {
+        let service = UploadRecorder()
+        let outbox = EntryOutbox(entries: service, containerName: "Tests-\(UUID().uuidString)")
+        let insert = QueuedInsert(NewEntry(
+            id: UUID(), authorID: UUID(), body: "x", restaurantID: nil, createdAt: Date()
+        ))
+        // 1. The 8s ran out with `create` still in flight; the late upload failed and queued itself.
+        await outbox.addLatePhoto(QueuedPhoto(position: 2, path: "/late.jpg"), to: insert)
+        // 2. …then `create` returned and Done's submit enqueued the entry's own work.
+        await outbox.enqueue(QueuedEntry(
+            entry: insert,
+            pendingPhotos: [QueuedPhoto(position: 0, path: "/a.jpg"), QueuedPhoto(position: 1, path: "/b.jpg")],
+            hasInserted: true, sixTokens: [TagToken(offset: 1, length: 3)]
+        ))
+        let queued = try #require(await outbox.queued(entryID: insert.id))
+        #expect(queued.pendingPhotos.map(\.position) == [0, 1, 2], "the late photo survives the enqueue")
+        #expect(queued.needsSort, "the entry's own sort is still owed")
+        #expect(queued.sixTokens == [TagToken(offset: 1, length: 3)])
+    }
+
+    @Test("after a successful submit with a late photo, the draft's photo folder is gone")
+    func folderEmptiesAfterUpload() async throws {
+        let service = UploadRecorder()
+        let outbox = EntryOutbox(entries: service, containerName: "Tests-\(UUID().uuidString)")
+        let submission = EntrySubmission(entries: service, outbox: outbox)
+        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString.lowercased(), directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let first = folder.appending(path: "a.jpg")
+        let late = folder.appending(path: "b.jpg")
+        try Data([1]).write(to: first)
+        try Data([2]).write(to: folder.appending(path: "a_t.jpg"))
+        let entry = NewEntryRequest(
+            id: UUID(), body: "The ragù 4.5", restaurantID: UUID(), photoPaths: [first.path()],
+            createdAt: Date(), scoreCount: 1, secondsFromOpen: 3
+        )
+        _ = await submission.submit(entry)
+        await submission.finish(entryID: entry.id, photoPaths: entry.photoPaths)
+        // The late pick is written as the composer writes one: its folder made on the way (the first
+        // upload already emptied and removed it).
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data([3]).write(to: late)
+        #expect(await submission.attachLate(entry, path: late.path(), position: 1))
+        #expect(service.uploads == ["\(entry.id) @0", "\(entry.id) @1"])
+        let left = (try? FileManager.default.contentsOfDirectory(atPath: folder.path())) ?? []
+        #expect(left.isEmpty, "left behind: \(left)")
+        #expect(await outbox.queued(entryID: entry.id) == nil)
+    }
+
+    @Test("a queued photo that lands through the outbox takes its file with it")
+    func outboxUploadClearsFile() async throws {
+        let service = UploadRecorder()
+        let outbox = EntryOutbox(entries: service, containerName: "Tests-\(UUID().uuidString)")
+        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString.lowercased(), directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let file = folder.appending(path: "c.jpg")
+        try Data([1]).write(to: file)
+        let insert = QueuedInsert(
+            NewEntry(id: UUID(), authorID: UUID(), body: "x", restaurantID: nil, createdAt: Date())
+        )
+        await outbox.addLatePhoto(QueuedPhoto(position: 0, path: file.path()), to: insert)
+        _ = await outbox.run()
+        #expect(FileManager.default.fileExists(atPath: file.path()) == false)
+        #expect(FileManager.default.fileExists(atPath: folder.path()) == false)
+    }
+
+    @Test("photos taken out before Done are pruned; the rest stay")
+    func prune() throws {
+        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString.lowercased(), directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data([1]).write(to: folder.appending(path: "kept.jpg"))
+        try Data([1]).write(to: folder.appending(path: "removed.jpg"))
+        StagedFiles.prune(folder, keeping: ["kept.jpg"])
+        #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path()) == ["kept.jpg"])
+        StagedFiles.prune(folder, keeping: [])
+        #expect(FileManager.default.fileExists(atPath: folder.path()) == false)
+    }
+
     @Test("Done clears the draft but keeps the photos its upload reads from")
     func draftKeepsPhotos() throws {
         let store = EntryDraftStore(containerName: "Tests-\(UUID().uuidString)")

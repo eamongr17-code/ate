@@ -211,28 +211,48 @@ final class ComposerModel: DictationTarget {
     func clearDraft() {
         isFinished = true
         drafts.clear(draftID: draftID, keepingPhotos: true)
+        // …but not the ones taken back out before Done: nothing will ever upload those.
+        StagedFiles.prune(photoDirectory, keeping: Set(photos.compactMap(\.fileName)))
     }
 
     /// The entry is saved; the draft is not to be written again.
     private var isFinished = false
 
-    /// Set once Done has saved the entry **without** a pick still being written: where that pick
+    /// Set when Done snapshots the entry **without** a pick still being written: where such a pick
     /// goes when it lands, and the next free position on the entry.
     private(set) var lateHandoff: (request: NewEntryRequest, nextPosition: Int)?
+    /// The entry's words have landed (or queued): late picks may follow it up. Until then they wait
+    /// in ``landedLate`` — an upload racing the entry's own create would have nothing to attach to.
+    private(set) var isEntrySaved = false
+    private var landedLate: [(path: String, position: Int)] = []
 
     func handOffLatePhotos(to request: NewEntryRequest) {
         lateHandoff = (request, request.photoPaths.count)
     }
 
+    /// Nothing was saved: a pick that lands now stays in the composer for the next Done.
     func cancelLateHandoff() {
         lateHandoff = nil
+        landedLate = []
     }
 
-    /// A late pick has landed on disk: its position on the saved entry, taken in the order they land.
-    func claimLatePosition() -> (request: NewEntryRequest, position: Int)? {
-        guard let handoff = lateHandoff else { return nil }
+    /// A late pick is on disk: it takes the next position on the saved entry.
+    func landLate(fileName: String) {
+        guard let handoff = lateHandoff else { return }
         lateHandoff = (handoff.request, handoff.nextPosition + 1)
-        return (handoff.request, handoff.nextPosition)
+        landedLate.append((photoDirectory.appending(path: fileName).path(), handoff.nextPosition))
+    }
+
+    /// The entry is saved: from now on late picks go straight up.
+    func markEntrySaved() {
+        isEntrySaved = true
+    }
+
+    /// The late picks ready to go up — only once the entry is saved. Each is handed out once.
+    func takeLatePhotos() -> (request: NewEntryRequest, photos: [(path: String, position: Int)])? {
+        guard isEntrySaved, let handoff = lateHandoff, landedLate.isEmpty == false else { return nil }
+        defer { landedLate = [] }
+        return (handoff.request, landedLate)
     }
 
     /// What the save path is handed. The body is the words **verbatim** — `composition.plain`, with

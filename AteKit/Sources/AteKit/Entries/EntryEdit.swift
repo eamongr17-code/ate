@@ -149,6 +149,7 @@ public struct EntryEdit: Sendable {
                     data: data,
                     name: file.deletingPathExtension().lastPathComponent
                 ))
+                StagedFiles.uploaded(path)
             }
         }
         if photos.count < originalPhotos.count || removedURLs.isEmpty == false {

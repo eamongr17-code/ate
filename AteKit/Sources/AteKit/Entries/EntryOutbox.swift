@@ -133,10 +133,23 @@ public actor EntryOutbox {
 
     public var pendingCount: Int { queue.count }
 
-    /// Puts an entry in the queue, or updates the one already there.
+    /// Puts an entry in the queue, or updates the one already there — **merging, never replacing**
+    /// its photos. A late photo (``addLatePhoto(_:to:)``) can be queued before Done's own enqueue
+    /// lands (the create was still in flight when Done stopped waiting); replacing the item would
+    /// drop it.
     public func enqueue(_ item: QueuedEntry) {
+        var merged = item
+        if let existing = queue.first(where: { $0.id == item.id }) {
+            let positions = Set(item.pendingPhotos.map(\.position))
+            merged.pendingPhotos += existing.pendingPhotos.filter { positions.contains($0.position) == false }
+            merged.pendingPhotos.sort { $0.position < $1.position }
+            merged.hasInserted = item.hasInserted || existing.hasInserted
+            merged.needsSort = item.needsSort || existing.needsSort
+            merged.tagTokens = item.tagTokens ?? existing.tagTokens
+            merged.sixTokens = item.sixTokens ?? existing.sixTokens
+        }
         queue.removeAll { $0.id == item.id }
-        queue.append(item)
+        queue.append(merged)
         persist()
     }
 
@@ -238,6 +251,7 @@ public actor EntryOutbox {
     /// Drops everything one person had queued — their account has been deleted, and there is no
     /// longer anybody an entry of theirs could be pushed as.
     public func discard(authoredBy userID: UUID) {
+        StagedFiles.discard(queue.filter { $0.entry.authorID == userID }.flatMap { $0.pendingPhotos.map(\.path) })
         queue.removeAll { $0.entry.authorID == userID }
         persist()
     }
@@ -299,6 +313,7 @@ public actor EntryOutbox {
                 try await entries.attach(photo: EntryPhotoUpload(
                     entryID: item.entry.id, position: photo.position, data: data
                 ))
+                StagedFiles.uploaded(photo.path)
             } catch {
                 remaining.append(photo)
                 throw error

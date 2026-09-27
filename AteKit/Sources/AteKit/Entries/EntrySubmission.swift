@@ -167,6 +167,7 @@ public struct EntrySubmission: Sendable {
         }
         do {
             try await entries.attach(photo: EntryPhotoUpload(entryID: request.id, position: position, data: data))
+            StagedFiles.uploaded(path)
             return true
         } catch {
             guard let authorID = try? await entries.authorID() else { return false }
@@ -191,6 +192,7 @@ public struct EntrySubmission: Sendable {
                         try await entries.attach(photo: EntryPhotoUpload(
                             entryID: entryID, position: position, data: data
                         ))
+                        StagedFiles.uploaded(path)
                         return position
                     } catch {
                         return nil

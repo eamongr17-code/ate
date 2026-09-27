@@ -74,6 +74,8 @@ extension ComposerScreen {
         }
         AteHaptics.success()
         model.clearDraft()
+        model.markEntrySaved()
+        sendLatePhotos()
         if case .saved = result {
             // The Summary takes the cover; the entry page is already beneath it.
             summaryTagTokens = request.tagTokens
@@ -143,6 +145,8 @@ extension ComposerScreen {
             do {
                 let card = try await edit.save(to: entries)
                 isSaving = false
+                // Every added photo is up (and its file gone); what is left in the folder was taken back out.
+                StagedFiles.prune(model.photoDirectory, keeping: [])
                 if edit.changesPlace { analytics(EntryEvents.corrected(.place)) }
                 AteHaptics.success()
                 onSaved(card)
@@ -198,18 +202,29 @@ extension ComposerScreen {
                     return
                 }
                 model.finishPhoto(id: id, fileName: staged.fileName, image: staged.image)
-                // Landed after Done stopped waiting: it goes on the saved entry, at the next position.
-                if let late = model.claimLatePosition() {
-                    let path = directory.appending(path: staged.fileName).path()
-                    let submission = services.submission
-                    let outbox = services.outbox
-                    Task.detached {
-                        if await submission.attachLate(late.request, path: path, position: late.position) == false {
-                            await outbox.run()
-                        }
-                    }
+                // Landed after Done stopped waiting: it goes on the saved entry, at the next position —
+                // once the entry itself is saved.
+                if model.lateHandoff != nil {
+                    model.landLate(fileName: staged.fileName)
+                    sendLatePhotos()
                 }
             }
+        }
+    }
+
+    /// Late picks up to the saved entry: straight away if they can, otherwise through the outbox,
+    /// which attaches them when it next runs. Never dropped.
+    func sendLatePhotos() {
+        guard let late = model.takeLatePhotos() else { return }
+        let submission = services.submission
+        let outbox = services.outbox
+        Task.detached {
+            var queued = false
+            for photo in late.photos {
+                let landed = await submission.attachLate(late.request, path: photo.path, position: photo.position)
+                queued = queued || landed == false
+            }
+            if queued { await outbox.run() }
         }
     }
 
