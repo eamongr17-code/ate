@@ -9,7 +9,8 @@ import SwiftUI
 /// made the Place key near-invisible in dark mode: ink text on a plum pill.
 struct ComposerKey: View {
     let title: String
-    let icon: AteIcon
+    /// `nil` for a lettered pill with no icon — the diet row's codes.
+    let icon: AteIcon?
     /// The artboards size the two keys' icons differently: the Score star is 15, the Place pin 16.
     var iconSize: CGFloat = 15
     let background: Color
@@ -34,10 +35,10 @@ struct ComposerKey: View {
             .accessibilityIdentifier(identifier ?? "composer.key.\(title.lowercased())")
     }
 
-    /// The key's face — shared with the Diet key, which is a menu rather than a button.
+    /// The key's face.
     @ViewBuilder
     var label: some View {
-        if iconOnly {
+        if iconOnly, let icon {
             icon.view(size: iconSize)
                 .frame(width: AteMetrics.keyHeight, height: AteMetrics.keyHeight)
                 .background(isActive ? AteColor.ink : background, in: .circle)
@@ -46,13 +47,14 @@ struct ComposerKey: View {
         } else {
             CappedWidth(maxWidth: value == nil ? .infinity : Self.valueMaxWidth) {
                 HStack(spacing: 5) {
-                    icon.view(size: iconSize)
+                    icon?.view(size: iconSize)
                     Text(value ?? title)
                         .ateText(.controlSmall)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
-                .padding(.leading, 9)
+                // A lettered pill is balanced: the key's trailing inset on both sides.
+                .padding(.leading, icon == nil ? 13 : 9)
                 .padding(.trailing, value == nil ? 13 : 14)
                 .atePillHeight(AteMetrics.keyHeight)
             }
@@ -120,22 +122,45 @@ struct ComposerDoneButton: View {
     private static let hitOutset = AteHitOutset(height: height)
 }
 
-/// **The composer's toolbar** (`Composer.dc.html`): camera · library · mic on the left, Score and
-/// Place on the right — `padding:8px 14px 8px 8px; gap:6px; justify-content:space-between`. There is
+/// **The composer's toolbar** (`Composer.dc.html`): camera · library on the left, Score, Place and
+/// Diet on the right — `padding:8px 14px 8px 8px; gap:6px; justify-content:space-between`. There is
 /// no third group: every entry is public (Eamon, 2026-09-25), so the visibility key is gone.
+///
+/// **No mic key** (round 4): voice mode is parked (``VoiceParking``). The keyboard's own dictation is
+/// the voice path, and a score said through it becomes a pill like a typed one (``ScorePhrase``).
+///
+/// **The Diet key swaps the toolbar** for a row of the five codes behind a back arrow (round 4 —
+/// the system menu is gone): a code goes in after the nearest dish to its left, and the ordinary
+/// toolbar comes straight back.
 struct ComposerToolbar: View {
     let model: ComposerModel
     @Binding var pickedItems: [PhotosPickerItem]
     let analytics: AnalyticsRecorder
     let onCamera: () -> Void
-    let onDictate: () -> Void
 
+    @State private var isChoosingDiet = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
+        Group {
+            if isChoosingDiet {
+                dietRow
+                    .transition(.opacity)
+            } else {
+                keys
+                    .transition(.opacity)
+            }
+        }
+        .ateAnimation(.easeInOut(duration: 0.15), value: isChoosingDiet)
+        .padding(.vertical, AteMetrics.snug)
+        .padding(.leading, AteMetrics.snug)
+        .padding(.trailing, Self.trailing)
+    }
+
+    private var keys: some View {
         // At the accessibility sizes the keys' lettering needs the whole width — side by side with
-        // the three media keys, "Score" truncated to "Sco…" and the place to nothing. The keys take
-        // a line of their own under the media keys instead.
+        // the media keys, "Score" truncated to "Sco…" and the place to nothing. The keys take a
+        // line of their own under the media keys instead.
         let stacks = dynamicTypeSize.isAccessibilitySize
         let layout = stacks
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: Self.gap))
@@ -153,6 +178,9 @@ struct ComposerToolbar: View {
                     maxSelectionCount: max(1, EntryDraft.photoLimit - model.photos.count),
                     selectionBehavior: .ordered,
                     matching: .images,
+                    // `.current`: the picker hands back the original as it is (no transcode), which
+                    // is most of the wait between a pick and the photo in the cluster.
+                    preferredItemEncoding: .current,
                     photoLibrary: .shared()
                 ) {
                     AteIcon.library.view(size: 22)
@@ -163,8 +191,6 @@ struct ComposerToolbar: View {
                 .disabled(model.canAddPhotos == false)
                 .simultaneousGesture(TapGesture().onEnded { model.dismissScoring(refocus: false) })
                 .accessibilityLabel("Photo library")
-                AteIconButton(icon: .voice, label: "Dictate", tint: AtePalette.surface.fg, action: onDictate)
-                    .accessibilityIdentifier("composer.key.dictate")
             }
             .fixedSize()
             // No spacer: its two extra gaps were the Place key's last 12 points. The keys push
@@ -179,6 +205,7 @@ struct ComposerToolbar: View {
                     // butter lettering. The Place key never does.
                     isActive: model.scoring != nil
                 ) {
+                    AteHaptics.key()
                     // The key is inverted while the panel is up, and pressing it again puts it away.
                     if model.scoring != nil {
                         model.dismissScoring()
@@ -197,57 +224,65 @@ struct ComposerToolbar: View {
                     value: model.place.flatMap { $0.name.isEmpty ? nil : $0.name },
                     identifier: "composer.key.place"
                 ) {
+                    AteHaptics.key()
                     model.dismissScoring(refocus: false)
                     model.isPickingPlace = true
                 }
                 // The place gives way first: Score and Diet keep their size, the name truncates.
                 .layoutPriority(-1)
-                dietKey
+                ComposerKey(
+                    title: "Diet",
+                    icon: .diet,
+                    iconSize: 16,
+                    background: ComposerKeyColor.place,
+                    foreground: AteColor.ink,
+                    iconOnly: true
+                ) {
+                    AteHaptics.key()
+                    model.dismissScoring(refocus: false)
+                    isChoosingDiet = true
+                }
+                .fixedSize()
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .padding(.vertical, AteMetrics.snug)
-        .padding(.leading, AteMetrics.snug)
-        .padding(.trailing, Self.trailing)
     }
 
-    /// **The Diet key** (Eamon's layout C, round 3): an icon-only leaf beside the labelled Score and
-    /// Place pills, so the place's name keeps its room. A system menu of the five codes; the one
-    /// picked goes in as a tag chip after the current dish (``ComposerModel/insertTag(_:)``).
-    private var dietKey: some View {
-        Menu {
+    /// The five codes, each the same linen pill as the Place key, behind a back arrow.
+    private var dietRow: some View {
+        HStack(spacing: Self.gap) {
+            AteIconButton(icon: .back, label: "Back", tint: AtePalette.surface.fg) {
+                isChoosingDiet = false
+            }
+            .accessibilityIdentifier("composer.diet.back")
             ForEach(DietTag.allCases, id: \.self) { tag in
-                Button(tag.label) {
-                    model.dismissScoring(refocus: false)
-                    // A chip belongs to the dish on its left; with none there, the key does
-                    // nothing but say so under the finger.
-                    guard let added = model.insertTag(tag) else {
-                        AteHaptics.refused()
-                        return
-                    }
-                    analytics(added)
+                ComposerKey(
+                    title: tag.label,
+                    icon: nil,
+                    background: ComposerKeyColor.place,
+                    foreground: AteColor.ink,
+                    identifier: "composer.diet.\(tag.rawValue)"
+                ) {
+                    pick(tag)
                 }
                 .accessibilityLabel(tag.spokenName)
+                .fixedSize()
             }
-        } label: {
-            ComposerKey(
-                title: "Diet",
-                icon: .diet,
-                iconSize: 16,
-                background: ComposerKeyColor.place,
-                foreground: AteColor.ink,
-                iconOnly: true,
-                action: {}
-            )
-            .label
-            .ateHitArea(.keyDisc)
+            Spacer(minLength: 0)
         }
-        .menuIndicator(.hidden)
-        .buttonStyle(.plain)
-        .fixedSize()
-        .ateHitFootprint(.keyDisc)
-        .accessibilityLabel("Diet")
-        .accessibilityIdentifier("composer.key.diet")
+    }
+
+    /// A chip belongs to the dish on its left; with none there, nothing goes in and the pill says so
+    /// under the finger; the ordinary toolbar comes back either way. Either way nothing is written about it.
+    private func pick(_ tag: DietTag) {
+        model.dismissScoring(refocus: false)
+        isChoosingDiet = false
+        guard let added = model.insertTag(tag) else {
+            AteHaptics.refused()
+            return
+        }
+        AteHaptics.key()
+        analytics(added)
     }
 
     /// `gap:6px`, between the groups and between the two keys.

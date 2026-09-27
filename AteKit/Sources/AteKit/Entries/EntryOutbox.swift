@@ -39,6 +39,9 @@ public struct QueuedEntry: Sendable, Hashable, Codable, Identifiable {
     /// before tags existed still reads.
     public var tagTokens: [TagToken]?
 
+    /// The secret 6s owed to that sort (`six_tokens`). Optional for the same reason.
+    public var sixTokens: [TagToken]?
+
     /// The server refused rather than failed to answer. Retrying cannot help, so the queue stops
     /// immediately instead of burning eight foregrounds to arrive at the same place.
     public var isBlocked = false
@@ -108,6 +111,8 @@ public actor EntryOutbox {
     /// else signed in, another person's queued entry waits untouched for them — pushing it would be
     /// refused by RLS and marked blocked, or worse. Nil (tests) works every item.
     private let owner: (@Sendable () -> UUID?)?
+    /// **The staged photo files**, and the one rule for when they go (``StagedPhotoLedger``).
+    public nonisolated let staged: StagedPhotoLedger
 
     public init(
         entries: any EntryService,
@@ -124,16 +129,30 @@ public actor EntryOutbox {
         let root = support.appending(path: containerName, directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         self.storeURL = root.appending(path: "outbox.json", directoryHint: .notDirectory)
+        self.staged = StagedPhotoLedger(storeURL: root.appending(path: "staged.json", directoryHint: .notDirectory))
         self.queue = (try? Data(contentsOf: storeURL))
             .flatMap { try? JSONDecoder().decode([QueuedEntry].self, from: $0) } ?? []
     }
 
     public var pendingCount: Int { queue.count }
 
-    /// Puts an entry in the queue, or updates the one already there.
+    /// Puts an entry in the queue, or updates the one already there — **merging, never replacing**
+    /// its photos. A late photo (``addLatePhoto(_:to:)``) can be queued before Done's own enqueue
+    /// lands (the create was still in flight when Done stopped waiting); replacing the item would
+    /// drop it.
     public func enqueue(_ item: QueuedEntry) {
+        var merged = item
+        if let existing = queue.first(where: { $0.id == item.id }) {
+            let positions = Set(item.pendingPhotos.map(\.position))
+            merged.pendingPhotos += existing.pendingPhotos.filter { positions.contains($0.position) == false }
+            merged.pendingPhotos.sort { $0.position < $1.position }
+            merged.hasInserted = item.hasInserted || existing.hasInserted
+            merged.needsSort = item.needsSort || existing.needsSort
+            merged.tagTokens = item.tagTokens ?? existing.tagTokens
+            merged.sixTokens = item.sixTokens ?? existing.sixTokens
+        }
         queue.removeAll { $0.id == item.id }
-        queue.append(item)
+        queue.append(merged)
         persist()
     }
 
@@ -197,8 +216,13 @@ public actor EntryOutbox {
             var working = item
             pushing = item.id
             defer { pushing = nil }
+            let hadPhotos = working.pendingPhotos.isEmpty == false
             do {
                 try await push(&working)
+                // Photos went up: their files go once the server shows their rows (never before).
+                if hadPhotos, let card = try? await entries.entry(id: working.id) {
+                    await staged.confirm(entryID: working.id, card: card)
+                }
             } catch {
                 guard EntryWriteFailure.of(error).isRetryable else {
                     // A refusal is not a bad connection. Mark it and move on rather than counting
@@ -235,12 +259,44 @@ public actor EntryOutbox {
     /// Drops everything one person had queued — their account has been deleted, and there is no
     /// longer anybody an entry of theirs could be pushed as.
     public func discard(authoredBy userID: UUID) {
+        let abandoned = queue.filter { $0.entry.authorID == userID }.map(\.id)
+        let staged = self.staged
+        Task { for entryID in abandoned { await staged.abandon(entryID: entryID) } }
         queue.removeAll { $0.entry.authorID == userID }
         persist()
     }
 
     /// Whether the queue has given up on an entry. The entry page asks, so a stuck entry says so on
     /// its own paper instead of sitting silently in a JSON file nobody opens.
+    /// What the queue still holds for an entry — the chips and 6s its sort is owed, among the rest.
+    public func queued(entryID: UUID) -> QueuedEntry? {
+        queue.first { $0.id == entryID }
+    }
+
+    /// Every file still queued to upload — the sweep never touches these.
+    public var pendingPhotoPaths: Set<String> { Set(queue.flatMap { $0.pendingPhotos.map(\.path) }) }
+
+    /// Whether any of an entry's photos are still waiting to go up (their files must stay put).
+    public func hasPendingPhotos(entryID: UUID) -> Bool {
+        queue.first { $0.id == entryID }?.pendingPhotos.isEmpty == false
+    }
+
+    /// **A photo that finished writing after its entry was saved** (round 4: Done stops waiting on a
+    /// slow pick). It joins the entry's queued work, or — the entry already landed — queues on its
+    /// own, inserted, with nothing left to sort. The next run uploads it at its position.
+    public func addLatePhoto(_ photo: QueuedPhoto, to insert: QueuedInsert) async {
+        await staged.record(entryID: insert.id, photos: [photo])
+        if let index = queue.firstIndex(where: { $0.id == insert.id }) {
+            guard queue[index].pendingPhotos.contains(photo) == false else { return }
+            queue[index].pendingPhotos.append(photo)
+        } else {
+            var item = QueuedEntry(entry: insert, pendingPhotos: [photo], needsSort: false)
+            item.hasInserted = true
+            queue.append(item)
+        }
+        persist()
+    }
+
     public func isStuck(entryID: UUID) -> Bool {
         queue.first { $0.id == entryID }?.isStuck ?? false
     }
@@ -279,7 +335,7 @@ public actor EntryOutbox {
         item.pendingPhotos = remaining
         if item.needsSort, forgotten.contains(item.id) == false {
             let outcome = try await entries.sort(
-                entryID: item.entry.id, force: false, tagTokens: item.tagTokens ?? []
+                entryID: item.entry.id, force: false, tagTokens: item.tagTokens ?? [], sixTokens: item.sixTokens ?? []
             )
             item.needsSort = false
             analytics(EntryEvents.sortCompleted(

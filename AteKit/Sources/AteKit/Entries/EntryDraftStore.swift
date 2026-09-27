@@ -80,6 +80,10 @@ public struct EntryDraftStore: EntryDraftStoring {
     }
 
     public func clear(draftID: UUID?) {
+        clear(draftID: draftID, keepingPhotos: false)
+    }
+
+    public func clear(draftID: UUID?, keepingPhotos: Bool) {
         guard let draftURL else { return }
         // Only clear a draft that is still the one being pointed at. A composer that finished long
         // ago must not delete the draft somebody started after it.
@@ -88,10 +92,12 @@ public struct EntryDraftStore: EntryDraftStoring {
             return
         }
         try? fileManager.removeItem(at: draftURL)
-        if let draftID {
+        if let draftID, keepingPhotos == false {
             try? fileManager.removeItem(at: photoDirectory(for: draftID))
         }
     }
+
+    public var draftPhotosRoot: URL? { ownerPhotosRoot }
 
     public func photoDirectory(for draftID: UUID) -> URL {
         let base = ownerPhotosRoot ?? URL.temporaryDirectory.appending(path: "AteUnowned", directoryHint: .isDirectory)

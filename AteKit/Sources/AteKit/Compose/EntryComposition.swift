@@ -111,9 +111,33 @@ public struct EntryComposition: Hashable, Codable, Sendable {
     /// forget.
     public func pendingScoreLiteral(atDisplayOffset offset: Int) -> (span: TextSpan, rating: Rating)? {
         let plainCaret = plainOffset(forDisplayOffset: offset)
+        // A phrase first ("four and a half", "4 out of 5" — ``ScorePhrase``): it is the longer
+        // reading, and its number may be a pill that promoted at the space before the rest was typed.
+        if let phrase = ScorePhrase.candidate(in: plain, caretUTF16: plainCaret), canFold(into: phrase.span) {
+            return phrase
+        }
         guard let found = ScoreLiteral.candidate(in: plain, caretUTF16: plainCaret) else { return nil }
         guard spans.contains(where: { $0.span.intersects(found.span) }) == false else { return nil }
         return found
+    }
+
+    /// Whether a pending score found at `span` was said in words ("four and a half") rather than
+    /// typed as a number — for the funnel's `form=phrase`.
+    public func isPhrase(_ span: TextSpan) -> Bool {
+        let units = Array(plain.utf16)
+        guard span.location >= 0, span.endLocation <= units.count else { return false }
+        return String(decoding: units[span.location..<span.endLocation], as: UTF16.self)
+            .contains { $0.isLetter || $0.isWhitespace }
+    }
+
+    /// A phrase may swallow **one** score pill, and only one it begins with — `<4.0> and a half`
+    /// becomes one `4.5` pill. It never re-finds a pill on its own (the double-promotion guard above),
+    /// never starts inside one, and never takes a tag chip or a pill in the middle of the words.
+    private func canFold(into span: TextSpan) -> Bool {
+        let touched = spans.filter { $0.span.intersects(span) }
+        guard touched.isEmpty == false else { return true }
+        guard touched.count == 1, let pill = touched.first, pill.token.score != nil else { return false }
+        return pill.span.location == span.location && pill.span.endLocation < span.endLocation
     }
 
     /// The dietary code the person has just finished typing at `offset` — "tiramisu v" — **if it is

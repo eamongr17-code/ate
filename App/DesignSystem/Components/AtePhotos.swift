@@ -237,15 +237,35 @@ struct PhotoCluster: View {
     }
 }
 
-/// A tile's long-press menu, when the cluster allows removing; inert otherwise.
+/// A tile's X and its long-press menu, when the cluster allows removing; inert otherwise. The X is
+/// the visible way (round 4); the long press stays as the second.
 private struct RemovablePhoto: ViewModifier {
     let index: Int
     let side: CGFloat
     let onRemove: ((Int) -> Void)?
 
+    @Environment(\.atePalette) private var palette
+
     func body(content: Content) -> some View {
         if let onRemove {
             content
+                .overlay(alignment: .topTrailing) {
+                    Button { onRemove(index) } label: {
+                        AteIcon.close.view(size: Self.glyph)
+                            .foregroundStyle(palette.inverted)
+                            .frame(width: Self.disc, height: Self.disc)
+                            .background(palette.fg, in: .circle)
+                            // Parted from the photo under it by a ring in the surface colour, as the
+                            // photos are from each other.
+                            .overlay { Circle().strokeBorder(palette.ground, lineWidth: 2).padding(-2) }
+                            .frame(width: AteMetrics.hit, height: AteMetrics.hit)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .offset(x: Self.shift, y: -Self.shift)
+                    .accessibilityLabel("Remove photo \(index + 1)")
+                    .accessibilityIdentifier("photo.remove.\(index)")
+                }
                 .contentShape(
                     .contextMenuPreview,
                     .rect(cornerRadius: AteMetrics.photoRadius(side: side), style: .continuous)
@@ -257,6 +277,13 @@ private struct RemovablePhoto: ViewModifier {
             content
         }
     }
+
+    /// A small disc over the tile's corner — 22 across, its X 11, sitting 4 in from the corner.
+    private static let disc: CGFloat = 22
+    private static let glyph: CGFloat = 11
+    private static let inset: CGFloat = 4
+    /// The 44 target is centred on the disc, so it moves out by the difference.
+    private static let shift = AteMetrics.hit / 2 - disc / 2 - inset
 }
 
 /// The tilts the artboards draw, named by the screen that draws them. A view asks for a cluster's

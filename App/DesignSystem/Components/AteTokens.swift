@@ -140,8 +140,12 @@ struct ScoreToken: View {
         // clipping its digits. At the design's size it is `.78em × 1.55` of the prose exactly.
         let height = AteFont.size(for: style, dynamicTypeSize: dynamicTypeSize)
             * TokenPillMetrics.scoreHeightEm / 0.78
+        // A person's perfect 5.0 and their secret 6 dress differently (`ScoreStyle`); an aggregate
+        // never does — an average of 5.0 is not anybody's perfect score.
+        let dress = printed == nil ? ScoreStyle.of(rating) : .standard
         HStack(spacing: TokenPillMetrics.iconGap) {
             AteIcon.starFilled.view(size: TokenPillMetrics.starSide)
+                .foregroundStyle(dress.star)
             Text(printed ?? ScoreFormat.halfStep(rating.value))
                 .ateText(style)
                 .monospacedDigit()
@@ -151,8 +155,9 @@ struct ScoreToken: View {
         // 1.209em, which is 20.6 in 17pt prose. Not one em — that drew a squat capsule three and a
         // half points short of the artboard's.
         .frame(height: height)
-        .foregroundStyle(AteColor.ink)
-        .background(AteColor.butter, in: .capsule)
+        .foregroundStyle(dress.ink)
+        .background(dress.fill, in: .capsule)
+        .ateShimmerOnce(dress.shimmers)
         .overlay {
             if isSelected {
                 Capsule().strokeBorder(AteColor.ink, lineWidth: 2)

@@ -122,7 +122,8 @@ extension AteShell {
                     // is not heard, so the slot is held for one turn and then released — a real
                     // change, which puts the bar back on the tab under the composer.
                     holdsComposeSlot = true
-                    AteHaptics.compose()
+                    // The `+` is a key like any other: one light tap under the finger (round 4).
+                    AteHaptics.key()
                     openComposer(.tabBar)
                     Task { @MainActor in holdsComposeSlot = false }
                 }
@@ -131,11 +132,3 @@ extension AteShell {
     }
 }
 
-extension AteHaptics {
-    /// The `+`: a light impact, the moment it is tapped — the same weight a save lands with, because
-    /// both are one deliberate tap that starts something. Switching tabs stays the system's own,
-    /// which on iOS 26 is felt only when a finger drags the glass across the bar, never on a tap.
-    static func compose() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-    }
-}
