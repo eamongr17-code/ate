@@ -59,8 +59,9 @@ public struct SearchFilters: Sendable, Hashable {
         cuisines.count + tags.count + (band.isAll ? 0 : 1) + (city == nil ? 0 : 1)
     }
 
+    /// Every scope but People (round 5: the shelf takes the range and the city too, 0049).
     public static func applies(to scope: SearchScope) -> Bool {
-        scope == .places || scope == .dishes
+        scope != .people
     }
 
     // MARK: - The tag rule (backend #71)
@@ -150,7 +151,7 @@ public struct SearchFilters: Sendable, Hashable {
     /// Cuisines in the order picked, tags in their canonical order, then the score — "Italian",
     /// "GF", "4.0+".
     public var pills: [Pill] {
-        (city.map { [Pill(kind: .city, title: $0)] } ?? [])
+        (city.map { [Pill(kind: .city, title: AteCity.displayName(for: $0))] } ?? [])
             + cuisines.map { Pill(kind: .cuisine($0), title: $0) }
             + tags.map { Pill(kind: .tag($0), title: $0.label) }
             + (scoreSummary.map { [Pill(kind: .minimumScore, title: $0)] } ?? [])
@@ -228,4 +229,13 @@ extension SearchReading {
     }
 
     public func cuisines() async throws -> [CuisineCount] { [] }
+
+    public func savedDishes(
+        matching query: String?, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int
+    ) async throws -> SearchPage<SavedDish> {
+        guard filters.isEmpty else { return SearchPage(rows: [], next: nil) }
+        return try await savedDishes(matching: query, after: cursor, pageSize: pageSize)
+    }
+
+    public func searchCities() async throws -> [AteCity] { [] }
 }

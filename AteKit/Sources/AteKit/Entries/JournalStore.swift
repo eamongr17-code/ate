@@ -274,6 +274,15 @@ public final class JournalStore: EntryDeletionObserving {
         await loadFirstPage()
     }
 
+    /// The cities the filter offers (`my_entry_cities`), read each time the sheet opens — a first
+    /// entry in a new city belongs in it straight away.
+    public private(set) var cities: [AteCity] = []
+
+    public func loadCities() async {
+        guard let querying, let list = try? await querying.myEntryCities() else { return }
+        cities = list
+    }
+
     /// The places the place filter offers — asked for once, when the filter is first opened.
     public func loadPlaces() async {
         guard places.isEmpty, let querying else { return }

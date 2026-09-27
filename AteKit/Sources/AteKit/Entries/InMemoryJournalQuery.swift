@@ -35,6 +35,10 @@ public struct InMemoryJournalQuery: JournalQuerying {
         return JournalQueryPage(items: page, requestedLimit: pageSize)
     }
 
+    public func myEntryCities() async throws -> [AteCity] {
+        AteCity.counted(try await everything().map { $0.place?.city })
+    }
+
     public func myEntryPlaces() async throws -> [JournalPlace] {
         var counts: [UUID: (place: EntryCard.Place, count: Int)] = [:]
         for card in try await everything() {

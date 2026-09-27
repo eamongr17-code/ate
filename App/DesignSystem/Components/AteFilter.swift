@@ -9,8 +9,6 @@ import SwiftUI
 struct AteFilterButton: View {
     let isActive: Bool
     var identifier = "filter"
-    /// 44 by default; beside Search's 52 field, the field's height (round 5 exploration).
-    var side: CGFloat = AteMetrics.hit
     /// Off where no filter applies (Search's People): the mark goes muted and the tap does nothing,
     /// but the control stays exactly where it is.
     var isAvailable = true
@@ -21,7 +19,7 @@ struct AteFilterButton: View {
     var body: some View {
         Button(action: action) {
             AteIcon.filter.view(size: 20)
-                .frame(width: side, height: side)
+                .frame(width: AteMetrics.hit, height: AteMetrics.hit)
                 .background(isActive ? palette.fg : palette.chip, in: .circle)
                 .foregroundStyle(isActive ? palette.inverted : isAvailable ? palette.fg : palette.muted)
                 .contentShape(.circle)

@@ -27,9 +27,9 @@
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
-		<string>LaunchGroundA</string>
+		<string>LaunchGround</string>
 		<key>UIImageName</key>
-		<string>LaunchWordmarkA</string>
+		<string>LaunchWordmark</string>
 	</dict>
 	<!-- The three voices (docs/DESIGN.md), all OFL, bundled from App/Resources/Fonts.
 	     A synchronized Xcode group copies them to the bundle root, which is where these

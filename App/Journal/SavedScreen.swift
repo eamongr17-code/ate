@@ -15,6 +15,8 @@ struct SavedScreen: View {
     /// The margin above the shelf. The shelf is rows of the journal's own lazy stack, not one view
     /// in it, so the margin goes on its first row rather than around the whole.
     var top: CGFloat = 0
+    /// Takes the filters off — the filtered shelf's empty state (round 5).
+    var onClear: () -> Void = {}
     /// The place head, and a row: both go somewhere that does not exist yet (slice 2).
     var onPlace: (UUID) -> Void = { _ in }
     var onDish: (SavedDish) -> Void = { _ in }
@@ -31,6 +33,11 @@ struct SavedScreen: View {
         switch store.phase {
         case .loading:
             SavedSkeleton()
+                .padding(.top, top)
+        case .empty where store.filter.isEmpty == false:
+            // The Journal's own words for a filter that finds nothing.
+            AteEmptyState(title: "Nothing\nlike that.", actionTitle: "Clear", action: onClear)
+                .ateEmptyPlacement(top: emptyTop)
                 .padding(.top, top)
         case .empty:
             AteEmptyState(title: "Nothing saved\nyet.")

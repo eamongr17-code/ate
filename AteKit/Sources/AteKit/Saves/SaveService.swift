@@ -15,12 +15,17 @@ public protocol DishSaving: Sendable {
     func saveEntryDishes(entryID: UUID) async throws -> Int
     /// The Saved shelf, keyset-paged on `(saved_at, dish_id)`.
     func savedDishesPage(after cursor: PageCursor?, pageSize: Int) async throws -> Page<SavedDish>
+    /// The shelf, filtered (0049). Defaulted in `SavedDishFilter.swift`.
+    func savedDishesPage(after cursor: PageCursor?, pageSize: Int, filter: SavedDishFilter) async throws
+        -> Page<SavedDish>
+    /// `my_saved_cities()` — the Saved filter's cities. Defaulted in `SavedDishFilter.swift`.
+    func mySavedCities() async throws -> [AteCity]
 }
 
 /// The live saves path: `save_dish` / `unsave_dish` / `save_entry_dishes`, and a plain select over
 /// `my_saved_dishes` (which is already scoped to the caller by the view itself).
 public struct SaveClient: DishSaving {
-    private let api: AteAPIClient
+    let api: AteAPIClient
 
     public init(api: AteAPIClient) {
         self.api = api

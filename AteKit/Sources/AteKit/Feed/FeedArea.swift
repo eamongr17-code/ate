@@ -123,22 +123,21 @@ public final class FeedAreaModel {
         }
     }
 
-    /// Near me, and the phone really is in that city — the only time the control says "Near me".
+    /// Near me, and the phone really is in that city — the only time the control names a city
+    /// beside "Near me".
     public var isNearMe: Bool { location == .nearMe && nearMe?.isNearby == true }
+
+    /// Near me, not worked out yet — the control says "Near me" and nothing else, rather than a
+    /// city (or Everywhere) it is about to take back.
+    public var isResolvingNearMe: Bool { location == .nearMe && hasResolvedNearMe == false }
 
     /// What the control prints for where the feed is: a city's name, or "Everywhere".
     public var locationTitle: String {
         switch location {
         case .everywhere: return "Everywhere"
-        case .city(let slug): return Self.name(of: slug, in: cities + [nearMe].compactMap { $0 })
-        case .nearMe: return nearMe?.name ?? "Everywhere"
+        case .city(let slug): return AteCity.displayName(for: slug, in: cities + [nearMe].compactMap { $0 })
+        case .nearMe: return nearMe?.name ?? (hasResolvedNearMe ? "Everywhere" : "Near me")
         }
-    }
-
-    /// A slug's display name, or the slug itself made readable when the list does not hold it.
-    static func name(of slug: String, in cities: [AteCity]) -> String {
-        cities.first { $0.city == slug }?.name
-            ?? slug.split(separator: "-").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
     }
 
     /// The picker's list. Quietly keeps the last good one on a failure.

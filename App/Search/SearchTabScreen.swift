@@ -3,12 +3,15 @@ import SwiftUI
 
 /// **`Search`** — the field, and whatever answers it.
 ///
-/// Before a character is typed the tab is the field and **Nearby** (design rule 1: a screen with
-/// nothing to say says nothing). The four scopes — Places, Dishes, People, Saved — appear once
-/// typing starts, Instagram-style, on Places (round 4). Nearby is a list *ranked* by where the phone
-/// is; nothing on it is attached to anything until it is tapped, which is design rule 8 with no
-/// asterisk. The phone is asked through the same location path the composer's `PlaceSheet` uses
-/// (`AteLocation`), and a refusal costs exactly that list.
+/// Round 5 (Eamon: "the category pills jump around … rethink"): nothing on this page moves when the
+/// scope changes. The four scopes — Places, Dishes, People, Saved — are one equal-width segment,
+/// always there, typed or not, with the one filter control at its end; the filter stays put on every
+/// scope (muted on People, which it does not narrow), and its pills sit under it.
+///
+/// Before a character is typed, Places is **Nearby** and Saved is the shelf. Nearby is a list
+/// *ranked* by where the phone is; nothing on it is attached to anything until it is tapped (design
+/// rule 8, no asterisk). The phone is asked through the same location path the composer's
+/// `PlaceSheet` uses (`AteLocation`), and a refusal costs exactly that list.
 ///
 /// The keyboard always has a way down (round 4 bug): a drag anywhere on the page, a tap anywhere
 /// that is not the field or a control, and the Search key.
@@ -42,8 +45,10 @@ struct SearchTabScreen: View {
         ScrollView {
             // `padding:62px 20px 0; gap:16px` — on the list gutter since round 4 (the Journal's 12).
             VStack(alignment: .leading, spacing: AteMetrics.loose) {
-                titleRow
-                fieldRow
+                Text("Search")
+                    .ateText(.screenTitle)
+                    .accessibilityAddTraits(.isHeader)
+                field
                 scopes
                 // The same active pills the Journal draws, in the one place filters live.
                 AteActiveFilters(filters: activeFilters, identifier: "search.filter.pill") {
@@ -82,20 +87,19 @@ struct SearchTabScreen: View {
         .sheet(isPresented: $isFiltering) {
             AteBrowseFilterSheet(
                 initial: AteBrowseFilterDraft(band: store.filters.band, city: store.filters.city),
-                cities: JSExplore.fakeCities,
+                cities: store.cities,
                 showsSort: false
             ) { draft in
                 var filters = SearchFilters(city: draft.city)
                 filters.band = draft.band
                 store.setFilters(filters)
             }
+            .task { await store.loadCities() }
         }
         .task { await store.start() }
         .task(id: store.scope) { await askWhereWeAre() }
         .task { openDebugState() }
     }
-
-    private let variant = JSExplore.search
 
     /// The filters on, as pills, whatever the scope — they hold their place rather than coming and
     /// going with it.
@@ -103,44 +107,7 @@ struct SearchTabScreen: View {
         store.filters.activeFilters
     }
 
-    /// C puts the filter control at the end of the title's row.
-    private var titleRow: some View {
-        HStack(alignment: .center, spacing: AteMetrics.snug) {
-            Text("Search")
-                .ateText(.screenTitle)
-                .accessibilityAddTraits(.isHeader)
-            if variant == .c {
-                Spacer(minLength: AteMetrics.snug)
-                filterButton(side: AteMetrics.hit)
-            }
-        }
-    }
-
-    /// A puts the filter control beside the field, at the field's height.
-    private var fieldRow: some View {
-        HStack(spacing: AteMetrics.snug) {
-            field
-            if variant == .a {
-                filterButton(side: Self.fieldHeight)
-            }
-        }
-    }
-
     private static let fieldHeight: CGFloat = 52
-
-    /// The one filter control, always in the same place whatever the scope — off (muted) where no
-    /// filter applies, so nothing ever appears, disappears or moves.
-    private func filterButton(side: CGFloat) -> some View {
-        AteFilterButton(
-            isActive: SearchFilters.applies(to: store.scope) && store.filters.isEmpty == false,
-            identifier: "search.filter",
-            side: side,
-            isAvailable: SearchFilters.applies(to: store.scope)
-        ) {
-            AteTelemetry.record(BrowseEvents.filterOpened(on: .search))
-            isFiltering = true
-        }
-    }
 
     private var field: some View {
         // `Search.dc.html`: 52 tall, 18 in, on the chip rather than the field.
@@ -171,40 +138,29 @@ struct SearchTabScreen: View {
 
     // MARK: - Segments
 
-    /// Always there, typed or not (round 5: nothing on this page moves when the scope changes).
-    ///
-    /// A and C: `gap:6px`, each pill 40 tall and 16 in; the current one is ink on the ground
-    /// (`.ink`). B: one four-way segment across the width, the Journal's control, with the filter
-    /// control at its end.
-    @ViewBuilder
+    /// One segment of four equal widths — the Journal's control, so nothing reflows when the scope
+    /// changes — and the filter control at its end.
     private var scopes: some View {
-        if variant == .b {
-            HStack(spacing: AteMetrics.snug) {
-                AteSegments(
-                    options: SearchScope.allCases.map { AteSegment($0, $0.title) },
-                    selection: Binding(get: { store.scope }, set: { store.select($0) }),
-                    identifier: "search.scope"
-                )
-                filterButton(side: AteMetrics.hit)
-            }
-        } else {
-            scopePills
+        HStack(spacing: AteMetrics.snug) {
+            AteSegments(
+                options: SearchScope.allCases.map { AteSegment($0, $0.title) },
+                selection: Binding(get: { store.scope }, set: { store.select($0) }),
+                identifier: "search.scope"
+            )
+            filterButton
         }
     }
 
-    private var scopePills: some View {
-        HStack(alignment: .top, spacing: AteMetrics.snug) {
-            // Wraps rather than truncating to "P…" once the type outgrows one line.
-            AteFlow(spacing: AteMetrics.snug - 2) {
-                ForEach(SearchScope.allCases) { scope in
-                    SearchPill(
-                        title: scope.title,
-                        isOn: scope == store.scope,
-                        identifier: "search.scope.\(scope.rawValue)"
-                    ) { store.select(scope) }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+    /// The one filter control, always in the same place whatever the scope — off (muted) where no
+    /// filter applies, so nothing ever appears, disappears or moves.
+    private var filterButton: some View {
+        AteFilterButton(
+            isActive: SearchFilters.applies(to: store.scope) && store.filters.isEmpty == false,
+            identifier: "search.filter",
+            isAvailable: SearchFilters.applies(to: store.scope)
+        ) {
+            AteTelemetry.record(BrowseEvents.filterOpened(on: .search))
+            isFiltering = true
         }
     }
 

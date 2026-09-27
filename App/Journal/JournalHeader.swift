@@ -1,16 +1,15 @@
 import SwiftUI
 
-/// **The Journal's header** (round 5, Eamon: "so much dead space in prime real estate"; "the Ate
-/// logo could be bigger"). Three layouts are on the table (``JSExplore/journalHeader``):
-/// - **A, masthead** — a bigger logo with the filter and photo-stack controls beside it, and the
-///   Journal | Saved segment across the full width under it;
-/// - **B, one bar** — logo, a hugging segment, filter and photo stack, all on one row;
-/// - **C, logo and rail** — the biggest logo with the photo stack; under it one rail carrying the
-///   segment, the filter and the active filters inline.
+/// **The Journal's header** (round 5, Eamon's pick: one bar). The logo, the Journal | Saved segment
+/// hugging its titles, the filter control and the photo stack, all on one row; the active filters
+/// ride under it as removable pills.
 ///
-/// The filter control is on both shelves in every layout, so nothing moves when the shelf changes.
+/// The filter control is on both shelves, so nothing moves when the shelf changes (Eamon: "the same
+/// filter options should persist on the Saved view, so the button layout should be the same").
+///
+/// At the accessibility sizes the row cannot hold all four, so it wraps: the logo and the two
+/// controls on top, the segment across the width under them.
 struct JournalHeader: View {
-    let variant: JSExplore.Variant
     @Binding var shelf: JournalScreen.Shelf
     let photoCount: Int
     let isFiltered: Bool
@@ -19,116 +18,60 @@ struct JournalHeader: View {
     let onFilter: () -> Void
     let onRemove: (AteActiveFilter) -> Void
 
-    /// How tall the header is on the page, pills aside — where the list starts under it.
-    static func height(_ variant: JSExplore.Variant) -> CGFloat {
-        switch variant {
-        case .a: Self.mastheadRow + AteMetrics.regular + Self.segmentRow
-        case .b: Self.segmentRow
-        case .c: Self.logoRowC + Self.railGap + Self.segmentRow
-        }
-    }
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    /// The logo's height in each layout — 30 before round 5.
-    static func wordmark(_ variant: JSExplore.Variant) -> CGFloat {
-        switch variant {
-        case .a: 44
-        case .b: 34
-        case .c: 52
-        }
-    }
-
-    private static let mastheadRow: CGFloat = 52
-    private static let logoRowC: CGFloat = 56
-    private static let railGap: CGFloat = 10
-    /// The segment: 36 drawn, 4 of field around it.
-    private static let segmentRow: CGFloat = AteMetrics.segmentHeight + 2 * AteMetrics.tight
+    /// The logo's height on the bar — 30 before round 5 ("the Ate logo could be bigger").
+    static let wordmark: CGFloat = 34
+    /// The bar: the segment's 36 and the 4 of field around it.
+    static let row: CGFloat = AteMetrics.segmentHeight + 2 * AteMetrics.tight
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            switch variant {
-            case .a: masthead
-            case .b: oneBar
-            case .c: logoAndRail
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
+                    wrapped
+                } else {
+                    oneBar
+                }
             }
-            if variant != .c, activeFilters.isEmpty == false {
+            .padding(.horizontal, AteMetrics.listGutter)
+            .ateContentTop()
+            if activeFilters.isEmpty == false {
                 AteActiveFilters(filters: activeFilters, identifier: "journal.filter.pill", onRemove: onRemove)
                     .padding(.top, AteMetrics.regular)
             }
         }
     }
 
-    // MARK: - A
-
-    private var masthead: some View {
-        VStack(alignment: .leading, spacing: AteMetrics.regular) {
-            HStack(spacing: AteMetrics.snug) {
-                logo
-                Spacer(minLength: AteMetrics.snug)
-                filterButton
-                PhotoStackButton(count: photoCount, action: onSuggestions)
-            }
-            .frame(height: Self.mastheadRow)
-            .ateContentTop()
-            segment(hugs: false)
-        }
-        .padding(.horizontal, AteMetrics.listGutter)
-    }
-
-    // MARK: - B
-
     private var oneBar: some View {
         HStack(spacing: AteMetrics.snug) {
-            logo
+            AteWordmark(height: Self.wordmark)
             Spacer(minLength: 0)
             segment(hugs: true)
             filterButton
             PhotoStackButton(count: photoCount, action: onSuggestions)
         }
-        .frame(height: Self.segmentRow)
-        .padding(.horizontal, AteMetrics.listGutter)
-        .ateContentTop()
+        .frame(minHeight: Self.row)
     }
 
-    // MARK: - C
-
-    private var logoAndRail: some View {
-        VStack(alignment: .leading, spacing: Self.railGap) {
+    private var wrapped: some View {
+        VStack(alignment: .leading, spacing: AteMetrics.regular) {
             HStack(spacing: AteMetrics.snug) {
-                logo
+                AteWordmark(height: Self.wordmark)
                 Spacer(minLength: AteMetrics.snug)
+                filterButton
                 PhotoStackButton(count: photoCount, action: onSuggestions)
             }
-            .frame(height: Self.logoRowC)
-            .padding(.horizontal, AteMetrics.listGutter)
-            .ateContentTop()
-            ScrollView(.horizontal) {
-                HStack(spacing: AteMetrics.snug) {
-                    segment(hugs: true)
-                    filterButton
-                    ForEach(activeFilters) { filter in
-                        AteFilterPill(title: filter.title, isOn: true) { onRemove(filter) }
-                            .accessibilityIdentifier("journal.filter.pill.\(filter.id)")
-                    }
-                }
-                .padding(.horizontal, AteMetrics.listGutter)
-            }
-            .scrollIndicators(.hidden)
-            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+            segment(hugs: false)
         }
-    }
-
-    // MARK: - Parts
-
-    private var logo: some View {
-        AteWordmark(height: Self.wordmark(variant))
-            .ateLaunchLogoTarget()
     }
 
     private func segment(hugs: Bool) -> some View {
         AteSegments(
             options: [AteSegment(JournalScreen.Shelf.journal, "Journal"), AteSegment(.saved, "Saved")],
             selection: $shelf,
-            hugs: hugs
+            hugs: hugs,
+            identifier: "journal.shelf"
         )
         .fixedSize(horizontal: hugs, vertical: false)
     }

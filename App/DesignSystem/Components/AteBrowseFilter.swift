@@ -1,29 +1,25 @@
 import AteKit
 import SwiftUI
 
-/// **What the one filter sheet edits** (round 5): an order (the Journal and its Saved shelf only),
-/// a score range, and a city. Eamon: "Filters are too complex. They should just allow a range
-/// setting, and place should only be filterable by city, not by individual restaurant."
+/// **What the one filter sheet edits** (round 5): an order (the Journal only), a score range, and a
+/// city. Eamon: "Filters are too complex. They should just allow a range setting, and place should
+/// only be filterable by city, not by individual restaurant."
 struct AteBrowseFilterDraft: Hashable {
     var sort: JournalSort = .newest
     var band: ScoreBand = .all
+    /// A city slug, or `nil` for everywhere.
     var city: String?
 }
 
 /// **The one filter sheet** — the Journal's, Saved's and Search's alike: the order as a segment
-/// (where the list has one), the score range, and the city. Nothing is applied until Done.
-///
-/// Two layouts are on the table (``JSExplore/filterSheet``):
-/// - **A** — the slider (ink span, ringed thumbs, the two ends as score tokens) and the cities as
-///   radio rows;
-/// - **B** — the ruler (half-step ticks on a butter band) and the cities as a wrap of pills.
+/// (where the list has one), the score range as the ruler, and the city as the one picker's pills.
+/// Nothing is applied until Done.
 struct AteBrowseFilterSheet: View {
     let cities: [AteCity]
     let showsSort: Bool
     let onDone: (AteBrowseFilterDraft) -> Void
 
     @State private var draft: AteBrowseFilterDraft
-    private let variant = JSExplore.filterSheet
 
     init(
         initial: AteBrowseFilterDraft,
@@ -45,15 +41,14 @@ struct AteBrowseFilterSheet: View {
                     selection: $draft.sort
                 )
             }
-            AteScoreRange(band: $draft.band, style: variant == .b ? .ruler : .slider)
-            if cities.isEmpty == false {
-                AteCityPicker(
-                    options: [.everywhere] + cities.map { AteCityOption(id: $0.city, title: $0.name) },
-                    selection: draft.city ?? AteCityOption.everywhereID,
-                    style: variant == .b ? .pills : .rows
-                ) { option in
-                    draft.city = option.id == AteCityOption.everywhereID ? nil : option.id
-                }
+            AteScoreRange(band: $draft.band)
+            // Everywhere and the current choice, at the least — a list that has not arrived yet (or
+            // failed) still lets a city be taken off.
+            AteCityPicker(
+                options: AteCityOption.cities(cities, keeping: draft.city),
+                selection: draft.city ?? AteCityOption.everywhereID
+            ) { option in
+                draft.city = option.id == AteCityOption.everywhereID ? nil : option.id
             }
         } onDone: {
             onDone(draft)

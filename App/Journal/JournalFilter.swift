@@ -1,75 +1,7 @@
 import AteKit
 import SwiftUI
 
-// MARK: - The sheet
-
-/// **The Journal's filter sheet** — the design system's one filter sheet (``AteFilterSheet``) with
-/// the Journal's sections: the order as a three-way segment, then rating, diet, when, and the places
-/// you have written at as radio rows. Nothing is applied until Done.
-struct JournalFilterSheet: View {
-    let places: [JournalPlace]
-    let periods: [JournalPeriod]
-    let onDone: (JournalQuery) -> Void
-
-    @State private var query: JournalQuery
-
-    init(
-        initial: JournalQuery,
-        places: [JournalPlace],
-        periods: [JournalPeriod],
-        onDone: @escaping (JournalQuery) -> Void
-    ) {
-        self.places = places
-        self.periods = periods
-        self.onDone = onDone
-        _query = State(initialValue: initial)
-    }
-
-    var body: some View {
-        AteFilterSheet {
-            AteSegments(
-                options: JournalSort.allCases.map { AteSegment($0, $0.title) },
-                selection: $query.sort
-            )
-            AteFilterSection(title: "Rating") {
-                AteFilterChoice(title: "Any", isOn: query.minScore == nil) { query.minScore = nil }
-                ForEach(JournalQuery.minScoreSteps, id: \.self) { step in
-                    AteFilterChoice(title: ScoreFormat.halfStep(step) + "+", isOn: query.minScore == step) {
-                        query.minScore = step
-                    }
-                }
-            }
-            AteFilterSection(title: "Diet") {
-                AteFilterChoice(title: "Any", isOn: query.tag == nil) { query.tag = nil }
-                ForEach(DietTag.allCases, id: \.self) { tag in
-                    AteFilterChoice(title: tag.label, isOn: query.tag == tag, accessibilityName: tag.spokenName) {
-                        query.tag = tag
-                    }
-                }
-            }
-            AteFilterSection(title: "When") {
-                AteFilterChoice(title: "Any time", isOn: query.period == nil) { query.period = nil }
-                ForEach(periods, id: \.self) { period in
-                    AteFilterChoice(title: period.title(), isOn: query.period == period) { query.period = period }
-                }
-            }
-            AteFilterSection(title: "Place", scrolls: false) {
-                AteRadioRow(title: "Anywhere", isSelected: query.place == nil) { query.place = nil }
-                ForEach(places) { place in
-                    AteRadioRow(
-                        title: place.name,
-                        subtitle: place.locality,
-                        isSelected: query.place?.id == place.id
-                    ) {
-                        query.place = place
-                    }
-                }
-            }
-        } onDone: {
-            onDone(query)
-        }
-    }
-}
+// MARK: - The pills
 
 extension JournalQuery {
     /// The active filters as the row under the control draws them.
@@ -100,29 +32,5 @@ struct JournalMonthMarker: View {
             .frame(height: 28)
             .glassEffect(.regular, in: .capsule)
             .accessibilityHidden(true)
-    }
-}
-
-// MARK: - Periods on offer
-
-enum JournalPeriods {
-    /// What the "When" filter offers: the last twelve months, newest first, then each earlier year
-    /// back to the oldest entry on hand (at least last year).
-    static func offered(
-        now: Date = Date(),
-        oldest: Date?,
-        calendar: Calendar = .autoupdatingCurrent
-    ) -> [JournalPeriod] {
-        var periods: [JournalPeriod] = []
-        for back in 0..<12 {
-            guard let date = calendar.date(byAdding: .month, value: -back, to: now) else { continue }
-            periods.append(JournalPeriod.month(of: date, calendar: calendar))
-        }
-        let thisYear = calendar.component(.year, from: now)
-        let firstYear = min(thisYear - 1, oldest.map { calendar.component(.year, from: $0) } ?? thisYear - 1)
-        for year in stride(from: thisYear, through: firstYear, by: -1) {
-            periods.append(.year(year))
-        }
-        return periods
     }
 }

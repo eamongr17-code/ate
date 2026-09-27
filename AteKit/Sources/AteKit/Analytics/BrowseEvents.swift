@@ -15,7 +15,19 @@ public enum BrowseEvents {
 
     /// Where the one filter sheet was opened from.
     public enum FilterSurface: String, Sendable {
-        case journal, search
+        case journal, saved, search
+    }
+
+    /// The Saved shelf was narrowed (round 5): which filters, never their values.
+    public static func savedFiltered(_ filter: SavedDishFilter, resultCount: Int) -> AnalyticsEvent {
+        var names: [String] = []
+        if filter.band.minScore != nil { names.append("min_score") }
+        if filter.band.maxScore != nil { names.append("max_score") }
+        if filter.city != nil { names.append("city") }
+        return AnalyticsEvent(name: "saved_filtered", parameters: [
+            "filters": names.isEmpty ? "none" : names.joined(separator: ","),
+            "result_count": String(resultCount)
+        ])
     }
 
     /// The filter sheet was opened — the same sheet on the Journal and on Search.

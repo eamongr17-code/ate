@@ -1,156 +1,87 @@
 import AteKit
 import SwiftUI
 
-/// **The score range** (round 5) — two ends on the half-step track from 0.5 to 5.0, dragged with a
-/// finger; the nearer end follows it and snaps to each half with a tick of haptics. The whole track
-/// is no filter at all, and the top end on 5.0 is open (a secret 6 clears it) — ``ScoreBand``'s
-/// rules, tested in AteKit.
+/// **The score range** (round 5, Eamon's pick: the ruler) — the ten half-steps from 0.5 to 5.0 as
+/// ticks, the whole stars numbered under them, and the chosen span as a butter band (the score
+/// colour) the ticks sit on. A finger slides the nearer end, which snaps to each half with a tick of
+/// haptics.
 ///
-/// Two drawings of the same control are on the table (``JSExplore/filterSheet``):
-/// - **slider** — a 6pt rail in the field colour, the chosen span in ink, two ringed thumbs, and the
-///   two ends printed as score tokens above it;
-/// - **ruler** — the ten half-steps as ticks with the whole stars numbered under them, and the
-///   chosen span as a butter band (the score colour) the ticks sit on.
+/// The whole track is no filter at all; the top end on 5.0 is open, so a secret 6 clears it
+/// (``ScoreBand``'s rules, tested in AteKit, and the backend's).
 struct AteScoreRange: View {
-    enum Style {
-        case slider, ruler
-    }
-
     @Binding var band: ScoreBand
-    var style: Style = .slider
 
     @State private var dragging: ScoreBand.End?
 
     private var palette: AtePalette { AtePalette.surface }
 
+    private static let height: CGFloat = 64
+    private static let bandHeight: CGFloat = 36
+    private static let wholeTick: CGFloat = 16
+    private static let halfTick: CGFloat = 8
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: AteMetrics.snug) {
             header
-                .padding(.bottom, style == .slider ? AteMetrics.regular : AteMetrics.snug)
             GeometryReader { proxy in
                 let width = proxy.size.width
                 ZStack(alignment: .topLeading) {
-                    switch style {
-                    case .slider: slider(width: width)
-                    case .ruler: ruler(width: width)
-                    }
+                    ruler(width: width)
                 }
-                .frame(width: width, height: trackHeight, alignment: .topLeading)
+                .frame(width: width, height: Self.height, alignment: .topLeading)
                 .contentShape(.rect)
                 .gesture(drag(width: width))
+                .overlay(alignment: .topLeading) { ends(width: width) }
             }
-            .frame(height: trackHeight)
+            .frame(height: Self.height)
         }
         .sensoryFeedback(.selection, trigger: band)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("filter.score")
     }
 
-    // MARK: - The two ends, in words
-
+    /// "Score", and the range as its pill will print it — "Any" for the whole track.
     private var header: some View {
-        HStack(alignment: .center, spacing: AteMetrics.snug) {
+        HStack(alignment: .firstTextBaseline, spacing: AteMetrics.snug) {
             Text("Score")
                 .ateText(.meta)
                 .foregroundStyle(palette.muted)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: AteMetrics.snug)
-            switch style {
-            case .slider:
-                // The ends as the score tokens they are, en-dashed — never " · " (design rule 2).
-                HStack(spacing: AteMetrics.tight + 2) {
-                    ScoreToken(rating: Rating(rounding: band.lower), prose: 16)
-                    Text("–")
-                        .ateText(.controlSmall)
-                        .foregroundStyle(palette.muted)
-                    ScoreToken(rating: Rating(rounding: band.upper), prose: 16)
-                }
-                .accessibilityHidden(true)
-            case .ruler:
-                Text(band.title ?? "Any")
-                    .ateText(.controlSmall)
-                    .monospacedDigit()
-                    .foregroundStyle(palette.fg)
-                    .contentTransition(.numericText())
-                    .accessibilityHidden(true)
-            }
+            Text(band.title ?? "Any")
+                .ateText(.controlSmall)
+                .monospacedDigit()
+                .foregroundStyle(palette.fg)
+                .contentTransition(.numericText())
+                .accessibilityIdentifier("filter.score.value")
         }
-        .frame(minHeight: 22)
     }
 
-    // MARK: - Slider
-
-    private static let thumb: CGFloat = 28
-    private static let rail: CGFloat = 6
-
-    private var trackHeight: CGFloat {
-        style == .slider ? AteMetrics.hit : Self.rulerHeight
-    }
-
-    /// The thumbs' centres run from half a thumb in to half a thumb in, so both ends are reachable
-    /// without a thumb hanging off the sheet's gutter.
-    private func x(_ value: Double, width: CGFloat, inset: CGFloat) -> CGFloat {
-        inset + CGFloat(ScoreBand.fraction(of: value)) * (width - 2 * inset)
-    }
-
-    @ViewBuilder
-    private func slider(width: CGFloat) -> some View {
-        let inset = Self.thumb / 2
-        let low = x(band.lower, width: width, inset: inset)
-        let high = x(band.upper, width: width, inset: inset)
-        let mid = AteMetrics.hit / 2
-        Capsule()
-            .fill(palette.field)
-            .frame(width: width, height: Self.rail)
-            .offset(y: mid - Self.rail / 2)
-        Capsule()
-            .fill(palette.fg)
-            .frame(width: max(high - low, 0) + Self.rail, height: Self.rail)
-            .offset(x: low - Self.rail / 2, y: mid - Self.rail / 2)
-        thumb(for: .lower)
-            .offset(x: low - inset, y: mid - inset)
-        thumb(for: .upper)
-            .offset(x: high - inset, y: mid - inset)
-    }
-
-    private func thumb(for end: ScoreBand.End) -> some View {
-        Circle()
-            .fill(palette.ground)
-            .overlay(Circle().strokeBorder(palette.fg, lineWidth: 2))
-            .frame(width: Self.thumb, height: Self.thumb)
-            .scaleEffect(dragging == end ? 1.12 : 1)
-            .ateAnimation(AteMotion.scoreRoll, value: dragging)
-            .modifier(EndAccessibility(band: $band, end: end))
-    }
-
-    // MARK: - Ruler
-
-    private static let rulerHeight: CGFloat = 64
-    private static let bandHeight: CGFloat = 36
+    // MARK: - The ruler
 
     @ViewBuilder
     private func ruler(width: CGFloat) -> some View {
-        // Ten columns, one per half-step; a tick stands in the middle of each.
         let column = width / CGFloat(ScoreBand.stops)
-        let lowIndex = stopIndex(band.lower)
-        let highIndex = stopIndex(band.upper)
+        let low = Self.stop(band.lower)
+        let high = Self.stop(band.upper)
         RoundedRectangle(cornerRadius: AteMetrics.pill)
             .fill(palette.field)
             .frame(width: width, height: Self.bandHeight)
         RoundedRectangle(cornerRadius: AteMetrics.pill)
             .fill(AteColor.butter)
-            .frame(width: CGFloat(highIndex - lowIndex + 1) * column, height: Self.bandHeight)
-            .offset(x: CGFloat(lowIndex) * column)
+            .frame(width: CGFloat(high - low + 1) * column, height: Self.bandHeight)
+            .offset(x: CGFloat(low) * column)
+            .scaleEffect(y: dragging == nil ? 1 : 1.06)
+            .ateAnimation(AteMotion.scoreRoll, value: dragging)
         ForEach(0..<ScoreBand.stops, id: \.self) { index in
+            // The whole stars are the odd stops: 1.0 is the second half-step.
             let isWhole = index.isMultiple(of: 2) == false
-            let isIn = index >= lowIndex && index <= highIndex
+            let tick = isWhole ? Self.wholeTick : Self.halfTick
             Capsule()
-                .fill(isIn ? AteColor.ink : palette.muted)
-                .frame(width: 2, height: isWhole ? 16 : 8)
-                .offset(
-                    x: (CGFloat(index) + 0.5) * column - 1,
-                    y: (Self.bandHeight - (isWhole ? 16 : 8)) / 2
-                )
+                // Ink on butter, muted on the field — solid either way, never faded (rule 7).
+                .fill(index >= low && index <= high ? AteColor.ink : palette.muted)
+                .frame(width: 2, height: tick)
+                .offset(x: (CGFloat(index) + 0.5) * column - 1, y: (Self.bandHeight - tick) / 2)
             if isWhole {
                 Text(String((index + 1) / 2))
                     .ateText(.meta)
@@ -161,15 +92,19 @@ struct AteScoreRange: View {
                     .accessibilityHidden(true)
             }
         }
-        Color.clear
-            .frame(width: width, height: Self.bandHeight)
-            .modifier(EndAccessibility(band: $band, end: .lower))
-        Color.clear
-            .frame(width: width, height: Self.bandHeight)
-            .modifier(EndAccessibility(band: $band, end: .upper))
     }
 
-    private func stopIndex(_ value: Double) -> Int {
+    /// VoiceOver's way in: the two ends, each adjustable by a half, side by side over the ruler.
+    private func ends(width: CGFloat) -> some View {
+        HStack(spacing: 0) {
+            Color.clear.modifier(EndAccessibility(band: $band, end: .lower))
+            Color.clear.modifier(EndAccessibility(band: $band, end: .upper))
+        }
+        .frame(width: width, height: Self.bandHeight)
+        .allowsHitTesting(false)
+    }
+
+    private static func stop(_ value: Double) -> Int {
         Int(((ScoreBand.snap(value) - ScoreBand.floor) / ScoreBand.step).rounded())
     }
 
@@ -178,8 +113,8 @@ struct AteScoreRange: View {
     private func drag(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
-                let here = score(at: value.location.x, width: width)
-                let end = dragging ?? band.nearerEnd(to: score(at: value.startLocation.x, width: width))
+                let here = Self.score(at: value.location.x, width: width)
+                let end = dragging ?? band.nearerEnd(to: Self.score(at: value.startLocation.x, width: width))
                 dragging = end
                 let next = band.moving(end, to: here)
                 if next != band { band = next }
@@ -187,16 +122,11 @@ struct AteScoreRange: View {
             .onEnded { _ in dragging = nil }
     }
 
-    private func score(at offset: CGFloat, width: CGFloat) -> Double {
-        switch style {
-        case .slider:
-            let inset = Self.thumb / 2
-            return ScoreBand.value(atFraction: Double((offset - inset) / max(width - 2 * inset, 1)))
-        case .ruler:
-            let column = width / CGFloat(ScoreBand.stops)
-            let index = min(max(Int(offset / column), 0), ScoreBand.stops - 1)
-            return ScoreBand.floor + Double(index) * ScoreBand.step
-        }
+    /// The half-step under a point: the column it falls in.
+    private static func score(at offset: CGFloat, width: CGFloat) -> Double {
+        let column = width / CGFloat(ScoreBand.stops)
+        let index = min(max(Int(offset / max(column, 1)), 0), ScoreBand.stops - 1)
+        return ScoreBand.floor + Double(index) * ScoreBand.step
     }
 }
 

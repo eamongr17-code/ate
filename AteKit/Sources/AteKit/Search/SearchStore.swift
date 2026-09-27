@@ -53,6 +53,8 @@ public final class SearchStore {
     public private(set) var filters = SearchFilters.none
     /// `search_cuisines()`, once the cuisine filter has asked for it.
     public private(set) var cuisines: [CuisineCount] = []
+    /// `search_cities()`, read each time the filter opens.
+    public private(set) var cities: [AteCity] = []
 
     /// True while the Places scope is showing the standing `Nearby` list rather than a search —
     /// the one section label the artboard draws.
@@ -181,6 +183,11 @@ public final class SearchStore {
     }
 
     /// The cuisine picker opened. Read once; a failure leaves the list empty and asks again next time.
+    public func loadCities() async {
+        guard let list = try? await service.searchCities() else { return }
+        cities = list
+    }
+
     public func loadCuisines() async {
         guard cuisines.isEmpty else { return }
         cuisines = (try? await service.cuisines()) ?? []
@@ -362,7 +369,9 @@ public final class SearchStore {
             let page = try await service.people(query: query, after: cursor, pageSize: pageSize)
             return LoadedPage(rows: .people(page.rows), next: page.next)
         case (.saved, let query):
-            let page = try await service.savedDishes(matching: query, after: cursor, pageSize: pageSize)
+            let page = try await service.savedDishes(
+                matching: query, filters: filters, after: cursor, pageSize: pageSize
+            )
             return LoadedPage(rows: .saved(page.rows), next: page.next)
         case (.dishes, nil), (.people, nil):
             return LoadedPage(rows: .empty(for: scope))

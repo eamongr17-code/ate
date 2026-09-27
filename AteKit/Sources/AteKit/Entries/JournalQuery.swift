@@ -180,7 +180,7 @@ public struct JournalQuery: Hashable, Sendable {
         if let maxScore {
             guard let best = card.bestScore, best <= maxScore else { return false }
         }
-        if let city, card.place?.city?.localizedCaseInsensitiveContains(city) != true { return false }
+        if let city, AteCity.slug(for: card.place?.city) != city { return false }
         if let tag, card.items.contains(where: { $0.tags.contains(tag) }) == false { return false }
         if let period, period.contains(card.createdAt, calendar: calendar) == false { return false }
         return true
@@ -246,7 +246,7 @@ public enum JournalQueryPill: Hashable, Sendable, Identifiable {
         case .place(let place): place.name
         case .minScore(let score): ScoreFormat.halfStep(score) + "+"
         case .band(let band): band.title ?? ""
-        case .city(let city): city
+        case .city(let city): AteCity.displayName(for: city)
         case .tag(let tag): tag.label
         case .period(let period): period.title()
         }
@@ -307,4 +307,12 @@ public protocol JournalQuerying: Sendable {
         pageSize: Int
     ) async throws -> JournalQueryPage
     func myEntryPlaces() async throws -> [JournalPlace]
+    /// `my_entry_cities()` (0047) — the cities your own entries are in, busiest first: the filter's
+    /// City choices.
+    func myEntryCities() async throws -> [AteCity]
+}
+
+public extension JournalQuerying {
+    /// A reader without `my_entry_cities` offers no cities — the filter shows Everywhere alone.
+    func myEntryCities() async throws -> [AteCity] { [] }
 }

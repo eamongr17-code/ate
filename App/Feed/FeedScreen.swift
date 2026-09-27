@@ -25,7 +25,6 @@ struct FeedScreen: View {
     @State private var isChoosingArea = false
     @State private var location = AteLocation()
     @State private var scrollToTopAfterArea = 0
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         ScrollView {
@@ -57,7 +56,7 @@ struct FeedScreen: View {
             await prepareLocation()
             await store.loadIfNeeded()
             #if DEBUG
-            if JSExplore.feedLocationOpen { isChoosingArea = true }
+            if JournalDebugLaunch.opensFeedLocation { isChoosingArea = true }
             #endif
         }
         .sheet(isPresented: $isChoosingArea) {
@@ -97,11 +96,8 @@ struct FeedScreen: View {
     }
 
     private static let topAnchor = "feed.top"
-    /// `padding:62px 12px 10px` under a 40 title: where the slips — or an empty state — begin. B's
-    /// "Near me" line sits over the title.
-    private static var headerBottom: CGFloat {
-        62 + 40 + AteMetrics.feedHeaderBottom + (JSExplore.feedLocation == .b ? 17 : 0)
-    }
+    /// `padding:62px 12px 10px` under a 40 title: where the slips — or an empty state — begin.
+    private static let headerBottom: CGFloat = 62 + 40 + AteMetrics.feedHeaderBottom
 
     /// `padding:62px 12px 10px` (`FeedTight`) — the screen's name, and where it is about.
     private var header: some View {

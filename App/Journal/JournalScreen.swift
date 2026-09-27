@@ -8,9 +8,11 @@ import SwiftUI
 /// you keep is the first thing you see. Saved lives beside it because a dish you meant to eat belongs
 /// next to the dishes you did.
 ///
-/// Round 4: a light way to find an entry without a search — the filter control beside the segment
-/// opens the one filter sheet (order, rating, diet, month, place; `my_entries`), the active filters
-/// sit under it as removable pills, and quiet month markers show while the list scrolls.
+/// Round 5: one bar — logo, segment, filter, photo stack — and the one filter sheet (order on the
+/// Journal; a score range and a city on both shelves). The range and the city are one choice shared
+/// by the two shelves, so a filter set on one is still on when the other is chosen; the active
+/// filters sit under the bar as removable pills, and quiet month markers show while the list
+/// scrolls.
 struct JournalScreen: View {
     let store: JournalStore
     /// The shelf beside it. Held by the shell rather than this screen, because a save made in the
@@ -56,6 +58,9 @@ struct JournalScreen: View {
     @State private var isScrolling = false
     /// The header and the segment have scrolled away — the marker has somewhere to sit.
     @State private var isPastHeader = false
+    /// The header's height on the page, measured: it wraps at the accessibility sizes, and grows by
+    /// its pills.
+    @State private var chromeHeight: CGFloat = AteMetrics.contentTop + JournalHeader.row
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -67,6 +72,7 @@ struct JournalScreen: View {
                 // slips' ids off this stack, so it is the scroll-target layout.
                 LazyVStack(alignment: .leading, spacing: 0) {
                     chrome
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { chromeHeight = $0 }
                     // The shelf's fade is the shelf's: a filter changes the query and the phase in
                     // one go, and its pills arrive at once, as they always have.
                     .animation(nil, value: store.phase)
@@ -90,7 +96,7 @@ struct JournalScreen: View {
                 noteTopMonth(visible)
             }
             .onScrollGeometryChange(for: Bool.self) { geometry in
-                geometry.contentOffset.y + geometry.contentInsets.top > Self.headerBottom
+                geometry.contentOffset.y + geometry.contentInsets.top > chromeHeight
             } action: { _, past in
                 isPastHeader = past
             }
@@ -113,13 +119,14 @@ struct JournalScreen: View {
                     initial: AteBrowseFilterDraft(
                         sort: store.query.sort, band: store.query.band, city: store.query.city
                     ),
-                    cities: JSExplore.fakeCities,
-                    showsSort: true
+                    // Each shelf offers the cities it holds: you can save a dish in a city you have
+                    // never written in.
+                    cities: shelf == .journal ? store.cities : saved.cities,
+                    showsSort: shelf == .journal
                 ) { draft in
-                    var query = JournalQuery(sort: draft.sort, city: draft.city)
-                    query.band = draft.band
-                    apply(query)
+                    apply(draft)
                 }
+                .task { await loadCities() }
             }
             .task { await openDebugState() }
         }
@@ -130,54 +137,94 @@ struct JournalScreen: View {
     /// view both times, so the copy is the header to the point.
     private var chrome: some View {
         JournalHeader(
-            variant: Self.variant,
             shelf: $shelf,
             photoCount: photoCount,
-            isFiltered: store.query.isDefault == false,
-            activeFilters: store.query.isDefault ? [] : store.query.activeFilters,
+            isFiltered: isFiltered,
+            activeFilters: activeFilters,
             onSuggestions: onSuggestions,
             onFilter: openFilter,
-            onRemove: { apply(store.query.removing($0)) }
+            onRemove: remove
         )
     }
-
-    private static let variant = JSExplore.journalHeader
 
     /// `MainEmpty`: `padding:16px 12px 110px; gap:22px; flex:1` — the first-day state sits 22 under
     /// the segment, centred on the one line every empty state shares (``AteEmptyPlacement``).
     private static let firstDayGap: CGFloat = 22
-    /// Where the header ends on the page (its pills aside).
-    private static var headerBottom: CGFloat { AteMetrics.contentTop + JournalHeader.height(variant) }
-    /// Where a shelf's empty state begins on the screen — Journal and Saved alike.
-    private static var emptyTop: CGFloat { headerBottom + firstDayGap }
+    /// Where a shelf's empty state begins on the screen — Journal and Saved alike: under the header
+    /// as it was drawn (the status bar, then the header's own measured height).
+    private var emptyTop: CGFloat { AteScreen.safeArea.top + chromeHeight + Self.firstDayGap }
+
+    // MARK: - The filters, shared by the shelves
+
+    /// On the Journal, its query (the order counts); on Saved, the range and the city.
+    private var isFiltered: Bool {
+        shelf == .journal ? store.query.isDefault == false : saved.filter.isEmpty == false
+    }
+
+    /// The pills under the bar. The order is the Journal's alone, so Saved shows the other two.
+    private var activeFilters: [AteActiveFilter] {
+        let all = store.query.activeFilters
+        return shelf == .journal ? all : all.filter { $0.id != "sort" }
+    }
+
+    private func remove(_ filter: AteActiveFilter) {
+        let query = store.query.removing(filter)
+        apply(AteBrowseFilterDraft(sort: query.sort, band: query.band, city: query.city))
+    }
+
+    private func loadCities() async {
+        switch shelf {
+        case .journal: await store.loadCities()
+        case .saved: await saved.loadCities()
+        }
+    }
 
     /// The filter control — the same on both shelves (round 5, Eamon: "the same filter options
     /// should persist on the Saved view, so the button layout should be the same").
     private func openFilter() {
-        AteTelemetry.record(BrowseEvents.filterOpened(on: .journal))
+        AteTelemetry.record(BrowseEvents.filterOpened(on: shelf == .journal ? .journal : .saved))
         isFiltering = true
     }
 
+    /// A drive's starting state: the demo filter on, and the sheet already open over it.
     private func openDebugState() async {
         #if DEBUG
-        if JSExplore.journalFiltered {
-            // Only what the live `my_entries` already answers: an order, and "4.0 and up".
-            apply(JournalQuery(sort: .top, minScore: 4))
+        if JournalDebugLaunch.startsFiltered {
+            apply(AteBrowseFilterDraft(sort: .top, band: ScoreBand(lower: 4, upper: 5)))
         }
-        guard JSExplore.journalFilterOpen else { return }
+        guard JournalDebugLaunch.opensFilter else { return }
         // Once the demo filter has landed, so the sheet opens on it.
         try? await Task.sleep(for: .seconds(2))
         isFiltering = true
         #endif
     }
 
-    private func apply(_ query: JournalQuery) {
-        guard query != store.query else { return }
+    /// One choice from the sheet, or a pill taken off: the Journal's query, and the same range and
+    /// city on the Saved shelf. Only a shelf whose list changes is read again.
+    private func apply(_ draft: AteBrowseFilterDraft) {
+        // The order is only on the Journal's sheet; from Saved the draft carries it unchanged.
+        var query = store.query
+        query.sort = draft.sort
+        query.band = draft.band
+        query.city = draft.city
+        let shelfFilter = SavedDishFilter(band: draft.band, city: draft.city)
+        guard query != store.query || shelfFilter != saved.filter else { return }
         listChanged += 1
-        Task {
-            await store.apply(query)
-            AteTelemetry.record(BrowseEvents.journalQueried(query, resultCount: store.entries.count))
-        }
+        // Two reads, side by side: neither shelf waits on the other.
+        Task { await applyJournal(query) }
+        Task { await applyShelf(shelfFilter) }
+    }
+
+    private func applyJournal(_ query: JournalQuery) async {
+        guard query != store.query else { return }
+        await store.apply(query)
+        AteTelemetry.record(BrowseEvents.journalQueried(query, resultCount: store.entries.count))
+    }
+
+    private func applyShelf(_ filter: SavedDishFilter) async {
+        guard filter != saved.filter else { return }
+        await saved.apply(filter)
+        AteTelemetry.record(BrowseEvents.savedFiltered(filter, resultCount: saved.dishes.count))
     }
 
     // MARK: - Month markers
@@ -228,8 +275,9 @@ struct JournalScreen: View {
             // margin on its first row itself.
             SavedScreen(
                 store: saved,
-                emptyTop: Self.emptyTop,
+                emptyTop: emptyTop,
                 top: saved.phase == .ready || saved.phase == .loading ? AteMetrics.slipGap : Self.firstDayGap,
+                onClear: { apply(AteBrowseFilterDraft(sort: store.query.sort)) },
                 onPlace: onSavedPlace,
                 onDish: onSavedDish,
                 onUnsave: onUnsave
@@ -248,7 +296,7 @@ struct JournalScreen: View {
         case .empty:
             if store.query.hasFilters {
                 firstDay(AteEmptyState(title: "Nothing\nlike that.", actionTitle: "Clear") {
-                    apply(JournalQuery(sort: store.query.sort))
+                    apply(AteBrowseFilterDraft(sort: store.query.sort))
                 })
             } else {
                 firstDay(AteEmptyState(
@@ -268,7 +316,7 @@ struct JournalScreen: View {
     /// `MainEmpty` — the state, centred in the page under the segment. No paper: an empty journal
     /// has not printed anything, so it does not wear the receipt.
     private func firstDay(_ state: some View) -> some View {
-        state.ateEmptyPlacement(top: Self.emptyTop)
+        state.ateEmptyPlacement(top: emptyTop)
             .padding(.top, Self.firstDayGap)
     }
 

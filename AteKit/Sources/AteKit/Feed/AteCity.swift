@@ -28,6 +28,7 @@ public struct AteCity: Sendable, Hashable, Identifiable, Decodable {
         case city, name, region
         case entryCount = "entry_count"
         case placeCount = "place_count"
+        case dishCount = "dish_count"
         case isNearby = "is_nearby"
     }
 
@@ -39,8 +40,39 @@ public struct AteCity: Sendable, Hashable, Identifiable, Decodable {
         // `feed_cities`/`my_entry_cities` count entries; `search_cities` counts places.
         entryCount = try container.decodeIfPresent(Int.self, forKey: .entryCount)
             ?? container.decodeIfPresent(Int.self, forKey: .placeCount)
+            ?? container.decodeIfPresent(Int.self, forKey: .dishCount)
             ?? 0
         isNearby = try container.decodeIfPresent(Bool.self, forKey: .isNearby) ?? false
+    }
+
+    /// A display name as a slug — `"Gold Coast"` → `"gold-coast"` — for the in-memory readers that
+    /// have names and no slugs. `nil` for nothing at all.
+    public static func slug(for name: String?) -> String? {
+        guard let name else { return nil }
+        let words = name.lowercased().split { $0.isLetter == false && $0.isNumber == false }
+        return words.isEmpty ? nil : words.joined(separator: "-")
+    }
+
+    /// A slug's display name from a list, or the slug itself made readable when the list does not
+    /// hold it — "gold-coast" is "Gold Coast".
+    public static func displayName(for slug: String, in cities: [AteCity] = []) -> String {
+        cities.first { $0.city == slug }?.name
+            ?? slug.split(separator: "-").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
+    }
+
+    /// Busiest first, then by name — the servers' own order, made true whatever a reader does.
+    public static func ordered(_ cities: [AteCity]) -> [AteCity] {
+        cities.sorted { ($0.entryCount, $1.name) > ($1.entryCount, $0.name) }
+    }
+
+    /// The same cities from the stand-in readers: every name that appears, counted.
+    public static func counted(_ names: [String?]) -> [AteCity] {
+        var counts: [String: (name: String, count: Int)] = [:]
+        for name in names {
+            guard let name, let slug = slug(for: name) else { continue }
+            counts[slug, default: (name, 0)].count += 1
+        }
+        return ordered(counts.map { AteCity(city: $0.key, name: $0.value.name, entryCount: $0.value.count) })
     }
 }
 
