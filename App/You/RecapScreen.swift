@@ -17,7 +17,6 @@ struct RecapScreen: View {
     /// to the month it was pushed with.
     @State private var store: StatementStore
     @State private var isSharing = false
-    @Environment(\.dismiss) private var dismiss
 
     init(
         month: StatementMonth,
@@ -46,7 +45,12 @@ struct RecapScreen: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ateGround()
-        .safeAreaInset(edge: .top, spacing: 0) { topBar }
+        // The system's glass back button, and Share in glass (round 4).
+        .ateNavigationBar(trailing: {
+            AteIconButton(icon: .share, label: "Share statement", size: 22) { isSharing = true }
+                .disabled(store.statement == nil)
+                .opacity(store.statement == nil ? 0.35 : 1)
+        })
         .task {
             await store.loadIfNeeded()
             analytics(YouEvents.statementViewed(month: store.month))
@@ -75,20 +79,6 @@ struct RecapScreen: View {
                 }
             }
         )
-    }
-
-    /// `padding:60px 12px 0` — back, and the share that sends this statement out.
-    private var topBar: some View {
-        HStack(spacing: 0) {
-            AteIconButton(icon: .back, label: "Back", size: 24) { dismiss() }
-            Spacer(minLength: AteMetrics.snug)
-            AteIconButton(icon: .share, label: "Share statement", size: 22) { isSharing = true }
-                .disabled(store.statement == nil)
-                .opacity(store.statement == nil ? 0.35 : 1)
-        }
-        .padding(.horizontal, AteMetrics.regular)
-        .ateContentTop()
-        .background(AtePalette.automatic.ground)
     }
 
     /// `margin:4px 34px 0` — the statement is narrower than the screen's own gutter, because a

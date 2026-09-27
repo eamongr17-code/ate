@@ -36,7 +36,6 @@ struct SuggestionsScreen: View {
     @State private var clusters: [PhotoSuggestionCluster] = []
     @State private var dismissals: PhotoSuggestionDismissals?
     @State private var hasAsked = false
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -68,25 +67,14 @@ struct SuggestionsScreen: View {
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
         .scrollIndicators(.hidden)
-        .safeAreaInset(edge: .top, spacing: 0) { topBar }
+        // The system's glass back button, and the page's name after it (round 4).
+        .ateNavigationBar(leading: { AteNavigationTitle(title: "From your photos") })
         .task { await load() }
         // Back from Settings with the permission given: read the roll without another tap.
         .onChange(of: scenePhase) { _, now in
             guard now == .active, phase == .denied, library.isAuthorized else { return }
             Task { await load() }
         }
-    }
-
-    private var topBar: some View {
-        HStack(spacing: 2) {
-            AteIconButton(icon: .back, label: "Back", size: 24) { dismiss() }
-            Text("From your photos")
-                .ateText(.pageTitle)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.horizontal, AteMetrics.regular)
-        .ateContentTop()
-        .background(AtePalette.automatic.ground)
     }
 
     /// The one rule for a state with nothing under it (``AteEmptyPlacement``): centred on the same

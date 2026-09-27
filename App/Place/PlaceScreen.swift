@@ -24,8 +24,6 @@ struct PlaceScreen: View {
     /// A dish's photo on the menu was opened in the viewer (telemetry; the viewer is the shell's).
     var onMenuPhoto: () -> Void = {}
 
-    @Environment(\.dismiss) private var dismiss
-
     var body: some View {
         ScrollView {
             Group {
@@ -55,23 +53,12 @@ struct PlaceScreen: View {
         }
         .scrollIndicators(.hidden)
         .ateGround()
-        .safeAreaInset(edge: .top, spacing: 0) { topBar }
+        .ateNavigationBar() // the system's glass back button (round 4)
         .refreshable { await store.refresh() }
         .task { await store.load() }
     }
 
     // MARK: - Bands
-
-    /// `padding:60px 12px 0` — back, and nothing else. There is nothing to do *to* a place.
-    private var topBar: some View {
-        HStack(spacing: 0) {
-            AteIconButton(icon: .back, label: "Back", size: 24) { dismiss() }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, AteMetrics.regular)
-        .ateContentTop()
-        .background(AtePalette.automatic.ground)
-    }
 
     @ViewBuilder
     private var header: some View {

@@ -23,7 +23,6 @@ struct DishScreen: View {
     var onProfile: (UUID) -> Void = { _ in }
     var onSave: (DishSummary) -> Void = { _ in }
 
-    @Environment(\.dismiss) private var dismiss
     /// The shared full-screen viewer (browse lane, round 3): a hero photo opens it, swipeable.
     @Environment(\.atePhotoViewer) private var showPhotos
 
@@ -63,34 +62,27 @@ struct DishScreen: View {
         }
         .scrollIndicators(.hidden)
         .ateGround()
-        .safeAreaInset(edge: .top, spacing: 0) { topBar }
+        // The system back button, and the bookmark in glass beside it (round 4).
+        .ateNavigationBar(trailing: { saveButton })
         .refreshable { await store.refresh() }
         .task { await store.load() }
     }
 
     // MARK: - Bands
 
-    /// `padding:60px 12px 0; justify-content:space-between` — back, and the bookmark. Icons only;
-    /// the design puts labels nowhere near this row (rule 1).
-    private var topBar: some View {
-        HStack(spacing: 0) {
-            AteIconButton(icon: .back, label: "Back", size: 24) { dismiss() }
-            Spacer(minLength: AteMetrics.snug)
-            if let summary = store.summary {
-                AteIconButton(
-                    icon: store.isSaved ? .saved : .save,
-                    label: store.isSaved ? "Saved \(summary.name)" : "Save \(summary.name)",
-                    size: 23
-                ) {
-                    onSave(summary)
-                }
-                .accessibilityAddTraits(store.isSaved ? [.isButton, .isSelected] : .isButton)
-                .accessibilityIdentifier("dish.save")
+    @ViewBuilder
+    private var saveButton: some View {
+        if let summary = store.summary {
+            AteIconButton(
+                icon: store.isSaved ? .saved : .save,
+                label: store.isSaved ? "Saved \(summary.name)" : "Save \(summary.name)",
+                size: 23
+            ) {
+                onSave(summary)
             }
+            .accessibilityAddTraits(store.isSaved ? [.isButton, .isSelected] : .isButton)
+            .accessibilityIdentifier("dish.save")
         }
-        .padding(.horizontal, AteMetrics.regular)
-        .ateContentTop()
-        .background(AtePalette.automatic.ground)
     }
 
     /// `padding:6px 0 0 8px` — two 150pt squircles, tilted and lapped 44. Design rule 6: photos

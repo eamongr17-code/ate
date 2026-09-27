@@ -2,14 +2,13 @@ import AteKit
 import SwiftUI
 
 /// **The three pages Settings opens.** None of them is drawn in `design/v1` — the artboard stops at
-/// the row — so each is built from the vocabulary Settings itself uses: the same header (back arrow,
-/// `.h` 24), the same 56pt rows ruled at the top, the same gutter. A page pushed from a list of rows
-/// is a list of rows.
+/// the row — so each is built from the vocabulary Settings itself uses: the same header (the system's
+/// glass back button, the name at `.h` 24), the same 56pt rows ruled at the top, the same gutter. A
+/// page pushed from a list of rows is a list of rows.
 
 /// A pushed settings page: the header, then its content from `padding:14px 20px 0`.
 struct AteSettingsPage<Content: View>: View {
     let title: String
-    let onBack: () -> Void
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -21,10 +20,8 @@ struct AteSettingsPage<Content: View>: View {
         }
         .scrollIndicators(.hidden)
         .scrollBounceBehavior(.basedOnSize)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            AtePageHeader(title: title, onBack: onBack)
-                .background(AtePalette.automatic.ground)
-        }
+        // The system's glass back button, and the page's name after it (round 4).
+        .ateNavigationBar(leading: { AteNavigationTitle(title: title) })
         .ateGround()
     }
 
@@ -36,10 +33,8 @@ struct AteSettingsPage<Content: View>: View {
 /// the others carry nothing.
 struct AppearanceScreen: View {
     let model: SettingsModel
-    var onBack: () -> Void = {}
-
     var body: some View {
-        AteSettingsPage(title: "Appearance", onBack: onBack) {
+        AteSettingsPage(title: "Appearance") {
             VStack(spacing: 0) {
                 ForEach(AteAppearance.allCases, id: \.self) { appearance in
                     AteSettingsRow(title: appearance.title, showsChevron: false) {
@@ -59,10 +54,8 @@ struct AppearanceScreen: View {
 
 /// **How Ate uses AI** — one page of plain words, in the voice the app uses for words: Newsreader.
 struct AIScreen: View {
-    var onBack: () -> Void = {}
-
     var body: some View {
-        AteSettingsPage(title: "How Ate uses AI", onBack: onBack) {
+        AteSettingsPage(title: "How Ate uses AI") {
             VStack(alignment: .leading, spacing: AteMetrics.loose) {
                 ForEach(AICopy.paragraphs, id: \.self) { paragraph in
                     Text(paragraph)
@@ -110,10 +103,9 @@ enum AICopy {
 /// would be helper copy (design rule 1).
 struct BlockedPeopleScreen: View {
     @State var store: BlockedPeopleStore
-    var onBack: () -> Void = {}
 
     var body: some View {
-        AteSettingsPage(title: "Blocked people", onBack: onBack) {
+        AteSettingsPage(title: "Blocked people") {
             LazyVStack(spacing: 0) {
                 ForEach(store.people) { person in
                     AteSettingsRow(title: person.title, showsChevron: false) {

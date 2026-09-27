@@ -53,7 +53,7 @@ struct JournalScreen: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        ScrollViewReader { proxy in
+        ScrollViewReader { _ in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     header
@@ -69,9 +69,6 @@ struct JournalScreen: View {
             }
             .scrollIndicators(.hidden)
             .refreshable { await refresh() }
-            .onChange(of: scrollToTopSignal) { _, _ in
-                withAnimation { proxy.scrollTo(Self.topAnchor, anchor: .top) }
-            }
             .onScrollPhaseChange { _, phase in
                 isScrolling = phase.isScrolling
             }
@@ -84,6 +81,10 @@ struct JournalScreen: View {
                 isPastHeader = past
             }
             .overlay(alignment: .top) { monthMarker }
+            // The logo and the segment slide away on the way down and come straight back on the way
+            // up; a re-tap scrolls to the page's true top (the segment anchor put the logo under the
+            // status bar).
+            .ateTabRootHeader(scrollToTop: scrollToTopSignal) { chrome }
             .task { await store.loadIfNeeded() }
             .sheet(isPresented: $isFiltering) {
                 JournalFilterSheet(initial: store.query, places: store.places, periods: periods) { query in
@@ -94,6 +95,18 @@ struct JournalScreen: View {
     }
 
     private static let topAnchor = "journal.top"
+
+    /// The logo row, the segment and whatever filters ride under it — the header that floats: the
+    /// same views as the top of the page, so the copy is the header to the point.
+    private var chrome: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+            segmentRow
+                .padding(.top, AteMetrics.loose)
+            filters
+        }
+    }
+
     /// `MainEmpty`: `padding:16px 12px 110px; gap:22px; flex:1` — the first-day state sits 22 under
     /// the segment, centred on the one line every empty state shares (``AteEmptyPlacement``).
     private static let firstDayGap: CGFloat = 22
@@ -288,7 +301,8 @@ struct PhotoStackButton: View {
         Button(action: action) {
             AteIcon.photoStack.view(size: 20)
                 .frame(width: AteMetrics.hit, height: AteMetrics.hit)
-                .background(palette.chip, in: .circle)
+                // System Liquid Glass, like every top-corner button (round 4) — not the chip disc.
+                .ateCornerGlass()
                 .foregroundStyle(palette.fg)
                 .overlay(alignment: .topTrailing) { badge }
                 .contentShape(.circle)

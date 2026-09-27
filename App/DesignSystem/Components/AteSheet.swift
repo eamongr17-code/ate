@@ -1,3 +1,4 @@
+import AteKit
 import SwiftUI
 
 /// **The sheet scaffold**: control surface, 32pt top corners, the system grabber, a 30pt title, an
@@ -5,6 +6,11 @@ import SwiftUI
 ///
 /// Stock `.presentationDetents` and the system grabber do the work — the design's sheets are native
 /// sheets with the app's own type and colour, not a hand-built modal.
+///
+/// **No X** (round 4): the grabber and a swipe down dismiss, as every system sheet does. **Sized to
+/// its content**: the sheet measures what it holds and sets one fitting detent, capped by the system
+/// at full height (where the content scrolls). It only ever grows while it is up — a search sheet
+/// whose results thin out as you type does not jump under your thumb. Callers set no detents.
 struct AteSheet<Content: View>: View {
     let title: String
     /// Present on the place and dish sheets, absent on Actions.
@@ -18,31 +24,30 @@ struct AteSheet<Content: View>: View {
     @ViewBuilder var content: Content
 
     @Environment(\.atePalette) private var palette
-    @Environment(\.dismiss) private var dismiss
+    @State private var fit = AteSheetFit(gap: AteMetrics.sheetGap, bottom: AteMetrics.sheetBottom)
 
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.sheetGap) {
-            HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: AteMetrics.sheetGap) {
                 Text(title)
                     .ateText(.sheetTitle)
                     // A handle is the Actions sheet's title, and handles run long: one line, cut
-                    // at its tail, never under the X.
+                    // at its tail.
                     .lineLimit(1)
                     .truncationMode(.tail)
-                Spacer(minLength: AteMetrics.snug)
-                // The design puts an X beside every sheet title. The grabber alone is a gesture;
-                // the X is the affordance, and both are native.
-                AteIconButton(icon: .close, label: "Close") { dismiss() }
-                    .padding(.trailing, -10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityAddTraits(.isHeader)
+                if let searchText, let searchPrompt {
+                    AteSearchField(prompt: searchPrompt, text: searchText)
+                }
             }
             // 10 above the grabber + the grabber + the design's own 14 gap.
             .padding(.top, AteMetrics.sheetTop - 8)
-            if let searchText, let searchPrompt {
-                AteSearchField(prompt: searchPrompt, text: searchText)
-            }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fit.head = $0 }
             ScrollView {
                 content
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fit.body = $0 }
             }
             .scrollBounceBehavior(.basedOnSize)
             if let primary {
@@ -52,10 +57,17 @@ struct AteSheet<Content: View>: View {
                     .accessibilityIdentifier("sheet.primary")
                     // `margin-bottom:34px` — the sheet's own clearance above the home indicator.
                     .padding(.bottom, AteMetrics.sheetBottom)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fit.foot = $0 }
             }
         }
         .padding(.horizontal, AteMetrics.gutter)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // The design's 34 under the last thing *is* the home-indicator clearance (the artboard is
+        // the whole page), so the sheet's content runs to its bottom edge rather than stopping 34
+        // short of it and then adding the design's 34 again.
+        .ignoresSafeArea(.container, edges: .bottom)
+        .onChange(of: primary != nil, initial: true) { _, has in fit.hasFoot = has }
+        .presentationDetents(fit.detents(bottomInset: AteScreen.safeArea.bottom))
         // The system's own sheet shape: its corners follow the display's (concentric at the bottom
         // of a partial-height sheet), which a fixed corner radius cannot. The chip colour fills
         // that shape rather than a rectangle inside it.
@@ -65,6 +77,16 @@ struct AteSheet<Content: View>: View {
 
     /// `opacity:.35` — the Summary's off Share, the same off state.
     private static var busyOpacity: Double { 0.35 }
+}
+
+extension AteSheetFit {
+    /// One detent, fitted. A height detent is measured above the home indicator, and the system adds
+    /// that inset under it. Nothing measured yet: the first layout pass has not happened, and a zero
+    /// detent would present a sliver, so the medium detent stands in for that one pass.
+    func detents(bottomInset: CGFloat) -> Set<PresentationDetent> {
+        guard tallest > 0 else { return [.medium] }
+        return [.height(tallest - bottomInset)]
+    }
 }
 
 /// A pill search field. The design's only text input outside the composer.
@@ -124,7 +146,6 @@ private struct SheetPreview: View {
                         }
                     }
                 }
-                .presentationDetents([.large])
             }
     }
 }

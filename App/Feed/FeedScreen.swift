@@ -27,23 +27,18 @@ struct FeedScreen: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    header
-                    content
-                }
-                .padding(.bottom, AteMetrics.tabBarScrollInset)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                content
             }
-            .scrollIndicators(.hidden)
-            .refreshable { await store.refresh() }
-            .onChange(of: scrollToTopSignal) { _, _ in
-                withAnimation { proxy.scrollTo(Self.topAnchor, anchor: .top) }
-            }
-            .onChange(of: scrollToTopAfterArea) { _, _ in
-                proxy.scrollTo(Self.topAnchor, anchor: .top)
-            }
+            .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
+        .scrollIndicators(.hidden)
+        .refreshable { await store.refresh() }
+        // The title and the area slide away on the way down and come back on the way up.
+        // A new area starts at the top too.
+        .ateTabRootHeader(scrollToTop: scrollToTopSignal + scrollToTopAfterArea) { header }
         .task {
             onViewed()
             await store.loadIfNeeded()
