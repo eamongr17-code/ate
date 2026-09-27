@@ -34,6 +34,7 @@ struct ShareScreen: View {
             onDone: { dismiss() },
             onPrimary: send
         )
+        .ateCoversThePage()
         .task {
             photos = await SharePhotos.resolve(artefact.photoURLs)
             photosLoaded = true

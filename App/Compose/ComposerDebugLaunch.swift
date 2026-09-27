@@ -89,6 +89,10 @@ enum ComposerDebugLaunch {
     /// standing without its receipt) can be driven on a sorter that answers fast.
     static let slowSortArgument = "-ate-slow-sort"
     static let slowSortDelay: Duration = .seconds(6)
+    /// Holds "Posting…" up to 8s rather than 3.5, so a drive's taps all land inside the hold (with
+    /// `-ate-slow-sort` the sort answers at 6s, still inside it).
+    static let longHoldArgument = "-ate-long-hold"
+    static var postHold: PostHold { has(longHoldArgument) ? PostHold(maximum: .seconds(8)) : .standard }
 
     static var isUITesting: Bool { has(uiTestingArgument) }
     static var slowsSort: Bool { has(slowSortArgument) }

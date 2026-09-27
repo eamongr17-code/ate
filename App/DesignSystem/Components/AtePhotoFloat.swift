@@ -71,6 +71,7 @@ struct AtePhotoFloat: View {
         .ignoresSafeArea()
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
+        .ateCoversThePage()
         .accessibilityIdentifier("photo.preview")
         .accessibilityAction(.escape) { close() }
         .accessibilityAction(named: Text("Close")) { close() }

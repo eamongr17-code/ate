@@ -184,6 +184,7 @@ struct AteShell: View {
                 firstRunHandle
             } else if hasSession || gate.isBrowsing {
                 shell
+                    .ateLinkShell() // a waiting link is pushed once the tabs are up
                     .task(id: hasSession) { await loadHandle() }
             } else {
                 welcome(isPrompt: false)

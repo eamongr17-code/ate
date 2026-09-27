@@ -80,6 +80,7 @@ struct AteSheet<Content: View>: View {
         // that shape rather than a rectangle inside it.
         .presentationBackground(palette.chip)
         .presentationDragIndicator(.visible)
+        .ateCoversThePage()
     }
 
     /// `opacity:.35` — the Summary's off Share, the same off state.
