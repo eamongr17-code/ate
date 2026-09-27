@@ -67,7 +67,7 @@ struct SuggestionsScreen: View {
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
         .scrollIndicators(.hidden)
-        // The system's glass back button, and the page's name after it (round 4).
+        // The glass back button, and the page's name after it (round 5: the app's own top bar).
         .ateNavigationBar(leading: { AteNavigationTitle(title: "From your photos") })
         .task { await load() }
         // Back from Settings with the permission given: read the roll without another tap.

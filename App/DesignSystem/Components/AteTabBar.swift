@@ -112,7 +112,7 @@ struct AteTabBar: View {
                     .opacity(isExpanded ? 1 : 0)
                 ForEach(AteTab.allCases) { tab in
                     let isShown = isExpanded || tab == current
-                    item(tab, showsLabel: isExpanded)
+                    itemFace(tab, showsLabel: isExpanded)
                         .scaleEffect(isShown ? 1 : 0.5)
                         .opacity(isShown ? 1 : 0)
                         .position(isExpanded ? slotCentre(tab) : discCentre)
@@ -124,12 +124,8 @@ struct AteTabBar: View {
                     .frame(width: capsule.width, height: capsule.height)
                     .offset(x: capsule.minX, y: capsule.minY)
             }
-            .allowsHitTesting(isExpanded)
-            .accessibilityHidden(isExpanded == false)
-            disc
-                .offset(x: Metrics.discInset, y: Metrics.discInset)
-                .allowsHitTesting(isExpanded == false)
-                .accessibilityHidden(isExpanded)
+            .allowsHitTesting(false)
+            controls
         }
     }
 
@@ -143,15 +139,14 @@ struct AteTabBar: View {
                     .frame(width: capsuleWidth, height: Metrics.height)
                 selectionPill(capsuleWidth: capsuleWidth)
                 ForEach(AteTab.allCases) { tab in
-                    item(tab, showsLabel: true).position(slotCentre(tab))
+                    itemFace(tab, showsLabel: true).position(slotCentre(tab))
                 }
             }
             .frame(width: capsuleWidth, height: Metrics.height, alignment: .topLeading)
             .scaleEffect(isExpanded ? 1 : 0.92, anchor: .bottomLeading)
             .offset(y: isExpanded ? 0 : Metrics.swapDrop)
             .opacity(isExpanded ? 1 : 0)
-            .allowsHitTesting(isExpanded)
-            .accessibilityHidden(isExpanded == false)
+            .allowsHitTesting(false)
 
             ZStack {
                 AteGlassSurface(shape: Circle(), shadow: .bar)
@@ -162,12 +157,8 @@ struct AteTabBar: View {
             .offset(x: Metrics.discInset, y: Metrics.discInset + (isExpanded ? Metrics.swapDrop : 0))
             .opacity(isExpanded ? 0 : 1)
             .allowsHitTesting(false)
-            .accessibilityHidden(true)
 
-            disc
-                .offset(x: Metrics.discInset, y: Metrics.discInset)
-                .allowsHitTesting(isExpanded == false)
-                .accessibilityHidden(isExpanded)
+            controls
         }
     }
 
@@ -185,30 +176,47 @@ struct AteTabBar: View {
         .accessibilityIdentifier("tabbar.minimised")
     }
 
-    private func item(_ tab: AteTab, showsLabel: Bool) -> some View {
-        Button {
-            onSelect(tab)
-        } label: {
-            VStack(spacing: 0) {
-                AteTabBarItemIcon(tab: tab, isCurrent: tab == current)
-                    .padding(.top, Metrics.iconTop)
-                Text(tab.title)
-                    .ateText(tab == current ? .tabLabelActive : .tabLabel)
-                    .foregroundStyle(tab == current ? AteGlassColor.itemCurrent : AteGlassColor.item)
-                    .lineLimit(1)
-                    .fixedSize()
-                    .padding(.top, Metrics.labelGap)
-                    .opacity(showsLabel ? 1 : 0)
-                Spacer(minLength: 0)
+    /// What the bar draws is decoration that moves; what it offers — the four tabs when full, the
+    /// one disc when minimised — is a separate, still layer of controls that exists only in the state
+    /// it belongs to, so VoiceOver and a finger only ever meet what is on screen.
+    @ViewBuilder
+    private var controls: some View {
+        if isExpanded {
+            ForEach(AteTab.allCases) { tab in
+                Button {
+                    onSelect(tab)
+                } label: {
+                    Color.clear
+                        .frame(width: Metrics.slot, height: Metrics.height)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tab.title)
+                .accessibilityAddTraits(tab == current ? .isSelected : [])
+                .accessibilityIdentifier("tabbar.\(tab.rawValue)")
+                .position(slotCentre(tab))
             }
-            .frame(width: Metrics.slot, height: Metrics.height)
-            .contentShape(.rect)
-            .accessibilityElement(children: .ignore)
+        } else {
+            disc.offset(x: Metrics.discInset, y: Metrics.discInset)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(tab.title)
-        .accessibilityAddTraits(tab == current ? .isSelected : [])
-        .accessibilityIdentifier("tabbar.\(tab.rawValue)")
+    }
+
+    /// A tab as drawn: the line icon over its label.
+    private func itemFace(_ tab: AteTab, showsLabel: Bool) -> some View {
+        VStack(spacing: 0) {
+            AteTabBarItemIcon(tab: tab, isCurrent: tab == current)
+                .padding(.top, Metrics.iconTop)
+            Text(tab.title)
+                .ateText(tab == current ? .tabLabelActive : .tabLabel)
+                .foregroundStyle(tab == current ? AteGlassColor.itemCurrent : AteGlassColor.item)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.top, Metrics.labelGap)
+                .opacity(showsLabel ? 1 : 0)
+            Spacer(minLength: 0)
+        }
+        .frame(width: Metrics.slot, height: Metrics.height)
+        .accessibilityHidden(true)
     }
 
     private func selectionPill(capsuleWidth: CGFloat) -> some View {
@@ -216,11 +224,11 @@ struct AteTabBar: View {
         let centre = slotCentre(shown).x
         let minX = Metrics.pillInset
         let maxX = capsuleWidth - Metrics.pillInset - Metrics.pillWidth
-        let x = min(max(centre - Metrics.pillWidth / 2, minX), maxX)
+        let left = min(max(centre - Metrics.pillWidth / 2, minX), maxX)
         return Capsule()
             .fill(AteGlassColor.selection)
             .frame(width: Metrics.pillWidth, height: Metrics.height - 2 * Metrics.pillInset)
-            .offset(x: x, y: Metrics.pillInset)
+            .offset(x: left, y: Metrics.pillInset)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }

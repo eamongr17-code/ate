@@ -240,7 +240,7 @@ final class TabChromeUITests: XCTestCase {
     }
 
     /// Back on the tab root, the bar is there the moment the pop lands — it rides the pop
-    /// (`ateTabBarFollowsPop`) rather than arriving after it.
+    /// (it is laid on the root, so it rides the pop) rather than arriving after it.
     private func assertBarBack(_ page: String, line: UInt = #line) {
         XCTAssertTrue(waitUntil(timeout: 0.35) { app.buttons["Search"].firstMatch.isHittable },
                       "the bar is back with the swipe from \(page)", line: line)

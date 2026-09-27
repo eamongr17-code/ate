@@ -112,7 +112,7 @@ struct YouScreen: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
             AteIconButton(icon: .settings, label: "Settings", size: 22, action: onSettings)
-                .ateCornerGlass() // system Liquid Glass, like every top-corner button (round 4)
+                .ateCornerGlass() // the chrome's glass, like every top-corner button (round 5)
                 .padding(.leading, AteMetrics.tight)
                 // The glyph sits on the gutter, like every other trailing mark; the hit area
                 // hangs past it.

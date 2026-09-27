@@ -55,7 +55,7 @@ struct AteRootView: View {
     }
 }
 
-/// **The shell**: the four tabs on the system's glass bar, the `+` beside it that presents the
+/// **The shell**: the four tabs on the app's own glass bar, the `+` beside it that presents the
 /// composer, and the navigation path the core loop travels on.
 ///
 /// Journal is home (PRODUCT.md decision 1) and selection always starts there — no last tab is

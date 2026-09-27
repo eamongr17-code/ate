@@ -14,7 +14,6 @@ extension AteShell {
     /// The composer, presented over the tabs.
     func composerCover(_ presentation: ComposerPresentation) -> some View {
         ComposerScreen(presentation: presentation, services: services, onSaved: landOnEntry)
-            .ateStatusBarFrost()
     }
 
     var tabShell: some View {

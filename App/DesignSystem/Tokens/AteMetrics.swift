@@ -100,8 +100,8 @@ enum AteMetrics {
     static let listGutter: CGFloat = cardGutter
     /// Where content starts under the status bar.
     static let contentTop: CGFloat = 60
-    /// The system navigation bar every pushed page shows (round 4: the top-corner buttons are its
-    /// Liquid Glass items) — iOS 26's inline bar, under the status bar.
+    /// The top bar every pushed page shows (round 5: the app's own, in the strip iOS 26's inline
+    /// navigation bar took), under the status bar.
     static let navigationBar: CGFloat = 54
     /// Inside a slip or a receipt, either side.
     static let slipPadding: CGFloat = 16
@@ -191,7 +191,7 @@ enum AteMetrics {
 
     /// The minimum hit target, and the size of the square a toolbar icon sits in.
     static let hit: CGFloat = 44
-    /// Bottom inset for a tab screen's scrolling content, so the last slip clears the glass bar
+    /// Bottom inset for a tab screen's scrolling content, so the last slip clears the tab bar
     /// (design rule 10: it runs off under the bar rather than stopping dead above it).
     static let tabBarScrollInset: CGFloat = 64
     /// A tab icon in the system bar — the artboard's 22 plus the 2 the bar's item box leaves

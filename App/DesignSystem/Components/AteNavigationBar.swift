@@ -63,8 +63,8 @@ enum AteNavigationBarMetrics {
     /// Read off iOS 26's bar (build 80): the back disc and the group 16 in, the name 16 after the disc.
     static let inset: CGFloat = 16
     static let leadingGap: CGFloat = 16
-    /// The system chevron was 18 tall; the ported back mark reaches that at 30.
-    static let backIcon: CGFloat = 30
+    /// The system chevron was 18 tall; the back mark (Lucide chevron-left) reaches that at 34.
+    static let backIcon: CGFloat = 34
 }
 
 /// A pushed page's name, as the top bar carries it: `.h` at 24, one line.

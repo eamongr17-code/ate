@@ -337,7 +337,7 @@ struct PhotoStackButton: View {
         Button(action: action) {
             AteIcon.photoStack.view(size: 20)
                 .frame(width: AteMetrics.hit, height: AteMetrics.hit)
-                // System Liquid Glass, like every top-corner button (round 4) — not the chip disc.
+                // The chrome's glass, like every top-corner button (round 5) — not the chip disc.
                 .ateCornerGlass()
                 .foregroundStyle(palette.fg)
                 .overlay(alignment: .topTrailing) { badge }

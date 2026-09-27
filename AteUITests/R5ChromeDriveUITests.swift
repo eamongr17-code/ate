@@ -38,21 +38,6 @@ final class R5ChromeDriveUITests: XCTestCase {
         sleep(2)
     }
 
-    /// Captures one frame part-way through the header's return and the bar's expansion.
-    func testDriveMidMotion() throws {
-        try XCTSkipIf(env["R5_TAG"] == nil)
-        launch(["-ate-open-feed"])
-        XCTAssertTrue(app.buttons["feed.area"].firstMatch.waitForExistence(timeout: 10))
-        sleep(2)
-        let middle = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
-        middle.press(forDuration: 0.05, thenDragTo: middle.withOffset(CGVector(dx: 0, dy: -300)),
-                     withVelocity: .slow, thenHoldForDuration: 0.3)
-        sleep(2)
-        middle.press(forDuration: 0.05, thenDragTo: middle.withOffset(CGVector(dx: 0, dy: 60)),
-                     withVelocity: .fast, thenHoldForDuration: 0)
-        save("mid")
-    }
-
     func testDriveJournalTop() throws {
         try XCTSkipIf(env["R5_TAG"] == nil)
         launch([])
@@ -92,43 +77,6 @@ final class R5ChromeDriveUITests: XCTestCase {
         }
     }
 
-    func testProbe() throws {
-        try XCTSkipIf(env["R5_TAG"] == nil)
-        launch(["-ate-open-feed"])
-        for index in 0..<24 {
-            let probe = app.otherElements["r5.probe"].firstMatch
-            print("R5DBG t\(index)", probe.exists ? (probe.value as? String ?? "?") : "none",
-                  app.buttons["feed.area"].exists)
-            if index == 12 { save("probe") }
-            _ = app.wait(for: .runningForeground, timeout: 0.5)
-            usleep(500_000)
-        }
-    }
-
-    func testDebugSwipe() throws {
-        try XCTSkipIf(env["R5_TAG"] == nil)
-        launch(["-ate-open-feed"])
-        XCTAssertTrue(app.buttons["feed.area"].firstMatch.waitForExistence(timeout: 10))
-        sleep(2)
-        app.swipeUp()
-        sleep(2)
-        save("swipe")
-        print("R5DBG state", app.otherElements["tabbar.state"].firstMatch.value as? String ?? "?")
-        for button in app.buttons.matching(identifier: "tabbar.search").allElementsBoundByIndex {
-            print("R5DBG search", button.frame, button.isHittable)
-        }
-        for button in app.buttons.matching(NSPredicate(format: "label == 'Search'")).allElementsBoundByIndex {
-            print("R5DBG searchlabel", button.identifier, button.frame, button.isHittable)
-        }
-        for text in app.staticTexts.matching(NSPredicate(format: "label == 'Feed'")).allElementsBoundByIndex {
-            print("R5DBG feedtext", text.identifier, text.frame, text.isHittable)
-        }
-        for element in app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'tabbar.'")).allElementsBoundByIndex {
-            print("R5DBG el", element.identifier, element.elementType.rawValue, element.frame, element.isHittable, element.value as? String ?? "")
-        }
-        print(app.debugDescription.split(separator: "\n").filter { $0.contains("Feed") || $0.contains("tabbar") }.joined(separator: "\n"))
-    }
-
     func testDriveTabs() throws {
         try XCTSkipIf(env["R5_TAG"] == nil)
         launch([])
@@ -136,12 +84,8 @@ final class R5ChromeDriveUITests: XCTestCase {
         sleep(2)
         save("tabs-journal")
         for name in ["Feed", "Search", "You"] {
-            print("R5DBG before \(name):", app.buttons.matching(identifier: "tabbar.\(name.lowercased())").count,
-                  app.otherElements.matching(identifier: "tabbar.state").allElementsBoundByIndex.map { $0.value as? String ?? "?" })
             app.buttons["tabbar.\(name.lowercased())"].firstMatch.tap()
             sleep(2)
-            print("R5DBG after \(name):",
-                  app.otherElements.matching(identifier: "tabbar.state").allElementsBoundByIndex.map { $0.value as? String ?? "?" })
             save("tabs-\(name)")
         }
         app.buttons["Journal"].firstMatch.tap()

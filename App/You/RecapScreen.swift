@@ -45,7 +45,7 @@ struct RecapScreen: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ateGround()
-        // The system's glass back button, and Share in glass (round 4).
+        // The glass back button, and Share in glass (round 5).
         .ateNavigationBar(trailing: {
             AteIconButton(icon: .share, label: "Share statement", size: 22) { isSharing = true }
                 .disabled(store.statement == nil)

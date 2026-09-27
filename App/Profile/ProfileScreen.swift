@@ -52,7 +52,7 @@ struct ProfileScreen: View {
         }
         .scrollIndicators(.hidden)
         .ateGround()
-        // The system's glass back button, and "…" in glass — only for somebody else: there is no
+        // The glass back button, and "…" in glass — only for somebody else: there is no
         // reporting or blocking yourself (round 4).
         .ateNavigationBar(trailing: {
             if store.isSomebodyElse {

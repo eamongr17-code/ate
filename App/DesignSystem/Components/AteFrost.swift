@@ -5,8 +5,8 @@ import SwiftUI
 /// anything there (the system navigation bar's edge effect), and tab roots had nothing.
 ///
 /// A blur of whatever is under it, washed with the ground so it reads as linen (or ink) rather than
-/// grey. `-ate-r5-frost`: A a gradient frost, full under the status bar and fading out below it; B
-/// an even band, the status bar's height, with only a short feather at its foot.
+/// grey. `-ate-r5-frost`: A a gradient frost, full behind the clock and easing out through the
+/// strip; B an even band, the status bar's height, with only a short feather at its foot.
 extension View {
     /// Lays the status-bar frost over this screen's top edge. Hit-testing passes straight through.
     ///
@@ -33,45 +33,44 @@ private struct AteStatusBarFrost: ViewModifier {
     }
 }
 
-/// The frost itself: a band `depth` deep, plus the variant's feather beyond it.
+/// The frost itself: a band `depth` deep.
 struct AteFrost: View {
     let edge: VerticalEdge
     let depth: CGFloat
     var variant: AteChromeVariant = .a
 
+    /// It stays inside the status bar's own strip: anything deeper frosted the pages' top bars and
+    /// headers, which sit just under it.
     var body: some View {
-        let feather = variant == .a ? AteFrostMetrics.gradientFeather : AteFrostMetrics.bandFeather
         ZStack {
             Rectangle().fill(.ultraThinMaterial)
             Rectangle().fill(AteGlassColor.frostWash.opacity(AteFrostMetrics.wash))
         }
-        .frame(height: depth + feather)
+        .frame(height: depth)
         .mask {
-            LinearGradient(stops: stops(depth: depth, feather: feather), startPoint: start, endPoint: end)
+            LinearGradient(stops: stops, startPoint: start, endPoint: end)
         }
     }
 
     private var start: UnitPoint { edge == .top ? .top : .bottom }
     private var end: UnitPoint { edge == .top ? .bottom : .top }
 
-    private func stops(depth: CGFloat, feather: CGFloat) -> [Gradient.Stop] {
-        let total = max(depth + feather, 1)
+    private var stops: [Gradient.Stop] {
         switch variant {
         case .a:
-            // Solid through the top half of the status bar, then easing out over the rest of it and
-            // the feather below — no line anywhere.
-            let solid = depth * 0.5 / total
+            // Full behind the clock, easing out through the lower part of the strip — no line.
             return [
                 .init(color: .black, location: 0),
-                .init(color: .black, location: solid),
-                .init(color: .black.opacity(0.6), location: (solid + 1) / 2),
+                .init(color: .black, location: AteFrostMetrics.gradientSolid),
+                .init(color: .black.opacity(0.5), location: (AteFrostMetrics.gradientSolid + 1) / 2),
                 .init(color: .clear, location: 1),
             ]
         case .b:
-            let band = depth / total
+            // Even to the strip's foot, with only a short feather there.
+            let foot = 1 - AteFrostMetrics.bandFeather / max(depth, 1)
             return [
                 .init(color: .black, location: 0),
-                .init(color: .black, location: band),
+                .init(color: .black, location: foot),
                 .init(color: .clear, location: 1),
             ]
         }
@@ -79,8 +78,8 @@ struct AteFrost: View {
 }
 
 enum AteFrostMetrics {
-    /// A: how far the frost fades out past the status bar.
-    static let gradientFeather: CGFloat = 36
+    /// A: how much of the strip is full frost before it eases out.
+    static let gradientSolid: CGFloat = 0.55
     /// B: the band's soft foot.
     static let bandFeather: CGFloat = 6
     /// The ground laid over the blur.
