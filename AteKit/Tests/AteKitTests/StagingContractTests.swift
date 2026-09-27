@@ -356,14 +356,9 @@ struct StagingContractTests {
             let client = try await client()
             let feed = GlobalFeedClient(api: client)
 
-            // Two id snapshots bracket the walk. Staging is written to while CI runs (other contract
-            // suites mint and delete rows; agents re-sort entries), so a single count taken up front is
-            // neither a floor nor a ceiling: a row deleted mid-walk made "seen 138 >= total 139" fail
-            // twice on 2026-09-24 with nothing wrong in the pager. What the walk owes is every row that
-            // existed BOTH before and after it — the ids in both snapshots. Inserts above the cursor
-            // and deletes below it fall out of that intersection by construction.
-            // A window of the newest rows (the whole table is thousands of lines since the round-6
-            // seed); the walk goes `margin` rows past it so a skip inside the window cannot hide.
+            // Two id snapshots bracket the walk (staging is written to while CI runs); the walk owes
+            // every row in BOTH. A window of the newest rows — the table is thousands of lines since the
+            // round-6 seed — and the walk goes `margin` rows past it so a skip inside cannot hide.
             let window = 150
             let margin = 30
             let before = try await newestReviewIDs(client, count: window)

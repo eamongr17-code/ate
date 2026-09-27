@@ -281,8 +281,10 @@ struct EntryCardsContractTests {
                 #expect(score >= 0.5 && score <= 6) // 6: the secret six (0041)
             }
         }
-        // Sorted by the server, not by us — the client groups, it does not re-order.
-        #expect(rows.map(\.restaurantName) == rows.map(\.restaurantName).sorted())
+        // Sorted by the server, not by us — the client groups, it does not re-order. Case-insensitive,
+        // as the database collates ("Pho Basil" before "PJ's"), not Swift's byte order.
+        let names = rows.map { $0.restaurantName.lowercased() }
+        #expect(zip(names, names.dropFirst()).allSatisfy { $0 <= $1 }, "\(names)")
     }
 
     /// The saved row as the contract writes it. Local to this suite on purpose: the screen that
