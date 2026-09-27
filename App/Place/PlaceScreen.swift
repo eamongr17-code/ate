@@ -63,7 +63,7 @@ struct PlaceScreen: View {
         }
         .scrollIndicators(.hidden)
         .ateGround()
-        .ateNavigationBar() // the system's glass back button (round 4)
+        .ateNavigationBar() // the glass back button (round 5)
         .refreshable { await store.refresh() }
         .task { await store.load() }
     }

@@ -20,7 +20,7 @@ struct AteSettingsPage<Content: View>: View {
         }
         .scrollIndicators(.hidden)
         .scrollBounceBehavior(.basedOnSize)
-        // The system's glass back button, and the page's name after it (round 4).
+        // The glass back button, and the page's name after it (round 5: the app's own top bar).
         .ateNavigationBar(leading: { AteNavigationTitle(title: title) })
         .ateGround()
     }

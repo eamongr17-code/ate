@@ -73,11 +73,20 @@ pulse; score numerals roll; a printing receipt's skeleton lines breathe (to 45%,
 
 ## Components
 
-- **Tab bar** — the native iOS 26 `TabView` bar: Liquid Glass, kept translucent (never smoked or
-  opaque), minimising on scroll down. Journal · Feed · Search · You, each a ported line icon (24) over
-  a brand label (Bricolage 10.5; bold when current). **+** is a separate floating glass circle beside
-  the bar, and it stays there when the bar minimises. It presents the composer and is never a tab.
-  Ratings and Suggestions keep the bar; other pushed pages hide it.
+- **Chrome** (round 5) — all the app's own, no system bars or Liquid Glass. One **glass**
+  (`AteGlass`): backdrop blur under a warm tint, a hairline rim, a light shadow cast only outside it.
+  - **Tab bar** — keeps build 80's native look: a 62 glass capsule, 21 in and 21 up, of Journal ·
+    Feed · Search · You (line icon 24 over Bricolage 10.5; bold on a 76×54 pill when current), and
+    **+** as a separate 62 glass circle 8 beside it that presents the composer and is never a tab.
+    Scroll down minimises it to the current tab alone in a 48 disc (+ shrinks to 48), a spring
+    morph; scroll up or a tap on the disc brings it back. Re-tap scrolls to top. Every pushed page
+    hides it, and it rides the pop back in with its tab's root.
+  - **Top bar** on pushed pages — a 44 glass back disc 16 in, the page's name or byline after it,
+    its controls as one glass pill 16 in from the right; tab roots' corner buttons are 44 glass discs.
+  - **Status-bar frost** — one even frosted band the status bar's height, soft 6pt foot, washed in
+    the ground, over every tab and pushed page.
+  - **Floating header** — a tab root's header comes back on scroll up out of a blur into focus
+    over a light frosted scrim feathering 32 below it; it never ends in a hard line.
 - **App icon** — coral ground with the white `ate.` wordmark, optically centred. Dark appearance is
   the coral wordmark on ink; tinted is the white glyph on transparent.
 - **Score token** — butter pill, filled star + one-decimal number, DM Mono 500, inline in prose.

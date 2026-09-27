@@ -111,7 +111,12 @@ extension ComposerScreen {
         }
 
         // "Posting…" — for a beat, and for the sort if it answers in time.
-        let landed = await PostHold.standard.wait(on: sorted, from: startedAt)
+        #if DEBUG
+        let hold = ComposerDebugLaunch.postHold
+        #else
+        let hold = PostHold.standard
+        #endif
+        let landed = await hold.wait(on: sorted, from: startedAt)
         let outcome = PostHold.outcome(landed)
         let heldFor = PostHold.milliseconds(since: startedAt)
         analytics(EntryEvents.postHeld(outcome: outcome, milliseconds: heldFor))

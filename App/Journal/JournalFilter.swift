@@ -30,7 +30,7 @@ struct JournalMonthMarker: View {
             .foregroundStyle(AtePalette.automatic.fg)
             .padding(.horizontal, 12)
             .frame(height: 28)
-            .glassEffect(.regular, in: .capsule)
+            .ateGlass(in: Capsule()) // the chrome's glass (round 5), not the system's
             .accessibilityHidden(true)
     }
 }

@@ -56,16 +56,21 @@ final class ComposeRound5UITests: XCTestCase {
     /// From the Post tap to the hand-off the composer is frozen: the photo X, the library, Close and
     /// the words do nothing, and the entry posted is exactly the composer at the tap.
     func testTheComposerIsFrozenThroughTheHold() {
-        app.launchArguments += ["-ate-open-composer", "-ate-seed-draft", "-ate-slow-sort"]
+        // `-ate-long-hold`: every tap below lands inside "Posting…", however slow the runner.
+        app.launchArguments += ["-ate-open-composer", "-ate-seed-draft", "-ate-slow-sort", "-ate-long-hold"]
         app.launch()
         let post = app.buttons["composer.post"]
         XCTAssertTrue(post.waitForExistence(timeout: 10))
         let cluster = app.otherElements["3 photos"].firstMatch
         XCTAssertTrue(cluster.waitForExistence(timeout: 10))
-        let lastX = cluster.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.12))
-        let close = app.buttons["Close"].firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        let library = app.buttons["Photo library"].firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        let editor = app.textViews["composer.editor"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+        let editorElement = app.textViews["composer.editor"]
+        XCTAssertTrue(editorElement.waitForExistence(timeout: 5))
+        // Where everything is, captured BEFORE Post: the hold takes the composer out of the
+        // accessibility tree, so an element looked up after the tap is not there to find.
+        let lastX = point(in: cluster.frame, x: 0.97, y: 0.12)
+        let close = point(in: app.buttons["Close"].firstMatch.frame, x: 0.5, y: 0.5)
+        let library = point(in: app.buttons["Photo library"].firstMatch.frame, x: 0.5, y: 0.5)
+        let editor = point(in: editorElement.frame, x: 0.5, y: 0.3)
 
         post.tap()
         let posting = app.buttons["Posting…"]
@@ -164,6 +169,12 @@ final class ComposeRound5UITests: XCTestCase {
         post.tap()
         XCTAssertTrue(app.buttons["share.done"].waitForExistence(timeout: 8))
         XCTAssertFalse(prompt.waitForExistence(timeout: 6), "asked once, never again")
+    }
+
+    /// A screen point inside `frame`, fixed now — not an element to be looked up again at tap time.
+    private func point(in frame: CGRect, x: CGFloat, y: CGFloat) -> XCUICoordinate {
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: frame.minX + frame.width * x, dy: frame.minY + frame.height * y))
     }
 
     private func attach(_ name: String) {
