@@ -34,6 +34,13 @@ public extension InMemorySocialService {
             locality: "North Melbourne"
         )
 
+        /// `-ate-preview-deep`'s pasta bar — nothing the artboards draw.
+        static let pastaio = EntryCard.Place(
+            id: UUID(uuidString: "B7E00000-0000-4000-8000-0000000000D1")!,
+            name: "Pastaio", address: "12 Hardware Ln", city: "Melbourne", cuisine: "Italian",
+            locality: "CBD"
+        )
+
         static func hoursAgo(_ hours: Double) -> Date {
             Date(timeIntervalSinceNow: -hours * 3600)
         }
@@ -118,9 +125,10 @@ public extension InMemorySocialService {
 
     /// `-ate-preview-deep` (UI tests only): sixteen more of Jess's visits to Tipo 00, older than
     /// anything the artboards draw, each with the same prawn spaghetti — and every other one the
-    /// same tiramisu — as her birthday visit. So the pages the debug launch opens off the first feed
-    /// entry (her profile, Tipo 00, the prawn spaghetti) are long enough to scroll to mid-list,
-    /// while the top of the feed stays the artboard's.
+    /// same tiramisu — as her birthday visit; and eight to a pasta bar, two specials a visit. So the
+    /// pages the debug launch opens off the first feed entry (her profile, Tipo 00, the prawn
+    /// spaghetti), and a dish search for "ni", are long enough to scroll to mid-list, while the top
+    /// of the feed stays the artboard's.
     static var deepEntries: [EntryCard] {
         let birthday = "E0000000-0000-4000-8000-000000000001"
         let prawn = derived(from: birthday, prefix: "D", index: 0)
@@ -133,7 +141,7 @@ public extension InMemorySocialService {
             "Late one. Tiramisu to finish, obviously."
         ]
         let photos = [["prawn"], ["prawn", "tiramisu"], [], ["ragu", "prawn", "tiramisu"]]
-        return (0..<16).map { index in
+        let tipo: [EntryCard] = (0..<16).map { index in
             let id = String(format: "E0000000-0000-4000-8000-0000000D%04X", index + 1)
             var items: [(String, Double?)] = [("Prawn spaghetti", index.isMultiple(of: 5) ? nil : 4.5)]
             if index.isMultiple(of: 2) { items.append(("Tiramisu", 4.0)) }
@@ -150,6 +158,23 @@ public extension InMemorySocialService {
                 )
             })
         }
+        // Sixteen specials, each its own dish and every name with "ni" in it, so a dish search for
+        // "ni" is a list long enough to scroll — half of it under 4.0, for the filter to take away.
+        let pastas: [(String, Double?)] = [
+            ("Rigatoni", 4.5), ("Bucatini", 3.5), ("Anolini", 4.0), ("Tortellini", 3.0),
+            ("Cannelloni", 5.0), ("Tagliolini", 3.5), ("Spaghettini", 4.5), ("Maccheroni", 3.0),
+            ("Tortelloni", 4.0), ("Cappellini", 3.5), ("Lumaconi", 4.5), ("Conchiglioni", 3.0),
+            ("Ditalini", 5.0), ("Tubettini", 3.5), ("Pennoni", 4.0), ("Manicotti", 3.0)
+        ]
+        let pastaBar: [EntryCard] = (0..<8).map { index in
+            entry(
+                id: String(format: "E0000000-0000-4000-8000-0000000E%04X", index + 1),
+                author: Seed.jess, username: "jessw", orderNumber: 40 - index, place: Seed.pastaio,
+                body: "Two of the specials.", createdAt: Seed.hoursAgo(160 + 30 * Double(index)),
+                photos: [], items: [pastas[2 * index], pastas[2 * index + 1]]
+            )
+        }
+        return tipo + pastaBar
     }
 
     /// The two bookmarks `Feed.dc.html` draws filled: Jess's tiramisu and Marcus's cheeseburger.

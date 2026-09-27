@@ -30,6 +30,10 @@ struct SearchTabScreen: View {
     /// left below the segments whatever size the title and field were drawn at.
     @State private var resultsTop: CGFloat = 0
     @State private var isFiltering = false
+    /// A new set of filters starts the results at their top, with the pills that say what they are
+    /// — the Journal's rule for its own filter sheet. Untyped, so it never holds a row.
+    @State private var position = ScrollPosition()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var isFieldFocused: Bool
     /// The field's frame in the content, so a tap on it is never read as a tap "outside".
     @State private var fieldFrame: CGRect = .zero
@@ -86,6 +90,10 @@ struct SearchTabScreen: View {
             .coordinateSpace(.named(SearchTabScreen.contentSpace))
         }
         .scrollIndicators(.hidden)
+        .scrollPosition($position)
+        .onChange(of: store.filters) { _, _ in
+            withAnimation(reduceMotion ? nil : .default) { position.scrollTo(edge: .top) }
+        }
         // A drag always moves the page (it bounces when the results are short), and a drag always
         // takes the keyboard with it.
         .scrollBounceBehavior(.always, axes: .vertical)

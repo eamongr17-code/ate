@@ -45,6 +45,10 @@ struct JournalScreen: View {
         #endif
     }()
     @State private var isFiltering = false
+    /// Bumped by every change to what the list is — a filter, a sort, a pill taken off, the other
+    /// shelf — so the new list starts at its top, under the header and its pills. Nothing about the
+    /// layout gets it there by itself: a lazy list keeps its offset while its rows are replaced.
+    @State private var listChanged = 0
     /// The month of the slip at the top of the screen, and whether the list is moving.
     @State private var topMonth: JournalPeriod?
     @State private var isScrolling = false
@@ -98,7 +102,8 @@ struct JournalScreen: View {
             // The logo and the segment slide away on the way down and come straight back on the way
             // up; a re-tap scrolls to the page's true top (the segment anchor put the logo under the
             // status bar).
-            .ateTabRootHeader(scrollToTop: scrollToTopSignal) { chrome }
+            .ateTabRootHeader(scrollToTop: scrollToTopSignal + listChanged) { chrome }
+            .onChange(of: shelf) { _, _ in listChanged += 1 }
             .task { await store.loadIfNeeded() }
             // The Saved shelf loads when it is chosen, and stops if it is left mid-read — the task
             // the shelf's own view carried when it was one view rather than rows of this stack.
@@ -183,6 +188,8 @@ struct JournalScreen: View {
     }
 
     private func apply(_ query: JournalQuery) {
+        guard query != store.query else { return }
+        listChanged += 1
         Task {
             await store.apply(query)
             AteTelemetry.record(BrowseEvents.journalQueried(query, resultCount: store.entries.count))
