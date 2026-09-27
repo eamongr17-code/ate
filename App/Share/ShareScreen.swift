@@ -96,13 +96,17 @@ struct ShareStage: View {
     let onDone: () -> Void
     let onPrimary: () -> Void
     /// **The Summary's stage** (round 4, Eamon): the receipt takes more of the screen — drawn larger,
-    /// still tilted, centred in the band above the pills — and arrives with a small slide and settle.
-    /// `Share` keeps the artboard's own placement.
+    /// still tilted, centred in the band above the pills. `Share` keeps the artboard's own placement.
     var isHero = false
+    /// **Round 5: the Summary's receipt enters once, whole** (``ReceiptEntrance``). Until its shape is
+    /// final the band stands empty on the coral — never a skeleton that grows into a receipt.
+    var showsCard = true
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bandHeight: CGFloat = 0
-    @State private var hasArrived = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The Summary's pills come on once its ground is whole, so they never show through the
+    /// composer's toolbar in the cross-fade.
+    @State private var actionsShown = false
 
     /// The card scrolls in its own band above the pills: a long receipt continues down that band
     /// and stops above them, never running underneath.
@@ -125,7 +129,9 @@ struct ShareStage: View {
             .scrollIndicators(.hidden)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { bandHeight = $0 }
             actions
+                .opacity(isHero && actionsShown == false ? 0 : 1)
         }
+        .task { await showActions() }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ateAccentGround(AteColor.coral)
     }
@@ -138,25 +144,32 @@ struct ShareStage: View {
     }
 
     /// The Summary's receipt: the same card, scaled as a whole (so what is seen is still exactly the
-    /// picture that is shared), centred in the band, and settling in once.
+    /// picture that is shared), centred in the band, entering once.
+    @ViewBuilder
     private var heroCard: some View {
-        ScaledToFit(scale: Self.heroScale) { card }
-            // While it prints it sits a little high, and settles as the lines arrive — the print's
-            // own motion, as on `Share`.
-            .offset(y: isPrinting ? -Self.printingLift : 0)
-            .ateAnimation(AteMotion.settle, value: isPrinting)
-            // The entrance: a small slide down and a settle, the way paper leaves a printer.
-            .offset(y: hasArrived || reduceMotion ? 0 : AteMotion.printOffset)
-            .rotationEffect(.degrees(hasArrived || reduceMotion ? 0 : Self.arrivalTilt))
-            .opacity(hasArrived || reduceMotion ? 1 : 0)
+        if showsCard {
+            EnteringReceipt(
+                artefact: artefact, photos: photos, isPrinting: isPrinting, breathes: breathes,
+                onAddPlace: onAddPlace, scale: Self.heroScale, printingLift: Self.printingLift
+            )
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("summary.receipt")
             .padding(.vertical, Self.heroAir)
             .frame(maxWidth: .infinity, minHeight: bandHeight)
-            .onAppear {
-                withAnimation(reduceMotion ? nil : .spring(duration: AteMotion.printDuration, bounce: 0.22)) {
-                    hasArrived = true
-                }
-            }
+        }
     }
+
+    private func showActions() async {
+        guard isHero, reduceMotion == false else {
+            actionsShown = true
+            return
+        }
+        try? await Task.sleep(for: Self.actionsLead)
+        withAnimation(.easeOut(duration: 0.2)) { actionsShown = true }
+    }
+
+    /// The composer's cross-fade to the coral ground (0.25s), and a hair more.
+    private static let actionsLead: Duration = .milliseconds(260)
 
     /// How much larger the Summary draws its receipt: the paper runs to 38 from each edge of the
     /// screen rather than the artboard's 52 (314 of 390, against 286).
@@ -168,8 +181,6 @@ struct ShareStage: View {
     /// Room above and below for the photos, which hang past the paper.
     private static let heroAir: CGFloat = 44
     private static let printingLift: CGFloat = 20
-    /// The extra turn the receipt arrives with, before it settles to its own −3°.
-    private static let arrivalTilt: Double = 2
 
     /// `SummaryFinal`: Done `width:118px`, white; Share fills the rest, ink, with its icon. While the
     /// receipt prints, Share is there but off (`opacity:.35`) — there is nothing to send yet.
@@ -205,6 +216,52 @@ struct ShareStage: View {
     private static let actionGap: CGFloat = 10
     private static let doneWidth: CGFloat = 118
     private static let disabledOpacity: Double = 0.35
+}
+
+/// **The Summary's receipt, entering: the printer feed** (``ReceiptEntrance``). It is only ever
+/// made once its shape is final, so its first frame is the first frame of its entrance, and nothing
+/// about it changes size after.
+private struct EnteringReceipt: View {
+    let artefact: ShareArtefact
+    let photos: [AtePhoto]
+    let isPrinting: Bool
+    let breathes: Bool
+    let onAddPlace: (() -> Void)?
+    let scale: CGFloat
+    let printingLift: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pose = ReceiptPose.start
+    @State private var isFeeding = true
+
+    var body: some View {
+        ScaledToFit(scale: scale) {
+            ShareCard(
+                artefact: artefact, photos: photos, isPrinting: isPrinting, breathes: breathes,
+                onAddPlace: onAddPlace, pose: pose, isFeeding: isFeeding
+            )
+        }
+        // A placeless receipt sits a little high, and settles once a place prints it.
+        .offset(y: isPrinting ? -printingLift : 0)
+        .ateAnimation(AteMotion.settle, value: isPrinting)
+        .task { await enter() }
+    }
+
+    private func enter() async {
+        guard reduceMotion == false else {
+            pose = .settled
+            isFeeding = false
+            return
+        }
+        try? await Task.sleep(for: ReceiptEntrance.groundLead)
+        withAnimation(ReceiptEntrance.feedRise) { pose.fed = 1 }
+        try? await Task.sleep(for: ReceiptEntrance.feedRiseTime)
+        // All the way out: one receipt again, the same pixels, torn off.
+        isFeeding = false
+        withAnimation(ReceiptEntrance.tear) { pose.tilt = ReceiptPose.restingTilt }
+        try? await Task.sleep(for: ReceiptEntrance.tearLead)
+        withAnimation(ReceiptEntrance.photosLand) { pose.photos = 1 }
+    }
 }
 
 /// Render, and hand it to the system. **A render that fails is never silent**: it does not open the

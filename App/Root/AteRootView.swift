@@ -321,6 +321,10 @@ struct AteShell: View {
                 }
             )
             .task { await countPhotos() }
+            // The Summary's one ask for photos was answered yes: the button can appear now.
+            .onReceive(NotificationCenter.default.publisher(for: .atePhotoAccessGranted)) { _ in
+                Task { await countPhotos() }
+            }
             #if DEBUG
             .task { await openNewestEntryIfRequested() }
             .task { await openSummaryIfRequested() }

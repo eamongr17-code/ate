@@ -85,7 +85,13 @@ enum ComposerDebugLaunch {
     static let voiceUndoArgument = "-ate-voice-undo"
     static let voiceRedoArgument = "-ate-voice-redo"
 
+    /// Holds the sort back 6s after Post, so the slow case (the hold running out, the Summary
+    /// standing without its receipt) can be driven on a sorter that answers fast.
+    static let slowSortArgument = "-ate-slow-sort"
+    static let slowSortDelay: Duration = .seconds(6)
+
     static var isUITesting: Bool { has(uiTestingArgument) }
+    static var slowsSort: Bool { has(slowSortArgument) }
     static var drivesVoiceUndo: Bool { has(voiceUndoArgument) || has(voiceRedoArgument) }
     static var drivesVoiceRedo: Bool { has(voiceRedoArgument) }
     static var opensVoice: Bool { has(voiceArgument) }

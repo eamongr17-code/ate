@@ -93,11 +93,15 @@ private struct CappedWidth: Layout {
     }
 }
 
-/// **Done** — the ink pill both composer screens carry in the same corner. One component, so the key
+/// **Post** — the ink pill both composer screens carry in the same corner. One component, so the key
 /// that saves the entry looks and behaves the same whether you were typing or talking.
-struct ComposerDoneButton: View {
-    /// "Done", or "Try again" after a save that did not land.
-    var title = "Done"
+///
+/// Round 5: "Post" for a new entry, and "Posting…" while the sorter works behind it — the pill holds
+/// the word, full strength, until the Summary takes the screen (``PostHold``). An edit keeps "Done":
+/// the entry is already posted.
+struct ComposerPostButton: View {
+    /// "Post", "Posting…" while it holds, "Done" on an edit, or "Try again" after a save that did not land.
+    var title = "Post"
     var isEnabled: Bool
     var isBusy = false
     let action: () -> Void
@@ -114,7 +118,9 @@ struct ComposerDoneButton: View {
         }
         .buttonStyle(.plain)
         .ateHitFootprint(Self.hitOutset)
-        .disabled(isEnabled == false || isBusy)
+        // Busy is not off: "Posting…" holds at full strength, it just takes no second tap.
+        .disabled(isEnabled == false)
+        .allowsHitTesting(isBusy == false)
         .opacity(isEnabled ? 1 : 0.4)
         .padding(.trailing, AteMetrics.regular)
     }

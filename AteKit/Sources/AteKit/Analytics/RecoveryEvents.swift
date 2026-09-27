@@ -74,6 +74,15 @@ public enum SuggestionEvents {
         AnalyticsEvent(name: "suggestion_dismissed", parameters: ["photos": String(max(0, photos))])
     }
 
+    /// The one quiet ask for the camera roll, on the Summary after a post (``PhotoAccessAsk``), and
+    /// its answer — the only way someone never asked ever reaches `Suggestions`.
+    public static func photoAccessAsked(granted: Bool) -> AnalyticsEvent {
+        AnalyticsEvent(
+            name: "photo_access_asked",
+            parameters: ["source": "summary", "granted": granted ? "true" : "false"]
+        )
+    }
+
     /// "Allow photos", on the screen a refused permission leaves behind.
     public static func photoAccessSettingsOpened() -> AnalyticsEvent {
         AnalyticsEvent(name: "photo_access_settings_opened")
