@@ -28,10 +28,20 @@ struct FeedScreen: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
+            // The scroll view's content IS the lazy stack, and every slip is one of its own rows —
+            // never a `LazyVStack` inside a `VStack` under the header. Nested like that, the scroll
+            // view re-sizes all of its content on each pass, which re-places the lazy stack, which
+            // flips a slip it is prefetching below the fold between two states, and the flip dirties
+            // the content size again: coming back to a Feed scrolled to mid-list locked the main
+            // thread for minutes. As the stack's own rows, it settles.
+            LazyVStack(alignment: .leading, spacing: 0) {
                 header
                 content
             }
+            // Loading is the column of skeleton slips, still; the feed replaces it in one fade. On
+            // the stack rather than around `content`, so no wrapper stands between the lazy stack
+            // and its slips; the header does not change with the phase.
+            .ateAnimation(AteMotion.fillIn, value: store.phase)
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
         .scrollIndicators(.hidden)
@@ -86,14 +96,8 @@ struct FeedScreen: View {
         .id(Self.topAnchor)
     }
 
-    /// Loading is the column of skeleton slips, still; the feed replaces it in one fade.
-    private var content: some View {
-        Group { phaseContent }
-            .ateAnimation(AteMotion.fillIn, value: store.phase)
-    }
-
     @ViewBuilder
-    private var phaseContent: some View {
+    private var content: some View {
         switch store.phase {
         case .loading:
             SlipSkeleton(hasByline: true)
@@ -115,31 +119,35 @@ struct FeedScreen: View {
         }
     }
 
+    /// The slips, as rows of the page's own lazy stack (see `body`): each `feedSlipGap` under the
+    /// one before it, at the card width.
+    @ViewBuilder
     private var slips: some View {
-        LazyVStack(alignment: .leading, spacing: AteMetrics.feedSlipGap) {
-            ForEach(store.entries) { entry in
-                EntrySlip(
-                    slip: EntrySlipPresentation.feed(entry),
-                    onOpen: { onOpen(entry) },
-                    onProfile: { onProfile(entry.authorID) },
-                    onSave: { onSave(entry, $0) },
-                    onPlace: onPlace,
-                    onDish: { onDish($0.dishID) },
-                    identifier: "feed.slip"
-                )
-                .task { await store.loadMoreIfNeeded(after: entry) }
-                // Its own task, so the row scrolling away cancels the prefetch with it.
-                .task { await AtePrefetch.photos(after: entry, in: store.entries) }
-            }
-            if let message = store.inlineErrorMessage {
-                Text(message)
-                    .ateText(.meta)
-                    .foregroundStyle(AtePalette.automatic.muted)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, AteMetrics.regular)
-            }
+        ForEach(store.entries) { entry in
+            EntrySlip(
+                slip: EntrySlipPresentation.feed(entry),
+                onOpen: { onOpen(entry) },
+                onProfile: { onProfile(entry.authorID) },
+                onSave: { onSave(entry, $0) },
+                onPlace: onPlace,
+                onDish: { onDish($0.dishID) },
+                identifier: "feed.slip"
+            )
+            .task { await store.loadMoreIfNeeded(after: entry) }
+            // Its own task, so the row scrolling away cancels the prefetch with it.
+            .task { await AtePrefetch.photos(after: entry, in: store.entries) }
+            .padding(.top, entry.id == store.entries.first?.id ? 0 : AteMetrics.feedSlipGap)
+            .ateCardWidth()
         }
-        .ateCardWidth()
+        if let message = store.inlineErrorMessage {
+            Text(message)
+                .ateText(.meta)
+                .foregroundStyle(AtePalette.automatic.muted)
+                .frame(maxWidth: .infinity)
+                .padding(.top, AteMetrics.regular)
+                .padding(.top, store.entries.isEmpty ? 0 : AteMetrics.feedSlipGap)
+                .ateCardWidth()
+        }
     }
 }
 
