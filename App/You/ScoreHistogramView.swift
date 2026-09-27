@@ -66,7 +66,7 @@ struct ScoreHistogramView: View {
         .accessibilityElement()
         .accessibilityLabel("\(ScoreFormat.halfStep(score)): \(ScoreFormat.dishCount(count))")
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
-        .ateAccessibilityHidden(count == 0)
+        .accessibilityHidden(count == 0)
     }
 
     private func height(for score: Double) -> CGFloat {
@@ -97,7 +97,8 @@ enum SixScore {
     static let placeholder = AteColor.pink
 
     static func fill(for score: Double) -> Color {
-        ScoreHistogram.halfSteps(score) == ScoreHistogram.halfSteps(ScoreHistogram.six) ? placeholder : AteColor.butter
+        let isSix = ScoreHistogram.halfSteps(score) == ScoreHistogram.halfSteps(ScoreHistogram.six)
+        return isSix ? placeholder : AteColor.scoreMark
     }
 }
 

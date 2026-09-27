@@ -244,14 +244,10 @@ final class TabChromeUITests: XCTestCase {
     ///
     /// Round 4 timed this at 0.35s, which measured the test runner as much as the app: one
     /// accessibility snapshot can take longer than that, so a query that happened to land mid-pop
-    /// failed the step (the flake on main). Now the wait is for the pop itself, and a swipe that did
-    /// not take — too quick off the edge — is made once more before it counts as a failure.
+    /// failed the step (the flake on main). Now the wait is for the pop itself — and a swipe that
+    /// did not pop fails here, with no second try.
     private func assertBarBack(_ page: String, line: UInt = #line) {
-        let search = app.buttons["Search"].firstMatch
-        if waitUntil(timeout: 3, { search.isHittable }) == false {
-            swipeBack()
-        }
-        XCTAssertTrue(waitUntil(timeout: 3) { search.isHittable },
+        XCTAssertTrue(waitUntil(timeout: 3) { app.buttons["Search"].firstMatch.isHittable },
                       "the bar is back with the swipe from \(page)", line: line)
     }
 

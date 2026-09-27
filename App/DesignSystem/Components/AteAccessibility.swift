@@ -1,18 +1,19 @@
 import SwiftUI
 
 extension View {
-    /// Hides this view from VoiceOver when `isHidden`, and otherwise leaves it — and everything in it
-    /// — to its own choices.
+    /// Hides a *container* from VoiceOver when `isHidden`, and otherwise leaves what is inside it to
+    /// its own choices — the frozen composer's editor and toolbar, a tab root's bar off screen.
     ///
-    /// Use this, never `accessibilityHidden(<Bool>)`: an outer `accessibilityHidden(false)` is not a
-    /// no-op, it overrode the `accessibilityHidden(true)` of views inside it (round 5: the minimised
-    /// tab bar's hidden tabs stayed reachable). SwiftLint enforces it (`accessibility_hidden_bool`).
-    @ViewBuilder
+    /// One fixed modifier chain, never a branch: a branch changes the view's identity each time it
+    /// flips, which tore down and remade the composer's text view at the Post tap (losing its undo)
+    /// and rebuilt the tab bar on every tab switch (QA on #85). Shown, the view is a plain `.contain`
+    /// container, so its own `hidden: false` sits on the container and is not pushed down onto
+    /// children that hide themselves; hidden, it is one ignored element, hidden.
+    ///
+    /// A single element (a leaf that already combines its children) takes `accessibilityHidden(_:)`
+    /// directly — there is nothing inside it to protect.
     func ateAccessibilityHidden(_ isHidden: Bool) -> some View {
-        if isHidden {
-            accessibilityHidden(true)
-        } else {
-            self
-        }
+        accessibilityElement(children: isHidden ? .ignore : .contain)
+            .accessibilityHidden(isHidden)
     }
 }

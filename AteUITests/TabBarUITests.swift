@@ -63,6 +63,22 @@ final class TabBarUITests: XCTestCase {
         save("tabbar-retap")
     }
 
+    /// The bar, full and minimised, passes the system's accessibility audit for hit regions and
+    /// descriptions. The Debug-only `tabbar.state` probe is 1pt by design (it exists for these tests)
+    /// and is excluded; the rest of the screen is other tests' business.
+    func testTheBarPassesTheAccessibilityAudit() throws {
+        let app = launch(["-ate-open-feed"])
+        XCTAssertTrue(app.buttons["tabbar.compose"].waitForExistence(timeout: 10))
+        let barOnly: (XCUIAccessibilityAuditIssue) -> Bool = { issue in
+            guard let identifier = issue.element?.identifier else { return true }
+            return identifier == "tabbar.state" || identifier.hasPrefix("tabbar.") == false
+        }
+        try app.performAccessibilityAudit(for: [.hitRegion, .sufficientElementDescription], barOnly)
+        app.swipeUp()
+        XCTAssertTrue(waitUntil(timeout: 3) { state(app) == "minimised feed" })
+        try app.performAccessibilityAudit(for: [.hitRegion, .sufficientElementDescription], barOnly)
+    }
+
     private func state(_ app: XCUIApplication) -> String {
         (app.otherElements["tabbar.state"].firstMatch.value as? String) ?? "missing"
     }

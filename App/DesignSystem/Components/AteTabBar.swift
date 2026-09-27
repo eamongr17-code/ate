@@ -114,6 +114,7 @@ struct AteTabBar: View {
                     .offset(x: capsule.minX, y: capsule.minY)
             }
             .allowsHitTesting(false)
+            .accessibilityHidden(true) // decoration; the controls below are what VoiceOver meets
             controls
         }
     }
@@ -130,6 +131,7 @@ struct AteTabBar: View {
         .buttonStyle(.plain)
         .accessibilityLabel(current.title)
         .accessibilityIdentifier("tabbar.minimised")
+        .ateLargeContent(icon: current.icon, title: current.title)
     }
 
     /// What the bar draws is decoration that moves; what it offers — the four tabs when full, the
@@ -150,6 +152,7 @@ struct AteTabBar: View {
                 .accessibilityLabel(tab.title)
                 .accessibilityAddTraits(tab == current ? .isSelected : [])
                 .accessibilityIdentifier("tabbar.\(tab.rawValue)")
+                .ateLargeContent(icon: tab.icon, title: tab.title)
                 .position(slotCentre(tab))
             }
         } else {
@@ -203,6 +206,7 @@ struct AteTabBar: View {
         .position(centre)
         .accessibilityLabel("New entry")
         .accessibilityIdentifier("tabbar.compose")
+        .ateLargeContent(icon: .compose, title: "New entry")
     }
 
     // MARK: - Geometry
@@ -230,6 +234,17 @@ struct AteTabBar: View {
         pill = arrival.from
         Task { @MainActor in
             withAnimation(AteMotion.barMorph) { pill = nil }
+        }
+    }
+}
+
+private extension View {
+    /// The large-content viewer the system bar gave its items: with the largest accessibility text
+    /// sizes, a long press on a tab (or `+`) shows its icon and name large, since the bar's own type
+    /// is capped at 14.
+    func ateLargeContent(icon: AteIcon, title: String) -> some View {
+        accessibilityShowsLargeContentViewer {
+            Label { Text(title) } icon: { icon.view(size: AteMetrics.tabIcon) }
         }
     }
 }
