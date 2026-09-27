@@ -8,6 +8,8 @@ import SwiftUI
 /// you have written at as radio rows. Nothing is applied until Done.
 struct JournalFilterSheet: View {
     let places: [JournalPlace]
+    /// Whether ``places`` has answered — until it has, the section is still rows (round 5).
+    var arePlacesLoaded = true
     let periods: [JournalPeriod]
     let onDone: (JournalQuery) -> Void
 
@@ -16,17 +18,19 @@ struct JournalFilterSheet: View {
     init(
         initial: JournalQuery,
         places: [JournalPlace],
+        arePlacesLoaded: Bool = true,
         periods: [JournalPeriod],
         onDone: @escaping (JournalQuery) -> Void
     ) {
         self.places = places
+        self.arePlacesLoaded = arePlacesLoaded
         self.periods = periods
         self.onDone = onDone
         _query = State(initialValue: initial)
     }
 
     var body: some View {
-        AteFilterSheet {
+        AteFilterSheet(isLoading: arePlacesLoaded == false) {
             AteSegments(
                 options: JournalSort.allCases.map { AteSegment($0, $0.title) },
                 selection: $query.sort
@@ -55,6 +59,7 @@ struct JournalFilterSheet: View {
             }
             AteFilterSection(title: "Place", scrolls: false) {
                 AteRadioRow(title: "Anywhere", isSelected: query.place == nil) { query.place = nil }
+                if arePlacesLoaded == false { AteSheetSkeletonRows(count: 4) }
                 ForEach(places) { place in
                     AteRadioRow(
                         title: place.name,

@@ -97,7 +97,8 @@ enum SixScore {
     static let placeholder = AteColor.pink
 
     static func fill(for score: Double) -> Color {
-        ScoreHistogram.halfSteps(score) == ScoreHistogram.halfSteps(ScoreHistogram.six) ? placeholder : AteColor.butter
+        let isSix = ScoreHistogram.halfSteps(score) == ScoreHistogram.halfSteps(ScoreHistogram.six)
+        return isSix ? placeholder : AteColor.scoreMark
     }
 }
 

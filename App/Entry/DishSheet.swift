@@ -7,32 +7,33 @@ import SwiftUI
 /// actually was. A menu pick passes the dish's id, "Add as a new dish" passes the name — the two
 /// halves of `correct_entry_dish`. Score and note are untouched either way: they are the person's,
 /// and nothing here is allowed near them.
+///
+/// Presented with ``SwiftUICore/View/ateDishSheet(item:directory:placeID:placeName:onPick:)``, which
+/// reads the place's menu before it rises (round 5: it used to open on the add row, then jump).
 struct DishSheet: View {
-    let directory: any PlaceDirectory
-    let placeID: UUID?
+    let menu: DishMenu
     let placeName: String?
     let item: AteReceipt.Item
     /// `(dishID, dishName)` — exactly one is non-nil.
     let onPick: (UUID?, String?) -> Void
 
     @State private var query: String
-    @State private var menu: [PlaceDish] = []
     @State private var pickedID: UUID?
     @Environment(\.dismiss) private var dismiss
 
     init(
-        directory: any PlaceDirectory,
-        placeID: UUID?,
+        menu: DishMenu,
         placeName: String?,
         item: AteReceipt.Item,
         onPick: @escaping (UUID?, String?) -> Void
     ) {
-        self.directory = directory
-        self.placeID = placeID
+        self.menu = menu
         self.placeName = placeName
         self.item = item
         self.onPick = onPick
         _query = State(initialValue: item.name)
+        // The line's current dish comes back marked, so the sheet opens on the answer it has.
+        _pickedID = State(initialValue: menu.match(item.name))
     }
 
     var body: some View {
@@ -40,10 +41,14 @@ struct DishSheet: View {
             title: "Which dish?",
             searchPrompt: "Search dishes",
             searchText: $query,
-            primary: ("Done", commit)
+            primary: ("Done", commit),
+            isLoading: menu.hasAnswered == false
         ) {
             VStack(alignment: .leading, spacing: 0) {
-                if results.isEmpty == false {
+                if menu.hasAnswered == false {
+                    section
+                    AteSheetSkeletonRows(count: 5)
+                } else if results.isEmpty == false {
                     section
                     ForEach(results) { dish in
                         AteRadioRow(
@@ -60,7 +65,9 @@ struct DishSheet: View {
             }
         }
         .ateSurface()
-        .task { await load() }
+        .onChange(of: menu.hasAnswered) { _, _ in
+            if pickedID == nil { pickedID = menu.match(item.name) }
+        }
     }
 
     /// "At Tipo 00" — the design's own heading, and the only place the place is named here.
@@ -99,17 +106,8 @@ struct DishSheet: View {
         // Nothing typed yet: the whole menu, as `DishSheet.dc.html` shows it. The field carries the
         // line's own name, and filtering by it would leave the one row the sorter already chose —
         // which is the answer this sheet exists to question.
-        guard needle.isEmpty == false, needle != item.name.lowercased() else { return menu }
-        return menu.filter { $0.name.lowercased().contains(needle) || $0.id == pickedID }
-    }
-
-    private func load() async {
-        guard let placeID else { return }
-        menu = (try? await directory.dishes(atPlace: placeID, limit: 50)) ?? []
-        // The line's current dish comes back marked, so the sheet opens on the answer it has.
-        if pickedID == nil {
-            pickedID = menu.first { $0.name.caseInsensitiveCompare(item.name) == .orderedSame }?.id
-        }
+        guard needle.isEmpty == false, needle != item.name.lowercased() else { return menu.dishes }
+        return menu.dishes.filter { $0.name.lowercased().contains(needle) || $0.id == pickedID }
     }
 
     private func commit() {
@@ -123,5 +121,74 @@ struct DishSheet: View {
 
     private static func people(_ count: Int) -> String {
         count == 1 ? "1 person" : "\(count) people"
+    }
+}
+
+/// A place's menu, as the dish sheet offers it — read before the sheet rises.
+@MainActor
+@Observable
+final class DishMenu {
+    private(set) var dishes: [PlaceDish] = []
+    /// Whether the menu has answered. An entry with no place has nothing to ask, which is an answer.
+    private(set) var hasAnswered = false
+
+    private let directory: any PlaceDirectory
+    private let placeID: UUID?
+
+    init(directory: any PlaceDirectory, placeID: UUID?) {
+        self.directory = directory
+        self.placeID = placeID
+        hasAnswered = placeID == nil
+    }
+
+    func load() async {
+        guard let placeID, hasAnswered == false else { return }
+        dishes = (try? await directory.dishes(atPlace: placeID, limit: 50)) ?? []
+        hasAnswered = true
+    }
+
+    /// The menu's dish with this name, if it has one.
+    func match(_ name: String) -> UUID? {
+        dishes.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.id
+    }
+}
+
+extension View {
+    /// **The dish sheet** for one line of an entry, its place's menu read before it rises (round 5).
+    func ateDishSheet(
+        item: Binding<EntryModel.Correcting?>,
+        directory: any PlaceDirectory,
+        placeID: @escaping @MainActor () -> UUID?,
+        placeName: @escaping @MainActor () -> String?,
+        onPick: @escaping (AteReceipt.Item, UUID?, String?) -> Void
+    ) -> some View {
+        modifier(DishSheetPresenter(
+            item: item, directory: directory, placeID: placeID, placeName: placeName, onPick: onPick
+        ))
+    }
+}
+
+private struct DishSheetPresenter: ViewModifier {
+    @Binding var item: EntryModel.Correcting?
+    let directory: any PlaceDirectory
+    let placeID: @MainActor () -> UUID?
+    let placeName: @MainActor () -> String?
+    let onPick: (AteReceipt.Item, UUID?, String?) -> Void
+
+    @State private var holder = AteSheetHolder<DishMenu>()
+
+    func body(content: Content) -> some View {
+        let holder = holder
+        content.ateSheet(item: $item, name: "dish", prepare: { _ in
+            let fresh = DishMenu(directory: directory, placeID: placeID())
+            holder.value = fresh
+            await fresh.load()
+        }, content: { correcting in
+            AteSheetHolderView(holder: holder) { menu in
+                DishSheet(menu: menu, placeName: placeName(), item: correcting.item) { dishID, dishName in
+                    onPick(correcting.item, dishID, dishName)
+                }
+            }
+        })
     }
 }

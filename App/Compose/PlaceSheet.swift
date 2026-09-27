@@ -9,46 +9,36 @@ import SwiftUI
 /// for location, and only as this sheet opens. Design rule 8 is untouched by that: nearby rooms are
 /// *listed*, never attached. A place lands on an entry because it was named or tapped, and a refused
 /// permission costs exactly one section.
+/// Presented with ``SwiftUICore/View/atePlaceSheet(isPresented:directory:initialQuery:selected:onPick:)``,
+/// which reads its first rows before it rises (round 5: it used to open blank, then jump full).
 struct PlaceSheet: View {
+    let model: PlaceSearchModel
     let directory: any PlaceDirectory
-    /// Pre-filled with what the person already typed, when there is something to go on — the words,
-    /// never a location.
-    var initialQuery: String = ""
-    var selected: UUID?
     let onPick: (PlaceRef) -> Void
 
-    @State private var model: PlaceSearchModel?
     @State private var isAddingPlace = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        @Bindable var model = model
         AteSheet(
             title: "Where was this?",
             searchPrompt: "Search places",
-            searchText: Binding(
-                get: { model?.query ?? initialQuery },
-                set: { model?.query = $0 }
-            ),
+            searchText: $model.query,
             primary: primary,
-            isPrimaryBusy: model?.isResolving ?? false
+            isPrimaryBusy: model.isResolving,
+            isLoading: model.isReady == false
         ) {
-            if let model {
-                content(model)
-            }
+            content(model)
         }
         .ateSurface()
         .task {
-            let model = model ?? PlaceSearchModel(
-                directory: directory, query: initialQuery, selected: selected
-            )
-            self.model = model
             #if DEBUG
             if ComposerDebugLaunch.opensAddPlace { isAddingPlace = true }
             #endif
-            await model.start()
         }
         .sheet(isPresented: $isAddingPlace) {
-            AddPlaceSheet(directory: directory, suggestedName: model?.query ?? "") { place in
+            AddPlaceSheet(directory: directory, suggestedName: model.query) { place in
                 // Both sheets go in ONE step (round 4, bug c): the place sheet is dismissed with
                 // "New place" still on it, which takes the pair down together. Closing "New place"
                 // first showed "Where was this?" for a beat before it went too.
@@ -61,7 +51,7 @@ struct PlaceSheet: View {
     /// "Use …" is there from the tap, and holds still until the row it names is real: a Google
     /// prediction resolves to a restaurant first, and a place with no row is never attached.
     private var primary: (title: String, action: () -> Void)? {
-        guard let model, let picked = model.picked else { return nil }
+        guard let picked = model.picked else { return nil }
         return ("Use \(picked.name)", {
             guard model.isResolving == false, let resolved = model.picked, resolved.id != nil else { return }
             onPick(resolved)
@@ -71,7 +61,11 @@ struct PlaceSheet: View {
     @ViewBuilder
     private func content(_ model: PlaceSearchModel) -> some View {
         VStack(alignment: .leading, spacing: AteMetrics.sheetGap) {
-            if model.results.isEmpty == false {
+            if model.hasResultsAnswered == false {
+                // Went up before its first rows (past ``SheetReadiness/limit``): still rows, at the
+                // sheet's full height, filled in without a move.
+                AteSheetSkeletonRows(count: 5)
+            } else if model.results.isEmpty == false {
                 section(model.sectionTitle) {
                     ForEach(model.results) { suggestion in
                         row(suggestion, model: model)
@@ -80,7 +74,9 @@ struct PlaceSheet: View {
             }
             // Absent, not empty, when there is no permission — the design has no "turn on location"
             // copy and this screen is not the place to invent any.
-            if model.nearby.isEmpty == false {
+            if model.hasNearbyAnswered == false {
+                AteSheetSkeletonRows(count: 3)
+            } else if model.nearby.isEmpty == false {
                 section("Nearby") {
                     ForEach(model.nearby) { suggestion in
                         row(suggestion, model: model)
@@ -145,6 +141,50 @@ struct PlaceSheet: View {
     }
 }
 
+extension View {
+    /// **The place sheet**, the one way it is presented — the composer's Place key, an entry's place
+    /// line, the Summary's placeless receipt. A fresh search each time it opens, its first rows (the
+    /// recent or best-match places, and those nearby) read before it rises, so it opens full rather
+    /// than blank-then-jumping (round 5).
+    func atePlaceSheet(
+        isPresented: Binding<Bool>,
+        directory: any PlaceDirectory,
+        initialQuery: @escaping @MainActor () -> String = { "" },
+        selected: @escaping @MainActor () -> UUID? = { nil },
+        onPick: @escaping (PlaceRef) -> Void
+    ) -> some View {
+        modifier(PlaceSheetPresenter(
+            isPresented: isPresented, directory: directory,
+            initialQuery: initialQuery, selected: selected, onPick: onPick
+        ))
+    }
+}
+
+private struct PlaceSheetPresenter: ViewModifier {
+    @Binding var isPresented: Bool
+    let directory: any PlaceDirectory
+    let initialQuery: @MainActor () -> String
+    let selected: @MainActor () -> UUID?
+    let onPick: (PlaceRef) -> Void
+
+    /// The search the sheet opens on, held by reference: the sheet's content reads it as it changes,
+    /// rather than a copy of this modifier captured before the read began.
+    @State private var holder = AteSheetHolder<PlaceSearchModel>()
+
+    func body(content: Content) -> some View {
+        let holder = holder
+        content.ateSheet(isPresented: $isPresented, name: "place", prepare: {
+            let fresh = PlaceSearchModel(directory: directory, query: initialQuery(), selected: selected())
+            holder.value = fresh
+            await fresh.start()
+        }, content: {
+            AteSheetHolderView(holder: holder) { model in
+                PlaceSheet(model: model, directory: directory, onPick: onPick)
+            }
+        })
+    }
+}
+
 /// The sheet's searching, debounced, with the last query winning.
 @MainActor
 @Observable
@@ -166,6 +206,13 @@ final class PlaceSearchModel {
     private(set) var isSearching = false
     /// True while the results are the empty-query default rather than a search.
     private(set) var isShowingRecents = true
+    /// Whether the first rows (recent places, or the best match for what was typed) have answered.
+    private(set) var hasResultsAnswered = false
+    /// Whether Nearby has answered — rooms, or none (no permission is an answer too).
+    private(set) var hasNearbyAnswered = false
+
+    /// Everything the sheet opens with is in hand.
+    var isReady: Bool { hasResultsAnswered && hasNearbyAnswered }
 
     private let directory: any PlaceDirectory
     private let location = AteLocation()
@@ -205,6 +252,7 @@ final class PlaceSearchModel {
 
     /// The one location ask in the app, made as the sheet opens. No permission, no section.
     private func loadNearby() async {
+        defer { hasNearbyAnswered = true }
         guard let coordinate = await location.current() else { return }
         nearby = (try? await directory.nearby(
             latitude: coordinate.latitude, longitude: coordinate.longitude
@@ -252,6 +300,7 @@ final class PlaceSearchModel {
         guard Task.isCancelled == false else { return }
         isShowingRecents = false
         results = found
+        hasResultsAnswered = true
         adoptSelected(from: found)
     }
 
@@ -269,6 +318,7 @@ final class PlaceSearchModel {
         guard Task.isCancelled == false else { return }
         isShowingRecents = true
         results = recent
+        hasResultsAnswered = true
         adoptSelected(from: recent)
     }
 }

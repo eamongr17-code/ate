@@ -21,6 +21,10 @@ struct AteSheet<Content: View>: View {
     /// The pill is waiting on something (a Google result resolving): it holds still, dimmed the way
     /// every off pill in the app is, until the thing it would commit is real.
     var isPrimaryBusy = false
+    /// The sheet went up before its first read answered (`ateSheet(isPresented:…)` past its limit):
+    /// it stands at full height while its rows fill in, so it never grows under the thumb (round 5).
+    /// The caller draws its still rows (``AteSheetSkeletonRows``) meanwhile.
+    var isLoading = false
     @ViewBuilder var content: Content
 
     @Environment(\.atePalette) private var palette
@@ -67,6 +71,9 @@ struct AteSheet<Content: View>: View {
         // short of it and then adding the design's 34 again.
         .ignoresSafeArea(.container, edges: .bottom)
         .onChange(of: primary != nil, initial: true) { _, has in fit.hasFoot = has }
+        .onChange(of: isLoading, initial: true) { _, loading in
+            if loading { fit.reserve(AteScreen.height) }
+        }
         .presentationDetents(fit.detents(bottomInset: AteScreen.safeArea.bottom))
         // The system's own sheet shape: its corners follow the display's (concentric at the bottom
         // of a partial-height sheet), which a fixed corner radius cannot. The chip colour fills

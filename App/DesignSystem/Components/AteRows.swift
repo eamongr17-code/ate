@@ -108,7 +108,7 @@ struct AteRadioMark: View {
     var body: some View {
         ZStack {
             if isSelected {
-                Circle().fill(palette.fg)
+                Circle().fill(palette.solid)
                 AteIcon.check.view(size: 16)
                     .foregroundStyle(palette.ground)
             } else {
@@ -141,7 +141,7 @@ struct AteChip: View {
         .padding(.leading, icon == nil ? 12 : 10)
         .padding(.trailing, 12)
         .atePillHeight(height)
-        .background(palette.chip, in: .capsule)
+        .background(palette.raised, in: .capsule)
         .foregroundStyle(palette.fg)
 
         if let action {
@@ -181,7 +181,7 @@ struct AteButton: View {
             .padding(.horizontal, hugPadding ?? 0)
             .frame(maxWidth: hugPadding == nil ? .infinity : nil)
             .atePillHeight(height)
-            .background(isSecondary ? palette.chip : palette.fg, in: .capsule)
+            .background(isSecondary ? palette.chip : palette.solid, in: .capsule)
             .foregroundStyle(isSecondary ? palette.fg : palette.inverted)
             .contentShape(.capsule)
         }
@@ -221,7 +221,7 @@ struct AteSegments<Value: Hashable>: View {
                         .ateText(.controlSmall)
                         .frame(maxWidth: .infinity)
                         .atePillHeight(AteMetrics.segmentHeight)
-                        .background(isCurrent ? palette.chip : .clear, in: .capsule)
+                        .background(isCurrent ? palette.raised : .clear, in: .capsule)
                         .foregroundStyle(isCurrent ? palette.fg : palette.muted)
                         .ateHitArea(Self.hitOutset)
                 }

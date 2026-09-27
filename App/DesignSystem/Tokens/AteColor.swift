@@ -34,6 +34,10 @@ enum AteColor {
     /// linen in both modes the way the Score key stays butter (round 3).
     static let linenField = Color(hex: 0xE4DED4)
 
+    /// The page dots over the blurred page behind a floating photo — white, the one mark that reads
+    /// on a blur of anything.
+    static let overPhoto = Color.white
+
     /// Near-black. The text colour on every accent and on every piece of receipt paper, in both
     /// modes — and the fill of the `+` button and the one ink pill per sheet.
     static let ink = Color(hex: 0x24141F)
@@ -77,6 +81,38 @@ enum AteColor {
 
     /// The one shadow a torn surface has: `drop-shadow(0 1px 0 rgba(36,20,31,.07))`; black 25% in dark.
     fileprivate static let contact = Color(light: ink.opacity(0.07), dark: Color.black.opacity(0.25))
+
+    // MARK: - Dark mode, softened (round 5)
+    //
+    // Eamon (round 5): "soften the yellow colour for rating pills in dark mode", and recolour the
+    // place/dietary keys and a few other controls for dark. He picked A: a softer butter that still
+    // carries ink, the keys and chips in a lifted plum carrying the light foreground, and the one
+    // solid pill a dimmed cream rather than a bright one. **Light is untouched.**
+
+    /// The softened butter — dark mode's score yellow.
+    fileprivate static let butterDark = Color(hex: 0xCDB060)
+    /// The lifted plum a control is raised in, in dark: the composer's keys, a chip on the ground.
+    fileprivate static let raisedDark = Color(hex: 0x4A3F50)
+    /// A diet tag chip's fill in dark — a step below the raised plum, so a chip reads as a tag and
+    /// not as a key.
+    fileprivate static let tagDark = Color(hex: 0x3A3040)
+    /// The solid pill in dark — the dimmed paper (``paper``'s own dark value), not bright cream.
+    fileprivate static let solidDark = Color(hex: 0xE6DFD3)
+
+    /// A person's score pill (``ScoreStyle``) and the composer's Score key. Always carries ``scoreInk``.
+    static let scoreFill = Color(light: butter, dark: butterDark)
+    /// The numerals and star on ``scoreFill`` — ink in both modes.
+    static let scoreInk = ink
+    /// A score drawn as a mark rather than a pill: a filled star, a histogram bar, the slider's burst.
+    static let scoreMark = Color(light: butter, dark: butterDark)
+    /// The composer's Place and Diet keys and the diet codes — linen in light, raised plum in dark.
+    static let keyFill = Color(light: linenField, dark: raisedDark)
+    /// The lettering on ``keyFill``.
+    static let keyInk = Color(light: ink, dark: fgDark)
+    /// A diet tag chip's fill — the ground showing through in light (on a slip); plum in dark.
+    static let tagFill = Color(light: ground, dark: tagDark)
+    /// Its lettering.
+    static let tagInk = Color(light: mutedLight, dark: mutedDark)
 
     // MARK: - Screen backgrounds
 
@@ -122,6 +158,13 @@ struct AtePalette: Equatable, Sendable {
     /// everywhere but a dark slip, where the Ink boards set rules at white 22% rather than the
     /// 35% a straight `fg` would give (`.screen.dark .rule`).
     var rule: Color
+    /// **The solid pill** — the one ink pill per sheet, the composer's Done, a selected filter, a
+    /// chosen radio. `fg` in light; in dark the dimmed cream, not the bright one (round 5). Carries
+    /// ``inverted``.
+    var solid: Color
+    /// **A control raised off the ground** — a chip in a header (the Feed's area, a place's counts).
+    /// `chip` in light; the raised plum in dark (round 5). Carries `fg`.
+    var raised: Color
 
     /// The app's ground, following light/dark.
     static let automatic = AtePalette(
@@ -132,7 +175,9 @@ struct AtePalette: Equatable, Sendable {
         field: Color(light: AteColor.fieldLight, dark: AteColor.fieldDark),
         hairline: Color(light: AteColor.ink.opacity(0.14), dark: Color.white.opacity(0.16)),
         inverted: AteColor.ground,
-        rule: Color(light: AteColor.ink, dark: AteColor.fgDark)
+        rule: Color(light: AteColor.ink, dark: AteColor.fgDark),
+        solid: Color(light: AteColor.ink, dark: AteColor.solidDark),
+        raised: Color(light: AteColor.chipLight, dark: AteColor.raisedDark)
     )
 
     /// **A slip** — journal, feed and profile cards, and the statement slip. In light it is exactly
@@ -147,7 +192,9 @@ struct AtePalette: Equatable, Sendable {
         hairline: Color(light: AteColor.ink.opacity(0.14), dark: Color.white.opacity(0.12)),
         inverted: AteColor.slip,
         // 0.35 × 0.63 ≈ the boards' white 22% for a rule, and 0.3 × 0.63 ≈ their 20% for a leader.
-        rule: Color(light: AteColor.ink, dark: Color.white.opacity(0.63))
+        rule: Color(light: AteColor.ink, dark: Color.white.opacity(0.63)),
+        solid: Color(light: AteColor.ink, dark: AteColor.solidDark),
+        raised: Color(light: AteColor.paperChip, dark: AteColor.raisedDark)
     )
 
     /// Receipt paper: the ground dims in dark mode, everything written on it does not move.
@@ -159,7 +206,9 @@ struct AtePalette: Equatable, Sendable {
         field: AteColor.paperChip,
         hairline: AteColor.ink.opacity(0.14),
         inverted: AteColor.paper,
-        rule: AteColor.ink
+        rule: AteColor.ink,
+        solid: AteColor.ink,
+        raised: AteColor.paperChip
     )
 
     /// **A control surface used as a whole screen's ground** — the composer, and every sheet.
@@ -186,7 +235,9 @@ struct AtePalette: Equatable, Sendable {
             field: .white,
             hairline: AteColor.ink.opacity(0.18),
             inverted: .white,
-            rule: AteColor.ink
+            rule: AteColor.ink,
+            solid: AteColor.ink,
+            raised: .white
         )
     }
 }

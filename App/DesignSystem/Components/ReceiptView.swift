@@ -90,14 +90,14 @@ struct AteReceipt: Equatable, Identifiable {
 /// share card both show — identically. If it looks different in the two places, that is a bug in the
 /// container, not a reason for a second component.
 ///
-/// Its parts, in order: the place and its address / a dashed rule / numbered line items with dot
-/// leaders and right-aligned scores — **dish rows and scores only, never a quote under a line** / a
-/// dashed rule / order number and date, dish count and average / the barcode / the handle and the
-/// wordmark / edge B.
+/// Its parts, in order (round 5 — **the dishes lead**, the place is fine print): the dishes in the
+/// title face with dot leaders and right-aligned scores — **dish rows and scores only, never a quote
+/// under a line** / a dashed rule / the place left, its address right / a dashed rule / order number
+/// and date, dish count and average / the barcode / the handle and the wordmark / edge B.
 ///
 /// **Printing** (`SummaryLoading.dc.html`): what is known prints at once — the place, the order
-/// number, the date, the handle — and the lines still being sorted are skeleton bars with a slow
-/// breath. No words say so.
+/// number, the date, the handle — and the dishes still being sorted are skeleton bars with a slow
+/// breath, at the dishes' own rhythm. No words say so.
 struct ReceiptView: View {
     let receipt: AteReceipt
     /// The lines are still being sorted: skeleton rows where the items and the count will be.
@@ -108,43 +108,20 @@ struct ReceiptView: View {
     /// A receipt that cannot print without a place (the Summary, when the plan is parked): the
     /// place slot is the composer's own Place key, and tapping it attaches one. No words beside it.
     var onAddPlace: (() -> Void)?
-    /// How far the place sits from the paper's top edge. 22 on a share card; `Entry` sets 32,
-    /// because the words card covers the first sixteen of it.
+    /// How far the first dish sits from the paper's top edge — `Share.dc.html`'s 22.
     var topPadding: CGFloat = 22
-    /// `Entry.dc.html` gives its receipt `border-radius:0` — the paper runs out from *under* the
-    /// words card, so a rounded top would show as two corners floating in the middle of the page.
-    var topRadius: CGFloat = AteMetrics.receiptTop
-    /// Present on the entry page, where the header changes the place and a line changes the dish;
-    /// absent on a share card, which is a picture.
-    var onPlaceTap: (() -> Void)?
-    var onItemTap: ((AteReceipt.Item) -> Void)?
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(spacing: AteMetrics.snug + 2) {
-            // A receipt whose place was never named prints without a header rather than a guess
-            // (design rule 8).
-            if receipt.place.isEmpty == false {
-                header
-            } else if let onAddPlace {
-                ComposerKey(
-                    title: "Place",
-                    icon: .place,
-                    iconSize: 16,
-                    background: AtePalette.slip.field,
-                    foreground: AtePalette.slip.fg,
-                    identifier: "summary.place",
-                    action: onAddPlace
-                )
-                .frame(maxWidth: .infinity)
-            }
-            AteDashedRule()
+            // The dishes lead (round 5, Eamon: heroing the restaurant "goes against the thesis of
+            // the app"). The place is one line of fine print under them, never the title.
             if isPrinting {
                 ReceiptSkeletonLines(breathes: breathes)
             } else {
-                lineItems
+                dishLines
             }
+            AteDashedRule()
+            placeLine
             AteDashedRule()
             totals
             AteBarcode()
@@ -154,83 +131,10 @@ struct ReceiptView: View {
         .padding(.horizontal, AteMetrics.slipPadding)
         .padding(.bottom, AteMetrics.regular + 2 + AteMetrics.tornEdgeHeight)
         .ateSlip()
-        .ateTornPaper(topRadius: topRadius)
+        .ateTornPaper(topRadius: AteMetrics.receiptTop)
     }
 
     // MARK: - Bands
-
-    @ViewBuilder
-    private var header: some View {
-        let content = VStack(spacing: AteMetrics.tight) {
-            Text(receipt.place)
-                .ateText(.receiptPlace)
-                .multilineTextAlignment(.center)
-            if let address = receipt.address {
-                Text(address)
-                    .ateText(.receiptLabel)
-                    .foregroundStyle(AtePalette.slip.muted)
-            }
-        }
-        .frame(maxWidth: .infinity)
-
-        if let onPlaceTap {
-            Button(action: onPlaceTap) { content }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(receipt.place). Change the place")
-        } else {
-            content
-        }
-    }
-
-    private var lineItems: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(receipt.items.enumerated()), id: \.element.id) { index, item in
-                lineItem(item, number: index + 1)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func lineItem(_ item: AteReceipt.Item, number: Int) -> some View {
-        let row = HStack(alignment: .firstTextBaseline, spacing: AteMetrics.snug) {
-            // The number column is never squeezed: a long name used to take its width and break "01"
-            // into "0" over "1" (round 4). It keeps its size on the first line; the name wraps in its
-            // own column beside it.
-            Text(String(format: "%02d", number))
-                .ateText(.receiptLine)
-                .foregroundStyle(AtePalette.slip.muted)
-                .fixedSize()
-            Text(item.name)
-                .ateText(.receiptLine)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                // The leader is a greedy Canvas; without this it claims space from the name and a
-                // dish that fits on one line wraps anyway.
-                .layoutPriority(1)
-            AteDotLeader()
-                .alignmentGuide(.firstTextBaseline) { $0[.bottom] + 4 }
-            // Unrated: the score column is empty and the leader runs to the edge (design rule 7).
-            if let score = item.score {
-                Text(ScoreFormat.halfStep(score.value))
-                    .ateText(.receiptScore)
-                    .monospacedDigit()
-                    .fixedSize()
-                    .layoutPriority(1)
-            }
-        }
-        // `.li` is `line-height:1.65` — the row's box, not the glyphs'. A minimum, not a fixed
-        // height: a dish name long enough to wrap grows its row, as a flex row does.
-        .frame(minHeight: AteTextStyle.receiptLine.lineBox(dynamicTypeSize))
-        .accessibilityElement(children: .combine)
-
-        if let onItemTap {
-            Button { onItemTap(item) } label: { row }
-                .buttonStyle(.plain)
-                .accessibilityHint("Change the dish")
-        } else {
-            row
-        }
-    }
 
     private var totals: some View {
         VStack(spacing: 0) {
@@ -274,29 +178,30 @@ struct ReceiptView: View {
     }
 }
 
-/// The line items while they are being sorted — `SummaryLoading`'s `.skrow`s: the number, the dish,
-/// and the score as blank bars, `height:21.5px`, `padding:2px 0 4px`. The third row has no score, as
-/// the board draws it: an unrated dish is an empty slot even before it has a name.
+/// The dishes while they are being sorted — `SummaryLoading`'s skeleton rows, at the dish lines' own
+/// height and gap so nothing moves when they print: the dish and the score as blank bars. The third
+/// row has no score, as the board draws it: an unrated dish is an empty slot even before it has a
+/// name.
 private struct ReceiptSkeletonLines: View {
     var breathes: Bool
 
-    /// Name widths, and whether a score bar follows — straight off the board.
-    private static let rows: [(name: CGFloat, scored: Bool)] = [(138, true), (74, true), (112, false)]
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// Name widths, and whether a score bar follows — the board's proportions.
+    private static let rows: [(name: CGFloat, scored: Bool)] = [(168, true), (96, true), (140, false)]
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: AteMetrics.tight) {
             ForEach(Array(Self.rows.enumerated()), id: \.offset) { _, row in
                 HStack(spacing: AteMetrics.snug) {
-                    ReceiptSkeletonBar(width: 16)
-                    ReceiptSkeletonBar(width: row.name)
+                    ReceiptSkeletonBar(width: row.name, height: 14)
                     Spacer(minLength: 0)
-                    if row.scored { ReceiptSkeletonBar(width: 22) }
+                    if row.scored { ReceiptSkeletonBar(width: 34, height: 14) }
                 }
-                .frame(height: 21.5)
+                .frame(height: AteTextStyle.receiptLeadDish.lineBox(dynamicTypeSize))
             }
         }
         .padding(.top, AteMetrics.hairspace)
-        .padding(.bottom, AteMetrics.tight)
         .ateBreathing(breathes)
         .accessibilityHidden(true)
     }
@@ -305,11 +210,12 @@ private struct ReceiptSkeletonLines: View {
 /// `.sk` — `height:9px; border-radius:5px; background:rgba(36,20,31,.10)`.
 private struct ReceiptSkeletonBar: View {
     let width: CGFloat
+    var height: CGFloat = 9
 
     var body: some View {
         Capsule()
             .fill(AtePalette.slip.fg.opacity(0.10))
-            .frame(width: width, height: 9)
+            .frame(width: width, height: height)
     }
 }
 
@@ -374,7 +280,7 @@ extension AteReceipt {
 #Preview("Receipt") {
     ScrollView {
         VStack(spacing: AteMetrics.section) {
-            ReceiptView(receipt: .preview, onPlaceTap: {}, onItemTap: { _ in })
+            ReceiptView(receipt: .preview)
             ReceiptView(receipt: .previewSingle)
         }
         .padding(.horizontal, AteMetrics.gutter)

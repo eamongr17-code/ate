@@ -19,7 +19,7 @@ struct SearchPill: View {
                 .lineLimit(1)
                 .padding(.horizontal, AteMetrics.loose)
                 .atePillHeight(height)
-                .background(isOn ? AtePalette.automatic.fg : AtePalette.automatic.chip, in: .capsule)
+                .background(isOn ? AtePalette.automatic.solid : AtePalette.automatic.raised, in: .capsule)
                 .foregroundStyle(isOn ? AtePalette.automatic.inverted : AtePalette.automatic.fg)
                 .ateHitArea(hit)
         }
@@ -45,7 +45,7 @@ struct SearchFilterSheet: View {
     }
 
     var body: some View {
-        AteFilterSheet {
+        AteFilterSheet(isLoading: store.hasLoadedCuisines == false) {
             AteFilterSection(title: "Rating") {
                 AteFilterChoice(title: "Any", isOn: filters.minimumScore == nil) { filters.minimumScore = nil }
                 ForEach(SearchFilters.minimumScores, id: \.self) { score in
@@ -65,7 +65,15 @@ struct SearchFilterSheet: View {
                     ) { filters = filters.toggling(tag: tag) }
                 }
             }
-            if store.cuisines.isEmpty == false {
+            if store.hasLoadedCuisines == false {
+                // Still pills where the cuisines will be, until they have answered.
+                AteFilterSection(title: "Cuisine") {
+                    ForEach(Self.stillPillWidths, id: \.self) { width in
+                        AteSkeletonBar(width: width, height: AteFilterPill.height, palette: .surface)
+                    }
+                }
+                .accessibilityHidden(true)
+            } else if store.cuisines.isEmpty == false {
                 AteFilterSection(title: "Cuisine") {
                     AteFilterChoice(title: "Any", isOn: filters.cuisines.isEmpty) {
                         filters = filters.clearingCuisines()
@@ -80,8 +88,9 @@ struct SearchFilterSheet: View {
         } onDone: {
             store.setFilters(filters)
         }
-        .task { await store.loadCuisines() }
     }
+
+    private static let stillPillWidths: [CGFloat] = [64, 88, 72, 96]
 }
 
 extension SearchFilters {

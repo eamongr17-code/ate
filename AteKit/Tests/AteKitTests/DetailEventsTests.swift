@@ -34,7 +34,7 @@ struct DetailEventsTests {
     func sourceValues() {
         #expect(DetailSource.allCases.map(\.rawValue) == [
             "feed", "search", "diary", "receipt", "unknown",
-            "entry", "saved", "profile", "journal", "place", "dish"
+            "entry", "saved", "profile", "journal", "place", "dish", "link"
         ])
     }
 

@@ -133,12 +133,12 @@ public struct SupabaseEntryService: EntryService {
 
     // MARK: - Read
 
+    /// One entry by id — `get_entry_card` (0048), which answers signed in or signed out, so a shared
+    /// link (`ate://entry/<id>`) opens for somebody browsing without a session. `[]` = not visible or
+    /// gone, which the page draws as gone.
     public func entry(id: UUID) async throws -> EntryCard {
         let data = try await api.supabase
-            .from(EntryCard.table)
-            .select(EntryCard.columns)
-            .eq("id", value: id.uuidString.lowercased())
-            .limit(1)
+            .rpc("get_entry_card", params: ["p_entry_id": AnyJSON.string(id.uuidString.lowercased())])
             .execute()
             .data
         let rows = try PostgRESTDate.decoder.decode([EntryCard].self, from: data)

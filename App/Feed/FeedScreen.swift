@@ -45,7 +45,11 @@ struct FeedScreen: View {
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
         .scrollIndicators(.hidden)
-        .refreshable { await store.refresh() }
+        .refreshable {
+            async let areas: Void? = area?.loadAreas()
+            await store.refresh()
+            _ = await areas
+        }
         // The title and the area slide away on the way down and come back on the way up.
         // A new area starts at the top too.
         .ateTabRootHeader(scrollToTop: scrollToTopSignal + scrollToTopAfterArea) { header }
@@ -53,7 +57,11 @@ struct FeedScreen: View {
             onViewed()
             await store.loadIfNeeded()
         }
-        .sheet(isPresented: $isChoosingArea) {
+        // Read ahead, so the area sheet opens with its areas in it (round 5) — its counts move with
+        // the feed's own refresh, not on every open.
+        .task { await area?.loadAreasIfNeeded() }
+        .ateSheet(isPresented: $isChoosingArea, name: "feed_area",
+                  prepare: { await area?.loadAreasIfNeeded() }, content: {
             if let area {
                 FeedAreaSheet(model: area) { choice in
                     guard area.choose(choice) else { return }
@@ -61,7 +69,7 @@ struct FeedScreen: View {
                     Task { await store.reload() }
                 }
             }
-        }
+        })
     }
 
     private static let topAnchor = "feed.top"

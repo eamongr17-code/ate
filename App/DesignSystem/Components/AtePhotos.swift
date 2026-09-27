@@ -433,6 +433,7 @@ struct PhotoCollage: View {
                 .buttonStyle(.plain)
                 .atePhotoSource(frames, index: index)
                 .accessibilityLabel("Photo \(index + 1) of \(photos.count)")
+                .accessibilityIdentifier("photo.\(index)")
         } else {
             content.accessibilityHidden(true)
         }
