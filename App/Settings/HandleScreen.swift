@@ -11,8 +11,6 @@ struct HandleScreen: View {
     @State var model: HandleModel
     /// The handle that was written — or the unchanged one, when Continue had nothing to write.
     var onDone: (String) -> Void = { _ in }
-    /// Present only when this is an edit. First run draws no back arrow.
-    var onBack: (() -> Void)?
 
     @FocusState private var isFocused: Bool
     @Environment(\.atePalette) private var palette
@@ -27,17 +25,10 @@ struct HandleScreen: View {
                 field
             }
             .padding(.horizontal, HandleScreen.inset)
-            .ateContentTop(HandleScreen.top)
+            // An edit is pushed from Settings, under the system bar and its glass back button; the
+            // title still starts where the artboard starts it on the page.
+            .ateContentTop(HandleScreen.top - (model.isFirstRun ? 0 : AteMetrics.navigationBar))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
-            if let onBack {
-                // Not drawn on the artboard, which only shows first run. An edit reached from
-                // Settings needs a way back that does not write, and this is Settings' own arrow in
-                // Settings' own place (`padding:60px 12px 0`), so the two pages read as one branch.
-                AteIconButton(icon: .back, label: "Back", size: 24, action: onBack)
-                    .padding(.leading, AteMetrics.regular)
-                    .ateContentTop()
-            }
         }
         // `position:absolute; left:20px; right:20px; bottom:40px`.
         .overlay(alignment: .bottom) {

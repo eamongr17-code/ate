@@ -37,8 +37,6 @@ struct PlaceSheet: View {
             }
         }
         .ateSurface()
-        // `PlaceSheet.dc.html` is 716 of the page's 844.
-        .presentationDetents([.height(AteScreen.sheetHeight(716))])
         .task {
             let model = model ?? PlaceSearchModel(
                 directory: directory, query: initialQuery, selected: selected

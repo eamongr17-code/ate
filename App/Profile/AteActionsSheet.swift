@@ -89,7 +89,6 @@ struct AteActionsSheet: View {
                 }
             }
         }
-        .presentationDetents([.height(AteScreen.sheetHeight(420))])
         .onDisappear {
             guard let trigger = askOnceGone else { return }
             _ = gate?.permitsWrite(trigger)

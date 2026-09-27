@@ -2,7 +2,7 @@ import AteKit
 import SwiftUI
 
 /// **The shell's tab bar** — iOS 26's own `TabView`: Liquid Glass, minimised on scroll down, the
-/// system's re-tap, haptics and accessibility, with compose as the glass `+` beside the bar.
+/// system's re-tap and accessibility, with compose as the glass `+` beside the bar.
 /// Each tab owns a `NavigationStack`; the shell's one `path` is always the current tab's.
 extension AteShell {
     /// The composer, presented over the tabs.
@@ -25,7 +25,9 @@ extension AteShell {
                 Label { Text("New entry") } icon: { AteIcon.compose.templateImage() }
             }
         }
-        .tabBarMinimizeBehavior(.onScrollDown)
+        // Minimised on the way down; on the way up the whole bar comes back with the tab root's header
+        // (`AteTabRootHeader`). `.never` for that moment is the one lever that re-expands it.
+        .tabBarMinimizeBehavior(holdsTabBarOpen ? .never : .onScrollDown)
         .tint(AtePalette.automatic.fg)
         .atePhotoViewerHost() // one full-screen viewer for every photo under the shell
         .fullScreenCover(item: $composing) { presentation in composerCover(presentation) }
@@ -39,6 +41,7 @@ extension AteShell {
             NavigationStack(path: path(for: tab)) {
                 screen(for: tab)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ateTabBarShadow() // parts the glass from the page, translucent still
                     // The Saved shelf's Undo, on the tab's root only. Inside the tab, so it sits in
                     // the safe area the native bar leaves — above it, however the bar is drawn.
                     .overlay(alignment: .bottom) {
@@ -50,12 +53,19 @@ extension AteShell {
                     .toolbar(.hidden, for: .navigationBar)
                     .ateSwipeBack()
                     .ateTabBarFollowsPop()
+                    .environment(\.ateHeaderRevealed) { revealed in
+                        guard self.tab == tab, holdsTabBarOpen != revealed else { return }
+                        holdsTabBarOpen = revealed
+                    }
                     .navigationDestination(for: Route.self) { route in
                         destination(route)
-                            .toolbar(.hidden, for: .navigationBar)
-                            // The design keeps the bar only under the pages of a tab (Ratings,
-                            // Suggestions); an entry, a place, a statement are pages on their own.
-                            .toolbar(route.keepsTabBar ? .visible : .hidden, for: .tabBar)
+                            // The system bar, see-through: its glass back button and the page's
+                            // corner controls (`ateNavigationBar`).
+                            .ateNavigationBarHost()
+                            // Every page pushed from a tab hides the bar — Ratings and Suggestions
+                            // too (round 4). The root's `ateTabBarFollowsPop` brings it back with
+                            // the pop itself.
+                            .toolbar(.hidden, for: .tabBar)
                     }
             }
         } label: {
@@ -89,6 +99,7 @@ extension AteShell {
                     // is not heard, so the slot is held for one turn and then released — a real
                     // change, which puts the bar back on the tab under the composer.
                     holdsComposeSlot = true
+                    AteHaptics.compose()
                     openComposer(.tabBar)
                     Task { @MainActor in holdsComposeSlot = false }
                 }
@@ -97,11 +108,11 @@ extension AteShell {
     }
 }
 
-private extension Route {
-    var keepsTabBar: Bool {
-        switch self {
-        case .ratings, .suggestions: true
-        default: false
-        }
+extension AteHaptics {
+    /// The `+`: a light impact, the moment it is tapped — the same weight a save lands with, because
+    /// both are one deliberate tap that starts something. Switching tabs stays the system's own,
+    /// which on iOS 26 is felt only when a finger drags the glass across the bar, never on a tap.
+    static func compose() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 }

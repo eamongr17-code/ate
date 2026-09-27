@@ -1,0 +1,88 @@
+import Foundation
+
+/// **Whether a tab root's floating header is up**, as a function of the scroll (round 4).
+///
+/// The header in the page scrolls away on the way down; a copy floats back over the list on the way
+/// up. This is the decision, kept out of the view so it can be tested: up after a scroll up of more
+/// than a few points, down after a scroll down of the same, and always down at the top — where the
+/// header in the page is the one on screen. Only a person's own scrolling counts, and not the bounce
+/// past the bottom.
+public struct AteHeaderTrack: Equatable, Sendable {
+    public struct Sample: Equatable, Sendable {
+        /// 0 at rest at the top; negative while pulled down.
+        public var offset: CGFloat
+        /// The furthest the content can scroll.
+        public var maxOffset: CGFloat
+
+        public init(offset: CGFloat, maxOffset: CGFloat) {
+            self.offset = offset
+            self.maxOffset = maxOffset
+        }
+    }
+
+    public private(set) var offset: CGFloat = 0
+    /// Back over the list: raised by a scroll up, lowered by a scroll down or by reaching the top.
+    public private(set) var isFloating = false
+    /// Movement in the current direction, so a jitter of a point or two does not flip the header.
+    private var travel: CGFloat = 0
+
+    /// How far the finger has to go the other way before the header changes its mind.
+    public static let hysteresis: CGFloat = 6
+    /// A scroll to the top can land a fraction short of it.
+    public static let topSlack: CGFloat = 1
+
+    public init() {}
+
+    public mutating func update(_ sample: Sample, isPersonScrolling: Bool = true) {
+        let previous = offset
+        offset = sample.offset
+        // At the top, or pulled past it: the header in the page is on screen.
+        guard sample.offset > Self.topSlack else {
+            isFloating = false
+            travel = 0
+            return
+        }
+        // Past the bottom (the bounce) is not the reader choosing a direction, and neither is the
+        // system moving the content.
+        let end = sample.maxOffset - 0.5
+        guard isPersonScrolling, sample.offset < end, previous > 0, previous < end else { return }
+        let delta = sample.offset - previous
+        if (delta > 0) != (travel > 0) { travel = 0 }
+        travel += delta
+        if travel > Self.hysteresis { isFloating = false }
+        if travel < -Self.hysteresis { isFloating = true }
+    }
+}
+
+/// **A bottom sheet's height, fitted to what it holds** (round 4: no big empty areas).
+///
+/// The sheet measures its head (title and search field), its content and its foot (the one pill),
+/// and this adds them up with the sheet's gaps. It only ever grows while the sheet is up, so a search
+/// whose results thin out as you type does not pull the sheet down under the thumb.
+public struct AteSheetFit: Equatable, Sendable {
+    public var head: CGFloat = 0 { didSet { grow() } }
+    public var body: CGFloat = 0 { didSet { grow() } }
+    public var foot: CGFloat = 0 { didSet { grow() } }
+    public var hasFoot = false { didSet { grow() } }
+    /// The tallest fit so far; 0 until the head has been measured.
+    public private(set) var tallest: CGFloat = 0
+
+    /// The gap between head, content and foot.
+    public let gap: CGFloat
+    /// The clearance under the content when there is no pill to carry it.
+    public let bottom: CGFloat
+
+    public init(gap: CGFloat, bottom: CGFloat) {
+        self.gap = gap
+        self.bottom = bottom
+    }
+
+    public var height: CGFloat {
+        (head + body + (hasFoot ? foot : bottom) + gap * (hasFoot ? 2 : 1)).rounded(.up)
+    }
+
+    private mutating func grow() {
+        guard head > 0, hasFoot == false || foot > 0 else { return }
+        tallest = max(tallest, height)
+    }
+}

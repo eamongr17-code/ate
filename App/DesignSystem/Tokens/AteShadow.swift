@@ -18,6 +18,11 @@ struct AteShadow: Equatable, Sendable {
     /// The composer's star popover: `0 18px 40px -18px rgba(36,20,31,.45)` (its 1.5px ink ring is a
     /// stroke, drawn by the panel itself).
     static let panel = AteShadow(colour: AteColor.ink.opacity(0.45), offsetY: 18, blur: 40, spread: -18)
+
+    /// The glass tab bar's lift off the page (round 4, Eamon's pick): very light, wide and low, ink on
+    /// linen; in dark mode the contact shadow's black, a touch stronger because ink on ink needs it.
+    static let tabBarLight = AteShadow(colour: AteColor.ink.opacity(0.12), offsetY: 4, blur: 28, spread: 0)
+    static let tabBarDark = AteShadow(colour: .black.opacity(0.45), offsetY: 4, blur: 28, spread: 0)
 }
 
 extension View {

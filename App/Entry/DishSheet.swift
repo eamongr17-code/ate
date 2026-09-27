@@ -60,8 +60,6 @@ struct DishSheet: View {
             }
         }
         .ateSurface()
-        // `DishSheet.dc.html` is 640 of the page's 844.
-        .presentationDetents([.height(AteScreen.sheetHeight(640))])
         .task { await load() }
     }
 

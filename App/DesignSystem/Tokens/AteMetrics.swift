@@ -100,6 +100,9 @@ enum AteMetrics {
     static let listGutter: CGFloat = cardGutter
     /// Where content starts under the status bar.
     static let contentTop: CGFloat = 60
+    /// The system navigation bar every pushed page shows (round 4: the top-corner buttons are its
+    /// Liquid Glass items) — iOS 26's inline bar, under the status bar.
+    static let navigationBar: CGFloat = 54
     /// Inside a slip or a receipt, either side.
     static let slipPadding: CGFloat = 16
     /// …above its contents when it opens on a byline (`padding:12px 16px 14px`)…

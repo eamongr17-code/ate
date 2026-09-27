@@ -107,7 +107,8 @@ struct EntryScreen: View {
         }
         .scrollIndicators(.hidden)
         .ateGround()
-        .safeAreaInset(edge: .top, spacing: 0) { topBar }
+        // The system back button, the byline after it, and the page's controls in glass (round 4).
+        .ateNavigationBar(leading: { byline }, trailing: { cornerControls })
         .task {
             services.savedDishes.add(model)
             await model.load()
@@ -307,31 +308,22 @@ struct EntryScreen: View {
 
     // MARK: - Bands
 
-    /// Back / edit / share, exactly as `Entry.dc.html` sets them down — there is no visibility control,
-    /// because public/private no longer exists. Icons only — the design puts labels nowhere near this
-    /// row (rule 1).
-    ///
-    /// Somebody else's entry swaps the two controls that only an author can use for the two a reader
-    /// needs: the byline that says whose visit this was, and the bookmark that puts it on their shelf
-    /// (`docs/DESIGN.md`, "Not drawn").
-    private var topBar: some View {
-        HStack(spacing: 0) {
-            AteIconButton(icon: .back, label: "Back", size: 24) { dismiss() }
-            if let byline = model.byline {
-                bylineButton(byline)
-            }
-            Spacer(minLength: AteMetrics.snug)
-            if let card = model.card {
-                if card.isMine {
-                    authorControls(card)
-                } else {
-                    readerControls(card)
-                }
+    @ViewBuilder
+    private var byline: some View {
+        if let byline = model.byline {
+            bylineButton(byline)
+        }
+    }
+
+    @ViewBuilder
+    private var cornerControls: some View {
+        if let card = model.card {
+            if card.isMine {
+                authorControls(card)
+            } else {
+                readerControls(card)
             }
         }
-        .padding(.horizontal, AteMetrics.regular)
-        .ateContentTop()
-        .background(AtePalette.automatic.ground)
     }
 
     private func bylineButton(_ byline: AteByline) -> some View {
