@@ -180,6 +180,16 @@ final class PreviewPhotoLibrary: AtePhotoLibrary {
     private static let denies = ProcessInfo.processInfo.arguments.contains("-ate-deny-photos")
     private static let isEmpty = ProcessInfo.processInfo.arguments.contains("-ate-no-photos")
 
+    /// A UI-test run starts from nothing: one test's dismissed sittings are not the next test's
+    /// empty journal header.
+    init() {
+        guard ProcessInfo.processInfo.arguments.contains("-ate-ui-testing") else { return }
+        let defaults = UserDefaults.standard
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("ate.dismissedSuggestions.") {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
     var isAuthorized: Bool { Self.denies == false }
     func requestAuthorization() async -> Bool { Self.denies == false }
 

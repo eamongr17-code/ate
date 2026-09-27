@@ -11,8 +11,9 @@ import SwiftUI
 /// (`ComposerPlaceB`). Nothing blocks writing — no place step, no dish step, no rating step, and the
 /// words are on disk before the next keystroke.
 ///
-/// Done hands over to the **Summary** (`SummaryLoading` → `SummaryFinal`): the receipt printing on
-/// the coral ground, over the same cover, with the entry page already waiting beneath it.
+/// Post hands over to the **Summary**: "Posting…" holds while the sorter works (``PostHold``), then
+/// the coral ground comes up over the same cover and the receipt enters whole — never printed and
+/// then reshaped (round 5). The entry page is already waiting beneath it.
 ///
 /// The screen is a control surface, not the app's ground (`Composer` is white; on a chip ground in
 /// dark, `field` recesses to the ink ground so the Place key stays visible — `AtePalette.surface`).
@@ -33,6 +34,7 @@ struct ComposerScreen: View {
     @State var dictation: DictationController?
     @Environment(\.openURL) var openURL
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    /// Post was tapped and has not handed over yet: the pill says "Posting…".
     @State var isSaving = false
     /// Done was tapped: the keyboard goes down at once, rather than sitting up over a screen that is
     /// about to be the Summary (round 4, bug a). Back up if the save does not land.
@@ -44,6 +46,10 @@ struct ComposerScreen: View {
     @State var earlySort: EarlySortScheduler?
     /// Set once a new entry's words are accepted: the Summary takes the cover.
     @State var summary: EntryCard?
+    /// The entry as the sort leaves it — filled by Post, waited on by the hold and then the Summary.
+    @State var summarySorted: Latch<EntryCard?>?
+    /// When the Summary took the screen, and whether the hold ran out first — for its telemetry.
+    @State var summaryWasLate = false
     /// …and the chips and 6s it was sorted with, so "Print it again" re-sorts with the same ones.
     @State var summaryTagTokens: [TagToken] = []
     @State var summarySixTokens: [TagToken] = []
@@ -85,7 +91,7 @@ struct ComposerScreen: View {
                     onStop: { isDictating = false },
                     onDone: {
                         isDictating = false
-                        done()
+                        post()
                     },
                     onClose: { close() }
                 )
@@ -97,6 +103,8 @@ struct ComposerScreen: View {
                     photos: model.photos.map(\.photo),
                     handle: summary.author?.username ?? "",
                     actions: .live(services.entries, tagTokens: summaryTagTokens, sixTokens: summarySixTokens),
+                    sorted: summarySorted,
+                    wasLate: summaryWasLate,
                     places: services.places,
                     analytics: services.analytics,
                     onDone: { dismiss() },
@@ -162,6 +170,11 @@ struct ComposerScreen: View {
     private func runDebugLaunch() {
         if ComposerDebugLaunch.fakesCameraCapture, let image = UIImage(named: "Photos/ragu") {
             captured(image)
+        }
+        if ComposerDebugLaunch.stagesTwoPhotos, model.photos.isEmpty {
+            for name in ["ragu", "tiramisu"] {
+                if let image = UIImage(named: "Photos/\(name)") { captured(image) }
+            }
         }
         if ComposerDebugLaunch.opensVoice { startDictation() }
         if ComposerDebugLaunch.fakesCameraCover { isTakingPhoto = true }
@@ -230,17 +243,24 @@ struct ComposerScreen: View {
                 Button("Redo") { redoRequest += 1 }.accessibilityIdentifier("debug.redo")
             }
             #endif
-            ComposerDoneButton(
-                title: saveFailed ? "Try again" : "Done",
+            ComposerPostButton(
+                title: postTitle,
                 isEnabled: model.canSave,
                 isBusy: isSaving,
-                action: done
+                action: post
             )
-                .accessibilityIdentifier("composer.done")
+                .accessibilityIdentifier("composer.post")
         }
         .ateContentTop()
         .padding(.leading, AteMetrics.regular)
         .padding(.bottom, AteMetrics.tight)
+    }
+
+    /// "Post"; "Posting…" while it holds; "Done" on an edit — the entry is already posted.
+    private var postTitle: String {
+        if saveFailed { return "Try again" }
+        if model.editing != nil { return "Done" }
+        return isSaving ? "Posting…" : "Post"
     }
 
     private var editor: some View {

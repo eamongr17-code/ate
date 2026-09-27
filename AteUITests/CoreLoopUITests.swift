@@ -60,7 +60,7 @@ final class CoreLoopUITests: XCTestCase {
         XCTAssertTrue(written.contains("was the quiet star"), "the rest of the sentence is untouched")
 
         // No place, no Done: a receipt prints only at a place (round 3). No copy says so.
-        XCTAssertFalse(app.buttons["composer.done"].isEnabled, "Done waits for a place")
+        XCTAssertFalse(app.buttons["composer.post"].isEnabled, "Done waits for a place")
 
         // The place is attached because it was TAPPED (design rule 8), never from location.
         app.buttons["composer.key.place"].tap()
@@ -77,9 +77,9 @@ final class CoreLoopUITests: XCTestCase {
                        "the Place key shows the place it holds")
         let words = (editor.value as? String) ?? ""
         XCTAssertFalse(words.contains("Tipo 00"), "picking a place never writes it into the words: \(words)")
-        XCTAssertTrue(app.buttons["composer.done"].isEnabled, "with a place, Done is live")
+        XCTAssertTrue(app.buttons["composer.post"].isEnabled, "with a place, Done is live")
 
-        app.buttons["composer.done"].tap()
+        app.buttons["composer.post"].tap()
 
         // The Summary: the receipt printing on the coral ground, Share coming on when it has.
         let share = app.buttons["share.send"]

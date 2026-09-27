@@ -71,6 +71,8 @@ public final class EntrySummaryStore {
     public private(set) var isBusy = false
     /// The share sheet is up. Share does nothing until it is down again.
     public private(set) var isSharing = false
+    /// A place is being attached to a placeless receipt: it stays on screen while that lands.
+    public private(set) var isAttachingPlace = false
     private var hasFinished = false
 
     private let actions: Actions
@@ -98,11 +100,33 @@ public final class EntrySummaryStore {
             if pollInterval > .zero { try? await Task.sleep(for: pollInterval) }
             guard Task.isCancelled == false else { return }
             guard let next = try? await actions.fetch(card.id) else { continue }
+            // The sort's own answer got here first (``adopt(_:)``): a fetch that left before it
+            // landed must not put the receipt back to waiting.
+            guard phase == .sorting else { return }
             card = next
             phase = Self.phase(for: next)
             if phase != .sorting { return }
         }
         phase = .stalled
+    }
+
+    /// **Round 5: the receipt is on screen only once its shape is final** — printed whole, never
+    /// grown from a skeleton. The one exception is the placeless receipt, whose place slot is the
+    /// Place key (unreachable while Post requires a place, kept whole for the server's sake).
+    public var showsReceipt: Bool {
+        switch phase {
+        case .printed, .needsPlace: true
+        case .sorting: isAttachingPlace
+        case .stalled: false
+        }
+    }
+
+    /// The sort's own answer, heard the moment it lands (the composer's latch) rather than at the
+    /// next poll. Only while the receipt is still waiting, and only for this entry.
+    public func adopt(_ next: EntryCard) {
+        guard phase == .sorting, isBusy == false, next.id == card.id else { return }
+        card = next
+        phase = Self.phase(for: next)
     }
 
     // MARK: - Recovering
@@ -111,7 +135,11 @@ public final class EntrySummaryStore {
     public func attachPlace(_ restaurantID: UUID) async {
         guard phase == .needsPlace || phase == .stalled, isBusy == false else { return }
         isBusy = true
-        defer { isBusy = false }
+        isAttachingPlace = true
+        defer {
+            isBusy = false
+            isAttachingPlace = false
+        }
         phase = .sorting
         if let updated = try? await actions.correctPlace(card.id, restaurantID) {
             card = updated

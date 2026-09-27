@@ -8,15 +8,23 @@ import SwiftUI
 extension ComposerScreen {
     // MARK: - Actions
 
-    /// Done. The words go first and alone; the photos and the sorter follow behind, after the screen
-    /// is already gone. Nothing about the receipt is allowed to delay the writing being saved.
+    /// Post. The words go first and alone; the photos and the sorter follow at once, side by side.
+    /// Nothing about the receipt is allowed to delay the writing being saved.
     ///
-    /// **The handover is one clean step** (round 4, bug a): the keyboard goes down the moment Done is
+    /// **Round 5: the receipt never changes shape once it is seen.** The pill says "Posting…" while
+    /// the sorter works — the early sort's cached plan usually lets it answer inside the hold — and
+    /// only then does the Summary come up, with the receipt already whole. A sort still out when the
+    /// hold ends (``PostHold/maximum``) does not keep the words hostage: the Summary comes up anyway
+    /// and the receipt enters the moment it is final. Offline, the entry is queued and the composer
+    /// goes straight to the journal, as it always has — there is nothing to print yet.
+    ///
+    /// **The handover is one clean step** (round 4, bug a): the keyboard goes down the moment Post is
     /// tapped, the Summary fades in over a composer that has stopped moving, and the shell's own work
     /// (the journal, the tab under the cover) waits until the Summary is up rather than competing
     /// with it for the frame.
-    func done() {
+    func post() {
         guard isSaving == false, model.canSave else { return }
+        let startedAt = ContinuousClock.now
         isSaving = true
         saveFailed = false
         isHandingOver = true
@@ -39,12 +47,12 @@ extension ComposerScreen {
             if let editing = model.editing {
                 rewrite(editing)
             } else {
-                await submit()
+                await submit(startedAt: startedAt)
             }
         }
     }
 
-    private func submit() async {
+    private func submit(startedAt: ContinuousClock.Instant) async {
         let draft = model.draft
         let request = model.request(from: draft, photoDirectory: model.photoDirectory)
         // Picks still being written are not in this request: from here on, one that lands follows the
@@ -54,20 +62,23 @@ extension ComposerScreen {
         let analytics = services.analytics
 
         let result = await submission.submit(request)
-        isSaving = false
+        #if DEBUG
+        NSLog("[ate] words saved after %dms", PostHold.milliseconds(since: startedAt))
+        #endif
         guard let card = result.card else {
-            // Nothing was saved: a pick that lands now stays in the composer for the next Done.
+            isSaving = false
+            // Nothing was saved: a pick that lands now stays in the composer for the next Post.
             model.cancelLateHandoff()
             giveBackTheKeyboard()
             if result.isPlaceRequired {
-                // Unreachable past the Done gate, but if the server says it: no place, so the
-                // Place key is empty again and Done waits on it — not a retry that cannot work.
+                // Unreachable past the Post gate, but if the server says it: no place, so the
+                // Place key is empty again and Post waits on it — not a retry that cannot work.
                 model.placeRefused()
                 analytics(EntryEvents.saveFailed(isEdit: false, reason: "place_required"))
                 return
             }
             // The server refused. The composer stays open, the draft stays exactly where it is
-            // with every word in it, and Done offers to try again.
+            // with every word in it, and Post offers to try again.
             saveFailed = true
             analytics(EntryEvents.saveFailed(isEdit: false, reason: "rejected"))
             return
@@ -76,32 +87,58 @@ extension ComposerScreen {
         model.clearDraft()
         model.markEntrySaved()
         sendLatePhotos()
-        if case .saved = result {
-            // The Summary takes the cover; the entry page is already beneath it.
-            summaryTagTokens = request.tagTokens
-            summarySixTokens = request.sixTokens
-            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) { summary = card }
-            // The shell's half of the handover — the journal, the tab — once the Summary is up.
-            let land = onSaved
-            Task {
-                try? await Task.sleep(for: .milliseconds(350))
-                land(card)
-            }
-        } else {
-            // Queued offline: there is no order number to print yet (the server allocates
-            // it), so there is no receipt to show — the journal's slip carries the wait.
-            onSaved(card)
-            dismiss()
-        }
-        // Photos and the sorter, while the receipt prints. Detached from this view's lifetime on
-        // purpose: Done on the Summary must not cancel the rest of the entry landing.
+
+        // Photos and the sorter, side by side. Detached from this view's lifetime on purpose: Done on
+        // the Summary must not cancel the rest of the entry landing. The latch hears the sort.
+        let sorted = Latch<EntryCard?>()
         Task.detached {
+            #if DEBUG
+            if ComposerDebugLaunch.slowsSort { try? await Task.sleep(for: ComposerDebugLaunch.slowSortDelay) }
+            #endif
             await submission.finish(
                 entryID: request.id,
                 photoPaths: request.photoPaths,
                 tagTokens: request.tagTokens,
-                sixTokens: request.sixTokens
+                sixTokens: request.sixTokens,
+                sorted: { card in
+                    #if DEBUG
+                    NSLog("[ate] sort answered after %dms", PostHold.milliseconds(since: startedAt))
+                    #endif
+                    await sorted.fulfil(card)
+                }
             )
+        }
+
+        guard case .saved = result else {
+            // Queued offline: there is no order number to print yet (the server allocates
+            // it), so there is no receipt to show — the journal's slip carries the wait.
+            isSaving = false
+            onSaved(card)
+            dismiss()
+            return
+        }
+
+        // "Posting…" — for a beat, and for the sort if it answers in time.
+        let landed = await PostHold.standard.wait(on: sorted, from: startedAt)
+        let outcome = PostHold.outcome(landed)
+        let heldFor = PostHold.milliseconds(since: startedAt)
+        analytics(EntryEvents.postHeld(outcome: outcome, milliseconds: heldFor))
+        #if DEBUG
+        NSLog("[ate] post held: %@ after %dms, entry %@", outcome.rawValue, heldFor, card.id.uuidString)
+        #endif
+        let shown = landed.flatMap { $0 } ?? card
+
+        // The Summary takes the cover; the entry page is already beneath it.
+        summaryTagTokens = request.tagTokens
+        summarySixTokens = request.sixTokens
+        summarySorted = sorted
+        summaryWasLate = outcome == .late
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) { summary = shown }
+        // The shell's half of the handover — the journal, the tab — once the Summary is up.
+        let land = onSaved
+        Task {
+            try? await Task.sleep(for: .milliseconds(350))
+            land(shown)
         }
     }
 
@@ -261,10 +298,16 @@ extension ComposerScreen {
             onSent: { nth in
                 analytics(EntryEvents.earlySortSent(nth: nth))
                 #if DEBUG
-                print("[ate] early sort sent #\(nth)")
+                NSLog("[ate] early sort sent #%d", nth)
                 #endif
             },
-            send: { try await entries.previewSort($0) }
+            send: { input in
+                #if DEBUG
+                let sentAt = ContinuousClock.now
+                defer { NSLog("[ate] early sort done in %dms", PostHold.milliseconds(since: sentAt)) }
+                #endif
+                try await entries.previewSort(input)
+            }
         )
         earlySort = scheduler
         scheduler.edited(model.earlySortInput)

@@ -1,11 +1,14 @@
 import AteKit
 import SwiftUI
 
-/// **The Summary** — what follows Done in the composer (`SummaryLoading` → `SummaryFinal`,
-/// 2026-09-26). The entry's receipt is the hero on the coral ground, printing while the sorter works:
-/// the place, the photos, the order number and the date print at once; the lines are skeleton bars
-/// with a slow breath, and no word says "printing". When the sort lands the receipt settles and
-/// Share comes on — the existing share path, the same picture the Share screen sends.
+/// **The Summary** — what follows Post in the composer (`SummaryFinal`, 2026-09-26). The entry's
+/// receipt is the hero on the coral ground, and Share sends it — the existing share path, the same
+/// picture the Share screen sends.
+///
+/// **Round 5: the receipt enters once, whole.** "Posting…" held while the sorter worked
+/// (``PostHold``); when the sort answered inside it, the receipt enters with the screen. When it did
+/// not, the coral ground stands with its two pills and the band empty — no skeleton, no word — and
+/// the receipt enters the moment its shape is final (``EntrySummaryStore/showsReceipt``).
 ///
 /// **An empty receipt is never printed or shared** (``EntrySummaryStore``). An entry with no place
 /// sorts to no lines — its plan is parked — so its receipt keeps the skeleton and puts the Place key
@@ -27,20 +30,32 @@ struct SummaryScreen: View {
     /// the printed entry by the time Done returns to it.
     var onUpdated: (EntryCard) -> Void = { _ in }
 
+    /// The composer's latch: the sort's own answer, heard as it lands rather than at the next poll.
+    let sorted: Latch<EntryCard?>?
+    /// "Posting…" ran out before the sort answered: the receipt is still to come.
+    let wasLate: Bool
+
     @State private var sender = ShareSender()
     @State private var isPickingPlace = false
+    /// When the screen came up, for how long the band stood empty.
+    @State private var appearedAt = ContinuousClock.now
+    @State private var hasCountedEntrance = false
 
     init(
         card: EntryCard,
         photos: [AtePhoto],
         handle: String,
         actions: EntrySummaryStore.Actions,
+        sorted: Latch<EntryCard?>? = nil,
+        wasLate: Bool = false,
         places: any PlaceDirectory,
         analytics: @escaping AnalyticsRecorder,
         onDone: @escaping () -> Void,
         onUpdated: @escaping (EntryCard) -> Void = { _ in }
     ) {
         _store = State(initialValue: EntrySummaryStore(card: card, actions: actions))
+        self.sorted = sorted
+        self.wasLate = wasLate
         self.photos = photos
         self.handle = handle
         self.places = places
@@ -59,10 +74,13 @@ struct SummaryScreen: View {
             onAddPlace: store.phase == .needsPlace && store.isBusy == false ? { isPickingPlace = true } : nil,
             onDone: done,
             onPrimary: primaryAction,
-            isHero: true
+            isHero: true,
+            showsCard: store.showsReceipt
         )
         .task { await store.watch() }
+        .task { await hear() }
         .onChange(of: store.card) { _, card in onUpdated(card) }
+        .onChange(of: store.showsReceipt, initial: true) { _, shows in countEntrance(shows) }
         .sheet(item: $sender.sending, onDismiss: { store.shareEnded() }, content: { sending in
             ShareSheet(sending: sending) { destination in
                 analytics(EntryEvents.receiptShared(
@@ -97,6 +115,29 @@ struct SummaryScreen: View {
     private var artefact: ShareArtefact {
         let receipt = EntryPresentation.receipt(for: store.card, handle: handle)
         return .entry(receipt, photos: store.card.photos.compactMap { URL(string: $0.url) })
+    }
+
+    /// The sort's answer from the composer's latch — the same one the hold waited on.
+    private func hear() async {
+        guard let sorted, store.phase == .sorting else { return }
+        guard let landed = await sorted.value(before: .now + Self.patience), let card = landed else { return }
+        store.adopt(card)
+    }
+
+    /// As long as the store itself watches (30 polls of 0.7s).
+    private static let patience: Duration = .seconds(21)
+
+    /// `summary_receipt_entered`, once: how long the band stood empty before the receipt came.
+    private func countEntrance(_ shows: Bool) {
+        guard shows, hasCountedEntrance == false, store.phase == .printed else { return }
+        hasCountedEntrance = true
+        #if DEBUG
+        NSLog("[ate] receipt entered after %dms on the Summary", PostHold.milliseconds(since: appearedAt))
+        #endif
+        analytics(EntryEvents.summaryReceiptEntered(
+            entryID: store.card.id,
+            waitMilliseconds: wasLate ? PostHold.milliseconds(since: appearedAt) : 0
+        ))
     }
 
     /// Counted once, however many times it is tapped on the way out.

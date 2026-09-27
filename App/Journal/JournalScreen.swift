@@ -145,8 +145,13 @@ struct JournalScreen: View {
         HStack {
             AteWordmark()
             Spacer(minLength: AteMetrics.snug)
-            PhotoStackButton(count: photoCount, action: onSuggestions)
+            // "From your photos" only when there is something to suggest (round 5): no button, no
+            // badge, no empty page behind it. The row keeps the button's height either way.
+            if photoCount >= 1 {
+                PhotoStackButton(count: photoCount, action: onSuggestions)
+            }
         }
+        .frame(minHeight: AteMetrics.hit)
         .padding(.horizontal, AteMetrics.listGutter)
         .ateContentTop()
     }
