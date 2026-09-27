@@ -18,6 +18,13 @@ public protocol SearchReading: Sendable {
     /// state — on the same cursor as a filtered one.
     func savedDishes(matching query: String?, after cursor: SearchCursor?, pageSize: Int) async throws
         -> SearchPage<SavedDish>
+    /// A typed search, narrowed (``SearchFilters``). Defaulted in `SearchFilters.swift`.
+    func places(query: String, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int) async throws
+        -> SearchPage<PlaceResult>
+    func dishes(query: String, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int) async throws
+        -> SearchPage<DishResult>
+    /// `search_cuisines()` — what the cuisine filter offers.
+    func cuisines() async throws -> [CuisineCount]
 }
 
 /// The live Search tab: `search_places`, `search_dishes`, `search_people`, `search_saved` and
@@ -65,7 +72,12 @@ public struct SearchClient: SearchReading {
 
     public func places(query: String, after cursor: SearchCursor?, pageSize: Int) async throws
         -> SearchPage<PlaceResult> {
-        var parameters = Self.base(query, pageSize)
+        try await places(query: query, filters: .none, after: cursor, pageSize: pageSize)
+    }
+
+    public func places(query: String, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int)
+        async throws -> SearchPage<PlaceResult> {
+        var parameters = Self.base(query, pageSize).merging(filters.parameters) { _, filter in filter }
         if case .place(let tier, let reviews, let name, let id) = cursor {
             parameters["p_cursor_match_tier"] = .integer(tier)
             parameters["p_cursor_review_count"] = .integer(reviews)
@@ -80,7 +92,12 @@ public struct SearchClient: SearchReading {
 
     public func dishes(query: String, after cursor: SearchCursor?, pageSize: Int) async throws
         -> SearchPage<DishResult> {
-        var parameters = Self.base(query, pageSize)
+        try await dishes(query: query, filters: .none, after: cursor, pageSize: pageSize)
+    }
+
+    public func dishes(query: String, filters: SearchFilters, after cursor: SearchCursor?, pageSize: Int)
+        async throws -> SearchPage<DishResult> {
+        var parameters = Self.base(query, pageSize).merging(filters.parameters) { _, filter in filter }
         if case .dish(let tier, let reviews, let name, let id) = cursor {
             parameters["p_cursor_match_tier"] = .integer(tier)
             parameters["p_cursor_review_count"] = .integer(reviews)
@@ -124,6 +141,13 @@ public struct SearchClient: SearchReading {
         }
         let rows: [SearchSavedRow] = try await api.rpc("search_saved", parameters: parameters)
         return .of(rows, limit: pageSize, row: SavedDish.init, cursor: SearchCursor.init)
+    }
+
+    // MARK: - Filters
+
+    /// `search_cuisines()` — every cuisine we hold a place for, and how many.
+    public func cuisines() async throws -> [CuisineCount] {
+        try await api.rpc("search_cuisines", parameters: [:])
     }
 
     // MARK: - Machinery

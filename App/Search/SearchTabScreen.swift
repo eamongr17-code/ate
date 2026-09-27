@@ -1,13 +1,17 @@
 import AteKit
 import SwiftUI
 
-/// **`Search`** — the field, the four segments, and whatever answers them.
+/// **`Search`** — the field, and whatever answers it.
 ///
-/// The screen's zero state is the field itself (design rule 1: a screen with nothing to say says
-/// nothing) — except on Places, where the artboard draws **Nearby** before a key is pressed. Nearby
-/// is a list *ranked* by where the phone is; nothing on it is attached to anything until it is
-/// tapped, which is design rule 8 with no asterisk. The phone is asked through the same location
-/// path the composer's `PlaceSheet` uses (`AteLocation`), and a refusal costs exactly that list.
+/// Before a character is typed the tab is the field and **Nearby** (design rule 1: a screen with
+/// nothing to say says nothing). The four scopes — Places, Dishes, People, Saved — appear once
+/// typing starts, Instagram-style, on Places (round 4). Nearby is a list *ranked* by where the phone
+/// is; nothing on it is attached to anything until it is tapped, which is design rule 8 with no
+/// asterisk. The phone is asked through the same location path the composer's `PlaceSheet` uses
+/// (`AteLocation`), and a refusal costs exactly that list.
+///
+/// The keyboard always has a way down (round 4 bug): a drag anywhere on the page, a tap anywhere
+/// that is not the field or a control, and the Search key.
 ///
 /// Every row goes somewhere that already exists: a place page, a dish page, somebody's profile. A
 /// saved row is the shelf's own ``SavedDishRow``, bookmark and all, because a save is one action
@@ -25,10 +29,14 @@ struct SearchTabScreen: View {
     /// Where the results start on the page — measured, so an empty state can be centred in what is
     /// left below the segments whatever size the title and field were drawn at.
     @State private var resultsTop: CGFloat = 0
+    @State private var isFiltering = false
+    @FocusState private var isFieldFocused: Bool
+    /// The field's frame in the content, so a tap on it is never read as a tap "outside".
+    @State private var fieldFrame: CGRect = .zero
 
     var body: some View {
         ScrollView {
-            // `padding:62px 20px 0; gap:16px`.
+            // `padding:62px 20px 0; gap:16px` — on the list gutter since round 4 (the Journal's 12).
             VStack(alignment: .leading, spacing: AteMetrics.loose) {
                 Text("Search")
                     .ateText(.screenTitle)
@@ -42,56 +50,89 @@ struct SearchTabScreen: View {
                     background: AtePalette.automatic.chip,
                     textStyle: .searchField
                 )
+                .focused($isFieldFocused)
+                .onSubmit { isFieldFocused = false }
+                .onGeometryChange(for: CGRect.self) {
+                    $0.frame(in: .named(SearchTabScreen.contentSpace))
+                } action: { fieldFrame = $0 }
                 .accessibilityIdentifier("search.field")
-                scopes
+                if store.showsScopes {
+                    scopes
+                        .transition(.opacity)
+                    // The same active pills the Journal draws, under the control that set them.
+                    if SearchFilters.applies(to: store.scope) {
+                        AteActiveFilters(filters: store.filters.activeFilters, identifier: "search.filter.pill") {
+                            store.setFilters(store.filters.removing($0))
+                        }
+                        // The pills scroll edge to edge; the page's own gutter is given back.
+                        .padding(.horizontal, -AteMetrics.listGutter)
+                        .transition(.opacity)
+                    }
+                }
                 results
             }
-            .padding(.horizontal, AteMetrics.gutter)
+            .ateAnimation(AteMotion.fillIn, value: store.showsScopes)
+            .padding(.horizontal, AteMetrics.listGutter)
             .ateContentTop(62)
             .padding(.bottom, AteMetrics.tabBarScrollInset)
+            .frame(maxWidth: .infinity, minHeight: AteScreen.height, alignment: .top)
+            // A tap on the page itself — not the field, not a row or a pill, which take their own
+            // taps first — puts the keyboard away.
+            .contentShape(.rect)
+            .onTapGesture(coordinateSpace: .named(SearchTabScreen.contentSpace)) { point in
+                guard fieldFrame.contains(point) == false else { return }
+                isFieldFocused = false
+            }
             .coordinateSpace(.named(SearchTabScreen.contentSpace))
         }
         .scrollIndicators(.hidden)
+        // A drag always moves the page (it bounces when the results are short), and a drag always
+        // takes the keyboard with it.
+        .scrollBounceBehavior(.always, axes: .vertical)
         .scrollDismissesKeyboard(.immediately)
+        .onScrollPhaseChange { _, phase in
+            if phase == .interacting { isFieldFocused = false }
+        }
+        .sheet(isPresented: $isFiltering) { SearchFilterSheet(store: store) }
         .task { await store.start() }
         .task(id: store.scope) { await askWhereWeAre() }
+        .task { openDebugState() }
     }
 
     /// The one thing this screen asks the phone for, and only while Nearby is what would be shown.
     /// A refusal costs exactly one list and is never mentioned again (no helper copy).
     private func askWhereWeAre() async {
         guard store.scope == .places else { return }
-        // Until this answers, Places shows nothing under the pills; a "no" keeps it that way.
+        // Until this answers, Places shows nothing under the field; a "no" keeps it that way.
         let coordinate = await location.current()
         await store.setOrigin(coordinate.map { SearchOrigin(latitude: $0.latitude, longitude: $0.longitude) })
     }
 
     // MARK: - Segments
 
-    /// `gap:6px`, each pill 40 tall and 16 in; the current one is ink on the ground (`.ink`).
+    /// `gap:6px`, each pill 40 tall and 16 in; the current one is ink on the ground (`.ink`). The
+    /// filter control sits at the end of the row — the Journal's, beside what it narrows — on the
+    /// scopes a filter applies to (Places, Dishes).
     private var scopes: some View {
-        // Wraps rather than truncating to "P…" once the type outgrows one line.
-        AteFlow(spacing: AteMetrics.snug - 2) {
-            ForEach(SearchScope.allCases) { scope in
-                let isCurrent = scope == store.scope
-                Button {
-                    store.select(scope)
-                } label: {
-                    Text(scope.title)
-                        .ateText(.controlSmall)
-                        .padding(.horizontal, AteMetrics.loose)
-                        .atePillHeight(AteMetrics.keyHeight)
-                        .background(
-                            isCurrent ? AtePalette.automatic.fg : AtePalette.automatic.chip,
-                            in: .capsule
-                        )
-                        .foregroundStyle(isCurrent ? AtePalette.automatic.inverted : AtePalette.automatic.fg)
-                        .ateHitArea(.key)
+        HStack(alignment: .top, spacing: AteMetrics.snug) {
+            // Wraps rather than truncating to "P…" once the type outgrows one line.
+            AteFlow(spacing: AteMetrics.snug - 2) {
+                ForEach(SearchScope.allCases) { scope in
+                    SearchPill(
+                        title: scope.title,
+                        isOn: scope == store.scope,
+                        identifier: "search.scope.\(scope.rawValue)"
+                    ) { store.select(scope) }
                 }
-                .buttonStyle(.plain)
-                .ateHitFootprint(.key)
-                .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
-                .accessibilityIdentifier("search.scope.\(scope.rawValue)")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if SearchFilters.applies(to: store.scope) {
+                AteFilterButton(isActive: store.filters.isEmpty == false, identifier: "search.filter") {
+                    AteTelemetry.record(BrowseEvents.filterOpened(on: .search))
+                    isFiltering = true
+                }
+                // The 44 disc centres on the scopes' 40 pill.
+                .padding(.vertical, -2)
             }
         }
     }
@@ -159,8 +200,9 @@ struct SearchTabScreen: View {
                         .task { await store.loadMoreIfNeeded(index: index) }
                 }
             case .dishes(let dishes):
+                let letters = DishLetter.neighbourly(dishes.map { ($0.dishID, $0.name) })
                 ForEach(Array(dishes.enumerated()), id: \.element.id) { index, dish in
-                    DishResultRow(dish: dish) {
+                    DishResultRow(dish: dish, letter: letters[index]) {
                         store.reportOpened()
                         onDish(dish.dishID)
                     }
@@ -175,9 +217,11 @@ struct SearchTabScreen: View {
                     .task { await store.loadMoreIfNeeded(index: index) }
                 }
             case .saved(let saved):
+                let letters = DishLetter.neighbourly(saved.map { ($0.dishID, $0.dishName) })
                 ForEach(Array(saved.enumerated()), id: \.element.id) { index, dish in
                     SavedDishRow(
                         dish: dish,
+                        letter: letters[index],
                         onTap: {
                             store.reportOpened()
                             onDish(dish.dishID)
@@ -196,6 +240,14 @@ struct SearchTabScreen: View {
     private func open(_ place: PlaceResult) {
         store.reportOpened()
         onPlace(place.restaurantID)
+    }
+
+    /// A drive's starting state: the demo filters, and the sheet already open.
+    private func openDebugState() {
+        #if DEBUG
+        if let filters = SearchDebugLaunch.startingFilters { store.setFilters(filters) }
+        isFiltering = SearchDebugLaunch.opensFilter
+        #endif
     }
 }
 

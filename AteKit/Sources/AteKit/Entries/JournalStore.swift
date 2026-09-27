@@ -38,11 +38,19 @@ public final class JournalStore: EntryDeletionObserving {
     public private(set) var hasReachedEnd = false
     /// A page failed while content was already on screen. Shown inline, never as an alert.
     public private(set) var inlineErrorMessage: String?
+    /// The order and filters the list is showing (round 4). The default is the journal itself and
+    /// reads the plain journal path; anything else reads `my_entries`.
+    public private(set) var query = JournalQuery()
+    /// The place filter's choices, once asked for (``loadPlaces()``).
+    public private(set) var places: [JournalPlace] = []
 
     private let entryService: any EntryService
+    private let querying: (any JournalQuerying)?
     private let pageSize: Int
     private let calendar: Calendar
-    private var nextCursor: PageCursor?
+    private var nextCursor: JournalCursor?
+    /// Entries written while a filter was up, kept at the top of the journal read that replaces it.
+    private var pinned: [EntryCard] = []
     private var seenIDs: Set<UUID> = []
     private var hasLoadedOnce = false
     private var needsRefresh = false
@@ -56,9 +64,11 @@ public final class JournalStore: EntryDeletionObserving {
         entries: any EntryService,
         pageSize: Int = 30,
         calendar: Calendar = .autoupdatingCurrent,
-        deletions: EntryDeletions? = nil
+        deletions: EntryDeletions? = nil,
+        querying: (any JournalQuerying)? = nil
     ) {
         self.entryService = entries
+        self.querying = querying
         self.pageSize = pageSize
         self.calendar = calendar
         // An entry deleted anywhere leaves the journal in the same turn.
@@ -97,7 +107,7 @@ public final class JournalStore: EntryDeletionObserving {
 
         let generationAtStart = generation
         do {
-            let page = try await entryService.journal(after: cursor, pageSize: pageSize)
+            let page = try await fetch(after: cursor)
             guard generationAtStart == generation else { return }
             append(page)
             inlineErrorMessage = nil
@@ -114,17 +124,20 @@ public final class JournalStore: EntryDeletionObserving {
         isLoadingFirstPage = true
         generation += 1
         let generationAtStart = generation
-        defer { isLoadingFirstPage = false }
+        // Only the load that is still current may say loading is over: a superseded one finishing
+        // late must not clear the flag under the load that replaced it.
+        defer { if generationAtStart == generation { isLoadingFirstPage = false } }
 
         if entries.isEmpty { phase = .loading }
 
         do {
-            let page = try await entryService.journal(after: nil, pageSize: pageSize)
+            let page = try await fetch(after: nil)
             guard generationAtStart == generation else { return }
             hasLoadedOnce = true
             needsRefresh = false
             reset()
             append(page)
+            keepPinned()
             phase = entries.isEmpty ? .empty : .ready
             inlineErrorMessage = nil
         } catch is CancellationError {
@@ -153,6 +166,25 @@ public final class JournalStore: EntryDeletionObserving {
     /// with its words, whether or not the sorter — or the network — has caught up.
     public func insert(_ card: EntryCard) {
         guard phase != .signedOut else { return }
+        // Writing lands on the journal itself: a filter that would hide the new entry — or an order
+        // that would bury it — is put down, and the whole first page read again behind it.
+        if query.isDefault == false {
+            query = JournalQuery()
+            reset()
+            needsRefresh = true
+            // The filtered page still in flight is superseded, exactly as `apply` does it — so it
+            // cannot land over the journal and wipe the entry just written (QA a).
+            generation += 1
+            isLoadingFirstPage = false
+            // …and the entry stays on top of the page read behind it, landed on the server or not.
+            pinned.append(card)
+            Task { await loadFirstPage() }
+        }
+        // A place the filter has never offered: its list is asked for again (QA b).
+        if let place = card.place, places.isEmpty == false, places.contains(where: { $0.id == place.id }) == false {
+            places = []
+            Task { await loadPlaces() }
+        }
         if let index = entries.firstIndex(where: { $0.id == card.id }) {
             entries[index] = card
         } else {
@@ -197,12 +229,55 @@ public final class JournalStore: EntryDeletionObserving {
         regroup()
     }
 
-    private func append(_ page: Page<EntryCard>) {
+    private func append(_ page: JournalQueryPage) {
         let fresh = page.items.filter { seenIDs.insert($0.id).inserted }
         entries.append(contentsOf: fresh)
         nextCursor = page.nextCursor
-        hasReachedEnd = page.isLastPage
+        hasReachedEnd = page.nextCursor == nil
         regroup()
+    }
+
+    /// One page of whatever the list is showing: the plain journal for the default query, and
+    /// `my_entries` for anything else.
+    private func fetch(after cursor: JournalCursor?) async throws -> JournalQueryPage {
+        guard query.isDefault == false, let querying else {
+            let page = try await entryService.journal(after: cursor?.pageCursor, pageSize: pageSize)
+            return JournalQueryPage(items: page.items, nextCursor: page.nextCursor.map {
+                JournalCursor(createdAt: $0.createdAt, id: $0.id)
+            })
+        }
+        return try await querying.myEntries(query, after: cursor, pageSize: pageSize)
+    }
+
+    /// The pinned entries the page did not bring back go on top, newest first; then they are done.
+    private func keepPinned() {
+        let missing = pinned.filter { seenIDs.insert($0.id).inserted }
+        entries.insert(contentsOf: missing.sorted { $0.createdAt > $1.createdAt }, at: 0)
+        pinned = []
+        regroup()
+    }
+
+    // MARK: - Filter and sort (round 4)
+
+    /// Shows the journal in another order, or filtered. The list is cleared to its skeleton and read
+    /// again from the top — a filtered list is a different list, not a subset of the loaded one.
+    public func apply(_ query: JournalQuery) async {
+        guard query != self.query, querying != nil || query.isDefault else { return }
+        self.query = query
+        reset()
+        phase = .loading
+        inlineErrorMessage = nil
+        // A page still arriving for the last query is superseded, not waited for: its generation
+        // no longer matches, so whatever it brings is dropped.
+        generation += 1
+        isLoadingFirstPage = false
+        await loadFirstPage()
+    }
+
+    /// The places the place filter offers — asked for once, when the filter is first opened.
+    public func loadPlaces() async {
+        guard places.isEmpty, let querying else { return }
+        places = (try? await querying.myEntryPlaces()) ?? []
     }
 
     /// The one place `entries` is read back into shape. Every mutation ends here, so a day split

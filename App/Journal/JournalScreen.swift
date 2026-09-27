@@ -7,6 +7,10 @@ import SwiftUI
 /// Journal is the app's front door (PRODUCT.md decision 1): you write for yourself, and the record
 /// you keep is the first thing you see. Saved lives beside it because a dish you meant to eat belongs
 /// next to the dishes you did.
+///
+/// Round 4: a light way to find an entry without a search — the filter control beside the segment
+/// opens the one filter sheet (order, rating, diet, month, place; `my_entries`), the active filters
+/// sit under it as removable pills, and quiet month markers show while the list scrolls.
 struct JournalScreen: View {
     let store: JournalStore
     /// The shelf beside it. Held by the shell rather than this screen, because a save made in the
@@ -40,19 +44,23 @@ struct JournalScreen: View {
         return .journal
         #endif
     }()
+    @State private var isFiltering = false
+    /// The month of the slip at the top of the screen, and whether the list is moving.
+    @State private var topMonth: JournalPeriod?
+    @State private var isScrolling = false
+    /// The header and the segment have scrolled away — the marker has somewhere to sit.
+    @State private var isPastHeader = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     header
-                    AteSegments(
-                        options: [AteSegment(Shelf.journal, "Journal"), AteSegment(Shelf.saved, "Saved")],
-                        selection: $shelf
-                    )
-                    .padding(.horizontal, AteMetrics.listGutter)
-                    .padding(.top, AteMetrics.loose)
-                    .id(Self.topAnchor)
+                    segmentRow
+                        .padding(.top, AteMetrics.loose)
+                        .id(Self.topAnchor)
+                    filters
                     shelfContent
                 }
                 // Design rule 10: the last slip runs off under the tab bar rather than
@@ -64,7 +72,24 @@ struct JournalScreen: View {
             .onChange(of: scrollToTopSignal) { _, _ in
                 withAnimation { proxy.scrollTo(Self.topAnchor, anchor: .top) }
             }
+            .onScrollPhaseChange { _, phase in
+                isScrolling = phase.isScrolling
+            }
+            .onScrollTargetVisibilityChange(idType: UUID.self, threshold: 0.2) { visible in
+                noteTopMonth(visible)
+            }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top > Self.segmentBottom
+            } action: { _, past in
+                isPastHeader = past
+            }
+            .overlay(alignment: .top) { monthMarker }
             .task { await store.loadIfNeeded() }
+            .sheet(isPresented: $isFiltering) {
+                JournalFilterSheet(initial: store.query, places: store.places, periods: periods) { query in
+                    apply(query)
+                }
+            }
         }
     }
 
@@ -88,6 +113,73 @@ struct JournalScreen: View {
         .padding(.horizontal, AteMetrics.listGutter)
         .ateContentTop()
     }
+
+    // MARK: - The segment and the filters
+
+    /// The segment, and the filter control beside it (on the journal shelf only: the shelf of saves
+    /// is not what it filters).
+    private var segmentRow: some View {
+        HStack(spacing: AteMetrics.snug) {
+            AteSegments(
+                options: [AteSegment(Shelf.journal, "Journal"), AteSegment(Shelf.saved, "Saved")],
+                selection: $shelf
+            )
+            if shelf == .journal {
+                AteFilterButton(isActive: store.query.isDefault == false, identifier: "journal.filter") {
+                    AteTelemetry.record(BrowseEvents.filterOpened(on: .journal))
+                    Task { await store.loadPlaces() }
+                    isFiltering = true
+                }
+            }
+        }
+        .padding(.horizontal, AteMetrics.listGutter)
+    }
+
+    /// The active filters, as removable pills under the segment. Nothing when nothing is on.
+    @ViewBuilder
+    private var filters: some View {
+        if shelf == .journal, store.query.isDefault == false {
+            AteActiveFilters(filters: store.query.activeFilters, identifier: "journal.filter.pill") { filter in
+                apply(store.query.removing(filter))
+            }
+            .padding(.top, AteMetrics.regular)
+        }
+    }
+
+    private var periods: [JournalPeriod] {
+        JournalPeriods.offered(oldest: store.entries.last?.createdAt)
+    }
+
+    private func apply(_ query: JournalQuery) {
+        Task {
+            await store.apply(query)
+            AteTelemetry.record(BrowseEvents.journalQueried(query, resultCount: store.entries.count))
+        }
+    }
+
+    // MARK: - Month markers
+
+    private func noteTopMonth(_ visible: [UUID]) {
+        guard let top = store.entries.first(where: { visible.contains($0.id) }) else { return }
+        topMonth = JournalPeriod.month(of: top.createdAt)
+    }
+
+    @ViewBuilder
+    private var monthMarker: some View {
+        let shows = isScrolling && isPastHeader
+            && store.query.sort.isChronological && shelf == .journal
+        ZStack {
+            if shows, let topMonth {
+                JournalMonthMarker(title: topMonth.title())
+                    .transition(.opacity)
+            }
+        }
+        .padding(.top, AteMetrics.tight)
+        .animation(reduceMotion ? nil : .easeOut(duration: shows ? 0.15 : 0.6), value: shows)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: topMonth)
+    }
+
+    // MARK: - The shelves
 
     /// Pull to refresh reloads whichever shelf is showing — the gesture belongs to the screen, and
     /// the screen is two lists.
@@ -121,20 +213,34 @@ struct JournalScreen: View {
         }
     }
 
+    /// Loading is the column of skeleton slips, still; the entries replace it in one fade.
     @ViewBuilder
     private var journalShelf: some View {
-        switch store.phase {
-        case .loading:
-            SlipSkeleton().padding(.horizontal, AteMetrics.listGutter)
-        case .empty:
-            firstDay(AteEmptyState(title: "Nothing\non the tab.", actionTitle: "Write your first", action: onCompose))
-        case .signedOut:
-            firstDay(AteEmptyState(title: "Nobody's\nsigned in."))
-        case .failed:
-            firstDay(AteUnreachableState { Task { await store.refresh() } })
-        case .ready:
-            slips
+        Group {
+            switch store.phase {
+            case .loading:
+                SlipSkeleton().ateCardWidth()
+                    .transition(.opacity)
+            case .empty:
+                if store.query.hasFilters {
+                    firstDay(AteEmptyState(title: "Nothing\nlike that.", actionTitle: "Clear") {
+                        apply(JournalQuery(sort: store.query.sort))
+                    })
+                } else {
+                    firstDay(AteEmptyState(
+                        title: "Nothing\non the tab.", actionTitle: "Write your first", action: onCompose
+                    ))
+                }
+            case .signedOut:
+                firstDay(AteEmptyState(title: "Nobody's\nsigned in."))
+            case .failed:
+                firstDay(AteUnreachableState { Task { await store.refresh() } })
+            case .ready:
+                slips
+                    .transition(.opacity)
+            }
         }
+        .ateAnimation(AteMotion.fillIn, value: store.phase)
     }
 
     /// `MainEmpty` — the state, centred in the page under the segment. No paper: an empty journal
@@ -152,6 +258,7 @@ struct JournalScreen: View {
                     onPlace: onPlace,
                     onDish: { onDish($0.dishID) }
                 )
+                .id(entry.id)
                 .task { await store.loadMoreIfNeeded(after: entry) }
                 // Its own task, so the row scrolling away cancels the prefetch with it.
                 .task { await AtePrefetch.photos(after: entry, in: store.entries) }
@@ -164,7 +271,8 @@ struct JournalScreen: View {
                     .padding(.top, AteMetrics.regular)
             }
         }
-        .padding(.horizontal, AteMetrics.listGutter)
+        .scrollTargetLayout()
+        .ateCardWidth()
     }
 }
 

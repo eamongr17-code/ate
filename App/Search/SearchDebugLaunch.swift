@@ -8,10 +8,16 @@ import Foundation
 /// `-ate-open-search` lands on the tab; `-ate-search-scope dishes|people|saved|places` picks the
 /// segment and `-ate-search-query <text>` fills the field. Debug only: nothing here exists in a
 /// shipped binary.
+///
+/// Filters: `-ate-search-filtered` starts with a demo set on (vegetarian, 4.0 and up) and
+/// `-ate-search-filter-open` opens the filter sheet at launch, so each state can be photographed
+/// without a finger.
 enum SearchDebugLaunch {
     static let openArgument = "-ate-open-search"
     static let scopeArgument = "-ate-search-scope"
     static let queryArgument = "-ate-search-query"
+    static let filteredArgument = "-ate-search-filtered"
+    static let filterOpenArgument = "-ate-search-filter-open"
 
     static var opensSearch: Bool { arguments.contains(openArgument) }
 
@@ -20,6 +26,12 @@ enum SearchDebugLaunch {
     }
 
     static var query: String { value(after: queryArgument) ?? "" }
+
+    static var startingFilters: SearchFilters? {
+        arguments.contains(filteredArgument) ? SearchFilters(tags: [.v], minimumScore: 4.0) : nil
+    }
+
+    static var opensFilter: Bool { arguments.contains(filterOpenArgument) }
 
     private static var arguments: [String] { ProcessInfo.processInfo.arguments }
 

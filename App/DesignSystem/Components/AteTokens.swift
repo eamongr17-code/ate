@@ -83,6 +83,10 @@ enum TokenPillMetrics {
 /// same chip after a dish's name on a card and inline in the words.
 struct DietTagChip: View {
     let tag: DietTag
+    /// The ground showing through. Linen on paper and slips (the markup's own); on the linen ground
+    /// itself — the dish page, a search row — the ground's recessed `field` tone, since a linen chip
+    /// on linen is no chip at all (round 4).
+    var fill: Color = AteColor.ground
 
     var body: some View {
         Text(tag.label)
@@ -92,7 +96,7 @@ struct DietTagChip: View {
             .padding(.horizontal, TokenPillMetrics.dietPadding)
             .frame(height: TokenPillMetrics.dietHeight)
             .foregroundStyle(AtePalette.automatic.muted)
-            .background(AteColor.ground, in: .capsule)
+            .background(fill, in: .capsule)
             .accessibilityElement()
             .accessibilityLabel(tag.spokenName)
     }

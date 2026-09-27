@@ -38,8 +38,21 @@ public final class SearchStore {
         didSet {
             guard query != oldValue else { return }
             schedule()
+            // Cleared: back to where the tab starts — the field and Nearby, with the scopes gone
+            // (round 4). Places is the scope they come back on when typing starts again.
+            if query.isEmpty, scope != .places { select(.places) }
         }
     }
+
+    /// **The scopes appear once typing starts** (round 4, Instagram-style). Before a character is
+    /// in the field the tab is the field and Nearby, and nothing else.
+    public var showsScopes: Bool { query.isEmpty == false }
+
+    /// What typed Places and Dishes searches are narrowed to. Nearby is never filtered: it is
+    /// drawn before the scopes — and so before any filter control — exist.
+    public private(set) var filters = SearchFilters.none
+    /// `search_cuisines()`, once the cuisine filter has asked for it.
+    public private(set) var cuisines: [CuisineCount] = []
 
     /// True while the Places scope is showing the standing `Nearby` list rather than a search —
     /// the one section label the artboard draws.
@@ -145,6 +158,29 @@ public final class SearchStore {
         location = next
         guard scope == .places, isBelowMinimumLength else { return }
         await run()
+    }
+
+    // MARK: - Filters
+
+    /// New filters: every filtered scope's answer is stale, and the one on screen is asked again.
+    /// Its rows stay up while the narrowed set comes down, like any re-query.
+    public func setFilters(_ next: SearchFilters) {
+        guard next != filters else { return }
+        filters = next
+        generation += 1
+        for filtered in SearchScope.allCases where SearchFilters.applies(to: filtered) {
+            states[filtered]?.answered = nil
+        }
+        analytics(SearchEvents.searchFiltered(next))
+        guard SearchFilters.applies(to: scope), isBelowMinimumLength == false else { return }
+        pending?.cancel()
+        pending = Task { [weak self] in await self?.run() }
+    }
+
+    /// The cuisine picker opened. Read once; a failure leaves the list empty and asks again next time.
+    public func loadCuisines() async {
+        guard cuisines.isEmpty else { return }
+        cuisines = (try? await service.cuisines()) ?? []
     }
 
     // MARK: - Paging
@@ -309,7 +345,7 @@ public final class SearchStore {
     private func page(for scope: SearchScope, query: String?, after cursor: SearchCursor?) async throws -> LoadedPage {
         switch (scope, query) {
         case (.places, let query?):
-            let page = try await service.places(query: query, after: cursor, pageSize: pageSize)
+            let page = try await service.places(query: query, filters: filters, after: cursor, pageSize: pageSize)
             return LoadedPage(rows: .places(page.rows), next: page.next)
         case (.places, nil):
             // `run()` never gets here without one; a page asked for after a refusal is empty.
@@ -317,7 +353,7 @@ public final class SearchStore {
             let page = try await service.nearbyPlaces(origin: origin, after: cursor, pageSize: pageSize)
             return LoadedPage(rows: .places(page.rows), next: page.next)
         case (.dishes, let query?):
-            let page = try await service.dishes(query: query, after: cursor, pageSize: pageSize)
+            let page = try await service.dishes(query: query, filters: filters, after: cursor, pageSize: pageSize)
             return LoadedPage(rows: .dishes(page.rows), next: page.next)
         case (.people, let query?):
             let page = try await service.people(query: query, after: cursor, pageSize: pageSize)

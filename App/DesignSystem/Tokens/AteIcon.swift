@@ -27,6 +27,9 @@ enum AteIcon: String, CaseIterable {
     /// The composer's Diet key (layout C, Eamon, round 3). The artboards draw no dietary icon; this
     /// leaf is authored in their line style (24 grid, 1.8 stroke, round caps).
     case diet
+    /// The journal's filter and sort (round 4 exploration A). Not drawn by the artboards: two
+    /// sliders authored in their line style (24 grid, 1.8 stroke, round caps). Needs Eamon's eye.
+    case filter
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
@@ -88,6 +91,9 @@ enum AteIcon: String, CaseIterable {
             []
         case .diet:
             [Self.path("M5 19C5 10.5 10.5 5 19 5c0 8.5-5.5 14-14 14z"), Self.path("M5 19l8.5-8.5")]
+        case .filter:
+            [Self.path("M4 8h8.5M16.5 8H20M4 16h3.5M11.5 16H20"),
+             AteVector.circle(14.5, 8, 2), AteVector.circle(9.5, 16, 2)]
         }
     }
 

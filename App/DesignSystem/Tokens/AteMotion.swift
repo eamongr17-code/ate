@@ -24,6 +24,9 @@ enum AteMotion {
     /// The Summary's receipt settling from where it prints (`top:160`) to where it rests (`top:180`)
     /// once the lines are in — the print's own ease, over the same 0.6s.
     static let settle = Animation.easeOut(duration: printDuration)
+    /// A page that loads in pieces filling in once, over its still skeleton (round 4: no blinking,
+    /// no shimmer — a still placeholder, then one fade). Gate with ``SwiftUICore/View/ateAnimation(_:value:)``.
+    static let fillIn = Animation.easeOut(duration: 0.3)
 }
 
 extension View {

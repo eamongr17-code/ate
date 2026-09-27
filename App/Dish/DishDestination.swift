@@ -11,6 +11,7 @@ struct DishDestination: View {
     let saves: SaveAction
     var onPlace: (UUID) -> Void = { _ in }
     var onEntry: (UUID) -> Void = { _ in }
+    var onProfile: (UUID) -> Void = { _ in }
 
     @State private var store: DishPageStore
 
@@ -20,7 +21,8 @@ struct DishDestination: View {
         services: AteServices,
         saves: SaveAction,
         onPlace: @escaping (UUID) -> Void = { _ in },
-        onEntry: @escaping (UUID) -> Void = { _ in }
+        onEntry: @escaping (UUID) -> Void = { _ in },
+        onProfile: @escaping (UUID) -> Void = { _ in }
     ) {
         self.dishID = dishID
         self.source = source
@@ -28,6 +30,7 @@ struct DishDestination: View {
         self.saves = saves
         self.onPlace = onPlace
         self.onEntry = onEntry
+        self.onProfile = onProfile
         _store = State(initialValue: DishPageStore(
             dishID: dishID,
             source: source,
@@ -44,7 +47,16 @@ struct DishDestination: View {
             onPlace: onPlace,
             // A review is a quote from a visit; tapping it opens that visit. A legacy review has
             // none, and its row is not a button at all — this never fires for one.
-            onReview: { $0.entryID.map(onEntry) },
+            onReview: { review in
+                guard let entryID = review.entryID else { return }
+                services.analytics(DetailEvents.dishReviewOpened(target: .entry))
+                onEntry(entryID)
+            },
+            // The avatar and handle are the person, never the review (round 4).
+            onProfile: { userID in
+                services.analytics(DetailEvents.dishReviewOpened(target: .profile))
+                onProfile(userID)
+            },
             onSave: { summary in
                 Task {
                     await saves.toggle(
