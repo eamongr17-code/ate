@@ -14,9 +14,10 @@ import Testing
 ///   beside `p_min_score` (a top of 5 is open: a 6 stays in) and `p_city`; `my_entry_cities()` and
 ///   `search_cities()` are the pickers.
 /// - **Share link:** `get_entry_card(p_entry_id)` reads one entry, signed in or out.
+/// - **Saved (0049):** `search_saved` takes the same range + city; `my_saved_cities()` is its picker.
 ///
 /// It OWNS its data: one synthetic entry under the seeded DEMO account `jess`, body starting with the
-/// `Contract round5 probe` marker, deleted at the end (and swept first). Needs 0046–0048 on staging.
+/// `Contract round5 probe` marker, deleted at the end (and swept first). Needs 0046–0049 on staging.
 @Suite("Round 5 — staging contract", .enabled(if: StagingContract.isEnabled), .serialized)
 struct Round5ContractTests {
     static let marker = "Contract round5 probe"
@@ -137,8 +138,44 @@ struct Round5ContractTests {
         ])
         #expect(ranged.allSatisfy { ($0.avgRating ?? 0) >= 2 && ($0.avgRating ?? 9) <= 3.5 }, "\(ranged)")
 
+        try await driveSaved(jess, dish: line.dishID, entry: entry, city: place.city)
+
         await refused("anon my_entries") { _ = try await mine(anon, ["p_city": .string(place.city)]) }
         await refused("anon search_cities") { let _: [City] = try await StagingRPC.rows(anon, "search_cities") }
+    }
+
+    /// 0049 — the Saved shelf's range + city. Saves the probe's dish and takes the save back off unless
+    /// jess already had it (a save outlives the entry it came from, so the sweep would not).
+    func driveSaved(_ jess: AteAPIClient, dish: UUID, entry: UUID, city: String) async throws {
+        let had = try await StagingRPC.raw(jess, "is_dish_saved", ["p_dish_id": StagingRPC.id(dish)]) == "true"
+        _ = try await jess.supabase.rpc("save_dish", params: [
+            "p_dish_id": StagingRPC.id(dish), "p_source_entry_id": StagingRPC.id(entry)
+        ]).execute()
+        do {
+            func shelf(_ params: [String: AnyJSON]) async throws -> [SavedRow] {
+                var params = params
+                params["p_query"] = .null
+                params["p_limit"] = .integer(50)
+                return try await StagingRPC.rows(jess, "search_saved", params)
+            }
+            let mine = try #require(try await shelf(["p_city": .string(city)]).first { $0.dishID == dish })
+            #expect(try await shelf(["p_city": .string(Self.elsewhere)]).isEmpty)
+            let score = try #require(mine.dishScore, "the probe's dish has a score")
+            #expect(try await shelf(["p_min_score": .double(score), "p_max_score": .double(5)])
+                .contains { $0.dishID == dish }, "a top of 5 is open")
+            let banded = try await shelf(["p_min_score": .double(3), "p_max_score": .double(4.5)])
+            #expect(banded.allSatisfy { ($0.dishScore ?? 0) >= 3 && ($0.dishScore ?? 9) <= 4.5 }, "\(banded)")
+            let savedCities: [SavedCity] = try await StagingRPC.rows(jess, "my_saved_cities")
+            #expect(savedCities.contains { $0.city == city && $0.dishCount >= 1 })
+        } catch {
+            if had == false {
+                _ = try? await jess.supabase.rpc("unsave_dish", params: ["p_dish_id": StagingRPC.id(dish)]).execute()
+            }
+            throw error
+        }
+        if had == false {
+            _ = try await jess.supabase.rpc("unsave_dish", params: ["p_dish_id": StagingRPC.id(dish)]).execute()
+        }
     }
 
     // MARK: - Calls
@@ -171,6 +208,24 @@ struct Round5ContractTests {
     // MARK: - Wire rows
 
     struct Named: Decodable, Sendable { let name: String }
+
+    struct SavedRow: Decodable, Sendable {
+        let dishID: UUID
+        let dishScore: Double?
+        enum CodingKeys: String, CodingKey {
+            case dishID = "dish_id"
+            case dishScore = "dish_score"
+        }
+    }
+
+    struct SavedCity: Decodable, Sendable {
+        let city: String
+        let dishCount: Int
+        enum CodingKeys: String, CodingKey {
+            case city
+            case dishCount = "dish_count"
+        }
+    }
     struct Sorted: Decodable, Sendable { let ok: Bool? }
 
     struct PlaceCity: Decodable, Sendable {
@@ -186,7 +241,11 @@ struct Round5ContractTests {
 
     struct Item: Decodable, Sendable {
         let reviewID: UUID
-        enum CodingKeys: String, CodingKey { case reviewID = "review_id" }
+        let dishID: UUID
+        enum CodingKeys: String, CodingKey {
+            case reviewID = "review_id"
+            case dishID = "dish_id"
+        }
     }
 
     struct EntryRow: Decodable, Sendable {

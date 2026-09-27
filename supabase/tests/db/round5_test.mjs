@@ -267,3 +267,45 @@ test('0048: get_entry_card — anon reads a public entry; RLS decides for the si
   assert.equal((await as(null, () => error(db.query(`select * from browse.get_entry_card($1)`, [E]))))?.code ?? 'ok', 'ok',
     'the twin is callable by anon inside browse (the schema is not exposed by PostgREST)');
 });
+
+// ---------------------------------------------------------------------------------------------------
+// 0049 — the Saved shelf's filters
+// ---------------------------------------------------------------------------------------------------
+test('0049: search_saved — dish_score range (open top), city, old calls bind; my_saved_cities', async () => {
+  const dishOf = async (name) => (await rows(`select id from public.dishes where name = $1`, [name]))[0].id;
+  // C already saved Nduja (Sydney, 4.5) in the 0048 test; add Pasta (Melbourne, 3), Tart (Sydney, 6),
+  // Chips (Geelong, unscored).
+  for (const [dish, entry] of [['Pasta', id(30)], ['Tart', id(32)], ['Chips', id(33)]]) {
+    const dishId = await dishOf(dish);
+    await as(C, () => db.query(`select public.save_dish($1, $2)`, [dishId, entry]));
+  }
+  const shelf = (args) => as(C, () => rows(`select dish_name from public.search_saved(${args})`))
+    .then((r) => r.map((x) => x.dish_name).sort());
+  assert.deepEqual(await shelf(`p_limit => 50`), ['Chips', 'Nduja', 'Pasta', 'Tart']);
+  assert.deepEqual(await shelf(`p_query => null, p_limit => 50, p_max_score => 4.5`), ['Nduja', 'Pasta'], 'unscored drops, the 6 is above 4.5');
+  assert.deepEqual(await shelf(`p_limit => 50, p_min_score => 4.5, p_max_score => 5`), ['Nduja', 'Tart'], 'a top of 5 keeps the 6');
+  assert.deepEqual(await shelf(`p_limit => 50, p_min_score => 6`), ['Tart']);
+  assert.deepEqual(await shelf(`p_limit => 50, p_city => 'sydney'`), ['Nduja', 'Tart']);
+  assert.deepEqual(await shelf(`p_limit => 50, p_city => 'geelong'`), ['Chips']);
+  assert.deepEqual(await shelf(`p_limit => 50, p_city => 'atlantis'`), []);
+  assert.deepEqual(await shelf(`p_query => 'ta', p_limit => 50, p_city => 'melbourne'`), ['Pasta'], 'composes with the query');
+  // Paged with a filter: pages of one walk the filtered set in shelf order.
+  const whole = await as(C, () => rows(`select dish_id, saved_at from public.search_saved(p_limit => 50, p_city => 'sydney')`));
+  const p1 = await as(C, () => rows(`select dish_id, saved_at from public.search_saved(p_limit => 1, p_city => 'sydney')`));
+  const p2 = await as(C, () => rows(`select dish_id from public.search_saved(p_limit => 1, p_city => 'sydney', p_cursor_saved_at => $1, p_cursor_dish_id => $2)`,
+    [p1[0].saved_at, p1[0].dish_id]));
+  assert.deepEqual([...p1, ...p2].map((r) => r.dish_id), whole.map((r) => r.dish_id));
+  // A 0031-shaped call binds, and the unfiltered shelf is my_saved_dishes' rows in its order.
+  const old = await as(C, () => rows(`select dish_id from public.search_saved(p_query => '', p_limit => 50, p_cursor_saved_at => null, p_cursor_dish_id => null)`));
+  const view = await as(C, () => rows(`select dish_id from public.my_saved_dishes order by saved_at desc, dish_id desc`));
+  assert.deepEqual(old, view);
+
+  assert.deepEqual(await as(C, () => rows(`select city, name, region, dish_count from public.my_saved_cities()`)), [
+    { city: 'sydney', name: 'Sydney', region: 'NSW', dish_count: 2 },
+    { city: 'geelong', name: 'Geelong', region: 'VIC', dish_count: 1 },
+    { city: 'melbourne', name: 'Melbourne', region: 'VIC', dish_count: 1 },
+  ]);
+  for (const call of [`public.search_saved(p_city => 'sydney')`, `public.my_saved_cities()`]) {
+    assert.equal((await as(null, () => error(db.query(`select * from ${call}`))))?.code, '42501', call);
+  }
+});

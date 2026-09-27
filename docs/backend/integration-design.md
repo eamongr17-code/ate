@@ -84,7 +84,7 @@ their own order: `place_dishes` `(review_count, score, name, dish_id)`, `feed_ar
 | Search — Places | `rpc search_places(p_query, p_limit, p_cursor_match_tier, p_cursor_review_count, p_cursor_name, p_cursor_id)` | `{restaurant_id, name, cuisine, locality, avg_rating, review_count, people_count, dish_count, cover_url, match_tier}[]` |
 | Search — Dishes | `rpc search_dishes(p_query, p_limit, p_cursor_match_tier, p_cursor_review_count, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_locality, score, review_count, scored_count, people_count, cover_url, match_tier, tags}[]` — the whole row in one call; `tags` as `dish_summary.tags` (0042) |
 | Search — People | `rpc search_people(p_query, p_limit, p_cursor_match_tier, p_cursor_username, p_cursor_user_id)` | `{user_id, username, name, avatar_url, city, is_me, match_tier}[]` — handle OR name; you can find yourself (`is_me`) |
-| Search — Saved | `rpc search_saved(p_query, p_limit, p_cursor_saved_at, p_cursor_dish_id)` | `my_saved_dishes`' columns + `restaurant_locality`; dish OR place name; **empty/null query = the whole list** |
+| Search — Saved · Saved shelf filtered | `rpc search_saved(p_query, p_limit, p_cursor_saved_at, p_cursor_dish_id, p_min_score, p_max_score, p_city)` · picker `rpc my_saved_cities()` | `my_saved_dishes`' columns + `restaurant_locality`; dish OR place name; **empty/null query = the whole list**. 0049: range on `dish_score` (the Journal's rule: max ≥ 5 is open) + city · `{city, name, region, dish_count}[]` |
 | Search — Nearby (before typing) | `rpc nearby_places(p_lat, p_lng, p_radius_m, p_limit, p_cursor_distance_m, p_cursor_id)` | `{restaurant_id, name, cuisine, locality, avg_rating, review_count, people_count, dish_count, cover_url, distance_m}[]` — places we hold, nearest first; no Google call |
 | Search — filter choices | `rpc search_cuisines()` | `{cuisine, place_count}[]`, busiest first — pass `cuisine` back in `p_cuisines` |
 | Composer place sheet | `rpc search_all(p_query, p_limit_per_kind)` | `{kind, id, title, subtitle, score, match_rank, detail}[]`, unpaged; the Search TAB uses the scope RPCs |
@@ -251,7 +251,7 @@ PR, same rule as `place_locality()`); rows written before keep the mangle — re
 
 ## Wire-change log
 
-**Round 5 — 0046–0048.** All additive: `p_city` on `get_entry_feed` (+ browse); `p_max_score`/`p_city` on `my_entries`,
+**Round 5 — 0046–0049.** All additive: `p_min_score`/`p_max_score`/`p_city` on `search_saved` + `my_saved_cities` (0049); `p_city` on `get_entry_feed` (+ browse); `p_max_score`/`p_city` on `my_entries`,
 `search_places`, `search_dishes`, `nearby_places` (drop+create, old calls bind); `feed_cities`, `resolve_city`, `my_entry_cities`,
 `search_cities`, `get_entry_card`; table `cities`, view `place_cities`. Nothing existing changes shape or behaviour.
 
