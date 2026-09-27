@@ -13,9 +13,11 @@ import UIKit
 /// row's top-right corner, and a dismissed sitting's photos never come back — not on this screen,
 /// not after a relaunch, and not in the journal header's count (``PhotoSuggestionDismissals``).
 ///
-/// Four states, none of them with a line of explanation (design rule 1): the rows' skeleton while
-/// the roll is read, the rows, one line when there is nothing to write up, and one line with an
-/// "Allow photos" pill when the permission was refused.
+/// Three states, none of them with a line of explanation (design rule 1): the rows' skeleton while
+/// the roll is read, the rows, and one line with an "Allow photos" pill when the permission was
+/// refused. **Never an empty page** (round 5): the journal only offers this screen when there is
+/// something to suggest, and when the last row goes — dismissed, or the roll turned out to hold
+/// nothing — the page goes with it, back to the journal.
 struct SuggestionsScreen: View {
     let library: any AtePhotoLibrary
     /// Whose dismissals these are.
@@ -28,7 +30,6 @@ struct SuggestionsScreen: View {
     private enum Phase: Equatable {
         case loading
         case ready
-        case empty
         case denied
     }
 
@@ -39,6 +40,7 @@ struct SuggestionsScreen: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ScrollView {
@@ -51,8 +53,6 @@ struct SuggestionsScreen: View {
                         row(cluster)
                             .transition(.opacity)
                     }
-                case .empty:
-                    centred(AteEmptyState(title: "Nothing to\nwrite up."))
                 case .denied:
                     centred(AteEmptyState(title: "Photos\nare off.", actionTitle: "Allow photos") {
                         analytics(SuggestionEvents.photoAccessSettingsOpened())
@@ -145,9 +145,10 @@ struct SuggestionsScreen: View {
         analytics(SuggestionEvents.dismissed(photos: cluster.items.count))
         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
             clusters.removeAll { $0.id == cluster.id }
-            if clusters.isEmpty { phase = .empty }
         }
         onDismissed()
+        // The last one: nothing left to suggest, so no page to stand on.
+        if clusters.isEmpty { dismiss() }
     }
 
     // MARK: - Loading
@@ -177,7 +178,11 @@ struct SuggestionsScreen: View {
             if clusters.isEmpty == false { phase = .ready }
         }
         guard Task.isCancelled == false else { return }
-        phase = clusters.isEmpty ? .empty : .ready
+        guard clusters.isEmpty == false else {
+            dismiss()
+            return
+        }
+        phase = .ready
     }
 }
 

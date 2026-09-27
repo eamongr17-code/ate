@@ -49,7 +49,7 @@ struct JournalHeader: View {
             Spacer(minLength: 0)
             segment(hugs: true)
             filterButton
-            PhotoStackButton(count: photoCount, action: onSuggestions)
+            photoStack
         }
         .frame(minHeight: Self.row)
     }
@@ -60,7 +60,7 @@ struct JournalHeader: View {
                 AteWordmark(height: Self.wordmark)
                 Spacer(minLength: AteMetrics.snug)
                 filterButton
-                PhotoStackButton(count: photoCount, action: onSuggestions)
+                photoStack
             }
             segment(hugs: false)
         }
@@ -74,6 +74,15 @@ struct JournalHeader: View {
             identifier: "journal.shelf"
         )
         .fixedSize(horizontal: hugs, vertical: false)
+    }
+
+    /// "From your photos" only when there is something to suggest (round 5, #82): no button, no
+    /// badge, no empty page behind it.
+    @ViewBuilder
+    private var photoStack: some View {
+        if photoCount >= 1 {
+            PhotoStackButton(count: photoCount, action: onSuggestions)
+        }
     }
 
     private var filterButton: some View {
