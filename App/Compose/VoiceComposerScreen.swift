@@ -69,7 +69,7 @@ struct VoiceComposerScreen: View {
                 onClose()
             }
             Spacer(minLength: AteMetrics.snug)
-            ComposerDoneButton(isEnabled: composer.canSave) {
+            ComposerPostButton(isEnabled: composer.canSave) {
                 model.stop(refocus: false)
                 onDone()
             }

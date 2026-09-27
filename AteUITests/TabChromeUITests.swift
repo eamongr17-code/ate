@@ -158,7 +158,7 @@ final class TabChromeUITests: XCTestCase {
         row.tap()
         app.buttons["Use Tipo 00"].tap()
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
-        app.buttons["composer.done"].tap()
+        app.buttons["composer.post"].tap()
         let done = app.buttons["share.done"]
         XCTAssertTrue(done.waitForExistence(timeout: 10), "Done hands over to the Summary")
         done.tap()

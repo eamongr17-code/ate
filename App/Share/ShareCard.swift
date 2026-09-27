@@ -19,6 +19,11 @@ struct ShareCard: View {
     var breathes = true
     /// The Summary's placeless receipt: the Place key sits where the place prints.
     var onAddPlace: (() -> Void)?
+    /// Where the Summary's receipt is in its entrance (``ReceiptEntrance``). At rest everywhere else,
+    /// and on every export.
+    var pose: ReceiptPose = .settled
+    /// While it feeds, the paper is clipped at its own foot: the slot it rises out of.
+    var isFeeding = false
 
     /// `margin:30px 52px 0` — the card's side inset on the 390pt page.
     static let inset: CGFloat = 52
@@ -26,11 +31,11 @@ struct ShareCard: View {
     static let width: CGFloat = 390 - inset * 2
 
     var body: some View {
-        receipt
+        paper
             .frame(width: Self.width)
             // `transform:rotate(-3deg)` — on the paper, not on the photos' container, so the
             // overlaid photos keep the artboard's own angles rather than compounding.
-            .rotationEffect(.degrees(-3))
+            .rotationEffect(.degrees(pose.tilt))
             // **Behind** the paper, not over it. The artboard's photos are absolute siblings the
             // `.slipwrap` paints on top of, which is what makes the receipt read as laid *on* the
             // pile rather than punched through it.
@@ -39,6 +44,30 @@ struct ShareCard: View {
     }
 
     // MARK: - Paper
+
+    /// The receipt, and its entrance. At rest it is exactly ``receipt``.
+    @ViewBuilder
+    private var paper: some View {
+        if isFeeding {
+            // The paper rises out of a slot at its own foot. Everything below the foot is inside
+            // the printer; the mask reaches 1pt past it for the contact shadow, and well past the
+            // other three sides.
+            receipt
+                .visualEffect { [fed = pose.fed] content, proxy in
+                    content.offset(y: proxy.size.height * (1 - fed))
+                }
+                .mask(alignment: .bottom) {
+                    Rectangle()
+                        .padding(.horizontal, -Self.maskReach)
+                        .padding(.top, -Self.maskReach)
+                        .padding(.bottom, -1)
+                }
+        } else {
+            receipt
+        }
+    }
+
+    private static let maskReach: CGFloat = 40
 
     @ViewBuilder
     private var receipt: some View {
@@ -73,6 +102,9 @@ struct ShareCard: View {
     private func tile(_ photo: AtePhoto, side: CGFloat, angle: Double) -> some View {
         AtePhotoTile(photo: photo, side: side, ring: AteColor.coral)
             .rotationEffect(.degrees(angle))
+            // Landing behind the paper (``ReceiptEntrance``): from a touch larger, and clear.
+            .scaleEffect(1 + (ReceiptEntrance.photoDrop - 1) * (1 - pose.photos))
+            .opacity(pose.photos)
     }
 }
 

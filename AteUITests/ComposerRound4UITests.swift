@@ -17,7 +17,7 @@ final class ComposerRound4UITests: XCTestCase {
     /// Done hands over to the Summary in one clean step.
     func testDoneHandsOverToTheSummary() {
         app.launch()
-        let done = app.buttons["composer.done"]
+        let done = app.buttons["composer.post"]
         XCTAssertTrue(done.waitForExistence(timeout: 10))
         XCTAssertTrue(app.keyboards.element.waitForExistence(timeout: 5))
         sleep(1)
