@@ -73,10 +73,12 @@ struct YouStoreTests {
         #expect(store.summary?.username == "eamon")
         #expect(store.summary?.orders == 142)
         #expect(store.histogram.isEmpty == false)
-        // "Your 5.0s" is four tiles, and only 5.0s.
-        #expect(store.perfect.count == 4)
-        #expect(store.perfect.allSatisfy { $0.score == 5 })
-        #expect(stats.dishCalls == [5])
+        // "Your top dishes" (round 6): four tiles, best first — the secret 6, then the 5.0s — and
+        // only the scores that hold one are read.
+        #expect(store.top.count == 4)
+        #expect(store.top.first?.score == 6)
+        #expect(store.top.dropFirst().allSatisfy { $0.score == 5 })
+        #expect(stats.dishCalls == [6, 5])
         #expect(store.month == StatementMonth(year: 2026, month: 9))
     }
 
@@ -86,9 +88,9 @@ struct YouStoreTests {
         let store = YouStore(stats: stats)
         await store.loadIfNeeded()
         await store.loadIfNeeded()
-        #expect(stats.dishCalls.count == 1)
-        await store.refresh()
         #expect(stats.dishCalls.count == 2)
+        await store.refresh()
+        #expect(stats.dishCalls.count == 4)
     }
 
     @Test("A chart that fails costs the chart, not the name")
@@ -102,7 +104,7 @@ struct YouStoreTests {
 
         #expect(store.summary?.username == "eamon")
         #expect(store.histogram.isEmpty)
-        #expect(store.perfect.isEmpty)
+        #expect(store.top.isEmpty)
         #expect(store.month == nil)
     }
 

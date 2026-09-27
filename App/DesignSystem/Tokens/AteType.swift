@@ -183,7 +183,7 @@ extension AteTextStyle {
     static let meta = AteTextStyle(
         voice: .display, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote
     )
-    /// A dish's name under its tile in a small cluster — "Your 5.0s". `.meta` at 12, in full ink:
+    /// A dish's name under its tile in a small cluster — "Your top dishes". `.meta` at 12, in full ink:
     /// the name is the item, not a caption about it.
     static let tileCaption = AteTextStyle(
         voice: .display, size: 12, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .caption
