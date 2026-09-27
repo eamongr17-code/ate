@@ -9,13 +9,17 @@ import Testing
 @Suite("Journal and Search filters — staging contract", .enabled(if: StagingContract.isEnabled), .serialized)
 struct FilterContractTests {
 
+    /// The demo viewer is `eamon@ate.test` — the account every Debug build and sim drive signs in as,
+    /// so a real entry can land (or go) mid-walk (run 36316337368: order #42 arrived during the
+    /// newest walk). Compare against what existed THROUGHOUT (`KeysetWalk`), never one snapshot.
     @Test("my_entries through the client: newest is the journal, every sort pages without repeats")
     func journalSortsAndPages() async throws {
         let api = try await StagingContract.Backend.shared.client()
         let client = JournalQueryClient(api: api)
-        let journal = try await SupabaseEntryService(api: api).journal(after: nil, pageSize: 100).items
+        let entries = SupabaseEntryService(api: api)
         try await StagingExclusive.shared.run {
             for sort in JournalSort.allCases {
+                let before = try await entries.journal(after: nil, pageSize: 100).items
                 var seen: [UUID] = []
                 var cursor: JournalCursor?
                 repeat {
@@ -23,13 +27,18 @@ struct FilterContractTests {
                     seen += page.items.map(\.id)
                     cursor = page.nextCursor
                 } while cursor != nil && seen.count < 300
+                let after = try await entries.journal(after: nil, pageSize: 100).items
                 #expect(Set(seen).count == seen.count, "\(sort): no entry twice")
-                #expect(Set(seen) == Set(journal.map(\.id)), "\(sort): the same entries as the journal")
+                let stable = Set(before.map(\.id)).intersection(after.map(\.id))
+                #expect(stable.isSubset(of: Set(seen)), "\(sort): every journal entry that stayed was walked")
+                #expect(Set(seen).isSubset(of: Set(before.map(\.id) + after.map(\.id))),
+                        "\(sort): nothing that was never in the journal")
                 if sort == .newest {
-                    #expect(seen == journal.map(\.id), "newest is the journal's own order")
+                    KeysetWalk.expectMatches(seen, before: before.map(\.id), after: after.map(\.id), "newest")
                 }
                 if sort == .top {
-                    let scores = seen.compactMap { id in journal.first { $0.id == id } }.map { $0.bestScore ?? -1 }
+                    let cards = before + after
+                    let scores = seen.compactMap { id in cards.first { $0.id == id } }.map { $0.bestScore ?? -1 }
                     #expect(scores == scores.sorted(by: >), "top runs best score down, unscored last")
                 }
             }

@@ -50,7 +50,7 @@ struct PlaceDishContractTests {
         #expect(summary.entryCount >= 0)
         #expect(summary.peopleCount >= 0 && summary.peopleCount <= summary.entryCount)
         // Never a zero standing in for "nothing here is rated" (data-model §1.3).
-        if let rating = summary.avgRating { #expect(rating > 0 && rating <= 5) }
+        if let rating = summary.avgRating { #expect(rating > 0 && rating <= 6) } // 6: the secret six (0041)
         // Every text field is null, never "" (0029) — a chip is a fact or it is nothing.
         #expect(summary.cuisine.map { $0.isEmpty } != true)
         #expect(summary.locality.map { $0.isEmpty } != true)
@@ -145,7 +145,7 @@ struct PlaceDishContractTests {
         #expect(summary.restaurantName.isEmpty == false)
         #expect(summary.reviewCount >= summary.scoredCount)
         #expect(summary.peopleCount >= 0)
-        if let score = summary.score { #expect(score > 0 && score <= 5) }
+        if let score = summary.score { #expect(score > 0 && score <= 6) } // 6: the secret six (0041)
         // A half-step or nothing — `myLastScore` comes off `reviews.score`.
         if summary.myLastScore != nil { #expect(summary.myLastRating != nil) }
         // 0029: the header's own photo stack, newest first, first one == the cover.
