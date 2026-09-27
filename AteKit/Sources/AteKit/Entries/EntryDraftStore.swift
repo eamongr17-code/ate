@@ -97,6 +97,8 @@ public struct EntryDraftStore: EntryDraftStoring {
         }
     }
 
+    public var draftPhotosRoot: URL? { ownerPhotosRoot }
+
     public func photoDirectory(for draftID: UUID) -> URL {
         let base = ownerPhotosRoot ?? URL.temporaryDirectory.appending(path: "AteUnowned", directoryHint: .isDirectory)
         let directory = base.appending(path: draftID.uuidString.lowercased(), directoryHint: .isDirectory)

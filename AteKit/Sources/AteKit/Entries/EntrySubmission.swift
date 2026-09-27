@@ -99,6 +99,8 @@ public struct EntrySubmission: Sendable {
     /// Step one: the words. Returns as soon as they are accepted — photos and the sorter are
     /// ``finish(entryID:photoPaths:)``, and the entry is already in the journal by then.
     public func submit(_ request: NewEntryRequest) async -> EntrySubmissionResult {
+        // Its files are owed an upload from here on: they go only once the server shows their rows.
+        await outbox.staged.record(entryID: request.id, photos: photos(of: request))
         let authorID: UUID
         do {
             authorID = try await entries.authorID()
@@ -153,7 +155,9 @@ public struct EntrySubmission: Sendable {
         async let uploaded = upload(entryID: entryID, photoPaths: photoPaths)
         let didSort = await sort(entryID: entryID, tagTokens: tagTokens, sixTokens: sixTokens)
         await outbox.recordProgress(entryID: entryID, uploadedPositions: await uploaded, didSort: didSort)
-        return try? await entries.entry(id: entryID)
+        let card = try? await entries.entry(id: entryID)
+        if let card { await outbox.staged.confirm(entryID: entryID, card: card) }
+        return card
     }
 
     /// **A photo that was still being written when Done stopped waiting for it** (round 4). It goes
@@ -161,13 +165,16 @@ public struct EntrySubmission: Sendable {
     /// photo is never dropped. Returns whether it is up.
     @discardableResult
     public func attachLate(_ request: NewEntryRequest, path: String, position: Int) async -> Bool {
+        await outbox.staged.record(entryID: request.id, photos: [QueuedPhoto(position: position, path: path)])
         guard let data = try? Data(contentsOf: URL(filePath: path)) else {
             analytics(EntryEvents.photoFailed(stage: "late"))
             return false
         }
         do {
             try await entries.attach(photo: EntryPhotoUpload(entryID: request.id, position: position, data: data))
-            StagedFiles.uploaded(path)
+            if let card = try? await entries.entry(id: request.id) {
+                await outbox.staged.confirm(entryID: request.id, card: card)
+            }
             return true
         } catch {
             guard let authorID = try? await entries.authorID() else { return false }
@@ -192,7 +199,6 @@ public struct EntrySubmission: Sendable {
                         try await entries.attach(photo: EntryPhotoUpload(
                             entryID: entryID, position: position, data: data
                         ))
-                        StagedFiles.uploaded(path)
                         return position
                     } catch {
                         return nil

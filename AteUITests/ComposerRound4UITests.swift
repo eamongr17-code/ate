@@ -101,7 +101,8 @@ final class ComposerRound4UITests: XCTestCase {
         editor.typeText("The ragù")
         app.buttons["Photo library"].tap()
         // The system picker runs out of process: its grid is reached by where it draws, not by name.
-        sleep(6)
+        // The out-of-process picker loads its grid slowly on a cold simulator.
+        sleep(9)
         let window = app.windows.firstMatch
         window.coordinate(withNormalizedOffset: CGVector(dx: 0.17, dy: 0.52)).tap()
         sleep(1)

@@ -119,6 +119,8 @@ public protocol EntryDraftStoring: Sendable {
     func discardUnowned()
     /// Deletes one person's draft and staged photos — their account is gone.
     func discardDrafts(of userID: UUID)
+    /// Where every draft's photo folder lives — what the sweep walks. `nil`: nothing to sweep.
+    var draftPhotosRoot: URL? { get }
 }
 
 public extension EntryDraftStoring {
@@ -128,4 +130,5 @@ public extension EntryDraftStoring {
     func discardDrafts(of userID: UUID) {}
     /// A store that keeps no photos of its own (memory, tests) clears the draft the ordinary way.
     func clear(draftID: UUID?, keepingPhotos: Bool) { clear(draftID: draftID) }
+    var draftPhotosRoot: URL? { nil }
 }

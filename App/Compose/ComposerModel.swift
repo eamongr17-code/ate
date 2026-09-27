@@ -211,8 +211,8 @@ final class ComposerModel: DictationTarget {
     func clearDraft() {
         isFinished = true
         drafts.clear(draftID: draftID, keepingPhotos: true)
-        // …but not the ones taken back out before Done: nothing will ever upload those.
-        StagedFiles.prune(photoDirectory, keeping: Set(photos.compactMap(\.fileName)))
+        // Nothing is pruned here: a pick can be on disk before it is recorded. Files go by the one
+        // rule (``StagedPhotoLedger``) or, unreferenced and a day old, to the sweep.
     }
 
     /// The entry is saved; the draft is not to be written again.

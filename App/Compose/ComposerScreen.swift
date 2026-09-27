@@ -150,6 +150,7 @@ struct ComposerScreen: View {
         }
         .task { await stageSuggestedPhotos() }
         .task { startEarlySort() }
+        .task { await sweepStagedPhotos() }
         #if DEBUG
         .task { runDebugLaunch() }
         #endif

@@ -113,18 +113,33 @@ public struct EntryEdit: Sendable {
     /// Steps one to three — the words, the place, the photos — and the row as it now stands. The
     /// words are written first and alone; any failure stops everything and is thrown.
     @discardableResult
-    public func save(to entries: any EntryService) async throws -> EntryCard {
+    ///
+    /// `staged` (round 4): the added photos' files are recorded before they go up and removed only
+    /// once the saved entry shows their rows — so a retry after a failed upload still has every file,
+    /// and one already confirmed is skipped.
+    public func save(to entries: any EntryService, staged: StagedPhotoLedger? = nil) async throws -> EntryCard {
+        if let staged { await staged.record(entryID: entryID, photos: addedPhotos) }
         try await entries.updateBody(entryID: entryID, body: body)
         if changesPlace, let restaurantID {
             _ = try await entries.correctPlace(entryID: entryID, restaurantID: restaurantID)
         }
         if changesPhotos, let photos {
-            try await savePhotos(photos, to: entries)
+            try await savePhotos(photos, to: entries, staged: staged)
         }
         for removal in tagRemovals {
             try await entries.setTags(reviewID: removal.reviewID, tags: removal.remaining)
         }
-        return try await entries.entry(id: entryID)
+        let card = try await entries.entry(id: entryID)
+        if let staged { await staged.confirm(entryID: entryID, card: card) }
+        return card
+    }
+
+    /// The photos this edit adds, at their positions.
+    public var addedPhotos: [QueuedPhoto] {
+        (photos ?? []).enumerated().compactMap { position, photo in
+            guard case .added(let path) = photo else { return nil }
+            return QueuedPhoto(position: position, path: path)
+        }
     }
 
     /// The old name, kept for callers that only ever set words and a place.
@@ -133,7 +148,7 @@ public struct EntryEdit: Sendable {
         try await save(to: entries)
     }
 
-    private func savePhotos(_ photos: [Photo], to entries: any EntryService) async throws {
+    private func savePhotos(_ photos: [Photo], to entries: any EntryService, staged: StagedPhotoLedger?) async throws {
         let before = Dictionary(originalPhotos.map { ($0.position, $0.url) }, uniquingKeysWith: { first, _ in first })
         for (position, photo) in photos.enumerated() {
             switch photo {
@@ -142,6 +157,9 @@ public struct EntryEdit: Sendable {
                 try await entries.attachExisting(entryID: entryID, position: position, url: url)
             case .added(let path):
                 let file = URL(filePath: path)
+                // Already up and confirmed on an earlier attempt (its file is gone): skip, don't fail.
+                if FileManager.default.fileExists(atPath: file.path()) == false,
+                   let staged, await staged.isConfirmed(path) { continue }
                 let data = try Data(contentsOf: file)
                 try await entries.attach(photo: EntryPhotoUpload(
                     entryID: entryID,
@@ -149,7 +167,6 @@ public struct EntryEdit: Sendable {
                     data: data,
                     name: file.deletingPathExtension().lastPathComponent
                 ))
-                StagedFiles.uploaded(path)
             }
         }
         if photos.count < originalPhotos.count || removedURLs.isEmpty == false {

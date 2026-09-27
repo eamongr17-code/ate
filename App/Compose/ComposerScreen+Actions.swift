@@ -139,14 +139,23 @@ extension ComposerScreen {
             // Words changed → a forced re-sort carrying them (round 4); photos only → no sort.
             originalBody: editing.composition.plain
         )
+        // Picks still being written after the 8s are not in this edit: they follow it up on their own.
+        if model.hasPendingPhotos {
+            model.handOffLatePhotos(to: NewEntryRequest(
+                id: editing.id, body: edit.body, restaurantID: model.place?.id,
+                photoPaths: model.editedPhotos.map { _ in "" }, createdAt: Date(), scoreCount: 0, secondsFromOpen: 0
+            ))
+        }
+        let staged = services.outbox.staged
         let entries = services.entries
         let analytics = services.analytics
         Task {
             do {
-                let card = try await edit.save(to: entries)
+                let card = try await edit.save(to: entries, staged: staged)
                 isSaving = false
-                // Every added photo is up (and its file gone); what is left in the folder was taken back out.
-                StagedFiles.prune(model.photoDirectory, keeping: [])
+                // A pick that missed the 8s follows the edit up, as it would a new entry.
+                model.markEntrySaved()
+                sendLatePhotos()
                 if edit.changesPlace { analytics(EntryEvents.corrected(.place)) }
                 AteHaptics.success()
                 onSaved(card)
@@ -157,6 +166,7 @@ extension ComposerScreen {
                 // still on screen, and the pill says "Try again". Every step is idempotent.
                 isSaving = false
                 saveFailed = true
+                model.cancelLateHandoff()
                 giveBackTheKeyboard()
                 analytics(EntryEvents.saveFailed(
                     isEdit: true, reason: EntryWriteFailure.of(error).isRetryable ? "offline" : "rejected"
@@ -226,6 +236,18 @@ extension ComposerScreen {
             }
             if queued { await outbox.run() }
         }
+    }
+
+    /// **The periodic sweep** (``StagedFiles/sweep(_:keeping:olderThan:now:)``): files a day old that
+    /// nothing references — the ledger, the outbox, this draft — go. Young files never do.
+    func sweepStagedPhotos() async {
+        guard let root = services.drafts.draftPhotosRoot else { return }
+        var keep = await services.outbox.staged.recordedPaths
+        keep.formUnion(await services.outbox.pendingPhotoPaths)
+        let directory = model.photoDirectory
+        keep.formUnion(model.photos.compactMap(\.fileName).map { directory.appending(path: $0).path() })
+        let referenced = keep
+        await Task.detached(priority: .utility) { StagedFiles.sweep(root, keeping: referenced) }.value
     }
 
     /// The early sort, wired to the entry service and counted.

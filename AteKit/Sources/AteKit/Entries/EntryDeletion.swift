@@ -141,9 +141,9 @@ public struct EntryDeleter {
         let queued = await outbox?.forget(entryID: card.id)
         do {
             let result = try await entries.delete(entryID: card.id)
-            // Gone for good: what was still queued to upload will never go — its files go now. (Not
-            // at `forget`: a refused delete restores the queue, and it needs them.)
-            StagedFiles.discard(queued?.pendingPhotos.map(\.path) ?? [])
+            // Gone for good: its staged files go now (rule b). Not at `forget` — a refused delete
+            // restores the queue, and it needs them.
+            await outbox?.staged.abandon(entryID: card.id)
             deletions.send(card.id)
             analytics(EntryEvents.deleted(
                 photoCount: max(card.photos.count, result.photoPaths.count),

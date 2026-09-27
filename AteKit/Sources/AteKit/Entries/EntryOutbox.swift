@@ -111,6 +111,8 @@ public actor EntryOutbox {
     /// else signed in, another person's queued entry waits untouched for them — pushing it would be
     /// refused by RLS and marked blocked, or worse. Nil (tests) works every item.
     private let owner: (@Sendable () -> UUID?)?
+    /// **The staged photo files**, and the one rule for when they go (``StagedPhotoLedger``).
+    public nonisolated let staged: StagedPhotoLedger
 
     public init(
         entries: any EntryService,
@@ -127,6 +129,7 @@ public actor EntryOutbox {
         let root = support.appending(path: containerName, directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         self.storeURL = root.appending(path: "outbox.json", directoryHint: .notDirectory)
+        self.staged = StagedPhotoLedger(storeURL: root.appending(path: "staged.json", directoryHint: .notDirectory))
         self.queue = (try? Data(contentsOf: storeURL))
             .flatMap { try? JSONDecoder().decode([QueuedEntry].self, from: $0) } ?? []
     }
@@ -213,8 +216,13 @@ public actor EntryOutbox {
             var working = item
             pushing = item.id
             defer { pushing = nil }
+            let hadPhotos = working.pendingPhotos.isEmpty == false
             do {
                 try await push(&working)
+                // Photos went up: their files go once the server shows their rows (never before).
+                if hadPhotos, let card = try? await entries.entry(id: working.id) {
+                    await staged.confirm(entryID: working.id, card: card)
+                }
             } catch {
                 guard EntryWriteFailure.of(error).isRetryable else {
                     // A refusal is not a bad connection. Mark it and move on rather than counting
@@ -251,7 +259,9 @@ public actor EntryOutbox {
     /// Drops everything one person had queued — their account has been deleted, and there is no
     /// longer anybody an entry of theirs could be pushed as.
     public func discard(authoredBy userID: UUID) {
-        StagedFiles.discard(queue.filter { $0.entry.authorID == userID }.flatMap { $0.pendingPhotos.map(\.path) })
+        let abandoned = queue.filter { $0.entry.authorID == userID }.map(\.id)
+        let staged = self.staged
+        Task { for entryID in abandoned { await staged.abandon(entryID: entryID) } }
         queue.removeAll { $0.entry.authorID == userID }
         persist()
     }
@@ -263,6 +273,9 @@ public actor EntryOutbox {
         queue.first { $0.id == entryID }
     }
 
+    /// Every file still queued to upload — the sweep never touches these.
+    public var pendingPhotoPaths: Set<String> { Set(queue.flatMap { $0.pendingPhotos.map(\.path) }) }
+
     /// Whether any of an entry's photos are still waiting to go up (their files must stay put).
     public func hasPendingPhotos(entryID: UUID) -> Bool {
         queue.first { $0.id == entryID }?.pendingPhotos.isEmpty == false
@@ -271,7 +284,8 @@ public actor EntryOutbox {
     /// **A photo that finished writing after its entry was saved** (round 4: Done stops waiting on a
     /// slow pick). It joins the entry's queued work, or — the entry already landed — queues on its
     /// own, inserted, with nothing left to sort. The next run uploads it at its position.
-    public func addLatePhoto(_ photo: QueuedPhoto, to insert: QueuedInsert) {
+    public func addLatePhoto(_ photo: QueuedPhoto, to insert: QueuedInsert) async {
+        await staged.record(entryID: insert.id, photos: [photo])
         if let index = queue.firstIndex(where: { $0.id == insert.id }) {
             guard queue[index].pendingPhotos.contains(photo) == false else { return }
             queue[index].pendingPhotos.append(photo)
@@ -313,7 +327,6 @@ public actor EntryOutbox {
                 try await entries.attach(photo: EntryPhotoUpload(
                     entryID: item.entry.id, position: photo.position, data: data
                 ))
-                StagedFiles.uploaded(photo.path)
             } catch {
                 remaining.append(photo)
                 throw error
