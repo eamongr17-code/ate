@@ -1,10 +1,10 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0045` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0048` define it. Forward-only; applied migrations
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
 account deletion **0032**; **every entry public 0033**; signed-out browse **0034**; dietary tags **0036**;
-round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry, dish-row chips) **0041–0045**.
+round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry, dish-row chips) **0041–0045**; round 5 (cities, range + city filters, share read) **0046–0048**.
 
 The atom the USER creates is an **entry** = one visit. The atom AGGREGATES are built from is still a
 per-dish **review**, now *linked* to an entry, not replaced by it. A **sorter** turns the words into
@@ -88,6 +88,15 @@ draft plan (verbatim draft text), PK `(author_id, cache_key)` (total — upserte
 sha256(sha256(body), tag_tokens, restaurant_id, model[, six_tokens when marked]). Rows are DELETED: bounded purge of expired rows on every
 preview, the consuming sort deletes its row, an entries-delete trigger purges the author's. Rate: 12 / 10 min.
 
+### `cities` (0046)
+Reference data, seeded and changed by migration only: `id` text slug PK (`melbourne`, `gold-coast`), `name`,
+`region` (state code), `country`, `center` geography point, `radius_m`, `aliases` text[] (lower-case localities
+that mean this city, e.g. `cbd`). Authenticated SELECT; anon none. **A place's city is derived on read, never
+stored** (view `place_cities(restaurant_id, city, via)`): its location (nearest centre whose radius holds it) →
+else its `place_locality()` equals a city name/alias → else the city most LOCATED places with that locality
+fall in. A place none of these reach is in no city. Every read computes a city's place set ONCE (plpgsql array
+or an uncorrelated IN — verified a hashed SubPlan); materialise only if the catalogue outgrows that.
+
 ### `profiles` — changed (0018)
 Additive: `entry_seq` int (the order-number counter; never client-writable), `city` text (under the handle on You/Profile). `username` is `citext UNIQUE` — the handle.
 `delete_account()` deletes the auth user; FK cascades take every personal row (verified, else it RAISES — 0035), the catalogue stays. `handle_new_user` always leaves a profile (handle `ate<hex>` when no usable email). `deleted_at` hides a profile from everyone but its owner (0035).
@@ -157,13 +166,16 @@ except where noted; **entries = visits, reviews = receipt lines, and they are no
 | `search_saved(query, …)` · `nearby_places(lat, lng, …)` (0031) | Saved scope = `my_saved_dishes`' row + `restaurant_locality`, empty query = the whole list, keyset `(saved_at, dish_id)`. Nearby = places we hold + viewer-relative score, PostGIS only, keyset `(distance_m, restaurant_id)` |
 | `my_blocks(…)` (0032) | whom the caller blocked, with handle/name/avatar. DEFINER: `profiles` RLS hides exactly these people |
 | `feed_areas(limit, cursor…)` (0038) | `place_locality()` of the entries the Feed shows you (own excluded), grouped case-insensitively; keyset `(entry_count desc, area)`, 30 a page. `get_entry_feed(…, p_area)` filters on the same string |
+| `feed_cities()` · `resolve_city(lat, lng)` (0046) | cities the Feed has entries in for you (feed_areas' counting), busiest first · "near me": the city with food holding the point (`is_nearby`), else nearest with food, else (no point) busiest; no row when no city has food. `get_entry_feed(…, p_city)` filters on `place_cities` |
+| range + city filters (0047) | `p_max_score` + `p_city` on `my_entries`/`search_places`/`search_dishes`/`nearby_places`. `score_in_range`: no bound = all; any bound drops unscored; **max ≥ 5 is open** (a 6, or a 5.3 average, stays in). `my_entry_cities()` · `search_cities()` = the pickers |
+| `get_entry_card(entry)` (0048) | one `entry_cards` row or `[]`; signed in = the view under RLS, anon = browse twin (public, live author) — the share-link read |
 | `my_entries(sort, filters…)` · `my_entry_places()` (0043) | the caller's OWN entry ids (filtered by `author_id = auth.uid()`, not just RLS): `newest`/`oldest` keyset `(created_at, id)`, `top` = `best_score` (max line score) desc NULLS LAST, then `(created_at, id)` desc. Filters: place, min best score, one tag, visit dates in `p_tz`. Places = where your entries are, busiest first |
 | `delete_entry(entry)` (0037) | owner-only, DEFINER. FK cascades take photos rows, lines (+ tags, likes, comments, notifications), reports; saves keep the dish (`source_entry_id` → NULL); catalogue stays. Returns the files to purge |
 
 ## RLS
 
 Enabled on every table. Table reads are authenticated-only; `anon` has NO table grant. Signed-out browse (0034) is
-nine RPCs that dispatch on `current_user = 'anon'` to DEFINER twins in the unexposed `browse` schema.
+nine RPCs (+ `feed_areas`, `feed_cities`, `get_entry_card`; `resolve_city` rides `feed_cities`) that dispatch on `current_user = 'anon'` to DEFINER twins in the unexposed `browse` schema.
 
 | Table | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
@@ -174,6 +186,7 @@ nine RPCs that dispatch on `current_user = 'anon'` to DEFINER twins in the unexp
 | `saves` | own | own | own | own |
 | `blocks` | rows you created | self as blocker | — | self as blocker |
 | `reports` | own | self | — | — |
+| `cities` (0046) | all (authenticated) | none | none | none |
 | `restaurants` / `dishes` | all | dishes: authed (self-attributed); restaurants: none (RPC/service role) | none | none |
 
 The block filter is expressed **once**, in `blocked_with()`, applied in the SELECT policies of `profiles`,
@@ -201,3 +214,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0036 | `dish_tags.sql` | `reviews.tags` + closed-set CHECK + canonicalising trigger; `apply_entry_sort` takes/keeps tags; `correct_entry_place` prints parked tags; `items[].tags`; `dish_summary.tags` (drop+create, browse twin too) |
 | 0037–0040 | `delete_entry` · `feed_areas` · `sort_preview_cache` · `place_required` | `delete_entry()` · `feed_areas()` + `get_entry_feed(p_area)` (drop+create, browse twin too) · preview cache + rate tables, purge fn + entries-delete trigger, `entries.sort_meta`, `apply_entry_sort(p_meta)` (drop+create), `delete_account` checks both · INSERT-only place trigger |
 | 0041–0045 | `secret_six` · `search_filters` · `journal_filters` · `six_carry` · `place_dishes_tags` | CHECK admits 6, histogram 11 rows, `apply_entry_sort` admits an evidenced 6 · filter params (drop+create) + `search_cuisines`, `place_has_tagged_dish` · `my_entries`, `my_entry_places` · a re-sort carries a marked 6 by line (T3, like tags) · `place_dishes.tags` (drop+create, browse twin too); `search_dishes.tags` rides 0042 |
+| 0046–0048 | `cities` · `range_and_city_filters` · `entry_card_read` | `cities` + `city_at` + `place_cities` view, `feed_cities`, `resolve_city`, `get_entry_feed(p_city)` (drop+create, browse twin too) · `score_in_range`; `p_max_score`/`p_city` on my_entries + three search reads (drop+create), `my_entry_cities`, `search_cities` · `get_entry_card` + browse twin |
