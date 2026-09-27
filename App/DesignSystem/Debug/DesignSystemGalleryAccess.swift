@@ -40,9 +40,7 @@ private struct DesignSystemGalleryPresenter: ViewModifier {
                         Button {
                             isPresented = false
                         } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 28))
-                                .symbolRenderingMode(.hierarchical)
+                            AteIcon.clear.view(size: 28)
                                 .padding(AteMetrics.regular)
                         }
                         .accessibilityLabel("Close gallery")
