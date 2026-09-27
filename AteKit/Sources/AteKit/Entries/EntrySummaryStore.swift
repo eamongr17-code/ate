@@ -98,7 +98,9 @@ public final class EntrySummaryStore {
         guard phase == .sorting else { return }
         for _ in 0..<maxPolls {
             if pollInterval > .zero { try? await Task.sleep(for: pollInterval) }
-            guard Task.isCancelled == false else { return }
+            // The sort's own answer may have landed meanwhile (``adopt(_:)``, ``sortFailed()``):
+            // nothing this watch reads afterwards may change a receipt that has moved on.
+            guard Task.isCancelled == false, phase == .sorting else { return }
             guard let next = try? await actions.fetch(card.id) else { continue }
             // The sort's own answer got here first (``adopt(_:)``): a fetch that left before it
             // landed must not put the receipt back to waiting.
@@ -107,6 +109,7 @@ public final class EntrySummaryStore {
             phase = Self.phase(for: next)
             if phase != .sorting { return }
         }
+        guard phase == .sorting else { return }
         phase = .stalled
     }
 
@@ -127,6 +130,13 @@ public final class EntrySummaryStore {
         guard phase == .sorting, isBusy == false, next.id == card.id else { return }
         card = next
         phase = Self.phase(for: next)
+    }
+
+    /// The sort itself failed (the composer's latch heard it): the re-print is offered at once,
+    /// rather than after the watch's whole patience.
+    public func sortFailed() {
+        guard phase == .sorting, isBusy == false else { return }
+        phase = .stalled
     }
 
     // MARK: - Recovering

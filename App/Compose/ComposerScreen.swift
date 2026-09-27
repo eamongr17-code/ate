@@ -48,8 +48,6 @@ struct ComposerScreen: View {
     @State var summary: EntryCard?
     /// The entry as the sort leaves it — filled by Post, waited on by the hold and then the Summary.
     @State var summarySorted: Latch<EntryCard?>?
-    /// When the Summary took the screen, and whether the hold ran out first — for its telemetry.
-    @State var summaryWasLate = false
     /// …and the chips and 6s it was sorted with, so "Print it again" re-sorts with the same ones.
     @State var summaryTagTokens: [TagToken] = []
     @State var summarySixTokens: [TagToken] = []
@@ -78,9 +76,15 @@ struct ComposerScreen: View {
         ZStack {
             VStack(spacing: 0) {
                 header
-                editor
-                photoStrip
-                toolbar
+                // Frozen from the Post tap to the hand-off: what is posted is exactly what was on
+                // screen at the tap. Nothing dims and nothing new appears; the controls just stop
+                // answering — to a finger, and to VoiceOver (the photo X and Close by their guards).
+                Group {
+                    editor.accessibilityHidden(isFrozen)
+                    photoStrip
+                    toolbar.accessibilityHidden(isFrozen)
+                }
+                .allowsHitTesting(isFrozen == false)
             }
             .ateSurface()
             .ateComposerKeyboard(keyboard)
@@ -104,7 +108,6 @@ struct ComposerScreen: View {
                     handle: summary.author?.username ?? "",
                     actions: .live(services.entries, tagTokens: summaryTagTokens, sixTokens: summarySixTokens),
                     sorted: summarySorted,
-                    wasLate: summaryWasLate,
                     photoLibrary: services.photos,
                     places: services.places,
                     analytics: services.analytics,
@@ -232,6 +235,8 @@ struct ComposerScreen: View {
     private var header: some View {
         HStack {
             AteIconButton(icon: .close, label: "Close") { close() }
+                // The entry is already saved by the time this could mean anything: not a cancel.
+                .allowsHitTesting(isFrozen == false)
             Spacer(minLength: AteMetrics.snug)
             #if DEBUG
             if ComposerDebugLaunch.drivesUndo {
@@ -251,6 +256,11 @@ struct ComposerScreen: View {
         .padding(.leading, AteMetrics.regular)
         .padding(.bottom, AteMetrics.tight)
     }
+
+    /// **The whole composer freezes once a new entry is posted** (round 5, QA): the words, every
+    /// key, the photo X, the library, the camera, Place and Close, until the Summary takes over.
+    /// The request is a snapshot of the tap, so anything touched after it would silently not count.
+    var isFrozen: Bool { isSaving && model.editing == nil }
 
     /// "Post"; "Posting…" while it holds; "Done" on an edit — the entry is already posted.
     private var postTitle: String {
@@ -341,7 +351,7 @@ struct ComposerScreen: View {
                 topPadding: Self.stripTop,
                 bottomPadding: AteMetrics.hairspace,
                 onRemove: { index in
-                    guard model.photos.indices.contains(index) else { return }
+                    guard isFrozen == false, model.photos.indices.contains(index) else { return }
                     AteHaptics.key()
                     services.analytics(model.removePhoto(id: model.photos[index].id))
                 }
@@ -369,6 +379,7 @@ struct ComposerScreen: View {
     /// The composer is going away for good: nothing further goes early, and a preview in flight for
     /// words that were not saved is dropped.
     func close() {
+        guard isFrozen == false else { return }
         earlySort?.stop(cancellingInFlight: true)
         dismiss()
     }

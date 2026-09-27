@@ -8,9 +8,10 @@ public enum PhotoAccessAsk {
     /// After the receipt enters: the feed, the tear and the photos landing, and a beat to see it.
     public static let delay: Duration = .milliseconds(2200)
 
-    /// Only someone never asked, and only over a receipt that printed: never over a wait, a
-    /// failed print, or a launch.
-    public static func shouldAsk(canAsk: Bool, isPrinted: Bool) -> Bool {
-        canAsk && isPrinted
+    /// Only someone never asked, only over a receipt that printed (never over a wait, a failed
+    /// print, or a launch), and never over another sheet (sharing, picking a place): then it waits
+    /// for a later post.
+    public static func shouldAsk(canAsk: Bool, isPrinted: Bool, isPresentingOther: Bool) -> Bool {
+        canAsk && isPrinted && isPresentingOther == false
     }
 }

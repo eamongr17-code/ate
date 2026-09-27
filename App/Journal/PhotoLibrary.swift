@@ -190,6 +190,7 @@ final class PreviewPhotoLibrary: AtePhotoLibrary {
     /// prompt in between.
     private static let startsUndetermined = ProcessInfo.processInfo.arguments.contains("-ate-photos-undetermined")
     private var hasBeenAsked = false
+    private var wasGranted = false
 
     /// A UI-test run starts from nothing: one test's dismissed sittings are not the next test's
     /// empty journal header.
@@ -201,11 +202,33 @@ final class PreviewPhotoLibrary: AtePhotoLibrary {
         }
     }
 
-    var isAuthorized: Bool { Self.denies == false && (Self.startsUndetermined == false || hasBeenAsked) }
+    var isAuthorized: Bool { Self.denies == false && (Self.startsUndetermined == false || wasGranted) }
     var canAsk: Bool { Self.startsUndetermined && hasBeenAsked == false && Self.denies == false }
     func requestAuthorization() async -> Bool {
         hasBeenAsked = true
-        return Self.denies == false
+        guard Self.startsUndetermined else { return Self.denies == false }
+        wasGranted = await Self.standInPrompt()
+        return wasGranted
+    }
+
+    /// The system's photo prompt, stood in for on a preview run: an alert a UI test can see and
+    /// answer, so "asked once, and never again" can be driven. Debug only; never in a build.
+    private static func standInPrompt() async -> Bool {
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              var top = scene.keyWindow?.rootViewController else { return true }
+        while let presented = top.presentedViewController { top = presented }
+        let presenter = top
+        return await withCheckedContinuation { continuation in
+            let alert = UIAlertController(title: "Photos", message: nil, preferredStyle: .alert)
+            alert.view.accessibilityIdentifier = "debug.photoPrompt"
+            alert.addAction(UIAlertAction(title: "Don't Allow", style: .cancel) { _ in
+                continuation.resume(returning: false)
+            })
+            alert.addAction(UIAlertAction(title: "Allow", style: .default) { _ in
+                continuation.resume(returning: true)
+            })
+            presenter.present(alert, animated: true)
+        }
     }
 
     private struct Sitting {

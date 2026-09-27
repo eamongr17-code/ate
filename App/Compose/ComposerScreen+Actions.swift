@@ -121,7 +121,6 @@ extension ComposerScreen {
         summaryTagTokens = request.tagTokens
         summarySixTokens = request.sixTokens
         summarySorted = sorted
-        summaryWasLate = outcome == .late
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) { summary = shown }
         // The shell's half of the handover — the journal, the tab — once the Summary is up.
         let land = onSaved
@@ -212,6 +211,10 @@ extension ComposerScreen {
     /// when it has been shared with us, otherwise from the first decode — and the bytes are written
     /// behind it. The picker clears straight away, so the next trip to it offers only what is left.
     func stage(_ items: [PhotosPickerItem]) {
+        guard isFrozen == false else {
+            pickedItems = []
+            return
+        }
         let keyed = items.map { (id: ComposerPhotoStaging.key(for: $0), item: $0) }
         let accepted = Set(model.beginPhotos(ids: keyed.map(\.id)))
         pickedItems = []
@@ -327,7 +330,8 @@ extension ComposerScreen {
     /// The camera, if this phone has one and the person has let us use it. Refused, the key goes to
     /// Settings: there is nothing the app can say about it that the system does not already.
     func takePhoto() {
-        guard UIImagePickerController.isSourceTypeAvailable(.camera), model.canAddPhotos else { return }
+        guard isFrozen == false, UIImagePickerController.isSourceTypeAvailable(.camera), model.canAddPhotos
+        else { return }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             isTakingPhoto = true

@@ -168,6 +168,37 @@ struct SummaryReceiptTests {
         #expect(summary.card.items.count == 3, "once printed, it never changes shape")
     }
 
+    @Test("once printed, failed reads can never take the receipt back to stalled")
+    func printedNeverStalls() async {
+        let id = UUID()
+        let summary = EntrySummaryStore(
+            card: card(.pending, id: id), pollInterval: .milliseconds(5), maxPolls: 6,
+            actions: .init(
+                fetch: { _ in throw URLError(.notConnectedToInternet) },
+                correctPlace: { id, _ in card(.sorted, id: id) },
+                resort: { _ in }
+            )
+        )
+        async let watching: Void = summary.watch()
+        try? await Task.sleep(for: .milliseconds(12))
+        summary.adopt(card(.sorted, id: id))
+        await watching
+        #expect(summary.phase == .printed, "every read after it failed, and the watch gave up")
+        #expect(summary.showsReceipt)
+    }
+
+    @Test("a sort the latch heard fail offers the re-print at once, and a late print can't undo a print")
+    func sortFailedStallsAtOnce() {
+        let id = UUID()
+        let summary = store(card(.pending, id: id)) { _ in card(.pending, id: id) }
+        summary.sortFailed()
+        #expect(summary.phase == .stalled)
+        #expect(summary.showsReceipt == false)
+        let printed = store(card(.sorted, id: id)) { _ in card(.sorted, id: id) }
+        printed.sortFailed()
+        #expect(printed.phase == .printed)
+    }
+
     @Test("a poll that left before the sort landed cannot put the receipt back to waiting")
     func stalePollLoses() async {
         let id = UUID()
@@ -213,9 +244,13 @@ struct PostEventsTests {
 struct PhotoAccessAskTests {
     @Test("asked only when never asked, and only over a printed receipt")
     func onlyOnce() {
-        #expect(PhotoAccessAsk.shouldAsk(canAsk: true, isPrinted: true))
-        #expect(PhotoAccessAsk.shouldAsk(canAsk: false, isPrinted: true) == false, "asked before, or refused")
-        #expect(PhotoAccessAsk.shouldAsk(canAsk: true, isPrinted: false) == false, "never over a wait")
+        #expect(PhotoAccessAsk.shouldAsk(canAsk: true, isPrinted: true, isPresentingOther: false))
+        #expect(PhotoAccessAsk.shouldAsk(canAsk: false, isPrinted: true, isPresentingOther: false) == false,
+                "asked before, or refused")
+        #expect(PhotoAccessAsk.shouldAsk(canAsk: true, isPrinted: false, isPresentingOther: false) == false,
+                "never over a wait")
+        #expect(PhotoAccessAsk.shouldAsk(canAsk: true, isPrinted: true, isPresentingOther: true) == false,
+                "never over the share sheet or the place sheet")
     }
 
     @Test("its answer is counted")

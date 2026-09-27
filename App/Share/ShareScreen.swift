@@ -103,6 +103,10 @@ struct ShareStage: View {
     var showsCard = true
 
     @State private var bandHeight: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The Summary's pills come on once its ground is whole, so they never show through the
+    /// composer's toolbar in the cross-fade.
+    @State private var actionsShown = false
 
     /// The card scrolls in its own band above the pills: a long receipt continues down that band
     /// and stops above them, never running underneath.
@@ -125,7 +129,9 @@ struct ShareStage: View {
             .scrollIndicators(.hidden)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { bandHeight = $0 }
             actions
+                .opacity(isHero && actionsShown == false ? 0 : 1)
         }
+        .task { await showActions() }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ateAccentGround(AteColor.coral)
     }
@@ -146,10 +152,24 @@ struct ShareStage: View {
                 artefact: artefact, photos: photos, isPrinting: isPrinting, breathes: breathes,
                 onAddPlace: onAddPlace, scale: Self.heroScale, printingLift: Self.printingLift
             )
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("summary.receipt")
             .padding(.vertical, Self.heroAir)
             .frame(maxWidth: .infinity, minHeight: bandHeight)
         }
     }
+
+    private func showActions() async {
+        guard isHero, reduceMotion == false else {
+            actionsShown = true
+            return
+        }
+        try? await Task.sleep(for: Self.actionsLead)
+        withAnimation(.easeOut(duration: 0.2)) { actionsShown = true }
+    }
+
+    /// The composer's cross-fade to the coral ground (0.25s), and a hair more.
+    private static let actionsLead: Duration = .milliseconds(260)
 
     /// How much larger the Summary draws its receipt: the paper runs to 38 from each edge of the
     /// screen rather than the artboard's 52 (314 of 390, against 286).

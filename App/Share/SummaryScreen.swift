@@ -32,8 +32,8 @@ struct SummaryScreen: View {
 
     /// The composer's latch: the sort's own answer, heard as it lands rather than at the next poll.
     let sorted: Latch<EntryCard?>?
-    /// "Posting…" ran out before the sort answered: the receipt is still to come.
-    let wasLate: Bool
+    /// The receipt was whole the moment the screen came up ("Posting…" covered the sort).
+    private let printedOnArrival: Bool
     /// The camera roll, for the one quiet ask (``PhotoAccessAsk``). `nil` asks nothing.
     let photoLibrary: (any AtePhotoLibrary)?
 
@@ -49,16 +49,16 @@ struct SummaryScreen: View {
         handle: String,
         actions: EntrySummaryStore.Actions,
         sorted: Latch<EntryCard?>? = nil,
-        wasLate: Bool = false,
         photoLibrary: (any AtePhotoLibrary)? = nil,
         places: any PlaceDirectory,
         analytics: @escaping AnalyticsRecorder,
         onDone: @escaping () -> Void,
         onUpdated: @escaping (EntryCard) -> Void = { _ in }
     ) {
-        _store = State(initialValue: EntrySummaryStore(card: card, actions: actions))
+        let store = EntrySummaryStore(card: card, actions: actions)
+        _store = State(initialValue: store)
+        printedOnArrival = store.showsReceipt
         self.sorted = sorted
-        self.wasLate = wasLate
         self.photoLibrary = photoLibrary
         self.photos = photos
         self.handle = handle
@@ -125,8 +125,13 @@ struct SummaryScreen: View {
     /// The sort's answer from the composer's latch — the same one the hold waited on.
     private func hear() async {
         guard let sorted, store.phase == .sorting else { return }
-        guard let landed = await sorted.value(before: .now + Self.patience), let card = landed else { return }
-        store.adopt(card)
+        guard let landed = await sorted.value(before: .now + Self.patience) else { return }
+        if let card = landed {
+            store.adopt(card)
+        } else {
+            // The sort itself failed: "Print it again" now, not after a poll's patience.
+            store.sortFailed()
+        }
     }
 
     /// **The one ask for the camera roll** (round 5): someone who was never asked would never see
@@ -134,15 +139,24 @@ struct SummaryScreen: View {
     /// has printed and settled, the system's own prompt comes up, once, with its purpose string and
     /// nothing of ours. Granted, the journal's photo-stack button appears when the Summary closes;
     /// refused, it stays hidden, and nothing asks again.
+    ///
+    /// Never over something else: while the share sheet or the place sheet is up the ask is not
+    /// made at all, and waits for a later post rather than jumping in when the sheet goes.
     private func askForPhotosOnce() async {
-        guard let photoLibrary,
-              PhotoAccessAsk.shouldAsk(canAsk: photoLibrary.canAsk, isPrinted: store.phase == .printed)
-        else { return }
+        guard let photoLibrary, shouldAsk(photoLibrary) else { return }
         try? await Task.sleep(for: PhotoAccessAsk.delay)
-        guard Task.isCancelled == false, photoLibrary.canAsk else { return }
+        guard Task.isCancelled == false, shouldAsk(photoLibrary) else { return }
         let granted = await photoLibrary.requestAuthorization()
         analytics(SuggestionEvents.photoAccessAsked(granted: granted))
         if granted { NotificationCenter.default.post(name: .atePhotoAccessGranted, object: nil) }
+    }
+
+    private func shouldAsk(_ library: any AtePhotoLibrary) -> Bool {
+        PhotoAccessAsk.shouldAsk(
+            canAsk: library.canAsk,
+            isPrinted: store.phase == .printed,
+            isPresentingOther: store.isSharing || sender.sending != nil || isPickingPlace
+        )
     }
 
     /// As long as the store itself watches (30 polls of 0.7s).
@@ -154,7 +168,7 @@ struct SummaryScreen: View {
         hasCountedEntrance = true
         analytics(EntryEvents.summaryReceiptEntered(
             entryID: store.card.id,
-            waitMilliseconds: wasLate ? PostHold.milliseconds(since: appearedAt) : 0
+            waitMilliseconds: printedOnArrival ? 0 : PostHold.milliseconds(since: appearedAt)
         ))
     }
 
