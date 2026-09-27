@@ -24,14 +24,12 @@ struct SearchTabScreen: View {
     /// The shared ``SaveAction``'s unsave. Returns whether it landed, so the row can come back on a
     /// refusal exactly as it does on the shelf.
     var onUnsave: (SavedDish) async -> Bool = { _ in true }
-    /// Round 4's filter exploration: `nil` is today's tab, with no filters at all.
-    var filterLayout: SearchFilterLayout? = SearchTabScreen.launchFilterLayout
 
     @State private var location = AteLocation()
     /// Where the results start on the page — measured, so an empty state can be centred in what is
     /// left below the segments whatever size the title and field were drawn at.
     @State private var resultsTop: CGFloat = 0
-    @State private var picker: SearchFilterPicker?
+    @State private var isFiltering = false
     @FocusState private var isFieldFocused: Bool
     /// The field's frame in the content, so a tap on it is never read as a tap "outside".
     @State private var fieldFrame: CGRect = .zero
@@ -61,9 +59,14 @@ struct SearchTabScreen: View {
                 if store.showsScopes {
                     scopes
                         .transition(.opacity)
-                    if let filterLayout, SearchFilters.applies(to: store.scope) {
-                        SearchFilterBar(layout: filterLayout, filters: store.filters) { picker = $0 }
-                            .transition(.opacity)
+                    // The same active pills the Journal draws, under the control that set them.
+                    if SearchFilters.applies(to: store.scope) {
+                        AteActiveFilters(filters: store.filters.activeFilters, identifier: "search.filter.pill") {
+                            store.setFilters(store.filters.removing($0))
+                        }
+                        // The pills scroll edge to edge; the page's own gutter is given back.
+                        .padding(.horizontal, -AteMetrics.listGutter)
+                        .transition(.opacity)
                     }
                 }
                 results
@@ -90,7 +93,7 @@ struct SearchTabScreen: View {
         .onScrollPhaseChange { _, phase in
             if phase == .interacting { isFieldFocused = false }
         }
-        .sheet(item: $picker) { SearchFilterSheet(picker: $0, store: store) }
+        .sheet(isPresented: $isFiltering) { SearchFilterSheet(store: store) }
         .task { await store.start() }
         .task(id: store.scope) { await askWhereWeAre() }
         .task { openDebugState() }
@@ -107,16 +110,29 @@ struct SearchTabScreen: View {
 
     // MARK: - Segments
 
-    /// `gap:6px`, each pill 40 tall and 16 in; the current one is ink on the ground (`.ink`).
+    /// `gap:6px`, each pill 40 tall and 16 in; the current one is ink on the ground (`.ink`). The
+    /// filter control sits at the end of the row — the Journal's, beside what it narrows — on the
+    /// scopes a filter applies to (Places, Dishes).
     private var scopes: some View {
-        // Wraps rather than truncating to "P…" once the type outgrows one line.
-        AteFlow(spacing: AteMetrics.snug - 2) {
-            ForEach(SearchScope.allCases) { scope in
-                SearchPill(
-                    title: scope.title,
-                    isOn: scope == store.scope,
-                    identifier: "search.scope.\(scope.rawValue)"
-                ) { store.select(scope) }
+        HStack(alignment: .top, spacing: AteMetrics.snug) {
+            // Wraps rather than truncating to "P…" once the type outgrows one line.
+            AteFlow(spacing: AteMetrics.snug - 2) {
+                ForEach(SearchScope.allCases) { scope in
+                    SearchPill(
+                        title: scope.title,
+                        isOn: scope == store.scope,
+                        identifier: "search.scope.\(scope.rawValue)"
+                    ) { store.select(scope) }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if SearchFilters.applies(to: store.scope) {
+                AteFilterButton(isActive: store.filters.isEmpty == false, identifier: "search.filter") {
+                    AteTelemetry.record(BrowseEvents.filterOpened(on: .search))
+                    isFiltering = true
+                }
+                // The 44 disc centres on the scopes' 40 pill.
+                .padding(.vertical, -2)
             }
         }
     }
@@ -226,23 +242,11 @@ struct SearchTabScreen: View {
         onPlace(place.restaurantID)
     }
 
-    // MARK: - The exploration's switch
-
-    /// Debug only, from `-ate-search-filters A|B`. A shipped binary has no filters until one is picked.
-    static var launchFilterLayout: SearchFilterLayout? {
-        #if DEBUG
-        SearchDebugLaunch.filterLayout
-        #else
-        nil
-        #endif
-    }
-
-    /// A drive's starting state: the demo filters, and a picker already open.
+    /// A drive's starting state: the demo filters, and the sheet already open.
     private func openDebugState() {
         #if DEBUG
-        guard filterLayout != nil else { return }
         if let filters = SearchDebugLaunch.startingFilters { store.setFilters(filters) }
-        picker = SearchDebugLaunch.openPicker
+        isFiltering = SearchDebugLaunch.opensFilter
         #endif
     }
 }

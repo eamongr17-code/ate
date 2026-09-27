@@ -9,16 +9,13 @@ import Foundation
 /// segment and `-ate-search-query <text>` fills the field. Debug only: nothing here exists in a
 /// shipped binary.
 ///
-/// Round 4's filter exploration: `-ate-search-filters A|B` turns the filters on in layout A (a pill
-/// per filter) or B (one Filter pill, one sheet); without it there are no filters, which is today's
-/// behaviour. `-ate-search-filtered` starts with a demo set on (vegetarian, 4.0 and up) and
-/// `-ate-search-filter-open cuisine|diet|rating|all` opens a picker at launch, so each state can be
-/// photographed without a finger.
+/// Filters: `-ate-search-filtered` starts with a demo set on (vegetarian, 4.0 and up) and
+/// `-ate-search-filter-open` opens the filter sheet at launch, so each state can be photographed
+/// without a finger.
 enum SearchDebugLaunch {
     static let openArgument = "-ate-open-search"
     static let scopeArgument = "-ate-search-scope"
     static let queryArgument = "-ate-search-query"
-    static let filtersArgument = "-ate-search-filters"
     static let filteredArgument = "-ate-search-filtered"
     static let filterOpenArgument = "-ate-search-filter-open"
 
@@ -30,17 +27,11 @@ enum SearchDebugLaunch {
 
     static var query: String { value(after: queryArgument) ?? "" }
 
-    static var filterLayout: SearchFilterLayout? {
-        value(after: filtersArgument).flatMap { SearchFilterLayout(rawValue: $0.uppercased()) }
-    }
-
     static var startingFilters: SearchFilters? {
         arguments.contains(filteredArgument) ? SearchFilters(tags: [.v], minimumScore: 4.0) : nil
     }
 
-    static var openPicker: SearchFilterPicker? {
-        value(after: filterOpenArgument).flatMap(SearchFilterPicker.init(rawValue:))
-    }
+    static var opensFilter: Bool { arguments.contains(filterOpenArgument) }
 
     private static var arguments: [String] { ProcessInfo.processInfo.arguments }
 
