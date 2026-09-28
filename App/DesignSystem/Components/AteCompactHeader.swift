@@ -8,12 +8,10 @@ import SwiftUI
 /// location chip, the Journal's filter, Search's filter), in one row just under the status bar, on
 /// one clean frost that runs the full width from the top of the screen and feathers out below the
 /// row. The status-bar frost steps aside while it is up, so the two never stack into a heavier band
-/// (build 81: heavy behind "Feed", thin under the chip).
-///
-/// `-ate-r6-header`: A the title centred, B the title leading with the control at the trailing end.
+/// (build 81: heavy behind "Feed", thin under the chip). The title leads; the control trails
+/// (round 6, Eamon's pick).
 struct AteCompactHeader<Trailing: View>: View {
     let title: String
-    var layout = AteRound6Explore.header
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
@@ -24,40 +22,11 @@ struct AteCompactHeader<Trailing: View>: View {
             .background(alignment: .top) { AteCompactHeaderFrost() }
     }
 
-    /// The trailing control's width, so a centred title keeps the same clearance on both sides and
-    /// never runs under a wide control (the Feed's "Near me Melbourne" chip).
-    @State private var trailingWidth: CGFloat = 0
-
-    @ViewBuilder
     private var row: some View {
-        switch layout {
-        case .centred:
-            ZStack {
-                // Centred on the screen when the title fits between equal clearances; beside a wide
-                // control (the Feed's "Near me Melbourne" chip) it centres in the room that is left.
-                ViewThatFits(in: .horizontal) {
-                    titleText
-                        .fixedSize()
-                        .padding(.horizontal, trailingWidth + AteMetrics.snug)
-                    HStack(spacing: 0) {
-                        Spacer(minLength: 0)
-                        titleText
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.trailing, trailingWidth + AteMetrics.snug)
-                }
-                HStack {
-                    Spacer(minLength: 0)
-                    trailing
-                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { trailingWidth = $0 }
-                }
-            }
-        case .leading:
-            HStack(spacing: AteMetrics.snug) {
-                titleText
-                Spacer(minLength: AteMetrics.snug)
-                trailing
-            }
+        HStack(spacing: AteMetrics.snug) {
+            titleText
+            Spacer(minLength: AteMetrics.snug)
+            trailing
         }
     }
 

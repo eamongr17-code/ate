@@ -76,7 +76,8 @@ pulse; score numerals roll; a printing receipt's skeleton lines breathe (to 45%,
 - **Chrome** (round 5) — all the app's own, no system bars or Liquid Glass. One **glass**
   (`AteGlass`): backdrop blur under a warm tint, a hairline rim, a light shadow cast only outside it.
   - **Tab bar** — keeps build 80's native look: a 62 glass capsule, 21 in and 21 up, of Journal ·
-    Feed · Search · You (line icon 24 over Bricolage 10.5; bold on a 76×54 pill when current), and
+    Feed · Search · You (line icon 24 over Bricolage 10.5; bold on a 76×54 pill when current; Feed is
+    Lucide utensils-crossed), and
     **+** as a separate 62 glass circle 8 beside it that presents the composer and is never a tab.
     Scroll down minimises it to the current tab alone in a 48 disc (+ shrinks to 48), a spring
     morph; scroll up or a tap on the disc brings it back. Re-tap scrolls to top. Every pushed page
@@ -85,8 +86,10 @@ pulse; score numerals roll; a printing receipt's skeleton lines breathe (to 45%,
     its controls as one glass pill 16 in from the right; tab roots' corner buttons are 44 glass discs.
   - **Status-bar frost** — one even frosted band the status bar's height, soft 6pt foot, washed in
     the ground, over every tab and pushed page.
-  - **Floating header** — a tab root's header comes back on scroll up out of a blur into focus
-    over a light frosted scrim feathering 32 below it; it never ends in a hard line.
+  - **Compact header** — mid-list, a scroll up brings back a compact header, not the big one: the
+    tab's name (Bricolage 800, 20) leading and its one control trailing (the Feed's location chip,
+    the Journal's and Search's filter), in a 52 row under the status bar on one full-width frost
+    that feathers 18 below it (the status-bar frost steps aside). It comes out of a blur into focus.
 - **App icon** — coral ground with the white `ate.` wordmark, optically centred. Dark appearance is
   the coral wordmark on ink; tinted is the white glyph on transparent.
 - **Score token** — butter pill, filled star + one-decimal number, DM Mono 500, inline in prose.

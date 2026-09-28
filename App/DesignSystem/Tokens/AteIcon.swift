@@ -34,9 +34,6 @@ enum AteIcon: String, CaseIterable {
     case clear
     /// The Feed's Near me — Lucide's navigation.
     case navigation
-    /// Round 6 exploration: candidates for the Feed tab, so it stops reading as a second person
-    /// beside You (`-ate-r6-feed-icon <case>`). The pick stays; the rest go.
-    case newspaper, utensilsCrossed, compass, globe, layoutList
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
@@ -49,32 +46,16 @@ M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3
 3-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.\
 7.2 1 1 0 0 1-1-1z
 """), Self.path("M13 16H8"), Self.path("M14 8H8"), Self.path("M16 12H8")]
-        case .feed: // users
-            [Self.path("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"), Self.path("M16 3.128a4 4 0 0 1 0 7.744"),
-             Self.path("M22 21v-2a4 4 0 0 0-3-3.87"), AteVector.circle(9, 7, 4)]
+        case .feed: // utensils-crossed (round 6, Eamon: two people read too close to You)
+            [Self.path("m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8"),
+             Self.path("M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7"),
+             Self.path("m2.1 21.8 6.4-6.3"), Self.path("m19 5-7 7")]
         case .search: // search
             [Self.path("m21 21-4.34-4.34"), AteVector.circle(11, 11, 8)]
         case .you: // user
             [Self.path("M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"), AteVector.circle(12, 7, 4)]
         case .compose: // plus
             [Self.path("M5 12h14"), Self.path("M12 5v14")]
-        case .newspaper: // newspaper
-            [Self.path("M15 18h-5"), Self.path("M18 14h-8"),
-             Self.path("M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2"),
-             AteVector.rectangle(10, 6, 8, 4, 1)]
-        case .utensilsCrossed: // utensils-crossed
-            [Self.path("m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8"),
-             Self.path("M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7"),
-             Self.path("m2.1 21.8 6.4-6.3"), Self.path("m19 5-7 7")]
-        case .compass: // compass
-            [AteVector.circle(12, 12, 10),
-             Self.path("m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z")]
-        case .globe: // globe
-            [AteVector.circle(12, 12, 10), Self.path("M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"),
-             Self.path("M2 12h20")]
-        case .layoutList: // layout-list
-            [AteVector.rectangle(3, 3, 7, 7, 1), AteVector.rectangle(3, 14, 7, 7, 1),
-             Self.path("M14 4h7"), Self.path("M14 9h7"), Self.path("M14 15h7"), Self.path("M14 20h7")]
         case .star, .starFilled: // star
             [Self.starPath]
         case .place: // map-pin

@@ -20,7 +20,7 @@ enum AteTab: String, CaseIterable, Identifiable, Hashable {
     var icon: AteIcon {
         switch self {
         case .journal: .journal
-        case .feed: AteRound6Explore.feedIcon ?? .feed
+        case .feed: .feed
         case .search: .search
         case .you: .you
         }
