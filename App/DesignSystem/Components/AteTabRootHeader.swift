@@ -8,10 +8,10 @@ import SwiftUI
 ///
 /// The header stays where it always was, in the scroll content, so every position below it — slips,
 /// empty states, the refresh control — is where the artboard puts it and the screen's layout is
-/// untouched: on the way down it simply scrolls away. On the way up a second copy of the same view
-/// comes back over the list, pinned where the header rests — out of a blur into focus on a light
-/// frosted scrim (round 5, a gradual overlay rather than a hard cut) — and goes the same way on the
-/// next scroll down; back at the top it goes, and the header in the page is the one there again.
+/// untouched: on the way down it simply scrolls away. On the way up a *compact* header comes back
+/// over the list, just under the status bar — the tab's name small and its one trailing control, on
+/// one clean frost (round 6, ``AteCompactHeader``) — out of a blur into focus, and goes the same way
+/// on the next scroll down; back at the top it goes, and the big header in the page is the one there.
 ///
 /// It also owns the tab's scroll-to-top: the ScrollView's own top edge, insets included. An anchor on
 /// a view in the content lands that view at the top of the visible area, which on the Journal put
@@ -21,15 +21,23 @@ extension View {
     /// Apply to the tab root's `ScrollView`. `scrollToTop` is bumped when the tab is re-tapped.
     /// `jumpToTop` is bumped when the page's content is swapped (the Journal's other shelf): the
     /// top, at once, with nothing animating.
-    func ateTabRootHeader<Header: View>(
+    /// `compact` is what comes back mid-scroll (round 6): an ``AteCompactHeader`` — the tab's name,
+    /// small, and its trailing control — never a second copy of the big header.
+    func ateTabRootHeader<Compact: View>(
         scrollToTop: Int,
         jumpToTop: Int = 0,
-        @ViewBuilder header: () -> Header
+        @ViewBuilder compact: () -> Compact
     ) -> some View {
-        modifier(AteTabRootHeader(scrollToTop: scrollToTop, jumpToTop: jumpToTop, header: header()))
+        modifier(AteTabRootHeader(scrollToTop: scrollToTop, jumpToTop: jumpToTop, compact: compact()))
     }
 
-    /// A tab root with no floating header (Search, You) still tells the shell which way it is being
+    /// The compact header alone, for a root that owns its own scroll position (Search): it comes
+    /// back on the way up and goes on the way down, with the tab bar following as on every tab.
+    func ateCompactHeader<Compact: View>(@ViewBuilder _ compact: () -> Compact) -> some View {
+        modifier(AteFloatingCompactHeader(compact: compact()))
+    }
+
+    /// A tab root with no floating header (You) still tells the shell which way it is being
     /// scrolled — the tab bar's shadow and its re-expansion follow every tab the same way.
     func ateTabBarTracking() -> some View {
         modifier(AteTabBarTracking())
@@ -55,6 +63,8 @@ extension EnvironmentValues {
 /// way up (`AteTabChrome`).
 private struct AteChromeTracker: ViewModifier {
     @Binding var track: AteHeaderTrack
+    /// This root has a header that floats back (so the status-bar frost steps aside for it).
+    var hasFloatingHeader = false
     /// Only a person's own scrolling picks a direction — not a programmatic scroll, and not the
     /// system moving the content when the bar beside it resizes.
     @State private var isPersonScrolling = false
@@ -90,7 +100,7 @@ private struct AteChromeTracker: ViewModifier {
                 // at the top just hands over to the header in the page, which is already exactly there.
                 let moves = next.offset > AteHeaderTrack.topSlack && reduceMotion == false
                 withAnimation(moves ? AteMotion.headerFocus : nil) { track = next }
-                report(next.isBarExpanded)
+                report(expanded: next.isBarExpanded, floating: next.isFloating)
             }
             .onScrollPhaseChange { _, phase in
                 isPersonScrolling = phase == .interacting || phase == .decelerating
@@ -100,7 +110,7 @@ private struct AteChromeTracker: ViewModifier {
                 // read as a change.
                 guard isCurrentTab else { return }
                 track.expandBar()
-                report(true)
+                report(expanded: true, floating: track.isFloating)
             }
             .onChange(of: isCurrentTab) { _, isCurrent in
                 // A fling cut short by a tab switch never reports its end: left standing, the
@@ -110,13 +120,15 @@ private struct AteChromeTracker: ViewModifier {
                 // Chosen on the full bar: the model goes back to it, and the bar hears the whole
                 // state — not only a change — so the two agree before the next scroll (QA on #75).
                 track.tabBecameCurrent()
-                report(true)
+                report(expanded: true, floating: track.isFloating)
             }
     }
 
-    private func report(_ isExpanded: Bool) {
-        guard isCurrentTab, let chrome, chrome.isExpanded != isExpanded else { return }
-        chrome.isExpanded = isExpanded
+    private func report(expanded: Bool, floating: Bool) {
+        guard isCurrentTab, let chrome else { return }
+        if chrome.isExpanded != expanded { chrome.isExpanded = expanded }
+        let isHeaderFloating = hasFloatingHeader && floating
+        if chrome.isHeaderFloating != isHeaderFloating { chrome.isHeaderFloating = isHeaderFloating }
     }
 }
 
@@ -128,10 +140,38 @@ private struct AteTabBarTracking: ViewModifier {
     }
 }
 
-private struct AteTabRootHeader<Header: View>: ViewModifier {
+/// The compact header, floating: up after a scroll up mid-list, down on the next scroll down or at
+/// the top — where the page's own big header is the one on screen, touched and read aloud.
+private struct AteFloatingCompactHeader<Compact: View>: ViewModifier {
+    let compact: Compact
+    @State private var track = AteHeaderTrack()
+
+    func body(content: Content) -> some View {
+        content.modifier(AteFloatingHeaderLayer(track: $track, compact: compact))
+    }
+}
+
+/// The tracker and the floating layer, over whatever scroll view carries them.
+private struct AteFloatingHeaderLayer<Compact: View>: ViewModifier {
+    @Binding var track: AteHeaderTrack
+    let compact: Compact
+
+    func body(content: Content) -> some View {
+        content
+            .modifier(AteChromeTracker(track: $track, hasFloatingHeader: true))
+            .overlay(alignment: .top) {
+                if track.isFloating {
+                    compact
+                        .transition(.ateHeaderReturn)
+                }
+            }
+    }
+}
+
+private struct AteTabRootHeader<Compact: View>: ViewModifier {
     let scrollToTop: Int
     let jumpToTop: Int
-    let header: Header
+    let compact: Compact
 
     /// Starts with nothing to seek: an `edge` position is resolved against a list's scroll targets on
     /// its first layout, which landed the Journal on its first slip rather than its top.
@@ -146,20 +186,7 @@ private struct AteTabRootHeader<Header: View>: ViewModifier {
     func body(content: Content) -> some View {
         content
             .scrollPosition($position)
-            .modifier(AteChromeTracker(track: $track))
-            .overlay(alignment: .top) {
-                // Only while it is needed: back over the list. At the top (and pulled past it) the
-                // header in the content is the one on screen, touched and read aloud.
-                if track.isFloating {
-                    header
-                        .background {
-                            // A light frost from the top of the screen that feathers out under
-                            // the header (round 5) — not the solid ground that cut across the list.
-                            AteHeaderScrim()
-                        }
-                        .transition(.ateHeaderReturn)
-                }
-            }
+            .modifier(AteFloatingHeaderLayer(track: $track, compact: compact))
             .onChange(of: scrollToTop) { _, _ in
                 withAnimation(reduceMotion ? nil : .default) { position.scrollTo(edge: .top) }
             }

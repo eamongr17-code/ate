@@ -24,12 +24,19 @@ struct FeedLocationHeader: View {
         return layout {
             Text("Feed").ateTextLine(.screenTitle)
             if stacks == false { Spacer(minLength: AteMetrics.snug) }
-            chip
+            FeedLocationChip(model: model, onTap: onTap)
         }
     }
+}
 
-    private var chip: some View {
-        let hit = AteHitOutset(height: Self.chipHeight)
+/// The chip that says where the Feed is about — the big header's and the compact header's (round 6)
+/// one control, the same button in both.
+struct FeedLocationChip: View {
+    let model: FeedAreaModel?
+    let onTap: () -> Void
+
+    var body: some View {
+        let hit = AteHitOutset(height: FeedLocationHeader.chipHeight)
         return Button(action: onTap) {
             HStack(spacing: AteMetrics.snug - 2) {
                 (isNear || isResolving ? AteIcon.navigation : AteIcon.place).view(size: isNear || isResolving ? 14 : 16)
@@ -46,7 +53,7 @@ struct FeedLocationHeader: View {
             .lineLimit(1)
             .padding(.leading, 12)
             .padding(.trailing, 14)
-            .atePillHeight(Self.chipHeight)
+            .atePillHeight(FeedLocationHeader.chipHeight)
             .background(AtePalette.automatic.raised, in: .capsule)
             .foregroundStyle(AtePalette.automatic.fg)
             .ateHitArea(hit)
