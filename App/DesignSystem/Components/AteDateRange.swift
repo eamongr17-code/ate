@@ -1,38 +1,15 @@
 import AteKit
 import SwiftUI
 
-/// **Round 6 exploration: the date filter** — `-ate-r6-date A|B` picks a layout at launch so each
-/// can be photographed for Eamon. Absent (and in any Release build) is A. Goes once he picks.
-enum DateExplore {
-    enum Variant: String { case ruler = "A", presets = "B" }
-
-    static var variant: Variant {
-        #if DEBUG
-        let arguments = ProcessInfo.processInfo.arguments
-        if let index = arguments.firstIndex(of: "-ate-r6-date"), arguments.indices.contains(index + 1) {
-            return Variant(rawValue: arguments[index + 1].uppercased()) ?? .ruler
-        }
-        #endif
-        return .ruler
-    }
-}
-
 /// **The date range** (round 6, Eamon: "filters need to have a date range slider") — in the score
 /// ruler's family: a butter band over ticks, dragged by its nearer end, snapping with a tick of
 /// haptics. Here the stops are **months**: the last two years, this month on the right. The ruler's
 /// two ends are open — the left stop is "from the beginning", the right "up to today" — so the whole
-/// ruler is no filter.
-///
-/// Two layouts are on the table (``DateExplore``):
-/// - **A** — the month ruler on its own;
-/// - **B** — four quick choices (This month, 3 mo, This year, All) as pills, and a fifth, Custom,
-///   that opens the same ruler under them.
+/// ruler is no filter. (Eamon's pick, round 6: the ruler on its own, over quick-choice pills.)
 struct AteDateRange: View {
     @Binding var window: DateWindow
-    var variant: DateExplore.Variant = DateExplore.variant
     var now = Date()
 
-    @State private var isCustom = false
     @State private var dragging: ScoreBand.End?
 
     private var palette: AtePalette { AtePalette.surface }
@@ -44,19 +21,9 @@ struct AteDateRange: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.snug) {
             header
-            switch variant {
-            case .ruler:
-                ruler
-            case .presets:
-                presets
-                if isCustom { ruler }
-            }
+            ruler
         }
         .sensoryFeedback(.selection, trigger: window)
-        .onAppear {
-            // A window that is not one of the quick choices opens on the ruler.
-            isCustom = window.isAll == false && window.preset(now: now) == nil
-        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("filter.date")
     }
@@ -74,27 +41,6 @@ struct AteDateRange: View {
                 .foregroundStyle(palette.fg)
                 .contentTransition(.numericText())
                 .accessibilityIdentifier("filter.date.value")
-        }
-    }
-
-    // MARK: - B: the quick choices
-
-    private var presets: some View {
-        AteFlow(spacing: AteMetrics.snug) {
-            ForEach(DateWindow.Preset.allCases, id: \.self) { preset in
-                AteFilterChoice(
-                    title: preset.title,
-                    isOn: isCustom == false && window.preset(now: now) == preset
-                ) {
-                    isCustom = false
-                    window = DateWindow.preset(preset, now: now)
-                }
-                .accessibilityIdentifier("date.\(preset.rawValue)")
-            }
-            AteFilterChoice(title: "Custom", isOn: isCustom) {
-                isCustom = true
-            }
-            .accessibilityIdentifier("date.custom")
         }
     }
 

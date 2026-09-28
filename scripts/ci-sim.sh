@@ -35,17 +35,9 @@ shot() {
 shot warm light 20
 
 for mode in light dark; do
-  for v in A B; do
-    shot "date-$v-journal-sheet-$mode" $mode 16 -ate-r6-date $v -ate-journal-filtered -ate-r6-window custom -ate-journal-filter-open
-    shot "date-$v-search-sheet-$mode" $mode 16 -ate-r6-date $v -ate-open-search -ate-search-scope dishes \
-      -ate-search-query pa -ate-search-filtered -ate-r6-window custom -ate-search-filter-open
-  done
-  shot "date-B-journal-sheet-preset-$mode" $mode 16 -ate-r6-date B -ate-journal-filtered -ate-r6-window preset -ate-journal-filter-open
-  shot "date-journal-filtered-$mode" $mode 14 -ate-journal-filtered -ate-r6-window custom
-  shot "date-search-filtered-$mode" $mode 14 -ate-open-search -ate-search-scope dishes -ate-search-query pa \
-    -ate-search-filtered -ate-r6-window custom
-  shot "date-saved-filtered-$mode" $mode 14 -ate-open-saved -ate-journal-filtered -ate-r6-window preset
-  shot "you-top-dishes-$mode" $mode 14 -ate-open-you
+  shot "date-journal-sheet-$mode" $mode 16 -ate-journal-filtered -ate-r6-window custom -ate-journal-filter-open
+  shot "date-search-sheet-$mode" $mode 16 -ate-open-search -ate-search-scope dishes -ate-search-query pa \
+    -ate-search-filtered -ate-r6-window custom -ate-search-filter-open
 done
 # warm.png stays: it shows whether the staging sign-in landed.
 ls "$OUT"
