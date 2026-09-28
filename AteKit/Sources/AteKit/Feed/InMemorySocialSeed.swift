@@ -34,7 +34,7 @@ public extension InMemorySocialService {
             locality: "North Melbourne"
         )
 
-        /// `-ate-preview-deep`'s pasta bar — nothing the artboards draw.
+        /// The `deep` fixture's pasta bar — nothing the artboards draw.
         static let pastaio = EntryCard.Place(
             id: UUID(uuidString: "B7E00000-0000-4000-8000-0000000000D1")!,
             name: "Pastaio", address: "12 Hardware Ln", city: "Melbourne", cuisine: "Italian",
@@ -106,7 +106,7 @@ public extension InMemorySocialService {
         ]
     }
 
-    /// `-ate-preview-long`: a visit by somebody with a very long handle — three dishes and not one
+    /// The `long` fixture: a visit by somebody with a very long handle — three dishes and not one
     /// photo, the slip that used to have no way into its entry — so the truncating byline and the
     /// paper's own tap can be driven on a simulator.
     static var longEntries: [EntryCard] {
@@ -123,7 +123,7 @@ public extension InMemorySocialService {
         ]
     }
 
-    /// `-ate-preview-deep` (UI tests only): sixteen more of Jess's visits to Tipo 00, older than
+    /// The `deep` fixture (UI tests only): sixteen more of Jess's visits to Tipo 00, older than
     /// anything the artboards draw, each with the same prawn spaghetti — and every other one the
     /// same tiramisu — as her birthday visit; and eight to a pasta bar, two specials a visit. So the
     /// pages the debug launch opens off the first feed entry (her profile, Tipo 00, the prawn

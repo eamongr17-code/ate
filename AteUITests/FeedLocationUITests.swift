@@ -13,7 +13,7 @@ final class FeedLocationUITests: XCTestCase {
     func testPickEverywhereAndBackToNearMe() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-ate-ui-testing", "-ate-debug-signin", "-ate-open-feed"]
+        app.launchArguments = ["-ate-ui-testing", "-ate-debug-signin", "-ate-open", "feed"]
         placeTheDevice(for: app)
         app.launch()
         // The account's last choice may already be Near me: then the Feed asks as it opens.

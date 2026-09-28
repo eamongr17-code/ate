@@ -95,3 +95,17 @@ struct SettingsDestination: View {
         }
     }
 }
+
+extension SettingsDestination {
+    /// Settings, and the pages it pushes, as the shell pushes them.
+    init(page: SettingsPage, context: RouteContext) {
+        self.init(
+            page: page,
+            services: context.services,
+            onOpen: { context.open(.settings($0)) },
+            onHandleChanged: context.handleChanged,
+            onSignedOut: { context.endSession(nil) },
+            onDeleted: { context.endSession($0) }
+        )
+    }
+}

@@ -43,7 +43,7 @@ struct JournalScreen: View {
 
     @State var shelf: Shelf = {
         #if DEBUG
-        return ComposerDebugLaunch.opensSaved ? .saved : .journal
+        return JournalDebugLaunch.opensSaved ? .saved : .journal
         #else
         return .journal
         #endif

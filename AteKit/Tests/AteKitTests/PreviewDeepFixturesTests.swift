@@ -3,7 +3,7 @@ import Testing
 
 @testable import AteKit
 
-/// `-ate-preview-deep`: the long lists the responsiveness drives scroll to mid-list — Jess's
+/// The `deep` fixture: the long lists the responsiveness drives scroll to mid-list — Jess's
 /// profile, Tipo 00 and its prawn spaghetti — without moving anything the artboards draw.
 @Suite("Preview deep fixtures")
 struct PreviewDeepFixturesTests {

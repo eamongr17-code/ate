@@ -9,7 +9,7 @@ final class Round5BrowseUITests: XCTestCase {
     /// A range set on the Journal's Rating chip is still on when Saved is chosen — the order is the
     /// Journal's alone, so Saved has no Newest chip — and cleared on Saved, it is off on both.
     func testSavedShelfSharesTheFilter() {
-        let app = launch(["-ate-preview-journal"])
+        let app = launch(["-ate-fixture", "journal"])
         let rating = app.buttons["journal.chip.rating"].firstMatch
         XCTAssertTrue(rating.waitForExistence(timeout: 10))
         rating.tap()
@@ -37,7 +37,7 @@ final class Round5BrowseUITests: XCTestCase {
     /// The scopes are one segment and the filter sits at its end: choosing a scope moves nothing, and
     /// on People — which no filter narrows — the control stays put and does nothing.
     func testSearchScopesHoldStill() {
-        let app = launch(["-ate-open-search", "-ate-search-scope", "places"])
+        let app = launch(["-ate-open", "search/places"])
         let control = app.buttons["search.filter"].firstMatch
         XCTAssertTrue(control.waitForExistence(timeout: 10), "the scopes and the filter show before typing")
         let places = app.buttons["search.scope.places"].firstMatch

@@ -141,23 +141,13 @@ struct ComposerScreen: View {
     }
 
     #if DEBUG
-    /// The simulator has neither a microphone nor a camera, so the two keys' states are reached from
-    /// `simctl launch` instead. See ``ComposerDebugLaunch``.
+    /// The simulator has no camera, so the camera key's states are reached from the launch instead.
+    /// See ``ComposerDebugLaunch``.
     private func runDebugLaunch() {
         if ComposerDebugLaunch.fakesCameraCapture, let image = UIImage(named: "Photos/ragu") {
             captured(image)
         }
         if ComposerDebugLaunch.fakesCameraCover { isTakingPhoto = true }
-        if ComposerDebugLaunch.drivesVoiceUndo {
-            Task {
-                try? await Task.sleep(for: .seconds(7))
-                try? await Task.sleep(for: .seconds(1.5))
-                undoRequest += 1
-                guard ComposerDebugLaunch.drivesVoiceRedo else { return }
-                try? await Task.sleep(for: .seconds(1.5))
-                redoRequest += 1
-            }
-        }
     }
     #endif
 

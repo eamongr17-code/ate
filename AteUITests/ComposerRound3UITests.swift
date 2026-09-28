@@ -10,7 +10,7 @@ final class ComposerRound3UITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open-composer", "-ate-seed-draft"]
+        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open", "composer", "-ate-fixture", "draft"]
     }
 
     func testLongPressRemovesAPhotoAndThePlaceSheetsAreNative() {

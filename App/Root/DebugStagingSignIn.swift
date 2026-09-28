@@ -11,10 +11,6 @@ import Foundation
 /// for any environment other than staging — so a Release build has neither the code nor the code
 /// path. The credentials are the demo account already committed in `supabase/seed.sql`.
 struct DebugStagingSignIn: Sendable {
-    /// Signs in without a tap — how a sim drive reaches the app while auth is still a stub.
-    /// `xcrun simctl launch … -ate-debug-signin`.
-    static let autoSignInArgument = "-ate-debug-signin"
-
     let title: String
     private let action: @Sendable () async -> Void
 
@@ -25,8 +21,9 @@ struct DebugStagingSignIn: Sendable {
 
     func signIn() async { await action() }
 
+    /// Signs in without a tap — how a sim drive reaches the app (``DebugLaunch/Flag/debugSignIn``).
     var isAutoSignInRequested: Bool {
-        ProcessInfo.processInfo.arguments.contains(Self.autoSignInArgument)
+        DebugLaunch.isOn(.debugSignIn)
     }
 
     #if DEBUG || BETA

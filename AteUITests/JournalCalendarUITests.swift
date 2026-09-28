@@ -4,7 +4,7 @@ import XCTest
 /// narrowing the list and its ✕ taking it off; the calendar button and a pinch zooming out to the
 /// month and the year and back; a day on the calendar bringing the list back at that day.
 ///
-/// Against `-ate-preview-data` with `-ate-preview-journal`'s longer journal, so it needs no backend
+/// Against `-ate-preview-data` with the `journal` fixture's longer journal, so it needs no backend
 /// and writes nothing. With `BROWSE_SHOT_DIR` set the drives drop stills there (`ATE_DARK=1` for the
 /// dark ones).
 final class JournalCalendarUITests: XCTestCase {
@@ -101,7 +101,7 @@ final class JournalCalendarUITests: XCTestCase {
     /// Stills only: the one top frost over a pushed page (a place), scrolled.
     func testTopFrostOnAPushedPage() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["BROWSE_SHOT_DIR"] != nil, "stills only")
-        let app = launch(["-ate-open-place"])
+        let app = launch(["-ate-open", "place/b7e00000-0000-4000-8000-000000000001"])
         XCTAssertTrue(app.buttons["nav.back"].firstMatch.waitForExistence(timeout: 10))
         pause(1.2)
         save("pushed-rest")
@@ -121,7 +121,7 @@ final class JournalCalendarUITests: XCTestCase {
     private func launch(_ arguments: [String]) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-ate-preview-data", "-ate-preview-journal", "-ate-ui-testing"] + arguments
+        app.launchArguments = ["-ate-preview-data", "-ate-fixture", "journal", "-ate-ui-testing"] + arguments
         if isDark { app.launchArguments += ["-AppleInterfaceStyle", "Dark"] }
         app.launch()
         return app

@@ -115,3 +115,15 @@ extension DishPreview {
         )
     }
 }
+
+extension TagDishesScreen {
+    /// One tag's dishes, opened from a dish page's chip (round 7).
+    init(tag: DishTagRoute, context: RouteContext) {
+        self.init(
+            tag: tag,
+            reads: context.services.dishExplore,
+            analytics: context.services.analytics,
+            onDish: { context.open(.dish($0), from: .tag) }
+        )
+    }
+}

@@ -71,7 +71,7 @@ extension AteShell {
                 // while it is the current one (`AteChromeTracker`).
                 .environment(\.ateTabRoot, tab)
                 .navigationDestination(for: Route.self) { route in
-                    destination(route)
+                    route.destination(routeContext(for: route))
                         // The page's own top bar (`ateNavigationBar`), no system bars, and the ground
                         // over the root and its tab bar.
                         .ateNavigationBarHost()

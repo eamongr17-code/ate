@@ -4,7 +4,7 @@ import XCTest
 /// was opened with (no blank paper), the swipe back — finished and cancelled — bringing the tab bar
 /// with it, and Search's filter sheet.
 ///
-/// Against `-ate-preview-data` (with `-ate-preview-journal`'s longer journal), so it needs no backend
+/// Against `-ate-preview-data` (with the `journal` fixture's longer journal), so it needs no backend
 /// and writes nothing. The drives are paced for simulator recordings; with `BROWSE_SHOT_DIR` set they
 /// also drop stills there.
 final class BrowseRound4UITests: XCTestCase {
@@ -40,7 +40,7 @@ final class BrowseRound4UITests: XCTestCase {
     /// An entry opened by id alone — the debug drive's — is its skeleton until the read answers,
     /// then the page.
     func testEntryOpenedByIDFillsIn() {
-        let app = launch(["-ate-open-entry"])
+        let app = launch(["-ate-open", "entry/a7e00000-0000-4000-8000-000000000142"])
         XCTAssertTrue(app.otherElements["entry.dishes"].waitForExistence(timeout: 10))
         save("entry-by-id")
     }
@@ -49,7 +49,7 @@ final class BrowseRound4UITests: XCTestCase {
 
     /// Search: the same control at the end of the scopes, the same sheet (no order), the same pills.
     func testSearchFilterSheet() {
-        let app = launch(["-ate-open-search", "-ate-search-scope", "dishes", "-ate-search-query", "ra"])
+        let app = launch(["-ate-open", "search/dishes?q=ra"])
         let control = app.buttons["search.filter"]
         XCTAssertTrue(control.waitForExistence(timeout: 10), "the filter control sits with the scopes")
         pause(0.8)
@@ -80,7 +80,7 @@ final class BrowseRound4UITests: XCTestCase {
     private func launch(_ arguments: [String]) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-ate-preview-data", "-ate-preview-journal", "-ate-ui-testing"] + arguments
+        app.launchArguments = ["-ate-preview-data", "-ate-fixture", "journal", "-ate-ui-testing"] + arguments
         app.launch()
         return app
     }

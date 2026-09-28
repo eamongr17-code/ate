@@ -40,9 +40,10 @@ xcrun xcresulttool export attachments --path run.xcresult --output-path shots
 ```
 
 `AteUITests` drives the core loop against an in-memory service (`-ate-preview-data`), so it needs no
-backend, no session and no network, and attaches a screenshot at every step. The Debug-only launch
-arguments that put a single screen into a state — `-ate-preview-empty`, `-ate-open-composer`,
-`-ate-seed-draft`, `-ate-open-scoring`, `-ate-open-entry`, `-ate-open-place-sheet`,
-`-ate-open-dish-sheet` — are listed in `App/Compose/ComposerDebugLaunch.swift`.
+backend, no session and no network, and attaches a screenshot at every step. Every Debug-only launch
+argument is declared in `AteKit/Sources/AteKit/Debug/DebugLaunch.swift` and nowhere else:
+`-ate-open <route>` opens a screen by its link path (`entry/<id>`, `dish/<id>`, `composer?score`,
+`search/dishes?q=ra`), `-ate-fixture <set>` adds a preview data set (`journal`, `draft`, `empty`…),
+and a handful of switches (`-ate-ui-testing`, `-ate-slow-sort`…) change behaviour.
 
 *Predecessor: the Expo build lives at `eamongr17-code/ate-legacy` (archived).*
