@@ -130,12 +130,19 @@ public struct DateWindow: Hashable, Sendable {
     /// 2026", "Nov 2025–Feb 2026", "Since Mar 2026", "To Jun 2026". `nil` for no filter.
     public func title(now: Date = Date(), calendar: Calendar = .autoupdatingCurrent) -> String? {
         if isAll { return nil }
+        return presetTitle(now: now, calendar: calendar) ?? monthsTitle
+    }
+
+    private func presetTitle(now: Date, calendar: Calendar) -> String? {
         switch preset(now: now, calendar: calendar) {
-        case .thisMonth: return "This month"
-        case .threeMonths: return "Last 3 months"
-        case .thisYear: return "This year"
-        default: break
+        case .thisMonth: "This month"
+        case .threeMonths: "Last 3 months"
+        case .thisYear: "This year"
+        case .all, nil: nil
         }
+    }
+
+    private var monthsTitle: String? {
         switch (from, to) {
         case let (from?, to?) where from == to:
             return "\(from.shortName()) \(from.year)"

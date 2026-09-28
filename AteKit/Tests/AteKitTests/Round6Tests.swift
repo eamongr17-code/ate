@@ -28,7 +28,7 @@ struct TopDishesTests {
     @Test("four at most, best score first, one tile per dish, reading no further than needed")
     func read() async {
         let pasta = UUID()
-        var asked: [Double] = []
+        let asked = Asked()
         let pages: [Double: [ScoredDish]] = [
             6: [Self.dish("Prawn spaghetti", 6)],
             5: [Self.dish("Pasta", 5, id: pasta), Self.dish("Pasta again", 5, id: pasta), Self.dish("Toast", 5)],
@@ -36,11 +36,19 @@ struct TopDishesTests {
             4: [Self.dish("Soup", 4)]
         ]
         let picked = await TopDishes.read(scores: [6, 5, 4.5, 4]) { score in
-            asked.append(score)
+            asked.note(score)
             return pages[score] ?? []
         }
         #expect(picked?.map(\.dishName) == ["Prawn spaghetti", "Pasta", "Toast", "Cake"])
-        #expect(asked == [6, 5, 4.5], "4.0 is never read once four are in hand")
+        #expect(asked.scores == [6, 5, 4.5], "4.0 is never read once four are in hand")
+    }
+
+    /// The scores a read was asked for, from a `@Sendable` page reader.
+    private final class Asked: @unchecked Sendable {
+        private let lock = NSLock()
+        private var asked: [Double] = []
+        var scores: [Double] { lock.withLock { asked } }
+        func note(_ score: Double) { lock.withLock { asked.append(score) } }
     }
 
     @Test("a failed read is skipped; all of them failing is no answer, not an empty section")

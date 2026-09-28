@@ -28,7 +28,7 @@ public enum TopDishes {
     /// Reads score by score, best first, until four dishes are in hand.
     public static func read(
         scores: [Double],
-        page: (Double) async throws -> [ScoredDish]
+        page: @Sendable (Double) async throws -> [ScoredDish]
     ) async -> [ScoredDish]? {
         var picked: [ScoredDish] = []
         var seen = Set<UUID>()

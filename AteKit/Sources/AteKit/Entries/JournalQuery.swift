@@ -181,12 +181,8 @@ public struct JournalQuery: Hashable, Sendable {
     /// whether a freshly written entry may be put at the top of a filtered list.
     public func matches(_ card: EntryCard, calendar: Calendar = .autoupdatingCurrent) -> Bool {
         if let place, card.restaurantID != place.restaurantID { return false }
-        if let minScore {
-            guard let best = card.bestScore, best >= minScore else { return false }
-        }
-        if let maxScore {
-            guard let best = card.bestScore, best <= maxScore else { return false }
-        }
+        // The range's own rule: no bound is everything, any bound leaves the unscored out.
+        if band.contains(card.bestScore) == false { return false }
         if let city, AteCity.slug(for: card.place?.city) != city { return false }
         if window.contains(card.createdAt, calendar: calendar) == false { return false }
         if let tag, card.items.contains(where: { $0.tags.contains(tag) }) == false { return false }
