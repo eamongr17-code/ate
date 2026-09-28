@@ -222,7 +222,14 @@ struct EntryScreen: View {
                 // Your own rows are corrections; somebody else's are bookmarks.
                 EntryDishRows(
                     dishes: model.dishes,
-                    onOpen: { onDish($0.dishID) },
+                    onOpen: { dish in
+                        // Its page draws the name and the place at once (round 6).
+                        DishPreviews.shared.note(DishPreview(
+                            dishID: dish.dishID, name: dish.name,
+                            restaurantID: card.place?.id, restaurantName: card.place?.name
+                        ))
+                        onDish(dish.dishID)
+                    },
                     onCorrect: card.isMine ? { dish in model.correct(dish) } : nil,
                     onSave: card.isMine ? nil : { dish in Task { await model.toggleSave(dish: dish) } },
                     tapOpensDetail: tapOpensDetail
@@ -241,7 +248,10 @@ struct EntryScreen: View {
     /// has no correction, so its line always opens the page. A place never attached is not guessed
     /// at (design rule 8): the line carries only the day, and on your own entry it attaches one.
     private func placeLine(_ card: EntryCard) -> some View {
-        let openPage: (() -> Void)? = card.place.map { place in { onPlace(place.id) } }
+        let openPage: (() -> Void)? = card.place.map { place in {
+            PlacePreviews.shared.note(place.id, name: place.name)
+            onPlace(place.id)
+        } }
         let correct: (() -> Void)? = card.isMine ? { model.isCorrectingPlace = true } : nil
         let primary = tapOpensDetail ? (openPage ?? correct) : (correct ?? openPage)
         let secondary: (title: String, action: () -> Void)? = if tapOpensDetail {

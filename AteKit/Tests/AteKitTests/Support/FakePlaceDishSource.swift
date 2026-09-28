@@ -79,7 +79,7 @@ final class FakePlaceDishSource: PlacePageReading, DishPageReading, @unchecked S
         try lock.withLock {
             if let failure = state.menuFailure { throw failure }
             state.menuCursors.append(cursor)
-            // The fake stands in for the server's ORDER BY, which since 0030 is DishRanking's
+            // The fake stands in for the server's ORDER BY, which since 0051 is DishRanking's
             // rule — so a test can seed in any order and still assert the product order, and the
             // store is proved not to reorder what it is handed.
             // …and a dish nobody has written about is not on the menu at all (0030).

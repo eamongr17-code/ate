@@ -1,8 +1,9 @@
 import XCTest
 
 /// **Round 5, detail + share**: a link opens the entry it points at, somebody else's entry is shared
-/// as a link (never their receipt), a sheet rises with its rows already in it, a photo floats over
-/// the blurred page, the Diet key unfolds its codes, and the share receipt leads with the dishes.
+/// as a link (never their receipt), a sheet rises with its rows already in it, a photo zooms open
+/// full screen (round 6: build 80's viewer again), the Diet key unfolds its codes, and the share
+/// receipt leads with the dishes.
 ///
 /// Against `-ate-preview-data`, so it writes nothing.
 final class DetailRound5UITests: XCTestCase {
@@ -115,41 +116,73 @@ final class DetailRound5UITests: XCTestCase {
                              "its places are in the sheet as it rises")
     }
 
-    // MARK: - The photo, over the blurred page
+    // MARK: - The photo viewer (round 6: back to build 80's native zoom)
 
-    func testAPhotoFloatsOverThePageSwipesPinchesAndGoesBack() {
+    /// A tapped photo zooms open full screen at its own shape, swipes to the next, pinches, and a
+    /// swipe down — or Close — puts it back.
+    func testAPhotoZoomsOpenSwipesPinchesAndGoesBack() {
         launch(["-ate-open-entry"])
         let photo = app.buttons["photo.1"].firstMatch
         XCTAssertTrue(photo.waitForExistence(timeout: 10))
         sleep(1)
         photo.tap()
-        let preview = app.descendants(matching: .any)["photo.preview"].firstMatch
-        XCTAssertTrue(preview.waitForExistence(timeout: 5), "the photo is up over the page")
-        let card = app.descendants(matching: .any)["photo.preview.card"].firstMatch
-        XCTAssertTrue(card.waitForExistence(timeout: 3))
-        XCTAssertEqual(card.label, "Photo 2 of 3", "it opens on the photo that was tapped")
+        let viewer = app.descendants(matching: .any)["entry.photoViewer"].firstMatch
+        let close = app.buttons["Close"].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 5), "the viewer is up")
+        XCTAssertTrue(app.descendants(matching: .any)["Photo 2 of 3"].firstMatch.waitForExistence(timeout: 3),
+                      "it opens on the photo that was tapped")
         sleep(1)
-        let middle = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
-        middle.press(forDuration: 0.05, thenDragTo: middle.withOffset(CGVector(dx: -260, dy: 0)),
+        let middle = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        middle.press(forDuration: 0.05, thenDragTo: middle.withOffset(CGVector(dx: -300, dy: 0)),
                      withVelocity: .fast, thenHoldForDuration: 0)
-        XCTAssertTrue(waitUntil(timeout: 3) { card.label == "Photo 3 of 3" }, "a swipe pages to the next")
-        middle.press(forDuration: 0.05, thenDragTo: middle.withOffset(CGVector(dx: 260, dy: 0)),
-                     withVelocity: .fast, thenHoldForDuration: 0)
-        XCTAssertTrue(waitUntil(timeout: 3) { card.label == "Photo 2 of 3" }, "and back")
-        card.pinch(withScale: 2.2, velocity: 2)
         sleep(1)
-        card.doubleTap()
+        XCTAssertTrue(close.exists, "a swipe pages; it does not close")
+        app.pinch(withScale: 2.2, velocity: 2)
         sleep(1)
-        XCTAssertTrue(preview.exists, "zooming does not put it away")
-        middle.press(forDuration: 0.05, thenDragTo: middle.withOffset(CGVector(dx: 0, dy: 420)),
+        app.doubleTap()
+        sleep(1)
+        XCTAssertTrue(close.exists, "zooming does not put it away")
+        middle.press(forDuration: 0.05, thenDragTo: middle.withOffset(CGVector(dx: 0, dy: 480)),
                      withVelocity: .fast, thenHoldForDuration: 0)
-        XCTAssertTrue(waitUntil(timeout: 5) { preview.exists == false }, "a swipe down puts it away")
+        XCTAssertTrue(waitUntil(timeout: 5) { viewer.exists == false }, "a swipe down puts it away")
         photo.tap()
-        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
         sleep(1)
-        // Above the card and below the status bar, on the blurred page.
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.14)).tap()
-        XCTAssertTrue(waitUntil(timeout: 5) { preview.exists == false }, "a tap outside puts it away")
+        close.tap()
+        XCTAssertTrue(waitUntil(timeout: 5) { viewer.exists == false }, "Close puts it away")
+    }
+
+    // MARK: - Round 6: a detail page draws at once
+
+    /// With the reads held back 2s (`-ate-slow-detail`), a dish opened from a feed slip already shows
+    /// its name and its place on arrival, and the rest fills in without the name moving.
+    func testADishPageDrawsAtOnceFromTheRowThatOpenedIt() {
+        launch(["-ate-open-feed", "-ate-slow-detail"])
+        let row = app.descendants(matching: .any).matching(identifier: "feed.slip.dish").firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        let name = row.label.components(separatedBy: ",").first ?? row.label
+        row.tap()
+        let place = app.buttons["dish.place"].firstMatch
+        XCTAssertTrue(place.waitForExistence(timeout: 1.5), "the place is there before the read answers")
+        let title = app.staticTexts[name].firstMatch
+        XCTAssertTrue(title.exists, "and the dish's name")
+        let top = title.frame.minY
+        XCTAssertFalse(app.buttons["dish.save"].exists, "the read has not answered yet")
+        XCTAssertTrue(app.buttons["dish.save"].waitForExistence(timeout: 8), "then it does")
+        XCTAssertEqual(title.frame.minY, top, accuracy: 0.5, "and the name did not move")
+    }
+
+    /// The same for a place opened from a slip's pin line.
+    func testAPlacePageDrawsItsNameAtOnce() {
+        launch(["-ate-open-feed", "-ate-slow-detail"])
+        let line = app.descendants(matching: .any).matching(identifier: "feed.slip.place").firstMatch
+        XCTAssertTrue(line.waitForExistence(timeout: 10))
+        line.tap()
+        let heading = app.staticTexts.matching(NSPredicate(format: "label == %@", "Tipo 00")).firstMatch
+        XCTAssertTrue(heading.waitForExistence(timeout: 1.5), "the place's name is there before the read answers")
+        let top = heading.frame.minY
+        XCTAssertTrue(app.descendants(matching: .any)["place.menu"].waitForExistence(timeout: 8))
+        XCTAssertEqual(heading.frame.minY, top, accuracy: 0.5, "and it did not move")
     }
 
     // MARK: - The Diet key

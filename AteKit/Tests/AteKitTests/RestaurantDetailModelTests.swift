@@ -57,7 +57,7 @@ struct RestaurantDetailModelTests {
         #expect(model.dishes[0].isRated == false)
     }
 
-    @Test("the dish list is ranked most-reviewed then best-rated")
+    @Test("the dish list is ranked by rating (0051), unscored last")
     func dishListIsRanked() async {
         let source = FakeDetailDataSource()
         await source.insert(
@@ -80,7 +80,7 @@ struct RestaurantDetailModelTests {
         let model = RestaurantDetailModel(restaurantID: DetailFixtures.id("rest-1"), dataSource: source)
         await model.load()
 
-        #expect(model.dishes.map(\.name) == ["The house dish", "One perfect review", "Nobody's tried it"])
+        #expect(model.dishes.map(\.name) == ["One perfect review", "The house dish", "Nobody's tried it"])
     }
 
     @Test("an empty restaurant is an empty state, not a failure")

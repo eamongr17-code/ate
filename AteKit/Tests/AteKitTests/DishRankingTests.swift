@@ -12,32 +12,33 @@ struct DishRankingTests {
         return DishRanking.rank(dishes: dishes, stats: stats).map(\.name)
     }
 
-    @Test("most-reviewed first: one perfect score does not outrank a well-reviewed dish")
-    func reviewCountLeads() {
+    @Test("by rating (0051): a lonely 5.0 leads a well-reviewed 4.4, and a 6 leads every 5")
+    func ratingLeads() {
         let order = ranked([
             (seed: "dish-1", name: "Lonely 5.0", score: 5.0, count: 1),
-            (seed: "dish-2", name: "Beloved 4.4", score: 4.4, count: 12)
+            (seed: "dish-2", name: "Beloved 4.4", score: 4.4, count: 12),
+            (seed: "dish-3", name: "Secret 6", score: 6.0, count: 1)
         ])
-        #expect(order == ["Beloved 4.4", "Lonely 5.0"])
+        #expect(order == ["Secret 6", "Lonely 5.0", "Beloved 4.4"])
     }
 
-    @Test("score breaks a review-count tie, highest first")
-    func scoreBreaksTies() {
+    @Test("review count breaks a tie on the printed score — 4.62 and 4.58 both read 4.6")
+    func reviewCountBreaksPrintedTies() {
         let order = ranked([
-            (seed: "dish-1", name: "Good", score: 4.0, count: 5),
-            (seed: "dish-2", name: "Great", score: 4.8, count: 5),
-            (seed: "dish-3", name: "Fine", score: 3.2, count: 5)
+            (seed: "dish-1", name: "Few", score: 4.62, count: 2),
+            (seed: "dish-2", name: "Many", score: 4.58, count: 9),
+            (seed: "dish-3", name: "Lower", score: 4.4, count: 30)
         ])
-        #expect(order == ["Great", "Good", "Fine"])
+        #expect(order == ["Many", "Few", "Lower"])
     }
 
     @Test("an unrated dish sinks below every rated one — nil is not 0, and not first either")
     func unratedSinks() {
         let order = ranked([
-            (seed: "dish-1", name: "Want to try", score: nil, count: 0),
+            (seed: "dish-1", name: "Want to try", score: nil, count: 8),
             (seed: "dish-2", name: "Rated", score: 2.0, count: 3)
         ])
-        #expect(order == ["Rated", "Want to try"])
+        #expect(order == ["Rated", "Want to try"], "unscored follows every scored dish, however often ordered")
 
         // And at an equal (zero) review count, a nil score sorts after a real one rather than
         // comparing as 0 and jumping the queue.

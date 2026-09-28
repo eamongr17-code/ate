@@ -11,6 +11,8 @@ struct AtePhotoOrigin: Sendable {
         var frame: CGRect
         var radius: CGFloat
         var angle: Double
+        /// The `.zoom` transition's source.
+        var sourceID: String
     }
 
     var tiles: [Int: Tile]
@@ -32,23 +34,30 @@ final class AtePhotoOriginRelay {
 
 extension EnvironmentValues {
     @Entry var atePhotoOriginRelay: AtePhotoOriginRelay?
+    /// The namespace the viewer's `.zoom` sources are matched in.
+    @Entry var atePhotoZoomNamespace: Namespace.ID?
 }
 
 /// The tiles of one cluster, measured as they lay out — held in a box rather than state, because a
 /// frame moving on every scroll must never redraw the cluster.
 @MainActor
 final class AtePhotoTileFrames {
+    let key = UUID().uuidString
     var frames: [Int: CGRect] = [:]
+
+    func sourceID(_ index: Int) -> String { "\(key).\(index)" }
 
     func origin(radius: (Int) -> CGFloat, angle: (Int) -> Double) -> AtePhotoOrigin {
         AtePhotoOrigin(tiles: Dictionary(uniqueKeysWithValues: frames.map { index, frame in
-            (index, AtePhotoOrigin.Tile(frame: frame, radius: radius(index), angle: angle(index)))
+            (index, AtePhotoOrigin.Tile(frame: frame, radius: radius(index), angle: angle(index),
+                                        sourceID: sourceID(index)))
         }))
     }
 }
 
 extension View {
-    /// Marks a photo tile as something the preview grows from: its frame is measured into `frames`.
+    /// Marks a photo tile as something a preview grows from: its frame is measured into `frames`,
+    /// and it is the `.zoom` transition's source.
     func atePhotoSource(_ frames: AtePhotoTileFrames, index: Int) -> some View {
         modifier(AtePhotoSourceModifier(frames: frames, index: index))
     }
@@ -57,10 +66,16 @@ extension View {
 private struct AtePhotoSourceModifier: ViewModifier {
     let frames: AtePhotoTileFrames
     let index: Int
+    @Environment(\.atePhotoZoomNamespace) private var zoom
 
     func body(content: Content) -> some View {
-        content.onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+        let measured = content.onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
             frames.frames[index] = frame
+        }
+        if let zoom {
+            measured.matchedTransitionSource(id: frames.sourceID(index), in: zoom)
+        } else {
+            measured
         }
     }
 }
