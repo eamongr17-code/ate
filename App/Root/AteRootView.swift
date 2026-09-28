@@ -18,27 +18,10 @@ struct AteRootView: View {
     }
 
     var body: some View {
-        content
+        resolved
             // Settings' Appearance, applied to the window so Welcome, every sheet and every cover
             // follow it too — not just the views under one modifier.
             .ateAppearance(AtePreferences.standard.appearance)
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        #if DEBUG || BETA
-        // The gallery has no backend at all, so it must not be reachable only through a screen that
-        // needs one: `-ate-design-gallery` opens it straight from launch, which is also how it gets
-        // driven on a simulator. Otherwise it presents from the ROOT (a `fullScreenCover` hung off a
-        // menu's content is not a reliable presentation context).
-        if ProcessInfo.processInfo.arguments.contains("-ate-design-gallery") {
-            DesignSystemGallery()
-        } else {
-            resolved.designSystemGalleryPresenter()
-        }
-        #else
-        resolved
-        #endif
     }
 
     @ViewBuilder

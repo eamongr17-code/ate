@@ -194,15 +194,6 @@ struct BrowseRound4Tests {
         #expect(first.nextCursor?.score == 4)
     }
 
-    @Test("the mock offers each place written at, busiest first")
-    func mockPlaces() async throws {
-        let cards = [Self.card(2026, 9, 1, at: Self.lune), Self.card(2026, 9, 2), Self.card(2026, 9, 3),
-                     Self.card(2026, 9, 4, at: nil)]
-        let places = try await InMemoryJournalQuery(entries: InMemoryEntryService(entries: cards)).myEntryPlaces()
-        #expect(places.map(\.name) == ["Tipo 00", "Lune"])
-        #expect(places.map(\.entryCount) == [2, 1])
-    }
-
     @Test("applying a query re-reads from the top; clearing it returns to the plain journal")
     func storeApplies() async {
         let (store, _) = journal([
@@ -261,22 +252,6 @@ struct BrowseRound4Tests {
         for _ in 0..<50 where store.phase == .loading { await Task.yield() }
         #expect(store.entries.first?.id == written.id, "the entry just written is still on top")
         #expect(store.query.isDefault, "and the journal is not the filtered list")
-    }
-
-    @Test("an entry at a place the filter has never offered asks for the places again")
-    func newPlaceReloadsPlaces() async {
-        let service = InMemoryEntryService(entries: [Self.card(2026, 9, 1, at: Self.lune)])
-        let places = CountingPlaces(places: [JournalPlace(restaurantID: Self.lune.id, name: "Lune")])
-        let store = JournalStore(entries: service, querying: places)
-        await store.loadIfNeeded()
-        await store.loadPlaces()
-        #expect(await places.asked == 1)
-        store.insert(Self.card(2026, 9, 18, at: Self.lune))
-        #expect(await places.asked == 1, "a place already offered asks nothing")
-        await places.add(JournalPlace(restaurantID: Self.tipo.id, name: "Tipo 00"))
-        store.insert(Self.card(2026, 9, 20, at: Self.tipo))
-        for _ in 0..<100 where store.places.count < 2 { await Task.yield() }
-        #expect(store.places.map(\.name) == ["Lune", "Tipo 00"])
     }
 
     // MARK: - The entry page's refresh (QA)
@@ -396,8 +371,6 @@ private actor GatedJournalQuery: JournalQuerying {
         return try await inner.myEntries(query, after: cursor, pageSize: pageSize)
     }
 
-    func myEntryPlaces() async throws -> [JournalPlace] { try await inner.myEntryPlaces() }
-
     func waitUntilAsked() async {
         if asked { return }
         await withCheckedContinuation { askWaiters.append($0) }
@@ -407,26 +380,5 @@ private actor GatedJournalQuery: JournalQuerying {
         isOpen = true
         waiting.forEach { $0.resume() }
         waiting = []
-    }
-}
-
-/// Places on demand, counting how often they were asked for.
-private actor CountingPlaces: JournalQuerying {
-    private var places: [JournalPlace]
-    private(set) var asked = 0
-
-    init(places: [JournalPlace]) { self.places = places }
-
-    func add(_ place: JournalPlace) { places.append(place) }
-
-    func myEntries(
-        _ query: JournalQuery, after cursor: JournalCursor?, pageSize: Int
-    ) async throws -> JournalQueryPage {
-        JournalQueryPage(items: [], nextCursor: nil)
-    }
-
-    func myEntryPlaces() async throws -> [JournalPlace] {
-        asked += 1
-        return places
     }
 }

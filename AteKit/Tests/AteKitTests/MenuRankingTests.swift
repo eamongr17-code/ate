@@ -3,13 +3,26 @@ import Testing
 
 @testable import AteKit
 
+/// The in-memory menu's order (``MenuDish/isRankedBefore(_:_:)``) — the rule `place_dishes` orders by.
 @Suite("Restaurant dish ranking")
-struct DishRankingTests {
+struct MenuRankingTests {
     // swiftlint:disable:next large_tuple
     private func ranked(_ specs: [(seed: String, name: String, score: Double?, count: Int)]) -> [String] {
-        let dishes = specs.map { DetailFixtures.dish($0.seed, name: $0.name) }
-        let stats = specs.map { DetailFixtures.dishStats($0.seed, score: $0.score, reviewCount: $0.count) }
-        return DishRanking.rank(dishes: dishes, stats: stats).map(\.name)
+        specs.map { spec in
+            MenuDish(dishID: dishID(spec.seed), name: spec.name, score: spec.score, reviewCount: spec.count)
+        }
+        .sorted(by: MenuDish.isRankedBefore)
+        .map(\.name)
+    }
+
+    /// Readable, deterministic ids (`dish-1`), so a failure points at something.
+    private func dishID(_ seed: String) -> UUID {
+        var bytes = Array(seed.utf8.prefix(16))
+        bytes.append(contentsOf: Array(repeating: UInt8(0), count: 16 - bytes.count))
+        return UUID(uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
     }
 
     @Test("by rating (0051): a lonely 5.0 leads a well-reviewed 4.4, and a 6 leads every 5")
@@ -59,26 +72,5 @@ struct DishRankingTests {
         ]
         #expect(ranked(specs) == ["alpha", "Bravo", "Charlie"])
         #expect(ranked(specs.reversed()) == ["alpha", "Bravo", "Charlie"])
-    }
-
-    @Test("a dish with no stats row still lists, as unrated")
-    func missingStatsRow() {
-        let dishes = [DetailFixtures.dish("dish-1", name: "Orphan"), DetailFixtures.dish("dish-2", name: "Known")]
-        let stats = [DetailFixtures.dishStats("dish-2", score: 4.0, reviewCount: 2)]
-        let result = DishRanking.rank(dishes: dishes, stats: stats)
-        #expect(result.map(\.name) == ["Known", "Orphan"])
-        #expect(result.last?.isRated == false)
-        #expect(result.last?.score == nil)
-        #expect(result.last?.reviewCount == 0)
-    }
-
-    @Test("merged-away dishes never appear on the menu")
-    func tombstonesExcluded() {
-        let dishes = [
-            DetailFixtures.dish("dish-1", name: "Survivor"),
-            DetailFixtures.dish("dish-2", name: "Merged away", mergedInto: DetailFixtures.id("dish-1"))
-        ]
-        let result = DishRanking.rank(dishes: dishes, stats: [])
-        #expect(result.map(\.name) == ["Survivor"])
     }
 }

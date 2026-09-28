@@ -90,10 +90,6 @@ extension AteTextStyle {
     static let entryPlace = AteTextStyle(
         voice: .display, size: 38, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
     )
-    /// The place at the head of a receipt. 32pt.
-    static let receiptPlace = AteTextStyle(
-        voice: .display, size: 32, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
-    )
     /// A sheet's title. 30pt.
     static let sheetTitle = AteTextStyle(
         voice: .display, size: 30, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
@@ -188,10 +184,6 @@ extension AteTextStyle {
     static let tileCaption = AteTextStyle(
         voice: .display, size: 12, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .caption
     )
-    /// The place on a slip's place line — `.meta`'s size in the control weight, in full ink.
-    static let slipPlaceName = AteTextStyle(
-        voice: .display, size: 13, weight: 600, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote
-    )
     /// A dietary tag's code in its linen chip (`DietTagsB`): Bricolage 600 at 10.5, capitals,
     /// tracking 6%, `line-height:1`. Capped — the chip is a fixed 18pt.
     static let dietTag = AteTextStyle(
@@ -253,10 +245,6 @@ extension AteTextStyle {
     /// The words on their own page (Entry) and in a journal slip. 16pt.
     static let prose = AteTextStyle(
         voice: .prose, size: 16, weight: 400, lineHeight: 1.45, textStyle: .body
-    )
-    /// The words in a feed slip, beside a thumbnail. 15pt.
-    static let proseCompact = AteTextStyle(
-        voice: .prose, size: 15, weight: 400, lineHeight: 1.4, textStyle: .body
     )
 
     // Receipts — DM Mono, and only here. Dish rows and scores only: no note under a line, ever.
@@ -336,16 +324,6 @@ enum AteFont {
     /// The point size after Dynamic Type — what tracking and line spacing are computed from.
     static func size(for style: AteTextStyle, dynamicTypeSize: DynamicTypeSize = .large) -> CGFloat {
         uiFont(for: style, dynamicTypeSize: dynamicTypeSize).pointSize
-    }
-
-    /// Whether the bundled families are actually present. Shown in the debug gallery so a missing
-    /// font is visible as a fact rather than guessed at from a screenshot.
-    static var bundledFamiliesAreAvailable: Bool {
-        AteFontRegistry.shared.isAvailable
-    }
-
-    static var registeredFaceNames: [String] {
-        AteFontRegistry.shared.faceNames
     }
 
     // MARK: Private

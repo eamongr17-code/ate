@@ -39,20 +39,6 @@ public struct InMemoryJournalQuery: JournalQuerying {
         AteCity.counted(try await everything().map { $0.place?.city })
     }
 
-    public func myEntryPlaces() async throws -> [JournalPlace] {
-        var counts: [UUID: (place: EntryCard.Place, count: Int)] = [:]
-        for card in try await everything() {
-            guard let place = card.place else { continue }
-            counts[place.id, default: (place, 0)].count += 1
-        }
-        return counts.values
-            .map {
-                JournalPlace(restaurantID: $0.place.id, name: $0.place.name,
-                             locality: $0.place.locality, entryCount: $0.count)
-            }
-            .sorted { ($0.entryCount, $1.name) > ($1.entryCount, $0.name) }
-    }
-
     private func everything() async throws -> [EntryCard] {
         var all: [EntryCard] = []
         var cursor: PageCursor?

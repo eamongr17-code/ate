@@ -307,14 +307,13 @@ public struct JournalQueryPage: Sendable {
 }
 
 /// **The journal's filter and sort reads** (round 4 contract): `my_entries` for the ordered ids,
-/// `entry_cards` for the rows, and `my_entry_places` for the place filter's choices.
+/// `entry_cards` for the rows.
 public protocol JournalQuerying: Sendable {
     func myEntries(
         _ query: JournalQuery,
         after cursor: JournalCursor?,
         pageSize: Int
     ) async throws -> JournalQueryPage
-    func myEntryPlaces() async throws -> [JournalPlace]
     /// `my_entry_cities()` (0047) — the cities your own entries are in, busiest first: the filter's
     /// City choices.
     func myEntryCities() async throws -> [AteCity]

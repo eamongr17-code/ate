@@ -305,32 +305,9 @@ extension ComposerScreen {
     }
 }
 
-// MARK: - Voice (parked) and the camera key
-
-/// **Voice mode is parked** (round 4). The mic key is off the toolbar and nothing in the product
-/// reaches `ComposerVoice`, so neither the microphone nor the speech-recognition permission is ever
-/// asked for. The code stays whole — `VoiceComposerScreen`, `VoiceTranscriber`,
-/// `DictationController` and their tests — and comes back by flipping this one constant (and putting
-/// the key back in ``ComposerToolbar``). The keyboard's own dictation is the voice path meanwhile.
-enum VoiceParking {
-    static let isEnabled = false
-}
+// MARK: - The camera key
 
 extension ComposerScreen {
-
-    /// The keyboard goes down and `ComposerVoice` comes up over the words. The editor stays exactly
-    /// where it is underneath; dictation writes into the same model, and the text view takes it all
-    /// back in one edit when the microphone closes. Unreachable while ``VoiceParking`` holds.
-    func startDictation() {
-        guard VoiceParking.isEnabled, isDictating == false else { return }
-        model.dismissScoring(refocus: false)
-        dictation = DictationController(
-            target: model, transcriber: makeTranscriber(), analytics: services.analytics
-        )
-        isDictating = true
-    }
-
-    // MARK: - The camera key
 
     /// The camera, if this phone has one and the person has let us use it. Refused, the key goes to
     /// Settings: there is nothing the app can say about it that the system does not already.
