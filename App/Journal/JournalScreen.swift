@@ -124,7 +124,8 @@ struct JournalScreen: View {
                       prepare: { await loadCitiesIfNeeded() }, content: {
                 AteBrowseFilterSheet(
                     initial: AteBrowseFilterDraft(
-                        sort: store.query.sort, band: store.query.band, city: store.query.city
+                        sort: store.query.sort, band: store.query.band, city: store.query.city,
+                        window: store.query.window
                     ),
                     // Each shelf offers the cities it holds: you can save a dish in a city you have
                     // never written in.
@@ -176,7 +177,7 @@ struct JournalScreen: View {
 
     private func remove(_ filter: AteActiveFilter) {
         let query = store.query.removing(filter)
-        apply(AteBrowseFilterDraft(sort: query.sort, band: query.band, city: query.city))
+        apply(AteBrowseFilterDraft(sort: query.sort, band: query.band, city: query.city, window: query.window))
     }
 
     /// What the sheet waits on before it rises: the shelf's own cities, if they have not answered.
@@ -198,7 +199,9 @@ struct JournalScreen: View {
     private func openDebugState() async {
         #if DEBUG
         if JournalDebugLaunch.startsFiltered {
-            apply(AteBrowseFilterDraft(sort: .top, band: ScoreBand(lower: 4, upper: 5)))
+            apply(AteBrowseFilterDraft(
+                sort: .top, band: ScoreBand(lower: 4, upper: 5), window: JournalDebugLaunch.startingWindow
+            ))
         }
         guard JournalDebugLaunch.opensFilter else { return }
         // Once the demo filter has landed, so the sheet opens on it.
@@ -213,9 +216,9 @@ struct JournalScreen: View {
         // A whole new query from the draft (the order is only on the Journal's sheet; from Saved the
         // draft carries it unchanged). Nothing else survives — no place, diet or period left over
         // from before round 5, which no control can reach any more (QA on #84).
-        var query = JournalQuery(sort: draft.sort, city: draft.city)
+        var query = JournalQuery(sort: draft.sort, city: draft.city, window: draft.window)
         query.band = draft.band
-        let shelfFilter = SavedDishFilter(band: draft.band, city: draft.city)
+        let shelfFilter = SavedDishFilter(band: draft.band, city: draft.city, window: draft.window)
         guard query != store.query || shelfFilter != saved.filter else { return }
         listChanged += 1
         // Two reads, side by side: neither shelf waits on the other.

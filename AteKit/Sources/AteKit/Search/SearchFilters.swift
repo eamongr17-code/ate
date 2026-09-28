@@ -20,13 +20,17 @@ public struct SearchFilters: Sendable, Hashable {
     public var maximumScore: Double?
     /// The city a place is in (round 5). A display string until the backend's city contract lands.
     public var city: String?
+    /// The months the lines were eaten in (round 6, 0050): a windowed search counts only those lines,
+    /// so its numbers are the window's. On Saved, the day the dish was saved.
+    public var window: DateWindow = .all
 
     public init(
         cuisines: [String] = [],
         tags: [DietTag] = [],
         minimumScore: Double? = nil,
         maximumScore: Double? = nil,
-        city: String? = nil
+        city: String? = nil,
+        window: DateWindow = .all
     ) {
         var seen = Set<String>()
         self.cuisines = cuisines.filter { seen.insert($0.lowercased()).inserted }
@@ -34,6 +38,7 @@ public struct SearchFilters: Sendable, Hashable {
         self.minimumScore = minimumScore
         self.maximumScore = maximumScore
         self.city = city
+        self.window = window
     }
 
     /// The score range the two ends describe — what the range slider edits.
@@ -52,11 +57,12 @@ public struct SearchFilters: Sendable, Hashable {
 
     public var isEmpty: Bool {
         cuisines.isEmpty && tags.isEmpty && minimumScore == nil && maximumScore == nil && city == nil
+            && window.isAll
     }
 
     /// How many filters are on — what the single Filter pill counts.
     public var count: Int {
-        cuisines.count + tags.count + (band.isAll ? 0 : 1) + (city == nil ? 0 : 1)
+        cuisines.count + tags.count + (band.isAll ? 0 : 1) + (city == nil ? 0 : 1) + (window.isAll ? 0 : 1)
     }
 
     /// Every scope but People (round 5: the shelf takes the range and the city too, 0049).
@@ -133,6 +139,7 @@ public struct SearchFilters: Sendable, Hashable {
             case tag(DietTag)
             case minimumScore
             case city
+            case window
         }
 
         public let kind: Kind
@@ -144,6 +151,7 @@ public struct SearchFilters: Sendable, Hashable {
             case .tag(let tag): "tag.\(tag.rawValue)"
             case .minimumScore: "minScore"
             case .city: "city"
+            case .window: "window"
             }
         }
     }
@@ -152,6 +160,7 @@ public struct SearchFilters: Sendable, Hashable {
     /// "GF", "4.0+".
     public var pills: [Pill] {
         (city.map { [Pill(kind: .city, title: AteCity.displayName(for: $0))] } ?? [])
+            + (window.title().map { [Pill(kind: .window, title: $0)] } ?? [])
             + cuisines.map { Pill(kind: .cuisine($0), title: $0) }
             + tags.map { Pill(kind: .tag($0), title: $0.label) }
             + (scoreSummary.map { [Pill(kind: .minimumScore, title: $0)] } ?? [])
@@ -172,6 +181,10 @@ public struct SearchFilters: Sendable, Hashable {
             var next = self
             next.city = nil
             return next
+        case .window:
+            var next = self
+            next.window = .all
+            return next
         }
     }
 
@@ -188,6 +201,7 @@ public struct SearchFilters: Sendable, Hashable {
         // live functions already answer is unchanged.
         if let maximumScore { parameters["p_max_score"] = .double(maximumScore) }
         if let city { parameters["p_city"] = .string(city) }
+        parameters.merge(window.parameters()) { _, window in window }
         return parameters
     }
 }

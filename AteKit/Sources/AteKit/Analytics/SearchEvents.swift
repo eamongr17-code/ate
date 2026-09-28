@@ -40,6 +40,8 @@ public enum SearchEvents {
             // Round 5: the top of the range (none = open), and whether a city is on — never which.
             "max_score": filters.maximumScore.map { ScoreFormat.halfStep($0) } ?? "none",
             "has_city": filters.city == nil ? "false" : "true",
+            // Round 6: whether a date window is on — never which.
+            "has_window": filters.window.isAll ? "false" : "true",
             "filter_count": String(filters.count)
         ])
     }
