@@ -79,12 +79,20 @@ struct ComposerScreen: View {
                 // Frozen from the Post tap to the hand-off: what is posted is exactly what was on
                 // screen at the tap. Nothing dims and nothing new appears; the controls just stop
                 // answering — to a finger, and to VoiceOver (the photo X and Close by their guards).
-                Group {
+                VStack(spacing: 0) {
                     editor.ateAccessibilityHidden(isFrozen)
                     photoStrip
                     toolbar.ateAccessibilityHidden(isFrozen)
                 }
                 .allowsHitTesting(isFrozen == false)
+                // B: the writing dims a touch while it posts.
+                .overlay {
+                    if isFrozen, postingStyle == .page {
+                        PostingVeil()
+                            .transition(.opacity)
+                    }
+                }
+                .ateAnimation(.easeInOut(duration: 0.2), value: isFrozen)
             }
             .ateSurface()
             .ateComposerKeyboard(keyboard)
@@ -246,6 +254,7 @@ struct ComposerScreen: View {
                 title: postTitle,
                 isEnabled: model.canSave,
                 isBusy: isSaving,
+                printsDots: isFrozen && postingStyle == .pill,
                 action: post
             )
                 .accessibilityIdentifier("composer.post")
@@ -253,7 +262,17 @@ struct ComposerScreen: View {
         .ateContentTop()
         .padding(.leading, AteMetrics.regular)
         .padding(.bottom, AteMetrics.tight)
+        // B: the print head, along the header's foot, over the page rather than pushing it down.
+        .overlay(alignment: .bottom) {
+            if isFrozen, postingStyle == .page {
+                PostingPrinterLine()
+                    .transition(.opacity)
+            }
+        }
     }
+
+    /// Round 6 exploration: how "Posting…" shows it is working (``ComposerPostingStyle``).
+    private var postingStyle: ComposerPostingStyle { ComposerPostingStyle.current }
 
     /// **The whole composer freezes once a new entry is posted** (round 5, QA): the words, every
     /// key, the photo X, the library, the camera, Place and Close, until the Summary takes over.
