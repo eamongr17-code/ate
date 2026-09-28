@@ -40,6 +40,25 @@ public struct JournalQueryClient: JournalQuerying {
         return try JSONDecoder().decode([AteCity].self, from: data)
     }
 
+    /// `journal_days` (round 7): your days with an entry between two dates, inclusive, in the
+    /// device's zone.
+    public func journalDays(from: AteDay, to: AteDay) async throws -> [JournalDayCount] {
+        let parameters: [String: AnyJSON] = [
+            "p_from": .string(from.string),
+            "p_to": .string(to.string),
+            "p_tz": .string(TimeZone.autoupdatingCurrent.identifier)
+        ]
+        let data = try await api.supabase.rpc("journal_days", params: parameters).execute().data
+        return try JSONDecoder().decode([JournalDayCount].self, from: data)
+    }
+
+    /// `my_entries_count` (round 7): `my_entries`' own filters, counted.
+    public func myEntriesCount(_ query: JournalQuery) async throws -> Int {
+        let parameters = Self.countParameters(for: query)
+        let data = try await api.supabase.rpc("my_entries_count", params: parameters).execute().data
+        return try Self.decodeCount(data)
+    }
+
     public func myEntryPlaces() async throws -> [JournalPlace] {
         let data = try await api.supabase.rpc("my_entry_places").execute().data
         return try JSONDecoder().decode([JournalPlace].self, from: data)
@@ -86,6 +105,22 @@ public struct JournalQueryClient: JournalQuerying {
         // Top's keyset carries the score, `null` once the list is into its unscored tail.
         parameters["p_cursor_best_score"] = cursor?.score.map { .double($0) } ?? .null
         return parameters
+    }
+
+    /// `my_entries_count`'s arguments: exactly `my_entries`' filters — no order, cursor or limit.
+    static func countParameters(for query: JournalQuery, timeZone: TimeZone = .autoupdatingCurrent) -> [String: AnyJSON] {
+        let filterKeys: Set<String> = [
+            "p_min_score", "p_max_score", "p_city", "p_from", "p_to", "p_tz", "p_restaurant_id", "p_tag"
+        ]
+        return parameters(for: query, after: nil, pageSize: 1, timeZone: timeZone).filter { filterKeys.contains($0.key) }
+    }
+
+    /// A scalar RPC answers with the bare number (`14`); tolerate a one-row array too.
+    static func decodeCount(_ data: Data) throws -> Int {
+        if let count = try? JSONDecoder().decode(Int.self, from: data) { return count }
+        struct Row: Decodable { let count: Int }
+        if let rows = try? JSONDecoder().decode([Row].self, from: data), let first = rows.first { return first.count }
+        return try JSONDecoder().decode([Int].self, from: data).first ?? 0
     }
 
     /// `2026-09-01` — a Postgres `date`.

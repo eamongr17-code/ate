@@ -38,6 +38,9 @@ public final class JournalStore: EntryDeletionObserving {
     public private(set) var hasReachedEnd = false
     /// A page failed while content was already on screen. Shown inline, never as an alert.
     public private(set) var inlineErrorMessage: String?
+    /// Bumped by every change made here rather than read — an entry written, replaced or deleted —
+    /// so what is counted off the journal (the calendar's days) knows to count again.
+    public private(set) var localChanges = 0
     /// The order and filters the list is showing (round 4). The default is the journal itself and
     /// reads the plain journal path; anything else reads `my_entries`.
     public private(set) var query = JournalQuery()
@@ -204,6 +207,7 @@ public final class JournalStore: EntryDeletionObserving {
             entries.insert(card, at: 0)
         }
         phase = .ready
+        localChanges += 1
         regroup()
     }
 
@@ -211,6 +215,7 @@ public final class JournalStore: EntryDeletionObserving {
     public func replace(_ card: EntryCard) {
         guard let index = entries.firstIndex(where: { $0.id == card.id }) else { return }
         entries[index] = card
+        localChanges += 1
         regroup()
     }
 
@@ -220,6 +225,7 @@ public final class JournalStore: EntryDeletionObserving {
         guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return }
         entries.remove(at: index)
         if entries.isEmpty, phase == .ready { phase = .empty }
+        localChanges += 1
         regroup()
     }
 
@@ -268,6 +274,40 @@ public final class JournalStore: EntryDeletionObserving {
         pinned = []
         regroup()
     }
+
+    // MARK: - A day, from the calendar (round 7)
+
+    /// **The entry a day on the calendar lands on**: the list is read on, page by page, until the
+    /// day is in it — its first entry, or where it would be, the nearest entry past it in the list's
+    /// own order (a day the filters leave empty). `nil` for an order that does not run through time,
+    /// or a list with nothing that far along.
+    public func reveal(_ day: AteDay) async -> EntryCard? {
+        guard query.sort.isChronological else { return nil }
+        let newestFirst = query.sort == .newest
+        func landing() -> EntryCard? {
+            entries.first { entry in
+                let entryDay = AteDay.containing(entry.createdAt, calendar: calendar)
+                return newestFirst ? entryDay <= day : entryDay >= day
+            }
+        }
+        // Past the day in the list's order: the day is already all here.
+        func isPast() -> Bool {
+            guard let last = entries.last else { return false }
+            let lastDay = AteDay.containing(last.createdAt, calendar: calendar)
+            return newestFirst ? lastDay < day : lastDay > day
+        }
+        var pages = 0
+        while isPast() == false, hasReachedEnd == false, pages < Self.revealPageLimit {
+            let before = entries.count
+            await loadMore()
+            pages += 1
+            guard entries.count > before else { break }
+        }
+        return landing()
+    }
+
+    /// How far a day's tap may read on — past this the list lands on what it has.
+    static let revealPageLimit = 40
 
     // MARK: - Filter and sort (round 4)
 

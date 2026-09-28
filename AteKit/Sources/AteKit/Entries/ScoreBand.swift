@@ -1,22 +1,27 @@
 import Foundation
 
-/// **A score range** — the one score filter (round 5, Eamon: "they should just allow a range
-/// setting"). Two ends on the half-step track from 0.5 to 5.0, shared by the Journal, Saved and
-/// Search.
+/// **A score range** — the one score filter, shared by the Journal, Saved and Search. Two ends on the
+/// score track: the half-steps from 0.5 to 5.0, then the secret **6** one stop past them (the Rating
+/// chip's two-thumb slider, whose presets include "5.0s" and "6s only").
 ///
 /// The rules, each tested:
 /// - the whole track is no filter at all — an unscored entry still shows (design rule 7: an empty
 ///   score slot is not a number, so only a *narrowed* range leaves it out);
 /// - any narrowing leaves the unscored out, even with the bottom end on 0.5;
-/// - the top end on 5.0 is **open**: the secret 6 is a real 6 (round 4) and it clears "5.0 and up",
-///   so no ceiling is sent;
-/// - both ends snap to half-steps and never cross.
+/// - the top end on **6** is open, so no ceiling is sent; a top end on 5.0 is a real ceiling, and a 6
+///   is above it (the secret 6 counts as a real 6);
+/// - both ends snap to the track's stops and never cross.
 public struct ScoreBand: Hashable, Sendable {
     public static let floor: Double = 0.5
-    public static let ceiling: Double = 5.0
+    /// The top of the ordinary scale.
+    public static let topScore: Double = 5.0
+    /// The secret 6 — the track's last stop, one past 5.0.
+    public static let six: Double = 6
+    public static let ceiling: Double = six
     public static let step: Double = 0.5
-    /// Half-steps across the track: 0.5 … 5.0 is ten stops, nine gaps.
-    public static let stops = Int((ceiling - floor) / step) + 1
+    /// The track, in order: 0.5 … 5.0 in halves, then 6. Eleven stops.
+    public static let values: [Double] = Array(stride(from: floor, through: topScore, by: step)) + [six]
+    public static var stops: Int { values.count }
 
     public let lower: Double
     public let upper: Double
@@ -41,20 +46,27 @@ public struct ScoreBand: Hashable, Sendable {
     /// (0.5 included — it is what leaves the unscored out).
     public var minScore: Double? { isAll ? nil : lower }
 
-    /// What goes on the wire as the maximum: nothing while the top end is on 5.0 (open, so a 6
-    /// clears it).
+    /// What goes on the wire as the maximum: nothing while the top end is on 6 (open).
     public var maxScore: Double? { upper >= Self.ceiling ? nil : upper }
 
-    /// The pill: "4.0+" with an open top, "3.0–4.5" otherwise, `nil` for the whole track.
+    /// The chip and the sheet: "4.0+" with an open top, "3.0–4.5" otherwise, the two presets by
+    /// their own names, `nil` for the whole track.
     public var title: String? {
         guard isAll == false else { return nil }
+        if let preset, preset != .any, preset.isNamed { return preset.title }
         if upper >= Self.ceiling { return ScoreFormat.halfStep(lower) + "+" }
         if lower == upper { return ScoreFormat.halfStep(lower) }
         return ScoreFormat.halfStep(lower) + "–" + ScoreFormat.halfStep(upper)
     }
 
-    /// Whether a score is inside. `nil` (unscored) is inside only the whole track; a 6 is inside any
-    /// band whose top is open.
+    /// The sheet's readout beside its title: "4.0 and up", "Any".
+    public var summary: String {
+        guard isAll == false else { return "Any" }
+        if upper >= Self.ceiling, lower < Self.six { return ScoreFormat.halfStep(lower) + " and up" }
+        return title ?? "Any"
+    }
+
+    /// Whether a score is inside. `nil` (unscored) is inside only the whole track.
     public func contains(_ score: Double?) -> Bool {
         guard isAll == false else { return true }
         guard let score else { return false }
@@ -63,22 +75,64 @@ public struct ScoreBand: Hashable, Sendable {
         return true
     }
 
-    // MARK: - The track's arithmetic
+    // MARK: - The presets
 
-    /// The nearest half-step on the track.
-    public static func snap(_ value: Double) -> Double {
-        let clamped = Swift.min(Swift.max(value, floor), ceiling)
-        return (clamped / step).rounded() * step
+    /// The sheet's quick choices under the slider.
+    public enum Preset: String, CaseIterable, Sendable {
+        case any, threePlus, fourPlus, fives, sixes
+
+        public var title: String {
+            switch self {
+            case .any: "Any"
+            case .threePlus: "3.0+"
+            case .fourPlus: "4.0+"
+            case .fives: "5.0s"
+            case .sixes: "6s only"
+            }
+        }
+
+        public var band: ScoreBand {
+            switch self {
+            case .any: .all
+            case .threePlus: ScoreBand(lower: 3, upper: ScoreBand.ceiling)
+            case .fourPlus: ScoreBand(lower: 4, upper: ScoreBand.ceiling)
+            case .fives: ScoreBand(lower: ScoreBand.topScore, upper: ScoreBand.topScore)
+            case .sixes: ScoreBand(lower: ScoreBand.six, upper: ScoreBand.six)
+            }
+        }
+
+        /// Printed by name on a chip — the two that are not a plain "x+".
+        var isNamed: Bool { self == .fives || self == .sixes }
     }
 
-    /// The value at `fraction` (0…1) of the track's length.
+    /// Which preset this band is, if it is one.
+    public var preset: Preset? { Preset.allCases.first { $0.band == self } }
+
+    // MARK: - The track's arithmetic
+
+    /// The nearest stop on the track (a tie goes up).
+    public static func snap(_ value: Double) -> Double {
+        values[index(of: value)]
+    }
+
+    /// The stop nearest `value`, 0…10.
+    public static func index(of value: Double) -> Int {
+        var best = 0
+        for (index, stop) in values.enumerated() where abs(stop - value) <= abs(values[best] - value) {
+            best = index
+        }
+        return best
+    }
+
+    /// The value at `fraction` (0…1) of the track's length — the stops are evenly spaced.
     public static func value(atFraction fraction: Double) -> Double {
-        snap(floor + Swift.min(Swift.max(fraction, 0), 1) * (ceiling - floor))
+        let clamped = Swift.min(Swift.max(fraction, 0), 1)
+        return values[Int((clamped * Double(stops - 1)).rounded())]
     }
 
     /// Where a value sits along the track, 0…1.
     public static func fraction(of value: Double) -> Double {
-        (snap(value) - floor) / (ceiling - floor)
+        Double(index(of: value)) / Double(stops - 1)
     }
 
     /// The band with one end moved to `value`; an end dragged past the other stops on it.
