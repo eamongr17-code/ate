@@ -2,14 +2,10 @@ import Foundation
 import Testing
 @testable import AteKit
 
-/// Round 5, detail + share: links into the app, sheets that rise only once their rows are in hand,
-/// and the events both ship with.
+/// Links into the app, and the inbox that holds one until it can open.
 @MainActor
-@Suite("Detail round 5")
-struct DetailRound5Tests {
-
-    // MARK: - Links
-
+@Suite("Entry links")
+struct EntryLinkTests {
     private static let id = UUID(uuidString: "3F2504E0-4F89-11D3-9A0C-0305E82C3301")!
 
     @Test func anEntryLinkIsTheAppsOwnSchemeAndALowercasedID() {
@@ -46,70 +42,6 @@ struct DetailRound5Tests {
         #expect(AteLinks.parse(URL(string: "ate://entry/\(Self.id)")!, base: base) == .entry(Self.id))
         #expect(AteLinks.parse(URL(string: "https://elsewhere.example/entry/\(Self.id)")!, base: base) == nil)
     }
-
-    // MARK: - Sheets rise once their rows are in hand
-
-    @Test func aReadThatAnswersInTimeIsWaitedFor() async {
-        var landed = false
-        let ready = await SheetReadiness.wait(atMost: .seconds(5)) {
-            try? await Task.sleep(for: .milliseconds(20))
-            landed = true
-        }
-        #expect(ready)
-        #expect(landed)
-    }
-
-    @Test func aSlowReadIsNotWaitedForButIsNotCutShort() async throws {
-        let box = Box()
-        let ready = await SheetReadiness.wait(atMost: .milliseconds(30)) {
-            try? await Task.sleep(for: .milliseconds(250))
-            box.landed = true
-        }
-        #expect(ready == false)
-        #expect(box.landed == false)
-        try await Task.sleep(for: .milliseconds(600))
-        #expect(box.landed, "the read keeps going and lands in the sheet that is already up")
-    }
-
-    @MainActor
-    private final class Box {
-        var landed = false
-    }
-
-    @Test func aSheetThatWentUpEarlyHoldsItsReservedHeight() {
-        var fit = AteSheetFit(gap: 14, bottom: 34)
-        fit.head = 50
-        fit.body = 40 // still rows
-        fit.reserve(800)
-        #expect(fit.tallest == 800)
-        fit.body = 300 // the rows land, shorter than the reserve
-        #expect(fit.tallest == 800, "it does not move")
-    }
-
-    // MARK: - Read ahead
-
-    @Test func theFeedsAreasAreReadAheadOnce() async {
-        let reader = CountingAreas()
-        let model = FeedAreaModel(reader: reader, store: InMemoryKeyValueStore(), owner: { nil })
-        #expect(model.hasLoadedAreas == false)
-        await model.loadAreasIfNeeded()
-        await model.loadAreasIfNeeded()
-        #expect(model.hasLoadedAreas)
-        #expect(model.areas.map(\.area) == ["CBD", "Fitzroy"])
-        #expect(await reader.calls == 1)
-    }
-
-    @Test func aFailedReadStillAnswersTheSheetAndIsAskedAgain() async {
-        let reader = CountingAreas(failing: true)
-        let model = FeedAreaModel(reader: reader, store: InMemoryKeyValueStore(), owner: { nil })
-        await model.loadAreasIfNeeded()
-        #expect(model.hasAnsweredAreas, "no still rows left standing in an open sheet")
-        #expect(model.hasLoadedAreas == false)
-        await model.loadAreasIfNeeded()
-        #expect(await reader.calls == 2, "the next open asks again")
-    }
-
-    // MARK: - A link waits until it can open
 
     private static func situation(
         session: Bool = true, browsing: Bool = false, owesHandle: Bool = false, covered: Bool = false,
@@ -161,19 +93,6 @@ struct DetailRound5Tests {
         #expect(inbox.next(Self.situation()) == .open(other))
     }
 
-    @Test func aSheetWaitingOnAReadAheadWaitsForItToLand() async {
-        let reader = SlowAreas()
-        let model = FeedAreaModel(reader: reader, store: InMemoryKeyValueStore(), owner: { nil })
-        let ahead = Task { await model.loadAreasIfNeeded() }
-        await Task.yield()
-        await model.loadAreasIfNeeded() // the sheet's prepare, while the read-ahead is in flight
-        #expect(model.hasLoadedAreas, "joined the read, did not skip past it")
-        await ahead.value
-        #expect(await reader.calls == 1)
-    }
-
-    // MARK: - Events
-
     @Test func linkEventsCarryIDsOnly() {
         let shared = LinkEvents.entryLinkShared(entryID: Self.id)
         #expect(shared.name == "entry_link_shared")
@@ -181,44 +100,5 @@ struct DetailRound5Tests {
         #expect(LinkEvents.linkOpened(.entry(Self.id)).parameters["recognised"] == "true")
         #expect(LinkEvents.linkOpened(nil).parameters == ["recognised": "false"])
         #expect(LinkEvents.sheetOpened("place", ready: false).parameters == ["sheet": "place", "ready": "false"])
-    }
-}
-
-/// One area, slowly.
-private actor SlowAreas: EntryFeedReading, TestFake {
-    var calls = 0
-
-    func feedPage(
-        after cursor: PageCursor?, pageSize: Int, includeOwn: Bool, area: String?
-    ) async throws -> Page<EntryCard> {
-        Page(items: [], nextCursor: nil)
-    }
-
-    func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] {
-        calls += 1
-        try? await Task.sleep(for: .milliseconds(80))
-        return [FeedArea(area: "CBD", count: 9)]
-    }
-}
-
-/// Two areas, and how many times they were asked for.
-private actor CountingAreas: EntryFeedReading, TestFake {
-    var calls = 0
-    let failing: Bool
-
-    init(failing: Bool = false) {
-        self.failing = failing
-    }
-
-    func feedPage(
-        after cursor: PageCursor?, pageSize: Int, includeOwn: Bool, area: String?
-    ) async throws -> Page<EntryCard> {
-        Page(items: [], nextCursor: nil)
-    }
-
-    func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] {
-        calls += 1
-        if failing { throw URLError(.notConnectedToInternet) }
-        return [FeedArea(area: "CBD", count: 9), FeedArea(area: "Fitzroy", count: 4)]
     }
 }

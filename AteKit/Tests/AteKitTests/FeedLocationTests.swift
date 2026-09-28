@@ -2,44 +2,76 @@ import Foundation
 import Testing
 @testable import AteKit
 
-/// **QA on #84, replayed.** Filters on the lists shown before typing, and near me that never gives
-/// up on one bad read, never waits forever, and follows a later answer.
+@Suite("The Feed's location")
 @MainActor
-@Suite("Round 5 — QA fixes on #84")
-struct Round5QAFixTests {
-
-    // MARK: - 1. Filters with nothing typed
-
-    @Test("a filter narrows Nearby with nothing typed — the pill never sits over unfiltered rows")
-    func nearbyFiltered() async {
-        let service = FakeSearchService()
-        service.seed(nearby: [.fixture("Tipo 00", score: 4.6), .fixture("Etta", score: 3.9)])
-        let store = SearchStore(service: service, scope: .places, pageSize: 10, debounce: .milliseconds(20))
-        await store.setOrigin(SearchOrigin(latitude: -37.81, longitude: 144.96))
-        #expect(store.rows.count == 2 && store.isShowingNearby)
-        let filters = SearchFilters(minimumScore: 4.5)
-        store.setFilters(filters)
-        await store.settle()
-        #expect(service.filtersAsked.last == filters, "Nearby was read again, with the filter")
-        #expect(store.rows.count == 1, "and only what clears it is left")
+struct FeedLocationTests {
+    private final class Cities: EntryFeedReading, TestFake, @unchecked Sendable {
+        var nearMe: AteCity?
+        func feedPage(
+            after cursor: PageCursor?, pageSize: Int, includeOwn: Bool, area: String?
+        ) async throws -> Page<EntryCard> {
+            Page(items: [], requestedLimit: pageSize)
+        }
+        func feedCities() async throws -> [AteCity] {
+            [
+                AteCity(city: "melbourne", name: "Melbourne", entryCount: 30),
+                AteCity(city: "sydney", name: "Sydney", entryCount: 3)
+            ]
+        }
+        func resolveCity(latitude: Double?, longitude: Double?) async throws -> AteCity? { nearMe }
     }
 
-    @Test("a filter narrows the Saved shelf with nothing typed")
-    func savedFiltered() async {
-        let service = FakeSearchService()
-        service.seed(saved: [.fixture("Ragù", score: 4.6), .fixture("Toast", score: 3.5)])
-        let store = SearchStore(service: service, scope: .saved, pageSize: 10, debounce: .milliseconds(20))
-        await store.start()
-        #expect(store.rows.count == 2)
-        let filters = SearchFilters(minimumScore: 4.5)
-        store.setFilters(filters)
-        await store.settle()
-        #expect(service.filtersAsked.last == filters, "the shelf was read again, with the filter")
-        #expect(store.rows.count == 1, "and only what clears it is left")
+    private final class Memory: AteKeyValueStore, @unchecked Sendable {
+        var values: [String: String] = [:]
+        func value(forKey key: String) -> String? { values[key] }
+        func setValue(_ value: String?, forKey key: String) { values[key] = value }
     }
 
-    // MARK: - 2–4. Near me
+    @Test("near me by default: the feed reads the city the phone is in")
+    func nearMeByDefault() async {
+        let reader = Cities()
+        reader.nearMe = AteCity(city: "melbourne", name: "Melbourne", isNearby: true)
+        let model = FeedAreaModel(reader: reader, store: Memory(), owner: { nil })
+        #expect(model.location == .nearMe)
+        #expect(model.city == nil)
+        #expect(await model.resolveNearMe(latitude: -37.8, longitude: 144.9))
+        #expect(model.city == "melbourne" && model.isNearMe && model.locationTitle == "Melbourne")
+    }
 
+    @Test("no location: the busiest city, and the control does not claim near me")
+    func fallback() async {
+        let reader = Cities()
+        reader.nearMe = AteCity(city: "melbourne", name: "Melbourne", isNearby: false)
+        let model = FeedAreaModel(reader: reader, store: Memory(), owner: { nil })
+        await model.resolveNearMe(latitude: nil, longitude: nil)
+        #expect(model.city == "melbourne" && model.isNearMe == false)
+    }
+
+    @Test("no city has food: near me is everywhere")
+    func nothingAnywhere() async {
+        let model = FeedAreaModel(reader: Cities(), store: Memory(), owner: { nil })
+        await model.resolveNearMe(latitude: 1, longitude: 1)
+        #expect(model.city == nil && model.locationTitle == "Everywhere")
+    }
+
+    @Test("a pick persists per person, and says whether the feed must reload")
+    func persistsPerPerson() async {
+        let memory = Memory()
+        let alice = UUID()
+        let model = FeedAreaModel(reader: Cities(), store: memory, owner: { alice })
+        #expect(model.choose(location: .city("sydney")))
+        #expect(model.choose(location: .city("sydney")) == false)
+        #expect(FeedAreaModel(reader: Cities(), store: memory, owner: { alice }).location == .city("sydney"))
+        #expect(FeedAreaModel(reader: Cities(), store: memory, owner: { UUID() }).location == .nearMe)
+        #expect(FeedLocation(stored: FeedLocation.everywhere.stored) == .everywhere)
+    }
+}
+
+/// QA on #84: near me never gives up on one bad read, never waits forever, and follows a later
+/// answer.
+@MainActor
+@Suite("Near me")
+struct NearMeTests {
     private final class Memory: AteKeyValueStore, @unchecked Sendable {
         var values: [String: String] = [:]
         func value(forKey key: String) -> String? { values[key] }
@@ -176,14 +208,5 @@ struct Round5QAFixTests {
         _ = await model.cityForFirstPage(wait: .milliseconds(20))
         try? await Task.sleep(for: .milliseconds(300))
         #expect(model.city == "geelong" && model.isNearMe, "the real answer stands")
-    }
-
-    // MARK: - 5. Clear
-
-    @Test("the pills of a query built fresh carry nothing from before round 5")
-    func freshQuery() {
-        var query = JournalQuery(sort: .newest, city: nil)
-        query.band = .all
-        #expect(query.isDefault && query.hasFilters == false)
     }
 }

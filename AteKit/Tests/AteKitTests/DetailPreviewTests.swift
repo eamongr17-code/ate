@@ -2,13 +2,12 @@ import Foundation
 import Testing
 @testable import AteKit
 
-/// Round 6, detail: a dish or place page draws at once from what the row that opened it knew, and
-/// "what to order" is shown in the server's order.
+/// A dish or place page draws at once from what the row that opened it knew.
 @MainActor
-@Suite("Detail round 6")
-struct DetailRound6Tests {
-
+@Suite("Detail pages draw from the row that opened them")
+struct DetailPreviewTests {
     private static let dish = UUID()
+
     private static let place = UUID()
 
     @Test func aSlipsPreviewCarriesNoScore() {

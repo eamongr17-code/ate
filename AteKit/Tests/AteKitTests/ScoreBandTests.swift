@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import AteKit
 
-@Suite("Round 5 — the score range")
+@Suite("The score range")
 struct ScoreBandTests {
     @Test("the whole track is no filter, and keeps the unscored")
     func wholeTrack() {
@@ -71,70 +71,5 @@ struct ScoreBandTests {
         #expect(parameters["p_city"] == .string("melbourne"))
         let cleared = query.removing(.band(query.band)).removing(.city("melbourne"))
         #expect(cleared.hasFilters == false)
-    }
-}
-
-@Suite("Round 5 — the Feed's location")
-@MainActor
-struct FeedLocationTests {
-    private final class Cities: EntryFeedReading, TestFake, @unchecked Sendable {
-        var nearMe: AteCity?
-        func feedPage(
-            after cursor: PageCursor?, pageSize: Int, includeOwn: Bool, area: String?
-        ) async throws -> Page<EntryCard> {
-            Page(items: [], requestedLimit: pageSize)
-        }
-        func feedCities() async throws -> [AteCity] {
-            [
-                AteCity(city: "melbourne", name: "Melbourne", entryCount: 30),
-                AteCity(city: "sydney", name: "Sydney", entryCount: 3)
-            ]
-        }
-        func resolveCity(latitude: Double?, longitude: Double?) async throws -> AteCity? { nearMe }
-    }
-
-    private final class Memory: AteKeyValueStore, @unchecked Sendable {
-        var values: [String: String] = [:]
-        func value(forKey key: String) -> String? { values[key] }
-        func setValue(_ value: String?, forKey key: String) { values[key] = value }
-    }
-
-    @Test("near me by default: the feed reads the city the phone is in")
-    func nearMeByDefault() async {
-        let reader = Cities()
-        reader.nearMe = AteCity(city: "melbourne", name: "Melbourne", isNearby: true)
-        let model = FeedAreaModel(reader: reader, store: Memory(), owner: { nil })
-        #expect(model.location == .nearMe)
-        #expect(model.city == nil)
-        #expect(await model.resolveNearMe(latitude: -37.8, longitude: 144.9))
-        #expect(model.city == "melbourne" && model.isNearMe && model.locationTitle == "Melbourne")
-    }
-
-    @Test("no location: the busiest city, and the control does not claim near me")
-    func fallback() async {
-        let reader = Cities()
-        reader.nearMe = AteCity(city: "melbourne", name: "Melbourne", isNearby: false)
-        let model = FeedAreaModel(reader: reader, store: Memory(), owner: { nil })
-        await model.resolveNearMe(latitude: nil, longitude: nil)
-        #expect(model.city == "melbourne" && model.isNearMe == false)
-    }
-
-    @Test("no city has food: near me is everywhere")
-    func nothingAnywhere() async {
-        let model = FeedAreaModel(reader: Cities(), store: Memory(), owner: { nil })
-        await model.resolveNearMe(latitude: 1, longitude: 1)
-        #expect(model.city == nil && model.locationTitle == "Everywhere")
-    }
-
-    @Test("a pick persists per person, and says whether the feed must reload")
-    func persistsPerPerson() async {
-        let memory = Memory()
-        let alice = UUID()
-        let model = FeedAreaModel(reader: Cities(), store: memory, owner: { alice })
-        #expect(model.choose(location: .city("sydney")))
-        #expect(model.choose(location: .city("sydney")) == false)
-        #expect(FeedAreaModel(reader: Cities(), store: memory, owner: { alice }).location == .city("sydney"))
-        #expect(FeedAreaModel(reader: Cities(), store: memory, owner: { UUID() }).location == .nearMe)
-        #expect(FeedLocation(stored: FeedLocation.everywhere.stored) == .everywhere)
     }
 }

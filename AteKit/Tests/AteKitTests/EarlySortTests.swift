@@ -201,3 +201,55 @@ private final class Mutex<Value>: @unchecked Sendable {
         return body(&value)
     }
 }
+
+@Suite("The preview sort's wire")
+struct PreviewSortWireTests {
+    @Test("preview: true, the words, the chips and the place — no entry id")
+    func body() throws {
+        let place = UUID()
+        let request = SupabaseEntryService.PreviewSortRequest(
+            EarlySortInput(body: "cake GF 4.0", tagTokens: [TagToken(offset: 5, length: 2)], restaurantID: place)
+        )
+        let json = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? [String: Any])
+        #expect(json["preview"] as? Bool == true)
+        #expect(json["body"] as? String == "cake GF 4.0")
+        #expect(json["restaurant_id"] as? String == place.uuidString.lowercased())
+        #expect((json["tag_tokens"] as? [[String: Int]]) == [["offset": 5, "length": 2]])
+        #expect(json["entry_id"] == nil)
+    }
+}
+
+/// QA round 3, note (a): the early sort is stopped only by Done or close — a full-screen cover
+/// (the camera) over the composer is a pause in typing, not the end of the session.
+@Suite("The early sort survives a cover")
+@MainActor
+struct EarlySortCoverTests {
+    private let place = UUID()
+
+    @Test("edits before and after a pause both preview; only stop() ends the session")
+    func survivesPause() async {
+        let sent = SentBox()
+        let early = EarlySortScheduler(
+            sleep: { _ in await Task.yield(); try Task.checkCancellation() },
+            send: { sent.add($0.body) }
+        )
+        early.edited(EarlySortInput(body: "the ragù 4.5 was unreal", tagTokens: [], restaurantID: place))
+        await early.settle()
+        // The camera cover comes and goes; the person keeps writing.
+        early.edited(EarlySortInput(body: "the ragù 4.5 was unreal, tiramisu", tagTokens: [], restaurantID: place))
+        await early.settle()
+        #expect(sent.all.count == 2)
+
+        early.stop()
+        early.edited(EarlySortInput(body: "after close", tagTokens: [], restaurantID: place))
+        await early.settle()
+        #expect(sent.all.count == 2, "closed: nothing further goes")
+    }
+}
+
+private final class SentBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var bodies: [String] = []
+    func add(_ body: String) { lock.withLock { bodies.append(body) } }
+    var all: [String] { lock.withLock { bodies } }
+}

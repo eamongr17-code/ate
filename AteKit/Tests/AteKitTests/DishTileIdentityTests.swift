@@ -5,7 +5,6 @@ import Testing
 
 @Suite("Dish tile identity — a dish is never a blank")
 struct DishTileIdentityTests {
-
     @Test("a monogram takes the initials of the significant words")
     func monogramInitials() {
         #expect(DishTileIdentity.monogram(for: "Prawn betel leaf") == "PB")
@@ -95,5 +94,57 @@ struct DishTileIdentityTests {
         var seen = Set<Int>()
         for _ in 0..<200 { seen.insert(DishTileIdentity.paletteIndex(for: UUID(), count: 6)) }
         #expect(seen.count == 6)
+    }
+}
+
+@MainActor
+@Suite("Letter tiles — neighbours never match")
+struct NeighbourTileTests {
+    @Test("neighbouring letter tiles never share an accent, and a list always paints the same way")
+    func neighbourlyTiles() {
+        let ids = (0..<400).map { _ in UUID() }
+        let indices = DishTileIdentity.paletteIndices(for: ids, count: 5)
+        #expect(indices.count == ids.count)
+        #expect(zip(indices, indices.dropFirst()).allSatisfy { $0 != $1 })
+        #expect(indices.allSatisfy { (0..<5).contains($0) })
+        #expect(DishTileIdentity.paletteIndices(for: ids, count: 5) == indices)
+    }
+
+    @Test("a tile keeps its own accent unless the one above it already has it")
+    func tilesKeepTheirOwn() {
+        let ids = (0..<200).map { _ in UUID() }
+        let own = ids.map { DishTileIdentity.paletteIndex(for: $0, count: 5) }
+        let indices = DishTileIdentity.paletteIndices(for: ids, count: 5)
+        #expect(indices.first == own.first)
+        for position in 1..<ids.count where own[position] != indices[position - 1] {
+            #expect(indices[position] == own[position])
+        }
+    }
+
+    @Test("the same dish twice in a row still gets two accents")
+    func sameDishTwice() {
+        let id = UUID()
+        let indices = DishTileIdentity.paletteIndices(for: [id, id, id], count: 5)
+        #expect(indices[0] != indices[1] && indices[1] != indices[2])
+    }
+}
+
+@Suite("The letter tile — a photo-less dish is never a grey square")
+struct LetterTileTests {
+    @Test("the name's own first letter, capitalised")
+    func initial() {
+        #expect(DishTileIdentity.initial(for: "Tiramisu") == "T")
+        #expect(DishTileIdentity.initial(for: "cheeseburger") == "C")
+        #expect(DishTileIdentity.initial(for: "'nduja pizza") == "N")
+        #expect(DishTileIdentity.initial(for: "The Big Breakfast") == "T")
+        #expect(DishTileIdentity.initial(for: "  ") == DishTileIdentity.initialPlaceholder)
+    }
+
+    @Test("the colour is the dish's, not the row's: the same id always picks the same accent")
+    func stableColour() throws {
+        let id = try #require(UUID(uuidString: "D7E00000-0000-4000-8000-000000000002"))
+        let first = DishTileIdentity.paletteIndex(for: id, count: 5)
+        #expect((0..<20).allSatisfy { _ in DishTileIdentity.paletteIndex(for: id, count: 5) == first })
+        #expect((0..<5).contains(first))
     }
 }

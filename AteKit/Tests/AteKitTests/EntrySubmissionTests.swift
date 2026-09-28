@@ -73,7 +73,6 @@ private final class StubEntryService: EntryService, TestFake, @unchecked Sendabl
 
 @Suite("Entry submission")
 struct EntrySubmissionTests {
-
     private func request(
         id: UUID = UUID(),
         body: String = "Tipo 00. The tagliatelle al ragù 4.5 was unreal.",
@@ -298,7 +297,6 @@ struct EntrySubmissionTests {
 
 @Suite("Entry outbox")
 struct EntryOutboxTests {
-
     private func outbox(_ entries: any EntryService) -> EntryOutbox {
         EntryOutbox(entries: entries, containerName: "Tests-\(UUID().uuidString)")
     }
@@ -402,4 +400,13 @@ private final class Mutex<Value>: @unchecked Sendable {
 private actor Counter {
     private(set) var value = -1
     func set(_ next: Int) { value = next }
+}
+
+@Suite("Place required")
+struct PlaceRequiredTests {
+    @Test("a 23502 place_required refusal is recognised; other refusals are not")
+    func recognised() {
+        #expect(EntrySubmissionResult.rejected("PostgrestError(code: 23502, message: place_required)").isPlaceRequired)
+        #expect(EntrySubmissionResult.rejected("PostgrestError(code: 42501, message: denied)").isPlaceRequired == false)
+    }
 }

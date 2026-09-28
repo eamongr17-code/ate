@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import AteKit
 
-/// The pure parts of the 26 Sep design round: the edge's arithmetic, the letter tile, and the
-/// Summary's watching.
 @Suite("Edge B — the scallop fitted to the width")
 struct WaveEdgeTests {
     @Test("the board's own widths fit a whole number of scallops", arguments: [
@@ -32,25 +30,5 @@ struct WaveEdgeTests {
         #expect(WaveEdge.periodCount(forWidth: 3) == 1)
         #expect(WaveEdge.periodCount(forWidth: 0) == 1)
         #expect(WaveEdge.period(forWidth: 0) == WaveEdge.targetPeriod)
-    }
-}
-
-@Suite("The letter tile — a photo-less dish is never a grey square")
-struct LetterTileTests {
-    @Test("the name's own first letter, capitalised")
-    func initial() {
-        #expect(DishTileIdentity.initial(for: "Tiramisu") == "T")
-        #expect(DishTileIdentity.initial(for: "cheeseburger") == "C")
-        #expect(DishTileIdentity.initial(for: "'nduja pizza") == "N")
-        #expect(DishTileIdentity.initial(for: "The Big Breakfast") == "T")
-        #expect(DishTileIdentity.initial(for: "  ") == DishTileIdentity.initialPlaceholder)
-    }
-
-    @Test("the colour is the dish's, not the row's: the same id always picks the same accent")
-    func stableColour() throws {
-        let id = try #require(UUID(uuidString: "D7E00000-0000-4000-8000-000000000002"))
-        let first = DishTileIdentity.paletteIndex(for: id, count: 5)
-        #expect((0..<20).allSatisfy { _ in DishTileIdentity.paletteIndex(for: id, count: 5) == first })
-        #expect((0..<5).contains(first))
     }
 }
