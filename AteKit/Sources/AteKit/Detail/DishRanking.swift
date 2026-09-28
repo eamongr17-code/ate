@@ -35,16 +35,21 @@ public protocol DishRankable: Identifiable, Sendable where ID == UUID {
 
 extension RankedDish: DishRankable {}
 
-/// The order a restaurant's dishes are listed in: **most-reviewed first, then best-rated**.
+/// The order a restaurant's dishes are listed in: **by rating** (0051 — Eamon, build 81: the list
+/// reads top-down by the number it prints).
 ///
-/// Reviews before score is deliberate — one 5.0 from one person must not outrank a 4.4 from twelve
-/// people on the "what should I order here?" screen. Unrated dishes therefore sink to the bottom
-/// naturally (review_count 0) rather than needing a special case, and a `nil` score never compares
-/// as 0 — it sorts *after* every real score at the same review count.
+/// 1. The **printed** score, one decimal, highest first — two rows that read "4.6" tie, never split
+///    by a hidden third decimal; a 6 sits above every 5.
+/// 2. Of two equal scores, the one ordered more times (review count) first — the surer bet.
+/// 3. Then name, case-insensitive, then id, so nothing shuffles between refreshes.
 ///
-/// **The server owns the menu's order.** Since 0030 `place_dishes` returns this very order, and the
-/// place page shows it as it arrives — it never re-sorts (``PlacePageStore``). This type is the
-/// rule written down: the in-memory stand-in sorts with it, and the tests pin it.
+/// Unscored dishes (logged, never given a number) come after every scored one, ordered the same way
+/// among themselves — a `nil` is never compared as 0. Accepted consequence: a single 5.0 leads a
+/// menu of 4.5s.
+///
+/// **The server owns the menu's order.** `place_dishes` returns this very order (0051), and the
+/// place page shows it as it arrives — it never re-sorts (``PlacePageStore``). This type is the rule
+/// written down: the in-memory stand-in sorts with it, and the tests pin it.
 public enum DishRanking {
     public static func rank(dishes: [Dish], stats: [DishStats]) -> [RankedDish] {
         let statsByDish = Dictionary(stats.map { ($0.dishID, $0) }, uniquingKeysWith: { first, _ in first })
@@ -59,18 +64,22 @@ public enum DishRanking {
         dishes.sorted(by: isOrderedBefore)
     }
 
-    /// Total, deterministic order: review count desc → score desc (nil last) → name → id.
-    /// The name/id tiebreaks exist so the list doesn't shuffle between refreshes.
+    /// Total, deterministic order: printed score desc (unscored last) → review count desc → name → id.
     static func isOrderedBefore<D: DishRankable>(_ lhs: D, _ rhs: D) -> Bool {
-        if lhs.reviewCount != rhs.reviewCount { return lhs.reviewCount > rhs.reviewCount }
-        switch (lhs.score, rhs.score) {
+        switch (lhs.score.map(printed), rhs.score.map(printed)) {
         case let (left?, right?) where left != right: return left > right
         case (.some, .none): return true
         case (.none, .some): return false
         default: break
         }
+        if lhs.reviewCount != rhs.reviewCount { return lhs.reviewCount > rhs.reviewCount }
         let comparison = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
         if comparison != .orderedSame { return comparison == .orderedAscending }
         return lhs.id.uuidString < rhs.id.uuidString
+    }
+
+    /// The score as the row prints it: one decimal, in tenths so equal prints compare equal.
+    private static func printed(_ score: Double) -> Int {
+        Int((score * 10).rounded())
     }
 }

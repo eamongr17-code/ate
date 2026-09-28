@@ -127,8 +127,8 @@ public struct MenuDish: Sendable, Hashable, Codable, Identifiable, DishRankable 
     public let score: Double?
     /// How many different people have scored it — the number the artboard prints under the name.
     public let peopleCount: Int
-    /// How many reviews it has — **the column the list is ordered by** (0030), and the first part
-    /// of its cursor. One 5.0 from one person does not outrank a 4.4 from twelve.
+    /// How many reviews it has — the tiebreak between two equal printed scores (0051: the menu is
+    /// ordered by rating), and part of its cursor.
     public let reviewCount: Int
     public let coverURLString: String?
     /// The dish's consensus dietary tags, by `dish_summary`'s rule (0036). Read with

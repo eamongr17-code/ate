@@ -67,8 +67,8 @@ extension InMemorySocialService: PlacePageReading, DishPageReading {
                 tags: DishTagConsensus.tags(lines: rows.map(\.item.tags))
             )
         }
-        // The server's own order since 0030 — which is DishRanking's rule, so the pure type that
-        // states it is the one that sorts here too. A dish nobody has reviewed is not on the menu.
+        // The server's own order since 0051 (by rating) — which is DishRanking's rule, so the pure type
+        // that states it is the one that sorts here too. A dish nobody has reviewed is not on the menu.
         let ordered = DishRanking.rank(dishes.filter { $0.reviewCount > 0 })
         let remaining = cursor.map { cursor in
             Array(ordered.drop { $0.dishID != cursor.dishID }.dropFirst())

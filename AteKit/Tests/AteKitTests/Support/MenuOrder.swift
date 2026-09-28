@@ -4,8 +4,7 @@ import Foundation
 ///
 /// By the printed score (one decimal) descending, a 6 above every 5; ties by review count
 /// descending; then name (case-insensitive); then id. Unscored dishes follow every scored one,
-/// ordered the same way among themselves. (Before 0051 review count led — `DishRanking`, the
-/// client-side port, still encodes that older rule.)
+/// ordered the same way among themselves. `DishRanking` states the same rule for the in-memory stand-in.
 enum MenuOrder {
     struct Key {
         let score: Double?

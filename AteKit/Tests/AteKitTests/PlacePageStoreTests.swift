@@ -98,9 +98,9 @@ struct PlacePageStoreTests {
 
     /// **The order is the server's, and the client must not second-guess it** — it is paged on a
     /// four-part keyset, so re-sorting a page on arrival would interleave the next one into it.
-    /// Since 0030 the `ORDER BY` *is* ``DishRanking``'s rule, so the two agree: one 5.0 from one
-    /// person does not outrank a 4.4 from twelve, and the page prints that without sorting a thing.
-    @Test("what to order arrives most-reviewed first, and the page prints it untouched")
+    /// Since 0051 the `ORDER BY` is by rating, and ``DishRanking`` states the same rule, so the two
+    /// agree: a lonely 5.0 leads a 4.4 from twelve, and the page prints that without sorting a thing.
+    @Test("what to order arrives by rating, and the page prints it untouched")
     func menuKeepsTheServersOrder() async {
         let source = FakePlaceDishSource()
         source.seed(place: summary(), dishes: [
@@ -111,7 +111,7 @@ struct PlacePageStoreTests {
         let store = store(source, pageSize: 10)
         await store.load()
 
-        #expect(store.dishes.map(\.name) == ["Beloved 4.4", "Unscored but ordered", "Lonely 5.0"])
+        #expect(store.dishes.map(\.name) == ["Lonely 5.0", "Beloved 4.4", "Unscored but ordered"])
     }
 
     /// A dish nobody has written about is not on the menu at all (0030) — "what to order" answers
