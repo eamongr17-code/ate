@@ -89,11 +89,12 @@ struct PlaceDishContractTests {
         #expect(dishes.allSatisfy { $0.reviewCount >= 0 && $0.peopleCount >= 0 })
         #expect(dishes.allSatisfy { ($0.score ?? 1) > 0 }, "unrated is nil, never 0")
         #expect(Set(dishes.map(\.dishID)).count == dishes.count, "one row per dish")
-        // 0030 moved the product's ranking rule into the `ORDER BY`, which is the only place a
-        // paged list can hold one. This is the assertion that keeps it there: the rows come back
-        // already in `DishRanking`'s order, so the page never sorts and never has to.
-        #expect(DishRanking.rank(dishes).map(\.dishID) == dishes.map(\.dishID),
-                "the server's order IS DishRanking's: review_count desc, score desc nulls last")
+        // The ranking rule lives in the `ORDER BY` (0051: by rating), the only place a paged list can
+        // hold one — the rows come back already ranked, so the page never sorts and never has to.
+        let keys = dishes.map {
+            MenuOrder.Key(score: $0.score, reviewCount: $0.reviewCount, name: $0.name, id: $0.dishID)
+        }
+        #expect(MenuOrder.isRanked(keys), "the server ranks by printed score, then review count, then name")
         // …and a dish nobody has written about is not on the menu at all.
         #expect(dishes.allSatisfy { $0.reviewCount > 0 }, "never-logged dishes are not returned")
     }
