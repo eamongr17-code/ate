@@ -45,7 +45,7 @@ final class SheetFitUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Close"].exists, "no X on a sheet")
         dismissSheet()
         sleep(1)
-        app.buttons.matching(identifier: "feed.slip.body").firstMatch.tap()
+        app.scrollToFeedSlip().tap()
         let more = app.buttons["More"].firstMatch
         XCTAssertTrue(more.waitForExistence(timeout: 10))
         more.tap()

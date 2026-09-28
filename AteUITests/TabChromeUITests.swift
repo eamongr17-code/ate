@@ -95,7 +95,7 @@ final class TabChromeUITests: XCTestCase {
         assertBarBack("Settings")
 
         tap("Feed")
-        app.buttons.matching(identifier: "feed.slip.body").firstMatch.tap()
+        app.scrollToFeedSlip().tap()
         XCTAssertTrue(app.otherElements["entry.dishes"].waitForExistence(timeout: 10))
         assertBarHidden("Someone's entry")
         let byline = app.buttons["entry.byline"].firstMatch
