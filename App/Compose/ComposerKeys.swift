@@ -104,7 +104,7 @@ struct ComposerPostButton: View {
     var title = "Post"
     var isEnabled: Bool
     var isBusy = false
-    /// Round 6 exploration A (``ComposerPostingStyle/pill``): the label prints its dots while posting.
+    /// Round 6: while it posts, the label prints its dots (``PostingDotsLabel``).
     var printsDots = false
     let action: () -> Void
 
