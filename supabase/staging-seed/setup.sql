@@ -44,7 +44,9 @@ $$;
 select staging_seed.assert_staging();
 
 -- What the seed made. `tbl` ∈ users · restaurants · entries. Saves by seeded users go with the users;
--- saves made in Eamon's name are listed separately (his real saves are never in here).
+-- saves made in Eamon's name are listed separately (his real saves are never in here). `batch` says
+-- which dataset a row belongs to: 'r6' (the round-6 dummy dataset) or 'ci' (the contract-test account,
+-- `seed.mjs --ci-account`). remove.sql takes out one batch at a time.
 create table if not exists staging_seed.registry (
   tbl   text not null check (tbl in ('users', 'restaurants', 'entries')),
   id    uuid not null,
@@ -111,7 +113,7 @@ begin
   values (v_id, v_id, v_id::text, 'email',
           jsonb_build_object('sub', v_id::text, 'email', j ->> 'email', 'email_verified', true),
           v_at, v_at, v_at);
-  insert into staging_seed.registry (tbl, id) values ('users', v_id) on conflict do nothing;
+  insert into staging_seed.registry (tbl, id, batch) values ('users', v_id, coalesce(j ->> 'batch', 'r6')) on conflict do nothing;
   update public.profiles
      set bio = j ->> 'bio', city = j ->> 'city', avatar_url = j ->> 'avatar_url', created_at = v_at
    where id = v_id;
@@ -158,7 +160,7 @@ begin
   end if;
   insert into public.entries (id, author_id, body, restaurant_id, created_at)
   values (v_id, v_author, j ->> 'body', (j ->> 'restaurant')::uuid, (j ->> 'created_at')::timestamptz);
-  insert into staging_seed.registry (tbl, id) values ('entries', v_id) on conflict do nothing;
+  insert into staging_seed.registry (tbl, id, batch) values ('entries', v_id, coalesce(j ->> 'batch', 'r6')) on conflict do nothing;
   perform public.apply_entry_sort(
     p_entry_id => v_id, p_restaurant_id => (j ->> 'restaurant')::uuid, p_items => j -> 'items',
     p_mode => 'stub', p_place_query => j ->> 'place_query',
