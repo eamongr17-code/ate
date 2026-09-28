@@ -1,22 +1,22 @@
+import AteKit
 import SwiftUI
 
-/// **The Journal's header** (round 5, Eamon's pick: one bar). The logo, the Journal | Saved segment
-/// hugging its titles, the filter control and the photo stack, all on one row; the active filters
-/// ride under it as removable pills.
+/// **The Journal's header** (round 7, `Main`): the logo, the Journal | Saved segment hugging its
+/// titles, the photo stack when there is something to write up, and the calendar — all on one row —
+/// with the shelf's filter chips under it. The chips are the same on both shelves, less the order on
+/// Saved (which has none), so nothing else moves when the shelf changes.
 ///
-/// The filter control is on both shelves, so nothing moves when the shelf changes (Eamon: "the same
-/// filter options should persist on the Saved view, so the button layout should be the same").
-///
-/// At the accessibility sizes the row cannot hold all four, so it wraps: the logo and the two
-/// controls on top, the segment across the width under them.
+/// At the accessibility sizes the row cannot hold it all, so it wraps: the logo and the two buttons
+/// on top, the segment across the width under them.
 struct JournalHeader: View {
     @Binding var shelf: JournalScreen.Shelf
     let photoCount: Int
-    let isFiltered: Bool
-    let activeFilters: [AteActiveFilter]
+    let filters: BrowseFilters
+    let cityName: String?
     let onSuggestions: () -> Void
-    let onFilter: () -> Void
-    let onRemove: (AteActiveFilter) -> Void
+    let onCalendar: () -> Void
+    let onChip: (BrowseChip) -> Void
+    let onClearChip: (BrowseChip) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -24,6 +24,8 @@ struct JournalHeader: View {
     static let wordmark: CGFloat = 34
     /// The bar: the segment's 36 and the 4 of field around it.
     static let row: CGFloat = AteMetrics.segmentHeight + 2 * AteMetrics.tight
+    /// `Main`: the header's `padding-bottom: 8px`, then the chip row's own 6.
+    static let chipsGap: CGFloat = 8
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -36,10 +38,15 @@ struct JournalHeader: View {
             }
             .padding(.horizontal, AteMetrics.listGutter)
             .ateContentTop()
-            if activeFilters.isEmpty == false {
-                AteActiveFilters(filters: activeFilters, identifier: "journal.filter.pill", onRemove: onRemove)
-                    .padding(.top, AteMetrics.regular)
-            }
+            AteFilterChipRow(
+                chips: BrowseChip.chips(on: shelf == .journal ? .journal : .saved),
+                filters: filters,
+                cityName: cityName,
+                identifier: "journal.chip",
+                onOpen: onChip,
+                onClear: onClearChip
+            )
+            .padding(.top, Self.chipsGap)
         }
     }
 
@@ -48,8 +55,8 @@ struct JournalHeader: View {
             AteWordmark(height: Self.wordmark)
             Spacer(minLength: 0)
             segment(hugs: true)
-            filterButton
             photoStack
+            JournalCalendarButton(action: onCalendar)
         }
         .frame(minHeight: Self.row)
     }
@@ -59,8 +66,8 @@ struct JournalHeader: View {
             HStack(spacing: AteMetrics.snug) {
                 AteWordmark(height: Self.wordmark)
                 Spacer(minLength: AteMetrics.snug)
-                filterButton
                 photoStack
+                JournalCalendarButton(action: onCalendar)
             }
             segment(hugs: false)
         }
@@ -84,8 +91,15 @@ struct JournalHeader: View {
             PhotoStackButton(count: photoCount, action: onSuggestions)
         }
     }
+}
 
-    private var filterButton: some View {
-        AteFilterButton(isActive: isFiltered, identifier: "journal.filter", action: onFilter)
+/// **The calendar button** — the Journal's corner disc, on the chrome's glass like every tab root's
+/// corner control. It opens the month view (a pinch on the list does too).
+struct JournalCalendarButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        AteGlassButton(icon: .calendar, label: "Calendar", size: 20, action: action)
+            .accessibilityIdentifier("journal.calendar")
     }
 }

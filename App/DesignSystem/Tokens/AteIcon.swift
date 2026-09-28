@@ -34,6 +34,10 @@ enum AteIcon: String, CaseIterable {
     case clear
     /// The Feed's Near me — Lucide's navigation.
     case navigation
+    /// The journal's calendar (round 7) — Lucide's calendar.
+    case calendar
+    /// A filter chip's "opens a sheet" mark (round 7) — Lucide's chevron-down.
+    case chevronDown
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
@@ -124,6 +128,10 @@ M11 20a10 10 0 0010-10 25.9 25.9 0 00-1.04-7.281 1 1 0 00-1.755-.325C15.833 5.5 
             [AteVector.circle(12, 12, 10)]
         case .navigation: // navigation
             [Self.path("M3 11L22 2L13 21L11 13Z")]
+        case .calendar: // calendar
+            [Self.path("M8 2v4"), Self.path("M16 2v4"), AteVector.rectangle(3, 4, 18, 18, 2), Self.path("M3 10h18")]
+        case .chevronDown: // chevron-down
+            [Self.path("m6 9 6 6 6-6")]
         }
     }
 

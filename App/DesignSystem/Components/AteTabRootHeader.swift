@@ -9,9 +9,13 @@ import SwiftUI
 /// The header stays where it always was, in the scroll content, so every position below it — slips,
 /// empty states, the refresh control — is where the artboard puts it and the screen's layout is
 /// untouched: on the way down it simply scrolls away. On the way up a *compact* header comes back
-/// over the list, just under the status bar — the tab's name small and its one trailing control, on
-/// one clean frost (round 6, ``AteCompactHeader``) — out of a blur into focus, and goes the same way
-/// on the next scroll down; back at the top it goes, and the big header in the page is the one there.
+/// over the list, just under the status bar — the tab's name small and its trailing controls
+/// (round 6, ``AteCompactHeader``) — out of a blur into focus, and goes the same way on the next
+/// scroll down; back at the top it goes, and the big header in the page is the one there.
+///
+/// Every tab root also lays the one top frost (round 7, ``AteTopFrost``): nothing at rest, then from
+/// the screen's top edge through the status bar — and down through the compact header while it is
+/// up — feathering out at its foot.
 ///
 /// It also owns the tab's scroll-to-top: the ScrollView's own top edge, insets included. An anchor on
 /// a view in the content lands that view at the top of the visible area, which on the Journal put
@@ -38,7 +42,8 @@ extension View {
     }
 
     /// A tab root with no floating header (You) still tells the shell which way it is being
-    /// scrolled — the tab bar's shadow and its re-expansion follow every tab the same way.
+    /// scrolled — the tab bar's shadow and its re-expansion follow every tab the same way — and
+    /// wears the same top frost.
     func ateTabBarTracking() -> some View {
         modifier(AteTabBarTracking())
     }
@@ -63,8 +68,6 @@ extension EnvironmentValues {
 /// way up (`AteTabChrome`).
 private struct AteChromeTracker: ViewModifier {
     @Binding var track: AteHeaderTrack
-    /// This root has a header that floats back (so the status-bar frost steps aside for it).
-    var hasFloatingHeader = false
     /// Only a person's own scrolling picks a direction — not a programmatic scroll, and not the
     /// system moving the content when the bar beside it resizes.
     @State private var isPersonScrolling = false
@@ -100,7 +103,7 @@ private struct AteChromeTracker: ViewModifier {
                 // at the top just hands over to the header in the page, which is already exactly there.
                 let moves = next.offset > AteHeaderTrack.topSlack && reduceMotion == false
                 withAnimation(moves ? AteMotion.headerFocus : nil) { track = next }
-                report(expanded: next.isBarExpanded, floating: next.isFloating)
+                report(expanded: next.isBarExpanded)
             }
             .onScrollPhaseChange { _, phase in
                 isPersonScrolling = phase == .interacting || phase == .decelerating
@@ -110,7 +113,7 @@ private struct AteChromeTracker: ViewModifier {
                 // read as a change.
                 guard isCurrentTab else { return }
                 track.expandBar()
-                report(expanded: true, floating: track.isFloating)
+                report(expanded: true)
             }
             .onChange(of: isCurrentTab) { _, isCurrent in
                 // A fling cut short by a tab switch never reports its end: left standing, the
@@ -120,15 +123,13 @@ private struct AteChromeTracker: ViewModifier {
                 // Chosen on the full bar: the model goes back to it, and the bar hears the whole
                 // state — not only a change — so the two agree before the next scroll (QA on #75).
                 track.tabBecameCurrent()
-                report(expanded: true, floating: track.isFloating)
+                report(expanded: true)
             }
     }
 
-    private func report(expanded: Bool, floating: Bool) {
+    private func report(expanded: Bool) {
         guard isCurrentTab, let chrome else { return }
         if chrome.isExpanded != expanded { chrome.isExpanded = expanded }
-        let isHeaderFloating = hasFloatingHeader && floating
-        if chrome.isHeaderFloating != isHeaderFloating { chrome.isHeaderFloating = isHeaderFloating }
     }
 }
 
@@ -136,7 +137,12 @@ private struct AteTabBarTracking: ViewModifier {
     @State private var track = AteHeaderTrack()
 
     func body(content: Content) -> some View {
-        content.modifier(AteChromeTracker(track: $track))
+        content
+            .modifier(AteChromeTracker(track: $track))
+            .overlay(alignment: .top) {
+                AteTopFrost(depth: AteFrostMetrics.statusDepth, presence: AteFrostMetrics.presence(offset: track.offset))
+                    .ignoresSafeArea(edges: .top)
+            }
     }
 }
 
@@ -151,14 +157,23 @@ private struct AteFloatingCompactHeader<Compact: View>: ViewModifier {
     }
 }
 
-/// The tracker and the floating layer, over whatever scroll view carries them.
+/// The tracker, the top frost and the floating header, over whatever scroll view carries them. The
+/// frost is one surface whose solid part reaches down through the header while it is up, and back
+/// to the status bar when it goes.
 private struct AteFloatingHeaderLayer<Compact: View>: ViewModifier {
     @Binding var track: AteHeaderTrack
     let compact: Compact
 
     func body(content: Content) -> some View {
         content
-            .modifier(AteChromeTracker(track: $track, hasFloatingHeader: true))
+            .modifier(AteChromeTracker(track: $track))
+            .overlay(alignment: .top) {
+                AteTopFrost(
+                    depth: track.isFloating ? AteFrostMetrics.headerDepth : AteFrostMetrics.statusDepth,
+                    presence: track.isFloating ? 1 : AteFrostMetrics.presence(offset: track.offset)
+                )
+                .ignoresSafeArea(edges: .top)
+            }
             .overlay(alignment: .top) {
                 if track.isFloating {
                     compact

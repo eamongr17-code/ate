@@ -8,6 +8,9 @@ import SwiftUI
 /// byline after it with no glass of its own, and the page's corner controls as one glass group 16
 /// in from the trailing edge. The page's content keeps the inset the system bar gave it, so nothing
 /// under the bar moves. The left-edge swipe back is `ateSwipeBack`'s, as before.
+///
+/// Under the bar, the one top frost (round 7, ``AteTopFrost``): nothing while the page is at its top,
+/// then solid from the screen's top edge to just below the bar's controls, feathering out below.
 extension View {
     /// A pushed page's top bar: `leading` sits after the back button, bare; `trailing` is one glass
     /// group.
@@ -37,9 +40,16 @@ private struct AteNavigationBarModifier<Leading: View, Trailing: View>: ViewModi
     let leading: Leading
     let trailing: Trailing
     @Environment(\.dismiss) private var dismiss
+    /// How far the page's scroll view has moved from its top — what brings the frost in.
+    @State private var offset: CGFloat = 0
 
     func body(content: Content) -> some View {
         content
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, now in
+                offset = now
+            }
             .toolbar(.hidden, for: .navigationBar)
             .safeAreaInset(edge: .top, spacing: 0) {
                 HStack(spacing: AteNavigationBarMetrics.leadingGap) {
@@ -55,6 +65,10 @@ private struct AteNavigationBarModifier<Leading: View, Trailing: View>: ViewModi
                 }
                 .padding(.horizontal, AteNavigationBarMetrics.inset)
                 .frame(height: AteMetrics.navigationBar, alignment: .top)
+                .background(alignment: .top) {
+                    AteTopFrost(depth: AteFrostMetrics.barDepth, presence: AteFrostMetrics.presence(offset: offset))
+                        .ignoresSafeArea(edges: .top)
+                }
             }
     }
 }

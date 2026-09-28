@@ -120,7 +120,7 @@ public final class JournalCalendarStore {
         let to = AteDay(year: year, month: 12, day: 31)
         let generationAtStart = generation
         let read = Task {
-            guard let rows = try? await querying.journalDays(from: from, to: to) else { return }
+            guard let rows = try? await querying.journalDays(from: from, to: to, matching: nil) else { return }
             guard generationAtStart == generation else { return }
             // The year is replaced whole: a day whose last entry was deleted leaves with it.
             days = days.filter { $0.key.year != year }
@@ -141,18 +141,18 @@ public final class JournalCalendarStore {
         }
     }
 
-    /// A month divider's filtered count — how many of the month's entries `query` keeps.
+    /// A month divider's filtered count — how many of the month's entries `query` keeps: the month's
+    /// `journal_days` rows under the list's own filters, summed (0053).
     public func loadFilteredCount(_ month: AteMonth, query: JournalQuery) async {
-        var counted = query
-        counted.sort = .newest
-        counted.window = month.window
         let key = MonthCountKey(month: month, query: query)
         guard filteredCounts[key] == nil, countReads.contains(key) == false, let querying else { return }
         countReads.insert(key)
         defer { countReads.remove(key) }
         let generationAtStart = generation
-        guard let count = try? await querying.myEntriesCount(counted), generationAtStart == generation else { return }
-        filteredCounts[key] = count
+        let (first, last) = month.days(calendar: calendar)
+        guard let rows = try? await querying.journalDays(from: first, to: last, matching: query),
+              generationAtStart == generation else { return }
+        filteredCounts[key] = rows.reduce(0) { $0 + $1.entries }
     }
 
     /// Something was written or deleted: every count may be wrong. What is on screen stays until

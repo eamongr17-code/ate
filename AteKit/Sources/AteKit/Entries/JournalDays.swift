@@ -115,13 +115,16 @@ public enum JournalDayMark: Sendable, Hashable {
 
 public extension JournalQuerying {
     /// A reader without `journal_days` (the fakes, the in-memory drive) derives it from the entries
-    /// themselves: every entry in the range, grouped by its day in the reader's calendar.
-    func journalDays(from: AteDay, to: AteDay) async throws -> [JournalDayCount] {
-        let window = DateWindow(from: from.calendarMonth, to: to.calendarMonth)
+    /// themselves: every entry in the range that the query keeps, grouped by its day in the reader's
+    /// calendar.
+    func journalDays(from: AteDay, to: AteDay, matching query: JournalQuery?) async throws -> [JournalDayCount] {
+        var filtered = query ?? JournalQuery()
+        filtered.sort = .newest
+        filtered.window = DateWindow(from: from.calendarMonth, to: to.calendarMonth)
         var cards: [EntryCard] = []
         var cursor: JournalCursor?
         repeat {
-            let page = try await myEntries(JournalQuery(window: window), after: cursor, pageSize: 100)
+            let page = try await myEntries(filtered, after: cursor, pageSize: 100)
             cards += page.items
             cursor = page.nextCursor
         } while cursor != nil

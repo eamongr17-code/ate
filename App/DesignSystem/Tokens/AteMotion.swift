@@ -33,6 +33,9 @@ enum AteMotion {
     /// A tab root's floating header coming back on the way up (and going on the way down): out of a
     /// blur into focus, fading in.
     static let headerFocus = Animation.easeOut(duration: 0.32)
+    /// The journal zooming out to its calendar and back (round 7): the list, the month and the year
+    /// settling into one another on a soft spring.
+    static let calendarZoom = Animation.spring(response: 0.38, dampingFraction: 0.9)
 }
 
 extension View {

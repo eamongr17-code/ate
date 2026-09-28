@@ -38,9 +38,6 @@ public final class JournalStore: EntryDeletionObserving {
     public private(set) var hasReachedEnd = false
     /// A page failed while content was already on screen. Shown inline, never as an alert.
     public private(set) var inlineErrorMessage: String?
-    /// Bumped by every change made here rather than read — an entry written, replaced or deleted —
-    /// so what is counted off the journal (the calendar's days) knows to count again.
-    public private(set) var localChanges = 0
     /// The order and filters the list is showing (round 4). The default is the journal itself and
     /// reads the plain journal path; anything else reads `my_entries`.
     public private(set) var query = JournalQuery()
@@ -78,6 +75,7 @@ public final class JournalStore: EntryDeletionObserving {
         self.entryService = entries
         self.querying = querying
         cityList = AteCityList { try await querying?.myEntryCities() ?? [] }
+        calendarDays = JournalCalendarStore(querying: querying, calendar: calendar)
         self.pageSize = pageSize
         self.calendar = calendar
         // An entry deleted anywhere leaves the journal in the same turn.
@@ -92,8 +90,9 @@ public final class JournalStore: EntryDeletionObserving {
     }
 
     /// Pull to refresh. Existing entries stay on screen until the new first page arrives, so a
-    /// refresh never flashes an empty list.
+    /// refresh never flashes an empty list. The calendar's days are read again with it.
     public func refresh() async {
+        calendarDays.invalidate()
         await loadFirstPage()
     }
 
@@ -207,7 +206,7 @@ public final class JournalStore: EntryDeletionObserving {
             entries.insert(card, at: 0)
         }
         phase = .ready
-        localChanges += 1
+        calendarDays.invalidate()
         regroup()
     }
 
@@ -215,7 +214,7 @@ public final class JournalStore: EntryDeletionObserving {
     public func replace(_ card: EntryCard) {
         guard let index = entries.firstIndex(where: { $0.id == card.id }) else { return }
         entries[index] = card
-        localChanges += 1
+        calendarDays.invalidate()
         regroup()
     }
 
@@ -225,7 +224,7 @@ public final class JournalStore: EntryDeletionObserving {
         guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return }
         entries.remove(at: index)
         if entries.isEmpty, phase == .ready { phase = .empty }
-        localChanges += 1
+        calendarDays.invalidate()
         regroup()
     }
 
@@ -324,6 +323,16 @@ public final class JournalStore: EntryDeletionObserving {
         generation += 1
         isLoadingFirstPage = false
         await loadFirstPage()
+    }
+
+    /// **The journal's days** (round 7) — the calendar's tiles and the month dividers' counts, read
+    /// by `journal_days` and kept current with every entry written or deleted here.
+    @ObservationIgnored public let calendarDays: JournalCalendarStore
+
+    /// How many entries a query holds — a chip sheet's "Show N entries" (`my_entries_count`).
+    public func count(_ query: JournalQuery) async throws -> Int {
+        guard let querying else { throw AteAPIError.notAuthenticated }
+        return try await querying.myEntriesCount(query)
     }
 
     /// The cities the filter offers (`my_entry_cities`), read ahead so the sheet rises full.

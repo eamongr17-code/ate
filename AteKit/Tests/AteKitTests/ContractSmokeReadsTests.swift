@@ -122,6 +122,21 @@ struct ContractSmokeReadsTests {
         _ = try await journal.myEntryCities()
     }
 
+    @Test("journal_days and my_entries_count")
+    func journalCounts() async throws {
+        let journal = JournalQueryClient(api: try await signedIn())
+        let today = AteDay.containing(Date())
+        let from = AteDay(year: today.year - 3, month: 1, day: 1)
+        let days = try await journal.journalDays(from: from, to: today, matching: nil)
+        let total = try await journal.myEntriesCount(JournalQuery())
+        #expect(total > 0, "ci@ate.test has entries")
+        var fours = JournalQuery()
+        fours.band = ScoreBand.Preset.fourPlus.band
+        let filtered = try await journal.journalDays(from: from, to: today, matching: fours)
+        #expect(filtered.reduce(0) { $0 + $1.entries } <= days.reduce(0) { $0 + $1.entries })
+        #expect(try await journal.myEntriesCount(fours) <= total)
+    }
+
     @Test("my_blocks")
     func blocks() async throws {
         _ = try await AccountClient(api: try await signedIn()).blockedPeople(after: nil, pageSize: 5)

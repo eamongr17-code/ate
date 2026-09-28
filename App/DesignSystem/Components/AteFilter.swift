@@ -42,6 +42,8 @@ struct AteFilterPill: View {
     /// A mark before the title — the city picker's Near me.
     var icon: AteIcon?
     var onRemove: (() -> Void)?
+    /// 14 in Search's sheet and the Feed's; the chip sheets' pills are 15 (`RatingChip`).
+    var textStyle: AteTextStyle = .controlSmall
 
     @Environment(\.atePalette) private var palette
 
@@ -51,7 +53,7 @@ struct AteFilterPill: View {
         HStack(spacing: 6) {
             if let icon { icon.view(size: 14) }
             Text(title)
-                .ateText(.controlSmall)
+                .ateText(textStyle)
                 .lineLimit(1)
             if let onRemove {
                 Button(action: onRemove) {
@@ -163,11 +165,12 @@ struct AteFilterChoice: View {
     let isOn: Bool
     var icon: AteIcon?
     var accessibilityName: String?
+    var textStyle: AteTextStyle = .controlSmall
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            AteFilterPill(title: title, isOn: isOn, icon: icon)
+            AteFilterPill(title: title, isOn: isOn, icon: icon, textStyle: textStyle)
                 .environment(\.atePalette, isOn ? .surface : Self.onSurface)
         }
         .buttonStyle(.plain)

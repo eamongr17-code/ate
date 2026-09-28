@@ -35,8 +35,11 @@ public struct InMemoryJournalQuery: JournalQuerying {
         return JournalQueryPage(items: page, requestedLimit: pageSize)
     }
 
-    public func journalDays(from: AteDay, to: AteDay) async throws -> [JournalDayCount] {
-        JournalDayCount.grouping(try await everything(), from: from, to: to, calendar: calendar)
+    public func journalDays(from: AteDay, to: AteDay, matching query: JournalQuery?) async throws -> [JournalDayCount] {
+        var filters = query ?? JournalQuery()
+        filters.window = .all
+        let kept = try await everything().filter { filters.matches($0, calendar: calendar) }
+        return JournalDayCount.grouping(kept, from: from, to: to, calendar: calendar)
     }
 
     public func myEntriesCount(_ query: JournalQuery) async throws -> Int {

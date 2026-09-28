@@ -126,6 +126,19 @@ public final class SavedDishesStore {
         await loadFirstPage()
     }
 
+    /// How many dishes a filter keeps — a chip sheet's "Show N dishes" on Saved. There is no count
+    /// read for the shelf, so it is counted off the filtered shelf itself, a hundred at a time.
+    public func count(_ filter: SavedDishFilter) async throws -> Int {
+        var count = 0
+        var cursor: PageCursor?
+        repeat {
+            let page = try await saves.savedDishesPage(after: cursor, pageSize: PageRequest.maximumLimit, filter: filter)
+            count += page.items.count
+            cursor = page.nextCursor
+        } while cursor != nil
+        return count
+    }
+
     public var cities: [AteCity] { cityList.cities }
     public var hasLoadedCities: Bool { cityList.hasLoaded }
     public func loadCities() async { await cityList.load() }

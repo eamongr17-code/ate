@@ -63,6 +63,22 @@ struct JournalCalendarTests {
         #expect(try JournalQueryClient.decodeCount(Data(#"[{"count":3}]"#.utf8)) == 3)
     }
 
+    @Test("journal_days takes the range, the zone and the list's filters, never its months")
+    func daysParameters() {
+        var query = JournalQuery(sort: .top, city: "melbourne", window: AteMonth(year: 2026, month: 3).window)
+        query.band = ScoreBand.Preset.fives.band
+        let tz = TimeZone(identifier: "Australia/Melbourne")!
+        let from = AteDay(year: 2026, month: 9, day: 1)
+        let to = AteDay(year: 2026, month: 9, day: 30)
+        let filtered = JournalQueryClient.daysParameters(from: from, to: to, matching: query, timeZone: tz)
+        #expect(filtered["p_from"] == .string("2026-09-01") && filtered["p_to"] == .string("2026-09-30"))
+        #expect(filtered["p_min_score"] == .double(5) && filtered["p_max_score"] == .double(5))
+        #expect(filtered["p_city"] == .string("melbourne") && filtered["p_tz"] == .string("Australia/Melbourne"))
+        #expect(filtered["p_sort"] == nil && filtered["p_limit"] == nil)
+        let plain = JournalQueryClient.daysParameters(from: from, to: to, matching: nil, timeZone: tz)
+        #expect(Set(plain.keys) == ["p_from", "p_to", "p_tz"])
+    }
+
     // MARK: - The month grid
 
     @Test("the grid is Monday first, whole weeks, blanks around the month")
@@ -177,16 +193,35 @@ struct JournalCalendarTests {
         #expect(await store.reveal(AteDay(year: 2026, month: 9, day: 15)) == nil)
     }
 
-    @Test("writing, replacing or deleting counts as a local change")
-    func localChanges() async {
-        let service = InMemoryEntryService(entries: [Self.card(2026, 9, 20)])
-        let store = JournalStore(entries: service, calendar: Self.utc)
+    /// A `journal_days` whose answer a test can change.
+    private final class DaysReader: JournalQuerying, @unchecked Sendable {
+        var rows: [JournalDayCount]
+        init(rows: [JournalDayCount]) { self.rows = rows }
+        func myEntries(_ query: JournalQuery, after cursor: JournalCursor?, pageSize: Int) async throws -> JournalQueryPage {
+            JournalQueryPage(items: [], nextCursor: nil)
+        }
+        func myEntryPlaces() async throws -> [JournalPlace] { [] }
+        func journalDays(from: AteDay, to: AteDay, matching query: JournalQuery?) async throws -> [JournalDayCount] {
+            rows
+        }
+    }
+
+    @Test("an entry written or deleted here has the calendar's days read again")
+    func writesRecount() async {
+        let entry = Self.card(2026, 9, 20)
+        let day = JournalDayCount(day: AteDay(year: 2026, month: 9, day: 20), entries: 1)
+        let reader = DaysReader(rows: [day])
+        let store = JournalStore(entries: InMemoryEntryService(entries: [entry]), calendar: Self.utc, querying: reader)
         await store.loadIfNeeded()
-        let before = store.localChanges
-        let fresh = Self.card(2026, 9, 21)
-        store.insert(fresh)
-        store.remove(entryID: fresh.id)
-        #expect(store.localChanges == before + 2)
+        let september = AteMonth(year: 2026, month: 9)
+        await store.calendarDays.loadYear(2026)
+        #expect(store.calendarDays.total(of: september) == 1)
+        reader.rows = []
+        store.remove(entryID: entry.id)
+        for _ in 0..<200 where store.calendarDays.total(of: september) != 0 {
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(store.calendarDays.total(of: september) == 0, "the deleted day leaves the calendar")
     }
 
     @Test("the calendar's events: which view, how it was reached, where a day landed")
