@@ -119,12 +119,6 @@ extension AteTextStyle {
     static let pageTitle = AteTextStyle(
         voice: .display, size: 24, weight: 800, trackingEm: -0.025, lineHeight: 1.0, textStyle: .title2
     )
-    /// A tab root's name in its compact header, the one that comes back mid-scroll (round 6): the
-    /// screen title's voice at 20.
-    static let compactTitle = AteTextStyle(
-        voice: .display, size: 20, weight: 800, trackingEm: -0.03, lineHeight: 1.0, textStyle: .headline,
-        maximumSize: 26
-    )
     /// "Pick a handle." — first run's one question, at the size of a place heading its own page.
     static var handleTitle: AteTextStyle { placeTitle }
     /// "Your ratings" — `.h` at 38 on `Ratings.dc.html`, the entry page's title size, not a tab's 40.
