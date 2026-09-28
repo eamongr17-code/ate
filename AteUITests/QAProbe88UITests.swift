@@ -121,3 +121,66 @@ final class QAProbe88UITests: XCTestCase {
         XCTAssertEqual(early, late)
     }
 }
+
+/// Diagnose the link-under-viewer result.
+final class QAProbe88bUITests: XCTestCase {
+    private var app: XCUIApplication!
+    private let link = "ate://entry/e0000000-0000-4000-8000-000000000001"
+    private var viewer: XCUIElement { app.descendants(matching: .any)["entry.photoViewer"].firstMatch }
+    private var close: XCUIElement { app.buttons["Close"].firstMatch }
+
+    private func launch(_ arguments: [String]) {
+        continueAfterFailure = true
+        app = XCUIApplication()
+        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing"] + arguments
+        app.launch()
+    }
+
+    private func shot(_ name: String) {
+        try? app.screenshot().pngRepresentation.write(
+            to: URL(fileURLWithPath: "/Users/runner/work/ate/ate/ci-out/\(name).png")
+        )
+    }
+
+    private func openLink() {
+        app.open(URL(string: link)!)
+        let confirm = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Open"]
+        if confirm.waitForExistence(timeout: 3) { confirm.tap() }
+    }
+
+    func testDiagnoseLinkUnderViewer() {
+        launch(["-ate-open-entry"])
+        let photo = app.buttons["photo.1"].firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 15))
+        sleep(1)
+        shot("d0-entry")
+        photo.tap()
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        sleep(1)
+        shot("d1-viewer")
+        openLink()
+        shot("d2-right-after-link")
+        for i in 0..<6 {
+            sleep(1)
+            print("QA88d: t+\(i + 1)s viewer=\(viewer.exists) close=\(close.exists) byline=\(app.buttons["entry.byline"].exists) photo1=\(photo.exists)")
+        }
+        shot("d3-after-6s")
+        print("QA88d: tree=\(app.debugDescription.prefix(3000))")
+    }
+
+    /// Control: the same link while the actions sheet (a #83 page cover) is up.
+    func testDiagnoseLinkUnderSheet() {
+        launch(["-ate-open-feed"])
+        let slip = app.descendants(matching: .any).matching(identifier: "feed.slip.body").element(boundBy: 1)
+        XCTAssertTrue(slip.waitForExistence(timeout: 15))
+        slip.tap()
+        let more = app.buttons["More"].firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: 10))
+        more.tap()
+        XCTAssertTrue(app.buttons["actions.Share"].firstMatch.waitForExistence(timeout: 5))
+        openLink()
+        sleep(3)
+        print("QA88c: sheet still up after link = \(app.buttons["actions.Share"].exists)")
+        shot("c1-sheet-after-link")
+    }
+}
