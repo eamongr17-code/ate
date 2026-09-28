@@ -134,7 +134,7 @@ struct StatsContractTests {
         // Paged on the month itself: one row at a time walks the same list, in the same order.
         var walked: [StatementMonthSummary] = []
         var cursor: StatementMonth?
-        for _ in 0..<12 {
+        for _ in 0..<(rows.count + 2) {
             let page = try await stats.months(
                 userID: me, timeZone: melbourne, after: cursor, limit: 1
             )

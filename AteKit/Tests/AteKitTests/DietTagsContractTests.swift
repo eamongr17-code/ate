@@ -20,13 +20,15 @@ struct DietTagsContractTests {
     @Test("every entry_cards line carries tags: an array, never null, of known codes")
     func linesCarryTags() async throws {
         let client = try await StagingContract.Backend.shared.client()
-        let data = try await client.supabase
-            .from(EntryCard.table)
-            .select(EntryCard.columns)
-            .order("created_at", ascending: false)
-            .limit(50)
-            .execute()
-            .data
+        let data = try await StagingExclusive.shared.run {   // the heavy view read, off the walks' toes
+            try await client.supabase
+                .from(EntryCard.table)
+                .select(EntryCard.columns)
+                .order("created_at", ascending: false)
+                .limit(50)
+                .execute()
+                .data
+        }
 
         // The raw shape first: the key is there on every line, and it is an array.
         let rows = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
