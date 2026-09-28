@@ -10,7 +10,7 @@ import Foundation
 /// It pages **for real** — the three-part `(is_mine, created_at, id)` comparison the RPC makes,
 /// evaluated the same way — rather than slicing by index, which would pass even if the store
 /// threaded the cursor wrongly.
-final class FakePlaceDishSource: PlacePageReading, DishPageReading, @unchecked Sendable {
+final class FakePlaceDishSource: PlacePageReading, DishPageReading, TestFake, @unchecked Sendable {
     struct Failure: Error, Equatable {
         let message: String
     }

@@ -3,7 +3,7 @@ import Testing
 @testable import AteKit
 
 /// A service that answers however a test needs it to, and remembers what it was asked.
-private final class StubEntryService: EntryService, @unchecked Sendable {
+private final class StubEntryService: EntryService, TestFake, @unchecked Sendable {
     var createError: (any Error)?
     var sortError: (any Error)?
     var attachErrorAfter: Int?
@@ -15,7 +15,6 @@ private final class StubEntryService: EntryService, @unchecked Sendable {
     private let lock = NSLock()
     private var cards: [UUID: EntryCard] = [:]
 
-    func viewer() async throws -> ViewerProfile { .preview }
     func authorID() async throws -> UUID { ViewerProfile.preview.id }
 
     @discardableResult
@@ -70,17 +69,6 @@ private final class StubEntryService: EntryService, @unchecked Sendable {
             return card
         }
     }
-
-    func journal(after cursor: PageCursor?, pageSize: Int) async throws -> Page<EntryCard> {
-        Page(items: [], requestedLimit: pageSize)
-    }
-
-    func correctPlace(entryID: UUID, restaurantID: UUID) async throws -> EntryCard {
-        try await entry(id: entryID)
-    }
-    func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async throws {}
-    func setTags(reviewID: UUID, tags: [DietTag]) async throws {}
-    func updateBody(entryID: UUID, body: String) async throws {}
 }
 
 @Suite("Entry submission")

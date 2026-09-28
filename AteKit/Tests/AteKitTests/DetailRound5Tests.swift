@@ -185,7 +185,7 @@ struct DetailRound5Tests {
 }
 
 /// One area, slowly.
-private actor SlowAreas: EntryFeedReading {
+private actor SlowAreas: EntryFeedReading, TestFake {
     var calls = 0
 
     func feedPage(
@@ -202,7 +202,7 @@ private actor SlowAreas: EntryFeedReading {
 }
 
 /// Two areas, and how many times they were asked for.
-private actor CountingAreas: EntryFeedReading {
+private actor CountingAreas: EntryFeedReading, TestFake {
     var calls = 0
     let failing: Bool
 

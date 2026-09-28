@@ -9,7 +9,7 @@ import Foundation
 /// screenshot shows and what `design/v1` draws are the same words, the same dishes and the same
 /// scores.
 public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileReading,
-                                          PreviewEntryLookup, @unchecked Sendable {
+                                          PreviewEntryLookup, InMemoryStandIn, @unchecked Sendable {
     private let lock = NSLock()
     private var entries: [EntryCard]
     private var profiles: [UUID: ProfileSummary]

@@ -370,7 +370,7 @@ struct FeedAreaTests {
 }
 
 /// `feed_areas`, paged the way the server pages it — and remembering the cursors it was handed.
-private final class PagedAreas: EntryFeedReading, @unchecked Sendable {
+private final class PagedAreas: EntryFeedReading, TestFake, @unchecked Sendable {
     private let all: [FeedArea]
     private let lock = NSLock()
     private var asked: [String?] = []
@@ -378,9 +378,6 @@ private final class PagedAreas: EntryFeedReading, @unchecked Sendable {
     init(_ all: [FeedArea]) { self.all = all }
 
     var cursors: [String?] { lock.withLock { asked } }
-
-    func feedPage(after cursor: PageCursor?, pageSize: Int, includeOwn: Bool, area: String?)
-        async throws -> Page<EntryCard> { Page(items: [], requestedLimit: pageSize) }
 
     func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] {
         lock.withLock {

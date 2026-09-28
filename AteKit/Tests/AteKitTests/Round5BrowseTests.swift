@@ -77,14 +77,13 @@ struct ScoreBandTests {
 @Suite("Round 5 — the Feed's location")
 @MainActor
 struct FeedLocationTests {
-    private final class Cities: EntryFeedReading, @unchecked Sendable {
+    private final class Cities: EntryFeedReading, TestFake, @unchecked Sendable {
         var nearMe: AteCity?
         func feedPage(
             after cursor: PageCursor?, pageSize: Int, includeOwn: Bool, area: String?
         ) async throws -> Page<EntryCard> {
             Page(items: [], requestedLimit: pageSize)
         }
-        func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] { [] }
         func feedCities() async throws -> [AteCity] {
             [
                 AteCity(city: "melbourne", name: "Melbourne", entryCount: 30),

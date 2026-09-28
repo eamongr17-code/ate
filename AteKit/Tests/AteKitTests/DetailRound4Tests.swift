@@ -124,7 +124,7 @@ struct DetailRound4Tests {
 
     /// A place and a dish with nothing written about them, whose lists answer slowly once told to —
     /// so a refresh can be caught with its empty list back in `.loading`.
-    final class EmptyDetail: PlacePageReading, DishPageReading, @unchecked Sendable {
+    final class EmptyDetail: PlacePageReading, DishPageReading, TestFake, @unchecked Sendable {
         let placeID = UUID()
         let dishID = UUID()
         private let lock = NSLock()
@@ -157,7 +157,6 @@ struct DetailRound4Tests {
             await pause()
             return DishReviewPage(items: [], nextCursor: nil)
         }
-        func isDishSaved(dishID: UUID) async throws -> Bool { false }
     }
 
     @Test("a place with no visits stays settled through a pull to refresh — never back to the skeleton")
@@ -276,17 +275,9 @@ struct DetailRound4Tests {
 
     @Test("a reader that cannot filter answers nothing rather than an unfiltered list")
     func honestDefault() async throws {
-        struct Plain: SearchReading {
-            func nearbyPlaces(origin: SearchOrigin, after cursor: SearchCursor?, pageSize: Int) async throws
-                -> SearchPage<PlaceResult> { SearchPage(rows: [], next: nil) }
+        struct Plain: SearchReading, TestFake {
             func places(query: String, after cursor: SearchCursor?, pageSize: Int) async throws
                 -> SearchPage<PlaceResult> { SearchPage(rows: [.fixture("Tipo 00")], next: nil) }
-            func dishes(query: String, after cursor: SearchCursor?, pageSize: Int) async throws
-                -> SearchPage<DishResult> { SearchPage(rows: [], next: nil) }
-            func people(query: String, after cursor: SearchCursor?, pageSize: Int) async throws
-                -> SearchPage<PersonResult> { SearchPage(rows: [], next: nil) }
-            func savedDishes(matching query: String?, after cursor: SearchCursor?, pageSize: Int) async throws
-                -> SearchPage<SavedDish> { SearchPage(rows: [], next: nil) }
         }
         let plain = Plain()
         #expect(try await plain.places(query: "tipo", filters: .none, after: nil, pageSize: 5).rows.count == 1)

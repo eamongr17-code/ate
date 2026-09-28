@@ -48,7 +48,7 @@ struct Round5QAFixTests {
 
     /// `resolve_city`, scripted: fails while `failing`, answers the point's city (or the busiest
     /// with no point), and counts the calls.
-    private final class Resolver: EntryFeedReading, @unchecked Sendable {
+    private final class Resolver: EntryFeedReading, TestFake, @unchecked Sendable {
         var failing = false
         var calls = 0
         let melbourne = AteCity(city: "melbourne", name: "Melbourne", entryCount: 30)
@@ -59,7 +59,6 @@ struct Round5QAFixTests {
         ) async throws -> Page<EntryCard> {
             Page(items: [], requestedLimit: pageSize)
         }
-        func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] { [] }
         func resolveCity(latitude: Double?, longitude: Double?) async throws -> AteCity? {
             calls += 1
             if failing { throw URLError(.notConnectedToInternet) }
@@ -129,14 +128,13 @@ struct Round5QAFixTests {
     }
 
     /// `resolve_city` failing fast — inside the wait — used to leave the first page on Everywhere.
-    private final class FailingResolver: EntryFeedReading, @unchecked Sendable {
+    private final class FailingResolver: EntryFeedReading, TestFake, @unchecked Sendable {
         var failsWithPoint = true
         func feedPage(
             after cursor: PageCursor?, pageSize: Int, includeOwn: Bool, area: String?
         ) async throws -> Page<EntryCard> {
             Page(items: [], requestedLimit: pageSize)
         }
-        func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] { [] }
         func resolveCity(latitude: Double?, longitude: Double?) async throws -> AteCity? {
             if latitude != nil, failsWithPoint { throw URLError(.timedOut) }
             return AteCity(city: "melbourne", name: "Melbourne", entryCount: 30)
@@ -152,14 +150,13 @@ struct Round5QAFixTests {
     }
 
     /// The busiest city comes back slowly, and the real answer lands while it is on its way.
-    private final class RacingResolver: EntryFeedReading, @unchecked Sendable {
+    private final class RacingResolver: EntryFeedReading, TestFake, @unchecked Sendable {
         let geelong = AteCity(city: "geelong", name: "Geelong", isNearby: true)
         func feedPage(
             after cursor: PageCursor?, pageSize: Int, includeOwn: Bool, area: String?
         ) async throws -> Page<EntryCard> {
             Page(items: [], requestedLimit: pageSize)
         }
-        func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] { [] }
         func resolveCity(latitude: Double?, longitude: Double?) async throws -> AteCity? {
             guard latitude == nil else { return geelong }
             try? await Task.sleep(for: .milliseconds(200))

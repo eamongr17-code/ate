@@ -354,7 +354,7 @@ private final class LateEventLog: @unchecked Sendable {
 }
 
 /// Records uploads; can be made to fail them (offline).
-private final class UploadRecorder: EntryService, @unchecked Sendable {
+private final class UploadRecorder: EntryService, TestFake, @unchecked Sendable {
     private let lock = NSLock()
     private var log: [String] = []
     private var insertCount = 0
@@ -373,8 +373,8 @@ private final class UploadRecorder: EntryService, @unchecked Sendable {
         set { lock.withLock { failing = newValue } }
     }
 
-    func viewer() async throws -> ViewerProfile { .preview }
     func authorID() async throws -> UUID { UUID() }
+    func updateBody(entryID: UUID, body: String) async throws {}
     func create(_ entry: NewEntry) async throws -> EntryCard {
         lock.withLock { insertCount += 1 }
         return EntryCard(id: entry.id, authorID: entry.authorID, body: entry.body, orderNumber: 1, createdAt: Date())
@@ -399,11 +399,4 @@ private final class UploadRecorder: EntryService, @unchecked Sendable {
             photos: rows.sorted().map { EntryCard.Photo(url: "u\($0)", position: $0) }
         )
     }
-    func journal(after cursor: PageCursor?, pageSize: Int) async throws -> Page<EntryCard> {
-        Page(items: [], requestedLimit: pageSize)
-    }
-    func correctPlace(entryID: UUID, restaurantID: UUID) async throws -> EntryCard { try await entry(id: entryID) }
-    func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async throws {}
-    func setTags(reviewID: UUID, tags: [DietTag]) async throws {}
-    func updateBody(entryID: UUID, body: String) async throws {}
 }

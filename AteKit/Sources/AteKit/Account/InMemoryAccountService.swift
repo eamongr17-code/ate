@@ -5,7 +5,7 @@ import Foundation
 /// It is a real implementation and not a stub: it remembers the handle it was given, refuses one it
 /// already holds, and actually removes a block. That is what lets Settings and the handle screen be
 /// driven end to end on a simulator with no backend.
-public final class InMemoryAccountService: AccountServing, @unchecked Sendable {
+public final class InMemoryAccountService: AccountServing, InMemoryStandIn, @unchecked Sendable {
     /// Every handle the world has already got. The signed-in person's own is not in here — editing
     /// your handle and typing it back unchanged must not report it as taken.
     public private(set) var taken: Set<String>

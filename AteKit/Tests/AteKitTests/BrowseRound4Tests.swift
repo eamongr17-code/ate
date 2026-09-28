@@ -350,7 +350,7 @@ struct BrowseRound4Tests {
 
 /// A journal query that holds its first answer until the test lets it go — a filtered page "on the
 /// wire" for as long as a test needs one.
-private actor GatedJournalQuery: JournalQuerying {
+private actor GatedJournalQuery: JournalQuerying, TestFake {
     private let inner: InMemoryJournalQuery
     private var isOpen = false
     private var asked = false

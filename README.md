@@ -40,6 +40,6 @@ xcrun xcresulttool export attachments --path run.xcresult --output-path shots
 backend, no session and no network, and attaches a screenshot at every step. The Debug-only launch
 arguments that put a single screen into a state — `-ate-preview-empty`, `-ate-open-composer`,
 `-ate-seed-draft`, `-ate-open-scoring`, `-ate-open-entry`, `-ate-open-place-sheet`,
-`-ate-open-dish-sheet`, `-ate-design-gallery` — are listed in `App/Compose/ComposerDebugLaunch.swift`.
+`-ate-open-dish-sheet` — are listed in `App/Compose/ComposerDebugLaunch.swift`.
 
 *Predecessor: the Expo build lives at `eamongr17-code/ate-legacy` (archived).*

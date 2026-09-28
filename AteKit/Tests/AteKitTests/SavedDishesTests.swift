@@ -3,7 +3,7 @@ import Testing
 @testable import AteKit
 
 /// A saves service a test drives: pages in, calls recorded, and a switch to make the server refuse.
-private final class FakeSaves: DishSaving, @unchecked Sendable {
+private final class FakeSaves: DishSaving, TestFake, @unchecked Sendable {
     var pages: [[SavedDish]]
     var refuses = false
     private(set) var saved: [(dish: UUID, entry: UUID?)] = []

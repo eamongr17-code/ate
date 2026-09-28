@@ -63,7 +63,7 @@ struct DetailRound6Tests {
 }
 
 /// One dish, scored 4.5, with no reviews.
-private struct StubDishes: DishPageReading {
+private struct StubDishes: DishPageReading, TestFake {
     let dishID: UUID
 
     func dishSummary(dishID: UUID) async throws -> DishSummary {
@@ -77,5 +77,4 @@ private struct StubDishes: DishPageReading {
         DishReviewPage(items: [], nextCursor: nil)
     }
 
-    func isDishSaved(dishID: UUID) async throws -> Bool { false }
 }

@@ -7,12 +7,9 @@ import Testing
 @MainActor
 struct Round5ShelfTests {
     /// A shelf that holds a fixed list and pages it like the view does.
-    private final class Shelf: DishSaving, @unchecked Sendable {
+    private final class Shelf: DishSaving, TestFake, @unchecked Sendable {
         let dishes: [SavedDish]
         init(_ dishes: [SavedDish]) { self.dishes = dishes }
-        func save(dishID: UUID, sourceEntryID: UUID?) async throws {}
-        func unsave(dishID: UUID) async throws {}
-        func saveEntryDishes(entryID: UUID) async throws -> Int { 0 }
         func savedDishesPage(after cursor: PageCursor?, pageSize: Int) async throws -> Page<SavedDish> {
             let start = cursor.flatMap { cursor in dishes.firstIndex { $0.dishID == cursor.id }.map { $0 + 1 } } ?? 0
             return Page(items: Array(dishes.dropFirst(start).prefix(pageSize)), requestedLimit: pageSize)

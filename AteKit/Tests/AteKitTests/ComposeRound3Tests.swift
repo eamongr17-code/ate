@@ -150,14 +150,12 @@ struct DietKeyTests {
 
 // MARK: - Editing photos
 
-private final class PhotoRecorder: EntryService, @unchecked Sendable {
+private final class PhotoRecorder: EntryService, TestFake, @unchecked Sendable {
     private let lock = NSLock()
     private var log: [String] = []
     var failBody = false
     var calls: [String] { lock.withLock { log } }
     private func add(_ call: String) { lock.withLock { log.append(call) } }
-
-    func viewer() async throws -> ViewerProfile { .preview }
     func authorID() async throws -> UUID { UUID() }
     func create(_ entry: NewEntry) async throws -> EntryCard { throw URLError(.badURL) }
     func attach(photo: EntryPhotoUpload) async throws {

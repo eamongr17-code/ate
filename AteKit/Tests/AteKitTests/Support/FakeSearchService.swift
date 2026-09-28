@@ -9,7 +9,7 @@ import Foundation
 /// It **records every call**, because most of what the store has to get right is about calls that
 /// should not happen: a keystroke that was debounced away, a scope switch that re-read a page it
 /// already had, a stale answer drawn over a newer one.
-final class FakeSearchService: SearchReading, @unchecked Sendable {
+final class FakeSearchService: SearchReading, TestFake, @unchecked Sendable {
     struct Failure: Error, Equatable {
         let message: String
     }

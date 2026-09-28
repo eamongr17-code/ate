@@ -7,7 +7,7 @@ import Foundation
 /// It reads the whole journal through the service it wraps and filters and orders it with the
 /// query's own rules (``JournalQuery/matches(_:calendar:)``, ``JournalQuery/ordered(_:)``), then
 /// pages the result by its keyset exactly as the server will — never by offset.
-public struct InMemoryJournalQuery: JournalQuerying {
+public struct InMemoryJournalQuery: JournalQuerying, InMemoryStandIn {
     private let entries: any EntryService
     private let calendar: Calendar
 

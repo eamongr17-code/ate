@@ -280,7 +280,7 @@ struct EditResortTests {
 }
 
 /// Records the six tokens every sort was asked with.
-private final class SixRecorder: EntryService, @unchecked Sendable {
+private final class SixRecorder: EntryService, TestFake, @unchecked Sendable {
     private let lock = NSLock()
     private var log: [[TagToken]] = []
     private var forces: [Bool] = []
@@ -291,10 +291,9 @@ private final class SixRecorder: EntryService, @unchecked Sendable {
     var sortedBodies: [String] { lock.withLock { bodies } }
     private var body = ""
 
-    func viewer() async throws -> ViewerProfile { .preview }
-    func authorID() async throws -> UUID { UUID() }
-    func create(_ entry: NewEntry) async throws -> EntryCard { throw URLError(.badURL) }
-    func attach(photo: EntryPhotoUpload) async throws {}
+    func entry(id: UUID) async throws -> EntryCard {
+        EntryCard(id: id, authorID: UUID(), body: "", orderNumber: 1, createdAt: Date())
+    }
     func sort(entryID: UUID, force: Bool, tagTokens: [TagToken]) async throws -> SortOutcome {
         try await sort(entryID: entryID, force: force, tagTokens: tagTokens, sixTokens: [])
     }
@@ -308,15 +307,6 @@ private final class SixRecorder: EntryService, @unchecked Sendable {
             entryID: entryID, status: .sorted, mode: "stub", itemCount: 1, restaurantID: nil, didAttachPlace: false
         )
     }
-    func entry(id: UUID) async throws -> EntryCard {
-        EntryCard(id: id, authorID: UUID(), body: "", orderNumber: 1, createdAt: Date())
-    }
-    func journal(after cursor: PageCursor?, pageSize: Int) async throws -> Page<EntryCard> {
-        Page(items: [], requestedLimit: pageSize)
-    }
-    func correctPlace(entryID: UUID, restaurantID: UUID) async throws -> EntryCard { try await entry(id: entryID) }
-    func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async throws {}
-    func setTags(reviewID: UUID, tags: [DietTag]) async throws {}
     func updateBody(entryID: UUID, body: String) async throws { lock.withLock { self.body = body } }
 }
 
