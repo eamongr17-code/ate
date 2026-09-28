@@ -85,6 +85,26 @@ struct ContractSmokeReadsTests {
         }
     }
 
+    // MARK: - The Feed's edition (0055)
+
+    /// Every read the edition makes, in a city and everywhere, decoded by the app's own client — and
+    /// `dishes_by_tag` with `p_city`. `set_cravings` writes, so it is not here.
+    @Test("top_ate, because_you_loved, new_to_record, my_cravings, craving_options, dishes_by_tag(p_city)")
+    func feedEdition() async throws {
+        let client = try await signedIn()
+        let edition = FeedEditionClient(api: client)
+        let top = try await edition.topAte(city: nil, limit: 8)
+        #expect(top.count <= 8)
+        _ = try await edition.topAte(city: "melbourne", limit: 8)
+        _ = try await edition.becauseYouLoved(city: nil, limit: 10)
+        _ = try await edition.newToRecord(city: nil, since: Date().addingTimeInterval(-30 * 86_400), limit: 6)
+        _ = try await edition.myCravings()
+        let options = try await edition.cravingOptions()
+        if let option = options.first {
+            _ = try await edition.cravingDishes(option.craving, city: "melbourne", limit: 5)
+        }
+    }
+
     // MARK: - Search
 
     @Test("search_places, search_dishes, search_people")
@@ -125,10 +145,9 @@ struct ContractSmokeReadsTests {
 
     // MARK: - Feed pickers
 
-    @Test("feed_areas, feed_cities and resolve_city")
+    @Test("feed_cities and resolve_city")
     func feedPickers() async throws {
         let feed = EntryFeedClient(api: try await signedIn())
-        #expect(try await feed.feedAreas(after: nil, limit: 5).isEmpty == false)
         #expect(try await feed.feedCities().isEmpty == false)
         let city = try await feed.resolveCity(latitude: Self.melbourne.latitude, longitude: Self.melbourne.longitude)
         #expect(city != nil, "the Melbourne CBD resolves to a city")

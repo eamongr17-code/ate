@@ -128,7 +128,9 @@ public final class TagDishesStore {
         let generationAtStart = generation
         if dishes.isEmpty { phase = .loading }
         do {
-            let page = try await reads.dishesByTag(kind: tag.kind, slug: tag.slug, after: nil, pageSize: pageSize)
+            let page = try await reads.dishesByTag(
+                kind: tag.kind, slug: tag.slug, city: tag.city, after: nil, pageSize: pageSize
+            )
             guard generationAtStart == generation else { return }
             hasLoaded = true
             dishes = []
@@ -162,7 +164,9 @@ public final class TagDishesStore {
         defer { isLoadingMore = false }
         let generationAtStart = generation
         do {
-            let page = try await reads.dishesByTag(kind: tag.kind, slug: tag.slug, after: cursor, pageSize: pageSize)
+            let page = try await reads.dishesByTag(
+                kind: tag.kind, slug: tag.slug, city: tag.city, after: cursor, pageSize: pageSize
+            )
             guard generationAtStart == generation else { return }
             append(page)
             inlineErrorMessage = nil

@@ -1,79 +1,14 @@
 import Foundation
 import Observation
 
-/// One row of `feed_areas()` (0038): an area — a place's locality, the label `p_area` filters on —
-/// and how many entries the Feed holds there.
-public struct FeedArea: Sendable, Hashable, Identifiable, Decodable {
-    public let area: String
-    public let count: Int
-
-    public var id: String { area }
-
-    public init(area: String, count: Int) {
-        self.area = area
-        self.count = count
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case area, count
-        case entryCount = "entry_count"
-        case entries
-    }
-
-    /// `entry_count` is the contract's column; `count`/`entries` are tolerated so a rename on the
-    /// server does not empty the sheet.
-    public init(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        area = try container.decode(String.self, forKey: .area)
-        count = try container.decodeIfPresent(Int.self, forKey: .entryCount)
-            ?? container.decodeIfPresent(Int.self, forKey: .count)
-            ?? container.decodeIfPresent(Int.self, forKey: .entries)
-            ?? 0
-    }
-
-    /// A page of areas: the sheet asks for this many, and the server clamps at 100.
-    public static let pageSize = 30
-    public static let maximumPageSize = 100
-
-    public static func clampedLimit(_ limit: Int) -> Int {
-        min(maximumPageSize, max(1, limit))
-    }
-
-    /// Whether `area` comes strictly after `cursor` in the keyset `(entry_count desc, area asc)`.
-    public static func isAfter(_ area: FeedArea, cursor: FeedArea) -> Bool {
-        area.count < cursor.count || (area.count == cursor.count && area.area > cursor.area)
-    }
-
-    /// Decodes the RPC's rows, drops blank areas, and puts them busiest first — ties by name, so
-    /// the sheet never reshuffles between two opens. The server already sorts; this makes it true
-    /// whatever the server does.
-    public static func decodeList(_ data: Data) throws -> [FeedArea] {
-        ordered(try JSONDecoder().decode([FeedArea].self, from: data))
-    }
-
-    public static func ordered(_ areas: [FeedArea]) -> [FeedArea] {
-        var seen: Set<String> = []
-        return areas
-            .filter { $0.area.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
-            .sorted { isAfter($1, cursor: $0) }
-            .filter { seen.insert($0.area).inserted }
-    }
-}
-
 /// **Where the feed is about** — the Feed's location pill, and the sheet behind it.
 ///
-/// `nil` is everywhere. The choice is remembered **per person** on this phone: two people sharing
-/// it keep their own feed, and signing out does not carry one person's city into the next session.
-/// A remembered area that has since vanished from `feed_areas()` is still honoured — the reader
-/// chose it, and an empty feed there is the truth, not a reason to quietly change their mind.
+/// Near me, a city, or everywhere (``FeedLocation``). The choice is remembered **per person** on this
+/// phone: two people sharing it keep their own feed, and signing out does not carry one person's
+/// city into the next session. (The round-4 locality areas and `feed_areas()` were retired in round 8.)
 @MainActor
 @Observable
 public final class FeedAreaModel {
-    public private(set) var areas: [FeedArea] = []
-    public private(set) var selected: String?
-
-    // MARK: Round 5 — the city (see ``FeedLocation``)
-
     /// What the Feed is about. Near me until the person picks otherwise; remembered per person.
     public private(set) var location: FeedLocation
     /// `feed_cities()`, busiest first — the picker, read ahead so its sheet rises full.
@@ -97,35 +32,23 @@ public final class FeedAreaModel {
     /// The city the feed was last read with, so a later answer knows whether it changed anything.
     var servedCity: String??
     var resolving: Task<Void, Never>?
-    public private(set) var isLoadingAreas = false
-    public private(set) var hasReachedEnd = false
-    /// Whether a first page has ever answered — the sheet opens on it rather than on nothing.
-    public private(set) var hasLoadedAreas = false
-    /// Whether the first read has answered at all — a page or a failure. What the sheet waits on.
-    public private(set) var hasAnsweredAreas = false
-    @ObservationIgnored private var firstRead: Task<Void, Never>?
 
     private let reader: any EntryFeedReading
     private let store: any AteKeyValueStore
     private let owner: @Sendable () -> UUID?
     private let analytics: AnalyticsRecorder
-    private let pageSize: Int
-    private var generation = 0
 
     public init(
         reader: any EntryFeedReading,
         store: any AteKeyValueStore,
         owner: @escaping @Sendable () -> UUID?,
-        analytics: @escaping AnalyticsRecorder = { _ in },
-        pageSize: Int = FeedArea.pageSize
+        analytics: @escaping AnalyticsRecorder = { _ in }
     ) {
-        self.pageSize = FeedArea.clampedLimit(pageSize)
         self.reader = reader
         cityList = AteCityList { try await reader.feedCities() }
         self.store = store
         self.owner = owner
         self.analytics = analytics
-        selected = store.value(forKey: Self.key(for: owner()))
         location = FeedLocation(stored: store.value(forKey: Self.locationKey(for: owner())))
     }
 
@@ -228,86 +151,8 @@ public final class FeedAreaModel {
         return city != before
     }
 
-    /// The key a person's choice is filed under. Signed out has its own.
-    public static func key(for userID: UUID?) -> String {
-        "ate.feedArea.\(userID?.uuidString.lowercased() ?? "signedOut")"
-    }
-
-    /// The first page — read ahead as the Feed opens and again on its pull to refresh, so the sheet
-    /// opens full and its counts move with the feed (round 5). Quietly keeps the last good list
-    /// on a failure: the sheet still offers Everywhere and the current choice, which is all a
-    /// failure should leave.
-    public func loadAreas() async {
-        generation += 1
-        let generationAtStart = generation
-        isLoadingAreas = true
-        defer { isLoadingAreas = false }
-        let answer = try? await reader.feedAreas(after: nil, limit: pageSize)
-        guard generationAtStart == generation else { return }
-        // A failure still answers the sheet (Everywhere and the current choice stand); a later
-        // open asks again, because `hasLoadedAreas` only records a real page.
-        guard let page = answer else {
-            hasAnsweredAreas = true
-            return
-        }
-        hasAnsweredAreas = true
-        areas = FeedArea.ordered(page)
-        hasReachedEnd = page.count < pageSize
-        hasLoadedAreas = true
-    }
-
-    /// The first page, once: what the Feed reads ahead so its area sheet opens full (round 5).
-    ///
-    /// A read already on its way is joined rather than skipped, so a sheet waiting on this waits for
-    /// the areas to actually land.
-    public func loadAreasIfNeeded() async {
-        if let firstRead {
-            await firstRead.value
-            return
-        }
-        guard hasLoadedAreas == false else { return }
-        let read = Task { await loadAreas() }
-        firstRead = read
-        await read.value
-        firstRead = nil
-    }
-
-    /// Called as a row appears: the next page once the last few are on screen.
-    public func loadMoreAreasIfNeeded(after area: FeedArea) async {
-        guard let index = areas.firstIndex(of: area), index >= areas.count - 5 else { return }
-        await loadMoreAreas()
-    }
-
-    public func loadMoreAreas() async {
-        guard isLoadingAreas == false, hasReachedEnd == false, let cursor = areas.last else { return }
-        let generationAtStart = generation
-        isLoadingAreas = true
-        defer { isLoadingAreas = false }
-        guard let page = try? await reader.feedAreas(after: cursor, limit: pageSize),
-              generationAtStart == generation else { return }
-        // Dedup on arrival: a count that moved between pages can offer an area twice.
-        let known = Set(areas.map(\.area))
-        areas += FeedArea.ordered(page.filter { known.contains($0.area) == false })
-        hasReachedEnd = page.count < pageSize
-    }
-
     /// Re-reads the remembered choice — after a sign-in, when "whose phone is this" changed.
     public func reloadSelection() {
-        selected = store.value(forKey: Self.key(for: owner()))
         location = FeedLocation(stored: store.value(forKey: Self.locationKey(for: owner())))
-    }
-
-    /// Picks an area (`nil` = everywhere). Returns whether anything changed, so the caller reloads
-    /// the feed only when it has something new to show.
-    @discardableResult
-    public func choose(_ area: String?) -> Bool {
-        guard area != selected else { return false }
-        selected = area
-        store.setValue(area, forKey: Self.key(for: owner()))
-        analytics(SocialEvents.feedAreaChanged(
-            area: area,
-            rank: area.flatMap { name in areas.firstIndex { $0.area == name } }
-        ))
-        return true
     }
 }

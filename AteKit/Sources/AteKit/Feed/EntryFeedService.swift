@@ -16,18 +16,13 @@ public protocol EntryFeedReading: Sendable {
     /// empty page RLS would hand back: "signed out" and "nobody has written anything" are different
     /// screens and must never render as the same one.
     ///
-    /// - Parameter area: one of ``feedAreas(after:limit:)``'s names, or `nil` for everywhere.
+    /// - Parameter area: a place's locality, or `nil` for everywhere (the app reads by city).
     func feedPage(
         after cursor: PageCursor?,
         pageSize: Int,
         includeOwn: Bool,
         area: String?
     ) async throws -> Page<EntryCard>
-
-    /// One page of `feed_areas(p_limit, p_cursor_entry_count, p_cursor_area)` — where people have
-    /// been writing, busiest first, keyset `(entry_count desc, area asc)`. What the Feed's location
-    /// pill offers, beside "Everywhere". `nil` cursor = the first page.
-    func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea]
 
     /// One page of the feed in one city (`p_city`, 0046–0048) — `nil` is everywhere. The same
     /// `p_city` goes with every page.
@@ -127,17 +122,6 @@ public struct EntryFeedClient: EntryFeedReading {
             .data
         let rows = try PostgRESTDate.decoder.decode([EntryCard].self, from: data)
         return Page(items: rows, requestedLimit: limit)
-    }
-
-    public func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] {
-        let parameters: [String: AnyJSON] = [
-            "p_limit": .integer(FeedArea.clampedLimit(limit)),
-            // First page → nulls. Next page → the LAST row's `entry_count` AND `area` (0038).
-            "p_cursor_entry_count": cursor.map { .integer($0.count) } ?? .null,
-            "p_cursor_area": cursor.map { .string($0.area) } ?? .null
-        ]
-        let data = try await api.supabase.rpc("feed_areas", params: parameters).execute().data
-        return try FeedArea.decodeList(data)
     }
 
     public func feedCities() async throws -> [AteCity] {

@@ -13,16 +13,18 @@ struct FeedLocationHeader: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    static let chipHeight: CGFloat = 40
+    /// `height:42px` (round 8, `Main.dc.html`).
+    static let chipHeight: CGFloat = 42
 
     var body: some View {
         // At the accessibility sizes the chip goes under the title rather than breaking beside it.
+        // Beside it, the two share a bottom line (`align-items:flex-end`).
         let stacks = dynamicTypeSize.isAccessibilitySize
         let layout = stacks
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: AteMetrics.snug))
-            : AnyLayout(HStackLayout())
+            : AnyLayout(HStackLayout(alignment: .bottom, spacing: 10))
         return layout {
-            Text("Feed").ateTextLine(.screenTitle)
+            Text("Feed").ateTextLine(.feedTitle)
             if stacks == false { Spacer(minLength: AteMetrics.snug) }
             FeedLocationChip(model: model, onTap: onTap)
         }
@@ -38,21 +40,25 @@ struct FeedLocationChip: View {
     var body: some View {
         let hit = AteHitOutset(height: FeedLocationHeader.chipHeight)
         return Button(action: onTap) {
-            HStack(spacing: AteMetrics.snug - 2) {
-                (isNear || isResolving ? AteIcon.navigation : AteIcon.place).view(size: isNear || isResolving ? 14 : 16)
+            // `gap:7px; padding:0 15px`, the navigation mark at 15 and `stroke-width:2.2`.
+            HStack(spacing: 7) {
+                if isNear || isResolving {
+                    AteIcon.navigation.view(size: 15, lineWidth: 2.2 * AteIconShape.opticalScale)
+                } else {
+                    AteIcon.place.view(size: 16)
+                }
                 if isNear {
-                    Text("Near me").ateText(.controlSmall)
+                    Text("Near me").ateText(.feedControl)
                     // Two values side by side, never " · " (design rule 2).
                     Text(title)
-                        .ateText(.controlSmall)
+                        .ateText(.feedControl)
                         .foregroundStyle(AtePalette.automatic.muted)
                 } else {
-                    Text(title).ateText(.controlSmall)
+                    Text(title).ateText(.feedControl)
                 }
             }
             .lineLimit(1)
-            .padding(.leading, 12)
-            .padding(.trailing, 14)
+            .padding(.horizontal, 15)
             .atePillHeight(FeedLocationHeader.chipHeight)
             .background(AtePalette.automatic.raised, in: .capsule)
             .foregroundStyle(AtePalette.automatic.fg)

@@ -131,7 +131,12 @@ extension AteShell {
         journal.invalidate()
         feedArea.reloadSelection()
         if wasBrowsing {
-            Task { await feed.refresh() }
+            // The personal sections come in now (round 8), and the bookmarks are the person's.
+            Task {
+                async let sections: Void = feedEdition.refresh()
+                await feed.refresh()
+                await sections
+            }
         }
     }
 

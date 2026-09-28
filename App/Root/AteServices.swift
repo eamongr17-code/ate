@@ -21,6 +21,9 @@ struct AteServices {
     let places: any PlaceDirectory
     /// Everyone else's entries. Read-only, and its own seam: the feed never writes.
     let feed: any EntryFeedReading
+    /// The Feed's edition (round 8): The Top Ate, Because you loved…, New to the record and the
+    /// cravings. Signed in and signed out, as the feed is.
+    let feedEdition: any FeedEditionReading
     /// The feed's one action, and the shelf it fills.
     let saves: any DishSaving
     /// Somebody else's page, and the two things you can do about them.
@@ -83,6 +86,7 @@ struct AteServices {
         self.places = preview?.places ?? PlaceDirectoryClient(api: api)
         self.photos = preview?.photos ?? SystemPhotoLibrary()
         self.feed = preview?.feed ?? EntryFeedClient(api: api)
+        self.feedEdition = preview?.feedEdition ?? FeedEditionClient(api: api)
         self.saves = preview?.saves ?? SaveClient(api: api)
         self.profiles = preview?.profiles ?? ProfileClient(api: api)
         self.stats = preview?.stats ?? StatsClient(api: api)
@@ -121,6 +125,7 @@ struct AteServices {
         // feed is on the shelf) — but it is held as its three protocols, so this struct still
         // type-checks in a build where the in-memory types do not exist at all.
         let feed: any EntryFeedReading
+        let feedEdition: any FeedEditionReading
         let saves: any DishSaving
         let profiles: any ProfileReading
         let stats: any StatsReading
@@ -149,7 +154,7 @@ struct AteServices {
             )
         return PreviewServices(
             entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
-            feed: social, saves: social, profiles: social, stats: InMemoryStatsService(),
+            feed: social, feedEdition: social, saves: social, profiles: social, stats: InMemoryStatsService(),
             placePages: social, dishPages: social, dishExplore: social, search: social,
             account: InMemoryAccountService()
         )

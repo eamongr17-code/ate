@@ -44,7 +44,6 @@ extension JournalQuerying where Self: TestFake {
 extension EntryFeedReading where Self: TestFake {
     func feedPage(after cursor: PageCursor?, pageSize: Int, includeOwn: Bool, area: String?) async throws
         -> Page<EntryCard> { try unimplemented() }
-    func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] { try unimplemented() }
 }
 
 extension DishSaving where Self: TestFake {
@@ -160,6 +159,18 @@ extension RestaurantSearchProviding where Self: TestFake {
         try unimplemented()
     }
     func addManual(name: String, city: String?, cuisine: String?) async throws -> PickedRestaurant {
+        try unimplemented()
+    }
+}
+
+extension FeedEditionReading where Self: TestFake {
+    func topAte(city: String?, limit: Int) async throws -> [TopAteLine] { try unimplemented() }
+    func becauseYouLoved(city: String?, limit: Int) async throws -> LovedShelf? { try unimplemented() }
+    func newToRecord(city: String?, since: Date, limit: Int) async throws -> [NewDish] { try unimplemented() }
+    func myCravings() async throws -> [Craving] { try unimplemented() }
+    func cravingOptions() async throws -> [CravingOption] { try unimplemented() }
+    func setCravings(_ cravings: [Craving]) async throws -> [Craving] { try unimplemented() }
+    func cravingDishes(_ craving: Craving, city: String?, limit: Int) async throws -> [FeedDish] {
         try unimplemented()
     }
 }

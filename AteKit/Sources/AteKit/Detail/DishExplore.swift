@@ -179,11 +179,15 @@ public struct DishTagRoute: Sendable, Hashable, Codable {
     public let kind: DishTag.Kind
     public let slug: String
     public let label: String
+    /// The city the page is read in — a Feed craving shelf's See all keeps the Feed's city (round 8).
+    /// `nil` is everywhere, as a dish page's chip opens it.
+    public let city: String?
 
-    public init(kind: DishTag.Kind, slug: String, label: String) {
+    public init(kind: DishTag.Kind, slug: String, label: String, city: String? = nil) {
         self.kind = kind
         self.slug = slug
         self.label = label
+        self.city = city
     }
 
     public init(_ tag: DishTag) {
@@ -201,13 +205,27 @@ public protocol DishExploreReading: Sendable {
     /// `similar_dishes(p_dish_id, p_limit)` — ranked by the server, the dish itself excluded, and
     /// only dishes sharing a style or the cuisine (0053).
     func similarDishes(dishID: UUID, limit: Int) async throws -> [SimilarDish]
-    /// `dishes_by_tag(p_kind, p_slug, p_limit, cursor…)` — one keyset page, best first.
+    /// `dishes_by_tag(p_kind, p_slug, p_limit, cursor…, p_city)` — one keyset page, best first, in a
+    /// city when one is given (round 8; `nil` is everywhere).
     func dishesByTag(
+        kind: DishTag.Kind,
+        slug: String,
+        city: String?,
+        after cursor: TagDishCursor?,
+        pageSize: Int
+    ) async throws -> TagDishPage
+}
+
+extension DishExploreReading {
+    /// Everywhere — a dish page's chip.
+    public func dishesByTag(
         kind: DishTag.Kind,
         slug: String,
         after cursor: TagDishCursor?,
         pageSize: Int
-    ) async throws -> TagDishPage
+    ) async throws -> TagDishPage {
+        try await dishesByTag(kind: kind, slug: slug, city: nil, after: cursor, pageSize: pageSize)
+    }
 }
 
 /// The live reads: `dish_tags`, `similar_dishes`, `dishes_by_tag`.
@@ -246,15 +264,12 @@ public struct DishExploreClient: DishExploreReading {
     public func dishesByTag(
         kind: DishTag.Kind,
         slug: String,
+        city: String?,
         after cursor: TagDishCursor?,
         pageSize: Int
     ) async throws -> TagDishPage {
         let limit = min(Self.maximumPageSize, max(1, pageSize))
-        var parameters: [String: AnyJSON] = [
-            "p_kind": .string(kind.rawValue),
-            "p_slug": .string(slug),
-            "p_limit": .integer(limit)
-        ]
+        var parameters = Self.tagParameters(kind: kind, slug: slug, city: city, limit: limit)
         // All four, or none: the first page is the plain call, and `p_cursor_score` is legitimately
         // null among the unscored dishes — the cursor's presence decides, never the value's.
         if let cursor {
@@ -269,6 +284,18 @@ public struct DishExploreClient: DishExploreReading {
             .data
         let rows = try PostgRESTDate.decoder.decode([SimilarDish].self, from: data)
         return TagDishPage(items: rows, requestedLimit: limit)
+    }
+
+    /// `dishes_by_tag`'s first-page parameters. `p_city` only when there is a city: everywhere is the
+    /// plain call, which every version of the function answers.
+    static func tagParameters(kind: DishTag.Kind, slug: String, city: String?, limit: Int) -> [String: AnyJSON] {
+        var parameters: [String: AnyJSON] = [
+            "p_kind": .string(kind.rawValue),
+            "p_slug": .string(slug),
+            "p_limit": .integer(limit)
+        ]
+        if let city { parameters["p_city"] = .string(city) }
+        return parameters
     }
 
     /// A kind this build does not know is dropped, row by row, rather than taking every tag down.

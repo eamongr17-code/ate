@@ -44,7 +44,6 @@ public extension JournalQuerying where Self: InMemoryStandIn {
 public extension EntryFeedReading where Self: InMemoryStandIn {
     func feedPage(after cursor: PageCursor?, pageSize: Int, includeOwn: Bool, area: String?) async throws
         -> Page<EntryCard> { throw StandInUnsupported() }
-    func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] { throw StandInUnsupported() }
 }
 
 public extension DishSaving where Self: InMemoryStandIn {

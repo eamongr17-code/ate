@@ -15,6 +15,10 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
     private var profiles: [UUID: ProfileSummary]
     private var savedDishIDs: [UUID: Date] = [:]
     private var blocked: Set<UUID> = []
+    private var followedCravings: [Craving] = [
+        Craving(kind: .style, slug: "pasta", label: "pasta"),
+        Craving(kind: .style, slug: "dessert", label: "dessert")
+    ]
 
     public init(entries: [EntryCard] = InMemorySocialService.seededEntries,
                 profiles: [ProfileSummary] = InMemorySocialService.seededProfiles,
@@ -90,19 +94,6 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
         return AteCity(
             city: busiest.city, name: busiest.name, entryCount: busiest.entryCount, isNearby: latitude != nil
         )
-    }
-
-    /// The feed's areas, as `feed_areas()` counts them: the locality of every visible entry's place.
-    public func feedAreas(after cursor: FeedArea?, limit: Int) async throws -> [FeedArea] {
-        lock.withLock {
-            let counts = entries
-                .filter { blocked.contains($0.authorID) == false && $0.isMine == false }
-                .compactMap(Self.area(of:))
-                .reduce(into: [String: Int]()) { $0[$1, default: 0] += 1 }
-            let ordered = FeedArea.ordered(counts.map { FeedArea(area: $0.key, count: $0.value) })
-            let after = cursor.map { cursor in ordered.filter { FeedArea.isAfter($0, cursor: cursor) } } ?? ordered
-            return Array(after.prefix(FeedArea.clampedLimit(limit)))
-        }
     }
 
     /// Where an entry is, for the area filter: its place's locality, as `p_area` matches it.
@@ -218,6 +209,17 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
                   blocked.contains(card.authorID) == false else { return nil }
             return applyingSaves(card)
         }
+    }
+
+    /// Whether the viewer has a dish saved — the edition's rows carry it (`InMemoryFeedEdition`).
+    func isSaved(dishID: UUID) -> Bool {
+        lock.withLock { savedDishIDs[dishID] != nil }
+    }
+
+    /// The viewer's cravings (`user_cravings`), in memory — Pasta and Dessert, as the artboard follows.
+    var cravings: [Craving] {
+        get { lock.withLock { followedCravings } }
+        set { lock.withLock { followedCravings = newValue } }
     }
 
     // MARK: - Machinery
