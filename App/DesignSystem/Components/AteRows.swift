@@ -129,6 +129,10 @@ struct AteChip: View {
     /// 16 by default. The place header draws its star at 14 and its people mark at 15, because a
     /// filled glyph reads heavier than a stroked one at the same box.
     var iconSize: CGFloat = 16
+    /// 12 either side by default (10 before an icon); a dish page's tag chips are `padding:0 14px`.
+    var sidePadding: CGFloat = 12
+    /// `.controlSmall` by default; a dish page's tag chips set 14/600 with no tracking.
+    var textStyle: AteTextStyle = .controlSmall
     var action: (() -> Void)?
 
     @Environment(\.atePalette) private var palette
@@ -136,10 +140,10 @@ struct AteChip: View {
     var body: some View {
         let content = HStack(spacing: AteMetrics.snug - 2) {
             if let icon { icon.view(size: iconSize) }
-            Text(title).ateText(.controlSmall)
+            Text(title).ateText(textStyle)
         }
-        .padding(.leading, icon == nil ? 12 : 10)
-        .padding(.trailing, 12)
+        .padding(.leading, icon == nil ? sidePadding : sidePadding - 2)
+        .padding(.trailing, sidePadding)
         .atePillHeight(height)
         .background(palette.raised, in: .capsule)
         .foregroundStyle(palette.fg)

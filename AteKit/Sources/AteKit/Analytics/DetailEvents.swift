@@ -41,6 +41,10 @@ public enum DetailSource: String, Sendable, CaseIterable, Codable {
     case dish
     /// A link into the app — a shared entry (`ate://entry/<id>`).
     case link
+    /// A dish page's "More like this" carousel (round 7).
+    case similar
+    /// A tag's page — the list a dish page's "More to explore" chip opens (round 7).
+    case tag
 }
 
 /// Which affordance a "log" call to action was tapped on.
@@ -95,6 +99,23 @@ public enum DetailEvents {
     /// A dish's photo on a place's menu opened the photo viewer (round 4).
     public static func menuPhotoOpened() -> AnalyticsEvent {
         AnalyticsEvent(name: "menu_photo_opened", parameters: [:])
+    }
+
+    /// A "More to explore" chip on a dish page was tapped (round 7): which kind of tag — style,
+    /// cuisine, suburb, city or diet — is what people explore by.
+    public static func dishTagOpened(kind: DishTag.Kind) -> AnalyticsEvent {
+        AnalyticsEvent(name: "dish_tag_opened", parameters: ["kind": kind.rawValue])
+    }
+
+    /// A "More like this" card on a dish page was tapped (round 7). `position` is 1-based: how far
+    /// along the carousel people go before one earns a tap.
+    public static func similarDishOpened(position: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "similar_dish_opened", parameters: ["position": String(position)])
+    }
+
+    /// A tag's page of dishes was shown (round 7).
+    public static func tagDishesViewed(kind: DishTag.Kind) -> AnalyticsEvent {
+        AnalyticsEvent(name: "tag_dishes_viewed", parameters: ["kind": kind.rawValue])
     }
 
     public static func logCTATapped(from origin: LogCTAOrigin) -> AnalyticsEvent {

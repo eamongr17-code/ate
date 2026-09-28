@@ -16,6 +16,7 @@
 // have to guess at. Any failure → null → index.ts falls back to the stub, so sorting
 // degrades rather than breaks.
 
+import { cleanStyles } from './styles.ts';
 import type { SortPlan } from './types.ts';
 
 /**
@@ -83,6 +84,10 @@ const SYSTEM = [
   '7. A note is the words that follow that dish (and its score) up to the next dish,',
   '   without the dish name or the score, and without leading glue ("and", "was", ",").',
   '   It is printed under the dish on a receipt, so it must read as a comment on it.',
+  '8. styles: 1-3 short lowercase words for what KIND of dish it is, as a menu would group it',
+  '   ("pasta", "dumplings", "dessert", "fried chicken", "noodles"). Not the cuisine or country,',
+  '   not a place, not a diet (never "vegan" or "gluten free"), not an opinion. These describe the',
+  '   dish only; they never change its name, score or note.',
 ].join('\n');
 
 const TOOL = {
@@ -112,6 +117,13 @@ const TOOL = {
               description: 'Exact substring of the text containing that number. Required whenever score is present.',
             },
             note: { type: 'string', description: 'Exact substring of the text about this dish. Omit if none.' },
+            styles: {
+              type: 'array',
+              items: { type: 'string' },
+              maxItems: 3,
+              description:
+                '1-3 lowercase words for what kind of dish this is ("pasta", "dumplings", "dessert"). Not the cuisine, a place, a diet or an opinion.',
+            },
           },
           required: ['dish_name'],
         },
@@ -208,6 +220,7 @@ export function planFromResponse(payload: unknown): SortPlan | null {
     place_offset: null,
     items: input.items.map((raw) => {
       const it = (raw ?? {}) as Record<string, unknown>;
+      const styles = cleanStyles(it.styles);
       return {
         dish_name: typeof it.dish_name === 'string' ? it.dish_name : '',
         score: typeof it.score === 'number' ? it.score : null,
@@ -216,6 +229,7 @@ export function planFromResponse(payload: unknown): SortPlan | null {
         evidence_offset: null,
         mention_text: null,
         mention_offset: null,
+        ...(styles.length ? { styles } : {}),
       };
     }),
   };

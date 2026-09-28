@@ -17,6 +17,11 @@ import SwiftUI
 /// one broadcast, so a dish saved here is already saved on the feed underneath (AGENTS.md rule 2).
 struct DishScreen: View {
     let store: DishPageStore
+    /// "More to explore" and "More like this", under the reviews (round 7). `nil` for a signed-out
+    /// browser: they are signed-in reads, and a section that could never load is not held open.
+    var explore: DishExploreStore?
+    var onTag: (DishTag) -> Void = { _ in }
+    var onSimilar: (SimilarDish, Int) -> Void = { _, _ in }
     var onPlace: (UUID) -> Void = { _ in }
     var onReview: (DishReview) -> Void = { _ in }
     /// The avatar or handle on a review: that person's profile.
@@ -47,8 +52,17 @@ struct DishScreen: View {
         .ateGround()
         // The system back button, and the bookmark in glass beside it (round 4).
         .ateNavigationBar(trailing: { saveButton })
-        .refreshable { await store.refresh() }
-        .task { await store.load() }
+        .refreshable {
+            await store.refresh()
+            await explore?.refresh()
+        }
+        .task {
+            await store.load()
+            // After the page's own read, never beside it: the sections below the reviews must not
+            // slow the part of the page somebody opened it for.
+            guard store.summary != nil else { return }
+            await explore?.load()
+        }
         #if DEBUG
         .onAppear { DetailTimings.opened("dish", hasPreview: store.preview != nil) }
         .onChange(of: store.isSettled) { _, settled in if settled { DetailTimings.settled("dish") } }
@@ -85,6 +99,16 @@ struct DishScreen: View {
             // The reviews are rows of this stack, not a band inside the header's; each case
             // puts the header's `loose` gap above its first row itself.
             reviews
+                .transition(.opacity)
+            exploreSections
+        }
+    }
+
+    /// Under the reviews, once the page has settled on a dish (round 7).
+    @ViewBuilder
+    private var exploreSections: some View {
+        if let explore, store.isSettled, store.summary != nil {
+            DishExploreSections(store: explore, onTag: onTag, onDish: onSimilar)
                 .transition(.opacity)
         }
     }
@@ -329,6 +353,7 @@ extension DishScreen {
         if summary != nil {
             reviews
                 .transition(.opacity)
+            exploreSections
         } else {
             ReviewSkeleton()
                 .padding(.horizontal, AteMetrics.listGutter)

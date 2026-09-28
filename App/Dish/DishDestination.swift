@@ -12,8 +12,13 @@ struct DishDestination: View {
     var onPlace: (UUID) -> Void = { _ in }
     var onEntry: (UUID) -> Void = { _ in }
     var onProfile: (UUID) -> Void = { _ in }
+    /// A "More like this" card: that dish.
+    var onDish: (UUID) -> Void = { _ in }
+    /// A "More to explore" chip: that tag's page.
+    var onTag: (DishTagRoute) -> Void = { _ in }
 
     @State private var store: DishPageStore
+    @State private var explore: DishExploreStore?
 
     init(
         dishID: UUID,
@@ -22,7 +27,9 @@ struct DishDestination: View {
         saves: SaveAction,
         onPlace: @escaping (UUID) -> Void = { _ in },
         onEntry: @escaping (UUID) -> Void = { _ in },
-        onProfile: @escaping (UUID) -> Void = { _ in }
+        onProfile: @escaping (UUID) -> Void = { _ in },
+        onDish: @escaping (UUID) -> Void = { _ in },
+        onTag: @escaping (DishTagRoute) -> Void = { _ in }
     ) {
         self.dishID = dishID
         self.source = source
@@ -31,6 +38,12 @@ struct DishDestination: View {
         self.onPlace = onPlace
         self.onEntry = onEntry
         self.onProfile = onProfile
+        self.onDish = onDish
+        self.onTag = onTag
+        // Signed-in reads (round 7): a browser with no session never holds their space open.
+        _explore = State(initialValue: services.hasSession
+            ? DishExploreStore(dishID: dishID, reads: services.dishExplore)
+            : nil)
         #if DEBUG
         let reads = SlowDetailReads.dishes(services.dishPages)
         #else
@@ -51,6 +64,18 @@ struct DishDestination: View {
     var body: some View {
         DishScreen(
             store: store,
+            explore: explore,
+            onTag: { tag in
+                services.analytics(DetailEvents.dishTagOpened(kind: tag.kind))
+                onTag(DishTagRoute(tag))
+            },
+            onSimilar: { dish, position in
+                services.analytics(DetailEvents.similarDishOpened(position: position))
+                // The card printed the dish, its place, its score and its photo: the page draws
+                // them at once (round 6).
+                DishPreviews.shared.note(DishPreview(dish))
+                onDish(dish.dishID)
+            },
             onPlace: onPlace,
             // A review is a quote from a visit; tapping it opens that visit. A legacy review has
             // none, and its row is not a button at all — this never fires for one.

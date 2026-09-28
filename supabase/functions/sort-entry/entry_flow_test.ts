@@ -107,8 +107,8 @@ function modelReply() {
       input: {
         place_query: null,
         items: [
-          { dish_name: 'Pasta', score: 4.5, score_evidence: 'Pasta 4.5', note: null },
-          { dish_name: 'tiramisu', score: 6, score_evidence: 'tiramisu 6', note: null },
+          { dish_name: 'Pasta', score: 4.5, score_evidence: 'Pasta 4.5', note: null, styles: ['Pasta', ' comfort  food'] },
+          { dish_name: 'tiramisu', score: 6, score_evidence: 'tiramisu 6', note: null, styles: ['dessert', 'vegan', 42] },
         ],
       },
     }],
@@ -150,6 +150,9 @@ const tokens = { tag_tokens: [mark('GF')], six_tokens: [mark('6')] };
 const printed = (items: Array<{ dish_name: string; score: number | null; tags?: string[] }>) =>
   items.map((i) => [i.dish_name.toLowerCase(), i.score, i.tags ?? []]);
 const EXPECTED = [['pasta', 4.5, ['gf']], ['tiramisu', 6, []]];
+/** 0053: the model's style words, cleaned (lower-cased, trimmed, no diet words); the stub proposes none. */
+const styles = (items: Array<{ styles?: string[] }>) => items.map((i) => i.styles ?? []);
+const EXPECTED_STYLES = { model: [['pasta', 'comfort food'], ['dessert']], stub: [[], []] };
 const WRITES_TO_ENTRIES = (c: Call) =>
   (c.kind === 'rpc' && (c.name === 'apply_entry_sort' || c.name === 'mark_entry_sort_failed'))
   || (c.kind === 'write' && c.table !== 'sort_preview_cache');
@@ -178,6 +181,7 @@ if (!isDeno) {
       assertEquals([args.p_entry_id, args.p_restaurant_id, args.p_mode], [ENTRY, PLACE, mode]);
       assertEquals(printed(args.p_items), EXPECTED, 'the marked GF on the pasta, the marked 6 on the tiramisu');
       assertEquals(printed(res.json.items), EXPECTED, 'and the reply says what was written');
+      assertEquals(styles(args.p_items), EXPECTED_STYLES[mode], 'styles reach apply_entry_sort, cleaned (model only)');
 
       // Without the tokens nothing is tagged and the typed 6 is not a score (it is never inferred).
       const bare = await loadHandler(mode);
@@ -208,6 +212,18 @@ if (!isDeno) {
       assertEquals(world.calls.filter(WRITES_TO_ENTRIES), []);
     });
   }
+
+  test('sort-entry (model): the styles in a cached preview plan reach the sort after Done — one model call', async () => {
+    const { world, call, modelCalls } = await loadHandler('model');
+    const preview = await call({ preview: true, body: BODY, restaurant_id: PLACE, ...tokens });
+    assertEquals(styles(preview.json.items), EXPECTED_STYLES.model, 'the preview shows the cleaned styles');
+    const res = await call({ entry_id: ENTRY, force: false, ...tokens });
+    assertEquals(res.status, 200, JSON.stringify(res.json));
+    assertEquals(modelCalls(), 1, 'the sort reused the preview\'s plan');
+    const [apply] = world.calls.filter((c) => c.kind === 'rpc' && c.name === 'apply_entry_sort');
+    assertEquals(styles((apply.args as { p_items: never[] }).p_items), EXPECTED_STYLES.model);
+    assertEquals((apply.args as { p_meta: { cache_hit: boolean } }).p_meta.cache_hit, true);
+  });
 
   test('sort-entry: a preview body over the limit is refused 422 before the rate limit, cache or model', async () => {
     const { world, call, modelCalls } = await loadHandler('model');

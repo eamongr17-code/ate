@@ -235,15 +235,9 @@ struct AteShell: View {
                 onProfile: { open(.profile($0)) }
             )
         case .dish(let dishID):
-            DishDestination(
-                dishID: dishID,
-                source: sources[route] ?? .unknown,
-                services: services,
-                saves: saveAction,
-                onPlace: { open(.place($0), from: .dish) },
-                onEntry: { open(.entry(EntryRoute(entryID: $0))) },
-                onProfile: { open(.profile($0)) }
-            )
+            dishPage(dishID, source: sources[route] ?? .unknown)
+        case .tag(let tag):
+            tagPage(tag)
         case .ratings(let score):
             // `Ratings.dc.html` drew the tab bar under it; since round 4 every pushed page hides it
             // (Eamon's call, build 79), this one included.
@@ -272,6 +266,31 @@ struct AteShell: View {
             suggestions
                 .ateGround()
         }
+    }
+
+    /// One dish — and, under its reviews, the dishes like it and its tags (round 7).
+    private func dishPage(_ dishID: UUID, source: DetailSource) -> some View {
+        DishDestination(
+            dishID: dishID,
+            source: source,
+            services: services,
+            saves: saveAction,
+            onPlace: { open(.place($0), from: .dish) },
+            onEntry: { open(.entry(EntryRoute(entryID: $0))) },
+            onProfile: { open(.profile($0)) },
+            onDish: { open(.dish($0), from: .similar) },
+            onTag: { open(.tag($0)) }
+        )
+    }
+
+    /// One tag's dishes, opened from a dish page's chip (round 7).
+    private func tagPage(_ tag: DishTagRoute) -> some View {
+        TagDishesScreen(
+            tag: tag,
+            reads: services.dishExplore,
+            analytics: services.analytics,
+            onDish: { open(.dish($0), from: .tag) }
+        )
     }
 
     private var current: some View { screen(for: tab) }

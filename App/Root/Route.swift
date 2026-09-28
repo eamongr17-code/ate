@@ -18,6 +18,8 @@ enum Route: Hashable {
     case place(UUID)
     /// One dish: its aggregate, and everything anybody has said about it.
     case dish(UUID)
+    /// One tag's dishes — a dish page's "More to explore" chip, opened (round 7).
+    case tag(DishTagRoute)
     /// One bar of your own histogram, opened — the dishes you gave that score.
     case ratings(score: Double)
     /// A month, totalled and printed.
@@ -29,7 +31,7 @@ enum Route: Hashable {
     /// Whether this destination exists yet.
     var isBuilt: Bool {
         switch self {
-        case .entry, .suggestions, .profile, .place, .dish, .ratings, .statement, .settings: true
+        case .entry, .suggestions, .profile, .place, .dish, .tag, .ratings, .statement, .settings: true
         }
     }
 

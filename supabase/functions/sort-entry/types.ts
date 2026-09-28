@@ -41,6 +41,13 @@ export type SortItem = {
    * parser or the model (validateItem drops anything they put here). Absent before that step.
    */
   tags?: string[];
+  /**
+   * STYLE tags (0053): 1–3 lowercase words for what kind of dish this is ("pasta", "dumplings").
+   * Proposed by the MODEL only and cleaned by ./styles.ts cleanStyles; absent when there are none
+   * (the stub proposes none — the database tags every new dish from its name instead). They label
+   * the DISH, never the user's words: no score, note or name depends on them.
+   */
+  styles?: string[];
 };
 
 /** What the sorter proposes for one entry. */
