@@ -1,10 +1,10 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0051` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0052` define it. Forward-only; applied migrations
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
 account deletion **0032**; **every entry public 0033**; signed-out browse **0034**; dietary tags **0036**;
-round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry, dish-row chips) **0041–0045**; round 5 (cities, range + city filters, share read, saved filters) **0046–0049**; round 6 (date windows, menu by rating) **0050–0051**.
+round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry, dish-row chips) **0041–0045**; round 5 (cities, range + city filters, share read, saved filters) **0046–0049**; round 6 (date windows, menu by rating) **0050–0051**; read scale **0052**.
 
 The atom the USER creates is an **entry** = one visit. The atom AGGREGATES are built from is still a
 per-dish **review**, now *linked* to an entry, not replaced by it. A **sorter** turns the words into
@@ -94,8 +94,11 @@ Reference data, seeded and changed by migration only: `id` text slug PK (`melbou
 that mean this city, e.g. `cbd`). Authenticated SELECT; anon none. **A place's city is derived on read, never
 stored** (view `place_cities(restaurant_id, city, via)`): its location (nearest centre whose radius holds it) →
 else its `place_locality()` equals a city name/alias → else the city most LOCATED places with that locality
-fall in. A place none of these reach is in no city. Every read computes a city's place set ONCE (plpgsql array
-or an uncorrelated IN — verified a hashed SubPlan); materialise only if the catalogue outgrows that.
+fall in. A place none of these reach is in no city. **Stored since 0052** in `place_city_cache` (loc, geo, city, via), kept
+exact by triggers: a place's own row on insert/update/delete plus every place sharing its locality; any change to
+`cities` rebuilds it. `place_cities` reads it. Catalogue data only — nothing viewer-relative is cached.
+**Any future change to `place_locality()`, `city_at()` or the city rule itself must call `place_city_rebuild()`** in the
+same migration — the triggers only notice writes to `restaurants` and `cities`, not a changed function.
 
 ### `profiles` — changed (0018)
 Additive: `entry_seq` int (the order-number counter; never client-writable), `city` text (under the handle on You/Profile). `username` is `citext UNIQUE` — the handle.
@@ -142,6 +145,10 @@ thumbnails need no policy). **Dormant in V1:** `comments`, `review_likes`, `comm
 **`cover_url` comes from the photos we actually have (0026).** `dish_cover_url`/`restaurant_cover_url` derive it
 live: the newest visible review with a photo (`coalesce(reviews.photo_url, its entry's first entry_photo)`).
 `dish_photos(dish)` (0029) is the same ranking as a list (`photos[0].url` == `cover_url`).
+
+Since 0052 `dish_stats`/`restaurant_stats` are **per-row LATERAL** views (same columns and values): a join computes only the
+rows it needs. The Search reads compute numbers per hit (`place_numbers`/`dish_numbers`, optional `[start, end)`) and covers
+per returned page only; a date window is a timestamp range from `window_bounds()` (in_window's day rule).
 
 All are `security_invoker = true`, so **aggregates are viewer-relative — through blocks only** (every entry is
 public, 0033): a blocked author's lines count in nobody's numbers or covers but their own.
@@ -219,3 +226,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0041–0045 | `secret_six` · `search_filters` · `journal_filters` · `six_carry` · `place_dishes_tags` | CHECK admits 6, histogram 11 rows, `apply_entry_sort` admits an evidenced 6 · filter params (drop+create) + `search_cuisines`, `place_has_tagged_dish` · `my_entries`, `my_entry_places` · a re-sort carries a marked 6 by line (T3, like tags) · `place_dishes.tags` (drop+create, browse twin too); `search_dishes.tags` rides 0042 |
 | 0046–0049 | `cities` · `range_and_city_filters` · `entry_card_read` · `saved_filters` | `cities` + `city_at` + `place_cities` view, `feed_cities`, `resolve_city`, `get_entry_feed(p_city)` (drop+create, browse twin too) · `score_in_range`; `p_max_score`/`p_city` on my_entries + three search reads (drop+create), `my_entry_cities`, `search_cities` · `get_entry_card` + browse twin · `search_saved` range + city (drop+create), `my_saved_cities` |
 | 0050–0051 | `date_windows` · `what_to_order_by_rating` | `in_window`; `p_from`/`p_to`/`p_tz` on the three search reads + `search_saved` (drop+create) · `place_dishes` ordered by rating (create or replace, browse twin too) |
+| 0052 | `read_scale` | lateral `dish_stats`/`restaurant_stats`; `place_city_cache` + triggers behind `place_cities`; `place_numbers`, `dish_numbers`, `window_bounds`; the four Search reads rebuilt in place (same signatures) — no wire change |
