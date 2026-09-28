@@ -119,7 +119,8 @@ struct FilterChipsTests {
 
     @Test("the divider's meta: the count, or with a filter the kept of the whole")
     func dividerMeta() {
-        #expect(JournalMonthDividers.meta(year: 2026, total: 14, filtered: nil, isFiltered: false) == "2026 · 14 ENTRIES")
+        #expect(JournalMonthDividers.meta(year: 2026, total: 14, filtered: nil, isFiltered: false)
+                == "2026 · 14 ENTRIES")
         #expect(JournalMonthDividers.meta(year: 2026, total: 1, filtered: nil, isFiltered: false) == "2026 · 1 ENTRY")
         #expect(JournalMonthDividers.meta(year: 2026, total: 14, filtered: 6, isFiltered: true) == "2026 · 6 OF 14")
         #expect(JournalMonthDividers.meta(year: 2026, total: nil, filtered: nil, isFiltered: false) == "2026")
@@ -147,7 +148,8 @@ struct MinimalEntryTests {
     func echoes() {
         #expect(EntryBodyTokens.wordsEchoDishRows(card("Apple pie V 3.5", dishes: [("Apple pie", 3.5)])))
         #expect(EntryBodyTokens.wordsEchoDishRows(card("apple pie 3.5.", dishes: [("Apple pie", 3.5)])))
-        #expect(EntryBodyTokens.wordsEchoDishRows(card("Burrata 4.0, tiramisu 3.5", dishes: [("Burrata", 4), ("Tiramisu", 3.5)])))
+        let two = card("Burrata 4.0, tiramisu 3.5", dishes: [("Burrata", 4), ("Tiramisu", 3.5)])
+        #expect(EntryBodyTokens.wordsEchoDishRows(two))
         #expect(EntryBodyTokens.wordsEchoDishRows(card("Apple pie 3.5 Neat maiden", dishes: [("Apple pie", 3.5)])))
     }
 

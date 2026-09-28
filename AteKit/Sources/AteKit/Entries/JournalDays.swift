@@ -41,7 +41,9 @@ public struct AteDay: Hashable, Sendable, Comparable, Codable {
     public init(from decoder: any Decoder) throws {
         let string = try decoder.singleValueContainer().decode(String.self)
         guard let day = AteDay(string) else {
-            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "not a date: \(string)"))
+            throw DecodingError.dataCorrupted(
+                .init(codingPath: decoder.codingPath, debugDescription: "not a date: \(string)")
+            )
         }
         self = day
     }

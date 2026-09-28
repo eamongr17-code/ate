@@ -50,7 +50,6 @@ struct JournalChipSheet: View {
             content: { content }
         )
         .onChange(of: draft, initial: true) { _, now in live.request(now) }
-        .accessibilityIdentifier("chipsheet.\(chip.rawValue)")
     }
 
     private var title: String {

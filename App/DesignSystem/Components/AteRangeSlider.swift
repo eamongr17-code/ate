@@ -192,11 +192,17 @@ struct AteMonthRangeSlider: View {
             stops: months.count,
             lower: Binding(
                 get: { stops.lower },
-                set: { window = DateWindow.fromRuler(lower: $0, upper: window.rulerStops(months: months).upper, months: months) }
+                set: {
+                    let upper = window.rulerStops(months: months).upper
+                    window = DateWindow.fromRuler(lower: $0, upper: upper, months: months)
+                }
             ),
             upper: Binding(
                 get: { stops.upper },
-                set: { window = DateWindow.fromRuler(lower: window.rulerStops(months: months).lower, upper: $0, months: months) }
+                set: {
+                    let lower = window.rulerStops(months: months).lower
+                    window = DateWindow.fromRuler(lower: lower, upper: $0, months: months)
+                }
             ),
             labels: months.enumerated()
                 .filter { $0.element.month == 1 }

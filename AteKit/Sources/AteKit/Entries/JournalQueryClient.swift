@@ -104,11 +104,14 @@ public struct JournalQueryClient: JournalQuerying {
     }
 
     /// `my_entries_count`'s arguments: exactly `my_entries`' filters — no order, cursor or limit.
-    static func countParameters(for query: JournalQuery, timeZone: TimeZone = .autoupdatingCurrent) -> [String: AnyJSON] {
+    static func countParameters(
+        for query: JournalQuery, timeZone: TimeZone = .autoupdatingCurrent
+    ) -> [String: AnyJSON] {
         let filterKeys: Set<String> = [
             "p_min_score", "p_max_score", "p_city", "p_from", "p_to", "p_tz", "p_restaurant_id", "p_tag"
         ]
-        return parameters(for: query, after: nil, pageSize: 1, timeZone: timeZone).filter { filterKeys.contains($0.key) }
+        return parameters(for: query, after: nil, pageSize: 1, timeZone: timeZone)
+            .filter { filterKeys.contains($0.key) }
     }
 
     /// `journal_days`' arguments: the range, the zone, and `my_entries`' filters (0053's trailing

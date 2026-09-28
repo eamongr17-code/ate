@@ -37,6 +37,7 @@ struct JournalCalendarView: View {
         .simultaneousGesture(pinch)
         .task { await store.loadFirstYear() }
         .task(id: month.year) { await store.loadYear(month.year) }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("calendar")
     }
 
@@ -88,21 +89,18 @@ struct JournalCalendarView: View {
         return (0...max(first.distance(to: current), 0)).map { first.adding(months: $0) }
     }
 
+    /// The months page sideways — the system's own pager, which opens on the month asked for.
     private var months: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(spacing: 0) {
-                ForEach(monthRange, id: \.self) { page in
-                    JournalCalendarMonth(month: page, store: store, now: now, onDay: onDay)
-                        .padding(.horizontal, AteCalendarMetrics.side)
-                        .containerRelativeFrame(.horizontal)
-                        .task { await store.loadYear(page.year) }
-                }
+        TabView(selection: $month) {
+            ForEach(monthRange, id: \.self) { page in
+                JournalCalendarMonth(month: page, store: store, now: now, onDay: onDay)
+                    .padding(.horizontal, AteCalendarMetrics.side)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .tag(page)
+                    .task { await store.loadYear(page.year) }
             }
-            .scrollTargetLayout()
         }
-        .scrollTargetBehavior(.paging)
-        .scrollIndicators(.hidden)
-        .scrollPosition(id: Binding(get: { Optional(month) }, set: { if let next = $0 { month = next } }))
+        .tabViewStyle(.page(indexDisplayMode: .never))
         .padding(.top, AteCalendarMetrics.gap)
     }
 
@@ -113,26 +111,22 @@ struct JournalCalendarView: View {
     }
 
     private var years: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(spacing: 0) {
-                ForEach(yearRange, id: \.self) { year in
-                    JournalCalendarYear(year: year, store: store, now: now) { picked in
-                        month = picked
-                        onLevel(.month, .segment)
-                    }
-                    .padding(.horizontal, AteCalendarMetrics.side)
-                    .containerRelativeFrame(.horizontal)
-                    .task { await store.loadYear(year) }
-                }
-            }
-            .scrollTargetLayout()
-        }
-        .scrollTargetBehavior(.paging)
-        .scrollIndicators(.hidden)
-        .scrollPosition(id: Binding(get: { Optional(month.year) }, set: { year in
-            guard let year, year != month.year else { return }
+        TabView(selection: Binding(get: { month.year }, set: { year in
+            guard year != month.year else { return }
             month = AteMonth(year: year, month: year == current.year ? current.month : 12)
-        }))
+        })) {
+            ForEach(yearRange, id: \.self) { year in
+                JournalCalendarYear(year: year, store: store, now: now) { picked in
+                    month = picked
+                    onLevel(.month, .segment)
+                }
+                .padding(.horizontal, AteCalendarMetrics.side)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .tag(year)
+                .task { await store.loadYear(year) }
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
         .padding(.top, AteCalendarMetrics.yearGap)
     }
 }
@@ -235,11 +229,14 @@ private struct JournalCalendarDay: View {
                 .accessibilityLabel(accessibilityLabel(count))
                 .accessibilityIdentifier("calendar.day.\(day.string)")
         } else {
-            Text(String(day.day))
-                .ateText(.calendarDay)
-                .foregroundStyle(AtePalette.automatic.muted)
-                .frame(maxWidth: .infinity)
+            Color.clear
                 .aspectRatio(1, contentMode: .fit)
+                .overlay {
+                    Text(String(day.day))
+                        .ateText(.calendarDay)
+                        .foregroundStyle(AtePalette.automatic.muted)
+                        .fixedSize()
+                }
                 .accessibilityHidden(true)
         }
     }
@@ -326,7 +323,9 @@ private struct JournalCalendarYear: View {
     let now: Date
     let onMonth: (AteMonth) -> Void
 
-    private let columns = Array(repeating: GridItem(.flexible(minimum: 0), spacing: 18), count: 3)
+    private let columns = Array(
+        repeating: GridItem(.flexible(minimum: 0), spacing: 18, alignment: .topLeading), count: 3
+    )
 
     var body: some View {
         VStack(alignment: .leading, spacing: AteCalendarMetrics.yearGap) {
@@ -364,7 +363,9 @@ private struct JournalCalendarYear: View {
                 .ateText(.calendarMiniMonth)
                 .foregroundStyle(isPast ? AtePalette.automatic.fg : AtePalette.automatic.muted)
             LazyVGrid(
-                columns: Array(repeating: GridItem(.flexible(minimum: 0), spacing: 1), count: JournalCalendar.weekdayCount),
+                columns: Array(
+                    repeating: GridItem(.flexible(minimum: 0), spacing: 1), count: JournalCalendar.weekdayCount
+                ),
                 spacing: 1
             ) {
                 ForEach(Array(JournalCalendar.grid(for: month).enumerated()), id: \.offset) { _, day in

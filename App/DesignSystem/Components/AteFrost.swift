@@ -18,8 +18,16 @@ struct AteTopFrost: View {
     let presence: Double
 
     var body: some View {
+        // At rest there is nothing here at all — not a clear blur over the header, which UIKit would
+        // still count as covering the controls under it.
+        if presence > 0 {
+            frost
+        }
+    }
+
+    private var frost: some View {
         let height = depth + AteFrostMetrics.feather
-        ZStack {
+        return ZStack {
             Rectangle().fill(.ultraThinMaterial)
             Rectangle().fill(AteGlassColor.frostWash.opacity(AteFrostMetrics.wash))
         }

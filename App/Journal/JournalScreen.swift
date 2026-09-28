@@ -96,6 +96,12 @@ struct JournalScreen: View {
                 shelfContent
             }
             .scrollTargetLayout()
+            // Fingers together on the list zooms out to its month (round 7).
+            .simultaneousGesture(MagnifyGesture().onChanged { value in
+                guard shelf == .journal, calendarLevel == nil,
+                      value.magnification < AteCalendarMetrics.pinchOut else { return }
+                openCalendar(via: .pinch)
+            })
             // Loading is the column of skeleton slips, still; the entries replace it in one fade.
             .ateAnimation(AteMotion.fillIn, value: store.phase)
             // Design rule 10: the last slip runs off under the tab bar rather than stopping dead
@@ -107,11 +113,6 @@ struct JournalScreen: View {
         .onScrollTargetVisibilityChange(idType: UUID.self, threshold: 0.2) { visible in
             noteTopMonth(visible)
         }
-        // Fingers together on the list zooms out to its month (round 7).
-        .simultaneousGesture(MagnifyGesture().onEnded { value in
-            guard shelf == .journal, value.magnification < AteCalendarMetrics.pinchOut else { return }
-            openCalendar(via: .pinch)
-        })
         // The logo and the segment scroll away on the way down; on the way up the compact header
         // comes back — the month you are in, or the shelf's name, the chips that are on, and the
         // calendar. A re-tap scrolls to the page's true top.
@@ -289,6 +290,7 @@ struct JournalScreen: View {
         ForEach(store.entries) { entry in
             if let month = dividers[entry.id] {
                 monthDivider(month)
+                    .accessibilityIdentifier("journal.month.\(month.year)-\(month.month)")
                     .padding(.top, entry.id == first ? 0 : AteMetrics.slipGap)
                     .id(Self.dividerID(entry.id))
             }

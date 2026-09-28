@@ -132,7 +132,9 @@ public final class SavedDishesStore {
         var count = 0
         var cursor: PageCursor?
         repeat {
-            let page = try await saves.savedDishesPage(after: cursor, pageSize: PageRequest.maximumLimit, filter: filter)
+            let page = try await saves.savedDishesPage(
+                after: cursor, pageSize: PageRequest.maximumLimit, filter: filter
+            )
             count += page.items.count
             cursor = page.nextCursor
         } while cursor != nil

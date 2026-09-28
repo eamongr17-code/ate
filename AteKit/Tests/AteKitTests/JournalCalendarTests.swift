@@ -54,7 +54,8 @@ struct JournalCalendarTests {
     func countParameters() throws {
         var query = JournalQuery(sort: .top, city: "melbourne", window: AteMonth(year: 2026, month: 9).window)
         query.band = ScoreBand.Preset.fourPlus.band
-        let parameters = JournalQueryClient.countParameters(for: query, timeZone: TimeZone(identifier: "Australia/Melbourne")!)
+        let melbourne = TimeZone(identifier: "Australia/Melbourne")!
+        let parameters = JournalQueryClient.countParameters(for: query, timeZone: melbourne)
         #expect(Set(parameters.keys) == ["p_min_score", "p_max_score", "p_city", "p_from", "p_to", "p_tz",
                                           "p_restaurant_id", "p_tag"])
         #expect(parameters["p_min_score"] == .double(4) && parameters["p_max_score"] == .null)
@@ -92,7 +93,8 @@ struct JournalCalendarTests {
         let february = JournalCalendar.grid(for: AteMonth(year: 2028, month: 2), calendar: Self.utc)
         #expect(february.compactMap { $0 }.last == AteDay(year: 2028, month: 2, day: 29))
         #expect(february.count.isMultiple(of: 7))
-        #expect(JournalCalendar.weekdayInitials(locale: Locale(identifier: "en_AU")) == ["M", "T", "W", "T", "F", "S", "S"])
+        let initials = JournalCalendar.weekdayInitials(locale: Locale(identifier: "en_AU"))
+        #expect(initials == ["M", "T", "W", "T", "F", "S", "S"])
     }
 
     @Test("a day is marked by its best score: 6 brick, 5.0 butter, anything else a visit")
@@ -175,7 +177,8 @@ struct JournalCalendarTests {
         await store.loadIfNeeded()
         #expect(store.entries.count == 5)
         let landing = await store.reveal(AteDay(year: 2026, month: 9, day: 3))
-        #expect(landing.map { AteDay.containing($0.createdAt, calendar: Self.utc) } == AteDay(year: 2026, month: 9, day: 3))
+        let landed = landing.map { AteDay.containing($0.createdAt, calendar: Self.utc) }
+        #expect(landed == AteDay(year: 2026, month: 9, day: 3))
         #expect(store.entries.count >= 28)
     }
 
@@ -197,7 +200,9 @@ struct JournalCalendarTests {
     private final class DaysReader: JournalQuerying, @unchecked Sendable {
         var rows: [JournalDayCount]
         init(rows: [JournalDayCount]) { self.rows = rows }
-        func myEntries(_ query: JournalQuery, after cursor: JournalCursor?, pageSize: Int) async throws -> JournalQueryPage {
+        func myEntries(
+            _ query: JournalQuery, after cursor: JournalCursor?, pageSize: Int
+        ) async throws -> JournalQueryPage {
             JournalQueryPage(items: [], nextCursor: nil)
         }
         func myEntryPlaces() async throws -> [JournalPlace] { [] }

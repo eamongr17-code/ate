@@ -140,7 +140,9 @@ private struct AteTabBarTracking: ViewModifier {
         content
             .modifier(AteChromeTracker(track: $track))
             .overlay(alignment: .top) {
-                AteTopFrost(depth: AteFrostMetrics.statusDepth, presence: AteFrostMetrics.presence(offset: track.offset))
+                AteTopFrost(
+                    depth: AteFrostMetrics.statusDepth, presence: AteFrostMetrics.presence(offset: track.offset)
+                )
                     .ignoresSafeArea(edges: .top)
             }
     }

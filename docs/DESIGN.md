@@ -84,12 +84,18 @@ pulse; score numerals roll; a printing receipt's skeleton lines breathe (to 45%,
     hides it, and it rides the pop back in with its tab's root.
   - **Top bar** on pushed pages — a 44 glass back disc 16 in, the page's name or byline after it,
     its controls as one glass pill 16 in from the right; tab roots' corner buttons are 44 glass discs.
-  - **Status-bar frost** — one even frosted band the status bar's height, soft 6pt foot, washed in
-    the ground, over every tab and pushed page.
+  - **Top frost** (round 7, `JournalScrolled`) — ONE continuous frost from the screen's top edge
+    down through whatever chrome is there (status bar, compact header, a pushed page's top bar),
+    solid to 7 below its controls, then fading out over 45; ground at 82% over the blur. None at
+    rest: the header sits on the ground; it comes in over the first 12pt of scroll.
   - **Compact header** — mid-list, a scroll up brings back a compact header, not the big one: the
-    tab's name (Bricolage 800, 20) leading and its one control trailing (the Feed's location chip,
-    the Journal's and Search's filter), in a 52 row under the status bar on one full-width frost
-    that feathers 18 below it (the status-bar frost steps aside). It comes out of a blur into focus.
+    tab's name (Bricolage 800, 20) leading — on the Journal the month you are in, its year muted —
+    and its controls trailing (the Feed's location chip, Search's filter, the Journal's active
+    chips and calendar), in a 52 row under the status bar on the top frost. It comes out of a blur
+    into focus.
+  - **Filter chips** (round 7, `Main`/`RatingChip`) — Journal and Saved: Newest · Rating · City ·
+    Date under the header (Saved has no Newest); active = ink with its value and an ✕. Each opens a
+    small fitted sheet with a live "Show N entries". Rating and Date are two-thumb sliders.
 - **App icon** — coral ground with the white `ate.` wordmark, optically centred. Dark appearance is
   the coral wordmark on ink; tinted is the white glyph on transparent.
 - **Score token** — butter pill, filled star + one-decimal number, DM Mono 500, inline in prose.
