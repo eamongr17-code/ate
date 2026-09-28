@@ -1,3 +1,4 @@
+import AteKit
 import SwiftUI
 
 /// The four places the app goes. Compose is not one of them — it is the glass `+` beside the bar,
@@ -63,14 +64,17 @@ struct AteTabBar: View {
     private var current: AteTab { chrome.current }
     private var arrival: AteTabArrival? { chrome.arrival }
     private var isExpanded: Bool { chrome.isExpanded }
+    /// Where everything sits, full and minimised (`TabBarGeometry`, tested in AteKit).
+    private var geometry: TabBarGeometry {
+        TabBarGeometry(width: AteScreen.width - 2 * Metrics.inset, tabCount: AteTab.allCases.count)
+    }
 
     var body: some View {
-        let width = AteScreen.width - 2 * Metrics.inset
         ZStack(alignment: .topLeading) {
-            morph(width: width)
-            plus(width: width)
+            morph
+            plus
         }
-        .frame(width: width, height: Metrics.height, alignment: .topLeading)
+        .frame(width: geometry.width, height: Metrics.height, alignment: .topLeading)
         .animation(reduceMotion ? nil : AteMotion.barMorph, value: isExpanded)
         .onAppear(perform: syncPill)
         .onChange(of: arrival) { _, _ in syncPill() }
@@ -90,21 +94,23 @@ struct AteTabBar: View {
 
     // MARK: - One capsule that morphs into the disc and back
 
-    private func morph(width: CGFloat) -> some View {
-        let capsule = capsuleRect(width: width)
+    private var morph: some View {
+        let capsule = geometry.capsule(isExpanded: isExpanded)
         return ZStack(alignment: .topLeading) {
             AteGlassSurface(shape: Capsule(), shadow: .bar)
                 .frame(width: capsule.width, height: capsule.height)
                 .offset(x: capsule.minX, y: capsule.minY)
             ZStack(alignment: .topLeading) {
-                selectionPill(capsuleWidth: width - Metrics.gap - Metrics.height)
+                selectionPill
                     .opacity(isExpanded ? 1 : 0)
                 ForEach(AteTab.allCases) { tab in
                     let isShown = isExpanded || tab == current
                     itemFace(tab, showsLabel: isExpanded)
                         .scaleEffect(isShown ? 1 : 0.5)
+                        // Folded, a face is placed by its *icon*, dead centre in the disc — the face
+                        // on the disc's centre left the icon 7 high (round 6).
+                        .position(isExpanded ? geometry.expandedFace(tab.index) : geometry.minimisedFace)
                         .opacity(isShown ? 1 : 0)
-                        .position(isExpanded ? slotCentre(tab) : discCentre)
                 }
             }
             // The tabs only ever show inside the glass as it grows and shrinks.
@@ -125,7 +131,7 @@ struct AteTabBar: View {
     private var disc: some View {
         Button(action: onExpand) {
             Color.clear
-                .frame(width: Metrics.minimised, height: Metrics.minimised)
+                .frame(width: TabBarGeometry.minimised, height: TabBarGeometry.minimised)
                 .contentShape(.circle)
         }
         .buttonStyle(.plain)
@@ -145,7 +151,7 @@ struct AteTabBar: View {
                     onSelect(tab)
                 } label: {
                     Color.clear
-                        .frame(width: Metrics.slot, height: Metrics.height)
+                        .frame(width: geometry.slot, height: Metrics.height)
                         .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
@@ -153,10 +159,10 @@ struct AteTabBar: View {
                 .accessibilityAddTraits(tab == current ? .isSelected : [])
                 .accessibilityIdentifier("tabbar.\(tab.rawValue)")
                 .ateLargeContent(icon: tab.icon, title: tab.title)
-                .position(slotCentre(tab))
+                .position(geometry.slotCentre(tab.index))
             }
         } else {
-            disc.offset(x: Metrics.discInset, y: Metrics.discInset)
+            disc.offset(x: geometry.discInset, y: geometry.discInset)
         }
     }
 
@@ -164,7 +170,7 @@ struct AteTabBar: View {
     private func itemFace(_ tab: AteTab, showsLabel: Bool) -> some View {
         VStack(spacing: 0) {
             AteTabBarItemIcon(tab: tab, isCurrent: tab == current)
-                .padding(.top, Metrics.iconTop)
+                .padding(.top, TabBarGeometry.iconTop)
             Text(tab.title)
                 .ateText(tab == current ? .tabLabelActive : .tabLabel)
                 .foregroundStyle(tab == current ? AteGlassColor.itemCurrent : AteGlassColor.item)
@@ -174,55 +180,33 @@ struct AteTabBar: View {
                 .opacity(showsLabel ? 1 : 0)
             Spacer(minLength: 0)
         }
-        .frame(width: Metrics.slot, height: Metrics.height)
+        .frame(width: geometry.slot, height: Metrics.height)
         .accessibilityHidden(true)
     }
 
-    private func selectionPill(capsuleWidth: CGFloat) -> some View {
-        let shown = pill ?? current
-        let centre = slotCentre(shown).x
-        let minX = Metrics.pillInset
-        let maxX = capsuleWidth - Metrics.pillInset - Metrics.pillWidth
-        let left = min(max(centre - Metrics.pillWidth / 2, minX), maxX)
-        return Capsule()
+    private var selectionPill: some View {
+        Capsule()
             .fill(AteGlassColor.selection)
-            .frame(width: Metrics.pillWidth, height: Metrics.height - 2 * Metrics.pillInset)
-            .offset(x: left, y: Metrics.pillInset)
+            .frame(width: TabBarGeometry.pillWidth, height: Metrics.height - 2 * TabBarGeometry.pillInset)
+            .offset(x: geometry.pillMinX((pill ?? current).index), y: TabBarGeometry.pillInset)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }
 
-    private func plus(width: CGFloat) -> some View {
-        let side = isExpanded ? Metrics.height : Metrics.minimised
-        let centre = CGPoint(x: width - Metrics.height / 2, y: Metrics.height / 2)
+    private var plus: some View {
+        let frame = geometry.plus(isExpanded: isExpanded)
         return Button(action: onCompose) {
             AteIcon.compose.view(size: Metrics.plusIcon)
                 .foregroundStyle(AteGlassColor.item)
-                .frame(width: side, height: side)
+                .frame(width: frame.width, height: frame.height)
                 .background { AteGlassSurface(shape: Circle(), shadow: .bar) }
                 .contentShape(.circle)
         }
         .buttonStyle(AteGlassPressStyle())
-        .position(centre)
+        .position(x: frame.midX, y: frame.midY)
         .accessibilityLabel("New entry")
         .accessibilityIdentifier("tabbar.compose")
         .ateLargeContent(icon: .compose, title: "New entry")
-    }
-
-    // MARK: - Geometry
-
-    private func capsuleRect(width: CGFloat) -> CGRect {
-        isExpanded
-            ? CGRect(x: 0, y: 0, width: width - Metrics.gap - Metrics.height, height: Metrics.height)
-            : CGRect(x: Metrics.discInset, y: Metrics.discInset, width: Metrics.minimised, height: Metrics.minimised)
-    }
-
-    private func slotCentre(_ tab: AteTab) -> CGPoint {
-        CGPoint(x: Metrics.capsulePadding + Metrics.slot * (CGFloat(tab.index) + 0.5), y: Metrics.height / 2)
-    }
-
-    private var discCentre: CGPoint {
-        CGPoint(x: Metrics.discInset + Metrics.minimised / 2, y: Metrics.height / 2)
     }
 
     /// The pill follows the tab. Arriving from another tab, it starts on the one just left and
@@ -261,25 +245,13 @@ struct AteTabBarItemIcon: View {
     }
 }
 
-/// The bar's geometry, read off iOS 26's own bar on a 402pt phone (build 80): a 62 capsule 21 in
-/// from each side and 21 up from the bottom, the `+` a 62 disc 8 beside it; four 69pt slots inside
-/// 7 of padding; the current tab's pill 76×54, 4 in; minimised, a 48 disc 7 in, the `+` 48 on the
-/// same centre.
+/// Where the bar stands on the screen — 21 in from each side and 21 up from the bottom, as iOS 26's
+/// bar did (build 80). Everything inside it is ``TabBarGeometry``'s (AteKit, tested).
 @MainActor
 enum AteTabBarMetrics {
-    static let height: CGFloat = 62
+    static let height: CGFloat = TabBarGeometry.height
     static let inset: CGFloat = 21
     static let bottom: CGFloat = 21
-    static let gap: CGFloat = 8
-    static let capsulePadding: CGFloat = 23.0 / 3.0
-    static var slot: CGFloat {
-        (AteScreen.width - 2 * inset - gap - height - 2 * capsulePadding) / CGFloat(AteTab.allCases.count)
-    }
-    static let pillWidth: CGFloat = 76
-    static let pillInset: CGFloat = 4
-    static let minimised: CGFloat = 48
-    static var discInset: CGFloat { (height - minimised) / 2 }
-    static let iconTop: CGFloat = 12
     static let labelGap: CGFloat = 2
     static let plusIcon: CGFloat = 24
     /// The strip a tab root keeps clear for the bar: from the bar's top to the screen's bottom.

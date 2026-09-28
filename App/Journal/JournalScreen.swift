@@ -101,10 +101,14 @@ struct JournalScreen: View {
                 isPastHeader = past
             }
             .overlay(alignment: .top) { monthMarker }
-            // The logo and the segment slide away on the way down and come straight back on the way
-            // up; a re-tap scrolls to the page's true top (the segment anchor put the logo under the
-            // status bar).
-            .ateTabRootHeader(scrollToTop: scrollToTopSignal + listChanged, jumpToTop: shelfChanged) { chrome }
+            // The logo and the segment scroll away on the way down; on the way up the compact header
+            // comes back — the shelf's name, small, and the filter (round 6). A re-tap scrolls to the
+            // page's true top (the segment anchor put the logo under the status bar).
+            .ateTabRootHeader(scrollToTop: scrollToTopSignal + listChanged, jumpToTop: shelfChanged) {
+                AteCompactHeader(title: shelf == .journal ? "Journal" : "Saved") {
+                    AteFilterButton(isActive: isFiltered, identifier: "journal.filter", action: openFilter)
+                }
+            }
             // Round 5 (Eamon: "the Journal/Saved tab doesn't need to animate like that"): the other
             // shelf is simply there, at its top — no scroll animating back up to it.
             .onChange(of: shelf) { _, _ in shelfChanged += 1 }
@@ -141,8 +145,7 @@ struct JournalScreen: View {
     }
 
     /// The header — logo, the Journal | Saved segment, the filter control, the photo stack and the
-    /// active pills — once in the page and once as the header that floats back over it: the same
-    /// view both times, so the copy is the header to the point.
+    /// active pills — at the top of the page. Mid-list, the compact header stands in for it.
     private var chrome: some View {
         JournalHeader(
             shelf: $shelf,

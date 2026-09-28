@@ -30,7 +30,9 @@ extension AteShell {
         // landing on the Journal, a debug launch.
         .onChange(of: tab, initial: true) { _, now in chrome.select(now) }
         .environment(chrome)
-        .ateStatusBarFrost() // one frost behind the status bar, over every tab and every pushed page
+        // One frost behind the status bar, over every tab and every pushed page — stepping aside while
+        // a tab root's compact header, which brings its own, floats over the list.
+        .ateStatusBarFrost(isHidden: chrome.isHeaderFloating && path.isEmpty)
         .atePhotoViewerHost() // one full-screen viewer for every photo under the shell
         .fullScreenCover(item: $composing) { presentation in composerCover(presentation) }
         #if DEBUG

@@ -26,7 +26,10 @@ gitignored, and without it the app resolves no environment and shows the configu
 The example file is filled in — the Supabase keys in it are publishable, and RLS is the security
 boundary — so copying it is enough; nothing has to be looked up.
 
-Debug builds talk to **staging**; only Release talks to prod. Migrations apply via CI, never by hand.
+Debug builds talk to **staging**; only Release talks to prod. Migrations land via PR (CI applies the
+whole chain to an in-process Postgres and runs the SQL behaviour suites in `supabase/tests/db`); the
+lead applies a merged migration to staging after QA, until a staging-deploy job exists. Nothing reaches
+prod except through an explicit CI job — never by hand, never console SQL.
 
 ## Driving it
 

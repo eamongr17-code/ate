@@ -44,9 +44,10 @@ M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3
 3-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.\
 7.2 1 1 0 0 1-1-1z
 """), Self.path("M13 16H8"), Self.path("M14 8H8"), Self.path("M16 12H8")]
-        case .feed: // users
-            [Self.path("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"), Self.path("M16 3.128a4 4 0 0 1 0 7.744"),
-             Self.path("M22 21v-2a4 4 0 0 0-3-3.87"), AteVector.circle(9, 7, 4)]
+        case .feed: // utensils-crossed (round 6, Eamon: two people read too close to You)
+            [Self.path("m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8"),
+             Self.path("M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7"),
+             Self.path("m2.1 21.8 6.4-6.3"), Self.path("m19 5-7 7")]
         case .search: // search
             [Self.path("m21 21-4.34-4.34"), AteVector.circle(11, 11, 8)]
         case .you: // user

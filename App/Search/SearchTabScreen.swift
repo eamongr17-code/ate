@@ -80,7 +80,11 @@ struct SearchTabScreen: View {
         // takes the keyboard with it.
         .scrollBounceBehavior(.always, axes: .vertical)
         .scrollDismissesKeyboard(.immediately)
-        .ateTabBarTracking() // the tab bar's shadow and re-expansion, as on every tab
+        // Mid-list, "Search" comes back small with its filter (round 6); the tab bar follows the
+        // scroll as on every tab.
+        .ateCompactHeader {
+            AteCompactHeader(title: "Search") { filterButton }
+        }
         .onScrollPhaseChange { _, phase in
             if phase == .interacting { isFieldFocused = false }
         }
