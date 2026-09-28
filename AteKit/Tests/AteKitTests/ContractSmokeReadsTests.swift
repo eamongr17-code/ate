@@ -64,6 +64,27 @@ struct ContractSmokeReadsTests {
         #expect(page.items.isEmpty == false)
     }
 
+    // MARK: - A dish page's explore sections (0053)
+
+    /// `dish_tags`, `similar_dishes`, and two pages of `dishes_by_tag` — the second through all four
+    /// cursor parameters, so a signature that stopped binding one of them fails here.
+    @Test("dish_tags, similar_dishes, dishes_by_tag")
+    func dishExplore() async throws {
+        let client = try await signedIn()
+        let dish = try #require(try await someCard(client).items.first?.dishID)
+        let explore = DishExploreClient(api: client)
+        let tags = try await explore.dishTags(dishID: dish)
+        let similar = try await explore.similarDishes(dishID: dish, limit: 5)
+        #expect(similar.contains { $0.dishID == dish } == false, "never like itself")
+        let tag = try #require(tags.first { $0.kind == .city } ?? tags.first, "a logged dish is tagged")
+        let first = try await explore.dishesByTag(kind: tag.kind, slug: tag.slug, after: nil, pageSize: 1)
+        #expect(first.items.isEmpty == false, "the dish carries its own tag")
+        if let cursor = first.nextCursor {
+            let second = try await explore.dishesByTag(kind: tag.kind, slug: tag.slug, after: cursor, pageSize: 1)
+            #expect(second.items.first?.dishID != first.items.first?.dishID)
+        }
+    }
+
     // MARK: - Search
 
     @Test("search_places, search_dishes, search_people")
