@@ -160,6 +160,19 @@ enum AteCalendarColor {
     static let overPhoto = Color.white
 }
 
+/// **The Feed's edition** (round 8, `Main`): its quiet rules and its New to the record badges.
+enum AteFeedColor {
+    /// `#D9D2C8` — The Top Ate's dashed rules and the lines either side of "You're caught up" (the
+    /// raised plum in dark, as the calendar's quiet dot).
+    static let rule = Color(light: Color(hex: 0xD9D2C8), dark: AteColor.raisedDark)
+    /// The `★6` badge: brick, white on it (the secret 6's own pairing).
+    static let six = AteColor.brick
+    static let sixInk = Color.white
+    /// The `★5` badge: the score's butter, ink on it.
+    static let five = AteColor.scoreFill
+    static let fiveInk = AteColor.scoreInk
+}
+
 /// **A torn surface's tone** — one flat colour and its contact line. Read by
 /// ``SwiftUICore/View/ateTornPaper(_:topRadius:)``; never named at a call site.
 ///

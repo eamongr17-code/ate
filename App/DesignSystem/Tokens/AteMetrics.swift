@@ -129,10 +129,8 @@ enum AteMetrics {
     /// Between slips in a list.
     static let slipGap: CGFloat = 14
 
-    // `FeedTight.dc.html` (2026-09-26) — the feed alone, a notch closer: header bottom 14 → 10,
-    // slip gap 14 → 10, slip padding 12/16/14 → 10/14/12, band gap 10 → 8.
-    static let feedHeaderBottom: CGFloat = 10
-    static let feedSlipGap: CGFloat = 10
+    // `FeedTight.dc.html` (2026-09-26) — the feed's slips, a notch closer: padding 12/16/14 →
+    // 10/14/12, band gap 10 → 8. (Its header and slip gap went with the round-8 edition.)
     static let slipTightPaddingTop: CGFloat = 10
     static let slipTightPadding: CGFloat = 14
     static let slipTightPaddingBottom: CGFloat = 12

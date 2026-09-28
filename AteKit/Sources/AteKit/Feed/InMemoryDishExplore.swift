@@ -26,10 +26,11 @@ extension InMemorySocialService: DishExploreReading {
     public func dishesByTag(
         kind: DishTag.Kind,
         slug: String,
+        city: String?,
         after cursor: TagDishCursor?,
         pageSize: Int
     ) async throws -> TagDishPage {
-        let rows = exploreCatalogue()
+        let rows = exploreCatalogue(in: city)
             .filter { $0.tags.contains { $0.kind == kind && $0.slug == slug } }
             .map(\.row)
             .sorted { TagDishCursor.isBefore($0.tagCursor, $1.tagCursor) }
@@ -39,8 +40,15 @@ extension InMemorySocialService: DishExploreReading {
 
     // MARK: - Machinery
 
+    /// The catalogue in one city (its `city` tag), or everywhere.
+    func exploreCatalogue(in city: String?) -> [DishSimilarity.Candidate] {
+        let all = exploreCatalogue()
+        guard let city else { return all }
+        return all.filter { $0.tags.contains { $0.kind == .city && $0.slug == city.lowercased() } }
+    }
+
     /// Every dish the seeded entries mention, aggregated the way `dish_summary` does, with its tags.
-    private func exploreCatalogue() -> [DishSimilarity.Candidate] {
+    func exploreCatalogue() -> [DishSimilarity.Candidate] {
         let lines = visibleEntriesEverywhere().flatMap { entry in entry.items.map { (entry: entry, item: $0) } }
         return Dictionary(grouping: lines, by: \.item.dishID).compactMap { dishID, rows in
             guard let first = rows.first, let place = first.entry.place else { return nil }

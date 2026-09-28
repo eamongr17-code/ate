@@ -50,10 +50,12 @@ final class SaveAction {
     /// A save is a write: a browser is asked to sign in, and the bookmark stays as it was.
     private var mayWrite: Bool { gate?.permitsWrite(.save) ?? true }
 
-    /// One dish's bookmark.
-    func toggle(dishID: UUID, entryID: UUID?, isSaved: Bool, source: SaveSource) async {
-        guard mayWrite else { return }
-        guard inFlight.insert(dishID).inserted else { return }
+    /// One dish's bookmark. Returns whether the tap went ahead — a browser asked to sign in, or a
+    /// second tap on a bookmark already in the air, did nothing.
+    @discardableResult
+    func toggle(dishID: UUID, entryID: UUID?, isSaved: Bool, source: SaveSource) async -> Bool {
+        guard mayWrite else { return false }
+        guard inFlight.insert(dishID).inserted else { return false }
         defer { inFlight.remove(dishID) }
 
         let next = isSaved == false
@@ -72,6 +74,7 @@ final class SaveAction {
             // did not happen looking like one that did.
             broadcast.send(dishID: dishID, isSaved: isSaved)
         }
+        return true
     }
 
     /// The unsave on the Saved shelf, where the bookmark is the only reason the row exists — so the

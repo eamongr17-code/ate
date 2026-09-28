@@ -55,15 +55,6 @@ public enum SocialEvents {
         AnalyticsEvent(name: "profile_viewed", parameters: ["is_me": isMe ? "true" : "false"])
     }
 
-    /// The Feed's location pill changed. `area` is the area's own name, or `everywhere`; `rank` is
-    /// its place in the busiest-first list (0 = busiest), absent for Everywhere — whether people
-    /// pick the top of the list or go looking is the question.
-    public static func feedAreaChanged(area: String?, rank: Int?) -> AnalyticsEvent {
-        var parameters = ["area": area ?? "everywhere"]
-        if let rank { parameters["rank"] = String(max(0, rank)) }
-        return AnalyticsEvent(name: "feed_area_changed", parameters: parameters)
-    }
-
     /// The Feed's location changed (round 5): `location_kind` near_me / city / everywhere; `city` the
     /// slug when one was picked; `is_nearby` whether near me really was near; `rank` a picked city's
     /// place in the busiest-first list.

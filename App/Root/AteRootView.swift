@@ -54,6 +54,8 @@ struct AteShell: View {
     /// Everyone else's entries, and the shelf a save fills. Held here rather than by the screens so
     /// a save made in the feed is already true on the shelf, and a block empties both at once.
     @State var feed: EntryListStore
+    /// The Feed's edition (round 8) — its sections; `feed` above is its latest receipts.
+    @State var feedEdition: FeedEditionStore
     @State var feedArea: FeedAreaModel // the feed's area, remembered per person
     @State var saved: SavedDishesStore
     /// The one save, made once and handed down — it holds which dishes are mid-flight.
@@ -113,8 +115,10 @@ struct AteShell: View {
             entries: services.entries, deletions: services.entryDeletions, querying: services.journalQuerying
         ))
         let analytics = services.analytics
-        let (feedStore, areaModel) = FeedScreen.stores(services: services)
-        _feedArea = State(initialValue: areaModel)
+        let stores = FeedScreen.stores(services: services, isSignedIn: { [services] in services.hasSession })
+        let feedStore = stores.latest
+        _feedEdition = State(initialValue: stores.edition)
+        _feedArea = State(initialValue: stores.area)
         // `feed_page_loaded` is reported where the page actually lands — a prefetched page and a
         // pulled one count the same, and a refresh cannot swallow its own first page by resetting
         // the count and filling it again in the same turn.
@@ -215,13 +219,15 @@ struct AteShell: View {
             }
         case .feed:
             FeedScreen(
-                store: feed,
+                edition: feedEdition,
+                latest: feed,
                 area: feedArea,
                 scrollToTopSignal: scrollToTop[.feed, default: 0],
                 onOpen: { open(.entry($0)) },
                 onProfile: { open(.profile($0)) },
                 onPlace: { open(.place($0), from: .feed) },
                 onDish: { open(.dish($0), from: .feed) },
+                onTag: { open(.tag($0)) },
                 onSave: { entry, dish in
                     Task {
                         await saveAction.toggle(
@@ -230,6 +236,14 @@ struct AteShell: View {
                             isSaved: dish.isSaved,
                             source: .feed
                         )
+                    }
+                },
+                onSaveDish: { dish, section in
+                    Task {
+                        let went = await saveAction.toggle(
+                            dishID: dish.dishID, entryID: nil, isSaved: dish.isSaved, source: .feed
+                        )
+                        if went, dish.isSaved == false { services.analytics(FeedEvents.dishSaved(section)) }
                     }
                 },
                 onViewed: { services.analytics(SocialEvents.feedViewed()) }

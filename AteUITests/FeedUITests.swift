@@ -23,17 +23,14 @@ final class FeedUITests: XCTestCase {
     func testFeedScrollsSavesADishAndOpensAnEntryAndAProfile() {
         app.launch()
 
+        // The latest receipts run under the edition's sections (round 8): scroll down to them.
         let slips = app.otherElements.matching(identifier: "feed.slip")
-        XCTAssertTrue(slips.firstMatch.waitForExistence(timeout: 10),
-                      "the feed should draw other people's entries")
+        XCTAssertTrue(app.descendants(matching: .any)["feed.topAte"].waitForExistence(timeout: 10))
+        for _ in 0..<12 where app.buttons.matching(identifier: "slip.save").firstMatch.isHittable == false {
+            app.swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(slips.firstMatch.exists, "the edition's latest receipts are other people's entries")
         attach("01-feed")
-
-        // It scrolls, and paging does not empty it.
-        app.swipeUp()
-        app.swipeUp()
-        XCTAssertTrue(slips.firstMatch.exists, "the feed should still have slips after scrolling")
-        app.swipeDown()
-        app.swipeDown()
 
         // **The bookmark.** One dish, not the entry — and it has to win the tap against the button
         // underneath it that opens the entry.
@@ -43,7 +40,7 @@ final class FeedUITests: XCTestCase {
         bookmark.tap()
         XCTAssertTrue(waitUntil(timeout: 5) { bookmark.isSelected != wasSaved },
                       "the bookmark flips at the tap, before any round trip")
-        XCTAssertTrue(app.staticTexts["Feed"].exists, "and saving does not navigate anywhere")
+        XCTAssertTrue(slips.firstMatch.exists, "and saving does not navigate anywhere")
         attach("02-feed-saved")
 
         // The slip's body is the door to the entry.

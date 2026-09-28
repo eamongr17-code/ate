@@ -110,6 +110,9 @@ struct AteDashedLine: View {
     var lineCap: CGLineCap = .butt
     /// `.vertical` is the statement slip's column divider — the same rule, stood up.
     var axis: Axis = .horizontal
+    /// A rule in a colour of its own rather than the surface's ink at ``opacity`` — The Top Ate's
+    /// `#D9D2C8` (``AteFeedColor/rule``).
+    var colour: Color?
 
     @Environment(\.atePalette) private var palette
 
@@ -125,7 +128,7 @@ struct AteDashedLine: View {
             }
             context.stroke(
                 path,
-                with: .color(palette.rule.opacity(opacity)),
+                with: .color(colour ?? palette.rule.opacity(opacity)),
                 style: StrokeStyle(lineWidth: lineWidth, lineCap: lineCap, dash: dash)
             )
         }

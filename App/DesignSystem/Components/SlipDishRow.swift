@@ -148,19 +148,10 @@ struct SlipDishRow: View {
     }
 
     private func bookmark(action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            (dish.isSaved ? AteIcon.saved : AteIcon.save)
-                .view(size: 22)
-                .frame(width: AteMetrics.hit, height: AteMetrics.hit)
-                .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        // `margin:-10px -12px -10px 0` — the target stays 44, the mark sits on the paper's edge.
-        .padding(.vertical, -10)
-        .padding(.trailing, -12)
-        .accessibilityLabel(dish.isSaved ? "Saved \(dish.name)" : "Save \(dish.name)")
-        .accessibilityAddTraits(dish.isSaved ? [.isButton, .isSelected] : .isButton)
-        .accessibilityIdentifier("slip.save")
+        AteSaveButton(dishName: dish.name, isSaved: dish.isSaved, action: action)
+            // `margin:-10px -12px -10px 0` — the target stays 44, the mark sits on the paper's edge.
+            .padding(.vertical, -10)
+            .padding(.trailing, -12)
     }
 
     /// `gap:14px` between the score and its bookmark.

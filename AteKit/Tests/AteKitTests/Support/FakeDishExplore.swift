@@ -18,6 +18,7 @@ final class FakeDishExplore: DishExploreReading, @unchecked Sendable {
     private var failsSimilar = false
     private var tagPageFailures = 0
     private(set) var tagCursors: [TagDishCursor?] = []
+    private(set) var tagCities: [String?] = []
     private(set) var similarLimits: [Int] = []
 
     func seed(dishID: UUID, tags: [DishTag] = [], similar: [SimilarDish] = []) {
@@ -53,11 +54,13 @@ final class FakeDishExplore: DishExploreReading, @unchecked Sendable {
     func dishesByTag(
         kind: DishTag.Kind,
         slug: String,
+        city: String?,
         after cursor: TagDishCursor?,
         pageSize: Int
     ) async throws -> TagDishPage {
         try lock.withLock {
             tagCursors.append(cursor)
+            tagCities.append(city)
             if tagPageFailures > 0 {
                 tagPageFailures -= 1
                 throw Failure()

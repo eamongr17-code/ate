@@ -74,7 +74,7 @@ final class DetailRound5UITests: XCTestCase {
 
     func testSomebodyElsesEntrySharesALinkNotTheirReceipt() {
         launch(["-ate-open", "feed"])
-        let slip = app.descendants(matching: .any).matching(identifier: "feed.slip.body").firstMatch
+        let slip = app.scrollToFeedSlip()
         XCTAssertTrue(slip.waitForExistence(timeout: 10))
         slip.tap()
         let more = app.buttons["More"].firstMatch
@@ -160,7 +160,7 @@ final class DetailRound5UITests: XCTestCase {
     /// its name and its place on arrival, and the rest fills in without the name moving.
     func testADishPageDrawsAtOnceFromTheRowThatOpenedIt() {
         launch(["-ate-open", "feed", "-ate-slow-detail"])
-        let row = app.descendants(matching: .any).matching(identifier: "feed.slip.dish").firstMatch
+        let row = app.scrollToFeedSlip("feed.slip.dish")
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         let name = row.label.components(separatedBy: ",").first ?? row.label
         row.tap()
@@ -179,7 +179,7 @@ final class DetailRound5UITests: XCTestCase {
     /// around the bookmark, at its full width.
     func testTheCornerGlassWaitsForItsControls() {
         launch(["-ate-open", "feed", "-ate-slow-detail"])
-        let row = app.descendants(matching: .any).matching(identifier: "feed.slip.dish").firstMatch
+        let row = app.scrollToFeedSlip("feed.slip.dish")
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         row.tap()
         let controls = app.descendants(matching: .any).matching(identifier: "nav.controls").firstMatch
@@ -193,7 +193,7 @@ final class DetailRound5UITests: XCTestCase {
     /// The same for a place opened from a slip's pin line.
     func testAPlacePageDrawsItsNameAtOnce() {
         launch(["-ate-open", "feed", "-ate-slow-detail"])
-        let line = app.descendants(matching: .any).matching(identifier: "feed.slip.place").firstMatch
+        let line = app.scrollToFeedSlip("feed.slip.place")
         XCTAssertTrue(line.waitForExistence(timeout: 10))
         line.tap()
         let heading = app.staticTexts.matching(NSPredicate(format: "label == %@", "Tipo 00")).firstMatch

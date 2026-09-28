@@ -17,7 +17,7 @@ final class FeedTabReturnUITests: XCTestCase {
 
     func testReturningToAScrolledFeedStaysResponsive() {
         let app = launch(["-ate-open", "feed"])
-        XCTAssertTrue(slip("feed", in: app).waitForExistence(timeout: 10))
+        XCTAssertTrue(app.scrollToFeedSlip("feed.slip.dish").waitForExistence(timeout: 10))
         for round in 0..<3 {
             drag(app, by: -250)
             tab("Journal", in: app)
@@ -35,7 +35,9 @@ final class FeedTabReturnUITests: XCTestCase {
         for round in 0..<3 {
             drag(app, by: -250)
             tab("Feed", in: app)
-            XCTAssertTrue(slip("feed", in: app).waitForExistence(timeout: 5), "round \(round): on the Feed")
+            // The edition opens on The Top Ate (round 8); the slips are further down.
+            let feed = app.descendants(matching: .any)["feed.topAte"].firstMatch
+            XCTAssertTrue(feed.waitForExistence(timeout: 5), "round \(round): on the Feed")
             assertAnswers(round: round, "the Journal") {
                 tab("Journal", in: app)
                 return slip("journal", in: app)
