@@ -47,7 +47,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 30
     env:
-      # Resolved packages live outside the checkout so one cache entry covers xcodebuild's clones.
+      # Resolved packages live outside the checkout, so one cache entry also covers xcodebuild's clones.
       SPM_CLONES: /Users/runner/ate-spm
     steps:
       - uses: actions/checkout@v4
