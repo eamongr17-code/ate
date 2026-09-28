@@ -182,20 +182,20 @@ final class SystemPhotoLibrary: AtePhotoLibrary {
 /// driven and screenshotted against its artboard with no permission and no camera roll.
 @MainActor
 final class PreviewPhotoLibrary: AtePhotoLibrary {
-    /// `-ate-deny-photos` — the refused permission; `-ate-no-photos` — a roll with nothing in the
-    /// window. The two `Suggestions` states a simulator drive cannot otherwise reach.
-    private static let denies = ProcessInfo.processInfo.arguments.contains("-ate-deny-photos")
-    private static let isEmpty = ProcessInfo.processInfo.arguments.contains("-ate-no-photos")
-    /// `-ate-photos-undetermined`: never asked yet — the Summary's one ask says yes, no system
-    /// prompt in between.
-    private static let startsUndetermined = ProcessInfo.processInfo.arguments.contains("-ate-photos-undetermined")
+    /// The `photos-denied` fixture — the refused permission; `no-photos` — a roll with nothing in
+    /// the window. The two `Suggestions` states a simulator drive cannot otherwise reach.
+    private static let denies = DebugLaunch.has(.photosDenied)
+    private static let isEmpty = DebugLaunch.has(.noPhotos)
+    /// `photos-undetermined`: never asked yet — the Summary's one ask says yes, no system prompt in
+    /// between.
+    private static let startsUndetermined = DebugLaunch.has(.photosUndetermined)
     private var hasBeenAsked = false
     private var wasGranted = false
 
     /// A UI-test run starts from nothing: one test's dismissed sittings are not the next test's
     /// empty journal header.
     init() {
-        guard ProcessInfo.processInfo.arguments.contains("-ate-ui-testing") else { return }
+        guard DebugLaunch.isOn(.uiTesting) else { return }
         let defaults = UserDefaults.standard
         for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("ate.dismissedSuggestions.") {
             defaults.removeObject(forKey: key)

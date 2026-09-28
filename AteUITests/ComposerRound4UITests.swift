@@ -11,7 +11,7 @@ final class ComposerRound4UITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open-composer", "-ate-seed-draft"]
+        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open", "composer", "-ate-fixture", "draft"]
     }
 
     /// Done hands over to the Summary in one clean step.
@@ -100,7 +100,7 @@ final class ComposerRound4UITests: XCTestCase {
     /// A library pick is in the cluster the moment the picker closes — a still tile at once, the
     /// photo as soon as it decodes — and the photos sit at the foot of the writing area.
     func testAPickAppearsAtOnce() {
-        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open-composer"]
+        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open", "composer"]
         app.launch()
         let editor = app.textViews["composer.editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
@@ -130,7 +130,7 @@ final class ComposerRound4UITests: XCTestCase {
 
     /// "it was a 4.5." — the full stop promotes the score, and sits straight against the pill.
     func testAScoreEndingASentencePromotes() {
-        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open-composer"]
+        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open", "composer"]
         app.launch()
         let editor = app.textViews["composer.editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 10))

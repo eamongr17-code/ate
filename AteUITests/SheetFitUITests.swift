@@ -10,7 +10,7 @@ final class SheetFitUITests: XCTestCase {
     private var app: XCUIApplication!
 
     func testEntrySheetsFitAndSwipeAway() {
-        launch(["-ate-open-entry", "-ate-open-place-sheet"])
+        launch(["-ate-open", "entry/a7e00000-0000-4000-8000-000000000142?sheet=place"])
         let add = app.buttons["place.add"].firstMatch
         XCTAssertTrue(add.waitForExistence(timeout: 10), "the place sheet is up")
         sleep(2)
@@ -28,7 +28,7 @@ final class SheetFitUITests: XCTestCase {
     }
 
     func testDishSheetFits() {
-        launch(["-ate-open-entry", "-ate-open-dish-sheet"])
+        launch(["-ate-open", "entry/a7e00000-0000-4000-8000-000000000142?sheet=dish"])
         XCTAssertTrue(app.buttons["sheet.primary"].firstMatch.waitForExistence(timeout: 10))
         sleep(2)
         save("sheet-dish")
@@ -36,7 +36,7 @@ final class SheetFitUITests: XCTestCase {
     }
 
     func testFeedAreaAndActionsSheetsFit() {
-        launch(["-ate-open-feed"])
+        launch(["-ate-open", "feed"])
         let area = app.buttons["feed.area"].firstMatch
         XCTAssertTrue(area.waitForExistence(timeout: 10))
         area.tap()

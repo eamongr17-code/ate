@@ -68,3 +68,18 @@ struct ProfileDestination: View {
         )
     }
 }
+
+extension ProfileDestination {
+    /// Somebody's page, as the shell pushes it.
+    init(userID: UUID, context: RouteContext) {
+        self.init(
+            userID: userID,
+            services: context.services,
+            saves: context.saves,
+            onOpen: { context.open(.entry($0)) },
+            onPlace: { context.open(.place($0), from: .profile) },
+            onDish: { context.open(.dish($0), from: .profile) },
+            onBlocked: { context.blocked($0) }
+        )
+    }
+}

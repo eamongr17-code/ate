@@ -16,7 +16,7 @@ final class ComposeRound5UITests: XCTestCase {
     /// Post → "Posting…" → the Summary, whose receipt is whole the moment it is there: Share is live
     /// as soon as the receipt is on screen, never a skeleton first.
     func testPostHoldsThenTheReceiptEntersWhole() {
-        app.launchArguments += ["-ate-open-composer", "-ate-seed-draft"]
+        app.launchArguments += ["-ate-open", "composer", "-ate-fixture", "draft"]
         app.launch()
         let post = app.buttons["composer.post"]
         XCTAssertTrue(post.waitForExistence(timeout: 10))
@@ -35,7 +35,7 @@ final class ComposeRound5UITests: XCTestCase {
     /// The sort outlasts the hold: the Summary stands with its pills and no receipt, then the receipt
     /// enters, printed — Share only ever comes on with it.
     func testALateSortEntersWhenFinal() {
-        app.launchArguments += ["-ate-open-composer", "-ate-seed-draft", "-ate-slow-sort"]
+        app.launchArguments += ["-ate-open", "composer", "-ate-fixture", "draft", "-ate-slow-sort"]
         app.launch()
         let post = app.buttons["composer.post"]
         XCTAssertTrue(post.waitForExistence(timeout: 10))
@@ -57,7 +57,7 @@ final class ComposeRound5UITests: XCTestCase {
     /// the words do nothing, and the entry posted is exactly the composer at the tap.
     func testTheComposerIsFrozenThroughTheHold() {
         // `-ate-long-hold`: every tap below lands inside "Posting…", however slow the runner.
-        app.launchArguments += ["-ate-open-composer", "-ate-seed-draft", "-ate-slow-sort", "-ate-long-hold"]
+        app.launchArguments += ["-ate-open", "composer", "-ate-fixture", "draft", "-ate-slow-sort", "-ate-long-hold"]
         app.launch()
         let post = app.buttons["composer.post"]
         XCTAssertTrue(post.waitForExistence(timeout: 10))
@@ -103,7 +103,7 @@ final class ComposeRound5UITests: XCTestCase {
 
     /// No photos to suggest: no photo-stack button on the journal, and nothing in its place.
     func testNoSuggestionsNoButton() {
-        app.launchArguments += ["-ate-no-photos"]
+        app.launchArguments += ["-ate-fixture", "no-photos"]
         app.launch()
         XCTAssertTrue(app.buttons["New entry"].waitForExistence(timeout: 10))
         sleep(1)
@@ -134,14 +134,14 @@ final class ComposeRound5UITests: XCTestCase {
     /// stand-in for the system prompt on a preview run); granted, the button is there when the
     /// Summary closes; and the next post does not ask again.
     func testTheFirstPostAsksForPhotosOnce() {
-        app.launchArguments += ["-ate-photos-undetermined"]
+        app.launchArguments += ["-ate-fixture", "photos-undetermined"]
         app.launch()
         XCTAssertTrue(app.buttons["New entry"].waitForExistence(timeout: 10))
         sleep(1)
         XCTAssertFalse(app.buttons["journal.suggestions"].exists, "never asked, nothing to suggest yet")
         app.terminate()
 
-        app.launchArguments += ["-ate-open-composer", "-ate-seed-draft"]
+        app.launchArguments += ["-ate-open", "composer", "-ate-fixture", "draft"]
         app.launch()
         let post = app.buttons["composer.post"]
         XCTAssertTrue(post.waitForExistence(timeout: 10))

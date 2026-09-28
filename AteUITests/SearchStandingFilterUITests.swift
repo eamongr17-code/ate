@@ -33,13 +33,13 @@ final class SearchStandingFilterUITests: XCTestCase {
     private func launch(scope: String) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-ate-ui-testing", "-ate-debug-signin", "-ate-open-search", "-ate-search-scope", scope]
+        app.launchArguments = ["-ate-ui-testing", "-ate-debug-signin", "-ate-open", "search/\(scope)"]
         // Nearby is ranked by where the device is: put it in Melbourne, and answer the question
         // when Places asks it — never whatever the simulator last held (main, 2026-09-28).
         placeTheDevice(for: app)
         app.launch()
         allowLocationIfAsked(timeout: 8)
-        // No `-ate-search-query`: the field is empty throughout.
+        // No `q=`: the field is empty throughout.
         return app
     }
 

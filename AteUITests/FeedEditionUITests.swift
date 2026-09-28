@@ -11,7 +11,7 @@ final class FeedEditionUITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open-feed"]
+        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open", "feed"]
         // A UserDefaults argument, not a launch flag: the Feed was last opened long ago, so every
         // launch has New to the record in it (keyed to the preview drive's one person).
         app.launchArguments += ["-ate.feedLastOpened.00000000-0000-4000-8000-00000000a7e0", "0"]

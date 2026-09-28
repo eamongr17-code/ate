@@ -16,13 +16,6 @@ public protocol PreviewEntryLookup: Sendable {
 }
 
 public final class InMemoryEntryService: EntryService, InMemoryStandIn, @unchecked Sendable {
-    public static let launchArgument = "-ate-preview-data"
-    /// …and with nothing in it: the first-day journal, which is the one state you cannot reach by
-    /// writing something.
-    public static let emptyLaunchArgument = "-ate-preview-empty"
-    /// …and with the design's visit carrying its dietary tags (`DietTagsB`).
-    public static let tagsLaunchArgument = "-ate-preview-tags"
-
     private let lock = NSLock()
     private var entries: [EntryCard] = []
     private var nextOrderNumber: Int
@@ -282,28 +275,26 @@ public final class InMemoryEntryService: EntryService, InMemoryStandIn, @uncheck
     }
 }
 
-/// Failures a simulator drive can ask the in-memory services for, so the states they draw can be
-/// looked at without pulling the network: `-ate-preview-offline` (every list read fails),
-/// `-ate-preview-entry-fault offline|gone` (the entry page's read fails, one way or the other) and
-/// `-ate-preview-long` (a long-handle, photo-less, three-dish visit at the top of the feed) and
-/// `-ate-preview-deep` (long profile, place and dish lists).
+/// Failures and long lists a simulator drive can ask the in-memory services for, so the states they
+/// draw can be looked at without pulling the network — each a ``DebugLaunch/Fixture``.
 public enum PreviewFaults {
-    public static var listsOffline: Bool { arguments.contains("-ate-preview-offline") }
-    public static var longFixtures: Bool { arguments.contains("-ate-preview-long") }
-    /// `-ate-preview-deep`, and only inside a UI-test run (`-ate-ui-testing`): the long profile,
-    /// place and dish lists a responsiveness drive scrolls to mid-list (``InMemorySocialService/deepEntries``).
-    /// Asked for by name so every other drive keeps the artboards' short lists.
+    /// `offline`: every list read fails.
+    public static var listsOffline: Bool { DebugLaunch.has(.offline) }
+    /// `long`: a long-handle, photo-less, three-dish visit at the top of the feed.
+    public static var longFixtures: Bool { DebugLaunch.has(.long) }
+    /// `deep`, and only inside a UI-test run: the long profile, place and dish lists a
+    /// responsiveness drive scrolls to mid-list (``InMemorySocialService/deepEntries``). Asked for by
+    /// name so every other drive keeps the artboards' short lists.
     public static var deepFixtures: Bool {
-        arguments.contains("-ate-preview-deep") && arguments.contains("-ate-ui-testing")
+        DebugLaunch.has(.deep) && DebugLaunch.isOn(.uiTesting)
     }
 
+    /// `entry-offline` / `entry-gone`: the entry page's read fails, one way or the other.
     public static var entryFault: String? {
-        guard let index = arguments.firstIndex(of: "-ate-preview-entry-fault"),
-              arguments.indices.contains(index + 1) else { return nil }
-        return arguments[index + 1]
+        if DebugLaunch.has(.entryOffline) { return "offline" }
+        if DebugLaunch.has(.entryGone) { return "gone" }
+        return nil
     }
-
-    private static var arguments: [String] { ProcessInfo.processInfo.arguments }
 }
 
 public extension ViewerProfile {

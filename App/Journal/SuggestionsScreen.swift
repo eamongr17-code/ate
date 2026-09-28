@@ -263,3 +263,21 @@ struct SuggestionCluster: View {
         UUID(uuidString: String(format: "00000000-0000-4000-8000-%012X", position)) ?? UUID()
     }
 }
+
+extension SuggestionsScreen {
+    /// `Suggestions.dc.html`: the page, wired to the composer it opens and the badge it changes.
+    init(context: RouteContext) {
+        self.init(
+            library: context.services.photos,
+            owner: context.services.photoOwner,
+            analytics: context.services.analytics,
+            onWrite: { cluster in
+                context.compose(ComposerPresentation(
+                    origin: .photoSuggestion,
+                    assetIdentifiers: cluster.items.map(\.id)
+                ))
+            },
+            onDismissed: context.photosChanged
+        )
+    }
+}

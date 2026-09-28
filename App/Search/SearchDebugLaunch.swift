@@ -2,46 +2,32 @@ import AteKit
 import Foundation
 
 #if DEBUG
-/// **Launch arguments that open the Search tab in a state** — the screens a simulator drive
-/// photographs, reachable from `simctl launch` because a simulator cannot be typed into from a shell.
-///
-/// `-ate-open-search` lands on the tab; `-ate-search-scope dishes|people|saved|places` picks the
-/// segment and `-ate-search-query <text>` fills the field. Debug only: nothing here exists in a
-/// shipped binary.
-///
-/// Filters: `-ate-search-filtered` starts with a demo set on (vegetarian, 4.0 and up) and
-/// `-ate-search-filter-open` opens the filter sheet at launch, so each state can be photographed
-/// without a finger.
+/// **The Search tab's starting state, for a drive** — `-ate-open search/<scope>?q=<words>` lands on
+/// the tab with its segment and field filled; `filtered` starts with a demo set on (vegetarian, 4.0
+/// and up, and with `window=custom|preset` a date window) and `filter` opens the filter sheet at
+/// launch, so each state can be photographed without a finger (``DebugLaunch``).
 enum SearchDebugLaunch {
-    static let openArgument = "-ate-open-search"
-    static let scopeArgument = "-ate-search-scope"
-    static let queryArgument = "-ate-search-query"
-    static let filteredArgument = "-ate-search-filtered"
-    static let filterOpenArgument = "-ate-search-filter-open"
-
-    static var opensSearch: Bool { arguments.contains(openArgument) }
-
-    static var scope: SearchScope {
-        value(after: scopeArgument).flatMap(SearchScope.init(rawValue:)) ?? .places
+    /// The segment and the words, when the launch opens Search.
+    static var start: (scope: SearchScope, query: String)? {
+        guard let route = DebugLaunch.route, case .search(let scope) = route.screen else { return nil }
+        return (scope, route.value(.query) ?? "")
     }
 
-    static var query: String { value(after: queryArgument) ?? "" }
-
     static var startingFilters: SearchFilters? {
-        arguments.contains(filteredArgument)
-            ? SearchFilters(minimumScore: 4.0, window: JournalDebugLaunch.startingWindow)
+        start != nil && DebugLaunch.has(.filtered)
+            ? SearchFilters(minimumScore: 4.0, window: startingWindow)
             : nil
     }
 
-    static var opensFilter: Bool { arguments.contains(filterOpenArgument) }
+    static var opensFilter: Bool { start != nil && DebugLaunch.has(.filter) }
 
-    private static var arguments: [String] { ProcessInfo.processInfo.arguments }
-
-    private static func value(after flag: String) -> String? {
-        guard let index = arguments.firstIndex(of: flag), arguments.indices.contains(index + 1) else {
-            return nil
+    /// `window=custom` (round 6 stills): March to August 2026; `window=preset`: This year.
+    private static var startingWindow: DateWindow {
+        switch DebugLaunch.route?.value(.window) {
+        case "preset": DateWindow.preset(.thisYear)
+        case "custom": DateWindow(from: AteMonth(year: 2026, month: 3), to: AteMonth(year: 2026, month: 8))
+        default: .all
         }
-        return arguments[index + 1]
     }
 }
 #endif

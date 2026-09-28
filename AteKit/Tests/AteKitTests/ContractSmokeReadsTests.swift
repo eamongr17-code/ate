@@ -97,12 +97,12 @@ struct ContractSmokeReadsTests {
         }
     }
 
-    // MARK: - The Feed's edition (0055)
+    // MARK: - The Feed's edition (0055), through the app's client
 
-    /// Every read the edition makes, in a city and everywhere, decoded by the app's own client — and
-    /// `dishes_by_tag` with `p_city`. `set_cravings` writes, so it is not here.
-    @Test("top_ate, because_you_loved, new_to_record, my_cravings, craving_options, dishes_by_tag(p_city)")
-    func feedEdition() async throws {
+    /// Every read the edition makes, in a city and everywhere, decoded by `FeedEditionClient` itself —
+    /// and `dishes_by_tag` with `p_city`. (The raw bindings are checked below; `set_cravings` writes.)
+    @Test("FeedEditionClient decodes every edition read")
+    func feedEditionClient() async throws {
         let client = try await signedIn()
         let edition = FeedEditionClient(api: client)
         let top = try await edition.topAte(city: nil, limit: 8)

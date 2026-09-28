@@ -55,3 +55,13 @@ custom_rules:
     regex: '(Image|UIImage|Label)\s*\([^)]*\b(systemName|systemImage)\s*:'
     message: "Icons come from Lucide via AteIcon; add a case rather than using an SF Symbol."
     severity: error
+  # Every launch argument is declared in AteKit's `DebugLaunch.swift` and read through it: a drive
+  # opens a screen with `-ate-open <route>`, never with a new one-off flag in the view that reads it.
+  launch_arguments_in_one_place:
+    name: "Launch arguments live in DebugLaunch"
+    included: "/(App|AteKit/Sources)/.*\\.swift$"
+    excluded: "/DebugLaunch\\.swift$"
+    regex: '-ate-[a-z]'
+    match_kinds: [string]
+    message: "Declare launch arguments in AteKit/Sources/AteKit/Debug/DebugLaunch.swift and read them through DebugLaunch."
+    severity: error

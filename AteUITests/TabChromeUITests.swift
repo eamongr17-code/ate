@@ -37,7 +37,7 @@ final class TabChromeUITests: XCTestCase {
     /// Down: the header slides away and the bar minimises. Up, from the middle of the list: both are
     /// straight back — the whole bar, not just the minimised pill.
     func testHeaderAndBarHideOnScrollDownAndReturnOnScrollUp() {
-        launch(["-ate-open-feed"])
+        launch(["-ate-open", "feed"])
         let area = app.buttons["feed.area"].firstMatch
         XCTAssertTrue(area.waitForExistence(timeout: 10))
         let home = area.frame.minY
@@ -182,7 +182,7 @@ final class TabChromeUITests: XCTestCase {
         // The longer journal: since round 5's one-bar header the two-entry fixture no longer scrolls
         // far enough for the system to minimise the bar.
         for (start, other, arguments) in [
-            ("Journal", "Feed", ["-ate-preview-journal"]), ("Feed", "Journal", ["-ate-open-feed"])
+            ("Journal", "Feed", ["-ate-fixture", "journal"]), ("Feed", "Journal", ["-ate-open", "feed"])
         ] {
             launch(arguments)
             XCTAssertTrue(app.buttons["Search"].waitForExistence(timeout: 10))
@@ -204,7 +204,7 @@ final class TabChromeUITests: XCTestCase {
     /// The bottom bounce: back on a tab left at the very bottom, a drag into the bounce may minimise
     /// the bar — and if it does, the shadow goes with it.
     func testTheShadowGoesWithTheBarInTheBottomBounce() {
-        launch(["-ate-open-feed"])
+        launch(["-ate-open", "feed"])
         XCTAssertTrue(app.buttons["Search"].waitForExistence(timeout: 10))
         for _ in 0..<12 { app.swipeUp(velocity: .fast) }
         sleep(2)

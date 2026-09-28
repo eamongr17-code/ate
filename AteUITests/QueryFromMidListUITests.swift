@@ -4,14 +4,14 @@ import XCTest
 /// to mid-list, lands on the first of the new results with the header and its pills on screen —
 /// never partway down them, where nothing says what the list is now showing.
 ///
-/// Against `-ate-preview-data` with `-ate-preview-journal`'s longer journal, so it needs no backend
+/// Against `-ate-preview-data` with the `journal` fixture's longer journal, so it needs no backend
 /// and writes nothing.
 final class QueryFromMidListUITests: XCTestCase {
 
     /// Rating on, then changed from the middle of the journal on the compact header's chip — then
     /// that chip's ✕, from the middle of those results.
     func testJournalQueryFromMidListStartsAtTheTop() {
-        let app = launch(["-ate-preview-journal", "-ate-journal-filtered"])
+        let app = launch(["-ate-fixture", "journal", "-ate-open", "journal?filtered"])
         XCTAssertTrue(app.buttons["journal.calendar"].firstMatch.waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["4.0+"].firstMatch.waitForExistence(timeout: 5))
         let topOfJournal = firstRowLabel(app, "journal.slip.dish")
@@ -36,9 +36,8 @@ final class QueryFromMidListUITests: XCTestCase {
     /// and pills scroll away with the page — so a filter is applied from as far down as the control
     /// is still on screen, and the results start at their top all the same.
     func testSearchFilterFromDownThePageStartsAtTheTop() {
-        // `-ate-preview-deep`'s specials: a dish search for "ni" long enough to scroll.
-        let app = launch(["-ate-open-search", "-ate-search-scope", "dishes", "-ate-search-query", "ni",
-                          "-ate-preview-deep"])
+        // The `deep` fixture's specials: a dish search for "ni" long enough to scroll.
+        let app = launch(["-ate-open", "search/dishes?q=ni", "-ate-fixture", "deep"])
         let control = app.buttons["search.filter"]
         XCTAssertTrue(control.waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons.matching(identifier: "search.dish").firstMatch.waitForExistence(timeout: 10))
