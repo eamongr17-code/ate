@@ -150,7 +150,8 @@ struct AteServices {
         return PreviewServices(
             entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
             feed: social, saves: social, profiles: social, stats: InMemoryStatsService(),
-            placePages: social, dishPages: social, dishExplore: social, search: social, account: InMemoryAccountService()
+            placePages: social, dishPages: social, dishExplore: social, search: social,
+            account: InMemoryAccountService()
         )
         #else
         return nil

@@ -96,7 +96,8 @@ extension InMemorySocialService: DishExploreReading {
 
 /// **`similar_dishes`' rule (0053), stated for the in-memory stand-in**: weighted tag overlap — style
 /// 8, cuisine 4, suburb 2, city 1 — then score (unscored last), then reviews. A dish must share a
-/// style or the cuisine to count: a shared suburb or city alone does not make it "like" this one. The server's ranking is the real one; this keeps a preview drive honest to it.
+/// style or the cuisine to count: a shared suburb or city alone does not make it "like" this one.
+/// The server's ranking is the real one; this keeps a preview drive honest to it.
 public enum DishSimilarity {
     public struct Candidate: Sendable, Hashable {
         public let row: SimilarDish

@@ -64,7 +64,9 @@ final class FakeDishExplore: DishExploreReading, @unchecked Sendable {
             }
             let rows = (byTag["\(kind.rawValue):\(slug)"] ?? [])
                 .sorted { TagDishCursor.isBefore($0.tagCursor, $1.tagCursor) }
-            let remaining = cursor.map { cursor in rows.filter { TagDishCursor.isBefore(cursor, $0.tagCursor) } } ?? rows
+            let remaining = cursor.map { cursor in
+                rows.filter { TagDishCursor.isBefore(cursor, $0.tagCursor) }
+            } ?? rows
             return TagDishPage(items: Array(remaining.prefix(pageSize)), requestedLimit: pageSize)
         }
     }

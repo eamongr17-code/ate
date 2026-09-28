@@ -14,7 +14,9 @@ struct DishExploreTests {
         DishTag(kind: kind, slug: label.lowercased(), label: label)
     }
 
-    private static func similar(_ name: String, score: Double? = nil, reviews: Int = 1, id: UUID = UUID()) -> SimilarDish {
+    private static func similar(
+        _ name: String, score: Double? = nil, reviews: Int = 1, id: UUID = UUID()
+    ) -> SimilarDish {
         SimilarDish(dishID: id, name: name, restaurantID: place, restaurantName: "Bar Carolina",
                     score: score, reviewCount: reviews)
     }
@@ -88,7 +90,9 @@ struct DishExploreTests {
 
     @Test func bothSectionsHoldTheirSpaceUntilTheyAnswerThenArriveTogether() async {
         let reads = FakeDishExplore()
-        reads.seed(dishID: Self.dish, tags: [Self.tag(.style, "Pasta")], similar: [Self.similar("Rigatoni", score: 4.7)])
+        reads.seed(
+            dishID: Self.dish, tags: [Self.tag(.style, "Pasta")], similar: [Self.similar("Rigatoni", score: 4.7)]
+        )
         let store = DishExploreStore(dishID: Self.dish, reads: reads)
         #expect(store.isSettled == false)
         #expect(store.showsTags && store.showsSimilar, "held at their final size while they are read")

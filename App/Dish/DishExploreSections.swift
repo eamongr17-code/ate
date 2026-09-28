@@ -153,7 +153,10 @@ struct SimilarDishCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: Self.stack) {
                 AteThumbnail(
-                    photo: .dish(letter ?? DishLetter(dishID: dish.dishID, name: dish.name), cover: dish.coverURLString),
+                    photo: .dish(
+                        letter ?? DishLetter(dishID: dish.dishID, name: dish.name),
+                        cover: dish.coverURLString
+                    ),
                     side: Self.width,
                     radius: Self.radius
                 )
