@@ -1,73 +1,85 @@
 import SwiftUI
 
-/// **The frost behind the status bar** (round 5) — one, the same on every screen, so the clock and
-/// the battery never sit on a slip or a photo scrolling under them. Before, only pushed pages had
-/// anything there (the system navigation bar's edge effect), and tab roots had nothing.
+/// **The top frost** (round 7, `JournalScrolled`) — ONE continuous frost from the screen's top edge
+/// down through whatever chrome sits there — the status bar alone, a tab's compact header, a pushed
+/// page's top bar — fading out softly at its foot. No separate status-bar band, and no hard edge
+/// anywhere: one blur, washed with the ground so it reads as linen (or ink), never grey, and masked
+/// to nothing over its last ``AteFrostMetrics/feather`` points.
 ///
-/// A blur of whatever is under it, washed with the ground so it reads as linen (or ink) rather than
-/// grey: an even band the status bar's height, with only a short soft foot (Eamon's pick, round 5).
-extension View {
-    /// Lays the status-bar frost over this screen's top edge. Hit-testing passes straight through.
-    ///
-    /// The status bar's depth is read from layout (this screen's own safe area), never from the
-    /// window: asking UIKit for the window's insets while the shell's body is being built re-entered
-    /// layout and tripped an AttributeGraph cycle that froze the shell.
-    ///
-    /// `isHidden` while a compact header floats over the page (round 6): its own frost runs from the
-    /// top of the screen, and two frosts stacked read as a heavier band.
-    func ateStatusBarFrost(isHidden: Bool = false) -> some View {
-        modifier(AteStatusBarFrost(isHidden: isHidden))
-    }
-}
-
-private struct AteStatusBarFrost: ViewModifier {
-    let isHidden: Bool
-    @State private var depth: CGFloat = 0
-
-    func body(content: Content) -> some View {
-        content
-            .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { depth = $0 }
-            .overlay(alignment: .top) {
-                AteFrost(depth: depth)
-                    .opacity(isHidden ? 0 : 1)
-                    .ateAnimation(AteMotion.headerFocus, value: isHidden)
-                    .ignoresSafeArea(edges: .top)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-            }
-    }
-}
-
-/// The frost itself: an even band `depth` deep, feathered only at its foot. It stays inside the
-/// status bar's strip — anything deeper frosted the pages' top bars and headers just under it.
-struct AteFrost: View {
+/// At rest — a page at its top — it is not there at all: the header sits straight on the ground. It
+/// comes in over the first few points of scroll, as the page starts to pass under it.
+///
+/// Laid by the chrome that owns the top of each screen (``AteTabRootHeader``'s layers on a tab root,
+/// ``AteNavigationBarModifier`` on a pushed page) *under* its controls, never over them.
+struct AteTopFrost: View {
+    /// How far down it is solid, from the top of the screen.
     let depth: CGFloat
+    /// 0…1: how much of it shows (``AteFrostMetrics/presence(offset:)``).
+    let presence: Double
 
     var body: some View {
-        ZStack {
+        // At rest there is nothing here at all — not a clear blur over the header, which UIKit would
+        // still count as covering the controls under it.
+        if presence > 0 {
+            frost
+        }
+    }
+
+    private var frost: some View {
+        let height = depth + AteFrostMetrics.feather
+        return ZStack {
             Rectangle().fill(.ultraThinMaterial)
             Rectangle().fill(AteGlassColor.frostWash.opacity(AteFrostMetrics.wash))
         }
-        .frame(height: depth)
+        .frame(height: height)
         .mask {
+            // `mask-image: linear-gradient(to bottom, #000 70%, transparent)` — solid, then a linear
+            // fade to nothing.
             LinearGradient(
                 stops: [
                     .init(color: .black, location: 0),
-                    .init(color: .black, location: 1 - AteFrostMetrics.foot / max(depth, 1)),
+                    .init(color: .black, location: depth / max(height, 1)),
                     .init(color: .clear, location: 1),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
         }
+        .opacity(presence)
+        .frame(maxWidth: .infinity, alignment: .top)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
+@MainActor
 enum AteFrostMetrics {
-    /// The band's soft foot.
-    static let foot: CGFloat = 6
-    /// The ground laid over the blur.
-    static let wash: Double = 0.55
+    /// The soft foot: `JournalScrolled`'s 150pt frost fades over its last 30% — 45 points.
+    static let feather: CGFloat = 45
+    /// `background: rgba(239,234,226,.82)` — the ground laid over the blur.
+    static let wash: Double = 0.82
+    /// How far the page moves before the frost is whole. Over the first few points it fades in, so a
+    /// page leaving its resting top is not met by a band snapping on.
+    static let arrival: CGFloat = 12
+    /// The solid part runs 7 below the chrome's controls (`JournalScrolled`: the 44pt row ends at 98,
+    /// the frost is solid to 105).
+    static let belowControls: CGFloat = 7
+
+    /// The status bar alone — a tab root scrolled with its header down.
+    static var statusDepth: CGFloat { AteScreen.safeArea.top }
+    /// Through a tab root's compact header: its 44pt controls sit centred in its 52pt row.
+    static var headerDepth: CGFloat {
+        AteScreen.safeArea.top + AteCompactHeaderMetrics.row
+            - (AteCompactHeaderMetrics.row - AteMetrics.hit) / 2 + belowControls
+    }
+    /// Through a pushed page's top bar: its 44pt glass controls sit at the top of the bar.
+    static var barDepth: CGFloat { AteScreen.safeArea.top + AteMetrics.hit + belowControls }
+
+    /// How much of the frost shows at a scroll offset: none at rest, whole past ``arrival``.
+    static func presence(offset: CGFloat) -> Double {
+        Double(min(max(offset / arrival, 0), 1))
+    }
+
     /// The floating header's arrival: the blur it comes into focus from, and the few points it
     /// settles down through.
     static let focusBlur: CGFloat = 14
@@ -75,7 +87,7 @@ enum AteFrostMetrics {
 }
 
 /// The floating header's arrival: out of a blur into focus, fading in, from a few points above —
-/// scrim and all, so it comes back as a gradual overlay rather than a hard cut.
+/// so it comes back as a gradual overlay rather than a hard cut.
 struct AteHeaderFocus: ViewModifier {
     let progress: Double
 

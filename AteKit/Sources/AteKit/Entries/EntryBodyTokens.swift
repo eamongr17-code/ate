@@ -66,6 +66,40 @@ public enum EntryBodyTokens {
         return EntryComposition(plain: card.body, spans: spans)
     }
 
+    // MARK: - Words that only repeat the dish rows
+
+    /// **Whether the words say nothing the dish rows don't** (round 7, `MinimalEntry`): every letter
+    /// and digit in them is a dish's name, its tag chip, its score, or the place — "Apple pie V 3.5".
+    /// Such a slip prints each dish and its score once, in its row, and not again as prose. One word
+    /// of the person's own ("Apple pie 3.5, again") and the words print, whole, as always.
+    public static func wordsEchoDishRows(_ card: EntryCard) -> Bool {
+        let body = BodyOffsets(card.body)
+        guard card.items.isEmpty == false, body.units.isEmpty == false else { return false }
+        var covered = [Bool](repeating: false, count: body.units.count)
+        func cover(_ span: TextSpan) {
+            let lower = max(0, span.location)
+            let upper = min(covered.count, span.endLocation)
+            guard lower < upper else { return }
+            for index in lower..<upper { covered[index] = true }
+        }
+        for item in card.items {
+            // A dish the words never name is not an echo: the words are about something else.
+            guard let mention = mention(of: item, in: body) else { return false }
+            cover(mention)
+        }
+        for span in composition(for: card).spans { cover(span.span) }
+        if let place = card.place, let span = placeSpan(for: place, in: card, body: body) { cover(span) }
+        let text = String(decoding: body.units, as: UTF16.self)
+        var offset = 0
+        for scalar in text.unicodeScalars {
+            let width = scalar.utf16.count
+            defer { offset += width }
+            guard covered[offset] == false else { continue }
+            if CharacterSet.alphanumerics.contains(scalar) { return false }
+        }
+        return true
+    }
+
     // MARK: - Where the place is
 
     private static func placeSpan(

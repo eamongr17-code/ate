@@ -15,7 +15,7 @@ final class DetailRound5UITests: XCTestCase {
 
     func testAnEntryLinkOpensTheEntry() throws {
         launch([])
-        XCTAssertTrue(app.buttons["journal.filter"].firstMatch.waitForExistence(timeout: 10), "the journal is up")
+        XCTAssertTrue(app.buttons["journal.calendar"].firstMatch.waitForExistence(timeout: 10), "the journal is up")
         app.open(try XCTUnwrap(URL(string: Self.feedEntry)))
         // The simulator asks before a custom scheme opens its app; a phone tapping a link does not.
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")

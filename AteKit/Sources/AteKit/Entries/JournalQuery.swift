@@ -317,6 +317,13 @@ public protocol JournalQuerying: Sendable {
     /// `my_entry_cities()` (0047) — the cities your own entries are in, busiest first: the filter's
     /// City choices.
     func myEntryCities() async throws -> [AteCity]
+    /// `journal_days(p_from, p_to, p_tz, <my_entries' filters>)` (0053) — one row per day in the
+    /// range with an entry of yours that `query` keeps (`nil`: every entry): the calendar's tiles, and
+    /// summed over a month, a divider's count. Defaulted in `JournalDays.swift`.
+    func journalDays(from: AteDay, to: AteDay, matching query: JournalQuery?) async throws -> [JournalDayCount]
+    /// `my_entries_count(<my_entries' filters>)` — how many entries a query holds: the chip sheets'
+    /// "Show N entries", and a month divider's "6 OF 14". Defaulted in `JournalDays.swift`.
+    func myEntriesCount(_ query: JournalQuery) async throws -> Int
 }
 
 public extension JournalQuerying {

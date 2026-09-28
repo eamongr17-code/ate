@@ -95,8 +95,7 @@ struct SearchTabScreen: View {
                     band: store.filters.band, city: store.filters.city, window: store.filters.window
                 ),
                 cities: store.cities,
-                areCitiesLoaded: store.hasLoadedCities,
-                showsSort: false
+                areCitiesLoaded: store.hasLoadedCities
             ) { draft in
                 var filters = SearchFilters(city: draft.city, window: draft.window)
                 filters.band = draft.band

@@ -17,9 +17,6 @@ final class AteTabChrome {
     var arrival: AteTabArrival?
     /// Bumped when the minimised bar is tapped open, so the tab root's scroll tracker hears it.
     private(set) var expandRequest = 0
-    /// The current tab root's compact header is floating over its list (round 6): the status-bar
-    /// frost steps aside, so the header's own frost is the only one there.
-    var isHeaderFloating = false
 
     init(current: AteTab) {
         self.current = current
@@ -37,6 +34,5 @@ final class AteTabChrome {
         arrival = AteTabArrival(from: current, id: (arrival?.id ?? 0) + 1)
         current = tab
         isExpanded = true
-        isHeaderFloating = false
     }
 }

@@ -28,6 +28,7 @@ struct AteCityPicker: View {
     /// The cities are still arriving: still pills where they will be (#83's rule — the sheet rises
     /// full, never jumps).
     var isLoading = false
+    var textStyle: AteTextStyle = .controlSmall
     let onPick: (AteCityOption) -> Void
 
     var body: some View {
@@ -41,7 +42,9 @@ struct AteCityPicker: View {
     private var pills: some View {
         AteFlow(spacing: AteMetrics.snug) {
             ForEach(options) { option in
-                AteFilterChoice(title: option.title, isOn: option.id == selection, icon: option.icon) {
+                AteFilterChoice(
+                    title: option.title, isOn: option.id == selection, icon: option.icon, textStyle: textStyle
+                ) {
                     onPick(option)
                 }
                 .accessibilityIdentifier("city.\(option.id)")

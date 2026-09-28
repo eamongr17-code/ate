@@ -81,7 +81,10 @@ enum EntrySlipPresentation {
     private static let maximumPhotos = 3
 
     private static func slip(_ card: EntryCard, surface: SlipAnatomy.Surface, meta: AteSlip.Meta) -> AteSlip {
+        // `MinimalEntry` (round 7): words that only name the dishes and their scores are said once,
+        // in the rows — never again as prose under them.
         let showsWords = SlipAnatomy.showsWords(on: surface, dishCount: card.items.count)
+            && EntryBodyTokens.wordsEchoDishRows(card) == false
         var slip = AteSlip(
             id: card.id,
             dishes: card.items.map {

@@ -140,9 +140,24 @@ enum AteGlassColor {
     static let selection = Color(light: Color(hex: 0xECE5DC), dark: AteColor.raisedDark)
     static let item = Color(light: Color(hex: 0x1E1810), dark: AteColor.fgDark)
     static let itemCurrent = Color(light: Color(hex: 0x1A070E), dark: AteColor.fgDark)
-    /// The status-bar frost's wash over its blur: the ground, so the frost reads as linen (or ink),
-    /// never grey.
+    /// The top frost's wash over its blur: the ground, so the frost reads as linen (or ink), never
+    /// grey.
     static let frostWash = AteColor.ground
+}
+
+/// **The journal calendar's marks** (round 7, `CalendarMonth` / `CalendarYear`): a 5.0 day is
+/// butter, a 6 day brick — the score's own colours, never decoration — and a quiet day is the
+/// artboard's `#D9D2C8` dot (the raised plum in dark).
+enum AteCalendarColor {
+    static let five = AteColor.butter
+    static let six = AteColor.brick
+    /// What is written on each: ink on butter, white on brick (the 6 pill's own pairing).
+    static let fiveInk = AteColor.ink
+    static let sixInk = Color.white
+    /// A past day with no entry, and the rim of one still to come.
+    static let quiet = Color(light: Color(hex: 0xD9D2C8), dark: AteColor.raisedDark)
+    /// The day's number over its photo.
+    static let overPhoto = Color.white
 }
 
 /// **A torn surface's tone** — one flat colour and its contact line. Read by

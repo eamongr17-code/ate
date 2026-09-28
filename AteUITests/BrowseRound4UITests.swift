@@ -2,7 +2,7 @@ import XCTest
 
 /// **Round 4, browse — driven.** What only a drive can see: the entry page drawing from the card it
 /// was opened with (no blank paper), the swipe back — finished and cancelled — bringing the tab bar
-/// with it, and the one filter sheet on the Journal and on Search.
+/// with it, and Search's filter sheet.
 ///
 /// Against `-ate-preview-data` (with `-ate-preview-journal`'s longer journal), so it needs no backend
 /// and writes nothing. The drives are paced for simulator recordings; with `BROWSE_SHOT_DIR` set they
@@ -47,40 +47,6 @@ final class BrowseRound4UITests: XCTestCase {
 
     // MARK: - The one filter sheet
 
-    /// The Journal: the control on the bar, the sheet (order, the ruler, the city pills), and the
-    /// pills it leaves.
-    func testJournalFilterSheet() {
-        let app = launch([])
-        let control = app.buttons["journal.filter"]
-        XCTAssertTrue(control.waitForExistence(timeout: 10))
-        pause(0.6)
-        control.tap()
-        XCTAssertTrue(app.buttons["Top rated"].waitForExistence(timeout: 5))
-        pause(0.6)
-        app.buttons["Top rated"].tap()
-        pause(0.4)
-        app.raiseLowestScore(to: 4)
-        XCTAssertEqual(app.scoreRangeValue, "4.0+", "the ruler's lower end snaps to 4.0; the top stays open")
-        let melbourne = app.cityPill("melbourne")
-        XCTAssertTrue(melbourne.waitForExistence(timeout: 5), "the cities the journal holds, as pills")
-        melbourne.tap()
-        pause(0.6)
-        save("journal-filter-sheet")
-        app.buttons["sheet.primary"].tap()
-        let pill = app.buttons["Remove 4.0+"]
-        XCTAssertTrue(pill.waitForExistence(timeout: 5), "the filter shows as a removable pill")
-        XCTAssertTrue(app.buttons["Remove Melbourne"].exists, "and the city beside it")
-        pause(1.0)
-        save("journal-filter-applied")
-        pill.tap()
-        pause(0.8)
-        app.buttons["Remove Melbourne"].tap()
-        pause(0.8)
-        app.buttons["Remove Top rated"].tap()
-        pause(0.8)
-        scrollForMonthMarker(app, name: "journal-month-marker")
-    }
-
     /// Search: the same control at the end of the scopes, the same sheet (no order), the same pills.
     func testSearchFilterSheet() {
         let app = launch(["-ate-open-search", "-ate-search-scope", "dishes", "-ate-search-query", "ra"])
@@ -107,18 +73,6 @@ final class BrowseRound4UITests: XCTestCase {
         pause(0.8)
         XCTAssertFalse(app.buttons["Remove Melbourne"].exists, "a pill takes its filter away")
         save("search-filter-removed")
-    }
-
-    private func scrollForMonthMarker(_ app: XCUIApplication, name: String) {
-        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
-        start.press(forDuration: 0.05,
-                    thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)),
-                    withVelocity: .slow, thenHoldForDuration: 0.4)
-        pause(1.0)
-        // A fling: the list is still moving when the still is taken, so the marker is up.
-        app.swipeUp(velocity: .fast)
-        save(name)
-        pause(1.5)
     }
 
     // MARK: - Machinery

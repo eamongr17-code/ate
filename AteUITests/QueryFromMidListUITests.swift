@@ -8,29 +8,28 @@ import XCTest
 /// and writes nothing.
 final class QueryFromMidListUITests: XCTestCase {
 
-    /// Top rated, 4.0 and up, applied from the middle of the journal — then, from the middle of
-    /// those results, one pill taken off the floating header.
+    /// Rating on, then changed from the middle of the journal on the compact header's chip — then
+    /// that chip's ✕, from the middle of those results.
     func testJournalQueryFromMidListStartsAtTheTop() {
-        let app = launch(["-ate-preview-journal"])
-        XCTAssertTrue(app.buttons["journal.filter"].firstMatch.waitForExistence(timeout: 10))
+        let app = launch(["-ate-preview-journal", "-ate-journal-filtered"])
+        XCTAssertTrue(app.buttons["journal.calendar"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["4.0+"].firstMatch.waitForExistence(timeout: 5))
         let topOfJournal = firstRowLabel(app, "journal.slip.dish")
         toMidList(app)
         XCTAssertNotEqual(firstRowLabel(app, "journal.slip.dish"), topOfJournal, "precondition: mid-list")
 
-        hittable(app.buttons.matching(identifier: "journal.filter"))?.tap()
-        XCTAssertTrue(app.buttons["Top rated"].waitForExistence(timeout: 5))
-        app.buttons["Top rated"].tap()
-        app.raiseLowestScore(to: 4)
-        app.buttons["sheet.primary"].tap()
-        assertAtTop(app, rows: "journal.slip.dish", pill: "Remove 4.0+", header: "journal.suggestions",
-                    first: "Almond croissant")
+        hittable(app.buttons.matching(identifier: "journal.compact.chip.rating"))?.tap()
+        XCTAssertTrue(app.buttons["chipsheet.preset.threePlus"].waitForExistence(timeout: 5))
+        app.buttons["chipsheet.preset.threePlus"].tap()
+        app.buttons["chipsheet.show"].tap()
+        assertAtTop(app, rows: "journal.slip.dish", pill: "3.0+", header: "journal.suggestions", first: nil)
 
-        // A pill, taken off from mid-list: the rest of the query, from its first result.
+        // A chip cleared from mid-list: the journal, from its first entry.
         toMidList(app)
-        let pill = hittable(app.buttons.matching(NSPredicate(format: "label == 'Remove Top rated'")))
-        XCTAssertNotNil(pill, "the floating header carries the pills")
-        pill?.tap()
-        assertAtTop(app, rows: "journal.slip.dish", pill: "Remove 4.0+", header: "journal.suggestions", first: nil)
+        let clear = hittable(app.buttons.matching(identifier: "journal.compact.chip.rating.clear"))
+        XCTAssertNotNil(clear, "the compact header carries the chip")
+        clear?.tap()
+        assertAtTop(app, rows: "journal.slip.dish", pill: "Rating", header: "journal.suggestions", first: nil)
     }
 
     /// Search's filter sheet (round 4): the same rule. Search has no floating header — its control

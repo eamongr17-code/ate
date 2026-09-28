@@ -51,7 +51,8 @@ public extension EntryCard {
             Place(id: previewID("B7E00000", "0000000000A2"), name: "Shira Nui", locality: "Glen Waverley"),
             Place(id: previewID("B7E00000", "0000000000A3"), name: "Leonardo's Pizza Palace", locality: "Carlton"),
             Place(id: previewID("B7E00000", "0000000000A4"), name: "Rockwell & Sons", locality: "Collingwood"),
-            Place(id: previewID("B7E00000", "000000000001"), name: "Tipo 00", locality: "CBD")
+            Place(id: previewID("B7E00000", "000000000001"), name: "Tipo 00", locality: "CBD"),
+            Place(id: previewID("B7E00000", "0000000000A5"), name: "Neat maiden", locality: "CBD")
         ]
         typealias Dish = PreviewDish
         let visits: [PreviewVisit] = [
@@ -76,7 +77,11 @@ public extension EntryCard {
             PreviewVisit(290, 3, [Dish("Mac and cheese", 3, [.v])], [],
              "Too rich by half."),
             PreviewVisit(402, 4, [Dish("Prawn spaghetti", 4.5, [.gf])], ["prawn"],
-             "A year ago now. Prawn spaghetti the best of it.")
+             "A year ago now. Prawn spaghetti the best of it."),
+            // `MinimalEntry`: one dish and no other words — the slip says it once, in its row.
+            PreviewVisit(2, 5, [Dish("Apple pie", 3.5, [.v])], [], "Apple pie V 3.5"),
+            // A secret 6, so the calendar has a brick day.
+            PreviewVisit(9, 1, [Dish("Chawanmushi", 6, [])], ["sushi"], "Chawanmushi I would cross town for.")
         ]
         let base = Date(timeIntervalSince1970: 1_789_812_840)
         let author = previewID("5C4B0D0E", "000000000001")
@@ -101,7 +106,7 @@ public extension EntryCard {
                         reviewID: previewID("C7E00000", tail),
                         dishID: previewID("D7E00000", tail),
                         dishName: dish.name,
-                        score: dish.score.map { Rating(rounding: $0) },
+                        score: dish.score.map { Rating(exactly: $0) ?? Rating(rounding: $0) },
                         position: position + 1,
                         tags: dish.tags
                     )
