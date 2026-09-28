@@ -33,8 +33,19 @@ struct AteCompactHeader<Trailing: View>: View {
         switch layout {
         case .centred:
             ZStack {
-                titleText
-                    .padding(.horizontal, trailingWidth + AteMetrics.snug)
+                // Centred on the screen when the title fits between equal clearances; beside a wide
+                // control (the Feed's "Near me Melbourne" chip) it centres in the room that is left.
+                ViewThatFits(in: .horizontal) {
+                    titleText
+                        .fixedSize()
+                        .padding(.horizontal, trailingWidth + AteMetrics.snug)
+                    HStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        titleText
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.trailing, trailingWidth + AteMetrics.snug)
+                }
                 HStack {
                     Spacer(minLength: 0)
                     trailing

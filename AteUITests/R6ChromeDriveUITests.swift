@@ -8,7 +8,7 @@ final class R6ChromeDriveUITests: XCTestCase {
 
     /// Down (big header away, bar minimised), then up mid-list (the compact header back), on one tab.
     func testDriveFeed() throws { try drive(["-ate-open-feed"], ready: "feed.area") }
-    func testDriveJournal() throws { try drive([], ready: "journal.suggestions", downDrags: 2) }
+    func testDriveJournal() throws { try drive([], ready: "journal.suggestions", downDrags: 2, upDrag: 28) }
     func testDriveSearch() throws { try drive(["-ate-open-search"], ready: "search.field") }
 
     /// The bar at rest and minimised, for the Feed icon candidates and the minimised alignment.
@@ -23,7 +23,7 @@ final class R6ChromeDriveUITests: XCTestCase {
         save("bar-minimised")
     }
 
-    private func drive(_ arguments: [String], ready: String, downDrags: Int = 1) throws {
+    private func drive(_ arguments: [String], ready: String, downDrags: Int = 1, upDrag: CGFloat = 120) throws {
         try XCTSkipIf(env["R6_TAG"] == nil)
         launch(arguments)
         XCTAssertTrue(app.descendants(matching: .any)[ready].firstMatch.waitForExistence(timeout: 10))
@@ -32,7 +32,8 @@ final class R6ChromeDriveUITests: XCTestCase {
         for _ in 0..<downDrags { drag(-320) }
         sleep(2)
         save("down")
-        drag(120)
+        // Up, mid-list: the preview Journal is only two entries long, so its drag up is short.
+        drag(upDrag)
         sleep(2)
         save("compact")
         drag(-200)
