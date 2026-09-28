@@ -38,7 +38,8 @@ import * as D from './data.mjs';
 
 const STAGING_REF = 'cvoitgoaosofkougmarn';
 const HERE = dirname(fileURLToPath(import.meta.url));
-const WORKDIR = join(HERE, '..', '..');
+// The checkout whose supabase/.temp holds the link (SEED_WORKDIR overrides, e.g. running from a worktree).
+const WORKDIR = process.env.SEED_WORKDIR ?? join(HERE, '..', '..');
 const NOW = Date.parse(process.env.SEED_NOW ?? '2026-09-28T00:00:00Z');
 const DAY = 86400000;
 const SPAN_DAYS = 548; // 18 months

@@ -108,7 +108,7 @@ jobs:
 
       # Saved once the builds pass, before the staging smoke: a staging hiccup must not cost main its cache.
       - name: Save SPM cache
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.head_ref == 'ci/speed'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/cache/save@v4
         with:
           path: |
