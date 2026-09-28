@@ -8,8 +8,9 @@ mkdir -p "$OUT"
 BUNDLE=com.eamongracias.ate
 
 xcodebuild build -project Ate.xcodeproj -scheme Ate -configuration Debug \
-  -destination "id=$SIM_UDID" -derivedDataPath build/dd CODE_SIGNING_ALLOWED=NO 2>&1 \
-  | grep -E "error:|warning: .*JournalSearch|\*\* BUILD" | tee "$OUT/build.log"
+  -destination "id=$SIM_UDID" -derivedDataPath build/dd 2>&1 \
+  | grep -E "error:|\*\* BUILD" | tee "$OUT/build.log"
+grep -q "BUILD SUCCEEDED" "$OUT/build.log" || { echo "build failed"; exit 1; }
 APP=build/dd/Build/Products/Debug-iphonesimulator/Ate.app
 [ -d "$APP" ] || { echo "no app built"; exit 1; }
 
@@ -46,5 +47,5 @@ for mode in light dark; do
   shot "date-saved-filtered-$mode" $mode 14 -ate-open-saved -ate-journal-filtered -ate-r6-window preset
   shot "you-top-dishes-$mode" $mode 14 -ate-open-you
 done
-rm -f "$OUT/warm.png"
+# warm.png stays: it shows whether the staging sign-in landed.
 ls "$OUT"
