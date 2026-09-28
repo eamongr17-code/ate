@@ -28,7 +28,10 @@ struct AteGlassSurface<S: InsettableShape>: View {
     var body: some View {
         ZStack {
             if let cast {
+                // Spread and all, as `ateBackground` casts it: a negative spread shrinks the shape
+                // before it blurs.
                 shape
+                    .inset(by: -cast.spread)
                     .fill(cast.colour)
                     .blur(radius: cast.blur / 2)
                     .offset(y: cast.offsetY)
@@ -86,16 +89,30 @@ struct AteGlassButton: View {
 
 /// **A row of controls on one piece of glass** — a pushed page's top-right group (edit, share,
 /// "…"; or one bookmark). The controls keep their own 44pt hit squares; the glass carries them.
+///
+/// The glass exists only around controls: while a page's read has not answered (a dish's bookmark,
+/// an entry's controls) there is no glass at all — never an empty capsule squeezed to its padding —
+/// and it fades in with its controls once they are known.
 struct AteGlassGroup<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        HStack(spacing: AteGlassGroupMetrics.spacing) { content }
-            .padding(.horizontal, AteGlassGroupMetrics.padding)
-            .frame(height: AteMetrics.hit)
-            .ateGlass(in: Capsule())
-            .foregroundStyle(AteGlassColor.item)
-            .environment(\.atePalette, AteGlassGroupMetrics.palette)
+        Group(subviews: content) { controls in
+            ZStack {
+                if controls.isEmpty == false {
+                    HStack(spacing: AteGlassGroupMetrics.spacing) { controls }
+                        .padding(.horizontal, AteGlassGroupMetrics.padding)
+                        .frame(height: AteMetrics.hit)
+                        .ateGlass(in: Capsule())
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("nav.controls")
+                        .transition(.opacity)
+                }
+            }
+            .ateAnimation(AteMotion.fillIn, value: controls.isEmpty)
+        }
+        .foregroundStyle(AteGlassColor.item)
+        .environment(\.atePalette, AteGlassGroupMetrics.palette)
     }
 }
 

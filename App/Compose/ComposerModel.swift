@@ -9,7 +9,7 @@ import SwiftUI
 /// attached — and nothing else. The view renders it and calls it.
 @MainActor
 @Observable
-final class ComposerModel: DictationTarget {
+final class ComposerModel {
     var composition: EntryComposition {
         didSet {
             persist()
@@ -359,36 +359,6 @@ final class ComposerModel: DictationTarget {
     /// Puts the caret back in the words — after a sheet, the slider, or a spell of dictation.
     func focusEditor() {
         focusRequest += 1
-    }
-
-    // MARK: - The mic key
-
-    /// Where the caret is in the **words**, which is where a dictation starts. The editor reports the
-    /// caret in display offsets; a dictation session works in the plain text, because that is what it
-    /// is stitching into.
-    var caretPlainOffset: Int { composition.plainOffset(forDisplayOffset: caret) }
-
-    /// One transcript's worth of dictation.
-    ///
-    /// The revision is deliberately **not** bumped: the editor is behind the voice screen and does not
-    /// need to re-render for every partial result, and a full-document rewrite per partial would leave
-    /// the person with twenty undo steps for one sentence. The words are on disk either way (the
-    /// `didSet` persists them), and the editor takes them in one edit when dictation ends.
-    func applyDictation(_ update: DictationSession.Update) {
-        composition = update.composition
-        caret = composition.displayOffset(forPlainOffset: update.caretPlainOffset)
-    }
-
-    /// Dictation ended. **One** revision, so the text view makes one `replace(_:withText:)` for the
-    /// whole spell of talking — which is one coherent undo operation, and undoing it gives back exactly
-    /// the sentence that was there before the microphone was opened.
-    ///
-    /// - Parameter refocus: true when the composer is what comes next (the stop button), false when the
-    ///   entry is being saved and the keyboard would only flash.
-    func commitDictation(refocus: Bool) {
-        revision += 1
-        caretAfterRender = caret
-        if refocus { focusRequest += 1 }
     }
 
     // MARK: - The Place key

@@ -46,7 +46,7 @@ public final class PlacePageStore {
 
     public private(set) var header: Header = .loading
     public private(set) var menu: Menu = .loading
-    /// The menu, in the order the server sends it — which is ``DishRanking``'s (0030). Not sorted
+    /// The menu, in the order the server sends it (0051: by rating). Not sorted
     /// here, and it must not start being: see ``MenuDishCursor``.
     public private(set) var dishes: [MenuDish] = []
     /// The viewer's own entries here — "Your N visits".

@@ -98,7 +98,7 @@ struct PlacePageStoreTests {
 
     /// **The order is the server's, and the client must not second-guess it** — it is paged on a
     /// four-part keyset, so re-sorting a page on arrival would interleave the next one into it.
-    /// Since 0051 the `ORDER BY` is by rating, and ``DishRanking`` states the same rule, so the two
+    /// Since 0051 the `ORDER BY` is by rating, and `MenuDish.isRankedBefore` states the same rule, so the two
     /// agree: a lonely 5.0 leads a 4.4 from twelve, and the page prints that without sorting a thing.
     @Test("what to order arrives by rating, and the page prints it untouched")
     func menuKeepsTheServersOrder() async {

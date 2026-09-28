@@ -176,3 +176,52 @@ struct DietTagTests {
         #expect(event.parameters == ["code": "gf"])
     }
 }
+
+@MainActor
+@Suite("Dietary tags — a dish's consensus")
+struct DishTagConsensusTests {
+    @Test("a dish's tags are the codes at least half of its lines carry, in canonical order")
+    func consensus() {
+        #expect(DishTagConsensus.tags(lines: []) == [])
+        #expect(DishTagConsensus.tags(lines: [[]]) == [])
+        #expect(DishTagConsensus.tags(lines: [[.v], []]) == [.v])
+        #expect(DishTagConsensus.tags(lines: [[.v], [], []]) == [])
+        #expect(DishTagConsensus.tags(lines: [[.vg, .gf], [.gf]]) == [.gf, .vg])
+    }
+
+    @Test("dish_summary's tags decode; an older header without them has none")
+    func dishSummaryTags() throws {
+        let id = UUID()
+        let place = UUID()
+        let base = #"{"dish_id":"\#(id)","dish_name":"Tiramisu","restaurant_id":"\#(place)","#
+            + #""restaurant_name":"Tipo 00""#
+        let tagged = try PostgRESTDate.decoder.decode(
+            DishSummary.self, from: Data((base + #","tags":["v","xx","gf"]}"#).utf8)
+        )
+        #expect(tagged.tags == [.v, .gf])
+        let untagged = try PostgRESTDate.decoder.decode(DishSummary.self, from: Data((base + "}").utf8))
+        #expect(untagged.tags.isEmpty)
+    }
+
+    @Test("a menu line decodes with or without tags — place_dishes does not carry them yet")
+    func menuTags() throws {
+        let row = #"{"dish_id":"\#(UUID())","dish_name":"Tiramisu","score":4.2,"#
+            + #""people_count":3,"review_count":4,"cover_url":null"#
+        let without = try JSONDecoder().decode(MenuDish.self, from: Data((row + "}").utf8))
+        #expect(without.tags.isEmpty)
+        #expect(without.score == 4.2)
+        let with = try JSONDecoder().decode(MenuDish.self, from: Data((row + #","tags":["vg"]}"#).utf8))
+        #expect(with.tags == [.vg])
+    }
+
+    @Test("the in-memory pages derive consensus tags from the seeded lines")
+    func inMemoryTags() async throws {
+        let social = InMemorySocialService.seededWithSaves()
+        let tipo = UUID(uuidString: "B7E00000-0000-4000-8000-000000000001")!
+        let menu = try await social.placeDishes(restaurantID: tipo, after: nil, pageSize: 50)
+        let prawn = try #require(menu.items.first { $0.name == "Prawn spaghetti" })
+        #expect(prawn.tags == [.gf])
+        let summary = try await social.dishSummary(dishID: prawn.dishID)
+        #expect(summary.tags == [.gf])
+    }
+}

@@ -41,13 +41,6 @@ public final class JournalStore: EntryDeletionObserving {
     /// The order and filters the list is showing (round 4). The default is the journal itself and
     /// reads the plain journal path; anything else reads `my_entries`.
     public private(set) var query = JournalQuery()
-    /// The place filter's choices, once asked for (``loadPlaces()``).
-    public private(set) var places: [JournalPlace] = []
-    /// Whether the place list has answered once — none is an answer too (round 5: read ahead, so the
-    /// filter sheet opens full).
-    public private(set) var hasLoadedPlaces = false
-    private var placesFailed = false
-    @ObservationIgnored private var placesRead: Task<Void, Never>?
 
     private let entryService: any EntryService
     private let querying: (any JournalQuerying)?
@@ -188,13 +181,7 @@ public final class JournalStore: EntryDeletionObserving {
             pinned.append(card)
             Task { await loadFirstPage() }
         }
-        // A place the filter has never offered: its list is asked for again (QA b).
-        // The old list stands until the new one lands, so an open sheet never empties under the thumb.
-        if let place = card.place, hasLoadedPlaces, places.contains(where: { $0.id == place.id }) == false {
-            hasLoadedPlaces = false
-            Task { await loadPlaces() }
-        }
-        // The same for a city (round 5): an entry in a city the filter has never offered.
+        // A city the filter has never offered (round 5): its list is asked for again.
         if let slug = AteCity.slug(for: card.place?.city), cityList.hasLoaded,
            cityList.cities.contains(where: { $0.city == slug }) == false {
             Task { await cityList.load() }
@@ -341,33 +328,6 @@ public final class JournalStore: EntryDeletionObserving {
     public var hasLoadedCities: Bool { cityList.hasLoaded }
     public func loadCities() async { await cityList.load() }
     public func loadCitiesIfNeeded() async { await cityList.loadIfNeeded() }
-
-    /// The places the place filter offers — asked for once, when the filter is first opened.
-    ///
-    /// A read already on its way is joined, not repeated, so a sheet waiting on this waits for the
-    /// places to actually land.
-    public func loadPlaces() async {
-        if let placesRead {
-            await placesRead.value
-            return
-        }
-        guard hasLoadedPlaces == false || placesFailed else { return }
-        guard let querying else {
-            hasLoadedPlaces = true
-            return
-        }
-        let read = Task {
-            // A failure is an answer for the sheet that is up (no still rows left standing), and
-            // the next open asks again.
-            let loaded = try? await querying.myEntryPlaces()
-            placesFailed = loaded == nil
-            if let loaded { places = loaded }
-            hasLoadedPlaces = true
-        }
-        placesRead = read
-        await read.value
-        placesRead = nil
-    }
 
     /// The one place `entries` is read back into shape. Every mutation ends here, so a day split
     /// across a page boundary regroups when the next page lands rather than staying split forever.

@@ -6,11 +6,10 @@ import SwiftUI
 /// opened it. There is no bill here any more: the dishes are the page's first band, the words and
 /// photos follow, and the place is a pin line at the foot.
 ///
-/// **A row does two things and the open question is which one owns the tap.** The dish has a page,
-/// and it also has ``DishSheet`` (`entry_corrected`, `part=dish`) — the structure is Ate's guess and
-/// the person has the last word on it. `tapOpensDetail` decides: on, a tap opens the page and a long
-/// press corrects; off, the other way round. Somebody else's entry has no correction, so its rows
-/// always open the dish and carry a bookmark each.
+/// **A row does two things.** The dish has a page, and it also has ``DishSheet`` (`entry_corrected`,
+/// `part=dish`) — the structure is Ate's guess and the person has the last word on it. A tap opens the
+/// page and a long press corrects. Somebody else's entry has no correction, so its rows always open
+/// the dish and carry a bookmark each.
 struct EntryDishRows: View {
     let dishes: [AteSlip.Dish]
     /// The dish's page — the same page the feed's slips and the place's menu open.
@@ -19,7 +18,6 @@ struct EntryDishRows: View {
     var onCorrect: ((AteSlip.Dish) -> Void)?
     /// Present on somebody else's entry: every row is a dish you can put on your own shelf.
     var onSave: ((AteSlip.Dish) -> Void)?
-    var tapOpensDetail = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -40,12 +38,8 @@ struct EntryDishRows: View {
         let open = onOpen.map { open in { open(dish) } }
         let correct = onCorrect.map { correct in { correct(dish) } }
         // With no correction to offer (somebody else's entry) the page always owns the tap.
-        let primary = tapOpensDetail ? (open ?? correct) : (correct ?? open)
-        let secondary: (title: String, action: () -> Void)? = if tapOpensDetail {
-            correct.map { (title: "Change the dish", action: $0) }
-        } else {
-            open.map { (title: "Open the dish", action: $0) }
-        }
+        let primary = open ?? correct
+        let secondary = correct.map { (title: "Change the dish", action: $0) }
         return SlipDishRow(
             dish: dish,
             action: primary,
@@ -101,14 +95,12 @@ struct EntryPendingDishes: View {
 /// **The place line** at the foot of the page (`EntryHier`): muted pin, the place, its suburb, and the
 /// day at the right — `gap:6px; min-height:44px`, ruled above. The place truncates first; the suburb
 /// and the date never wrap.
-struct EntryPlaceLine<Extra: View>: View {
+struct EntryPlaceLine: View {
     let place: String?
     let suburb: String?
     let day: String
     var action: (() -> Void)?
     var secondary: (title: String, action: () -> Void)?
-    /// Anything else the long press offers — the Debug/Beta variant switch.
-    @ViewBuilder var extra: () -> Extra
 
     var body: some View {
         VStack(spacing: 0) {
@@ -118,7 +110,6 @@ struct EntryPlaceLine<Extra: View>: View {
                     .buttonStyle(.plain)
                     .contextMenu {
                         if let secondary { Button(secondary.title, action: secondary.action) }
-                        extra()
                     }
                     .accessibilityIdentifier("entry.place")
             } else {

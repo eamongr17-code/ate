@@ -3,15 +3,12 @@ import Testing
 @testable import AteKit
 
 /// Records what an edit asked the server to do, in order.
-private final class SortRecorder: EntryService, @unchecked Sendable {
+private final class SortRecorder: EntryService, TestFake, @unchecked Sendable {
     private let lock = NSLock()
     private var log: [String] = []
     var calls: [String] { lock.withLock { log } }
     private func add(_ call: String) { lock.withLock { log.append(call) } }
 
-    func viewer() async throws -> ViewerProfile { .preview }
-    func authorID() async throws -> UUID { UUID() }
-    func create(_ entry: NewEntry) async throws -> EntryCard { throw URLError(.badURL) }
     func attach(photo: EntryPhotoUpload) async throws { add("upload \(photo.position)") }
     func attachExisting(entryID: UUID, position: Int, url: String) async throws { add("keep \(position)") }
     func removePhotos(entryID: UUID, fromPosition position: Int, removedURLs: [String]) async throws {
@@ -23,18 +20,13 @@ private final class SortRecorder: EntryService, @unchecked Sendable {
             entryID: entryID, status: .sorted, mode: "stub", itemCount: 1, restaurantID: nil, didAttachPlace: false
         )
     }
-    func entry(id: UUID) async throws -> EntryCard {
-        EntryCard(id: id, authorID: UUID(), body: "", orderNumber: 1, createdAt: Date())
-    }
-    func journal(after cursor: PageCursor?, pageSize: Int) async throws -> Page<EntryCard> {
-        Page(items: [], requestedLimit: pageSize)
-    }
-    func correctPlace(entryID: UUID, restaurantID: UUID) async throws -> EntryCard { try await entry(id: entryID) }
-    func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async throws {}
     func setTags(reviewID: UUID, tags: [DietTag]) async throws {
         add("tags \(tags.map(\.rawValue))")
     }
     func updateBody(entryID: UUID, body: String) async throws { add("body") }
+    func entry(id: UUID) async throws -> EntryCard {
+        EntryCard(id: id, authorID: UUID(), body: "", orderNumber: 1, createdAt: Date())
+    }
 }
 
 /// QA, round 3: editing ANY tagged entry forced a re-sort, which rebuilds every uncorrected line —

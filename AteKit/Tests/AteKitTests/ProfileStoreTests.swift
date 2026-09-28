@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import AteKit
 
-private final class FakeProfiles: ProfileReading, @unchecked Sendable {
+private final class FakeProfiles: ProfileReading, TestFake, @unchecked Sendable {
     var summary: ProfileSummary?
     var entries: [EntryCard]
     var headerError: (any Error)?
@@ -37,8 +37,6 @@ private final class FakeProfiles: ProfileReading, @unchecked Sendable {
     func report(profileID: UUID, reason: String?, note: String?) async throws {
         lock.withLock { reportedProfiles.append(profileID) }
     }
-
-    func report(entryID: UUID, reason: String?, note: String?) async throws {}
 }
 
 @MainActor

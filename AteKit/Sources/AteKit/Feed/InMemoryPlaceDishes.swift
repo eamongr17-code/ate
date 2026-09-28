@@ -67,9 +67,8 @@ extension InMemorySocialService: PlacePageReading, DishPageReading {
                 tags: DishTagConsensus.tags(lines: rows.map(\.item.tags))
             )
         }
-        // The server's own order since 0051 (by rating) — which is DishRanking's rule, so the pure type
-        // that states it is the one that sorts here too. A dish nobody has reviewed is not on the menu.
-        let ordered = DishRanking.rank(dishes.filter { $0.reviewCount > 0 })
+        // The server's own order since 0051 (by rating). A dish nobody has reviewed is not on the menu.
+        let ordered = dishes.filter { $0.reviewCount > 0 }.sorted(by: MenuDish.isRankedBefore)
         let remaining = cursor.map { cursor in
             Array(ordered.drop { $0.dishID != cursor.dishID }.dropFirst())
         } ?? ordered
@@ -175,6 +174,36 @@ extension InMemorySocialService: PlacePageReading, DishPageReading {
         visibleEntriesEverywhere().flatMap { entry in
             entry.items.map { (entry: entry, item: $0) }
         }
+    }
+}
+
+extension MenuDish {
+    /// **"What to order", by rating** (0051 — Eamon, build 81: the list reads top-down by the number
+    /// it prints), as `place_dishes` orders it on the server.
+    ///
+    /// 1. The **printed** score, one decimal, highest first — two rows that read "4.6" tie, never split
+    ///    by a hidden third decimal; a 6 sits above every 5.
+    /// 2. Of two equal scores, the one ordered more times (review count) first — the surer bet.
+    /// 3. Then name, case-insensitive, then id, so nothing shuffles between refreshes.
+    ///
+    /// Unscored dishes come after every scored one, ordered the same way among themselves — a `nil` is
+    /// never compared as 0.
+    static func isRankedBefore(_ lhs: MenuDish, _ rhs: MenuDish) -> Bool {
+        switch (lhs.score.map(printed), rhs.score.map(printed)) {
+        case let (left?, right?) where left != right: return left > right
+        case (.some, .none): return true
+        case (.none, .some): return false
+        default: break
+        }
+        if lhs.reviewCount != rhs.reviewCount { return lhs.reviewCount > rhs.reviewCount }
+        let comparison = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
+        if comparison != .orderedSame { return comparison == .orderedAscending }
+        return lhs.id.uuidString < rhs.id.uuidString
+    }
+
+    /// The score as the row prints it: one decimal, in tenths so equal prints compare equal.
+    private static func printed(_ score: Double) -> Int {
+        Int((score * 10).rounded())
     }
 }
 

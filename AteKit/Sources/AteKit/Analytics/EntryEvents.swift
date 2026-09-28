@@ -33,18 +33,6 @@ public enum PlaceAttachSource: String, Sendable, CaseIterable, Codable {
     case picked
 }
 
-/// Why dictation could not run. Three genuinely different failures: one is a permission the person
-/// refused, one is a permission Apple asks for separately, and one is the phone simply not offering a
-/// recogniser for the language. Split, because only the first two are anything the app can act on.
-public enum VoiceDenialReason: String, Sendable, CaseIterable, Codable {
-    /// The microphone was refused.
-    case microphone
-    /// Speech recognition was refused.
-    case speech
-    /// No recogniser for this locale, or the recogniser is not available right now.
-    case unavailable
-}
-
 /// Which part of a receipt the person corrected. The share of receipts that get edited is the
 /// sorter's quality metric (PRODUCT.md), and it is only meaningful split this way: a wrong place is a
 /// matching failure, a wrong dish is a parsing failure, and they are fixed in different code.
@@ -180,37 +168,7 @@ public enum EntryEvents {
         )
     }
 
-    // MARK: - The mic key, and the camera key
-    //
-    // Dictation is the at-the-table path: the composer's premise is that you write while the plate is
-    // still in front of you, and talking is the only way that happens with one hand. So it gets its own
-    // three steps — started, refused, used — beside the funnel rather than inside it. A score it mints
-    // reports as `entry_score_token_created(source: "dictation")`, which already exists, so the two
-    // input methods sit in one series.
-
-    /// The mic key was tapped and the recogniser started listening.
-    public static func voiceStarted() -> AnalyticsEvent {
-        AnalyticsEvent(name: "entry_voice_started")
-    }
-
-    /// Dictation ended with words in the composer. `word_count` is what was said; `token_count` is how
-    /// many score tokens that dictation minted — the question being whether people actually score with
-    /// their voice or only describe.
-    public static func voiceCommitted(wordCount: Int, tokenCount: Int) -> AnalyticsEvent {
-        AnalyticsEvent(
-            name: "entry_voice_committed",
-            parameters: [
-                "word_count": String(max(0, wordCount)),
-                "token_count": String(max(0, tokenCount))
-            ]
-        )
-    }
-
-    /// Dictation could not run. Sent per attempt, so the series reads as "how often does somebody reach
-    /// for this and not get it".
-    public static func voiceDenied(reason: VoiceDenialReason) -> AnalyticsEvent {
-        AnalyticsEvent(name: "entry_voice_denied", parameters: ["reason": reason.rawValue])
-    }
+    // MARK: - The camera key
 
     /// A photo was taken with the camera key. `photo_count` is how many the entry carries afterwards,
     /// which separates "took one" from "kept shooting".

@@ -3,7 +3,7 @@ import Testing
 
 @testable import AteKit
 
-@Suite("Search query hygiene + telemetry")
+@Suite("Search query hygiene")
 struct SearchQueryTests {
 
     // MARK: - Gating (§11.1, §11.3)
@@ -39,81 +39,6 @@ struct SearchQueryTests {
     @Test("the debounce is the 250ms cost lever from places-integration.md")
     func debounce() {
         #expect(SearchQueryPolicy.debounce == .milliseconds(250))
-    }
-
-    // MARK: - ilike patterns
-
-    @Test("a contains-pattern is NOT quoted — a quote is part of the LIKE pattern, not syntax")
-    func unquotedPattern() {
-        // This used to expect `"%Pasta, two ways%"`. Staging says otherwise: `ilike."%rot%"` returns
-        // nothing while `ilike.%rot%` finds the saved "Roti", because the quotes end up inside the
-        // pattern. A comma in a single filter value is harmless — the parameter runs to its end.
-        #expect(PostgRESTPattern.contains("Pasta, two ways") == "%Pasta, two ways%")
-    }
-
-    @Test("LIKE metacharacters are neutralised — typing '%' must not match the whole table", arguments: [
-        ("50%", "%50_%"),
-        ("a_b", "%a_b%"),
-        ("a*b", "%a_b%"),
-        ("a\\b", "%a_b%")
-    ])
-    func metacharacters(query: String, pattern: String) {
-        #expect(PostgRESTPattern.contains(query) == pattern)
-    }
-
-    @Test("an empty or whitespace query produces no pattern at all")
-    func emptyPattern() {
-        #expect(PostgRESTPattern.contains("") == nil)
-        #expect(PostgRESTPattern.contains("   ") == nil)
-    }
-
-    @Test("a double quote in the query is looked for, not escaped — it is a character in a name")
-    func quotesAreLiteral() {
-        #expect(PostgRESTPattern.contains("the \"good\" one") == "%the \"good\" one%")
-    }
-
-    // MARK: - Telemetry (§11.6)
-
-    @Test("every picker signal has the name growth-lead's funnel expects")
-    func eventNames() {
-        let subject = SearchSubject.dishes(restaurantID: UUID(), restaurantName: "Chin Chin")
-        #expect(SearchEvent.opened(context: .browse, subject: .restaurants).name == "search_opened")
-        #expect(SearchEvent.query(subject: subject, length: 3, resultCount: 2, milliseconds: 120).name
-            == "search_query")
-        #expect(SearchEvent.resultSelected(subject: subject, kind: "place", index: 0).name == "search_result_selected")
-        // Renamed AND redefined with the standing add row (§6): `search_create_shown` counted a row
-        // appearing; `create_shown` counts entering the state where one tap would create. The name
-        // change is deliberate so the two series can't be silently concatenated.
-        #expect(SearchEvent.createShown(subject: subject).name == "create_shown")
-        #expect(SearchEvent.createUsed(subject: subject).name == "search_create_used")
-        #expect(SearchEvent.createRowTapped(subject: subject, hadQuery: true, mode: .direct).name
-            == "create_row_tapped")
-        #expect(SearchEvent.zeroResults(subject: subject, queryLength: 7).name == "search_zero_results")
-        #expect(SearchEvent.dishCreateFallbackUsed(restaurantID: UUID()).name == "dish_create_fallback_used")
-    }
-
-    @Test("create_row_tapped carries the subject, whether anything was typed, and what it did")
-    func createRowTappedParameters() {
-        let subject = SearchSubject.dishes(restaurantID: UUID(), restaurantName: "Chin Chin")
-        #expect(SearchEvent.createRowTapped(subject: subject, hadQuery: true, mode: .direct).parameters
-            == ["subject": "dishes", "had_query": "true", "mode": "direct"])
-        #expect(SearchEvent.createRowTapped(subject: .restaurants, hadQuery: false, mode: .sheet).parameters
-            == ["subject": "restaurants", "had_query": "false", "mode": "sheet"])
-    }
-
-    @Test("search_query carries the four parameters the funnel slices on")
-    func queryParameters() {
-        let event = SearchEvent.query(subject: .restaurants, length: 4, resultCount: 5, milliseconds: 312)
-        #expect(event.parameters == [
-            "subject": "restaurants", "length": "4", "result_count": "5", "ms": "312"
-        ])
-    }
-
-    @Test("the create-fallback counter carries the restaurant it happened at")
-    func createFallbackParameters() {
-        let restaurantID = UUID()
-        #expect(SearchEvent.dishCreateFallbackUsed(restaurantID: restaurantID).parameters
-            == ["restaurant_id": restaurantID.uuidString])
     }
 
     @Test("subject names are stable strings, not a leaked enum description")
