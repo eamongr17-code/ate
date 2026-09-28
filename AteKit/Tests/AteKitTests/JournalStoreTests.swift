@@ -3,7 +3,7 @@ import Testing
 @testable import AteKit
 
 /// A journal that answers with the pages a test hands it, and counts how often it was asked.
-private final class PagedEntryService: EntryService, @unchecked Sendable {
+private final class PagedEntryService: EntryService, TestFake, @unchecked Sendable {
     var pages: [[EntryCard]]
     var error: (any Error)?
     private(set) var requestedCursors: [PageCursor?] = []
@@ -13,17 +13,12 @@ private final class PagedEntryService: EntryService, @unchecked Sendable {
         self.pages = pages
     }
 
-    func viewer() async throws -> ViewerProfile { .preview }
     func authorID() async throws -> UUID { ViewerProfile.preview.id }
-    @discardableResult
-    func create(_ entry: NewEntry) async throws -> EntryCard { throw AteAPIError.notAuthenticated }
-    func attach(photo: EntryPhotoUpload) async throws {}
     @discardableResult
     func sort(entryID: UUID, force: Bool, tagTokens: [TagToken]) async throws -> SortOutcome {
         SortOutcome(entryID: entryID, status: .sorted, mode: "stub", itemCount: 0,
                     restaurantID: nil, didAttachPlace: false)
     }
-    func entry(id: UUID) async throws -> EntryCard { throw AteAPIError.notFound(table: "e", id: id) }
 
     func journal(after cursor: PageCursor?, pageSize: Int) async throws -> Page<EntryCard> {
         if let error { throw error }
@@ -35,12 +30,6 @@ private final class PagedEntryService: EntryService, @unchecked Sendable {
         }
     }
 
-    func correctPlace(entryID: UUID, restaurantID: UUID) async throws -> EntryCard {
-        throw AteAPIError.notFound(table: "e", id: entryID)
-    }
-    func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async throws {}
-    func setTags(reviewID: UUID, tags: [DietTag]) async throws {}
-    func updateBody(entryID: UUID, body: String) async throws {}
 }
 
 @MainActor

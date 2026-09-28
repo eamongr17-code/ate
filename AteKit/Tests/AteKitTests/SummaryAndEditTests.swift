@@ -160,27 +160,19 @@ struct EntrySummaryStoreTests {
 // MARK: - Editing
 
 /// Records what an edit asked the server to do, in order.
-private final class EditRecorder: EntryService, @unchecked Sendable {
+private final class EditRecorder: EntryService, TestFake, @unchecked Sendable {
     let calls = Calls()
-    func viewer() async throws -> ViewerProfile { .preview }
-    func authorID() async throws -> UUID { UUID() }
     func create(_ entry: NewEntry) async throws -> EntryCard { card(.pending) }
-    func attach(photo: EntryPhotoUpload) async throws {}
     func sort(entryID: UUID, force: Bool, tagTokens: [TagToken]) async throws -> SortOutcome {
         calls.add("sort force=\(force) tags=\(tagTokens.map { "\($0.offset):\($0.length)" })")
         return SortOutcome(entryID: entryID, status: .sorted, mode: "stub", itemCount: 1,
                            restaurantID: nil, didAttachPlace: false)
     }
     func entry(id: UUID) async throws -> EntryCard { card(.sorted, id: id) }
-    func journal(after cursor: PageCursor?, pageSize: Int) async throws -> Page<EntryCard> {
-        Page(items: [], requestedLimit: pageSize)
-    }
     func correctPlace(entryID: UUID, restaurantID: UUID) async throws -> EntryCard {
         calls.add("place \(restaurantID)")
         return card(.sorted, id: entryID)
     }
-    func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async throws {}
-    func setTags(reviewID: UUID, tags: [DietTag]) async throws {}
     func updateBody(entryID: UUID, body: String) async throws { calls.add("body \(body)") }
 }
 

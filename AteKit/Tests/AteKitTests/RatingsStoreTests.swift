@@ -10,7 +10,7 @@ import Testing
 struct RatingsStoreTests {
 
     /// Counts the pages asked for, and can be told to fail.
-    private final class Recording: StatsReading, @unchecked Sendable {
+    private final class Recording: StatsReading, TestFake, @unchecked Sendable {
         struct Nope: Error {}
         var failDishes = false
         private(set) var calls: [(score: Double, isFirst: Bool)] = []
@@ -111,7 +111,7 @@ struct RatingsStoreTests {
     }
 
     /// Every page takes a moment, so a second tap lands while the first tap's walk is mid-page.
-    private final class Slow: StatsReading, @unchecked Sendable {
+    private final class Slow: StatsReading, TestFake, @unchecked Sendable {
         private let inner: InMemoryStatsService
         init(_ inner: InMemoryStatsService) { self.inner = inner }
         func viewerID() async throws -> UUID { try await inner.viewerID() }

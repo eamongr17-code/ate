@@ -40,11 +40,6 @@ enum AteScreen {
     }
 
     private static var cached: UIEdgeInsets?
-
-    /// A sheet's height, given as the artboard gives it — out of the 844-tall page it was drawn on.
-    static func sheetHeight(_ artboard: CGFloat) -> CGFloat {
-        (height * artboard / 844).rounded()
-    }
 }
 
 extension View {
@@ -272,8 +267,6 @@ enum AteMetrics {
         displayScale > 0 ? 1 / displayScale : 0.5
     }
 
-    /// The share image. 4:5 — the tallest shape a share sheet, an iMessage bubble and an Instagram
-    /// post all render without cropping.
-    static let shareExport = CGSize(width: 1080, height: 1350)
+    /// The share image's render scale.
     static let shareExportScale: CGFloat = 3
 }

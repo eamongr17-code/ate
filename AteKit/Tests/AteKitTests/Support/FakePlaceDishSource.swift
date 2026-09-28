@@ -10,7 +10,7 @@ import Foundation
 /// It pages **for real** — the three-part `(is_mine, created_at, id)` comparison the RPC makes,
 /// evaluated the same way — rather than slicing by index, which would pass even if the store
 /// threaded the cursor wrongly.
-final class FakePlaceDishSource: PlacePageReading, DishPageReading, @unchecked Sendable {
+final class FakePlaceDishSource: PlacePageReading, DishPageReading, TestFake, @unchecked Sendable {
     struct Failure: Error, Equatable {
         let message: String
     }
@@ -79,11 +79,12 @@ final class FakePlaceDishSource: PlacePageReading, DishPageReading, @unchecked S
         try lock.withLock {
             if let failure = state.menuFailure { throw failure }
             state.menuCursors.append(cursor)
-            // The fake stands in for the server's ORDER BY, which since 0051 is DishRanking's
-            // rule — so a test can seed in any order and still assert the product order, and the
+            // The fake stands in for the server's ORDER BY, which since 0051 is
+            // `MenuDish.isRankedBefore` — so a test can seed in any order and still assert the product order, and the
             // store is proved not to reorder what it is handed.
             // …and a dish nobody has written about is not on the menu at all (0030).
-            let rows = DishRanking.rank((state.dishes[restaurantID] ?? []).filter { $0.reviewCount > 0 })
+            let rows = (state.dishes[restaurantID] ?? []).filter { $0.reviewCount > 0 }
+                .sorted(by: MenuDish.isRankedBefore)
             let remaining = cursor.map { cursor in
                 Array(rows.drop { $0.dishID != cursor.dishID }.dropFirst())
             } ?? rows

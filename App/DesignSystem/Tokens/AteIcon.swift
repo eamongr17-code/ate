@@ -18,9 +18,7 @@ enum AteIcon: String, CaseIterable {
     case star, starFilled, place, photoStack
 
     // Actions
-    case share, edit, save, saved, camera, library, voice, close, back, check, chevron, settings
-    /// Stop dictating — the filled square inside the ink circle on `ComposerVoice.dc.html`.
-    case stop
+    case share, edit, save, saved, camera, library, close, back, check, chevron, settings
     /// The one "…" that carries everything you can do about a person or an entry, and the two
     /// answers underneath it.
     case more, flag, block
@@ -84,8 +82,6 @@ M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0
         case .library: // image
             [AteVector.rectangle(3, 3, 18, 18, 2), AteVector.circle(9, 9, 2),
              Self.path("m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21")]
-        case .voice: // mic
-            [Self.path("M12 19v3"), Self.path("M19 10v2a7 7 0 0 1-14 0v-2"), AteVector.rectangle(9, 2, 6, 13, 3)]
         case .close: // x
             [Self.path("M18 6 6 18"), Self.path("m6 6 12 12")]
         case .back: // chevron-left
@@ -107,8 +103,6 @@ M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2c1.333 0 2.356-.267 3.067-.
 """)]
         case .block: // ban
             [AteVector.circle(12, 12, 10), Self.path("M4.929 4.929 19.07 19.071")]
-        case .stop: // square
-            [Self.stopSquare]
         case .diet: // leaf
             [Self.path("""
 M11 20a10 10 0 0010-10 25.9 25.9 0 00-1.04-7.281 1 1 0 00-1.755-.325C15.833 5.5 13 5.5 9.8 6.1A7 7 0 0011 20
@@ -133,7 +127,6 @@ M11 20a10 10 0 0010-10 25.9 25.9 0 00-1.04-7.281 1 1 0 00-1.755-.325C15.833 5.5 
         switch self {
         case .starFilled: [Self.starPath]
         case .saved: [Self.bookmarkPath]
-        case .stop: [Self.stopSquare]
         case .clear: [AteVector.circle(12, 12, 10)]
         // `images` fills its own sun, in the SVG.
         case .photoStack: [Self.imagesDot]
@@ -166,12 +159,6 @@ M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1
 319-1.915
 """)
     private static let imagesDot = AteVector.circle(13, 7, 1)
-    /// Lucide's `square` (`x=3 y=3 18×18 rx=2`), drawn down to the artboard's stop: a 10-unit square
-    /// centred in the key (`ComposerVoice.dc.html`), stroke included. A full-size Lucide square would
-    /// fill the ink circle it sits in.
-    private static let stopSquare = AteVector.rectangle(3, 3, 18, 18, 2).applying(
-        CGAffineTransform(translationX: 12, y: 12).scaledBy(x: 0.506, y: 0.506).translatedBy(x: -12, y: -12)
-    )
 
     private static func path(_ data: String) -> Path { AteVector.path(data) }
 }

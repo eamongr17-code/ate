@@ -64,11 +64,6 @@ struct EntryScreen: View {
 
     @State private var model: EntryModel
     @State private var isShowingActions = false
-    #if DEBUG || BETA
-    /// The one genuinely uncertain interaction on this page, shipped as both answers
-    /// (``AteVariants``). Held as state so flipping it redraws the page under the menu.
-    @State private var variants = AteVariants.shared
-    #endif
     @Environment(\.dismiss) private var dismiss
     @Environment(\.atePhotoViewer) private var showPhotos
 
@@ -231,8 +226,7 @@ struct EntryScreen: View {
                         onDish(dish.dishID)
                     },
                     onCorrect: card.isMine ? { dish in model.correct(dish) } : nil,
-                    onSave: card.isMine ? nil : { dish in Task { await model.toggleSave(dish: dish) } },
-                    tapOpensDetail: tapOpensDetail
+                    onSave: card.isMine ? nil : { dish in Task { await model.toggleSave(dish: dish) } }
                 )
             }
         case .pending, .failed:
@@ -242,10 +236,9 @@ struct EntryScreen: View {
         }
     }
 
-    /// **The place line** — pin, place, suburb, and the day. Its tap is the same open question the
-    /// dish rows carry (``AteVariants/entryTapOpensDetail``): the place's own page, or
-    /// ``PlaceSheet`` to change it — the other is always one long press away. Somebody else's entry
-    /// has no correction, so its line always opens the page. A place never attached is not guessed
+    /// **The place line** — pin, place, suburb, and the day. A tap opens the place's own page, and
+    /// ``PlaceSheet`` to change it is one long press away. Somebody else's entry has no correction,
+    /// so its line always opens the page. A place never attached is not guessed
     /// at (design rule 8): the line carries only the day, and on your own entry it attaches one.
     private func placeLine(_ card: EntryCard) -> some View {
         let openPage: (() -> Void)? = card.place.map { place in {
@@ -253,42 +246,15 @@ struct EntryScreen: View {
             onPlace(place.id)
         } }
         let correct: (() -> Void)? = card.isMine ? { model.isCorrectingPlace = true } : nil
-        let primary = tapOpensDetail ? (openPage ?? correct) : (correct ?? openPage)
-        let secondary: (title: String, action: () -> Void)? = if tapOpensDetail {
-            openPage == nil ? nil : correct.map { (title: "Change the place", action: $0) }
-        } else {
-            correct == nil ? nil : openPage.map { (title: "Open \(card.place?.name ?? "")", action: $0) }
-        }
+        let primary = openPage ?? correct
+        let secondary = openPage == nil ? nil : correct.map { (title: "Change the place", action: $0) }
         return EntryPlaceLine(
             place: card.place?.name,
             suburb: card.place?.suburb,
             day: RelativeAge.day(card.createdAt),
             action: primary,
             secondary: secondary
-        ) {
-            variantSwitch
-        }
-    }
-
-    /// Which gesture owns a tap on the place line and on a dish row. Always `true` in a Release
-    /// build: the variant machinery does not exist there, and the default is the one that ships.
-    private var tapOpensDetail: Bool {
-        #if DEBUG || BETA
-        variants.entryTapOpensDetail
-        #else
-        true
-        #endif
-    }
-
-    /// The toggle itself, in the menu it is about — the gallery carries the same switch, but the
-    /// gallery is not reachable from a TestFlight build and this page is. Debug and Beta only.
-    @ViewBuilder
-    private var variantSwitch: some View {
-        #if DEBUG || BETA
-        Button(variants.entryTapSwitchTitle) {
-            variants.entryTapOpensDetail.toggle()
-        }
-        #endif
+        )
     }
 
     @ViewBuilder

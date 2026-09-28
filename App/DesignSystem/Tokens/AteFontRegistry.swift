@@ -39,22 +39,16 @@ final class AteFontRegistry: @unchecked Sendable {
     static let shared = AteFontRegistry()
 
     private let faces: [String: Face]
-    let faceNames: [String]
-
-    var isAvailable: Bool { faces.isEmpty == false }
 
     private init() {
         Self.registerBundledFonts()
         var found: [String: Face] = [:]
-        var names: [String] = []
         for candidate in Self.candidates {
             guard let font = UIFont(name: candidate.postScriptName, size: 12),
                   font.familyName == candidate.family else { continue }
             found[candidate.key] = candidate.face
-            names.append(contentsOf: UIFont.fontNames(forFamilyName: candidate.family))
         }
         self.faces = found
-        self.faceNames = Array(Set(names)).sorted()
     }
 
     func face(for voice: AteVoice, italic: Bool) -> Face? {

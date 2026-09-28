@@ -14,7 +14,7 @@ private func card(_ status: EntrySortStatus, id: UUID = UUID(), place: EntryCard
     )
 }
 
-@Suite("Round 5: Post holds on the sort, and the receipt enters whole")
+@Suite("Post holds on the sort, and the receipt enters whole")
 struct PostHoldTests {
 
     @Test("a latch hands its value to a waiter already there, and to one that comes later")
@@ -119,7 +119,7 @@ struct PostHoldTests {
     }
 }
 
-@Suite("Round 5: the Summary's receipt is on screen only once its shape is final")
+@Suite("The Summary's receipt is on screen only once its shape is final")
 @MainActor
 struct SummaryReceiptTests {
 
@@ -222,7 +222,7 @@ struct SummaryReceiptTests {
     }
 }
 
-@Suite("Round 5: the hold and the entrance are counted")
+@Suite("The hold and the entrance are counted")
 struct PostEventsTests {
     @Test("entry_post_held carries the outcome and how long the pill held")
     func postHeld() {
@@ -240,7 +240,7 @@ struct PostEventsTests {
     }
 }
 
-@Suite("Round 5: the one quiet ask for photos")
+@Suite("The one quiet ask for photos")
 struct PhotoAccessAskTests {
     @Test("asked only when never asked, and only over a printed receipt")
     func onlyOnce() {
