@@ -19,6 +19,18 @@ struct ContractSmokeReadsTests {
         try await StagingContract.Backend.shared.client()
     }
 
+    func anon() -> AteAPIClient {
+        AteAPIClient(supabase: StagingContract.makeClient())
+    }
+
+    /// One RPC, decoded raw in the contract's own shape (the wire, not an app model).
+    func call<T: Decodable>(
+        _ client: AteAPIClient, _ function: String, _ params: [String: AnyJSON] = [:], as _: T.Type
+    ) async throws -> T {
+        let data = try await client.supabase.rpc(function, params: params).execute().data
+        return try JSONDecoder().decode(T.self, from: data)
+    }
+
     /// A card off the global feed with a place and a receipt: the ids the detail reads need.
     func someCard(_ client: AteAPIClient) async throws -> EntryCard {
         let page = try await EntryFeedClient(api: client)
@@ -215,6 +227,67 @@ struct ContractSmokeReadsTests {
         #expect(Set(second.map { $0.dishID }).isDisjoint(with: page.map { $0.dishID }))
     }
 
+    // MARK: - The Feed edition (0055)
+    //
+    // Raw, like 0053 above, until the Feed lane's clients land.
+
+    @Test("top_ate, because_you_loved and new_to_record, signed in and out")
+    func feedEdition() async throws {
+        let client = try await signedIn()
+        let top = try await call(client, "top_ate", ["p_city": .null, "p_limit": .integer(8)], as: [Wire.TopAte].self)
+        #expect(top.isEmpty == false, "staging holds dishes with two scored lines")
+        #expect(top.map(\.rank) == Array(stride(from: 1, through: top.count, by: 1)))
+        _ = try await call(client, "top_ate", ["p_city": .string("melbourne")], as: [Wire.TopAte].self)
+
+        let loved = try await call(
+            client, "because_you_loved", ["p_city": .null, "p_limit": .integer(5)], as: [Wire.Loved].self
+        )
+        #expect(Set(loved.map(\.anchorDishID)).count <= 1, "one anchor per answer")
+
+        let since = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-30 * 86_400))
+        let news = try await call(
+            client, "new_to_record", ["p_city": .null, "p_since": .string(since), "p_limit": .integer(6)],
+            as: [Wire.NewDish].self
+        )
+        #expect(news.allSatisfy { ["six", "five", "new"].contains($0.kind) })
+
+        let guest = anon()
+        let anonTop = try await call(guest, "top_ate", ["p_limit": .integer(8)], as: [Wire.TopAte].self)
+        #expect(anonTop.isEmpty == false, "signed out: the browse twin")
+        #expect(anonTop.allSatisfy { $0.saved == false })
+        #expect(try await call(guest, "because_you_loved", as: [Wire.Loved].self).isEmpty)
+        let anonNews = try await call(guest, "new_to_record", ["p_since": .string(since)], as: [Wire.NewDish].self)
+        #expect(anonNews.allSatisfy { $0.saved == false })
+    }
+
+    /// The cravings reads, the setter's binding (a bad argument is refused before anything is written, so
+    /// ci@ate.test stays read-only), and a craving's shelf through dishes_by_tag's new p_city.
+    @Test("craving_options, my_cravings, set_cravings and dishes_by_tag(p_city)")
+    func cravings() async throws {
+        let client = try await signedIn()
+        let options = try await call(client, "craving_options", as: [Wire.CravingOption].self)
+        #expect(options.isEmpty == false, "staging dishes carry style and cuisine tags")
+        #expect(options.allSatisfy { ["dishes", "cuisines", "moods"].contains($0.group) })
+        _ = try await call(client, "my_cravings", as: [Wire.DishTag].self)
+
+        let refused = await #expect(throws: PostgrestError.self) {
+            _ = try await client.supabase
+                .rpc("set_cravings", params: ["p_cravings": AnyJSON.string("not a list")])
+                .execute()
+        }
+        #expect(refused?.code == "22023", "set_cravings binds p_cravings and validates it")
+
+        let guest = anon()
+        #expect(try await call(guest, "craving_options", as: [Wire.CravingOption].self).isEmpty == false)
+        #expect(try await call(guest, "my_cravings", as: [Wire.DishTag].self).isEmpty)
+
+        let option = try #require(options.first)
+        _ = try await call(client, "dishes_by_tag", [
+            "p_kind": .string(option.kind), "p_slug": .string(option.slug), "p_limit": .integer(5),
+            "p_city": .string("melbourne")
+        ], as: [Wire.ShelfDish].self)
+    }
+
     @Test("score_histogram and dishes_by_score")
     func ratings() async throws {
         let client = try await signedIn()
@@ -227,7 +300,7 @@ struct ContractSmokeReadsTests {
     }
 }
 
-/// The 0053 rows, as `docs/backend/integration-design.md` states them.
+/// The 0053 and 0055 rows, as `docs/backend/integration-design.md` states them.
 private enum Wire {
     struct JournalDay: Decodable {
         let day: String
@@ -265,5 +338,89 @@ private enum Wire {
             case reviewCount = "review_count"
             case coverURL = "cover_url"
         }
+    }
+
+    struct ShelfDish: Decodable {
+        let dishID: UUID
+        let score: Double?
+        let reviewCount: Int
+        let saved: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case score, saved
+            case dishID = "dish_id"
+            case reviewCount = "review_count"
+        }
+    }
+
+    struct TopAte: Decodable {
+        let rank: Int
+        let dishID: UUID
+        let name: String
+        let restaurantID: UUID
+        let restaurantName: String
+        let suburb: String?
+        let score: Double
+        let reviewCount: Int
+        let coverURL: String?
+        let saved: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case rank, name, suburb, score, saved
+            case dishID = "dish_id"
+            case restaurantID = "restaurant_id"
+            case restaurantName = "restaurant_name"
+            case reviewCount = "review_count"
+            case coverURL = "cover_url"
+        }
+    }
+
+    struct Loved: Decodable {
+        let anchorDishID: UUID
+        let anchorName: String
+        let dishID: UUID
+        let name: String
+        let restaurantID: UUID
+        let restaurantName: String
+        let score: Double?
+        let reviewCount: Int
+        let coverURL: String?
+        let saved: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case name, score, saved
+            case anchorDishID = "anchor_dish_id"
+            case anchorName = "anchor_name"
+            case dishID = "dish_id"
+            case restaurantID = "restaurant_id"
+            case restaurantName = "restaurant_name"
+            case reviewCount = "review_count"
+            case coverURL = "cover_url"
+        }
+    }
+
+    struct NewDish: Decodable {
+        let dishID: UUID
+        let name: String
+        let restaurantName: String
+        let suburb: String?
+        let kind: String
+        let coverURL: String?
+        let saved: Bool
+        let at: String
+
+        enum CodingKeys: String, CodingKey {
+            case name, suburb, kind, saved, at
+            case dishID = "dish_id"
+            case restaurantName = "restaurant_name"
+            case coverURL = "cover_url"
+        }
+    }
+
+    struct CravingOption: Decodable {
+        let kind: String
+        let slug: String
+        let label: String
+        let group: String
     }
 }

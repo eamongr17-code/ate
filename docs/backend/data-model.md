@@ -1,10 +1,10 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0054` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0055` define it. Forward-only; applied migrations
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
 account deletion **0032**; **every entry public 0033**; signed-out browse **0034**; dietary tags **0036**;
-round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry, dish-row chips) **0041–0045**; round 5 (cities, range + city filters, share read, saved filters) **0046–0049**; round 6 (date windows, menu by rating) **0050–0051**; read scale **0052**; round 7 (journal calendar, dish tags) **0053**.
+round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry, dish-row chips) **0041–0045**; round 5 (cities, range + city filters, share read, saved filters) **0046–0049**; round 6 (date windows, menu by rating) **0050–0051**; read scale **0052**; round 7 (journal calendar, dish tags) **0053**; round 8 (the Feed edition, cravings) **0055**.
 
 The atom the USER creates is an **entry** = one visit. The atom AGGREGATES are built from is still a
 per-dish **review**, now *linked* to an entry, not replaced by it. A **sorter** turns the words into
@@ -112,6 +112,9 @@ Catalogue data (authenticated SELECT, no client write). **Diet chips are NOT sto
   - A style equal to the cuisine or a diet word is dropped (`dish_styles_from_json`, mirrored in `styles.ts`).
   - **Changing the keyword map means a migration that re-runs `dish_style_keyword_refresh()`.**
 
+### `user_cravings` (0055)
+`(user_id, kind, slug)` **PK** (total), `label`, `position` (shelf order), `created_at`; kind ∈ the round-7 tag kinds. The tags a viewer follows — one Feed shelf each. Owner-read under RLS; **no client write grant**: `set_cravings` (DEFINER) replaces the whole set, accepting only a tag a dish carries now (or one already followed — so a re-save never fails). Cascades from `profiles`; `delete_account` verifies it.
+
 ### `profiles` — changed (0018)
 Additive: `entry_seq` int (the order-number counter; never client-writable), `city` text (under the handle on You/Profile). `username` is `citext UNIQUE` — the handle.
 `delete_account()` deletes the auth user; FK cascades take every personal row (verified, else it RAISES — 0035), the catalogue stays. `handle_new_user` always leaves a profile (handle `ate<hex>` when no usable email). `deleted_at` hides a profile from everyone but its owner (0035).
@@ -194,12 +197,13 @@ except where noted; **entries = visits, reviews = receipt lines, and they are no
 | `my_entries(sort, filters…)` · `my_entry_places()` (0043) | the caller's OWN entry ids (filtered by `author_id = auth.uid()`, not just RLS): `newest`/`oldest` keyset `(created_at, id)`, `top` = `best_score` (max line score) desc NULLS LAST, then `(created_at, id)` desc. Filters: place, min best score, one tag, visit dates in `p_tz`. Places = where your entries are, busiest first |
 | `journal_days(from, to, tz, …)` · `my_entries_count(…)` (0053) | the calendar: per local day with the caller's entries, `entries` (ENTRY count), `best_score` (max line score, a 6 is 6), `cover_url` (newest entry that day with a photo). The count = rows `my_entries` pages out. Both take `my_entries`' filters (`my_entries_filtered`, one definition) |
 | `dish_tags(dish)` · `similar_dishes(dish)` · `dishes_by_tag(kind, slug, …)` (0053) | chips style → cuisine → suburb → city → diet · dishes sharing a style or the cuisine, by weight (style 8 · cuisine 4 · suburb 2 · city 1) then score · a tag's dishes in `place_dishes`' order + 4-part keyset. Numbers = lines the viewer can see; never-logged and merged dishes excluded |
+| `top_ate` · `because_you_loved` · `new_to_record` · `craving_options` (0055) | the Feed edition. Top Ate: dishes with a line in 7 days (→ 30 → all time when short; one ranked list) by ALL-TIME printed score, ≥ 2 SCORED lines, photo only a tie-break. Loved: anchor = your newest 5.0/6 dish, rows = `similar_dishes`' rule in the city minus dishes you logged. New: others' lines after `p_since` — a 6, a 5.0, or a dish's first line. Options: style + cuisine tags on logged dishes. `dishes_by_tag` + `p_city`, + `saved`. The city is `city_places()` (0052's cache) once per call; covers only for rows that can make the page |
 | `delete_entry(entry)` (0037) | owner-only, DEFINER. FK cascades take photos rows, lines (+ tags, likes, comments, notifications), reports; saves keep the dish (`source_entry_id` → NULL); catalogue stays. Returns the files to purge |
 
 ## RLS
 
 Enabled on every table. Table reads are authenticated-only; `anon` has NO table grant. Signed-out browse (0034) is
-nine RPCs (+ `feed_areas`, `feed_cities`, `get_entry_card`; `resolve_city` rides `feed_cities`) that dispatch on `current_user = 'anon'` to DEFINER twins in the unexposed `browse` schema.
+nine RPCs (+ `feed_areas`, `feed_cities`, `get_entry_card`, 0055's `top_ate`, `new_to_record`, `craving_options`; `resolve_city` rides `feed_cities`) that dispatch on `current_user = 'anon'` to DEFINER twins in the unexposed `browse` schema.
 
 | Table | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
@@ -211,6 +215,7 @@ nine RPCs (+ `feed_areas`, `feed_cities`, `get_entry_card`; `resolve_city` rides
 | `blocks` | rows you created | self as blocker | — | self as blocker |
 | `reports` | own | self | — | — |
 | `cities` (0046) | all (authenticated) | none | none | none |
+| `user_cravings` (0055) | own | none (`set_cravings`) | none | none (`set_cravings`) |
 | `restaurants` / `dishes` | all | dishes: authed (self-attributed); restaurants: none (RPC/service role) | none | none |
 
 The block filter is expressed **once**, in `blocked_with()`, applied in the SELECT policies of `profiles`,
@@ -243,3 +248,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0052 | `read_scale` | lateral `dish_stats`/`restaurant_stats`; `place_city_cache` + triggers behind `place_cities`; `place_numbers`, `dish_numbers`, `window_bounds`; the four Search reads rebuilt in place (same signatures) — no wire change |
 | 0053 | `journal_days_and_dish_tags` | `dish_tag_links` + keyword map + triggers + backfill; `apply_entry_sort`/`correct_entry_place` take `items[].styles` (create or replace, same signatures); `my_entries_filtered`, `my_entries_count`, `journal_days`, `dish_tags`, `similar_dishes`, `dishes_by_tag` |
 | 0054 | `score_range_ceiling` | `score_in_range` opens the top at 6, not 5 (create or replace) — every range read follows |
+| 0055 | `feed_edition` | `user_cravings`; `top_ate`, `new_to_record`, `craving_options` (+ browse twins), `because_you_loved`, `my_cravings`, `set_cravings`; `dishes_by_tag` + `p_city` + `saved` (drop+create); helpers `city_places`, `tag_label`; `delete_account` checks `user_cravings` |
