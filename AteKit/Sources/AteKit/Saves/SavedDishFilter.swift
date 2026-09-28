@@ -8,29 +8,36 @@ public struct SavedDishFilter: Hashable, Sendable {
     public var band: ScoreBand
     /// A city slug (``AteCity/city``), or `nil` for everywhere.
     public var city: String?
+    /// The months the dishes were saved in (round 6, 0050).
+    public var window: DateWindow
 
-    public init(band: ScoreBand = .all, city: String? = nil) {
+    public init(band: ScoreBand = .all, city: String? = nil, window: DateWindow = .all) {
         self.band = band
         self.city = city
+        self.window = window
     }
 
     public static let none = SavedDishFilter()
 
-    public var isEmpty: Bool { band.isAll && city == nil }
+    public var isEmpty: Bool { band.isAll && city == nil && window.isAll }
 
-    /// `search_saved`'s three filter arguments, `null` when unused.
+    /// `search_saved`'s filter arguments: the range and the city, `null` when unused, and the date
+    /// window's `p_from` / `p_to` / `p_tz` only when one is on (0050: the day the dish was saved).
     var parameters: [String: AnyJSON] {
-        [
+        var parameters: [String: AnyJSON] = [
             "p_min_score": band.minScore.map { .double($0) } ?? .null,
             "p_max_score": band.maxScore.map { .double($0) } ?? .null,
             "p_city": city.map { .string($0) } ?? .null
         ]
+        parameters.merge(window.parameters()) { _, window in window }
+        return parameters
     }
 
     /// Whether a saved dish belongs — what the in-memory shelf filters by.
     public func matches(_ dish: SavedDish) -> Bool {
         guard band.contains(dish.dishScore) else { return false }
         if let city, AteCity.slug(for: dish.restaurantCity) != city { return false }
+        if window.contains(dish.savedAt) == false { return false }
         return true
     }
 }

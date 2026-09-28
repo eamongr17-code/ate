@@ -103,6 +103,8 @@ public struct JournalQuery: Hashable, Sendable {
     /// The city the entries were eaten in (round 5: a place is filtered by city, never by
     /// restaurant). A display string until the backend's city contract lands.
     public var city: String?
+    /// The months the entries were eaten in (round 6) — the visit day, `p_from` / `p_to`.
+    public var window: DateWindow = .all
 
     public init(
         sort: JournalSort = .newest,
@@ -111,7 +113,8 @@ public struct JournalQuery: Hashable, Sendable {
         tag: DietTag? = nil,
         period: JournalPeriod? = nil,
         maxScore: Double? = nil,
-        city: String? = nil
+        city: String? = nil,
+        window: DateWindow = .all
     ) {
         self.sort = sort
         self.place = place
@@ -120,6 +123,7 @@ public struct JournalQuery: Hashable, Sendable {
         self.period = period
         self.maxScore = maxScore
         self.city = city
+        self.window = window
     }
 
     /// The score range the two ends describe — what the range slider edits.
@@ -136,6 +140,7 @@ public struct JournalQuery: Hashable, Sendable {
 
     public var hasFilters: Bool {
         place != nil || minScore != nil || maxScore != nil || tag != nil || period != nil || city != nil
+            || window.isAll == false
     }
     public var isDefault: Bool { sort == .newest && hasFilters == false }
 
@@ -144,6 +149,7 @@ public struct JournalQuery: Hashable, Sendable {
         var pills: [JournalQueryPill] = []
         if sort != .newest { pills.append(.sort(sort)) }
         if let city { pills.append(.city(city)) }
+        if window.isAll == false { pills.append(.window(window)) }
         if let place { pills.append(.place(place)) }
         if maxScore != nil {
             pills.append(.band(band))
@@ -164,6 +170,7 @@ public struct JournalQuery: Hashable, Sendable {
         case .minScore: next.minScore = nil
         case .band: next.band = .all
         case .city: next.city = nil
+        case .window: next.window = .all
         case .tag: next.tag = nil
         case .period: next.period = nil
         }
@@ -174,13 +181,10 @@ public struct JournalQuery: Hashable, Sendable {
     /// whether a freshly written entry may be put at the top of a filtered list.
     public func matches(_ card: EntryCard, calendar: Calendar = .autoupdatingCurrent) -> Bool {
         if let place, card.restaurantID != place.restaurantID { return false }
-        if let minScore {
-            guard let best = card.bestScore, best >= minScore else { return false }
-        }
-        if let maxScore {
-            guard let best = card.bestScore, best <= maxScore else { return false }
-        }
+        // The range's own rule: no bound is everything, any bound leaves the unscored out.
+        if band.contains(card.bestScore) == false { return false }
         if let city, AteCity.slug(for: card.place?.city) != city { return false }
+        if window.contains(card.createdAt, calendar: calendar) == false { return false }
         if let tag, card.items.contains(where: { $0.tags.contains(tag) }) == false { return false }
         if let period, period.contains(card.createdAt, calendar: calendar) == false { return false }
         return true
@@ -211,6 +215,7 @@ public struct JournalQuery: Hashable, Sendable {
         if minScore != nil { names.append("min_score") }
         if maxScore != nil { names.append("max_score") }
         if city != nil { names.append("city") }
+        if window.isAll == false { names.append("window") }
         if tag != nil { names.append("tag") }
         if period != nil { names.append("period") }
         return names.isEmpty ? "none" : names.joined(separator: ",")
@@ -224,6 +229,7 @@ public enum JournalQueryPill: Hashable, Sendable, Identifiable {
     case minScore(Double)
     case band(ScoreBand)
     case city(String)
+    case window(DateWindow)
     case tag(DietTag)
     case period(JournalPeriod)
 
@@ -234,6 +240,7 @@ public enum JournalQueryPill: Hashable, Sendable, Identifiable {
         case .minScore: "minScore"
         case .band: "score"
         case .city: "city"
+        case .window: "window"
         case .tag: "tag"
         case .period: "period"
         }
@@ -247,6 +254,7 @@ public enum JournalQueryPill: Hashable, Sendable, Identifiable {
         case .minScore(let score): ScoreFormat.halfStep(score) + "+"
         case .band(let band): band.title ?? ""
         case .city(let city): AteCity.displayName(for: city)
+        case .window(let window): window.title() ?? ""
         case .tag(let tag): tag.label
         case .period(let period): period.title()
         }

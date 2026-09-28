@@ -20,8 +20,9 @@ public final class YouStore {
 
     public private(set) var phase: Phase = .loading
     public private(set) var histogram = ScoreHistogram.empty
-    /// "Your 5.0s" — the four the artboard draws, newest first.
-    public private(set) var perfect: [ScoredDish] = []
+    /// "Your top dishes" (round 6) — the four the artboard draws: best score first, 4.0 and up
+    /// (``TopDishes``).
+    public private(set) var top: [ScoredDish] = []
     /// The newest month that has anything in it. `nil` before anything has been written — and then
     /// there is no statement row, because nothing has been printed (design rule 4).
     public private(set) var month: StatementMonth?
@@ -60,19 +61,23 @@ public final class YouStore {
         }
         async let header = try? await stats.summary(userID: viewer)
         async let chart = try? await stats.histogram(userID: viewer)
-        async let best = try? await stats.dishes(
-            userID: viewer, score: 5, after: nil, pageSize: StatsClient.perfectLimit
-        )
         // Only the newest month is drawn, so only the first page is read — the rest is `Recap`'s.
         async let calendar = try? await stats.months(
             userID: viewer, timeZone: timeZone, after: nil, limit: 1
         )
 
-        let (summary, buckets, dishes, months) = await (header, chart, best, calendar)
+        let (summary, buckets, months) = await (header, chart, calendar)
         hasLoaded = true
         phase = summary.map(Phase.ready) ?? .unavailable
         if let buckets { histogram = buckets }
-        if let dishes { perfect = dishes.items }
         if let months { month = StatementMonths(summaries: months).newest }
+        // The chart says which scores hold a top dish, so only those are read, best first.
+        let stats = stats
+        let scores = TopDishes.scores(in: buckets)
+        if let dishes = await TopDishes.read(scores: scores, page: { score in
+            try await stats.dishes(userID: viewer, score: score, after: nil, pageSize: TopDishes.limit).items
+        }) {
+            top = dishes
+        }
     }
 }

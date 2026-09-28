@@ -33,9 +33,9 @@ struct ShareCard: View {
     var body: some View {
         paper
             .frame(width: Self.width)
-            // `transform:rotate(-3deg)` — on the paper, not on the photos' container, so the
-            // overlaid photos keep the artboard's own angles rather than compounding.
-            .rotationEffect(.degrees(pose.tilt))
+            // The artboard's `rotate(-3deg)` on the paper is gone (round 6, Eamon: the receipt
+            // stays straight once it has printed), on screen and in the export alike. The photos
+            // keep their own angles: the mess is theirs.
             // **Behind** the paper, not over it. The artboard's photos are absolute siblings the
             // `.slipwrap` paints on top of, which is what makes the receipt read as laid *on* the
             // pile rather than punched through it.

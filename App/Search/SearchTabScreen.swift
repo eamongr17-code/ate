@@ -91,12 +91,14 @@ struct SearchTabScreen: View {
         .ateSheet(isPresented: $isFiltering, name: "search_filter",
                   prepare: { await store.loadCitiesIfNeeded() }, content: {
             AteBrowseFilterSheet(
-                initial: AteBrowseFilterDraft(band: store.filters.band, city: store.filters.city),
+                initial: AteBrowseFilterDraft(
+                    band: store.filters.band, city: store.filters.city, window: store.filters.window
+                ),
                 cities: store.cities,
                 areCitiesLoaded: store.hasLoadedCities,
                 showsSort: false
             ) { draft in
-                var filters = SearchFilters(city: draft.city)
+                var filters = SearchFilters(city: draft.city, window: draft.window)
                 filters.band = draft.band
                 store.setFilters(filters)
             }

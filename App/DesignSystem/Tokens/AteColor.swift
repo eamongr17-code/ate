@@ -34,9 +34,11 @@ enum AteColor {
     /// linen in both modes the way the Score key stays butter (round 3).
     static let linenField = Color(hex: 0xE4DED4)
 
-    /// The page dots over the blurred page behind a floating photo — white, the one mark that reads
-    /// on a blur of anything.
+    /// Marks drawn over a photo in the viewer (its Close) — white, the one mark that reads on any photo.
     static let overPhoto = Color.white
+    /// The photo viewer's ground: black, as the system's own photo viewer is — the one place in Ate
+    /// that is not paper.
+    static let viewerGround = Color.black
 
     /// Near-black. The text colour on every accent and on every piece of receipt paper, in both
     /// modes — and the fill of the `+` button and the one ink pill per sheet.

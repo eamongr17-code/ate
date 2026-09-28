@@ -75,7 +75,7 @@ struct ShareScreen: View {
     #endif
 }
 
-/// **The coral stage** a receipt stands on — `SummaryLoading` / `SummaryFinal`: the card tilted on
+/// **The coral stage** a receipt stands on — `SummaryLoading` / `SummaryFinal`: the card straight on
 /// the ground with its two photos, `margin:180px 52px 0` from the top of the screen (`160` while it
 /// is still printing, settling down to 180 as the lines arrive — the print's own motion), and the
 /// two pills pinned `bottom:40px`, `left/right:20px`, `gap:10px`.
@@ -97,7 +97,7 @@ struct ShareStage: View {
     let onDone: () -> Void
     let onPrimary: () -> Void
     /// **The Summary's stage** (round 4, Eamon): the receipt takes more of the screen — drawn larger,
-    /// still tilted, centred in the band above the pills. `Share` keeps the artboard's own placement.
+    /// straight, centred in the band above the pills. `Share` keeps the artboard's own placement.
     var isHero = false
     /// **Round 5: the Summary's receipt enters once, whole** (``ReceiptEntrance``). Until its shape is
     /// final the band stands empty on the coral — never a skeleton that grows into a receipt.
@@ -257,10 +257,8 @@ private struct EnteringReceipt: View {
         try? await Task.sleep(for: ReceiptEntrance.groundLead)
         withAnimation(ReceiptEntrance.feedRise) { pose.fed = 1 }
         try? await Task.sleep(for: ReceiptEntrance.feedRiseTime)
-        // All the way out: one receipt again, the same pixels, torn off.
+        // All the way out: one receipt again, the same pixels, and it stays straight.
         isFeeding = false
-        withAnimation(ReceiptEntrance.tear) { pose.tilt = ReceiptPose.restingTilt }
-        try? await Task.sleep(for: ReceiptEntrance.tearLead)
         withAnimation(ReceiptEntrance.photosLand) { pose.photos = 1 }
     }
 }

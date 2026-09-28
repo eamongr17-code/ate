@@ -92,8 +92,33 @@ jobs:
         working-directory: supabase/tests/db
         run: npm ci --no-fund --no-audit && node --test
 
+  # Which surfaces a PR touches. App-only PRs skip the staging contract job (a skipped required
+  # check counts as passing); pushes to main always run everything.
+  changes:
+    name: Changed surfaces
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      backend: ${{ steps.diff.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then echo "backend=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          echo "$files"
+          if echo "$files" | grep -qE '^(supabase/|AteKit/Sources/AteKit/(Models|Networking)/|AteKit/Tests/AteKitTests/.*(Contract|StagingRPC|Staging)|AteKit/Package|\.github/workflows/ci\.yml)'; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "backend=false" >> "$GITHUB_OUTPUT"
+          fi
+
   contract:
     name: Contract tests vs staging
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: macos-26
     # One suite against shared staging at a time: overlapping runs sweep each other's rows.
     concurrency:

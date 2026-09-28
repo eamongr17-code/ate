@@ -31,12 +31,19 @@ struct DishDestination: View {
         self.onPlace = onPlace
         self.onEntry = onEntry
         self.onProfile = onProfile
+        #if DEBUG
+        let reads = SlowDetailReads.dishes(services.dishPages)
+        #else
+        let reads = services.dishPages
+        #endif
         _store = State(initialValue: DishPageStore(
             dishID: dishID,
             source: source,
-            dishes: services.dishPages,
+            dishes: reads,
             savedDishes: services.savedDishes,
             deletions: services.entryDeletions,
+            // What the row that opened it already knew — the page draws from it at once (round 6).
+            previews: DishPreviews.shared,
             analytics: services.analytics
         ))
     }
