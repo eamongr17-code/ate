@@ -1,6 +1,6 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0053` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0054` define it. Forward-only; applied migrations
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
 account deletion **0032**; **every entry public 0033**; signed-out browse **0034**; dietary tags **0036**;
@@ -188,7 +188,7 @@ except where noted; **entries = visits, reviews = receipt lines, and they are no
 | `my_blocks(…)` (0032) | whom the caller blocked, with handle/name/avatar. DEFINER: `profiles` RLS hides exactly these people |
 | `feed_areas(limit, cursor…)` (0038) | `place_locality()` of the entries the Feed shows you (own excluded), grouped case-insensitively; keyset `(entry_count desc, area)`, 30 a page. `get_entry_feed(…, p_area)` filters on the same string |
 | `feed_cities()` · `resolve_city(lat, lng)` (0046) | cities the Feed has entries in for you (feed_areas' counting), busiest first · "near me": the city with food holding the point (`is_nearby`), else nearest with food, else (no point) busiest; no row when no city has food. `get_entry_feed(…, p_city)` filters on `place_cities` |
-| range + city filters (0047) | `p_max_score` + `p_city` on `my_entries`/`search_places`/`search_dishes`/`nearby_places`. `score_in_range`: no bound = all; any bound drops unscored; **max ≥ 5 is open** (a 6, or a 5.3 average, stays in). `my_entry_cities()` · `search_cities()` = the pickers. **0049:** the same on `search_saved` (on `dish_score`) + `my_saved_cities()` |
+| range + city filters (0047) | `p_max_score` + `p_city` on `my_entries`/`search_places`/`search_dishes`/`nearby_places`. `score_in_range`: no bound = all; any bound drops unscored; **max ≥ 6 is open** (0054: the track ends at 6 — a ceiling of 5 leaves a 6, or a 5.3 average, out). `my_entry_cities()` · `search_cities()` = the pickers. **0049:** the same on `search_saved` (on `dish_score`) + `my_saved_cities()` |
 | date windows (0050) | `p_from`/`p_to`/`p_tz` on `search_places`/`search_dishes`/`nearby_places` (only lines whose visit day is in the window count toward the row's numbers; a row with none drops out; cover + chips stay all-time) and `search_saved` (the save's day). my_entries' rule, `in_window()` |
 | `get_entry_card(entry)` (0048) | one `entry_cards` row or `[]`; signed in = the view under RLS, anon = browse twin (public, live author) — the share-link read |
 | `my_entries(sort, filters…)` · `my_entry_places()` (0043) | the caller's OWN entry ids (filtered by `author_id = auth.uid()`, not just RLS): `newest`/`oldest` keyset `(created_at, id)`, `top` = `best_score` (max line score) desc NULLS LAST, then `(created_at, id)` desc. Filters: place, min best score, one tag, visit dates in `p_tz`. Places = where your entries are, busiest first |
@@ -242,3 +242,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0050–0051 | `date_windows` · `what_to_order_by_rating` | `in_window`; `p_from`/`p_to`/`p_tz` on the three search reads + `search_saved` (drop+create) · `place_dishes` ordered by rating (create or replace, browse twin too) |
 | 0052 | `read_scale` | lateral `dish_stats`/`restaurant_stats`; `place_city_cache` + triggers behind `place_cities`; `place_numbers`, `dish_numbers`, `window_bounds`; the four Search reads rebuilt in place (same signatures) — no wire change |
 | 0053 | `journal_days_and_dish_tags` | `dish_tag_links` + keyword map + triggers + backfill; `apply_entry_sort`/`correct_entry_place` take `items[].styles` (create or replace, same signatures); `my_entries_filtered`, `my_entries_count`, `journal_days`, `dish_tags`, `similar_dishes`, `dishes_by_tag` |
+| 0054 | `score_range_ceiling` | `score_in_range` opens the top at 6, not 5 (create or replace) — every range read follows |
