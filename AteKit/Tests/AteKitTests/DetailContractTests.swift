@@ -75,9 +75,9 @@ struct DetailContractTests {
         #expect(snapshot.restaurant.id == stats.restaurantID)
         #expect(snapshot.dishes.isEmpty == false)
 
-        // Ranked: review count descending is the primary key of the order.
-        let counts = snapshot.dishes.map(\.reviewCount)
-        #expect(counts == counts.sorted(by: >))
+        // Ranked by rating (0051): the printed score descending leads, unscored last.
+        let scores = snapshot.dishes.map { $0.score.map { Int(($0 * 10).rounded()) } ?? -1 }
+        #expect(scores == scores.sorted(by: >))
 
         // And the flat mean of the dish averages is a *different* number in general — proving the
         // snapshot didn't compute one. (Equal only by coincidence; assert the source, not the maths.)
