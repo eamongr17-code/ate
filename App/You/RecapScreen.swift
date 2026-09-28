@@ -166,7 +166,7 @@ extension RecapScreen {
         self.init(
             month: month,
             stats: context.services.stats,
-            handle: context.handle,
+            handle: context.handle(),
             analytics: context.services.analytics
         )
     }

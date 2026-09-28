@@ -4,8 +4,8 @@ import Foundation
 /// **What a pushed page may ask of the shell** — handed to ``Route/destination(_:)``, so each page is
 /// built in its own feature folder and a new one never has to reach into `App/Root`.
 ///
-/// Built fresh for every destination (the shell's body re-evaluates them), so the values in it — the
-/// source, the handle — are always the current ones.
+/// Built fresh for every destination (the shell's body re-evaluates them), so the values in it are
+/// always the current ones.
 @MainActor
 struct RouteContext {
     let services: AteServices
@@ -13,8 +13,8 @@ struct RouteContext {
     let saves: SaveAction
     /// Where this page was opened from — the `source` its view event carries.
     let source: DetailSource
-    /// The handle a receipt is signed with.
-    let handle: String
+    /// The handle a receipt is signed with — read only by a page that signs one.
+    let handle: () -> String
     /// Pushes a page, labelled with where it was opened from.
     let push: (Route, DetailSource) -> Void
     /// Presents the composer.

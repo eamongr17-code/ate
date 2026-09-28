@@ -11,7 +11,7 @@ extension AteShell {
             source: sources[route] ?? .unknown,
             // A receipt is signed. The You header is already loaded by the time a statement can be
             // opened, so its handle is the one on hand; the shell's is the fallback.
-            handle: you.summary?.username ?? handle ?? "",
+            handle: { you.summary?.username ?? handle ?? "" },
             push: { open($0, from: $1) },
             compose: { composing = $0 },
             entryChanged: { card in
