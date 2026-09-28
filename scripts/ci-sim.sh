@@ -34,6 +34,9 @@ run() {
   grep -E "Test Case .*(passed|failed)|error:" "$log"
   if [ -f "$raw" ]; then
     avconvert --preset Preset960x540 --source "$raw" --output "$OUT/$name.mp4" --replace > /dev/null 2>&1 && rm -f "$raw"
+    # Contact sheets: the tap and the hold (0.12s apart), then the hand-off and the receipt.
+    swift scripts/ci-frames.swift "$OUT/$name.mp4" "$OUT/$name-sheet-hold.png" 1.6 0.12 32
+    swift scripts/ci-frames.swift "$OUT/$name.mp4" "$OUT/$name-sheet-handoff.png" 5.0 0.25 32
   fi
   mkdir -p "$OUT/$name-shots"
   xcrun xcresulttool export attachments --path "$OUT/$name.xcresult" --output-path "$OUT/$name-shots" > /dev/null 2>&1
