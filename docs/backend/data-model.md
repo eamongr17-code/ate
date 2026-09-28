@@ -1,10 +1,10 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0052` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0053` define it. Forward-only; applied migrations
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
 account deletion **0032**; **every entry public 0033**; signed-out browse **0034**; dietary tags **0036**;
-round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry, dish-row chips) **0041–0045**; round 5 (cities, range + city filters, share read, saved filters) **0046–0049**; round 6 (date windows, menu by rating) **0050–0051**; read scale **0052**.
+round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry, dish-row chips) **0041–0045**; round 5 (cities, range + city filters, share read, saved filters) **0046–0049**; round 6 (date windows, menu by rating) **0050–0051**; read scale **0052**; round 7 (journal calendar, dish tags) **0053**.
 
 The atom the USER creates is an **entry** = one visit. The atom AGGREGATES are built from is still a
 per-dish **review**, now *linked* to an entry, not replaced by it. A **sorter** turns the words into
@@ -100,6 +100,18 @@ exact by triggers: a place's own row on insert/update/delete plus every place sh
 **Any future change to `place_locality()`, `city_at()` or the city rule itself must call `place_city_rebuild()`** in the
 same migration — the triggers only notice writes to `restaurants` and `cities`, not a changed function.
 
+### `dish_tag_links` (0053)
+A dish's chips. PK `(dish_id, kind, slug)` (TOTAL — the ON CONFLICT arbiter the writers use), `label`, `source`, `ord`; index `(kind, slug, dish_id)`.
+Catalogue data (authenticated SELECT, no client write). **Diet chips are NOT stored**: `dish_tags` reads `dish_consensus_tags()` live, so they always equal `dish_summary.tags`.
+- `cuisine` / `suburb` / `city` (`source='place'`): derived from the dish's restaurant. Triggers keep them exact on dish insert/rename, restaurant `cuisine` change, every `place_city_cache` change and any `cities` change.
+  - suburb = `place_locality()`, slug city-qualified (`fitzroy-melbourne`), omitted when it IS the city.
+  - city = the 0052 cache's city, label `cities.name`.
+- `style`, 1–3 lowercase words ("pasta", "dumplings"):
+  - `source='keyword'` comes from `dish_style_guess(name)`, a fixed keyword map applied on dish insert and in the backfill. No model.
+  - `source='sorter'` comes from sort-entry's `items[].styles` through `apply_entry_sort` (and `correct_entry_place` for a parked plan). A dish's first sorter styles replace its keyword ones; later sorts add up to 3 and never remove one.
+  - A style equal to the cuisine or a diet word is dropped (`dish_styles_from_json`, mirrored in `styles.ts`).
+  - **Changing the keyword map means a migration that re-runs `dish_style_keyword_refresh()`.**
+
 ### `profiles` — changed (0018)
 Additive: `entry_seq` int (the order-number counter; never client-writable), `city` text (under the handle on You/Profile). `username` is `citext UNIQUE` — the handle.
 `delete_account()` deletes the auth user; FK cascades take every personal row (verified, else it RAISES — 0035), the catalogue stays. `handle_new_user` always leaves a profile (handle `ate<hex>` when no usable email). `deleted_at` hides a profile from everyone but its owner (0035).
@@ -180,6 +192,8 @@ except where noted; **entries = visits, reviews = receipt lines, and they are no
 | date windows (0050) | `p_from`/`p_to`/`p_tz` on `search_places`/`search_dishes`/`nearby_places` (only lines whose visit day is in the window count toward the row's numbers; a row with none drops out; cover + chips stay all-time) and `search_saved` (the save's day). my_entries' rule, `in_window()` |
 | `get_entry_card(entry)` (0048) | one `entry_cards` row or `[]`; signed in = the view under RLS, anon = browse twin (public, live author) — the share-link read |
 | `my_entries(sort, filters…)` · `my_entry_places()` (0043) | the caller's OWN entry ids (filtered by `author_id = auth.uid()`, not just RLS): `newest`/`oldest` keyset `(created_at, id)`, `top` = `best_score` (max line score) desc NULLS LAST, then `(created_at, id)` desc. Filters: place, min best score, one tag, visit dates in `p_tz`. Places = where your entries are, busiest first |
+| `journal_days(from, to, tz, …)` · `my_entries_count(…)` (0053) | the calendar: per local day with the caller's entries, `entries` (ENTRY count), `best_score` (max line score, a 6 is 6), `cover_url` (newest entry that day with a photo). The count = rows `my_entries` pages out. Both take `my_entries`' filters (`my_entries_filtered`, one definition) |
+| `dish_tags(dish)` · `similar_dishes(dish)` · `dishes_by_tag(kind, slug, …)` (0053) | chips style → cuisine → suburb → city → diet · dishes sharing a style or the cuisine, by weight (style 8 · cuisine 4 · suburb 2 · city 1) then score · a tag's dishes in `place_dishes`' order + 4-part keyset. Numbers = lines the viewer can see; never-logged and merged dishes excluded |
 | `delete_entry(entry)` (0037) | owner-only, DEFINER. FK cascades take photos rows, lines (+ tags, likes, comments, notifications), reports; saves keep the dish (`source_entry_id` → NULL); catalogue stays. Returns the files to purge |
 
 ## RLS
@@ -227,3 +241,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0046–0049 | `cities` · `range_and_city_filters` · `entry_card_read` · `saved_filters` | `cities` + `city_at` + `place_cities` view, `feed_cities`, `resolve_city`, `get_entry_feed(p_city)` (drop+create, browse twin too) · `score_in_range`; `p_max_score`/`p_city` on my_entries + three search reads (drop+create), `my_entry_cities`, `search_cities` · `get_entry_card` + browse twin · `search_saved` range + city (drop+create), `my_saved_cities` |
 | 0050–0051 | `date_windows` · `what_to_order_by_rating` | `in_window`; `p_from`/`p_to`/`p_tz` on the three search reads + `search_saved` (drop+create) · `place_dishes` ordered by rating (create or replace, browse twin too) |
 | 0052 | `read_scale` | lateral `dish_stats`/`restaurant_stats`; `place_city_cache` + triggers behind `place_cities`; `place_numbers`, `dish_numbers`, `window_bounds`; the four Search reads rebuilt in place (same signatures) — no wire change |
+| 0053 | `journal_days_and_dish_tags` | `dish_tag_links` + keyword map + triggers + backfill; `apply_entry_sort`/`correct_entry_place` take `items[].styles` (create or replace, same signatures); `my_entries_filtered`, `my_entries_count`, `journal_days`, `dish_tags`, `similar_dishes`, `dishes_by_tag` |
