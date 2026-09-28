@@ -97,6 +97,8 @@ else its `place_locality()` equals a city name/alias → else the city most LOCA
 fall in. A place none of these reach is in no city. **Stored since 0052** in `place_city_cache` (loc, geo, city, via), kept
 exact by triggers: a place's own row on insert/update/delete plus every place sharing its locality; any change to
 `cities` rebuilds it. `place_cities` reads it. Catalogue data only — nothing viewer-relative is cached.
+**Any future change to `place_locality()`, `city_at()` or the city rule itself must call `place_city_rebuild()`** in the
+same migration — the triggers only notice writes to `restaurants` and `cities`, not a changed function.
 
 ### `profiles` — changed (0018)
 Additive: `entry_seq` int (the order-number counter; never client-writable), `city` text (under the handle on You/Profile). `username` is `citext UNIQUE` — the handle.

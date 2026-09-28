@@ -23,7 +23,8 @@
 -- city of a place — catalogue data, the same for every viewer — is stored.
 --
 -- WIRE IMPACT: NONE. New objects: place_city_cache (+ triggers, refresh functions), place_numbers,
--- dish_numbers, window_bounds. Existing functions are replaced in place (same signatures).
+-- dish_numbers, window_bounds. Existing functions are replaced in place (same signatures); search_all
+-- also gains a final `id` sort key (its order among exact ties was unspecified).
 -- DATA: place_city_cache is filled from the catalogue here (restaurants → derived city). No existing
 -- row is modified.
 
@@ -621,3 +622,83 @@ as $$
   order by c.saved_at desc, c.dish_id desc;
 $$;
 
+-- ===========================================================================
+-- 5. search_all — the composer's place sheet. Same body as 0031 plus a final `id` key on each kind's
+--    ORDER BY: similarity + name was not a total order, so which of two tied rows made the LIMIT was
+--    up to the plan. Now it is fixed. Same signature: create or replace, grants survive.
+-- ===========================================================================
+create or replace function public.search_all(p_query text, p_limit_per_kind int default 10)
+returns table (
+  kind       text,
+  id         uuid,
+  title      text,
+  subtitle   text,
+  score      numeric(2,1),
+  match_rank real,
+  detail     jsonb
+)
+language sql
+stable
+security invoker
+set search_path = public, extensions
+as $$
+  with q as (
+    select public.search_key(p_query)     as key,
+           public.search_pattern(p_query) as pat,
+           least(greatest(p_limit_per_kind, 1), 25) as lim
+  ),
+  place_hits as (
+    select 'place'::text as kind, r.id, r.name as title,
+           coalesce(nullif(btrim(coalesce(r.cuisine, '')), ''),
+                    public.place_locality(r.address, r.city)) as subtitle,
+           rs.avg_rating as score,
+           similarity(public.search_key(r.name), q.key)::real as match_rank,
+           jsonb_build_object('city', r.city, 'cuisine', r.cuisine, 'address', r.address,
+                              'locality', public.place_locality(r.address, r.city),
+                              'people_count', coalesce(rs.people_count, 0)) as detail
+    from public.restaurants r
+    left join public.restaurant_stats rs on rs.restaurant_id = r.id
+    cross join q
+    where char_length(q.key) >= 2
+      and public.search_key(r.name) like '%' || q.pat || '%'
+    order by similarity(public.search_key(r.name), q.key) desc, r.name, r.id
+    limit (select lim from q)
+  ),
+  dish_hits as (
+    select 'dish'::text as kind, d.id, d.name as title, r.name as subtitle,
+           ds.score,
+           similarity(public.search_key(d.name), q.key)::real as match_rank,
+           jsonb_build_object('restaurant_id', r.id, 'restaurant_city', r.city,
+                              'restaurant_locality', public.place_locality(r.address, r.city),
+                              'people_count', coalesce(ds.people_count, 0),
+                              'cover_url', ds.cover_url) as detail
+    from public.dishes d
+    join public.restaurants r on r.id = d.restaurant_id
+    left join public.dish_stats ds on ds.dish_id = d.id
+    cross join q
+    where char_length(q.key) >= 2
+      and d.merged_into_dish_id is null
+      and public.search_key(d.name) like '%' || q.pat || '%'
+    order by similarity(public.search_key(d.name), q.key) desc, d.name, d.id
+    limit (select lim from q)
+  ),
+  people_hits as (
+    select 'person'::text as kind, p.id, p.username::text as title, p.name as subtitle,
+           null::numeric(2,1) as score,
+           greatest(similarity(public.search_key(p.username::text), q.key),
+                    similarity(public.search_key(p.name), q.key))::real as match_rank,
+           jsonb_build_object('avatar_url', p.avatar_url, 'city', p.city) as detail
+    from public.profiles p
+    cross join q
+    where char_length(q.key) >= 2
+      and p.deleted_at is null
+      and (public.search_key(p.username::text) like '%' || q.pat || '%'
+           or public.search_key(p.name)        like '%' || q.pat || '%')
+    order by greatest(similarity(public.search_key(p.username::text), q.key),
+                      similarity(public.search_key(p.name), q.key)) desc, p.username, p.id
+    limit (select lim from q)
+  )
+  select * from place_hits
+  union all select * from dish_hits
+  union all select * from people_hits;
+$$;
