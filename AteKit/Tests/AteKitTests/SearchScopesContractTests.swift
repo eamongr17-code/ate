@@ -29,8 +29,8 @@ import Testing
 /// this suite writes nothing at all.
 @Suite("Search scopes — staging contract", .enabled(if: StagingContract.isEnabled), .serialized)
 struct SearchScopesContractTests {
-    /// Small enough that every walk below crosses several page boundaries.
-    static let pageSize = 2
+    /// Small pages cross several boundaries; `walkPages` of them cover `whole()`'s 50 rows (round-6 seed).
+    static let pageSize = 2, walkPages = 26
 
     func client() async throws -> AteAPIClient {
         try await StagingContract.Backend.shared.client()
@@ -117,7 +117,7 @@ struct SearchScopesContractTests {
             let before = try await whole()
             var walked: [UUID] = []
             var cursor: SearchPlaceRow?
-            for _ in 0..<12 {
+            for _ in 0..<Self.walkPages {
                 let rows: [SearchPlaceRow] = try await StagingRPC.rows(
                     client, "search_places",
                     [
@@ -191,7 +191,7 @@ struct SearchScopesContractTests {
             let before = try await whole()
             var walked: [UUID] = []
             var cursor: SearchDishRow?
-            for _ in 0..<12 {
+            for _ in 0..<Self.walkPages {
                 let rows: [SearchDishRow] = try await StagingRPC.rows(
                     client, "search_dishes",
                     [
@@ -307,7 +307,7 @@ struct SearchScopesContractTests {
             let before = try await whole()
             var walked: [UUID] = []
             var cursor: SearchPersonRow?
-            for _ in 0..<12 {
+            for _ in 0..<Self.walkPages {
                 let rows: [SearchPersonRow] = try await StagingRPC.rows(
                     client, "search_people",
                     [
@@ -388,7 +388,7 @@ extension SearchScopesContractTests {
             guard before.isEmpty == false else { return }
             var walked: [UUID] = []
             var cursor: SearchSavedRow?
-            for _ in 0..<20 {
+            for _ in 0..<Self.walkPages {
                 let rows: [SearchSavedRow] = try await StagingRPC.rows(
                     client, "search_saved",
                     [
@@ -457,7 +457,7 @@ extension SearchScopesContractTests {
             let before = try await whole()
             var walked: [UUID] = []
             var cursor: NearbyPlaceRow?
-            for _ in 0..<20 {
+            for _ in 0..<Self.walkPages {
                 let rows: [NearbyPlaceRow] = try await StagingRPC.rows(
                     client, "nearby_places",
                     origin.merging([
@@ -475,7 +475,7 @@ extension SearchScopesContractTests {
         }
     }
 
-    // MARK: - search_all (the composer's place sheet still calls it)
+    // MARK: - search_all (the composer's place sheet)
 
     @Test("search_all keeps its two parameters and its seven columns, and subtitles a locality")
     func searchAllUnchanged() async throws {

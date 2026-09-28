@@ -1,0 +1,68 @@
+name: Simulator run
+
+# On-demand simulator work while a local toolchain is unavailable: UI tests, stills, recordings.
+# Runs `scripts/ci-sim.sh` from the chosen ref if it exists, else `xcodebuild test` with the given filter.
+# Everything written to ci-out/ (plus the result bundle) comes back as an artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or SHA to run
+        required: true
+      only_testing:
+        description: "xcodebuild -only-testing value, e.g. AteUITests/TabChromeUITests (blank = whole suite)"
+        required: false
+        default: ""
+      device:
+        description: Simulator device type
+        required: false
+        default: iPhone 17 Pro
+
+jobs:
+  sim:
+    name: Simulator run (${{ inputs.ref }})
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Select Xcode 26
+        run: sudo xcode-select -s /Applications/Xcode_26.5.app || sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+
+      - name: Write Secrets.xcconfig
+        run: cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
+
+      - name: Boot simulator
+        id: sim
+        run: |
+          udid=$(xcrun simctl create ci-sim "${{ inputs.device }}")
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          mkdir -p ci-out
+
+      - name: Run
+        env:
+          SIM_UDID: ${{ steps.sim.outputs.udid }}
+          ONLY_TESTING: ${{ inputs.only_testing }}
+        run: |
+          set -o pipefail
+          if [ -x scripts/ci-sim.sh ]; then
+            scripts/ci-sim.sh 2>&1 | tee ci-out/run.log
+          else
+            filter=()
+            [ -n "$ONLY_TESTING" ] && filter=(-only-testing:"$ONLY_TESTING")
+            xcodebuild test -project Ate.xcodeproj -scheme Ate \
+              -destination "id=$SIM_UDID" -resultBundlePath ci-out/result.xcresult \
+              "${filter[@]}" 2>&1 | tee ci-out/run.log | grep -E "Test Case .*(passed|failed)|error:|\*\* TEST"
+          fi
+
+      - name: Upload output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sim-${{ github.run_id }}
+          path: ci-out/
+          retention-days: 7
