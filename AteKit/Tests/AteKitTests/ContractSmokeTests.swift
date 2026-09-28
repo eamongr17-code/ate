@@ -130,15 +130,24 @@ struct ContractSmokeTests {
         #expect(statement.orders == newest.orders)
     }
 
-    @Test("sort-entry preview: the early sort answers the app's request (fixed words, so a cached plan)")
+    /// The early sort's request, exactly as the app encodes it, stopped at the server's own input
+    /// check: a body one character over `PREVIEW_MAX_BODY` is refused 422 "body too long" BEFORE the
+    /// rate limit, the cache or the model. So this proves the function is deployed, takes the app's
+    /// session and reads the app's `body` key, and never spends an Anthropic call. What a preview does
+    /// with a real draft is pinned in `supabase/functions/sort-entry/entry_flow_test.ts`.
+    @Test("sort-entry preview: deployed, authorised, reads the app's request — never reaches the model")
     func previewSort() async throws {
         let client = try await signedIn()
-        let journal = try await JournalQueryClient(api: client).myEntries(JournalQuery(), after: nil, pageSize: 1)
-        let place = try #require(journal.items.first?.restaurantID, "ci@ate.test has no entry at a place")
-        let input = EarlySortInput(
-            body: "Contract smoke. The gnocchi 4.5 was lovely.", tagTokens: [], restaurantID: place
-        )
-        try await SupabaseEntryService(api: client).previewSort(input)
+        let place = try #require(try await someCard(client).place?.id)
+        let input = EarlySortInput(body: String(repeating: "a", count: 10_001), tagTokens: [], restaurantID: place)
+        do {
+            try await SupabaseEntryService(api: client).previewSort(input)
+            Issue.record("a body over the preview limit was accepted — the model may have been called")
+        } catch let FunctionsError.httpError(code, data) {
+            let reply = String(bytes: data, encoding: .utf8) ?? ""
+            #expect(code == 422, "expected the input check, got \(code): \(reply)")
+            #expect(reply.contains("too long"), "the server did not read the app's `body` key: \(reply)")
+        }
     }
 
     /// The row the app's place picker decodes from `search_all` (PlaceDirectoryClient).
