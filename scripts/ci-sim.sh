@@ -36,8 +36,9 @@ drive() {
   fi
 }
 
+RUN_ICONS=${RUN_ICONS:-0}  # the icon candidates are captured (run 36370514674); headers only now
 # 1 + 3: the bar at rest and minimised, with each Feed icon candidate, light and dark.
-for icon in feed newspaper utensilsCrossed compass globe layoutList; do
+[[ $RUN_ICONS == 1 ]] && for icon in feed newspaper utensilsCrossed compass globe layoutList; do
   for mode in light dark; do
     drive "icon-$icon-$mode" testDriveBar $mode 0 -ate-r6-feed-icon $icon
   done
@@ -52,41 +53,6 @@ for variant in A B; do
   done
 done
 
-echo "== sheets"
-python3 -m pip install --quiet pillow > /dev/null 2>&1
-python3 - <<'PY'
-import os
-from PIL import Image, ImageDraw
-OUT = os.path.join(os.getcwd(), 'ci-out')
-SH, ST = f'{OUT}/shots', f'{OUT}/stills'
-BAR = (0, 2300, 1206, 2622)
-TOP = (0, 0, 1206, 560)
-
-def sheet(rows, box, out, labels=None, gap=12):
-    w, h = box[2] - box[0], box[3] - box[1]
-    cols = max(len(r) for r in rows)
-    left = 260 if labels else 0
-    img = Image.new('RGB', (left + cols * (w + gap), len(rows) * (h + gap)), (240, 98, 63))
-    draw = ImageDraw.Draw(img)
-    for y, row in enumerate(rows):
-        if labels:
-            draw.text((12, y * (h + gap) + h // 2), labels[y], fill=(255, 255, 255))
-        for x, path in enumerate(row):
-            if os.path.exists(path):
-                img.paste(Image.open(path).convert('RGB').crop(box), (left + x * (w + gap), y * (h + gap)))
-    img.save(out)
-
-icons = ['feed', 'newspaper', 'utensilsCrossed', 'compass', 'globe', 'layoutList']
-sheet([[f'{SH}/icon-{i}-light-bar-rest.png', f'{SH}/icon-{i}-dark-bar-rest.png'] for i in icons], BAR,
-      f'{ST}/feed-icon-candidates.png', labels=['users (today)', 'newspaper', 'utensils-crossed', 'compass',
-                                                 'globe', 'layout-list'])
-sheet([[f'{SH}/icon-feed-light-bar-minimised.png', f'{SH}/icon-feed-dark-bar-minimised.png']], BAR,
-      f'{ST}/bar-minimised-fixed.png')
-for screen in ['Feed', 'Journal', 'Search']:
-    for mode in ['light', 'dark']:
-        sheet([[f'{SH}/header{v}-{screen}-{mode}-{s}.png' for v in 'AB'] for s in ['compact', 'rest']], TOP,
-              f'{ST}/compact-header-{screen}-{mode}-A-vs-B.png')
-print(sorted(os.listdir(ST)))
-PY
+# Sheets are built from ci-out/shots after download (the runner has no PIL).
 rm -rf $DD
 echo R6-DONE

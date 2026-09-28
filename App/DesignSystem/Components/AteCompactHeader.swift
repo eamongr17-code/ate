@@ -24,15 +24,21 @@ struct AteCompactHeader<Trailing: View>: View {
             .background(alignment: .top) { AteCompactHeaderFrost() }
     }
 
+    /// The trailing control's width, so a centred title keeps the same clearance on both sides and
+    /// never runs under a wide control (the Feed's "Near me Melbourne" chip).
+    @State private var trailingWidth: CGFloat = 0
+
     @ViewBuilder
     private var row: some View {
         switch layout {
         case .centred:
             ZStack {
                 titleText
+                    .padding(.horizontal, trailingWidth + AteMetrics.snug)
                 HStack {
                     Spacer(minLength: 0)
                     trailing
+                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { trailingWidth = $0 }
                 }
             }
         case .leading:
@@ -58,11 +64,14 @@ enum AteCompactHeaderMetrics {
     static let row: CGFloat = 52
     /// How far the frost feathers out below the row.
     static let feather: CGFloat = 18
+    /// The ground washed over its blur — denser than the status bar's, so a big dark title or a photo
+    /// passing under it blurs to an even tone instead of a smudge (build 81: "heavy behind Feed").
+    static let wash: Double = 0.84
 }
 
 /// The compact header's one frost: even, full width, from the top of the screen to the foot of the
-/// row, then feathered — the status-bar frost's own material and wash, so it reads as the same
-/// surface grown down rather than a second one laid over it.
+/// row, then feathered — the status-bar frost's own material, washed denser so it reads as one even
+/// surface whatever passes under it.
 private struct AteCompactHeaderFrost: View {
     var body: some View {
         VStack(spacing: 0) {
@@ -81,7 +90,7 @@ private struct AteCompactHeaderFrost: View {
     private var frost: some View {
         ZStack {
             Rectangle().fill(.ultraThinMaterial)
-            Rectangle().fill(AteGlassColor.frostWash.opacity(AteFrostMetrics.wash))
+            Rectangle().fill(AteGlassColor.frostWash.opacity(AteCompactHeaderMetrics.wash))
         }
     }
 }
