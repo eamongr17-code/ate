@@ -19,15 +19,15 @@ struct FilterContractTests {
         let entries = SupabaseEntryService(api: api)
         try await StagingExclusive.shared.run {
             for sort in JournalSort.allCases {
-                let before = try await entries.journal(after: nil, pageSize: 100).items
+                let before = try await wholeJournal(entries)
                 var seen: [UUID] = []
                 var cursor: JournalCursor?
                 repeat {
-                    let page = try await client.myEntries(JournalQuery(sort: sort), after: cursor, pageSize: 3)
+                    let page = try await client.myEntries(JournalQuery(sort: sort), after: cursor, pageSize: 10)
                     seen += page.items.map(\.id)
                     cursor = page.nextCursor
-                } while cursor != nil && seen.count < 300
-                let after = try await entries.journal(after: nil, pageSize: 100).items
+                } while cursor != nil && seen.count < 2_000
+                let after = try await wholeJournal(entries)
                 #expect(Set(seen).count == seen.count, "\(sort): no entry twice")
                 let stable = Set(before.map(\.id)).intersection(after.map(\.id))
                 #expect(stable.isSubset(of: Set(seen)), "\(sort): every journal entry that stayed was walked")
@@ -43,6 +43,18 @@ struct FilterContractTests {
                 }
             }
         }
+    }
+
+    /// The whole journal, paged (a page is at most 50 — the staging seed gives this account ~90).
+    func wholeJournal(_ entries: SupabaseEntryService) async throws -> [EntryCard] {
+        var all: [EntryCard] = []
+        var cursor: PageCursor?
+        repeat {
+            let page = try await entries.journal(after: cursor, pageSize: 50)
+            all += page.items
+            cursor = page.nextCursor
+        } while cursor != nil && all.count < 2_000
+        return all
     }
 
     @Test("my_entries filters by place, minimum score and tag, and my_entry_places offers the places")
