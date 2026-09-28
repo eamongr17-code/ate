@@ -63,15 +63,15 @@ jobs:
         # The example carries the real staging values (publishable by design); prod stays placeholder in CI.
         run: cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
 
-      # Keyed per commit so main's cache moves forward with every merge (a key on the lockfile alone is
-      # written once and never updated). PRs restore the newest entry for the same lockfile and never
-      # save; only a push to main saves (after the builds).
-      - name: Restore SPM + build cache
+      # Package clones only, keyed per commit so main's cache moves forward with every merge (a key on
+      # the lockfile alone is written once and never updated). PRs restore the newest entry for the same
+      # lockfile and never save; only a push to main saves (after the builds). AteKit/.build is NOT
+      # cached: measured on #97 it was 1.9 GB and saved nothing (a fresh checkout's mtimes rebuild it).
+      - name: Restore SPM cache
         uses: actions/cache/restore@v4
         with:
           path: |
             ~/Library/Caches/org.swift.swiftpm
-            AteKit/.build
             ${{ env.SPM_CLONES }}
           key: spm-${{ runner.os }}-${{ hashFiles('AteKit/Package.resolved', 'Ate.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ github.sha }}
           restore-keys: |
@@ -107,13 +107,12 @@ jobs:
           tail -2 beta-build.log
 
       # Saved once the builds pass, before the staging smoke: a staging hiccup must not cost main its cache.
-      - name: Save SPM + build cache
+      - name: Save SPM cache
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.head_ref == 'ci/speed'
         uses: actions/cache/save@v4
         with:
           path: |
             ~/Library/Caches/org.swift.swiftpm
-            AteKit/.build
             ${{ env.SPM_CLONES }}
           key: spm-${{ runner.os }}-${{ hashFiles('AteKit/Package.resolved', 'Ate.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ github.sha }}
 
