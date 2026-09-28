@@ -14,9 +14,6 @@ enum AteMotion {
     static let print = Animation.easeOut(duration: printDuration)
     /// The numerals rolling under a finger on the star slider.
     static let scoreRoll = Animation.snappy(duration: 0.18)
-    /// A caret blink, and the voice pulse.
-    static let caretBlink: Double = 1.0
-    static let voicePulse: Double = 1.6
     /// A receipt still printing (`SummaryLoading`): its skeleton lines breathe down to 45% and back,
     /// 1.6s a breath, ease-in-out — half a cycle each way.
     static let breathe = Animation.easeInOut(duration: 0.8).repeatForever(autoreverses: true)
@@ -69,27 +66,5 @@ private struct AtePrintModifier: ViewModifier {
             .opacity(isPresented || reduceMotion ? 1 : 0)
             .offset(y: isPresented || reduceMotion ? 0 : AteMotion.printOffset)
             .animation(reduceMotion ? nil : AteMotion.print, value: isPresented)
-    }
-}
-
-/// A blinking caret — used by the composer's placeholder state, where there is no real text view
-/// caret to show yet. Honours Reduce Motion by simply standing still.
-struct AteCaret: View {
-    var height: CGFloat = 22
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isVisible = true
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: 1)
-            .fill(AteColor.coral)
-            .frame(width: 2, height: height)
-            .opacity(isVisible ? 1 : 0)
-            .onAppear {
-                guard reduceMotion == false else { return }
-                withAnimation(.linear(duration: AteMotion.caretBlink).repeatForever(autoreverses: true)) {
-                    isVisible = false
-                }
-            }
-            .accessibilityHidden(true)
     }
 }

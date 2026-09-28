@@ -15,9 +15,6 @@ struct InlineTokenText: View {
     let composition: EntryComposition
     var style: AteTextStyle = .prose
     var lineLimit: Int?
-    /// The voice composer's one addition: the offset in the words from which the recogniser is still
-    /// changing its mind, drawn muted (`ComposerVoice.dc.html`). `nil` everywhere else.
-    var volatileFromPlainOffset: Int?
     /// A **finished** entry's score pill was tapped: the dish that score belongs to. Only a token the
     /// sorter resolved carries one (``EntryToken/dishID``) — an unsorted entry's pills, and every
     /// pill in the composer, stay inert. `nil` makes every pill inert.
@@ -34,8 +31,7 @@ struct InlineTokenText: View {
             palette: palette,
             dynamicTypeSize: dynamicTypeSize,
             displayScale: displayScale,
-            colorScheme: colorScheme,
-            volatileFromPlainOffset: volatileFromPlainOffset
+            colorScheme: colorScheme
         )
         InlineTokenLabel(
             composition: composition, attributes: attributes, lineLimit: lineLimit, onScoreDish: onScoreDish

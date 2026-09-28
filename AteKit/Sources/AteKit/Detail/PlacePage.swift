@@ -121,7 +121,7 @@ public struct PlaceSummary: Sendable, Hashable, Codable, Identifiable {
 /// sheet's lossy view of the **same RPC** (id, name, people count — no score, no cover). Two
 /// decoders for one function is one too many; ``PlaceDirectory/dishes(atPlace:limit:)`` should be
 /// folded onto this row when something next touches the dish sheet.
-public struct MenuDish: Sendable, Hashable, Codable, Identifiable, DishRankable {
+public struct MenuDish: Sendable, Hashable, Codable, Identifiable {
     public let dishID: UUID
     public let name: String
     public let score: Double?
@@ -187,10 +187,9 @@ public struct MenuDish: Sendable, Hashable, Codable, Identifiable, DishRankable 
 /// **A four-part keyset**, because `place_dishes` orders `review_count desc, score desc nulls last,
 /// lower(dish_name), dish_id` — four columns, so four values from the last row (0030).
 ///
-/// **That order is ``DishRanking``'s**, settled where it belongs: in the `ORDER BY`. The client
-/// therefore does not sort the menu at all, and must not start — a list you page cannot be
-/// reordered on arrival without the second page interleaving into the first. `DishRanking` remains
-/// the written statement of the rule, and the contract test asserts the server still obeys it.
+/// **That order is settled where it belongs: in the `ORDER BY`.** The client therefore does not sort
+/// the menu at all, and must not start — a list you page cannot be reordered on arrival without the
+/// second page interleaving into the first. The contract test asserts the server obeys the rule.
 public struct MenuDishCursor: Sendable, Hashable, Codable {
     public let reviewCount: Int
     /// Nullable: unscored dishes sort last, and the cursor has to be able to sit among them.
@@ -259,8 +258,7 @@ public protocol PlacePageReading: Sendable {
 
 /// The live place reads: `place_summary`, `place_dishes`, `get_entries_at_place`.
 ///
-/// Thin by design: it fetches, and every ordering decision is the server's — which since 0030 is
-/// ``DishRanking``'s rule, so there is nothing left to disagree about. See ``MenuDishCursor``.
+/// Thin by design: it fetches, and every ordering decision is the server's. See ``MenuDishCursor``.
 public struct PlacePageClient: PlacePageReading {
     /// `place_dishes` clamps `p_limit` at 200. A real menu fits inside one page of that; the cursor
     /// exists so a pathological one still walks rather than silently stopping at 200.

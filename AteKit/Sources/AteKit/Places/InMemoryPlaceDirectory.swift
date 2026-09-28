@@ -5,7 +5,7 @@ import Foundation
 ///
 /// Debug only, like the in-memory entry service: a shipped binary has no path to a place that did
 /// not come from `places-search` or `add_manual_restaurant`.
-public struct InMemoryPlaceDirectory: PlaceDirectory {
+public struct InMemoryPlaceDirectory: PlaceDirectory, InMemoryStandIn {
     private let places: [PlaceSuggestion]
     private let menu: [UUID: [PlaceDish]]
 

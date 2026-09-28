@@ -26,7 +26,11 @@ struct AteShadow: Equatable, Sendable {
     /// The smaller glass controls' lift (round 5: the top-corner buttons, the month marker) — the
     /// soft halo iOS 26's glass buttons cast, which the custom glass keeps.
     static let glassLight = AteShadow(colour: AteColor.ink.opacity(0.10), offsetY: 6, blur: 24, spread: 0)
-    static let glassDark = AteShadow(colour: .black.opacity(0.40), offsetY: 6, blur: 24, spread: 0)
+    /// In dark mode a halo has nothing to lift off: black around a disc on the ink ground read as a
+    /// smudge (Eamon, round 6). The controls take the dark artboards' own chrome shadow instead
+    /// (`MainInk`'s tab bar, `0 8px 22px -14px rgba(36,20,31,.4)`) — ink, shrunk before it blurs, so
+    /// it stays tucked under the glass's foot and the tint and rim carry the edge.
+    static let glassDark = AteShadow(colour: AteColor.ink.opacity(0.40), offsetY: 8, blur: 22, spread: -14)
 }
 
 extension View {

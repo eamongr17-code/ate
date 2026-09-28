@@ -111,7 +111,7 @@ struct RestaurantSearchTests {
         let nearby = try #require(response.restaurants.first)
         let row = try #require(RestaurantRowModel(nearby, stub: response.stub))
         #expect(row.selection == .restaurant(id: UUID(uuidString: "8E7A0A5C-0000-4000-8000-000000000009")!))
-        #expect(SearchDistance.string(meters: row.distanceMeters, locale: Locale(identifier: "en_AU")) == "540 m")
+        #expect(row.distanceMeters == 540)
     }
 
     @Test("in STUB mode `id` is the place id, NOT a row id — it must resolve via op=details first")
@@ -148,32 +148,6 @@ struct RestaurantSearchTests {
         let picked = PickedRestaurant(response.restaurant)
         #expect(picked.name == "Chin Chin")
         #expect(picked.locality == "Melbourne VIC")
-    }
-
-    // MARK: - Distance rendering (§11.1)
-
-    @Test("distance never renders as 0 km and never renders at all when absent", arguments: [
-        (nil, nil),
-        (0.0, "10 m"),
-        (4.0, "10 m"),
-        (44.0, "40 m"),
-        (46.0, "50 m"),
-        (540.0, "540 m"),
-        (949.0, "950 m"),
-        (994.0, "990 m"),
-        (995.0, "1.0 km"),
-        (1240.0, "1.2 km"),
-        (12500.0, "12.5 km"),
-        (-5.0, nil)
-    ] as [(Double?, String?)])
-    func distanceStrings(meters: Double?, expected: String?) {
-        #expect(SearchDistance.string(meters: meters, locale: Locale(identifier: "en_AU")) == expected)
-    }
-
-    @Test("a non-finite distance renders nothing rather than 'inf km'")
-    func nonFiniteDistance() {
-        #expect(SearchDistance.string(meters: .infinity) == nil)
-        #expect(SearchDistance.string(meters: .nan) == nil)
     }
 
     // MARK: - Nearby cache (§1.2)

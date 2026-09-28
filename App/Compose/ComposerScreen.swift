@@ -27,11 +27,6 @@ struct ComposerScreen: View {
     @State var model: ComposerModel
     @State var pickedItems: [PhotosPickerItem] = []
     @State var isTakingPhoto = false
-    /// The microphone is open: `ComposerVoice` sits over the composer. **Parked** (round 4,
-    /// ``VoiceParking``): nothing reaches it while voice mode is out of the product.
-    @State var isDictating = false
-    /// The open microphone, made once when dictation starts and dropped when it closes.
-    @State var dictation: DictationController?
     @Environment(\.openURL) var openURL
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     /// Post was tapped and has not handed over yet: the pill says "Posting…".
@@ -88,19 +83,6 @@ struct ComposerScreen: View {
             }
             .ateSurface()
             .ateComposerKeyboard(keyboard)
-            if isDictating, let dictation {
-                VoiceComposerScreen(
-                    composer: model,
-                    model: dictation,
-                    onStop: { isDictating = false },
-                    onDone: {
-                        isDictating = false
-                        post()
-                    },
-                    onClose: { close() }
-                )
-                .transition(.opacity)
-            }
             if let summary {
                 SummaryScreen(
                     card: summary,
@@ -126,14 +108,6 @@ struct ComposerScreen: View {
         // The surface runs behind the keyboard, to the screen's edges: without it the cover's own
         // black shows around the keyboard's rounded corners.
         .background { AtePalette.surface.ground.ignoresSafeArea() }
-        .ateAnimation(.easeInOut(duration: 0.2), value: isDictating)
-        .onChange(of: isDictating) { _, isOpen in
-            // However the screen went away, the microphone goes with it.
-            if isOpen == false {
-                dictation?.stop(refocus: false)
-                dictation = nil
-            }
-        }
         .atePlaceSheet(
             isPresented: $model.isPickingPlace,
             directory: services.places,
@@ -173,12 +147,10 @@ struct ComposerScreen: View {
         if ComposerDebugLaunch.fakesCameraCapture, let image = UIImage(named: "Photos/ragu") {
             captured(image)
         }
-        if ComposerDebugLaunch.opensVoice { startDictation() }
         if ComposerDebugLaunch.fakesCameraCover { isTakingPhoto = true }
         if ComposerDebugLaunch.drivesVoiceUndo {
             Task {
                 try? await Task.sleep(for: .seconds(7))
-                isDictating = false
                 try? await Task.sleep(for: .seconds(1.5))
                 undoRequest += 1
                 guard ComposerDebugLaunch.drivesVoiceRedo else { return }
@@ -188,19 +160,6 @@ struct ComposerScreen: View {
         }
     }
     #endif
-
-    /// The recogniser. On a simulator, a Debug launch argument swaps in a scripted one — the only
-    /// microphone a machine without one has.
-    func makeTranscriber() -> any VoiceTranscribing {
-        #if DEBUG
-        if ComposerDebugLaunch.fakesDictation {
-            let fake = FakeVoiceTranscriber()
-            fake.denial = ComposerDebugLaunch.deniesDictation ? .microphone : nil
-            return fake
-        }
-        #endif
-        return SystemVoiceTranscriber()
-    }
 
     private var origin: ComposerOrigin {
         switch presentation.origin {
@@ -277,7 +236,7 @@ struct ComposerScreen: View {
                 style: .composerProse,
                 placeholder: Self.placeholder,
                 focusRequest: model.focusRequest,
-                isFocusSuspended: isDictating || isHandingOver || summary != nil,
+                isFocusSuspended: isHandingOver || summary != nil,
                 undoRequest: undoRequest,
                 redoRequest: redoRequest,
                 selectedTokenID: model.scoring?.id,

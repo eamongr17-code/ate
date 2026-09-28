@@ -13,7 +13,7 @@ import Testing
 struct YouStoreTests {
 
     /// A stats seam that can be told to fail one call at a time.
-    private final class Flaky: StatsReading, @unchecked Sendable {
+    private final class Flaky: StatsReading, TestFake, @unchecked Sendable {
         var failSummary = false
         var failHistogram = false
         var failDishes = false

@@ -15,7 +15,7 @@ public protocol PreviewEntryLookup: Sendable {
     func entryCard(id: UUID) -> EntryCard?
 }
 
-public final class InMemoryEntryService: EntryService, @unchecked Sendable {
+public final class InMemoryEntryService: EntryService, InMemoryStandIn, @unchecked Sendable {
     public static let launchArgument = "-ate-preview-data"
     /// …and with nothing in it: the first-day journal, which is the one state you cannot reach by
     /// writing something.

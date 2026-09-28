@@ -6,7 +6,7 @@ import Foundation
 /// It carries the artboards' own numbers (`You`, `Ratings`, `Recap`), so a screenshot taken against
 /// it and the design can be held side by side. Debug only, in both directions: the type does not
 /// exist in a Beta or Release binary.
-public final class InMemoryStatsService: StatsReading, @unchecked Sendable {
+public final class InMemoryStatsService: StatsReading, InMemoryStandIn, @unchecked Sendable {
 
     private let viewer: ViewerProfile
     private let buckets: [ScoreBucket]

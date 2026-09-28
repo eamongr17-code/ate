@@ -1,9 +1,10 @@
 import Foundation
 import Testing
+import Supabase
 @testable import AteKit
 
 /// A saves service a test drives: pages in, calls recorded, and a switch to make the server refuse.
-private final class FakeSaves: DishSaving, @unchecked Sendable {
+private final class FakeSaves: DishSaving, TestFake, @unchecked Sendable {
     var pages: [[SavedDish]]
     var refuses = false
     private(set) var saved: [(dish: UUID, entry: UUID?)] = []
@@ -65,7 +66,6 @@ private func saved(
 
 @Suite("Saved dish grouping")
 struct SavedDishGroupingTests {
-
     private let tipo = UUID()
     private let kisume = UUID()
 
@@ -92,7 +92,6 @@ struct SavedDishGroupingTests {
 @MainActor
 @Suite("Saved dishes store")
 struct SavedDishesStoreTests {
-
     private let tipo = UUID()
 
     @Test("A short page is the end of the list, and it groups on arrival")
@@ -233,7 +232,6 @@ struct SavedDishesStoreTests {
 
 @Suite("A save is one dish")
 struct EntryCardSavesTests {
-
     private func card(dishes: [(UUID, Bool)]) -> EntryCard {
         EntryCard(
             id: UUID(),
@@ -272,5 +270,66 @@ struct EntryCardSavesTests {
         #expect(card(dishes: [(dish, true)]).isEveryDishSaved)
         #expect(card(dishes: [(dish, true), (UUID(), false)]).isEveryDishSaved == false)
         #expect(card(dishes: []).isEveryDishSaved == false)
+    }
+}
+
+@MainActor
+@Suite("Saved shelf — filters and cities")
+struct SavedShelfFilterTests {
+    /// A shelf that holds a fixed list and pages it like the view does.
+    private final class Shelf: DishSaving, TestFake, @unchecked Sendable {
+        let dishes: [SavedDish]
+        init(_ dishes: [SavedDish]) { self.dishes = dishes }
+        func savedDishesPage(after cursor: PageCursor?, pageSize: Int) async throws -> Page<SavedDish> {
+            let start = cursor.flatMap { cursor in dishes.firstIndex { $0.dishID == cursor.id }.map { $0 + 1 } } ?? 0
+            return Page(items: Array(dishes.dropFirst(start).prefix(pageSize)), requestedLimit: pageSize)
+        }
+    }
+
+    private static func dish(_ name: String, score: Double?, city: String?, minutes: Double) -> SavedDish {
+        SavedDish(
+            dishID: UUID(), dishName: name, restaurantID: UUID(), restaurantName: "Somewhere",
+            restaurantCity: city, dishScore: score,
+            savedAt: Date(timeIntervalSince1970: 1_789_776_000 - minutes * 60)
+        )
+    }
+
+    private let shelf = Shelf([
+        dish("Ragù", score: 4.5, city: "Melbourne", minutes: 1),
+        dish("Toast", score: nil, city: "Melbourne", minutes: 2),
+        dish("Laksa", score: 3.0, city: "Sydney", minutes: 3),
+        dish("Burger", score: 6, city: "Gold Coast", minutes: 4)
+    ])
+
+    @Test("the Saved shelf narrows to a range and a city, read again from the top")
+    func savedFilter() async {
+        let store = SavedDishesStore(saves: shelf, pageSize: 2)
+        await store.loadIfNeeded()
+        #expect(store.dishes.count == 2)
+        await store.apply(SavedDishFilter(band: ScoreBand(lower: 4, upper: 5)))
+        #expect(store.dishes.map(\.dishName) == ["Ragù", "Burger"], "unscored out; the 6 clears an open top")
+        await store.apply(SavedDishFilter(band: ScoreBand(lower: 4, upper: 5), city: "melbourne"))
+        #expect(store.dishes.map(\.dishName) == ["Ragù"])
+        await store.apply(SavedDishFilter(city: "nowhere"))
+        #expect(store.phase == .empty)
+        await store.apply(.none)
+        #expect(store.dishes.count == 2 && store.phase == .ready)
+    }
+
+    @Test("search_saved's filter arguments: nulls when unused, no ceiling on an open top")
+    func savedParameters() {
+        #expect(SavedDishFilter.none.parameters["p_min_score"] == AnyJSON.null)
+        let filter = SavedDishFilter(band: ScoreBand(lower: 3, upper: 5), city: "melbourne")
+        #expect(filter.parameters["p_min_score"] == .double(3))
+        #expect(filter.parameters["p_max_score"] == AnyJSON.null)
+        #expect(filter.parameters["p_city"] == .string("melbourne"))
+    }
+
+    @Test("the shelf's cities: every city a saved dish is in, most first")
+    func savedCities() async throws {
+        let store = SavedDishesStore(saves: shelf)
+        await store.loadCities()
+        #expect(store.cities.map(\.city) == ["melbourne", "gold-coast", "sydney"])
+        #expect(store.cities.first?.entryCount == 2)
     }
 }
