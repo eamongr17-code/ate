@@ -259,7 +259,16 @@ struct AteShell: View {
                 saves: saveAction,
                 onPlace: { open(.place($0), from: .dish) },
                 onEntry: { open(.entry(EntryRoute(entryID: $0))) },
-                onProfile: { open(.profile($0)) }
+                onProfile: { open(.profile($0)) },
+                onDish: { open(.dish($0), from: .similar) },
+                onTag: { open(.tag($0)) }
+            )
+        case .tag(let tag):
+            TagDishesScreen(
+                tag: tag,
+                reads: services.dishExplore,
+                analytics: services.analytics,
+                onDish: { open(.dish($0), from: .tag) }
             )
         case .ratings(let score):
             // `Ratings.dc.html` drew the tab bar under it; since round 4 every pushed page hides it
