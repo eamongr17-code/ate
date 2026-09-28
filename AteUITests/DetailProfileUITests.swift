@@ -14,7 +14,7 @@ final class DetailProfileUITests: XCTestCase {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["ATE_PROFILE"] == "1", "a staging profile, on request")
         continueAfterFailure = true
         app = XCUIApplication()
-        app.launchArguments = ["-ate-ui-testing"]
+        app.launchArguments = ["-ate-ui-testing", "-ate-profile-detail"]
         app.launch()
         // Signed out: the feed, browsing.
         let browse = app.buttons["welcome.browse"].firstMatch

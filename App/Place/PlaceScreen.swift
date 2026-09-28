@@ -81,6 +81,10 @@ struct PlaceScreen: View {
         .ateNavigationBar() // the glass back button (round 5)
         .refreshable { await store.refresh() }
         .task { await store.load() }
+        #if DEBUG
+        .onAppear { DetailTimings.opened("place", hasPreview: store.previewName != nil) }
+        .onChange(of: store.isSettled) { _, settled in if settled { DetailTimings.settled("place") } }
+        #endif
     }
 
     // MARK: - Bands

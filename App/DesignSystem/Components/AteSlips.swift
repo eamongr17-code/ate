@@ -190,8 +190,11 @@ struct EntrySlip: View {
     /// and the place. Not the score — on a slip that is one person's, never the dish's aggregate.
     private func notePreview(_ dish: AteSlip.Dish) {
         guard dish.name.isEmpty == false else { return }
+        // A visit with photos means the dish has some (a dish's photos are its visits'); without
+        // any, this slip cannot tell, and the page reserves nothing for a hero it may not have.
         DishPreviews.shared.note(DishPreview(
-            dishID: dish.dishID, name: dish.name, restaurantID: slip.placeID, restaurantName: slip.place
+            dishID: dish.dishID, name: dish.name, restaurantID: slip.placeID, restaurantName: slip.place,
+            hasPhotos: slip.photos.isEmpty ? nil : true
         ))
     }
 

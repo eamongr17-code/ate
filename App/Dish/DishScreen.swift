@@ -33,49 +33,10 @@ struct DishScreen: View {
             // reviews inside a `VStack` under the header, the shape that locked the Feed's main
             // thread for minutes (`FeedScreen`).
             LazyVStack(alignment: .leading, spacing: 0) {
-                switch store.isSettled ? store.header : .loading {
-                case .loading:
-                    if let preview = store.preview {
-                        // What the row that opened it knew, drawn at once in the page's own layout
-                        // (round 6); the rest waits as still shapes at their final sizes.
-                        VStack(alignment: .leading, spacing: AteMetrics.loose) {
-                            previewHero(preview)
-                            title(name: preview.name, place: preview.restaurantName, placeID: preview.restaurantID)
-                            previewAggregate(preview)
-                        }
-                        .transition(.opacity)
-                        ReviewSkeleton()
-                            .padding(.horizontal, AteMetrics.listGutter)
-                            .padding(.top, AteMetrics.loose)
-                            .transition(.opacity)
-                    } else {
-                        VStack(alignment: .leading, spacing: AteMetrics.loose) {
-                            DishHeaderSkeleton()
-                            ReviewSkeleton()
-                        }
-                        .padding(.horizontal, AteMetrics.listGutter)
-                        .transition(.opacity)
-                    }
-                case .unavailable:
-                    AteEmptyState(title: "This dish\nisn't here.")
-                        .ateEmptyPlacement(top: AteDetailPage.contentTop)
-                case .unreachable:
-                    // The read never came back — not the same as a dish that is gone, and worth
-                    // another try.
-                    AteUnreachableState { Task { await store.retry() } }
-                        .ateEmptyPlacement(top: AteDetailPage.contentTop)
-                    .accessibilityIdentifier("dish.unreachable")
-                case .ready(let summary):
-                    VStack(alignment: .leading, spacing: AteMetrics.loose) {
-                        hero
-                        title(name: summary.name, place: summary.restaurantName, placeID: summary.restaurantID)
-                        aggregate(summary)
-                    }
-                    .transition(.opacity)
-                    // The reviews are rows of this stack, not a band inside the header's; each case
-                    // puts the header's `loose` gap above its first row itself.
-                    reviews
-                        .transition(.opacity)
+                if let preview = store.preview, store.isSettled == false || store.summary != nil {
+                    previewedPage(preview)
+                } else {
+                    page
                 }
             }
             .ateAnimation(AteMotion.fillIn, value: store.isSettled)
@@ -88,6 +49,44 @@ struct DishScreen: View {
         .ateNavigationBar(trailing: { saveButton })
         .refreshable { await store.refresh() }
         .task { await store.load() }
+        #if DEBUG
+        .onAppear { DetailTimings.opened("dish", hasPreview: store.preview != nil) }
+        .onChange(of: store.isSettled) { _, settled in if settled { DetailTimings.settled("dish") } }
+        #endif
+    }
+
+    /// Opened by id alone: a still skeleton of the whole page, then the page once, together.
+    @ViewBuilder
+    private var page: some View {
+        switch store.isSettled ? store.header : .loading {
+        case .loading:
+            VStack(alignment: .leading, spacing: AteMetrics.loose) {
+                DishHeaderSkeleton()
+                ReviewSkeleton()
+            }
+            .padding(.horizontal, AteMetrics.listGutter)
+            .transition(.opacity)
+        case .unavailable:
+            AteEmptyState(title: "This dish\nisn't here.")
+                .ateEmptyPlacement(top: AteDetailPage.contentTop)
+        case .unreachable:
+            // The read never came back — not the same as a dish that is gone, and worth
+            // another try.
+            AteUnreachableState { Task { await store.retry() } }
+                .ateEmptyPlacement(top: AteDetailPage.contentTop)
+            .accessibilityIdentifier("dish.unreachable")
+        case .ready(let summary):
+            VStack(alignment: .leading, spacing: AteMetrics.loose) {
+                hero
+                title(name: summary.name, place: summary.restaurantName, placeID: summary.restaurantID)
+                aggregate(summary)
+            }
+            .transition(.opacity)
+            // The reviews are rows of this stack, not a band inside the header's; each case
+            // puts the header's `loose` gap above its first row itself.
+            reviews
+                .transition(.opacity)
+        }
     }
 
     // MARK: - Bands
@@ -170,61 +169,6 @@ struct DishScreen: View {
             }
         }
         .padding(.horizontal, AteMetrics.listGutter)
-    }
-
-    // MARK: - Before the read (round 6)
-
-    /// The hero as the opening row knew it: its photo (the read may add the second), none when the
-    /// row knew the dish has none, and a still squircle when it could not tell.
-    @ViewBuilder
-    private func previewHero(_ preview: DishPreview) -> some View {
-        if let url = preview.photoURL {
-            PhotoCluster(
-                photos: [AtePhoto.remote(url)],
-                side: Self.heroPhoto,
-                topPadding: 6,
-                bottomPadding: 0,
-                overlap: Self.heroOverlap,
-                angles: AtePhotoAngles.dishHero
-            )
-            .padding(.leading, AteMetrics.listGutter - 6 + 2)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } else if preview.hasPhotos != false {
-            RoundedRectangle(cornerRadius: AteMetrics.photoRadius(side: Self.heroPhoto), style: .continuous)
-                .fill(AtePalette.automatic.hairline)
-                .frame(width: Self.heroPhoto, height: Self.heroPhoto)
-                .padding(.top, 6)
-                .padding(.leading, AteMetrics.listGutter + 2)
-                .accessibilityHidden(true)
-        }
-    }
-
-    /// The aggregate as the opening row printed it — or its shape, still, until the read answers.
-    private func previewAggregate(_ preview: DishPreview) -> some View {
-        HStack(alignment: .center, spacing: 14) {
-            if let score = preview.score {
-                Text(ScoreFormat.average(score))
-                    .ateText(.dishScore)
-                    .monospacedDigit()
-                    .fixedSize()
-                    .accessibilityLabel("Rated \(ScoreFormat.average(score))")
-                VStack(alignment: .leading, spacing: 6) {
-                    starRow(for: score)
-                    AteSkeletonBar(width: 72, height: 12, palette: .automatic)
-                }
-            } else {
-                // The number's own box at 64, and the stars' row and the people line beside it.
-                AteSkeletonBar(width: 96, height: 52, palette: .automatic)
-                    .frame(height: AteTextStyle.dishScore.lineBox(dynamicTypeSize))
-                VStack(alignment: .leading, spacing: 6) {
-                    AteSkeletonBar(width: 108, height: 18, palette: .automatic)
-                    AteSkeletonBar(width: 72, height: 12, palette: .automatic)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, AteMetrics.listGutter)
-        .accessibilityHidden(preview.score == nil)
     }
 
     /// `gap:14px` — the number at 64, and beside it the star row and how many people.
@@ -355,144 +299,95 @@ struct DishScreen: View {
     }
 }
 
-/// **One review: who, and how much** (round 4) — a 36pt avatar, the handle, and their score as the
-/// butter pill at the right. No words: the words are one tap away, in the entry.
-///
-/// Two doors, side by side rather than nested (a button inside a button's label is never heard):
-/// the avatar and handle open **the person**, the rest of the row opens **the visit** it came out
-/// of. A legacy review carries no `entry_id` (0018) and a blocked or deleted author no name — that
-/// half is simply not a control then, because a control that goes nowhere is worse than none.
-struct DishReviewRow: View {
-    let review: DishReview
-    let onOpen: () -> Void
-    var onProfile: (() -> Void)?
+// MARK: - Before the read (round 6)
 
-    /// `padding:14px 0` around a 36pt avatar, `gap:12px`.
-    private static let avatar: CGFloat = 36
-    private static let padding: CGFloat = 14
-
-    var body: some View {
-        VStack(spacing: 0) {
-            AteHairline()
-            HStack(spacing: 0) {
-                person
-                visit
+extension DishScreen {
+    /// **Opened from a row that knew the dish** (round 6): one header, drawn at once from the preview
+    /// and filled in place as the reads answer — the same views throughout, so the name never
+    /// re-draws and anything that does move (a hero the row could not know about) glides, never
+    /// pops. The reviews wait as still rows at their own size.
+    @ViewBuilder
+    private func previewedPage(_ preview: DishPreview) -> some View {
+        let summary = store.isSettled ? store.summary : nil
+        VStack(alignment: .leading, spacing: AteMetrics.loose) {
+            if summary != nil {
+                hero
+            } else {
+                previewHero(preview)
+            }
+            title(
+                name: summary?.name ?? preview.name,
+                place: summary?.restaurantName ?? preview.restaurantName,
+                placeID: summary?.restaurantID ?? preview.restaurantID
+            )
+            if let summary {
+                aggregate(summary)
+            } else {
+                previewAggregate(preview)
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(review.isMine ? "dish.review.mine" : "dish.review")
+        if summary != nil {
+            reviews
+                .transition(.opacity)
+        } else {
+            ReviewSkeleton()
+                .padding(.horizontal, AteMetrics.listGutter)
+                .padding(.top, AteMetrics.loose)
+                .transition(.opacity)
+        }
     }
 
+    /// The hero as the opening row knew it: its photo (the read may add the second), a still
+    /// squircle when it knew there are photos but not which, and nothing when it could not tell —
+    /// a hero that then arrives glides the page down rather than popping in.
     @ViewBuilder
-    private var person: some View {
-        let label = HStack(spacing: AteMetrics.regular) {
-            AteAvatar(
-                userID: review.author?.id ?? review.reviewID,
-                handle: handle,
-                side: Self.avatar,
-                textStyle: .avatarInitialMedium
+    private func previewHero(_ preview: DishPreview) -> some View {
+        if let url = preview.photoURL {
+            PhotoCluster(
+                photos: [AtePhoto.remote(url)],
+                side: Self.heroPhoto,
+                topPadding: 6,
+                bottomPadding: 0,
+                overlap: Self.heroOverlap,
+                angles: AtePhotoAngles.dishHero
             )
-            Text(name)
-                .ateText(.controlSmall)
-                .lineLimit(1)
-                .truncationMode(.tail)
-        }
-        .padding(.vertical, Self.padding)
-        .padding(.trailing, AteMetrics.regular)
-        .contentShape(.rect)
-        if let onProfile {
-            Button(action: onProfile) { label }
-                .buttonStyle(.plain)
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("dish.review.person")
-        } else {
-            label.accessibilityElement(children: .combine)
-        }
-    }
-
-    @ViewBuilder
-    private var visit: some View {
-        let label = HStack(spacing: 0) {
-            Spacer(minLength: 0)
-            score
-        }
-        .frame(maxWidth: .infinity, minHeight: Self.avatar + Self.padding * 2)
-        .contentShape(.rect)
-        if review.entryID == nil {
-            label
-        } else {
-            Button(action: onOpen) { label }
-                .buttonStyle(.plain)
-                .accessibilityLabel(scoreLabel)
-                .accessibilityIdentifier("dish.review.entry")
-        }
-    }
-
-    /// "You" for your own, the handle for everybody else's. A missing author is blocked or gone —
-    /// the review still stands, it just loses its name (contract).
-    private var name: String {
-        if review.isMine { return "You" }
-        guard let username = review.author?.username else { return "Someone" }
-        return "@\(username)"
-    }
-
-    private var handle: String { review.author?.username ?? "?" }
-
-    private var scoreLabel: String {
-        review.score.map { "\(name), \(ScoreFormat.halfStep($0.value))" } ?? name
-    }
-
-    /// Design rule 7: an unrated review leaves the score slot empty — no number, no zero, no mark.
-    @ViewBuilder
-    private var score: some View {
-        if let score = review.score {
-            ScoreToken(rating: score, prose: 16)
-        }
-    }
-}
-
-/// The header before it has arrived — the shape of a dish, not a spinner.
-private struct DishHeaderSkeleton: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: AteMetrics.loose) {
-            RoundedRectangle(cornerRadius: 42, style: .continuous)
+            .padding(.leading, AteMetrics.listGutter - 6 + 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else if preview.hasPhotos == true {
+            RoundedRectangle(cornerRadius: AteMetrics.photoRadius(side: Self.heroPhoto), style: .continuous)
                 .fill(AtePalette.automatic.hairline)
-                .frame(width: 150, height: 150)
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(AtePalette.automatic.hairline)
-                .frame(width: 240, height: 36)
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(AtePalette.automatic.hairline)
-                .frame(width: 96, height: 16)
+                .frame(width: Self.heroPhoto, height: Self.heroPhoto)
+                .padding(.top, 6)
+                .padding(.leading, AteMetrics.listGutter + 2)
+                .accessibilityHidden(true)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityHidden(true)
     }
-}
 
-/// …and the reviews, drawn as the rows they are waiting for.
-private struct ReviewSkeleton: View {
-    var body: some View {
-        VStack(spacing: 0) {
-            ForEach(0..<3, id: \.self) { _ in
-                VStack(spacing: 0) {
-                    AteHairline()
-                    HStack(spacing: AteMetrics.regular) {
-                        Circle()
-                            .fill(AtePalette.automatic.hairline)
-                            .frame(width: 36, height: 36)
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(AtePalette.automatic.hairline)
-                            .frame(width: 88, height: 12)
-                        Spacer(minLength: 0)
-                        Capsule()
-                            .fill(AtePalette.automatic.hairline)
-                            .frame(width: 46, height: 20)
-                    }
-                    .padding(.vertical, 14)
+    /// The aggregate as the opening row printed it — or its shape, still, until the read answers.
+    private func previewAggregate(_ preview: DishPreview) -> some View {
+        HStack(alignment: .center, spacing: 14) {
+            if let score = preview.score {
+                Text(ScoreFormat.average(score))
+                    .ateText(.dishScore)
+                    .monospacedDigit()
+                    .fixedSize()
+                    .accessibilityLabel("Rated \(ScoreFormat.average(score))")
+                VStack(alignment: .leading, spacing: 6) {
+                    starRow(for: score)
+                    AteSkeletonBar(width: 72, height: 12, palette: .automatic)
+                }
+            } else {
+                // The number's own box at 64, and the stars' row and the people line beside it.
+                AteSkeletonBar(width: 96, height: 52, palette: .automatic)
+                    .frame(height: AteTextStyle.dishScore.lineBox(dynamicTypeSize))
+                VStack(alignment: .leading, spacing: 6) {
+                    AteSkeletonBar(width: 108, height: 18, palette: .automatic)
+                    AteSkeletonBar(width: 72, height: 12, palette: .automatic)
                 }
             }
+            Spacer(minLength: 0)
         }
-        .accessibilityHidden(true)
+        .padding(.horizontal, AteMetrics.listGutter)
+        .accessibilityHidden(preview.score == nil)
     }
 }

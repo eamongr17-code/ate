@@ -20,6 +20,46 @@ enum SlowDetailReads {
     }
 }
 
+/// **`-ate-profile-detail`** — how long a dish or place page takes to settle, measured in the app
+/// (a UI test's own clock waits for the app to go idle, so it cannot see a page draw before its read
+/// answers). One line per open, appended to `Documents/detail-timings.txt` for a drive to collect.
+@MainActor
+enum DetailTimings {
+    static let argument = "-ate-profile-detail"
+    private static var openedAt: [String: ContinuousClock.Instant] = [:]
+    private static var previewed: [String: Bool] = [:]
+
+    private static var isOn: Bool { ProcessInfo.processInfo.arguments.contains(argument) }
+
+    static func opened(_ page: String, hasPreview: Bool) {
+        guard isOn else { return }
+        openedAt[page] = .now
+        previewed[page] = hasPreview
+    }
+
+    static func settled(_ page: String) {
+        guard isOn, let start = openedAt.removeValue(forKey: page) else { return }
+        let elapsed = ContinuousClock.now - start
+        let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
+        let first = previewed[page] == true ? "at_once" : "at_settle"
+        append("TIMING \(page) settled_ms=\(ms) first_content=\(first)\n")
+    }
+
+    private static func append(_ line: String) {
+        guard let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        else { return }
+        let file = folder.appendingPathComponent("detail-timings.txt")
+        let data = Data(line.utf8)
+        if let handle = try? FileHandle(forWritingTo: file) {
+            handle.seekToEndOfFile()
+            handle.write(data)
+            try? handle.close()
+        } else {
+            try? data.write(to: file)
+        }
+    }
+}
+
 private struct SlowDishPages: DishPageReading {
     let reads: any DishPageReading
 
