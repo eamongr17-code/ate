@@ -172,6 +172,22 @@ final class DetailRound5UITests: XCTestCase {
         XCTAssertEqual(title.frame.minY, top, accuracy: 0.5, "and the name did not move")
     }
 
+    /// The top bar's glass group waits for its controls: while the dish's read is held back there is
+    /// no glass in the corner at all (never an empty capsule), and once it answers the glass is there
+    /// around the bookmark, at its full width.
+    func testTheCornerGlassWaitsForItsControls() {
+        launch(["-ate-open-feed", "-ate-slow-detail"])
+        let row = app.descendants(matching: .any).matching(identifier: "feed.slip.dish").firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        let controls = app.descendants(matching: .any).matching(identifier: "nav.controls").firstMatch
+        XCTAssertTrue(app.buttons["dish.place"].firstMatch.waitForExistence(timeout: 1.5), "the page is up")
+        XCTAssertFalse(controls.exists, "no glass before there is anything to put in it")
+        XCTAssertTrue(app.buttons["dish.save"].waitForExistence(timeout: 8), "the read answers")
+        XCTAssertTrue(controls.waitForExistence(timeout: 2), "and the glass comes with the bookmark")
+        XCTAssertGreaterThanOrEqual(controls.frame.width, 64, "a lone control sits in a 64-wide pill")
+    }
+
     /// The same for a place opened from a slip's pin line.
     func testAPlacePageDrawsItsNameAtOnce() {
         launch(["-ate-open-feed", "-ate-slow-detail"])
