@@ -137,13 +137,18 @@ struct AteDateRange: View {
                 .frame(width: 2, height: tick)
                 .offset(x: (CGFloat(index) + 0.5) * column - 1, y: (Self.bandHeight - tick) / 2)
             if isYear || index == months.count - 1 {
+                // The current month's label ends on the ruler's edge rather than running off it.
+                let isLast = index == months.count - 1
                 Text(isYear ? String(month.year) : month.shortName())
                     .ateText(.meta)
                     .monospacedDigit()
                     .foregroundStyle(palette.muted)
                     .fixedSize()
-                    .frame(width: column * 4)
-                    .offset(x: (CGFloat(index) + 0.5) * column - column * 2, y: Self.bandHeight + 6)
+                    .frame(width: column * 4, alignment: isLast ? .trailing : .center)
+                    .offset(
+                        x: isLast ? width - column * 4 : (CGFloat(index) + 0.5) * column - column * 2,
+                        y: Self.bandHeight + 6
+                    )
                     .accessibilityHidden(true)
             }
         }
