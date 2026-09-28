@@ -101,6 +101,23 @@ test('top_ate: saved is the viewer\'s; signed out reads the same rows with saved
   }
 });
 
+test('top_ate: two scored lines from ONE person do not qualify a dish', async () => {
+  // Cleo logs her Tiramisu again (5): two scored lines, 5.5 printed — but one person.
+  const again = await w.visit(800, U.cleo, P.tipo, receipt(['Tiramisu', 5]), ago(0.5));
+  try {
+    assert.deepEqual((await topAte(U.dan, 'melbourne', 3)).map((r) => K(r.dish_id)), ['A', 'C', 'D']);
+  } finally {
+    await as(U.cleo, () => db.query(`select public.delete_entry($1)`, [again]));
+  }
+  // A second person's scored line qualifies it.
+  const other = await w.visit(801, U.dan, P.tipo, receipt(['Tiramisu', 5]), ago(0.5));
+  try {
+    assert.deepEqual((await topAte(U.bob, 'melbourne', 3)).map((r) => K(r.dish_id)), ['B', 'A', 'C']);
+  } finally {
+    await as(U.dan, () => db.query(`select public.delete_entry($1)`, [other]));
+  }
+});
+
 // ─── Because you loved ───────────────────────────────────────────────────────────────────────────
 test('because_you_loved: the newest 5.0-or-6 dish, and similar dishes the viewer never logged', async () => {
   const all = await loved(U.alice, null);
@@ -168,6 +185,19 @@ test('new_to_record: p_since null reads the last 7 days; signed out is the brows
     assert.deepEqual(await news(null, null, null, 20), mine.map((r) => ({ ...r, saved: false })));
   } finally {
     await as(U.dan, () => db.query(`select public.unsave_dish($1)`, [D.A]));
+  }
+});
+
+test('new_to_record: p_since is clamped to 90 days back', async () => {
+  const old = await w.visit(802, U.bob, P.marion, receipt(['Doughnut', 4]), ago(120));
+  const recent = await w.visit(803, U.bob, P.marion, receipt(['Croissant', 4]), ago(80));
+  try {
+    const got = (await news(U.dan, null, '2000-01-01T00:00:00Z', 20)).map((r) => r.name);
+    assert.ok(got.includes('Croissant'), '80 days back is inside the clamp');
+    assert.ok(!got.includes('Doughnut'), '120 days back is outside it, whatever p_since says');
+  } finally {
+    await as(U.bob, () => db.query(`select public.delete_entry($1)`, [old]));
+    await as(U.bob, () => db.query(`select public.delete_entry($1)`, [recent]));
   }
 });
 

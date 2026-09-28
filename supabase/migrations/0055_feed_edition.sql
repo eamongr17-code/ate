@@ -7,7 +7,8 @@
 -- ─── Reads (all new: ADDITIVE). All take p_city (a cities.id; NULL = everywhere), like get_entry_feed.
 --   top_ate(p_city, p_limit 8) → (rank, dish_id, name, restaurant_id, restaurant_name, suburb, score,
 --       review_count, cover_url, saved). Dishes with a line in the window, ranked by their ALL-TIME
---       printed score; a dish needs 2 SCORED lines to be ranked. Window: the last 7 days; if fewer than
+--       printed score; a dish needs scored lines from 2 DIFFERENT people to be ranked (one person
+--       logging a dish twice does not qualify it). Window: the last 7 days; if fewer than
 --       p_limit dishes qualify, the last 30; then all time (in the city). The whole window ranks
 --       together — widening never pins the 7-day dishes on top. Order within a printed score:
 --       photographed first (a tie-break, never a filter), review_count desc, name, id.
@@ -18,7 +19,7 @@
 --       has never logged. If the newest anchor has no such row, the next-newest is tried (up to 5).
 --       Signed out, or no 5.0 yet → [].
 --   new_to_record(p_city, p_since, p_limit 6) → (dish_id, name, restaurant_name, suburb, kind, cover_url,
---       saved, at). What landed after p_since (the client's last open; NULL → 7 days): a dish scored 6
+--       saved, at). What landed after p_since (the client's last open; NULL → 7 days; never more than 90 days back): a dish scored 6
 --       ('six'), else scored 5.0 ('five'), else whose FIRST line is after p_since ('new'). One row per
 --       dish, its strongest kind; `at` = that event's line time (the latest 6 / 5.0, or the first line).
 --       The viewer's own lines are not news to them. Order: six, five, new, then `at` desc, dish_id.
@@ -126,7 +127,7 @@ begin
     from public.reviews v
     where v_places is null or v.restaurant_id = any(v_places)
     group by v.dish_id
-    having count(v.score) >= 2
+    having count(distinct v.reviewer_id) filter (where v.score is not null) >= 2
   ),
   live as (
     select s.dish_id, s.score, s.review_count, s.last_at, d.name, d.restaurant_id
@@ -171,7 +172,7 @@ end;
 $$;
 
 comment on function public.top_ate(text, int) is
-  'Round 8 (0055): The Top Ate — dishes with a line in the last 7 days (fewer than p_limit → 30 days → all time), ranked by ALL-TIME printed score; needs 2 scored lines. Within a score: photographed first, review_count desc, name, id. rank 1…n. p_limit default 8, max 20. Numbers over lines the viewer can see; saved = the viewer''s save. anon → browse twin.';
+  'Round 8 (0055): The Top Ate — dishes with a line in the last 7 days (fewer than p_limit → 30 days → all time), ranked by ALL-TIME printed score; needs scored lines from 2 different people. Within a score: photographed first, review_count desc, name, id. rank 1…n. p_limit default 8, max 20. Numbers over lines the viewer can see; saved = the viewer''s save. anon → browse twin.';
 
 -- ===========================================================================
 -- 3. Because you loved <dish>.
@@ -301,7 +302,8 @@ as $$
 #variable_conflict use_column
 declare
   v_uid    uuid        := auth.uid();
-  v_since  timestamptz := coalesce(p_since, now() - interval '7 days');
+  -- the client's last open, NULL → 7 days; clamped to 90 days back (a long absence is not a scan of everything)
+  v_since  timestamptz := greatest(coalesce(p_since, now() - interval '7 days'), now() - interval '90 days');
   v_lim    int         := least(greatest(coalesce(p_limit, 6), 1), 20);
   v_places uuid[];
 begin
@@ -356,7 +358,7 @@ end;
 $$;
 
 comment on function public.new_to_record(text, timestamptz, int) is
-  'Round 8 (0055): what landed after p_since (NULL → 7 days ago), others'' lines only: a dish scored 6 (kind six), else 5.0 (five), else whose first line is after p_since (new). One row per dish, strongest kind; at = that line''s time. Order six, five, new, then at desc. p_limit default 6, max 20. anon → browse twin.';
+  'Round 8 (0055): what landed after p_since (NULL → 7 days ago; clamped to 90 days back), others'' lines only: a dish scored 6 (kind six), else 5.0 (five), else whose first line is after p_since (new). One row per dish, strongest kind; at = that line''s time. Order six, five, new, then at desc. p_limit default 6, max 20. anon → browse twin.';
 
 -- ===========================================================================
 -- 5. Cravings — what a viewer follows; one Feed shelf each.
