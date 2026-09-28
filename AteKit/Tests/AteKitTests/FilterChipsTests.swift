@@ -95,6 +95,22 @@ struct FilterChipsTests {
         #expect(await asked.drafts == [3, 4])
     }
 
+    private struct CountFailed: Error {}
+
+    @Test("a count that fails to read shows no number, never the last draft's")
+    func failedCount() async {
+        let count = LiveCount<Int>(pause: .milliseconds(5)) { draft in
+            if draft == 2 { throw CountFailed() }
+            return draft * 10
+        }
+        count.request(1)
+        await count.settle()
+        #expect(count.count == 10)
+        count.request(2)
+        await count.settle()
+        #expect(count.count == nil)
+    }
+
     @Test("an in-memory journal counts what the query keeps")
     func inMemoryCount() async throws {
         let service = InMemoryEntryService(entries: [Self.card(2026, 9, 1), Self.card(2026, 8, 1)])

@@ -88,6 +88,10 @@ public final class JournalCalendarStore {
         public let query: JournalQuery
     }
 
+    /// Bumped each time the days go stale (a write, a delete, a pull to refresh) — what a month
+    /// divider keys its read on, so a filtered count dropped by the refresh is read again.
+    public private(set) var revision = 0
+
     @ObservationIgnored private let querying: (any JournalQuerying)?
     @ObservationIgnored private let calendar: Calendar
     @ObservationIgnored private var reads: [Int: Task<Void, Never>] = [:]
@@ -126,12 +130,13 @@ public final class JournalCalendarStore {
     }
 
     /// The first year you wrote in — the oldest entry's (`my_entries` oldest first, one row).
-    public func loadFirstYear() async {
-        guard firstYear == nil, let querying else { return }
-        let oldest = try? await querying.myEntries(JournalQuery(sort: .oldest), after: nil, pageSize: 1)
-        if let first = oldest?.items.first {
-            firstYear = calendar.component(.year, from: first.createdAt)
-        }
+    /// `force` asks again — after a delete, the oldest entry may be gone, and the calendar must not
+    /// page back to a year with nothing left in it. No entries at all is no first year.
+    public func loadFirstYear(force: Bool = false) async {
+        guard force || firstYear == nil, let querying else { return }
+        guard let oldest = try? await querying.myEntries(JournalQuery(sort: .oldest), after: nil, pageSize: 1)
+        else { return }
+        firstYear = oldest.items.first.map { calendar.component(.year, from: $0.createdAt) }
     }
 
     /// A month divider's filtered count — how many of the month's entries `query` keeps: the month's
@@ -152,12 +157,13 @@ public final class JournalCalendarStore {
     /// the fresh reads land, so nothing blinks.
     public func invalidate() {
         generation += 1
+        revision += 1
         filteredCounts = [:]
         reads = [:]
         countReads = []
         let years = loadedYears
         Task {
-            await loadFirstYear()
+            await loadFirstYear(force: true)
             for year in years.sorted(by: >) { await loadYear(year, force: true) }
         }
     }

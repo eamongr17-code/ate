@@ -42,7 +42,10 @@ struct JournalChipSheet: View {
             value: value,
             count: live.count,
             noun: shelf == .journal ? .entries : .dishes,
-            onClear: { draft = draft.clearing(chip) },
+            onClear: {
+                AteTelemetry.record(BrowseEvents.chipCleared(chip, on: shelf == .journal ? .journal : .saved))
+                draft = draft.clearing(chip)
+            },
             onShow: {
                 onShow(draft)
                 dismiss()

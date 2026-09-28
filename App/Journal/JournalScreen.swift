@@ -340,7 +340,7 @@ struct JournalScreen: View {
                 isFiltered: query.hasFilters
             )
         )
-        .task(id: "\(month.year)-\(month.month)-\(query.hashValue)") {
+        .task(id: "\(month.year)-\(month.month)-\(query.hashValue)-\(days.revision)") {
             await days.loadYear(month.year)
             if query.hasFilters { await days.loadFilteredCount(month, query: query) }
         }

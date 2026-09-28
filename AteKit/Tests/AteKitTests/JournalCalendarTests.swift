@@ -142,10 +142,10 @@ struct JournalCalendarTests {
 
     @Test("the store reads a year once, totals a month, and counts a filtered month")
     func store() async {
+        let older = Self.card(2025, 3, 1, scores: [4])
         let service = InMemoryEntryService(entries: [
             Self.card(2026, 9, 2, scores: [5]), Self.card(2026, 9, 2, scores: [3]),
-            Self.card(2026, 9, 16, scores: [6]), Self.card(2026, 8, 20, scores: [2]),
-            Self.card(2025, 3, 1, scores: [4])
+            Self.card(2026, 9, 16, scores: [6]), Self.card(2026, 8, 20, scores: [2]), older
         ])
         let store = JournalCalendarStore(querying: InMemoryJournalQuery(entries: service, calendar: Self.utc),
                                          calendar: Self.utc)
@@ -165,6 +165,10 @@ struct JournalCalendarTests {
 
         await store.loadFirstYear()
         #expect(store.firstYear == 2025)
+        // Its only 2025 entry deleted: the calendar no longer pages back to 2025.
+        _ = try? await service.delete(entryID: older.id)
+        await store.loadFirstYear(force: true)
+        #expect(store.firstYear == 2026)
     }
 
     // MARK: - A day's tap
@@ -227,6 +231,7 @@ struct JournalCalendarTests {
             try? await Task.sleep(for: .milliseconds(5))
         }
         #expect(store.calendarDays.total(of: september) == 0, "the deleted day leaves the calendar")
+        #expect(store.calendarDays.revision > 0, "the dividers are told to read again")
     }
 
     @Test("the calendar's events: which view, how it was reached, where a day landed")

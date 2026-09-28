@@ -37,8 +37,14 @@ public final class LiveCount<Draft: Hashable & Sendable> {
         asking = Task { [weak self] in
             try? await Task.sleep(for: pause)
             guard Task.isCancelled == false else { return }
-            guard let answer = try? await read(draft) else { return }
+            let answer = try? await read(draft)
             guard Task.isCancelled == false, let self else { return }
+            // A failed read shows no number rather than the last draft's — never a count that is
+            // not this draft's.
+            guard let answer else {
+                if self.draft == draft { self.count = nil }
+                return
+            }
             self.answers[draft] = answer
             if self.draft == draft { self.count = answer }
         }
