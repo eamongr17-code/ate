@@ -125,7 +125,7 @@ struct DishExploreSections: View {
 /// **One dish like this one** — `width:150px; gap:6px`: a 150 photo at radius 26, the dish (15/700,
 /// two lines at most), then its place and its score (13, muted). Straight, never tilted: it is a row
 /// of thumbnails, not a cluster (design rule 6). A dish nobody has scored prints its place alone —
-/// no star, no dot, no zero (rule 7).
+/// no star, no zero (rule 7).
 struct SimilarDishCard: View {
     let dish: SimilarDish
     var letter: DishLetter?
@@ -178,23 +178,22 @@ struct SimilarDishCard: View {
         .accessibilityIdentifier("dish.explore.card")
     }
 
-    /// `Bar Carolina · ★4.4` — `gap:4px` either side of the star. The place gives way first; the
-    /// score never does.
+    /// The place left and `★ 4.4` right, across the card's width — two values, no dot between them
+    /// (design rule 2; the artboard's " · " is overruled). `gap:4px` from the star to its number. The
+    /// place gives way first; the score never does.
     private var meta: some View {
-        HStack(spacing: AteMetrics.tight) {
-            HStack(spacing: 0) {
-                Text(dish.restaurantName)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                if dish.score != nil {
-                    Text(" ·").fixedSize()
-                }
-            }
+        HStack(spacing: AteMetrics.snug) {
+            Text(dish.restaurantName)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
             if let score = dish.score {
-                AteIcon.starFilled.view(size: Self.star)
-                Text(ScoreFormat.average(score))
-                    .monospacedDigit()
-                    .fixedSize()
+                HStack(spacing: AteMetrics.tight) {
+                    AteIcon.starFilled.view(size: Self.star)
+                    Text(ScoreFormat.average(score))
+                        .monospacedDigit()
+                }
+                .fixedSize()
             }
         }
         .ateTextExact(.exploreCardMeta)
