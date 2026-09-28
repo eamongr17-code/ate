@@ -96,7 +96,7 @@ public final class SearchStore {
         return nil
     }
 
-    private struct ScopeState {
+    struct ScopeState {
         var rows: SearchRows
         var phase: Phase = .idle
         var query = ""
@@ -110,7 +110,7 @@ public final class SearchStore {
         var answered: String?
     }
 
-    private var states: [SearchScope: ScopeState] = [:]
+    var states: [SearchScope: ScopeState] = [:]
     private var pending: Task<Void, Never>?
     /// Bumped on every query or scope change; a page that arrives with a stale generation is dropped.
     private var generation = 0
@@ -251,39 +251,6 @@ public final class SearchStore {
         }
     }
 
-    // MARK: - The shelf, from here
-
-    /// The bookmark on a Saved row. The row leaves at the tap, like it does on the shelf, and comes
-    /// back where it was if the unsave is refused. `perform` is the shared ``SaveAction``'s own
-    /// unsave, so the round trip, the haptic and `save_toggled` are the shelf's, not a copy of them.
-    public func unsave(_ dish: SavedDish, perform: () async -> Bool) async {
-        let removed = removeSaved(dish.dishID)
-        guard await perform() == false, let removed else { return }
-        restoreSaved(removed.dish, at: removed.index)
-    }
-
-    @discardableResult
-    private func removeSaved(_ dishID: UUID) -> (dish: SavedDish, index: Int)? {
-        guard var state = states[.saved], case .saved(var dishes) = state.rows,
-              let index = dishes.firstIndex(where: { $0.dishID == dishID }) else { return nil }
-        let dish = dishes.remove(at: index)
-        state.rows = .saved(dishes)
-        if dishes.isEmpty, state.phase == .ready { state.phase = .empty }
-        states[.saved] = state
-        if scope == .saved { adopt(state) }
-        return (dish, index)
-    }
-
-    private func restoreSaved(_ dish: SavedDish, at index: Int) {
-        guard var state = states[.saved], case .saved(var dishes) = state.rows,
-              dishes.contains(where: { $0.dishID == dish.dishID }) == false else { return }
-        dishes.insert(dish, at: min(index, dishes.count))
-        state.rows = .saved(dishes)
-        state.phase = .ready
-        states[.saved] = state
-        if scope == .saved { adopt(state) }
-    }
-
     // MARK: - Running a query
 
     private var isBelowMinimumLength: Bool {
@@ -365,13 +332,6 @@ public final class SearchStore {
         }
     }
 
-    /// A cancelled request surfaces three ways: Swift's own error, URLSession's, or neither — with the
-    /// task simply marked cancelled.
-    static func isCancellation(_ error: any Error) -> Bool {
-        if error is CancellationError || Task.isCancelled { return true }
-        return (error as? URLError)?.code == .cancelled
-    }
-
     /// One page, whichever scope asked for it. A `nil` query is the standing list: Nearby for
     /// Places, the whole shelf for Saved, and nothing at all for the other two.
     private func page(for scope: SearchScope, query: String?, after cursor: SearchCursor?) async throws -> LoadedPage {
@@ -437,54 +397,16 @@ public final class SearchStore {
         if scope == self.scope { adopt(state) }
     }
 
-    private func adopt(_ state: ScopeState) {
+    func adopt(_ state: ScopeState) {
         rows = state.rows
         phase = state.phase
         hasReachedEnd = state.hasReachedEnd
         isShowingNearby = state.isNearby && state.rows.isEmpty == false
     }
 
-    /// Appends a page, dropping anything already on screen — two windows onto one ranked list
-    /// overlap by construction (`search_all` has no offset), and a duplicated row is a row a tap
-    /// cannot identify.
-    static func appending(_ page: SearchRows, to existing: SearchRows) -> SearchRows {
-        switch (existing, page) {
-        case (.places(let old), .places(let new)):
-            var seen = Set(old.map(\.id))
-            return .places(old + new.filter { seen.insert($0.id).inserted })
-        case (.dishes(let old), .dishes(let new)):
-            var seen = Set(old.map(\.dishID))
-            return .dishes(old + new.filter { seen.insert($0.dishID).inserted })
-        case (.people(let old), .people(let new)):
-            var seen = Set(old.map(\.userID))
-            return .people(old + new.filter { seen.insert($0.userID).inserted })
-        case (.saved(let old), .saved(let new)):
-            var seen = Set(old.map(\.dishID))
-            return .saved(old + new.filter { seen.insert($0.dishID).inserted })
-        default:
-            return page
-        }
-    }
-
-    static func failureMessage(_ error: any Error) -> String {
-        (error as? AteAPIError) == .notAuthenticated ? "Nobody's\nsigned in." : "Couldn't\nsearch."
-    }
-
     /// Test seam: waits for the scheduled search to finish, so a debounce can be asserted rather
     /// than slept through.
     func settle() async {
         await pending?.value
-    }
-}
-
-extension SearchStore: SavedDishObserving {
-    /// An unsave anywhere takes the dish off this shelf too. A save anywhere makes the shelf stale
-    /// rather than guessing where the new row sorts: it is read again the next time it is shown.
-    public func savedDishChanged(dishID: UUID, isSaved: Bool) {
-        if isSaved {
-            states[.saved]?.answered = nil
-        } else {
-            removeSaved(dishID)
-        }
     }
 }
