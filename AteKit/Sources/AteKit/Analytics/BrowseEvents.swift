@@ -24,6 +24,7 @@ public enum BrowseEvents {
         if filter.band.minScore != nil { names.append("min_score") }
         if filter.band.maxScore != nil { names.append("max_score") }
         if filter.city != nil { names.append("city") }
+        if filter.window.isAll == false { names.append("window") }
         return AnalyticsEvent(name: "saved_filtered", parameters: [
             "filters": names.isEmpty ? "none" : names.joined(separator: ","),
             "result_count": String(resultCount)

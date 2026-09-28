@@ -67,6 +67,13 @@ public struct JournalQueryClient: JournalQuerying {
         // Round 5 (0047): the top of the score range (open at 5.0, so never sent there) and a city.
         parameters["p_max_score"] = query.maxScore.map { .double($0) } ?? .null
         parameters["p_city"] = query.city.map { .string($0) } ?? .null
+        // Round 6: the date window — the same `p_from` / `p_to` the old month filter used, days
+        // inclusive, in the device's zone.
+        if query.window.isAll == false {
+            let window = query.window.parameters(timeZone: timeZone)
+            parameters["p_from"] = window["p_from"] ?? .null
+            parameters["p_to"] = window["p_to"] ?? .null
+        }
         if let period = query.period {
             let days = period.days()
             parameters["p_from"] = .string(Self.day(days.from))

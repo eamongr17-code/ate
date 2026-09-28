@@ -9,6 +9,8 @@ struct AteBrowseFilterDraft: Hashable {
     var band: ScoreBand = .all
     /// A city slug, or `nil` for everywhere.
     var city: String?
+    /// The months (round 6) — the visit day on the Journal and Search, the saved day on Saved.
+    var window: DateWindow = .all
 }
 
 /// **The one filter sheet** — the Journal's, Saved's and Search's alike: the order as a segment
@@ -47,6 +49,7 @@ struct AteBrowseFilterSheet: View {
                 )
             }
             AteScoreRange(band: $draft.band)
+            AteDateRange(window: $draft.window)
             // Everywhere and the current choice, at the least — a list that has not arrived yet (or
             // failed) still lets a city be taken off.
             AteCityPicker(

@@ -167,6 +167,8 @@ public struct SearchClient: SearchReading {
         if let minimumScore = filters.minimumScore { parameters["p_min_score"] = .double(minimumScore) }
         if let maximumScore = filters.maximumScore { parameters["p_max_score"] = .double(maximumScore) }
         if let city = filters.city { parameters["p_city"] = .string(city) }
+        // 0050: on the shelf, the day the dish was saved.
+        parameters.merge(filters.window.parameters()) { _, window in window }
         if case .saved(let savedAt, let dishID) = cursor {
             parameters["p_cursor_saved_at"] = .string(PostgRESTTimestamp.string(from: savedAt))
             parameters["p_cursor_dish_id"] = .string(dishID.uuidString.lowercased())

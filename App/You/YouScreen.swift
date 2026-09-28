@@ -146,15 +146,15 @@ struct YouScreen: View {
         }
     }
 
-    /// "Your 5.0s" — up to four, tilted, because a small static cluster is exactly where the design
-    /// allows tilt (rule 6).
+    /// "Your top dishes" (round 6, was "Your 5.0s") — up to four, best score first (``TopDishes``),
+    /// tilted, because a small static cluster is exactly where the design allows tilt (rule 6).
     @ViewBuilder
     private var perfect: some View {
-        if store.perfect.isEmpty == false {
+        if store.top.isEmpty == false {
             VStack(alignment: .leading, spacing: AteMetrics.snug + 2) {
-                Text("Your 5.0s").ateText(.control)
+                Text("Your top dishes").ateText(.control)
                 HStack(alignment: .top, spacing: 0) {
-                    ForEach(Array(store.perfect.prefix(4).enumerated()), id: \.element.id) { index, dish in
+                    ForEach(Array(store.top.prefix(4).enumerated()), id: \.element.id) { index, dish in
                         Button { onDish(dish.dishID) } label: {
                             VStack(spacing: AteMetrics.snug) {
                                 AtePhotoTile(
@@ -179,7 +179,7 @@ struct YouScreen: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(dish.dishName)
-                        if index < min(4, store.perfect.count) - 1 {
+                        if index < min(4, store.top.count) - 1 {
                             Spacer(minLength: 0)
                         }
                     }

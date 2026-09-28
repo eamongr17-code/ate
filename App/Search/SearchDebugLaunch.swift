@@ -28,7 +28,9 @@ enum SearchDebugLaunch {
     static var query: String { value(after: queryArgument) ?? "" }
 
     static var startingFilters: SearchFilters? {
-        arguments.contains(filteredArgument) ? SearchFilters(minimumScore: 4.0) : nil
+        arguments.contains(filteredArgument)
+            ? SearchFilters(minimumScore: 4.0, window: JournalDebugLaunch.startingWindow)
+            : nil
     }
 
     static var opensFilter: Bool { arguments.contains(filterOpenArgument) }
