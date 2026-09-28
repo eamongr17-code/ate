@@ -149,12 +149,14 @@ test('0046: feed_cities, the city Feed, and resolve_city', async () => {
 // ---------------------------------------------------------------------------------------------------
 // 0047 — range + city filters
 // ---------------------------------------------------------------------------------------------------
-test('0047: score_in_range — no bound keeps all; any bound drops unscored; a top at 5 is open', async () => {
+test('0047: score_in_range — no bound keeps all; any bound drops unscored; the top is open at 6 (0054)', async () => {
   const cases = [
     [null, null, null, true], [3, null, null, true],
     [null, 1, null, false], [null, null, 5, false],
     [3, 3, 4, true], [4.5, 3, 4, false], [2.5, 3, 4, false],
-    [6, 0.5, 5, true], [5.3, null, 5, true], [6, null, 4.5, false], [5, null, 4.5, false],
+    // 0054: the track ends at 6 — a ceiling of 5 leaves a 6 (and a 5.3 average) out; 6 is open
+    [6, 0.5, 5, false], [5.3, null, 5, false], [6, 0.5, 6, true], [5.3, null, 6, true],
+    [6, null, 4.5, false], [5, null, 4.5, false],
     [6, 6, null, true], [5, 6, null, false], [4, 5, 3, false],
   ];
   for (const [s, lo, hi, want] of cases) {
@@ -174,15 +176,17 @@ test('0047: my_entries — score range (6 above 5), city, and the old place filt
   const mine = (args) => as(C, () => rows(`select id from public.my_entries(${args})`)).then((r) => r.map((x) => x.id));
   assert.deepEqual(await mine(``), [id(33), id(32), id(31), id(30)]);
   assert.deepEqual(await mine(`p_max_score => 4.5`), [id(30)], 'unscored drops, 5 and 6 above');
-  assert.deepEqual(await mine(`p_min_score => 4, p_max_score => 5`), [id(32), id(31)], 'a top of 5 keeps the 6');
-  assert.deepEqual(await mine(`p_min_score => 0.5, p_max_score => 5`), [id(32), id(31), id(30)], 'full slider = every scored entry');
+  assert.deepEqual(await mine(`p_min_score => 4, p_max_score => 5`), [id(31)], 'a top of 5 leaves the 6 out (0054)');
+  assert.deepEqual(await mine(`p_min_score => 4, p_max_score => 6`), [id(32), id(31)], 'a top of 6 keeps it');
+  assert.deepEqual(await mine(`p_min_score => 0.5, p_max_score => 6`), [id(32), id(31), id(30)], 'full slider = every scored entry');
   assert.deepEqual(await mine(`p_min_score => 6`), [id(32)], 'only 6s');
   assert.deepEqual(await mine(`p_min_score => 4.5, p_max_score => 3`), [], 'min > max → nothing');
   assert.deepEqual(await mine(`p_city => 'melbourne'`), [id(31), id(30)]);
   assert.deepEqual(await mine(`p_city => 'sydney', p_min_score => 5`), [id(32)]);
   assert.deepEqual(await mine(`p_city => 'nowhere'`), []);
   assert.deepEqual(await mine(`p_restaurant_id => '${P.fitzroy}'`), [id(31)], '0043 place filter');
-  assert.deepEqual(await mine(`p_sort => 'top', p_max_score => 5`), [id(32), id(31), id(30)], 'top sort with the range');
+  assert.deepEqual(await mine(`p_sort => 'top', p_max_score => 6`), [id(32), id(31), id(30)], 'top sort with the range');
+  assert.deepEqual(await mine(`p_sort => 'top', p_max_score => 5`), [id(31), id(30)], 'a ceiling of 5 leaves the 6 out (0054)');
   // A 0043-shaped call (eleven named params) still binds.
   assert.equal((await as(C, () => rows(`select count(*)::int n from public.my_entries(p_sort => 'newest', p_restaurant_id => null, p_min_score => null,
     p_tag => null, p_from => null, p_to => null, p_limit => 30, p_cursor_created_at => null, p_cursor_id => null, p_cursor_best_score => null, p_tz => 'UTC')`)))[0].n, 4);
@@ -211,7 +215,8 @@ test('0047: Search — p_city and the score range on places, dishes and nearby; 
   const dishes = (q, args) => as(C, () => rows(`select dish_name from public.search_dishes(p_query => '${q}', p_limit => 50${args})`)).then((r) => r.map((x) => x.dish_name));
   assert.deepEqual(await dishes('ta', ''), ['Tart', 'Pasta']);
   assert.deepEqual(await dishes('ta', `, p_city => 'melbourne'`), ['Pasta']);
-  assert.deepEqual(await dishes('ta', `, p_min_score => 5, p_max_score => 5`), ['Tart'], 'a 6 is inside [5, 5]');
+  assert.deepEqual(await dishes('ta', `, p_min_score => 5, p_max_score => 5`), [], 'a 6 is outside [5, 5] (0054)');
+  assert.deepEqual(await dishes('ta', `, p_min_score => 5, p_max_score => 6`), ['Tart'], 'and inside [5, 6]');
   assert.deepEqual(await dishes('ta', `, p_max_score => 4.5`), ['Pasta']);
   assert.deepEqual(await dishes('st', `, p_min_score => 5, p_max_score => 5`), ['Steak'], 'and so is a 5');
 
@@ -283,7 +288,8 @@ test('0049: search_saved — dish_score range (open top), city, old calls bind; 
     .then((r) => r.map((x) => x.dish_name).sort());
   assert.deepEqual(await shelf(`p_limit => 50`), ['Chips', 'Nduja', 'Pasta', 'Tart']);
   assert.deepEqual(await shelf(`p_query => null, p_limit => 50, p_max_score => 4.5`), ['Nduja', 'Pasta'], 'unscored drops, the 6 is above 4.5');
-  assert.deepEqual(await shelf(`p_limit => 50, p_min_score => 4.5, p_max_score => 5`), ['Nduja', 'Tart'], 'a top of 5 keeps the 6');
+  assert.deepEqual(await shelf(`p_limit => 50, p_min_score => 4.5, p_max_score => 5`), ['Nduja'], 'a top of 5 leaves the 6 out (0054)');
+  assert.deepEqual(await shelf(`p_limit => 50, p_min_score => 4.5, p_max_score => 6`), ['Nduja', 'Tart'], 'a top of 6 keeps it');
   assert.deepEqual(await shelf(`p_limit => 50, p_min_score => 6`), ['Tart']);
   assert.deepEqual(await shelf(`p_limit => 50, p_city => 'sydney'`), ['Nduja', 'Tart']);
   assert.deepEqual(await shelf(`p_limit => 50, p_city => 'geelong'`), ['Chips']);
