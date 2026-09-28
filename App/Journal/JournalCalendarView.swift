@@ -206,9 +206,7 @@ private struct JournalCalendarMonth: View {
     private var summary: some View {
         let summary = store.summary(of: month)
         if summary.visits > 0 {
-            Text(summary.monthLine)
-                .ateText(.monthMeta)
-                .foregroundStyle(AtePalette.automatic.muted)
+            AteMetaParts(parts: summary.parts)
                 .padding(.horizontal, AteCalendarMetrics.titleInset)
                 .padding(.vertical, 6)
         }
@@ -336,9 +334,7 @@ private struct JournalCalendarYear: View {
                 Spacer(minLength: 0)
                 let summary = store.summary(ofYear: year)
                 if summary.visits > 0 {
-                    Text(summary.yearLine)
-                        .ateText(.monthMeta)
-                        .foregroundStyle(AtePalette.automatic.muted)
+                    AteMetaParts(parts: summary.parts)
                 }
             }
             .padding(.horizontal, AteCalendarMetrics.titleInset)

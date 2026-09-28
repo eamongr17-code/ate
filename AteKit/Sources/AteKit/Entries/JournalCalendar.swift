@@ -55,20 +55,13 @@ public struct JournalCalendarSummary: Sendable, Hashable {
         }
     }
 
-    /// Under a month: "11 VISITS · 2 FIVE-STARS · 1 SIX". A zero part is left out.
-    public var monthLine: String {
-        var parts = [Self.counted(visits, "VISIT", "VISITS")]
-        if fives > 0 { parts.append(Self.counted(fives, "FIVE-STAR", "FIVE-STARS")) }
-        if sixes > 0 { parts.append(Self.counted(sixes, "SIX", "SIXES")) }
-        return parts.joined(separator: " · ")
-    }
-
-    /// Beside a year: "96 VISITS · 14 ★5 · 3 ★6".
-    public var yearLine: String {
-        var parts = [Self.counted(visits, "VISIT", "VISITS")]
-        if fives > 0 { parts.append("\(fives) ★5") }
-        if sixes > 0 { parts.append("\(sixes) ★6") }
-        return parts.joined(separator: " · ")
+    /// Under a month and beside a year, as separate parts the view spaces apart (DESIGN.md: no dot
+    /// separators): "11 visits", "2 five-stars", "1 six". A zero part is left out.
+    public var parts: [String] {
+        var parts = [Self.counted(visits, "visit", "visits")]
+        if fives > 0 { parts.append(Self.counted(fives, "five-star", "five-stars")) }
+        if sixes > 0 { parts.append(Self.counted(sixes, "six", "sixes")) }
+        return parts
     }
 
     private static func counted(_ count: Int, _ one: String, _ many: String) -> String {

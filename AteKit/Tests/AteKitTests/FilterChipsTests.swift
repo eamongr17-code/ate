@@ -117,14 +117,13 @@ struct FilterChipsTests {
         #expect(JournalMonthDividers.dividers(for: entries, sort: .top, calendar: Self.utc).isEmpty)
     }
 
-    @Test("the divider's meta: the count, or with a filter the kept of the whole")
-    func dividerMeta() {
-        #expect(JournalMonthDividers.meta(year: 2026, total: 14, filtered: nil, isFiltered: false)
-                == "2026 · 14 ENTRIES")
-        #expect(JournalMonthDividers.meta(year: 2026, total: 1, filtered: nil, isFiltered: false) == "2026 · 1 ENTRY")
-        #expect(JournalMonthDividers.meta(year: 2026, total: 14, filtered: 6, isFiltered: true) == "2026 · 6 OF 14")
-        #expect(JournalMonthDividers.meta(year: 2026, total: nil, filtered: nil, isFiltered: false) == "2026")
-        #expect(JournalMonthDividers.meta(year: 2026, total: 14, filtered: nil, isFiltered: true) == "2026")
+    @Test("the divider's count: sentence case, or with a filter the kept of the whole")
+    func dividerCount() {
+        #expect(JournalMonthDividers.count(total: 14, filtered: nil, isFiltered: false) == "14 entries")
+        #expect(JournalMonthDividers.count(total: 1, filtered: nil, isFiltered: false) == "1 entry")
+        #expect(JournalMonthDividers.count(total: 14, filtered: 6, isFiltered: true) == "6 of 14")
+        #expect(JournalMonthDividers.count(total: nil, filtered: nil, isFiltered: false) == nil)
+        #expect(JournalMonthDividers.count(total: 14, filtered: nil, isFiltered: true) == nil)
     }
 }
 

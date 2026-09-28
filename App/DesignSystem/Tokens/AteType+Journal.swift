@@ -8,11 +8,6 @@ extension AteTextStyle {
     static let monthTitle = AteTextStyle(
         voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
     )
-    /// Beside it: "2026 · 14 ENTRIES" — DM Mono 12, `letter-spacing:.5px`, capitals.
-    static let monthMeta = AteTextStyle(
-        voice: .mono, size: 12, weight: 400, trackingEm: 0.04, lineHeight: 1.3,
-        textStyle: .caption, maximumSize: 18, uppercase: true
-    )
     /// The year after the month in the compact header: "August **2026**" — 20 at 600, muted.
     static let compactTitleYear = AteTextStyle(
         voice: .display, size: 20, weight: 600, trackingEm: -0.025, lineHeight: 1.0, textStyle: .headline,

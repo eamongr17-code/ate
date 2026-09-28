@@ -114,9 +114,9 @@ struct JournalCalendarTests {
             JournalDayCount(day: AteDay(year: 2026, month: 9, day: 19), entries: 5, bestScore: nil)
         ]
         let summary = JournalCalendarSummary(days)
-        #expect(summary.monthLine == "11 VISITS · 2 FIVE-STARS · 1 SIX")
-        #expect(summary.yearLine == "11 VISITS · 2 ★5 · 1 ★6")
-        #expect(JournalCalendarSummary(visits: 1).monthLine == "1 VISIT")
+        #expect(summary.parts == ["11 visits", "2 five-stars", "1 six"])
+        #expect(JournalCalendarSummary(visits: 1).parts == ["1 visit"])
+        #expect(JournalCalendarSummary(visits: 4, sixes: 2).parts == ["4 visits", "2 sixes"])
     }
 
     // MARK: - Deriving the days

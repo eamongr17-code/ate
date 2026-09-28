@@ -22,15 +22,15 @@ public enum JournalMonthDividers {
         return dividers
     }
 
-    /// The divider's meta: "2026 · 14 ENTRIES", or with a filter on, "2026 · 6 OF 14" — the month's
-    /// entries the filter keeps, of all of them. A count not yet read prints nothing after the year.
-    public static func meta(year: Int, total: Int?, filtered: Int?, isFiltered: Bool) -> String {
-        let yearText = String(year)
-        guard let total else { return yearText }
+    /// The count beside the divider's year (DESIGN.md: sentence case, no dot separator — the view
+    /// sets the two apart): "14 entries", "1 entry", or with a filter on "6 of 14" — the month's
+    /// entries the filter keeps, of all of them. `nil` while the count has not been read.
+    public static func count(total: Int?, filtered: Int?, isFiltered: Bool) -> String? {
+        guard let total else { return nil }
         if isFiltered {
-            guard let filtered else { return yearText }
-            return "\(yearText) · \(filtered) OF \(total)"
+            guard let filtered else { return nil }
+            return "\(filtered) of \(total)"
         }
-        return "\(yearText) · \(total) \(total == 1 ? "ENTRY" : "ENTRIES")"
+        return "\(total) \(total == 1 ? "entry" : "entries")"
     }
 }

@@ -333,8 +333,8 @@ struct JournalScreen: View {
         let query = store.query
         return AteMonthDivider(
             title: month.name(),
-            meta: JournalMonthDividers.meta(
-                year: month.year,
+            year: String(month.year),
+            count: JournalMonthDividers.count(
                 total: days.total(of: month),
                 filtered: days.filteredCount(of: month, query: query),
                 isFiltered: query.hasFilters
