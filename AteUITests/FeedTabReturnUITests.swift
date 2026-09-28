@@ -16,7 +16,7 @@ import XCTest
 final class FeedTabReturnUITests: XCTestCase {
 
     func testReturningToAScrolledFeedStaysResponsive() {
-        let app = launch(["-ate-open-feed"])
+        let app = launch(["-ate-open", "feed"])
         XCTAssertTrue(slip("feed", in: app).waitForExistence(timeout: 10))
         for round in 0..<3 {
             drag(app, by: -250)
@@ -30,7 +30,7 @@ final class FeedTabReturnUITests: XCTestCase {
     }
 
     func testReturningToAScrolledJournalStaysResponsive() {
-        let app = launch(["-ate-preview-journal"])
+        let app = launch(["-ate-fixture", "journal"])
         XCTAssertTrue(slip("journal", in: app).waitForExistence(timeout: 10))
         for round in 0..<3 {
             drag(app, by: -250)
@@ -46,23 +46,27 @@ final class FeedTabReturnUITests: XCTestCase {
     // MARK: - Pushed pages
 
     // A pushed page hides the tab bar, so "away and back" is an entry pushed over it and popped.
-    // `-ate-preview-deep` makes the pages the debug launch opens (the first feed entry's author,
-    // place and dish) long enough to be mid-list.
+    // The `deep` fixture makes the first feed entry's author, place and dish (the pages opened
+    // here) long enough to be mid-list.
+
+    private static let jess = "profile/11111111-0000-4000-8000-000000000003"
+    private static let tipo = "place/b7e00000-0000-4000-8000-000000000001"
+    private static let prawnSpaghetti = "dish/d0000001-0000-4000-8000-000000000001"
 
     func testReturningToAScrolledProfileStaysResponsive() {
-        returnsToPushedPage(opening: "-ate-open-profile", list: "profile.slip.dish", door: "profile.slip.body")
+        returnsToPushedPage(opening: Self.jess, list: "profile.slip.dish", door: "profile.slip.body")
     }
 
     func testReturningToAScrolledPlaceStaysResponsive() {
-        returnsToPushedPage(opening: "-ate-open-place", list: "place.slip.dish", door: "place.slip.body")
+        returnsToPushedPage(opening: Self.tipo, list: "place.slip.dish", door: "place.slip.body")
     }
 
     func testReturningToAScrolledDishStaysResponsive() {
-        returnsToPushedPage(opening: "-ate-open-dish", list: "dish.review.entry", door: "dish.review.entry")
+        returnsToPushedPage(opening: Self.prawnSpaghetti, list: "dish.review.entry", door: "dish.review.entry")
     }
 
     private func returnsToPushedPage(opening: String, list: String, door: String, line: UInt = #line) {
-        let app = launch([opening, "-ate-preview-deep"])
+        let app = launch(["-ate-open", opening, "-ate-fixture", "deep"])
         let row = app.buttons.matching(identifier: list).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10), line: line)
         for round in 0..<3 {

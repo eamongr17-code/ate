@@ -63,7 +63,7 @@ struct ShareScreen: View {
     /// thing that actually leaves. A simulator cannot be tapped from a shell, and the export is the
     /// one part of this screen that is not on screen.
     private func dumpForDriveIfRequested() {
-        guard ProcessInfo.processInfo.arguments.contains("-ate-dump-share"),
+        guard DebugLaunch.isOn(.dumpShare),
               let image = ShareImage.render(artefact: artefact, photos: photos),
               let data = image.pngData(),
               let documents = FileManager.default.urls(
@@ -305,7 +305,7 @@ struct ShareSender {
     /// `-ate-fail-share-render`: the one state that cannot be reached by using the app, made
     /// reachable so it can be driven and looked at like every other.
     static var forcesRenderFailure: Bool {
-        ProcessInfo.processInfo.arguments.contains("-ate-fail-share-render")
+        DebugLaunch.isOn(.failShareRender)
     }
     #endif
 }

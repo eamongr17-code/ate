@@ -2,14 +2,13 @@
 import AteKit
 import Foundation
 
-/// **`-ate-slow-detail`** — the dish and place pages' reads held back, so a drive can see what the
-/// page draws before they answer (round 6: it draws from the row that opened it, at once, and waits
-/// in still shapes). Debug only; preview data answers instantly otherwise.
+/// **`DebugLaunch.Flag.slowDetail`** — the dish and place pages' reads held back, so a drive can see
+/// what the page draws before they answer (round 6: it draws from the row that opened it, at once,
+/// and waits in still shapes). Debug only; preview data answers instantly otherwise.
 enum SlowDetailReads {
-    static let argument = "-ate-slow-detail"
     static let delay: Duration = .seconds(2)
 
-    static var isOn: Bool { ProcessInfo.processInfo.arguments.contains(argument) }
+    static var isOn: Bool { DebugLaunch.isOn(.slowDetail) }
 
     static func dishes(_ reads: any DishPageReading) -> any DishPageReading {
         isOn ? SlowDishPages(reads: reads) : reads
@@ -20,16 +19,15 @@ enum SlowDetailReads {
     }
 }
 
-/// **`-ate-profile-detail`** — how long a dish or place page takes to settle, measured in the app
-/// (a UI test's own clock waits for the app to go idle, so it cannot see a page draw before its read
-/// answers). One line per open, appended to `Documents/detail-timings.txt` for a drive to collect.
+/// **`DebugLaunch.Flag.profileDetail`** — how long a dish or place page takes to settle, measured in
+/// the app (a UI test's own clock waits for the app to go idle, so it cannot see a page draw before
+/// its read answers). One line per open, appended to `Documents/detail-timings.txt` for a drive to collect.
 @MainActor
 enum DetailTimings {
-    static let argument = "-ate-profile-detail"
     private static var openedAt: [String: ContinuousClock.Instant] = [:]
     private static var previewed: [String: Bool] = [:]
 
-    private static var isOn: Bool { ProcessInfo.processInfo.arguments.contains(argument) }
+    private static var isOn: Bool { DebugLaunch.isOn(.profileDetail) }
 
     static func opened(_ page: String, hasPreview: Bool) {
         guard isOn else { return }

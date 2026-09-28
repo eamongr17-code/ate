@@ -16,7 +16,7 @@ final class FeedUITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open-feed"]
+        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open", "feed"]
     }
 
     /// Scroll → bookmark a dish → open the entry → open the profile.

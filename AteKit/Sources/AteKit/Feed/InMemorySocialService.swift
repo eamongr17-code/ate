@@ -163,7 +163,7 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
         }
     }
 
-    static var hidesCovers: Bool { ProcessInfo.processInfo.arguments.contains("-ate-preview-no-covers") }
+    static var hidesCovers: Bool { DebugLaunch.has(.noCovers) }
 
     public func savedDishesPage(after cursor: PageCursor?, pageSize: Int) async throws -> Page<SavedDish> {
         if PreviewFaults.listsOffline { throw URLError(.notConnectedToInternet) }
@@ -180,7 +180,7 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
                     restaurantName: place.name,
                     restaurantCity: place.city,
                     dishScore: item.score?.value,
-                    // `-ate-preview-no-covers`: dishes nobody has photographed, so the letter tile
+                    // The `no-covers` fixture: dishes nobody has photographed, so the letter tile
                     // (`NoPhotoA`) can be looked at on a simulator.
                     dishCoverURL: Self.hidesCovers ? nil : entry.photos.first?.url,
                     sourceEntryID: entry.id,

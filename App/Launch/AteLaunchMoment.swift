@@ -1,3 +1,4 @@
+import AteKit
 import SwiftUI
 
 /// **The launch moment** (round 5, Eamon: the logo "should show when a user boots up the app"; his
@@ -11,7 +12,7 @@ import SwiftUI
 ///
 /// Reduce Motion: a plain fade. A UI test starts on the app, never on the moment.
 struct AteLaunchOverlay: View {
-    @State private var isDone = ProcessInfo.processInfo.arguments.contains("-ate-ui-testing")
+    @State private var isDone = DebugLaunch.isOn(.uiTesting)
     @State private var opacity: Double = 1
     @State private var logoScale: CGFloat = 1
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

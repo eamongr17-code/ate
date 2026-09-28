@@ -12,6 +12,8 @@ final class DetailRound5UITests: XCTestCase {
 
     /// Marcus's cheeseburger, in the preview data's feed.
     private static let feedEntry = "ate://entry/e0000000-0000-4000-8000-000000000001"
+    /// The design's own Tipo 00 birthday dinner — the newest entry in the preview journal.
+    private static let birthday = "entry/a7e00000-0000-4000-8000-000000000142"
 
     func testAnEntryLinkOpensTheEntry() throws {
         launch([])
@@ -30,7 +32,7 @@ final class DetailRound5UITests: XCTestCase {
     func testALinkOnAColdStartSignedOutOpensTheEntry() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open-welcome"]
+        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open", "welcome"]
         app.terminate()
         app.open(try XCTUnwrap(URL(string: Self.feedEntry)))
         confirmOpen()
@@ -41,7 +43,7 @@ final class DetailRound5UITests: XCTestCase {
 
     /// Signed out, warm: sitting on Welcome, a link opens the entry over the feed.
     func testALinkOnWelcomeOpensTheEntry() throws {
-        launch(["-ate-open-welcome"])
+        launch(["-ate-open", "welcome"])
         XCTAssertTrue(app.buttons["welcome.browse"].firstMatch.waitForExistence(timeout: 10), "Welcome is up")
         app.open(try XCTUnwrap(URL(string: Self.feedEntry)))
         confirmOpen()
@@ -51,7 +53,7 @@ final class DetailRound5UITests: XCTestCase {
 
     /// Mid-onboarding: the link waits for the handle step, and opens once Continue is pressed.
     func testALinkDuringTheHandleStepOpensAfterIt() throws {
-        launch(["-ate-open-first-run-handle"])
+        launch(["-ate-open", "first-run-handle"])
         let next = app.buttons["handle.continue"].firstMatch
         XCTAssertTrue(next.waitForExistence(timeout: 10), "the handle step is up")
         app.open(try XCTUnwrap(URL(string: Self.feedEntry)))
@@ -71,7 +73,7 @@ final class DetailRound5UITests: XCTestCase {
     }
 
     func testSomebodyElsesEntrySharesALinkNotTheirReceipt() {
-        launch(["-ate-open-feed"])
+        launch(["-ate-open", "feed"])
         let slip = app.descendants(matching: .any).matching(identifier: "feed.slip.body").firstMatch
         XCTAssertTrue(slip.waitForExistence(timeout: 10))
         slip.tap()
@@ -89,7 +91,7 @@ final class DetailRound5UITests: XCTestCase {
     }
 
     func testTheAreaSheetRisesWithItsAreasInIt() {
-        launch(["-ate-open-feed"])
+        launch(["-ate-open", "feed"])
         let area = app.buttons["feed.area"].firstMatch
         XCTAssertTrue(area.waitForExistence(timeout: 10))
         area.tap()
@@ -103,7 +105,7 @@ final class DetailRound5UITests: XCTestCase {
     }
 
     func testThePlaceSheetRisesWithItsPlacesInIt() {
-        launch(["-ate-open-entry"])
+        launch(["-ate-open", Self.birthday])
         let place = app.buttons["entry.place"].firstMatch
         XCTAssertTrue(place.waitForExistence(timeout: 10))
         place.press(forDuration: 0.8)
@@ -121,7 +123,7 @@ final class DetailRound5UITests: XCTestCase {
     /// A tapped photo zooms open full screen at its own shape, swipes to the next, pinches, and a
     /// swipe down — or Close — puts it back.
     func testAPhotoZoomsOpenSwipesPinchesAndGoesBack() {
-        launch(["-ate-open-entry"])
+        launch(["-ate-open", Self.birthday])
         let photo = app.buttons["photo.1"].firstMatch
         XCTAssertTrue(photo.waitForExistence(timeout: 10))
         sleep(1)
@@ -157,7 +159,7 @@ final class DetailRound5UITests: XCTestCase {
     /// With the reads held back 2s (`-ate-slow-detail`), a dish opened from a feed slip already shows
     /// its name and its place on arrival, and the rest fills in without the name moving.
     func testADishPageDrawsAtOnceFromTheRowThatOpenedIt() {
-        launch(["-ate-open-feed", "-ate-slow-detail"])
+        launch(["-ate-open", "feed", "-ate-slow-detail"])
         let row = app.descendants(matching: .any).matching(identifier: "feed.slip.dish").firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         let name = row.label.components(separatedBy: ",").first ?? row.label
@@ -176,7 +178,7 @@ final class DetailRound5UITests: XCTestCase {
     /// no glass in the corner at all (never an empty capsule), and once it answers the glass is there
     /// around the bookmark, at its full width.
     func testTheCornerGlassWaitsForItsControls() {
-        launch(["-ate-open-feed", "-ate-slow-detail"])
+        launch(["-ate-open", "feed", "-ate-slow-detail"])
         let row = app.descendants(matching: .any).matching(identifier: "feed.slip.dish").firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         row.tap()
@@ -190,7 +192,7 @@ final class DetailRound5UITests: XCTestCase {
 
     /// The same for a place opened from a slip's pin line.
     func testAPlacePageDrawsItsNameAtOnce() {
-        launch(["-ate-open-feed", "-ate-slow-detail"])
+        launch(["-ate-open", "feed", "-ate-slow-detail"])
         let line = app.descendants(matching: .any).matching(identifier: "feed.slip.place").firstMatch
         XCTAssertTrue(line.waitForExistence(timeout: 10))
         line.tap()
@@ -204,7 +206,7 @@ final class DetailRound5UITests: XCTestCase {
     // MARK: - The Diet key
 
     func testTheDietKeyUnfoldsItsCodesAndFoldsThemBack() {
-        launch(["-ate-open-composer", "-ate-seed-draft"])
+        launch(["-ate-open", "composer", "-ate-fixture", "draft"])
         let diet = app.buttons["composer.key.diet"].firstMatch
         XCTAssertTrue(diet.waitForExistence(timeout: 10))
         diet.tap()
@@ -226,7 +228,7 @@ final class DetailRound5UITests: XCTestCase {
     // MARK: - The share receipt
 
     func testTheShareReceiptLeadsWithTheDishes() {
-        launch(["-ate-open-share"])
+        launch(["-ate-open", Self.birthday + "?sheet=share"])
         let send = app.buttons["share.send"].firstMatch
         XCTAssertTrue(send.waitForExistence(timeout: 10), "Share is up")
         let dish = app.staticTexts["Tagliatelle al ragù"].firstMatch

@@ -72,3 +72,18 @@ struct PlaceDestination: View {
         )
     }
 }
+
+extension PlaceDestination {
+    /// A place, as the shell pushes it.
+    init(restaurantID: UUID, context: RouteContext) {
+        self.init(
+            restaurantID: restaurantID,
+            source: context.source,
+            services: context.services,
+            saves: context.saves,
+            onDish: { context.open(.dish($0), from: .place) },
+            onOpen: { context.open(.entry($0)) },
+            onProfile: { context.open(.profile($0)) }
+        )
+    }
+}

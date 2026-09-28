@@ -8,7 +8,7 @@ final class DishExploreUITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open-dish"]
+        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-open", "dish/d0000001-0000-4000-8000-000000000001"]
         app.launch()
     }
 

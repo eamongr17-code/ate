@@ -56,7 +56,7 @@ struct HandleScreen: View {
             #if DEBUG
             // `-ate-handle-text <text>` — types into the field, so a drive can photograph the
             // checking, taken and malformed marks on a simulator that cannot be typed into.
-            if let text = UserDefaults.standard.string(forKey: "ate-handle-text") { model.type(text) }
+            if let text = UserDefaults.standard.string(forKey: DebugLaunch.handleTextKey) { model.type(text) }
             #endif
         }
     }

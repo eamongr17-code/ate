@@ -2,32 +2,16 @@
 import AteKit
 import Foundation
 
-/// **Launch arguments that open the Journal and the Feed in a state** — for a simulator drive, which
-/// cannot be tapped from a shell. Debug only.
+/// **The Journal's and the Feed's starting state, for a drive** — which cannot be tapped from a shell
+/// (``DebugLaunch``).
 ///
-/// `-ate-journal-filtered` starts the Journal on Rating 4.0 and up (`RatingChip`);
-/// `-ate-journal-filter-open` opens the Rating chip's sheet over it; `-ate-feed-location-open` opens
-/// the Feed's location sheet.
+/// `-ate-open journal?filtered` starts the Journal on Rating 4.0 and up (`RatingChip`); `&filter`
+/// opens the Rating chip's sheet over it; `-ate-open saved` lands on the Saved shelf;
+/// `-ate-open feed?location` opens the Feed's location sheet.
 enum JournalDebugLaunch {
-    static var startsFiltered: Bool { has("-ate-journal-filtered") }
-    static var opensFilter: Bool { has("-ate-journal-filter-open") }
-    static var opensFeedLocation: Bool { has("-ate-feed-location-open") }
-
-    /// `-ate-r6-window custom|preset` (round 6 stills): a demo date window for Search's filter — March
-    /// to August 2026, or This year.
-    static var startingWindow: DateWindow {
-        let arguments = ProcessInfo.processInfo.arguments
-        guard let index = arguments.firstIndex(of: "-ate-r6-window"), arguments.indices.contains(index + 1) else {
-            return .all
-        }
-        switch arguments[index + 1] {
-        case "preset": return DateWindow.preset(.thisYear)
-        default: return DateWindow(from: AteMonth(year: 2026, month: 3), to: AteMonth(year: 2026, month: 8))
-        }
-    }
-
-    private static func has(_ argument: String) -> Bool {
-        ProcessInfo.processInfo.arguments.contains(argument)
-    }
+    static var startsFiltered: Bool { DebugLaunch.route?.screen == .journal && DebugLaunch.has(.filtered) }
+    static var opensFilter: Bool { DebugLaunch.route?.screen == .journal && DebugLaunch.has(.filter) }
+    static var opensSaved: Bool { DebugLaunch.route?.screen == .saved }
+    static var opensFeedLocation: Bool { DebugLaunch.has(.location) }
 }
 #endif

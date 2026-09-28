@@ -137,18 +137,6 @@ extension AteShell {
 
     // MARK: - While signed in
 
-    /// Settings, and the pages it pushes.
-    func settings(_ page: SettingsPage) -> some View {
-        SettingsDestination(
-            page: page,
-            services: services,
-            onOpen: { open(.settings($0)) },
-            onHandleChanged: { handleChanged($0) },
-            onSignedOut: { endSession() },
-            onDeleted: { endSession(deleting: $0) }
-        )
-    }
-
     /// A new handle from Settings: receipts are signed with it from now on, and You shows it.
     func handleChanged(_ newHandle: String) {
         handle = newHandle

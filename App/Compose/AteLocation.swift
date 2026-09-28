@@ -1,3 +1,4 @@
+import AteKit
 import CoreLocation
 import Foundation
 
@@ -24,7 +25,7 @@ final class AteLocation: NSObject, CLLocationManagerDelegate {
         #if DEBUG
         // A preview-data run answers from the middle of the launch market and asks nobody: the
         // simulator's permission alert is not part of what `PlaceSheet.dc.html` draws.
-        if ProcessInfo.processInfo.arguments.contains("-ate-preview-data") {
+        if DebugLaunch.isOn(.previewData) {
             return CLLocationCoordinate2D(latitude: -37.8118, longitude: 144.9629)
         }
         #endif

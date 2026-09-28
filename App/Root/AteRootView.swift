@@ -67,7 +67,7 @@ struct AteShell: View {
     ///
     /// Kept beside the path rather than inside ``Route``: a route is an *identity*, and two pushes of
     /// one place from two screens must stay equal to `NavigationStack` and `path.contains`.
-    @State private var sources: [Route: DetailSource] = [:]
+    @State var sources: [Route: DetailSource] = [:]
     /// How many recent photos are waiting to be written up — the journal header's badge. Only ever
     /// non-zero when the photo library has already been allowed; nothing here asks.
     @State var photoCount = 0
@@ -93,7 +93,7 @@ struct AteShell: View {
     /// The Search tab, held here so its query, segment and pages survive a trip to another tab.
     @State private var search: SearchStore
     #if DEBUG
-    /// `-ate-open-summary`: the Summary a drive photographs without a composer to type into.
+    /// `-ate-open summary/<id>`: the Summary a drive photographs without a composer to type into.
     @State var debugSummary: DebugSummary?
     #endif
     @Environment(\.scenePhase) private var scenePhase
@@ -105,7 +105,8 @@ struct AteShell: View {
         _gate = State(initialValue: gate)
         var hasSession = services.hasSession
         #if DEBUG
-        if ComposerDebugLaunch.opensWelcome { hasSession = false }
+        let start = DebugStart(DebugLaunch.route) // where a drive's launch opens
+        if start.showsWelcome { hasSession = false }
         #endif
         _hasSession = State(initialValue: hasSession)
         _journal = State(initialValue: JournalStore(
@@ -125,11 +126,7 @@ struct AteShell: View {
         var searchScope = SearchScope.places
         var searchQuery = ""
         #if DEBUG
-        if SearchDebugLaunch.opensSearch {
-            _tab = State(initialValue: .search)
-            searchScope = SearchDebugLaunch.scope
-            searchQuery = SearchDebugLaunch.query
-        }
+        if let opening = SearchDebugLaunch.start { (searchScope, searchQuery) = (opening.scope, opening.query) }
         #endif
         _search = State(initialValue: SearchStore(
             service: services.search,
@@ -149,9 +146,10 @@ struct AteShell: View {
         ))
         #if DEBUG
         ComposerDebugLaunch.seedDraftIfRequested(into: services.drafts)
-        if ComposerDebugLaunch.opensComposer {
-            _composing = State(initialValue: ComposerPresentation(origin: .tabBar))
-        }
+        _tab = State(initialValue: start.tab)
+        _path = State(initialValue: start.path)
+        _sources = State(initialValue: start.sources)
+        if start.composes { _composing = State(initialValue: ComposerPresentation(origin: .tabBar)) }
         #endif
     }
 
@@ -174,9 +172,7 @@ struct AteShell: View {
         .ateEntryLinks(linkSituation) { openLinkedEntry($0, browseFirst: $1) }
         .task { await autoSignInIfRequested() }
         #if DEBUG
-        .task { await openDebugScreenIfRequested() }
-        .task { await openYouIfRequested() }
-        .task { await openSettingsIfRequested() }
+        .task(id: hasSession) { await finishDebugLaunch() }
         #endif
         // An entry that could not be sent is still the person's. The outbox is worked on every
         // return to the app, and anything that lands refreshes the journal under it.
@@ -187,111 +183,6 @@ struct AteShell: View {
     }
 
     var shell: some View { tabShell }
-
-    @ViewBuilder
-    func destination(_ route: Route) -> some View {
-        switch route {
-        case .entry(let entry):
-            EntryScreen(
-                route: entry,
-                services: services,
-                saves: saveAction,
-                onChange: { card in
-                    journal.replace(card)
-                    feed.replace(card)
-                },
-                onEdit: { composing = .edit($0) },
-                onProfile: { open(.profile($0)) },
-                onPlace: { open(.place($0), from: .entry) },
-                onDish: { open(.dish($0), from: .entry) },
-                onBlocked: {
-                    // The person is gone from every read the server serves; the lists on this
-                    // device catch up now rather than on the next launch.
-                    path.removeAll()
-                    Task { await feed.refresh() }
-                }
-            )
-        case .profile(let userID):
-            ProfileDestination(
-                userID: userID,
-                services: services,
-                saves: saveAction,
-                onOpen: { open(.entry($0)) },
-                onPlace: { open(.place($0), from: .profile) },
-                onDish: { open(.dish($0), from: .profile) },
-                onBlocked: { blocked in
-                    path.removeAll { $0 == .profile(blocked) }
-                    Task { await feed.refresh() }
-                }
-            )
-        case .place(let restaurantID):
-            PlaceDestination(
-                restaurantID: restaurantID,
-                source: sources[route] ?? .unknown,
-                services: services,
-                saves: saveAction,
-                onDish: { open(.dish($0), from: .place) },
-                onOpen: { open(.entry($0)) },
-                onProfile: { open(.profile($0)) }
-            )
-        case .dish(let dishID):
-            dishPage(dishID, source: sources[route] ?? .unknown)
-        case .tag(let tag):
-            tagPage(tag)
-        case .ratings(let score):
-            // `Ratings.dc.html` drew the tab bar under it; since round 4 every pushed page hides it
-            // (Eamon's call, build 79), this one included.
-            RatingsScreen(
-                score: score,
-                stats: services.stats,
-                onDish: { open(.dish($0)) },
-                onViewed: { services.analytics(YouEvents.ratingsViewed(score: $0)) }
-            )
-            .ateGround()
-        case .statement(let month):
-            // `Recap.dc.html` draws no tab bar — a statement is a printout you hold, on its own.
-            RecapScreen(
-                month: month,
-                stats: services.stats,
-                // A receipt is signed. The You header is already loaded by the time a statement can
-                // be opened, so its handle is the one on hand; the shell's is the fallback.
-                handle: you.summary?.username ?? handle ?? "",
-                analytics: services.analytics
-            )
-        case .settings(let page):
-            settings(page)
-        case .suggestions:
-            // `Suggestions.dc.html` drew the tab bar under it; since round 4 every pushed page
-            // hides it, this one included.
-            suggestions
-                .ateGround()
-        }
-    }
-
-    /// One dish — and, under its reviews, the dishes like it and its tags (round 7).
-    private func dishPage(_ dishID: UUID, source: DetailSource) -> some View {
-        DishDestination(
-            dishID: dishID,
-            source: source,
-            services: services,
-            saves: saveAction,
-            onPlace: { open(.place($0), from: .dish) },
-            onEntry: { open(.entry(EntryRoute(entryID: $0))) },
-            onProfile: { open(.profile($0)) },
-            onDish: { open(.dish($0), from: .similar) },
-            onTag: { open(.tag($0)) }
-        )
-    }
-
-    /// One tag's dishes, opened from a dish page's chip (round 7).
-    private func tagPage(_ tag: DishTagRoute) -> some View {
-        TagDishesScreen(
-            tag: tag,
-            reads: services.dishExplore,
-            analytics: services.analytics,
-            onDish: { open(.dish($0), from: .tag) }
-        )
-    }
 
     private var current: some View { screen(for: tab) }
 
@@ -322,14 +213,6 @@ struct AteShell: View {
             .onReceive(NotificationCenter.default.publisher(for: .atePhotoAccessGranted)) { _ in
                 Task { await countPhotos() }
             }
-            #if DEBUG
-            .task { await openNewestEntryIfRequested() }
-            .task { await openSummaryIfRequested() }
-            .task {
-                guard ComposerDebugLaunch.opensSuggestions, path.isEmpty else { return }
-                path = [.suggestions]
-            }
-            #endif
         case .feed:
             FeedScreen(
                 store: feed,

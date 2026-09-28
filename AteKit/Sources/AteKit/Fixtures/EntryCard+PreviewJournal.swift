@@ -2,15 +2,12 @@
 import Foundation
 
 public extension EntryCard {
-    /// `-ate-preview-journal`: a longer journal for the round 4 filter and sort drives — a dozen
-    /// visits over four months and two years, at six places, scored and unscored, with dietary tags,
-    /// so every filter has something to find and every month marker something to say. In-memory
-    /// only; never on a server.
-    static let previewJournalArgument = "-ate-preview-journal"
-
-    /// The extras, when the drive asked for them.
+    /// The `journal` fixture (``DebugLaunch/Fixture/journal``): a longer journal for the round 4
+    /// filter and sort drives — a dozen visits over four months and two years, at six places, scored
+    /// and unscored, with dietary tags, so every filter has something to find and every month marker
+    /// something to say. In-memory only; never on a server.
     static var previewJournalIfRequested: [EntryCard] {
-        ProcessInfo.processInfo.arguments.contains(previewJournalArgument) ? previewJournalExtras : []
+        DebugLaunch.has(.journal) ? previewJournalExtras : []
     }
 
     private static func previewID(_ prefix: String, _ tail: String) -> UUID {

@@ -249,3 +249,16 @@ private struct RatingsSkeleton: View {
     RatingsScreen(score: 4.5, stats: InMemoryStatsService())
 }
 #endif
+
+extension RatingsScreen {
+    /// One bar of your own histogram, as the shell pushes it.
+    init(score: Double, context: RouteContext) {
+        let analytics = context.services.analytics
+        self.init(
+            score: score,
+            stats: context.services.stats,
+            onDish: { context.open(.dish($0)) },
+            onViewed: { analytics(YouEvents.ratingsViewed(score: $0)) }
+        )
+    }
+}

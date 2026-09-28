@@ -104,3 +104,20 @@ struct DishDestination: View {
         )
     }
 }
+
+extension DishDestination {
+    /// One dish — and, under its reviews, the dishes like it and its tags (round 7).
+    init(dishID: UUID, context: RouteContext) {
+        self.init(
+            dishID: dishID,
+            source: context.source,
+            services: context.services,
+            saves: context.saves,
+            onPlace: { context.open(.place($0), from: .dish) },
+            onEntry: { context.open(.entry(EntryRoute(entryID: $0))) },
+            onProfile: { context.open(.profile($0)) },
+            onDish: { context.open(.dish($0), from: .similar) },
+            onTag: { context.open(.tag($0)) }
+        )
+    }
+}

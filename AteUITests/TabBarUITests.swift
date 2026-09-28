@@ -11,7 +11,7 @@ final class TabBarUITests: XCTestCase {
 
     /// `+` presents the composer, and the tab under it never changes — before, during, after.
     func testComposeTapPresentsAndReturns() {
-        let app = launch(["-ate-open-feed"])
+        let app = launch(["-ate-open", "feed"])
         let compose = app.buttons["tabbar.compose"].firstMatch
         XCTAssertTrue(compose.waitForExistence(timeout: 10), "the + is beside the bar")
         XCTAssertEqual(state(app), "expanded feed")
@@ -29,7 +29,7 @@ final class TabBarUITests: XCTestCase {
     /// Scrolled down, the bar minimises to the current tab's disc; a tap brings the whole bar back,
     /// and the next scroll down minimises it again.
     func testTheMinimisedBarTapsOpenAndMinimisesAgain() {
-        let app = launch(["-ate-open-feed"])
+        let app = launch(["-ate-open", "feed"])
         XCTAssertTrue(app.buttons["feed.area"].firstMatch.waitForExistence(timeout: 10))
         app.swipeUp()
         XCTAssertTrue(waitUntil(timeout: 3) { state(app) == "minimised feed" }, "the bar minimises")
@@ -47,7 +47,7 @@ final class TabBarUITests: XCTestCase {
     /// Scrolled down, the bar minimises; opening it and tapping the current tab brings the page back
     /// to its top.
     func testRetapScrollsToTop() {
-        let app = launch(["-ate-open-feed"])
+        let app = launch(["-ate-open", "feed"])
         let area = app.buttons["feed.area"].firstMatch
         XCTAssertTrue(area.waitForExistence(timeout: 10))
         let home = area.frame.minY
@@ -67,7 +67,7 @@ final class TabBarUITests: XCTestCase {
     /// descriptions. The Debug-only `tabbar.state` probe is 1pt by design (it exists for these tests)
     /// and is excluded; the rest of the screen is other tests' business.
     func testTheBarPassesTheAccessibilityAudit() throws {
-        let app = launch(["-ate-open-feed"])
+        let app = launch(["-ate-open", "feed"])
         XCTAssertTrue(app.buttons["tabbar.compose"].waitForExistence(timeout: 10))
         try app.performAccessibilityAudit(for: [.hitRegion, .sufficientElementDescription]) { @Sendable issue in Self.ignored(issue) }
         app.swipeUp()

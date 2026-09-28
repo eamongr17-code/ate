@@ -55,8 +55,9 @@ struct RecapScreen: View {
             await store.loadIfNeeded()
             analytics(YouEvents.statementViewed(month: store.month))
             #if DEBUG
-            // `-ate-open-recap -ate-dump-share`: a drive photographs the statement's own share card.
-            if ProcessInfo.processInfo.arguments.contains("-ate-dump-share"), store.statement != nil {
+            // `-ate-open statement/<month>` with `-ate-dump-share`: a drive photographs the
+            // statement's own share card.
+            if DebugLaunch.isOn(.dumpShare), store.statement != nil {
                 isSharing = true
             }
             #endif
@@ -158,3 +159,15 @@ private struct StatementSkeleton: View {
     )
 }
 #endif
+
+extension RecapScreen {
+    /// A month's statement, as the shell pushes it — signed with the handle on hand.
+    init(month: StatementMonth, context: RouteContext) {
+        self.init(
+            month: month,
+            stats: context.services.stats,
+            handle: context.handle(),
+            analytics: context.services.analytics
+        )
+    }
+}
