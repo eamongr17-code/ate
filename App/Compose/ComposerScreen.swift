@@ -79,7 +79,7 @@ struct ComposerScreen: View {
                 // Frozen from the Post tap to the hand-off: what is posted is exactly what was on
                 // screen at the tap. Nothing dims and nothing new appears; the controls just stop
                 // answering — to a finger, and to VoiceOver (the photo X and Close by their guards).
-                Group {
+                VStack(spacing: 0) {
                     editor.ateAccessibilityHidden(isFrozen)
                     photoStrip
                     toolbar.ateAccessibilityHidden(isFrozen)
@@ -246,6 +246,7 @@ struct ComposerScreen: View {
                 title: postTitle,
                 isEnabled: model.canSave,
                 isBusy: isSaving,
+                printsDots: isFrozen,
                 action: post
             )
                 .accessibilityIdentifier("composer.post")

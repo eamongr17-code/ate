@@ -104,11 +104,13 @@ struct ComposerPostButton: View {
     var title = "Post"
     var isEnabled: Bool
     var isBusy = false
+    /// Round 6: while it posts, the label prints its dots (``PostingDotsLabel``).
+    var printsDots = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(title)
+            label
                 .ateText(.control)
                 .padding(.horizontal, 18)
                 .atePillHeight(Self.height)
@@ -123,6 +125,16 @@ struct ComposerPostButton: View {
         .allowsHitTesting(isBusy == false)
         .opacity(isEnabled ? 1 : 0.4)
         .padding(.trailing, AteMetrics.regular)
+        .accessibilityLabel(Text(title))
+    }
+
+    @ViewBuilder
+    private var label: some View {
+        if printsDots {
+            PostingDotsLabel()
+        } else {
+            Text(title)
+        }
     }
 
     /// The pill is drawn 38 tall; a finger gets 44.
