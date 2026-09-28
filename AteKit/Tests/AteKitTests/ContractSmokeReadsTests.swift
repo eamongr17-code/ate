@@ -127,6 +127,58 @@ struct ContractSmokeReadsTests {
         _ = try await AccountClient(api: try await signedIn()).blockedPeople(after: nil, pageSize: 5)
     }
 
+    // MARK: - Journal calendar and dish tags (0053)
+    //
+    // The app's clients for these land with the iOS lanes; until then the wire is decoded here raw, in
+    // the contract's own shapes, so a deployed signature that stops binding fails in CI first.
+
+    @Test("journal_days and my_entries_count")
+    func journalCalendar() async throws {
+        let client = try await signedIn()
+        let data = try await client.supabase
+            .rpc("journal_days", params: [
+                "p_from": AnyJSON.null, "p_to": .null, "p_tz": .string("Australia/Melbourne")
+            ])
+            .execute().data
+        let days = try JSONDecoder().decode([Wire.JournalDay].self, from: data)
+        #expect(days.isEmpty == false, "ci@ate.test has entries")
+        let count: Int = try await client.supabase
+            .rpc("my_entries_count", params: ["p_tz": AnyJSON.string("Australia/Melbourne")])
+            .execute().value
+        #expect(count == days.reduce(0) { $0 + $1.entries }, "the calendar and the count agree")
+    }
+
+    @Test("dish_tags, similar_dishes and dishes_by_tag")
+    func dishTags() async throws {
+        let client = try await signedIn()
+        let dish = try #require(try await someCard(client).items.first?.dishID).uuidString.lowercased()
+        let tagData = try await client.supabase
+            .rpc("dish_tags", params: ["p_dish_id": AnyJSON.string(dish)])
+            .execute().data
+        let tags = try JSONDecoder().decode([Wire.DishTag].self, from: tagData)
+        let tag = try #require(tags.first { $0.kind != "diet" }, "every dish at a place has a place-derived tag")
+
+        let similar = try await client.supabase
+            .rpc("similar_dishes", params: ["p_dish_id": AnyJSON.string(dish), "p_limit": .integer(5)])
+            .execute().data
+        _ = try JSONDecoder().decode([Wire.TaggedDish].self, from: similar)
+
+        let byTag: [String: AnyJSON] = [
+            "p_kind": .string(tag.kind), "p_slug": .string(tag.slug), "p_limit": .integer(2)
+        ]
+        let first = try await client.supabase.rpc("dishes_by_tag", params: byTag).execute().data
+        let page = try JSONDecoder().decode([Wire.TaggedDish].self, from: first)
+        let last = try #require(page.last, "the dish itself carries the tag")
+        var cursor = byTag
+        cursor["p_cursor_score"] = last.score.map { AnyJSON.double($0) } ?? AnyJSON.null
+        cursor["p_cursor_review_count"] = .integer(last.reviewCount)
+        cursor["p_cursor_name"] = .string(last.name)
+        cursor["p_cursor_dish_id"] = .string(last.dishID.uuidString.lowercased())
+        let next = try await client.supabase.rpc("dishes_by_tag", params: cursor).execute().data
+        let second = try JSONDecoder().decode([Wire.TaggedDish].self, from: next)
+        #expect(Set(second.map { $0.dishID }).isDisjoint(with: page.map { $0.dishID }))
+    }
+
     @Test("score_histogram and dishes_by_score")
     func ratings() async throws {
         let client = try await signedIn()
@@ -136,5 +188,46 @@ struct ContractSmokeReadsTests {
         let score = try #require(histogram.busiestScore, "ci@ate.test has scored lines")
         let page = try await stats.dishes(userID: me, score: score, after: nil, pageSize: 5)
         #expect(page.items.isEmpty == false)
+    }
+}
+
+/// The 0053 rows, as `docs/backend/integration-design.md` states them.
+private enum Wire {
+    struct JournalDay: Decodable {
+        let day: String
+        let entries: Int
+        let bestScore: Double?
+        let coverURL: String?
+
+        enum CodingKeys: String, CodingKey {
+            case day, entries
+            case bestScore = "best_score"
+            case coverURL = "cover_url"
+        }
+    }
+
+    struct DishTag: Decodable {
+        let kind: String
+        let slug: String
+        let label: String
+    }
+
+    struct TaggedDish: Decodable {
+        let dishID: UUID
+        let name: String
+        let restaurantID: UUID
+        let restaurantName: String
+        let score: Double?
+        let reviewCount: Int
+        let coverURL: String?
+
+        enum CodingKeys: String, CodingKey {
+            case name, score
+            case dishID = "dish_id"
+            case restaurantID = "restaurant_id"
+            case restaurantName = "restaurant_name"
+            case reviewCount = "review_count"
+            case coverURL = "cover_url"
+        }
     }
 }

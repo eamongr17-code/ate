@@ -26,6 +26,7 @@
 // Everything here is pure (no Deno, no network, no clock) except sha256, which uses the Web
 // Crypto global both runtimes ship. index.ts wires it to the database.
 
+import { cleanStyles } from './styles.ts';
 import type { SortItem, SortPlan } from './types.ts';
 import type { TagToken } from './tags.ts';
 import type { SixToken } from './six.ts';
@@ -125,6 +126,8 @@ export function coerceCachedPlan(raw: unknown): SortPlan | null {
       evidence_offset: int(i.evidence_offset),
       mention_text: str(i.mention_text),
       mention_offset: int(i.mention_offset),
+      // 0053: the model's style words ride the cached plan; re-cleaned like any model output.
+      ...(cleanStyles(i.styles).length ? { styles: cleanStyles(i.styles) } : {}),
     });
   }
   return { place_query: str(p.place_query), place_offset: int(p.place_offset), items };

@@ -23,6 +23,7 @@
 import { findNumbers } from './parse.ts';
 import { scalarLength, scalarOffset, verifiedScalarOffset } from './offsets.ts';
 import { sixEvidenceOffset, type SixSpan } from './six.ts';
+import { cleanStyles } from './styles.ts';
 import type { SortItem, SortPlan } from './types.ts';
 
 export const MAX_ITEMS = 24;
@@ -125,6 +126,9 @@ export function validateItem(item: SortItem, opts: ValidateOptions): SortItem | 
     mentionOffset = null;
   }
 
+  // 0053: style words label the DISH; they are cleaned, never proved against the words.
+  const styles = cleanStyles(item?.styles);
+
   return {
     dish_name: dish,
     score,
@@ -133,6 +137,7 @@ export function validateItem(item: SortItem, opts: ValidateOptions): SortItem | 
     evidence_offset: evidenceOffset,
     mention_text: mentionText,
     mention_offset: mentionOffset,
+    ...(styles.length ? { styles } : {}),
   };
 }
 
@@ -164,6 +169,7 @@ export function validatePlan(plan: SortPlan, opts: ValidateOptions): SortPlan {
       kept.evidence_offset = item.evidence_offset;
     }
     if (!kept.note && item.note) kept.note = item.note;
+    if (!kept.styles && item.styles) kept.styles = item.styles;
     // the mention stays the FIRST one — the receipt's line order follows the words.
   }
 
