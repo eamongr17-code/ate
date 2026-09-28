@@ -6,7 +6,7 @@ import Testing
 
 /// Decoding tests against **verbatim PostgREST payloads copied from staging** (project
 /// `cvoitgoaosofkougmarn`, seeded Melbourne dataset). They run offline, so they guard the wire
-/// contract on every commit; `StagingContractTests` then proves the same shapes are still live.
+/// contract on every commit; `ContractSmokeTests` then proves the same shapes are still live.
 @Suite("Model decoding")
 struct ModelDecodingTests {
     /// The exact decoder `supabase-swift` uses for PostgREST responses — same date strategy, and

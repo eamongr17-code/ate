@@ -113,7 +113,7 @@ resolved before 0031's PR — read `place_locality()`, never `city`) · `dishes`
 (public-read via the **bucket flag**, own-folder write — any name under `<uid>/`, so round 3's `_t.jpg`
 thumbnails need no policy). **Dormant in V1:** `comments`, `review_likes`, `comment_likes`, `follows`, `lists`, `list_dishes`, `review_tags`, `notifications`.
 
-**Staging dummy data (round 6)** lives outside the chain in `supabase/staging-seed/` (generator, `setup.sql` registry + guard, `remove.sql`): staging only, every row it made listed in `staging_seed.registry`.
+**Staging dummy data (round 6)** lives outside the chain in `supabase/staging-seed/` (generator, `setup.sql` registry + guard, `remove.sql`): staging only, every row it made listed in `staging_seed.registry` by batch (`r6` = the dataset; `ci` = the read-only contract-test account `ci@ate.test`, `seed.mjs --ci-account`).
 
 ## Landmines — do not re-learn
 

@@ -1,7 +1,9 @@
--- supabase/staging-seed/remove.sql — STAGING ONLY. Takes the round-6 dummy dataset back out, in one
--- batch, from the registry setup.sql keeps. Touches NOTHING the registry does not list.
+-- supabase/staging-seed/remove.sql — STAGING ONLY. Takes ONE seeded batch back out, from the registry
+-- setup.sql keeps. Touches NOTHING the registry does not list, and nothing of another batch.
+-- `__BATCH__` is filled in by seed.mjs ('r6' = the round-6 dummy dataset, 'ci' = the contract account):
 --
---   node supabase/staging-seed/seed.mjs --remove --i-mean-it
+--   node supabase/staging-seed/seed.mjs --remove --i-mean-it            the round-6 dataset
+--   node supabase/staging-seed/seed.mjs --remove-ci --i-mean-it         the contract-test account
 --
 -- What goes, in order:
 --   1. the saves the seed made in real accounts' names (Eamon's) — listed in staging_seed.saves;
@@ -30,41 +32,42 @@ begin
   -- row with a new created_at and stays; so does any save the registry holds no timestamp for.
   delete from public.saves s
    using staging_seed.saves r
-   where s.user_id = r.user_id and s.dish_id = r.dish_id
+   where s.user_id = r.user_id and s.dish_id = r.dish_id and r.batch = '__BATCH__'
      and r.saved_at is not null and s.created_at = r.saved_at;
   get diagnostics v_saves = row_count;
-  delete from staging_seed.saves;
+  delete from staging_seed.saves where batch = '__BATCH__';
 
   delete from public.entries e
    using staging_seed.registry r
-   where r.tbl = 'entries' and e.id = r.id;
+   where r.tbl = 'entries' and r.batch = '__BATCH__' and e.id = r.id;
   get diagnostics v_entries = row_count;
-  delete from staging_seed.registry where tbl = 'entries';
+  delete from staging_seed.registry where tbl = 'entries' and batch = '__BATCH__';
 
   delete from auth.users u
    using staging_seed.registry r
-   where r.tbl = 'users' and u.id = r.id;
+   where r.tbl = 'users' and r.batch = '__BATCH__' and u.id = r.id;
   get diagnostics v_users = row_count;
-  delete from staging_seed.registry where tbl = 'users';
+  delete from staging_seed.registry where tbl = 'users' and batch = '__BATCH__';
 
   select string_agg(x.name, ', ' order by x.name) into v_kept
   from public.restaurants x
-  join staging_seed.registry r on r.tbl = 'restaurants' and r.id = x.id
+  join staging_seed.registry r on r.tbl = 'restaurants' and r.batch = '__BATCH__' and r.id = x.id
   where exists (select 1 from public.entries e where e.restaurant_id = x.id)
      or exists (select 1 from public.reviews v where v.restaurant_id = x.id)
      or exists (select 1 from public.saves s join public.dishes d on d.id = s.dish_id where d.restaurant_id = x.id);
 
   delete from public.restaurants x
    using staging_seed.registry r
-   where r.tbl = 'restaurants' and x.id = r.id
+   where r.tbl = 'restaurants' and r.batch = '__BATCH__' and x.id = r.id
      and not exists (select 1 from public.entries e where e.restaurant_id = x.id)
      and not exists (select 1 from public.reviews v where v.restaurant_id = x.id)
      and not exists (select 1 from public.saves s join public.dishes d on d.id = s.dish_id where d.restaurant_id = x.id);
   get diagnostics v_places = row_count;
   delete from staging_seed.registry r
-   where r.tbl = 'restaurants' and not exists (select 1 from public.restaurants x where x.id = r.id);
+   where r.tbl = 'restaurants' and r.batch = '__BATCH__'
+     and not exists (select 1 from public.restaurants x where x.id = r.id);
 
-  raise notice 'staging_seed removed: % saves in real accounts, % entries, % accounts, % restaurants', v_saves, v_entries, v_users, v_places;
+  raise notice 'staging_seed (__BATCH__) removed: % saves in real accounts, % entries, % accounts, % restaurants', v_saves, v_entries, v_users, v_places;
   if v_kept is not null then
     raise notice 'staging_seed KEPT (a real row uses them): %', v_kept;
   end if;
@@ -72,4 +75,4 @@ end;
 $$;
 
 -- Report what is left (0 rows = everything went, and the schema can go too).
-select tbl, count(*) as left_in_registry from staging_seed.registry group by tbl;
+select batch, tbl, count(*) as left_in_registry from staging_seed.registry group by batch, tbl;

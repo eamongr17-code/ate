@@ -5,6 +5,9 @@
 //                                                        $SEED_OUT (default: a temp dir) and prints counts
 //   node supabase/staging-seed/seed.mjs --apply          remove any previous batch, then load this one
 //   node supabase/staging-seed/seed.mjs --remove --i-mean-it   take the whole batch back out (remove.sql)
+//   node supabase/staging-seed/seed.mjs --ci-account     create (idempotently) the contract-test account
+//                                                        ci@ate.test and its three entries — batch 'ci'
+//   node supabase/staging-seed/seed.mjs --remove-ci --i-mean-it   take the 'ci' batch back out
 //
 // WHAT IT MAKES (deterministic — the same rows every run): 60 demo accounts (seed.<handle>@ate.test,
 // password atedemo123), 300 restaurants across Melbourne/Sydney/Brisbane/Adelaide/Perth with real suburb
@@ -13,6 +16,12 @@
 // name so his Journal has range to filter. Entries go in the way the app and sorter write them: an
 // INSERT, then the sorter's SQL write path apply_entry_sort (no model call), then photo rows that
 // reuse the earlier demo seed's files in storage (nothing is uploaded or downloaded).
+//
+// THE CI ACCOUNT (batch 'ci', separate from the dataset so --apply/--remove never touch it):
+// ci@ate.test / atedemo123 (@ate_ci) with three entries at seeded Melbourne places, across two months —
+// scored and unscored lines — so the staging smoke suite (AteKit ContractSmokeTests) has a journal,
+// a profile and a statement of its own to decode. CI signs in as this account and only ever READS; it
+// replaces eamon@ate.test, whose real entries and simulator drives must never share a login with CI.
 //
 // SAFETY: the project ref is hard-coded to staging and passed explicitly on every call; every SQL batch
 // first runs staging_seed.assert_staging(), which refuses any database that is not staging. Every row
@@ -303,6 +312,33 @@ const files = [
   ...chunks(saves, 600).map((c, i) => [`04_saves_${i}.sql`, batch('put_save', c)]),
 ];
 
+// The contract-test account: read-only in CI, so its data is fixed once and never changes.
+const CI = {
+  id: uuid('user:ci'), email: 'ci@ate.test', username: 'ate_ci', name: 'Ate CI', batch: 'ci',
+  bio: 'Contract-test account (CI reads only).', city: 'Melbourne', avatar_url: null,
+  created_at: new Date(NOW - 60 * DAY).toISOString(),
+};
+function ciEntry(k, place, daysAgo) {
+  const [a, b, c] = place.menu;
+  let body = '';
+  const items = [];
+  for (const [m, score] of [[a, 4.5], [b, null], [c, 3.5]]) {
+    const sep = body === '' ? '' : ' ';
+    const at = cp(body) + cp(sep);
+    const evidence = score === null ? null : `${m.dish} ${scoreText(score)}`;
+    body += sep + (score === null ? `${m.dish} was lovely.` : `${evidence}.`);
+    const item = { dish_name: m.dish, mention_text: m.dish, mention_offset: at, tags: [] };
+    if (score !== null) Object.assign(item, { score, score_evidence: evidence, evidence_offset: at });
+    items.push(item);
+  }
+  const when = new Date(NOW - daysAgo * DAY);
+  when.setUTCHours(8, 30, 0, 0);
+  return { id: uuid(`entry:ci:${k}`), author: CI.id, author_email: null, restaurant: place.id, body,
+    created_at: when.toISOString(), place_query: null, place_offset: null, items, photos: [], batch: 'ci' };
+}
+const ciEntries = [[0, 40], [1, 25], [2, 10]].map(([k, days]) => ciEntry(k, byCity.melbourne[k], days));
+const ciBatch = batch('put_user', [CI]) + batch('put_entry', ciEntries).replace('select staging_seed.assert_staging();\n', '');
+
 const lines = allEntries.flatMap((e) => e.items);
 const counts = {
   users: users.length,
@@ -328,6 +364,12 @@ const argv = new Set(process.argv.slice(2));
 const out = process.env.SEED_OUT ?? mkdtempSync(join(tmpdir(), 'ate-seed-r6-'));
 mkdirSync(out, { recursive: true });
 for (const [name, sql] of files) writeFileSync(join(out, name), sql);
+writeFileSync(join(out, '05_ci_account.sql'), ciBatch);
+const removeFor = (b) => {
+  const file = join(out, `remove_${b}.sql`);
+  writeFileSync(file, readFileSync(join(HERE, 'remove.sql'), 'utf8').replaceAll('__BATCH__', b));
+  return file;
+};
 console.log(JSON.stringify({ out, files: files.length, ...counts }, null, 2));
 
 function query(file) {
@@ -342,17 +384,23 @@ function query(file) {
 const linked = (() => {
   try { return readFileSync(join(WORKDIR, 'supabase', '.temp', 'project-ref'), 'utf8').trim(); } catch { return null; }
 })();
-if ((argv.has('--apply') || argv.has('--remove')) && linked !== null && linked !== STAGING_REF) {
+const writes = ['--apply', '--remove', '--ci-account', '--remove-ci'].some((f) => argv.has(f));
+if (writes && linked !== null && linked !== STAGING_REF) {
   throw new Error(`the linked project is ${linked}, not staging (${STAGING_REF}) — refusing`);
 }
 
-if (argv.has('--remove')) {
-  if (!argv.has('--i-mean-it')) throw new Error('--remove needs --i-mean-it');
-  console.log(query(join(HERE, 'remove.sql')));
+if (argv.has('--remove') || argv.has('--remove-ci')) {
+  if (!argv.has('--i-mean-it')) throw new Error('--remove / --remove-ci need --i-mean-it');
+  query(join(out, '00_setup.sql')); // create-or-replace: the helpers match this checkout
+  console.log(query(removeFor(argv.has('--remove-ci') ? 'ci' : 'r6')));
+} else if (argv.has('--ci-account')) {
+  query(join(out, '00_setup.sql'));
+  console.log(query(join(out, '05_ci_account.sql')));
+  console.log(`ci account ready: ${CI.email} (${CI.id}), ${ciEntries.length} entries`);
 } else if (argv.has('--apply')) {
   query(join(out, '00_setup.sql'));
   console.log('removing any previous batch…');
-  console.log(query(join(HERE, 'remove.sql')));
+  console.log(query(removeFor('r6')));
   for (const [name] of files.slice(1)) {
     process.stdout.write(`${name}… `);
     query(join(out, name));

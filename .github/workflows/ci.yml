@@ -10,23 +10,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: SwiftLint
-    runs-on: macos-26
-    timeout-minutes: 10
+  # Which surfaces a PR touches. A job gated off by it is SKIPPED, and a skipped required check counts
+  # as passing. Pushes to main always run everything.
+  #   backend — the schema/functions, the Swift that talks to them, and CI itself
+  #   app     — anything the app build or the AteKit tests compile
+  changes:
+    name: Changed surfaces
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      backend: ${{ steps.diff.outputs.backend }}
+      app: ${{ steps.diff.outputs.app }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install SwiftLint
-        run: brew install swiftlint
-      - name: SwiftLint (strict)
-        run: swiftlint lint --strict --reporter github-actions-logging
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            echo "app=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          echo "$files"
+          match() { echo "$files" | grep -qE "$1" && echo true || echo false; }
+          echo "backend=$(match '^(supabase/|AteKit/Sources/|AteKit/Tests/AteKitTests/.*(Contract|Staging)|AteKit/Package|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
+          echo "app=$(match '^(App/|AteKit/|Ate\.xcodeproj/|Config/|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
 
   test:
     name: AteKit tests + app build
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     runs-on: macos-26
     timeout-minutes: 30
+    env:
+      # Resolved packages live outside the checkout so one cache entry covers xcodebuild's clones.
+      SPM_CLONES: /Users/runner/ate-spm
     steps:
       - uses: actions/checkout@v4
+
+      # First, and inside this job: lint is a required gate without costing a runner of its own.
+      - name: SwiftLint (strict)
+        run: brew install swiftlint && swiftlint lint --strict --reporter github-actions-logging
 
       - name: Select Xcode 26
         run: sudo xcode-select -s /Applications/Xcode_26.5.app || sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
@@ -35,49 +62,100 @@ jobs:
         # The example carries the real staging values (publishable by design); prod stays placeholder in CI.
         run: cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
 
-      - name: Cache SPM
-        uses: actions/cache@v4
+      # Keyed per commit so main's cache moves forward with every merge (a key on the lockfile alone is
+      # written once and never updated). PRs restore the newest entry for the same lockfile and never
+      # save; only a push to main saves (the last step).
+      - name: Restore SPM + build cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/Library/Caches/org.swift.swiftpm
             AteKit/.build
-          key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
-          restore-keys: spm-${{ runner.os }}-
+            ${{ env.SPM_CLONES }}
+          key: spm-${{ runner.os }}-${{ hashFiles('AteKit/Package.resolved', 'Ate.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ github.sha }}
+          restore-keys: |
+            spm-${{ runner.os }}-${{ hashFiles('AteKit/Package.resolved', 'Ate.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-
+            spm-${{ runner.os }}-
 
       - name: AteKit unit tests
         run: swift test --package-path AteKit
 
+      # The live half of the contract: one read-only decode per surface the app calls, as ci@ate.test.
+      # Behaviour is pinned by the PGlite job; this only proves the deployed server still answers the
+      # app's requests with rows its decoders accept. Backend PRs and main only.
+      - name: Staging smoke (contract)
+        if: needs.changes.outputs.backend == 'true' || github.event_name == 'push'
+        run: ATE_CONTRACT_TESTS=1 swift test --package-path AteKit --skip-build --filter ContractSmokeTests
+
+      - name: Staging RLS gate holds
+        if: needs.changes.outputs.backend == 'true' || github.event_name == 'push'
+        run: |
+          # Anon read with the publishable key must return 200 and an empty array (RLS deny-by-default).
+          code=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 30 \
+            "${{ vars.SUPABASE_URL_STAGING }}/rest/v1/restaurants?select=id&limit=1" \
+            -H "apikey: ${{ vars.SUPABASE_KEY_STAGING }}")
+          echo "status=$code body=$(cat /tmp/body)"
+          [ "$code" = "200" ] && [ "$(cat /tmp/body)" = "[]" ]
+
+      # arm64 only: the runner is Apple silicon, and a generic simulator destination otherwise builds
+      # x86_64 as well (every target twice).
       - name: Build app (Debug, simulator)
         run: |
           set -o pipefail
           xcodebuild -project Ate.xcodeproj -scheme Ate \
             -destination 'generic/platform=iOS Simulator' \
-            -configuration Debug build > build.log 2>&1 || { tail -50 build.log; exit 1; }
+            -clonedSourcePackagesDirPath "$SPM_CLONES" \
+            -configuration Debug ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build > build.log 2>&1 || { tail -50 build.log; exit 1; }
           tail -2 build.log
 
       # Beta is the config the TestFlight lane archives, and it is NOT a DEBUG build — a #Preview
       # referencing a #if DEBUG helper compiles fine above but breaks the release lane. Unsigned
-      # compile only; signing/upload stay in beta.yml.
+      # compile only; signing/upload stay in beta.yml. On main only: a PR that breaks it is caught
+      # at merge, before any Beta is cut (betas are manual, one per feedback round).
       - name: Build app (Beta, unsigned)
+        if: github.event_name == 'push'
         run: |
           set -o pipefail
           xcodebuild -project Ate.xcodeproj -scheme Ate \
             -destination 'generic/platform=iOS' \
+            -clonedSourcePackagesDirPath "$SPM_CLONES" \
             -configuration Beta CODE_SIGNING_ALLOWED=NO build > beta-build.log 2>&1 || { tail -50 beta-build.log; exit 1; }
           tail -2 beta-build.log
 
-  sorter:
-    name: Sorter tests (sort-entry)
+      - name: Save SPM + build cache
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            AteKit/.build
+            ${{ env.SPM_CLONES }}
+          key: spm-${{ runner.os }}-${{ hashFiles('AteKit/Package.resolved', 'Ate.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ github.sha }}
+
+  backend:
+    name: Backend tests (PGlite + sorter)
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: supabase/tests/db/package-lock.json
+
+      # Every migration applied in order to an in-process Postgres (PGlite/WASM + postgis), then the
+      # SQL-level behaviour suites: RLS, keysets, aggregates, filters, browse, saves, blocks, account.
+      # No Docker, never staging: a migration that cannot apply fails here, before anyone applies it.
+      - name: Migration chain + SQL behaviour (PGlite)
+        working-directory: supabase/tests/db
+        run: npm ci --no-fund --no-audit && node --test
+
       # The function is Deno at deploy time, but its tested modules use no runtime APIs, so the same
       # suite runs under Node's type stripping (harness.ts bridges the two test runners).
-      - name: Parser, validator, model and fixture suites
+      - name: Sorter suites (sort-entry)
         run: node --test supabase/functions/sort-entry/*_test.ts
 
       # places-search's pure modules, same deal: no runtime APIs, so Node runs them. Only the
@@ -85,69 +163,3 @@ jobs:
       # deno.land/std and need `deno test`.
       - name: Places locality derivation (the restaurants.city suburb rule)
         run: node --test supabase/functions/places-search/locality_test.ts
-
-      # Every migration applied in order to an in-process Postgres (PGlite/WASM + postgis), then the
-      # SQL-level contract tests. No Docker, never staging: a migration that cannot apply fails here.
-      - name: Migration chain + SQL contracts (PGlite)
-        working-directory: supabase/tests/db
-        run: npm ci --no-fund --no-audit && node --test
-
-  # Which surfaces a PR touches. App-only PRs skip the staging contract job (a skipped required
-  # check counts as passing); pushes to main always run everything.
-  changes:
-    name: Changed surfaces
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    outputs:
-      backend: ${{ steps.diff.outputs.backend }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - id: diff
-        run: |
-          if [ "${{ github.event_name }}" != "pull_request" ]; then echo "backend=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
-          echo "$files"
-          if echo "$files" | grep -qE '^(supabase/|AteKit/Sources/AteKit/(Models|Networking)/|AteKit/Tests/AteKitTests/.*(Contract|StagingRPC|Staging)|AteKit/Package|\.github/workflows/ci\.yml)'; then
-            echo "backend=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "backend=false" >> "$GITHUB_OUTPUT"
-          fi
-
-  contract:
-    name: Contract tests vs staging
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
-    runs-on: macos-26
-    # One suite against shared staging at a time: overlapping runs sweep each other's rows.
-    concurrency:
-      group: staging-contract
-      cancel-in-progress: false
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Select Xcode 26
-        run: sudo xcode-select -s /Applications/Xcode_26.5.app || sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
-
-      - name: Cache SPM
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/Library/Caches/org.swift.swiftpm
-            AteKit/.build
-          key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
-          restore-keys: spm-${{ runner.os }}-
-
-      - name: AteKit staging contract suite
-        run: ATE_CONTRACT_TESTS=1 swift test --package-path AteKit --filter Contract
-
-      - name: Staging reachable + RLS gate holds
-        run: |
-          # Anon read with publishable key must return 200 and an empty array (RLS deny-by-default).
-          code=$(curl -s -o /tmp/body -w '%{http_code}' \
-            "${{ vars.SUPABASE_URL_STAGING }}/rest/v1/restaurants?select=id&limit=1" \
-            -H "apikey: ${{ vars.SUPABASE_KEY_STAGING }}")
-          echo "status=$code body=$(cat /tmp/body)"
-          [ "$code" = "200" ] && [ "$(cat /tmp/body)" = "[]" ]
