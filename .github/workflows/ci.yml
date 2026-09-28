@@ -5,9 +5,10 @@ on:
   push:
     branches: [main]
 
+# PRs cancel a superseded run; main never does, so every merge finishes and saves its cache.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Which surfaces a PR touches. A job gated off by it is SKIPPED, and a skipped required check counts
@@ -64,7 +65,7 @@ jobs:
 
       # Keyed per commit so main's cache moves forward with every merge (a key on the lockfile alone is
       # written once and never updated). PRs restore the newest entry for the same lockfile and never
-      # save; only a push to main saves (the last step).
+      # save; only a push to main saves (after the builds).
       - name: Restore SPM + build cache
         uses: actions/cache/restore@v4
         with:
@@ -79,23 +80,6 @@ jobs:
 
       - name: AteKit unit tests
         run: swift test --package-path AteKit
-
-      # The live half of the contract: one read-only decode per surface the app calls, as ci@ate.test.
-      # Behaviour is pinned by the PGlite job; this only proves the deployed server still answers the
-      # app's requests with rows its decoders accept. Backend PRs and main only.
-      - name: Staging smoke (contract)
-        if: needs.changes.outputs.backend == 'true' || github.event_name == 'push'
-        run: ATE_CONTRACT_TESTS=1 swift test --package-path AteKit --skip-build --filter ContractSmokeTests
-
-      - name: Staging RLS gate holds
-        if: needs.changes.outputs.backend == 'true' || github.event_name == 'push'
-        run: |
-          # Anon read with the publishable key must return 200 and an empty array (RLS deny-by-default).
-          code=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 30 \
-            "${{ vars.SUPABASE_URL_STAGING }}/rest/v1/restaurants?select=id&limit=1" \
-            -H "apikey: ${{ vars.SUPABASE_KEY_STAGING }}")
-          echo "status=$code body=$(cat /tmp/body)"
-          [ "$code" = "200" ] && [ "$(cat /tmp/body)" = "[]" ]
 
       # arm64 only: the runner is Apple silicon, and a generic simulator destination otherwise builds
       # x86_64 as well (every target twice).
@@ -122,8 +106,9 @@ jobs:
             -configuration Beta CODE_SIGNING_ALLOWED=NO build > beta-build.log 2>&1 || { tail -50 beta-build.log; exit 1; }
           tail -2 beta-build.log
 
+      # Saved once the builds pass, before the staging smoke: a staging hiccup must not cost main its cache.
       - name: Save SPM + build cache
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.head_ref == 'ci/speed'
         uses: actions/cache/save@v4
         with:
           path: |
@@ -131,6 +116,24 @@ jobs:
             AteKit/.build
             ${{ env.SPM_CLONES }}
           key: spm-${{ runner.os }}-${{ hashFiles('AteKit/Package.resolved', 'Ate.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ github.sha }}
+
+      # The live half of the contract: one read-only decode per surface the app calls, as ci@ate.test.
+      # Behaviour is pinned by the PGlite job; this only proves the deployed server still answers the
+      # app's requests with rows its decoders accept. Backend PRs and main only; last, so a staging
+      # outage never hides a build break.
+      - name: Staging smoke (contract)
+        if: needs.changes.outputs.backend == 'true' || github.event_name == 'push'
+        run: ATE_CONTRACT_TESTS=1 swift test --package-path AteKit --skip-build --filter ContractSmokeTests
+
+      - name: Staging RLS gate holds
+        if: needs.changes.outputs.backend == 'true' || github.event_name == 'push'
+        run: |
+          # Anon read with the publishable key must return 200 and an empty array (RLS deny-by-default).
+          code=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 30 \
+            "${{ vars.SUPABASE_URL_STAGING }}/rest/v1/restaurants?select=id&limit=1" \
+            -H "apikey: ${{ vars.SUPABASE_KEY_STAGING }}")
+          echo "status=$code body=$(cat /tmp/body)"
+          [ "$code" = "200" ] && [ "$(cat /tmp/body)" = "[]" ]
 
   backend:
     name: Backend tests (PGlite + sorter)
