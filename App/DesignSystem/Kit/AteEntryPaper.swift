@@ -14,7 +14,7 @@ struct AteEntryPaper: View {
     enum Dishes: Equatable {
         case rows([AteSlip.Dish])
         /// The words are saved and the structure has not arrived: two still rows. `isFailed` adds
-        /// "Print it again".
+        /// "Print it again" under the words.
         case pending(isFailed: Bool)
     }
 
@@ -44,6 +44,7 @@ struct AteEntryPaper: View {
                 InlineTokenText(composition: words, style: .proseLarge, onScoreDish: onScoreDish)
                     .accessibilityIdentifier("entry.words")
             }
+            reprint
             if photos.isEmpty == false {
                 AtePhotoCluster(
                     photos: Array(photos.prefix(AteEntryPaperMetrics.clusterMax)),
@@ -88,16 +89,19 @@ struct AteEntryPaper: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("entry.dishes")
             }
-        case .pending(let isFailed):
-            VStack(alignment: .leading, spacing: AteMetrics.regular) {
-                AteEntryPendingRows()
-                if isFailed, let onReprint {
-                    AteInkPill(title: "Print it again", identifier: "entry.reprint", action: onReprint)
-                        .environment(\.atePalette, .automatic)
-                }
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("entry.pending")
+        case .pending:
+            VStack(alignment: .leading, spacing: 0) { AteEntryPendingRows() }
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("entry.pending")
+        }
+    }
+
+    /// A sort that failed: "Print it again" at its own width, under the words.
+    @ViewBuilder
+    private var reprint: some View {
+        if dishes == .pending(isFailed: true), let onReprint {
+            AteInkPill(title: "Print it again", size: .empty, identifier: "entry.reprint", action: onReprint)
+                .environment(\.atePalette, .automatic)
         }
     }
 
