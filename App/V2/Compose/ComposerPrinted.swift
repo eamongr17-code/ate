@@ -31,6 +31,9 @@ struct V2ComposerPrinted: View {
     @State private var isPickingPlace = false
     @State private var appearedAt = ContinuousClock.now
     @State private var hasCountedEntrance = false
+    /// Once the receipt is up it stays up — a reprint's sort keeps the skeleton rather than emptying
+    /// the page.
+    @State private var hasShownStage = false
     /// The receipt was whole the moment the face came up (the tick's dots covered the sort).
     private let printedOnArrival: Bool
     @Environment(\.dismiss) private var dismiss
@@ -51,32 +54,15 @@ struct V2ComposerPrinted: View {
     var body: some View {
         VStack(spacing: 0) {
             AteSheetHeader(title: nil, primary: share) { done() }
-            ScrollView {
-                if store.showsReceipt {
-                    AtePrintedReceiptStage(
-                        receipt: receipt,
-                        photos: Array(handoff.photos.prefix(2)),
-                        isPrinting: store.phase != .printed,
-                        breathes: store.phase == .sorting,
-                        onAddPlace: store.phase == .needsPlace && store.isBusy == false
-                            ? { isPickingPlace = true } : nil,
-                        enters: true
-                    )
-                    .padding(.vertical, AteMetrics.section)
-                    .frame(maxWidth: .infinity)
-                    .accessibilityElement(children: .contain)
-                    .accessibilityIdentifier("summary.receipt")
+            // The photos and the receipt, centred in the room under the corners (a long one scrolls).
+            GeometryReader { room in
+                ScrollView {
+                    stage
+                        .padding(.vertical, AteMetrics.section)
+                        .frame(maxWidth: .infinity, minHeight: room.size.height)
                 }
-            }
-            .scrollBounceBehavior(.basedOnSize)
-            .scrollIndicators(.hidden)
-            if store.phase == .stalled {
-                AteInkPill(title: "Print it again", isEnabled: store.isBusy == false, identifier: "summary.reprint") {
-                    Task { await store.reprint() }
-                }
-                .environment(\.atePalette, .automatic)
-                .padding(.horizontal, AteMetrics.gutter)
-                .padding(.bottom, AteSheetScaffoldMetrics.footBottom)
+                .scrollBounceBehavior(.basedOnSize)
+                .scrollIndicators(.hidden)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -103,6 +89,39 @@ struct V2ComposerPrinted: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("summary")
+    }
+
+    /// The receipt — its skeleton while it sorts, waits for a place, or could not finish, with
+    /// "Print it again" under it then.
+    @ViewBuilder
+    private var stage: some View {
+        if hasShownStage || store.showsReceipt || store.phase == .stalled {
+            VStack(spacing: AteMetrics.section) {
+                AtePrintedReceiptStage(
+                    receipt: receipt,
+                    photos: Array(handoff.photos.prefix(2)),
+                    isPrinting: store.phase != .printed,
+                    breathes: store.phase == .sorting,
+                    onAddPlace: store.phase == .needsPlace && store.isBusy == false
+                        ? { isPickingPlace = true } : nil,
+                    enters: true
+                )
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("summary.receipt")
+                .onAppear { hasShownStage = true }
+                if store.phase == .stalled {
+                    AteInkPill(
+                        title: "Print it again",
+                        size: .empty,
+                        isEnabled: store.isBusy == false,
+                        identifier: "summary.reprint"
+                    ) {
+                        Task { await store.reprint() }
+                    }
+                    .environment(\.atePalette, .automatic)
+                }
+            }
+        }
     }
 
     /// Share, top right — off while there is nothing to send.
