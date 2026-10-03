@@ -3,6 +3,7 @@ import SwiftUI
 
 /// What a row on the edition can do — handed down from ``FeedRoot`` so the sections draw and never
 /// decide.
+@MainActor
 struct FeedEditionActions {
     /// Pushes a page on the Feed's stack.
     let push: (Route) -> Void
@@ -211,13 +212,11 @@ struct FeedShelf: View {
     let actions: FeedEditionActions
 
     var body: some View {
-        let letters = Dictionary(
-            uniqueKeysWithValues: zip(dishes.map(\.dishID), DishLetter.neighbourly(dishes.map { ($0.dishID, $0.name) }))
-        )
+        let tiles = DishLetter.neighbourly(dishes.map { ($0.dishID, $0.name) })
+        let letters = Dictionary(zip(dishes.map(\.dishID), tiles), uniquingKeysWith: { first, _ in first })
         AteShelf(items: dishes) { dish in
             AteShelfCard(
-                photo: letters[dish.dishID].map { .dish($0, cover: dish.coverURLString) }
-                    ?? .dish(dish.dishID, name: dish.name, cover: dish.coverURLString),
+                photo: Self.photo(dish, letter: letters[dish.dishID]),
                 name: dish.name,
                 place: dish.restaurantName,
                 score: dish.score.map(AteScore.average),
@@ -226,6 +225,11 @@ struct FeedShelf: View {
                 onSave: { actions.save(dish, section) }
             )
         }
+    }
+
+    private static func photo(_ dish: FeedDish, letter: DishLetter?) -> AtePhoto {
+        if let letter { return AtePhoto.dish(letter, cover: dish.coverURLString) }
+        return AtePhoto.dish(dish.dishID, name: dish.name, cover: dish.coverURLString)
     }
 }
 

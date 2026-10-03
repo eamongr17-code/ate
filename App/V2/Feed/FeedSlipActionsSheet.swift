@@ -16,22 +16,23 @@ struct FeedSlipActionsSheet: View {
     private var entry: EntryCard { latest.entry(id: pressed.id) ?? pressed }
 
     var body: some View {
-        let entry = entry
-        let handle = entry.author.map { "@\($0.username)" } ?? "This entry"
-        AteActionsSheet(
+        let current = entry
+        let handle = current.author.map { "@\($0.username)" } ?? "This entry"
+        let onSave: (() -> Void)? = current.items.isEmpty ? nil : { savePlace(current) }
+        let onShare: () -> [Any] = { EntryLinkShare.items(for: current, handle: current.author?.username) }
+        return AteActionsSheet(
             title: handle,
             blockTitle: "Block \(handle)",
-            onSave: entry.items.isEmpty ? nil : savePlace,
-            isSaved: entry.isEveryDishSaved,
-            onShare: { EntryLinkShare.items(for: entry, handle: entry.author?.username) },
+            onSave: onSave,
+            isSaved: current.isEveryDishSaved,
+            onShare: onShare,
             onReport: report,
             onBlock: block
         )
     }
 
-    private func savePlace() {
+    private func savePlace(_ entry: EntryCard) {
         let saves = app.saves
-        let entry = entry
         let dishIDs = entry.items.map(\.dishID)
         Task {
             if entry.isEveryDishSaved {
