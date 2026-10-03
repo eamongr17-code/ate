@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// **A section's heading** — the Feed edition's `.sec`: the section's name in Bricolage 800 at 28,
-/// and, on a shelf, See all with its chevron at the right, muted, on the same baseline. No eyebrow
-/// above it, no rule under it.
+/// and, on a shelf, a muted chevron at the right that opens the whole list — the chevron alone, since
+/// the contract has no text links; VoiceOver hears "See all". No eyebrow above it, no rule under it.
 struct AteSectionHeading: View {
     let title: String
     var onSeeAll: (() -> Void)?
@@ -11,7 +11,7 @@ struct AteSectionHeading: View {
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: AteSectionHeadingMetrics.gap) {
+        HStack(alignment: .center, spacing: AteSectionHeadingMetrics.gap) {
             Text(title)
                 .ateText(.feedSection)
                 .foregroundStyle(palette.fg)
@@ -21,15 +21,14 @@ struct AteSectionHeading: View {
                 .accessibilityIdentifier(identifier)
             if let onSeeAll {
                 Button(action: onSeeAll) {
-                    HStack(spacing: AteSectionHeadingMetrics.chevronGap) {
-                        Text("See all").ateText(.feedControl)
-                        AteIcon.chevron.view(size: AteSectionHeadingMetrics.chevron)
-                    }
-                    .foregroundStyle(palette.muted)
-                    .frame(minHeight: AteMetrics.hit)
-                    .contentShape(.rect)
+                    AteIcon.chevron.view(size: AteSectionHeadingMetrics.chevron)
+                        .foregroundStyle(palette.muted)
+                        .frame(width: AteMetrics.hit, height: AteMetrics.hit)
+                        .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
+                .padding(.trailing, -AteSectionHeadingMetrics.chevronBleed)
+                .accessibilityLabel("See all")
                 .accessibilityIdentifier("\(identifier).seeAll")
             }
         }
@@ -46,6 +45,7 @@ enum AteSectionHeadingMetrics {
     /// The first section, under the header: 8.
     static let firstTop: CGFloat = 8
     static let gap: CGFloat = 10
-    static let chevronGap: CGFloat = 2
     static let chevron: CGFloat = 16
+    /// The chevron's 44 target sits on the gutter: the mark lines up with the column's edge.
+    static let chevronBleed: CGFloat = (AteMetrics.hit - chevron) / 2
 }
