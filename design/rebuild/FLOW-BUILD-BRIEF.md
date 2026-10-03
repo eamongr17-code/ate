@@ -31,6 +31,14 @@ to the contract and the history audit.
 | Browse | `App/V2/Search/`, `App/V2/Place/`, `App/V2/Dish/` | `SearchRoot`, filter sheet, `V2PlacePage`, `V2DishPage`, `V2TagPage` |
 | You and first run | `App/V2/You/`, `App/V2/Profile/`, `App/V2/Settings/`, `App/V2/FirstRun/` | `YouRoot`, `V2RatingsPage`, `V2ProfilePage`, `V2SettingsPage` (+ pages), Welcome, Handle |
 
+## The seams (commit 66f0e73)
+- Roots: `init(router: TabRouter<JournalStores | V2FeedStores | SearchStores | YouStores>, app: AppModel)`. The Feed's stores type is `V2FeedStores` (the old app owns the name `FeedStores`).
+- Stores: `@MainActor struct … { init(services: AteServices) }`, built by the router on first show.
+- Pages: `V2EntryPage(_ entry: EntryRoute, context:)`, `V2SuggestionsPage(context:)`, `V2ProfilePage(userID:context:)`, `V2PlacePage(placeID:context:)`, `V2DishPage(dishID:context:)`, `V2TagPage(tag:context:)`, `V2RatingsPage(score:context:)`, `V2SettingsPage(page:context:)`.
+- `ComposerSheet(app: AppModel)`; `app.isComposing = false` closes it.
+- `V2PageContext`: `app`, `tab`, `source`, `services`, `gate`, `saves`, `open(_:from:)`. `AppModel` owns the one `saves` (SaveAction) and `savedDishes`.
+- Sheets: use `AteSheetScaffold` (fitted detent, one header). Selectable diet codes are `AteDietPill`.
+
 ## Working from a cloud thread (no Xcode there)
 - Branch from `claude/project-thread-2f9ty8`; open a **draft PR back to that branch** (not main). The PR triggers CI on a Mac runner: SwiftLint strict, the app build, AteKit tests. That is your compiler; push small commits and read the CI log.
 - You cannot run the simulator. Say so in the PR. The lead runs each PR on the simulator on Eamon's Mac, screenshots every screen in light and dark, and compares it with the mockup before merging.
