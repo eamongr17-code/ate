@@ -1,0 +1,115 @@
+<title>Ate Pattern Contract</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=DM+Mono:wght@400;500&display=swap">
+<style>
+:root{--ground:#EFEAE2;--fg:#24141F;--muted:#5E5560;--slip:#FFFFFF;--field:#E4DED4;--hair:rgba(36,20,31,.14);--coral:#F0623F;--butter:#F6D365;--green:#3ECF64;--lilac:#B9A5EA;--shadow:0 1px 0 rgba(36,20,31,.07)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ground:#17111B;--fg:#F4EFE9;--muted:#B9AFBC;--slip:#231B24;--field:#2B2230;--hair:rgba(255,255,255,.16);--shadow:0 1px 0 rgba(0,0,0,.25);color-scheme:dark}}
+:root[data-theme="dark"]{--ground:#17111B;--fg:#F4EFE9;--muted:#B9AFBC;--slip:#231B24;--field:#2B2230;--hair:rgba(255,255,255,.16);--shadow:0 1px 0 rgba(0,0,0,.25);color-scheme:dark}
+body{background:var(--ground);color:var(--fg);font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.5;padding:0 20px;padding-block:40px 80px}
+main{max-width:720px;margin:0 auto;display:grid;gap:34px}
+h1,h2,h3{font-family:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;letter-spacing:-.035em;line-height:1.05;text-wrap:balance;margin:0}
+h1{font-weight:800;font-size:44px}h2{font-weight:800;font-size:24px}h3{font-weight:600;font-size:17px;letter-spacing:-.01em}
+p{margin:0}.lede{font-size:20px;line-height:1.45}
+.mono{font-family:"DM Mono",ui-monospace,Menlo,monospace;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+section{display:grid;gap:12px}
+ul,ol{margin:0;padding-left:22px;display:grid;gap:7px}li::marker{color:var(--muted)}
+code{font-family:"DM Mono",ui-monospace,monospace;font-size:14px;background:var(--slip);padding:1px 6px;border-radius:6px}
+.rule{background:var(--slip);border-radius:16px;padding:18px 22px;box-shadow:var(--shadow);display:grid;gap:8px}
+.rule strong{font-family:"Bricolage Grotesque",sans-serif;font-weight:600}
+table{border-collapse:collapse;width:100%;font-size:15.5px}
+th{font-family:"Bricolage Grotesque",sans-serif;font-weight:600;font-size:13.5px;text-align:left;padding:8px 10px 8px 0;border-bottom:1px solid var(--hair);color:var(--muted)}
+td{padding:9px 10px 9px 0;border-bottom:1px solid var(--hair);vertical-align:top}
+td:first-child{font-family:"Bricolage Grotesque",sans-serif;font-weight:600;white-space:nowrap}
+.wrap{overflow-x:auto}
+.pill{display:inline-block;border-radius:999px;padding:2px 10px;font-family:"Bricolage Grotesque",sans-serif;font-weight:600;font-size:12.5px;color:#24141F;white-space:nowrap}
+.locked{background:var(--green)}.ask{background:var(--lilac)}.fix{background:var(--butter)}
+@media (max-width:480px){h1{font-size:36px}}
+</style>
+<main>
+<header style="display:grid;gap:12px">
+  <span class="mono">Rebuild · v1 · 3 Oct 2026 · binds every flow</span>
+  <h1>Ate Pattern Contract</h1>
+  <p class="lede">The cross-cutting rules every screen follows. A flow thread never decides these; it reads them. Where two flows disagreed, this page settles it. Eamon answered every open choice on 3 Oct.</p>
+</header>
+
+<section>
+  <div class="rule"><strong>One rule above all</strong><p>Every piece of chrome is iOS 26's own: tab bar, navigation bar, toolbars, sheets, menus, search. Ate supplies tint, type and content inside them. No custom bar, frost, glass or header anywhere, in any flow, ever.</p></div>
+</section>
+
+<section>
+  <h2>1. Tab bar</h2>
+  <ul>
+    <li>Native Liquid Glass tab bar: Journal · Feed · Search · You, Lucide icons, labels in Bricolage.</li>
+    <li><strong>+ is a tab</strong> (locked). It sits in the bar's detached trailing slot, the one iOS 26 gives a search tab, so it reads as its own glass circle while still being the system bar. Tapping it opens the composer sheet and never changes the selected tab.</li>
+    <li>Scroll down minimises the bar; scroll up restores it. Re-tap scrolls the tab to top.</li>
+    <li><strong>The bar stays on every pushed page</strong> (locked for entries, now for all: place, dish, profile, settings, ratings, statement). It hides only under a sheet or the photo viewer.</li>
+    <li>Selected tab: the system's quiet state, a faint glass highlight with icon and label in ink. No solid fill, no tint colour. + is the only coloured thing in the bar (Eamon, 3 Oct).</li>
+  </ul>
+</section>
+
+<section>
+  <h2>2. Top of screen: titles and controls</h2>
+  <ul>
+    <li>Tab roots use the native large title that collapses to inline on scroll, with the system scroll-edge effect. No frost, no compact header.</li>
+    <li>Titles: Feed, Search, You are their names. The Journal's title is the wordmark (never typeset) and its inline title on scroll is the month. Settled by Eamon on 3 Oct: the Journal shows the wordmark.</li>
+    <li>A root's controls sit trailing, in <strong>one</strong> glass toolbar group, at most three icons (Journal: photos, calendar, filter. Feed: area, cravings. Search: filter. You: settings). A single-choice selector is a native <code>Menu</code> on its icon, never a sheet.</li>
+    <li>Pushed pages use the inline native bar: back, the page's name or byline, trailing controls as glass items. Overflow is a ••• <code>Menu</code> (Entry: Edit, Delete).</li>
+    <li>Subtitles use the bar's native subtitle (Feed: the city). No eyebrow text anywhere.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>3. Sheets and modals</h2>
+  <ul>
+    <li>Everything modal is a native sheet with detents and the system grabber: composer (locked), place picker, filter, cravings, actions. Never a full-screen cover except the photo viewer and Welcome.</li>
+    <li>Corners: <strong>close is a glass disc, top left. The primary action is a glass disc, top right</strong>: the ink tick on the composer (locked), Share on the receipt. A sheet with no primary action has only the close disc. One layout, every sheet.</li>
+    <li>Sheet title: Bricolage 800, 30, left, under the corner row. Search field: 50 pill in the field colour.</li>
+    <li>A sheet that applies a choice ends in one ink pill at the foot with a live count ("Show 12 entries"). A sheet that picks one row closes on the tap, no button.</li>
+    <li>The composer's keys (Score, Place, Diet tags, camera, library) float in one glass capsule above the keyboard (locked). Diet tags is a key beside Score and Place (locked, not yet drawn).</li>
+  </ul>
+</section>
+
+<section>
+  <h2>4. Filters</h2>
+  <ul>
+    <li>One filter icon in the root's toolbar group opens one sheet holding every filter for that screen. The four standing chips are gone from all roots (Journal, Saved, Search). Settled by Eamon on 3 Oct.</li>
+    <li>While a filter is on, its chips show in a row under the bar (<code>safeAreaInset</code> top), each with ✕. No row when nothing is on.</li>
+    <li>Ranges (rating, date) are two-thumb sliders inside the sheet. Cities and areas are a native Menu.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>5. Buttons and actions</h2>
+  <ul>
+    <li>Three kinds only: a glass disc (icon, 44) for corner actions; an ink pill (52, Bricolage 600) for a sheet's one commit; the bookmark on every dish row for Save. Nothing else is a button.</li>
+    <li>Coral appears on + and the Share and Welcome grounds. No coral buttons, no big CTAs, no text links.</li>
+    <li>Destructive actions live in a ••• Menu with the system's red role and a confirmation dialog.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>6. Empty, loading and photos</h2>
+  <ul>
+    <li>Empty: one 40pt Bricolage line on the ground and at most one ink pill. No receipt motif, no illustration.</li>
+    <li>Loading: skeletons of the real components, breathing to 45%. Never a spinner on first load.</li>
+    <li>Photos: squircle, radius 28% of side, 3pt ring in the surface colour when overlapping. Tilted clusters only on entry slips, the entry, the dish hero, Share and Welcome. Straight thumbnails in every other list. A dish with no photo is a letter tile, never grey.</li>
+    <li>Location is asked for only when the user taps Near me (Feed) or opens the place picker. Never on open. The Feed opens on the city of your Journal (Eamon, 3 Oct).</li>
+  </ul>
+</section>
+
+<section>
+  <h2>7. Reconciliation of the three mockups</h2>
+  <div class="wrap"><table>
+    <tr><th>Point</th><th>Compose</th><th>Journal</th><th>Feed</th><th>Contract</th></tr>
+    <tr><td>Tab bar on pushed pages</td><td>Stays</td><td>asked</td><td>n/a</td><td><span class="pill locked">Stays everywhere</span></td></tr>
+    <tr><td>+ button</td><td>Tab</td><td>old circle</td><td>old circle</td><td><span class="pill locked">Tab, trailing slot</span></td></tr>
+    <tr><td>Root title</td><td>n/a</td><td>wordmark, month on scroll</td><td>large title + city</td><td><span class="pill locked">Wordmark on Journal</span></td></tr>
+    <tr><td>Root controls</td><td>n/a</td><td>one glass group</td><td>one glass pill</td><td><span class="pill locked">One trailing group, ≤3</span></td></tr>
+    <tr><td>Sheet corners</td><td>X left, tick right; place sheet X right</td><td>filter sheet, pill at foot</td><td>cravings sheet</td><td><span class="pill locked">X left, primary right, always</span></td></tr>
+    <tr><td>Filters</td><td>n/a</td><td>one button + sheet</td><td>menu + sheet</td><td><span class="pill locked">One button + sheet</span></td></tr>
+    <tr><td>Tab tint</td><td>ink</td><td>ink</td><td>asked</td><td><span class="pill locked">Quiet native, no fill</span></td></tr>
+    <tr><td>Diet tags key</td><td>missing</td><td>n/a</td><td>n/a</td><td><span class="pill fix">Add to Compose mockup</span></td></tr>
+    <tr><td>Location prompt</td><td>place sheet</td><td>n/a</td><td>Near me only</td><td><span class="pill locked">Only on those two taps</span></td></tr>
+  </table></div>
+  <p>Every row is settled. The flow threads for Journal, Feed, Place and dish, Search, and You are redone from this page in sequence, without asking.</p>
+</section>
+</main>

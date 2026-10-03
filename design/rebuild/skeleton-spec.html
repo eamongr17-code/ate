@@ -1,0 +1,112 @@
+<title>Ate Skeleton Spec</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=DM+Mono:wght@400;500&display=swap">
+<style>
+:root{--ground:#EFEAE2;--fg:#24141F;--muted:#5E5560;--slip:#FFFFFF;--hair:rgba(36,20,31,.14);--coral:#F0623F;--butter:#F6D365;--green:#3ECF64;--lilac:#B9A5EA;--shadow:0 1px 0 rgba(36,20,31,.07)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ground:#17111B;--fg:#F4EFE9;--muted:#B9AFBC;--slip:#231B24;--hair:rgba(255,255,255,.16);--shadow:0 1px 0 rgba(0,0,0,.25);color-scheme:dark}}
+:root[data-theme="dark"]{--ground:#17111B;--fg:#F4EFE9;--muted:#B9AFBC;--slip:#231B24;--hair:rgba(255,255,255,.16);--shadow:0 1px 0 rgba(0,0,0,.25);color-scheme:dark}
+body{background:var(--ground);color:var(--fg);font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.5;padding:0 20px;padding-block:40px 80px}
+main{max-width:720px;margin:0 auto;display:grid;gap:36px}
+h1,h2,h3{font-family:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;letter-spacing:-.035em;line-height:1.05;text-wrap:balance;margin:0}
+h1{font-weight:800;font-size:44px}h2{font-weight:800;font-size:26px}h3{font-weight:600;font-size:18px;letter-spacing:-.01em}
+p{margin:0}.lede{font-size:20px;line-height:1.45}
+.mono{font-family:"DM Mono",ui-monospace,Menlo,monospace;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+section{display:grid;gap:14px}
+ul,ol{margin:0;padding-left:22px;display:grid;gap:8px}li::marker{color:var(--muted)}
+code{font-family:"DM Mono",ui-monospace,monospace;font-size:14px;background:var(--slip);padding:1px 6px;border-radius:6px}
+pre{font-family:"DM Mono",ui-monospace,monospace;font-size:13px;line-height:1.5;background:var(--slip);border-radius:16px;padding:18px 20px;overflow-x:auto;box-shadow:var(--shadow);margin:0}
+table{border-collapse:collapse;width:100%;font-size:16px}
+th{font-family:"Bricolage Grotesque",sans-serif;font-weight:600;font-size:14px;text-align:left;padding:8px 10px 8px 0;border-bottom:1px solid var(--hair);color:var(--muted)}
+td{padding:9px 10px 9px 0;border-bottom:1px solid var(--hair);vertical-align:top}
+.wrap{overflow-x:auto}
+.pill{display:inline-block;border-radius:999px;padding:2px 10px;font-family:"Bricolage Grotesque",sans-serif;font-weight:600;font-size:12.5px;color:#24141F;white-space:nowrap}
+.keep{background:var(--green)}.del{background:var(--coral);color:#fff}.new{background:var(--lilac)}
+.rule{background:var(--slip);border-radius:16px;padding:18px 22px;box-shadow:var(--shadow);display:grid;gap:8px}
+.rule strong{font-family:"Bricolage Grotesque",sans-serif;font-weight:600}
+@media (max-width:480px){h1{font-size:36px}}
+</style>
+<main>
+<header style="display:grid;gap:12px">
+  <span class="mono">Phase 2 brief · draft 3 Oct 2026 · for the skeleton thread</span>
+  <h1>Ate Skeleton Spec</h1>
+  <p class="lede">The composition root, navigation, chrome and component set the rebuilt app stands on. Built once, before any flow, knowing all 35 screens.</p>
+</header>
+
+<section>
+  <div class="rule">
+    <strong>The in-place rule</strong>
+    <p>The app builds and ships on every merge. The skeleton PR swaps the shell and chrome under the existing screens. Each flow PR afterwards replaces one flow's screens and deletes the old ones in the same PR. Nothing is left half-migrated, and nothing custom coexists with native chrome.</p>
+  </div>
+</section>
+
+<section>
+  <h2>1. Composition root</h2>
+  <pre>AteApp
+ └─ AteServices        (keep as is: API client, per-domain services, outbox, analytics)
+     └─ AppModel       (new, @Observable: session, handle, outbox drain, link inbox)
+         └─ TabShell   (new: native TabView, four TabRouters, composer presentation)
+             ├─ JournalRouter / FeedRouter / SearchRouter / YouRouter
+             └─ Composer (sheet, owned by the shell)</pre>
+  <ul>
+    <li><code>AppModel</code> owns what the whole app shares: session state, the sign-in gate, the owed handle, the outbox, incoming entry links. Nothing else.</li>
+    <li><code>TabRouter</code> is one small <code>@Observable</code> per tab: its <code>[Route]</code> path, its stores, scroll-to-top. The current 20 stores held by one view move into the four routers; a tab's stores are created when the tab is first shown.</li>
+    <li>The existing <code>Route</code> enum stays. <code>navigationDestination(for: Route.self)</code> is declared once, in <code>TabShell</code>.</li>
+    <li>Debug launch routes, preview data and the staging sign-in move into one <code>DebugLaunch</code> applied at <code>AteApp</code>. No <code>#if DEBUG</code> inside any screen (60 files carry one today).</li>
+    <li>One <code>LocationService</code> on <code>AteServices</code>. Only the place sheet calls it. The Feed and Search never ask.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>2. Navigation and chrome, all native</h2>
+  <ul>
+    <li><strong>Tab bar:</strong> SwiftUI <code>TabView</code> with the iOS 26 Liquid Glass bar, <code>tabBarMinimizeBehavior(.onScrollDown)</code>. Four tabs: Journal, Feed, Search, You, Lucide icons via the existing <code>AteIcon</code>. Tinted with the brand's ink and coral through the tokens.</li>
+    <li><strong>The + button is a tab</strong> (Eamon, 3 Oct): it takes the bar's detached trailing slot, the one iOS 26 gives a search-role tab, so it reads as its own glass circle while staying the system bar. Tapping it presents the composer sheet and never changes the selected tab. Tinted coral through the tokens.</li>
+    <li><strong>Pushed pages:</strong> native navigation bar, native back, controls as <code>ToolbarItem</code>s (glass for free). Titles via <code>navigationTitle</code> with <code>toolbarTitleDisplayMode(.inline)</code>; the Journal and You roots use the large-title style with the wordmark as a toolbar item.</li>
+    <li><strong>Scrolled headers:</strong> the system scroll-edge effect replaces the frost and the compact header. Filter chips sit in a <code>safeAreaInset(edge: .top)</code> under the bar.</li>
+    <li><strong>Sheets:</strong> <code>.sheet</code> with <code>presentationDetents</code> and the system grabber; close is a glass disc top left, the primary action a glass disc top right, on every sheet. The composer is a sheet too (Eamon, 3 Oct).</li>
+    <li><strong>Swipe back and the photo viewer:</strong> system gestures and system presentation only.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>3. Design system: 48 files to 17</h2>
+  <div class="wrap"><table>
+    <tr><th>Component</th><th>Verdict</th><th>Note</th></tr>
+    <tr><td>Tokens: color, type, icon, metrics, shadow, motion, font registry</td><td><span class="pill keep">Keep</span></td><td>Merge the eight <code>AteType+*</code> files into one type scale.</td></tr>
+    <tr><td>EntrySlip + SlipDishRow</td><td><span class="pill keep">Keep</span></td><td>One anatomy for Journal, Feed, Profile, place visits.</td></tr>
+    <tr><td>Receipt (+ lead, entrance, Top Ate)</td><td><span class="pill keep">Keep</span></td><td>Fold the three receipt files into one.</td></tr>
+    <tr><td>InlineTokenText, InlineTokenEditor + coordinator</td><td><span class="pill keep">Keep</span></td><td>The composer's core. Untouched.</td></tr>
+    <tr><td>StarSlider, ScoreStyle</td><td><span class="pill keep">Keep</span></td><td></td></tr>
+    <tr><td>PhotoCollage, Photos, ImagePipeline, PhotoViewer</td><td><span class="pill keep">Keep</span></td><td>Viewer presents natively.</td></tr>
+    <tr><td>Avatar, LetterTile, TagChip, SaveButton, Wordmark</td><td><span class="pill keep">Keep</span></td><td>LetterTile and TagChip are inside AteTokens today; give them files.</td></tr>
+    <tr><td>FilterChips, RangeSlider, ChipSheet, CityPicker</td><td><span class="pill keep">Keep</span></td><td>Sheets become native sheets.</td></tr>
+    <tr><td>EmptyState, Skeleton, Shimmer, StatsSlip, MonthDivider, SettingsRow</td><td><span class="pill keep">Keep</span></td><td></td></tr>
+    <tr><td>AteTabBar, AteTabChrome, AteTabRootHeader, AteCompactHeader, AteFrost, AteGlass, AteNavigationBar, SwipeBack, AteSheet, AteSheetPresentation, AteTitle, AteFlow, AteHitTarget</td><td><span class="pill del">Delete</span></td><td>Replaced by system chrome. HitTarget and Flow fold into metrics.</td></tr>
+    <tr><td>FeedEditionParts, AteBrowseFilter, AteFilter</td><td><span class="pill del">Delete</span></td><td>Rebuilt by the Feed and Search flow threads to their briefs.</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2>4. Tests</h2>
+  <ul>
+    <li>AteKit's 892 tests stay. The skeleton must not touch AteKit.</li>
+    <li>Delete the 23 round-named UI test files. Add five flow smoke tests: sign in, write, entry, journal · feed, save, saved · search, place, dish · you, ratings, statement · share.</li>
+    <li>CI unchanged. The staging contract test still runs.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>5. Ratified decisions this changes</h2>
+  <p>Two rows of <code>docs/ARCHITECTURE.md</code> change and must be edited in the skeleton PR: the design-system row (system chrome, not hand-built glass) and the testing row (five smoke flows). <code>docs/DESIGN.md</code>'s Chrome section is replaced by one paragraph: native iOS 26 chrome everywhere, tinted through the tokens. Eamon approved both on 3 Oct.</p>
+</section>
+
+<section>
+  <h2>6. Order of work for the skeleton thread</h2>
+  <ol>
+    <li>Branch <code>rebuild/skeleton</code>. Build <code>AppModel</code>, <code>TabShell</code>, four routers. Wire the existing screens in unchanged.</li>
+    <li>Swap chrome: native tab bar, + button, native navigation bars on every pushed page. Delete the 13 chrome files and every <code>toolbar(.hidden)</code>.</li>
+    <li>Consolidate the design system to the table above. Move debug launch to the root.</li>
+    <li>Replace the UI tests. CI green. One TestFlight build for Eamon to feel the native chrome.</li>
+  </ol>
+  <p class="mono">Model: Opus 5.5 builds · Fable reviews the diff before merge</p>
+</section>
+</main>
