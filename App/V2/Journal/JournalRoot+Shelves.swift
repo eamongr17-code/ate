@@ -36,15 +36,13 @@ extension JournalRoot {
 
     /// Journal | Saved, at the head of the list.
     var segment: some View {
-        Picker("Shelf", selection: $shelf) {
-            Text("Journal").tag(Shelf.journal)
-            Text("Saved").tag(Shelf.saved)
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
+        AteSegmentedControl(
+            options: [AteSegment(Shelf.journal, "Journal"), AteSegment(.saved, "Saved")],
+            selection: $shelf,
+            identifier: "journal.shelf"
+        )
         .padding(.horizontal, AteMetrics.listGutter)
         .padding(.vertical, AteMetrics.tight)
-        .accessibilityIdentifier("journal.shelf")
     }
 
     // MARK: - Empty
@@ -97,20 +95,16 @@ extension JournalRoot {
     @ViewBuilder
     private var slips: some View {
         let dividers = JournalMonthDividers.dividers(for: journal.entries, sort: journal.query.sort)
-        let first = journal.entries.first?.id
         ForEach(journal.entries) { entry in
             if let month = dividers[entry.id] {
                 monthDivider(month)
                     .accessibilityIdentifier("journal.month.\(month.year)-\(month.month)")
-                    .padding(.top, entry.id == first ? 0 : AteMetrics.slipGap)
                     .id(Self.dividerID(entry.id))
             }
-            if entry.id != first || dividers[entry.id] == nil {
-                Color.clear
-                    .frame(height: AteMetrics.slipGap)
-                    .accessibilityHidden(true)
-                    .id(Self.gapID(entry.id))
-            }
+            Color.clear
+                .frame(height: AteMetrics.slipGap)
+                .accessibilityHidden(true)
+                .id(Self.gapID(entry.id))
             AteEntrySlip(
                 slip: EntrySlipPresentation.journal(entry),
                 surface: .journal,
@@ -137,24 +131,10 @@ extension JournalRoot {
     static func dividerID(_ entry: UUID) -> String { "\(entry.uuidString).month" }
     static func gapID(_ entry: UUID) -> String { "\(entry.uuidString).gap" }
 
-    /// A month's name over its first slip: its count from `journal_days`, and with a filter on, how
-    /// many of them the filter keeps.
+    /// A month's name over its first slip — the year beside it only when it is not this one.
     private func monthDivider(_ month: AteMonth) -> some View {
-        let days = journal.calendarDays
-        let query = journal.query
-        return AteMonthDivider(
-            title: month.name(),
-            year: String(month.year),
-            count: JournalMonthDividers.count(
-                total: days.total(of: month),
-                filtered: days.filteredCount(of: month, query: query),
-                isFiltered: query.hasFilters
-            )
-        )
-        .task(id: "\(month.year)-\(month.month)-\(query.hashValue)-\(days.revision)") {
-            await days.loadYear(month.year)
-            if query.hasFilters { await days.loadFilteredCount(month, query: query) }
-        }
+        let isThisYear = month.year == AteMonth.containing(Date()).year
+        return AteMonthHeading(month: month.name(), year: isThisYear ? nil : String(month.year))
     }
 
     private func noteTopMonth(_ visible: [UUID]) {
@@ -259,8 +239,8 @@ extension JournalRoot {
 enum JournalShelfMetrics {
     /// How much of a slip must be on screen to count as the one you are reading.
     static let visibleShare = 0.2
-    /// The segment's row: its 36 and the 4 above and below.
-    static let segmentBand: CGFloat = AteMetrics.segmentHeight + 2 * AteMetrics.tight
+    /// The segment's row: its 36, the 4 of field around it, and the 4 above and below.
+    static let segmentBand: CGFloat = AteMetrics.segmentHeight + 4 * AteMetrics.tight
     /// An empty state never squeezes below this, however small the screen.
     static let emptyMinimum: CGFloat = 320
     static let skeletons = 3
