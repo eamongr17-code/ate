@@ -66,16 +66,16 @@ section{display:grid;gap:16px}
 .tabbar{position:absolute;left:21px;right:91px;bottom:21px;height:62px;border-radius:999px;display:flex;align-items:center;justify-content:space-around;padding:0 6px}
 .tab{display:flex;flex-direction:column;align-items:center;gap:2px;font:600 10.5px/1 "Bricolage Grotesque",sans-serif;color:#24141F;width:66px;height:54px;justify-content:center;border-radius:999px}
 .tab.on{background:rgba(36,20,31,.06);font-weight:800}
-.plusdisc{position:absolute;right:21px;bottom:21px;width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#F0623F;color:#fff;box-shadow:inset 0 1px 1px rgba(255,255,255,.35),0 8px 22px rgba(36,20,31,.18)}
+.plusdisc{position:absolute;right:21px;bottom:21px;width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#24141F;background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(18px) saturate(1.7);backdrop-filter:blur(18px) saturate(1.7);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.9),inset 0 1px 1px rgba(255,255,255,.8),0 0 0 .5px rgba(36,20,31,.10),0 8px 22px rgba(36,20,31,.12)}
 .menu{position:absolute;right:16px;top:112px;width:236px;border-radius:26px;padding:6px 0;z-index:5;background:rgba(255,255,255,.78)}
 .menu div{display:flex;align-items:center;justify-content:space-between;height:46px;padding:0 18px;font:500 17px/1 -apple-system,"Helvetica Neue",sans-serif;color:#24141F}
 .menu div.del{color:#B3261E}
 .menu hr{border:0;border-top:1px solid rgba(36,20,31,.1);margin:4px 0}
-.receipt{background:linear-gradient(to bottom,#fff 0,#fff 45%,#F8F5F0 100%);border-radius:16px 16px 0 0;padding:22px 16px 14px;display:grid;gap:10px;color:#24141F}
+.receipt{background:#fff;border-radius:16px 16px 0 0;padding:22px 16px 14px;display:grid;gap:10px;color:#24141F}
 .rule{border-top:1.5px dashed rgba(36,20,31,.3)}
 .li{display:flex;gap:8px;align-items:baseline;font:400 13px/1.9 "DM Mono",monospace}
 .li .d{flex:1;border-bottom:1.5px dotted rgba(36,20,31,.35);transform:translateY(-4px)}
-.tear{height:4px;background:radial-gradient(circle at 6px -2px,transparent 4px,#F8F5F0 4.5px) 0 0/12px 4px repeat-x}
+.tear{height:4px}
 .barcode{height:30px;background:repeating-linear-gradient(90deg,#24141F 0 2px,transparent 2px 4px,#24141F 4px 5px,transparent 5px 8px,#24141F 8px 11px,transparent 11px 12px)}
 .dish{display:flex;justify-content:space-between;align-items:flex-start;min-height:44px;padding:9px 0;border-top:1px solid rgba(36,20,31,.14)}
 .dish:first-child{border-top:0}
@@ -112,7 +112,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
 .nm{font:600 17px/1.2 "Bricolage Grotesque",sans-serif;letter-spacing:-.01em}
 .chip{display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 12px;border-radius:999px;background:#fff;font:600 14px/1 "Bricolage Grotesque",sans-serif;color:#24141F;white-space:nowrap}
 .fchip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 13px;border-radius:999px;background:#24141F;color:#fff;font:600 14px/1 "Bricolage Grotesque",sans-serif}
-.paper{background:linear-gradient(to bottom,#fff 0,#fff 45%,#F8F5F0 100%);border-radius:16px 16px 0 0;filter:drop-shadow(0 1px 0 rgba(36,20,31,.07))}
+.paper{background:#fff;border-radius:16px 16px 0 0;filter:drop-shadow(0 1px 0 rgba(36,20,31,.07))}
 .mrow{display:flex;align-items:center;gap:12px;min-height:66px;border-top:1.5px dashed rgba(36,20,31,.25)}
 .thumb{border-radius:14px;flex-shrink:0}
 .av{border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font:800 12px/1 "Bricolage Grotesque",sans-serif;color:#24141F}
@@ -508,6 +508,19 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
     }
     el.style.display='flex';el.style.gap=(z>24?'8px':'2px');el.innerHTML=h;
   });
+    /* Edge B (EdgeFinal): 4pt wave, period fitted to the width so both ends match; flat paper. */
+  function edgeB(){
+    document.querySelectorAll('.tear,.etear,.tear2').forEach(function(el){
+      var W=el.offsetWidth; if(!W) return;
+      var n=W/12, r=Math.round(n); if(Math.abs(n-Math.floor(n)-.5)<1e-9){ r=Math.floor(n); if(r%2) r+=1; }
+      r=Math.max(1,r); var P=W/r, d='M0 0';
+      for(var x=0;x<=W;x+=1){ d+='L'+x+' '+(2.1-1.5*Math.cos(2*Math.PI*x/P)).toFixed(2); }
+      d+='L'+W+' '+(2.1-1.5*Math.cos(2*Math.PI*W/P)).toFixed(2)+'L'+W+' 0Z';
+      var fill=el.getAttribute('data-fill')||'#fff';
+      el.innerHTML='<svg width="'+W+'" height="4" viewBox="0 0 '+W+' 4" style="display:block;overflow:visible" aria-hidden="true"><path d="'+d+'" fill="'+fill+'"/></svg>';
+    });
+  }
+  edgeB();
   function fit(){
     document.querySelectorAll('.ph').forEach(function(p){var s=p.clientWidth/390;p.querySelector('.scr').style.setProperty('--s',s)});
   }

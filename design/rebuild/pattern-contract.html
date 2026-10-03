@@ -39,17 +39,17 @@ td:first-child{font-family:"Bricolage Grotesque",sans-serif;font-weight:600;whit
   <h2>1. Tab bar</h2>
   <ul>
     <li>Native Liquid Glass tab bar: Journal · Feed · Search · You, Lucide icons, labels in Bricolage.</li>
-    <li><strong>+ is a tab</strong> (locked). It sits in the bar's detached trailing slot, the one iOS 26 gives a search tab, so it reads as its own glass circle while still being the system bar. Tapping it opens the composer sheet and never changes the selected tab.</li>
+    <li><strong>+ is a tab</strong> (locked). It sits in the bar's detached trailing slot, the one iOS 26 gives a search tab, so it reads as its own glass circle while still being the system bar. It is plain glass with an ink plus, not coloured (Eamon, 3 Oct). Tapping it opens the composer sheet and never changes the selected tab.</li>
     <li>Scroll down minimises the bar; scroll up restores it. Re-tap scrolls the tab to top.</li>
     <li><strong>The bar stays on every pushed page</strong> (locked for entries, now for all: place, dish, profile, settings, ratings, statement). It hides only under a sheet or the photo viewer.</li>
-    <li>Selected tab: the system's quiet state, a faint glass highlight with icon and label in ink. No solid fill, no tint colour. + is the only coloured thing in the bar (Eamon, 3 Oct).</li>
+    <li>Selected tab: the system's quiet state, a faint glass highlight with icon and label in ink. No solid fill, no tint colour. Nothing in the bar is coloured (Eamon, 3 Oct).</li>
   </ul>
 </section>
 
 <section>
   <h2>2. Top of screen: titles and controls</h2>
   <ul>
-    <li>Tab roots use the native large title that collapses to inline on scroll, with the system scroll-edge effect. No frost, no compact header.</li>
+    <li>Tab roots use the native large title that collapses to inline on scroll, with the system scroll-edge effect. No frost, no compact header. The header wastes no space: the title and the glass group share one row. The inline title is centred. The scroll-edge fade must be checked on a phone before a flow is called done: soft and even, never a band with a hard edge.</li>
     <li>Titles: Feed, Search, You are their names. The Journal's title is the wordmark (never typeset) and its inline title on scroll is the month. Settled by Eamon on 3 Oct: the Journal shows the wordmark.</li>
     <li>A root's controls sit trailing, in <strong>one</strong> glass toolbar group, at most three icons (Journal: photos, calendar, filter. Feed: area, cravings. Search: filter. You: settings). A single-choice selector is a native <code>Menu</code> on its icon, never a sheet.</li>
     <li>Pushed pages use the inline native bar: back, the page's name or byline, trailing controls as glass items. Overflow is a ••• <code>Menu</code> (Entry: Edit, Delete).</li>
@@ -81,7 +81,7 @@ td:first-child{font-family:"Bricolage Grotesque",sans-serif;font-weight:600;whit
   <h2>5. Buttons and actions</h2>
   <ul>
     <li>Three kinds only: a glass disc (icon, 44) for corner actions; an ink pill (52, Bricolage 600) for a sheet's one commit; the bookmark on every dish row for Save. Nothing else is a button.</li>
-    <li>Coral appears on + and the Share and Welcome grounds. No coral buttons, no big CTAs, no text links.</li>
+    <li>Coral appears only on the Share and Welcome grounds. No coral buttons, no big CTAs, no text links.</li>
     <li>Destructive actions live in a ••• Menu with the system's red role and a confirmation dialog.</li>
   </ul>
 </section>
@@ -97,7 +97,18 @@ td:first-child{font-family:"Bricolage Grotesque",sans-serif;font-weight:600;whit
 </section>
 
 <section>
-  <h2>7. Reconciliation of the three mockups</h2>
+  <h2>7. Paper, edges and the Journal's calendar</h2>
+  <ul>
+    <li><strong>Paper is flat.</strong> One tone to the tip of the edge, no gradient (Eamon, round 3 and again 3 Oct). <code>docs/DESIGN.md</code>'s "paper tone" ease to <code>#F8F5F0</code> is stale; the build is right.</li>
+    <li><strong>Edge B exactly.</strong> A 4pt wave under the paper, period fitted to the width so both ends match: <code>P = W / round(W/12)</code>, <code>y = 2.1 − 1.5·cos(2πx/P)</code>. On dish entry slips, the place menu and every receipt. Nowhere else.</li>
+    <li><strong>No barcode</strong> on any receipt (Eamon, 3 Oct).</li>
+    <li><strong>The calendar is a zoom level of the Journal, not a sheet.</strong> List, month, year, like a calendar app. The calendar icon and a pinch move between them; 5.0 and secret-6 days stand out when zoomed out (Eamon, round 7 and 3 Oct).</li>
+    <li><strong>History outranks the docs.</strong> Where <code>docs/DESIGN.md</code> or <code>design/v1</code> disagree with the current build or Eamon's round feedback, the build and the feedback win.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>8. Reconciliation of the three mockups</h2>
   <div class="wrap"><table>
     <tr><th>Point</th><th>Compose</th><th>Journal</th><th>Feed</th><th>Contract</th></tr>
     <tr><td>Tab bar on pushed pages</td><td>Stays</td><td>asked</td><td>n/a</td><td><span class="pill locked">Stays everywhere</span></td></tr>
