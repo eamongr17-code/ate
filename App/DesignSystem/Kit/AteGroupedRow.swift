@@ -34,6 +34,7 @@ struct AteGroupedRow<Trailing: View>: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .listRowInsets(AteGroupedRowMetrics.insets)
         .listRowBackground(palette.chip)
         .accessibilityIdentifier(identifier ?? "row.\(title)")
     }
@@ -94,6 +95,7 @@ struct AteGroupedPicker<Value: Hashable, Options: View>: View {
         .pickerStyle(.menu)
         .tint(palette.muted)
         .frame(minHeight: AteGroupedRowMetrics.height)
+        .listRowInsets(AteGroupedRowMetrics.insets)
         .listRowBackground(palette.chip)
     }
 }
@@ -108,8 +110,11 @@ extension View {
 }
 
 enum AteGroupedRowMetrics {
-    static let height: CGFloat = 44
-    static let gap: CGFloat = AteMetrics.regular
+    /// The current build's Settings row: 56 high, a 10pt gap. The row sets its own height, so the
+    /// list's own vertical insets are taken out (they made a row about 74).
+    static let height: CGFloat = AteMetrics.settingsRowHeight
+    static let gap: CGFloat = AteMetrics.settingsRowGap
+    static let insets = EdgeInsets(top: 0, leading: AteMetrics.gutter, bottom: 0, trailing: AteMetrics.gutter)
     /// A row's small picture — the Settings photo — at a byline avatar's size.
     static let avatar: CGFloat = AteMetrics.avatar
 }
