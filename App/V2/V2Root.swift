@@ -51,7 +51,7 @@ struct V2Root: View {
         if app.services.debugSignIn != nil {
             debugDoor = { await app.signInToStaging() }
         }
-        return WelcomeScreen(
+        return V2WelcomeScreen(
             isPrompt: isPrompt,
             onSignIn: { await app.signInWithApple($0, nonce: $1) },
             onBrowse: {
@@ -63,8 +63,8 @@ struct V2Root: View {
     }
 }
 
-/// The first-run handle, once it knows what the account was made with — the current app's step,
-/// on the same `HandleScreen` and `HandleModel`.
+/// The first-run handle, once it knows what the account was made with — the current app's step and
+/// `HandleModel`, on the rebuilt screen (``V2HandleScreen``).
 private struct V2FirstRunHandle: View {
     let app: AppModel
     @State private var model: HandleModel?
@@ -72,7 +72,7 @@ private struct V2FirstRunHandle: View {
     var body: some View {
         Group {
             if let model {
-                HandleScreen(model: model) { app.handleChosen($0) }
+                V2HandleScreen(model: model) { app.handleChosen($0) }
             } else {
                 Color.clear.ateGround()
             }

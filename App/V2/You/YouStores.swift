@@ -1,9 +1,13 @@
 import AteKit
 import SwiftUI
 
-/// **The You tab's stores**, made by its router the first time the tab is shown. Empty until the You flow fills it;
-/// keep `init(services:)` — ``TabShell`` calls it.
+/// **The You tab's stores**, made by its router the first time the tab is shown.
 @MainActor
 struct YouStores {
-    init(services: AteServices) {}
+    /// Who you are, the three totals, the chart and your top dishes.
+    let you: YouStore
+
+    init(services: AteServices) {
+        you = YouStore(stats: services.stats)
+    }
 }
