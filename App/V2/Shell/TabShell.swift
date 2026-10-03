@@ -13,30 +13,36 @@ struct TabShell: View {
     let app: AppModel
 
     @State private var selection: V2Tab
-    @State private var journal = TabRouter(tab: .journal) { NoStores() }
-    @State private var feed = TabRouter(tab: .feed) { NoStores() }
-    @State private var search = TabRouter(tab: .search) { NoStores() }
-    @State private var you = TabRouter(tab: .you) { NoStores() }
+    @State private var journal: TabRouter<JournalStores>
+    @State private var feed: TabRouter<V2FeedStores>
+    @State private var search: TabRouter<SearchStores>
+    @State private var you: TabRouter<YouStores>
 
     init(app: AppModel, start: V2Launch.Start) {
         self.app = app
         _selection = State(initialValue: start.tab)
+        // Each tab's stores are made the first time the tab is shown, from the services.
+        let services = app.services
+        _journal = State(initialValue: TabRouter(tab: .journal) { JournalStores(services: services) })
+        _feed = State(initialValue: TabRouter(tab: .feed) { V2FeedStores(services: services) })
+        _search = State(initialValue: TabRouter(tab: .search) { SearchStores(services: services) })
+        _you = State(initialValue: TabRouter(tab: .you) { YouStores(services: services) })
         if start.composes { app.isComposing = true }
     }
 
     var body: some View {
         TabView(selection: selectionBinding) {
             Tab(value: V2Tab.journal) {
-                stack(journal) { JournalRootPlaceholder(router: journal) }
+                stack(journal) { JournalRoot(router: journal, app: app) }
             } label: { label(.journal) }
             Tab(value: V2Tab.feed) {
-                stack(feed) { FeedRootPlaceholder(router: feed) }
+                stack(feed) { FeedRoot(router: feed, app: app) }
             } label: { label(.feed) }
             Tab(value: V2Tab.search) {
-                stack(search) { SearchRootPlaceholder(router: search) }
+                stack(search) { SearchRoot(router: search, app: app) }
             } label: { label(.search) }
             Tab(value: V2Tab.you) {
-                stack(you) { YouRootPlaceholder(router: you) }
+                stack(you) { YouRoot(router: you, app: app) }
             } label: { label(.you) }
             // `+`: never shown, never selected — the binding turns its tap into the composer.
             Tab(value: V2Tab.compose, role: .search) {
@@ -52,7 +58,7 @@ struct TabShell: View {
         .tabBarMinimizeBehavior(.onScrollDown)
         .tint(AteNativeChrome.tint)
         .sheet(isPresented: Bindable(app).isComposing) {
-            ComposerSheetPlaceholder()
+            ComposerSheet(app: app)
                 .ateCoversThePage()
         }
         .ateLinkShell() // a waiting link is pushed once the tabs are up
@@ -101,7 +107,7 @@ struct TabShell: View {
         }
     }
 
-    private func router(for tab: V2Tab) -> TabRouter<NoStores>? {
+    private func router(for tab: V2Tab) -> (any V2TabRouting)? {
         switch tab {
         case .journal: journal
         case .feed: feed
@@ -121,7 +127,7 @@ struct TabShell: View {
         }
     }
 
-    /// One tab's stack. Every page the app pushes is declared once, here (``V2Destination``).
+    /// One tab's stack. Every page the app pushes is declared once, here (``V2Destinations``).
     private func stack<Stores, Root: View>(
         _ router: TabRouter<Stores>,
         @ViewBuilder root: () -> Root
@@ -129,7 +135,12 @@ struct TabShell: View {
         NavigationStack(path: Bindable(router).path) {
             root()
                 .navigationDestination(for: Route.self) { route in
-                    V2Destination(route: route, app: app, open: { router.open($0) })
+                    V2Destinations(route: route, context: V2PageContext(
+                        app: app,
+                        tab: router.tab,
+                        source: router.sources[route] ?? .unknown,
+                        push: { router.open($0, from: $1) }
+                    ))
                 }
         }
     }

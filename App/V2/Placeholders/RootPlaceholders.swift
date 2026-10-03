@@ -1,13 +1,14 @@
 import AteKit
 import SwiftUI
 
-// **The four tab roots, as placeholders** (phase 2b): each root's real header — title, inline
+// **The four tab roots, as placeholders** (phase 2b), shared by the flows' root stubs until each
+// flow replaces its stub's body: each root's real header — title, inline
 // title, glass group — over a list of kit skeletons, so the chrome, the scrolling, the bar's
 // minimise and the header's collapse can be judged before any flow lands. Built only from the kit.
 // The first row pushes the root's placeholder page.
 
-struct JournalRootPlaceholder: View {
-    let router: TabRouter<NoStores>
+struct JournalRootPlaceholder<Stores>: View {
+    let router: TabRouter<Stores>
     @State private var isCollapsed = false
     @State private var isFiltering = false
 
@@ -28,8 +29,8 @@ struct JournalRootPlaceholder: View {
     }
 }
 
-struct FeedRootPlaceholder: View {
-    let router: TabRouter<NoStores>
+struct FeedRootPlaceholder<Stores>: View {
+    let router: TabRouter<Stores>
     @State private var isCollapsed = false
     @State private var isPickingCravings = false
 
@@ -54,8 +55,8 @@ struct FeedRootPlaceholder: View {
     }
 }
 
-struct SearchRootPlaceholder: View {
-    let router: TabRouter<NoStores>
+struct SearchRootPlaceholder<Stores>: View {
+    let router: TabRouter<Stores>
     @State private var isCollapsed = false
     @State private var isFiltering = false
 
@@ -74,8 +75,8 @@ struct SearchRootPlaceholder: View {
     }
 }
 
-struct YouRootPlaceholder: View {
-    let router: TabRouter<NoStores>
+struct YouRootPlaceholder<Stores>: View {
+    let router: TabRouter<Stores>
     @State private var isCollapsed = false
 
     var body: some View {
@@ -94,8 +95,8 @@ struct YouRootPlaceholder: View {
 
 /// A root's scrolling list of kit skeletons: the first row opens the root's placeholder page, a
 /// re-tap of the tab scrolls back to the top, and the header collapses as it scrolls.
-struct PlaceholderRootList: View {
-    let router: TabRouter<NoStores>
+struct PlaceholderRootList<Stores>: View {
+    let router: TabRouter<Stores>
     let kind: AteSkeleton.Kind
     @Binding var isCollapsed: Bool
     let onOpen: () -> Void

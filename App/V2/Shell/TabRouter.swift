@@ -5,10 +5,11 @@ import SwiftUI
 ///
 /// `Stores` is the tab's own state (the Journal's entries, the Feed's edition …), built the first
 /// time the tab is shown rather than at launch: a person who never opens Search never pays for it.
-/// The placeholder roots of phase 2b carry none yet; each flow gives its router a real `Stores`.
+/// Each tab's `Stores` is its flow's own type (`JournalStores`, `V2FeedStores` …), made from the
+/// services by the shell; the flow fills it in without touching the shell.
 @MainActor
 @Observable
-final class TabRouter<Stores> {
+final class TabRouter<Stores>: V2TabRouting {
     let tab: V2Tab
     var path: [Route] = []
     /// Bumped by a re-tap of the tab while its root is showing — the root scrolls to its top.
@@ -53,5 +54,13 @@ final class TabRouter<Stores> {
     }
 }
 
-/// The placeholder roots' stores: nothing yet.
-struct NoStores {}
+/// What the shell asks of a router whatever its tab's stores are — so the four routers, each with
+/// its own `Stores`, can be picked out by tab.
+@MainActor
+protocol V2TabRouting: AnyObject {
+    var tab: V2Tab { get }
+    var path: [Route] { get }
+    func shown()
+    func open(_ route: Route, from source: DetailSource)
+    func reselected()
+}

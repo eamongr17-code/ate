@@ -3,8 +3,8 @@ import AuthenticationServices
 import SwiftUI
 
 /// **What the whole rebuilt app shares** — and nothing else: the session, the sign-in gate, the
-/// handle a first run still owes, the outbox worked on every return to the app, and links into an
-/// entry. Tabs, stacks and stores belong to ``TabShell`` and its routers.
+/// save action, the handle a first run still owes, the outbox worked on every return to the app,
+/// and links into an entry. Tabs, stacks and stores belong to ``TabShell`` and its routers.
 ///
 /// It drives the same AteKit pieces the current app's shell does (`SessionGate`, `AppleSignIn`,
 /// `FirstRun`, `EntryOutbox`, `EntryLinkInbox`) with the same behaviour; the current shell keeps
@@ -14,6 +14,11 @@ import SwiftUI
 final class AppModel {
     let services: AteServices
     let gate: SessionGate
+    /// The save, wherever it is made — one of it, so a dish saved on the Feed is saved on every
+    /// page that shows it (AGENTS.md rule 2). Every root and page reaches it through here.
+    let saves: SaveAction
+    /// The Saved shelf the save action keeps stale-marked; the Journal's Saved reads it.
+    let savedDishes: SavedDishesStore
     private(set) var hasSession: Bool
     private(set) var isSigningIn = false
     /// Apple's display name, first sign-in only: the handle screen's suggestion.
@@ -33,7 +38,17 @@ final class AppModel {
     init(services: AteServices, onSessionEnded: @escaping () -> Void = {}) {
         self.services = services
         self.onSessionEnded = onSessionEnded
-        self.gate = SessionGate(analytics: services.analytics)
+        let gate = SessionGate(analytics: services.analytics)
+        let shelf = SavedDishesStore(saves: services.saves)
+        self.gate = gate
+        self.savedDishes = shelf
+        self.saves = SaveAction(
+            saves: services.saves,
+            analytics: services.analytics,
+            shelf: shelf,
+            broadcast: services.savedDishes,
+            gate: gate
+        )
         self.hasSession = services.hasSession
     }
 

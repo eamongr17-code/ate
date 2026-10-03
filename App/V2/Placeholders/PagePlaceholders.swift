@@ -1,44 +1,6 @@
 import AteKit
 import SwiftUI
 
-/// **Every page the rebuilt app pushes**, behind one view — declared once, in ``TabShell``. Phase
-/// 2b draws a placeholder for each; a flow replaces its cases with its real pages.
-struct V2Destination: View {
-    let route: Route
-    let app: AppModel
-    let open: (Route) -> Void
-
-    var body: some View {
-        switch route {
-        case .settings:
-            SettingsPlaceholder(app: app)
-        default:
-            PagePlaceholder(title: Self.title(route), subtitle: Self.subtitle(route))
-        }
-    }
-
-    private static func title(_ route: Route) -> String {
-        switch route {
-        case .entry: "Tipo 00"
-        case .suggestions: "From your photos"
-        case .profile: "@jessw"
-        case .place: "Tipo 00"
-        case .dish: "Tagliatelle al ragù"
-        case .tag(let tag): tag.label
-        case .ratings: "Your ratings"
-        case .statement: "Statement"
-        case .settings: "Settings"
-        }
-    }
-
-    private static func subtitle(_ route: Route) -> String? {
-        switch route {
-        case .entry: "Sat 19 Sep"
-        default: nil
-        }
-    }
-}
-
 /// **A pushed page, as a placeholder**: the native inline bar — the system's back, the page's name
 /// centred, the trailing controls as glass items and ••• as a native `Menu` whose Delete carries
 /// the system's red role and confirms once — over kit skeletons. The tab bar stays.
