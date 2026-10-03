@@ -268,30 +268,17 @@ private struct V2EntryScreen: View {
     }
 }
 
-/// **The byline** in somebody else's entry's bar: their avatar, their handle, and how long ago. A
-/// long handle truncates; the age never does. A tap opens their profile.
+/// **The byline** in somebody else's entry's bar — the kit's inline byline, the age as its subtitle.
+/// A tap opens their profile.
 private struct V2EntryByline: View {
     let byline: AteByline
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: AteMetrics.snug) {
-                AteAvatar(userID: byline.userID, handle: byline.handle, size: .byline)
-                Text(verbatim: "@\(byline.handle)")
-                    .ateText(.controlSmall)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Text(byline.age)
-                    .ateText(.meta)
-                    .foregroundStyle(AtePalette.automatic.muted)
-                    .lineLimit(1)
-                    .fixedSize()
-                    .layoutPriority(1)
-            }
-            .foregroundStyle(AtePalette.automatic.fg)
-            .frame(minHeight: AteMetrics.hit)
-            .contentShape(.rect)
+            AteInlineByline(userID: byline.userID, handle: byline.handle, subtitle: byline.age)
+                .frame(minHeight: AteMetrics.hit)
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("@\(byline.handle), \(byline.age)")
