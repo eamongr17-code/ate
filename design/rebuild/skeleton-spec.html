@@ -39,6 +39,20 @@ td{padding:9px 10px 9px 0;border-bottom:1px solid var(--hair);vertical-align:top
 </section>
 
 <section>
+  <h2>0. Components first</h2>
+  <div class="rule"><strong>Eamon, 3 Oct</strong><p>"Ensure you are building things in a logical and atomic way." The flows were designed separately and the mockups already disagree in small ways about how the same element looks. That must not reach the build.</p></div>
+  <ul>
+    <li><strong>One kit, built and checked once, before any screen.</strong> Order: tokens, then atoms, then composites, then screens. A screen is only an arrangement of kit components plus data.</li>
+    <li><strong>Atoms:</strong> score token, diet chip, photo thumbnail and letter tile (one component, one size and radius per list), avatar, save bookmark, glass disc, ink pill, key (composer).</li>
+    <li><strong>Composites:</strong> dish row, entry slip, shelf card, hero card, ranked row, receipt, torn edge, photo cluster, empty state, skeleton, filter chip row, sheet scaffold (close left, primary right), root header (title and glass group on one row), actions sheet.</li>
+    <li><strong>No local styling in a screen.</strong> No colour, font, radius, shadow or spacing literal outside <code>App/DesignSystem/</code>; SwiftLint enforces it. If a screen needs a look the kit lacks, the kit gains a component or a variant, reviewed once.</li>
+    <li><strong>A component gallery</strong> (Debug build only) shows every atom and composite in every state, light and dark. It is checked on a phone against the contract before the first flow starts, and it is where Eamon judges the kit.</li>
+    <li><strong>Where mockups disagree, the contract wins</strong> and the mockup is treated as wrong. The mockups show layout and content; the kit defines what each element looks like.</li>
+    <li>The same action is the same component everywhere: one Save, one actions sheet, one filter sheet scaffold, one empty state.</li>
+  </ul>
+</section>
+
+<section>
   <h2>1. Composition root</h2>
   <pre>AteApp
  └─ AteServices        (keep as is: API client, per-domain services, outbox, analytics)
@@ -102,7 +116,8 @@ td{padding:9px 10px 9px 0;border-bottom:1px solid var(--hair);vertical-align:top
 <section>
   <h2>6. Order of work for the skeleton thread</h2>
   <ol>
-    <li>Branch <code>rebuild/skeleton</code>. Build <code>AppModel</code>, <code>TabShell</code>, four routers. Wire the existing screens in unchanged.</li>
+    <li>Branch <code>rebuild/skeleton</code>. Build the component kit and its gallery first (section 0); Eamon checks the gallery on a phone.</li>
+    <li>Build <code>AppModel</code>, <code>TabShell</code>, four routers. Wire the existing screens in unchanged.</li>
     <li>Swap chrome: native tab bar, + button, native navigation bars on every pushed page. Delete the 13 chrome files and every <code>toolbar(.hidden)</code>.</li>
     <li>Consolidate the design system to the table above. Move debug launch to the root.</li>
     <li>Replace the UI tests. CI green. One TestFlight build for Eamon to feel the native chrome.</li>

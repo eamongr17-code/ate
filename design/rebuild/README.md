@@ -31,6 +31,16 @@ rebuild thread reads. Decisions here are settled; do not re-ask them.
 - The Feed opens on your Journal city. Location is asked only on Near me or the place picker.
 - Diet tags are a composer key beside Score and Place.
 
+## Build rule: components first (Eamon, 3 Oct 2026)
+
+"Ensure you are building things in a logical and atomic way." The flows were designed separately and the
+mockups disagree in small ways about the same element. That must not reach the build.
+
+- One component kit (tokens, atoms, composites) is built and checked once, in a Debug gallery on a phone, before any screen.
+- Screens are arrangements of kit components plus data. No colour, font, radius, shadow or spacing literal outside `App/DesignSystem/`.
+- Where mockups disagree, `pattern-contract.html` wins and the mockup is wrong. Mockups show layout and content only.
+- `HISTORY-AUDIT.md` lists earlier rulings and build behaviours the mockups do not draw. The build and Eamon's feedback outrank `docs/DESIGN.md`.
+
 ## Phases
 
 0 decisions (done) · 1 flow mockups from the contract (Journal, Feed, Browse, You in progress) and the
