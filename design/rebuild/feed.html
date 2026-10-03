@@ -100,9 +100,9 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
 
 /* ---------- feed additions (same hand as compose) ---------- */
 .tg{position:absolute;right:16px;top:56px;height:44px;border-radius:999px;display:flex;align-items:center;padding:0 4px;z-index:6}
-.lt{position:absolute;left:20px;top:106px;display:grid;gap:3px}
-.lt b{font:800 36px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
-.lt span{font:500 16px/1.2 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.lt{position:absolute;left:20px;top:61px;display:flex;align-items:baseline;gap:8px;z-index:6}
+.lt b{font:800 34px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.lt span{font:500 16px/1 "Bricolage Grotesque",sans-serif;color:#5E5560}
 .it{position:absolute;left:0;right:0;top:58px;display:grid;justify-items:center;gap:1px;z-index:6}
 .it b{font:600 17px/1.15 "Bricolage Grotesque",sans-serif}
 .it span{font:500 12px/1.2 "Bricolage Grotesque",sans-serif;color:#5E5560}
@@ -120,10 +120,13 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
 .tear2{height:4px;margin:0 16px;transform:scaleY(-1)}
 .shelf{display:flex;gap:12px;padding:0 0 0 20px;overflow:hidden}
 .card{flex:0 0 168px;display:grid;gap:8px}
-.card .p{position:relative;width:168px;height:210px;border-radius:30px}
-.card .p .tok{position:absolute;left:10px;top:10px;font-size:13px;padding:2px 9px 2px 7px}
-.card .t{display:flex;justify-content:space-between;align-items:flex-start}
-.card .t b{font:800 18px/1.1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;display:block}
+.card{gap:10px}
+.card .p{position:relative;width:168px;height:210px;border-radius:16px}
+.card .p .tok{position:absolute;left:10px;top:10px;font-size:13px;padding:2px 9px 2px 7px;z-index:2}
+.card .p .cbm{position:absolute;right:10px;top:10px;width:36px;height:36px;color:#24141F;z-index:2}
+.card .t{display:grid;gap:3px}
+.card .t b{font:700 17px/1.15 "Bricolage Grotesque",sans-serif;letter-spacing:-.02em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .lt-tile{align-items:center}
 .lt-tile{display:flex;align-items:center;justify-content:center;font:800 64px/1 "Bricolage Grotesque",sans-serif;color:#24141F}
 .nr{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #E4DED4}
 .nr:last-child{border-bottom:0}
@@ -160,7 +163,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
 /* ---------- The Top Ate, photo-led (v2) ---------- */
 .hero{position:relative;margin:0 16px;height:330px;border-radius:16px;overflow:hidden}
 .hero .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(36,20,31,0) 30%,rgba(36,20,31,.82))}
-.hero>.tok{position:absolute;left:14px;top:14px;z-index:2}
+.hero>.tok{position:absolute;left:12px;top:12px;z-index:2}
 .hero .bmd{position:absolute;right:12px;top:12px;color:#24141F;z-index:2}
 .hero .cap{position:absolute;left:16px;right:16px;bottom:16px;color:#fff;display:flex;align-items:flex-end;gap:12px}
 .hero .num{font:800 168px/.74 "Bricolage Grotesque",sans-serif;letter-spacing:-.07em;flex-shrink:0}
@@ -213,7 +216,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
         <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
         <div class="tg glass"><span class="hit" data-i="pin"></span><span class="hit" data-i="heart"></span></div>
         <div class="lt"><b>Feed</b><span>Melbourne</span></div>
-        <div style="position:absolute;left:0;right:0;top:192px;display:grid;gap:14px">
+        <div style="position:absolute;left:0;right:0;top:112px;display:grid;gap:14px">
           <div class="sec">The Top Ate</div>
           <div id="topate1"></div>
         </div>
@@ -226,7 +229,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
         <span class="plusdisc" data-i="plus" data-s="28"></span>
       </div></div>
       <h3>At rest</h3>
-      <p>Native large title, your Journal's city as the bar's subtitle, the pin (area) and the heart (cravings) in one glass group. The Top Ate opens the edition: #1 as a full photo card, #2 to #8 as ranked rows.</p>
+      <p>One header row: the title with your Journal's city muted on its baseline, and the pin (area) and heart (cravings) in one glass group on the same line. The Top Ate opens the edition: #1 as a full photo card, #2 to #8 as ranked rows.</p>
     </div>
 
     <!-- 2 Mid-scroll -->
@@ -255,7 +258,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
         <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
         <div class="tg glass"><span class="hit" data-i="pin"></span><span class="hit" data-i="heart"></span></div>
         <div class="lt"><b>Feed</b><span>Melbourne</span></div>
-        <div style="position:absolute;left:0;right:0;top:192px;display:grid;gap:14px;filter:blur(1.5px);opacity:.75">
+        <div style="position:absolute;left:0;right:0;top:112px;display:grid;gap:14px;filter:blur(1.5px);opacity:.75">
           <div class="sec">The Top Ate</div>
           <div id="topate2"></div>
         </div>
@@ -287,7 +290,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
         <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
         <div class="tg glass"><span class="hit" data-i="pin"></span><span class="hit" data-i="heart"></span></div>
         <div class="lt"><b>Feed</b><span>Melbourne</span></div>
-        <div style="position:absolute;left:0;right:0;top:192px;display:grid;gap:14px">
+        <div style="position:absolute;left:0;right:0;top:112px;display:grid;gap:14px">
           <div class="sec">The Top Ate</div>
           <div id="topate3"></div>
         </div>
@@ -516,9 +519,10 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
   }
   var tint=['#F6D365','#3ECF64','#B9A5EA','#F0623F'];
   function card(c){
-    var p=c.f?'<span class="p ph-img '+c.f+'"><span class="tok">'+I('star',11)+c.s+'</span></span>'
-      :'<span class="p lt-tile" style="background:'+c.t+'">'+c.n.charAt(0)+'<span class="tok">'+I('star',11)+c.s+'</span></span>';
-    return '<div class="card">'+p+'<div class="t"><span><b>'+c.n+'</b><span class="meta">'+c.r+'</span></span><span class="hit" style="margin:-10px -12px 0 0">'+I(c.on?'bmf':'bm',22)+'</span></div></div>';
+    var over='<span class="tok">'+I('star',11)+c.s+'</span><span class="disc glass cbm">'+I(c.on?'bmf':'bm',19)+'</span>';
+    var p=c.f?'<span class="p ph-img '+c.f+'">'+over+'</span>'
+      :'<span class="p lt-tile" style="background:'+c.t+'">'+c.n.charAt(0)+over+'</span>';
+    return '<div class="card">'+p+'<div class="t"><b>'+c.n+'</b><span class="meta">'+c.r+'</span></div></div>';
   }
   ['topate1','topate2','topate3'].forEach(function(id){document.getElementById(id).innerHTML=heroA();});
   document.getElementById('loved1').innerHTML=[{n:'Pappardelle with duck ragù',r:'Tipo 00',s:'4.7',f:'food1'},{n:'Rigatoni alla vodka',r:'Grill Americano',s:'4.6',t:'#B9A5EA'},{n:'Agnolotti',r:'Osteria Ilaria',s:'4.5',f:'food3'}].map(card).join('');
