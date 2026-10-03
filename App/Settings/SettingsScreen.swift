@@ -49,6 +49,11 @@ struct SettingsScreen: View {
                 #if DEBUG || BETA
                 // The component kit, for judging on a phone. Never in a Release build.
                 AteSettingsRow(title: "Component kit") { onOpen(.kit) }
+                // The rebuilt app, beside this one until cutover; its own Settings switches back.
+                AteSettingsRow(title: "New app") {
+                    AteTelemetry.record(ShellEvents.appSwitched(to: .new, from: .currentSettings))
+                    model.preferences.opensNewApp = true
+                }
                 #endif
             }
         }

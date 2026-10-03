@@ -53,6 +53,32 @@ extension AteTextStyle {
     static let kitRootSubtitle = AteTextStyle(
         voice: .display, size: 16, weight: 500, trackingEm: 0, lineHeight: 1.0, textStyle: .body
     )
+    /// An inline bar title — a pushed page's name, and a tab root's title once it has collapsed into
+    /// the centre of the bar — `.ntitle`/`.navt`/`.it b`: 600 at 17, `line-height:1.15`, `-.01em`.
+    static let kitInlineTitle = AteTextStyle(
+        voice: .display, size: 17, weight: 600, trackingEm: -0.01, lineHeight: 1.15, textStyle: .headline,
+        maximumSize: 22
+    )
+    /// …and the subtitle under it (the Feed's city, a byline's place) — `.it span`/`.navt small`: 500
+    /// at 12, `line-height:1.2`, muted.
+    static let kitInlineSubtitle = AteTextStyle(
+        voice: .display, size: 12, weight: 500, trackingEm: 0, lineHeight: 1.2, textStyle: .caption,
+        maximumSize: 16
+    )
+    /// A native tab bar item's label, at rest and selected — the old bar's 10.5 in Bricolage, bold
+    /// when current. Set on the system bar's items through ``AteNativeChrome``.
+    static let kitTabLabel = AteTextStyle(
+        voice: .display, size: 10.5, weight: 500, trackingEm: 0, lineHeight: 1.2,
+        textStyle: .caption2, maximumSize: 14
+    )
+    static let kitTabLabelSelected = AteTextStyle(
+        voice: .display, size: 10.5, weight: 700, trackingEm: 0, lineHeight: 1.2,
+        textStyle: .caption2, maximumSize: 14
+    )
+    /// A row in a native grouped list (Settings): `.it .tx`, 500 at 17.
+    static let kitListRow = AteTextStyle(
+        voice: .display, size: 17, weight: 500, trackingEm: 0, lineHeight: 1.0, textStyle: .body
+    )
     /// The count on a glass control's badge — `.badge`: 600 at 10.5, capped (a 17pt disc).
     static let kitBadge = AteTextStyle(
         voice: .display, size: 10.5, weight: 600, trackingEm: 0, lineHeight: 1.0,

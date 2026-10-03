@@ -20,19 +20,21 @@ struct AppGenerationTests {
         }
     }
 
+    private func resolve(flag: Bool, testing: Bool, preference: Bool) -> AppGeneration {
+        AppGeneration.resolve(isAvailable: true, launchFlag: flag, isUITesting: testing, preference: preference)
+    }
+
     @Test("-ate-v2 opens the new app for the launch, UI test or not")
     func theFlagOpensTheNewApp() {
-        #expect(AppGeneration.resolve(isAvailable: true, launchFlag: true, isUITesting: false, preference: false) == .new)
-        #expect(AppGeneration.resolve(isAvailable: true, launchFlag: true, isUITesting: true, preference: false) == .new)
+        #expect(resolve(flag: true, testing: false, preference: false) == .new)
+        #expect(resolve(flag: true, testing: true, preference: false) == .new)
     }
 
     @Test("the preference decides without the flag — except in a UI-test run, which starts from nothing")
     func thePreferenceDecides() {
-        #expect(AppGeneration.resolve(isAvailable: true, launchFlag: false, isUITesting: false, preference: true) == .new)
-        #expect(AppGeneration.resolve(isAvailable: true, launchFlag: false, isUITesting: false, preference: false)
-            == .current)
-        #expect(AppGeneration.resolve(isAvailable: true, launchFlag: false, isUITesting: true, preference: true)
-            == .current)
+        #expect(resolve(flag: false, testing: false, preference: true) == .new)
+        #expect(resolve(flag: false, testing: false, preference: false) == .current)
+        #expect(resolve(flag: false, testing: true, preference: true) == .current)
     }
 
     @Test("the choice outlives the launch, and switching back forgets it")
@@ -45,5 +47,20 @@ struct AppGenerationTests {
         first.opensNewApp = false
         #expect(AtePreferences(store: store).opensNewApp == false)
         #expect(store.value(forKey: "ate.opensNewApp") == nil, "switching back leaves nothing behind")
+    }
+}
+
+@Suite("Shell events — the rebuilt app's tab bar")
+struct ShellEventsTests {
+    @Test("each event carries its name and parameters")
+    func names() {
+        #expect(ShellEvents.newAppOpened() == AnalyticsEvent(name: "new_app_opened"))
+        #expect(ShellEvents.appSwitched(to: .new, from: .currentSettings)
+            == AnalyticsEvent(name: "app_switched", parameters: ["to": "new", "source": "current_settings"]))
+        #expect(ShellEvents.appSwitched(to: .current, from: .newSettings)
+            == AnalyticsEvent(name: "app_switched", parameters: ["to": "current", "source": "new_settings"]))
+        #expect(ShellEvents.tabSelected("feed") == AnalyticsEvent(name: "tab_selected", parameters: ["tab": "feed"]))
+        #expect(ShellEvents.composeOpened(over: "journal")
+            == AnalyticsEvent(name: "compose_opened", parameters: ["over": "journal"]))
     }
 }

@@ -65,26 +65,91 @@ enum AteRootHeaderMetrics {
     static let wordmark: CGFloat = 32
     static let wordmarkLeading: CGFloat = 16
     static let trailing: CGFloat = 16
+    /// `.it{gap:1px}` — the inline title over its subtitle.
+    static let inlineGap: CGFloat = 1
+    /// How far a root scrolls before its title collapses: half the 44pt header row.
+    static let collapseAfter: CGFloat = 22
+    /// The hand-over between the leading title and the centred one.
+    static let collapse: Animation = .smooth(duration: 0.25)
+}
+
+/// **An inline bar title** — a pushed page's name (or byline), and a tab root's title once it has
+/// collapsed into the centre of the bar: the name at 17, and an optional muted subtitle under it (the
+/// Feed's city). Sits in the native bar's title slot; the bar, its glass and its scroll-edge
+/// effect are the system's.
+struct AteInlineTitle: View {
+    let title: String
+    var subtitle: String?
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        VStack(spacing: AteRootHeaderMetrics.inlineGap) {
+            Text(title)
+                .ateText(.kitInlineTitle)
+                .foregroundStyle(palette.fg)
+                .lineLimit(1)
+            if let subtitle {
+                Text(subtitle)
+                    .ateText(.kitInlineSubtitle)
+                    .foregroundStyle(palette.muted)
+                    .lineLimit(1)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
 }
 
 extension View {
     /// Installs a tab root's header in the **native** navigation bar: the title as a leading toolbar
     /// item with its shared glass hidden, and the controls as the system's trailing glass group.
+    ///
+    /// Scrolled (`isCollapsed`, from ``ateRootCollapse(_:)``), the leading title gives way to
+    /// `inline` in the bar's own title slot — the Journal's month, the Feed's name over its city —
+    /// under the system's own scroll-edge effect. The controls stay where they are. The system
+    /// centres that title when the bar has room either side of it; beside a wide trailing group it
+    /// lays it out leading, as every iOS 26 bar does.
     func ateRootToolbar<Controls: View>(
         title: AteRootHeaderTitle,
         subtitle: String? = nil,
+        inline: AteInlineTitle? = nil,
+        isCollapsed: Bool = false,
         @ViewBuilder controls: () -> Controls
     ) -> some View {
         let controls = controls()
+        let showsInline = isCollapsed && inline != nil
         return toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                AteRootTitle(title: title, subtitle: subtitle)
+            if showsInline == false {
+                ToolbarItem(placement: .topBarLeading) {
+                    AteRootTitle(title: title, subtitle: subtitle)
+                        // The bar would squeeze a toolbar item to "F…"; the title is never truncated.
+                        .fixedSize()
+                        .accessibilityIdentifier("root.title")
+                }
+                .sharedBackgroundVisibility(.hidden)
             }
-            .sharedBackgroundVisibility(.hidden)
+            if showsInline, let inline {
+                ToolbarItem(placement: .title) {
+                    inline.accessibilityIdentifier("root.inlineTitle")
+                }
+            }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 controls
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        .animation(AteRootHeaderMetrics.collapse, value: showsInline)
+    }
+
+    /// Reports whether a tab root's scroll view has moved far enough for its header to collapse —
+    /// half the header row. Apply to the root's own `ScrollView` or `List`.
+    func ateRootCollapse(_ isCollapsed: Binding<Bool>) -> some View {
+        onScrollGeometryChange(for: Bool.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top > AteRootHeaderMetrics.collapseAfter
+        } action: { _, collapsed in
+            isCollapsed.wrappedValue = collapsed
+        }
+        .scrollEdgeEffectStyle(.soft, for: .top)
     }
 }

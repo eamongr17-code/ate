@@ -23,7 +23,8 @@ struct AteSheetScaffold<Content: View>: View {
         var action: () -> Void
     }
 
-    let title: String
+    /// The sheet's title. `nil` on the composer, whose words start under the corner row.
+    let title: String?
     var primary: Primary?
     var searchPrompt: String?
     var searchText: Binding<String>?
@@ -57,12 +58,14 @@ struct AteSheetScaffold<Content: View>: View {
             .padding(.horizontal, AteSheetScaffoldMetrics.cornerInset)
             .padding(.top, AteSheetScaffoldMetrics.cornerTop)
             VStack(alignment: .leading, spacing: AteMetrics.sheetGap) {
-                Text(title)
-                    .ateText(.sheetTitle)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityAddTraits(.isHeader)
+                if let title {
+                    Text(title)
+                        .ateText(.sheetTitle)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityAddTraits(.isHeader)
+                }
                 if let searchText, let searchPrompt {
                     AteSearchField(prompt: searchPrompt, text: searchText)
                 }
