@@ -254,6 +254,7 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/Ate.xcarchive" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            ATE_COMMIT="$(git rev-parse --short HEAD)" ATE_COMMIT_DATE="$(git log -1 --format=%cs)" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             > archive.log 2>&1 || { tail -80 archive.log; exit 1; }
           tail -2 archive.log
@@ -280,6 +281,7 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            ATE_COMMIT="$(git rev-parse --short HEAD)" ATE_COMMIT_DATE="$(git log -1 --format=%cs)" \
             ${team_override} \
             > archive.log 2>&1 || { tail -120 archive.log; exit 1; }
           tail -2 archive.log

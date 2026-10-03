@@ -155,11 +155,11 @@ extension KitGalleryScreen {
                 AteRootHeader(title: .wordmark) {
                     AteGlassItem(icon: .photoStack, label: "Photos", badge: 5) {}
                     AteGlassItem(icon: .calendar, label: "Calendar") {}
-                    AteGlassItem(icon: .filter, label: "Filter") {}
+                    AteGlassItem(icon: .listFilter, label: "Filter") {}
                 }
                 AteRootHeader(title: .text("Feed"), subtitle: "Melbourne") {
-                    AteGlassMenuItem(icon: .navigation, label: "Area") { Button("Near me") {} }
-                    AteGlassItem(icon: .feed, label: "Cravings") {}
+                    AteGlassMenuItem(icon: .place, label: "Area") { Button("Near me") {} }
+                    AteGlassItem(icon: .heart, label: "Cravings") {}
                 }
                 AteRootHeader(title: .text("You")) {
                     AteGlassItem(icon: .settings, label: "Settings") {}
@@ -202,12 +202,22 @@ extension KitGalleryScreen {
             onClose: inline ? {} : nil
         ) {
             VStack(alignment: .leading, spacing: 0) {
-                AteSettingsRow(title: "Rating", value: "4.0 and up") {}
-                AteSettingsRow(title: "Date", value: "Any time") {}
-                HStack(spacing: AteMetrics.tight + 2) {
-                    ForEach(DietTag.allCases, id: \.self) { AteDietChip(tag: $0) }
+                AteFilterGroup(icon: .star, title: "Rating", readout: band.summary) {
+                    AteScoreRangeSlider(band: $band)
                 }
-                .padding(.vertical, AteMetrics.regular)
+                AteFilterGroup(icon: .calendar, title: "Date", readout: window.title() ?? "Any time") {
+                    AteMonthRangeSlider(window: $window)
+                }
+                AteFilterGroup(icon: .diet, title: "Diet", readout: nil) {
+                    HStack(spacing: AteMetrics.tight + 2) {
+                        ForEach(DietTag.allCases, id: \.self) { AteDietChip(tag: $0) }
+                    }
+                }
+                AteFilterMenuRow(icon: .place, title: "City", value: city) {
+                    ForEach(["Melbourne", "Sydney", "Brisbane"], id: \.self) { name in
+                        Button(name) { city = name }
+                    }
+                }
             }
         }
     }

@@ -15,11 +15,15 @@ struct KitGalleryScreen: View {
     @State var isShowingSheet = false
     @State var isShowingActions = false
     @State var query = "Tipo"
+    @State var band = ScoreBand(lower: 4, upper: ScoreBand.ceiling)
+    @State var window = DateWindow.all
+    @State var city = "Melbourne"
 
     var body: some View {
         ScrollViewReader { reader in
             ScrollView {
                 VStack(alignment: .leading, spacing: KitGalleryMetrics.sectionGap) {
+                    KitBuildStampLine()
                     atoms
                     composites
                     chrome
@@ -163,10 +167,10 @@ struct KitGalleryScreen: View {
                 AteGlassGroup {
                     AteGlassItem(icon: .photoStack, label: "Photos", badge: 5) {}
                     AteGlassItem(icon: .calendar, label: "Calendar") {}
-                    AteGlassItem(icon: .filter, label: "Filter") {}
+                    AteGlassItem(icon: .listFilter, label: "Filter") {}
                 }
                 AteGlassGroup {
-                    AteGlassMenuItem(icon: .navigation, label: "Area") {
+                    AteGlassMenuItem(icon: .place, label: "Area") {
                         Button("Near me") {}
                         Button("Everywhere") {}
                         Button("Melbourne") {}
@@ -209,6 +213,29 @@ struct KitGalleryScreen: View {
     }
 }
 
+/// **Which build this is** — the commit's short SHA left and its date right, written into the bundle
+/// as `AteCommit` / `AteCommitDate` in Info.plist from the `ATE_COMMIT` build settings, so a
+/// screenshot can be tied to a commit.
+struct KitBuildStampLine: View {
+    private static func value(_ key: String) -> String? {
+        guard let value = Bundle.main.object(forInfoDictionaryKey: key) as? String, value.isEmpty == false
+        else { return nil }
+        return value
+    }
+
+    var body: some View {
+        HStack {
+            Text(verbatim: Self.value("AteCommit") ?? "unstamped build")
+            Spacer(minLength: AteMetrics.snug)
+            Text(verbatim: Self.value("AteCommitDate") ?? "")
+        }
+        .ateText(.receiptLabel)
+        .foregroundStyle(AtePalette.automatic.muted)
+        .padding(.horizontal, AteMetrics.gutter)
+        .accessibilityIdentifier("kit.stamp")
+    }
+}
+
 enum KitGalleryMetrics {
     static let top: CGFloat = 14
     static let bottom: CGFloat = 120
@@ -217,7 +244,7 @@ enum KitGalleryMetrics {
     static let paperPadding: CGFloat = 16
     static let cardMargin: CGFloat = 16
     /// An inline sheet's frame, standing in for the presented sheet.
-    static let sheetHeight: CGFloat = 520
+    static let sheetHeight: CGFloat = 640
     static let shortSheetHeight: CGFloat = 400
     static let emptyHeight: CGFloat = 300
 }

@@ -36,6 +36,13 @@ enum AteIcon: String, CaseIterable {
     case calendar
     /// A filter chip's "opens a sheet" mark (round 7) — Lucide's chevron-down.
     case chevronDown
+    /// **The one filter glyph** of the rebuild (Journal and Search mockups) — Lucide's list-filter,
+    /// three shortening lines. The old screens keep ``filter`` (sliders) until their flow is rebuilt.
+    case listFilter
+    /// The Feed's cravings (Eamon's fix for an unclear icon) — Lucide's heart.
+    case heart
+    /// A menu's current value, in the filter sheet — Lucide's chevrons-up-down.
+    case chevronsUpDown
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
@@ -126,6 +133,15 @@ M11 20a10 10 0 0010-10 25.9 25.9 0 00-1.04-7.281 1 1 0 00-1.755-.325C15.833 5.5 
             [Self.path("M8 2v4"), Self.path("M16 2v4"), AteVector.rectangle(3, 4, 18, 18, 2), Self.path("M3 10h18")]
         case .chevronDown: // chevron-down
             [Self.path("m6 9 6 6 6-6")]
+        case .chevronsUpDown: // chevrons-up-down
+            [Self.path("m7 15 5 5 5-5"), Self.path("m7 9 5-5 5 5")]
+        case .listFilter: // list-filter
+            [Self.path("M2 5h20"), Self.path("M6 12h12"), Self.path("M9 19h6")]
+        case .heart: // heart
+            [Self.path("""
+M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 \
+2.3 1.5 4.05 3 5.5l7 7Z
+""")]
         }
     }
 

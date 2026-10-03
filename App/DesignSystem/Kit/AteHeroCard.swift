@@ -3,7 +3,12 @@ import SwiftUI
 
 /// **The hero card** — The Top Ate's first dish as a photo: the column's width × 330 at radius 16, a
 /// shade rising from its foot, the score token (hero size) top left and the glass bookmark disc top
-/// right, 12 in, and the dish over its place in white at the foot. **No rank numeral.**
+/// right, 12 in, and the dish over its place in white at the foot, two lines at most. **No rank
+/// numeral.**
+///
+/// With no photo the card is the dish's letter tile: its accent ground with no shade, the letter
+/// optically centred in the space above the caption — never behind it — and the caption in ink, as
+/// every accent carries.
 struct AteHeroCard: View {
     let photo: AtePhoto
     let name: String
@@ -15,18 +20,7 @@ struct AteHeroCard: View {
 
     var body: some View {
         Button { onOpen?() } label: {
-            AteThumb(photo: photo, size: .hero)
-                .overlay {
-                    LinearGradient(
-                        stops: [
-                            .init(color: AteKitColor.heroShadeTop, location: AteKitColor.heroShadeStart),
-                            .init(color: AteKitColor.heroShadeFoot, location: 1)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                }
-                .overlay(alignment: .bottomLeading) { caption }
+            face
                 .clipShape(RoundedRectangle(cornerRadius: AteThumbMetrics(.hero).radius, style: .continuous))
                 .contentShape(.rect)
         }
@@ -47,17 +41,51 @@ struct AteHeroCard: View {
         }
     }
 
-    private var caption: some View {
+    /// The tile behind the caption: the photo under its shade, or the letter on its accent.
+    @ViewBuilder
+    private var face: some View {
+        let metrics = AteThumbMetrics(.hero)
+        if photo.image == nil, photo.url == nil, let dish = photo.dish {
+            VStack(spacing: 0) {
+                Text(dish.letter)
+                    .ateText(.kitThumbInitial(metrics.initial))
+                    .foregroundStyle(AteColor.ink)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .accessibilityHidden(true)
+                caption(ink: AteColor.ink, muted: AteColor.ink)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: metrics.height)
+            .background(dish.accent)
+        } else {
+            AteThumb(photo: photo, size: .hero)
+                .overlay {
+                    LinearGradient(
+                        stops: [
+                            .init(color: AteKitColor.heroShadeTop, location: AteKitColor.heroShadeStart),
+                            .init(color: AteKitColor.heroShadeFoot, location: 1)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
+                .overlay(alignment: .bottomLeading) {
+                    caption(ink: AteKitColor.overPhoto, muted: AteKitColor.overPhotoMuted)
+                }
+        }
+    }
+
+    private func caption(ink: Color, muted: Color) -> some View {
         VStack(alignment: .leading, spacing: AteHeroCardMetrics.lineGap) {
             Text(name)
                 .ateText(.kitHeroDish)
-                .foregroundStyle(AteKitColor.overPhoto)
-                .lineLimit(3)
+                .foregroundStyle(ink)
+                .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
             if let place {
                 Text(place)
                     .ateText(.kitHeroPlace)
-                    .foregroundStyle(AteKitColor.overPhotoMuted)
+                    .foregroundStyle(muted)
                     .lineLimit(1)
             }
         }

@@ -18,6 +18,12 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<!-- The commit a build came from, for the component gallery's stamp. Passed on the xcodebuild
+	     command line (CI's Beta archive does); empty in a plain local build. -->
+	<key>AteCommit</key>
+	<string>$(ATE_COMMIT)</string>
+	<key>AteCommitDate</key>
+	<string>$(ATE_COMMIT_DATE)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<!-- Links into the app: a shared entry is ate://entry/<id> (AteKit's AteLinks). App-only until
