@@ -22,7 +22,7 @@ struct JournalRootPlaceholder: View {
         ) {
             AteGlassItem(icon: .photoStack, label: "Photos") { router.open(.suggestions, from: .journal) }
             AteGlassItem(icon: .calendar, label: "Calendar") {}
-            AteGlassItem(icon: .filter, label: "Filter") { isFiltering = true }
+            AteGlassItem(icon: .listFilter, label: "Filter") { isFiltering = true }
         }
         .sheet(isPresented: $isFiltering) { FilterSheetPlaceholder() }
     }
@@ -68,7 +68,7 @@ struct SearchRootPlaceholder: View {
             inline: AteInlineTitle(title: V2Tab.search.title),
             isCollapsed: isCollapsed
         ) {
-            AteGlassItem(icon: .filter, label: "Filter") { isFiltering = true }
+            AteGlassItem(icon: .listFilter, label: "Filter") { isFiltering = true }
         }
         .sheet(isPresented: $isFiltering) { FilterSheetPlaceholder() }
     }

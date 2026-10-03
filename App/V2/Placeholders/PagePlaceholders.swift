@@ -64,12 +64,8 @@ struct PagePlaceholder: View {
         .scrollEdgeEffectStyle(.soft, for: .top)
         .accessibilityIdentifier("v2.page")
         .ateGround()
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
+        .ateInlineTitle(title, subtitle: subtitle)
         .toolbar {
-            ToolbarItem(placement: .title) {
-                AteInlineTitle(title: title, subtitle: subtitle)
-            }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button { isSaved.toggle() } label: {
                     (isSaved ? AteIcon.saved : AteIcon.save).view(size: AteGlassDiscMetrics.glyph)
@@ -128,11 +124,7 @@ struct SettingsPlaceholder: View {
         }
         .scrollContentBackground(.hidden)
         .ateGround()
-        .navigationTitle("Settings")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .title) { AteInlineTitle(title: "Settings") }
-        }
+        .ateInlineTitle("Settings")
     }
 }
 

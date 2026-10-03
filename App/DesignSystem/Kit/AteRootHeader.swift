@@ -69,14 +69,14 @@ enum AteRootHeaderMetrics {
     static let inlineGap: CGFloat = 1
     /// How far a root scrolls before its title collapses: half the 44pt header row.
     static let collapseAfter: CGFloat = 22
-    /// The hand-over between the leading title and the centred one.
+    /// The hand-over between the root title and the inline one.
     static let collapse: Animation = .smooth(duration: 0.25)
 }
 
 /// **An inline bar title** — a pushed page's name (or byline), and a tab root's title once it has
-/// collapsed into the centre of the bar: the name at 17, and an optional muted subtitle under it (the
-/// Feed's city). Sits in the native bar's title slot; the bar, its glass and its scroll-edge
-/// effect are the system's.
+/// collapsed into the bar, leading-aligned on every screen: the name at 17, and an optional muted
+/// subtitle under it (the Feed's city). A leading item in the native bar; the bar, its glass and
+/// its scroll-edge effect are the system's.
 struct AteInlineTitle: View {
     let title: String
     var subtitle: String?
@@ -84,7 +84,7 @@ struct AteInlineTitle: View {
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        VStack(spacing: AteRootHeaderMetrics.inlineGap) {
+        VStack(alignment: .leading, spacing: AteRootHeaderMetrics.inlineGap) {
             Text(title)
                 .ateText(.kitInlineTitle)
                 .foregroundStyle(palette.fg)
@@ -96,6 +96,7 @@ struct AteInlineTitle: View {
                     .lineLimit(1)
             }
         }
+        .fixedSize()
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }
@@ -107,9 +108,8 @@ extension View {
     ///
     /// Scrolled (`isCollapsed`, from ``ateRootCollapse(_:)``), the leading title gives way to
     /// `inline` in the bar's own title slot — the Journal's month, the Feed's name over its city —
-    /// under the system's own scroll-edge effect. The controls stay where they are. The system
-    /// centres that title when the bar has room either side of it; beside a wide trailing group it
-    /// lays it out leading, as every iOS 26 bar does.
+    /// under the system's own scroll-edge effect, leading-aligned like every inline title. The
+    /// controls stay where they are.
     func ateRootToolbar<Controls: View>(
         title: AteRootHeaderTitle,
         subtitle: String? = nil,
@@ -130,9 +130,10 @@ extension View {
                 .sharedBackgroundVisibility(.hidden)
             }
             if showsInline, let inline {
-                ToolbarItem(placement: .title) {
+                ToolbarItem(placement: .topBarLeading) {
                     inline.accessibilityIdentifier("root.inlineTitle")
                 }
+                .sharedBackgroundVisibility(.hidden)
             }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 controls
@@ -140,6 +141,22 @@ extension View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .animation(AteRootHeaderMetrics.collapse, value: showsInline)
+    }
+
+    /// A pushed page's inline title, leading — beside the system's back — exactly where a collapsed
+    /// root's title sits. iOS 26 centres a bar title only when it fits evenly between the side items,
+    /// so its own title slot put the name centred on some screens and leading on others; every
+    /// inline title is a leading item instead, and the system's title is removed.
+    func ateInlineTitle(_ title: String, subtitle: String? = nil) -> some View {
+        navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(removing: .title)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    AteInlineTitle(title: title, subtitle: subtitle)
+                }
+                .sharedBackgroundVisibility(.hidden)
+            }
     }
 
     /// Reports whether a tab root's scroll view has moved far enough for its header to collapse —
