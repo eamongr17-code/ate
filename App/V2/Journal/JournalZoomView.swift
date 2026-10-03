@@ -191,13 +191,6 @@ private struct JournalZoomDay: View {
             .overlay {
                 if let cover = count.coverURL {
                     AtePhotoContent(photo: .remote(cover), size: .forSide(AteThumbMetrics(.row).height))
-                        .overlay(alignment: .bottomLeading) {
-                            Text(String(day.day))
-                                .ateText(.calendarDayOnPhoto)
-                                .foregroundStyle(AteCalendarColor.overPhoto)
-                                .padding(.leading, JournalMetrics.numeralInset)
-                                .padding(.bottom, JournalMetrics.numeralBottom)
-                        }
                 } else {
                     // Written, with no photo: the numeral in ink, and a dot under it.
                     Text(String(day.day))
@@ -210,6 +203,19 @@ private struct JournalZoomDay: View {
                                 .frame(width: JournalMetrics.dot, height: JournalMetrics.dot)
                                 .alignmentGuide(.bottom) { $0[.top] - JournalMetrics.dotBottom }
                         }
+                }
+            }
+            // The numeral sits on the tile, not on the photo: a photo filling the square overhangs it,
+            // and a numeral pinned to the photo's corner was cut off at the tile's edge ("19" as "9").
+            .overlay(alignment: .bottomLeading) {
+                if count.coverURL != nil {
+                    Text(String(day.day))
+                        .ateText(.calendarDayOnPhoto)
+                        .foregroundStyle(AteCalendarColor.overPhoto)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .padding(.leading, JournalMetrics.numeralInset)
+                        .padding(.bottom, JournalMetrics.numeralBottom)
                 }
             }
             .clipShape(shape)

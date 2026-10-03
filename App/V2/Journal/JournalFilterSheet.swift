@@ -39,14 +39,11 @@ struct JournalFilterSheet: View {
             VStack(alignment: .leading, spacing: 0) {
                 if shelf == .journal {
                     AteFilterGroup(icon: .chevronsUpDown, title: "Sort", readout: nil) {
-                        Picker("Sort", selection: $draft.sort) {
-                            ForEach(JournalSort.allCases, id: \.self) { sort in
-                                Text(sort.title).tag(sort)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .accessibilityIdentifier("filter.sort")
+                        AteSegmentedControl(
+                            options: JournalSort.allCases.map { AteSegment($0, $0.title) },
+                            selection: $draft.sort,
+                            identifier: "filter.sort"
+                        )
                     }
                 }
                 AteFilterGroup(icon: .star, title: "Rating", readout: draft.band.summary) {
