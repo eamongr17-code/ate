@@ -13,6 +13,7 @@ import Foundation
 /// A failed or cancelled read is never an answer, so it is simply asked again next time.
 extension FeedAreaModel {
     public func cityForFirstPage(wait: Duration = .seconds(2)) async -> String? {
+        await openIfNeeded()
         // A read is under way: an answer landing now is picked up by it, not reloaded for.
         servedCity = nil
         if location == .nearMe {
