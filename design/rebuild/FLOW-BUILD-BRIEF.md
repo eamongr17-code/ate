@@ -35,7 +35,7 @@ to the contract and the history audit.
 - Roots: `init(router: TabRouter<JournalStores | V2FeedStores | SearchStores | YouStores>, app: AppModel)`. The Feed's stores type is `V2FeedStores` (the old app owns the name `FeedStores`).
 - Stores: `@MainActor struct … { init(services: AteServices) }`, built by the router on first show.
 - Pages: `V2EntryPage(_ entry: EntryRoute, context:)`, `V2SuggestionsPage(context:)`, `V2ProfilePage(userID:context:)`, `V2PlacePage(placeID:context:)`, `V2DishPage(dishID:context:)`, `V2TagPage(tag:context:)`, `V2RatingsPage(score:context:)`, `V2SettingsPage(page:context:)`.
-- `ComposerSheet(app: AppModel)`; `app.isComposing = false` closes it.
+- `ComposerSheet(app: AppModel)`; `app.isComposing = false` closes it. Open the composer from anywhere with `app.compose(ComposerPresentation(origin: …, assetIdentifiers: …, editing: …))` (ask the gate first); `ComposerSheet` reads `app.composing` for the origin, the photos it opens holding and the entry being edited.
 - `V2PageContext`: `app`, `tab`, `source`, `services`, `gate`, `saves`, `open(_:from:)`. `AppModel` owns the one `saves` (SaveAction) and `savedDishes`.
 - Sheets: use `AteSheetScaffold` (fitted detent, one header). Selectable diet codes are `AteDietPill`.
 

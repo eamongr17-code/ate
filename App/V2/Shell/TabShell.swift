@@ -27,7 +27,7 @@ struct TabShell: View {
         _feed = State(initialValue: TabRouter(tab: .feed) { V2FeedStores(services: services) })
         _search = State(initialValue: TabRouter(tab: .search) { SearchStores(services: services) })
         _you = State(initialValue: TabRouter(tab: .you) { YouStores(services: services) })
-        if start.composes { app.isComposing = true }
+        if start.composes { app.compose(ComposerPresentation(origin: .tabBar)) }
     }
 
     var body: some View {
@@ -95,7 +95,7 @@ struct TabShell: View {
         guard app.gate.permitsWrite(.compose) else { return }
         AteHaptics.key()
         app.services.analytics(ShellEvents.composeOpened(over: selection.rawValue))
-        app.isComposing = true
+        app.compose(ComposerPresentation(origin: .tabBar))
     }
 
     /// Journal and You are yours. A browser tapping either is asked to sign in, and stays put.

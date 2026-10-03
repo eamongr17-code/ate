@@ -26,12 +26,25 @@ final class AppModel {
     /// The signed-in person's handle — a receipt is signed, so it is loaded once, here.
     private(set) var handle: String?
     /// The composer is up over the shell. Held here, not by the shell, because a waiting link reads
-    /// it: a push made under the composer would be lost.
-    var isComposing = false
+    /// it: a push made under the composer would be lost. Open it with ``compose(_:)``; setting this
+    /// to `false` closes it and forgets what it was opened with.
+    var isComposing = false {
+        didSet { if !isComposing { composing = nil } }
+    }
+    /// What the composer was opened with — its origin (the funnel's first step), any photos it
+    /// opens holding, and the entry it is editing. `nil` while the composer is down.
+    private(set) var composing: ComposerPresentation?
     /// An entry a link asked for, waiting for the shell to push it on the current tab.
     var linkedEntry: UUID?
     /// Bumped whenever the outbox lands something, so the Journal can refresh under it.
     private(set) var outboxLanded = 0
+
+    /// Opens the composer. The one way in for every affordance: the tab bar's +, the empty
+    /// Journal, a photo suggestion's pen, an entry's Edit. The caller has already asked the gate.
+    func compose(_ presentation: ComposerPresentation) {
+        composing = presentation
+        isComposing = true
+    }
     /// Signed out, or deleted: the root throws this model and its shell away and builds clean ones.
     @ObservationIgnored private let onSessionEnded: () -> Void
 
