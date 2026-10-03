@@ -2,7 +2,8 @@ import SwiftUI
 
 /// **One filter in the filter sheet** — a hairline, the filter's icon and name with its live readout
 /// at the right ("4.0 and up", "Any time"), and its control under them: the two-thumb range slider
-/// for a range, the diet pills for tags. Nothing in the sheet pushes; there are no chevron rows.
+/// for a range, the diet pills for tags. Parted from the group above by a hairline. Nothing in the
+/// sheet pushes; there are no chevron rows.
 struct AteFilterGroup<Control: View>: View {
     let icon: AteIcon
     let title: String
@@ -24,8 +25,7 @@ struct AteFilterGroup<Control: View>: View {
             .foregroundStyle(palette.fg)
             control
         }
-        .padding(.top, AteFilterSheetMetrics.sectionTop)
-        .padding(.bottom, AteFilterSheetMetrics.sectionBottom)
+        .padding(.vertical, AteFilterSheetMetrics.groupPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay(alignment: .top) { AteHairline() }
     }
@@ -66,10 +66,10 @@ struct AteFilterMenuRow<MenuContent: View>: View {
 }
 
 enum AteFilterSheetMetrics {
-    /// `padding-top:14px` under each hairline; the slider's own air below it.
-    static let sectionTop: CGFloat = 14
-    static let sectionBottom: CGFloat = 6
-    static let headerGap: CGFloat = 12
+    /// 20 inside a group, top and bottom; 16 between its label row and its control (Eamon, build 85:
+    /// "the spacing of filter options is a bit cramped").
+    static let groupPadding: CGFloat = 20
+    static let headerGap: CGFloat = 16
     /// `.slab{gap:8px}`, its icon 16; `.mrw{min-height:52px}`.
     static let labelGap: CGFloat = 8
     static let icon: CGFloat = 16

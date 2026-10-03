@@ -29,3 +29,44 @@ struct AteDietChips: View {
         }
     }
 }
+
+/// **A diet code as a button** — where a code is chosen rather than shown: the filter sheet's Diet
+/// group and the composer's Diet unfold, so the two match. Key size (40 high, a 44 target),
+/// Bricolage 600 at 14; the field colour when off, ink with light lettering when on. The display
+/// chip (``AteDietChip``) stays the 18pt tag a dish wears.
+struct AteDietPill: View {
+    let tag: DietTag
+    var isOn = false
+    var identifier: String?
+    let action: () -> Void
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        Button(action: action) {
+            Text(tag.label)
+                .ateText(.controlSmall)
+                .lineLimit(1)
+                .padding(.horizontal, AteDietPillMetrics.padding)
+                .frame(minWidth: AteDietPillMetrics.height, minHeight: AteDietPillMetrics.height)
+                .foregroundStyle(isOn ? palette.inverted : ComposerKeyColor.placeInk)
+                .background(isOn ? palette.solid : ComposerKeyColor.place, in: .capsule)
+                // The face is 40; a finger gets 44.
+                .padding(.vertical, AteDietPillMetrics.hitOutset)
+                .contentShape(.rect)
+                .padding(.vertical, -AteDietPillMetrics.hitOutset)
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
+        .accessibilityLabel(tag.spokenName)
+        .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
+        .accessibilityIdentifier(identifier ?? "diet.\(tag.rawValue)")
+    }
+}
+
+enum AteDietPillMetrics {
+    /// A composer key's height and its lettered inset (`.k-code{padding:0 13px}`).
+    static let height: CGFloat = AteMetrics.keyHeight
+    static let padding: CGFloat = 13
+    static let hitOutset: CGFloat = (AteMetrics.hit - AteMetrics.keyHeight) / 2
+}

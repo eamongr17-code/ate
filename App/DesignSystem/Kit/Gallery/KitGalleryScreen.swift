@@ -18,6 +18,8 @@ struct KitGalleryScreen: View {
     @State var band = ScoreBand(lower: 4, upper: ScoreBand.ceiling)
     @State var window = DateWindow.all
     @State var city = "Melbourne"
+    @State var diets: Set<DietTag> = [.gf]
+    @State var isShowingPick = false
 
     var body: some View {
         ScrollViewReader { reader in
@@ -43,6 +45,8 @@ struct KitGalleryScreen: View {
         .ateGround()
         .sheet(isPresented: $isShowingSheet) { filterSheet(inline: false) }
         .sheet(isPresented: $isShowingActions) { actionsSheet }
+        .sheet(isPresented: $isShowingPick) { pickSheet }
+        .task { presentFromLaunch() }
         .accessibilityIdentifier("kit.gallery")
     }
 
@@ -52,6 +56,18 @@ struct KitGalleryScreen: View {
         DebugLaunch.route?.value(.section)
         #else
         nil
+        #endif
+    }
+
+    /// `-ate-open kit?present=filter|actions|pick`: that sheet, up at its real detent.
+    private func presentFromLaunch() {
+        #if DEBUG
+        switch DebugLaunch.route?.value(.present) {
+        case "filter": isShowingSheet = true
+        case "actions": isShowingActions = true
+        case "pick": isShowingPick = true
+        default: break
+        }
         #endif
     }
 

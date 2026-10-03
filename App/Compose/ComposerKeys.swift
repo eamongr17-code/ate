@@ -271,17 +271,9 @@ struct ComposerToolbar: View {
 
     /// One code — the same pill as the Place key.
     private func dietCode(_ tag: DietTag) -> some View {
-        ComposerKey(
-            title: tag.label,
-            icon: nil,
-            background: ComposerKeyColor.place,
-            foreground: ComposerKeyColor.placeInk,
-            identifier: "composer.diet.\(tag.rawValue)"
-        ) {
+        AteDietPill(tag: tag, identifier: "composer.diet.\(tag.rawValue)") {
             pick(tag)
         }
-        .accessibilityLabel(tag.spokenName)
-        .fixedSize()
     }
 
     /// A chip belongs to the dish on its left; with none there, nothing goes in and the pill says so

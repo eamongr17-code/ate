@@ -76,12 +76,15 @@ public struct LaunchRoute: Equatable, Sendable {
         case noPlace = "no-place"
         /// Kit: `section=<name>`, the gallery scrolled to that section (`dish-row`, `receipt`, …).
         case section
+        /// Kit: `present=filter|actions|pick`, that sheet presented over the gallery at its detent.
+        case present
 
         /// The values an option is limited to, when it is not free text or a bare switch.
         var values: Set<String>? {
             switch self {
             case .sheet: ["place", "dish", "share"]
             case .window: ["custom", "preset"]
+            case .present: ["filter", "actions", "pick"]
             default: nil
             }
         }
@@ -159,7 +162,7 @@ public struct LaunchRoute: Equatable, Sendable {
         case .entry: [.sheet, .addPlace]
         case .composer: [.score, .caret, .camera, .capture, .addPlace]
         case .summary: [.printing, .noPlace]
-        case .kit: [.section]
+        case .kit: [.section, .present]
         default: []
         }
     }

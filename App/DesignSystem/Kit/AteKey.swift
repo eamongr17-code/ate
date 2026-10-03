@@ -56,16 +56,7 @@ struct AteKey: View {
             )
             .fixedSize()
         case .code(let tag):
-            ComposerKey(
-                title: tag.label,
-                icon: nil,
-                background: ComposerKeyColor.place,
-                foreground: ComposerKeyColor.placeInk,
-                identifier: "composer.diet.\(tag.rawValue)",
-                action: action
-            )
-            .accessibilityLabel(tag.spokenName)
-            .fixedSize()
+            AteDietPill(tag: tag, identifier: "composer.diet.\(tag.rawValue)", action: action)
         }
     }
 }

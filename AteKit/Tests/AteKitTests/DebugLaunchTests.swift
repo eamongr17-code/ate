@@ -39,6 +39,8 @@ struct DebugLaunchTests {
         #expect(LaunchRoute("kit")?.screen == .kit)
         #expect(LaunchRoute("kit?filter") == nil)
         #expect(LaunchRoute("kit?section=receipt")?.value(.section) == "receipt")
+        #expect(LaunchRoute("kit?present=filter")?.value(.present) == "filter")
+        #expect(LaunchRoute("kit?present=nope") == nil)
         #expect(LaunchRoute("ratings/4.5")?.screen == .ratings(score: 4.5))
         #expect(LaunchRoute("statement/2026-09")?.screen == .statement(StatementMonth(year: 2026, month: 9)))
         #expect(LaunchRoute("settings")?.screen == .settings(nil))

@@ -170,15 +170,7 @@ extension KitGalleryScreen {
             caption("A choice: close, title, controls, ink pill with its count")
             inlineSheet(height: KitGalleryMetrics.sheetHeight) { filterSheet(inline: true) }
             caption("Pick a row: close, title, search, rows — no pill")
-            inlineSheet(height: KitGalleryMetrics.shortSheetHeight) {
-                AteSheetScaffold(title: "Where was this?", searchPrompt: "Search places", searchText: $query) {
-                    VStack(spacing: 0) {
-                        ForEach(["Tipo 00", "Kisume", "Butchers Diner"], id: \.self) { name in
-                            AteRadioRow(title: name, subtitle: "CBD", isSelected: name == "Tipo 00") {}
-                        }
-                    }
-                }
-            }
+            inlineSheet(height: KitGalleryMetrics.shortSheetHeight) { pickSheet }
             caption("A primary: the ink tick top right")
             inlineSheet(height: KitGalleryMetrics.shortSheetHeight / 2) {
                 AteSheetScaffold(title: "Write", primary: .init(icon: .check, label: "Done", isEnabled: false) {}) {
@@ -186,6 +178,8 @@ extension KitGalleryScreen {
                 }
             }
             AteInkPill(title: "Present the filter sheet", size: .empty) { isShowingSheet = true }
+                .frame(maxWidth: .infinity)
+            AteInkPill(title: "Present the pick sheet", size: .empty) { isShowingPick = true }
                 .frame(maxWidth: .infinity)
         }
         section("Actions sheet") {
@@ -210,12 +204,29 @@ extension KitGalleryScreen {
                 }
                 AteFilterGroup(icon: .diet, title: "Diet", readout: nil) {
                     HStack(spacing: AteMetrics.tight + 2) {
-                        ForEach(DietTag.allCases, id: \.self) { AteDietChip(tag: $0) }
+                        ForEach(DietTag.allCases, id: \.self) { tag in
+                            AteDietPill(tag: tag, isOn: diets.contains(tag)) {
+                                if diets.contains(tag) { diets.remove(tag) } else { diets.insert(tag) }
+                            }
+                        }
                     }
                 }
                 AteFilterMenuRow(icon: .place, title: "City", value: city) {
                     ForEach(["Melbourne", "Sydney", "Brisbane"], id: \.self) { name in
                         Button(name) { city = name }
+                    }
+                }
+            }
+        }
+    }
+
+    /// A sheet that picks one row: close, title, search, rows — and it closes on the tap.
+    var pickSheet: some View {
+        AteSheetScaffold(title: "Where was this?", searchPrompt: "Search places", searchText: $query) {
+            VStack(spacing: 0) {
+                ForEach(["Tipo 00", "Kisume", "Butchers Diner"], id: \.self) { name in
+                    AteRadioRow(title: name, subtitle: "CBD", isSelected: name == "Tipo 00") {
+                        isShowingPick = false
                     }
                 }
             }

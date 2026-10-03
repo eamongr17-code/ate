@@ -29,7 +29,7 @@ struct AteActionsSheet: View {
     }
 
     var body: some View {
-        AteSheetScaffold(title: title, detents: [.medium]) {
+        AteSheetScaffold(title: title) {
             VStack(spacing: 0) {
                 ForEach(ActionsSheetRow.rows(canSave: onSave != nil)) { row in
                     button(for: row)
