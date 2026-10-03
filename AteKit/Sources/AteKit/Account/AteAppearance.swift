@@ -39,6 +39,7 @@ public final class AtePreferences {
     public init(store: any AteKeyValueStore) {
         self.store = store
         self.appearance = AteAppearance(rawValue: store.value(forKey: Key.appearance) ?? "") ?? .system
+        self.opensNewApp = store.value(forKey: Key.opensNewApp) == "1"
         self.pendingHandleUserID = store.value(forKey: Key.pendingHandleUserID).flatMap(UUID.init(uuidString:))
         let chosen = (store.value(forKey: Key.handleChosenUserIDs) ?? "").split(separator: ",")
         self.handleChosenUserIDs = Set(chosen.compactMap { UUID(uuidString: String($0)) })
@@ -49,6 +50,17 @@ public final class AtePreferences {
         didSet {
             guard appearance != oldValue else { return }
             store.setValue(appearance.rawValue, forKey: Key.appearance)
+        }
+    }
+
+    /// Whether this phone opens the rebuilt app (`App/V2/`) rather than the current one — the "New
+    /// app" row at the foot of Settings in Debug and Beta, and the way back from the new app's own
+    /// Settings. Kept on the phone so a TestFlight tester stays where they chose until they switch
+    /// back. Read through ``AppGeneration``, never directly by the root.
+    public var opensNewApp: Bool {
+        didSet {
+            guard opensNewApp != oldValue else { return }
+            store.setValue(opensNewApp ? "1" : nil, forKey: Key.opensNewApp)
         }
     }
 
@@ -102,6 +114,7 @@ public final class AtePreferences {
 
     private enum Key {
         static let appearance = "ate.appearance"
+        static let opensNewApp = "ate.opensNewApp"
         static let pendingHandleUserID = "ate.pendingHandleUserID"
         static let handleChosenUserIDs = "ate.handleChosenUserIDs"
     }

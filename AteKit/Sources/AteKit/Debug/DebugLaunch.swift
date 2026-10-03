@@ -27,6 +27,9 @@ public enum DebugLaunch {
         /// one test's leftovers are never the next test's opening screen. (The launch moment reads
         /// it in every build.)
         case uiTesting = "-ate-ui-testing"
+        /// Opens the rebuilt app (`App/V2/`) for this launch, whatever the preference says (Debug and
+        /// Beta; ``AppGeneration``).
+        case newApp = "-ate-v2"
         #if DEBUG
         /// The whole app on in-memory services: the artboards' own entries, no backend.
         case previewData = "-ate-preview-data"
