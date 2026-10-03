@@ -39,8 +39,9 @@ public final class SearchStore {
             guard query != oldValue else { return }
             schedule()
             // Cleared: back to where the tab starts — the field and Nearby, with the scopes gone
-            // (round 4). Places is the scope they come back on when typing starts again.
-            if query.isEmpty, scope != .places { select(.places) }
+            // (round 4). Places is the scope they come back on when typing starts again. The rebuilt
+            // tab keeps its switch up and stays on the scope that was chosen (`clearsTo: nil`).
+            if query.isEmpty, let clearsTo, scope != clearsTo { select(clearsTo) }
         }
     }
 
@@ -78,6 +79,8 @@ public final class SearchStore {
     private let analytics: AnalyticsRecorder
     private let pageSize: Int
     private let debounce: Duration
+    /// The scope an emptied field goes back to — Places in the current tab (round 4), `nil` to stay.
+    private let clearsTo: SearchScope?
 
     /// Where the phone is, as far as the screen has been told. Until it says, and after a refusal,
     /// there is no Nearby list — and no "nothing found" standing in for one: the Places scope shows the
@@ -124,9 +127,11 @@ public final class SearchStore {
         pageSize: Int = SearchClient.defaultPageSize,
         debounce: Duration = SearchQueryPolicy.debounce,
         analytics: @escaping AnalyticsRecorder = { _ in },
-        savedDishes: SavedDishBroadcast? = nil
+        savedDishes: SavedDishBroadcast? = nil,
+        clearsTo: SearchScope? = .places
     ) {
         self.service = service
+        self.clearsTo = clearsTo
         cityList = AteCityList { try await service.searchCities() }
         self.scope = scope
         self.query = query
@@ -360,6 +365,29 @@ public final class SearchStore {
         case (.dishes, nil), (.people, nil):
             return LoadedPage(rows: .empty(for: scope))
         }
+    }
+
+    // MARK: - The filter sheet's count
+
+    /// **How many rows `draft` would leave** in the scope on screen, for the query in the field — the
+    /// filter sheet's "Show 12 dishes". One page of at most `cap` rows is read, so the answer is
+    /// exact up to `cap` and `cap` means "at least that many". `nil` when the scope has nothing to
+    /// count: People (no filters), or Dishes and Places with nothing typed.
+    public func count(with draft: SearchFilters, cap: Int) async throws -> Int? {
+        guard SearchFilters.applies(to: scope) else { return nil }
+        let typed = SearchQueryPolicy(scope: scope).query(from: query)
+        let rows: Int
+        switch (scope, typed) {
+        case (.places, let typed?):
+            rows = try await service.places(query: typed, filters: draft, after: nil, pageSize: cap).rows.count
+        case (.dishes, let typed?):
+            rows = try await service.dishes(query: typed, filters: draft, after: nil, pageSize: cap).rows.count
+        case (.saved, let typed):
+            rows = try await service.savedDishes(matching: typed, filters: draft, after: nil, pageSize: cap).rows.count
+        case (.places, nil), (.dishes, nil), (.people, _):
+            return nil
+        }
+        return min(rows, cap)
     }
 
     private struct LoadedPage {
