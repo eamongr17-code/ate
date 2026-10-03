@@ -49,6 +49,7 @@ extension View {
     }
 }
 
+@MainActor
 enum BrowsePage {
     /// The scrolled content's coordinate space.
     static let content = "browse.page.content"
