@@ -10,7 +10,7 @@ import Observation
 @Observable
 public final class FeedAreaModel {
     /// What the Feed is about. Near me until the person picks otherwise; remembered per person.
-    public private(set) var location: FeedLocation
+    public internal(set) var location: FeedLocation
     /// `feed_cities()`, busiest first — the picker, read ahead so its sheet rises full.
     @ObservationIgnored public let cityList: AteCityList
     public var cities: [AteCity] { cityList.cities }
@@ -32,6 +32,15 @@ public final class FeedAreaModel {
     /// The city the feed was last read with, so a later answer knows whether it changed anything.
     var servedCity: String??
     var resolving: Task<Void, Never>?
+
+    // Where it opens — `FeedArea+Opening.swift`.
+    /// Where the Feed opens for a person who has never picked: the rebuilt app's rule, their
+    /// Journal's city (Eamon, 3 Oct). `nil` keeps near me, the current app's. Asked once, before the
+    /// first read, and never remembered — only a pick is.
+    @ObservationIgnored public var opening: (@MainActor () async -> FeedLocation)?
+    /// The opening has been settled (applied, or not needed): what the control prints is real.
+    public internal(set) var hasOpened = false
+    var openingTask: Task<Void, Never>?
 
     private let reader: any EntryFeedReading
     private let store: any AteKeyValueStore
@@ -136,6 +145,9 @@ public final class FeedAreaModel {
         store.setValue(city.map { "\($0.city)|\($0.name)|\($0.isNearby ? "1" : "0")" }, forKey: Self.lastNearMeKey)
     }
 
+    /// Whether this person has picked where the Feed is about, on this phone.
+    public var hasChosenLocation: Bool { store.value(forKey: Self.locationKey(for: owner())) != nil }
+
     /// Picks what the Feed is about. Returns whether the city it reads changed.
     @discardableResult
     public func choose(location next: FeedLocation) -> Bool {
@@ -154,5 +166,7 @@ public final class FeedAreaModel {
     /// Re-reads the remembered choice — after a sign-in, when "whose phone is this" changed.
     public func reloadSelection() {
         location = FeedLocation(stored: store.value(forKey: Self.locationKey(for: owner())))
+        openingTask = nil
+        hasOpened = false
     }
 }
