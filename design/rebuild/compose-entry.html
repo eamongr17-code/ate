@@ -22,7 +22,7 @@ section{display:grid;gap:16px}
 
 /* ---------- phones (always light: they show the light default) ---------- */
 .phones{display:flex;flex-wrap:wrap;gap:28px 22px}
-.cell{display:grid;gap:10px;width:289px}
+.cell{display:grid;gap:10px;width:289px;align-content:start}
 .cell h3{font-size:16px}
 .cell p{font-size:14.5px;color:var(--muted);line-height:1.4}
 .ph{width:289px;height:625px;border-radius:40px;overflow:hidden;box-shadow:0 0 0 1px var(--hair),0 18px 40px rgba(36,20,31,.14);flex-shrink:0;max-width:100%}
@@ -52,7 +52,19 @@ section{display:grid;gap:16px}
 .bar{position:absolute;left:10px;right:10px;height:56px;border-radius:999px;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 6px}
 .hit{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#24141F}
 .key{height:40px;padding:0 13px 0 9px;gap:5px;border-radius:999px;display:flex;align-items:center;font:600 14px/1 "Bricolage Grotesque",sans-serif;color:#24141F;white-space:nowrap}
-.k-score{background:#F6D365}.k-place{background:#E4DED4;max-width:150px}.k-tags{background:#E4DED4}
+.k-score{background:#F6D365}.k-place{background:#E4DED4;max-width:150px}
+.k-diet{width:40px;padding:0;justify-content:center;background:#E4DED4;border-radius:50%}
+.k-code{background:#E4DED4;padding:0 13px}
+.tick.off{opacity:.4}
+.dots{display:flex;gap:4px}
+.dots b{width:5px;height:5px;border-radius:50%;background:#fff;opacity:0;animation:dot 1.28s step-end infinite}
+.dots b:nth-child(1){animation-name:dot1}.dots b:nth-child(2){animation-name:dot2}.dots b:nth-child(3){animation-name:dot3}
+@keyframes dot1{0%{opacity:0}25%,100%{opacity:1}}
+@keyframes dot2{0%,25%{opacity:0}50%,100%{opacity:1}}
+@keyframes dot3{0%,50%{opacity:0}75%,100%{opacity:1}}
+@media (prefers-reduced-motion: reduce){.dots b{animation:none;opacity:1}}
+.states{display:flex;gap:18px;align-items:center;padding:4px 2px}
+.states span.st{display:grid;justify-items:center;gap:6px;font:500 12px/1.2 "Bricolage Grotesque",sans-serif;color:var(--muted)}
 .kbd{position:absolute;left:0;right:0;bottom:0;height:291px;background:#D3D5DB;padding:8px 3px 0;display:grid;gap:11px;align-content:start}
 .kbd .r{display:flex;justify-content:center;gap:6px}
 .kbd .r span{height:42px;flex:0 0 33px;background:#fff;border-radius:6px;box-shadow:0 1px 0 rgba(0,0,0,.3);font:400 22px/42px -apple-system,sans-serif;text-align:center;color:#111}
@@ -74,6 +86,11 @@ section{display:grid;gap:16px}
 .rule{border-top:1.5px dashed rgba(36,20,31,.3)}
 .li{display:flex;gap:8px;align-items:baseline;font:400 13px/1.9 "DM Mono",monospace}
 .li .d{flex:1;border-bottom:1.5px dotted rgba(36,20,31,.35);transform:translateY(-4px)}
+/* receipt dish lines, as ReceiptView+Lead: title face, dot leader, score printed like a price */
+.rl{display:flex;align-items:baseline;gap:8px}
+.rl .n{font:800 22px/1.1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.rl .s{font:800 24px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rl .d{flex:1;min-width:16px;border-bottom:2px dotted rgba(36,20,31,.3);transform:translateY(-5px)}
 .tear{height:4px}
 .barcode{height:30px;background:repeating-linear-gradient(90deg,#24141F 0 2px,transparent 2px 4px,#24141F 4px 5px,transparent 5px 8px,#24141F 8px 11px,transparent 11px 12px)}
 .dish{display:flex;justify-content:space-between;align-items:flex-start;min-height:44px;padding:9px 0;border-top:1px solid rgba(36,20,31,.14)}
@@ -121,13 +138,39 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
           </div>
           <div class="bar glass" style="bottom:300px">
             <span class="row"><span class="hit" data-i="camera"></span><span class="hit" data-i="image"></span></span>
-            <span class="row" style="gap:6px"><span class="key k-score"><i data-i="star" data-s="15"></i>Score</span><span class="key k-place"><i data-i="pin" data-s="15"></i>Tipo 00</span><span class="key k-tags" style="padding:0 11px 0 9px"><i data-i="tag" data-s="15"></i>Tags</span></span>
+            <span class="row" style="gap:6px"><span class="key k-score"><i data-i="star" data-s="15"></i>Score</span><span class="key k-place"><i data-i="pin" data-s="16"></i>Tipo 00</span><span class="key k-diet" data-i="leaf" data-s="16" aria-label="Diet"></span></span>
           </div>
           <div class="kbd"></div>
         </div>
       </div></div>
       <h3>Write</h3>
-      <p>A native sheet over the Journal. Close and a filled tick live in glass in the corners. The toolbar floats in a glass capsule riding the keyboard.</p>
+      <p>A native sheet over the Journal. Close and a filled tick live in glass in the corners. The toolbar floats in a glass capsule riding the keyboard: camera and library, then Score and Place with their labels and Diet as a leaf alone. The tick stays muted until a place is attached. After the tap it steps three dots while the entry posts, so the frozen screen never looks hung.</p>
+      <div class="states" aria-label="Tick states">
+        <span class="st"><span class="disc tick off" data-i="check"></span>No place</span>
+        <span class="st"><span class="disc tick" data-i="check"></span>Ready</span>
+        <span class="st"><span class="disc tick"><span class="dots"><b></b><b></b><b></b></span></span>Posting</span>
+      </div>
+    </div>
+
+    <!-- 1b Diet -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="dim"></div>
+        <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
+        <div class="sheet" style="--surf:#fff">
+          <div class="top"><span class="disc glass" data-i="x"></span><span class="disc tick" data-i="check"></span></div>
+          <div style="padding:76px 22px 0;display:grid;gap:18px">
+            <p class="prose">With Jess for her birthday. The tagliatelle al ragù <span class="tok"><i data-i="star" data-s="11"></i>4.5</span> was unreal, rich, glossy, gone in four minutes. Tiramisu <span class="diet">V</span> <span class="tok"><i data-i="star" data-s="11"></i>3.0</span> a bit flat after that. Jess's prawn spaghetti<span class="caret"></span></p>
+            <div class="cluster"><span class="ph-img food1" style="width:90px;height:90px;border-radius:25px;transform:rotate(-5deg)"></span><span class="ph-img food2" style="width:90px;height:90px;border-radius:25px;transform:rotate(4deg)"></span><span class="ph-img food3" style="width:90px;height:90px;border-radius:25px;transform:rotate(-2deg)"></span></div>
+          </div>
+          <div class="bar glass" style="bottom:300px;justify-content:flex-start">
+            <span class="row" style="gap:6px"><span class="hit" data-i="back"></span><span class="key k-code">GF</span><span class="key k-code">DF</span><span class="key k-code">V</span><span class="key k-code">VG</span><span class="key k-code">NF</span></span>
+          </div>
+          <div class="kbd"></div>
+        </div>
+      </div></div>
+      <h3>Diet</h3>
+      <p>The leaf key unfolds into the five codes behind a back arrow, springing out of the key. A code goes in after the nearest dish to its left, and the ordinary toolbar folds straight back.</p>
     </div>
 
     <!-- 2 Score -->
@@ -136,13 +179,13 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
         <div class="dim"></div>
         <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
         <div class="sheet">
-          <div class="top"><span class="disc glass" data-i="x"></span><span class="disc tick" data-i="check"></span></div>
+          <div class="top"><span class="disc glass" data-i="x"></span><span class="disc tick off" data-i="check"></span></div>
           <div style="padding:76px 22px 0">
             <p class="prose">With Jess for her birthday. The tagliatelle al ragù <span class="tok live"><i data-i="star" data-s="11"></i>4.5</span> was unreal, rich, glossy, gone in four minutes. Tiramisu <span class="tok"><i data-i="star" data-s="11"></i>3.0</span> a bit flat after that.</p>
           </div>
           <div class="bar glass" style="bottom:300px">
             <span class="row"><span class="hit" data-i="camera"></span><span class="hit" data-i="image"></span></span>
-            <span class="row" style="gap:6px"><span class="key k-score" style="box-shadow:0 0 0 2px #24141F"><i data-i="star" data-s="15"></i>Score</span><span class="key k-place"><i data-i="pin" data-s="15"></i>Tipo 00</span><span class="key k-tags" style="padding:0 11px 0 9px"><i data-i="tag" data-s="15"></i>Tags</span></span>
+            <span class="row" style="gap:6px"><span class="key k-score" style="box-shadow:0 0 0 2px #24141F"><i data-i="star" data-s="15"></i>Score</span><span class="key k-place"><i data-i="pin" data-s="16"></i>Place</span><span class="key k-diet" data-i="leaf" data-s="16" aria-label="Diet"></span></span>
           </div>
           <div style="position:absolute;left:22px;right:22px;bottom:372px;padding-top:18px;border-top:1px solid rgba(36,20,31,.14);display:grid;gap:16px">
             <div class="row" style="justify-content:space-between;align-items:baseline"><span class="h" style="font-size:22px">Tagliatelle al ragù</span><span class="h" style="font-size:28px">4.5</span></div>
@@ -152,7 +195,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
         </div>
       </div></div>
       <h3>Score</h3>
-      <p>The slide now sits above the keyboard, in the space under your words, so you never lose the keyboard. One finger drags across the stars.</p>
+      <p>The slide now sits above the keyboard, in the space under your words, so you never lose the keyboard. One finger drags across the stars. No place yet, so the Place key is empty and the tick is muted: an entry cannot be done without one.</p>
     </div>
 
     <!-- 4 Place -->
@@ -162,13 +205,14 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
         <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
         <div class="sheet" style="top:62px;background:#E8E3DB;transform:scale(.94);transform-origin:50% 0;opacity:.7"></div>
         <div class="sheet" style="top:150px;padding:22px 20px 0;display:grid;gap:14px;align-content:start;box-shadow:0 -10px 30px rgba(36,20,31,.12)">
-          <div class="row" style="justify-content:space-between"><span class="h" style="font-size:30px">Where was this?</span><span class="disc glass" data-i="x"></span></div>
+          <div class="row" style="margin:-8px -4px 0"><span class="disc glass" data-i="x"></span></div>
+          <span class="h" style="font-size:30px">Where was this?</span>
           <div class="row" style="gap:10px;height:50px;padding:0 16px;border-radius:999px;background:#E4DED4"><i data-i="search" data-s="18"></i><span class="ui" style="font-weight:600;font-size:17px">Tipo 00</span></div>
           <div id="places"></div>
         </div>
       </div></div>
       <h3>Place</h3>
-      <p>A native sheet at the medium height, glass close in the corner. Tapping a row picks it and closes; the button at the foot goes.</p>
+      <p>A native sheet at the medium height, glass close top left like every sheet, title under it. Tapping a row picks it and closes; the button at the foot goes.</p>
     </div>
 
     <!-- 5 Summary -->
@@ -177,14 +221,15 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
         <div class="dim"></div>
         <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
         <div class="sheet" style="background:#F0623F;--surf:#F0623F">
-          <div class="top" style="justify-content:flex-end"><span class="disc glass" style="background:rgba(255,255,255,.35)" data-i="check"></span></div>
+          <div class="top"><span class="disc glass" style="background:rgba(255,255,255,.35)" data-i="x"></span><span class="disc glass" style="background:rgba(255,255,255,.35)" data-i="share"></span></div>
           <div class="cluster" style="justify-content:center;padding:96px 0 0 0"><span class="ph-img food1" style="width:96px;height:96px;border-radius:27px;transform:rotate(-7deg)"></span><span class="ph-img food2" style="width:96px;height:96px;border-radius:27px;transform:rotate(5deg)"></span><span class="ph-img food3" style="width:96px;height:96px;border-radius:27px;transform:rotate(-3deg)"></span></div>
           <div style="position:relative;margin:30px 52px 0">
-            <div style="transform:rotate(-3deg);filter:drop-shadow(0 1px 0 rgba(36,20,31,.07))">
+            <!-- straight once printed (round 6); scaled whole like the build's hero receipt (ShareStage.heroScale, 314/286) -->
+            <div style="transform:scale(1.098);transform-origin:50% 0;filter:drop-shadow(0 1px 0 rgba(36,20,31,.07))">
               <div class="receipt">
-                <div style="display:grid;justify-items:center;gap:4px"><span class="h" style="font-size:32px">Tipo 00</span><span class="lab">361 Little Bourke St</span></div>
+                <div style="display:grid;gap:4px;padding-top:2px"><div class="rl"><span class="n">Tagliatelle al ragù</span><span class="d"></span><span class="s">4.5</span></div><div class="rl"><span class="n">Tiramisu</span><span class="d"></span><span class="s">3.0</span></div><div class="rl"><span class="n">Prawn spaghetti</span><span class="d"></span></div></div>
                 <div class="rule"></div>
-                <div><div class="li"><span style="color:#5E5560">01</span><span>Tagliatelle al ragù</span><span class="d"></span><span style="font-weight:500">4.5</span></div><div class="li"><span style="color:#5E5560">02</span><span>Tiramisu</span><span class="d"></span><span style="font-weight:500">3.0</span></div><div class="li"><span style="color:#5E5560">03</span><span>Prawn spaghetti</span><span class="d"></span></div></div>
+                <div class="row lab" style="justify-content:space-between;gap:8px"><span style="color:#24141F;white-space:nowrap">Tipo 00</span><span style="white-space:nowrap">361 Little Bourke St</span></div>
                 <div class="rule"></div>
                 <div class="row lab" style="justify-content:space-between;color:#24141F"><span>Order #0142</span><span>Sat 19 Sep 2026</span></div>
                 <div class="row lab" style="justify-content:space-between;color:#24141F"><span>3 dishes</span><span>Avg 3.75</span></div>
@@ -193,11 +238,10 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
               <div class="tear"></div>
             </div>
           </div>
-          <div class="pill" style="position:absolute;left:20px;right:20px;bottom:34px;background:#24141F;color:#fff"><i data-i="share" data-s="18"></i>Share</div>
         </div>
       </div></div>
       <h3>Printed</h3>
-      <p>The receipt on coral, inside the same sheet. Photos sit above it, never over it; no barcode; the real wordmark signs it. Share is the only button.</p>
+      <p>The receipt on coral, inside the same sheet, lying straight. The dishes lead; under a dashed rule the place and its address are small fine print, never the title. Photos sit above it, never over it; no barcode; the real wordmark signs it. Close is the glass disc top left and Share the glass disc top right, the only action.</p>
     </div>
 
     <!-- 6 Entry -->
@@ -244,13 +288,14 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
   <h2>Screens and patterns</h2>
   <div class="wrap"><table>
     <tr><th>Screen</th><th>Pattern</th><th>Best in class</th></tr>
-    <tr><td>Write</td><td>Full-height sheet over the journal; words first; one floating toolbar above the keyboard; close and tick in the top corners.</td><td><a href="https://mobbin.com/screens/68cf68b2-f4b1-4c4f-bcc6-9b2e3bc31d7a">Apple Journal</a>, <a href="https://mobbin.com/screens/7bb08911-5536-4780-a180-76823cdf8c9b">Apple Notes</a>, <a href="https://mobbin.com/screens/785f23a5-1f7f-4928-a4c3-2f50baed5452">Craft</a></td></tr>
+    <tr><td>Write</td><td>Full-height sheet over the journal; words first; one floating toolbar above the keyboard (camera, library, Score, Place, Diet); close and tick in the top corners. The tick waits for a place, then steps dots while it posts.</td><td><a href="https://mobbin.com/screens/68cf68b2-f4b1-4c4f-bcc6-9b2e3bc31d7a">Apple Journal</a>, <a href="https://mobbin.com/screens/7bb08911-5536-4780-a180-76823cdf8c9b">Apple Notes</a>, <a href="https://mobbin.com/screens/785f23a5-1f7f-4928-a4c3-2f50baed5452">Craft</a></td></tr>
     <tr><td>Score</td><td>Drag across the stars in one motion, half steps, in the space above the keyboard.</td><td><a href="https://mobbin.com/screens/073e0cff-5af9-4069-9c68-a2998a753853">Letterboxd log</a>, <a href="https://mobbin.com/screens/9f1d6bfa-c04d-497f-8432-0e007e7f9cd7">Letterboxd rate</a></td></tr>
+    <tr><td>Diet</td><td>The icon-only leaf key unfolds the toolbar into GF, DF, V, VG, NF behind a back arrow; a code tags the nearest dish to its left and the toolbar folds back.</td><td>As built (round 5, unfold B)</td></tr>
     <tr><td>Place</td><td>Search-first sheet; tap a row to pick; checkmark on the current one.</td><td><a href="https://mobbin.com/screens/4638de59-3327-406e-a469-255345bb0f17">Locals</a>, <a href="https://mobbin.com/screens/4c7e3e81-d1cf-4596-a5a3-91ae07ec5eae">Alta</a>, <a href="https://mobbin.com/screens/85295a1e-cb36-4193-afb7-fe55c3c8bf6a">Instagram</a></td></tr>
-    <tr><td>Printed</td><td>The made thing as hero, one share action, dismiss in the corner.</td><td><a href="https://mobbin.com/screens/96592121-1a7c-4a34-afca-6ea9b403167c">Pangea</a>, <a href="https://mobbin.com/screens/8ca51327-83b0-4603-a93a-0f8dcf9dccf9">Numo</a>, <a href="https://mobbin.com/screens/f496feef-cc0a-426a-97df-dda000eff50f">Medium</a></td></tr>
+    <tr><td>Printed</td><td>The made thing as hero, straight: dishes lead, the place is fine print. Close top left, Share top right, nothing else.</td><td><a href="https://mobbin.com/screens/96592121-1a7c-4a34-afca-6ea9b403167c">Pangea</a>, <a href="https://mobbin.com/screens/8ca51327-83b0-4603-a93a-0f8dcf9dccf9">Numo</a>, <a href="https://mobbin.com/screens/f496feef-cc0a-426a-97df-dda000eff50f">Medium</a></td></tr>
     <tr><td>Entry</td><td>Read mode by default; more menu holds Edit and Delete; delete confirms.</td><td><a href="https://mobbin.com/screens/8e8b0fd2-c94d-4658-93c6-9b034afa4a88">Apple Journal</a>, <a href="https://mobbin.com/screens/ecdb86bb-c83e-4075-ac6e-42870781c3ca">Letterboxd review</a></td></tr>
     <tr><td>Edit</td><td>The same composer, filled in. One editor for new and existing entries.</td><td><a href="https://mobbin.com/screens/68cf68b2-f4b1-4c4f-bcc6-9b2e3bc31d7a">Apple Journal</a></td></tr>
-    <tr><td>Dish sheet</td><td>Kept as designed: long-press a dish row to fix its name, score or tags.</td><td>Unchanged</td></tr>
+    <tr><td>Dish sheet</td><td>Kept as designed: long-press a dish row to fix its name only. Its score and the words are untouched.</td><td>Unchanged</td></tr>
   </table></div>
   <p class="note">Beli's post-visit sheet (<a href="https://mobbin.com/screens/411a4fb1-4770-4ee6-862b-45fb45722db6">here</a>) is the form-based alternative we are deliberately not copying: seven "Add…" rows is the structured logging Ate replaces with writing.</p>
 </section>
@@ -259,13 +304,13 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
   <h2>What changes from the current build</h2>
   <ul>
     <li><strong>Composer becomes a sheet, not a full-screen cover.</strong> The journal stays visible behind it, so you know where the entry lands. Swipe down with words in it asks "Discard entry?" once.</li>
-    <li><strong>Done becomes a filled tick in glass</strong>, top right, the iOS 26 confirm button. The same tick closes the printed receipt and saves an edit, so "finish" lives in one place everywhere.</li>
-    <li><strong>The toolbar floats</strong> in one glass capsule above the keyboard instead of sitting flat on the page. Same keys in the same order.</li>
+    <li><strong>Post becomes a filled tick in glass</strong>, top right, the iOS 26 confirm button. The same tick saves an edit. It stays muted until a place is attached, as Done does today, and while the entry posts it steps three dots, the build's Posting dots moved into the tick.</li>
+    <li><strong>The toolbar floats</strong> in one glass capsule above the keyboard instead of sitting flat on the page. Same keys in the same order: camera, library, Score, Place, and the leaf Diet key.</li>
     <li><strong>Voice is out of V1.</strong> The mic key and the voice screen go; it can come back later.</li>
     <li><strong>The score slide moves above the keyboard</strong> instead of replacing it.</li>
-    <li><strong>Dietary tags stay</strong> exactly as approved: a code typed after a dish becomes a tag chip, in the words and on the dish rows. A <strong>Tags key</strong> now sits beside Score and Place in the toolbar for adding one without typing the code.</li>
+    <li><strong>Dietary tags stay</strong> exactly as approved: a code typed after a dish becomes a tag chip, in the words and on the dish rows. The <strong>Diet key</strong> stays too: a leaf, icon only, beside the labelled Score and Place keys, unfolding the toolbar into the five codes behind a back arrow.</li>
     <li><strong>Place sheet drops its "Use Tipo 00" button.</strong> Tapping a row picks it. Nearby rows still never attach on their own.</li>
-    <li><strong>The printed screen is calmer.</strong> Done is the corner tick and Share is the only button. Photos sit above the receipt instead of over it, the barcode goes, and the receipt is signed with the real wordmark.</li>
+    <li><strong>The printed screen is calmer.</strong> The Done and Share pills at the foot become two glass discs in the corners: close top left, Share top right. Photos sit above the receipt instead of over it, the barcode goes, and the receipt is signed with the real wordmark. The receipt itself is unchanged: straight, dishes first, the place as fine print.</li>
     <li><strong>Entry's custom top bar becomes the native one</strong>, and Edit and Delete move into the more menu. Someone else's entry has the same page with a byline, a bookmark per dish, and Report and Block in the menu.</li>
   </ul>
 </section>
@@ -275,11 +320,11 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
   <div class="wrap"><table>
     <tr><th>Piece</th><th>SwiftUI</th></tr>
     <tr><td>Composer</td><td><code>.sheet</code> with <code>.presentationDetents([.large])</code>; <code>.interactiveDismissDisabled</code> while there are words, plus <code>.confirmationDialog</code> to discard</td></tr>
-    <tr><td>Close and tick</td><td><code>ToolbarItem(.cancellationAction)</code> and <code>(.confirmationAction)</code>; tick uses <code>.buttonStyle(.glassProminent)</code> tinted ink</td></tr>
-    <tr><td>Toolbar capsule</td><td><code>.safeAreaBar(edge: .bottom)</code> holding a <code>GlassEffectContainer</code>; Score and Place keys keep their butter and field fills</td></tr>
+    <tr><td>Close and tick</td><td><code>ToolbarItem(.cancellationAction)</code> and <code>(.confirmationAction)</code>; tick uses <code>.buttonStyle(.glassProminent)</code> tinted ink, <code>.disabled(!canSave)</code> until a place is attached; while posting its label is the stepping dots (<code>PostingDotsLabel</code>'s timing, 0.32s a step) and it takes no second tap</td></tr>
+    <tr><td>Toolbar capsule</td><td><code>.safeAreaBar(edge: .bottom)</code> holding a <code>GlassEffectContainer</code>; Score and Place keys keep their butter and field fills; Diet is the icon-only leaf disc, and its five codes swap in with <code>ComposerDietUnfold</code></td></tr>
     <tr><td>Score slide</td><td>Custom row above the keyboard toolbar, keyboard stays up; <code>.sensoryFeedback(.selection)</code> per half star</td></tr>
     <tr><td>Place and dish sheets</td><td><code>.sheet</code> with <code>[.medium, .large]</code> detents; glass close as <code>.cancellationAction</code></td></tr>
-    <tr><td>Printed</td><td><code>NavigationStack</code> push inside the composer sheet; <code>ShareLink</code> with the rendered receipt image plus the Instagram Stories action</td></tr>
+    <tr><td>Printed</td><td><code>NavigationStack</code> push inside the composer sheet; close as <code>.cancellationAction</code>, Share as a glass <code>.primaryAction</code> opening the rendered receipt image plus the Instagram Stories action; the receipt is <code>ReceiptView</code> as built, unrotated, without <code>AteBarcode</code></td></tr>
     <tr><td>Entry</td><td>Native nav bar; trailing <code>ToolbarItemGroup</code> of <code>ShareLink</code> and a <code>Menu</code>; Delete as a destructive <code>confirmationDialog</code></td></tr>
     <tr><td>Tab bar</td><td>Native <code>TabView</code> with <code>.tabBarMinimizeBehavior(.onScrollDown)</code>; + is a tab in the bar's detached trailing slot (the search-role slot) and presents the composer instead of switching. Selected tab is the system's quiet glass highlight, no fill</td></tr>
   </table></div>
@@ -293,7 +338,12 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
     <li>Done is the glass tick.</li>
     <li>Entries keep the native tab bar.</li>
     <li>+ is a tab that opens the composer, in the detached trailing slot of the native bar.</li>
-    <li>Diet tags are a toolbar key beside Score and Place.</li>
+    <li>Diet tags are a toolbar key beside Score and Place: a leaf, icon only, that unfolds into GF, DF, V, VG, NF.</li>
+    <li>A place is required before the tick goes live.</li>
+    <li>The receipt leads with the dishes; the place is fine print; it lies straight once printed.</li>
+    <li>Every sheet: close top left, primary top right. On the printed receipt that is Share.</li>
+    <li>Tapping a score pill opens the dish page everywhere except the composer, where it reopens the score slide.</li>
+    <li>The place never appears inline in the prose; the Place key holds it.</li>
     <li>Voice waits for a later version.</li>
   </ul>
 </section>
@@ -321,7 +371,8 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
     utensils:'<path d="m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7M2.1 21.8l6.4-6.3M19 5l-7 7"/>',
     plus:'<path d="M12 5v14M5 12h14"/>',
     tag:'<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" stroke="none"/>',
-    user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'
+    user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    leaf:'<path d="M11 20a10 10 0 0 0 10-10 25.9 25.9 0 0 0-1.04-7.281 1 1 0 0 0-1.755-.325C15.833 5.5 13 5.5 9.8 6.1A7 7 0 0 0 11 20"/><path d="M2 21a5 5 0 0 1 2.911-4.544C7.613 15.212 8.351 15.24 11 13"/>'
   };
   document.querySelectorAll('[data-i]').forEach(function(el){
     var s=el.getAttribute('data-s')||22;

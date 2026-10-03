@@ -125,6 +125,9 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
 .mrw{display:flex;align-items:center;justify-content:space-between;min-height:52px;border-top:1px solid rgba(36,20,31,.14);font:600 16px/1 "Bricolage Grotesque",sans-serif}
 .dpill{height:36px;padding:0 14px;border-radius:999px;display:inline-flex;align-items:center;font:600 13px/1 "Bricolage Grotesque",sans-serif;letter-spacing:.06em;background:#E4DED4;color:#24141F}
 .dpill.on{background:#24141F;color:#fff}
+.fdisc{width:44px;height:44px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#fff;color:#24141F}
+.fdisc.on{background:#24141F;color:#fff}
+.like{width:150px;flex-shrink:0;display:grid;gap:6px;align-content:start}
 .radio{width:28px;height:28px;border-radius:50%;flex-shrink:0;box-sizing:border-box;border:1.5px solid rgba(36,20,31,.3)}
 .radio.on{border:0;background:#24141F;color:#fff;display:flex;align-items:center;justify-content:center}
 </style>
@@ -143,11 +146,10 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
     <div class="cell">
       <div class="ph"><div class="scr">
         <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
-        <div class="navrow" style="justify-content:flex-end"><span class="disc glass" data-i="filter"></span></div>
-        <div style="position:absolute;top:104px;left:20px;right:20px;display:grid;gap:14px">
+        <div style="position:absolute;top:58px;left:20px;right:20px;display:grid;gap:14px">
           <span class="h" style="font-size:40px">Search</span>
           <div class="sfield"><i data-i="search" data-s="19" style="color:#5E5560"></i><span style="color:#5E5560">Places, dishes, people</span></div>
-          <div class="seg"><span class="on">Places</span><span>Dishes</span><span>People</span><span>Saved</span></div>
+          <div class="row" style="gap:8px"><div class="seg" style="flex:1"><span class="on">Places</span><span>Dishes</span><span>People</span><span>Saved</span></div><span class="fdisc" data-i="filter" data-s="20"></span></div>
           <div style="padding-top:4px">
             <div class="srow" style="min-height:58px"><i data-i="clock" data-s="20" style="color:#5E5560"></i><span class="nm" style="flex:1">Tipo 00</span><i data-i="arrowul" data-s="18" style="color:#5E5560"></i></div>
             <div class="srow" style="min-height:58px"><i data-i="clock" data-s="20" style="color:#5E5560"></i><span class="nm" style="flex:1">ragu</span><i data-i="arrowul" data-s="18" style="color:#5E5560"></i></div>
@@ -164,7 +166,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
         <span class="plusdisc" data-i="plus" data-s="28"></span>
       </div></div>
       <h3>Search at rest</h3>
-      <p>Native large title, native search bar, four scope segments, one glass filter disc. Before typing: your recent searches, not a location list.</p>
+      <p>Native large title and search bar, then the round 5 switch: four equal scopes with the one filter disc at its end, never moving. Before typing: your recent searches, not a location list.</p>
     </div>
 
     <!-- 2 Results -->
@@ -176,7 +178,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
           <span class="disc glass" data-i="x"></span>
         </div>
         <div style="position:absolute;top:120px;left:20px;right:20px;display:grid;gap:10px">
-          <div class="seg"><span>Places</span><span class="on">Dishes</span><span>People</span><span>Saved</span></div>
+          <div class="row" style="gap:8px"><div class="seg" style="flex:1"><span>Places</span><span class="on">Dishes</span><span>People</span><span>Saved</span></div><span class="fdisc" data-i="filter" data-s="20"></span></div>
           <div>
             <div class="srow"><span class="ph-img thumb food1" style="width:56px;height:56px;border-radius:16px;box-shadow:none"></span><span style="flex:1;display:grid;gap:3px"><span class="nm">Tagliatelle al ragù</span><span class="meta">Tipo 00</span></span><span class="tok"><i data-i="star" data-s="11"></i>4.6</span></div>
             <div class="srow"><span class="ph-img thumb food3" style="width:56px;height:56px;border-radius:16px;box-shadow:none"></span><span style="flex:1;display:grid;gap:3px"><span class="nm">Penne al ragù</span><span class="meta">Di Stasio</span></span><span class="tok"><i data-i="star" data-s="11"></i>4.2</span></div>
@@ -209,7 +211,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
           <div style="padding-top:72px;display:grid;gap:6px">
             <span class="h" style="font-size:30px;padding-bottom:6px">Filter</span>
             <div style="border-top:1px solid rgba(36,20,31,.14);padding-top:14px">
-              <div class="row" style="justify-content:space-between"><span class="slab"><i data-i="star" data-s="16"></i>Rating</span><span class="ui" style="font-weight:600;font-size:15px">4.0 to 6</span></div>
+              <div class="row" style="justify-content:space-between"><span class="slab"><i data-i="star" data-s="16"></i>Rating</span><span class="ui" style="font-weight:600;font-size:15px">4.0 and up</span></div>
               <div class="track"><b style="left:66.6%;right:0"></b><i style="left:66.6%"></i><i style="left:100%"></i></div>
             </div>
             <div style="border-top:1px solid rgba(36,20,31,.14);padding-top:14px">
@@ -322,17 +324,20 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
       <div class="ph"><div class="scr">
         <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
         <div class="navrow"><span class="disc glass" data-i="back"></span><span class="disc glass" data-i="bookmark"></span></div>
-        <div style="position:absolute;top:112px;left:20px;right:20px;display:grid;gap:14px">
+        <div style="position:absolute;top:112px;left:20px;right:20px;display:grid;gap:14px;grid-template-columns:minmax(0,1fr)">
           <div class="cluster" style="padding:6px 0 0 8px;--surf:#EFEAE2"><span class="ph-img food3" style="width:136px;height:136px;border-radius:38px;transform:rotate(-6deg)"></span><span class="ph-img food1" style="width:136px;height:136px;border-radius:38px;transform:rotate(4deg);margin-left:-40px"></span></div>
           <div style="display:grid;gap:4px"><span class="h" style="font-size:36px">Tagliatelle al ragù</span><span class="row ui" style="gap:2px;color:#5E5560;font-weight:600;font-size:15px">Tipo 00<i data-i="chev" data-s="16"></i></span></div>
           <div class="row" style="gap:14px"><span class="h" style="font-size:60px">4.6</span><div style="display:grid;gap:6px"><span data-stars="4.5" data-sz="20"></span><span class="row meta" style="gap:4px"><i data-i="users" data-s="14"></i>24 people</span></div></div>
-          <div style="display:grid;gap:10px">
-            <span class="ui" style="font-weight:600;font-size:17px;letter-spacing:-.01em">More to explore</span>
-            <div class="row" style="gap:6px;flex-wrap:wrap"><span class="chip">pasta</span><span class="chip">Italian</span><span class="chip">CBD</span><span class="chip">Melbourne</span></div>
-          </div>
           <div>
-            <div class="row" style="align-items:flex-start;gap:12px;padding:14px 0;border-top:1px solid rgba(36,20,31,.14)"><span class="av a-coral" style="width:36px;height:36px;font-size:16px">E</span><div style="flex:1;display:grid;gap:4px"><div class="row" style="justify-content:space-between"><span class="ui" style="font-weight:600;font-size:14px">You</span><span class="tok"><i data-i="star" data-s="10"></i>4.5</span></div><p class="prose" style="font-size:16px;line-height:1.4">Unreal. Rich, glossy, gone in four minutes.</p></div></div>
-            <div class="row" style="align-items:flex-start;gap:12px;padding:14px 0;border-top:1px solid rgba(36,20,31,.14)"><span class="av" style="width:36px;height:36px;font-size:16px;background:#F6D365">J</span><div style="flex:1;display:grid;gap:4px"><div class="row" style="justify-content:space-between"><span class="ui" style="font-weight:600;font-size:14px">@jessw</span><span class="tok"><i data-i="star" data-s="10"></i>5.0</span></div><p class="prose" style="font-size:16px;line-height:1.4">Still the best thing on Little Bourke, fight me.</p></div></div>
+            <div class="row" style="align-items:center;gap:12px;padding:14px 0;border-top:1px solid rgba(36,20,31,.14)"><span class="av a-coral" style="width:36px;height:36px;font-size:16px">E</span><span class="ui" style="flex:1;font-weight:600;font-size:14px">You</span><span class="tok"><i data-i="star" data-s="10"></i>4.5</span></div>
+            <div class="row" style="align-items:center;gap:12px;padding:14px 0;border-top:1px solid rgba(36,20,31,.14)"><span class="av" style="width:36px;height:36px;font-size:16px;background:#F6D365">J</span><span class="ui" style="flex:1;font-weight:600;font-size:14px">@jessw</span><span class="tok"><i data-i="star" data-s="10"></i>5.0</span></div>
+            <div class="row" style="align-items:center;gap:12px;padding:14px 0;border-top:1px solid rgba(36,20,31,.14)"><span class="av" style="width:36px;height:36px;font-size:16px;background:#3ECF64">M</span><span class="ui" style="flex:1;font-weight:600;font-size:14px">@marcus.eats</span><span></span></div>
+          </div>
+          <div style="display:grid;gap:12px;margin-top:-14px;grid-template-columns:minmax(0,1fr)">
+            <span class="ui" style="font-weight:600;font-size:17px;letter-spacing:-.01em;padding-top:8px">More to explore</span>
+            <div class="row" style="gap:8px;flex-wrap:wrap"><span class="chip" style="height:34px;padding:0 14px">pasta</span><span class="chip" style="height:34px;padding:0 14px">Italian</span><span class="chip" style="height:34px;padding:0 14px">CBD</span><span class="chip" style="height:34px;padding:0 14px">Melbourne</span></div>
+            <span class="ui" style="font-weight:600;font-size:17px;letter-spacing:-.01em;padding-top:8px">More like this</span>
+            <div class="row" style="gap:12px;align-items:flex-start;margin-right:-36px"><div class="like"><span class="ph-img food3" style="width:150px;height:150px;border-radius:26px;box-shadow:none"></span><span class="ui" style="font-weight:700;font-size:15px;line-height:1.2">Pappardelle, duck ragù</span><span class="row meta" style="justify-content:space-between"><span>Osteria Ilaria</span><span class="row" style="gap:4px"><i data-i="star" data-s="11"></i>4.4</span></span></div><div class="like"><span class="ph-img food2" style="width:150px;height:150px;border-radius:26px;box-shadow:none"></span><span class="ui" style="font-weight:700;font-size:15px;line-height:1.2">Penne al ragù</span><span class="row meta" style="justify-content:space-between"><span>Di Stasio</span><span class="row" style="gap:4px"><i data-i="star" data-s="11"></i>4.2</span></span></div><div class="like"><span class="lt a-sky" style="width:150px;height:150px;border-radius:26px;font-size:56px">R</span><span class="ui" style="font-weight:700;font-size:15px;line-height:1.2">Rigatoni, pork ragù</span><span class="row meta" style="justify-content:space-between"><span>Bar Carolina</span></span></div></div>
           </div>
         </div>
         <div class="tabbar glass">
@@ -344,7 +349,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
         <span class="plusdisc" data-i="plus" data-s="28"></span>
       </div></div>
       <h3>Dish</h3>
-      <p>Glass back left, glass bookmark right: Save is the only action. The tilted hero, the aggregate (stars to the nearest half, numbers to one decimal), then the dish's tags to explore and everyone's words.</p>
+      <p>Glass back left, glass bookmark right: Save is the only action. The tilted hero, the aggregate (stars to the nearest half, numbers to one decimal), then each review as who and how much, no words (round 4). Under them, More to explore and the More like this carousel (round 7).</p>
     </div>
 
     <!-- 7 Dish sheet -->
@@ -358,8 +363,6 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
           <div style="padding-top:72px;display:grid;gap:14px">
             <span class="h" style="font-size:30px">Which dish?</span>
             <div class="sfield" style="height:50px"><i data-i="search" data-s="18"></i><span style="font-weight:600">Tagliatelle al ragù</span></div>
-            <div class="row" style="justify-content:space-between;padding-top:2px"><span data-stars="4.5" data-sz="34"></span><span class="h" style="font-size:28px">4.5</span></div>
-            <div class="row" style="gap:6px"><span class="dpill">GF</span><span class="dpill">DF</span><span class="dpill">V</span><span class="dpill">VG</span><span class="dpill">NF</span></div>
             <div>
               <div class="row" style="gap:12px;min-height:58px;border-top:1px solid rgba(36,20,31,.14)"><span style="flex:1;display:grid"><span class="nm">Tagliatelle al ragù</span><span class="meta">24 people</span></span><span class="radio on" data-i="check" data-s="16"></span></div>
               <div class="row" style="gap:12px;min-height:58px;border-top:1px solid rgba(36,20,31,.14)"><span style="flex:1;display:grid"><span class="nm">Pappardelle al ragù</span><span class="meta">6 people</span></span><span class="radio"></span></div>
@@ -370,7 +373,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
         </div>
       </div></div>
       <h3>Dish sheet</h3>
-      <p>Long-press one of your dish rows. Fix the name against the place's dishes, slide the score, toggle its tags. Close top left, the ink tick saves.</p>
+      <p>Long-press one of your dish rows. It fixes the dish's name only, against the place's menu or as a new dish; the score and the words are never touched. Close top left, the ink tick saves.</p>
     </div>
 
     <!-- 8 Empty -->
@@ -382,12 +385,11 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
           <span class="disc glass" data-i="x"></span>
         </div>
         <div style="position:absolute;top:120px;left:20px;right:20px;display:grid;gap:12px">
-          <div class="seg"><span>Places</span><span class="on">Dishes</span><span>People</span><span>Saved</span></div>
-          <div class="row" style="gap:6px"><span class="fchip">GF<i data-i="x" data-s="14"></i></span><span class="fchip">4.0 to 6<i data-i="x" data-s="14"></i></span></div>
+          <div class="row" style="gap:8px"><div class="seg" style="flex:1"><span>Places</span><span class="on">Dishes</span><span>People</span><span>Saved</span></div><span class="fdisc on" data-i="filter" data-s="20"></span></div>
+          <div class="row" style="gap:6px"><span class="fchip">GF<i data-i="x" data-s="14"></i></span><span class="fchip">4.0+<i data-i="x" data-s="14"></i></span></div>
         </div>
         <div style="position:absolute;top:330px;left:20px;right:20px;display:grid;gap:22px">
-          <span class="h" style="font-size:40px">Nothing matches yet.</span>
-          <div class="pill" style="background:#24141F;color:#fff;width:190px">Clear filters</div>
+          <span class="h" style="font-size:40px">Nothing<br>found.</span>
         </div>
         <div class="tabbar glass">
           <span class="tab"><i data-i="book" data-s="24"></i>Journal</span>
@@ -398,7 +400,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
         <span class="plusdisc" data-i="plus" data-s="28"></span>
       </div></div>
       <h3>Nothing found</h3>
-      <p>Active filters show as chips under the bar, each with ✕. Empty is one 40pt line on the ground and one ink pill; without filters, the pill goes.</p>
+      <p>Active filters show as pills under the switch, each with ✕, and the filter disc turns ink. Empty is the build's one line, "Nothing found.", on the ground.</p>
     </div>
 
   </div>
@@ -409,28 +411,29 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
   <h2>Screens and patterns</h2>
   <div class="wrap"><table>
     <tr><th>Screen</th><th>Pattern</th><th>Best in class</th></tr>
-    <tr><td>Search at rest</td><td>Title, field, then a segmented scope control directly under it; recents before typing.</td><td><a href="https://mobbin.com/screens/7fd17bf2-7230-4415-9eca-a2d0d1e01bf7">Polarsteps</a>, <a href="https://mobbin.com/screens/7c386a44-5785-4f50-b2c3-37aca418fee0">Fiverr</a></td></tr>
+    <tr><td>Search at rest</td><td>Title, field, then one equal-width scope switch with the filter at its end (round 5); recents before typing.</td><td><a href="https://mobbin.com/screens/7fd17bf2-7230-4415-9eca-a2d0d1e01bf7">Polarsteps</a>, <a href="https://mobbin.com/screens/7c386a44-5785-4f50-b2c3-37aca418fee0">Fiverr</a></td></tr>
     <tr><td>Results</td><td>Active search lifts the field, close in the corner; rows lead with a thumbnail and carry one trailing value.</td><td><a href="https://mobbin.com/screens/7388175b-6bb1-4eb6-bdc3-fb0f992fdd6b">Substack</a>, <a href="https://mobbin.com/screens/b52dbbab-72b0-461a-b0e8-18a756a717f4">Noom</a></td></tr>
     <tr><td>Filter</td><td>One sheet, every filter, one commit with a count; chips under the bar while on.</td><td><a href="https://mobbin.com/screens/38c6e27e-8773-4675-94fa-5a957ab56ce9">Klarna reviews filter</a>, <a href="https://mobbin.com/screens/415f540f-f007-4e43-bea5-5853ff578593">Garmin</a></td></tr>
     <tr><td>Place</td><td>Name and a few facts, then the ranked thing to order, then people's visits; corner controls in glass over the content.</td><td><a href="https://mobbin.com/screens/d6b1ce0d-1f1c-49b8-bbdc-728f2ea8f4f4">Places</a>, <a href="https://mobbin.com/screens/e905752a-36be-4b5b-8048-5a8e32417e69">Tripadvisor</a>, <a href="https://mobbin.com/screens/3724b813-e190-4e9f-9f2f-3e9b8caeb016">corner</a></td></tr>
     <tr><td>Place, scrolled</td><td>Title moves into the inline bar; glass back and actions float over the scroll edge.</td><td><a href="https://mobbin.com/screens/e905752a-36be-4b5b-8048-5a8e32417e69">Tripadvisor</a></td></tr>
-    <tr><td>Dish</td><td>One big aggregate beside half-filled stars and a count, then tag chips, then the reviews.</td><td><a href="https://mobbin.com/screens/06eb9c6b-a547-43a7-9f40-59c61ce72014">Fresha</a>, <a href="https://mobbin.com/screens/f8cf9177-2373-4e5d-86a3-85804c69a364">Shop</a>, <a href="https://mobbin.com/screens/9bfa9d95-1efb-471e-9ac3-84964407b0e4">Alta tags</a></td></tr>
-    <tr><td>Dish sheet</td><td>Kept as designed, with the contract's corners: close left, tick right.</td><td>Unchanged from <code>DishSheet</code></td></tr>
-    <tr><td>Nothing found</td><td>One line and one way out.</td><td>House rule (contract §6)</td></tr>
+    <tr><td>Dish</td><td>One big aggregate beside half-filled stars and a count, then the reviews as who and how much, then tag chips and a carousel of dishes like it.</td><td><a href="https://mobbin.com/screens/06eb9c6b-a547-43a7-9f40-59c61ce72014">Fresha</a>, <a href="https://mobbin.com/screens/f8cf9177-2373-4e5d-86a3-85804c69a364">Shop</a>, <a href="https://mobbin.com/screens/9bfa9d95-1efb-471e-9ac3-84964407b0e4">Alta tags</a></td></tr>
+    <tr><td>Dish sheet</td><td>Kept as designed and built: the name only. The contract's corners: close left, tick right.</td><td>Unchanged from <code>DishSheet</code></td></tr>
+    <tr><td>Score pills</td><td>Tapping a score pill opens that dish's page, on every screen except the composer.</td><td>Build behaviour</td></tr>
+    <tr><td>Nothing found</td><td>One line, centred where the results begin.</td><td>House rule (contract §6)</td></tr>
   </table></div>
 </section>
 
 <section class="measure">
   <h2>What changes from the current build</h2>
   <ul>
-    <li><strong>Search's custom header becomes the native one.</strong> Large title, the system search bar, and the Places / Dishes / People / Saved pills become a native segmented control directly under it. The filter is the one glass disc trailing.</li>
+    <li><strong>Search's custom header becomes the native one.</strong> Large title, the system search bar, and the Places / Dishes / People / Saved switch stays one equal-width segment with the filter disc at its end (round 5), muted on People.</li>
     <li><strong>Before typing, recent searches replace "Nearby".</strong> The contract asks for location only on Near me and the place picker, so Search no longer opens on a location list. Saved still shows your whole list before typing.</li>
     <li><strong>An active search closes with a glass ✕</strong>, iOS 26's own cancel, instead of a text button.</li>
     <li><strong>Place and Dish get the inline native bar</strong> with a glass back disc; the place name moves into the bar as you scroll. The tab bar stays on both, minimising as you scroll.</li>
     <li><strong>Aggregates: stars to the nearest half, numbers to one decimal</strong>: a 4.6 prints 4.6 beside four and a half stars, on the menu, the chips, the dish header and search rows. Your own scores print exactly.</li>
     <li><strong>The menu keeps its receipt, numbering and Edge B</strong>, now in rating order with unscored dishes last as empty slots, as the server sends them.</li>
-    <li><strong>The dish page gains its tag chips</strong> (style, cuisine, suburb, city), each opening the dishes that share it.</li>
-    <li><strong>The dish sheet loses its Done pill.</strong> The corner tick saves, matching every other edit; the sheet also holds the score slide and diet tags so a line is fixed in one place.</li>
+    <li><strong>The dish page keeps the build's order</strong>: reviews as avatar, handle and score, then More to explore (each tag opens its dishes) and More like this.</li>
+    <li><strong>The dish sheet loses its Done pill.</strong> The corner tick saves, matching every other edit. It still fixes the name only.</li>
   </ul>
 </section>
 
@@ -438,8 +441,8 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
   <h2>Native iOS 26 parts</h2>
   <div class="wrap"><table>
     <tr><th>Piece</th><th>SwiftUI</th></tr>
-    <tr><td>Search bar</td><td><code>.searchable(text:, placement: .navigationBarDrawer(displayMode: .always))</code> with <code>.searchScopes($scope)</code> for the four segments; recents via <code>.searchSuggestions</code></td></tr>
-    <tr><td>Filter disc</td><td><code>ToolbarItem(.topBarTrailing)</code> in a <code>.glassEffect</code> group; chips in <code>.safeAreaInset(edge: .top)</code> only while a filter is on</td></tr>
+    <tr><td>Search bar</td><td><code>.searchable(text:, placement: .navigationBarDrawer(displayMode: .always))</code>; recents via <code>.searchSuggestions</code></td></tr>
+    <tr><td>Scope switch</td><td>The existing <code>AteSegments</code> (four equal widths) with <code>AteFilterButton</code> at its end, under the field; active pills (<code>AteActiveFilters</code>) under it only while a filter is on</td></tr>
     <tr><td>Filter sheet</td><td><code>.sheet</code> with <code>[.medium, .large]</code>; ranges as a two-thumb custom slider; Cuisine and City as <code>Menu</code> pickers; ink pill as a <code>.safeAreaBar(edge: .bottom)</code></td></tr>
     <tr><td>Place and Dish</td><td><code>NavigationLink</code> push; <code>.navigationBarTitleDisplayMode(.inline)</code>; the name shown in content at rest and in the bar on scroll (<code>.toolbarTitleDisplayMode</code> + <code>onScrollGeometryChange</code>); system scroll-edge effect</td></tr>
     <tr><td>Save on Dish</td><td><code>ToolbarItem(.topBarTrailing)</code> bookmark toggle, <code>.sensoryFeedback(.success)</code></td></tr>
@@ -453,7 +456,8 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
 <section class="measure">
   <h2>Decided</h2>
   <ul>
-    <li>One filter disc, one sheet, chips only while a filter is on.</li>
+    <li>Search scopes: one equal-width switch with the filter at its end (round 5); one filter sheet; pills only while a filter is on.</li>
+    <li>The Place page opens on the menu, with the visits woven in under it, yours first.</li>
     <li>The tab bar stays on Place and Dish.</li>
     <li>Pushed pages use the inline native bar with a glass back disc.</li>
     <li>An unrated dish is an empty score slot everywhere.</li>
@@ -462,13 +466,6 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
   </ul>
 </section>
 
-<section class="measure">
-  <h2>Your call</h2>
-  <div class="qs">
-    <div class="q"><h3>Place page opens on</h3><p><b class="rec">Menu</b> first, your visits under it, as drawn. Or <b>Visits</b> first, the menu under them.</p></div>
-    <div class="q"><h3>Search scopes as</h3><p><b class="rec">Segments</b>, the four always visible under the bar, as drawn. Or a <b>Menu</b> on one button beside the field.</p></div>
-  </div>
-</section>
 </main>
 
 <script>

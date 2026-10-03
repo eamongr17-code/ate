@@ -149,13 +149,13 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
  .mtitle{position:absolute;left:20px;right:20px;top:166px;display:flex;align-items:baseline;justify-content:space-between}
 .mgrid{position:absolute;left:16px;right:16px;display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
 .mgrid .wd{font:600 12px/1 "Bricolage Grotesque",sans-serif;color:#5E5560;text-align:center}
-.mgrid .d{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font:500 16px/1 "Bricolage Grotesque",sans-serif;color:#5E5560}
-.mgrid .t{aspect-ratio:1;border-radius:14px;position:relative;display:block}
-.mgrid .t .n{position:absolute;left:6px;bottom:4px;font:800 14px/1 "Bricolage Grotesque",sans-serif;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35)}
-.mgrid .t.acc .n{color:#24141F;text-shadow:none}
-.mgrid .t.five{box-shadow:0 0 0 3px #F6D365}.mgrid .t.six{box-shadow:0 0 0 3px #B23A1E}
-.mgrid .bdg{position:absolute;right:-4px;top:-6px;padding:0 5px;border-radius:999px;font:800 11px/16px "Bricolage Grotesque",sans-serif}
-.five .bdg{background:#F6D365;color:#24141F}.six .bdg{background:#B23A1E;color:#fff}
+.mgrid .c{aspect-ratio:1;position:relative;border-radius:14px;display:block}
+.mgrid .c .n{position:absolute;left:0;right:0;bottom:10px;text-align:center;font:600 15px/1 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.mgrid .c.t .n{left:7px;right:auto;text-align:left;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+.mgrid .c.dot .n{color:#24141F}
+.mgrid .c.dot::after{content:"";position:absolute;left:50%;bottom:3px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#24141F}
+.mgrid .c.five{box-shadow:0 0 0 2px #F6D365}.mgrid .c.six{box-shadow:0 0 0 2px #B23A1E}
+.mgrid .c.today .n{left:50%;right:auto;width:28px;height:28px;margin-left:-14px;bottom:3px;border-radius:50%;background:#24141F;color:#fff;line-height:28px}
 .ygrid{position:absolute;left:20px;right:20px;top:212px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px 18px}
 .mini-m{display:grid;gap:6px}
 .mini-m .mn{font:800 15px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.02em}
@@ -327,7 +327,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
         <div class="mtitle"><span class="h" style="font-size:34px">September</span><span class="meta" style="font-size:15px">2026</span></div>
         <div class="mgrid" id="mweek" style="top:216px"></div>
         <div class="mgrid" id="mdays" style="top:240px"></div>
-        <div class="meta" style="position:absolute;left:20px;top:512px;font-size:14px">7 visits</div>
+        <div class="meta" style="position:absolute;left:16px;top:510px;font-size:14px">7 visits</div>
         <div class="tabbar glass">
           <span class="tab on"><i data-i="book" data-s="24"></i>Journal</span>
           <span class="tab"><i data-i="utensils" data-s="24"></i>Feed</span>
@@ -337,7 +337,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
         <span class="plusdisc" data-i="plus" data-s="28"></span>
       </div></div>
       <h3>Month view</h3>
-      <p>The same Journal zoomed out one level, in place. Days you wrote are photo tiles; a 5.0 day is ringed in butter, a 6 day in brick. Tap a day to zoom back into the list at that day.</p>
+      <p>The same Journal zoomed out one level, in place. Days you wrote are photo tiles; a 5.0 day carries a butter ring, a 6 day a brick one; a day with no photo is its numeral with an ink dot. Tap a day to zoom back into the list at that day.</p>
     </div>
 
     <!-- 9 Year view -->
@@ -492,12 +492,11 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
   function lead(y,m){return (new Date(y,m-1,1).getDay()+6)%7}
   function dim(y,m){return new Date(y,m,0).getDate()}
   document.getElementById('mweek').innerHTML=WD.map(function(w){return '<span class="wd">'+w+'</span>'}).join('');
-  var SEP={3:['food3'],6:['acc'],12:['food1','six'],17:['food2','five'],19:['food1'],23:['acc'],27:['food3']},mh='';
-  for(var i=0;i<lead(2026,9);i++)mh+='<span></span>';
-  for(var d=1;d<=30;d++){var e=SEP[d];
-    if(!e){mh+='<span class="d">'+d+'</span>';continue}
-    var cls=e[0]==='acc'?'acc':e[0],mk=e[1]||'';
-    mh+='<span class="t '+cls+' '+mk+'"'+(e[0]==='acc'?' style="background:'+ACC[(d+9)%ACC.length]+'"':'')+'><span class="n">'+d+'</span>'+(mk==='five'?'<span class="bdg">★5</span>':mk==='six'?'<span class="bdg">★6</span>':'')+'</span>';}
+  var SEP={3:['food3'],6:['dot'],12:['food1','six'],17:['food2','five'],19:['food1'],23:['dot'],27:['food3']},mh='';
+  for(var i=0;i<lead(2026,9);i++)mh+='<span class="c"></span>';
+  for(var d=1;d<=30;d++){var e=SEP[d],cls='c';
+    if(e)cls+=e[0]==='dot'?' dot':' t '+e[0]+(e[1]?' '+e[1]:'');
+    mh+='<span class="'+cls+'"><span class="n">'+d+'</span></span>';}
   document.getElementById('mdays').innerHTML=mh;
   var NM=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],yh='';
   var FIVE={'2-14':1,'4-5':1,'6-21':1,'9-17':1},SIX={'3-28':1,'7-11':1,'9-12':1};
