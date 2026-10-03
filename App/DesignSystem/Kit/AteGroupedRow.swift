@@ -7,7 +7,7 @@ import SwiftUI
 /// no line of explanation under anything (the build's rule for Settings).
 ///
 /// The list itself is the system's: ``SwiftUICore/View/ateGroupedList()`` puts it on the linen ground.
-struct AteListRow<Trailing: View>: View {
+struct AteGroupedRow<Trailing: View>: View {
     let title: String
     var isDestructive = false
     var showsChevron = true
@@ -19,7 +19,7 @@ struct AteListRow<Trailing: View>: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: AteListRowMetrics.gap) {
+            HStack(spacing: AteGroupedRowMetrics.gap) {
                 Text(title)
                     .ateText(.kitListRow)
                     .foregroundStyle(isDestructive ? AteColor.destructive : palette.fg)
@@ -30,7 +30,7 @@ struct AteListRow<Trailing: View>: View {
                         .foregroundStyle(palette.muted)
                 }
             }
-            .frame(minHeight: AteListRowMetrics.height)
+            .frame(minHeight: AteGroupedRowMetrics.height)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -39,7 +39,7 @@ struct AteListRow<Trailing: View>: View {
     }
 }
 
-extension AteListRow where Trailing == AteListRowValue {
+extension AteGroupedRow where Trailing == AteGroupedRowValue {
     /// A row whose right side is a value — the handle, nothing at all.
     init(
         title: String,
@@ -54,12 +54,12 @@ extension AteListRow where Trailing == AteListRowValue {
         self.showsChevron = showsChevron
         self.identifier = identifier
         self.action = action
-        self.trailing = AteListRowValue(value: value)
+        self.trailing = AteGroupedRowValue(value: value)
     }
 }
 
 /// A row's value: muted, on one line.
-struct AteListRowValue: View {
+struct AteGroupedRowValue: View {
     let value: String?
 
     @Environment(\.atePalette) private var palette
@@ -76,7 +76,7 @@ struct AteListRowValue: View {
 
 /// **A single choice in a row** — a native `Menu` picker (Appearance: System, Light, Dark), its label
 /// leading and the system's own value and chevrons trailing.
-struct AteListPicker<Value: Hashable, Options: View>: View {
+struct AteGroupedPicker<Value: Hashable, Options: View>: View {
     let title: String
     @Binding var selection: Value
     @ViewBuilder var options: Options
@@ -93,7 +93,7 @@ struct AteListPicker<Value: Hashable, Options: View>: View {
         }
         .pickerStyle(.menu)
         .tint(palette.muted)
-        .frame(minHeight: AteListRowMetrics.height)
+        .frame(minHeight: AteGroupedRowMetrics.height)
         .listRowBackground(palette.chip)
     }
 }
@@ -107,7 +107,7 @@ extension View {
     }
 }
 
-enum AteListRowMetrics {
+enum AteGroupedRowMetrics {
     static let height: CGFloat = 44
     static let gap: CGFloat = AteMetrics.regular
     /// A row's small picture — the Settings photo — at a byline avatar's size.

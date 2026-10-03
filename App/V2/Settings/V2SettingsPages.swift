@@ -10,7 +10,7 @@ struct V2AppearancePage: View {
         List {
             Section {
                 ForEach(AteAppearance.allCases, id: \.self) { appearance in
-                    AteListRow(title: appearance.title, showsChevron: false) {
+                    AteGroupedRow(title: appearance.title, showsChevron: false) {
                         model.appearance = appearance
                     } trailing: {
                         if model.appearance == appearance {
@@ -60,7 +60,7 @@ struct V2BlockedPeoplePage: View {
             if store.people.isEmpty == false {
                 Section {
                     ForEach(store.people) { person in
-                        AteListRow(title: person.title, showsChevron: false, identifier: "blocked.person") {}
+                        AteGroupedRow(title: person.title, showsChevron: false, identifier: "blocked.person") {}
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button("Unblock") {
                                     Task { await store.unblock(person) }

@@ -25,15 +25,15 @@ struct V2SettingsList: View {
     var body: some View {
         List {
             Section {
-                AteListRow(title: "Handle", value: model.displayHandle, identifier: "settings.handle") {
+                AteGroupedRow(title: "Handle", value: model.displayHandle, identifier: "settings.handle") {
                     context.open(.settings(.handle(current: model.handle)))
                 }
-                AteListRow(title: "Photo", identifier: "settings.photo") {
+                AteGroupedRow(title: "Photo", identifier: "settings.photo") {
                     isPickingPhoto = true
                 } trailing: {
                     avatar
                 }
-                AteListPicker(title: "Appearance", selection: Bindable(model).appearance) {
+                AteGroupedPicker(title: "Appearance", selection: Bindable(model).appearance) {
                     ForEach(AteAppearance.allCases, id: \.self) { appearance in
                         Text(appearance.title).tag(appearance)
                     }
@@ -41,15 +41,15 @@ struct V2SettingsList: View {
                 .accessibilityIdentifier("settings.appearance")
             }
             Section {
-                AteListRow(title: "How Ate uses AI") { context.open(.settings(.artificialIntelligence)) }
-                AteListRow(title: "Blocked people") { context.open(.settings(.blocked)) }
+                AteGroupedRow(title: "How Ate uses AI") { context.open(.settings(.artificialIntelligence)) }
+                AteGroupedRow(title: "Blocked people") { context.open(.settings(.blocked)) }
             }
             Section {
-                AteListRow(title: "Privacy") { openURL(AteLegal.privacy) }
-                AteListRow(title: "Terms") { openURL(AteLegal.terms) }
+                AteGroupedRow(title: "Privacy") { openURL(AteLegal.privacy) }
+                AteGroupedRow(title: "Terms") { openURL(AteLegal.terms) }
             }
             Section {
-                AteListRow(title: "Sign out", identifier: "settings.signOut") {
+                AteGroupedRow(title: "Sign out", identifier: "settings.signOut") {
                     Task {
                         await model.signOut()
                         context.app.endSession()
@@ -57,7 +57,7 @@ struct V2SettingsList: View {
                 }
             }
             Section {
-                AteListRow(title: "Delete account", isDestructive: true, identifier: "settings.delete") {
+                AteGroupedRow(title: "Delete account", isDestructive: true, identifier: "settings.delete") {
                     isConfirmingDelete = true
                 }
             }
@@ -102,11 +102,11 @@ struct V2SettingsList: View {
     @ViewBuilder
     private var builds: some View {
         Section {
-            AteListRow(title: "Current app", identifier: "v2.settings.currentApp") {
+            AteGroupedRow(title: "Current app", identifier: "v2.settings.currentApp") {
                 context.app.switchToCurrentApp()
             }
             if context.services.debugSignIn != nil {
-                AteListRow(title: "Component kit") { context.open(.settings(.kit)) }
+                AteGroupedRow(title: "Component kit") { context.open(.settings(.kit)) }
             }
         }
     }
@@ -132,7 +132,7 @@ struct V2SettingsList: View {
                 AteAvatar(userID: userID, handle: handle, size: .byline)
             }
         }
-        .frame(width: AteListRowMetrics.avatar, height: AteListRowMetrics.avatar)
+        .frame(width: AteGroupedRowMetrics.avatar, height: AteGroupedRowMetrics.avatar)
         .clipShape(.circle)
         .opacity(model.isUploadingAvatar ? AteKitColor.disabledOpacity : 1)
         .accessibilityHidden(true)
