@@ -36,6 +36,8 @@ struct DebugLaunchTests {
         #expect(LaunchRoute("suggestions")?.screen == .suggestions)
         #expect(LaunchRoute("welcome")?.screen == .welcome)
         #expect(LaunchRoute("first-run-handle")?.screen == .firstRunHandle)
+        #expect(LaunchRoute("kit")?.screen == .kit)
+        #expect(LaunchRoute("kit?filter") == nil)
         #expect(LaunchRoute("ratings/4.5")?.screen == .ratings(score: 4.5))
         #expect(LaunchRoute("statement/2026-09")?.screen == .statement(StatementMonth(year: 2026, month: 9)))
         #expect(LaunchRoute("settings")?.screen == .settings(nil))

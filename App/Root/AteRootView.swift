@@ -335,7 +335,7 @@ struct ConfigurationErrorView: View {
     let error: any Error
 
     var body: some View {
-        AteEmptyState(
+        LegacyEmptyState(
             title: "Nothing\nto talk to.",
             detail: String(describing: error)
         )

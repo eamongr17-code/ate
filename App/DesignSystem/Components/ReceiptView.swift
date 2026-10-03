@@ -110,6 +110,9 @@ struct ReceiptView: View {
     var onAddPlace: (() -> Void)?
     /// How far the first dish sits from the paper's top edge — `Share.dc.html`'s 22.
     var topPadding: CGFloat = 22
+    /// The barcode band. Cut on 3 Oct (pattern contract §7): the kit's ``AteReceiptView`` prints
+    /// without it; the screens still built on this view keep it until their flow is rebuilt.
+    var showsBarcode = true
 
     var body: some View {
         VStack(spacing: AteMetrics.snug + 2) {
@@ -124,7 +127,7 @@ struct ReceiptView: View {
             placeLine
             AteDashedRule()
             totals
-            AteBarcode()
+            if showsBarcode { AteBarcode() }
             footer
         }
         .padding(.top, topPadding)
@@ -219,7 +222,9 @@ private struct ReceiptSkeletonBar: View {
     }
 }
 
-private struct ReceiptBreathing: ViewModifier {
+/// `@keyframes breathe{50%{opacity:.45}}`, 1.6s ease-in-out, forever — gated on Reduce Motion. The
+/// printing receipt's breath, and every kit skeleton's (``AteSkeleton``).
+struct AteBreathing: ViewModifier {
     let isOn: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isDim = false
@@ -240,10 +245,10 @@ private struct ReceiptBreathing: ViewModifier {
     }
 }
 
-private extension View {
-    /// `@keyframes breathe{50%{opacity:.45}}`, 1.6s ease-in-out, forever — gated on Reduce Motion.
-    func ateBreathing(_ isOn: Bool) -> some View {
-        modifier(ReceiptBreathing(isOn: isOn))
+extension View {
+    /// Breathes this subtree down to 45% and back (``AteBreathing``) while `isOn`.
+    func ateBreathing(_ isOn: Bool = true) -> some View {
+        modifier(AteBreathing(isOn: isOn))
     }
 }
 

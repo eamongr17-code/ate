@@ -37,6 +37,9 @@ public struct LaunchRoute: Equatable, Sendable {
         /// The first-run handle step, which has no way back and is otherwise reached only by a
         /// brand-new Apple ID.
         case firstRunHandle
+        /// The component kit's gallery — every atom and composite in every state, pushed from the
+        /// foot of Settings.
+        case kit
     }
 
     public enum SettingsPage: String, Sendable, CaseIterable {
@@ -119,7 +122,7 @@ public struct LaunchRoute: Equatable, Sendable {
     private static let words: [String: Screen] = [
         "journal": .journal, "saved": .saved, "feed": .feed, "you": .you, "suggestions": .suggestions,
         "composer": .composer, "welcome": .welcome, "first-run-handle": .firstRunHandle,
-        "settings": .settings(nil), "search": .search(.places)
+        "settings": .settings(nil), "search": .search(.places), "kit": .kit
     ]
 
     /// The pages named by an id.

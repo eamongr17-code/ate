@@ -45,6 +45,10 @@ struct DebugStart {
         case .place(let restaurantID): push(.place(restaurantID), on: .feed, from: .feed)
         case .dish(let dishID): push(.dish(dishID), on: .feed, from: .feed)
         case .ratings(let score): push(.ratings(score: score), on: .you)
+        case .kit:
+            // The gallery, pushed from Settings the way its row pushes it.
+            tab = .you
+            path = [.settings(.root), .settings(.kit)]
         case .statement(let month): push(.statement(month), on: .you)
         case .settings(let page):
             // Pushed from You the way a tap on the gear pushes it. The handle page waits for the

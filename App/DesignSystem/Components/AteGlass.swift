@@ -93,15 +93,15 @@ struct AteGlassButton: View {
 /// The glass exists only around controls: while a page's read has not answered (a dish's bookmark,
 /// an entry's controls) there is no glass at all — never an empty capsule squeezed to its padding —
 /// and it fades in with its controls once they are known.
-struct AteGlassGroup<Content: View>: View {
+struct LegacyGlassGroup<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
         Group(subviews: content) { controls in
             ZStack {
                 if controls.isEmpty == false {
-                    HStack(spacing: AteGlassGroupMetrics.spacing) { controls }
-                        .padding(.horizontal, AteGlassGroupMetrics.padding)
+                    HStack(spacing: LegacyGlassGroupMetrics.spacing) { controls }
+                        .padding(.horizontal, LegacyGlassGroupMetrics.padding)
                         .frame(height: AteMetrics.hit)
                         .ateGlass(in: Capsule())
                         .accessibilityElement(children: .contain)
@@ -112,11 +112,11 @@ struct AteGlassGroup<Content: View>: View {
             .ateAnimation(AteMotion.fillIn, value: controls.isEmpty)
         }
         .foregroundStyle(AteGlassColor.item)
-        .environment(\.atePalette, AteGlassGroupMetrics.palette)
+        .environment(\.atePalette, LegacyGlassGroupMetrics.palette)
     }
 }
 
-enum AteGlassGroupMetrics {
+enum LegacyGlassGroupMetrics {
     /// Read off iOS 26's glass group: a lone control sits in a 64-wide pill, three in a 212.
     static let padding: CGFloat = 10
     static let spacing: CGFloat = 30

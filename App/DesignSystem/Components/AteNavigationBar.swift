@@ -60,7 +60,7 @@ private struct AteNavigationBarModifier<Leading: View, Trailing: View>: ViewModi
                     }
                     Spacer(minLength: 0)
                     if Trailing.self != EmptyView.self {
-                        AteGlassGroup { trailing }
+                        LegacyGlassGroup { trailing }
                     }
                 }
                 .padding(.horizontal, AteNavigationBarMetrics.inset)

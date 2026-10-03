@@ -36,10 +36,10 @@ struct TagDishesScreen: View {
                     SearchRowsSkeleton(height: DishResultRow.height, hasThumbnail: true, count: 6)
                         .transition(.opacity)
                 case .empty:
-                    AteEmptyState(title: "Nothing here\nyet.")
+                    LegacyEmptyState(title: "Nothing here\nyet.")
                         .ateEmptyPlacement(top: Self.listTop)
                 case .failed(let message):
-                    AteEmptyState(title: message)
+                    LegacyEmptyState(title: message)
                         .ateEmptyPlacement(top: Self.listTop)
                 case .ready:
                     rows

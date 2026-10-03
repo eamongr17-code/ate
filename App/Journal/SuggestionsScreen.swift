@@ -54,7 +54,7 @@ struct SuggestionsScreen: View {
                             .transition(.opacity)
                     }
                 case .denied:
-                    centred(AteEmptyState(title: "Photos\nare off.", actionTitle: "Allow photos") {
+                    centred(LegacyEmptyState(title: "Photos\nare off.", actionTitle: "Allow photos") {
                         analytics(SuggestionEvents.photoAccessSettingsOpened())
                         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
                         openURL(url)

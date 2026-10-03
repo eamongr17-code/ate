@@ -144,7 +144,7 @@ struct FeedScreen: View {
             }
             .ateEmptyPlacement(top: Self.headerBottom)
         default:
-            AteEmptyState(title: "Nobody's written\nanything yet.")
+            LegacyEmptyState(title: "Nobody's written\nanything yet.")
                 .ateEmptyPlacement(top: Self.headerBottom)
         }
         if edition.showsChooseCravings {

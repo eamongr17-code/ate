@@ -198,13 +198,13 @@ struct SearchTabScreen: View {
             case .empty:
                 // An empty shelf with nothing typed is the shelf's own state, word for word; an
                 // answer that found nothing is the search's.
-                centred(AteEmptyState(
+                centred(LegacyEmptyState(
                     title: store.scope == .saved && store.isSearching == false
                         ? "Nothing saved\nyet."
                         : "Nothing\nfound."
                 ))
             case .failed(let message):
-                centred(AteEmptyState(title: message))
+                centred(LegacyEmptyState(title: message))
             case .ready:
                 rows
             }

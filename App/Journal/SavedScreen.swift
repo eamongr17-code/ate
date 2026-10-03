@@ -36,15 +36,15 @@ struct SavedScreen: View {
                 .padding(.top, top)
         case .empty where store.filter.isEmpty == false:
             // The Journal's own words for a filter that finds nothing.
-            AteEmptyState(title: "Nothing\nlike that.", actionTitle: "Clear", action: onClear)
+            LegacyEmptyState(title: "Nothing\nlike that.", actionTitle: "Clear", action: onClear)
                 .ateEmptyPlacement(top: emptyTop)
                 .padding(.top, top)
         case .empty:
-            AteEmptyState(title: "Nothing saved\nyet.")
+            LegacyEmptyState(title: "Nothing saved\nyet.")
                 .ateEmptyPlacement(top: emptyTop)
                 .padding(.top, top)
         case .signedOut:
-            AteEmptyState(title: "Nobody's\nsigned in.")
+            LegacyEmptyState(title: "Nobody's\nsigned in.")
                 .ateEmptyPlacement(top: emptyTop)
                 .padding(.top, top)
         case .failed:

@@ -83,7 +83,7 @@ struct ProfileScreen: View {
                 .ateCardWidth()
         case .unavailable:
             // A blocked or deleted author is simply not there (contract). Say that, and nothing else.
-            AteEmptyState(title: "This person\nisn't here.")
+            LegacyEmptyState(title: "This person\nisn't here.")
         case .ready(let summary):
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: AteMetrics.loose) {
@@ -123,9 +123,9 @@ struct ProfileScreen: View {
                 .ateCardWidth()
         case .empty:
             // Nothing public. Not an error, and not an invitation to do anything about it.
-            AteEmptyState(title: "Nothing\nto read yet.")
+            LegacyEmptyState(title: "Nothing\nto read yet.")
         case .signedOut:
-            AteEmptyState(title: "Nobody's\nsigned in.")
+            LegacyEmptyState(title: "Nobody's\nsigned in.")
         case .failed:
             AteUnreachableState { Task { await store.refresh() } }
         case .ready:
@@ -159,7 +159,7 @@ struct ProfileScreen: View {
     @ViewBuilder
     private var actions: some View {
         if store.isSomebodyElse, let handle = store.username {
-            AteActionsSheet(
+            LegacyActionsSheet(
                 title: "@\(handle)",
                 blockTitle: "Block @\(handle)",
                 onSavePlace: nil,

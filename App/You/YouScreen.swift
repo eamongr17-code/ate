@@ -79,7 +79,7 @@ struct YouScreen: View {
             YouHeaderSkeleton()
         case .unavailable:
             // No session, or the header would not load. The page says who is missing and stops.
-            AteEmptyState(title: "Nobody's\nsigned in.")
+            LegacyEmptyState(title: "Nobody's\nsigned in.")
         case .ready(let summary):
             header(summary)
         }

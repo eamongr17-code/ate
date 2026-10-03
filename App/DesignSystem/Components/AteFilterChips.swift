@@ -72,7 +72,7 @@ enum AteFilterChipMetrics {
 
 /// **The chip row** — the chips a shelf offers, in a row that scrolls sideways when the values run
 /// long, on the list gutter.
-struct AteFilterChipRow: View {
+struct LegacyFilterChipRow: View {
     let chips: [BrowseChip]
     let filters: BrowseFilters
     var cityName: String?

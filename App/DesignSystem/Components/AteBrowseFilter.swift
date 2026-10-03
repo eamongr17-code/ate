@@ -2,7 +2,7 @@ import AteKit
 import SwiftUI
 
 /// **What Search's filter sheet edits**: a score range, a city and a run of months. (The Journal and
-/// Saved filter by chips since round 7 — ``AteFilterChipRow``; Search keeps its one sheet for now.)
+/// Saved filter by chips since round 7 — ``LegacyFilterChipRow``; Search keeps its one sheet for now.)
 struct AteBrowseFilterDraft: Hashable {
     var band: ScoreBand = .all
     /// A city slug, or `nil` for everywhere.

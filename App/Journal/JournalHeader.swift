@@ -38,7 +38,7 @@ struct JournalHeader: View {
             }
             .padding(.horizontal, AteMetrics.listGutter)
             .ateContentTop()
-            AteFilterChipRow(
+            LegacyFilterChipRow(
                 chips: BrowseChip.chips(on: shelf == .journal ? .journal : .saved),
                 filters: filters,
                 cityName: cityName,

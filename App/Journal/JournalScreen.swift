@@ -250,17 +250,17 @@ struct JournalScreen: View {
                 .transition(.opacity)
         case .empty:
             if store.query.hasFilters {
-                firstDay(AteEmptyState(title: "Nothing\nlike that.", actionTitle: "Clear") {
+                firstDay(LegacyEmptyState(title: "Nothing\nlike that.", actionTitle: "Clear") {
                     // Clear is every chip: the order, the range, the city, the months.
                     apply(BrowseFilters())
                 })
             } else {
-                firstDay(AteEmptyState(
+                firstDay(LegacyEmptyState(
                     title: "Nothing\non the tab.", actionTitle: "Write your first", action: onCompose
                 ))
             }
         case .signedOut:
-            firstDay(AteEmptyState(title: "Nobody's\nsigned in."))
+            firstDay(LegacyEmptyState(title: "Nobody's\nsigned in."))
         case .failed:
             firstDay(AteUnreachableState { Task { await store.refresh() } })
         case .ready:

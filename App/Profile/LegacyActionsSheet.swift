@@ -11,7 +11,7 @@ import SwiftUI
 ///
 /// Report and Block ask first — a native confirmation dialog, which is both the confirm step and the
 /// only feedback the design will carry (no toast, no banner, no helper copy).
-struct AteActionsSheet: View {
+struct LegacyActionsSheet: View {
     /// The handle, as the sheet's own title.
     let title: String
     let blockTitle: String
@@ -140,7 +140,7 @@ private struct ActionsPreview: View {
         Color.clear
             .ateGround()
             .sheet(isPresented: $isPresented) {
-                AteActionsSheet(
+                LegacyActionsSheet(
                     title: "@jessw",
                     blockTitle: "Block @jessw",
                     onSavePlace: {},

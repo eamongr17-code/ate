@@ -71,6 +71,13 @@ extension View {
     }
 }
 
+extension View {
+    /// The one shadow a torn surface casts: its contact line, `y 1, blur 0`, in the tone's colour.
+    func ateContactLine(_ tone: AtePaperTone = .slip) -> some View {
+        shadow(color: tone.contact, radius: 0, x: 0, y: 1)
+    }
+}
+
 /// The barcode band. A receipt's one piece of pure signage — it says "this was printed" and carries no
 /// data, so the pattern is fixed rather than generated from the entry (a scannable code on a share
 /// image would be a promise the app can't keep).

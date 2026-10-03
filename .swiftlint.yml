@@ -65,3 +65,36 @@ custom_rules:
     match_kinds: [string]
     message: "Declare launch arguments in AteKit/Sources/AteKit/Debug/DebugLaunch.swift and read them through DebugLaunch."
     severity: error
+  # The component kit is the only place look-and-feel is decided, and it decides it through the
+  # tokens (`App/DesignSystem/Tokens/`): no colour, font, radius or shadow literal in a kit
+  # component. Scoped to the kit for now — the old screens still carry literals and are not restyled
+  # to satisfy it; each rebuilt flow's folder joins the scope as it lands, and the legacy screens
+  # leave it when they are deleted.
+  kit_no_colour_literal:
+    name: "No colour literal in the kit"
+    included: "/App/DesignSystem/Kit/.*\\.swift$"
+    regex: '(\bColor\s*\(\s*(hex|red|white|light|\.sRGB|uiColor|\.displayP3)\b|\bColor\.(red|blue|green|black|white|gray|grey|orange|yellow|pink|purple|brown|cyan|mint|teal|indigo)\b|\bUIColor\s*\(|#colorLiteral)'
+    excluded_match_kinds: [comment, doccomment, string]
+    message: "Colours come from AteColor / AtePalette / AteKitColor; add a token rather than a literal."
+    severity: error
+  kit_no_font_literal:
+    name: "No font literal in the kit"
+    included: "/App/DesignSystem/Kit/.*\\.swift$"
+    regex: '(\.font\s*\(|\bFont\.(system|custom)\b|\bUIFont\s*\()'
+    excluded_match_kinds: [comment, doccomment, string]
+    message: "Type comes from an AteTextStyle through .ateText(_:); AteType is the only file that names a font."
+    severity: error
+  kit_no_radius_literal:
+    name: "No radius literal in the kit"
+    included: "/App/DesignSystem/Kit/.*\\.swift$"
+    regex: '\b(cornerRadius|cornerRadii|topLeadingRadius|topTrailingRadius|bottomLeadingRadius|bottomTrailingRadius)\s*:\s*[0-9]'
+    excluded_match_kinds: [comment, doccomment, string]
+    message: "Radii come from AteMetrics or the component's own metrics enum, never a number at the call."
+    severity: error
+  kit_no_shadow_literal:
+    name: "No shadow in the kit"
+    included: "/App/DesignSystem/Kit/.*\\.swift$"
+    regex: '\.shadow\s*\('
+    excluded_match_kinds: [comment, doccomment, string]
+    message: "Shadows come from AteShadow / ateContactLine; glass casts its own."
+    severity: error

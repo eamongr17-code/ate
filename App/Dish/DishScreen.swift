@@ -81,7 +81,7 @@ struct DishScreen: View {
             .padding(.horizontal, AteMetrics.listGutter)
             .transition(.opacity)
         case .unavailable:
-            AteEmptyState(title: "This dish\nisn't here.")
+            LegacyEmptyState(title: "This dish\nisn't here.")
                 .ateEmptyPlacement(top: AteDetailPage.contentTop)
         case .unreachable:
             // The read never came back — not the same as a dish that is gone, and worth
@@ -278,13 +278,13 @@ struct DishScreen: View {
                 .padding(.top, AteMetrics.loose)
         case .empty:
             // Nobody has written about it yet. Honest, and not an instruction.
-            AteEmptyState(title: "Nobody's written\nabout this yet.")
+            LegacyEmptyState(title: "Nobody's written\nabout this yet.")
                 .padding(.top, AteMetrics.loose)
         case .signedOut:
-            AteEmptyState(title: "Nobody's\nsigned in.")
+            LegacyEmptyState(title: "Nobody's\nsigned in.")
                 .padding(.top, AteMetrics.loose)
         case .failed(let message):
-            AteEmptyState(title: message)
+            LegacyEmptyState(title: message)
                 .padding(.top, AteMetrics.loose)
         case .ready:
             reviewRows

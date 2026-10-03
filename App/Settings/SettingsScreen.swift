@@ -46,6 +46,10 @@ struct SettingsScreen: View {
                 AteSettingsRow(title: "Delete account", isDestructive: true, showsChevron: false) {
                     isConfirmingDelete = true
                 }
+                #if DEBUG || BETA
+                // The component kit, for judging on a phone. Never in a Release build.
+                AteSettingsRow(title: "Component kit") { onOpen(.kit) }
+                #endif
             }
         }
         // The one confirmation in the app. Apple requires account deletion to be confirmed, and a

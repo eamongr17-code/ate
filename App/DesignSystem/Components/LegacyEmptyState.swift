@@ -6,7 +6,7 @@ import SwiftUI
 /// No receipt motif (`docs/DESIGN.md`): nothing has been printed yet, so there is no paper, no torn
 /// edge, no mono order number and no dashed rule. Never a `ContentUnavailableView`, never an
 /// icon-and-explanation, never helper copy (design rule 1) — the line is the whole state.
-struct AteEmptyState: View {
+struct LegacyEmptyState: View {
     /// One line, in the app's voice. Newlines are the design's own line breaks and are honoured.
     let title: String
     /// A developer-facing detail, for the one screen that exists to explain a broken checkout. No
@@ -95,7 +95,7 @@ struct AteUnreachableState: View {
     let retry: () -> Void
 
     var body: some View {
-        AteEmptyState(title: "Couldn't\nreach Ate.", actionTitle: "Try again", action: retry)
+        LegacyEmptyState(title: "Couldn't\nreach Ate.", actionTitle: "Try again", action: retry)
             .accessibilityIdentifier("state.unreachable")
     }
 }
@@ -103,8 +103,8 @@ struct AteUnreachableState: View {
 #if DEBUG
 #Preview("Empty states") {
     VStack(spacing: 80) {
-        AteEmptyState(title: "Nothing\non the tab.", actionTitle: "Write your first", action: {})
-        AteEmptyState(title: "Nothing saved\nyet.")
+        LegacyEmptyState(title: "Nothing\non the tab.", actionTitle: "Write your first", action: {})
+        LegacyEmptyState(title: "Nothing saved\nyet.")
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .ateGround()

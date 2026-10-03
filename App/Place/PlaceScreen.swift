@@ -97,7 +97,7 @@ struct PlaceScreen: View {
                 .padding(.horizontal, AteMetrics.listGutter)
         case .unavailable:
             // Deleted, or behind a block. Say that, and nothing else (design rule 1).
-            AteEmptyState(title: "This place\nisn't here.")
+            LegacyEmptyState(title: "This place\nisn't here.")
                 .ateEmptyPlacement(top: AteDetailPage.contentTop)
         case .unreachable:
             // The read never came back. Not the same as a place that is gone: this one gets a retry.
@@ -150,7 +150,7 @@ struct PlaceScreen: View {
             EmptyView()
         case .ready where store.dishes.isEmpty:
             // Nobody has written up a dish here yet. Not an error, and not an instruction.
-            AteEmptyState(title: "Nothing\nordered yet.")
+            LegacyEmptyState(title: "Nothing\nordered yet.")
         case .ready:
             VStack(alignment: .leading, spacing: 0) {
                 Text("What to order")

@@ -163,7 +163,7 @@ struct EntryScreen: View {
             case .unreachable:
                 AteUnreachableState { Task { await model.retryLoad() } }
             case .gone:
-                AteEmptyState(title: "This entry\nis gone.")
+                LegacyEmptyState(title: "This entry\nis gone.")
                     .accessibilityIdentifier("entry.gone")
             }
         }
@@ -400,7 +400,7 @@ struct EntryScreen: View {
     @ViewBuilder
     private var actionsSheet: some View {
         if let byline = model.byline {
-            AteActionsSheet(
+            LegacyActionsSheet(
                 title: "@\(byline.handle)",
                 blockTitle: "Block @\(byline.handle)",
                 onSavePlace: { Task { await model.toggleSaveEveryDish() } },

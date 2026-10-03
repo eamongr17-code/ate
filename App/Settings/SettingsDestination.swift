@@ -15,6 +15,8 @@ enum SettingsPage: Hashable {
     case artificialIntelligence
     /// Blocked people.
     case blocked
+    /// The component kit's gallery — Debug and Beta builds only, from a row at Settings' foot.
+    case kit
 }
 
 /// **The settings branch, behind one view.** The shell pushes this and nothing else, which is what
@@ -92,6 +94,12 @@ struct SettingsDestination: View {
             BlockedPeopleScreen(
                 store: BlockedPeopleStore(account: services.account, analytics: services.analytics)
             )
+        case .kit:
+            #if DEBUG || BETA
+            KitGalleryScreen()
+            #else
+            EmptyView()
+            #endif
         }
     }
 }
