@@ -74,6 +74,8 @@ public struct LaunchRoute: Equatable, Sendable {
         case printing
         /// Summary: written with no place, so the receipt waits on the Place key.
         case noPlace = "no-place"
+        /// Kit: `section=<name>`, the gallery scrolled to that section (`dish-row`, `receipt`, …).
+        case section
 
         /// The values an option is limited to, when it is not free text or a bare switch.
         var values: Set<String>? {
@@ -157,6 +159,7 @@ public struct LaunchRoute: Equatable, Sendable {
         case .entry: [.sheet, .addPlace]
         case .composer: [.score, .caret, .camera, .capture, .addPlace]
         case .summary: [.printing, .noPlace]
+        case .kit: [.section]
         default: []
         }
     }

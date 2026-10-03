@@ -67,7 +67,6 @@ struct AteDishRow: View {
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .disabled(onOpen == nil)
             .accessibilityElement(children: .combine)
             if let onSave {
                 AteSaveButton(dishName: name, isSaved: isSaved, identifier: "row.save", action: onSave)

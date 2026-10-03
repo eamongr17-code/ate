@@ -73,8 +73,21 @@ enum KitFixtures {
         )
     }
 
-    static var placeVisit: AteSlip {
+    /// The design's own visits, with the bundled photos in place of flat swatches.
+    static var journal: AteSlip {
         var slip = AteSlip.previewJournal
+        slip.photos = photos
+        return slip
+    }
+
+    static var feed: AteSlip {
+        var slip = AteSlip.previewFeed
+        slip.photos = [burger]
+        return slip
+    }
+
+    static var placeVisit: AteSlip {
+        var slip = journal
         slip.byline = AteByline(userID: jess.userID, handle: "eamon", age: "Sat 19 Sep", isYou: true)
         return slip
     }

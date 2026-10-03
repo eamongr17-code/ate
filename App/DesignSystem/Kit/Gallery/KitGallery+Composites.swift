@@ -37,11 +37,11 @@ extension KitGalleryScreen {
             .ateCardWidth()
         }
         section("Entry slip") {
-            VStack(spacing: AteMetrics.slipGap) {
+            VStack(alignment: .leading, spacing: AteMetrics.slipGap) {
                 caption("Journal: no byline, full words, the day")
-                AteEntrySlip(slip: .previewJournal, surface: .journal)
+                AteEntrySlip(slip: KitFixtures.journal, surface: .journal)
                 caption("Feed, two dishes: words in two lines")
-                AteEntrySlip(slip: .previewFeed, surface: .feed, onSave: { _ in })
+                AteEntrySlip(slip: KitFixtures.feed, surface: .feed, onSave: { _ in })
                 caption("Feed, three dishes: no words")
                 AteEntrySlip(slip: KitFixtures.feedThree, surface: .feed, onSave: { _ in })
                 caption("Profile, long names, unscored, no photos")
@@ -88,7 +88,7 @@ extension KitGalleryScreen {
             .padding(.horizontal, AteMetrics.gutter)
         }
         section("Receipt") {
-            VStack(spacing: AteMetrics.section) {
+            VStack(alignment: .leading, spacing: AteMetrics.section) {
                 caption("Printed: dishes lead, place as fine print, no barcode")
                 AteReceiptView(receipt: .preview)
                 caption("Printing")
@@ -165,15 +165,6 @@ extension KitGalleryScreen {
                     AteGlassItem(icon: .settings, label: "Settings") {}
                 }
             }
-            caption("In the native bar")
-            NavigationStack {
-                Color.clear
-                    .ateRootToolbar(title: .text("Search")) {
-                        Button {} label: { AteIcon.filter.view(size: AteGlassDiscMetrics.glyph) }
-                    }
-                    .ateGround()
-            }
-            .frame(height: KitGalleryMetrics.headerHeight)
         }
         section("Sheet scaffold") {
             caption("A choice: close, title, controls, ink pill with its count")
@@ -210,7 +201,7 @@ extension KitGalleryScreen {
             commit: .init(title: "Show 12 entries") { isShowingSheet = false },
             onClose: inline ? {} : nil
         ) {
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 AteSettingsRow(title: "Rating", value: "4.0 and up") {}
                 AteSettingsRow(title: "Date", value: "Any time") {}
                 HStack(spacing: AteMetrics.tight + 2) {
@@ -243,6 +234,12 @@ extension KitGalleryScreen {
                 .accessibilityAddTraits(.isHeader)
             content()
         }
+        .id(Self.slug(title))
+    }
+
+    /// "Dish row" → `dish-row`, the name `-ate-open kit?section=` takes.
+    static func slug(_ title: String) -> String {
+        title.lowercased().replacingOccurrences(of: " ", with: "-")
     }
 
     func row(_ label: String, @ViewBuilder content: () -> some View) -> some View {

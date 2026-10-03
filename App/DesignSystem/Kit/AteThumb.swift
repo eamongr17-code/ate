@@ -24,9 +24,12 @@ struct AteThumb: View {
 
     var body: some View {
         let metrics = AteThumbMetrics(size)
-        content(metrics)
+        // The slot sets the size and the picture fills it: a photo's own aspect must never widen a
+        // slot that takes the column's width (the hero).
+        Color.clear
             .frame(width: metrics.width, height: metrics.height)
             .frame(maxWidth: metrics.width == nil ? .infinity : nil)
+            .overlay { content(metrics) }
             .clipShape(RoundedRectangle(cornerRadius: metrics.radius, style: .continuous))
             .accessibilityHidden(true)
     }

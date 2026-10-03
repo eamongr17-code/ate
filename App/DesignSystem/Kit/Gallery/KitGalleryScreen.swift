@@ -17,14 +17,22 @@ struct KitGalleryScreen: View {
     @State var query = "Tipo"
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: KitGalleryMetrics.sectionGap) {
-                atoms
-                composites
-                chrome
+        ScrollViewReader { reader in
+            ScrollView {
+                VStack(alignment: .leading, spacing: KitGalleryMetrics.sectionGap) {
+                    atoms
+                    composites
+                    chrome
+                }
+                .padding(.top, KitGalleryMetrics.top)
+                .padding(.bottom, KitGalleryMetrics.bottom)
+                // One column the screen's width: a section never widens the page.
+                .containerRelativeFrame(.horizontal)
             }
-            .padding(.top, KitGalleryMetrics.top)
-            .padding(.bottom, KitGalleryMetrics.bottom)
+            .onAppear {
+                guard let start = Self.startSection else { return }
+                Task { @MainActor in reader.scrollTo(start, anchor: .top) }
+            }
         }
         .scrollIndicators(.hidden)
         .ateNavigationBar(leading: { AteNavigationTitle(title: "Component kit") })
@@ -32,6 +40,15 @@ struct KitGalleryScreen: View {
         .sheet(isPresented: $isShowingSheet) { filterSheet(inline: false) }
         .sheet(isPresented: $isShowingActions) { actionsSheet }
         .accessibilityIdentifier("kit.gallery")
+    }
+
+    /// `-ate-open kit?section=<name>`: where a drive's screenshot starts.
+    private static var startSection: String? {
+        #if DEBUG
+        DebugLaunch.route?.value(.section)
+        #else
+        nil
+        #endif
     }
 
     // MARK: - Atoms
@@ -62,9 +79,11 @@ struct KitGalleryScreen: View {
             row("On paper") {
                 ForEach(DietTag.allCases, id: \.self) { AteDietChip(tag: $0) }
             }
-            .padding(KitGalleryMetrics.paperPadding)
+            .padding(.vertical, KitGalleryMetrics.paperPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .ateSlip()
             .background(AtePalette.slip.ground, in: .rect(cornerRadius: AteMetrics.slipCorner))
+            .padding(.horizontal, KitGalleryMetrics.cardMargin)
             row("On the ground") {
                 ForEach(DietTag.allCases, id: \.self) { AteDietChip(tag: $0, onGround: true) }
             }
@@ -184,6 +203,7 @@ struct KitGalleryScreen: View {
             }
             .environment(\.atePalette, .surface)
             .padding(.vertical, AteMetrics.snug)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background(AtePalette.surface.ground)
         }
     }
@@ -200,6 +220,5 @@ enum KitGalleryMetrics {
     static let sheetHeight: CGFloat = 520
     static let shortSheetHeight: CGFloat = 400
     static let emptyHeight: CGFloat = 300
-    static let headerHeight: CGFloat = 110
 }
 #endif
