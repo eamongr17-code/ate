@@ -52,9 +52,9 @@ extension View {
 @MainActor
 enum BrowsePage {
     /// The scrolled content's coordinate space.
-    static let content = "browse.page.content"
+    nonisolated static let content = "browse.page.content"
     /// How much of the page a lone state takes: the visible height less the bars it sits between.
-    static let emptyShare: CGFloat = 0.7
+    nonisolated static let emptyShare: CGFloat = 0.7
 
     /// The one failure a page shows when the phone or the server let it down: the line, and a retry.
     static func unreachable(retry: @escaping () -> Void) -> some View {
