@@ -43,7 +43,9 @@ section{display:grid;gap:16px}
 .tok.live{box-shadow:0 0 0 2px #24141F}
 .diet{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:999px;background:#EFEAE2;color:#5E5560;font:600 10.5px/1 "Bricolage Grotesque",sans-serif;letter-spacing:.06em;text-transform:uppercase;vertical-align:2px}
 .caret{display:inline-block;width:2px;height:22px;margin-left:1px;background:#F0623F;vertical-align:-4px}
-.ph-img{display:block;flex-shrink:0;box-shadow:0 0 0 3px var(--surf,#fff)}
+.ph-img{display:block;flex-shrink:0}
+/* the 3pt surface ring only separates photos overlapping in a tilted cluster; a straight thumbnail has none */
+.cluster .ph-img{box-shadow:0 0 0 3px var(--surf,#fff)}
 .cluster{display:flex;padding-left:6px}
 .cluster>span+span{margin-left:-12px}
 .food1{background:radial-gradient(circle at 40% 40%,#E6A257,#9A4A1F 70%,#5C2A12)}
@@ -187,9 +189,9 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
             <span class="row"><span class="hit" data-i="camera"></span><span class="hit" data-i="image"></span></span>
             <span class="row" style="gap:6px"><span class="key k-score" style="box-shadow:0 0 0 2px #24141F"><i data-i="star" data-s="15"></i>Score</span><span class="key k-place"><i data-i="pin" data-s="16"></i>Place</span><span class="key k-diet" data-i="leaf" data-s="16" aria-label="Diet"></span></span>
           </div>
-          <div style="position:absolute;left:22px;right:22px;bottom:372px;padding-top:18px;border-top:1px solid rgba(36,20,31,.14);display:grid;gap:16px">
-            <div class="row" style="justify-content:space-between;align-items:baseline"><span class="h" style="font-size:22px">Tagliatelle al ragù</span><span class="h" style="font-size:28px">4.5</span></div>
-            <div class="row" style="justify-content:space-between" id="stars"></div>
+          <div style="position:absolute;left:22px;right:22px;bottom:372px;padding-top:14px;border-top:1px solid rgba(36,20,31,.14);display:grid;gap:10px">
+            <div class="row" style="justify-content:space-between;align-items:baseline"><span class="h" style="font-size:18px">Tagliatelle al ragù</span><span class="h" style="font-size:22px">4.5</span></div>
+            <div class="row" style="justify-content:flex-start;gap:10px" id="stars"></div>
           </div>
           <div class="kbd"></div>
         </div>
@@ -280,6 +282,30 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
       <p>Native back and a glass pair of share and more. Edit reopens the same composer sheet; Delete asks once. The native tab bar stays, shrinking on scroll; + rides in its detached slot.</p>
     </div>
 
+    <!-- 7 Fix a dish -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="dim" style="background:#9E978E"></div>
+        <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
+        <div style="position:absolute;left:12px;right:12px;top:112px;bottom:0;background:#fff;border-radius:24px 24px 0 0;opacity:.55"></div>
+        <div class="sheet" style="top:150px;padding:22px 20px 0;display:grid;gap:14px;align-content:start;box-shadow:0 -10px 30px rgba(36,20,31,.12)">
+          <div class="row" style="margin:-8px -4px 0"><span class="disc glass" data-i="x"></span></div>
+          <span class="h" style="font-size:30px">Which dish?</span>
+          <div class="row" style="gap:10px;height:50px;padding:0 16px;border-radius:999px;background:#E4DED4"><i data-i="search" data-s="18"></i><span class="ui" style="font-weight:600;font-size:17px">Tagliatelle al ragù</span></div>
+          <div>
+            <div class="meta" style="padding:4px 0 8px">At Tipo 00</div>
+            <div class="row" style="gap:12px;min-height:60px;border-top:1px solid rgba(36,20,31,.14)"><span style="flex:1;display:grid"><span class="ui" style="font-weight:600;font-size:17px">Tagliatelle al ragù</span><span class="meta">24 people</span></span><span class="disc" style="width:28px;height:28px;background:#24141F;color:#fff" data-i="check" data-s="16"></span></div>
+            <div class="row" style="gap:12px;min-height:60px;border-top:1px solid rgba(36,20,31,.14)"><span style="flex:1;display:grid"><span class="ui" style="font-weight:600;font-size:17px">Pappardelle al ragù</span><span class="meta">9 people</span></span></div>
+            <div class="row" style="gap:12px;min-height:60px;border-top:1px solid rgba(36,20,31,.14)"><span style="flex:1;display:grid"><span class="ui" style="font-weight:600;font-size:17px">Tagliatelle ai funghi</span><span class="meta">6 people</span></span></div>
+            <div class="row" style="gap:12px;min-height:60px;border-top:1px solid rgba(36,20,31,.14)"><span style="flex:1;display:grid"><span class="ui" style="font-weight:600;font-size:17px">Lasagne verde</span><span class="meta">14 people</span></span></div>
+            <div class="row ui" style="gap:12px;min-height:56px;border-top:1px solid rgba(36,20,31,.14);font-weight:600;font-size:16px"><i data-i="plus" data-s="20"></i>Add as a new dish</div>
+          </div>
+        </div>
+      </div></div>
+      <h3>Fix a dish</h3>
+      <p>When Ate matched your words to the wrong dish, long-press that row on your own entry to say which dish it really was: this changes the dish's name only, never your score or your words.</p>
+    </div>
+
   </div>
   <p class="note">Photos are colour stand-ins for the canvas photos. Phones show the light default; dark follows the existing ink tokens.</p>
 </section>
@@ -295,7 +321,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
     <tr><td>Printed</td><td>The made thing as hero, straight: dishes lead, the place is fine print. Close top left, Share top right, nothing else.</td><td><a href="https://mobbin.com/screens/96592121-1a7c-4a34-afca-6ea9b403167c">Pangea</a>, <a href="https://mobbin.com/screens/8ca51327-83b0-4603-a93a-0f8dcf9dccf9">Numo</a>, <a href="https://mobbin.com/screens/f496feef-cc0a-426a-97df-dda000eff50f">Medium</a></td></tr>
     <tr><td>Entry</td><td>Read mode by default; more menu holds Edit and Delete; delete confirms.</td><td><a href="https://mobbin.com/screens/8e8b0fd2-c94d-4658-93c6-9b034afa4a88">Apple Journal</a>, <a href="https://mobbin.com/screens/ecdb86bb-c83e-4075-ac6e-42870781c3ca">Letterboxd review</a></td></tr>
     <tr><td>Edit</td><td>The same composer, filled in. One editor for new and existing entries.</td><td><a href="https://mobbin.com/screens/68cf68b2-f4b1-4c4f-bcc6-9b2e3bc31d7a">Apple Journal</a></td></tr>
-    <tr><td>Dish sheet</td><td>Kept as designed: long-press a dish row to fix its name only. Its score and the words are untouched.</td><td>Unchanged</td></tr>
+    <tr><td>Dish sheet</td><td>Kept as designed: long-press a dish row on your own entry to correct which dish the sorter matched, name only; its score and the words are untouched. Search, the place's dishes with the current one marked, "Add as a new dish" last; picking a row closes the sheet (the build's Done pill goes).</td><td>Unchanged</td></tr>
   </table></div>
   <p class="note">Beli's post-visit sheet (<a href="https://mobbin.com/screens/411a4fb1-4770-4ee6-862b-45fb45722db6">here</a>) is the form-based alternative we are deliberately not copying: seven "Add…" rows is the structured logging Ate replaces with writing.</p>
 </section>
@@ -392,7 +418,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
   var st=document.getElementById('stars'),sh='';
   for(var i=1;i<=5;i++){
     var fill=i<=4?'100%':'50%';
-    sh+='<span style="position:relative;width:52px;height:52px"><svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#24141F" stroke-width="1.6" stroke-linejoin="round" style="position:absolute;inset:0"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg><span style="position:absolute;inset:0;width:'+fill+';overflow:hidden"><svg width="52" height="52" viewBox="0 0 24 24" fill="#24141F" stroke="#24141F" stroke-width="1.6" stroke-linejoin="round"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg></span></span>';
+    sh+='<span style="position:relative;width:38px;height:38px"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#24141F" stroke-width="1.6" stroke-linejoin="round" style="position:absolute;inset:0"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg><span style="position:absolute;inset:0;width:'+fill+';overflow:hidden"><svg width="38" height="38" viewBox="0 0 24 24" fill="#24141F" stroke="#24141F" stroke-width="1.6" stroke-linejoin="round"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg></span></span>';
   }
   st.innerHTML=sh;
   var pl=[['Tipo 00','361 Little Bourke St','',1],['Osteria Ilaria','367 Little Bourke St','20 m',0],["Kirk's Wine Bar",'46 Hardware Ln','90 m',0],['Hardware Societe','123 Hardware St','140 m',0]],ph='';

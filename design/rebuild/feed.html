@@ -43,7 +43,8 @@ section{display:grid;gap:16px}
 .tok.live{box-shadow:0 0 0 2px #24141F}
 .diet{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:999px;background:#EFEAE2;color:#5E5560;font:600 10.5px/1 "Bricolage Grotesque",sans-serif;letter-spacing:.06em;text-transform:uppercase;vertical-align:2px}
 .caret{display:inline-block;width:2px;height:22px;margin-left:1px;background:#F0623F;vertical-align:-4px}
-.ph-img{display:block;flex-shrink:0;box-shadow:0 0 0 3px var(--surf,#fff)}
+.ph-img{display:block;flex-shrink:0}
+.cluster>.ph-img{box-shadow:0 0 0 3px var(--surf,#fff)}
 .cluster{display:flex;padding-left:6px}
 .cluster>span+span{margin-left:-12px}
 .food1{background:radial-gradient(circle at 40% 40%,#E6A257,#9A4A1F 70%,#5C2A12)}
@@ -164,7 +165,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
 .hero .cap{position:absolute;left:16px;right:16px;bottom:16px;color:#fff;display:flex;align-items:flex-end;gap:12px}
 .hero .num{font:800 168px/.74 "Bricolage Grotesque",sans-serif;letter-spacing:-.07em;flex-shrink:0}
 .hero .nm{display:grid;gap:5px;padding-bottom:4px}
-.hero .nm b{font:800 30px/1.02 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.hero .nm b{font:800 34px/1.02 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
 .hero .nm span{font:500 15px/1.2 "Bricolage Grotesque",sans-serif;opacity:.85}
 .rks{padding:4px 20px 0}
 .rk{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #E4DED4}
@@ -192,7 +193,6 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
 .ci .t b{display:block;font:800 20px/1.08 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
 .ci.sm .big{font-size:170px;top:70px}
 .ci.sm .t b{font-size:16px}
-#optC,#optB,#optA{overflow:hidden;min-width:0}
 .podcap .bmk{display:inline-flex;margin-top:2px}
 .opts .cell p b{color:#24141F;font-family:"Bricolage Grotesque",sans-serif;font-weight:600}
 </style>
@@ -405,80 +405,12 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
   <p class="note">Photos are colour stand-ins. Dishes without a photo print as their letter tile. Phones show the light default; dark follows the existing ink tokens.</p>
 </section>
 
-<section>
-  <h2>The Top Ate, three ways</h2>
-  <p class="measure">The receipt goes: Ate prints receipts from your words, not rankings. All three lead with photos, give #1 the room, and score with the same star token as everywhere else. I recommend <b>Hero</b>: like the best chart screens (Box Box Club standings), #1 owns the top of the page and all eight stay scannable in one scroll; Carousel hides #2 to #8 behind swipes and stacks on the shelves below it; Podium spends its space on three.</p>
-  <div class="phones opts">
-    <div class="cell">
-      <div class="ph"><div class="scr">
-        <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
-        <div class="tg glass"><span class="hit" data-i="pin"></span><span class="hit" data-i="heart"></span></div>
-        <div class="lt"><b>Feed</b><span>Melbourne</span></div>
-        <div style="position:absolute;left:0;right:0;top:192px;display:grid;gap:14px">
-          <div class="sec">The Top Ate</div>
-          <div id="optA"></div>
-        </div>
-        <div class="tabbar glass">
-          <span class="tab"><i data-i="book" data-s="24"></i>Journal</span>
-          <span class="tab on"><i data-i="utensils" data-s="24"></i>Feed</span>
-          <span class="tab"><i data-i="search" data-s="24"></i>Search</span>
-          <span class="tab"><i data-i="user" data-s="24"></i>You</span>
-        </div>
-        <span class="plusdisc" data-i="plus" data-s="28"></span>
-      </div></div>
-      <h3>A. Hero</h3>
-      <p>#1 is a full-width photo card with a giant numeral; #2 to #8 are ranked rows with a thumbnail, star token and bookmark.</p>
-    </div>
-    <div class="cell">
-      <div class="ph"><div class="scr">
-        <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
-        <div class="tg glass"><span class="hit" data-i="pin"></span><span class="hit" data-i="heart"></span></div>
-        <div class="lt"><b>Feed</b><span>Melbourne</span></div>
-        <div style="position:absolute;left:0;right:0;top:192px;display:grid;gap:14px">
-          <div class="sec">The Top Ate</div>
-          <div id="optB"></div>
-        </div>
-        <div class="tabbar glass">
-          <span class="tab"><i data-i="book" data-s="24"></i>Journal</span>
-          <span class="tab on"><i data-i="utensils" data-s="24"></i>Feed</span>
-          <span class="tab"><i data-i="search" data-s="24"></i>Search</span>
-          <span class="tab"><i data-i="user" data-s="24"></i>You</span>
-        </div>
-        <span class="plusdisc" data-i="plus" data-s="28"></span>
-      </div></div>
-      <h3>B. Podium</h3>
-      <p>The top three as tilted squircles, sized 1 &gt; 2 &gt; 3, with rank stickers; #4 to #8 as rows.</p>
-    </div>
-    <div class="cell">
-      <div class="ph"><div class="scr">
-        <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
-        <div class="tg glass"><span class="hit" data-i="pin"></span><span class="hit" data-i="heart"></span></div>
-        <div class="lt"><b>Feed</b><span>Melbourne</span></div>
-        <div style="position:absolute;left:0;right:0;top:192px;display:grid;gap:14px">
-          <div class="sec">The Top Ate</div>
-          <div id="optC"></div>
-        </div>
-        <div class="tabbar glass">
-          <span class="tab"><i data-i="book" data-s="24"></i>Journal</span>
-          <span class="tab on"><i data-i="utensils" data-s="24"></i>Feed</span>
-          <span class="tab"><i data-i="search" data-s="24"></i>Search</span>
-          <span class="tab"><i data-i="user" data-s="24"></i>You</span>
-        </div>
-        <span class="plusdisc" data-i="plus" data-s="28"></span>
-      </div></div>
-      <h3>C. Carousel</h3>
-      <p>A swipe of photo cards with giant numerals behind their edges; #1 is the largest card.</p>
-    </div>
-  </div>
-  <p class="note">References: hero chart, <a href="https://mobbin.com/screens/adc6e028-97ca-44b5-98a4-357c16bf250e">Box Box Club standings</a> and <a href="https://mobbin.com/screens/1cb0e1bb-fd9d-430e-806f-9a9dac540beb">widget</a>; giant numerals, <a href="https://mobbin.com/screens/38721ebb-06bf-44af-acc9-4d4cf84df42e">Brink trending</a>; rank stickers, <a href="https://mobbin.com/screens/762d9796-f5d9-4c6d-beba-66961039afbf">corner leaderboard</a> and <a href="https://mobbin.com/screens/71059bf5-887f-4332-b42d-4c06da54c2cf">Yubo</a>; podium, <a href="https://mobbin.com/screens/4a4b89aa-eb7c-47a7-8429-b3be5c7ae088">Garmin Connect</a>.</p>
-</section>
-
 <section class="measure">
   <h2>Screens and patterns</h2>
   <div class="wrap"><table>
     <tr><th>Screen</th><th>Pattern</th><th>Best in class</th></tr>
     <tr><td>At rest</td><td>Large title with a context subtitle; sections like a digest; a hero-first chart for The Top Ate.</td><td><a href="https://mobbin.com/screens/ca1fdeb9-97c6-4f1b-b93c-bb3cbb47f0b0">Substack</a>, <a href="https://mobbin.com/screens/adc6e028-97ca-44b5-98a4-357c16bf250e">Box Box Club standings</a></td></tr>
-    <tr><td>The Top Ate</td><td>Hero, podium or ranked carousel; big numerals; one star token for every score.</td><td><a href="https://mobbin.com/screens/38721ebb-06bf-44af-acc9-4d4cf84df42e">Brink</a>, <a href="https://mobbin.com/screens/762d9796-f5d9-4c6d-beba-66961039afbf">corner</a>, <a href="https://mobbin.com/screens/4a4b89aa-eb7c-47a7-8429-b3be5c7ae088">Garmin Connect</a></td></tr>
+    <tr><td>The Top Ate</td><td>Hero-first chart: #1 owns the top as a photo card, then ranked rows; one star token for every score.</td><td><a href="https://mobbin.com/screens/adc6e028-97ca-44b5-98a4-357c16bf250e">Box Box Club standings</a>, <a href="https://mobbin.com/screens/38721ebb-06bf-44af-acc9-4d4cf84df42e">Brink</a></td></tr>
     <tr><td>Mid-scroll</td><td>Inline title with subtitle; scroll-edge fade under the bar; shelves running off the edge; minimised tab bar.</td><td><a href="https://mobbin.com/screens/fd330182-950b-40b8-8e53-9fa2b9985df0">Perplexity Discover</a>, <a href="https://mobbin.com/screens/ca1fdeb9-97c6-4f1b-b93c-bb3cbb47f0b0">Substack</a></td></tr>
     <tr><td>Area</td><td>Single choice from a menu on the control: current location and everywhere first, then cities, current one ticked.</td><td><a href="https://mobbin.com/screens/9acb220e-a559-4323-a3da-4ba34ef703d7">Fresha</a>, <a href="https://mobbin.com/screens/442dd1cc-a2e3-47ce-9151-db8efcc433ab">Too Good To Go</a></td></tr>
     <tr><td>Near me</td><td>Location asked at the moment it is needed, from an explicit "current location" tap.</td><td><a href="https://mobbin.com/screens/442dd1cc-a2e3-47ce-9151-db8efcc433ab">Too Good To Go</a>, <a href="https://mobbin.com/screens/8d318daf-33fc-44f9-977a-0cde6fc86e7c">Subway</a></td></tr>
@@ -493,7 +425,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
   <h2>What changes from the current build</h2>
   <ul>
     <li><strong>The custom header and the location chip go.</strong> "Feed" becomes the native large title, the city becomes its subtitle, and the chip's job moves to a pin in the trailing glass group. The custom compact header on scroll is replaced by the native inline title.</li>
-    <li><strong>The Top Ate stops being a receipt.</strong> Receipts are what Ate prints from your words. The ranking becomes a photo-led chart: #1 a full photo card with a giant numeral, #2 to #8 ranked rows. Every score gets the star token used everywhere else.</li>
+    <li><strong>The Top Ate stops being a receipt.</strong> Receipts are what Ate prints from your words. The ranking becomes a photo-led chart: #1 a full photo card with its name large, #2 to #8 ranked rows. Every score gets the star token used everywhere else.</li>
     <li><strong>The area picker becomes a native Menu</strong> instead of the "Where?" sheet, with the same contents: Near me, Everywhere, then cities. It is one choice, so the contract makes it a menu.</li>
     <li><strong>Near me no longer jumps straight to a location read.</strong> The system prompt shows only after that tap; the Feed opens on your Journal's city, not "Everywhere".</li>
     <li><strong>Cravings get a door in the toolbar</strong>, a heart beside the pin, so you can change them from anywhere. The "Choose your cravings" row stays in the page only while you follow none.</li>
@@ -528,11 +460,10 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
     <li>The selected tab is the quiet native state, no fill.</li>
     <li>Section order, as built: The Top Ate, Because you loved…, New to the record, a shelf per craving, five latest receipts, then the end.</li>
     <li>Because you loved… stays its own carousel, right after The Top Ate.</li>
+    <li>The Top Ate is Hero (chosen over Podium and Carousel): #1 a full photo card with no numeral, #2 to #8 ranked rows.</li>
     <li>Shelves stay horizontal, as approved on 29 Sep.</li>
     <li>Area is a Menu; cravings is a sheet; both sit in one trailing glass group.</li>
   </ul>
-  <h2>Your call</h2>
-  <div class="qs"><div class="q"><h3>The Top Ate</h3><p><b class="rec">Hero</b>, Podium or Carousel. Hero keeps all eight in one scroll with #1 unmistakable; Podium is the most playful but only for three; Carousel is the most photo-forward but hides #2 to #8.</p></div></div>
 </section>
 </main>
 
@@ -578,40 +509,18 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
     var st='width:'+w+'px;height:'+h+'px;border-radius:'+r+'px;'+(extra||'');
     return l[4]?'<span class="ph-img '+l[4]+'" style="'+st+'">':'<span class="lt-tile" style="'+st+'background:'+l[5]+';font-size:'+Math.round(Math.min(w,h)*.5)+'px">'+l[0].charAt(0);
   }
-  function rk(l,i){return '<div class="rk"><span class="n">'+(i+1)+'</span>'+pic(l,52,52,15,'box-shadow:none')+'</span><span class="d"><b>'+l[0]+'</b><span class="meta">'+l[1]+'</span></span>'+tok(l[2],14,'tk')+B(l[3])+'</div>'}
+  function rk(l,i){return '<div class="rk"><span class="n">'+(i+1)+'</span>'+pic(l,52,52,15,'')+'</span><span class="d"><b>'+l[0]+'</b><span class="meta">'+l[1]+'</span></span>'+tok(l[2],14,'tk')+B(l[3])+'</div>'}
   function heroA(){
     var l=top[0];
-    return '<div class="hero ph-img '+l[4]+'" style="box-shadow:none"><span class="shade"></span>'+tok(l[2],17)+'<span class="disc glass bmd">'+I(l[3]?'bmf':'bm',22)+'</span><div class="cap"><span class="num">1</span><span class="nm"><b>'+l[0]+'</b><span>'+l[1]+'</span></span></div></div><div class="rks">'+top.slice(1).map(function(l,i){return rk(l,i+1)}).join('')+'</div>';
-  }
-  function podB(){
-    var spec=[[1,'left:0;top:70px',116,-8,'#B9A5EA'],[0,'left:100px;top:0',164,-3,'#F6D365'],[2,'right:0;top:92px',104,7,'#3ECF64']];
-    var h='<div class="pod">';
-    spec.forEach(function(sp){
-      var l=top[sp[0]],w=sp[2],r=Math.round(w*.28);
-      h+='<div class="pi" style="'+sp[1]+';transform:rotate('+sp[3]+'deg);z-index:'+(sp[0]===0?2:sp[0]===2?3:1)+'"><span class="stk" style="background:'+sp[4]+(sp[0]===2?';left:auto;right:-8px':'')+'">'+(sp[0]+1)+'</span>'+pic(l,w,w,r,'--surf:#EFEAE2')+tok(l[2],sp[0]===0?15:13)+'</span></div>';
-    });
-    function pc(l,c){return '<span'+(c?' class="one"':'')+'><b>'+l[0]+'</b><span class="meta">'+l[1]+'</span><br><span class="bmk">'+I(l[3]?'bmf':'bm',20)+'</span></span>'}
-    h+='</div><div class="podcap">'+pc(top[1])+pc(top[0],1)+pc(top[2])+'</div>';
-    h+='<div class="rks" style="padding-top:10px">'+top.slice(3).map(function(l,i){return rk(l,i+3)}).join('')+'</div>';
-    return h;
-  }
-  function carC(){
-    var h='<div class="car">';
-    top.slice(0,3).forEach(function(l,i){
-      var big=i===0,w=big?216:160,ht=big?286:212;
-      h+='<div class="ci'+(big?'':' sm')+'"><span class="big">'+(i+1)+'</span>'+pic(l,w,ht,16,'').replace('style="','class="p" style="').replace('class="ph-img','class="p ph-img').replace('class="p" style','style').replace('<span class="lt-tile"','<span class="p lt-tile"')+tok(l[2],big?16:13)+'</span><div class="t" style="width:'+w+'px"><span><b>'+l[0]+'</b><span class="meta">'+l[1]+'</span></span>'+'<span class="hit" style="margin:-10px -10px 0 0">'+I(l[3]?'bmf':'bm',22)+'</span></div></div>';
-    });
-    return h+'</div><div class="sec" style="padding-top:26px;font-size:26px;line-height:1.05">Because you loved tagliatelle al ragù</div>';
+    return '<div class="hero ph-img '+l[4]+'"><span class="shade"></span>'+tok(l[2],17)+'<span class="disc glass bmd">'+I(l[3]?'bmf':'bm',22)+'</span><div class="cap"><span class="nm"><b>'+l[0]+'</b><span>'+l[1]+'</span></span></div></div><div class="rks">'+top.slice(1).map(function(l,i){return rk(l,i+1)}).join('')+'</div>';
   }
   var tint=['#F6D365','#3ECF64','#B9A5EA','#F0623F'];
   function card(c){
-    var p=c.f?'<span class="p ph-img '+c.f+'" style="--surf:#EFEAE2"><span class="tok">'+I('star',11)+c.s+'</span></span>'
+    var p=c.f?'<span class="p ph-img '+c.f+'"><span class="tok">'+I('star',11)+c.s+'</span></span>'
       :'<span class="p lt-tile" style="background:'+c.t+'">'+c.n.charAt(0)+'<span class="tok">'+I('star',11)+c.s+'</span></span>';
     return '<div class="card">'+p+'<div class="t"><span><b>'+c.n+'</b><span class="meta">'+c.r+'</span></span><span class="hit" style="margin:-10px -12px 0 0">'+I(c.on?'bmf':'bm',22)+'</span></div></div>';
   }
-  ['topate1','topate2','topate3','optA'].forEach(function(id){document.getElementById(id).innerHTML=heroA();});
-  document.getElementById('optB').innerHTML=podB();
-  document.getElementById('optC').innerHTML=carC();
+  ['topate1','topate2','topate3'].forEach(function(id){document.getElementById(id).innerHTML=heroA();});
   document.getElementById('loved1').innerHTML=[{n:'Pappardelle with duck ragù',r:'Tipo 00',s:'4.7',f:'food1'},{n:'Rigatoni alla vodka',r:'Grill Americano',s:'4.6',t:'#B9A5EA'},{n:'Agnolotti',r:'Osteria Ilaria',s:'4.5',f:'food3'}].map(card).join('');
   document.getElementById('shelf2').innerHTML=[{n:'Prawn dumplings',r:'Shandong Mama',s:'4.7',f:'food2'},{n:'Xiao long bao',r:'HuTong',s:'4.6',t:'#F6D365',on:1},{n:'Pork wontons',r:'Wonton House',s:'4.3',f:'food1'}].map(card).join('');
   function nr(r){
