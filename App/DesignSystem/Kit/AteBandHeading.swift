@@ -1,7 +1,8 @@
 import AteKit
 import SwiftUI
 
-/// **A band's heading on a page** (the small one; a Feed section's 28pt heading is `AteSectionHeading`) — "Your ratings", "Your top dishes": one line in the control face.
+/// **A band's heading on a page** — "Your ratings", "Your top dishes": one line in the control face.
+/// (The small one; a Feed section's 28pt heading is `AteSectionHeading`.)
 /// With an action it is a link to the band's own page, the chevron at the far end and the whole line
 /// a 44pt target.
 struct AteBandHeading: View {
