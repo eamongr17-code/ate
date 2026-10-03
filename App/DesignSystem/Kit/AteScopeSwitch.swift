@@ -18,7 +18,7 @@ struct AteScopeSwitch<Value: Hashable>: View {
         HStack(spacing: AteMetrics.snug) {
             AteSegmentedControl(options: options, selection: $selection, identifier: identifier)
             AteGlassDisc(
-                icon: .filter,
+                icon: .listFilter,
                 label: "Filter",
                 role: isFilterOn && isFilterAvailable ? .primary : .plain,
                 isEnabled: isFilterAvailable,
