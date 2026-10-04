@@ -6,10 +6,13 @@ import SwiftUI
 /// row and the foot. Close is the glass disc top left; Share, the only action, is the ink pill at the
 /// foot (live once the receipt has printed; "Print it again" when a print could not finish).
 ///
-/// The rules are the current Summary's (``EntrySummaryStore``): the receipt enters once, whole —
-/// fed out of the printer — and never changes shape after it is seen. An empty receipt is never
-/// printed or shared: a placeless entry keeps its skeleton with the Place key where the place prints,
-/// and picking one prints it. A print that could not finish offers "Print it again".
+/// The rules are the current Summary's (``EntrySummaryStore``), with build 87's speed change: the
+/// face comes up the moment the words are saved, and the receipt enters once — fed out of the printer
+/// at once as paper with skeleton lines (the order number, the place and the date are the server's
+/// own, already read) — and the sorted lines print onto that same paper when the sort's reply lands.
+/// Never an empty coral sheet; never a dish name the server has not confirmed. An empty receipt is
+/// never printed or shared: a placeless entry keeps its skeleton with the Place key where the place
+/// prints, and picking one prints it. A print that could not finish offers "Print it again".
 struct V2ComposerPrinted: View {
     /// What the writing face hands over once the words are accepted.
     struct Handoff {
@@ -22,6 +25,10 @@ struct V2ComposerPrinted: View {
         /// The chips and 6s it was sorted with, so "Print it again" re-sorts with the same ones.
         let tagTokens: [TagToken]
         let sixTokens: [TagToken]
+        /// The tap on Post, for `summary_receipt_entered`'s `ms_from_done`.
+        var doneAt: ContinuousClock.Instant = .now
+        /// An early sort of exactly these inputs was out (or landed) before Done.
+        var cacheHit = false
     }
 
     let app: AppModel
@@ -32,9 +39,6 @@ struct V2ComposerPrinted: View {
     @State private var isPickingPlace = false
     @State private var appearedAt = ContinuousClock.now
     @State private var hasCountedEntrance = false
-    /// Once the receipt is up it stays up — a reprint's sort keeps the skeleton rather than emptying
-    /// the page.
-    @State private var hasShownStage = false
     /// The receipt was whole the moment the face came up (the tick's dots covered the sort).
     private let printedOnArrival: Bool
     @Environment(\.dismiss) private var dismiss
@@ -70,8 +74,12 @@ struct V2ComposerPrinted: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ateAccentGround(AteColor.coral)
-        .task { await store.watch() }
-        .task { await hear() }
+        // The sort's own reply first (it carries the card); the store's re-reads only if it never
+        // comes — nothing polls while the reply is on its way.
+        .task {
+            await hear()
+            await store.watch()
+        }
         .task(id: store.phase == .printed) { await askForPhotosOnce() }
         .onChange(of: store.card) { _, card in NotificationCenter.ateEntryChanged(card) }
         .onChange(of: store.showsReceipt, initial: true) { _, shows in countEntrance(shows) }
@@ -94,23 +102,20 @@ struct V2ComposerPrinted: View {
         .accessibilityIdentifier("summary")
     }
 
-    /// The receipt — its skeleton while it sorts, waits for a place, or could not finish.
-    @ViewBuilder
+    /// The receipt — on the paper from the first frame: its skeleton lines while it sorts, waits for
+    /// a place, or could not finish; the printed lines, in place, once the sort lands.
     private var stage: some View {
-        if hasShownStage || store.showsReceipt || store.phase == .stalled {
-            AtePrintedReceiptStage(
-                receipt: receipt,
-                photos: Array(handoff.photos.prefix(2)),
-                isPrinting: store.phase != .printed,
-                breathes: store.phase == .sorting,
-                onAddPlace: store.phase == .needsPlace && store.isBusy == false
-                    ? { isPickingPlace = true } : nil,
-                enters: true
-            )
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("summary.receipt")
-            .onAppear { hasShownStage = true }
-        }
+        AtePrintedReceiptStage(
+            receipt: receipt,
+            photos: Array(handoff.photos.prefix(2)),
+            isPrinting: store.phase != .printed,
+            breathes: store.phase == .sorting,
+            onAddPlace: store.phase == .needsPlace && store.isBusy == false
+                ? { isPickingPlace = true } : nil,
+            enters: true
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("summary.receipt")
     }
 
     /// The one action, at the foot: Share — off while there is nothing to send — or, when a print
@@ -171,7 +176,9 @@ struct V2ComposerPrinted: View {
         hasCountedEntrance = true
         services.analytics(EntryEvents.summaryReceiptEntered(
             entryID: store.card.id,
-            waitMilliseconds: printedOnArrival ? 0 : PostHold.milliseconds(since: appearedAt)
+            waitMilliseconds: printedOnArrival ? 0 : PostHold.milliseconds(since: appearedAt),
+            millisecondsFromDone: PostHold.milliseconds(since: handoff.doneAt),
+            cacheHit: handoff.cacheHit
         ))
     }
 
@@ -233,6 +240,7 @@ struct V2PrintedFoot: View {
 }
 
 enum V2PrintedTiming {
-    /// As long as the store itself watches (30 polls of 0.7s).
-    static let patience: Duration = .seconds(21)
+    /// How long the sort's own reply is waited on before the store's re-reads take over: past the
+    /// server's 5s model timeout, its ≤3s wait on a running preview, and a slow network.
+    static let patience: Duration = .seconds(12)
 }

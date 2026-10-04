@@ -12,22 +12,27 @@ extension V2ComposerWrite {
     /// The words go first and alone; the photos and the sorter follow at once, side by side. Nothing
     /// about the receipt may delay the writing being saved.
     ///
-    /// The tick steps its dots while the sorter works (``PostHold``) — the early sort's cached plan
-    /// usually lets it answer inside the hold — and only then does the sheet turn to the receipt,
-    /// already whole. A sort still out when the hold ends does not keep the words hostage: the receipt
-    /// enters the moment it is final. Offline, the entry is queued and the sheet simply closes: there
-    /// is no order number to print yet.
+    /// The tick steps its dots only while the words are being saved (build 87, note 11: the wait
+    /// was the slowest part of logging). The moment they are, the sheet turns to the printed face:
+    /// the receipt's paper feeds in at once with skeleton lines, and the sorted lines print onto it
+    /// in place when the sort's own reply lands — the receipt enters once, and never as an empty
+    /// coral sheet. Offline, the entry is queued and the sheet simply closes: there is no order
+    /// number to print yet.
     func post() {
         guard isSaving == false, model.canSave else { return }
         let startedAt = ContinuousClock.now
         isSaving = true
         saveFailed = false
         isHandingOver = true
-        // Nothing further goes early; a preview already out is left to land, and the real sort
-        // reuses its plan.
-        earlySort?.stop()
         model.dismissScoring(refocus: false)
         model.promotePendingScoreLiteral().map(services.analytics)
+        // Done's last word to the early sort: the words exactly as they will be inserted. A preview
+        // of them already out is left to land; a stale one gets one more, which the sort waits on.
+        // Then nothing further goes.
+        let input = model.earlySortInput
+        let cacheHit = earlySort?.covers(input) ?? false
+        earlySort?.now(input)
+        earlySort?.stop()
 
         Task {
             // A pick still being written is part of the entry — but the tick waits on it only so
@@ -41,19 +46,34 @@ extension V2ComposerWrite {
             if let editing = model.editing {
                 rewrite(editing)
             } else {
-                await submit(startedAt: startedAt)
+                await submit(startedAt: startedAt, cacheHit: cacheHit)
             }
         }
     }
 
-    private func submit(startedAt: ContinuousClock.Instant) async {
+    private func submit(startedAt: ContinuousClock.Instant, cacheHit: Bool) async {
         let draft = model.draft
         let request = model.request(from: draft, photoDirectory: model.photoDirectory)
         if model.hasPendingPhotos { model.handOffLatePhotos(to: request) }
         let submission = services.submission
         let analytics = services.analytics
 
-        let result = await submission.submit(request)
+        // Photos and the sorter, side by side — started the moment the words land, not after the row
+        // is read back, and detached from this view: closing the receipt must not cancel the rest of
+        // the entry landing. The latch hears the sort.
+        let sorted = Latch<EntryCard?>()
+        let finish: @Sendable () -> Void = {
+            Task.detached {
+                await submission.finish(
+                    entryID: request.id,
+                    photoPaths: request.photoPaths,
+                    tagTokens: request.tagTokens,
+                    sixTokens: request.sixTokens,
+                    sorted: { await sorted.fulfil($0) }
+                )
+            }
+        }
+        let result = await submission.submit(request, onInserted: finish)
         guard let card = result.card else {
             isSaving = false
             model.cancelLateHandoff()
@@ -75,28 +95,19 @@ extension V2ComposerWrite {
         model.markEntrySaved()
         sendLatePhotos()
 
-        // Photos and the sorter, side by side — detached from this view: closing the receipt must
-        // not cancel the rest of the entry landing. The latch hears the sort.
-        let sorted = Latch<EntryCard?>()
-        Task.detached {
-            await submission.finish(
-                entryID: request.id,
-                photoPaths: request.photoPaths,
-                tagTokens: request.tagTokens,
-                sixTokens: request.sixTokens,
-                sorted: { await sorted.fulfil($0) }
-            )
-        }
-
         guard case .saved = result else {
-            // Queued offline: nothing to print yet; the journal's slip carries the wait.
+            // Queued offline: the insert never landed, so nothing has started — try the rest now
+            // (the outbox has it either way). Nothing to print yet; the journal's slip carries the wait.
+            finish()
             isSaving = false
             NotificationCenter.ateEntryChanged(card)
             dismiss()
             return
         }
 
-        let landed = await PostHold.standard.wait(on: sorted, from: startedAt)
+        // No hold: the printed face comes up now, its paper already feeding in. `post_held` still
+        // says how long the tick held and whether the sort had landed by then.
+        let landed = await sorted.value(before: .now)
         analytics(EntryEvents.postHeld(
             outcome: PostHold.outcome(landed),
             milliseconds: PostHold.milliseconds(since: startedAt)
@@ -107,7 +118,9 @@ extension V2ComposerWrite {
             photos: model.photos.map(\.photo),
             sorted: sorted,
             tagTokens: request.tagTokens,
-            sixTokens: request.sixTokens
+            sixTokens: request.sixTokens,
+            doneAt: startedAt,
+            cacheHit: cacheHit
         ))
         // The lists under the sheet hear about it once the receipt is up, not competing with it.
         Task {
@@ -254,6 +267,31 @@ extension V2ComposerWrite {
         keep.formUnion(services.drafts.draftReferencedPhotoPaths)
         let referenced = keep
         await Task.detached(priority: .utility) { StagedFiles.sweep(root, keeping: referenced) }.value
+    }
+
+    /// `sort-entry` `{health: true}` as the composer opens, so Done does not pay a cold start. Fire
+    /// and forget: never waited on, never an error.
+    func warmUpSorter() {
+        let entries = services.entries
+        Task.detached(priority: .utility) { await entries.warmUp() }
+    }
+
+    /// The words changed. While typing, the early sort waits for a pause; a place attached or
+    /// changed, or a diet chip added, is a settled moment and goes at once.
+    func earlySortEdited(from old: EarlySortInput?, to new: EarlySortInput?) {
+        let placeChanged = old?.restaurantID != new?.restaurantID
+        let tagAdded = (new?.tagTokens.count ?? 0) > (old?.tagTokens.count ?? 0)
+        if new != nil, placeChanged || tagAdded {
+            earlySort?.now(new)
+        } else {
+            earlySort?.edited(new)
+        }
+    }
+
+    /// A settled moment with no edit in it — the score slide closed, the keyboard went down.
+    func earlySortSettled() {
+        guard isSaving == false else { return }
+        earlySort?.now(model.earlySortInput)
     }
 
     /// The early sort, wired to the entry service and counted. Never for an edit.

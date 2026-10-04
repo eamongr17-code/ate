@@ -99,12 +99,15 @@ struct V2ComposerWrite: View {
             guard items.isEmpty == false else { return }
             stage(items)
         }
-        .onChange(of: model.earlySortInput) { _, input in earlySort?.edited(input) }
+        .onChange(of: model.earlySortInput) { old, new in earlySortEdited(from: old, to: new) }
+        .onChange(of: model.scoring != nil) { _, isScoring in if isScoring == false { earlySortSettled() } }
+        .onChange(of: keyboard.isVisible) { _, isVisible in if isVisible == false { earlySortSettled() } }
         .onAppear {
             services.analytics(EntryEvents.composerOpened(source: origin, isResumingDraft: model.isResumingDraft))
         }
         .task { await stageSuggestedPhotos() }
         .task { startEarlySort() }
+        .task { warmUpSorter() }
         .task { await sweepStagedPhotos() }
     }
 
