@@ -21,8 +21,7 @@ struct AteReceiptView: View {
             receipt: receipt,
             isPrinting: isPrinting,
             breathes: breathes,
-            onAddPlace: onAddPlace,
-            showsBarcode: false
+            onAddPlace: onAddPlace
         )
     }
 }

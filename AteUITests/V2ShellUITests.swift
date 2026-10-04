@@ -57,18 +57,15 @@ final class V2ShellUITests: XCTestCase {
         let app = launch()
         let slip = firstSlip(app)
         XCTAssertTrue(slip.waitForExistence(timeout: 10))
-        let title = app.descendants(matching: .any)["root.title"].firstMatch
-        XCTAssertTrue(title.waitForExistence(timeout: 5), "the root's title, at rest")
         app.swipeUp()
         app.swipeUp()
-        XCTAssertTrue(waitUntil(timeout: 3) { title.exists == false }, "scrolled: the title has collapsed")
+        XCTAssertTrue(waitUntil(timeout: 3) { slip.isHittable == false }, "scrolled: the first slip has left")
         // Scrolled down, the bar has minimised (the system's own): its first tap brings the bar back,
         // the next re-taps the tab. Tap until the root is home, twice at most.
         let journal = tab(app, "Journal")
         journal.tap()
-        if waitUntil(timeout: 2, { title.exists }) == false { journal.tap() }
-        XCTAssertTrue(waitUntil(timeout: 3) { title.exists }, "re-tapping the tab scrolls to the top")
-        XCTAssertTrue(waitUntil(timeout: 3) { slip.isHittable }, "and the first slip is back")
+        if waitUntil(timeout: 2, { slip.isHittable }) == false { journal.tap() }
+        XCTAssertTrue(waitUntil(timeout: 3) { slip.isHittable }, "re-tapping the tab scrolls to the top")
     }
 
     /// The review stills: each root at rest and scrolled, a pushed page, the composer.

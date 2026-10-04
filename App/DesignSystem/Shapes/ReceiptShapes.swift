@@ -78,34 +78,6 @@ extension View {
     }
 }
 
-/// The barcode band. A receipt's one piece of pure signage — it says "this was printed" and carries no
-/// data, so the pattern is fixed rather than generated from the entry (a scannable code on a share
-/// image would be a promise the app can't keep).
-struct AteBarcode: View {
-    @Environment(\.atePalette) private var palette
-
-    /// The prototype's repeating pattern, as bar/gap widths in points: a 13pt period.
-    private static let pattern: [CGFloat] = [2, 3, 1, 2, 3, 2]
-
-    var body: some View {
-        Canvas { context, size in
-            var origin: CGFloat = 0
-            var index = 0
-            while origin < size.width {
-                let width = Self.pattern[index % Self.pattern.count]
-                if index.isMultiple(of: 2) {
-                    let bar = CGRect(x: origin, y: 0, width: min(width, size.width - origin), height: size.height)
-                    context.fill(Path(bar), with: .color(palette.fg))
-                }
-                origin += width
-                index += 1
-            }
-        }
-        .frame(height: AteMetrics.barcodeHeight)
-        .accessibilityHidden(true)
-    }
-}
-
 /// One horizontal dashed line, drawn rather than typed so it always spans exactly the width it is
 /// given. The receipt's band rules and its leaders are this one line — one dash style on paper.
 struct AteDashedLine: View {
@@ -184,7 +156,6 @@ struct AteHairline: View {
             .ateTornPaper()
         AteDashedRule()
         AteDotLeader()
-        AteBarcode()
         AteHairline()
     }
     .padding(AteMetrics.gutter)

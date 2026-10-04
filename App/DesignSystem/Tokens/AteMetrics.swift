@@ -229,8 +229,6 @@ enum AteMetrics {
     /// The slider's track height.
     static let starTrack: CGFloat = 48
 
-    /// A receipt's barcode band.
-    static let barcodeHeight: CGFloat = 34
     /// The wave strip under every torn surface (`EdgeFinal`: 4pt, scallops fitted to the width —
     /// ``WaveEdge``).
     static let tornEdgeHeight: CGFloat = 4

@@ -93,7 +93,7 @@ struct AteReceipt: Equatable, Identifiable {
 /// Its parts, in order (round 5 — **the dishes lead**, the place is fine print): the dishes in the
 /// title face with dot leaders and right-aligned scores — **dish rows and scores only, never a quote
 /// under a line** / a dashed rule / the place left, its address right / a dashed rule / order number
-/// and date, dish count and average / the barcode / the handle and the wordmark / edge B.
+/// and date, dish count and average / the handle and the wordmark / edge B.
 ///
 /// **Printing** (`SummaryLoading.dc.html`): what is known prints at once — the place, the order
 /// number, the date, the handle — and the dishes still being sorted are skeleton bars with a slow
@@ -110,9 +110,6 @@ struct ReceiptView: View {
     var onAddPlace: (() -> Void)?
     /// How far the first dish sits from the paper's top edge — `Share.dc.html`'s 22.
     var topPadding: CGFloat = 22
-    /// The barcode band. Cut on 3 Oct (pattern contract §7): the kit's ``AteReceiptView`` prints
-    /// without it; the screens still built on this view keep it until their flow is rebuilt.
-    var showsBarcode = true
 
     var body: some View {
         VStack(spacing: AteMetrics.snug + 2) {
@@ -127,7 +124,6 @@ struct ReceiptView: View {
             placeLine
             AteDashedRule()
             totals
-            if showsBarcode { AteBarcode() }
             footer
         }
         .padding(.top, topPadding)
