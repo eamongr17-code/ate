@@ -36,6 +36,9 @@ struct AteEntryPaper: View {
     var onCorrectPlace: (() -> Void)?
     var onPhoto: ((Int) -> Void)?
     var onReprint: (() -> Void)?
+    /// `true`: the paper runs off the foot of the screen (the page continues). `false`: it ends at its
+    /// content, rounded at the foot too, so what sits under it on the ground is in view.
+    var fillsScreen = true
 
     @Environment(\.atePhotoViewer) private var showPhotos
 
@@ -66,10 +69,12 @@ struct AteEntryPaper: View {
         .padding(.horizontal, AteMetrics.pagePaddingSide)
         .padding(.bottom, AteMetrics.section)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: Self.minimumHeight, alignment: .top)
+        .frame(minHeight: fillsScreen ? Self.minimumHeight : nil, alignment: .top)
         .ateSlip()
         .background(AteColor.slip, in: UnevenRoundedRectangle(
             topLeadingRadius: AteMetrics.pageTop,
+            bottomLeadingRadius: fillsScreen ? 0 : AteMetrics.pageTop,
+            bottomTrailingRadius: fillsScreen ? 0 : AteMetrics.pageTop,
             topTrailingRadius: AteMetrics.pageTop,
             style: .continuous
         ))

@@ -168,7 +168,9 @@ private struct V2EntryScreen: View {
             // A place never attached is not guessed at: on your own entry the line attaches one.
             onCorrectPlace: card.isMine ? { model.isCorrectingPlace = true } : nil,
             onPhoto: { showPhotos(model.photos, at: $0) },
-            onReprint: { Task { await model.retrySort() } }
+            onReprint: { Task { await model.retrySort() } },
+            // The paper ends at its words: "More at" and "More like this" sit right under it.
+            fillsScreen: false
         )
     }
 
