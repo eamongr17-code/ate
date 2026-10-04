@@ -34,6 +34,7 @@ private struct V2EntryScreen: View {
     let context: V2PageContext
 
     @State private var model: EntryModel
+    @State private var more: EntryMoreStore
     @State private var isShowingActions = false
     @State private var isSharingReceipt = false
     @Environment(\.dismiss) private var dismiss
@@ -43,6 +44,8 @@ private struct V2EntryScreen: View {
         self.entry = entry
         self.context = context
         _model = State(initialValue: EntryModel(route: entry, services: context.services, saves: context.saves))
+        _more = State(initialValue: EntryMoreStore(places: context.services.placePages,
+                                                   explore: context.services.dishExplore))
     }
 
     private var services: AteServices { context.services }
@@ -120,20 +123,26 @@ private struct V2EntryScreen: View {
             }
         } else {
             ScrollView {
-                Group {
-                    if let card = model.card {
-                        paper(card)
-                            .transition(.opacity)
-                    } else {
-                        // Opened by id alone: the slip's skeleton until the read answers.
-                        AteSkeleton(kind: .entrySlip)
-                            .transition(.opacity)
+                VStack(spacing: 0) {
+                    Group {
+                        if let card = model.card {
+                            paper(card)
+                                .transition(.opacity)
+                        } else {
+                            // Opened by id alone: the slip's skeleton until the read answers.
+                            AteSkeleton(kind: .entrySlip)
+                                .transition(.opacity)
+                        }
                     }
+                    .ateAnimation(AteMotion.fillIn, value: model.isLoaded)
+                    .padding(.horizontal, AteMetrics.pageInset)
+                    .padding(.top, AteMetrics.pageGap)
+                    // On the ground under the paper: more at the place, and more like it.
+                    V2EntryMore(store: more, place: model.card?.place, context: context)
+                        .padding(.bottom, AteMetrics.section)
                 }
-                .ateAnimation(AteMotion.fillIn, value: model.isLoaded)
-                .padding(.horizontal, AteMetrics.pageInset)
-                .padding(.top, AteMetrics.pageGap)
             }
+            .task(id: moreSubject) { await more.load(moreSubject) }
             .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
             .accessibilityIdentifier("entry.page")
@@ -161,6 +170,12 @@ private struct V2EntryScreen: View {
             onPhoto: { showPhotos(model.photos, at: $0) },
             onReprint: { Task { await model.retrySort() } }
         )
+    }
+
+    /// What "More at" and "More like this" are about — only once the entry has printed its dishes.
+    private var moreSubject: EntryMoreStore.Subject? {
+        guard case .printed = model.state, let card = model.card else { return nil }
+        return EntryMoreStore.Subject(card)
     }
 
     /// The dish rows lead — or, until the sorter has answered, their shape.

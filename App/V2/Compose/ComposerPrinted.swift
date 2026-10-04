@@ -2,8 +2,9 @@ import AteKit
 import SwiftUI
 
 /// **Printed** — the composer's second face, inside the same sheet: the new entry's receipt on the
-/// coral ground, lying straight, the photos clear above it. Close is the glass disc top left; Share,
-/// the only action, the glass disc top right (live once the receipt has printed).
+/// coral ground, lying straight, the photos clear above it, centred in the room between the corner
+/// row and the foot. Close is the glass disc top left; Share, the only action, is the ink pill at the
+/// foot (live once the receipt has printed; "Print it again" when a print could not finish).
 ///
 /// The rules are the current Summary's (``EntrySummaryStore``): the receipt enters once, whole —
 /// fed out of the printer — and never changes shape after it is seen. An empty receipt is never
@@ -53,8 +54,9 @@ struct V2ComposerPrinted: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AteSheetHeader(title: nil, primary: share) { done() }
-            // The photos and the receipt, centred in the room under the corners (a long one scrolls).
+            AteSheetHeader(title: nil) { done() }
+            // The photos and the receipt, centred in the room between the corners and the foot (a
+            // long one scrolls).
             GeometryReader { room in
                 ScrollView {
                     stage
@@ -64,6 +66,7 @@ struct V2ComposerPrinted: View {
                 .scrollBounceBehavior(.basedOnSize)
                 .scrollIndicators(.hidden)
             }
+            V2PrintedFoot(pill: foot)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ateAccentGround(AteColor.coral)
@@ -91,45 +94,38 @@ struct V2ComposerPrinted: View {
         .accessibilityIdentifier("summary")
     }
 
-    /// The receipt — its skeleton while it sorts, waits for a place, or could not finish, with
-    /// "Print it again" under it then.
+    /// The receipt — its skeleton while it sorts, waits for a place, or could not finish.
     @ViewBuilder
     private var stage: some View {
         if hasShownStage || store.showsReceipt || store.phase == .stalled {
-            VStack(spacing: AteMetrics.section) {
-                AtePrintedReceiptStage(
-                    receipt: receipt,
-                    photos: Array(handoff.photos.prefix(2)),
-                    isPrinting: store.phase != .printed,
-                    breathes: store.phase == .sorting,
-                    onAddPlace: store.phase == .needsPlace && store.isBusy == false
-                        ? { isPickingPlace = true } : nil,
-                    enters: true
-                )
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("summary.receipt")
-                .onAppear { hasShownStage = true }
-                if store.phase == .stalled {
-                    AteInkPill(
-                        title: "Print it again",
-                        size: .empty,
-                        isEnabled: store.isBusy == false,
-                        identifier: "summary.reprint"
-                    ) {
-                        Task { await store.reprint() }
-                    }
-                    .environment(\.atePalette, .automatic)
-                }
-            }
+            AtePrintedReceiptStage(
+                receipt: receipt,
+                photos: Array(handoff.photos.prefix(2)),
+                isPrinting: store.phase != .printed,
+                breathes: store.phase == .sorting,
+                onAddPlace: store.phase == .needsPlace && store.isBusy == false
+                    ? { isPickingPlace = true } : nil,
+                enters: true
+            )
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("summary.receipt")
+            .onAppear { hasShownStage = true }
         }
     }
 
-    /// Share, top right — off while there is nothing to send.
-    private var share: AteSheetPrimary {
-        AteSheetPrimary(
-            icon: .share,
-            label: "Share",
+    /// The one action, at the foot: Share — off while there is nothing to send — or, when a print
+    /// could not finish, "Print it again".
+    private var foot: V2PrintedFoot.Pill {
+        if store.phase == .stalled {
+            return V2PrintedFoot.Pill(title: "Print it again", isEnabled: store.isBusy == false,
+                                      identifier: "summary.reprint") {
+                Task { await store.reprint() }
+            }
+        }
+        return V2PrintedFoot.Pill(
+            title: "Share",
             isEnabled: store.phase == .printed && store.isSharing == false,
+            identifier: "summary.share",
             action: send
         )
     }
@@ -212,6 +208,27 @@ struct V2ReceiptSender {
             return
         }
         sending = ShareSender.Sending(image: image, sticker: AtePrintedReceiptImage.sticker(receipt, photos: photos))
+    }
+}
+
+/// **The printed receipt's foot** — the kit's ink pill, full width on the sheet gutter, pinned above
+/// the home indicator by the sheet foot's own geometry. Nothing under it.
+struct V2PrintedFoot: View {
+    struct Pill {
+        let title: String
+        var isEnabled = true
+        let identifier: String
+        let action: () -> Void
+    }
+
+    let pill: Pill
+
+    var body: some View {
+        AteInkPill(title: pill.title, isEnabled: pill.isEnabled, identifier: pill.identifier, action: pill.action)
+            .environment(\.atePalette, .automatic)
+            .padding(.horizontal, SheetHeaderGeometry.gutter)
+            .padding(.top, AteSheetScaffoldMetrics.footTop)
+            .padding(.bottom, AteSheetScaffoldMetrics.footBottom)
     }
 }
 
