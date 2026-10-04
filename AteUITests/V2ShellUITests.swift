@@ -37,33 +37,38 @@ final class V2ShellUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["v2.root.feed"].firstMatch.exists, "and still on screen, not a blank slot")
     }
 
-    /// A pushed page keeps the tab bar, and Back returns to the root.
+    /// A pushed page keeps the tab bar, and Back returns to the root: the Journal's first entry,
+    /// opened from its slip.
     func testPushKeepsTheTabBar() {
         let app = launch()
-        let open = app.buttons["v2.placeholder.open"].firstMatch
-        XCTAssertTrue(open.waitForExistence(timeout: 10))
-        open.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["v2.page"].firstMatch.waitForExistence(timeout: 5), "the page is pushed")
+        let slip = firstSlip(app)
+        XCTAssertTrue(slip.waitForExistence(timeout: 10))
+        openEntry(from: slip)
+        XCTAssertTrue(app.descendants(matching: .any)["entry.page"].firstMatch.waitForExistence(timeout: 5),
+                      "the entry is pushed")
         XCTAssertTrue(tab(app, "Journal").isHittable, "the tab bar stays on a pushed page")
         XCTAssertTrue(tab(app, "New entry").isHittable, "and so does +")
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(open.waitForExistence(timeout: 5), "back to the root")
+        XCTAssertTrue(waitUntil(timeout: 5) { slip.isHittable }, "back to the root")
     }
 
-    /// Scrolled down, a tap of the current tab brings the root back to its top.
+    /// Scrolled down the entry list, a tap of the current tab brings the Journal back to its top.
     func testRetapScrollsToTop() {
         let app = launch()
-        let open = app.buttons["v2.placeholder.open"].firstMatch
-        XCTAssertTrue(open.waitForExistence(timeout: 10))
+        let slip = firstSlip(app)
+        XCTAssertTrue(slip.waitForExistence(timeout: 10))
+        let title = app.descendants(matching: .any)["root.title"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 5), "the root's title, at rest")
         app.swipeUp()
         app.swipeUp()
-        XCTAssertTrue(waitUntil(timeout: 3) { open.isHittable == false }, "the first row has scrolled away")
+        XCTAssertTrue(waitUntil(timeout: 3) { title.exists == false }, "scrolled: the title has collapsed")
+        // Scrolled down, the bar has minimised (the system's own): its first tap brings the bar back,
+        // the next re-taps the tab. Tap until the root is home, twice at most.
         let journal = tab(app, "Journal")
-        XCTAssertTrue(waitUntil(timeout: 3) { journal.value as? String == "Collapsed" }, "the bar has minimised")
-        journal.tap() // the system's own: a tap on the minimised bar brings it back
-        XCTAssertTrue(waitUntil(timeout: 3) { journal.value as? String != "Collapsed" }, "the bar is whole again")
         journal.tap()
-        XCTAssertTrue(waitUntil(timeout: 3) { open.isHittable }, "re-tapping the tab scrolls to the top")
+        if waitUntil(timeout: 2, { title.exists }) == false { journal.tap() }
+        XCTAssertTrue(waitUntil(timeout: 3) { title.exists }, "re-tapping the tab scrolls to the top")
+        XCTAssertTrue(waitUntil(timeout: 3) { slip.isHittable }, "and the first slip is back")
     }
 
     /// The review stills: each root at rest and scrolled, a pushed page, the composer.
@@ -149,6 +154,16 @@ final class V2ShellUITests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    private func firstSlip(_ app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: "journal.slip").firstMatch
+    }
+
+    /// The slip's paper opens the entry wherever nothing of its own claims the tap: its foot line's
+    /// trailing day, clear of the dish rows, the photos and the place.
+    private func openEntry(from slip: XCUIElement) {
+        slip.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.9)).tap()
+    }
 
     /// A still named exactly `name-<mode>.png` in `V2_SHOT_DIR`, when it is set.
     private func shootIfAsked(_ name: String) {
