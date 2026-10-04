@@ -41,7 +41,7 @@ struct KitGalleryScreen: View {
             }
         }
         .scrollIndicators(.hidden)
-        .ateNavigationBar(leading: { AteNavigationTitle(title: "Component kit") })
+        .ateInlineTitle("Component kit")
         .ateGround()
         .sheet(isPresented: $isShowingSheet) { filterSheet(inline: false) }
         .sheet(isPresented: $isShowingActions) { actionsSheet }

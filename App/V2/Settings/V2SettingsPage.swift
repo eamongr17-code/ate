@@ -49,9 +49,7 @@ struct V2SettingsPage: View {
                 store: BlockedPeopleStore(account: context.services.account, analytics: context.services.analytics)
             )
         case .kit:
-            // The component kit's gallery exists in Debug and Beta builds only; the current app's
-            // settings branch is where that is decided, so it is drawn by it.
-            SettingsDestination(page: .kit, services: context.services)
+            KitGalleryPage()
         }
     }
 }
