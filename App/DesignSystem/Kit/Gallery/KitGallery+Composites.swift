@@ -89,6 +89,16 @@ extension KitGalleryScreen {
         }
         section("Receipt") {
             VStack(alignment: .leading, spacing: AteMetrics.section) {
+                caption("One dash on paper: the leader is the rule")
+                VStack(spacing: AteMetrics.regular) {
+                    HStack(spacing: AteMetrics.snug) {
+                        Text("Leader").ateText(.receiptLabel)
+                        AteDotLeader()
+                    }
+                    AteDashedRule()
+                }
+                .padding(KitGalleryMetrics.paperPadding)
+                .background(AtePaperTone.slip.fill)
                 caption("Printed: dishes lead, place as fine print, no barcode")
                 AteReceiptView(receipt: .preview)
                 caption("Printing")

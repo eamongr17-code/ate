@@ -316,7 +316,7 @@ private struct MenuSkeletonLines: View {
                 .padding(.bottom, AteMetrics.regular)
             ForEach(0..<3, id: \.self) { index in
                 VStack(spacing: 0) {
-                    if index > 0 { AteDashedLine(opacity: 0.25) }
+                    if index > 0 { AteDashedRule() }
                     HStack(spacing: AteMetrics.regular) {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(palette.hairline)

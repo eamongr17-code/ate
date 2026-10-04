@@ -107,13 +107,12 @@ struct AteBarcode: View {
 }
 
 /// One horizontal dashed line, drawn rather than typed so it always spans exactly the width it is
-/// given. Both the receipt's band rules and its dot leaders are this view with a different dash.
+/// given. The receipt's band rules and its leaders are this one line — one dash style on paper.
 struct AteDashedLine: View {
     var dash: [CGFloat] = AteMetrics.ruleDash
     var opacity: Double = 0.35
     var lineWidth: CGFloat = AteMetrics.ruleWidth
-    /// Round for a leader's dots, butt for a rule's dashes — CSS `dotted` is round and `dashed` is
-    /// square, and at 1.5px the difference is the difference between a dotted line and a dashed one.
+    /// Butt: paper has one dash, the rule's (a leader is the same line).
     var lineCap: CGLineCap = .butt
     /// `.vertical` is the statement slip's column divider — the same rule, stood up.
     var axis: Axis = .horizontal
@@ -152,14 +151,12 @@ struct AteDashedRule: View {
     var body: some View { AteDashedLine() }
 }
 
-/// The dot leaders between a line item and its score — the detail that makes a list of dishes read as
-/// a bill.
-/// `border-bottom:1.5px dotted rgba(36,20,31,.3)` — round dots the width of the line, on a 3pt
-/// pitch. A zero-length dash with a round cap *is* a circle, which is the only way to get a dot
-/// rather than a 1.5×1.5 square out of a stroke.
+/// The leader between a line item and its score — the detail that makes a list of dishes read as a
+/// bill. **The rule's own dash** (build 87, note 7): one dash style on paper, so a leader and a rule
+/// share their pattern, weight and colour.
 struct AteDotLeader: View {
     var body: some View {
-        AteDashedLine(dash: AteMetrics.leaderDash, opacity: 0.3, lineCap: .round)
+        AteDashedLine()
             .frame(minWidth: AteMetrics.loose)
     }
 }

@@ -30,7 +30,7 @@ struct MenuDishRow: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if rank > 1 { AteDashedLine(opacity: 0.25) }
+            if rank > 1 { AteDashedRule() }
             if dish.coverURL != nil {
                 // Three siblings, because a tap inside a button's label belongs to that button:
                 // the rank and the words open the dish, the photo opens itself.

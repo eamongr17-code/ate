@@ -18,7 +18,7 @@ struct AteStatsSlip: View {
                 if index > 0 {
                     // `border-left:1.5px dashed rgba(36,20,31,.3)` down the whole column: a 28pt
                     // figure, the 4 gap, and an 11pt label's 1.35 line.
-                    AteDashedLine(opacity: 0.3, axis: .vertical).frame(height: Self.columnHeight)
+                    AteDashedLine(axis: .vertical).frame(height: Self.columnHeight)
                 }
                 VStack(spacing: AteMetrics.tight) {
                     Text(cell.value)
