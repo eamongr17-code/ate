@@ -1,8 +1,10 @@
 import AteKit
 import SwiftUI
 
-/// **The Journal zoomed out** — a month, or the year, paging sideways under the same bar.
+/// **The Journal zoomed out** — a month, or the year, under the same bar.
 ///
+/// The months are one vertical list, oldest at the top and this month at the foot, like the system
+/// Calendar's (build 87: "a scroll up and down, not a sideways scroll"); the years are one too.
 /// The month: days you wrote are photo tiles, a 5.0 day ringed in butter and a 6 in brick; a day you
 /// wrote with no photo is its numeral over an ink dot; today, unwritten, is its numeral on an ink
 /// disc. The year: twelve small months of dots, the 5.0 days in butter and the 6s in brick, larger.
@@ -15,75 +17,134 @@ struct JournalZoomView: View {
     let onDay: (AteDay) -> Void
     let onMonth: (AteMonth) -> Void
 
-    private var current: AteMonth { AteMonth.containing(now) }
-
     var body: some View {
         Group {
             switch zoom {
-            case .year: years.transition(.opacity)
-            default: months.transition(.opacity)
+            case .year:
+                JournalZoomYears(store: store, month: $month, now: now, onMonth: onMonth)
+                    .transition(.opacity)
+            default:
+                JournalZoomMonths(store: store, month: $month, now: now, onDay: onDay)
+                    .transition(.opacity)
             }
         }
         .task { await store.loadFirstYear() }
         .task(id: month.year) { await store.loadYear(month.year) }
     }
+}
 
-    // MARK: - Months
+// MARK: - The months
 
-    private var monthRange: [AteMonth] {
+/// Every month from the first year you wrote in to this one, top to bottom, opening on the month
+/// asked for. Each month reads its year from the store as it scrolls into view.
+private struct JournalZoomMonths: View {
+    let store: JournalCalendarStore
+    @Binding var month: AteMonth
+    let now: Date
+    let onDay: (AteDay) -> Void
+
+    /// The month at the top of the list — where it opens, and what it reports back as it scrolls.
+    @State private var shown: AteMonth?
+
+    init(store: JournalCalendarStore, month: Binding<AteMonth>, now: Date, onDay: @escaping (AteDay) -> Void) {
+        self.store = store
+        self._month = month
+        self.now = now
+        self.onDay = onDay
+        self._shown = State(initialValue: month.wrappedValue)
+    }
+
+    private var current: AteMonth { AteMonth.containing(now) }
+
+    private var range: [AteMonth] {
         let firstYear = min(store.firstYear ?? current.year, month.year)
         let first = AteMonth(year: firstYear, month: 1)
         return (0...max(first.distance(to: current), 0)).map { first.adding(months: $0) }
     }
 
-    /// The months page sideways — the system's own pager, opening on the month asked for.
-    private var months: some View {
-        TabView(selection: $month) {
-            ForEach(monthRange, id: \.self) { page in
-                JournalZoomMonth(month: page, store: store, now: now, onDay: onDay)
-                    .padding(.horizontal, AteMetrics.loose)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    .tag(page)
-                    .task { await store.loadYear(page.year) }
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: JournalMetrics.monthGap) {
+                ForEach(range, id: \.self) { page in
+                    JournalZoomMonth(month: page, store: store, now: now, onDay: onDay)
+                        .task { await store.loadYear(page.year) }
+                }
             }
+            .scrollTargetLayout()
+            .padding(.horizontal, AteMetrics.loose)
+            .padding(.bottom, AteMetrics.loose)
         }
-        .tabViewStyle(.page(indexDisplayMode: .never))
-    }
-
-    // MARK: - Years
-
-    private var yearRange: [Int] {
-        Array(min(store.firstYear ?? current.year, month.year)...current.year)
-    }
-
-    private var years: some View {
-        TabView(selection: Binding(get: { month.year }, set: { year in
-            guard year != month.year else { return }
-            month = AteMonth(year: year, month: year == current.year ? current.month : 12)
-        })) {
-            ForEach(yearRange, id: \.self) { year in
-                JournalZoomYear(year: year, store: store, now: now, onMonth: onMonth)
-                    .padding(.horizontal, AteMetrics.loose)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    .tag(year)
-                    .task { await store.loadYear(year) }
-            }
+        .scrollPosition(id: $shown, anchor: .top)
+        .onChange(of: shown) { _, now in
+            if let now, now != month { month = now }
         }
-        .tabViewStyle(.page(indexDisplayMode: .never))
+        .accessibilityIdentifier("journal.calendar.months")
     }
 }
 
-/// A zoomed-out page's title: the month (or the year) large, and what it adds up to beside it.
-private struct JournalZoomTitle: View {
-    let title: String
-    let trailing: [String]
+// MARK: - The years
+
+/// Every year from the first you wrote in to this one, top to bottom, opening on the year asked for.
+private struct JournalZoomYears: View {
+    let store: JournalCalendarStore
+    @Binding var month: AteMonth
+    let now: Date
+    let onMonth: (AteMonth) -> Void
+
+    @State private var shown: Int?
+
+    init(store: JournalCalendarStore, month: Binding<AteMonth>, now: Date, onMonth: @escaping (AteMonth) -> Void) {
+        self.store = store
+        self._month = month
+        self.now = now
+        self.onMonth = onMonth
+        self._shown = State(initialValue: month.wrappedValue.year)
+    }
+
+    private var current: AteMonth { AteMonth.containing(now) }
+
+    private var range: [Int] {
+        Array(min(store.firstYear ?? current.year, month.year)...current.year)
+    }
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: AteMetrics.regular) {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: JournalMetrics.monthGap) {
+                ForEach(range, id: \.self) { year in
+                    JournalZoomYear(year: year, store: store, now: now, onMonth: onMonth)
+                        .task { await store.loadYear(year) }
+                }
+            }
+            .scrollTargetLayout()
+            .padding(.horizontal, AteMetrics.loose)
+            .padding(.bottom, AteMetrics.loose)
+        }
+        .scrollPosition(id: $shown, anchor: .top)
+        .onChange(of: shown) { _, year in
+            // A year scrolled to: a pinch back in lands on its last month, or this one.
+            guard let year, year != month.year else { return }
+            month = AteMonth(year: year, month: year == current.year ? current.month : 12)
+        }
+        .accessibilityIdentifier("journal.calendar.years")
+    }
+}
+
+/// A zoomed-out page's title: the month (or the year) large, its year muted beside it when it is
+/// not this one (as the month divider sets it), and what it adds up to at the end.
+private struct JournalZoomTitle: View {
+    let title: String
+    var year: String?
+    var trailing: [String] = []
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: AteMonthDividerMetrics.gap) {
             Text(title)
                 .ateTextLine(.monthTitle)
                 .foregroundStyle(AtePalette.automatic.fg)
                 .lineLimit(1)
+            if let year {
+                AteMetaParts(parts: [year])
+            }
             Spacer(minLength: 0)
             if trailing.isEmpty == false {
                 AteMetaParts(parts: trailing)
@@ -111,7 +172,8 @@ private struct JournalZoomMonth: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.loose) {
-            JournalZoomTitle(title: month.name(), trailing: [String(month.year)])
+            let isThisYear = month.year == AteMonth.containing(now).year
+            JournalZoomTitle(title: month.name(), year: isThisYear ? nil : String(month.year))
             LazyVGrid(columns: columns, spacing: JournalMetrics.cellGap) {
                 ForEach(Array(JournalCalendar.weekdayInitials().enumerated()), id: \.offset) { _, initial in
                     Text(initial)

@@ -7,8 +7,9 @@ import SwiftUI
 /// the calendar, the filter). Journal | Saved is a segmented control at the head of the list; under
 /// it the slips, a month's name scrolling with them over its first slip. Scrolled, the wordmark gives
 /// way to the month you are in. The filter is one sheet; while a filter is on its chips sit under
-/// the bar, each with ✕. The calendar is a zoom of this same page — list, month, year — by the
-/// calendar control or a pinch, and a day tapped zooms back in to the list at that day.
+/// the bar, each with ✕. The calendar is a zoom of this same page — list, month, year: the calendar
+/// control toggles list and month, a pinch steps all three, and a day tapped zooms back in to the
+/// list at that day.
 ///
 /// The range, the city and the months are one choice shared by the two shelves, so a filter set on
 /// one is still on when the other is chosen; the order is the Journal's alone.
@@ -126,7 +127,7 @@ struct JournalRoot: View {
             AteGlassToggleItem(
                 icon: .calendar, label: "Calendar", isOn: zoom != .list, identifier: "journal.calendar"
             ) {
-                step(to: zoom.next, via: .button)
+                step(to: zoom.toggled, via: .button)
             }
         }
         if hasSomethingToSort || filters.isFiltering(on: chipShelf) {
@@ -224,6 +225,9 @@ enum JournalMetrics {
     /// The numeral on a photo: `left:7px`, and 10 up from the tile's foot.
     static let numeralInset: CGFloat = 7
     static let numeralBottom: CGFloat = 10
+    /// Between one month (or year) and the next in the calendar's vertical list. The mockup drew a
+    /// single month; the gap is the screen's section spacing.
+    static let monthGap: CGFloat = AteMetrics.section
     /// The year: three columns of small months, 18 apart across and 16 down.
     static let yearColumns = 3
     static let yearColumnGap: CGFloat = 18

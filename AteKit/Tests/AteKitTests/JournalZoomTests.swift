@@ -7,11 +7,13 @@ import Testing
 @Suite("Journal zoom and active chips")
 struct JournalZoomTests {
 
-    @Test("the calendar button steps out, and from the year back to the list")
+    @Test("the calendar button toggles: the list opens the month, one tap from either level closes it")
     func button() {
-        #expect(JournalZoom.list.next == .month)
-        #expect(JournalZoom.month.next == .year)
-        #expect(JournalZoom.year.next == .list)
+        #expect(JournalZoom.list.toggled == .month)
+        #expect(JournalZoom.month.toggled == .list)
+        #expect(JournalZoom.year.toggled == .list)
+        // Never steps through the year: a round trip from the list is two taps.
+        #expect(JournalZoom.list.toggled.toggled == .list)
     }
 
     @Test("fingers together zoom out, apart zoom in, never past either end")

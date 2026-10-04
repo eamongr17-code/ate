@@ -1,8 +1,8 @@
 import Foundation
 
 /// **How far the Journal is zoomed out** (rebuild, 3 Oct): the list, one month, or the year — a
-/// zoom of the same page, never a sheet. The calendar button and a pinch move between them; a day
-/// tapped in the month zooms back in to the list at that day.
+/// zoom of the same page, never a sheet. The calendar button toggles the list and the month; a pinch
+/// steps list, month, year; a day tapped in the month zooms back in to the list at that day.
 public enum JournalZoom: Hashable, Sendable {
     case list, month, year
 
@@ -10,13 +10,13 @@ public enum JournalZoom: Hashable, Sendable {
     public static let pinchOut = 0.8
     public static let pinchIn = 1.25
 
-    /// The calendar button: out to the month, out again to the year, and from the year back to
-    /// the list.
-    public var next: JournalZoom {
+    /// The calendar button, a plain toggle (build 87: "tap twice to get back is a bad pattern"):
+    /// the list opens the month, and the month or the year closes back to the list in one tap. The
+    /// year is reached only by a pinch.
+    public var toggled: JournalZoom {
         switch self {
         case .list: .month
-        case .month: .year
-        case .year: .list
+        case .month, .year: .list
         }
     }
 

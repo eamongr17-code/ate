@@ -1,11 +1,11 @@
 import AteKit
 import SwiftUI
 
-/// The calendar, as a zoom of the Journal: the month, then the year, in place under the same bar and
-/// segment — and a day tapped zooms back in to the list at that day.
+/// The calendar, as a zoom of the Journal: the months, then (by a pinch) the years, in place under the
+/// same bar and segment — and a day tapped zooms back in to the list at that day.
 extension JournalRoot {
 
-    /// The calendar control, or a pinch: to `next`, counted as the calendar's level.
+    /// The calendar control (a toggle), or a pinch: to `next`, counted as the calendar's level.
     func step(to next: JournalZoom, via way: BrowseEvents.CalendarWay) {
         if zoom == .list, next == .month {
             // Out to the month the list is in.
