@@ -228,6 +228,10 @@ enum JournalMetrics {
     /// Between one month (or year) and the next in the calendar's vertical list. The mockup drew a
     /// single month; the gap is the screen's section spacing.
     static let monthGap: CGFloat = AteMetrics.section
+    /// How long the calendar's list waits for its months to lay out before settling on the one it
+    /// opens on.
+    static let settle = Duration.milliseconds(60)
+    static let settleSteps = 3
     /// The year: three columns of small months, 18 apart across and 16 down.
     static let yearColumns = 3
     static let yearColumnGap: CGFloat = 18

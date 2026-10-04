@@ -43,8 +43,12 @@ private struct JournalZoomMonths: View {
     let now: Date
     let onDay: (AteDay) -> Void
 
-    /// The month at the top of the list — where it opens, and what it reports back as it scrolls.
+    /// The month at the top of the list, reported back once you have scrolled it yourself.
     @State private var shown: AteMonth?
+    @State private var hasScrolled = false
+    /// The list waits for the first year to be known: months added above it after it opened would
+    /// push the opening month off the screen.
+    @State private var isReady = false
 
     init(store: JournalCalendarStore, month: Binding<AteMonth>, now: Date, onDay: @escaping (AteDay) -> Void) {
         self.store = store
@@ -56,6 +60,9 @@ private struct JournalZoomMonths: View {
 
     private var current: AteMonth { AteMonth.containing(now) }
 
+    /// Where the list opens: the month asked for.
+    private var opening: AteMonth { month }
+
     private var range: [AteMonth] {
         let firstYear = min(store.firstYear ?? current.year, month.year)
         let first = AteMonth(year: firstYear, month: 1)
@@ -63,21 +70,54 @@ private struct JournalZoomMonths: View {
     }
 
     var body: some View {
+        ZStack {
+            if isReady {
+                ScrollViewReader { proxy in
+                    list.task {
+                        // Again and again: the first jump lands on the lazy stack's estimate of the months
+                        // above; the next, once they are laid out, on the month itself.
+                        proxy.scrollTo(opening, anchor: .top)
+                        for _ in 0..<JournalMetrics.settleSteps {
+                            try? await Task.sleep(for: JournalMetrics.settle)
+                            proxy.scrollTo(opening, anchor: .top)
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .task {
+            await store.loadFirstYear()
+            isReady = true
+        }
+    }
+
+    private var list: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: JournalMetrics.monthGap) {
                 ForEach(range, id: \.self) { page in
+                    // Each month carries its own inset, so a jump to it never scrolls sideways.
                     JournalZoomMonth(month: page, store: store, now: now, onDay: onDay)
+                        .padding(.horizontal, AteMetrics.loose)
                         .task { await store.loadYear(page.year) }
                 }
             }
             .scrollTargetLayout()
-            .padding(.horizontal, AteMetrics.loose)
             .padding(.bottom, AteMetrics.loose)
         }
         .scrollPosition(id: $shown, anchor: .top)
-        .onChange(of: shown) { _, now in
-            if let now, now != month { month = now }
+        .onScrollPhaseChange { _, phase in
+            if phase == .interacting { hasScrolled = true }
         }
+        .onChange(of: shown) { _, now in
+            // Only a scroll of yours moves the month: the opening position is clamped at the
+            // foot (this month cannot reach the top), and must not read as a choice.
+            guard hasScrolled, let now, now != month else { return }
+            month = now
+        }
+        // This month (the usual way in) is the foot of the list, which can never reach the top:
+        // open at the foot. Any other month opens at the top through the scroll position.
+        .defaultScrollAnchor(month == current ? .bottom : .top, for: .initialOffset)
         .accessibilityIdentifier("journal.calendar.months")
     }
 }
@@ -92,6 +132,10 @@ private struct JournalZoomYears: View {
     let onMonth: (AteMonth) -> Void
 
     @State private var shown: Int?
+    @State private var hasScrolled = false
+    /// The list waits for the first year to be known: months added above it after it opened would
+    /// push the opening month off the screen.
+    @State private var isReady = false
 
     init(store: JournalCalendarStore, month: Binding<AteMonth>, now: Date, onMonth: @escaping (AteMonth) -> Void) {
         self.store = store
@@ -103,28 +147,57 @@ private struct JournalZoomYears: View {
 
     private var current: AteMonth { AteMonth.containing(now) }
 
+    private var opening: Int { month.year }
+
     private var range: [Int] {
         Array(min(store.firstYear ?? current.year, month.year)...current.year)
     }
 
     var body: some View {
+        ZStack {
+            if isReady {
+                ScrollViewReader { proxy in
+                    list.task {
+                        // Again and again: the first jump lands on the lazy stack's estimate of the months
+                        // above; the next, once they are laid out, on the month itself.
+                        proxy.scrollTo(opening, anchor: .top)
+                        for _ in 0..<JournalMetrics.settleSteps {
+                            try? await Task.sleep(for: JournalMetrics.settle)
+                            proxy.scrollTo(opening, anchor: .top)
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .task {
+            await store.loadFirstYear()
+            isReady = true
+        }
+    }
+
+    private var list: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: JournalMetrics.monthGap) {
                 ForEach(range, id: \.self) { year in
                     JournalZoomYear(year: year, store: store, now: now, onMonth: onMonth)
+                        .padding(.horizontal, AteMetrics.loose)
                         .task { await store.loadYear(year) }
                 }
             }
             .scrollTargetLayout()
-            .padding(.horizontal, AteMetrics.loose)
             .padding(.bottom, AteMetrics.loose)
         }
         .scrollPosition(id: $shown, anchor: .top)
+        .onScrollPhaseChange { _, phase in
+            if phase == .interacting { hasScrolled = true }
+        }
         .onChange(of: shown) { _, year in
-            // A year scrolled to: a pinch back in lands on its last month, or this one.
-            guard let year, year != month.year else { return }
+            // A year you scrolled to: a pinch back in lands on its last month, or this one.
+            guard hasScrolled, let year, year != month.year else { return }
             month = AteMonth(year: year, month: year == current.year ? current.month : 12)
         }
+        .defaultScrollAnchor(month.year == current.year ? .bottom : .top, for: .initialOffset)
         .accessibilityIdentifier("journal.calendar.years")
     }
 }
