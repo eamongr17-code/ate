@@ -49,7 +49,7 @@ struct FeedFollowingPage: View {
         .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
         .contentMargins(.bottom, AteMetrics.tabBarScrollInset, for: .scrollContent)
-        .ateRootCollapse($isCollapsed)
+        .atePageCollapse($isCollapsed)
         .ateGround()
         .ateCollapsingTitle(FeedEditionCopy.following, isCollapsed: isCollapsed)
         .refreshable { await store.refresh() }

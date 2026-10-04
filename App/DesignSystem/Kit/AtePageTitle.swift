@@ -44,7 +44,8 @@ enum AtePageTitleMetrics {
 extension View {
     /// A pushed page with its own large title (``AtePageTitle``): nothing in the bar at rest but the
     /// back and the page's trailing items; once the title has scrolled under the bar
-    /// (``ateRootCollapse(_:)``), the name and its subtitle take the bar's leading slot, as a root's do.
+    /// (``atePageCollapse(_:)``), the name and its subtitle take the bar's leading slot, as a root's do.
+    /// The bar lies on the header's ground (``ateHeaderGround()``), as every pushed page's does.
     func ateCollapsingTitle(_ title: String, subtitle: String? = nil, isCollapsed: Bool) -> some View {
         navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -59,5 +60,27 @@ extension View {
                 }
             }
             .animation(AteRootHeaderMetrics.collapse, value: isCollapsed)
+            .ateHeaderGround()
+    }
+
+    /// ``ateRootCollapse(_:)`` for a pushed page with its own large title: the same half-row
+    /// threshold, under the soft scroll edge every pushed page has. (The roots' `.hard` edge drew a
+    /// hairline and a blurred ghost of the content under a pushed bar — build 88.)
+    func atePageCollapse(_ isCollapsed: Binding<Bool>) -> some View {
+        onScrollGeometryChange(for: Bool.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top > AteRootHeaderMetrics.collapseAfter
+        } action: { _, collapsed in
+            isCollapsed.wrappedValue = collapsed
+        }
+        .scrollEdgeEffectStyle(.soft, for: .top)
+    }
+
+    /// A pushed page that lays out its own bar items (the entry page: its byline or place, Share,
+    /// •••): the inline bar, the system's title removed, on the header's ground like every other
+    /// pushed page (``ateInlineTitle(_:subtitle:)``, ``ateCollapsingTitle(_:subtitle:isCollapsed:)``).
+    func atePushedBar() -> some View {
+        navigationBarTitleDisplayMode(.inline)
+            .toolbar(removing: .title)
+            .ateHeaderGround()
     }
 }

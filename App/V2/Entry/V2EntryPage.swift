@@ -54,8 +54,7 @@ private struct V2EntryScreen: View {
         content
             .ateGround()
             .toolbar { toolbar }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar(removing: .title)
+            .atePushedBar()
             .task {
                 services.savedDishes.add(model)
                 await model.load()

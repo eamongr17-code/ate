@@ -67,7 +67,7 @@ struct V2TagEditionPage: View {
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
         .scrollIndicators(.hidden)
-        .ateRootCollapse($isCollapsed)
+        .atePageCollapse($isCollapsed)
         .ateGround()
         .ateCollapsingTitle(tag.label, subtitle: store.cityTitle, isCollapsed: isCollapsed)
         .toolbar {
