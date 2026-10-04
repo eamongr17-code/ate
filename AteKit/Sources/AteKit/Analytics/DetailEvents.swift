@@ -45,6 +45,8 @@ public enum DetailSource: String, Sendable, CaseIterable, Codable {
     case similar
     /// A tag's page — the list a dish page's "More to explore" chip opens (round 7).
     case tag
+    /// An entry page's "More at" or "More like this" shelf (build 87).
+    case entryMore = "entry_more"
 }
 
 /// Which affordance a "log" call to action was tapped on.
@@ -111,6 +113,14 @@ public enum DetailEvents {
     /// along the carousel people go before one earns a tap.
     public static func similarDishOpened(position: Int) -> AnalyticsEvent {
         AnalyticsEvent(name: "similar_dish_opened", parameters: ["position": String(position)])
+    }
+
+    /// A card on an entry page's "More at <place>" or "More like this" shelf was tapped (build 87).
+    /// `position` is 1-based, as `similar_dish_opened`'s.
+    public static func entryMoreOpened(section: EntryMoreStore.Section, position: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "entry_more_opened", parameters: [
+            "section": section.rawValue, "position": String(position)
+        ])
     }
 
     /// A tag's page of dishes was shown (round 7).
