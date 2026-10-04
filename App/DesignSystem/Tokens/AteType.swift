@@ -243,7 +243,6 @@ extension View {
     func ateText(_ style: AteTextStyle) -> some View {
         modifier(AteTextModifier(style: style))
     }
-
 }
 
 /// Reads `dynamicTypeSize` from the environment, which is what makes the whole ramp re-lay out when

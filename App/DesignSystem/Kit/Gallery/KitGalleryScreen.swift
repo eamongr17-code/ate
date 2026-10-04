@@ -179,18 +179,11 @@ struct KitGalleryScreen: View {
                 AteGlassDisc(icon: .check, label: "Done", role: .primary, isEnabled: false) {}
                 AteGlassDisc(icon: .check, label: "Done", role: .primary, isBusy: true) {}
             }
-            row("Group of three with a count · one Menu") {
+            row("Group of three with a count") {
                 AteGlassGroup {
                     AteGlassItem(icon: .photoStack, label: "Photos", badge: 5) {}
                     AteGlassItem(icon: .calendar, label: "Calendar") {}
                     AteGlassItem(icon: .listFilter, label: "Filter") {}
-                }
-                AteGlassGroup {
-                    AteGlassMenuItem(icon: .place, label: "Area") {
-                        Button("Near me") {}
-                        Button("Everywhere") {}
-                        Button("Melbourne") {}
-                    }
                 }
             }
             row("Over a photo") {

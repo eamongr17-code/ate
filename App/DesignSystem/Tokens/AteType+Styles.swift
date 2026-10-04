@@ -23,14 +23,6 @@ extension AteTextStyle {
     static let dishScore = AteTextStyle(
         voice: .display, size: 64, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
     )
-    /// A dish in the "what to order" list, and its score beside it. 17/24 — a menu line, not a
-    /// slip's dish (20/26): the list is scanned, and the photo carries the weight.
-    static let menuDish = AteTextStyle(
-        voice: .display, size: 17, weight: 600, trackingEm: -0.01, lineHeight: 1.2, textStyle: .body
-    )
-    static let menuScore = AteTextStyle(
-        voice: .display, size: 24, weight: 800, trackingEm: -0.025, lineHeight: 1.0, textStyle: .title2
-    )
     /// The place at the head of the entry page — the biggest type in the app after a screen's own
     /// name, because on an entry the place IS the title. 38pt.
     static let entryPlace = AteTextStyle(
@@ -39,10 +31,6 @@ extension AteTextStyle {
     /// A sheet's title. 30pt.
     static let sheetTitle = AteTextStyle(
         voice: .display, size: 30, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
-    )
-    /// A handle at the head of a profile. 32pt.
-    static let profileTitle = AteTextStyle(
-        voice: .display, size: 32, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
     )
     /// The one line an empty slip says. 34pt — it sits inside paper, not on the ground, so it is a
     /// step down from ``screenTitle``.
@@ -63,8 +51,6 @@ extension AteTextStyle {
     )
     /// "Pick a handle." — first run's one question, at the size of a place heading its own page.
     static var handleTitle: AteTextStyle { placeTitle }
-    /// "Your ratings" — `.h` at 38 on `Ratings.dc.html`, the entry page's title size, not a tab's 40.
-    static var ratingsTitle: AteTextStyle { entryPlace }
     /// What is typed into the handle field. `.h` at 30 — and at **−2%**, not `.h`'s own −3.5%:
     /// `Handle.dc.html` overrides the tracking on that one input, because a handle is read letter
     /// by letter and the title's tight setting closes `@e` up into one shape.
@@ -95,10 +81,6 @@ extension AteTextStyle {
     static let rowTitle = AteTextStyle(
         voice: .display, size: 17, weight: 600, trackingEm: -0.01, lineHeight: 1.2, textStyle: .body
     )
-    /// `Search`'s own field: `.ui` 17 at `font-weight:500`, lighter than a sheet's (`rowTitle`).
-    static let searchField = AteTextStyle(
-        voice: .display, size: 17, weight: 500, trackingEm: -0.01, lineHeight: 1.2, textStyle: .body
-    )
     /// A smaller control label: segments, toolbar keys, handles. 14pt.
     static let controlSmall = AteTextStyle(
         voice: .display, size: 14, weight: 600, trackingEm: -0.01, lineHeight: 1.2, textStyle: .subheadline
@@ -106,15 +88,6 @@ extension AteTextStyle {
     /// The one ink pill per sheet, and the Share button. 16pt/700.
     static let button = AteTextStyle(
         voice: .display, size: 16, weight: 700, trackingEm: -0.01, lineHeight: 1.2, textStyle: .body
-    )
-    /// A tab bar label. 10.5pt, bold when the tab is current. Capped: it lives in a 66pt pill.
-    static let tabLabel = AteTextStyle(
-        voice: .display, size: 10.5, weight: 500, trackingEm: 0, lineHeight: 1.2,
-        textStyle: .caption2, maximumSize: 14
-    )
-    static let tabLabelActive = AteTextStyle(
-        voice: .display, size: 10.5, weight: 700, trackingEm: 0, lineHeight: 1.2,
-        textStyle: .caption2, maximumSize: 14
     )
     /// The count in the journal header's coral badge. 11pt, capped — it lives in an 18pt disc.
     static let badge = AteTextStyle(
@@ -195,14 +168,6 @@ extension AteTextStyle {
 
     // Receipts — DM Mono, and only here. Dish rows and scores only: no note under a line, ever.
 
-    /// A receipt line item. 13pt.
-    static let receiptLine = AteTextStyle(
-        voice: .mono, size: 13, weight: 400, lineHeight: 1.65, textStyle: .footnote, maximumSize: 20
-    )
-    /// The score at the end of a line item — the "price" column. 13pt/500.
-    static let receiptScore = AteTextStyle(
-        voice: .mono, size: 13, weight: 500, lineHeight: 1.65, textStyle: .footnote, maximumSize: 20
-    )
     /// The numerals under the ratings histogram. 10pt DM Mono, plain — the only mono outside a
     /// receipt, because a chart's scale is a printed measure and reads as one.
     static let scaleLabel = AteTextStyle(

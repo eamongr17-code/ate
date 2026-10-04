@@ -160,39 +160,6 @@ struct AteChip: View {
     }
 }
 
-/// The one ink pill per sheet, and the Share button. 56pt, full width, foreground-on-ground inverted.
-struct AteButton: View {
-    var icon: AteIcon?
-    let title: String
-    /// 56 by default; `MainEmpty`'s is 52.
-    var height: CGFloat = AteMetrics.buttonHeight
-    /// `nil` fills the width it is given (a sheet's one pill). A number hugs the title with that much
-    /// either side instead — `MainEmpty`'s `padding:0 28px`.
-    var hugPadding: CGFloat?
-    /// The quieter of two pills side by side — `SummaryFinal`'s white Done beside the ink Share: the
-    /// surface's chip colour with its own foreground, where the primary is `fg` on `inverted`.
-    var isSecondary = false
-    let action: () -> Void
-
-    @Environment(\.atePalette) private var palette
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: AteMetrics.snug) {
-                if let icon { icon.view(size: 18) }
-                Text(title).ateText(.button)
-            }
-            .padding(.horizontal, hugPadding ?? 0)
-            .frame(maxWidth: hugPadding == nil ? .infinity : nil)
-            .atePillHeight(height)
-            .background(isSecondary ? palette.chip : palette.solid, in: .capsule)
-            .foregroundStyle(isSecondary ? palette.fg : palette.inverted)
-            .contentShape(.capsule)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 /// One choice in a segmented pill.
 struct AteSegment<Value: Hashable>: Identifiable {
     let value: Value
@@ -250,31 +217,3 @@ struct AteSegments<Value: Hashable>: View {
     private static var hugPadding: CGFloat { 14 }
     private static var hitOutset: AteHitOutset { AteHitOutset(height: AteMetrics.segmentHeight) }
 }
-
-#if DEBUG
-private struct RowsPreview: View {
-    @State private var segment = 0
-    @State private var picked = 1
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: AteMetrics.section) {
-            AteSegments(options: [AteSegment(0, "Journal"), AteSegment(1, "Saved")], selection: $segment)
-            HStack {
-                AteChip(icon: .place, title: "Melbourne", action: {})
-                AteChip(title: "All time")
-            }
-            VStack(spacing: 0) {
-                AteListRow(title: "Tipo 00", subtitle: "361 Little Bourke St", action: {})
-                AteRadioRow(title: "Tipo 00", subtitle: "Italian", isSelected: picked == 0) { picked = 0 }
-                AteRadioRow(title: "Kisume", subtitle: "Japanese", isSelected: picked == 1) { picked = 1 }
-            }
-            AteButton(icon: .share, title: "Share", action: {})
-        }
-        .padding(AteMetrics.gutter)
-        .frame(maxHeight: .infinity, alignment: .top)
-        .ateGround()
-    }
-}
-
-#Preview("Rows and controls") { RowsPreview() }
-#endif

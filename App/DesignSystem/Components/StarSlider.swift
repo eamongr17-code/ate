@@ -311,22 +311,3 @@ enum AteHaptics {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 }
-
-#if DEBUG
-private struct StarSliderPreview: View {
-    @State private var rating: Rating? = Rating(rounding: 4.5)
-    @State private var unrated: Rating?
-
-    var body: some View {
-        VStack(spacing: AteMetrics.section) {
-            StarSlider(dishName: "Tagliatelle al ragù", rating: $rating)
-            StarSlider(dishName: "Prawn spaghetti", rating: $unrated)
-        }
-        .padding(AteMetrics.gutter)
-        .frame(maxHeight: .infinity)
-        .ateGround()
-    }
-}
-
-#Preview("Star slider") { StarSliderPreview() }
-#endif

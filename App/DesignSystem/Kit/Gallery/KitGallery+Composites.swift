@@ -168,7 +168,7 @@ extension KitGalleryScreen {
                     AteGlassItem(icon: .listFilter, label: "Filter") {}
                 }
                 AteRootHeader(title: .text("Feed"), subtitle: "Melbourne") {
-                    AteGlassMenuItem(icon: .place, label: "Area") { Button("Near me") {} }
+                    AteGlassItem(icon: .place, label: "Area") {}
                     AteGlassItem(icon: .heart, label: "Cravings") {}
                 }
                 AteRootHeader(title: .text("You")) {

@@ -13,52 +13,6 @@ struct AteCityOption: Identifiable, Hashable {
     static let everywhere = AteCityOption(id: everywhereID, title: "Everywhere")
 }
 
-/// **The one city picker** (round 5, Eamon's pick: pills) — the filter sheet's City section and the
-/// Feed's location sheet are the same control, so a city is picked the same way everywhere
-/// (AGENTS.md rule 2): a wrap of pills, the chosen one ink.
-///
-/// Picking never closes anything by itself — the caller decides (the filter sheet waits for Done;
-/// the Feed's sheet closes on the pick).
-struct AteCityPicker: View {
-    private static let stillPillWidths: [CGFloat] = [96, 72, 88]
-
-    let options: [AteCityOption]
-    let selection: String
-    var title: String? = "City"
-    /// The cities are still arriving: still pills where they will be (#83's rule — the sheet rises
-    /// full, never jumps).
-    var isLoading = false
-    var textStyle: AteTextStyle = .controlSmall
-    let onPick: (AteCityOption) -> Void
-
-    var body: some View {
-        if let title {
-            AteFilterSection(title: title, scrolls: false) { pills }
-        } else {
-            pills
-        }
-    }
-
-    private var pills: some View {
-        AteFlow(spacing: AteMetrics.snug) {
-            ForEach(options) { option in
-                AteFilterChoice(
-                    title: option.title, isOn: option.id == selection, icon: option.icon, textStyle: textStyle
-                ) {
-                    onPick(option)
-                }
-                .accessibilityIdentifier("city.\(option.id)")
-            }
-            if isLoading {
-                ForEach(Self.stillPillWidths, id: \.self) { width in
-                    AteSkeletonBar(width: width, height: AteFilterPill.height, palette: .surface)
-                        .accessibilityHidden(true)
-                }
-            }
-        }
-    }
-}
-
 extension AteCityOption {
     /// The options for a list of cities, Everywhere first — and the current choice kept on the list
     /// when it has dropped off it (it is still the reader's, and still visibly the one that is on).

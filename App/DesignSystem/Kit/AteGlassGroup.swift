@@ -58,26 +58,6 @@ struct AteGlassItem: View {
     }
 }
 
-/// A single-choice selector in the group — a native `Menu` on its icon, never a sheet (the Feed's
-/// area: Near me, Everywhere, the cities).
-struct AteGlassMenuItem<MenuContent: View>: View {
-    let icon: AteIcon
-    let label: String
-    @ViewBuilder var menu: MenuContent
-
-    @Environment(\.atePalette) private var palette
-
-    var body: some View {
-        Menu {
-            menu
-        } label: {
-            AteGlassItemFace(icon: icon, badge: nil)
-        }
-        .foregroundStyle(palette.fg)
-        .accessibilityLabel(label)
-    }
-}
-
 private struct AteGlassItemFace: View {
     let icon: AteIcon
     let badge: Int?

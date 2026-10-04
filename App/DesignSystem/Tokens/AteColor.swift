@@ -127,26 +127,6 @@ enum AteColor {
     static let groundInk = groundDark
 }
 
-/// **The chrome's glass** (round 5): the app's own frosted surface for the tab bar, the `+`, the
-/// top-corner buttons and the month marker — replacing iOS 26's Liquid Glass, which clashed with
-/// everything around it. Each colour is read off the system bar it replaces, at rest over the
-/// ground (build 80, iPhone 17 Pro): the frost over the ground comes out at `fill`, the rim is its
-/// hairline edge, `selection` is the current tab's pill, and the two item tones are the ink the
-/// system rendered its icons and labels in. Dark takes the round-5 dark palette's own values (#83):
-/// the plum card under the tint, the raised plum for the rim and the pill, the warm off-white ink.
-enum AteGlassColor {
-    /// Laid over the backdrop blur at ``tintOpacity``.
-    static let tint = Color(light: Color(hex: 0xFFF9F1), dark: AteColor.fieldDark)
-    static let tintOpacity: Double = 0.94
-    static let rim = Color(light: Color.white.opacity(0.75), dark: AteColor.raisedDark)
-    static let selection = Color(light: Color(hex: 0xECE5DC), dark: AteColor.raisedDark)
-    static let item = Color(light: Color(hex: 0x1E1810), dark: AteColor.fgDark)
-    static let itemCurrent = Color(light: Color(hex: 0x1A070E), dark: AteColor.fgDark)
-    /// The top frost's wash over its blur: the ground, so the frost reads as linen (or ink), never
-    /// grey.
-    static let frostWash = AteColor.ground
-}
-
 /// **The journal calendar's marks** (round 7, `CalendarMonth` / `CalendarYear`): a 5.0 day is
 /// butter, a 6 day brick — the score's own colours, never decoration — and a quiet day is the
 /// artboard's `#D9D2C8` dot (the raised plum in dark).

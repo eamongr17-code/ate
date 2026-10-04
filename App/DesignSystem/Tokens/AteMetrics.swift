@@ -95,9 +95,6 @@ enum AteMetrics {
     static let listGutter: CGFloat = cardGutter
     /// Where content starts under the status bar.
     static let contentTop: CGFloat = 60
-    /// The top bar every pushed page shows (round 5: the app's own, in the strip iOS 26's inline
-    /// navigation bar took), under the status bar.
-    static let navigationBar: CGFloat = 54
     /// Inside a slip or a receipt, either side.
     static let slipPadding: CGFloat = 16
     /// …above its contents when it opens on a byline (`padding:12px 16px 14px`)…
@@ -187,14 +184,9 @@ enum AteMetrics {
     /// Bottom inset for a tab screen's scrolling content, so the last slip clears the tab bar
     /// (design rule 10: it runs off under the bar rather than stopping dead above it).
     static let tabBarScrollInset: CGFloat = 64
-    /// A tab icon in the system bar — the artboard's 22 plus the 2 the bar's item box leaves
-    /// around a symbol.
-    static let tabIcon: CGFloat = 24
 
     /// Between a sheet's bands.
     static let sheetGap: CGFloat = 14
-    /// A sheet's clearance above the home indicator, under its one ink pill.
-    static let sheetBottom: CGFloat = 34
 
     /// A chip: the small pill that carries a place, a filter, a count.
     static let chipHeight: CGFloat = 32
@@ -220,8 +212,6 @@ enum AteMetrics {
 
     /// A photo in a static, tilted cluster — journal slip.
     static let clusterPhoto: CGFloat = 80
-    /// …on a `Suggestions` row, a little bigger, with the same tilt and overlap.
-    static let clusterPhotoSuggestion: CGFloat = 88
     /// …in the composer, biggest of the three.
     static let clusterPhotoComposer: CGFloat = 90
     /// How far cluster photos overlap.

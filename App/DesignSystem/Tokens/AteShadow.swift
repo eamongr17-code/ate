@@ -18,19 +18,6 @@ struct AteShadow: Equatable, Sendable {
     /// The composer's star popover: `0 18px 40px -18px rgba(36,20,31,.45)` (its 1.5px ink ring is a
     /// stroke, drawn by the panel itself).
     static let panel = AteShadow(colour: AteColor.ink.opacity(0.45), offsetY: 18, blur: 40, spread: -18)
-
-    /// The glass tab bar's lift off the page (round 4, Eamon's pick): very light, wide and low, ink on
-    /// linen; in dark mode the contact shadow's black, a touch stronger because ink on ink needs it.
-    static let tabBarLight = AteShadow(colour: AteColor.ink.opacity(0.26), offsetY: 8, blur: 44, spread: 0)
-    static let tabBarDark = AteShadow(colour: .black.opacity(0.45), offsetY: 4, blur: 28, spread: 0)
-    /// The smaller glass controls' lift (round 5: the top-corner buttons, the month marker) — the
-    /// soft halo iOS 26's glass buttons cast, which the custom glass keeps.
-    static let glassLight = AteShadow(colour: AteColor.ink.opacity(0.10), offsetY: 6, blur: 24, spread: 0)
-    /// In dark mode a halo has nothing to lift off: black around a disc on the ink ground read as a
-    /// smudge (Eamon, round 6). The controls take the dark artboards' own chrome shadow instead
-    /// (`MainInk`'s tab bar, `0 8px 22px -14px rgba(36,20,31,.4)`) — ink, shrunk before it blurs, so
-    /// it stays tucked under the glass's foot and the tint and rim carry the edge.
-    static let glassDark = AteShadow(colour: AteColor.ink.opacity(0.40), offsetY: 8, blur: 22, spread: -14)
 }
 
 extension View {

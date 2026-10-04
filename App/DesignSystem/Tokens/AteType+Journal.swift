@@ -8,39 +8,10 @@ extension AteTextStyle {
     static let monthTitle = AteTextStyle(
         voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
     )
-    /// The year after the month in the compact header: "August **2026**" — 20 at 600, muted.
-    static let compactTitleYear = AteTextStyle(
-        voice: .display, size: 20, weight: 600, trackingEm: -0.025, lineHeight: 1.0, textStyle: .headline,
-        maximumSize: 26
-    )
-    /// A filter chip's label, and the chip sheets' pills: `.b` 15 at 600.
-    static let chipLabel = AteTextStyle(
-        voice: .display, size: 15, weight: 600, trackingEm: 0, lineHeight: 1.2, textStyle: .subheadline
-    )
-    /// A chip sheet's title: "Rating", `.h` 28, `-0.8px`.
-    static let chipSheetTitle = AteTextStyle(
-        voice: .display, size: 28, weight: 800, trackingEm: -0.029, lineHeight: 1.0, textStyle: .title
-    )
-    /// …and the choice it reads out on the right: "4.0 and up", 17 at 700.
-    static let chipSheetValue = AteTextStyle(
-        voice: .display, size: 17, weight: 700, trackingEm: 0, lineHeight: 1.2, textStyle: .body
-    )
-    /// The sheet's ink pill, "Show 23 entries": 17 at 700.
-    static let chipSheetAction = AteTextStyle(
-        voice: .display, size: 17, weight: 700, trackingEm: 0, lineHeight: 1.2, textStyle: .body
-    )
-    /// …and its Clear beside it: 17 at 600, muted.
-    static let chipSheetClear = AteTextStyle(
-        voice: .display, size: 17, weight: 600, trackingEm: 0, lineHeight: 1.2, textStyle: .body
-    )
     /// The numbers under a range slider's track: 14, muted.
     static let sliderLabel = AteTextStyle(
         voice: .display, size: 14, weight: 400, trackingEm: 0, lineHeight: 1.2, textStyle: .footnote,
         maximumSize: 18
-    )
-    /// The year beside the calendar's month: 17 at 600, muted.
-    static let calendarYear = AteTextStyle(
-        voice: .display, size: 17, weight: 600, trackingEm: 0, lineHeight: 1.2, textStyle: .body
     )
     /// The weekday initials over the grid: 12 at 600.
     static let calendarWeekday = AteTextStyle(
@@ -57,18 +28,9 @@ extension AteTextStyle {
         voice: .display, size: 12, weight: 700, trackingEm: 0, lineHeight: 1.2, textStyle: .caption,
         maximumSize: 16
     )
-    /// The ★5 / ★6 badge on a day: DM Mono 10, `line-height:16px`.
-    static let calendarBadge = AteTextStyle(
-        voice: .mono, size: 10, weight: 400, trackingEm: 0, lineHeight: 1.6, textStyle: .caption2,
-        maximumSize: 13
-    )
     /// A month's name over its dots in the year: 14 at 700.
     static let calendarMiniMonth = AteTextStyle(
         voice: .display, size: 14, weight: 700, trackingEm: 0, lineHeight: 1.2, textStyle: .footnote,
         maximumSize: 18
-    )
-    /// The year's legend: "A visit", "A 5.0", "A 6" — 13, muted.
-    static let calendarLegend = AteTextStyle(
-        voice: .display, size: 13, weight: 400, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote
     )
 }

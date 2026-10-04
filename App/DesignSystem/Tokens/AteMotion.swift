@@ -24,15 +24,6 @@ enum AteMotion {
     /// A page that loads in pieces filling in once, over its still skeleton (round 4: no blinking,
     /// no shimmer — a still placeholder, then one fade). Gate with ``SwiftUICore/View/ateAnimation(_:value:)``.
     static let fillIn = Animation.easeOut(duration: 0.3)
-    /// Chrome, not theatre (round 5): the tab bar minimising and coming back — one capsule morphing
-    /// into the disc and back on a soft spring — and the current tab's pill sliding between tabs.
-    static let barMorph = Animation.spring(response: 0.42, dampingFraction: 0.84)
-    /// A tab root's floating header coming back on the way up (and going on the way down): out of a
-    /// blur into focus, fading in.
-    static let headerFocus = Animation.easeOut(duration: 0.32)
-    /// The journal zooming out to its calendar and back (round 7): the list, the month and the year
-    /// settling into one another on a soft spring.
-    static let calendarZoom = Animation.spring(response: 0.38, dampingFraction: 0.9)
 }
 
 extension View {

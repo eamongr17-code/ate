@@ -74,8 +74,6 @@ struct ShareCard: View {
         switch artefact {
         case .entry(let receipt, _):
             ReceiptView(receipt: receipt, isPrinting: isPrinting, breathes: breathes, onAddPlace: onAddPlace)
-        case .statement(let statement, let handle):
-            StatementReceiptView(statement: statement, handle: handle)
         }
     }
 
@@ -108,17 +106,14 @@ struct ShareCard: View {
     }
 }
 
-/// What a share card is a picture of. Two artefacts, one layout: an entry's receipt with its photos,
-/// or a month's statement, which has no photos because a statement is a total, not a meal.
+/// What a share card is a picture of: an entry's receipt with its photos.
 enum ShareArtefact: Equatable {
     case entry(AteReceipt, photos: [URL])
-    case statement(MonthlyStatement, handle: String)
 
-    /// Which entry left the app, for `receipt_shared`. A statement has none.
+    /// Which entry left the app, for `receipt_shared`.
     var entryID: UUID? {
         switch self {
         case .entry(let receipt, _): receipt.id
-        case .statement: nil
         }
     }
 
@@ -126,7 +121,6 @@ enum ShareArtefact: Equatable {
     var photoURLs: [URL] {
         switch self {
         case .entry(_, let photos): Array(photos.prefix(2))
-        case .statement: []
         }
     }
 
@@ -136,7 +130,6 @@ enum ShareArtefact: Equatable {
         switch self {
         case .entry(let receipt, _):
             "\(receipt.items.isEmpty ? receipt.place : receipt.items.map(\.name).joined(separator: ", ")) — Ate"
-        case .statement(let statement, _): "\(statement.month.title) — Ate"
         }
     }
 }

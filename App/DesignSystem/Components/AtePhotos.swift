@@ -322,22 +322,6 @@ enum AtePhotoAngles {
     static let dishHero: [Double] = [-6, 4]
 }
 
-/// A straight thumbnail — the only way a photo appears in a scrolling list (design rule 6). 16pt
-/// radius, no tilt, no ring.
-struct AteThumbnail: View {
-    let photo: AtePhoto
-    var side: CGFloat = AteMetrics.thumbnail
-    /// 16, the design's thumbnail corner; the place menu's 48pt tiles draw 14.
-    var radius: CGFloat = AteMetrics.receiptTop
-
-    var body: some View {
-        AtePhotoContent(photo: photo, size: .forSide(side))
-            .frame(width: side, height: side)
-            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .accessibilityHidden(true)
-    }
-}
-
 // `DEBUG || BETA`: the gallery these feed ships to TestFlight.
 #if DEBUG || BETA
 extension AtePhoto {
@@ -368,8 +352,6 @@ extension AtePhoto {
     VStack(alignment: .leading, spacing: AteMetrics.section) {
         PhotoCluster(photos: AtePhoto.swatches)
         PhotoCluster(photos: [AtePhoto.swatch(AteColor.coral)], side: AteMetrics.clusterPhotoComposer)
-        AteThumbnail(photo: AtePhoto.swatch(AteColor.lilac))
-        AteThumbnail(photo: AtePhoto())
     }
     .padding(AteMetrics.gutter)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

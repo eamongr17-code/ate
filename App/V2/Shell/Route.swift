@@ -22,8 +22,6 @@ enum Route: Hashable {
     case tag(DishTagRoute)
     /// One bar of your own histogram, opened — the dishes you gave that score.
     case ratings(score: Double)
-    /// A month, totalled and printed.
-    case statement(StatementMonth)
     /// Settings and the four pages that hang off it. One case, because they are one branch of the
     /// app and the shell should not learn four new destinations to reach it.
     case settings(SettingsPage)
@@ -33,7 +31,7 @@ enum Route: Hashable {
     /// Whether this destination exists yet.
     var isBuilt: Bool {
         switch self {
-        case .entry, .suggestions, .profile, .place, .dish, .tag, .ratings, .statement, .settings, .following:
+        case .entry, .suggestions, .profile, .place, .dish, .tag, .ratings, .settings, .following:
             true
         }
     }
