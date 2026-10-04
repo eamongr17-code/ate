@@ -7,7 +7,10 @@ import SwiftUI
 /// row that opened the page knew there were photos but not which.
 struct AteDishHero: View {
     let photos: [AtePhoto]
-    var onTap: ((Int) -> Void)?
+    /// A photo opens the shell's viewer on it — false while the photos are only a preview's.
+    var opensViewer = true
+
+    @Environment(\.atePhotoViewer) private var showPhotos
 
     var body: some View {
         if photos.isEmpty == false {
@@ -18,7 +21,7 @@ struct AteDishHero: View {
                 bottomPadding: 0,
                 overlap: AteDishHeroMetrics.overlap,
                 angles: AtePhotoAngles.dishHero,
-                onTap: onTap
+                onTap: opensViewer ? { showPhotos(photos, at: $0) } : nil
             )
             .frame(maxWidth: .infinity, alignment: .leading)
         }

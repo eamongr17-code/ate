@@ -55,7 +55,6 @@ struct V2PlacePage: View {
         .browseBarTitle(store.name ?? store.previewName, isShown: isCollapsed)
         .refreshable { await store.refresh() }
         .task { await store.load() }
-        .atePhotoViewerHost()
         .accessibilityIdentifier("place.page")
     }
 
@@ -230,15 +229,13 @@ private struct V2MenuPaper<Rows: View>: View {
 }
 
 /// One line of the menu: the kit's menu row. A cover photo is its own control and opens the photo
-/// viewer; a letter tile is part of the row and opens the dish (build behaviour).
+/// viewer (the kit's); a letter tile is part of the row and opens the dish.
 private struct V2MenuRow: View {
     let dish: MenuDish
     let rank: Int
     let photo: AtePhoto
     let onPhoto: () -> Void
     let onOpen: () -> Void
-
-    @Environment(\.atePhotoViewer) private var showPhotos
 
     var body: some View {
         AteDishRow(
@@ -250,24 +247,9 @@ private struct V2MenuRow: View {
             score: dish.score.map(AteScore.average),
             style: .menu(rank: rank),
             isFirst: rank == 1,
-            onOpen: onOpen
+            onOpen: onOpen,
+            onPhoto: onPhoto
         )
-        .overlay(alignment: .leading) {
-            if dish.coverURL != nil {
-                Button {
-                    onPhoto()
-                    showPhotos([photo], at: 0)
-                } label: {
-                    Color.clear
-                        .frame(width: AteThumbMetrics(.menu).height, height: AteThumbMetrics(.menu).height)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .padding(.leading, AteDishRowMetrics.rankWidth + AteDishRowMetrics.gap)
-                .accessibilityLabel("Photo of \(dish.name)")
-                .accessibilityIdentifier("place.dish.photo")
-            }
-        }
         .accessibilityIdentifier("place.dish")
     }
 }

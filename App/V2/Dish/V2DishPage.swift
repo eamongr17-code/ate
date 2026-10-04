@@ -74,7 +74,6 @@ struct V2DishPage: View {
             guard store.summary != nil else { return }
             await explore?.load()
         }
-        .atePhotoViewerHost()
         .accessibilityIdentifier("dish.page")
     }
 
@@ -164,7 +163,7 @@ struct V2DishPage: View {
 
     /// The tilted pair; a photo opens the viewer on it.
     private func hero(_ photos: [AtePhoto], tappable: Bool = true) -> some View {
-        V2DishHeroPhotos(photos: photos, isTappable: tappable)
+        AteDishHero(photos: photos, opensViewer: tappable)
             .padding(.leading, V2DishMetrics.heroInset)
     }
 
@@ -302,18 +301,6 @@ struct V2DishPage: View {
                 source: .dish
             )
         }
-    }
-}
-
-/// The hero, under the page's photo viewer host — so it reads the viewer the host puts around it.
-private struct V2DishHeroPhotos: View {
-    let photos: [AtePhoto]
-    let isTappable: Bool
-
-    @Environment(\.atePhotoViewer) private var showPhotos
-
-    var body: some View {
-        AteDishHero(photos: photos, onTap: isTappable ? { showPhotos(photos, at: $0) } : nil)
     }
 }
 

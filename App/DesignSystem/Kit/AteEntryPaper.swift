@@ -37,6 +37,8 @@ struct AteEntryPaper: View {
     var onPhoto: ((Int) -> Void)?
     var onReprint: (() -> Void)?
 
+    @Environment(\.atePhotoViewer) private var showPhotos
+
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.pageBandGap) {
             dishBand
@@ -50,7 +52,7 @@ struct AteEntryPaper: View {
                     photos: Array(photos.prefix(AteEntryPaperMetrics.clusterMax)),
                     size: .entry,
                     surface: AteColor.slip,
-                    onTap: onPhoto
+                    onTap: onPhoto ?? { showPhotos(photos, at: $0) }
                 )
                     .frame(maxWidth: .infinity, alignment: .leading)
             }

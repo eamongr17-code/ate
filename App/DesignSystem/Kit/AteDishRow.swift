@@ -30,8 +30,12 @@ struct AteDishRow: View {
     /// Present where the dish can be saved.
     var onSave: (() -> Void)?
     var onOpen: (() -> Void)?
+    /// A menu row's cover photo opens the shell's viewer (a letter tile is part of the row and opens
+    /// the dish); this hears that it did.
+    var onPhoto: (() -> Void)?
 
     @Environment(\.atePalette) private var palette
+    @Environment(\.atePhotoViewer) private var showPhotos
 
     var body: some View {
         HStack(spacing: AteDishRowMetrics.gap) {
@@ -74,11 +78,29 @@ struct AteDishRow: View {
                     .padding(.trailing, -AteDishRowMetrics.saveBleed)
             }
         }
-        .frame(minHeight: isMenu ? AteDishRowMetrics.menuHeight : AteDishRowMetrics.height)
+        .frame(maxWidth: .infinity, minHeight: isMenu ? AteDishRowMetrics.menuHeight : AteDishRowMetrics.height)
+        .overlay(alignment: .leading) {
+            if isMenu, photo.image != nil || photo.url != nil {
+                // Over the thumbnail, beside the row's own button: a button in a button's label is
+                // never heard.
+                Button {
+                    onPhoto?()
+                    showPhotos([photo], at: 0)
+                } label: {
+                    Color.clear
+                        .frame(width: AteThumbMetrics(.menu).height, height: AteThumbMetrics(.menu).height)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, AteDishRowMetrics.rankWidth + AteDishRowMetrics.gap)
+                .accessibilityLabel("Photo of \(name)")
+                .accessibilityIdentifier("place.dish.photo")
+            }
+        }
         .overlay(alignment: .top) {
             if isFirst == false {
                 if isMenu {
-                    AteDashedLine(opacity: AteDishRowMetrics.menuRuleOpacity)
+                    AteDashedRule()
                 } else {
                     AteHairline()
                 }
@@ -103,8 +125,6 @@ enum AteDishRowMetrics {
     /// The menu's rank column: `width:18px`.
     static let rankWidth: CGFloat = 18
     static let subtitleIcon: CGFloat = 13
-    /// `border-top:1.5px dashed rgba(36,20,31,.25)`.
-    static let menuRuleOpacity: Double = 0.25
     /// The bookmark's 44 target sits on the row's edge: the mark lines up with the column.
     static let saveBleed: CGFloat = 12
 }

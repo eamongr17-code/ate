@@ -22,11 +22,17 @@ struct AtePhotoCluster: View {
     var size: Size = .slip
     /// The colour directly behind the cluster — the ring is drawn in it. Defaults to the surface.
     var surface: Color?
+    /// A tapped photo. Unset, a photo opens the shell's viewer on these photos — every cluster is a
+    /// door to the viewer except the composer's, whose photos are being chosen (``onRemove``).
     var onTap: ((Int) -> Void)?
     var onRemove: ((Int) -> Void)?
 
+    @Environment(\.atePhotoViewer) private var showPhotos
+
     var body: some View {
         let metrics = AtePhotoClusterMetrics(size)
+        let photos = photos
+        let showPhotos = showPhotos
         PhotoCluster(
             photos: photos,
             side: metrics.side,
@@ -35,7 +41,7 @@ struct AtePhotoCluster: View {
             bottomPadding: metrics.bottom,
             angles: metrics.angles,
             onRemove: onRemove,
-            onTap: onTap
+            onTap: onTap ?? (onRemove == nil ? { showPhotos(photos, at: $0) } : nil)
         )
     }
 }

@@ -57,6 +57,9 @@ struct TabShell: View {
         }
         .tabBarMinimizeBehavior(.onScrollDown)
         .tint(AteNativeChrome.tint)
+        // One full-screen photo viewer for every photo under the tabs — slips, entries, the dish
+        // hero, the menu. Kit photo surfaces open it themselves.
+        .atePhotoViewerHost()
         .sheet(isPresented: Bindable(app).isComposing) {
             ComposerSheet(app: app)
                 .ateCoversThePage()
