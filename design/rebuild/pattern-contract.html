@@ -49,9 +49,9 @@ td:first-child{font-family:"Bricolage Grotesque",sans-serif;font-weight:600;whit
 <section>
   <h2>2. Top of screen: titles and controls</h2>
   <ul>
-    <li>Tab roots use the native large title that collapses to inline on scroll, with the system scroll-edge effect. No frost, no compact header. The header wastes no space: the title and the glass group share one row. The inline title is centred. The scroll-edge fade must be checked on a phone before a flow is called done: soft and even, never a band with a hard edge.</li>
+    <li>Tab roots use the native large title that collapses to inline on scroll, with the system scroll-edge effect over a ground-colour backing that fades out over 14pt, so body text never shows through the title or controls (Eamon, build 87). No frost, no compact header. The header wastes no space: the title and the glass group share one row. The inline title is centred. The scroll-edge fade must be checked on a phone before a flow is called done: soft and even, never a band with a hard edge.</li>
     <li>Titles: Feed, Search, You are their names. The Journal's title is the wordmark (never typeset) and its inline title on scroll is the month. Settled by Eamon on 3 Oct: the Journal shows the wordmark.</li>
-    <li>A root's controls sit trailing, in <strong>one</strong> glass toolbar group, at most three icons (Journal: photos, calendar, filter. Feed: area, cravings. Search: filter. You: settings). A single-choice selector is a native <code>Menu</code> on its icon, never a sheet.</li>
+    <li>A root's controls sit trailing, in <strong>one</strong> glass toolbar group, at most three icons (Journal: photos, calendar, filter. Feed: area only. Search: filter. You: settings). A single-choice selector is a native <code>Menu</code> on its icon, never a sheet.</li>
     <li>Pushed pages use the inline native bar: back, the page's name or byline, trailing controls as glass items. Overflow is a ••• <code>Menu</code> (Entry: Edit, Delete).</li>
     <li>Subtitles use the bar's native subtitle (Feed: the city). No eyebrow text anywhere.</li>
   </ul>
@@ -60,7 +60,7 @@ td:first-child{font-family:"Bricolage Grotesque",sans-serif;font-weight:600;whit
 <section>
   <h2>3. Sheets and modals</h2>
   <ul>
-    <li>Everything modal is a native sheet with detents and the system grabber: composer (locked), place picker, filter, cravings, actions. Never a full-screen cover except the photo viewer and Welcome.</li>
+    <li>Everything modal is a native sheet with detents and the system grabber: composer (locked), place picker, filter, actions. Never a full-screen cover except the photo viewer and Welcome.</li>
     <li>Corners: <strong>close is a glass disc, top left. The primary action is a glass disc, top right</strong>: the ink tick on the composer (locked), Share on the receipt. A sheet with no primary action has only the close disc. One layout, every sheet.</li>
     <li>Sheet title: Bricolage 800, 30, left, under the corner row. Search field: 50 pill in the field colour.</li>
     <li>A sheet that applies a choice ends in one ink pill at the foot with a live count ("Show 12 entries"). A sheet that picks one row closes on the tap, no button.</li>
@@ -102,7 +102,7 @@ td:first-child{font-family:"Bricolage Grotesque",sans-serif;font-weight:600;whit
     <li><strong>Paper is flat.</strong> One tone to the tip of the edge, no gradient (Eamon, round 3 and again 3 Oct). <code>docs/DESIGN.md</code>'s "paper tone" ease to <code>#F8F5F0</code> is stale; the build is right.</li>
     <li><strong>Edge B exactly.</strong> A 4pt wave under the paper, period fitted to the width so both ends match: <code>P = W / round(W/12)</code>, <code>y = 2.1 − 1.5·cos(2πx/P)</code>. On dish entry slips, the place menu and every receipt. Nowhere else.</li>
     <li><strong>No barcode</strong> on any receipt (Eamon, 3 Oct).</li>
-    <li><strong>The calendar is a zoom level of the Journal, not a sheet.</strong> List, month, year, like a calendar app. The calendar icon and a pinch move between them; 5.0 and secret-6 days stand out when zoomed out (Eamon, round 7 and 3 Oct).</li>
+    <li><strong>The calendar is a zoom level of the Journal, not a sheet.</strong> Months scroll vertically, never sideways. The calendar icon toggles list and calendar in one tap; a pinch reaches the year; 5.0 and secret-6 days stand out when zoomed out (Eamon, round 7 and 3 Oct).</li>
     <li><strong>History outranks the docs.</strong> Where <code>docs/DESIGN.md</code> or <code>design/v1</code> disagree with the current build or Eamon's round feedback, the build and the feedback win.</li>
   </ul>
 </section>
@@ -117,7 +117,11 @@ td:first-child{font-family:"Bricolage Grotesque",sans-serif;font-weight:600;whit
     <li><strong>Dish page:</strong> reviews show avatar, handle and score only. "More to explore" and "More like this" sit under the reviews.</li>
     <li><strong>Search:</strong> one equal-width scope switch with the filter at its end, in the order Dishes, Places, People, Saved, opening on Dishes (Eamon, 3 Oct: "this is a dish focused app"). Before typing it shows recent searches and asks for no location. A place page is menu first with visits woven in.</li>
     <li><strong>You:</strong> the monthly statement is out of V1. A Ratings bar scrolls the page to its group; it never filters. Settings is the only corner control.</li>
-    <li><strong>Feed:</strong> The Top Ate is a photo hero for the first dish with no rank numeral on it, then ranked rows 2 to 8 (Eamon, 3 Oct). Sections in order are The Top Ate, Because you loved, New to the record, craving shelves, latest receipts. The area picker offers Near me, Everywhere and cities. A slip with more than two dishes hides its words; the Journal shows the full caption.</li>
+    <li><strong>Feed:</strong> The Top Ate is a photo hero for the first dish with no rank numeral on it, then ranked rows 2 to 8 (Eamon, 3 Oct). Sections in order are The Top Ate, Because you loved, New to the record, craving shelves, latest receipts, then one quiet "What you follow" row at the end. The area picker offers Near me, Everywhere and cities. A slip with more than two dishes hides its words; the Journal shows the full caption.</li>
+    <li><strong>Cravings are asked once</strong> (Eamon, 4 Oct): no heart, nothing in the corner. The first time only, one inline card after The Top Ate offers at most six categories; pick up to three or close it and it is gone for good. After that you follow from a category's own page (glass Follow toggle) and unfollow there or in What you follow.</li>
+    <li><strong>A category page is editorial</strong>, like the Feed: hero dish with no numeral, ranked rows 2 to 8, Places known for it, New in the category, latest receipts, an end line.</li>
+    <li><strong>Entry page:</strong> "More at" the place and "More like this" sit directly under the entry paper. The printed receipt screen centres the receipt and ends in one Share pill at the foot.</li>
+    <li><strong>One dash style</strong> on a receipt. Hairlines run the full row width. An icon that only labels (Sort) must not use a glyph that opens something elsewhere. Every small photo on a slip, entry or receipt opens the one full-screen viewer.</li>
     <li><strong>Actions:</strong> Save, Share, Report and Block live in one actions sheet, the same everywhere.</li>
     <li><strong>Cards:</strong> a shelf card is a 16pt-radius photo or letter tile with the star token top left and a glass bookmark disc top right, equally inset, and text only beneath, flush with the image edge: name, then place. One card anatomy for every shelf and carousel in the app.</li>
     <li><strong>Photos open in the native zoom viewer.</strong> No " · " separators, no helper copy, no eyebrow text.</li>
