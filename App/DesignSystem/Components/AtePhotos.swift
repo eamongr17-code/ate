@@ -89,12 +89,14 @@ struct AtePhotoTile: View {
     let side: CGFloat
     /// The ring that separates overlapping photos, drawn in the colour of the surface behind them.
     var ring: Color?
+    /// The photo will not load and has no letter tile to fall back on (``AtePhotoContent``).
+    var onFailure: (() -> Void)?
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: AteMetrics.photoRadius(side: side), style: .continuous)
-        return AtePhotoContent(photo: photo, size: .forSide(side))
+        return AtePhotoContent(photo: photo, size: .forSide(side), onFailure: onFailure)
         .frame(width: side, height: side)
         .clipShape(shape)
         .overlay {
@@ -120,6 +122,9 @@ struct AtePhotoContent: View {
     var contentMode: ContentMode = .fill
     /// How much of the photo to fetch and decode — a list's squircle asks for the thumbnail.
     var size: AtePhotoSize = .large
+    /// A photo that will not load, with no dish letter to stand in for it: the caller decides what
+    /// goes there instead (a cluster drops the tile).
+    var onFailure: (() -> Void)?
 
     @Environment(\.atePalette) private var palette
 
@@ -127,7 +132,10 @@ struct AtePhotoContent: View {
         if let image = photo.image {
             image.resizable().aspectRatio(contentMode: contentMode)
         } else if let url = photo.url {
-            AteRemotePhoto(url: url, size: size, contentMode: contentMode, failure: photo.dish)
+            AteRemotePhoto(
+                url: url, size: size, contentMode: contentMode, failure: photo.dish,
+                onFailure: photo.dish == nil ? onFailure : nil
+            )
         } else if let dish = photo.dish {
             DishLetterTile(dish: dish)
         } else {
@@ -172,12 +180,28 @@ struct PhotoCluster: View {
     @Environment(\.atePhotoOriginRelay) private var originRelay
     /// Where each tile sits, for the photo preview to grow out of (round 4).
     @State private var frames = AtePhotoTileFrames()
+    /// Photos that would not load (build 88): dropped from the strip, never left as an empty tile.
+    @State private var failed: Set<AtePhoto.ID> = []
+
+    /// What the strip draws: every photo but the ones that failed, each with its place in `photos`
+    /// (a tap and a removal still name the photo the caller handed in).
+    private var shown: [(index: Int, photo: AtePhoto)] {
+        photos.enumerated().filter { failed.contains($0.element.id) == false }.map { ($0.offset, $0.element) }
+    }
 
     var body: some View {
+        let shown = shown
+        if shown.isEmpty == false || photos.isEmpty {
+            strip(shown)
+        }
+    }
+
+    @ViewBuilder
+    private func strip(_ shown: [(index: Int, photo: AtePhoto)]) -> some View {
         let cluster = HStack(spacing: -overlap) {
-            ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
-                tile(photo, at: index)
-                    .zIndex(Double(photos.count - index))
+            ForEach(Array(shown.enumerated()), id: \.element.photo.id) { position, item in
+                tile(item.photo, at: item.index, position: position, count: shown.count)
+                    .zIndex(Double(shown.count - position))
             }
         }
         .padding(.top, topPadding)
@@ -189,7 +213,7 @@ struct PhotoCluster: View {
         if onTap == nil {
             cluster
                 .accessibilityElement()
-                .accessibilityLabel(photos.count == 1 ? "1 photo" : "\(photos.count) photos")
+                .accessibilityLabel(shown.count == 1 ? "1 photo" : "\(shown.count) photos")
                 .accessibilityActions {
                     if let onRemove {
                         ForEach(photos.indices, id: \.self) { index in
@@ -202,27 +226,30 @@ struct PhotoCluster: View {
         }
     }
 
+    /// `index` is the photo's place in `photos`; `position` its place on the strip, which the tilt
+    /// follows so a dropped photo never leaves the strip looking gapped.
     @ViewBuilder
-    private func tile(_ photo: AtePhoto, at index: Int) -> some View {
+    private func tile(_ photo: AtePhoto, at index: Int, position: Int, count: Int) -> some View {
         let drawn = AtePhotoTile(
             photo: photo,
             side: side,
-            ring: photos.count > 1 ? (surface ?? palette.ground) : nil
+            ring: count > 1 ? (surface ?? palette.ground) : nil,
+            onFailure: { failed.insert(photo.id) }
         )
-        .rotationEffect(.degrees(angle(at: index)))
+        .rotationEffect(.degrees(angle(at: position)))
         .modifier(RemovablePhoto(index: index, side: side, onRemove: onRemove))
 
         if let onTap {
             Button {
                 originRelay?.note(frames.origin(
                     radius: { _ in AteMetrics.photoRadius(side: side) },
-                    angle: { angle(at: $0) }
+                    angle: { tapped in angle(at: shown.firstIndex { $0.index == tapped } ?? tapped) }
                 ))
                 onTap(index)
             } label: { drawn.contentShape(.rect) }
                 .buttonStyle(.plain)
                 .atePhotoSource(frames, index: index)
-                .accessibilityLabel("Photo \(index + 1) of \(photos.count)")
+                .accessibilityLabel("Photo \(position + 1) of \(count)")
                 .accessibilityIdentifier("photo.\(index)")
         } else {
             drawn

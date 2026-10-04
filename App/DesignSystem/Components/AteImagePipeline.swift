@@ -336,6 +336,9 @@ struct AteRemotePhoto: View {
     var placeholder: Color?
     /// A dish's photo that will not load becomes its letter tile rather than a blank square.
     var failure: DishLetter?
+    /// Told once the photo will not load and there is nothing to show for it — a cluster drops the
+    /// tile rather than leave an empty square on the strip.
+    var onFailure: (() -> Void)?
 
     @State private var shown: Shown?
     @State private var didFail = false
@@ -353,13 +356,15 @@ struct AteRemotePhoto: View {
         size: AtePhotoSize = .large,
         contentMode: ContentMode = .fill,
         placeholder: Color? = nil,
-        failure: DishLetter? = nil
+        failure: DishLetter? = nil,
+        onFailure: (() -> Void)? = nil
     ) {
         self.url = url
         self.size = size
         self.contentMode = contentMode
         self.placeholder = placeholder
         self.failure = failure
+        self.onFailure = onFailure
         _shown = State(initialValue: AteImagePipeline.shared.bestCached(url, size: size).map {
             Shown(url: url, image: $0.image, isFinal: $0.isFinal)
         })
@@ -404,7 +409,10 @@ struct AteRemotePhoto: View {
         let image = await AteImagePipeline.shared.image(requested, size: size)
         guard Task.isCancelled == false, requested == url else { return }
         guard let image else {
-            if current == nil { didFail = true }
+            if current == nil {
+                didFail = true
+                onFailure?()
+            }
             return
         }
         // A stand-in swaps for the real thing in place; only a picture arriving on an empty tile
