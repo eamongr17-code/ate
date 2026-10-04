@@ -88,6 +88,34 @@ extension InMemorySocialService: FeedEditionReading {
             .map(feedDish)
     }
 
+    public func newToRecord(tag: Craving, city: String?, since: Date, limit: Int) async throws -> [NewDish] {
+        let carrying = dishIDs(carrying: tag)
+        return try await newToRecord(city: city, since: since, limit: Int.max)
+            .filter { carrying.contains($0.dish.dishID) }
+            .prefix(max(1, limit))
+            .map { $0 }
+    }
+
+    public func latestReceipts(tag: Craving, city: String?, limit: Int) async throws -> [EntryCard] {
+        if PreviewFaults.listsOffline { throw URLError(.notConnectedToInternet) }
+        let carrying = dishIDs(carrying: tag)
+        let cityDishes = city.map { _ in Set(exploreCatalogue(in: city).map(\.row.dishID)) }
+        return visibleEntriesEverywhere()
+            .filter { $0.isMine == false }
+            .filter { entry in entry.items.contains { carrying.contains($0.dishID) } }
+            .filter { entry in cityDishes.map { set in entry.items.contains { set.contains($0.dishID) } } ?? true }
+            .sorted { $0.createdAt > $1.createdAt }
+            .prefix(max(1, limit))
+            .map { $0 }
+    }
+
+    /// Every dish the catalogue tags with this craving.
+    private func dishIDs(carrying tag: Craving) -> Set<UUID> {
+        Set(exploreCatalogue()
+            .filter { $0.tags.contains { $0.kind == tag.kind && $0.slug == tag.slug } }
+            .map(\.row.dishID))
+    }
+
     /// A catalogue row as the edition's RPCs send it: the suburb its tag names, the viewer's bookmark.
     private func feedDish(_ candidate: DishSimilarity.Candidate) -> FeedDish {
         let row = candidate.row

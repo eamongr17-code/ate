@@ -37,7 +37,11 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
     public static func seededWithSaves() -> InMemorySocialService {
         let long = PreviewFaults.longFixtures ? longEntries : []
         let deep = PreviewFaults.deepFixtures ? deepEntries : []
-        return InMemorySocialService(entries: long + seededEntries + deep + [ownVisit], saved: seededSaves)
+        let social = InMemorySocialService(entries: long + seededEntries + deep + [ownVisit], saved: seededSaves)
+        // The rebuilt app opens as somebody who follows nothing yet, so its Feed asks once (4 Oct);
+        // the current app keeps the artboard's Pasta and Dessert.
+        if DebugLaunch.isOn(.newApp) { social.cravings = [] }
+        return social
     }
 
     /// The viewer's visit, its lines pointed at the seed's own dishes — one tiramisu on the menu,

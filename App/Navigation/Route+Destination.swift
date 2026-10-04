@@ -18,6 +18,8 @@ extension Route {
         // `Recap.dc.html` draws no tab bar — a statement is a printout you hold, on its own.
         case .statement(let month): RecapScreen(month: month, context: context)
         case .settings(let page): SettingsDestination(page: page, context: context)
+        // The rebuilt Feed's list; the current app has no door to it.
+        case .following: EmptyView()
         }
     }
 }

@@ -45,6 +45,16 @@ public final class FeedEditionStore: SavedDishObserving {
     public private(set) var options: [CravingOption] = []
     public private(set) var hasLoadedOptions = false
 
+    /// "What do you crave?" (4 Oct) — the card after The Top Ate, asked once: its pills (the first
+    /// six of `craving_options()`, busiest first), what has been picked on it, and whether it stands.
+    public private(set) var askOptions: [CravingOption] = []
+    public private(set) var askPicks: [Craving] = []
+    public private(set) var isAsking = false
+    /// At most this many pills on the card…
+    public nonisolated static let askOptionLimit = 6
+    /// …and this many picks fold it.
+    public nonisolated static let askPickLimit = 3
+
     @ObservationIgnored private let reads: any FeedEditionReading
     @ObservationIgnored private let store: any AteKeyValueStore
     @ObservationIgnored private let owner: @Sendable () -> UUID?
@@ -58,6 +68,10 @@ public final class FeedEditionStore: SavedDishObserving {
     @ObservationIgnored private var sinceOwner: UUID?
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var viewed: Set<FeedEvents.Section> = []
+    @ObservationIgnored private let preferences: AtePreferences?
+    @ObservationIgnored private var hasRecordedAsk = false
+    /// Card picks are written one after another, so the last tap is the set that lands.
+    @ObservationIgnored private var lastWrite: Task<Bool, Never>?
 
     public init(
         reads: any FeedEditionReading,
@@ -67,8 +81,10 @@ public final class FeedEditionStore: SavedDishObserving {
         city: @escaping @MainActor () async -> String?,
         analytics: @escaping AnalyticsRecorder = { _ in },
         savedDishes: SavedDishBroadcast? = nil,
+        preferences: AtePreferences? = nil,
         now: @escaping @Sendable () -> Date = Date.init
     ) {
+        self.preferences = preferences
         self.reads = reads
         self.store = store
         self.owner = owner
@@ -87,6 +103,10 @@ public final class FeedEditionStore: SavedDishObserving {
     public var visibleShelves: [CravingShelf] { isPersonal ? shelves.filter { $0.dishes.isEmpty == false } : [] }
     /// The row that opens the picker: signed in, once the page has been read.
     public var showsChooseCravings: Bool { isPersonal && isSettled }
+    /// The ask card: signed in, standing, with pills to show.
+    public var showsAsk: Bool { isPersonal && isAsking && askOptions.isEmpty == false }
+    /// The What you follow row at the end of the edition — only when something is followed.
+    public var showsFollowing: Bool { isPersonal && isSettled && cravings.isEmpty == false }
     /// Nothing above the latest receipts at all.
     public var isEmpty: Bool {
         showsTopAte == false && showsLoved == false && showsNew == false && visibleShelves.isEmpty
@@ -109,7 +129,8 @@ public final class FeedEditionStore: SavedDishObserving {
         let personal = isSignedIn()
         let city = await cityForRead()
         let since = personal ? sinceForThisSession() : nil
-        let answers = await Self.read(reads, city: city, since: since)
+        let wantsAsk = personal && isAsking == false && preferences?.hasAnsweredCravingsAsk(owner()) == false
+        let answers = await Self.read(reads, city: city, since: since, wantsAsk: wantsAsk)
 
         guard generationAtStart == generation, Task.isCancelled == false else { return }
         self.city = city
@@ -121,12 +142,19 @@ public final class FeedEditionStore: SavedDishObserving {
             if let read = answers.cravings {
                 cravings = read.cravings
                 shelves = read.shelves
+                // First time only: somebody who follows nothing and has never answered.
+                if wantsAsk, read.cravings.isEmpty, let options = answers.askOptions, options.isEmpty == false {
+                    askOptions = Array(options.prefix(Self.askOptionLimit))
+                    askPicks = []
+                    isAsking = true
+                }
             }
         } else {
             loved = nil
             newDishes = []
             cravings = []
             shelves = []
+            isAsking = false
         }
         isSettled = true
     }
@@ -172,6 +200,80 @@ public final class FeedEditionStore: SavedDishObserving {
         guard cravings == next else { return true }
         self.shelves = shelves
         return true
+    }
+
+    /// The Feed came back on screen: a category may have been followed or unfollowed on its own
+    /// page, or in What you follow. Read the set again and, if it moved, its shelves.
+    public func refreshCravings() async {
+        guard isSettled, isPersonal, isSignedIn() else { return }
+        guard let read = try? await reads.myCravings(), read != cravings else { return }
+        cravings = read
+        let kept = Set(read.map(\.id))
+        shelves = shelves.filter { kept.contains($0.id) }
+        let fresh = await Self.readShelves(for: read, reads: reads, city: city)
+        guard cravings == read else { return }
+        shelves = fresh
+    }
+
+    // MARK: - Asked once
+
+    /// A pill on the card: it follows (or, tapped again, unfollows) that category at once. The first
+    /// tap answers the card for good; the third pick folds it.
+    public func pickFromAsk(_ option: CravingOption) async {
+        guard isAsking else { return }
+        let craving = option.craving
+        let wasPicked = askPicks.contains { $0.id == craving.id }
+        if wasPicked {
+            askPicks.removeAll { $0.id == craving.id }
+        } else {
+            askPicks.append(craving)
+        }
+        preferences?.answeredCravingsAsk(owner())
+        let folds = askPicks.count >= Self.askPickLimit
+        if folds { isAsking = false }
+        let landed = await writeAskPicks()
+        guard landed else {
+            // Refused: the pill goes back to how the server has it, and the card stands again.
+            if wasPicked { askPicks.append(craving) } else { askPicks.removeAll { $0.id == craving.id } }
+            if folds { isAsking = true }
+            return
+        }
+        if wasPicked {
+            analytics(FeedEvents.cravingUnfollowed(.ask, count: cravings.count))
+        } else {
+            analytics(FeedEvents.cravingFollowed(.ask, count: cravings.count))
+            analytics(FeedEvents.cravingsAskPicked(pick: askPicks.count))
+        }
+    }
+
+    /// The card's close: it folds, for good.
+    public func dismissAsk() {
+        guard isAsking else { return }
+        isAsking = false
+        preferences?.answeredCravingsAsk(owner())
+        analytics(FeedEvents.cravingsAskDismissed(picks: askPicks.count))
+    }
+
+    /// The card came on screen — `cravings_ask_shown`, once.
+    public func askAppeared() {
+        guard hasRecordedAsk == false, showsAsk else { return }
+        hasRecordedAsk = true
+        analytics(FeedEvents.cravingsAskShown(options: askOptions.count))
+    }
+
+    /// The set the card stands for — whatever else is followed, then its picks in the order made —
+    /// written after any write still in flight, and read when its turn comes.
+    private func writeAskPicks() async -> Bool {
+        let previous = lastWrite
+        let write = Task { @MainActor [weak self] () -> Bool in
+            _ = await previous?.value
+            guard let self else { return false }
+            let onCard = Set(self.askOptions.map(\.id))
+            let desired = self.cravings.filter { onCard.contains($0.id) == false } + self.askPicks
+            return await self.saveCravings(desired)
+        }
+        lastWrite = write
+        return await write.value
     }
 
     // MARK: - Saves
@@ -246,20 +348,23 @@ public final class FeedEditionStore: SavedDishObserving {
         var loved: LovedShelf??
         var fresh: [NewDish]?
         var cravings: CravingsRead?
+        var askOptions: [CravingOption]?
     }
 
     /// All the sections at once. `since` is `nil` signed out, and then only The Top Ate is read.
     private nonisolated static func read(
         _ reads: any FeedEditionReading,
         city: String?,
-        since: Date?
+        since: Date?,
+        wantsAsk: Bool = false
     ) async -> Answers {
         async let top = attempt { try await reads.topAte(city: city, limit: topAteLimit) }
         guard let since else { return Answers(top: await top) }
         async let loved = attempt { try await reads.becauseYouLoved(city: city, limit: lovedLimit) }
         async let fresh = attempt { try await reads.newToRecord(city: city, since: since, limit: newLimit) }
         async let cravings = readCravings(reads, city: city)
-        return await Answers(top: top, loved: loved, fresh: fresh, cravings: cravings)
+        async let options = wantsAsk ? attempt { try await reads.cravingOptions() } : nil
+        return await Answers(top: top, loved: loved, fresh: fresh, cravings: cravings, askOptions: options)
     }
 
     private nonisolated static func readCravings(

@@ -28,4 +28,51 @@ public enum FeedEvents {
     public static func cravingsSet(count: Int) -> AnalyticsEvent {
         AnalyticsEvent(name: "cravings_set", parameters: ["count": String(max(0, count))])
     }
+
+    /// Where a category was followed or unfollowed (4 Oct): the Feed's one-time card, a category's
+    /// own page, or the What you follow list.
+    public enum CravingSource: String, Sendable, CaseIterable {
+        case ask
+        case tagPage = "tag_page"
+        case following
+    }
+
+    /// One category followed — and how many are followed now.
+    public static func cravingFollowed(_ source: CravingSource, count: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "craving_followed", parameters: [
+            "source": source.rawValue, "count": String(max(0, count))
+        ])
+    }
+
+    /// One category unfollowed — and how many are left.
+    public static func cravingUnfollowed(_ source: CravingSource, count: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "craving_unfollowed", parameters: [
+            "source": source.rawValue, "count": String(max(0, count))
+        ])
+    }
+
+    /// The What you follow list was reordered.
+    public static func cravingsReordered(count: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "cravings_reordered", parameters: ["count": String(max(0, count))])
+    }
+
+    /// "What do you crave?" came on screen — once per visit, and only ever for one first time.
+    public static func cravingsAskShown(options: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "cravings_ask_shown", parameters: ["options": String(max(0, options))])
+    }
+
+    /// A pill on the card was tapped to follow — the how-many-th pick it was.
+    public static func cravingsAskPicked(pick: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "cravings_ask_picked", parameters: ["pick": String(max(0, pick))])
+    }
+
+    /// The card's close — after how many picks.
+    public static func cravingsAskDismissed(picks: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "cravings_ask_dismissed", parameters: ["picks": String(max(0, picks))])
+    }
+
+    /// The What you follow row at the end of the edition, opened.
+    public static func followingOpened(count: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "following_opened", parameters: ["count": String(max(0, count))])
+    }
 }

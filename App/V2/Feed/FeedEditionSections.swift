@@ -24,16 +24,19 @@ struct FeedEditionActions {
     }
 }
 
-/// **The edition, section by section** — in the order Eamon set: The Top Ate, Because you loved…,
-/// New to the record, a shelf per craving (and the row that chooses them while there are none),
-/// the latest receipts, then the end. Loading is the Top Ate's skeleton; nothing at all is the one
-/// empty state, or the unreachable one with its retry.
+/// **The edition, section by section** — in the order Eamon set: The Top Ate, the one-time "What do
+/// you crave?" card (4 Oct), Because you loved…, New to the record, a shelf per followed category,
+/// the latest receipts, What you follow, then the end. Loading is the Top Ate's skeleton; nothing at
+/// all is the one empty state, or the unreachable one with its retry.
 struct FeedEditionSections: View {
     let edition: FeedEditionStore
     let latest: EntryListStore
     let isSignedIn: Bool
     let actions: FeedEditionActions
-    let onChooseCravings: () -> Void
+    /// The What you follow row at the end of the edition.
+    let onFollowing: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         if edition.isSettled == false {
@@ -43,7 +46,9 @@ struct FeedEditionSections: View {
         } else {
             sections
             latestReceipts
+            following
             AteEndRule(line: "You're caught up")
+                .padding(.top, edition.showsFollowing ? FeedAskMetrics.endRuleShift : 0)
                 .accessibilityIdentifier("feed.caughtUp")
                 .onAppear { edition.sectionAppeared(.caughtUp) }
         }
@@ -66,8 +71,7 @@ struct FeedEditionSections: View {
         .transition(.opacity)
     }
 
-    /// Nobody has written anything here yet, or Ate could not be reached. The cravings row still
-    /// stands, so a follower can still choose.
+    /// Nobody has written anything here yet, or Ate could not be reached.
     @ViewBuilder
     private var nothing: some View {
         Group {
@@ -80,7 +84,6 @@ struct FeedEditionSections: View {
             }
         }
         .containerRelativeFrame(.vertical) { height, _ in height * FeedEditionCopy.emptyShare }
-        chooseCravings
     }
 
     private func retry() {
@@ -101,6 +104,7 @@ struct FeedEditionSections: View {
                 .onAppear { edition.sectionAppeared(.topAte) }
             FeedTopAte(lines: edition.topAte, actions: actions)
         }
+        ask
         if edition.showsLoved, let loved = edition.loved {
             AteSectionHeading(title: loved.title, identifier: "feed.section.loved")
                 .onAppear { edition.sectionAppeared(.becauseYouLoved) }
@@ -120,17 +124,53 @@ struct FeedEditionSections: View {
             .onAppear { edition.sectionAppeared(.cravingShelf) }
             FeedShelf(dishes: shelf.dishes, section: .cravingShelf, actions: actions)
         }
-        chooseCravings
     }
 
-    /// "Choose your cravings" — only while you follow none; the heart in the bar is the door after.
+    /// "What do you crave?" — the first time only: the six busiest categories as pills; a tap follows
+    /// at once, the third pick or the close folds the card for good.
     @ViewBuilder
-    private var chooseCravings: some View {
-        if edition.showsChooseCravings, edition.cravings.isEmpty {
-            AteChooseRow(title: "Choose your cravings", identifier: "feed.cravings.choose",
-                         action: onChooseCravings)
-                .padding(.horizontal, AteMetrics.loose)
-                .padding(.top, AteSectionHeadingMetrics.top)
+    private var ask: some View {
+        if edition.showsAsk {
+            AteAskCard(
+                title: FeedEditionCopy.ask,
+                closeLabel: "Close",
+                closeIdentifier: "feed.ask.close",
+                onClose: { edition.dismissAsk() },
+                pills: { askPills }
+            )
+            .padding(.horizontal, AteAskCardMetrics.margin)
+            .padding(.top, FeedAskMetrics.top)
+            .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: FeedAskMetrics.foldScale)))
+            .accessibilityIdentifier("feed.ask")
+            .onAppear { edition.askAppeared() }
+        }
+    }
+
+    /// The card's pills, in `craving_options()`' order, lowercase as the server sends a style.
+    private var askPills: some View {
+        ForEach(edition.askOptions) { option in
+            AteTogglePill(
+                title: option.craving.label,
+                isOn: edition.askPicks.contains { $0.id == option.id },
+                identifier: "feed.ask.\(option.craving.slug)"
+            ) {
+                AteHaptics.key()
+                Task { await edition.pickFromAsk(option) }
+            }
+        }
+    }
+
+    /// What you follow — after the last receipt, only when something is followed.
+    @ViewBuilder
+    private var following: some View {
+        if edition.showsFollowing {
+            AteEndLinkRow(
+                icon: .tag,
+                title: FeedEditionCopy.following,
+                count: edition.cravings.count,
+                identifier: "feed.following",
+                action: onFollowing
+            )
         }
     }
 
@@ -154,9 +194,19 @@ enum FeedEditionCopy {
     static let topAte = "The Top Ate"
     static let new = "New to the record"
     static let latest = "Latest receipts"
+    static let ask = "What do you crave?"
+    static let following = "What you follow"
     /// How much of the screen an empty or unreachable state takes: the band between the bar and
     /// the tab bar, less the bars themselves.
     static let emptyShare: CGFloat = 0.8
+}
+
+enum FeedAskMetrics {
+    /// `.ask{margin-top:12px}` in the edition's 14pt grid gap, under The Top Ate's last row.
+    static let top: CGFloat = 26
+    static let foldScale: CGFloat = 0.94
+    /// The end line sits 34 under What you follow, not its own 40.
+    static let endRuleShift: CGFloat = AteEndLinkRowMetrics.endRuleTop - AteEndRuleMetrics.top
 }
 
 // MARK: - The Top Ate

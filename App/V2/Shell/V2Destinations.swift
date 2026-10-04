@@ -18,6 +18,7 @@ struct V2Destinations: View {
         case .tag(let tag): V2TagPage(tag: tag, context: context)
         case .ratings(let score): V2RatingsPage(score: score, context: context)
         case .settings(let page): V2SettingsPage(page: page, context: context)
+        case .following(let city): FeedFollowingPage(city: city, context: context)
         // Monthly statements are not in V1 of the rebuild.
         case .statement: PagePlaceholder(title: "Statement")
         }

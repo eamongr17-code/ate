@@ -58,7 +58,8 @@ struct V2FeedStores {
             isSignedIn: { services.hasSession },
             city: { await area.cityForFirstPage() },
             analytics: services.analytics,
-            savedDishes: services.savedDishes
+            savedDishes: services.savedDishes,
+            preferences: services.preferences
         )
         let locator = AteLocation()
         // Read only on near me, which is only ever a pick: the opening never lands on it.

@@ -207,6 +207,11 @@ public struct Craving: Sendable, Hashable, Identifiable, Codable {
     public func route(city: String?) -> DishTagRoute {
         DishTagRoute(kind: kind, slug: slug, label: title, city: city)
     }
+
+    /// The craving a tag page is about — what its Follow adds to, or takes from, the set.
+    public init(_ route: DishTagRoute) {
+        self.init(kind: route.kind, slug: route.slug, label: route.label)
+    }
 }
 
 /// **One chip in the cravings picker** — `craving_options()`: a craving and the group it sits in.
@@ -249,4 +254,26 @@ public protocol FeedEditionReading: Sendable {
     func setCravings(_ cravings: [Craving]) async throws -> [Craving]
     /// A shelf: the first page of `dishes_by_tag(p_kind, p_slug, p_limit, p_city)`.
     func cravingDishes(_ craving: Craving, city: String?, limit: Int) async throws -> [FeedDish]
+    /// A category page's "New in <tag>" (Eamon, 4 Oct): `new_to_record(p_city, p_since, p_limit,
+    /// p_kind, p_slug)` — only dishes carrying the tag. The two trailing parameters are additive.
+    func newToRecord(tag: Craving, city: String?, since: Date, limit: Int) async throws -> [NewDish]
+    /// A category page's latest receipts: the first page of `get_entry_feed(…, p_city, p_kind,
+    /// p_slug)` — only entries with a line whose dish carries the tag, newest first, same keyset.
+    func latestReceipts(tag: Craving, city: String?, limit: Int) async throws -> [EntryCard]
+}
+
+/// A read this reader does not make — a category page's section that is simply not on the page.
+public struct FeedEditionReadUnavailable: Error, Sendable, Equatable {
+    public init() {}
+}
+
+public extension FeedEditionReading {
+    /// Readers that predate the category page answer nothing: the section is hidden.
+    func newToRecord(tag: Craving, city: String?, since: Date, limit: Int) async throws -> [NewDish] {
+        throw FeedEditionReadUnavailable()
+    }
+
+    func latestReceipts(tag: Craving, city: String?, limit: Int) async throws -> [EntryCard] {
+        throw FeedEditionReadUnavailable()
+    }
 }

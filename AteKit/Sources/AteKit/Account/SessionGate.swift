@@ -18,6 +18,8 @@ public final class SessionGate {
         case you
         case report
         case block
+        /// A category page's Follow (4 Oct).
+        case follow
         /// Somebody's entry page. No longer asked for — `get_entry_card` answers signed out (0048) —
         /// kept so the funnel's history still decodes.
         case entry

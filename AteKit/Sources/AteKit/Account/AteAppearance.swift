@@ -43,6 +43,32 @@ public final class AtePreferences {
         self.pendingHandleUserID = store.value(forKey: Key.pendingHandleUserID).flatMap(UUID.init(uuidString:))
         let chosen = (store.value(forKey: Key.handleChosenUserIDs) ?? "").split(separator: ",")
         self.handleChosenUserIDs = Set(chosen.compactMap { UUID(uuidString: String($0)) })
+        let asked = (store.value(forKey: Key.cravingsAsked) ?? "").split(separator: ",")
+        self.cravingsAskedUserIDs = Set(asked.compactMap { UUID(uuidString: String($0)) })
+    }
+
+    /// Everyone on this phone who has answered the Feed's "What do you crave?" — a pick or its close
+    /// (4 Oct). Once in here the card never comes back for that person.
+    public private(set) var cravingsAskedUserIDs: Set<UUID> {
+        didSet {
+            guard cravingsAskedUserIDs != oldValue else { return }
+            store.setValue(
+                cravingsAskedUserIDs.map(\.uuidString).sorted().joined(separator: ","),
+                forKey: Key.cravingsAsked
+            )
+        }
+    }
+
+    /// Whether this person has answered the card. Signed out is never asked, so counts as answered.
+    public func hasAnsweredCravingsAsk(_ userID: UUID?) -> Bool {
+        guard let userID else { return true }
+        return cravingsAskedUserIDs.contains(userID)
+    }
+
+    /// A pick on the card, or its close: it is done for this person, for good.
+    public func answeredCravingsAsk(_ userID: UUID?) {
+        guard let userID else { return }
+        cravingsAskedUserIDs.insert(userID)
     }
 
     /// System / Light / Dark. Applied at the root, so Welcome and every sheet follow it too.
@@ -117,6 +143,7 @@ public final class AtePreferences {
         static let opensNewApp = "ate.opensNewApp"
         static let pendingHandleUserID = "ate.pendingHandleUserID"
         static let handleChosenUserIDs = "ate.handleChosenUserIDs"
+        static let cravingsAsked = "ate.cravingsAskAnswered"
     }
 }
 

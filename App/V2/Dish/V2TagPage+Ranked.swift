@@ -1,10 +1,11 @@
 import AteKit
 import SwiftUI
 
-/// **One tag's dishes** (round 7) — what a dish page's "More to explore" chip opens: the tag's name in
-/// the inline bar, and every dish carrying it, best first, keyset-paged, as the kit's dish rows — so
-/// a dish found by its tag and a dish found by searching are the same row.
-struct V2TagPage: View {
+/// **One tag's dishes, all of them** — the plain ranked list a category page's "See all" opens past
+/// its first eight (4 Oct; round 7's wall, now the secondary page): the tag's name and city in the
+/// inline bar, and every dish carrying it, best first, keyset-paged, as the kit's dish rows — so a
+/// dish found by its tag and a dish found by searching are the same row.
+struct V2TagRankedPage: View {
     let tag: DishTagRoute
     let context: V2PageContext
 
@@ -46,7 +47,7 @@ struct V2TagPage: View {
         .scrollIndicators(.hidden)
         .scrollEdgeEffectStyle(.soft, for: .top)
         .ateGround()
-        .ateInlineTitle(store.tag.label)
+        .ateInlineTitle(store.tag.label, subtitle: tag.city.map { AteCity.displayName(for: $0) })
         .refreshable { await store.refresh() }
         .task {
             await store.loadIfNeeded()
@@ -54,7 +55,7 @@ struct V2TagPage: View {
             hasRecordedView = true
             context.services.analytics(DetailEvents.tagDishesViewed(kind: store.tag.kind))
         }
-        .accessibilityIdentifier("tag.page")
+        .accessibilityIdentifier("tag.ranked")
     }
 
     @ViewBuilder

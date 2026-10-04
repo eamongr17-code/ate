@@ -27,11 +27,14 @@ enum Route: Hashable {
     /// Settings and the four pages that hang off it. One case, because they are one branch of the
     /// app and the shell should not learn four new destinations to reach it.
     case settings(SettingsPage)
+    /// What you follow (4 Oct) — the followed categories, in shelf order, read in the Feed's city.
+    case following(city: String?)
 
     /// Whether this destination exists yet.
     var isBuilt: Bool {
         switch self {
-        case .entry, .suggestions, .profile, .place, .dish, .tag, .ratings, .statement, .settings: true
+        case .entry, .suggestions, .profile, .place, .dish, .tag, .ratings, .statement, .settings, .following:
+            true
         }
     }
 

@@ -176,18 +176,43 @@ public struct TagDishPage: Sendable, Equatable {
 /// **Where a tag chip goes** — the tag page's route: which tag, and the name its top bar prints (the
 /// chip's own ``DishTag/title``).
 public struct DishTagRoute: Sendable, Hashable, Codable {
+    /// Which of a tag's two pages (4 Oct): the editorial page every door opens, and the plain ranked
+    /// list its "See all" opens past the first eight.
+    public enum Page: String, Sendable, Hashable, Codable {
+        case edition
+        case ranked
+    }
+
     public let kind: DishTag.Kind
     public let slug: String
     public let label: String
     /// The city the page is read in — a Feed craving shelf's See all keeps the Feed's city (round 8).
     /// `nil` is everywhere, as a dish page's chip opens it.
     public let city: String?
+    public let page: Page
 
-    public init(kind: DishTag.Kind, slug: String, label: String, city: String? = nil) {
+    public init(kind: DishTag.Kind, slug: String, label: String, city: String? = nil, page: Page = .edition) {
         self.kind = kind
         self.slug = slug
         self.label = label
         self.city = city
+        self.page = page
+    }
+
+    /// The same tag, as its plain ranked list.
+    public var ranked: DishTagRoute {
+        DishTagRoute(kind: kind, slug: slug, label: label, city: city, page: .ranked)
+    }
+
+    enum CodingKeys: String, CodingKey { case kind, slug, label, city, page }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try container.decode(DishTag.Kind.self, forKey: .kind)
+        slug = try container.decode(String.self, forKey: .slug)
+        label = try container.decode(String.self, forKey: .label)
+        city = try container.decodeIfPresent(String.self, forKey: .city)
+        page = try container.decodeIfPresent(Page.self, forKey: .page) ?? .edition
     }
 
     public init(_ tag: DishTag) {

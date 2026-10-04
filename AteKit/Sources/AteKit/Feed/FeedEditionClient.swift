@@ -48,6 +48,26 @@ public struct FeedEditionClient: FeedEditionReading {
         return try Self.decodeDishes(try await rpc("dishes_by_tag", parameters))
     }
 
+    public func newToRecord(tag: Craving, city: String?, since: Date, limit: Int) async throws -> [NewDish] {
+        var parameters = Self.cityParameters(city, limit: limit)
+        parameters["p_since"] = .string(PostgRESTTimestamp.string(from: since))
+        parameters.merge(Self.tagParameters(tag)) { _, tag in tag }
+        return try Self.decodeNew(try await rpc("new_to_record", parameters))
+    }
+
+    public func latestReceipts(tag: Craving, city: String?, limit: Int) async throws -> [EntryCard] {
+        var parameters: [String: AnyJSON] = [
+            "p_page_size": .integer(min(EntryFeedClient.maximumPageSize, max(1, limit))),
+            "p_include_own": .bool(false),
+            "p_cursor_created_at": .null,
+            "p_cursor_id": .null
+        ]
+        if let city { parameters["p_city"] = .string(city) }
+        parameters.merge(Self.tagParameters(tag)) { _, tag in tag }
+        let data = try await rpc("get_entry_feed", parameters)
+        return try PostgRESTDate.decoder.decode([EntryCard].self, from: data)
+    }
+
     private func rpc(_ name: String, _ parameters: [String: AnyJSON]) async throws -> Data {
         try await api.supabase.rpc(name, params: parameters).execute().data
     }
@@ -59,6 +79,11 @@ public struct FeedEditionClient: FeedEditionReading {
         var parameters: [String: AnyJSON] = ["p_limit": .integer(max(1, limit))]
         if let city { parameters["p_city"] = .string(city) }
         return parameters
+    }
+
+    /// A category page's filter: `p_kind` and `p_slug`, the slug passed back verbatim.
+    static func tagParameters(_ tag: Craving) -> [String: AnyJSON] {
+        ["p_kind": .string(tag.kind.rawValue), "p_slug": .string(tag.slug)]
     }
 
     /// `set_cravings`' `p_cravings`: the whole set, as `[{kind, slug}]`.
