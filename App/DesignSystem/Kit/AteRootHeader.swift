@@ -76,10 +76,13 @@ enum AteRootHeaderMetrics {
     static let trailing: CGFloat = 16
     /// `.it{gap:1px}` — the inline title over its subtitle.
     static let inlineGap: CGFloat = 1
-    /// How far a root scrolls before its title collapses: half the 44pt header row.
+    /// How far a root scrolls before its title collapses: half the 44pt header row…
     static let collapseAfter: CGFloat = 22
-    /// The hand-over between the root title and the inline one.
-    static let collapse: Animation = .smooth(duration: 0.25)
+    /// …and how far back it must come before the root title returns: a band either side, so a slow
+    /// drag around the threshold never flickers between the two.
+    static let expandBefore: CGFloat = 8
+    /// The hand-over between the root title and the inline one: a plain crossfade.
+    static let collapse: Animation = .easeInOut(duration: 0.18)
 }
 
 /// **An inline bar title** — a pushed page's name (or byline), and a tab root's title once it has
@@ -129,27 +132,32 @@ extension View {
         let controls = controls()
         let showsInline = isCollapsed && inline != nil
         return toolbar {
-            if showsInline == false {
-                ToolbarItem(placement: .topBarLeading) {
+            // ONE leading item that never changes: the root title and the inline one stacked in it,
+            // crossfading. Swapping two items made the bar morph them through a blur and re-measure
+            // its row, which nudged the scroll offset and re-triggered the collapse (build 88).
+            ToolbarItem(placement: .topBarLeading) {
+                ZStack(alignment: .leading) {
                     AteRootTitle(title: title, subtitle: subtitle)
-                        // The bar would squeeze a toolbar item to "F…"; the title is never truncated.
-                        .fixedSize()
                         .accessibilityIdentifier("root.title")
+                        .opacity(showsInline ? 0 : 1)
+                        .accessibilityHidden(showsInline)
+                    if let inline {
+                        inline
+                            .accessibilityIdentifier("root.inlineTitle")
+                            .opacity(showsInline ? 1 : 0)
+                            .accessibilityHidden(showsInline == false)
+                    }
                 }
-                .sharedBackgroundVisibility(.hidden)
+                // The bar would squeeze a toolbar item to "F…"; the title is never truncated.
+                .fixedSize()
+                .animation(AteRootHeaderMetrics.collapse, value: showsInline)
             }
-            if showsInline, let inline {
-                ToolbarItem(placement: .topBarLeading) {
-                    inline.accessibilityIdentifier("root.inlineTitle")
-                }
-                .sharedBackgroundVisibility(.hidden)
-            }
+            .sharedBackgroundVisibility(.hidden)
             ToolbarItemGroup(placement: .topBarTrailing) {
                 controls
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .animation(AteRootHeaderMetrics.collapse, value: showsInline)
         .ateHeaderGround()
     }
 
@@ -203,10 +211,16 @@ extension View {
     /// Reports whether a tab root's scroll view has moved far enough for its header to collapse —
     /// half the header row. Apply to the root's own `ScrollView` or `List`.
     func ateRootCollapse(_ isCollapsed: Binding<Bool>) -> some View {
-        onScrollGeometryChange(for: Bool.self) { geometry in
-            geometry.contentOffset.y + geometry.contentInsets.top > AteRootHeaderMetrics.collapseAfter
-        } action: { _, collapsed in
-            isCollapsed.wrappedValue = collapsed
+        onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top
+        } action: { _, offset in
+            // Hysteresis: collapse past one line, come back only well before it.
+            let collapsed = isCollapsed.wrappedValue
+            if collapsed == false, offset > AteRootHeaderMetrics.collapseAfter {
+                isCollapsed.wrappedValue = true
+            } else if collapsed, offset < AteRootHeaderMetrics.expandBefore {
+                isCollapsed.wrappedValue = false
+            }
         }
         .scrollEdgeEffectStyle(.hard, for: .top)
     }
