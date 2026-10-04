@@ -53,6 +53,7 @@ struct AteRankedRow: View {
             }
         }
         .padding(.vertical, AteRankedRowMetrics.padding)
+        .frame(maxWidth: .infinity)
         .overlay(alignment: .bottom) {
             if isLast == false {
                 Rectangle().fill(palette.field).frame(height: 1)

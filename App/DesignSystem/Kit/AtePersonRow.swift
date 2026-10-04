@@ -33,6 +33,7 @@ struct AtePersonRow: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
         .overlay(alignment: .top) {
             if isFirst == false { AteHairline() }
         }

@@ -32,11 +32,15 @@ struct AteReviewRow: View {
                 .padding(.trailing, AteDishRowMetrics.gap)
             }
             door(onOpen, identifier: "dish.review.entry") {
-                AteScoreToken(rating: rating)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                // An unrated review's token draws nothing, and a frame on nothing is nothing: the
+                // spacer keeps the visit's door — and the row, and its hairline — the full width.
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    AteScoreToken(rating: rating)
+                }
             }
         }
-        .frame(minHeight: AteReviewRowMetrics.height)
+        .frame(maxWidth: .infinity, minHeight: AteReviewRowMetrics.height)
         .overlay(alignment: .top) {
             if isFirst == false { AteHairline() }
         }
