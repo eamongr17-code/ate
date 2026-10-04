@@ -30,6 +30,9 @@
 --       14-day expiry, single use. SELECT: the inviter.
 --   device_push_tokens (token PK, user_id, apns_env sandbox | production, bundle_id, created_at,
 --       last_seen_at). Written by register/unregister RPCs; SELECT/DELETE own. ≤ 10 per user.
+--   ate_with_ledger (actor_id, kind tag | invite, entry_id, recipient_id, created_at): append-only spend
+--       record behind the day budget; server-internal (RLS on, no policy, no grant). Cascades/nulls on
+--       account deletion; rows older than 2 days are purged on the actor's next spend.
 --   notifications (0011, dormant until now) gains type 'ate_with', `companion_id` (→ entry_companions,
 --       cascade) and `pushed_at` (the push sender's idempotency stamp; service role only).
 --
@@ -43,8 +46,11 @@
 --
 -- ─── Rules. A tag is the AUTHOR's act on their OWN entry. Never yourself. Never across a block, either
 --   direction (and a new block withdraws every PENDING tag between the pair). At most 6 people per
---   entry (pending + accepted + live invites); at most 40 tags + invites per tagger per rolling day.
---   Declined is sticky: the tagger cannot untag-and-retag a "no" into a second notification.
+--   entry (every tag, declined included, + live invites); at most 40 tags + invites per tagger per rolling day.
+--   Declined is sticky and keeps its seat: untag cannot free it or turn a "no" into a second notification.
+--   The day budget is spent from an append-only ledger (ate_with_ledger) that untag/revoke never touch,
+--   serialised per actor; re-tagging the same person on the same entry within a day is QUIET (the
+--   notification lands read and pushed — no badge, no push).
 --
 -- ─── entry_cards + `companions` (trailing column, ADDITIVE): [{user_id, username, name, avatar_url,
 --   status, entry_id}] — the people this entry was eaten with. On an original: its accepted companions
@@ -108,6 +114,18 @@ create table if not exists public.device_push_tokens (
 );
 create index if not exists device_push_tokens_user_idx on public.device_push_tokens (user_id, last_seen_at desc);
 
+-- Append-only spend ledger behind the daily budget and the quiet re-tag. Server-internal: RLS on, no
+-- policy, no client grant. entry_id carries no FK on purpose (a deleted entry's spend still counts).
+create table if not exists public.ate_with_ledger (
+  id           bigint      generated always as identity primary key,
+  actor_id     uuid        not null references public.profiles(id) on delete cascade,
+  kind         text        not null check (kind in ('tag', 'invite')),
+  entry_id     uuid        not null,
+  recipient_id uuid        references public.profiles(id) on delete set null,
+  created_at   timestamptz not null default now()
+);
+create index if not exists ate_with_ledger_actor_idx on public.ate_with_ledger (actor_id, created_at desc);
+
 comment on table public.entry_companions is
   'Ate with (0058): a person the author tagged on their entry. pending → accepted (response_entry_id = the companion''s OWN linked entry) | declined (sticky). Parties-only SELECT; written by RPCs.';
 comment on table public.entry_invites is
@@ -170,6 +188,7 @@ revoke execute on function public.trg_notification_update_guard() from public, a
 alter table public.entry_companions   enable row level security;
 alter table public.entry_invites      enable row level security;
 alter table public.device_push_tokens enable row level security;
+alter table public.ate_with_ledger    enable row level security;
 
 drop policy if exists entry_companions_select_party on public.entry_companions;
 create policy entry_companions_select_party on public.entry_companions
@@ -190,27 +209,16 @@ create policy device_push_tokens_delete_own on public.device_push_tokens
 revoke all on public.entry_companions   from anon, authenticated;
 revoke all on public.entry_invites      from anon, authenticated;
 revoke all on public.device_push_tokens from anon, authenticated;
+revoke all on public.ate_with_ledger    from anon, authenticated;
 grant select         on public.entry_companions   to authenticated;
 grant select         on public.entry_invites      to authenticated;
 grant select, delete on public.device_push_tokens to authenticated;
-grant all on public.entry_companions, public.entry_invites, public.device_push_tokens to service_role;
+grant all on public.entry_companions, public.entry_invites, public.device_push_tokens, public.ate_with_ledger to service_role;
 
 -- ===========================================================================
--- 3. Triggers: a tag notifies; a block withdraws pending tags.
+-- 3. Trigger: a block withdraws pending tags. (Notifications are written by the RPCs, which know
+--    whether this is a re-tag inside the day — see ate_with_notify.)
 -- ===========================================================================
-create or replace function public.trg_notify_ate_with()
-returns trigger language plpgsql security definer set search_path = public, extensions as $$
-begin
-  insert into public.notifications (recipient_id, actor_id, type, companion_id)
-  values (new.companion_id, new.tagger_id, 'ate_with', new.id)
-  on conflict do nothing;
-  return null;
-end; $$;
-drop trigger if exists entry_companions_notify_ai on public.entry_companions;
-create trigger entry_companions_notify_ai
-  after insert on public.entry_companions
-  for each row execute function public.trg_notify_ate_with();
-
 create or replace function public.trg_block_withdraws_ate_with()
 returns trigger language plpgsql security definer set search_path = public, extensions as $$
 begin
@@ -225,17 +233,15 @@ create trigger blocks_withdraw_ate_with_ai
   after insert on public.blocks
   for each row execute function public.trg_block_withdraws_ate_with();
 
-revoke execute on function public.trg_notify_ate_with()          from public, anon, authenticated;
 revoke execute on function public.trg_block_withdraws_ate_with() from public, anon, authenticated;
 
 -- ===========================================================================
 -- 4. Helpers.
 -- ===========================================================================
--- Seats taken on an entry: pending + accepted companions + live (unredeemed, unexpired) invites.
+-- Seats taken on an entry: EVERY companion row (a decline keeps its seat) + live invites.
 create or replace function public.ate_with_seats(p_entry_id uuid)
 returns int language sql stable security definer set search_path = public, extensions as $$
-  select (select count(*) from public.entry_companions c
-          where c.entry_id = p_entry_id and c.status in ('pending', 'accepted'))::int
+  select (select count(*) from public.entry_companions c where c.entry_id = p_entry_id)::int
        + (select count(*) from public.entry_invites i
           where i.entry_id = p_entry_id and i.redeemed_at is null and i.expires_at > now())::int;
 $$;
@@ -263,34 +269,66 @@ begin
   return v_entry;
 end; $$;
 
--- Per-tagger rolling-day budget (tags + invites).
-create or replace function public.ate_with_check_budget(p_uid uuid)
-returns void language plpgsql stable security definer set search_path = public, extensions as $$
+-- Spend one unit of the actor's rolling-day budget (40 tags + invites), from the append-only ledger —
+-- untag/revoke delete companion and invite rows, never ledger rows, so a tag→untag loop still pays.
+-- Serialised per actor (advisory xact lock) so parallel calls on different entries cannot pass 40.
+-- Returns true when this (entry, recipient) was already tagged within the day: a re-tag stays quiet.
+create or replace function public.ate_with_spend(p_uid uuid, p_kind text, p_entry_id uuid, p_recipient uuid)
+returns boolean language plpgsql volatile security definer set search_path = public, extensions as $$
+declare
+  v_again boolean;
 begin
-  if (select count(*) from public.entry_companions c where c.tagger_id = p_uid and c.created_at > now() - interval '1 day')
-   + (select count(*) from public.entry_invites i where i.inviter_id = p_uid and i.created_at > now() - interval '1 day')
-     >= 40 then
+  perform pg_advisory_xact_lock(hashtextextended('ate_with_budget:' || p_uid::text, 0));
+  delete from public.ate_with_ledger l where l.actor_id = p_uid and l.created_at < now() - interval '2 days';
+  if (select count(*) from public.ate_with_ledger l
+      where l.actor_id = p_uid and l.created_at > now() - interval '1 day') >= 40 then
     raise exception 'ate_with_rate_limited' using errcode = '54000';
   end if;
+  v_again := p_recipient is not null and exists (
+    select 1 from public.ate_with_ledger l
+    where l.actor_id = p_uid and l.kind = 'tag' and l.entry_id = p_entry_id
+      and l.recipient_id = p_recipient and l.created_at > now() - interval '1 day');
+  insert into public.ate_with_ledger (actor_id, kind, entry_id, recipient_id)
+  values (p_uid, p_kind, p_entry_id, p_recipient);
+  return v_again;
 end; $$;
+
+-- The companion's notification. Quiet (a re-tag of the same person on the same entry within the day):
+-- the row still lands so the tag is reachable in the inbox, but born read and pushed — no badge, no push.
+create or replace function public.ate_with_notify(p_companion_id uuid, p_quiet boolean)
+returns void language sql volatile security definer set search_path = public, extensions as $$
+  insert into public.notifications (recipient_id, actor_id, type, companion_id, read_at, pushed_at)
+  select c.companion_id, c.tagger_id, 'ate_with', c.id,
+         case when p_quiet then now() end, case when p_quiet then now() end
+  from public.entry_companions c where c.id = p_companion_id
+  on conflict do nothing;
+$$;
 
 -- entry_cards.companions — the people this entry was eaten with, as the VIEWER may see them.
 -- DEFINER because entry_companions is parties-only under RLS while an accepted "with" is public, like
--- the entry; the visibility rule is therefore spelled out here, viewer-relative via auth.uid().
-create or replace function public.entry_with_people(p_entry_id uuid, p_author_id uuid)
+-- the entry. It is callable directly (the security_invoker view needs EXECUTE), so it applies the
+-- entries SELECT rule itself (0033: own, or no block either way) to the entry's REAL author — read here,
+-- never taken from the caller — and answers [] for an entry the viewer may not see.
+create or replace function public.entry_with_people(p_entry_id uuid)
 returns jsonb language sql stable security definer set search_path = public, extensions as $$
-  with host as (                               -- this entry is someone's response: whose visit?
+  with entry as (
+    select e.id, e.author_id
+    from public.entries e
+    where e.id = p_entry_id
+      and (e.author_id = (select auth.uid()) or not public.blocked_with(e.author_id))
+  ),
+  host as (                                    -- this entry is someone's response: whose visit?
     select c.entry_id as host_entry, c.tagger_id as host_id
-    from public.entry_companions c
-    where c.response_entry_id = p_entry_id and c.status = 'accepted'
+    from entry
+    join public.entry_companions c on c.response_entry_id = entry.id and c.status = 'accepted'
     limit 1
   ),
   people as (
     select c.companion_id as user_id, c.status, c.response_entry_id as entry_id, 1 as ord, c.created_at
-    from public.entry_companions c
-    where c.entry_id = p_entry_id
-      and ((c.status = 'accepted' and c.response_entry_id is not null)
-        or (c.status = 'pending' and (select auth.uid()) in (c.tagger_id, c.companion_id)))
+    from entry
+    join public.entry_companions c on c.entry_id = entry.id
+    where (c.status = 'accepted' and c.response_entry_id is not null)
+       or (c.status = 'pending' and (select auth.uid()) in (c.tagger_id, c.companion_id))
     union all
     select h.host_id, 'accepted', h.host_entry, 0, null::timestamptz from host h
     union all
@@ -305,16 +343,17 @@ returns jsonb language sql stable security definer set search_path = public, ext
          order by x.ord, x.created_at nulls first, p.username), '[]'::jsonb)
   from people x
   join public.profiles p on p.id = x.user_id
-  where x.user_id <> p_author_id
+  where x.user_id <> (select author_id from entry)
     and p.deleted_at is null
     and not public.blocked_with(x.user_id);
 $$;
 
-revoke all on function public.ate_with_seats(uuid)            from public, anon, authenticated;
-revoke all on function public.ate_with_own_entry(uuid)        from public, anon, authenticated;
-revoke all on function public.ate_with_check_budget(uuid)     from public, anon, authenticated;
-revoke all on function public.entry_with_people(uuid, uuid)   from public, anon;
-grant execute on function public.entry_with_people(uuid, uuid) to authenticated, service_role;
+revoke all on function public.ate_with_seats(uuid)                    from public, anon, authenticated;
+revoke all on function public.ate_with_own_entry(uuid)                from public, anon, authenticated;
+revoke all on function public.ate_with_spend(uuid, text, uuid, uuid)  from public, anon, authenticated;
+revoke all on function public.ate_with_notify(uuid, boolean)          from public, anon, authenticated;
+revoke all on function public.entry_with_people(uuid)                 from public, anon;
+grant execute on function public.entry_with_people(uuid) to authenticated, service_role;
 
 -- ===========================================================================
 -- 5. entry_cards — 0036's view verbatim, plus the trailing `companions`.
@@ -352,7 +391,7 @@ with (security_invoker = true) as
     e.place_offset,
     char_length(e.place_query) as place_length,
     -- 0058: "ate with" — see entry_with_people.
-    public.entry_with_people(e.id, e.author_id) as companions
+    public.entry_with_people(e.id) as companions
   from public.entries e
   join public.profiles p on p.id = e.author_id
   left join public.restaurants r on r.id = e.restaurant_id
@@ -403,6 +442,7 @@ language plpgsql volatile security definer set search_path = public, extensions 
 declare
   v_entry public.entries := public.ate_with_own_entry(p_entry_id);
   v_row   public.entry_companions;
+  v_quiet boolean;
 begin
   if p_user_id is null or p_user_id = v_entry.author_id then
     raise exception 'cannot_tag_yourself' using errcode = '22023';
@@ -419,10 +459,11 @@ begin
     if public.ate_with_seats(p_entry_id) >= 6 then
       raise exception 'ate_with_cap' using errcode = '54000';
     end if;
-    perform public.ate_with_check_budget(v_entry.author_id);
+    v_quiet := public.ate_with_spend(v_entry.author_id, 'tag', p_entry_id, p_user_id);
     insert into public.entry_companions (entry_id, tagger_id, companion_id)
     values (p_entry_id, v_entry.author_id, p_user_id)
     returning * into v_row;
+    perform public.ate_with_notify(v_row.id, v_quiet);
   end if;
   return query select v_row.id, v_row.entry_id, v_row.companion_id, v_row.status, v_row.created_at;
 end; $$;
@@ -456,7 +497,7 @@ begin
   if public.ate_with_seats(p_entry_id) >= 6 then
     raise exception 'ate_with_cap' using errcode = '54000';
   end if;
-  perform public.ate_with_check_budget(v_entry.author_id);
+  perform public.ate_with_spend(v_entry.author_id, 'invite', p_entry_id, null);
   -- 24 random bytes, base64url, no padding: 32 characters. Only its sha256 is kept.
   v_token := rtrim(translate(encode(extensions.gen_random_bytes(24), 'base64'), '+/', '-_'), '=');
   insert into public.entry_invites (entry_id, inviter_id, token_hash)
@@ -484,7 +525,7 @@ language plpgsql volatile security definer set search_path = public, extensions 
 declare
   v_uid uuid := (select auth.uid());
   v_inv public.entry_invites;
-  v_row public.entry_companions;
+  v_new uuid;
 begin
   if v_uid is null then
     raise exception 'sign in to redeem' using errcode = '42501';
@@ -516,7 +557,11 @@ begin
   update public.entry_invites set redeemed_by = v_uid, redeemed_at = now() where id = v_inv.id;
   insert into public.entry_companions (entry_id, tagger_id, companion_id, invite_id)
   values (v_inv.entry_id, v_inv.inviter_id, v_uid, v_inv.id)
-  on conflict on constraint entry_companions_pair_uq do nothing;  -- already tagged by handle: keep that row
+  on conflict on constraint entry_companions_pair_uq do nothing   -- already tagged by handle: keep that row
+  returning id into v_new;
+  if v_new is not null then
+    perform public.ate_with_notify(v_new, false);
+  end if;
   return query select c.id, c.entry_id, c.status from public.entry_companions c
                where c.entry_id = v_inv.entry_id and c.companion_id = v_uid;
 end; $$;
@@ -542,7 +587,14 @@ returns table (
   place            jsonb,
   visited_at       timestamptz
 )
-language sql stable security invoker set search_path = public, extensions as $$
+language plpgsql stable security invoker set search_path = public, extensions as $$
+#variable_conflict use_column
+begin
+  -- The keyset is two-part: both fields of the last row, or neither.
+  if (p_cursor_created_at is null) <> (p_cursor_id is null) then
+    raise exception 'p_cursor_created_at and p_cursor_id go together' using errcode = '22023';
+  end if;
+  return query
   select n.id, n.type, n.created_at, n.read_at,
          jsonb_build_object('id', a.id, 'username', a.username, 'name', a.name, 'avatar_url', a.avatar_url),
          c.id, c.status, e.id,
@@ -557,10 +609,10 @@ language sql stable security invoker set search_path = public, extensions as $$
   where n.recipient_id = (select auth.uid())
     and n.type = 'ate_with'
     and n.dismissed_at is null
-    and (p_cursor_created_at is null
-         or (n.created_at, n.id) < (p_cursor_created_at, coalesce(p_cursor_id, '00000000-0000-0000-0000-000000000000'::uuid)))
+    and (p_cursor_created_at is null or (n.created_at, n.id) < (p_cursor_created_at, p_cursor_id))
   order by n.created_at desc, n.id desc
   limit least(greatest(coalesce(p_limit, 30), 1), 100);
+end;
 $$;
 
 -- 0011's badge, same signature: now the count of what my_notifications can show.
@@ -766,7 +818,7 @@ returns void language sql volatile security invoker set search_path = public, ex
 $$;
 
 -- ===========================================================================
--- 11. delete_account — 0055's body verbatim, plus the three new tables in the "nothing survived" check.
+-- 11. delete_account — 0055's body verbatim, plus the four new tables in the "nothing survived" check.
 -- ===========================================================================
 create or replace function public.delete_account()
 returns jsonb
@@ -808,6 +860,7 @@ begin
   or exists (select 1 from public.entry_companions   where tagger_id = v_uid or companion_id = v_uid)
   or exists (select 1 from public.entry_invites      where inviter_id = v_uid or redeemed_by = v_uid)
   or exists (select 1 from public.device_push_tokens where user_id = v_uid)
+  or exists (select 1 from public.ate_with_ledger    where actor_id = v_uid or recipient_id = v_uid)
   then
     raise exception 'delete_account: personal rows survived the cascade for %', v_uid
       using errcode = 'P0001';

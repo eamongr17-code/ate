@@ -9,6 +9,8 @@ import { world, U, P, id, receipt } from './fixtures.mjs';
 
 let w, db, as, asService, rows, error;
 const X = [1, 2, 3, 4, 5, 6].map((n) => id(900 + n)); // six extra people, for the cap
+const SPENDER = id(950); // their own day budget, for the rate-limit test
+const HOST = id(952);    // their own budget, for the decline-keeps-its-seat test
 
 before(async () => {
   w = await world();
@@ -16,6 +18,7 @@ before(async () => {
   for (const [i, uid] of X.entries()) {
     await db.query(`insert into auth.users (id, email) values ($1, $2)`, [uid, `extra${i + 1}@ate.test`]);
   }
+  await db.query(`insert into auth.users (id, email) values ($1, 'spender@ate.test'), ($2, 'host@ate.test')`, [SPENDER, HOST]);
 });
 after(async () => db?.close());
 
@@ -247,6 +250,60 @@ test('push tokens: register, move between accounts on one device, unregister; ow
   assert.equal(await code(U.bob, `insert into public.device_push_tokens (token, user_id, apns_env) values ($1, $2, 'sandbox')`, ['cd'.repeat(32), U.bob]), '42501');
   await as(U.bob, () => db.query(`select public.unregister_push_token($1)`, [tok]));
   assert.equal((await rows(`select count(*)::int n from public.device_push_tokens`))[0].n, 0);
+});
+
+test('rate limit: 40 a day from the ledger — untag-then-retag and mint-then-revoke both still spend', async () => {
+  const E = await w.visit(90, SPENDER, P.tipo, receipt(['Gnocchi', 4]), '2026-09-21T09:00:00Z');
+  const ledger = async () => (await rows(`select count(*)::int n from public.ate_with_ledger where actor_id = $1`, [SPENDER]))[0].n;
+  for (let i = 0; i < 20; i++) {
+    await tag(SPENDER, E, U.cleo);
+    await as(SPENDER, () => db.query(`select public.untag_ate_with($1, $2)`, [E, U.cleo]));
+  }
+  assert.equal(await ledger(), 20, 'every tag spent one, though every row was untagged');
+  for (let i = 0; i < 19; i++) {
+    const [inv] = await as(SPENDER, () => rows(`select * from public.create_ate_with_invite($1)`, [E]));
+    await as(SPENDER, () => db.query(`select public.revoke_ate_with_invite($1)`, [inv.invite_id]));
+  }
+  assert.equal(await ledger(), 39, 'every invite spent one, though every invite was revoked');
+  assert.equal((await tag(SPENDER, E, U.cleo))[0].status, 'pending', 'the 40th goes through');
+  assert.equal(await code(SPENDER, `select * from public.tag_ate_with($1, $2)`, [E, U.dan]), '54000', 'the 41st is ate_with_rate_limited');
+  assert.equal(await code(SPENDER, `select * from public.create_ate_with_invite($1)`, [E]), '54000');
+  assert.equal(await code(SPENDER, `select * from public.ate_with_ledger`), '42501', 'no client read of the ledger');
+
+  // 21 tags of cleo on this entry, one live notification row at a time — and only the first was loud.
+  const cleo = await rows(`select count(*)::int n from public.notifications n join public.entry_companions c on c.id = n.companion_id
+    where c.entry_id = $1 and n.recipient_id = $2 and n.read_at is null and n.pushed_at is null`, [E, U.cleo]);
+  assert.equal(cleo[0].n, 0, 'the live row is a re-tag: born read and pushed (no badge, no push)');
+  const live = (await inbox(U.cleo)).filter((n) => n.entry_id === E);
+  assert.equal(live.length, 1, 'still reachable in the inbox');
+  assert.ok(live[0].read_at);
+});
+
+test('seats: a declined tag keeps its seat', async () => {
+  const E = await w.visit(92, HOST, P.marion, receipt(['Olives']), '2026-09-22T09:00:00Z');
+  const people = [U.alice, U.bob, U.cleo, U.dan, X[0], X[1]];
+  const tags = [];
+  for (const uid of people) tags.push((await tag(HOST, E, uid))[0]);
+  await as(X[0], () => db.query(`select public.decline_ate_with($1)`, [tags[4].companion_id]));
+  assert.equal(await code(HOST, `select * from public.tag_ate_with($1, $2)`, [E, X[3]]), '54000', 'six seats, one of them a decline');
+  assert.equal((await as(HOST, () => rows(`select public.untag_ate_with($1, $2) n`, [E, X[0]])))[0].n, 0, 'untag cannot free it');
+  assert.equal(await code(HOST, `select * from public.create_ate_with_invite($1)`, [E]), '54000');
+});
+
+test('entry_with_people called directly applies the entries rule: blocked by the author reads []', async () => {
+  const direct = async (uid, entry) => (await as(uid, () => rows(`select public.entry_with_people($1) p`, [entry])))[0].p;
+  assert.deepEqual((await direct(U.cleo, id(10))).map((p) => p.username), ['bob'], 'an unblocked viewer sees the accepted "with"');
+  await as(U.alice, () => db.query(`select public.block_user($1)`, [U.dan]));
+  assert.deepEqual(await direct(U.dan, id(10)), [], 'blocked by the author: nothing');
+  assert.deepEqual(await direct(U.dan, id(11)), [], 'and the response entry no longer names the author either');
+  assert.deepEqual((await direct(U.alice, id(10))).map((p) => p.username), ['bob'], 'the author still sees their own');
+  assert.equal(await code(null, `select public.entry_with_people($1)`, [id(10)]), '42501', 'anon: no grant');
+  await as(U.alice, () => db.query(`select public.unblock_user($1)`, [U.dan]));
+});
+
+test('my_notifications: a half cursor is 22023', async () => {
+  assert.equal(await code(U.cleo, `select * from public.my_notifications(30, now(), null)`), '22023');
+  assert.equal(await code(U.cleo, `select * from public.my_notifications(30, null, $1)`, [id(1)]), '22023');
 });
 
 test('delete_account: tags on both sides and tokens cascade; the other party keeps their own entry', async () => {
