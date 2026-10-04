@@ -253,3 +253,94 @@ private final class SentBox: @unchecked Sendable {
     func add(_ body: String) { lock.withLock { bodies.append(body) } }
     var all: [String] { lock.withLock { bodies } }
 }
+
+/// Build 87, note 11: a settled moment previews at once, and Done's last word.
+@Suite("Early sort — settled moments go at once")
+@MainActor
+struct EarlySortNowTests {
+    private let place = UUID()
+
+    private func input(_ body: String, place: UUID? = nil) -> EarlySortInput {
+        EarlySortInput(body: body, tagTokens: [], restaurantID: place ?? self.place)
+    }
+
+    @Test("now() sends without the pause")
+    func sendsAtOnce() async {
+        let slept = Mutex<Int>(0)
+        let sent = SentBox()
+        let early = EarlySortScheduler(
+            sleep: { _ in slept.withLock { $0 += 1 }; try await Task.sleep(for: .seconds(30)) },
+            send: { sent.add($0.body) }
+        )
+        early.edited(input("the ragù 4.5"))
+        early.now(input("the ragù 4.5"))
+        await early.settle()
+        #expect(sent.all == ["the ragù 4.5"])
+        #expect(early.lastCompleted == input("the ragù 4.5"))
+    }
+
+    @Test("a preview out for the same words is left to land, and not sent twice")
+    func keepsMatchingFlight() async {
+        let sent = Sent()
+        let gate = Mutex<Bool>(false)
+        let early = EarlySortScheduler(sleep: instantSleep) { input in
+            sent.begin(input)
+            while gate.withLock({ $0 }) == false { try await Task.sleep(for: .milliseconds(1)) }
+            sent.end(cancelled: false, input)
+        }
+        early.now(input("the ragù 4.5"))
+        while sent.all.isEmpty { await Task.yield() }
+        #expect(early.covers(input("the ragù 4.5")))
+        early.edited(input("the ragù 4.5"))
+        early.now(input("the ragù 4.5"))
+        gate.withLock { $0 = true }
+        await early.settle()
+        #expect(sent.all.count == 1)
+        #expect(sent.allCancelled.isEmpty)
+    }
+
+    @Test("Done's last word goes after stop() only when the key is stale")
+    func doneFlushesStaleKey() async {
+        let sent = SentBox()
+        let early = EarlySortScheduler(sleep: instantSleep, send: { sent.add($0.body) })
+        early.now(input("the ragù 4.5"))
+        await early.settle()
+        // Done with the same words: the server already has the plan.
+        early.now(input("the ragù 4.5"))
+        early.stop()
+        await early.settle()
+        #expect(sent.all == ["the ragù 4.5"])
+        // Done with a changed place: one last preview, even though typing has stopped.
+        let other = UUID()
+        early.now(input("the ragù 4.5", place: other))
+        await early.settle()
+        #expect(sent.all.count == 2)
+        #expect(early.covers(input("the ragù 4.5", place: other)))
+        early.edited(input("after Done"))
+        await early.settle()
+        #expect(sent.all.count == 2, "stopped: typing previews no more")
+    }
+
+    @Test("words that come back after a cancelled preview are asked about again")
+    func cancelledIsNotCovered() async {
+        let sent = Sent()
+        let early = EarlySortScheduler(sleep: instantSleep) { input in
+            sent.begin(input)
+            do {
+                try await Task.sleep(for: .milliseconds(input.body == "a long one" ? 30_000 : 0))
+                sent.end(cancelled: false, input)
+            } catch {
+                sent.end(cancelled: true, input)
+                throw error
+            }
+        }
+        early.now(input("a long one"))
+        while sent.all.isEmpty { await Task.yield() }
+        early.edited(input("short"))
+        #expect(early.covers(input("a long one")) == false)
+        early.now(input("short"))
+        await early.settle()
+        #expect(sent.all.map(\.body) == ["a long one", "short"])
+        #expect(sent.maximumConcurrent == 1)
+    }
+}

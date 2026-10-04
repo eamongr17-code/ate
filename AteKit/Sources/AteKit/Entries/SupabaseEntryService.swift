@@ -30,18 +30,28 @@ public struct SupabaseEntryService: EntryService {
 
     @discardableResult
     public func create(_ entry: NewEntry) async throws -> EntryCard {
+        try await insert(entry)
+        return try await self.entry(id: entry.id)
+    }
+
+    public func insert(_ entry: NewEntry) async throws {
         do {
-            let response = try await api.supabase
+            _ = try await api.supabase
                 .from("entries")
                 .insert(entry, returning: .minimal)
                 .execute()
-            _ = response
         } catch {
             // `23505` on an entry insert means the entry already landed: the id is the client's, so
             // the row that is there is ours. Treat it as the success it is (contract, Errors).
             guard isDuplicateKey(error) else { throw EntryWriteFailure.of(error) }
         }
-        return try await self.entry(id: entry.id)
+    }
+
+    public func warmUp() async {
+        _ = try? await api.supabase.functions.invoke(
+            "sort-entry",
+            options: FunctionInvokeOptions(method: .post, body: ["health": true])
+        ) { _, _ in () }
     }
 
     public func attach(photo: EntryPhotoUpload) async throws {
@@ -120,14 +130,15 @@ public struct SupabaseEntryService: EntryService {
                 method: .post,
                 body: SortEntryRequest(entryID: entryID, force: force, tagTokens: tagTokens, sixTokens: sixTokens)
             )
-        )
+        ) { data, _ in try Self.decodeSortResponse(data) }
         return SortOutcome(
             entryID: entryID,
             status: EntrySortStatus(rawValue: response.sortStatus ?? "sorted") ?? .sorted,
             mode: response.mode ?? "stub",
             itemCount: response.items?.count ?? 0,
             restaurantID: response.restaurantID.flatMap(UUID.init(uuidString:)),
-            didAttachPlace: response.restaurantID != nil
+            didAttachPlace: response.restaurantID != nil,
+            card: response.entryCard?.card
         )
     }
 
@@ -285,25 +296,42 @@ public struct SupabaseEntryService: EntryService {
         let ok: Bool?
     }
 
-    private struct SortResponse: Decodable, Sendable {
+    /// The sort's reply, read with ``PostgRESTDate/decoder`` — `entry_card` carries the view's
+    /// microsecond timestamps.
+    static func decodeSortResponse(_ data: Data) throws -> SortResponse {
+        try PostgRESTDate.decoder.decode(SortResponse.self, from: data)
+    }
+
+    struct SortResponse: Decodable, Sendable {
         let ok: Bool?
         let mode: String?
         let sortStatus: String?
         let restaurantID: String?
-        /// Only the count is used; the receipt itself is refetched from `entry_cards`, which is the
-        /// one row shape and the only thing allowed to say what an entry contains.
+        /// Only the count is used; the receipt is drawn from ``entryCard`` — the `entry_cards` row,
+        /// the one row shape and the only thing allowed to say what an entry contains.
         let items: [SortResponseItem]?
+        /// 0056. Lenient: a card this build cannot read is a re-read, never a failed sort.
+        let entryCard: LenientCard?
 
         enum CodingKeys: String, CodingKey {
             case ok, mode, items
             case sortStatus = "sort_status"
             case restaurantID = "restaurant_id"
+            case entryCard = "entry_card"
+        }
+    }
+
+    struct LenientCard: Decodable, Sendable {
+        let card: EntryCard?
+
+        init(from decoder: any Decoder) throws {
+            card = try? EntryCard(from: decoder)
         }
     }
 
     /// Deliberately no `tags`: a forced re-sort answers `items[].tags: []` while the database keeps
     /// each line's inherited set, so a line's tags are read from `entry_cards` and nowhere else.
-    private struct SortResponseItem: Decodable, Sendable {
+    struct SortResponseItem: Decodable, Sendable {
         let dishName: String?
 
         enum CodingKeys: String, CodingKey {

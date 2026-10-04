@@ -237,13 +237,25 @@ public enum EntryEvents {
         )
     }
 
-    /// The Summary's receipt entered — whole, once its shape was final. `wait_ms` is how long the
-    /// coral ground stood without it (0 when "Posting…" covered the whole sort).
-    public static func summaryReceiptEntered(entryID: UUID, waitMilliseconds: Int) -> AnalyticsEvent {
-        AnalyticsEvent(
-            name: "summary_receipt_entered",
-            parameters: ["entry_id": entryID.uuidString.lowercased(), "wait_ms": String(max(0, waitMilliseconds))]
-        )
+    /// The Summary's receipt printed its lines. `wait_ms` is how long the printed face stood before
+    /// them (0 when the sort had landed by the time it came up).
+    ///
+    /// Build 87 (note 11) adds the number the speed work is judged by: `ms_from_done`, from the tap
+    /// on Post to the lines printing, and `cache_hit` — whether an early sort of exactly these words,
+    /// tokens and place had been sent before Done (the server's cache key; the server's own
+    /// `sort_meta.cache_hit` is the confirmation). Both absent from the older Summary.
+    public static func summaryReceiptEntered(
+        entryID: UUID,
+        waitMilliseconds: Int,
+        millisecondsFromDone: Int? = nil,
+        cacheHit: Bool? = nil
+    ) -> AnalyticsEvent {
+        var parameters = [
+            "entry_id": entryID.uuidString.lowercased(), "wait_ms": String(max(0, waitMilliseconds))
+        ]
+        if let millisecondsFromDone { parameters["ms_from_done"] = String(max(0, millisecondsFromDone)) }
+        if let cacheHit { parameters["cache_hit"] = flag(cacheHit) }
+        return AnalyticsEvent(name: "summary_receipt_entered", parameters: parameters)
     }
 
     /// An early sort (`sort-entry`, `preview: true`) went out while the person was still writing.

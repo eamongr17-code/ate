@@ -98,7 +98,14 @@ public struct EntrySubmission: Sendable {
 
     /// Step one: the words. Returns as soon as they are accepted — photos and the sorter are
     /// ``finish(entryID:photoPaths:)``, and the entry is already in the journal by then.
-    public func submit(_ request: NewEntryRequest) async -> EntrySubmissionResult {
+    ///
+    /// `onInserted` is told the moment the insert has landed, **before** the row is read back, so the
+    /// sorter can start then rather than after that read. The read stays: the receipt's skeleton
+    /// prints the order number (server-assigned) and the place's address, which only the row has.
+    public func submit(
+        _ request: NewEntryRequest,
+        onInserted: (@Sendable () -> Void)? = nil
+    ) async -> EntrySubmissionResult {
         // Its files are owed an upload from here on: they go only once the server shows their rows.
         await outbox.staged.record(entryID: request.id, photos: photos(of: request))
         let authorID: UUID
@@ -116,7 +123,9 @@ public struct EntrySubmission: Sendable {
         )
 
         do {
-            let card = try await entries.create(entry)
+            try await entries.insert(entry)
+            onInserted?()
+            let card = try await entries.entry(id: entry.id)
             analytics(EntryEvents.saved(savedEvent(request, queued: false)))
             await outbox.enqueue(QueuedEntry(
                 entry: QueuedInsert(entry),
@@ -161,9 +170,15 @@ public struct EntrySubmission: Sendable {
         sorted: (@Sendable (EntryCard?) async -> Void)? = nil
     ) async -> EntryCard? {
         async let uploaded = upload(entryID: entryID, photoPaths: photoPaths)
-        let didSort = await sort(entryID: entryID, tagTokens: tagTokens, sixTokens: sixTokens)
+        let outcome = await sort(entryID: entryID, tagTokens: tagTokens, sixTokens: sixTokens)
+        let didSort = outcome != nil
         if let sorted {
-            await sorted(didSort ? try? await entries.entry(id: entryID) : nil)
+            // The sort's reply carries the sorted card (0056): print it. Read it only when it did not.
+            if let card = outcome?.card {
+                await sorted(card)
+            } else {
+                await sorted(didSort ? try? await entries.entry(id: entryID) : nil)
+            }
         }
         await outbox.recordProgress(entryID: entryID, uploadedPositions: await uploaded, didSort: didSort)
         let card = try? await entries.entry(id: entryID)
@@ -224,7 +239,7 @@ public struct EntrySubmission: Sendable {
         }
     }
 
-    private func sort(entryID: UUID, tagTokens: [TagToken], sixTokens: [TagToken]) async -> Bool {
+    private func sort(entryID: UUID, tagTokens: [TagToken], sixTokens: [TagToken]) async -> SortOutcome? {
         let startedAt = now()
         do {
             let outcome = try await entries.sort(
@@ -241,10 +256,10 @@ public struct EntrySubmission: Sendable {
             if outcome.didAttachPlace {
                 analytics(EntryEvents.placeAttached(source: .named))
             }
-            return true
+            return outcome
         } catch {
             analytics(EntryEvents.sortFailed(reason: reason(for: error)))
-            return false
+            return nil
         }
     }
 

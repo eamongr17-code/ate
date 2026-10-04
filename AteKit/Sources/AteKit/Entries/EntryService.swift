@@ -57,6 +57,10 @@ public struct SortOutcome: Sendable, Hashable {
     public let restaurantID: UUID?
     /// True when the entry arrived placeless and the sorter found the place in the words.
     public let didAttachPlace: Bool
+    /// The sorted entry as `get_entry_card` returns it, carried in the sort's own reply (0056) — what
+    /// the receipt prints, with no re-read. `nil` when the server could not read it back (or an
+    /// older server): then read it as before.
+    public let card: EntryCard?
 
     public init(
         entryID: UUID,
@@ -64,7 +68,8 @@ public struct SortOutcome: Sendable, Hashable {
         mode: String,
         itemCount: Int,
         restaurantID: UUID?,
-        didAttachPlace: Bool
+        didAttachPlace: Bool,
+        card: EntryCard? = nil
     ) {
         self.entryID = entryID
         self.status = status
@@ -72,6 +77,7 @@ public struct SortOutcome: Sendable, Hashable {
         self.itemCount = itemCount
         self.restaurantID = restaurantID
         self.didAttachPlace = didAttachPlace
+        self.card = card
     }
 }
 
@@ -118,6 +124,14 @@ public protocol EntryService: Sendable {
     /// that is success, not a conflict.
     @discardableResult
     func create(_ entry: NewEntry) async throws -> EntryCard
+
+    /// The insert alone, with no read after it — so the sort can start the moment the words have
+    /// landed. Same `23505` rule as ``create(_:)``.
+    func insert(_ entry: NewEntry) async throws
+
+    /// `sort-entry` `{health: true}` (0056): wakes the function when the composer opens, so Done does
+    /// not pay a cold start. Fire and forget — it never throws and nothing waits on it.
+    func warmUp() async
 
     /// Upload the bytes, then record the row. Idempotent on `(entry_id, position)`.
     func attach(photo: EntryPhotoUpload) async throws
@@ -170,6 +184,13 @@ public protocol EntryService: Sendable {
 public extension EntryService {
     /// A service with no server-side cache has nothing to warm.
     func previewSort(_ input: EarlySortInput) async throws {}
+
+    func insert(_ entry: NewEntry) async throws {
+        _ = try await create(entry)
+    }
+
+    /// A service with no cold start has nothing to wake.
+    func warmUp() async {}
 
     func attachExisting(entryID: UUID, position: Int, url: String) async throws {
         throw EntryWriteFailure.rejected("attachExisting unsupported")
