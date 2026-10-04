@@ -3,8 +3,9 @@ import SwiftUI
 
 /// **Under an entry's paper, on the ground** (build 87, note 8): "More at <place>" — the place's best
 /// dishes this entry did not log — and "More like this" — the dishes most like the entry's best one.
-/// Kit shelves under kit headings; each section is held at its size while it is read and is not on
-/// the page at all when it has nothing (or its read fell over).
+/// Kit shelves under kit headings. Nothing is drawn until both reads have answered; then the sections
+/// with cards fade in together, in their final order. One with nothing (or whose read fell over) is
+/// not on the page at all.
 struct V2EntryMore: View {
     let store: EntryMoreStore
     /// The entry's place, for the heading and for what a card's page draws at once.
@@ -15,24 +16,14 @@ struct V2EntryMore: View {
         VStack(alignment: .leading, spacing: 0) {
             if store.showsPlace, let place {
                 AteSectionHeading(title: "More at \(place.name)", identifier: "entry.more.place")
-                section(isSettled: store.isPlaceSettled) { placeShelf(place) }
+                placeShelf(place)
             }
             if store.showsSimilar {
                 AteSectionHeading(title: "More like this", identifier: "entry.more.similar")
-                section(isSettled: store.isSimilarSettled) { similarShelf }
+                similarShelf
             }
         }
-        .ateAnimation(AteMotion.fillIn, value: store.isPlaceSettled)
-        .ateAnimation(AteMotion.fillIn, value: store.isSimilarSettled)
-    }
-
-    @ViewBuilder
-    private func section(isSettled: Bool, @ViewBuilder shelf: () -> some View) -> some View {
-        if isSettled {
-            shelf().transition(.opacity)
-        } else {
-            AteShelfSkeleton().transition(.opacity)
-        }
+        .ateAnimation(AteMotion.fillIn, value: store.isSettled)
     }
 
     private func placeShelf(_ place: EntryCard.Place) -> some View {

@@ -130,10 +130,50 @@ struct EntryMoreTests {
         #expect(explore.similarLimits.count == 2)
     }
 
+    @Test func neitherSectionShowsUntilBothReadsHaveAnswered() async {
+        let places = FakePlaceDishSource(), explore = GatedSimilar()
+        let own = UUID()
+        places.seed(place: Self.placeSummary(), dishes: [Self.menu("Cacio e pepe", score: 4.5)])
+        let store = EntryMoreStore(places: places, explore: explore)
+        let loading = Task { await store.load(.init(restaurantID: Self.place, anchorDishID: own, ownDishIDs: [own])) }
+        while store.isPlaceSettled == false { await Task.yield() }
+        #expect(store.atPlace.map(\.name) == ["Cacio e pepe"])
+        #expect(store.isSettled == false && store.showsPlace == false && store.showsSimilar == false,
+                "the place's answer waits for the similar one")
+        await explore.answer([Self.similar("Carbonara")])
+        await loading.value
+        #expect(store.isSettled && store.showsPlace && store.showsSimilar)
+    }
+
     @Test func theEventFollowsSimilarDishOpened() {
         let event = DetailEvents.entryMoreOpened(section: .place, position: 3)
         #expect(event.name == "entry_more_opened")
         #expect(event.parameters == ["section": "place", "position": "3"])
         #expect(DetailSource.entryMore.rawValue == "entry_more")
+    }
+}
+
+/// A similar-dishes read that answers only when told to.
+private actor GatedSimilar: DishExploreReading {
+    private var waiting: [CheckedContinuation<[SimilarDish], Never>] = []
+    private var answered: [SimilarDish]?
+
+    func answer(_ rows: [SimilarDish]) {
+        answered = rows
+        waiting.forEach { $0.resume(returning: rows) }
+        waiting = []
+    }
+
+    func dishTags(dishID: UUID) async throws -> [DishTag] { [] }
+
+    func similarDishes(dishID: UUID, limit: Int) async throws -> [SimilarDish] {
+        if let answered { return answered }
+        return await withCheckedContinuation { waiting.append($0) }
+    }
+
+    func dishesByTag(
+        kind: DishTag.Kind, slug: String, city: String?, after cursor: TagDishCursor?, pageSize: Int
+    ) async throws -> TagDishPage {
+        TagDishPage(items: [], nextCursor: nil)
     }
 }

@@ -5,8 +5,8 @@ import Observation
 /// entry did not log — and "More like this" — the dishes most like the entry's best one, the same
 /// `similar_dishes` read a dish page's "More like this" makes.
 ///
-/// Read after the entry has printed, both at once; each section settles on its own answer. A section
-/// with nothing in it, or whose read fell over, is not on the page at all — no error line.
+/// Read after the entry has printed, both at once; neither section shows until both have answered. A
+/// section with nothing in it, or whose read fell over, is not on the page at all — no error line.
 @MainActor
 @Observable
 public final class EntryMoreStore {
@@ -65,16 +65,21 @@ public final class EntryMoreStore {
         self.explore = explore
     }
 
-    /// "More at" is on the page while it is read, then only with a card in it — and never for an
+    /// Both reads have answered. Nothing under the paper is drawn before then — no heading, no
+    /// skeleton — so the sections arrive once, together, in their final order (build 88: "More at"
+    /// showed its skeleton, vanished empty, and "More like this" jumped into its place).
+    public var isSettled: Bool { subject != nil && isPlaceSettled && isSimilarSettled }
+
+    /// "More at" is on the page only once both reads are in and it has a card — and never for an
     /// entry with no place (a place is never assumed).
     public var showsPlace: Bool {
-        guard subject?.restaurantID != nil else { return false }
-        return isPlaceSettled == false || atPlace.isEmpty == false
+        guard isSettled, subject?.restaurantID != nil else { return false }
+        return atPlace.isEmpty == false
     }
 
     public var showsSimilar: Bool {
-        guard subject?.anchorDishID != nil else { return false }
-        return isSimilarSettled == false || similar.isEmpty == false
+        guard isSettled, subject?.anchorDishID != nil else { return false }
+        return similar.isEmpty == false
     }
 
     /// Read for this entry. A second call about the same subject reads nothing; a changed entry (a
@@ -86,7 +91,6 @@ public final class EntryMoreStore {
         similar = []
         isPlaceSettled = subject.restaurantID == nil
         isSimilarSettled = subject.anchorDishID == nil
-        // Each shelf settles on its own answer.
         async let place: Void = readPlace(subject)
         async let like: Void = readSimilar(subject)
         _ = await (place, like)
