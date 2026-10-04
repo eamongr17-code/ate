@@ -38,9 +38,8 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
         let long = PreviewFaults.longFixtures ? longEntries : []
         let deep = PreviewFaults.deepFixtures ? deepEntries : []
         let social = InMemorySocialService(entries: long + seededEntries + deep + [ownVisit], saved: seededSaves)
-        // The rebuilt app opens as somebody who follows nothing yet, so its Feed asks once (4 Oct);
-        // the current app keeps the artboard's Pasta and Dessert.
-        if DebugLaunch.isOn(.newApp) { social.cravings = [] }
+        // The preview opens as somebody who follows nothing yet, so the Feed asks once (4 Oct).
+        social.cravings = []
         return social
     }
 

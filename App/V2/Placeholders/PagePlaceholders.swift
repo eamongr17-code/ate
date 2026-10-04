@@ -65,31 +65,6 @@ struct PagePlaceholder: View {
     }
 }
 
-/// **The new app's Settings, as a stub**: the system's inset grouped list on the app's ground, with
-/// the one row phase 2b needs — the way back to the current app.
-struct SettingsPlaceholder: View {
-    let app: AppModel
-
-    var body: some View {
-        List {
-            Section {
-                Button { app.switchToCurrentApp() } label: {
-                    Text("Current app")
-                        .ateText(.kitListRow)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("v2.settings.currentApp")
-            }
-            .listRowBackground(AtePalette.automatic.chip)
-        }
-        .scrollContentBackground(.hidden)
-        .ateGround()
-        .ateInlineTitle("Settings")
-    }
-}
-
 /// **The composer, as a placeholder**: the sheet scaffold with close top left and the ink tick top
 /// right, muted — the tick waits for a place, and there is no place to attach yet.
 struct ComposerSheetPlaceholder: View {

@@ -24,36 +24,13 @@ struct AteRootView: View {
             .ateAppearance(AtePreferences.standard.appearance)
     }
 
-    /// Which app to draw: the current one, or — in Debug and Beta, by `-ate-v2` or Settings' "New
-    /// app" row — the rebuild. Reads the preference here, so a switch redraws the root at once.
-    private func generation(_ services: AteServices) -> AppGeneration {
-        #if DEBUG || BETA
-        let isAvailable = true
-        #else
-        let isAvailable = false
-        #endif
-        return AppGeneration.resolve(
-            isAvailable: isAvailable,
-            launchFlag: DebugLaunch.isOn(.newApp),
-            isUITesting: DebugLaunch.isOn(.uiTesting),
-            preference: services.preferences.opensNewApp
-        )
-    }
-
     @ViewBuilder
     private var resolved: some View {
         switch environment {
         case .success:
             if let services {
-                switch generation(services) {
-                case .current:
-                    AteShell(services: services, onSessionEnded: { generation += 1 })
-                        .id(generation)
-                case .new:
-                    // The rebuilt app (phase 2b), beside this one until cutover.
-                    V2Root(services: services, onSessionEnded: { generation += 1 })
-                        .id(generation)
-                }
+                V2Root(services: services, onSessionEnded: { generation += 1 })
+                    .id(generation)
             }
         case .failure(let error):
             ConfigurationErrorView(error: error)

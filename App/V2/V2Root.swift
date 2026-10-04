@@ -1,9 +1,7 @@
 import AteKit
 import SwiftUI
 
-/// **The rebuilt app's root** (phase 2b): the door, the first-run handle, or the tab shell — the
-/// same three places the current app has, on the native shell. Reached by `-ate-v2` or the "New
-/// app" row in Settings (Debug and Beta, ``AppGeneration``); the current app is untouched beside it.
+/// **The app's root under the environment**: the door, the first-run handle, or the tab shell.
 struct V2Root: View {
     @State private var app: AppModel
     /// Where the shell opens: a tab, and the composer over it (``V2Launch``).

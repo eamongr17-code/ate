@@ -211,10 +211,4 @@ final class AppModel {
         }
         onSessionEnded()
     }
-
-    /// Back to the current app, from the new one's Settings. The root redraws on the preference.
-    func switchToCurrentApp() {
-        services.analytics(ShellEvents.appSwitched(to: .current, from: .newSettings))
-        services.preferences.opensNewApp = false
-    }
 }

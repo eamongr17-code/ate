@@ -4,7 +4,7 @@ import XCTest
 /// vertical list of months and closes it again in one tap; a day zooms back in to the list; a month's
 /// year opens the years, and a month there opens the months at it (build 88).
 ///
-/// Against `-ate-preview-data -ate-v2` with the `journal` fixture, so it needs no backend and writes
+/// Against `-ate-preview-data` with the `journal` fixture, so it needs no backend and writes
 /// nothing. With `V2_SHOT_DIR` set the drive drops stills there (`ATE_DARK=1` for the dark ones).
 final class V2JournalCalendarUITests: XCTestCase {
 
@@ -83,7 +83,7 @@ final class V2JournalCalendarUITests: XCTestCase {
     private func launch() -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-ate-preview-data", "-ate-fixture", "journal", "-ate-ui-testing", "-ate-v2"]
+        app.launchArguments = ["-ate-preview-data", "-ate-fixture", "journal", "-ate-ui-testing"]
         if isDark { app.launchArguments += ["-AppleInterfaceStyle", "Dark"] }
         app.launch()
         return app

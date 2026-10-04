@@ -1,6 +1,6 @@
 import XCTest
 
-/// **The rebuilt app's shell, driven** (phase 2b, `-ate-v2`): iOS 26's own tab bar with `+` in its
+/// **The rebuilt app's shell, driven**: iOS 26's own tab bar with `+` in its
 /// detached trailing slot. What only a drive can see: the tabs switch, `+` brings the composer up
 /// without ever selecting itself or changing the tab under it, a push keeps the tab bar, and a
 /// re-tap scrolls the root back to its top.
@@ -181,7 +181,7 @@ final class V2ShellUITests: XCTestCase {
     private func launch(_ arguments: [String] = []) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing", "-ate-v2"] + arguments
+        app.launchArguments = ["-ate-preview-data", "-ate-ui-testing"] + arguments
         app.launch()
         return app
     }

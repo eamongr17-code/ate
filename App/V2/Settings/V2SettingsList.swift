@@ -97,14 +97,10 @@ struct V2SettingsList: View {
         }
     }
 
-    /// The rows that exist only beside the current app, until cutover: the way back to it, and —
-    /// in Debug and Beta, the builds with the staging door — the component kit.
+    /// In Debug and Beta, the builds with the staging door, the component kit.
     @ViewBuilder
     private var builds: some View {
         Section {
-            AteGroupedRow(title: "Current app", identifier: "v2.settings.currentApp") {
-                context.app.switchToCurrentApp()
-            }
             if context.services.debugSignIn != nil {
                 AteGroupedRow(title: "Component kit") { context.open(.settings(.kit)) }
             }
