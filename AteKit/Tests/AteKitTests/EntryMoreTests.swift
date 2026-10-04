@@ -63,6 +63,11 @@ struct EntryMoreTests {
         #expect(best.map(\.name) == (0..<10).map { "D\($0)" })
     }
 
+    @Test func atTheSamePlaceADishOfTheSameNameIsTheEntrysOwn() {
+        let rows = [Self.menu("Tiramisù ", score: 4), Self.menu("Cannoli", score: 3)]
+        #expect(EntryMoreStore.best(rows, excluding: [], named: ["tiramisu"]).map(\.name) == ["Cannoli"])
+    }
+
     @Test func moreLikeThisDropsTheEntrysDishesAndRepeats() {
         let own = UUID(), repeated = UUID()
         let rows = [Self.similar("Own", id: own), Self.similar("A", id: repeated), Self.similar("B"),

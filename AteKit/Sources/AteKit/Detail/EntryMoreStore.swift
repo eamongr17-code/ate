@@ -23,11 +23,15 @@ public final class EntryMoreStore {
         public let anchorDishID: UUID?
         /// The entry's own dishes: never offered back to it.
         public let ownDishIDs: Set<UUID>
+        /// Their names, folded: at the same place a dish of the same name is the same dish, even
+        /// where two rows of it have not been merged into one id.
+        public let ownDishNames: Set<String>
 
-        public init(restaurantID: UUID?, anchorDishID: UUID?, ownDishIDs: Set<UUID>) {
+        public init(restaurantID: UUID?, anchorDishID: UUID?, ownDishIDs: Set<UUID>, ownDishNames: Set<String> = []) {
             self.restaurantID = restaurantID
             self.anchorDishID = anchorDishID
             self.ownDishIDs = ownDishIDs
+            self.ownDishNames = Set(ownDishNames.map(EntryMoreStore.fold))
         }
 
         /// `nil` while the entry has no dishes yet (it is still sorting): nothing to read about.
@@ -36,7 +40,8 @@ public final class EntryMoreStore {
             self.init(
                 restaurantID: card.restaurantID,
                 anchorDishID: EntryMoreStore.anchor(card.items),
-                ownDishIDs: Set(card.items.map(\.dishID))
+                ownDishIDs: Set(card.items.map(\.dishID)),
+                ownDishNames: Set(card.items.map(\.dishName))
             )
         }
     }
@@ -96,7 +101,7 @@ public final class EntryMoreStore {
         let places = places
         let rows = try? await places.placeDishes(restaurantID: id, after: nil, pageSize: Self.menuPage).items
         guard Task.isCancelled == false, subject == self.subject else { return }
-        atPlace = Self.best(rows ?? [], excluding: subject.ownDishIDs)
+        atPlace = Self.best(rows ?? [], excluding: subject.ownDishIDs, named: subject.ownDishNames)
         isPlaceSettled = true
     }
 
@@ -125,9 +130,20 @@ public final class EntryMoreStore {
 
     /// The place's best, in the server's order (`place_dishes` ranks by rating since 0051; a paged
     /// list is never reordered on arrival) — without the entry's own dishes or a repeat, ten at most.
-    public nonisolated static func best(_ menu: [MenuDish], excluding own: Set<UUID>) -> [MenuDish] {
+    public nonisolated static func best(
+        _ menu: [MenuDish], excluding own: Set<UUID>, named names: Set<String> = []
+    ) -> [MenuDish] {
         var seen = own
-        return Array(menu.filter { seen.insert($0.dishID).inserted }.prefix(cap))
+        let folded = Set(names.map(fold))
+        return Array(menu.filter {
+            folded.contains(fold($0.name)) == false && seen.insert($0.dishID).inserted
+        }.prefix(cap))
+    }
+
+    /// A dish name as compared: case, accents and outer spaces aside.
+    nonisolated static func fold(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
     }
 
     /// The server's ranking, without the entry's own dishes or a repeat, ten at most.
