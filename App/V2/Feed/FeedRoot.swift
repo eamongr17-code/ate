@@ -6,16 +6,17 @@ import SwiftUI
 /// shelf per followed category, five latest receipts, What you follow, then the end.
 ///
 /// The chrome is the system's: "Feed" with its city as the subtitle in the native bar, folding inline
-/// on scroll, and one trailing glass group holding only the area pin — a native Menu (Near me,
-/// Everywhere, the cities). Following lives on each category's own page (4 Oct). It opens on your
-/// Journal's city; location is asked for only when Near me is picked (``V2FeedStores``). Signed out,
-/// The Top Ate and the latest receipts are the page.
+/// on scroll, and one trailing glass group holding only the area pin, which opens the area sheet
+/// (Near me, Everywhere, the cities — ``FeedAreaSheet``). Following lives on each category's own
+/// page (4 Oct). It opens on your Journal's city; location is asked for only when Near me is picked
+/// (``V2FeedStores``). Signed out, The Top Ate and the latest receipts are the page.
 struct FeedRoot: View {
     let router: TabRouter<V2FeedStores>
     let app: AppModel
 
     @State private var isCollapsed = false
     @State private var acting: EntryCard?
+    @State private var isChoosingArea = false
     @State private var scrollToTopAfterArea = 0
 
     init(router: TabRouter<V2FeedStores>, app: AppModel) {
@@ -59,12 +60,8 @@ struct FeedRoot: View {
             inline: AteInlineTitle(title: V2Tab.feed.title, subtitle: subtitle),
             isCollapsed: isCollapsed
         ) {
-            AteGlassMenuItem(icon: .place, label: "Area") {
-                FeedAreaMenu(area: stores.area) { pick in
-                    Task { await choose(pick, in: stores) }
-                }
-            }
-            .accessibilityIdentifier("feed.area")
+            AteGlassItem(icon: .place, label: "Area") { isChoosingArea = true }
+                .accessibilityIdentifier("feed.area")
         }
         .task {
             app.services.analytics(SocialEvents.feedViewed())
@@ -73,10 +70,15 @@ struct FeedRoot: View {
             await stores.latest.loadIfNeeded()
             await sections
         }
-        // Read ahead, so the area menu opens with its cities in it.
+        // Read ahead, so the area sheet opens with its cities in it.
         .task { await stores.area.loadCitiesIfNeeded() }
         // Back from a category page or What you follow: the set may have moved.
         .onAppear { Task { await stores.edition.refreshCravings() } }
+        .sheet(isPresented: $isChoosingArea) {
+            FeedAreaSheet(area: stores.area) { pick in
+                Task { await choose(pick, in: stores) }
+            }
+        }
         .sheet(item: $acting) { entry in
             FeedSlipActionsSheet(pressed: entry, latest: stores.latest, app: app) { authorID in
                 stores.latest.removeAuthor(authorID)
@@ -89,7 +91,7 @@ struct FeedRoot: View {
     private var subtitle: String? {
         let area = stores.area
         guard area.hasOpened else { return nil }
-        return area.location == .nearMe ? FeedAreaMenu.nearMeTitle : area.locationTitle
+        return area.location == .nearMe ? FeedAreaSheet.nearMeTitle : area.locationTitle
     }
 
     private var actions: FeedEditionActions {
@@ -108,7 +110,7 @@ struct FeedRoot: View {
 
     // MARK: - Where
 
-    /// A pick from the area menu. Near me asks for the location — the only place the Feed does —
+    /// A pick from the area sheet. Near me asks for the location — the only place the Feed does —
     /// and, refused, the Feed stays where it was. Near me picked again is a retry: the phone may
     /// have moved.
     private func choose(_ pick: FeedLocation, in stores: V2FeedStores) async {

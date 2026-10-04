@@ -1,27 +1,39 @@
 import AteKit
 import SwiftUI
 
-/// **Where the Feed is about** — the pin's native Menu, holding what the current build's Where?
-/// sheet holds: Near me, Everywhere, then every city with food, busiest first, the current one
-/// ticked. One choice, so a menu (pattern contract §2). A pick hands back the location; the root
-/// does the rest (Near me asks for the location there, and nowhere else).
-struct FeedAreaMenu: View {
+/// **Where the Feed is about** — the pin's sheet (build 88: every chooser in the app is a sheet, so
+/// the area is one too, not a pull-down menu). The kit's sheet, fitted to its rows: Near me,
+/// Everywhere, then every city with food, busiest first, the current one marked. A row is the
+/// answer: a tap hands back the location and the sheet closes; the root does the rest (Near me asks
+/// for the location there, and nowhere else).
+struct FeedAreaSheet: View {
     let area: FeedAreaModel
     let onPick: (FeedLocation) -> Void
 
+    static let title = "Where?"
     static let nearMeTitle = "Near me"
-    private static let nearMeID = "@near-me"
-    private static let everywhereID = "@everywhere"
+    static let everywhereTitle = "Everywhere"
+
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        Picker("Area", selection: Binding(get: { selection }, set: { onPick(Self.location(of: $0)) })) {
-            Text(Self.nearMeTitle).tag(Self.nearMeID)
-            Text("Everywhere").tag(Self.everywhereID)
-            ForEach(cities) { city in
-                Text(city.name).tag(city.city)
+        AteSheetScaffold(title: Self.title) {
+            VStack(spacing: 0) {
+                row(Self.nearMeTitle, .nearMe, identifier: "area.nearMe")
+                row(Self.everywhereTitle, .everywhere, identifier: "area.everywhere")
+                ForEach(cities) { city in
+                    row(city.name, .city(city.city), identifier: "area.city.\(city.city)")
+                }
             }
         }
-        .pickerStyle(.inline)
+        .accessibilityIdentifier("feed.area.sheet")
+    }
+
+    private func row(_ title: String, _ location: FeedLocation, identifier: String) -> some View {
+        AteChoiceRow(title: title, isSelected: area.location == location, identifier: identifier) {
+            dismiss()
+            onPick(location)
+        }
     }
 
     /// Every city with food, busiest first — and the one the Feed is on, should the list not hold it.
@@ -31,21 +43,5 @@ struct FeedAreaMenu: View {
             cities.insert(AteCity(city: slug, name: area.locationTitle), at: 0)
         }
         return cities
-    }
-
-    private var selection: String {
-        switch area.location {
-        case .nearMe: Self.nearMeID
-        case .everywhere: Self.everywhereID
-        case .city(let slug): slug
-        }
-    }
-
-    private static func location(of id: String) -> FeedLocation {
-        switch id {
-        case nearMeID: .nearMe
-        case everywhereID: .everywhere
-        default: .city(id)
-        }
     }
 }
