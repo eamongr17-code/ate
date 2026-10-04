@@ -1,0 +1,852 @@
+<title>Ate With</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=DM+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#EFEAE2; --fg:#24141F; --muted:#5E5560; --slip:#FFFFFF; --field:#E4DED4;
+  --hair:rgba(36,20,31,.14); --coral:#F0623F; --butter:#F6D365; --green:#3ECF64; --lilac:#B9A5EA;
+  --shadow:0 1px 0 rgba(36,20,31,.07);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#17111B; --fg:#F4EFE9; --muted:#B9AFBC; --slip:#231B24; --field:#2B2230; --hair:rgba(255,255,255,.16); --shadow:0 1px 0 rgba(0,0,0,.25); color-scheme:dark; } }
+:root[data-theme="dark"]{ --ground:#17111B; --fg:#F4EFE9; --muted:#B9AFBC; --slip:#231B24; --field:#2B2230; --hair:rgba(255,255,255,.16); --shadow:0 1px 0 rgba(0,0,0,.25); color-scheme:dark; }
+body{background:var(--ground);color:var(--fg);font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.5;padding:0 20px;padding-block:40px 80px}
+main{max-width:1180px;margin:0 auto;display:grid;gap:44px}
+.measure{max-width:720px}
+h1,h2,h3{font-family:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;letter-spacing:-.035em;line-height:1.05;text-wrap:balance;margin:0}
+h1{font-weight:800;font-size:44px} h2{font-weight:800;font-size:28px} h3{font-weight:600;font-size:18px;letter-spacing:-.01em}
+p{margin:0} a{color:inherit;text-decoration-thickness:1px;text-underline-offset:2px}
+.lede{font-size:20px;line-height:1.45}
+section{display:grid;gap:16px}
+.ui{font-family:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif}
+.note{color:var(--muted);font-size:15px}
+
+/* ---------- phones (always light: they show the light default) ---------- */
+.phones{display:flex;flex-wrap:wrap;gap:28px 22px}
+.cell{display:grid;gap:10px;width:289px;align-content:start}
+.cell h3{font-size:16px}
+.cell p{font-size:14.5px;color:var(--muted);line-height:1.4}
+.cell p b{color:var(--fg);font-family:"Bricolage Grotesque",sans-serif;font-weight:600}
+.ph{width:289px;height:625px;border-radius:40px;overflow:hidden;box-shadow:0 0 0 1px var(--hair),0 18px 40px rgba(36,20,31,.14);flex-shrink:0;max-width:100%}
+.scr{width:390px;height:844px;transform:scale(.741);transform-origin:0 0;position:relative;overflow:hidden;background:#EFEAE2;color:#24141F;font-family:"Newsreader",Georgia,serif;
+  --hair:rgba(36,20,31,.14);--muted:#5E5560;--field:#E4DED4}
+.sb{position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:6px 34px 0 44px;font:600 17px/1 -apple-system,"Helvetica Neue",sans-serif;z-index:9}
+.sb i{display:flex;gap:6px;align-items:center}
+.sb i b{display:block;background:currentColor;border-radius:2px}
+.dim{position:absolute;inset:0;background:#B9B2A8}
+.sheet{position:absolute;left:0;right:0;bottom:0;top:62px;background:#fff;border-radius:38px 38px 0 0;overflow:hidden}
+.glass{background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(18px) saturate(1.7);backdrop-filter:blur(18px) saturate(1.7);
+  box-shadow:inset 0 0 0 .5px rgba(255,255,255,.9),inset 0 1px 1px rgba(255,255,255,.8),0 0 0 .5px rgba(36,20,31,.10),0 8px 22px rgba(36,20,31,.12)}
+.disc{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#24141F;flex-shrink:0}
+.tick{background:#24141F;color:#fff;box-shadow:inset 0 1px 1px rgba(255,255,255,.25),0 6px 16px rgba(36,20,31,.25)}
+.tick.off{opacity:.4}
+.top{position:absolute;left:16px;right:16px;top:14px;display:flex;justify-content:space-between;align-items:center}
+.prose{font-size:19px;line-height:1.5;text-wrap:pretty}
+.tok{display:inline-flex;align-items:center;gap:3px;padding:0 7px 0 5px;border-radius:999px;background:#F6D365;color:#24141F;font-family:"DM Mono",ui-monospace,monospace;font-size:.78em;font-weight:500;line-height:1.55;vertical-align:1px;white-space:nowrap}
+.diet{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:999px;background:#EFEAE2;color:#5E5560;font:600 10.5px/1 "Bricolage Grotesque",sans-serif;letter-spacing:.06em;text-transform:uppercase;vertical-align:2px}
+.caret{display:inline-block;width:2px;height:22px;margin-left:1px;background:#F0623F;vertical-align:-4px}
+.ph-img{display:block;flex-shrink:0}
+.cluster .ph-img{box-shadow:0 0 0 3px var(--surf,#fff)}
+.cluster{display:flex;padding-left:6px}
+.cluster>span+span{margin-left:-12px}
+.food1{background:radial-gradient(circle at 40% 40%,#E6A257,#9A4A1F 70%,#5C2A12)}
+.food2{background:radial-gradient(circle at 55% 45%,#F2946A,#C2452C 65%,#6E2316)}
+.food3{background:linear-gradient(160deg,#F1DFC4 0 30%,#6B4A2E 30% 42%,#E9D3B2 42% 70%,#5A3B22 70%)}
+.bar{position:absolute;left:10px;right:10px;height:56px;border-radius:999px;display:flex;align-items:center;justify-content:space-between;padding:0 6px 0 4px}
+.hit{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#24141F;flex-shrink:0}
+.key{height:40px;padding:0 13px 0 9px;gap:5px;border-radius:999px;display:flex;align-items:center;font:600 14px/1 "Bricolage Grotesque",sans-serif;color:#24141F;white-space:nowrap;flex-shrink:0}
+.k-score{background:#F6D365}.k-place{background:#E4DED4;max-width:96px;flex-shrink:1;min-width:0;overflow:hidden}
+.k-place span{overflow:hidden;text-overflow:ellipsis}
+.k-round{width:40px;padding:0;justify-content:center;background:#E4DED4;border-radius:50%}
+.k-new{box-shadow:0 0 0 2px #24141F}
+.kbd{position:absolute;left:0;right:0;bottom:0;height:291px;background:#D3D5DB;padding:8px 3px 0;display:grid;gap:11px;align-content:start}
+.kbd .r{display:flex;justify-content:center;gap:6px}
+.kbd .r span{height:42px;flex:0 0 33px;background:#fff;border-radius:6px;box-shadow:0 1px 0 rgba(0,0,0,.3);font:400 22px/42px -apple-system,sans-serif;text-align:center;color:#111}
+.kbd .r span.w{flex:0 0 45px;background:#ABB0BA}
+.kbd .r span.sp{flex:0 0 190px}
+.h{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.035em;line-height:1}
+.meta{font:500 13px/1.3 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.meta b{font-weight:600;color:#24141F}
+.lab{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5E5560}
+.row{display:flex;align-items:center}
+.tabbar{position:absolute;left:21px;right:91px;bottom:21px;height:62px;border-radius:999px;display:flex;align-items:center;justify-content:space-around;padding:0 6px}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;font:600 10.5px/1 "Bricolage Grotesque",sans-serif;color:#24141F;width:66px;height:54px;justify-content:center;border-radius:999px}
+.tab.on{background:rgba(36,20,31,.06);font-weight:800}
+.plusdisc{position:absolute;right:21px;bottom:21px;width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#24141F;background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(18px) saturate(1.7);backdrop-filter:blur(18px) saturate(1.7);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.9),inset 0 1px 1px rgba(255,255,255,.8),0 0 0 .5px rgba(36,20,31,.10),0 8px 22px rgba(36,20,31,.12)}
+.receipt{background:#fff;border-radius:16px 16px 0 0;padding:22px 16px 14px;display:grid;gap:10px;color:#24141F}
+.rule{border-top:1.5px dashed rgba(36,20,31,.3)}
+.rl{display:flex;align-items:baseline;gap:8px}
+.rl .n{font:800 22px/1.1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.rl .s{font:800 24px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rl .d{flex:1;min-width:16px;border-bottom:2px dotted rgba(36,20,31,.3);transform:translateY(-5px)}
+.tear{height:4px}
+/* stand-in for the real wordmark asset, which the build already signs every receipt with */
+.wm{display:inline-block;width:40px;height:15px;border-radius:4px;background:#24141F;opacity:.85}
+.dish{display:flex;justify-content:space-between;align-items:center;min-height:44px;padding:9px 0;border-top:1px solid rgba(36,20,31,.14)}
+.dish:first-child{border-top:0}
+.sc{display:flex;align-items:center;gap:4px}
+.pill{height:52px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:8px;font:600 16px/1 "Bricolage Grotesque",sans-serif}
+.ink{background:#24141F;color:#fff}
+.menu{position:absolute;right:16px;top:112px;width:236px;border-radius:26px;padding:6px 0;z-index:5;background:rgba(255,255,255,.78)}
+.menu div{display:flex;align-items:center;justify-content:space-between;height:46px;padding:0 18px;font:500 17px/1 -apple-system,"Helvetica Neue",sans-serif;color:#24141F}
+
+/* ---------- ate-with additions (same hand as compose and discover) ---------- */
+.av{border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:"Bricolage Grotesque",sans-serif;font-weight:800;color:#24141F;flex-shrink:0}
+.a28{width:28px;height:28px;font-size:12px}.a36{width:36px;height:36px;font-size:16px}.a30{width:30px;height:30px;font-size:13px}
+.cE{background:#F0623F}.cJ{background:#F6D365}.cM{background:#3ECF64}.cP{background:#F490D4}.cS{background:#36AEE6}.cL{background:#B9A5EA}
+.navrow{position:absolute;top:56px;left:16px;right:16px;height:44px;display:flex;justify-content:space-between;align-items:center;z-index:6}
+.grp{border-radius:999px;height:44px;padding:0 4px;display:flex;align-items:center;position:relative}
+.ptitle{position:absolute;left:20px;top:112px;font:800 36px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em;z-index:4}
+.badge{position:absolute;top:4px;left:28px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#24141F;color:#fff;font:600 11px/18px "Bricolage Grotesque",sans-serif;text-align:center;box-shadow:0 0 0 2px #F7F4EF}
+.pr{display:flex;align-items:center;gap:12px;min-height:62px;border-top:1px solid rgba(36,20,31,.14)}
+.pr:first-child{border-top:0}
+.pr .d{flex:1;display:grid;gap:1px;min-width:0}
+.pr .d b{font:600 17px/1.2 "Bricolage Grotesque",sans-serif;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chk{width:28px;height:28px;border-radius:50%;background:#24141F;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px 0 12px;border-radius:999px;background:#24141F;color:#fff;font:600 14px/1 "Bricolage Grotesque",sans-serif}
+.chip i{opacity:.7}
+.field{display:flex;align-items:center;gap:10px;height:50px;padding:0 16px;border-radius:999px;background:#E4DED4;font:600 17px/1 "Bricolage Grotesque",sans-serif}
+.field .pmt{color:#5E5560;font-weight:500}
+.slot{width:54px;height:30px;border-radius:999px;border:1.5px dashed rgba(36,20,31,.3);flex-shrink:0}
+.cur{background:#EFEAE2;border-radius:16px;margin:0 -12px;padding-left:12px;padding-right:12px;border-top-color:transparent}
+.cur+.dish{border-top-color:transparent}
+.slide{position:absolute;left:22px;right:22px;padding-top:14px;border-top:1px solid rgba(36,20,31,.14);display:grid;gap:10px}
+.stars{display:flex;gap:10px}
+.swipe{position:relative;overflow:hidden;margin:0 -22px}
+.swipe .act{position:absolute;right:0;top:0;bottom:0;width:104px;background:#B3261E;color:#fff;display:flex;align-items:center;justify-content:center;font:600 16px/1 -apple-system,"Helvetica Neue",sans-serif}
+.swipe .dish,.swipe .pr{transform:translateX(-104px);background:#fff;padding-left:22px;padding-right:22px}
+.dlg{position:absolute;left:10px;right:10px;bottom:30px;display:grid;gap:8px;z-index:8;font-family:-apple-system,"Helvetica Neue",sans-serif}
+.dlg .g{border-radius:28px;background:rgba(250,248,245,.93);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.2)}
+.dlg .t{padding:16px 20px 14px;text-align:center;font-size:13px;line-height:1.35;color:#6B6670}
+.dlg .t b{display:block;font-size:13px;font-weight:600;color:#6B6670}
+.dlg .o{height:58px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#24141F;border-top:1px solid rgba(36,20,31,.1)}
+.dlg .o.red{color:#B3261E}
+.dlg .o.c{font-weight:600;border-top:0}
+.arow{display:flex;align-items:center;gap:14px;min-height:60px;border-top:1px solid rgba(36,20,31,.14);font:600 17px/1 "Bricolage Grotesque",sans-serif}
+.arow.red{color:#B3261E}
+.whole{background:#fff;border-radius:16px;box-shadow:0 1px 0 rgba(36,20,31,.07);display:flex;padding:14px 8px}
+.whole>div{flex:1;display:grid;justify-items:center;gap:4px}
+.whole>div+div{border-left:1.5px dashed rgba(36,20,31,.3)}
+.hist{display:flex;align-items:flex-end;gap:4px;height:92px}
+.hist span{flex:1;border-radius:6px 6px 0 0;background:#F6D365;display:block}
+.lt-tile{display:flex;align-items:center;justify-content:center;font:800 64px/1 "Bricolage Grotesque",sans-serif;color:#24141F}
+.dots3{display:flex;gap:7px;justify-content:center}
+.dots3 b{width:7px;height:7px;border-radius:50%;background:#24141F;opacity:.25}
+.dots3 b.on{opacity:1}
+.lock{background:linear-gradient(170deg,#4A3344 0%,#2A1D2B 45%,#120D16 100%);color:#fff}
+.note-card{position:absolute;left:12px;right:12px;border-radius:26px;padding:14px 16px;background:rgba(255,255,255,.2);-webkit-backdrop-filter:blur(30px) saturate(1.6);backdrop-filter:blur(30px) saturate(1.6);display:grid;grid-template-columns:38px 1fr;gap:12px;font-family:-apple-system,"Helvetica Neue",sans-serif;color:#fff}
+.appicon{width:38px;height:38px;border-radius:9px;background:#F0623F;display:flex;align-items:center;justify-content:center}
+.appicon span{width:22px;height:9px;border-radius:2px;background:#fff}
+.share{position:absolute;left:0;right:0;bottom:0;top:380px;background:#F2F1F6;border-radius:38px 38px 0 0;padding:20px 18px 0;display:grid;gap:18px;align-content:start;font-family:-apple-system,"Helvetica Neue",sans-serif;color:#111;box-shadow:0 -10px 30px rgba(0,0,0,.15)}
+.apps{display:flex;justify-content:space-between;padding:0 4px}
+.apps span{display:grid;justify-items:center;gap:6px;font-size:12px;color:#333}
+.apps i{width:60px;height:60px;border-radius:15px;display:block}
+.grpd{background:#fff;border-radius:14px}
+.grpd div{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:17px}
+.paired{display:grid;grid-template-columns:repeat(auto-fit,minmax(289px,1fr));gap:28px 22px;justify-items:start}
+.opt{display:grid;gap:10px;align-content:start}
+.empty{position:absolute;left:20px;right:20px;top:330px;text-align:center;font:800 40px/1.05 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.webcard{background:var(--slip);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);display:grid;gap:8px;font-size:15.5px}
+
+/* ---------- brief tables ---------- */
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15.5px;line-height:1.45}
+th{font:600 13.5px/1.2 "Bricolage Grotesque",sans-serif;text-align:left;padding:8px 14px 8px 0;border-bottom:1px solid var(--hair);color:var(--muted)}
+td{padding:11px 14px 11px 0;border-bottom:1px solid var(--hair);vertical-align:top}
+td:first-child{font-family:"Bricolage Grotesque",sans-serif;font-weight:600;white-space:nowrap}
+code{font-family:"DM Mono",monospace;font-size:.82em;background:var(--field);padding:1px 5px;border-radius:6px}
+.qs{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.q{background:var(--slip);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);display:grid;gap:6px}
+.q h3{font-size:17px}
+.q p{font-size:15.5px;color:var(--muted)}
+.q b{color:var(--fg);font-family:"Bricolage Grotesque",sans-serif;font-weight:600}
+.q b.rec::after{content:" (recommended)";font-weight:500;color:var(--muted)}
+ul{margin:0;padding-left:22px;display:grid;gap:8px}
+@media (max-width:480px){h1{font-size:36px} .cell,.ph{width:100%} .ph{height:auto;aspect-ratio:390/844} .scr{transform:scale(var(--s,.741))} .paired{grid-template-columns:1fr}}
+</style>
+
+<main>
+<header class="measure" style="display:grid;gap:14px">
+  <h1>Ate With</h1>
+  <p class="lede">You tag who you ate with. They hear about it, open a copy of the visit with the same place and the same dishes, slide their own scores, and post it as their own entry. One key in the composer, one row type in one notifications list, nothing new in the tab bar.</p>
+</header>
+
+<!-- ================= 1. TAGGING ================= -->
+<section>
+  <h2>1. Tagging someone</h2>
+  <div class="phones">
+
+    <!-- 1a composer, With key -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="dim"></div><div class="sb"></div>
+        <div class="sheet" style="--surf:#fff">
+          <div class="top"><span class="disc glass" data-i="x"></span><span class="disc tick" data-i="check"></span></div>
+          <div style="padding:76px 22px 0;display:grid;gap:18px">
+            <p class="prose">Jess's birthday. The tagliatelle al ragù <span class="tok"><i data-i="star" data-s="11"></i>4.5</span> was unreal, rich, glossy, gone in four minutes. Tiramisu <span class="tok"><i data-i="star" data-s="11"></i>3.0</span> a bit flat after that. Her prawn spaghetti <span class="diet">GF</span><span class="caret"></span></p>
+            <div class="cluster"><span class="ph-img food1" style="width:90px;height:90px;border-radius:25px;transform:rotate(-5deg)"></span><span class="ph-img food2" style="width:90px;height:90px;border-radius:25px;transform:rotate(4deg)"></span><span class="ph-img food3" style="width:90px;height:90px;border-radius:25px;transform:rotate(-2deg)"></span></div>
+          </div>
+          <div class="bar glass" style="bottom:300px">
+            <span class="row"><span class="hit" data-i="camera"></span><span class="hit" data-i="image"></span></span>
+            <span class="row" style="gap:5px"><span class="key k-score"><i data-i="star" data-s="15"></i>Score</span><span class="key k-place"><i data-i="pin" data-s="16"></i><span>Tipo 00</span></span><span class="key k-round" data-i="leaf" data-s="16"></span><span class="key k-round k-new" data-i="userplus" data-s="17"></span></span>
+          </div>
+          <div class="kbd"></div>
+        </div>
+      </div></div>
+      <h3>With is a key</h3>
+      <p><b>Recommended placement.</b> A fourth key, icon only, after the Diet leaf. It is the same 40pt round key as the leaf, so the capsule grows by one disc and nothing else moves; the Place key already gives way first. Who and where both sit in keys, never in the words. (Ringed here only to point it out.)</p>
+    </div>
+
+    <!-- 1b people sheet -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="dim" style="background:#9E978E"></div><div class="sb"></div>
+        <div class="sheet" style="top:62px;background:#E8E3DB;transform:scale(.94);transform-origin:50% 0;opacity:.7"></div>
+        <div class="sheet" style="top:150px;padding:22px 20px 0;display:grid;gap:14px;align-content:start;box-shadow:0 -10px 30px rgba(36,20,31,.12)">
+          <div class="row" style="margin:-8px -4px 0"><span class="disc glass" data-i="x"></span></div>
+          <span class="h" style="font-size:30px">Who were you with?</span>
+          <div class="field"><i data-i="search" data-s="18"></i><span class="pmt">Search handles</span></div>
+          <div class="chips"><span class="chip">@jess<i data-i="x" data-s="14"></i></span></div>
+          <div>
+            <div class="pr"><span class="av a36 cJ">J</span><span class="d"><b>@jess</b><span class="meta">Jess Tran</span></span><span class="chk" data-i="check" data-s="16"></span></div>
+            <div class="pr"><span class="av a36 cM">M</span><span class="d"><b>@marco.eats</b><span class="meta">Marco Bellini</span></span></div>
+            <div class="pr"><span class="av a36 cP">P</span><span class="d"><b>@priya</b><span class="meta">Priya Shah</span></span></div>
+            <div class="pr"><span class="av a36 cS">S</span><span class="d"><b>@sam_k</b><span class="meta">Sam Kowalski</span></span></div>
+            <div class="pr ui" style="font-weight:600;font-size:16px;min-height:56px"><i data-i="link" data-s="20"></i>Invite someone not on Ate</div>
+          </div>
+          <div class="pill ink" style="position:absolute;left:20px;right:20px;bottom:34px">Add @jess</div>
+        </div>
+      </div></div>
+      <h3>Who were you with?</h3>
+      <p>The place sheet's twin: close top left, title, search pill. Before typing, the people you have tagged most recently; typing searches every handle on Ate. Rows toggle a check and gather as ink chips; the pill counts them ("Add 2 people"). Blocked people, either way round, never appear. The invite row is last, like "Add a new place".</p>
+    </div>
+
+    <!-- 1c invite share -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="dim" style="background:#8E8880"></div><div class="sb"></div>
+        <div class="sheet" style="top:150px;opacity:.55"></div>
+        <div class="share">
+          <div class="row" style="gap:12px">
+            <span style="width:52px;height:52px;border-radius:12px;background:#F0623F;display:flex;align-items:center;justify-content:center"><span style="width:26px;height:32px;background:#fff;border-radius:3px"></span></span>
+            <span style="flex:1;display:grid;gap:2px"><b style="font-size:15px;font-weight:600">@eamon ate with you</b><span style="font-size:13px;color:#6B6670">ate.app</span></span>
+            <span class="disc" style="width:32px;height:32px;background:#E3E2E8;color:#6B6670" data-i="x" data-s="16"></span>
+          </div>
+          <div class="apps">
+            <span><i style="background:#34C759"></i>Messages</span>
+            <span><i style="background:#25D366"></i>WhatsApp</span>
+            <span><i style="background:#1E88F5"></i>Mail</span>
+            <span><i style="background:#FFD60A"></i>Notes</span>
+          </div>
+          <div class="grpd"><div>Copy<i data-i="copy" data-s="20"></i></div></div>
+        </div>
+      </div></div>
+      <h3>Invite</h3>
+      <p>The system share sheet with one link. It comes back to the people sheet as a chip that reads "Invite". The link is held until the entry posts; nothing about them is printed until they join and claim it, then they become "with @handle" like anyone else.</p>
+    </div>
+
+    <!-- 1d attached -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="dim"></div><div class="sb"></div>
+        <div class="sheet" style="--surf:#fff">
+          <div class="top"><span class="disc glass" data-i="x"></span><span class="disc tick" data-i="check"></span></div>
+          <div style="padding:76px 22px 0;display:grid;gap:18px">
+            <p class="prose">Jess's birthday. The tagliatelle al ragù <span class="tok"><i data-i="star" data-s="11"></i>4.5</span> was unreal, rich, glossy, gone in four minutes. Tiramisu <span class="tok"><i data-i="star" data-s="11"></i>3.0</span> a bit flat after that. Her prawn spaghetti <span class="diet">GF</span><span class="caret"></span></p>
+            <div class="cluster"><span class="ph-img food1" style="width:90px;height:90px;border-radius:25px;transform:rotate(-5deg)"></span><span class="ph-img food2" style="width:90px;height:90px;border-radius:25px;transform:rotate(4deg)"></span><span class="ph-img food3" style="width:90px;height:90px;border-radius:25px;transform:rotate(-2deg)"></span></div>
+          </div>
+          <div class="bar glass" style="bottom:300px">
+            <span class="row"><span class="hit" data-i="camera"></span><span class="hit" data-i="image"></span></span>
+            <span class="row" style="gap:5px"><span class="key k-score"><i data-i="star" data-s="15"></i>Score</span><span class="key k-place"><i data-i="pin" data-s="16"></i><span>Tipo 00</span></span><span class="key k-round" data-i="leaf" data-s="16"></span><span class="key k-round"><span class="av a30 cJ">J</span></span></span>
+          </div>
+          <div class="kbd"></div>
+        </div>
+      </div></div>
+      <h3>Attached</h3>
+      <p>The key becomes the person: their avatar fills it, two overlap for two, a count for more. The capsule never widens. Tapping it reopens the sheet with the chips. Nothing is added to the words, and the tick still waits only for a place.</p>
+    </div>
+
+    <!-- 1e printed -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="dim"></div><div class="sb"></div>
+        <div class="sheet" style="background:#F0623F;--surf:#F0623F">
+          <div class="top"><span class="disc glass" style="background:rgba(255,255,255,.35)" data-i="x"></span><span class="disc glass" style="background:rgba(255,255,255,.35)" data-i="share"></span></div>
+          <div class="cluster" style="justify-content:center;padding:96px 0 0 0"><span class="ph-img food1" style="width:96px;height:96px;border-radius:27px;transform:rotate(-7deg)"></span><span class="ph-img food2" style="width:96px;height:96px;border-radius:27px;transform:rotate(5deg)"></span><span class="ph-img food3" style="width:96px;height:96px;border-radius:27px;transform:rotate(-3deg)"></span></div>
+          <div style="position:relative;margin:30px 52px 0">
+            <div style="transform:scale(1.098);transform-origin:50% 0;filter:drop-shadow(0 1px 0 rgba(36,20,31,.07))">
+              <div class="receipt">
+                <div style="display:grid;gap:4px;padding-top:2px"><div class="rl"><span class="n">Tagliatelle al ragù</span><span class="d"></span><span class="s">4.5</span></div><div class="rl"><span class="n">Tiramisu</span><span class="d"></span><span class="s">3.0</span></div><div class="rl"><span class="n">Prawn spaghetti</span><span class="d"></span></div></div>
+                <div class="rule"></div>
+                <div class="row lab" style="justify-content:space-between;gap:8px"><span style="color:#24141F;white-space:nowrap">Tipo 00</span><span style="white-space:nowrap">361 Little Bourke St</span></div>
+                <div class="rule"></div>
+                <div class="row lab" style="justify-content:space-between;color:#24141F"><span>Order #0142</span><span>Sat 19 Sep 2026</span></div>
+                <div class="row lab" style="justify-content:space-between;color:#24141F"><span>3 dishes</span><span>Avg 3.75</span></div>
+                <div class="row lab" style="justify-content:space-between;color:#24141F"><span>@eamon <span style="color:#5E5560">with</span> @jess</span><span class="wm"></span></div>
+              </div>
+              <div class="tear"></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <h3>Printed, with @jess</h3>
+      <p>The receipt is unchanged except the signature line: "@eamon with @jess" in the same mono fine print, beside the wordmark, at the very foot. The dishes still lead. Two or more people print as "with @jess +1".</p>
+    </div>
+
+    <!-- 1f entry -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="navrow"><span class="disc glass" data-i="back"></span><span class="grp glass"><span class="hit" data-i="share"></span><span class="hit" data-i="more"></span></span></div>
+        <div style="position:absolute;left:12px;right:12px;top:112px;bottom:0;background:#fff;border-radius:24px 24px 0 0;padding:16px 20px 0;display:grid;gap:18px;align-content:start">
+          <div>
+            <div class="dish"><span class="h" style="font-size:21px">Tagliatelle al ragù</span><span class="sc h" style="font-size:26px"><i data-i="star" data-s="16"></i>4.5</span></div>
+            <div class="dish"><span class="h" style="font-size:21px">Tiramisu</span><span class="sc h" style="font-size:26px"><i data-i="star" data-s="16"></i>3.0</span></div>
+            <div class="dish"><span class="row" style="gap:6px"><span class="h" style="font-size:21px">Prawn spaghetti</span><span class="diet" style="transform:translateY(-3px)">GF</span></span><span></span></div>
+          </div>
+          <p class="prose" style="font-size:17px">Jess's birthday. The tagliatelle al ragù was unreal, rich, glossy, gone in four minutes. Tiramisu a bit flat after that. Her prawn spaghetti.</p>
+          <div class="cluster" style="padding:6px 0 0 8px"><span class="ph-img food1" style="width:88px;height:88px;border-radius:25px;transform:rotate(-6deg)"></span><span class="ph-img food2" style="width:88px;height:88px;border-radius:25px;transform:rotate(5deg)"></span><span class="ph-img food3" style="width:88px;height:88px;border-radius:25px;transform:rotate(-2deg)"></span></div>
+          <div style="display:grid;gap:10px;padding-top:14px;border-top:1px solid rgba(36,20,31,.14)">
+            <div class="row" style="justify-content:space-between"><span class="row" style="gap:6px"><i data-i="pin" data-s="15"></i><span class="ui" style="font-weight:600;font-size:14px">Tipo 00</span><span class="meta">CBD</span></span><span class="meta">Sat 19 Sep</span></div>
+            <div class="row" style="gap:8px"><span class="av a28 cJ">J</span><span class="meta">with <b>@jess</b></span></div>
+          </div>
+        </div>
+        <div class="tabbar glass" data-on="journal"></div><span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>On the entry</h3>
+      <p>Under the place line, at the foot of the paper: the byline avatar and "with @jess". It opens Jess's page. The same line shows on someone else's view of the entry and after the handle on a Feed slip's byline. It never moves above the dishes.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ================= 2. HEARING ABOUT IT ================= -->
+<section>
+  <h2>2. Hearing about it</h2>
+  <div class="phones">
+    <!-- lock screen -->
+    <div class="cell">
+      <div class="ph"><div class="scr lock">
+        <div class="sb" style="color:#fff"></div>
+        <div style="position:absolute;left:0;right:0;top:96px;text-align:center;font-family:-apple-system,'Helvetica Neue',sans-serif">
+          <div style="font-size:20px;font-weight:600;opacity:.9">Sunday 20 September</div>
+          <div style="font-size:96px;font-weight:700;line-height:1;letter-spacing:-2px;margin-top:4px">9:41</div>
+        </div>
+        <div class="note-card" style="top:560px">
+          <span class="appicon"><span></span></span>
+          <span style="display:grid;gap:2px">
+            <span class="row" style="justify-content:space-between;font-size:15px"><b style="font-weight:600">Ate</b><span style="opacity:.6;font-size:13px">now</span></span>
+            <span style="font-size:15px;font-weight:600;line-height:1.3">@eamon ate with you at Tipo 00</span>
+            <span style="font-size:15px;line-height:1.3;opacity:.9">Tagliatelle al ragù, tiramisu, prawn spaghetti</span>
+          </span>
+        </div>
+        <div class="row" style="position:absolute;left:46px;right:46px;bottom:52px;justify-content:space-between">
+          <span class="disc" style="width:50px;height:50px;background:rgba(255,255,255,.18);color:#fff" data-i="flash" data-s="20"></span>
+          <span class="disc" style="width:50px;height:50px;background:rgba(255,255,255,.18);color:#fff" data-i="camera" data-s="20"></span>
+        </div>
+        <div style="position:absolute;left:130px;right:130px;bottom:10px;height:5px;border-radius:3px;background:#fff"></div>
+      </div></div>
+      <h3>The push</h3>
+      <p>Sent once the tagger's entry has finished sorting, so the dishes exist. Title: who and where. Body: the dishes, nothing else, no instruction. A tap opens the scoring sheet straight over the Journal, skipping the list.</p>
+    </div>
+
+    <!-- notifications list -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="navrow"><span class="disc glass" data-i="back"></span></div>
+        <div class="ptitle">Notifications</div>
+        <div style="position:absolute;left:20px;right:20px;top:172px">
+          <div class="pr"><span class="av a36 cE">E</span><span class="d"><b>@eamon ate with you</b><span class="meta">Tipo 00, Sat 19 Sep</span></span><span class="disc glass" style="width:36px;height:36px" data-i="x" data-s="16"></span></div>
+          <div class="pr"><span class="av a36 cM">M</span><span class="d"><b>@marco.eats ate with you</b><span class="meta">Supernormal, Thu 17 Sep</span></span><span class="disc glass" style="width:36px;height:36px" data-i="x" data-s="16"></span></div>
+        </div>
+        <div class="tabbar glass" data-on="you"></div><span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>The list</h3>
+      <p>A pushed page with the native large title, the tab bar staying. One shared row: avatar, one line saying what happened, where and when under it, an X. Tap opens it; the X clears it; any finished action removes it. Newest first. In V1 this row is the only kind there is.</p>
+    </div>
+  </div>
+
+  <h3 style="padding-top:8px">Where the list lives</h3>
+  <div class="paired">
+    <div class="cell opt">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="navrow"><span style="padding-left:4px;font:800 38px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.035em">You</span><span class="grp glass"><span class="hit" data-i="bell"></span><span class="badge">2</span><span class="hit" data-i="settings"></span></span></div>
+        <div style="position:absolute;left:20px;right:20px;top:116px;display:grid;gap:18px">
+          <div class="row" style="gap:12px"><span class="av cJ" style="width:56px;height:56px;font-size:24px">J</span><span style="display:grid;gap:2px"><span class="h" style="font-size:26px">@jess</span><span class="meta">Melbourne</span></span></div>
+          <div class="whole">
+            <div><span class="h" style="font-size:28px">38</span><span class="lab">Orders</span></div>
+            <div><span class="h" style="font-size:28px">21</span><span class="lab">Places</span></div>
+            <div><span class="h" style="font-size:28px">96</span><span class="lab">Dishes</span></div>
+          </div>
+          <div style="display:grid;gap:8px">
+            <div class="ui" style="font-weight:600;font-size:16px">Your ratings</div>
+            <div class="hist"><span style="height:10%"></span><span style="height:18%"></span><span style="height:30%"></span><span style="height:52%"></span><span style="height:80%"></span><span style="height:100%"></span><span style="height:64%"></span><span style="height:40%"></span><span style="height:22%"></span><span style="height:8%"></span></div>
+          </div>
+        </div>
+        <div class="tabbar glass" data-on="you"></div><span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>A. A bell on You</h3>
+      <p><b>Recommended.</b> A bell joins Settings in You's one glass group (two icons, under the cap of three). An ink count sits on it while anything is waiting; nothing in the tab bar changes or colours. Most people arrive by the push anyway, so the bell only has to be findable, not loud.</p>
+    </div>
+    <div class="cell opt">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="navrow"><span style="padding-left:4px"><span class="wm" style="width:86px;height:30px;border-radius:7px"></span></span><span class="grp glass"><span class="hit" data-i="image"></span><span class="hit" data-i="calendar"></span><span class="hit" data-i="filter"></span></span></div>
+        <div style="position:absolute;left:16px;right:16px;top:118px;display:grid;gap:18px">
+          <div class="row" style="gap:12px;background:#fff;border-radius:16px;padding:12px 14px;box-shadow:0 1px 0 rgba(36,20,31,.07)"><span class="row"><span class="av a36 cE" style="box-shadow:0 0 0 3px #fff">E</span><span class="av a36 cM" style="margin-left:-10px;box-shadow:0 0 0 3px #fff">M</span></span><span style="flex:1;display:grid;gap:1px"><b class="ui" style="font-weight:600;font-size:17px">2 people ate with you</b></span><i data-i="chev" data-s="18" style="color:#5E5560"></i></div>
+          <div class="h" style="font-size:28px;padding:6px 4px 0">September</div>
+          <div style="background:#fff;border-radius:16px 16px 0 0;padding:12px 16px 14px">
+            <div class="dish"><span class="h" style="font-size:20px">Pork xiao long bao</span><span class="sc h" style="font-size:24px"><i data-i="star" data-s="15"></i>5.0</span></div>
+            <div class="dish"><span class="h" style="font-size:20px">Spicy wontons</span><span class="sc h" style="font-size:24px"><i data-i="star" data-s="15"></i>4.0</span></div>
+          </div>
+        </div>
+        <div class="tabbar glass" data-on="journal"></div><span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>B. A row atop the Journal</h3>
+      <p>While anything waits, one row sits above the first month, with the senders' avatars stacked. It opens the same list. Nearer to where the new entry lands, but it is the only non-entry thing in the Journal and it needs a counting line of copy.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 3. ADDING YOURS ================= -->
+<section>
+  <h2>3. Adding yours</h2>
+  <p class="note measure">Jess's side. The sheet is the composer, prefilled: Place holds Tipo 00, With holds @eamon, the dishes are Eamon's dish list. Only scores are asked for.</p>
+  <div class="paired">
+    <!-- A list + slide -->
+    <div class="cell opt">
+      <div class="ph"><div class="scr">
+        <div class="dim"></div><div class="sb"></div>
+        <div class="sheet">
+          <div class="top"><span class="disc glass" data-i="x"></span><span class="disc tick" data-i="check"></span></div>
+          <div style="padding:76px 22px 0;display:grid;gap:8px">
+            <span class="h" style="font-size:30px">Tipo 00</span>
+            <div class="row" style="gap:8px"><span class="av a28 cE">E</span><span class="meta">with <b>@eamon</b></span><span class="meta" style="margin-left:auto">Sat 19 Sep</span></div>
+            <div style="margin-top:14px">
+              <div class="dish cur"><span class="h" style="font-size:21px">Tagliatelle al ragù</span><span class="sc h" style="font-size:26px"><i data-i="star" data-s="16"></i>4.0</span></div>
+              <div class="dish"><span class="h" style="font-size:21px">Tiramisu</span><span class="slot"></span></div>
+              <div class="dish"><span class="row" style="gap:6px"><span class="h" style="font-size:21px">Prawn spaghetti</span><span class="diet" style="transform:translateY(-3px)">GF</span></span><span class="slot"></span></div>
+            </div>
+            <p class="prose" style="color:#5E5560;margin-top:14px">What did you eat?</p>
+          </div>
+          <div class="slide" style="bottom:56px">
+            <div class="row" style="justify-content:space-between;align-items:baseline"><span class="h" style="font-size:18px">Tagliatelle al ragù</span><span class="h" style="font-size:22px">4.0</span></div>
+            <div class="stars" data-v="4" data-z="38"></div>
+          </div>
+        </div>
+      </div></div>
+      <h3>A. The list, one slide</h3>
+      <p><b>Recommended.</b> The dishes as the entry's rows, each with an empty slot. The composer's score slide sits at the foot for the highlighted dish; letting go fills its slot and moves to the next, so three dishes are three drags. Tap any row to go back to it. The keyboard stays down until the words are tapped.</p>
+    </div>
+    <!-- B cards -->
+    <div class="cell opt">
+      <div class="ph"><div class="scr">
+        <div class="dim"></div><div class="sb"></div>
+        <div class="sheet">
+          <div class="top"><span class="disc glass" data-i="x"></span><span class="disc tick off" data-i="check"></span></div>
+          <div style="padding:76px 22px 0;display:grid;gap:8px">
+            <span class="h" style="font-size:30px">Tipo 00</span>
+            <div class="row" style="gap:8px"><span class="av a28 cE">E</span><span class="meta">with <b>@eamon</b></span><span class="meta" style="margin-left:auto">Sat 19 Sep</span></div>
+          </div>
+          <div style="position:absolute;left:0;right:0;top:210px;display:grid;justify-items:center;gap:22px">
+            <span class="lt-tile" style="width:196px;height:196px;border-radius:55px;background:#B9A5EA;font-size:96px">T</span>
+            <span class="h" style="font-size:30px">Tagliatelle al ragù</span>
+            <div class="stars" data-v="0" data-z="44"></div>
+            <div class="dots3"><b class="on"></b><b></b><b></b><b></b></div>
+          </div>
+        </div>
+      </div></div>
+      <h3>B. A card per dish</h3>
+      <p>One dish fills the sheet; drag the stars and it pages to the next, swipe across to pass one by, a last page holds the words. More of a moment, but the tick only wakes at the end, a skipped dish is ambiguous (passed or not eaten?), and it is a second editor to build and keep in step with the composer.</p>
+    </div>
+  </div>
+
+  <div class="phones" style="padding-top:8px">
+    <!-- after scoring + swipe remove -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="dim"></div><div class="sb"></div>
+        <div class="sheet">
+          <div class="top"><span class="disc glass" data-i="x"></span><span class="disc tick" data-i="check"></span></div>
+          <div style="padding:76px 22px 0;display:grid;gap:8px">
+            <span class="h" style="font-size:30px">Tipo 00</span>
+            <div class="row" style="gap:8px"><span class="av a28 cE">E</span><span class="meta">with <b>@eamon</b></span><span class="meta" style="margin-left:auto">Sat 19 Sep</span></div>
+            <div style="margin-top:14px">
+              <div class="dish"><span class="h" style="font-size:21px">Tagliatelle al ragù</span><span class="sc h" style="font-size:26px"><i data-i="star" data-s="16"></i>4.0</span></div>
+              <div class="swipe"><div class="act">Remove</div><div class="dish" style="border-top:1px solid rgba(36,20,31,.14)"><span class="h" style="font-size:21px">Tiramisu</span><span class="slot"></span></div></div>
+              <div class="dish"><span class="row" style="gap:6px"><span class="h" style="font-size:21px">Prawn spaghetti</span><span class="diet" style="transform:translateY(-3px)">GF</span></span><span class="sc h" style="font-size:26px"><i data-i="star" data-s="16"></i>4.5</span></div>
+            </div>
+            <p class="prose" style="color:#5E5560;margin-top:14px">What did you eat?</p>
+          </div>
+        </div>
+      </div></div>
+      <h3>Skip what you didn't eat</h3>
+      <p>Swipe a row left for Remove, the native list action: it leaves her entry, not his. A dish she leaves unscored stays as an empty slot, as in any entry. The slide folds away once every row is done. The tick is live from the start, because the place is already attached.</p>
+    </div>
+
+    <!-- words -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="dim"></div><div class="sb"></div>
+        <div class="sheet">
+          <div class="top"><span class="disc glass" data-i="x"></span><span class="disc tick" data-i="check"></span></div>
+          <div style="padding:76px 22px 0;display:grid;gap:8px">
+            <div>
+              <div class="dish" style="min-height:36px;padding:5px 0"><span class="h" style="font-size:18px">Tagliatelle al ragù</span><span class="sc h" style="font-size:20px"><i data-i="star" data-s="13"></i>4.0</span></div>
+              <div class="dish" style="min-height:36px;padding:5px 0"><span class="h" style="font-size:18px">Prawn spaghetti</span><span class="sc h" style="font-size:20px"><i data-i="star" data-s="13"></i>4.5</span></div>
+            </div>
+            <p class="prose" style="margin-top:10px">My birthday! Stole half his pasta. The prawns were the better order though<span class="caret"></span></p>
+          </div>
+          <div class="bar glass" style="bottom:300px">
+            <span class="row"><span class="hit" data-i="camera"></span><span class="hit" data-i="image"></span></span>
+            <span class="row" style="gap:5px"><span class="key k-score"><i data-i="star" data-s="15"></i>Score</span><span class="key k-place"><i data-i="pin" data-s="16"></i><span>Tipo 00</span></span><span class="key k-round" data-i="leaf" data-s="16"></span><span class="key k-round"><span class="av a30 cE">E</span></span></span>
+          </div>
+          <div class="kbd"></div>
+        </div>
+      </div></div>
+      <h3>Words, if she wants</h3>
+      <p>Tapping the words brings the keyboard and the usual capsule, already holding Tipo 00 and @eamon. The scored rows compact above. Dishes she writes about join the list through the sorter as usual; ones already listed are not added twice. Photos are hers to add; his are never copied.</p>
+    </div>
+
+    <!-- her receipt -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="dim"></div><div class="sb"></div>
+        <div class="sheet" style="background:#F0623F;--surf:#F0623F">
+          <div class="top"><span class="disc glass" style="background:rgba(255,255,255,.35)" data-i="x"></span><span class="disc glass" style="background:rgba(255,255,255,.35)" data-i="share"></span></div>
+          <div style="position:relative;margin:150px 52px 0">
+            <div style="transform:scale(1.098);transform-origin:50% 0;filter:drop-shadow(0 1px 0 rgba(36,20,31,.07))">
+              <div class="receipt">
+                <div style="display:grid;gap:4px;padding-top:2px"><div class="rl"><span class="n">Tagliatelle al ragù</span><span class="d"></span><span class="s">4.0</span></div><div class="rl"><span class="n">Prawn spaghetti</span><span class="d"></span><span class="s">4.5</span></div></div>
+                <div class="rule"></div>
+                <div class="row lab" style="justify-content:space-between;gap:8px"><span style="color:#24141F;white-space:nowrap">Tipo 00</span><span style="white-space:nowrap">361 Little Bourke St</span></div>
+                <div class="rule"></div>
+                <div class="row lab" style="justify-content:space-between;color:#24141F"><span>Order #0039</span><span>Sat 19 Sep 2026</span></div>
+                <div class="row lab" style="justify-content:space-between;color:#24141F"><span>2 dishes</span><span>Avg 4.25</span></div>
+                <div class="row lab" style="justify-content:space-between;color:#24141F"><span>@jess <span style="color:#5E5560">with</span> @eamon</span><span class="wm"></span></div>
+              </div>
+              <div class="tear"></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <h3>Her receipt</h3>
+      <p>Printed exactly like any receipt, signed "@jess with @eamon". It is dated the visit, Saturday, not the day she logged it, and files into her Journal there. Close returns her to the Journal; the notification row is gone.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 4. SAYING NO, AND THE INVITE ================= -->
+<section>
+  <h2>4. Saying no, and the invite</h2>
+  <div class="paired">
+    <div class="cell opt">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="navrow"><span class="disc glass" data-i="back"></span></div>
+        <div class="ptitle">Notifications</div>
+        <div style="position:absolute;left:20px;right:20px;top:172px">
+          <div class="swipe"><div class="act">Decline</div><div class="pr" style="border-top:0"><span class="av a36 cE">E</span><span class="d"><b>@eamon ate with you</b><span class="meta">Tipo 00, Sat 19 Sep</span></span><span class="disc glass" style="width:36px;height:36px" data-i="x" data-s="16"></span></div></div>
+          <div class="pr"><span class="av a36 cM">M</span><span class="d"><b>@marco.eats ate with you</b><span class="meta">Supernormal, Thu 17 Sep</span></span><span class="disc glass" style="width:36px;height:36px" data-i="x" data-s="16"></span></div>
+        </div>
+        <div class="tabbar glass" data-on="you"></div><span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>A. X is "not now"; Decline is separate</h3>
+      <p><b>Recommended.</b> The X just clears the row: she stays tagged, nobody is told, she can still log the visit herself. Declining takes her off his entry, so it is a deliberate act: swipe the row for Decline, or use the entry's actions sheet. Either asks once.</p>
+    </div>
+    <div class="cell opt">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="navrow"><span class="disc glass" data-i="back"></span></div>
+        <div class="ptitle">Notifications</div>
+        <div style="position:absolute;left:20px;right:20px;top:172px;opacity:.5">
+          <div class="pr"><span class="av a36 cE">E</span><span class="d"><b>@eamon ate with you</b><span class="meta">Tipo 00, Sat 19 Sep</span></span><span class="disc glass" style="width:36px;height:36px" data-i="x" data-s="16"></span></div>
+          <div class="pr"><span class="av a36 cM">M</span><span class="d"><b>@marco.eats ate with you</b><span class="meta">Supernormal, Thu 17 Sep</span></span><span class="disc glass" style="width:36px;height:36px" data-i="x" data-s="16"></span></div>
+        </div>
+        <div style="position:absolute;inset:0;background:rgba(36,20,31,.12)"></div>
+        <div class="dlg"><div class="g"><div class="t"><b>Remove yourself from @eamon's entry?</b></div><div class="o red">Remove</div></div><div class="g"><div class="o c">Cancel</div></div></div>
+      </div></div>
+      <h3>B. X is Decline</h3>
+      <p>One control. The X asks once, then takes her off his entry. Simpler to learn, but every "I'll do it later" becomes a confirmation about removing yourself, and there is no quiet way to clear the list.</p>
+    </div>
+  </div>
+
+  <div class="phones" style="padding-top:8px">
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="dim" style="background:#9E978E"></div><div class="sb"></div>
+        <div style="position:absolute;left:12px;right:12px;top:112px;bottom:0;background:#fff;border-radius:24px 24px 0 0;opacity:.55"></div>
+        <div class="sheet" style="top:418px;padding:22px 20px 0;display:grid;gap:14px;align-content:start;box-shadow:0 -10px 30px rgba(36,20,31,.12)">
+          <div class="row" style="margin:-8px -4px 0"><span class="disc glass" data-i="x"></span></div>
+          <span class="h" style="font-size:30px">@eamon</span>
+          <div>
+            <div class="arow"><i data-i="bm" data-s="22"></i>Save this place</div>
+            <div class="arow"><i data-i="share" data-s="22"></i>Share</div>
+            <div class="arow red"><i data-i="userminus" data-s="22"></i>Remove me</div>
+            <div class="arow red"><i data-i="flag" data-s="22"></i>Report</div>
+            <div class="arow red"><i data-i="ban" data-s="22"></i>Block @eamon</div>
+          </div>
+        </div>
+      </div></div>
+      <h3>Decline from his entry</h3>
+      <p>On an entry she is tagged in, the ••• actions sheet gains one row, Remove me, only for her. It asks once in the native dialog. His entry drops "with @jess"; he is not notified. Block here also clears every tag between them.</p>
+    </div>
+
+    <div class="cell">
+      <div class="webcard">
+        <h3>The invite link, without the app</h3>
+        <p>ate.app/w/&lsaquo;code&rsaquo; opens a plain web page on the coral Share ground: Eamon's printed receipt for the visit, exactly as Share renders it, titled "@eamon ate with you at Tipo 00", and the standard Download on the App Store badge. Nothing else: no form, no sign-up on the web.</p>
+        <p>With the app installed, the same link is a universal link and opens the scoring sheet directly.</p>
+        <p>Installed from the page: Welcome, then the handle step, then the scoring sheet opens on its own. iOS does not carry a link through an install by itself, so the app re-reads it once on first launch (the copied link on the pasteboard, or the page's smart banner link). If that fails, the tag still lands in her list once she signs up with the phone number or email the invite was sent to; otherwise the link simply opens again from the message.</p>
+        <p>If the entry was never posted or was deleted, the page shows only the badge.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 5. EDGES ================= -->
+<section>
+  <h2>5. Empty and edge states</h2>
+  <div class="phones">
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="navrow"><span class="disc glass" data-i="back"></span></div>
+        <div class="ptitle">Notifications</div>
+        <div class="empty">Nothing new</div>
+        <div class="tabbar glass" data-on="you"></div><span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>Nothing new</h3>
+      <p>The one empty anatomy: a 40pt line, centred, no pill. Also what she sees if she taps an old push for a tag that has since been withdrawn or whose entry was deleted: the row is simply gone, with no error.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="navrow"><span style="padding-left:4px"><span class="wm" style="width:86px;height:30px;border-radius:7px"></span></span><span class="grp glass"><span class="hit" data-i="image"></span><span class="hit" data-i="calendar"></span><span class="hit" data-i="filter"></span></span></div>
+        <div style="position:absolute;left:16px;right:16px;top:118px;display:grid;gap:14px;opacity:.5">
+          <div class="h" style="font-size:28px;padding:6px 4px 0">September</div>
+          <div style="background:#fff;border-radius:16px 16px 0 0;padding:12px 16px 14px">
+            <div class="dish"><span class="h" style="font-size:20px">Tagliatelle al ragù</span><span class="sc h" style="font-size:24px"><i data-i="star" data-s="15"></i>4.0</span></div>
+            <div class="dish"><span class="h" style="font-size:20px">Burrata</span><span class="sc h" style="font-size:24px"><i data-i="star" data-s="15"></i>4.5</span></div>
+          </div>
+        </div>
+        <div style="position:absolute;inset:0;background:rgba(36,20,31,.12)"></div>
+        <div class="dlg"><div class="g"><div class="t"><b>Tipo 00, Sat 19 Sep is already in your Journal</b></div><div class="o">Add to that entry</div><div class="o">Log separately</div></div><div class="g"><div class="o c">Cancel</div></div></div>
+      </div></div>
+      <h3>Already logged that visit</h3>
+      <p>If she has an entry at the same place within a day of his, opening the tag asks once in a native dialog before anything else.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="dim"></div><div class="sb"></div>
+        <div class="sheet">
+          <div class="top"><span class="disc glass" data-i="x"></span><span class="disc tick" data-i="check"></span></div>
+          <div style="padding:76px 22px 0;display:grid;gap:8px">
+            <span class="h" style="font-size:30px">Tipo 00</span>
+            <div class="row" style="gap:8px"><span class="av a28 cE">E</span><span class="meta">with <b>@eamon</b></span><span class="meta" style="margin-left:auto">Sat 19 Sep</span></div>
+            <div style="margin-top:14px">
+              <div class="dish"><span class="h" style="font-size:21px">Tagliatelle al ragù</span><span class="sc h" style="font-size:26px"><i data-i="star" data-s="16"></i>4.0</span></div>
+              <div class="dish"><span class="h" style="font-size:21px">Burrata</span><span class="sc h" style="font-size:26px"><i data-i="star" data-s="16"></i>4.5</span></div>
+              <div class="dish cur"><span class="h" style="font-size:21px">Tiramisu</span><span class="slot"></span></div>
+              <div class="dish"><span class="row" style="gap:6px"><span class="h" style="font-size:21px">Prawn spaghetti</span><span class="diet" style="transform:translateY(-3px)">GF</span></span><span class="slot"></span></div>
+            </div>
+            <p class="prose" style="margin-top:10px;font-size:17px">My birthday! Stole half his pasta.</p>
+          </div>
+          <div class="slide" style="bottom:56px">
+            <div class="row" style="justify-content:space-between;align-items:baseline"><span class="h" style="font-size:18px">Tiramisu</span><span class="h" style="font-size:22px;color:#5E5560">0</span></div>
+            <div class="stars" data-v="0" data-z="38"></div>
+          </div>
+        </div>
+      </div></div>
+      <h3>Add to that entry</h3>
+      <p>Her own entry opens in the same sheet: her scores and words untouched, @eamon added to With, and only his dishes she has not got appended with empty slots. The slide starts on the first of those. Log separately opens the normal prefilled sheet.</p>
+    </div>
+  </div>
+
+  <div class="wrap measure"><table>
+    <tr><th>Case</th><th>What happens</th></tr>
+    <tr><td>Tagger edits, before she opens</td><td>The sheet reads his entry when it opens, so she sees his current dishes and place. Removing her in his edit withdraws the tag: her row vanishes silently, no second push.</td></tr>
+    <tr><td>Tagger edits, after she posted</td><td>Nothing propagates. Her entry is hers. Each entry owns its own "with" line; removing her from his leaves "with @eamon" on hers.</td></tr>
+    <tr><td>Tagger deletes, before she opens</td><td>Tag withdrawn, row gone. An open sheet still posts: what she scored is kept as her own entry.</td></tr>
+    <tr><td>Tagger deletes, after she posted</td><td>Her entry stays, "with @eamon" still links to his page.</td></tr>
+    <tr><td>Tagged twice for one visit</td><td>Two people both tag her at the same place and day: one row, one sheet, With holds both, the dish list is the union.</td></tr>
+    <tr><td>She tags him back</td><td>A tag on someone who is already tagged on the matching visit links the two entries; no second notification either way.</td></tr>
+    <tr><td>Blocked</td><td>Neither person can find the other in the sheet. Blocking clears pending tags both ways and removes the "with" line from both entries.</td></tr>
+    <tr><td>Still sorting</td><td>No push until his dishes exist. The list row appears at the same moment.</td></tr>
+    <tr><td>Loading</td><td>The list shows skeleton rows breathing to 45%. The sheet shows the title and skeleton dish rows; the slide waits for the first row.</td></tr>
+    <tr><td>Offline</td><td>Tags are queued with the entry and sent when it posts. Opening a tag offline: the sheet shows the skeleton until it connects, never a spinner.</td></tr>
+    <tr><td>Push permission</td><td>Asked once, by the system dialog, after her first scoring sheet posts or after someone first tags her in-app. Never on launch. With push off, the list and the bell still work.</td></tr>
+    <tr><td>Limits</td><td>Up to 8 people per entry. You cannot tag yourself. An invite chip counts toward the 8.</td></tr>
+  </table></div>
+</section>
+
+<!-- ================= TABLES ================= -->
+<section class="measure">
+  <h2>Friction budget</h2>
+  <ul>
+    <li><strong>Tagger, not tagging:</strong> zero added taps; one more disc in the capsule.</li>
+    <li><strong>Tagger, one person:</strong> three taps (key, row, pill). Two people: four.</li>
+    <li><strong>Tagged, three dishes:</strong> tap the push, three drags, tick. Five actions to a printed receipt; no typing, no place search, no dish matching.</li>
+  </ul>
+</section>
+
+<section class="measure">
+  <h2>Screens and patterns</h2>
+  <div class="wrap"><table>
+    <tr><th>Screen</th><th>Pattern</th><th>Precedent</th></tr>
+    <tr><td>With key</td><td>Metadata as a key beside Place, never inline. The key shows the chosen person's avatar.</td><td>Composer's own Place and Diet keys</td></tr>
+    <tr><td>People sheet</td><td>Search-first picker, recents before typing, multi-select chips, one commit pill.</td><td>Place sheet; Instagram's tag people; Strava's add-athletes</td></tr>
+    <tr><td>The tag prompt</td><td>A copy of a shared activity offered to the other person, theirs to keep or decline.</td><td>Strava group activities; Splitwise-style shared entries</td></tr>
+    <tr><td>Scoring sheet</td><td>The composer prefilled; the score slide stepping through rows.</td><td>Composer score slide; Letterboxd rate</td></tr>
+    <tr><td>Notifications</td><td>One row type on one page, tap to open, X to clear, gone after action.</td><td>Ate's house rule; Apple Invites</td></tr>
+    <tr><td>Decline</td><td>Swipe action on the row, plus one row in the entry's actions sheet; native confirmation.</td><td>Mail, Reminders swipe actions</td></tr>
+  </table></div>
+</section>
+
+<section class="measure">
+  <h2>Native iOS 26 parts</h2>
+  <div class="wrap"><table>
+    <tr><th>Piece</th><th>SwiftUI</th></tr>
+    <tr><td>With key</td><td>A new <code>AteKey</code> kind <code>.with([Person])</code> in <code>AteKeyCapsule</code>, after <code>.diet</code>; round like the leaf; face is <code>AteAvatar</code> at 30 (two overlapped, or a count)</td></tr>
+    <tr><td>People sheet</td><td><code>AteSheetScaffold(title:searchPrompt:)</code> with <code>[.medium, .large]</code>; rows are <code>AtePersonRow</code> with a trailing check; chips reuse <code>AteFilterChipRow</code>'s chip; foot is <code>AteInkPill</code> with a live count</td></tr>
+    <tr><td>Invite</td><td><code>ShareLink</code> / <code>ShareSheet</code> with a URL and a rendered receipt preview; universal link <code>ate.app/w/</code></td></tr>
+    <tr><td>Push</td><td>APNs via <code>UNUserNotificationCenter</code>; tap routes through the existing deep-link router to the scoring sheet; <code>requestAuthorization</code> at the moment above</td></tr>
+    <tr><td>Bell</td><td>A second <code>ToolbarItem</code> in You's trailing group, <code>.badge(count)</code> tinted ink; pushes a <code>List</code></td></tr>
+    <tr><td>Notification row</td><td>One shared row view (avatar, title, meta, glass X) with <code>.swipeActions</code> (Decline, destructive role) under option A</td></tr>
+    <tr><td>Scoring sheet</td><td>The composer sheet in a prefilled mode: dish rows above the editor, the score slide with <code>.sensoryFeedback(.selection)</code> per half star, <code>.swipeActions</code> for Remove; keyboard not focused on open</td></tr>
+    <tr><td>Dialogs</td><td><code>.confirmationDialog</code> for Decline and Already logged</td></tr>
+  </table></div>
+</section>
+
+<section class="measure">
+  <h2>Needs from the backend</h2>
+  <ul>
+    <li><strong><code>entry_companions</code></strong> (entry, person or invite code, state: pending, posted, dismissed, declined). RLS: only the tagger writes; the tagged person can only change their own row's state; a block on either side refuses the insert.</li>
+    <li><strong>A notifications read</strong> listing pending companion rows for me, newest first, with place, date and dish names.</li>
+    <li><strong>Push</strong>: an edge function fired after the sorter finishes, sending to registered APNs tokens. Needs an APNs auth key (free with the developer account) and a device-token table.</li>
+    <li><strong>Create from a tag</strong>: post an entry whose dish lines are given (not sorted from words), dated the tagger's visit, with optional words sorted and merged without duplicating listed dishes.</li>
+    <li><strong>Invite codes</strong>: reserve on share, bind on post, claim on sign-up; expire unbound codes after a week.</li>
+    <li><strong>Matching visit</strong>: same place within a day, for Already logged and for linking reciprocal tags.</li>
+  </ul>
+</section>
+
+<section class="measure">
+  <h2>Telemetry</h2>
+  <div class="wrap"><table>
+    <tr><th>Event</th><th>Properties</th></tr>
+    <tr><td>with.added</td><td>people count, invite yes or no</td></tr>
+    <tr><td>with.inviteShared</td><td>share target if known</td></tr>
+    <tr><td>with.opened</td><td>source: push, list, link, journal row</td></tr>
+    <tr><td>with.posted</td><td>dishes scored, removed, left empty, words yes or no, seconds open</td></tr>
+    <tr><td>with.dismissed / with.declined</td><td>where: row X, swipe, actions sheet</td></tr>
+    <tr><td>with.inviteClaimed</td><td>days from share to claim</td></tr>
+  </table></div>
+</section>
+
+<section class="measure">
+  <h2>Your call</h2>
+  <div class="qs">
+    <div class="q"><h3>Where the list lives</h3>
+      <p><b class="rec">A bell on You.</b> Beside Settings in the one glass group, with an ink count. Nothing in the tab bar.</p>
+      <p><b>A row atop the Journal.</b> Shown only while something waits; opens the same list.</p>
+    </div>
+    <div class="q"><h3>How she scores</h3>
+      <p><b class="rec">The list, one slide.</b> The composer prefilled; drag, it advances; swipe to remove.</p>
+      <p><b>A card per dish.</b> A full-sheet card per dish, paged.</p>
+    </div>
+    <div class="q"><h3>What the X does</h3>
+      <p><b class="rec">Not now.</b> X clears the row and keeps the tag; Decline is a swipe or the actions sheet, asked once.</p>
+      <p><b>Decline.</b> X takes her off his entry, asked once.</p>
+    </div>
+  </div>
+  <p class="note">Photos are colour stand-ins; the dark block stands in for the real wordmark. Phones show the light default; dark follows the existing ink tokens. The invite web page is public-facing and comes back to you before it ships.</p>
+</section>
+</main>
+
+<script>
+(function(){
+  var P={
+    x:'<path d="M18 6 6 18M6 6l12 12"/>',
+    check:'<path d="M20 6 9 17l-5-5"/>',
+    camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/>',
+    image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+    star:'<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z" fill="currentColor" stroke="none"/>',
+    pin:'<path d="M20 10c0 5-8 12-8 12s-8-7-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+    search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    share:'<path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>',
+    more:'<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>',
+    back:'<path d="m15 18-6-6 6-6"/>',
+    chev:'<path d="m9 18 6-6-6-6"/>',
+    book:'<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
+    utensils:'<path d="m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7M2.1 21.8l6.4-6.3M19 5l-7 7"/>',
+    plus:'<path d="M12 5v14M5 12h14"/>',
+    user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    userplus:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>',
+    userminus:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/>',
+    link:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    copy:'<rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+    bell:'<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
+    settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+    calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    filter:'<path d="M3 6h18M7 12h10M10 18h4"/>',
+    flash:'<path d="M18 6c0 2-2 2-2 4v10a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V10c0-2-2-2-2-4V2h12z"/><path d="M6 6h12M12 12v0"/>',
+    bm:'<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+    flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',
+    ban:'<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+    leaf:'<path d="M11 20a10 10 0 0 0 10-10 25.9 25.9 0 0 0-1.04-7.281 1 1 0 0 0-1.755-.325C15.833 5.5 13 5.5 9.8 6.1A7 7 0 0 0 11 20"/><path d="M2 21a5 5 0 0 1 2.911-4.544C7.613 15.212 8.351 15.24 11 13"/>'
+  };
+  var SB='<span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i>';
+  document.querySelectorAll('.sb').forEach(function(e){e.innerHTML=SB});
+  var tabs=[['journal','book','Journal'],['feed','utensils','Feed'],['search','search','Search'],['you','user','You']];
+  document.querySelectorAll('.tabbar[data-on]').forEach(function(t){
+    var on=t.getAttribute('data-on');
+    t.innerHTML=tabs.map(function(x){return '<span class="tab'+(x[0]===on?' on':'')+'"><i data-i="'+x[1]+'" data-s="24"></i>'+x[2]+'</span>'}).join('');
+  });
+  document.querySelectorAll('[data-i]').forEach(function(el){
+    var s=el.getAttribute('data-s')||22;
+    el.insertAdjacentHTML('afterbegin','<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex-shrink:0">'+(P[el.getAttribute('data-i')]||'')+'</svg>');
+  });
+  var rows=['qwertyuiop','asdfghjkl','zxcvbnm'];
+  document.querySelectorAll('.kbd').forEach(function(k){
+    var h='';
+    rows.forEach(function(r,i){
+      var keys=r.split('').map(function(c){return '<span>'+c+'</span>'}).join('');
+      if(i===2) keys='<span class="w">&#8679;</span>'+keys+'<span class="w">&#9003;</span>';
+      h+='<div class="r">'+keys+'</div>';
+    });
+    h+='<div class="r"><span class="w" style="font-size:16px">123</span><span class="sp"></span><span class="w" style="flex:0 0 88px;font-size:16px">return</span></div>';
+    k.innerHTML=h;
+  });
+  var SP='M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z';
+  document.querySelectorAll('.stars').forEach(function(st){
+    var v=parseFloat(st.getAttribute('data-v')||0), z=st.getAttribute('data-z')||38, sh='';
+    for(var i=1;i<=5;i++){
+      var f=v>=i?100:(v>=i-.5?50:0);
+      sh+='<span style="position:relative;width:'+z+'px;height:'+z+'px"><svg width="'+z+'" height="'+z+'" viewBox="0 0 24 24" fill="none" stroke="#24141F" stroke-width="1.6" stroke-linejoin="round" style="position:absolute;inset:0"><path d="'+SP+'"/></svg><span style="position:absolute;inset:0;width:'+f+'%;overflow:hidden"><svg width="'+z+'" height="'+z+'" viewBox="0 0 24 24" fill="#24141F" stroke="#24141F" stroke-width="1.6" stroke-linejoin="round"><path d="'+SP+'"/></svg></span></span>';
+    }
+    st.innerHTML=sh;
+  });
+  /* Edge B: 4pt wave, period fitted to the width so both ends match; flat paper. */
+  function edgeB(){
+    document.querySelectorAll('.tear').forEach(function(el){
+      var W=el.offsetWidth; if(!W) return;
+      var n=W/12, r=Math.round(n); if(Math.abs(n-Math.floor(n)-.5)<1e-9){ r=Math.floor(n); if(r%2) r+=1; }
+      r=Math.max(1,r); var Pp=W/r, d='M0 0';
+      for(var x=0;x<=W;x+=1){ d+='L'+x+' '+(2.1-1.5*Math.cos(2*Math.PI*x/Pp)).toFixed(2); }
+      d+='L'+W+' '+(2.1-1.5*Math.cos(2*Math.PI*W/Pp)).toFixed(2)+'L'+W+' 0Z';
+      el.innerHTML='<svg width="'+W+'" height="4" viewBox="0 0 '+W+' 4" style="display:block;overflow:visible" aria-hidden="true"><path d="'+d+'" fill="#fff"/></svg>';
+    });
+  }
+  edgeB();
+  function fit(){
+    document.querySelectorAll('.ph').forEach(function(p){var s=p.clientWidth/390;p.querySelector('.scr').style.setProperty('--s',s)});
+  }
+  fit(); addEventListener('resize',fit);
+})();
+</script>
