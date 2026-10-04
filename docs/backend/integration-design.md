@@ -316,3 +316,48 @@ write). `23503` = missing FK (unknown dish/restaurant). `23514` = a CHECK refuse
 `reason` outside the five-word vocabulary). `22023` = bad RPC argument (e.g. `correct_entry_dish`
 before the entry has a place). `23502 place_required` = an entry insert with no place (0040). `P0002` from
 `delete_entry` = already gone. `429` from `places-search` or a sort-entry preview = rate limited.
+
+## Ate with — tagging companions (0058, DRAFT: not applied anywhere yet)
+
+The author tags people on their OWN entry (pick from `search_people`; send the `user_id`) or mints an invite
+link. The tagged person posts their own linked entry or declines. All RPCs signed in only; anon → `42501`.
+**Pending tags follow the live entry, they don't snapshot:** a tag is made before the sorter has printed a
+line, so the prefill reads the original's lines when opened; once the companion posts, their lines are
+theirs. The original deleted before a response withdraws the tag (prefill → `P0002` = "no longer available").
+
+| Call | Returns · errors |
+|---|---|
+| `tag_ate_with(p_entry_id, p_user_id)` | `{companion_id, entry_id, user_id, status, created_at}` — idempotent (the existing row, any status; a decline comes back `declined`, no second notification). `42501` not your entry / blocked either way · `22023` yourself, or a placeless entry · `P0002` unknown entry or person · `54000` `ate_with_cap` (6 seats = pending + accepted + live invites) or `ate_with_rate_limited` (40 tags + invites / rolling day) |
+| `untag_ate_with(p_entry_id, p_user_id)` | int removed. Pending or accepted → gone (their entry stays theirs, unlinked); a decline is sticky (0) |
+| `create_ate_with_invite(p_entry_id)` | `{invite_id, token, expires_at}` — the token exists ONLY in this reply (32 chars base64url; stored hashed). Link `ate://invite/<token>`. 14 days, single use, takes a seat. Errors as `tag_ate_with` |
+| `revoke_ate_with_invite(p_invite_id)` | int (1 revoked, 0 not yours / already used). Your invites: `GET entry_invites?entry_id=eq.<id>` |
+| `redeem_ate_with_invite(p_token)` | `{companion_id, entry_id, status}` → open the prefill. Call right after sign-up/sign-in. The same person again → same row. `P0002` unknown/revoked · `22023` expired or your own · `23505` used by someone else · `42501` blocked |
+| `my_notifications(p_limit, p_cursor_created_at, p_cursor_id)` | `{id, type, created_at, read_at, actor{id,username,name,avatar_url}, companion_id, companion_status, entry_id, place{id,name,locality}, visited_at}[]`, newest first, keyset `(created_at, id)`, default 30, max 100. `type` is `ate_with` (render nothing else). Blocked/deactivated actors absent |
+| `unread_notification_count()` | int — the badge; counts exactly the unread rows `my_notifications` can show |
+| `dismiss_notification(p_id)` · `mark_notifications_read()` | void · int (0011, unchanged). Answering a tag dismisses its row itself |
+| `ate_with_prefill(p_companion_id)` | jsonb `{companion_id, status, response_entry_id, entry_id, visited_at, sort_status, tagger{…}, place{id,name,address,locality}, dishes:[{dish_id, dish_name, position}]}` — one row per dish. `sort_status: pending` = dishes still on their way (retry), not "none". `status: accepted` → open `response_entry_id` instead. Marks the notification read. `P0002` not yours / withdrawn / blocked |
+| `respond_ate_with(p_companion_id, p_entry_id, p_items, p_body)` | `entry_cards[]` (one row: YOUR new entry — render it). `p_entry_id` client-minted (a retry with it returns the same card); `p_items` = `[{dish_id, score?, tags?}]` in receipt order, dishes at that place (omit = didn't have it; duplicates collapse); `p_body` optional words, default `''`. Same place + visit time as the original; `sort_status: sorted`; lines are `corrected` (a later `sort-entry` with `force` keeps them and adds what the words name). `22023` bad items / `dish_not_at_place` / `nothing_to_post` / declined · `23514` bad score · `23505` already answered with another id · `P0002` |
+| `decline_ate_with(p_companion_id)` | `'declined'`. Pending or accepted; an accepted entry stays theirs, unlinked. `P0002` not yours |
+| `register_push_token(p_token, p_apns_env)` · `unregister_push_token(p_token)` | void. Hex APNs token; `p_apns_env` `sandbox` (Xcode-installed builds) \| `production` (TestFlight + App Store) — from the build's `aps-environment`, not from Debug/Release. Register on every launch with permission (moves the token to whoever is signed in); unregister on sign-out. `22023` bad token/env |
+
+**`entry_cards.companions`** (new trailing key, `[]` never null): `[{user_id, username, name, avatar_url, status,
+entry_id}]` — print "with @jess". An original lists accepted companions whose entry still stands (+ `pending`
+ones, only to the author and that companion); a response lists the original's author + its other accepted
+companions. `entry_id` = that person's entry for the visit (tap → `get_entry_card`), null while pending. Blocked
+and deactivated people are absent. Raw `entry_companions` rows (incl. `declined`) are readable by the two parties only.
+
+**Push delivery (design; nothing built or configured yet).** A follow-up migration adds an AFTER INSERT trigger on
+`notifications` (`type = 'ate_with'`) that `pg_net`-posts `{notification_id}` to a new edge function `send-push`;
+the function URL and a shared webhook secret are read from Supabase Vault at call time, so nothing secret lands in
+a migration (preferred over a dashboard Database Webhook, which lives outside the repo and embeds the key). The
+function verifies the shared secret, loads the notification + the recipient's `device_push_tokens` with the
+service role, and skips a row already `pushed_at` or created by redeeming an invite (they are in the app). APNs
+token auth: an ES256 JWT signed with the `.p8` key, cached ≤ 50 min, from secrets `APNS_KEY_ID`, `APNS_TEAM_ID`,
+`APNS_PRIVATE_KEY`; `POST /3/device/<token>` with `apns-topic: com.eamongracias.ate`, `apns-push-type: alert`,
+body `{aps: {alert: {title, body: "@alice tagged you at Tipo 00"}, badge: <unread>, sound}, companion_id}`. Host per
+TOKEN from its `apns_env`: `api.sandbox.push.apple.com` / `api.push.apple.com` — so a TestFlight build pointed at
+staging still delivers. `410` / `BadDeviceToken` / `Unregistered` deletes the token; then stamp `pushed_at`. One key
+serves both hosts and both projects; staging and prod each hold their own copy of the three secrets.
+
+**Wire change — 0058.** Additive: the RPCs above, three tables, `notifications.companion_id`/`pushed_at`, and a
+trailing `companions` key on every `entry_cards` row. Behavioural on a dormant RPC only: `unread_notification_count` counts `ate_with` alone.
