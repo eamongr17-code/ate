@@ -35,15 +35,9 @@ public enum DebugLaunch {
         case slowSort = "-ate-slow-sort"
         /// "Posting…" held up to 8s rather than 3.5, so a drive's taps all land inside the hold.
         case longHold = "-ate-long-hold"
-        /// The dish and place pages' reads held back 2s, to see what a page draws before they answer.
-        case slowDetail = "-ate-slow-detail"
-        /// How long a dish or place page takes to settle, appended to `Documents/detail-timings.txt`.
-        case profileDetail = "-ate-profile-detail"
         /// Undo and Redo buttons in the composer's header — XCUITest can neither shake nor
         /// three-finger swipe.
         case undoDrive = "-ate-undo-drive"
-        /// The share card's rendered PNG, written to `Documents` for a drive to collect.
-        case dumpShare = "-ate-dump-share"
         /// The share card's render fails, for its error state.
         case failShareRender = "-ate-fail-share-render"
         #endif

@@ -61,8 +61,8 @@ struct V2Root: View {
     }
 }
 
-/// The first-run handle, once it knows what the account was made with — the current app's step and
-/// `HandleModel`, on the rebuilt screen (``V2HandleScreen``).
+/// The first-run handle, once it knows what the account was made with — `HandleModel` on
+/// ``V2HandleScreen``.
 private struct V2FirstRunHandle: View {
     let app: AppModel
     @State private var model: HandleModel?

@@ -6,9 +6,8 @@ import SwiftUI
 /// save action, the handle a first run still owes, the outbox worked on every return to the app,
 /// and links into an entry. Tabs, stacks and stores belong to ``TabShell`` and its routers.
 ///
-/// It drives the same AteKit pieces the current app's shell does (`SessionGate`, `AppleSignIn`,
-/// `FirstRun`, `EntryOutbox`, `EntryLinkInbox`) with the same behaviour; the current shell keeps
-/// its own copy until cutover deletes it.
+/// It drives the AteKit pieces (`SessionGate`, `AppleSignIn`, `FirstRun`, `EntryOutbox`,
+/// `EntryLinkInbox`).
 @MainActor
 @Observable
 final class AppModel {
@@ -199,7 +198,7 @@ final class AppModel {
 
     // MARK: - Getting out
 
-    /// Sign out, or a deleted account — as the current shell does it: the person's draft and queued
+    /// Sign out, or a deleted account: the person's draft and queued
     /// entries are kept for them, a deleted person's are destroyed, and the root builds a clean app.
     func endSession(deleting deletedUserID: UUID? = nil) {
         services.preferences.pendingHandleUserID = nil

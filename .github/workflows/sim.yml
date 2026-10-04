@@ -10,7 +10,7 @@ on:
         description: Branch or SHA to run
         required: true
       only_testing:
-        description: "xcodebuild -only-testing value, e.g. AteUITests/TabChromeUITests (blank = whole suite)"
+        description: "xcodebuild -only-testing value, e.g. AteUITests/V2ShellUITests (blank = whole suite)"
         required: false
         default: ""
       device:

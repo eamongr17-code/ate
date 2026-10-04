@@ -67,9 +67,8 @@ custom_rules:
     severity: error
   # The component kit is the only place look-and-feel is decided, and it decides it through the
   # tokens (`App/DesignSystem/Tokens/`): no colour, font, radius or shadow literal in a kit
-  # component. Scoped to the kit and the rebuilt app (`App/V2/`) for now — the old screens still carry literals and are not restyled
-  # to satisfy it; each rebuilt flow's folder joins the scope as it lands, and the legacy screens
-  # leave it when they are deleted.
+  # component. Scoped to the kit and the app's screens (`App/V2/`); the older components under
+  # `App/DesignSystem/Components/` still carry literals and are outside it.
   kit_no_colour_literal:
     name: "No colour literal in the kit"
     included: "/App/(DesignSystem/Kit|V2)/.*\\.swift$"

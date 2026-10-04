@@ -1,7 +1,7 @@
 import Foundation
 
-/// **The rebuilt app's shell** (phase 2b) — which app a tester is in, and how they move around the
-/// new tab bar. Small on purpose: the flows bring their own events as they land.
+/// **The app's shell** — that it came up, and how people move around the tab bar. Small on purpose:
+/// the flows bring their own events.
 public enum ShellEvents {
     /// The new app came up — once per shell, so the count is launches spent in the rebuild.
     public static func newAppOpened() -> AnalyticsEvent {

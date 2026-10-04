@@ -7,8 +7,7 @@ import UIKit
 /// system's (`design/rebuild/pattern-contract.html`, "One rule above all").
 @MainActor
 enum AteNativeChrome {
-    /// The tab item labels, at rest and selected. Set once, before the new shell's bar is built;
-    /// the current app hides the system tab bar on every page, so it never sees these.
+    /// The tab item labels, at rest and selected. Set once, before the shell's bar is built.
     static func install() {
         let item = UITabBarItem.appearance()
         item.setTitleTextAttributes([.font: AteFont.uiFont(for: .kitTabLabel)], for: .normal)
