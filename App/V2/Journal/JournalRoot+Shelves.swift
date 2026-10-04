@@ -9,7 +9,8 @@ extension JournalRoot {
     var list: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                segment
+                Color.clear
+                    .frame(height: 0)
                     .id(Self.top)
                 switch shelf {
                 case .journal: journalRows
@@ -34,7 +35,7 @@ extension JournalRoot {
         })
     }
 
-    /// Journal | Saved, at the head of the list.
+    /// Journal | Saved, pinned under the bar over the list and the calendar.
     var segment: some View {
         AteSegmentedControl(
             options: [AteSegment(Shelf.journal, "Journal"), AteSegment(.saved, "Saved")],
@@ -50,7 +51,7 @@ extension JournalRoot {
     /// A state with nothing under it: the one empty anatomy, centred in the page under the segment.
     func emptyBand(_ state: AteEmptyState) -> some View {
         state.containerRelativeFrame(.vertical) { length, _ in
-            max(length - JournalShelfMetrics.segmentBand, JournalShelfMetrics.emptyMinimum)
+            max(length, JournalShelfMetrics.emptyMinimum)
         }
     }
 
@@ -239,8 +240,6 @@ extension JournalRoot {
 enum JournalShelfMetrics {
     /// How much of a slip must be on screen to count as the one you are reading.
     static let visibleShare = 0.2
-    /// The segment's row: its 36, the 4 of field around it, and the 4 above and below.
-    static let segmentBand: CGFloat = AteMetrics.segmentHeight + 4 * AteMetrics.tight
     /// An empty state never squeezes below this, however small the screen.
     static let emptyMinimum: CGFloat = 320
     static let skeletons = 3

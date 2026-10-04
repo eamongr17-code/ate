@@ -12,7 +12,7 @@ public enum JournalZoom: Hashable, Sendable {
 
     /// The calendar button, a plain toggle (build 87: "tap twice to get back is a bad pattern"):
     /// the list opens the month, and the month or the year closes back to the list in one tap. The
-    /// year is reached only by a pinch.
+    /// year is reached from a month's year (build 88).
     public var toggled: JournalZoom {
         switch self {
         case .list: .month

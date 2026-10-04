@@ -1,7 +1,8 @@
 import XCTest
 
 /// **The rebuilt Journal's calendar, driven** (build 87, note 2): the calendar icon opens one
-/// vertical list of months and closes it again in one tap; a day zooms back in to the list.
+/// vertical list of months and closes it again in one tap; a day zooms back in to the list; a month's
+/// year opens the years, and a month there opens the months at it (build 88).
 ///
 /// Against `-ate-preview-data -ate-v2` with the `journal` fixture, so it needs no backend and writes
 /// nothing. With `V2_SHOT_DIR` set the drive drops stills there (`ATE_DARK=1` for the dark ones).
@@ -46,25 +47,25 @@ final class V2JournalCalendarUITests: XCTestCase {
         pause(1.0)
         save("day-opened")
 
-        // Open again: on the month the list was showing (September). Pinch out: the years.
+        // Open again: on the month the list was showing (September). Its year: the years.
         button.tap()
         XCTAssertTrue(app.staticTexts["September"].firstMatch.waitForExistence(timeout: 5))
         pause(1.4)
         save("calendar-reopened-on-list-month")
-        XCTAssertTrue(october.waitForExistence(timeout: 5))
-        october.pinch(withScale: 0.4, velocity: -2)
-        XCTAssertTrue(app.buttons["calendar.month.1"].firstMatch.waitForExistence(timeout: 3), "pinch out: the years")
-        pause(0.8)
+        let years = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "calendar.year."))
+        (years.allElementsBoundByIndex.last { $0.isHittable } ?? years.firstMatch).tap()
+        XCTAssertTrue(app.buttons["calendar.month.1"].firstMatch.waitForExistence(timeout: 3),
+                      "a month's year: the years")
         pause(0.6)
         save("calendar-year")
-        // Fingers apart: back to the month list; together again: the years.
-        app.windows.firstMatch.pinch(withScale: 2.5, velocity: 2)
-        XCTAssertTrue(waitUntil(timeout: 3) { app.buttons["calendar.month.1"].exists == false },
-                      "pinch in: the months")
-        pause(1.4)
-        save("calendar-pinched-in")
-        XCTAssertTrue(october.waitForExistence(timeout: 3))
-        october.pinch(withScale: 0.4, velocity: -2)
+        // A month tapped: the months, at that month.
+        let months = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "calendar.month."))
+        months.allElementsBoundByIndex.first { $0.isHittable && $0.frame.minY > 200 }?.tap()
+        XCTAssertTrue(waitUntil(timeout: 3) { years.firstMatch.exists }, "a year's month: the months")
+        pause(1.0)
+        save("calendar-month-from-year")
+        // From the year, one tap is the list.
+        years.allElementsBoundByIndex.last { $0.isHittable }?.tap()
         XCTAssertTrue(app.buttons["calendar.month.1"].firstMatch.waitForExistence(timeout: 3))
         button.tap()
         XCTAssertTrue(waitUntil(timeout: 3) { app.buttons["calendar.month.1"].exists == false },

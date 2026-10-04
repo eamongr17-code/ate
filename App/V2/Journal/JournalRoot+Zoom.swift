@@ -1,8 +1,8 @@
 import AteKit
 import SwiftUI
 
-/// The calendar, as a zoom of the Journal: the months, then (by a pinch) the years, in place under the
-/// same bar and segment — and a day tapped zooms back in to the list at that day.
+/// The calendar, as a zoom of the Journal: the months, then (by a month's year) the years, in place
+/// under the same bar and segment — and a day tapped zooms back in to the list at that day.
 extension JournalRoot {
 
     /// The calendar control (a toggle), or a pinch: to `next`, counted as the calendar's level.
@@ -18,29 +18,24 @@ extension JournalRoot {
     }
 
     func zoomed(proxy: ScrollViewProxy) -> some View {
-        VStack(spacing: 0) {
-            segment
-            JournalZoomView(
-                store: journal.calendarDays,
-                zoom: zoom,
-                month: $calendarMonth,
-                onDay: { openDay($0, proxy: proxy) },
-                onMonth: { month in
-                    calendarMonth = month
-                    step(to: .month, via: .segment)
-                }
-            )
-        }
+        JournalZoomView(
+            store: journal.calendarDays,
+            zoom: zoom,
+            month: $calendarMonth,
+            onDay: { openDay($0, proxy: proxy) },
+            onYear: { step(to: .year, via: .segment) },
+            onMonth: { month in
+                calendarMonth = month
+                step(to: .month, via: .segment)
+            }
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ateGround()
         .contentShape(.rect)
+        // Month and year are a tap apart (a month's year, a year's month); a pinch only closes the
+        // calendar back to the list — the month-to-year pinch fought the scroll (build 88).
         .simultaneousGesture(MagnifyGesture().onEnded { value in
-            guard let next = zoom.pinched(value.magnification) else { return }
-            if next == .list {
-                zoom = .list
-            } else {
-                step(to: next, via: .pinch)
-            }
+            if value.magnification > JournalZoom.pinchIn { zoom = .list }
         })
         .accessibilityIdentifier("journal.calendar.\(zoom == .year ? "year" : "month")")
     }

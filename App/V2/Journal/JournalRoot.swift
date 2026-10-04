@@ -37,6 +37,7 @@ struct JournalRoot: View {
     /// Bumped by every change to what the list is — a filter, a chip cleared, the other shelf — so
     /// the new list starts at its top: a lazy list keeps its offset while its rows are replaced.
     @State var listChanged = 0
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     static let top = "journal.top"
 
@@ -46,17 +47,21 @@ struct JournalRoot: View {
 
     var body: some View {
         ScrollViewReader { proxy in
+            // A clean swap (build 88: the list and the calendar ghosted over each other): the page
+            // going away is gone at once, and the one arriving fades in quickly. The list stays laid
+            // out underneath, so it comes back where it was.
             ZStack {
                 list
                     .opacity(zoom == .list ? 1 : 0)
+                    .animation(zoom == .list && reduceMotion == false ? JournalMetrics.swap : nil, value: zoom)
                     .allowsHitTesting(zoom == .list)
                     .accessibilityHidden(zoom != .list)
                 if zoom != .list {
                     zoomed(proxy: proxy)
-                        .transition(.opacity.combined(with: .scale(scale: JournalMetrics.entranceScale)))
+                        .transition(.asymmetric(insertion: .opacity, removal: .identity))
                 }
             }
-            .ateAnimation(AteMotion.calendarZoom, value: zoom)
+            .ateAnimation(JournalMetrics.swap, value: zoom)
             .onChange(of: router.scrollToTop) { _, _ in reselected(proxy: proxy) }
             .onChange(of: listChanged) { _, _ in jump(to: Self.top, proxy: proxy) }
         }
@@ -69,10 +74,20 @@ struct JournalRoot: View {
         ) {
             controls
         }
-        .safeAreaInset(edge: .top, spacing: 0) { activeChips }
+        // Journal | Saved is pinned under the bar on the ground, never half under it (build 88), with
+        // the filter's chips beneath it; the list and the calendar both scroll below.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            VStack(spacing: 0) {
+                segment
+                activeChips
+            }
+            .ateGround()
+        }
         .overlay(alignment: .bottom) { undo }
         .sheet(isPresented: $isFiltering) { filterSheet }
         .task { await journal.loadIfNeeded() }
+        // Read ahead, so the calendar opens on its full range at once.
+        .task { await journal.calendarDays.loadFirstYear() }
         // Read ahead, so the filter sheet rises with its cities in it.
         .task { await journal.loadCitiesIfNeeded() }
         .task { await saved.loadCitiesIfNeeded() }
@@ -209,8 +224,8 @@ struct JournalRoot: View {
 }
 
 enum JournalMetrics {
-    /// The zoomed-out page arrives from a touch larger, as if the list had been pulled away.
-    static let entranceScale: CGFloat = 1.04
+    /// List and calendar, and month and year, hand over in a short fade of the page arriving.
+    static let swap = Animation.easeOut(duration: 0.15)
     /// How long the shelf's Undo stays open.
     static let undoLifetime = Duration.seconds(4)
     /// The month's grid: `gap:6px`, a tile's corner 14, a standout day's ring 2.
@@ -228,10 +243,6 @@ enum JournalMetrics {
     /// Between one month (or year) and the next in the calendar's vertical list. The mockup drew a
     /// single month; the gap is the screen's section spacing.
     static let monthGap: CGFloat = AteMetrics.section
-    /// How long the calendar's list waits for its months to lay out before settling on the one it
-    /// opens on.
-    static let settle = Duration.milliseconds(60)
-    static let settleSteps = 3
     /// The year: three columns of small months, 18 apart across and 16 down.
     static let yearColumns = 3
     static let yearColumnGap: CGFloat = 18
