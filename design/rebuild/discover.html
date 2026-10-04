@@ -1,0 +1,665 @@
+<title>Discover Rethink</title>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=DM+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#EFEAE2; --fg:#24141F; --muted:#5E5560; --slip:#FFFFFF; --field:#E4DED4;
+  --hair:rgba(36,20,31,.14); --coral:#F0623F; --butter:#F6D365; --green:#3ECF64; --lilac:#B9A5EA;
+  --shadow:0 1px 0 rgba(36,20,31,.07);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#17111B; --fg:#F4EFE9; --muted:#B9AFBC; --slip:#231B24; --field:#2B2230; --hair:rgba(255,255,255,.16); --shadow:0 1px 0 rgba(0,0,0,.25); color-scheme:dark; } }
+:root[data-theme="dark"]{ --ground:#17111B; --fg:#F4EFE9; --muted:#B9AFBC; --slip:#231B24; --field:#2B2230; --hair:rgba(255,255,255,.16); --shadow:0 1px 0 rgba(0,0,0,.25); color-scheme:dark; }
+body{background:var(--ground);color:var(--fg);font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.5;padding:0 20px;padding-block:40px 80px}
+main{max-width:1180px;margin:0 auto;display:grid;gap:44px}
+.measure{max-width:720px}
+h1,h2,h3{font-family:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;letter-spacing:-.035em;line-height:1.05;text-wrap:balance;margin:0}
+h1{font-weight:800;font-size:44px} h2{font-weight:800;font-size:28px} h3{font-weight:600;font-size:18px;letter-spacing:-.01em}
+p{margin:0} a{color:inherit;text-decoration-thickness:1px;text-underline-offset:2px}
+.lede{font-size:20px;line-height:1.45}
+section{display:grid;gap:16px}
+.ui{font-family:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif}
+.note{color:var(--muted);font-size:15px}
+
+/* ---------- phones (always light: they show the light default) ---------- */
+.phones{display:flex;flex-wrap:wrap;gap:28px 22px}
+.cell{display:grid;gap:10px;width:289px}
+.cell h3{font-size:16px}
+.cell p{font-size:14.5px;color:var(--muted);line-height:1.4}
+.ph{width:289px;height:625px;border-radius:40px;overflow:hidden;box-shadow:0 0 0 1px var(--hair),0 18px 40px rgba(36,20,31,.14);flex-shrink:0;max-width:100%}
+.scr{width:390px;height:844px;transform:scale(.741);transform-origin:0 0;position:relative;overflow:hidden;background:#EFEAE2;color:#24141F;font-family:"Newsreader",Georgia,serif;
+  --hair:rgba(36,20,31,.14);--muted:#5E5560;--field:#E4DED4}
+.sb{position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:6px 34px 0 44px;font:600 17px/1 -apple-system,"Helvetica Neue",sans-serif;z-index:9}
+.sb i{display:flex;gap:6px;align-items:center}
+.sb i b{display:block;background:currentColor;border-radius:2px}
+.dim{position:absolute;inset:0;background:#B9B2A8}
+.sheet{position:absolute;left:0;right:0;bottom:0;top:62px;background:#fff;border-radius:38px 38px 0 0;overflow:hidden}
+.glass{background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(18px) saturate(1.7);backdrop-filter:blur(18px) saturate(1.7);
+  box-shadow:inset 0 0 0 .5px rgba(255,255,255,.9),inset 0 1px 1px rgba(255,255,255,.8),0 0 0 .5px rgba(36,20,31,.10),0 8px 22px rgba(36,20,31,.12)}
+.disc{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.tick{background:#24141F;color:#fff;box-shadow:inset 0 1px 1px rgba(255,255,255,.25),0 6px 16px rgba(36,20,31,.25)}
+.top{position:absolute;left:16px;right:16px;top:14px;display:flex;justify-content:space-between;align-items:center}
+.prose{font-size:19px;line-height:1.5;text-wrap:pretty}
+.tok{display:inline-flex;align-items:center;gap:3px;padding:0 7px 0 5px;border-radius:999px;background:#F6D365;color:#24141F;font-family:"DM Mono",ui-monospace,monospace;font-size:.78em;font-weight:500;line-height:1.55;vertical-align:1px;white-space:nowrap}
+.tok.live{box-shadow:0 0 0 2px #24141F}
+.diet{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:999px;background:#EFEAE2;color:#5E5560;font:600 10.5px/1 "Bricolage Grotesque",sans-serif;letter-spacing:.06em;text-transform:uppercase;vertical-align:2px}
+.caret{display:inline-block;width:2px;height:22px;margin-left:1px;background:#F0623F;vertical-align:-4px}
+.ph-img{display:block;flex-shrink:0}
+.cluster>.ph-img{box-shadow:0 0 0 3px var(--surf,#fff)}
+.cluster{display:flex;padding-left:6px}
+.cluster>span+span{margin-left:-12px}
+.food1{background:radial-gradient(circle at 40% 40%,#E6A257,#9A4A1F 70%,#5C2A12)}
+.food2{background:radial-gradient(circle at 55% 45%,#F2946A,#C2452C 65%,#6E2316)}
+.food3{background:linear-gradient(160deg,#F1DFC4 0 30%,#6B4A2E 30% 42%,#E9D3B2 42% 70%,#5A3B22 70%)}
+.bar{position:absolute;left:10px;right:10px;height:56px;border-radius:999px;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 6px}
+.hit{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#24141F}
+.key{height:40px;padding:0 13px 0 9px;gap:5px;border-radius:999px;display:flex;align-items:center;font:600 14px/1 "Bricolage Grotesque",sans-serif;color:#24141F;white-space:nowrap}
+.k-score{background:#F6D365}.k-place{background:#E4DED4;max-width:150px}.k-tags{background:#E4DED4}
+.kbd{position:absolute;left:0;right:0;bottom:0;height:291px;background:#D3D5DB;padding:8px 3px 0;display:grid;gap:11px;align-content:start}
+.kbd .r{display:flex;justify-content:center;gap:6px}
+.kbd .r span{height:42px;flex:0 0 33px;background:#fff;border-radius:6px;box-shadow:0 1px 0 rgba(0,0,0,.3);font:400 22px/42px -apple-system,sans-serif;text-align:center;color:#111}
+.kbd .r span.w{flex:0 0 45px;background:#ABB0BA}
+.kbd .r span.sp{flex:0 0 190px}
+.h{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.035em;line-height:1}
+.meta{font:500 13px/1.3 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.lab{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5E5560}
+.row{display:flex;align-items:center}
+.tabbar{position:absolute;left:21px;right:91px;bottom:21px;height:62px;border-radius:999px;display:flex;align-items:center;justify-content:space-around;padding:0 6px}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;font:600 10.5px/1 "Bricolage Grotesque",sans-serif;color:#24141F;width:66px;height:54px;justify-content:center;border-radius:999px}
+.tab.on{background:rgba(36,20,31,.06);font-weight:800}
+.plusdisc{position:absolute;right:21px;bottom:21px;width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#24141F;background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(18px) saturate(1.7);backdrop-filter:blur(18px) saturate(1.7);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.9),inset 0 1px 1px rgba(255,255,255,.8),0 0 0 .5px rgba(36,20,31,.10),0 8px 22px rgba(36,20,31,.12)}
+.menu{position:absolute;right:16px;top:112px;width:236px;border-radius:26px;padding:6px 0;z-index:5;background:rgba(255,255,255,.78)}
+.menu div{display:flex;align-items:center;justify-content:space-between;height:46px;padding:0 18px;font:500 17px/1 -apple-system,"Helvetica Neue",sans-serif;color:#24141F}
+.menu div.del{color:#B3261E}
+.menu hr{border:0;border-top:1px solid rgba(36,20,31,.1);margin:4px 0}
+.receipt{background:#fff;border-radius:16px 16px 0 0;padding:22px 16px 14px;display:grid;gap:10px;color:#24141F}
+.rule{border-top:1.5px dashed rgba(36,20,31,.3)}
+.li{display:flex;gap:8px;align-items:baseline;font:400 13px/1.9 "DM Mono",monospace}
+.li .d{flex:1;border-bottom:1.5px dotted rgba(36,20,31,.35);transform:translateY(-4px)}
+.tear{height:4px}
+.barcode{height:30px;background:repeating-linear-gradient(90deg,#24141F 0 2px,transparent 2px 4px,#24141F 4px 5px,transparent 5px 8px,#24141F 8px 11px,transparent 11px 12px)}
+.dish{display:flex;justify-content:space-between;align-items:flex-start;min-height:44px;padding:9px 0;border-top:1px solid rgba(36,20,31,.14)}
+.dish:first-child{border-top:0}
+.sc{display:flex;align-items:center;gap:4px}
+.pill{height:52px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:8px;font:600 16px/1 "Bricolage Grotesque",sans-serif}
+
+/* ---------- brief tables ---------- */
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15.5px;line-height:1.45}
+th{font:600 13.5px/1.2 "Bricolage Grotesque",sans-serif;text-align:left;padding:8px 14px 8px 0;border-bottom:1px solid var(--hair);color:var(--muted)}
+td{padding:11px 14px 11px 0;border-bottom:1px solid var(--hair);vertical-align:top}
+td:first-child{font-family:"Bricolage Grotesque",sans-serif;font-weight:600;white-space:nowrap}
+code{font-family:"DM Mono",monospace;font-size:.82em;background:var(--field);padding:1px 5px;border-radius:6px}
+.qs{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.q{background:var(--slip);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);display:grid;gap:6px}
+.q h3{font-size:17px}
+.q p{font-size:15.5px;color:var(--muted)}
+.q b{color:var(--fg);font-family:"Bricolage Grotesque",sans-serif;font-weight:600}
+.q b.rec::after{content:" (recommended)";font-weight:500;color:var(--muted)}
+ul{margin:0;padding-left:22px;display:grid;gap:8px}
+@media (max-width:480px){h1{font-size:36px} .cell,.ph{width:100%} .ph{height:auto;aspect-ratio:390/844} .scr{transform:scale(var(--s,.741))}}
+
+/* ---------- feed additions (same hand as compose) ---------- */
+.tg{position:absolute;right:16px;top:56px;height:44px;border-radius:999px;display:flex;align-items:center;padding:0 4px;z-index:6}
+.lt{position:absolute;left:20px;top:61px;display:flex;align-items:baseline;gap:8px;z-index:6}
+.lt b{font:800 34px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.lt span{font:500 16px/1 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.it{position:absolute;left:0;right:0;top:58px;display:grid;justify-items:center;gap:1px;z-index:6}
+.it b{font:600 17px/1.15 "Bricolage Grotesque",sans-serif}
+.it span{font:500 12px/1.2 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.edge{position:absolute;left:0;right:0;top:0;height:120px;background:linear-gradient(#EFEAE2 0,#EFEAE2 66%,rgba(239,234,226,0));z-index:5}
+.sec{display:flex;align-items:baseline;justify-content:space-between;padding:0 20px;font:800 28px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.sec small{font:600 15px/1 "Bricolage Grotesque",sans-serif;letter-spacing:0;color:#5E5560}
+.paper{background:#fff;border-radius:22px 22px 0 0;padding:6px 20px 14px;margin:0 16px}
+.ta{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px dashed #D9D2C8}
+.ta .n{width:22px;padding-top:3px;font:500 12px/1 "DM Mono",monospace;color:#5E5560}
+.ta .d{flex:1;display:grid;gap:3px}
+.ta .d b{font:800 19px/1.08 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.ta .d i{font:400 11px/1.2 "DM Mono",monospace;font-style:normal;letter-spacing:.06em;text-transform:uppercase;color:#5E5560}
+.ta .s{font:500 15px/1 "DM Mono",monospace;padding-top:3px}
+.ta .bm{margin:-10px -12px -10px -4px}
+.tear2{height:4px;margin:0 16px;transform:scaleY(-1)}
+.shelf{display:flex;gap:12px;padding:0 0 0 20px;overflow:hidden}
+.card{flex:0 0 168px;display:grid;gap:8px}
+.card{gap:10px}
+.card .p{position:relative;width:168px;height:210px;border-radius:16px}
+.card .p .tok{position:absolute;left:10px;top:10px;font-size:13px;padding:2px 9px 2px 7px;z-index:2}
+.card .p .cbm{position:absolute;right:10px;top:10px;width:36px;height:36px;color:#24141F;z-index:2}
+.card .t{display:grid;gap:3px}
+.card .t b{font:700 17px/1.15 "Bricolage Grotesque",sans-serif;letter-spacing:-.02em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .lt-tile{align-items:center}
+.lt-tile{display:flex;align-items:center;justify-content:center;font:800 64px/1 "Bricolage Grotesque",sans-serif;color:#24141F}
+.nr{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #E4DED4}
+.nr:last-child{border-bottom:0}
+.nr .th{width:56px;height:56px;border-radius:18px;flex-shrink:0}
+.nr .d{flex:1;display:grid;gap:2px}
+.nr .d b{font:800 18px/1.1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;border-radius:999px;font:500 12px/1.2 "DM Mono",monospace;color:#24141F}
+.b6{background:#C2452C;color:#fff}.b5{background:#F6D365}.bn{background:#E4DED4}
+.slip{background:#fff;border-radius:16px 16px 0 0;padding:12px 16px 14px;display:grid;gap:10px;margin:0 16px}
+.slipt{height:4px;margin:0 16px;background:radial-gradient(circle at 6px 6px,transparent 4px,#fff 4.5px) 0 -2px/12px 6px repeat-x}
+.by{display:flex;justify-content:space-between;align-items:center}
+.av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:800 12px/1 "Bricolage Grotesque",sans-serif;color:#24141F}
+.dr{display:flex;justify-content:space-between;align-items:center;min-height:44px;border-top:1px solid rgba(36,20,31,.14)}
+.dr:first-child{border-top:0}
+.dr b{font:800 20px/1.05 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.dr .sc{gap:5px}.dr .sc b{font-size:26px;letter-spacing:-.02em}
+.place{display:flex;align-items:center;gap:6px;padding-top:2px}
+.clamp{font-size:16px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mini{position:absolute;left:21px;bottom:21px;width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#24141F}
+.pk{display:inline-flex;align-items:center;height:42px;padding:0 16px;border-radius:999px;background:#E4DED4;font:600 16px/1 "Bricolage Grotesque",sans-serif;color:#24141F}
+.pk.on{background:#24141F;color:#fff}
+.pks{display:flex;flex-wrap:wrap;gap:8px}
+.alert{position:absolute;left:50px;right:50px;top:300px;border-radius:30px;background:rgba(242,240,236,.86);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);padding:22px 20px 14px;display:grid;gap:8px;font-family:-apple-system,"Helvetica Neue",sans-serif;color:#111;text-align:center;z-index:8;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.alert h4{margin:0;font:600 17px/1.3 -apple-system,"Helvetica Neue",sans-serif}
+.alert p{font-size:13px;line-height:1.35;color:#333}
+.alert .map{height:96px;border-radius:14px;margin:6px 0 4px;background:linear-gradient(135deg,#E6E1D3 0 30%,#D7E3C9 30% 46%,#E6E1D3 46% 70%,#CFDDE8 70%);position:relative}
+.alert .map::after{content:"";position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px;border-radius:50%;background:#2F7CF6;box-shadow:0 0 0 4px #fff,0 0 0 18px rgba(47,124,246,.18)}
+.alert .ab{height:46px;border-radius:999px;background:rgba(0,0,0,.06);display:flex;align-items:center;justify-content:center;font:500 16px/1 -apple-system,"Helvetica Neue",sans-serif;color:#0A64D8}
+.end{display:flex;align-items:center;gap:14px;padding:40px 20px 0;font:500 15px/1 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.end::before,.end::after{content:"";flex:1;border-top:1px solid rgba(36,20,31,.14)}
+.arow{display:flex;align-items:center;gap:14px;min-height:60px;border-top:1px solid rgba(36,20,31,.14);font:500 17px/1 "Bricolage Grotesque",sans-serif}
+.arow:first-child{border-top:0}
+
+/* ---------- The Top Ate, photo-led (v2) ---------- */
+.hero{position:relative;margin:0 16px;height:330px;border-radius:16px;overflow:hidden}
+.hero .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(36,20,31,0) 30%,rgba(36,20,31,.82))}
+.hero>.tok{position:absolute;left:12px;top:12px;z-index:2}
+.hero .bmd{position:absolute;right:12px;top:12px;color:#24141F;z-index:2}
+.hero .cap{position:absolute;left:16px;right:16px;bottom:16px;color:#fff;display:flex;align-items:flex-end;gap:12px}
+.hero .num{font:800 168px/.74 "Bricolage Grotesque",sans-serif;letter-spacing:-.07em;flex-shrink:0}
+.hero .nm{display:grid;gap:5px;padding-bottom:4px}
+.hero .nm b{font:800 34px/1.02 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.hero .nm span{font:500 15px/1.2 "Bricolage Grotesque",sans-serif;opacity:.85}
+.rks{padding:4px 20px 0}
+.rk{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #E4DED4}
+.rk:last-child{border-bottom:0}
+.rk .n{width:28px;font:800 30px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.05em;text-align:center;flex-shrink:0}
+.rk .d{flex:1;display:grid;gap:2px;min-width:0}
+.rk .d b{font:800 18px/1.1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.rk .bm{margin:0 -12px 0 -6px}
+.tk{font-size:14px;padding:1px 8px 1px 6px;flex-shrink:0}
+.pod{position:relative;height:262px;margin:0 16px}
+.pi{position:absolute}
+.pi .ph-img,.pi .lt-tile{display:block;position:relative}
+.stk{position:absolute;left:-8px;top:-10px;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:800 24px/1 "Bricolage Grotesque",sans-serif;color:#24141F;box-shadow:0 0 0 3px #fff,0 6px 14px rgba(36,20,31,.18);z-index:3}
+.pi .tok{position:absolute;left:10px;bottom:10px;z-index:2}
+.pi .bmd{position:absolute;right:8px;top:8px;width:38px;height:38px;color:#24141F;z-index:2}
+.podcap{display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:8px;padding:0 16px;text-align:center}
+.podcap b{display:block;font:800 16px/1.1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.podcap .one b{font-size:22px}
+.car{display:flex;gap:8px;padding-left:6px;overflow:hidden}
+.ci{position:relative;flex:0 0 auto;padding-left:58px;display:grid;gap:8px}
+.ci .big{position:absolute;left:0;top:96px;font:800 230px/.8 "Bricolage Grotesque",sans-serif;letter-spacing:-.09em;color:#24141F;z-index:0}
+.ci .p{position:relative;z-index:1;border-radius:16px;box-shadow:0 0 0 3px #EFEAE2}
+.ci .p .tok{position:absolute;left:12px;bottom:12px}
+.ci .t{display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
+.ci .t b{display:block;font:800 20px/1.08 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.ci.sm .big{font-size:170px;top:70px}
+.ci.sm .t b{font-size:16px}
+.podcap .bmk{display:inline-flex;margin-top:2px}
+.opts .cell p b{color:#24141F;font-family:"Bricolage Grotesque",sans-serif;font-weight:600}
+
+/* ---------- discover additions (same hand as feed) ---------- */
+.opt{display:grid;gap:10px;align-content:start}
+.opt>h2{font-size:24px}
+.navrow{position:absolute;top:56px;left:16px;right:16px;height:44px;display:flex;justify-content:space-between;align-items:center;z-index:6}
+.fol{height:44px;border-radius:999px;display:flex;align-items:center;gap:6px;padding:0 16px 0 12px;font:600 16px/1 "Bricolage Grotesque",sans-serif;color:#24141F}
+.ptitle{position:absolute;left:20px;top:112px;display:flex;align-items:baseline;gap:8px;z-index:4}
+.ptitle b{font:800 44px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.ptitle span{font:500 16px/1 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.rail{display:flex;gap:8px;padding:0 0 0 20px;overflow:hidden;align-items:center}
+.rp{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 16px 0 6px;border-radius:999px;background:#fff;font:600 16px/1 "Bricolage Grotesque",sans-serif;color:#24141F;white-space:nowrap}
+.rp .ph-img,.rp .lt-tile{width:32px;height:32px;border-radius:10px;font-size:16px}
+.rsep{flex:0 0 1px;height:28px;background:rgba(36,20,31,.18);margin:0 4px}
+.ask{margin:0 16px;background:#fff;border-radius:16px;padding:18px 18px 20px;display:grid;gap:16px;position:relative}
+.ask .x{position:absolute;right:12px;top:12px;width:36px;height:36px;color:#24141F}
+.fr{display:flex;align-items:center;gap:12px;min-height:72px;border-top:1px solid rgba(36,20,31,.14);padding:0 20px;background:#EFEAE2;position:relative}
+.fr:first-child{border-top:0}
+.fr .th{width:52px;height:52px;border-radius:15px;flex-shrink:0}
+.fr b{flex:1;font:800 20px/1.1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.swipe{position:relative;overflow:hidden}
+.swipe .act{position:absolute;right:0;top:0;bottom:0;width:112px;background:#B3261E;color:#fff;display:flex;align-items:center;justify-content:center;font:600 16px/1 -apple-system,"Helvetica Neue",sans-serif}
+.swipe .fr{transform:translateX(-112px)}
+.endrow{display:flex;align-items:center;gap:12px;margin:28px 20px 0;min-height:56px;border-top:1px solid rgba(36,20,31,.14);border-bottom:1px solid rgba(36,20,31,.14);font:600 17px/1 "Bricolage Grotesque",sans-serif}
+.endrow .c{margin-left:auto;font:500 15px/1 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.plc .t b{font-size:18px}
+.paired{display:grid;grid-template-columns:repeat(auto-fit,minmax(289px,1fr));gap:28px 22px;justify-items:start}
+.flag{display:inline-block;border-radius:999px;padding:1px 9px;font:600 12.5px/1.5 "Bricolage Grotesque",sans-serif;color:#24141F;background:#F6D365;white-space:nowrap}
+.flag.ok{background:#3ECF64}
+</style>
+
+<main>
+<header class="measure" style="display:grid;gap:14px">
+  <h1>Discover</h1>
+  <p class="lede">Two rethinks from build 87. Cravings stop being a wall of pills behind a heart in the corner: three ways to let the Feed know what you like, with the corner left to the area pin alone. And a category page stops being a list: it reads like a small edition of its own, in the Feed's language.</p>
+</header>
+
+<!-- ================= PART 1 ================= -->
+<section>
+  <h2>Cravings, three ways</h2>
+  <p class="note measure">The same moment in each: just past The Top Ate. The corner group holds only the pin in all three.</p>
+  <div class="phones opts">
+
+    <!-- A mid-scroll -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="edge"></div>
+        <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
+        <div class="it"><b>Feed</b><span>Melbourne</span></div>
+        <div class="tg glass"><span class="hit" data-i="pin"></span></div>
+        <div style="position:absolute;left:0;right:0;top:118px;display:grid;gap:14px">
+          <div class="sec" style="font-size:26px;line-height:1.05">Because you loved tagliatelle al ragù</div>
+          <div class="shelf" id="aLoved"></div>
+          <div class="sec" style="padding-top:20px">Curry<small><i data-i="chev" data-s="18"></i></small></div>
+          <div class="shelf" id="aCurry"></div>
+        </div>
+        <span class="mini glass" data-i="utensils" data-s="24"></span>
+        <span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>A. It learns</h3>
+      <p><b>Recommended.</b> Nothing to pick. Because you loved… comes first, then a shelf for each category you follow or clearly favour: the ones you score highly and save. A shelf's chevron opens the category page, where Follow lives.</p>
+    </div>
+
+    <!-- B rail -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="edge"></div>
+        <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
+        <div class="it"><b>Feed</b><span>Melbourne</span></div>
+        <div class="tg glass"><span class="hit" data-i="pin"></span></div>
+        <div style="position:absolute;left:0;right:0;top:118px;display:grid;gap:14px">
+          <div class="rks" id="bTail" style="padding-top:0"></div>
+          <div class="rail" id="bRail" style="padding-top:10px"></div>
+          <div class="sec" style="font-size:26px;line-height:1.05;padding-top:22px">Because you loved tagliatelle al ragù</div>
+          <div class="shelf" id="bLoved"></div>
+        </div>
+        <span class="mini glass" data-i="utensils" data-s="24"></span>
+        <span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>B. A rail</h3>
+      <p>One scrolling row of categories right under The Top Ate, each with its #1 dish as a thumb. The ones you follow lead, before the hairline. A tap opens that category's page; nothing toggles in place.</p>
+    </div>
+
+    <!-- C ask once -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="edge"></div>
+        <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
+        <div class="it"><b>Feed</b><span>Melbourne</span></div>
+        <div class="tg glass"><span class="hit" data-i="pin"></span></div>
+        <div style="position:absolute;left:0;right:0;top:118px;display:grid;gap:14px">
+          <div class="rks" id="cTail" style="padding-top:0"></div>
+          <div class="ask" style="margin-top:12px">
+            <span class="disc glass x" data-i="x" data-s="18"></span>
+            <span class="h" style="font-size:26px;padding-right:44px">What do you crave?</span>
+            <div class="pks"><span class="pk">pasta</span><span class="pk on">dumplings</span><span class="pk on">curry</span><span class="pk">ramen</span><span class="pk">noodles</span><span class="pk">pizza</span></div>
+          </div>
+          <div class="sec" style="font-size:26px;line-height:1.05;padding-top:20px">Because you loved tagliatelle al ragù</div>
+          <div class="shelf" id="cLoved"></div>
+        </div>
+        <span class="mini glass" data-i="utensils" data-s="24"></span>
+        <span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>C. Ask once, in the feed</h3>
+      <p>The first time only: one card after The Top Ate with the six busiest categories. A tap follows straight away; the third pick, or the close disc, folds the card for good. After that it behaves like A.</p>
+    </div>
+
+  </div>
+
+  <h3 style="padding-top:8px">Around A</h3>
+  <div class="phones">
+
+    <!-- At rest -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
+        <div class="tg glass"><span class="hit" data-i="pin"></span></div>
+        <div class="lt"><b>Feed</b><span>Melbourne</span></div>
+        <div style="position:absolute;left:0;right:0;top:112px;display:grid;gap:14px">
+          <div class="sec">The Top Ate</div>
+          <div id="topRest"></div>
+        </div>
+        <div class="tabbar glass">
+          <span class="tab"><i data-i="book" data-s="24"></i>Journal</span>
+          <span class="tab on"><i data-i="utensils" data-s="24"></i>Feed</span>
+          <span class="tab"><i data-i="search" data-s="24"></i>Search</span>
+          <span class="tab"><i data-i="user" data-s="24"></i>You</span>
+        </div>
+        <span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>At rest, every option</h3>
+      <p>The heart is gone. The pin stands alone in the glass group; the top of the edition is unchanged.</p>
+    </div>
+
+    <!-- End of edition -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="edge"></div>
+        <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
+        <div class="it"><b>Feed</b><span>Melbourne</span></div>
+        <div class="tg glass"><span class="hit" data-i="pin"></span></div>
+        <div style="position:absolute;left:0;right:0;bottom:290px" id="aSlip"></div>
+        <div style="position:absolute;left:0;right:0;bottom:150px">
+          <div class="endrow"><i data-i="tag" data-s="20"></i>What you follow<span class="c">4</span><i data-i="chev" data-s="18" style="color:#5E5560"></i></div>
+          <div class="end" style="padding-top:34px">You're caught up</div>
+        </div>
+        <span class="mini glass" data-i="utensils" data-s="24"></span>
+        <span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>The end of the edition</h3>
+      <p>After the last receipt, one quiet row between hairlines opens What you follow, then the caught-up line. It is the only door to the list.</p>
+    </div>
+
+    <!-- What you follow -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
+        <div class="navrow"><span class="disc glass" data-i="back"></span></div>
+        <div class="ptitle"><b style="font-size:36px">What you follow</b></div>
+        <div style="position:absolute;left:0;right:0;top:176px" id="follows"></div>
+        <div class="tabbar glass">
+          <span class="tab"><i data-i="book" data-s="24"></i>Journal</span>
+          <span class="tab on"><i data-i="utensils" data-s="24"></i>Feed</span>
+          <span class="tab"><i data-i="search" data-s="24"></i>Search</span>
+          <span class="tab"><i data-i="user" data-s="24"></i>You</span>
+        </div>
+        <span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>What you follow</h3>
+      <p>A pushed page: the categories in shelf order, each with its #1 dish. A tap opens the category; a swipe unfollows. Drag to reorder the shelves. Nothing else on the page.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ================= PART 2 ================= -->
+<section>
+  <h2>A category page, as an edition</h2>
+  <p class="note measure">Curry in Melbourne, reached from a shelf's chevron, a rail pill, What you follow, or the dish page's More to explore.</p>
+  <div class="phones">
+
+    <!-- P1 at rest, off -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
+        <div class="navrow"><span class="disc glass" data-i="back"></span><span class="fol glass"><i data-i="plus" data-s="18"></i>Follow</span></div>
+        <div class="ptitle"><b>Curry</b><span>Melbourne</span></div>
+        <div style="position:absolute;left:0;right:0;top:176px" id="curryTop"></div>
+        <div class="tabbar glass">
+          <span class="tab"><i data-i="book" data-s="24"></i>Journal</span>
+          <span class="tab on"><i data-i="utensils" data-s="24"></i>Feed</span>
+          <span class="tab"><i data-i="search" data-s="24"></i>Search</span>
+          <span class="tab"><i data-i="user" data-s="24"></i>You</span>
+        </div>
+        <span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>At rest</h3>
+      <p>Inline bar with the glass back and a glass Follow. The category is the page's title with the city on its baseline. The best curry in the city owns the top as the hero, no numeral; 2 to 8 follow as ranked rows.</p>
+    </div>
+
+    <!-- P2 scrolled, on -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="edge"></div>
+        <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
+        <div class="navrow"><span class="disc glass" data-i="back"></span><span class="fol glass"><i data-i="check" data-s="18"></i>Following</span></div>
+        <div class="it"><b>Curry</b><span>Melbourne</span></div>
+        <div style="position:absolute;left:0;right:0;top:122px;display:grid;gap:14px">
+          <div class="rks" id="curryTail" style="padding-top:0"></div>
+          <div class="sec" style="padding-top:18px">Places known for it</div>
+          <div class="shelf plc" id="places"></div>
+        </div>
+        <span class="mini glass" data-i="utensils" data-s="24"></span>
+        <span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>Scrolled, following</h3>
+      <p>The title folds inline with the city under it. Follow turns to Following with a light haptic, and Curry's shelf joins the Feed. Places known for it: a shelf of places, each card showing its best curry.</p>
+    </div>
+
+    <!-- P3 new + receipts -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="edge"></div>
+        <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
+        <div class="navrow"><span class="disc glass" data-i="back"></span><span class="fol glass"><i data-i="check" data-s="18"></i>Following</span></div>
+        <div class="it"><b>Curry</b><span>Melbourne</span></div>
+        <div style="position:absolute;left:0;right:0;top:122px;display:grid;gap:14px">
+          <div class="sec">New in curry</div>
+          <div style="padding:0 20px" id="newCurry"></div>
+          <div class="sec" style="padding-top:18px">Latest receipts</div>
+          <div id="currySlip"></div>
+        </div>
+        <span class="mini glass" data-i="utensils" data-s="24"></span>
+        <span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>New, then receipts</h3>
+      <p>New in curry: the Feed's new-to-the-record rows, only curries. Then the latest receipts with a curry on them, in the approved slip.</p>
+    </div>
+
+    <!-- P4 end -->
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="edge"></div>
+        <div class="sb"><span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i></div>
+        <div class="navrow"><span class="disc glass" data-i="back"></span><span class="fol glass"><i data-i="check" data-s="18"></i>Following</span></div>
+        <div class="it"><b>Curry</b><span>Melbourne</span></div>
+        <div style="position:absolute;left:0;right:0;bottom:230px" id="currySlip2"></div>
+        <div style="position:absolute;left:0;right:0;bottom:170px"><div class="end">You're caught up</div></div>
+        <span class="mini glass" data-i="utensils" data-s="24"></span>
+        <span class="plusdisc" data-i="plus" data-s="28"></span>
+      </div></div>
+      <h3>The end</h3>
+      <p>Five receipts at most, then the same quiet line as the Feed. The page is finite.</p>
+    </div>
+
+  </div>
+  <p class="note">Photos are colour stand-ins. Dishes without a photo print as their letter tile. Phones show the light default; dark follows the existing ink tokens.</p>
+</section>
+
+<!-- ================= PART 3 ================= -->
+<section class="measure">
+  <h2>Screens and patterns</h2>
+  <div class="wrap"><table>
+    <tr><th>Screen</th><th>Pattern</th><th>Best in class</th></tr>
+    <tr><td>A. It learns</td><td>Personalisation that learns from what you do, not from a picker; shelves earned by behaviour.</td><td><a href="https://mobbin.com/screens/a0ef4aee-1a63-4eb1-8033-1995c90aafdd">Brink</a>, <a href="https://mobbin.com/screens/af61dba2-5bd8-40bf-afff-71982ee4c15e">Givingli</a></td></tr>
+    <tr><td>What you follow</td><td>A plain list of what you follow, opened from your own space, each row removable.</td><td><a href="https://mobbin.com/screens/eb976f50-25fe-462b-879a-90024da0fc22">Matter</a>, <a href="https://mobbin.com/screens/d8f6cad9-2c51-4c55-a6aa-fbaa52605772">LinkedIn</a>, <a href="https://mobbin.com/screens/d084586a-aeab-40ea-90c4-5e492f5e94a4">Substack</a></td></tr>
+    <tr><td>The end row</td><td>A finite page closes with one quiet line, not a prompt.</td><td><a href="https://mobbin.com/screens/17939342-cbba-4244-ab71-31ae8f189afa">Matter</a></td></tr>
+    <tr><td>B. A rail</td><td>One scrolling row of categories with thumbs, that navigates rather than filters.</td><td><a href="https://mobbin.com/screens/babbcc22-419d-4b92-8f86-46e7433051f6">Glovo</a>, <a href="https://mobbin.com/screens/9d19e1e9-ca6f-4b89-b106-673176b27e02">Perplexity Discover</a></td></tr>
+    <tr><td>C. Ask once</td><td>A short, capped interest prompt (pick three) rather than a full picker; tap to follow in place.</td><td><a href="https://mobbin.com/screens/a0ef4aee-1a63-4eb1-8033-1995c90aafdd">Brink</a>, <a href="https://mobbin.com/screens/b0403072-3f99-4e40-bfa8-02982348b6ef">Perplexity</a></td></tr>
+    <tr><td>Category at rest</td><td>A page that opens on its single best item as a hero, a follow control in the bar, then a ranked list.</td><td><a href="https://mobbin.com/screens/9adf1dfe-52e0-4594-a518-ac27c874f968">Shop</a>, <a href="https://mobbin.com/screens/38721ebb-06bf-44af-acc9-4d4cf84df42e">Brink</a></td></tr>
+    <tr><td>Places known for it</td><td>A shelf of places within a guide, each card led by a photo.</td><td><a href="https://mobbin.com/screens/bf13c772-fc45-481a-a9ff-7d4f8fbb30d6">Tripadvisor</a>, <a href="https://mobbin.com/screens/9f6be2fe-2484-485f-bb17-70ca63560301">Mindtrip</a></td></tr>
+    <tr><td>New, receipts, end</td><td>The Feed's own sections, filtered to one category; a finite close.</td><td>Kept from the approved Feed (<code>feed.html</code>)</td></tr>
+  </table></div>
+</section>
+
+<section class="measure">
+  <h2>What changes</h2>
+  <ul>
+    <li><strong>The heart and the cravings sheet go.</strong> The Feed's corner group holds only the pin. No wall of category pills anywhere in the app.</li>
+    <li><strong>Follow moves to the category page.</strong> A glass Follow in the page's bar, Following when on. The Feed's shelves follow from it, in every option.</li>
+    <li><strong>The "Choose your cravings" row goes.</strong> In A the shelves fill themselves; in C one capped card asks once; in B the rail is always there.</li>
+    <li><strong>One list to manage.</strong> What you follow, reached from the end of the edition, replaces the picker: tap to open, swipe to unfollow, drag to reorder.</li>
+    <li><strong>The category page becomes an edition.</strong> Hero and ranked rows like The Top Ate, then places, new, receipts and the end line. Not a list of rows.</li>
+    <li><strong>The word "craving" leaves the interface.</strong> It is the category's own name everywhere: Curry, Dumplings, Vietnamese.</li>
+  </ul>
+</section>
+
+<section class="measure">
+  <h2>Native iOS 26 parts</h2>
+  <div class="wrap"><table>
+    <tr><th>Piece</th><th>SwiftUI</th></tr>
+    <tr><td>Feed corner</td><td>One <code>ToolbarItem(.topBarTrailing)</code>: the pin's <code>Menu</code>, unchanged</td></tr>
+    <tr><td>Category bar</td><td><code>.navigationTitle("Curry")</code>, <code>.navigationSubtitle(city)</code>, large then inline on scroll; Follow as a <code>ToolbarItem</code> <code>Button</code> with label and icon (system glass), <code>.sensoryFeedback(.selection)</code></td></tr>
+    <tr><td>Hero and ranks</td><td>The Top Ate's hero card and ranked-row views, fed by <code>dishes_by_tag</code> rows 1 to 8</td></tr>
+    <tr><td>Places shelf</td><td>The one shelf card in <code>ScrollView(.horizontal)</code>, <code>.scrollTargetBehavior(.viewAligned)</code></td></tr>
+    <tr><td>Rail (B)</td><td><code>ScrollView(.horizontal)</code> of <code>NavigationLink</code> capsules; a <code>Divider</code> after the followed ones</td></tr>
+    <tr><td>Ask card (C)</td><td>An inline card in the <code>LazyVStack</code>; dismissal kept in <code>@AppStorage</code>; <code>.transition(.opacity.combined(with: .scale))</code> when it folds</td></tr>
+    <tr><td>What you follow</td><td>A pushed <code>List</code> with <code>.onDelete</code> (Unfollow) and <code>.onMove</code>; each change is one <code>set_cravings</code></td></tr>
+    <tr><td>The end</td><td>The Feed's end line; no pagination past five receipts</td></tr>
+  </table></div>
+</section>
+
+<section class="measure">
+  <h2>Where each section's data comes from</h2>
+  <div class="wrap"><table>
+    <tr><th>Section</th><th>Read</th><th>Status</th></tr>
+    <tr><td>Hero, ranked 2–8</td><td><code>dishes_by_tag('style','curry', 8, …, p_city)</code>, rows 1 to 8 as returned</td><td><span class="flag ok">Exists</span></td></tr>
+    <tr><td>Places known for it</td><td>The same read with a larger page (50), grouped by <code>restaurant_id</code> on the client; the first row per place is its best curry, already in order</td><td><span class="flag ok">Exists</span></td></tr>
+    <tr><td>Follow toggle</td><td><code>my_cravings</code> to know the state; <code>set_cravings</code> with the set plus or minus this tag</td><td><span class="flag ok">Exists</span></td></tr>
+    <tr><td>New in curry</td><td><code>new_to_record</code> filtered to one tag</td><td><span class="flag">Needs <code>p_kind, p_slug</code></span></td></tr>
+    <tr><td>Latest receipts</td><td><code>get_entry_feed</code> limited to entries with a line carrying the tag</td><td><span class="flag">Needs <code>p_kind, p_slug</code></span></td></tr>
+    <tr><td>A: learned shelves</td><td>Categories you favour, from your 5.0 and 6 lines and your saves</td><td><span class="flag">New read</span></td></tr>
+    <tr><td>A, C: What you follow</td><td><code>my_cravings</code>; thumb = <code>dishes_by_tag</code> row 1 per tag</td><td><span class="flag ok">Exists</span></td></tr>
+    <tr><td>B: rail</td><td><code>my_cravings</code> first, then <code>craving_options</code> (busiest first)</td><td><span class="flag ok">Exists</span></td></tr>
+    <tr><td>C: the six pills</td><td><code>craving_options</code>, first six</td><td><span class="flag ok">Exists</span></td></tr>
+  </table></div>
+</section>
+
+<section class="measure">
+  <h2>Needs from the backend</h2>
+  <ul>
+    <li><strong><code>new_to_record</code> gains <code>p_kind, p_slug</code></strong> (optional, trailing): only dishes carrying that tag. Additive; Feed calls bind unchanged.</li>
+    <li><strong><code>get_entry_feed</code> gains <code>p_kind, p_slug</code></strong> (optional, trailing): only entries with a line whose dish carries the tag. Same keyset.</li>
+    <li><strong>Option A only: <code>my_taste_tags(p_city, p_limit)</code></strong> → <code>{kind, slug, label}[]</code>: style and cuisine tags weighted by your high scores and saves, minus what you follow, for the extra shelves. Signed out <code>[]</code>.</li>
+    <li>B and C need nothing new.</li>
+  </ul>
+</section>
+
+<section class="measure">
+  <h2>Your call</h2>
+  <div class="qs">
+    <div class="q"><h3>Cravings</h3>
+      <p><b class="rec">It learns.</b> Nothing to pick: shelves come from what you score and save, Follow lives on each category's page, and one row at the end of the edition lists what you follow.</p>
+      <p><b>Rail.</b> One row of category pills under The Top Ate, followed ones first; each opens its page.</p>
+      <p><b>Ask once.</b> One inline card asks for up to three of six favourites the first time, then never again, and the Feed behaves like It learns.</p>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+(function(){
+  var P={
+    x:'<path d="M18 6 6 18M6 6l12 12"/>',
+    check:'<path d="M20 6 9 17l-5-5"/>',
+    camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/>',
+    image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+    mic:'<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/>',
+    star:'<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z" fill="currentColor" stroke="none"/>',
+    starf:'<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z" fill="currentColor" stroke="none"/>',
+    pin:'<path d="M20 10c0 5-8 12-8 12s-8-7-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+    search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    stop:'<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>',
+    share:'<path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>',
+    more:'<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>',
+    back:'<path d="m15 18-6-6 6-6"/>',
+    pencil:'<path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
+    trash:'<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>',
+    book:'<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
+    utensils:'<path d="m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7M2.1 21.8l6.4-6.3M19 5l-7 7"/>',
+    plus:'<path d="M12 5v14M5 12h14"/>',
+    tag:'<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" stroke="none"/>',
+    user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'
+  ,
+    flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+    nav:'<path d="M3 11 22 2l-9 19-2-8z"/>',
+    bm:'<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+    bmf:'<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="currentColor"/>',
+    flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',
+    ban:'<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+    heart:'<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+    globe:'<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/>'
+  };
+  function I(n,s){return '<i data-i="'+n+'" data-s="'+(s||22)+'"></i>'}
+  function B(on){return '<span class="hit bm">'+I(on?'bmf':'bm',22)+'</span>'}
+  P.chev='<path d="m9 18 6-6-6-6"/>';
+
+  function tok(sc,fs,cls){return '<span class="tok'+(cls?' '+cls:'')+'" style="font-size:'+fs+'px;padding:2px 9px 2px 7px">'+I('star',Math.round(fs*.85))+sc+'</span>'}
+  function pic(l,w,h,r,extra){
+    var st='width:'+w+'px;height:'+h+'px;border-radius:'+r+'px;'+(extra||'');
+    return l[4]?'<span class="ph-img '+l[4]+'" style="'+st+'">':'<span class="lt-tile" style="'+st+'background:'+l[5]+';font-size:'+Math.round(Math.min(w,h)*.5)+'px">'+l[0].charAt(0);
+  }
+  function rk(l,i){return '<div class="rk"><span class="n">'+(i+1)+'</span>'+pic(l,52,52,15,'')+'</span><span class="d"><b>'+l[0]+'</b><span class="meta">'+l[1]+'</span></span>'+tok(l[2],14,'tk')+B(l[3])+'</div>'}
+  function heroOf(list,n){
+    var l=list[0];
+    return '<div class="hero ph-img '+l[4]+'"><span class="shade"></span>'+tok(l[2],17)+'<span class="disc glass bmd">'+I(l[3]?'bmf':'bm',22)+'</span><div class="cap"><span class="nm"><b>'+l[0]+'</b><span>'+l[1]+'</span></span></div></div><div class="rks">'+list.slice(1,n).map(function(l,i){return rk(l,i+1)}).join('')+'</div>';
+  }
+  function tail(list,from){return list.slice(from).map(function(l,i){return rk(l,from+i)}).join('')}
+  function card(c){
+    var over='<span class="tok">'+I('star',11)+c.s+'</span><span class="disc glass cbm">'+I(c.on?'bmf':'bm',19)+'</span>';
+    var p=c.f?'<span class="p ph-img '+c.f+'">'+over+'</span>'
+      :'<span class="p lt-tile" style="background:'+c.t+'">'+c.n.charAt(0)+over+'</span>';
+    return '<div class="card">'+p+'<div class="t"><b>'+c.n+'</b><span class="meta">'+c.r+'</span></div></div>';
+  }
+  function nr(r){
+    var th=r.f?'<span class="th ph-img '+r.f+'"></span>':'<span class="th lt-tile" style="background:'+r.t+';font-size:26px">'+r.n.charAt(0)+'</span>';
+    var bd=r.k==='6'?'<span class="badge b6">'+I('star',11)+'6</span>':r.k==='5'?'<span class="badge b5">'+I('star',11)+'5</span>':'<span class="badge bn">New</span>';
+    return '<div class="nr">'+th+'<span class="d"><b>'+r.n+'</b><span class="meta">'+r.r+'</span></span>'+bd+'<span class="hit" style="margin-right:-12px">'+I('bm',22)+'</span></div>';
+  }
+  /* the approved slip; its foot is Edge B (contract §7) */
+  function slip(o){
+    var rows=o.d.map(function(d){
+      return '<div class="dr"><b>'+d[0]+'</b><span class="row" style="gap:14px">'+(d[1]?'<span class="row sc">'+I('starf',16)+'<b>'+d[1]+'</b></span>':'')+'<span class="hit" style="margin:-10px -12px -10px 0">'+I(d[2]?'bmf':'bm',22)+'</span></span></div>';
+    }).join('');
+    var ph=o.p?'<div class="cluster" style="padding:2px 0 0 6px;--surf:#fff">'+o.p.map(function(f,i){return '<span class="ph-img '+f+'" style="width:80px;height:80px;border-radius:22px;transform:rotate('+[-5,4,-2][i]+'deg)"></span>'}).join('')+'</div>':'';
+    return '<div class="slip"><div class="by"><span class="row" style="gap:8px"><span class="av" style="background:'+o.c+'">'+o.u.charAt(1).toUpperCase()+'</span><span class="ui" style="font-size:14px;font-weight:600">'+o.u+'</span></span><span class="meta">'+o.t+'</span></div><div>'+rows+'</div>'+(o.q?'<p class="prose clamp">'+o.q+'</p>':'')+ph+'<div class="place">'+I('pin',15)+'<span class="ui" style="font-weight:600;font-size:14px">'+o.pl+'</span><span class="meta">'+o.sb+'</span></div></div><div class="tear" style="margin:0 16px"></div>';
+  }
+  function $(id){return document.getElementById(id)}
+
+  /* ---- Feed data (from feed.html) ---- */
+  var top=[['Tagliatelle al ragù','Tipo 00','4.8',1,'food1'],['Prawn dumplings','Shandong Mama','4.7',0,'food2'],['Cheeseburger','Butchers Diner','4.6',0,'food3'],['Pho tai','Co Thao','4.6',1,null,'#F6D365'],['Cacio e pepe','Grill Americano','4.5',0,'food1'],['Salmon roll','Kisume','4.5',0,'food2'],['Lamb souvlaki','Stalactites','4.4',0,null,'#B9A5EA'],['Pistachio croissant','Lune','4.4',0,null,'#3ECF64']];
+  var loved=[{n:'Pappardelle with duck ragù',r:'Tipo 00',s:'4.7',f:'food1'},{n:'Rigatoni alla vodka',r:'Grill Americano',s:'4.6',t:'#B9A5EA'},{n:'Agnolotti',r:'Osteria Ilaria',s:'4.5',f:'food3'}];
+
+  /* ---- Curry, Melbourne: dishes_by_tag('style','curry') rows 1..8 ---- */
+  var curry=[['Beef rendang','Ho Jiak','4.8',0,'food1'],['Goat curry','Daughter in Law','4.7',1,'food2'],['Chicken curry laksa','Chef Lagenda','4.6',0,null,'#F6D365'],['Massaman beef','Jinda Thai','4.6',0,'food3'],['Dal makhani','Tonka','4.5',0,'food1'],['Green curry','Soi 38','4.4',0,null,'#3ECF64'],['Fish head curry','Ho Jiak','4.4',0,'food2'],['Katsu curry','Hakata Gensuke','4.3',0,null,'#B9A5EA']];
+
+  $('topRest').innerHTML=heroOf(top,8);
+  ['aLoved','bLoved','cLoved'].forEach(function(id){$(id).innerHTML=loved.map(card).join('')});
+  $('aCurry').innerHTML=curry.slice(0,3).map(function(l){return card({n:l[0],r:l[1],s:l[2],f:l[4],t:l[5],on:l[3]})}).join('');
+  $('bTail').innerHTML=tail(top,5);
+  $('cTail').innerHTML=tail(top,6);
+
+  /* rail: followed first (my_cravings), hairline, then craving_options busiest first */
+  function rp(n,f,t){return '<span class="rp">'+(f?'<span class="ph-img '+f+'"></span>':'<span class="lt-tile" style="background:'+t+'">'+n.charAt(0).toUpperCase()+'</span>')+n+'</span>'}
+  $('bRail').innerHTML=rp('curry','food1')+rp('dumplings','food2')+'<span class="rsep"></span>'+rp('pasta','food3')+rp('ramen',null,'#F6D365')+rp('pizza','food2');
+
+  /* end of edition */
+  $('aSlip').innerHTML=slip({u:'@priya',c:'#B9A5EA',t:'1d',d:[['Salmon roll','5.0',0],['Wagyu nigiri','4.5',0]],p:['food2','food3'],pl:'Kisume',sb:'CBD'})+'<div style="height:14px"></div>'+slip({u:'@marcus.eats',c:'#3ECF64',t:'5h',d:[['Cheeseburger','4.5',0]],q:'Queued forty minutes for this and would queue again.',p:['food1'],pl:'Butchers Diner',sb:'CBD'});
+
+  /* what you follow: my_cravings in shelf order; thumb = that tag's #1 */
+  function fr(n,f,t){return '<div class="fr">'+(f?'<span class="th ph-img '+f+'"></span>':'<span class="th lt-tile" style="background:'+t+';font-size:26px">'+n.charAt(0)+'</span>')+'<b>'+n+'</b>'+I('chev',18)+'</div>'}
+  $('follows').innerHTML=fr('Curry','food1')+fr('Dumplings','food2')+'<div class="swipe" style="border-top:1px solid rgba(36,20,31,.14)"><span class="act">Unfollow</span>'+fr('Pasta','food3').replace('class="fr"','class="fr" style="border-top:0"')+'</div>'+fr('Vietnamese',null,'#F6D365');
+
+  /* category page */
+  $('curryTop').innerHTML=heroOf(curry,8);
+  $('curryTail').innerHTML=tail(curry,4);
+  $('places').innerHTML=[{n:'Ho Jiak',r:'Beef rendang',s:'4.8',f:'food1'},{n:'Daughter in Law',r:'Goat curry',s:'4.7',f:'food2',on:1},{n:'Jinda Thai',r:'Massaman beef',s:'4.6',f:'food3'}].map(card).join('');
+  $('newCurry').innerHTML=[{n:'Pork vindaloo',r:'Babu Ji',k:'6',f:'food2'},{n:'Jungle curry',r:'Soi 38',k:'5',t:'#B9A5EA'},{n:'Kerala fish curry',r:'Tonka',k:'new',f:'food3'}].map(nr).join('');
+  var priya={u:'@priya',c:'#B9A5EA',t:'3h',d:[['Beef rendang','5.0',0],['Roti canai','4.0',0]],q:'Rendang so dark it was almost black. The roti was there to mop it up.',p:['food1','food3'],pl:'Ho Jiak',sb:'Haymarket'};
+  $('currySlip').innerHTML=slip(priya);
+  $('currySlip2').innerHTML=slip({u:'@marcus.eats',c:'#3ECF64',t:'1d',d:[['Dal makhani','4.5',0],['Butter chicken','4.0',0],['Garlic naan','',0]],p:['food1','food2'],pl:'Tonka',sb:'CBD'})+'<div style="height:14px"></div>'+slip({u:'@jessw',c:'#F6D365',t:'2d',d:[['Massaman beef','4.5',1],['Green curry','4.0',0]],q:'The massaman is the one. Go early, it sells out.',p:['food3'],pl:'Jinda Thai',sb:'Abbotsford'});
+
+  document.querySelectorAll('[data-i]').forEach(function(el){
+    var s=el.getAttribute('data-s')||22;
+    el.insertAdjacentHTML('afterbegin','<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex-shrink:0">'+P[el.getAttribute('data-i')]+'</svg>');
+  });
+  /* Edge B (EdgeFinal): 4pt wave, period fitted to the width so both ends match; flat paper. */
+  function edgeB(){
+    document.querySelectorAll('.tear,.etear,.tear2').forEach(function(el){
+      var W=el.offsetWidth; if(!W) return;
+      var n=W/12, r=Math.round(n); if(Math.abs(n-Math.floor(n)-.5)<1e-9){ r=Math.floor(n); if(r%2) r+=1; }
+      r=Math.max(1,r); var P=W/r, d='M0 0';
+      for(var x=0;x<=W;x+=1){ d+='L'+x+' '+(2.1-1.5*Math.cos(2*Math.PI*x/P)).toFixed(2); }
+      d+='L'+W+' '+(2.1-1.5*Math.cos(2*Math.PI*W/P)).toFixed(2)+'L'+W+' 0Z';
+      var fill=el.getAttribute('data-fill')||'#fff';
+      el.innerHTML='<svg width="'+W+'" height="4" viewBox="0 0 '+W+' 4" style="display:block;overflow:visible" aria-hidden="true"><path d="'+d+'" fill="'+fill+'"/></svg>';
+    });
+  }
+  edgeB();
+  function fit(){
+    document.querySelectorAll('.ph').forEach(function(p){var s=p.clientWidth/390;p.querySelector('.scr').style.setProperty('--s',s)});
+  }
+  fit(); addEventListener('resize',fit);
+})();
+</script>
