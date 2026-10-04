@@ -22,6 +22,7 @@ extension View {
                 }
             }
             .animation(AteRootHeaderMetrics.collapse, value: isShown)
+            .ateHeaderGround()
     }
 
     /// Reports whether the page has scrolled past `threshold` — the bottom of its in-content title,

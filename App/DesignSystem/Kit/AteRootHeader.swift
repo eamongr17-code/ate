@@ -60,6 +60,15 @@ struct AteRootTitle: View {
     }
 }
 
+enum AteHeaderGroundMetrics {
+    /// The fade under the solid ground: 14, inside the asked-for 12–16.
+    static let fade: CGFloat = 14
+    /// The solid stops this far above the bar's bottom edge — just under the 44pt controls, which
+    /// sit 5 above it — so the fade lands on the bar's edge and the content's first lines at rest
+    /// are left alone.
+    static let solidShort: CGFloat = 8
+}
+
 enum AteRootHeaderMetrics {
     /// `.wm{left:16px; height:32px}`; `.lt{left:20px}`; the group `right:16px`.
     static let wordmark: CGFloat = 32
@@ -141,6 +150,7 @@ extension View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .animation(AteRootHeaderMetrics.collapse, value: showsInline)
+        .ateHeaderGround()
     }
 
     /// A pushed page's inline title, leading — beside the system's back — exactly where a collapsed
@@ -157,6 +167,37 @@ extension View {
                 }
                 .sharedBackgroundVisibility(.hidden)
             }
+            .ateHeaderGround()
+    }
+
+    /// **The header's ground** (build 87, note 1): the bar area — from the screen's top edge to just
+    /// under the title row's controls — is the page's ground, ending in a short soft fade, so
+    /// scrolled content is never legible behind the title or the glass. The system's soft
+    /// scroll-edge effect alone is too weak over white slips, and `.hard` cuts the content off with
+    /// a sharp edge and a blurred ghost above it. At rest it is ground on ground: invisible.
+    ///
+    /// Every bar modifier in the kit applies it (``ateRootToolbar``, ``ateInlineTitle``,
+    /// ``ateInlineByline``), so roots and pushed pages get it once. Drawn over the page and under
+    /// the navigation bar's own items, and never hit-tested.
+    func ateHeaderGround() -> some View {
+        overlay(alignment: .top) {
+            GeometryReader { proxy in
+                let bar = proxy.safeAreaInsets.top
+                let ground = AtePalette.automatic.ground
+                VStack(spacing: 0) {
+                    ground.frame(height: max(0, bar - AteHeaderGroundMetrics.solidShort))
+                    LinearGradient(
+                        colors: [ground, ground.opacity(0)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: AteHeaderGroundMetrics.fade)
+                }
+                .ignoresSafeArea(edges: .top)
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
     }
 
     /// Reports whether a tab root's scroll view has moved far enough for its header to collapse —
@@ -167,6 +208,6 @@ extension View {
         } action: { _, collapsed in
             isCollapsed.wrappedValue = collapsed
         }
-        .scrollEdgeEffectStyle(.soft, for: .top)
+        .scrollEdgeEffectStyle(.hard, for: .top)
     }
 }

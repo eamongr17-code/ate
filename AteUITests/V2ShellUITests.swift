@@ -103,7 +103,61 @@ final class V2ShellUITests: XCTestCase {
         shoot("composer")
     }
 
+    /// A photo on a slip opens the one viewer the shell hosts, and its close puts it away — on the
+    /// Journal and on the Feed (build 87, note 4).
+    func testSlipPhotoOpensTheViewer() {
+        let app = launch()
+        XCTAssertTrue(app.descendants(matching: .any)["v2.root.journal"].firstMatch.waitForExistence(timeout: 10))
+        for name in ["Journal", "Feed"] {
+            tab(app, name).tap()
+            let photo = app.buttons.matching(identifier: "photo.0").firstMatch
+            var swipes = 0
+            while photo.isHittable == false, swipes < 8 {
+                app.swipeUp()
+                swipes += 1
+            }
+            XCTAssertTrue(photo.isHittable, "\(name) has a slip with a photo")
+            photo.tap()
+            let viewer = app.descendants(matching: .any)["entry.photoViewer"].firstMatch
+            XCTAssertTrue(viewer.waitForExistence(timeout: 5), "a \(name) slip's photo opens the viewer")
+            shootIfAsked("A-photo-viewer-\(name.lowercased())")
+            app.buttons["Close"].firstMatch.tap()
+            XCTAssertTrue(waitUntil(timeout: 5) { viewer.exists == false }, "and the viewer closes")
+            app.swipeDown()
+            app.swipeDown()
+        }
+    }
+
+    /// The header over scrolled paper: the Journal's white slips and the Feed's text passing under the
+    /// title row (build 87, note 1). Stills only, with `V2_SHOT_DIR`.
+    func testCaptureScrollEdge() throws {
+        guard ProcessInfo.processInfo.environment["V2_SHOT_DIR"] != nil else { throw XCTSkip("no V2_SHOT_DIR") }
+        let app = launch()
+        XCTAssertTrue(app.descendants(matching: .any)["v2.root.journal"].firstMatch.waitForExistence(timeout: 10))
+        for (name, root) in [("Journal", "journal"), ("Feed", "feed")] {
+            tab(app, name).tap()
+            XCTAssertTrue(app.descendants(matching: .any)["v2.root.\(root)"].firstMatch.waitForExistence(timeout: 5))
+            pause(0.9)
+            shootIfAsked("A-header-\(root)-rest")
+            let middle = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+            middle.press(forDuration: 0.05, thenDragTo: middle.withOffset(CGVector(dx: 0, dy: -330)))
+            pause(0.9)
+            shootIfAsked("A-header-\(root)-scrolled")
+            app.swipeDown()
+            app.swipeDown()
+        }
+    }
+
     // MARK: - Helpers
+
+    /// A still named exactly `name-<mode>.png` in `V2_SHOT_DIR`, when it is set.
+    private func shootIfAsked(_ name: String) {
+        let environment = ProcessInfo.processInfo.environment
+        guard let directory = environment["V2_SHOT_DIR"] else { return }
+        let mode = environment["V2_SHOT_MODE"] ?? "light"
+        let url = URL(fileURLWithPath: directory).appendingPathComponent("\(name)-\(mode).png")
+        try? XCUIScreen.main.screenshot().pngRepresentation.write(to: url)
+    }
 
     private func tab(_ app: XCUIApplication, _ name: String) -> XCUIElement {
         app.tabBars.buttons[name].firstMatch

@@ -46,6 +46,7 @@ extension View {
                         .sharedBackgroundVisibility(.hidden)
                 }
             }
+            .ateHeaderGround()
     }
 }
 
