@@ -1,10 +1,10 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0055` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0056` define it. Forward-only; applied migrations
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
 account deletion **0032**; **every entry public 0033**; signed-out browse **0034**; dietary tags **0036**;
-round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry, dish-row chips) **0041–0045**; round 5 (cities, range + city filters, share read, saved filters) **0046–0049**; round 6 (date windows, menu by rating) **0050–0051**; read scale **0052**; round 7 (journal calendar, dish tags) **0053**; round 8 (the Feed edition, cravings) **0055**.
+round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry, dish-row chips) **0041–0045**; round 5 (cities, range + city filters, share read, saved filters) **0046–0049**; round 6 (date windows, menu by rating) **0050–0051**; read scale **0052**; round 7 (journal calendar, dish tags) **0053**; round 8 (the Feed edition, cravings) **0055**; faster logging **0056**.
 
 The atom the USER creates is an **entry** = one visit. The atom AGGREGATES are built from is still a
 per-dish **review**, now *linked* to an entry, not replaced by it. A **sorter** turns the words into
@@ -86,7 +86,7 @@ only — real reports are never rewritten to validate it). The RPCs lower-case +
 Server-internal (RLS on, no policy, service_role only; cascade from `auth.users`). The cache: the model's RAW
 draft plan (verbatim draft text), PK `(author_id, cache_key)` (total — upserted), 15-min `expires_at`; key =
 sha256(sha256(body), tag_tokens, restaurant_id, model[, six_tokens when marked]). Rows are DELETED: bounded purge of expired rows on every
-preview, the consuming sort deletes its row, an entries-delete trigger purges the author's. Rate: 12 / 10 min.
+preview, the consuming sort deletes its row, an entries-delete trigger purges the author's. Rate: 12 / 10 min. **0056:** `plan` NULL = a pending claim (a preview is calling the model); the sort waits ≤ 3 s for it; stale after 15 s.
 
 ### `cities` (0046)
 Reference data, seeded and changed by migration only: `id` text slug PK (`melbourne`, `gold-coast`), `name`,
@@ -249,3 +249,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0053 | `journal_days_and_dish_tags` | `dish_tag_links` + keyword map + triggers + backfill; `apply_entry_sort`/`correct_entry_place` take `items[].styles` (create or replace, same signatures); `my_entries_filtered`, `my_entries_count`, `journal_days`, `dish_tags`, `similar_dishes`, `dishes_by_tag` |
 | 0054 | `score_range_ceiling` | `score_in_range` opens the top at 6, not 5 (create or replace) — every range read follows |
 | 0055 | `feed_edition` | `user_cravings`; `top_ate`, `new_to_record`, `craving_options` (+ browse twins), `because_you_loved`, `my_cravings`, `set_cravings`; `dishes_by_tag` + `p_city` + `saved` (drop+create); helpers `city_places`, `tag_label`; `delete_account` checks `user_cravings` |
+| 0056 | `faster_sort` | `sort_preview_cache.plan` nullable (null = a pending claim); `sort_preview_claim` (hit/pending/claimed/none, atomic on the PK), `sort_entry_context` (the sort's pre-model reads in one trip) — both service_role only |

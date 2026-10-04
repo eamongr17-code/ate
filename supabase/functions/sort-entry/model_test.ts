@@ -186,3 +186,24 @@ test('callModel reports why it failed, without the key', async () => {
   assertEquals(r.error, 'HTTP 400: bad param');
   assert(!JSON.stringify(r).includes('sk-ant-secret'));
 });
+
+test('0056: a hang falls back in ~5 s, and the reply cap is 800 for an ordinary entry, growing for a long one', async () => {
+  const m = await import('./model.ts');
+  assertEquals(m.DEFAULT_TIMEOUT_MS, 5_000);
+  assertEquals(m.maxTokensFor('Tiramisu 4.0'), 800);
+  assertEquals(m.maxTokensFor('x'.repeat(3_000)), 1_500, 'notes are slices of the words: the plan grows with them');
+  assertEquals(m.maxTokensFor('x'.repeat(10_000)), 2_048, 'never above the old cap');
+  const req = m.buildRequest({ apiKey: 'k', body: 'Tiramisu 4.0' });
+  assertEquals(JSON.parse(req.body).max_tokens, 800);
+  for (const model of m.SORTER_MODELS) assertEquals(JSON.parse(m.buildRequest({ apiKey: 'k', body: 'x', model }).body).model, model);
+  assertEquals(m.DEFAULT_MODEL, 'claude-haiku-4-5', 'the default model is unchanged');
+});
+
+test('0056: a model call that hangs past the timeout returns no plan (the stub runs)', async () => {
+  const { callModel } = await import('./model.ts');
+  const hang: typeof fetch = (_u, init) => new Promise((_r, reject) => {
+    (init as RequestInit).signal?.addEventListener('abort', () => reject(new Error('aborted')));
+  });
+  const got = await callModel({ apiKey: 'k', body: 'Tiramisu 4.0', fetchImpl: hang, timeoutMs: 20 });
+  assertEquals([got.plan, got.error], [null, 'aborted']);
+});

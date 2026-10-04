@@ -19,6 +19,11 @@
 //   * the real sort deletes the row it consumed once its write commits (consumeCachedPlan);
 //   * deleting an entry or the account purges the author's rows (a trigger on entries + cascade).
 //
+// PENDING CLAIMS (0056). A preview claims its key (a row with plan = null) before it calls the model;
+// a real sort that finds the claim still pending waits up to PENDING_WAIT_MS for that plan instead of
+// calling the model at the same moment. A claim is released if the model fails or the spend guard
+// refuses, and is stale (ignored, re-claimable) after PENDING_STALE_SECONDS if the preview died.
+//
 // What is cached is the model's output BEFORE any gate. Both paths then run the same
 // validate.ts → tags.ts → apply_entry_sort chain on it, so a cached plan can never loosen a
 // rule (no invented score, no paraphrased note, no inferred tag).
@@ -133,26 +138,83 @@ export function coerceCachedPlan(raw: unknown): SortPlan | null {
   return { place_query: str(p.place_query), place_offset: int(p.place_offset), items };
 }
 
-/** The storage behind the cache — the 0039 table in production, a Map in tests. */
+/**
+ * What the cache holds for one (author, key) — 0056:
+ *   hit      a plan is ready;
+ *   pending  a preview has claimed the key and is calling the model right now;
+ *   claimed  (claim only) nothing usable was there, so THIS caller now owns the key and must store
+ *            a plan or release the claim;
+ *   none     nothing usable (and, from claim, it could not be claimed: run unclaimed).
+ */
+export type CacheState =
+  | { state: 'hit'; plan: SortPlan }
+  | { state: 'pending' }
+  | { state: 'claimed' }
+  | { state: 'none' };
+
+/** The storage behind the cache — the 0039/0056 table in production, a Map in tests. */
 export type PreviewCache = {
-  get(authorId: string, key: string): Promise<SortPlan | null>;
+  /** Read only (the real sort): hit | pending | none. */
+  peek(authorId: string, key: string): Promise<CacheState>;
+  /** A preview about to call the model: hit | pending | claimed (atomic — sort_preview_claim). */
+  claim(authorId: string, key: string, model: string): Promise<CacheState>;
   put(authorId: string, key: string, plan: SortPlan, model: string): Promise<void>;
   remove(authorId: string, key: string): Promise<void>;
+  /** Drop this caller's PENDING claim (model failed, or the spend guard refused). Never a stored plan. */
+  release(authorId: string, key: string): Promise<void>;
 };
+
+/** How long a sort waits for a preview that is already calling the model (0056). */
+export const PENDING_WAIT_MS = 3_000;
+export const PENDING_POLL_MS = 150;
+/** A claim older than this is a preview that died; nobody waits on it. > the model timeout. */
+export const PENDING_STALE_SECONDS = 15;
 
 export type CachedPlan = {
   /** The model's raw plan, or null (no key, model failure, or rate-limited) → the stub runs. */
   plan: SortPlan | null;
-  /** The plan came out of the cache: no model call was made. */
+  /** The plan came out of the cache: THIS request made no model call. */
   cacheHit: boolean;
   /** A preview was refused by the spend guard (only ever true when `admit` was given). */
   limited: boolean;
+  /** How long this request waited on another request's pending model call (0 when it did not). */
+  waitedMs: number;
+  /** How long this request's own model call took (null when it made none). */
+  modelMs: number | null;
 };
+
+type Clock = { now: () => number; sleep: (ms: number) => Promise<void> };
+const realClock: Clock = {
+  now: () => Date.now(),
+  sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+};
+
+/** Poll a pending key until its plan lands, the claim vanishes, or the budget runs out. */
+async function waitForPlan(
+  cache: PreviewCache, authorId: string, key: string, budgetMs: number, pollMs: number, clock: Clock,
+): Promise<SortPlan | null> {
+  const deadline = clock.now() + budgetMs;
+  while (clock.now() < deadline) {
+    await clock.sleep(Math.min(pollMs, Math.max(0, deadline - clock.now())));
+    let s: CacheState;
+    try {
+      s = await cache.peek(authorId, key);
+    } catch {
+      return null;
+    }
+    if (s.state === 'hit') return s.plan;
+    if (s.state !== 'pending') return null; // released (its model failed) or gone: stop waiting
+  }
+  return null;
+}
 
 /**
  * The one decision both paths share:
- *   hit   → the cached plan, no model call, no rate-limit hit;
- *   miss  → (preview only) ask `admit`, and stop if refused; run the model; (preview only) store it.
+ *   hit      → the cached plan, no model call, no rate-limit hit;
+ *   pending  → another request (a preview) is calling the model for exactly this key: WAIT for its
+ *              plan (≤ waitMs) and use it — no second, simultaneous call. On timeout, call it here;
+ *   miss     → (preview) claim the key, ask `admit`, run the model, store it (or release the claim);
+ *              (real sort) run the model, store nothing.
  * A cache that throws is treated as a miss / a no-op store — it can slow a sort, never fail one.
  */
 export async function modelPlanWithCache(opts: {
@@ -161,34 +223,76 @@ export async function modelPlanWithCache(opts: {
   key: string;
   model: string;
   run: () => Promise<SortPlan | null>;
-  /** Preview: store what the model returns. The real sort reads only. */
+  /** Preview: claim the key and store what the model returns. The real sort reads only. */
   store: boolean;
   /** Preview: the rate limit, consulted only when the model is about to be called. */
   admit?: () => Promise<boolean>;
+  waitMs?: number;
+  pollMs?: number;
+  clock?: Clock;
 }): Promise<CachedPlan> {
+  const clock = opts.clock ?? realClock;
+  let state: CacheState = { state: 'none' };
   if (opts.cache) {
-    let cached: SortPlan | null = null;
     try {
-      cached = await opts.cache.get(opts.authorId, opts.key);
+      state = opts.store
+        ? await opts.cache.claim(opts.authorId, opts.key, opts.model)
+        : await opts.cache.peek(opts.authorId, opts.key);
     } catch {
-      cached = null;
+      state = { state: 'none' };
     }
-    if (cached) return { plan: cached, cacheHit: true, limited: false };
   }
-  if (opts.admit && !(await opts.admit())) return { plan: null, cacheHit: false, limited: true };
+  if (state.state === 'hit') return { plan: state.plan, cacheHit: true, limited: false, waitedMs: 0, modelMs: null };
 
+  let waitedMs = 0;
+  if (state.state === 'pending' && opts.cache) {
+    const t0 = clock.now();
+    const plan = await waitForPlan(
+      opts.cache, opts.authorId, opts.key, opts.waitMs ?? PENDING_WAIT_MS, opts.pollMs ?? PENDING_POLL_MS, clock,
+    );
+    waitedMs = clock.now() - t0;
+    if (plan) return { plan, cacheHit: true, limited: false, waitedMs, modelMs: null };
+  }
+
+  const owns = state.state === 'claimed';
+  const release = async () => {
+    if (!owns || !opts.cache) return;
+    try {
+      await opts.cache.release(opts.authorId, opts.key);
+    } catch { /* a stale claim stops blocking anyone after PENDING_STALE_SECONDS */ }
+  };
+  if (opts.admit && !(await opts.admit())) {
+    await release();
+    return { plan: null, cacheHit: false, limited: true, waitedMs, modelMs: null };
+  }
+
+  const t1 = clock.now();
   const plan = await opts.run();
+  const modelMs = clock.now() - t1;
   if (plan && opts.store && opts.cache) {
     try {
       await opts.cache.put(opts.authorId, opts.key, plan, opts.model);
-    } catch { /* an unstored preview only costs the real sort a model call */ }
+    } catch {
+      await release(); // an unstored preview only costs the real sort a model call
+    }
+  } else {
+    await release();
   }
-  return { plan, cacheHit: false, limited: false };
+  return { plan, cacheHit: false, limited: false, waitedMs, modelMs };
 }
 
-/** What `entries.sort_meta` records for a sort (0039). */
-export function sortMeta(usedModel: boolean, cacheHit: boolean, model: string | null) {
-  return { cache_hit: usedModel && cacheHit, model: usedModel ? model : null };
+/** What `entries.sort_meta` records for a sort (0039; timings 0056, present only when measured). */
+export function sortMeta(
+  usedModel: boolean,
+  cacheHit: boolean,
+  model: string | null,
+  timings?: { waitedMs?: number; modelMs?: number | null; planMs?: number },
+) {
+  const meta: Record<string, unknown> = { cache_hit: usedModel && cacheHit, model: usedModel ? model : null };
+  if (timings?.waitedMs) meta.waited_ms = Math.round(timings.waitedMs);
+  if (typeof timings?.modelMs === 'number') meta.model_ms = Math.round(timings.modelMs);
+  if (typeof timings?.planMs === 'number') meta.plan_ms = Math.round(timings.planMs);
+  return meta;
 }
 
 /**

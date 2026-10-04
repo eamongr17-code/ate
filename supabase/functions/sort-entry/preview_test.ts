@@ -9,7 +9,9 @@
 //   * the key is the same for the same (body, tag tokens in any order, place, model) and moves
 //     when any of them moves;
 //   * the spend guard is consulted only on a preview miss, and a refusal calls nothing;
-//   * a broken cache degrades to a model call, never to a failed sort.
+//   * a broken cache degrades to a model call, never to a failed sort;
+//   * 0056: a preview CLAIMS its key; a real sort that finds the claim pending WAITS for that plan
+//     (no second, simultaneous model call) and calls the model itself only when the wait times out.
 
 import { test, assert, assertEquals } from './harness.ts';
 import {
@@ -18,6 +20,7 @@ import {
   consumeCachedPlan,
   modelPlanWithCache,
   parsePreviewRequest,
+  PENDING_WAIT_MS,
   PREVIEW_MAX_BODY,
   PREVIEW_RATE_LIMIT,
   PREVIEW_RATE_WINDOW_SECONDS,
@@ -25,6 +28,7 @@ import {
   previewCacheKey,
   sha256Hex,
   sortMeta,
+  type CacheState,
   type PreviewCache,
 } from './preview.ts';
 import type { SortPlan } from './types.ts';
@@ -38,18 +42,39 @@ const PLAN: SortPlan = {
   }],
 };
 
-function memoryCache(): PreviewCache & { rows: Map<string, SortPlan>; puts: number; removes: number } {
-  const rows = new Map<string, SortPlan>();
+const PENDING = Symbol('pending');
+type Row = SortPlan | typeof PENDING;
+
+/** The 0056 table's semantics in a Map: a PENDING row is a claim with no plan yet. */
+function memoryCache(): PreviewCache & {
+  rows: Map<string, Row>; puts: number; removes: number; releases: number; peeks: number;
+} {
+  const rows = new Map<string, Row>();
+  const state = (r: Row | undefined): CacheState =>
+    r === undefined ? { state: 'none' } : r === PENDING ? { state: 'pending' } : { state: 'hit', plan: r };
   const c = {
     rows,
     puts: 0,
     removes: 0,
+    releases: 0,
+    peeks: 0,
+    async peek(a: string, k: string) {
+      c.peeks++;
+      return state(rows.get(`${a}|${k}`));
+    },
+    async claim(a: string, k: string) {
+      const r = rows.get(`${a}|${k}`);
+      if (r !== undefined) return state(r);
+      rows.set(`${a}|${k}`, PENDING);
+      return { state: 'claimed' } as CacheState;
+    },
     async remove(a: string, k: string) {
       c.removes++;
       rows.delete(`${a}|${k}`);
     },
-    async get(a: string, k: string) {
-      return rows.get(`${a}|${k}`) ?? null;
+    async release(a: string, k: string) {
+      c.releases++;
+      if (rows.get(`${a}|${k}`) === PENDING) rows.delete(`${a}|${k}`);
     },
     async put(a: string, k: string, plan: SortPlan) {
       c.puts++;
@@ -57,6 +82,15 @@ function memoryCache(): PreviewCache & { rows: Map<string, SortPlan>; puts: numb
     },
   };
   return c;
+}
+
+/** A virtual clock: sleeping advances time instantly, and `onSleep` lets a test land a plan mid-wait. */
+function fakeClock(onSleep: (t: number) => void = () => {}) {
+  let t = 0;
+  return {
+    now: () => t,
+    sleep: async (ms: number) => { t += ms; onSleep(t); },
+  };
 }
 
 function countingModel(plan: SortPlan | null = PLAN) {
@@ -109,7 +143,7 @@ test('MISS on a preview: one model call, the plan is stored, the guard is asked 
     cache, authorId: 'u1', key: 'k', model: 'm', store: true, run: model.run,
     admit: async () => { admits++; return true; },
   });
-  assertEquals(got, { plan: PLAN, cacheHit: false, limited: false });
+  assertEquals([got.plan, got.cacheHit, got.limited, got.waitedMs], [PLAN, false, false, 0]);
   assertEquals(model.calls, 1);
   assertEquals(admits, 1);
   assertEquals(cache.puts, 1);
@@ -120,7 +154,7 @@ test('HIT on the real sort after a preview: the cached plan, and NO second model
   const model = countingModel();
   await modelPlanWithCache({ cache, authorId: 'u1', key: 'k', model: 'm', store: true, run: model.run, admit: async () => true });
   const real = await modelPlanWithCache({ cache, authorId: 'u1', key: 'k', model: 'm', store: false, run: model.run });
-  assertEquals(real, { plan: PLAN, cacheHit: true, limited: false });
+  assertEquals([real.plan, real.cacheHit, real.limited, real.modelMs], [PLAN, true, false, null]);
   assertEquals(model.calls, 1, 'the preview called the model; the real sort must not');
   assertEquals(sortMeta(true, real.cacheHit, 'm'), { cache_hit: true, model: 'm' });
 });
@@ -160,8 +194,9 @@ test('rate-limited preview: no model call, nothing stored, limited', async () =>
   const got = await modelPlanWithCache({
     cache, authorId: 'u1', key: 'k', model: 'm', store: true, run: model.run, admit: async () => false,
   });
-  assertEquals(got, { plan: null, cacheHit: false, limited: true });
+  assertEquals([got.plan, got.cacheHit, got.limited], [null, false, true]);
   assertEquals([model.calls, cache.puts], [0, 0]);
+  assertEquals(cache.rows.size, 0, 'the refused preview released its claim');
 });
 
 test('a failed model call is not cached (the stub runs; the next try asks the model again)', async () => {
@@ -169,15 +204,13 @@ test('a failed model call is not cached (the stub runs; the next try asks the mo
   const model = countingModel(null);
   const got = await modelPlanWithCache({ cache, authorId: 'u1', key: 'k', model: 'm', store: true, run: model.run, admit: async () => true });
   assertEquals([got.plan, got.cacheHit, cache.puts], [null, false, 0]);
+  assertEquals(cache.rows.size, 0, 'the failed preview released its claim: nobody waits on it');
   assertEquals(sortMeta(false, false, 'm'), { cache_hit: false, model: null });
 });
 
 test('a cache that throws degrades to a model call, never a failure', async () => {
-  const broken: PreviewCache = {
-    get: async () => { throw new Error('db down'); },
-    put: async () => { throw new Error('db down'); },
-    remove: async () => { throw new Error('db down'); },
-  };
+  const down = async () => { throw new Error('db down'); };
+  const broken: PreviewCache = { peek: down, claim: down, put: down, remove: down, release: down };
   const model = countingModel();
   const got = await modelPlanWithCache({ cache: broken, authorId: 'u1', key: 'k', model: 'm', store: true, run: model.run });
   assertEquals([got.plan === PLAN, got.cacheHit, model.calls], [true, false, 1]);
@@ -225,9 +258,71 @@ test('CONSUME is a no-op on a miss, without a key, and never throws', async () =
   assertEquals(await consumeCachedPlan({ cache: null, authorId: 'u1', key: 'k', cacheHit: true }), false);
   assertEquals([cache.rows.size, cache.removes], [1, 0], 'a miss deletes nothing');
   const broken: PreviewCache = {
-    get: async () => null,
+    peek: async () => ({ state: 'none' }),
+    claim: async () => ({ state: 'claimed' }),
     put: async () => {},
     remove: async () => { throw new Error('db down'); },
+    release: async () => {},
   };
   assertEquals(await consumeCachedPlan({ cache: broken, authorId: 'u1', key: 'k', cacheHit: true }), false);
+});
+
+// ---------------------------------------------------------------------------------------------------
+// 0056 — a running preview is awaited, not duplicated
+// ---------------------------------------------------------------------------------------------------
+test('0056 HIT: the preview finished before Done — no wait, no model call', async () => {
+  const cache = memoryCache();
+  cache.rows.set('u1|k', PLAN);
+  const model = countingModel();
+  const got = await modelPlanWithCache({ cache, authorId: 'u1', key: 'k', model: 'm', store: false, run: model.run, clock: fakeClock() });
+  assertEquals([got.plan, got.cacheHit, got.waitedMs, model.calls, cache.peeks], [PLAN, true, 0, 0, 1]);
+});
+
+test('0056 PENDING then HIT: the sort waits for the running preview and uses its plan — one model call in all', async () => {
+  const cache = memoryCache();
+  cache.rows.set('u1|k', PENDING); // a preview claimed the key and is calling the model
+  const model = countingModel();
+  const clock = fakeClock((t) => { if (t >= 900) cache.rows.set('u1|k', PLAN); }); // its plan lands at ~0.9 s
+  const got = await modelPlanWithCache({ cache, authorId: 'u1', key: 'k', model: 'm', store: false, run: model.run, clock });
+  assertEquals([got.plan, got.cacheHit, model.calls], [PLAN, true, 0]);
+  assert(got.waitedMs >= 900 && got.waitedMs < PENDING_WAIT_MS, `waited ${got.waitedMs}`);
+  assertEquals(sortMeta(true, got.cacheHit, 'm', got), { cache_hit: true, model: 'm', waited_ms: got.waitedMs });
+});
+
+test('0056 PENDING then TIMEOUT: past ~3 s the sort calls the model itself, once, and stores nothing', async () => {
+  const cache = memoryCache();
+  cache.rows.set('u1|k', PENDING); // the preview never finishes
+  const model = countingModel();
+  const got = await modelPlanWithCache({ cache, authorId: 'u1', key: 'k', model: 'm', store: false, run: model.run, clock: fakeClock() });
+  assertEquals([got.plan, got.cacheHit, model.calls, cache.puts], [PLAN, false, 1, 0]);
+  assertEquals(got.waitedMs, PENDING_WAIT_MS);
+  assert(PENDING_WAIT_MS >= 2_500 && PENDING_WAIT_MS <= 3_500, 'the wait is ~3 s');
+  assertEquals(cache.rows.get('u1|k'), PENDING, 'the real sort never touches the preview\'s claim');
+});
+
+test('0056 PENDING then RELEASED: the preview\'s model failed — stop waiting at once and call it here', async () => {
+  const cache = memoryCache();
+  cache.rows.set('u1|k', PENDING);
+  const model = countingModel();
+  const clock = fakeClock((t) => { if (t >= 300) cache.rows.delete('u1|k'); });
+  const got = await modelPlanWithCache({ cache, authorId: 'u1', key: 'k', model: 'm', store: false, run: model.run, clock });
+  assertEquals([got.cacheHit, model.calls], [false, 1]);
+  assert(got.waitedMs < 1_000, `stopped waiting at ${got.waitedMs}`);
+});
+
+test('0056: a preview claims before it calls; a second identical preview waits instead of double-spending', async () => {
+  const cache = memoryCache();
+  let release!: () => void;
+  const gate = new Promise<void>((r) => { release = r; });
+  const slow = { calls: 0, run: async () => { slow.calls++; await gate; return PLAN; } };
+  let admits = 0;
+  const admit = async () => { admits++; return true; };
+  const first = modelPlanWithCache({ cache, authorId: 'u1', key: 'k', model: 'm', store: true, run: slow.run, admit });
+  await Promise.resolve();
+  await Promise.resolve();
+  assertEquals(cache.rows.get('u1|k'), PENDING, 'the key is claimed while the model runs');
+  const clock = fakeClock((t) => { if (t >= 450) release(); });
+  const second = modelPlanWithCache({ cache, authorId: 'u1', key: 'k', model: 'm', store: true, run: slow.run, admit, clock });
+  const [a, b] = await Promise.all([first, second]);
+  assertEquals([a.cacheHit, b.cacheHit, slow.calls, admits, cache.puts], [false, true, 1, 1, 1]);
 });

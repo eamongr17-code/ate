@@ -7,7 +7,10 @@
 //     call — the marked GF lands on its dish, the marked 6 is a score — in stub AND model mode;
 //   * a `preview: true` request writes NOTHING: no apply_entry_sort, no entries/reviews write, no
 //     mark_entry_sort_failed. In model mode its only write is the preview cache row, and a repeat of
-//     the same draft is served from that cache without a second model call.
+//     the same draft is served from that cache without a second model call;
+//   * 0056: the sort reads its entry in ONE trip (sort_entry_context), answers with the sorted
+//     `entry_card`, falls back to the serial reads when that RPC is missing, and `{health: true}`
+//     answers before auth having touched nothing.
 //
 // How: index.ts is Deno code (Deno.env, Deno.serve, `npm:` imports). A module-resolution hook maps
 // `npm:@supabase/supabase-js@2` to a recording fake, a stand-in `Deno` captures the handler, and
@@ -33,10 +36,12 @@ function mark(text: string) {
 }
 
 type Call = { kind: string; table?: string; name?: string; args?: unknown };
+const CARD = { id: ENTRY, author_id: USER, body: BODY, sort_status: 'sorted', is_mine: true, items: [] };
 
 /** The fake Supabase: records every rpc and every write, answers reads from a tiny fixture. */
-function fakeWorld() {
+function fakeWorld(opts: { noContextRpc?: boolean } = {}) {
   const calls: Call[] = [];
+  const PENDING = Symbol('pending');
   const cache = new Map<string, unknown>();
   const entry = {
     id: ENTRY, author_id: USER, body: BODY, restaurant_id: PLACE, restaurant_source: 'user',
@@ -50,6 +55,19 @@ function fakeWorld() {
   };
   const rpcs: Record<string, (a: Record<string, unknown>) => unknown> = {
     search_local_restaurants: () => [],
+    sort_entry_context: () => ({
+      entry, place_name: 'Tipo 00', known_dishes: ['Pasta', 'Tiramisu'], prior_sixes: [],
+    }),
+    sort_preview_claim: (a) => {
+      const k = `${a.p_author_id}|${a.p_cache_key}`;
+      const r = cache.get(k);
+      if (r === PENDING) return { state: 'pending', plan: null };
+      if (r !== undefined) return { state: 'hit', plan: r };
+      if (!a.p_claim) return { state: 'none', plan: null };
+      cache.set(k, PENDING);
+      return { state: 'claimed', plan: null };
+    },
+    get_entry_card: () => [CARD],
     sort_preview_rate_hit: () => true,
     sort_preview_purge_expired: () => 0,
     apply_entry_sort: (a) => [{ sort_status: 'sorted', restaurant_id: a.p_restaurant_id }],
@@ -64,7 +82,7 @@ function fakeWorld() {
       if (op !== 'select') return { data: null, error: null };
       if (table === 'sort_preview_cache') {
         const hit = cache.get(`${filters.author_id}|${filters.cache_key}`);
-        return { data: hit ? { plan: hit } : null, error: null };
+        return { data: hit && hit !== PENDING ? { plan: hit } : null, error: null };
       }
       const data = reads[table]?.() ?? (single ? null : []);
       return { data, error: null };
@@ -72,7 +90,8 @@ function fakeWorld() {
     const b = {
       select: () => b,
       eq: (col: string, v: unknown) => { filters[col] = v; return b; },
-      is: () => b, gt: () => b, limit: () => b, order: () => b,
+      is: (col: string, v: unknown) => { if (v === null) filters[`${col}:is-null`] = true; return b; },
+      gt: () => b, limit: () => b, order: () => b,
       maybeSingle: () => { single = true; return b; },
       upsert: (row: Record<string, unknown>) => {
         op = 'upsert';
@@ -82,7 +101,17 @@ function fakeWorld() {
       },
       insert: (row: unknown) => { op = 'insert'; calls.push({ kind: 'write', table, name: 'insert', args: row }); return b; },
       update: (row: unknown) => { op = 'update'; calls.push({ kind: 'write', table, name: 'update', args: row }); return b; },
-      delete: () => { op = 'delete'; calls.push({ kind: 'write', table, name: 'delete' }); return b; },
+      delete: () => {
+        op = 'delete';
+        calls.push({ kind: 'write', table, name: 'delete' });
+        // release (plan is null) / consume: applied when the filters are in, on await
+        queueMicrotask(() => {
+          if (table !== 'sort_preview_cache') return;
+          const k = `${filters.author_id}|${filters.cache_key}`;
+          if (!filters['plan:is-null'] || cache.get(k) === PENDING) cache.delete(k);
+        });
+        return b;
+      },
       then: (ok: (v: unknown) => unknown, bad?: (e: unknown) => unknown) => Promise.resolve(done()).then(ok, bad),
     };
     return b;
@@ -92,9 +121,12 @@ function fakeWorld() {
     auth: { getUser: async (token: string) => ({ data: { user: token ? { id: USER } : null }, error: null }) },
     rpc: async (name: string, args: Record<string, unknown>) => {
       calls.push({ kind: 'rpc', name, args });
+      if (opts.noContextRpc && (name === 'sort_entry_context' || name === 'sort_preview_claim')) {
+        return { data: null, error: { code: 'PGRST202', message: 'Could not find the function' } };
+      }
       return { data: rpcs[name] ? rpcs[name](args ?? {}) : null, error: null };
     },
-    from: (table: string) => builder(table),
+    from: (table: string) => { calls.push({ kind: 'from', table }); return builder(table); },
   };
   return { calls, client };
 }
@@ -117,8 +149,8 @@ function modelReply() {
 }
 
 let instances = 0;
-async function loadHandler(mode: 'stub' | 'model') {
-  const world = fakeWorld();
+async function loadHandler(mode: 'stub' | 'model', worldOpts: { noContextRpc?: boolean } = {}) {
+  const world = fakeWorld(worldOpts);
   let modelCalls = 0;
   G.__sortEntryFake = { createClient: () => world.client };
   const env: Record<string, string> = {
@@ -137,9 +169,9 @@ async function loadHandler(mode: 'stub' | 'model') {
   };
   await import(`./index.ts?mode=${mode}&n=${++instances}`);
   assert(handler, 'index.ts did not call Deno.serve');
-  const call = async (payload: unknown) => {
+  const call = async (payload: unknown, token = 'user-token') => {
     const res = await handler!(new Request('http://fake/functions/v1/sort-entry', {
-      method: 'POST', headers: { Authorization: 'Bearer user-token' }, body: JSON.stringify(payload),
+      method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: JSON.stringify(payload),
     }));
     return { status: res.status, json: await res.json() };
   };
@@ -232,5 +264,63 @@ if (!isDeno) {
     assert(String(res.json.error).includes('too long'), JSON.stringify(res.json));
     assertEquals(modelCalls(), 0);
     assertEquals(world.calls, [], 'not even the purge or the rate counter ran — the staging smoke relies on this');
+  });
+
+  test('sort-entry (0056): one context read, then the write, and the reply carries the sorted entry_card', async () => {
+    const { world, call } = await loadHandler('model');
+    const res = await call({ entry_id: ENTRY, force: false, ...tokens });
+    assertEquals(res.status, 200, JSON.stringify(res.json));
+    assertEquals(res.json.entry_card, CARD, 'the card the client would have re-read');
+    const reads = world.calls.filter((c) => c.kind === 'from').map((c) => c.table);
+    assertEquals(reads, [], 'entry, place name, menu and six lines all came from sort_entry_context');
+    const rpcs = world.calls.filter((c) => c.kind === 'rpc').map((c) => c.name);
+    assertEquals(rpcs, ['sort_entry_context', 'sort_preview_claim', 'apply_entry_sort', 'get_entry_card']);
+    const meta = (world.calls.find((c) => c.name === 'apply_entry_sort')!.args as { p_meta: Record<string, unknown> }).p_meta;
+    assertEquals([meta.cache_hit, meta.model, typeof meta.model_ms, typeof meta.plan_ms], [false, 'claude-haiku-4-5', 'number', 'number']);
+  });
+
+  test('sort-entry (0056): deployed ahead of the migration, it falls back to the serial reads and still sorts', async () => {
+    const { world, call, modelCalls } = await loadHandler('model', { noContextRpc: true });
+    const preview = await call({ preview: true, body: BODY, restaurant_id: PLACE, ...tokens });
+    assertEquals(preview.status, 200, JSON.stringify(preview.json));
+    const res = await call({ entry_id: ENTRY, force: false, ...tokens });
+    assertEquals(res.status, 200, JSON.stringify(res.json));
+    assertEquals(printed(res.json.items), EXPECTED);
+    assertEquals(modelCalls(), 1, 'the 0039 cache still works without the claim RPC');
+    const reads = world.calls.filter((c) => c.kind === 'from').map((c) => c.table);
+    for (const t of ['entries', 'dishes', 'restaurants', 'reviews']) assert(reads.includes(t), `${t} read serially`);
+  });
+
+  test('sort-entry (0056): the plan of a preview stored while a sort is pending is the one the sort uses', async () => {
+    const { world, call, modelCalls } = await loadHandler('model');
+    await call({ preview: true, body: BODY, restaurant_id: PLACE, ...tokens });
+    const res = await call({ entry_id: ENTRY, force: false, ...tokens });
+    assertEquals(modelCalls(), 1);
+    const meta = (world.calls.find((c) => c.name === 'apply_entry_sort')!.args as { p_meta: Record<string, unknown> }).p_meta;
+    assertEquals([meta.cache_hit, meta.model_ms], [true, undefined], 'a hit records no model time');
+    assertEquals(res.json.entry_card, CARD);
+    assert(world.calls.some((c) => c.kind === 'write' && c.table === 'sort_preview_cache' && c.name === 'delete'), 'consumed');
+  });
+
+  test('sort-entry (0056): {health: true} answers 200 before auth, touching no database and no model', async () => {
+    const { world, call, modelCalls } = await loadHandler('model');
+    const res = await call({ health: true }, '');
+    assertEquals([res.status, res.json], [200, { ok: true, health: true }]);
+    assertEquals([world.calls, modelCalls()], [[], 0]);
+    const unauth = await call({ entry_id: ENTRY }, '');
+    assertEquals(unauth.status, 401, 'everything else still needs a user');
+  });
+
+  test('sort-entry (0056): an already-sorted entry is skipped and still hands back its card', async () => {
+    const { world, call } = await loadHandler('stub');
+    const rpc = world.client.rpc;
+    world.client.rpc = async (name: string, args: Record<string, unknown>) => {
+      const r = await rpc(name, args);
+      if (name === 'sort_entry_context') (r.data as { entry: { sort_status: string } }).entry.sort_status = 'sorted';
+      return r;
+    };
+    const res = await call({ entry_id: ENTRY });
+    assertEquals([res.status, res.json.skipped, res.json.entry_card], [200, 'already sorted', CARD]);
+    assert(!world.calls.some((c) => c.name === 'apply_entry_sort'));
   });
 }

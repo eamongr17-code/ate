@@ -47,7 +47,25 @@ export function resolveModel(raw: string | null | undefined): SorterModel {
 
 export const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 export const ANTHROPIC_VERSION = '2023-06-01';
-export const DEFAULT_TIMEOUT_MS = 20_000;
+/**
+ * A hung call falls back to the deterministic stub this fast (was 20 s). A normal sort answers well
+ * inside it; past it the user is staring at a spinner, and the stub's receipt is better than that.
+ */
+export const DEFAULT_TIMEOUT_MS = 5_000;
+
+/**
+ * The reply cap. The plan is short: the largest fixture plan (`five-dishes`, 5 items) serialises to
+ * ~510 characters of tool input, roughly 150-200 tokens. 800 covers any ordinary entry with room to
+ * spare; a long entry (notes are slices of the words, so the plan grows with them) gets a cap that
+ * grows with its length rather than a truncated tool call that degrades to the stub. Ceiling 2048,
+ * the old fixed cap. The cap does not slow a normal reply — generation stops when the plan is done.
+ */
+export const MAX_TOKENS_FLOOR = 800;
+export const MAX_TOKENS_CEILING = 2048;
+export function maxTokensFor(body: string): number {
+  const scaled = Math.ceil((body ?? '').length / 2);
+  return Math.min(MAX_TOKENS_CEILING, Math.max(MAX_TOKENS_FLOOR, scaled));
+}
 
 export function modelEnabled(key: string | null | undefined): boolean {
   return typeof key === 'string' && key.trim().length > 0;
@@ -193,7 +211,7 @@ export function buildRequest(opts: {
     },
     body: JSON.stringify({
       model: opts.model ?? DEFAULT_MODEL,
-      max_tokens: 2048,
+      max_tokens: maxTokensFor(opts.body),
       // Sonnet 5 rejects sampling parameters with a 400; Haiku 4.5 still takes them.
       ...((opts.model ?? DEFAULT_MODEL) === 'claude-haiku-4-5' ? { temperature: 0 } : {}),
       system: SYSTEM,

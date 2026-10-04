@@ -153,12 +153,15 @@ POST /functions/v1/sort-entry     { "entry_id": "<uuid>", "force": false, "dry_r
                                     "tag_tokens": [{ "offset": 23, "length": 2 }],    // optional, 0036
                                     "six_tokens": [{ "offset": 9, "length": 1 }] }    // optional, 0041
 → 200 { ok, mode: "stub"|"model", model, entry_id, sort_status, restaurant_id,
-        place_query, place_offset, items:[…] }
+        place_query, place_offset, items:[…], entry_card }      // entry_card: 0056
   401 unauthorized · 403 not your entry · 404 unknown entry · 422 entry_id missing · 500 sort failed
 ```
 Call it right after the insert (and on retry for anything left `pending`/`failed`). Idempotent: an
 already-sorted entry returns `{ok: true, skipped: "already sorted"}` unless `force`; `dry_run` returns the
-plan without writing. Then refetch `entry_cards?id=eq.<uuid>`. **`force` cannot destroy a correction** —
+plan without writing. **`entry_card` (0056)** is the sorted `entry_cards` row exactly as `get_entry_card`
+returns it to you (also on the `skipped` reply): render it, no refetch. It is `null` if that read failed —
+then refetch `entry_cards?id=eq.<uuid>` as before. **Warm-up:** `{ "health": true }` → `200 {ok, health}`,
+touches nothing; fire it when the composer opens so Done does not pay a cold start. **`force` cannot destroy a correction** —
 the rule below is enforced in SQL, not by the caller remembering it. **Tag chips:** the chip prints its word
 in `body` ("GF"); send where it sits in `tag_tokens` (UNICODE SCALARS, like every offset). The sorter reads
 it (`gf`, `gluten free`, `vegan`, `GF/DF`…) onto the dish it FOLLOWS. Unmarked words never tag; omitting
@@ -172,7 +175,8 @@ restaurant_id, place_query, place_offset, items}` — the sort's plan shape. **W
 bad draft (>10k chars, bad uuid) · 429 `{error, retry_after}` over 12 previews / 10 min (a repeat of a cached
 draft is free) — ignore it; Done still sorts. In model mode the model's plan is cached 15 min under (you,
 sha256(body), tag_tokens, six_tokens, restaurant_id); **send exactly the body, tokens and place you will INSERT** and the
-sort after Done reuses it — no second model call (`entries.sort_meta.cache_hit`) — then deletes it. The plan
+sort after Done reuses it — no second model call; if that preview is still running at Done the sort waits
+for it (≤ 3 s, 0056) rather than calling the model again (`entries.sort_meta.cache_hit`) — then deletes it. The plan
 holds draft words, so expired rows are purged on every preview and deleting an entry or account purges yours.
 
 ### Corrections (the user's, always)
@@ -260,6 +264,11 @@ changes, make it config, do not fork the function. `restaurants.city` is written
 PR, same rule as `place_locality()`); rows written before keep the mangle — read `locality`.
 
 ## Wire-change log
+
+**Faster logging — 0056 + sort-entry.** Additive: the sort reply (and its `skipped` reply) carries `entry_card`
+(nullable); `{health: true}` request. Behavioural, invisible to the client: a sort waits ≤ 3 s for a running
+preview of the same draft; the model times out at 5 s (was 20) and falls back to the stub. Old clients ignore
+the new key and keep refetching.
 
 **Round 8 — 0055.** Additive: `top_ate`, `because_you_loved`, `new_to_record`, `craving_options`, `my_cravings`, `set_cravings` (+ table `user_cravings`); `dishes_by_tag` gains a trailing `p_city` param and a trailing `saved` column (drop+create; round-7 calls bind unchanged). Nothing existing changes meaning.
 

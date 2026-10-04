@@ -24,3 +24,20 @@ jobs:
             -H "apikey: ${{ vars.SUPABASE_KEY_STAGING }}")
           echo "status=$code body=$(cat /tmp/body)"
           [ "$code" = "200" ]
+
+      # Boots the sorter's isolate through its no-op health path ({"health": true}: no auth, no read,
+      # no model call, no write). A daily ping cannot keep it warm — isolates are reclaimed after minutes
+      # idle — so this proves the function still boots; the app's own warm-up (a health call when the
+      # composer opens) is what removes the cold start from Done. Never fails the keep-alive: the DB
+      # read above is the one that keeps staging awake. Staging only.
+      - name: Sorter health (sort-entry, no model call)
+        continue-on-error: true
+        run: |
+          code=$(curl -s -o /tmp/fn -w '%{http_code}' --max-time 30 -X POST \
+            "${{ vars.SUPABASE_URL_STAGING }}/functions/v1/sort-entry" \
+            -H "apikey: ${{ vars.SUPABASE_KEY_STAGING }}" \
+            -H "Authorization: Bearer ${{ vars.SUPABASE_KEY_STAGING }}" \
+            -H "Content-Type: application/json" \
+            -d '{"health": true}')
+          echo "status=$code body=$(cat /tmp/fn)"
+          [ "$code" = "200" ]
