@@ -38,7 +38,7 @@ struct JournalFilterSheet: View {
         ) {
             VStack(alignment: .leading, spacing: 0) {
                 if shelf == .journal {
-                    AteFilterGroup(icon: .chevronsUpDown, title: "Sort", readout: nil) {
+                    AteFilterGroup(icon: .arrowDownWideNarrow, title: "Sort", readout: nil) {
                         AteSegmentedControl(
                             options: JournalSort.allCases.map { AteSegment($0, $0.title) },
                             selection: $draft.sort,

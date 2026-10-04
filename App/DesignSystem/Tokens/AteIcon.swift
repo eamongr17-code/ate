@@ -41,8 +41,14 @@ enum AteIcon: String, CaseIterable {
     case listFilter
     /// The Feed's cravings (Eamon's fix for an unclear icon) — Lucide's heart.
     case heart
-    /// A menu's current value, in the filter sheet — Lucide's chevrons-up-down.
+    /// A category — the What you follow row at the end of the Feed (4 Oct) — Lucide's tag.
+    case tag
+    /// A menu's current value, in the filter sheet — Lucide's chevrons-up-down. **A control mark
+    /// only** (Menu rows): never a label's icon.
     case chevronsUpDown
+    /// The filter sheet's Sort label (build 87, note 3) — Lucide's arrow-down-wide-narrow. A label
+    /// icon is never a glyph the app uses as a control affordance.
+    case arrowDownWideNarrow
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
@@ -135,6 +141,14 @@ M11 20a10 10 0 0010-10 25.9 25.9 0 00-1.04-7.281 1 1 0 00-1.755-.325C15.833 5.5 
             [Self.path("m6 9 6 6 6-6")]
         case .chevronsUpDown: // chevrons-up-down
             [Self.path("m7 15 5 5 5-5"), Self.path("m7 9 5-5 5 5")]
+        case .arrowDownWideNarrow: // arrow-down-wide-narrow
+            [Self.path("m3 16 4 4 4-4"), Self.path("M7 20V4"), Self.path("M11 4h10"),
+             Self.path("M11 8h7"), Self.path("M11 12h4")]
+        case .tag: // tag
+            [Self.path("""
+M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 \
+0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z
+"""), Self.tagDot]
         case .listFilter: // list-filter
             [Self.path("M2 5h20"), Self.path("M6 12h12"), Self.path("M9 19h6")]
         case .heart: // heart
@@ -154,6 +168,7 @@ M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.
         case .clear: [AteVector.circle(12, 12, 10)]
         // `images` fills its own sun, in the SVG.
         case .photoStack: [Self.imagesDot]
+        case .tag: [Self.tagDot]
         default: []
         }
     }
@@ -183,6 +198,8 @@ M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1
 319-1.915
 """)
     private static let imagesDot = AteVector.circle(13, 7, 1)
+    /// `tag`'s hole: `<circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>`.
+    private static let tagDot = AteVector.circle(7.5, 7.5, 0.5)
 
     private static func path(_ data: String) -> Path { AteVector.path(data) }
 }
