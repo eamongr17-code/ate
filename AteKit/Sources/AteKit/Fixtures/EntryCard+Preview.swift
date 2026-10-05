@@ -67,6 +67,13 @@ public extension EntryCard {
                      dishName: "Prawn spaghetti", position: 3,
                      mentionOffset: offset(of: "prawn spaghetti"), mentionLength: 15,
                      tags: tagged ? [.gf] : [])
+            ],
+            // "With Jess for her birthday": Jess, tagged and posted her own entry for the visit
+            // (`ate-with.html` 1f) — the seeded feed's Tipo 00 slip is hers.
+            companions: [
+                EntryCompanion(userID: InMemorySocialService.Seed.jess, username: "jessw", name: "Jess W",
+                               status: .accepted,
+                               entryID: UUID(uuidString: "E0000000-0000-4000-8000-000000000001"))
             ]
         )
     }

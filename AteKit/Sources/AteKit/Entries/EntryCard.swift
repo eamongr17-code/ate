@@ -58,6 +58,9 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
     /// drawn. Never used to search: see ``EntryBodyTokens``.
     public let placeOffset: Int?
     public let placeLength: Int?
+    /// Who it was eaten with (0058, "with @jess") — `[]` when nobody, or from a view older than 0058.
+    /// Rendered as it arrives: the server already decided who this viewer may see.
+    public let companions: [EntryCompanion]
 
     public struct Author: Sendable, Hashable, Codable, Identifiable {
         public let id: UUID
@@ -219,7 +222,8 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
         items: [Item] = [],
         avgScore: Double? = nil,
         placeOffset: Int? = nil,
-        placeLength: Int? = nil
+        placeLength: Int? = nil,
+        companions: [EntryCompanion] = []
     ) {
         self.id = id
         self.authorID = authorID
@@ -242,6 +246,7 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
         self.avgScore = avgScore ?? Self.average(of: items)
         self.placeOffset = placeOffset
         self.placeLength = placeLength
+        self.companions = companions
     }
 
     /// The mean of the dishes that were actually scored. Unscored dishes are not zeros and are not
@@ -253,7 +258,7 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, body, visibility, author, place, photos, items
+        case id, body, visibility, author, place, photos, items, companions
         case authorID = "author_id"
         case restaurantID = "restaurant_id"
         case restaurantSource = "restaurant_source"
@@ -292,7 +297,8 @@ public extension EntryCard {
         sortedAt: Date? = nil,
         place: Place? = nil,
         photos: [Photo]? = nil,
-        items: [Item]? = nil
+        items: [Item]? = nil,
+        companions: [EntryCompanion]? = nil
     ) -> EntryCard {
         EntryCard(
             id: id,
@@ -315,7 +321,8 @@ public extension EntryCard {
             // (0024): the words named some other venue, so there is nothing in them to point at any
             // more, and an offset kept here would put a pill for this place on the name of that one.
             placeOffset: place == nil ? placeOffset : nil,
-            placeLength: place == nil ? placeLength : nil
+            placeLength: place == nil ? placeLength : nil,
+            companions: companions ?? self.companions
         )
     }
 
