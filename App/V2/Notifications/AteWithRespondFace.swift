@@ -101,7 +101,7 @@ struct AteWithRespondFace: View {
                         name: line.name,
                         score: line.score,
                         isCurrent: model.current == line.id,
-                        showsRule: index > 0 && model.lines[index - 1].id != model.current
+                        showsRule: index > 0
                     ) {
                         isWriting = false
                         model.select(line.id)
@@ -189,7 +189,6 @@ struct AteWithRespondFace: View {
         if model.phase == .ready, isWriting == false, let current = model.current,
            let line = model.lines.first(where: { $0.id == current }) {
             VStack(spacing: 0) {
-                AteHairline()
                 StarSlider(
                     dishName: line.name,
                     rating: Binding(
@@ -206,6 +205,7 @@ struct AteWithRespondFace: View {
             .padding(.horizontal, AteMetrics.gutter)
             .padding(.bottom, AteMetrics.regular)
             .transition(reduceMotion ? AnyTransition.opacity : V2ComposerMotion.sliderRising)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("respond.slide")
         }
     }

@@ -21,7 +21,6 @@ struct V2NotificationsPage: View {
     var body: some View {
         List {
             AtePageTitle(title: NotificationsCopy.title)
-                .padding(.horizontal, AteMetrics.gutter)
                 .plainRow()
             switch store.phase {
             case .loading:
