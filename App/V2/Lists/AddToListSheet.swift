@@ -72,7 +72,6 @@ struct AddToListSheet: View {
             }
         }
         .listsFailureAlert(failure: isNaming ? nil : store.failure) { store.clearFailure() }
-        .accessibilityIdentifier("addToList.sheet")
     }
 
     @ViewBuilder

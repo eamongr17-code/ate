@@ -40,7 +40,6 @@ struct ListPickerSheet: View {
             picker.clearFailure()
             list.clearFailure()
         }
-        .accessibilityIdentifier("lists.picker")
     }
 
     @ViewBuilder

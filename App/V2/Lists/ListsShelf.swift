@@ -61,13 +61,15 @@ struct ListsShelf: View {
         case .failed:
             emptyBand(AteEmptyState(line: ListsCopy.unreachable, pill: (ListsCopy.tryAgain, { retry() })))
         case .ready:
-            ForEach(lists.lists) { list in
+            let accents = DishTileIdentity.paletteIndices(for: lists.lists.map(\.id), count: AteListCard.accents.count)
+            ForEach(Array(lists.lists.enumerated()), id: \.element.id) { index, list in
                 AteListCard(
                     id: list.id,
                     name: list.name,
                     count: list.itemCount,
                     covers: list.covers,
                     isPending: lists.isPending(list),
+                    accentIndex: accents[index],
                     identifier: "lists.card"
                 ) {
                     router.open(.list(ListRoute(list)), from: .journal)

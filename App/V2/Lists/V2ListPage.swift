@@ -48,6 +48,7 @@ struct V2ListPage: View {
             content
         }
         .listStyle(.plain)
+        .accessibilityIdentifier("list.page")
         .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
         .contentMargins(.bottom, AteMetrics.tabBarScrollInset, for: .scrollContent)
@@ -86,7 +87,6 @@ struct V2ListPage: View {
             .accessibilityIdentifier("list.delete.confirm")
         }
         .listsFailureAlert(failure: isPicking || isRenaming ? nil : store.failure) { store.clearFailure() }
-        .accessibilityIdentifier("list.page")
     }
 
     // MARK: - The rows

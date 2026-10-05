@@ -15,11 +15,14 @@ struct AteListCard: View {
     var covers: [String] = []
     /// Still being made: drawn, not yet a door.
     var isPending = false
+    /// Set by the shelf so neighbours never share a colour (``DishTileIdentity/paletteIndices(for:count:)``);
+    /// `nil` is the list's own.
+    var accentIndex: Int?
     var identifier: String?
     let action: () -> Void
 
     var body: some View {
-        let accent = Self.accent(for: id)
+        let accent = accentIndex.map { Self.accents[$0 % Self.accents.count] } ?? Self.accent(for: id)
         Button(action: action) {
             VStack(alignment: .leading, spacing: AteListCardMetrics.gap) {
                 HStack(alignment: .top, spacing: AteMetrics.snug) {
