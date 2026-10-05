@@ -55,6 +55,11 @@ enum AteIcon: String, CaseIterable {
     case userMinus
     /// You's notifications ("Ate with") — Lucide's bell.
     case bell
+    /// The Lists shelf's New list, and Add to a list (`lists-notifications.html` §3) — Lucide's
+    /// list-plus.
+    case listPlus
+    /// Delete list — Lucide's trash.
+    case trash
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
@@ -165,6 +170,12 @@ M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.70
             [Self.path("M10.268 21a2 2 0 0 0 3.464 0"),
              Self.path("M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8"
                  + "c0 4.499-1.411 5.956-2.738 7.326")]
+        case .listPlus: // list-plus
+            [Self.path("M11 12H3"), Self.path("M16 6H3"), Self.path("M16 18H3"), Self.path("M18 9v6"),
+             Self.path("M21 12h-6")]
+        case .trash: // trash
+            [Self.path("M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"), Self.path("M3 6h18"),
+             Self.path("M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2")]
         case .listFilter: // list-filter
             [Self.path("M2 5h20"), Self.path("M6 12h12"), Self.path("M9 19h6")]
         case .heart: // heart

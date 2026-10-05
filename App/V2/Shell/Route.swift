@@ -29,11 +29,14 @@ enum Route: Hashable {
     case following(city: String?)
     /// "Ate with": the notifications list, pushed from the bell on You.
     case notifications
+    /// One of your lists (0060), pushed from the Journal's Lists shelf.
+    case list(ListRoute)
 
     /// Whether this destination exists yet.
     var isBuilt: Bool {
         switch self {
-        case .entry, .suggestions, .profile, .place, .dish, .tag, .ratings, .settings, .following, .notifications:
+        case .entry, .suggestions, .profile, .place, .dish, .tag, .ratings, .settings, .following, .notifications,
+             .list:
             true
         }
     }

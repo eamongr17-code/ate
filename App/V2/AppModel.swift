@@ -21,6 +21,9 @@ final class AppModel {
     /// "Ate with": the bell's count and the notifications list — one of it, so a tag answered in the
     /// composer is gone from the list and the count in the same turn.
     let notifications: NotificationsStore
+    /// Your lists — one shelf, so a list changed on its own page or from Add to a list is current on
+    /// the Journal's Lists shelf in the same turn.
+    let lists: ListsStore
     private(set) var hasSession: Bool
     private(set) var isSigningIn = false
     /// Apple's display name, first sign-in only: the handle screen's suggestion.
@@ -58,6 +61,7 @@ final class AppModel {
         self.gate = gate
         self.savedDishes = shelf
         self.notifications = NotificationsStore(reads: services.notifications, analytics: services.analytics)
+        self.lists = ListsStore(service: services.lists, analytics: services.analytics)
         self.saves = SaveAction(
             saves: services.saves,
             analytics: services.analytics,
