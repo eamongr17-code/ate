@@ -63,6 +63,10 @@ struct AteServices {
     let ateWith: any AteWithResponding
     /// This phone's APNs token, for whoever is signed in.
     let pushTokens: any PushTokenRegistering
+    /// Your lists (0060): the shelf, a list's page, the dish picker and the Add to a list sheet.
+    let lists: any ListsServing
+    /// Searching your own journal (`search_my_entries`, 0060).
+    let journalSearch: any JournalSearching
     /// The phone's own preferences — the appearance, and who still owes a handle. One object for
     /// the whole app, so the root that paints the appearance and the page that changes it agree.
     let preferences: AtePreferences
@@ -115,6 +119,8 @@ struct AteServices {
         self.notifications = preview?.notifications ?? notificationsClient
         self.ateWith = preview?.ateWith ?? notificationsClient
         self.pushTokens = preview?.pushTokens ?? notificationsClient
+        self.lists = preview?.lists ?? ListsClient(api: api)
+        self.journalSearch = preview?.journalSearch ?? JournalSearchClient(api: api)
         self.preferences = AtePreferences.standard
         self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record, owner: owner)
         if api.isSignedIn || preview != nil { drafts.adoptUnownedDraft() }
@@ -161,6 +167,8 @@ struct AteServices {
         let notifications: any NotificationsReading
         let ateWith: any AteWithResponding
         let pushTokens: any PushTokenRegistering
+        let lists: any ListsServing
+        let journalSearch: any JournalSearching
     }
 
     private static func previewServices() -> PreviewServices? {
@@ -184,7 +192,8 @@ struct AteServices {
             placePages: social, dishPages: social, dishExplore: social, search: social,
             account: InMemoryAccountService(),
             companions: InMemoryCompanionTagging.seeded(viewerID: EntryCard.previewSorted.authorID),
-            notifications: notifications, ateWith: notifications, pushTokens: notifications
+            notifications: notifications, ateWith: notifications, pushTokens: notifications,
+            lists: InMemoryLists.preview(), journalSearch: InMemoryJournalSearch(entries: service)
         )
         #else
         return nil
