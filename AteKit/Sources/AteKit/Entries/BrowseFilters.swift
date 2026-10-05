@@ -94,3 +94,16 @@ public enum BrowseChip: String, CaseIterable, Sendable, Identifiable {
         }
     }
 }
+
+public extension BrowseFilters {
+    /// The chips that show under the bar — only the filters that are on, in the sheet's order, and
+    /// never the order on Saved (which has none).
+    func activeChips(on shelf: BrowseChip.Shelf) -> [BrowseChip] {
+        BrowseChip.chips(on: shelf).filter { isActive($0) }
+    }
+
+    /// Whether anything at all is on, for `shelf`.
+    func isFiltering(on shelf: BrowseChip.Shelf) -> Bool {
+        activeChips(on: shelf).isEmpty == false
+    }
+}

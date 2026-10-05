@@ -1,7 +1,7 @@
 import AteKit
 import SwiftUI
 
-/// **The Journal's one filter sheet** — and Saved's, less the order: Sort as a segmented control,
+/// **The Journal's one filter sheet** — and the Saved tab's, less the order: Sort as a segmented control,
 /// the Rating's two-thumb range, the City as a native menu, and the Date's two-thumb range over
 /// months. It edits a draft of the whole filter; the ink pill at the foot counts as you drag
 /// ("Show 12 entries") and applies it.

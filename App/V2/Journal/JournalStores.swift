@@ -2,8 +2,7 @@ import AteKit
 import SwiftUI
 
 /// **The Journal tab's stores**, made by its router the first time the tab is shown: your entries
-/// (with the calendar's days behind them) and the count of photos waiting to be written up. The
-/// Saved shelf is the app's (``AppModel/savedDishes``), because a save made anywhere marks it.
+/// and the count of photos waiting to be written up.
 @MainActor
 struct JournalStores {
     let journal: JournalStore
