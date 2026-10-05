@@ -16,8 +16,12 @@ struct AteActionsSheet: View {
     var onShare: () -> [Any]
     var onReport: () -> Void
     var onBlock: () -> Void
+    /// "Ate with": on an entry the viewer is tagged on, "Remove me" after Share — the only way to
+    /// decline (`ate-with.html` 4). Absent everywhere else. It asks once.
+    var onRemoveMe: (() -> Void)?
 
     @State private var confirming: ActionsSheetRow?
+    @State private var isConfirmingRemoveMe = false
     @State private var sharing: Payload?
     @State private var askOnceGone: SessionGate.Trigger?
     @Environment(SessionGate.self) private var gate: SessionGate?
@@ -33,6 +37,7 @@ struct AteActionsSheet: View {
             VStack(spacing: 0) {
                 ForEach(ActionsSheetRow.rows(canSave: onSave != nil)) { row in
                     button(for: row)
+                    if row == .share, onRemoveMe != nil { removeMeButton }
                 }
             }
         }
@@ -52,6 +57,38 @@ struct AteActionsSheet: View {
             }
         }
         .sheet(item: $sharing) { ShareSheet(items: $0.items) }
+    }
+
+    /// The row's anatomy, red: taking yourself off somebody's entry is not undone from here.
+    private var removeMeButton: some View {
+        Button {
+            isConfirmingRemoveMe = true
+        } label: {
+            VStack(spacing: 0) {
+                AteHairline()
+                HStack(spacing: AteActionsSheetMetrics.gap) {
+                    AteIcon.userMinus.view(size: AteActionsSheetMetrics.icon)
+                    Text("Remove me").ateText(.rowTitle)
+                    Spacer(minLength: 0)
+                }
+                .frame(minHeight: AteActionsSheetMetrics.rowHeight)
+                .contentShape(.rect)
+            }
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(AteColor.destructive)
+        .accessibilityIdentifier("actions.removeMe")
+        // Its own ask, on its own row: one dialog per view, and the sheet's is Report and Block's.
+        .confirmationDialog(
+            "Remove yourself from \(title)'s entry?",
+            isPresented: $isConfirmingRemoveMe,
+            titleVisibility: .visible
+        ) {
+            Button("Remove", role: .destructive) {
+                onRemoveMe?()
+                dismiss()
+            }
+        }
     }
 
     private func button(for row: ActionsSheetRow) -> some View {

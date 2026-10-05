@@ -59,7 +59,7 @@ public struct SupabaseCompanionTagging: CompanionTagging {
             .limit(Self.recentRows)
             .execute()
             .value
-        return CompanionRecents.distinct(rows.compactMap(\.person?.companion), limit: limit)
+        return CompanionRecents.distinct(rows.compactMap { $0.person?.companion }, limit: limit)
     }
 
     public func searchPeople(_ query: String, after cursor: SearchCursor?, pageSize: Int) async throws
@@ -85,22 +85,22 @@ public struct SupabaseCompanionTagging: CompanionTagging {
     }
 
     private struct RecentRow: Decodable {
-        let person: Person?
+        let person: RecentPerson?
+    }
 
-        struct Person: Decodable {
-            let id: UUID
-            let username: String
-            let name: String?
-            let avatarURL: String?
+    private struct RecentPerson: Decodable {
+        let id: UUID
+        let username: String
+        let name: String?
+        let avatarURL: String?
 
-            var companion: CompanionPerson? {
-                CompanionPerson(userID: id, handle: username, name: name, avatarURL: avatarURL)
-            }
+        var companion: CompanionPerson {
+            CompanionPerson(userID: id, handle: username, name: name, avatarURL: avatarURL)
+        }
 
-            enum CodingKeys: String, CodingKey {
-                case id, username, name
-                case avatarURL = "avatar_url"
-            }
+        enum CodingKeys: String, CodingKey {
+            case id, username, name
+            case avatarURL = "avatar_url"
         }
     }
 }

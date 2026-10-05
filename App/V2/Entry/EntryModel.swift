@@ -46,6 +46,9 @@ final class EntryModel: SavedDishObserving {
     private(set) var isDeleting = false
     /// Non-nil presents `Share` — the coral screen the receipt actually leaves from.
     var sharing: Sharing?
+    /// "Ate with": the viewer's own tag on this (somebody else's) entry — what "Remove me" declines.
+    /// `nil` when they are not tagged on it, and then the row is not there.
+    private(set) var myTag: UUID?
 
     private let route: EntryRoute
     private let services: AteServices
@@ -88,9 +91,41 @@ final class EntryModel: SavedDishObserving {
             handle = read
             if let card, case .printed = state { state = EntryPresentation.state(for: card, handle: handle) }
         }
+        await findMyTag()
         // An entry that arrived here unsorted keeps asking, quietly, until it is: the person was
         // told their words were saved, and the receipt is the other half of that.
         if card?.sortStatus == .pending, state != .failed { await waitForSort() }
+    }
+
+    // MARK: - Ate with
+
+    /// Who it was eaten with, as the kit draws them.
+    var companions: [AteWithPerson] {
+        (card?.companions ?? []).map { AteWithPerson(id: $0.userID, handle: $0.username) }
+    }
+
+    /// Somebody else's entry that lists people: is the viewer one of them, tagged by its author? (A
+    /// response lists the original's author too, who is not tagged on it — only the row says.)
+    private func findMyTag() async {
+        guard let card, card.isMine == false, card.companions.isEmpty == false else {
+            myTag = nil
+            return
+        }
+        myTag = try? await services.companions.myTag(onEntry: card.id)
+    }
+
+    /// "Remove me": off the author's entry, asked once by the sheet; the author is not told. The
+    /// page reads the entry again so "with" drops the viewer.
+    func removeMe() async {
+        guard let tag = myTag else { return }
+        do {
+            try await services.companions.decline(companionID: tag)
+            myTag = nil
+            services.analytics(CompanionEvents.removedSelf())
+            await reload()
+        } catch {
+            failure = .removeMe
+        }
     }
 
     func reload() async {
@@ -432,7 +467,8 @@ enum EntryPresentation {
             },
             orderNumber: card.orderNumber,
             date: card.createdAt,
-            handle: card.author?.username ?? handle
+            handle: card.author?.username ?? handle,
+            companions: card.companions.map(\.username)
         )
     }
 

@@ -20,6 +20,9 @@ struct V2ComposerPrinted: View {
         /// The composer's staged photos — the entry's own are still uploading; these are the same
         /// pictures, already in memory.
         let photos: [AtePhoto]
+        /// "Ate with": the handles on the With key — the signature line prints them before the
+        /// entry's own row has its companions back.
+        var companions: [String] = []
         /// The sort's own answer, heard as it lands.
         let sorted: Latch<EntryCard?>?
         /// The chips and 6s it was sorted with, so "Print it again" re-sorts with the same ones.
@@ -137,7 +140,10 @@ struct V2ComposerPrinted: View {
 
     /// Dish rows and scores only, never a note.
     private var receipt: AteReceipt {
-        EntryPresentation.receipt(for: store.card, handle: app.handle ?? store.card.author?.username ?? "")
+        let handle = app.handle ?? store.card.author?.username ?? ""
+        var receipt = EntryPresentation.receipt(for: store.card, handle: handle)
+        if receipt.companions.isEmpty { receipt.companions = handoff.companions }
+        return receipt
     }
 
     /// The sort's answer from the composer's latch — the one the tick's dots waited on.

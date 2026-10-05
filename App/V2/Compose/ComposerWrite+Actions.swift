@@ -94,6 +94,9 @@ extension V2ComposerWrite {
         model.clearDraft()
         model.markEntrySaved()
         sendLatePhotos()
+        // The people go behind the words, never in front of them: queued offline with the entry,
+        // and sent once it has landed.
+        sendCompanions(entryID: request.id, from: [])
 
         guard case .saved = result else {
             // Queued offline: the insert never landed, so nothing has started — try the rest now
@@ -116,6 +119,7 @@ extension V2ComposerWrite {
         onPrinted(V2ComposerPrinted.Handoff(
             card: shown,
             photos: model.photos.map(\.photo),
+            companions: model.companions.map(\.handle),
             sorted: sorted,
             tagTokens: request.tagTokens,
             sixTokens: request.sixTokens,
@@ -126,6 +130,21 @@ extension V2ComposerWrite {
         Task {
             try? await Task.sleep(for: V2ComposerTiming.landing)
             NotificationCenter.ateEntryChanged(shown)
+        }
+    }
+
+    /// "Ate with": who was added and who was taken off, handed to the tag queue — detached, so
+    /// closing the sheet never cancels it, and a failure never reaches the person (it retries, or is
+    /// a refusal that will not change).
+    private func sendCompanions(entryID: UUID, from original: [CompanionPerson]) {
+        guard model.companionsChanged else { return }
+        let before = original.map(\.userID)
+        let after = model.companions.map(\.userID)
+        let sync = services.companionTags
+        let analytics = services.analytics
+        Task.detached {
+            let added = await sync.apply(entryID: entryID, from: before, to: after)
+            if added > 0 { analytics(CompanionEvents.tagged(count: added)) }
         }
     }
 
@@ -167,6 +186,7 @@ extension V2ComposerWrite {
                 isSaving = false
                 model.markEntrySaved()
                 sendLatePhotos()
+                sendCompanions(entryID: editing.id, from: model.originalCompanions)
                 if edit.changesPlace { analytics(EntryEvents.corrected(.place)) }
                 AteHaptics.success()
                 NotificationCenter.ateEntryChanged(card)

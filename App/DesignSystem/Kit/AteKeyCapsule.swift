@@ -22,6 +22,9 @@ struct AteKeyCapsule<Library: View>: View {
     /// The Diet key was pressed: anything open (the slider) closes before the codes unfold.
     let onDiet: () -> Void
     let onCode: (DietTag) -> Void
+    /// "Ate with": the people on the With key, and what it opens. No key at all without `onWith`.
+    var with: [AteWithPerson] = []
+    var onWith: (() -> Void)?
     @ViewBuilder var library: Library
 
     @Environment(\.atePalette) private var palette
@@ -66,6 +69,9 @@ struct AteKeyCapsule<Library: View>: View {
                 AteKey(kind: .diet) {
                     onDiet()
                     isChoosingDiet = true
+                }
+                if let onWith {
+                    AteKey(kind: .with(with), action: onWith)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)

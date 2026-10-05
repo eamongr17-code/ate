@@ -319,12 +319,24 @@ struct EntrySlip: View {
         HStack(spacing: AteMetrics.snug) {
             AteAvatar(userID: byline.userID, handle: byline.handle)
             // A long handle truncates (`.trunc`); the age beside it never does.
-            Text(verbatim: byline.name)
+            bylineText(byline)
                 .ateText(.controlSmall)
                 .lineLimit(1)
                 .truncationMode(.tail)
         }
         .contentShape(.rect)
+    }
+
+    /// The handle — and, on a visit eaten with somebody, " with @jess" after it, "with" muted
+    /// (`ate-with.html` 1f).
+    private func bylineText(_ byline: AteByline) -> Text {
+        var line = AttributedString(byline.name)
+        if let with = byline.with {
+            var word = AttributedString(" with ")
+            word.foregroundColor = AtePalette.slip.muted
+            line += word + AttributedString(with)
+        }
+        return Text(line)
     }
 }
 

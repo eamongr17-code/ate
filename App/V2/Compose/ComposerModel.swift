@@ -32,6 +32,13 @@ final class ComposerModel {
     /// Bumped to pull the keyboard back after the slider or a sheet closes.
     private(set) var focusRequest = 0
     var isPickingPlace = false
+    /// "Who were you with?" is up.
+    var isPickingCompanions = false
+    /// **Who it was eaten with**, held by the With key — never in the words. Sent with the entry
+    /// (``CompanionTagSync``), and never blocking it.
+    private(set) var companions: [CompanionPerson] = []
+    /// Who the entry already had, on an edit: Done sends only the difference.
+    let originalCompanions: [CompanionPerson]
 
     /// The entry's id, minted here and carried to the INSERT — what makes the write idempotent.
     let draftID: UUID
@@ -47,6 +54,8 @@ final class ComposerModel {
     init(drafts: any EntryDraftStoring, editing: ComposerPresentation.EditingEntry? = nil) {
         self.drafts = drafts
         self.editing = editing
+        self.originalCompanions = editing?.companions.map(CompanionPerson.init) ?? []
+        self.companions = originalCompanions
         if let editing {
             self.draftID = editing.id
             self.composition = editing.composition
@@ -386,6 +395,20 @@ final class ComposerModel {
     /// What the place sheet opens pre-filled with: the place already on the key, otherwise nothing —
     /// guessing from the prose is the sorter's job, and a location is never a guess we make.
     var placeQuery: String { place?.name ?? "" }
+
+    // MARK: - The With key
+
+    /// The people the picker committed. Their faces go on the key; nothing goes in the words.
+    func setCompanions(_ people: [CompanionPerson]) {
+        companions = Array(people.prefix(CompanionPickerStore.cap))
+        isPickingCompanions = false
+        focusRequest += 1
+    }
+
+    /// Whether the With key's people differ from what the entry had.
+    var companionsChanged: Bool {
+        companions.map(\.userID) != originalCompanions.map(\.userID)
+    }
 
     // MARK: - The Diet key (prototype)
 

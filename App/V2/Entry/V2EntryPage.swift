@@ -168,6 +168,8 @@ private struct V2EntryScreen: View {
             onCorrectPlace: card.isMine ? { model.isCorrectingPlace = true } : nil,
             onPhoto: { showPhotos(model.photos, at: $0) },
             onReprint: { Task { await model.retrySort() } },
+            with: model.companions,
+            onWithPerson: { context.open(.profile($0.id), from: .entry) },
             // The paper ends at its words: "More at" and "More like this" sit right under it.
             fillsScreen: false
         )
@@ -277,7 +279,8 @@ private struct V2EntryScreen: View {
                         guard await model.blockAuthor() != nil else { return }
                         dismiss()
                     }
-                }
+                },
+                onRemoveMe: model.myTag == nil ? nil : { Task { await model.removeMe() } }
             )
             .environment(context.gate)
         }

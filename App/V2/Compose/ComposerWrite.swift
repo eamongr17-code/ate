@@ -92,6 +92,13 @@ struct V2ComposerWrite: View {
             selected: { model.place?.id },
             onPick: { place in model.attach(place: place).map(services.analytics) }
         )
+        .v2WithSheet(
+            isPresented: $model.isPickingCompanions,
+            service: services.companions,
+            initial: { model.companions },
+            analytics: services.analytics,
+            onCommit: { model.setCompanions($0) }
+        )
         .fullScreenCover(isPresented: $isTakingPhoto) {
             CameraPicker { image in captured(image) }.ignoresSafeArea()
         }
@@ -225,6 +232,13 @@ struct V2ComposerWrite: View {
                     model.dismissScoring(refocus: false)
                 },
                 onCode: pick,
+                with: model.companions.map { AteWithPerson(id: $0.userID, handle: $0.handle) },
+                onWith: {
+                    // Who and where both sit in keys, never in the words (`ate-with.html` 1a).
+                    AteHaptics.key()
+                    model.dismissScoring(refocus: false)
+                    model.isPickingCompanions = true
+                },
                 library: { libraryKey }
             )
         }
@@ -294,6 +308,7 @@ struct V2ComposerWrite: View {
         return model.composition.plain != editing.composition.plain
             || model.place?.id != editing.restaurantID
             || model.photos.map(\.id) != editing.photos.map(\.url)
+            || model.companionsChanged
     }
 
     /// The composer is going away for good: nothing further goes early, and a preview in flight for

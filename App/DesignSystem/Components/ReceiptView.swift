@@ -45,6 +45,9 @@ struct AteReceipt: Equatable, Identifiable {
     var orderNumber: Int
     var date: Date
     var handle: String
+    /// "Ate with": the handles the signature line adds — "@eamon with @jess", "with @jess +1"
+    /// (`ate-with.html` 1e). Empty prints the signature alone.
+    var companions: [String] = []
 
     init(
         id: UUID = UUID(),
@@ -54,7 +57,8 @@ struct AteReceipt: Equatable, Identifiable {
         items: [Item],
         orderNumber: Int,
         date: Date,
-        handle: String
+        handle: String,
+        companions: [String] = []
     ) {
         self.id = id
         self.place = place
@@ -64,6 +68,7 @@ struct AteReceipt: Equatable, Identifiable {
         self.orderNumber = orderNumber
         self.date = date
         self.handle = handle
+        self.companions = companions
     }
 
     /// How a receipt writes its date: "Sat 19 Sep 2026". The ORDER is the design's and is fixed; the
@@ -168,12 +173,24 @@ struct ReceiptView: View {
 
     private var footer: some View {
         HStack {
-            Text(verbatim: "@\(receipt.handle)")
+            signature
                 .ateText(.receiptLabel)
                 .foregroundStyle(AtePalette.slip.fg)
+                .lineLimit(1)
             Spacer(minLength: AteMetrics.snug)
             AteWordmark(height: AteMetrics.wordmarkFooter)
         }
+    }
+
+    /// "@eamon", or "@eamon with @jess +1" — the same mono fine print, "with" muted.
+    private var signature: Text {
+        var line = AttributedString("@\(receipt.handle)")
+        if let with = CompanionLine.compact(receipt.companions) {
+            var word = AttributedString(" with ")
+            word.foregroundColor = AtePalette.slip.muted
+            line += word + AttributedString(with)
+        }
+        return Text(line)
     }
 }
 

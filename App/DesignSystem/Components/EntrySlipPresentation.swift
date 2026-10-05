@@ -26,7 +26,8 @@ enum EntrySlipPresentation {
             slip.byline = AteByline(
                 userID: author.id,
                 handle: author.username,
-                age: RelativeAge.short(card.createdAt, now: now)
+                age: RelativeAge.short(card.createdAt, now: now),
+                with: CompanionLine.compact(card.companions.map(\.username))
             )
         }
         return slip

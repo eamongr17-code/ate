@@ -105,6 +105,8 @@ struct AteByline: Equatable {
     /// Your own visit, woven into a place's list (`RestaurantVisits`): the byline reads "You"
     /// rather than your handle.
     var isYou = false
+    /// "Ate with", after the handle — "@jess", "@jess +1" (``CompanionLine``). `nil` when nobody.
+    var with: String?
 
     /// What the byline prints.
     var name: String { isYou ? "You" : "@\(handle)" }

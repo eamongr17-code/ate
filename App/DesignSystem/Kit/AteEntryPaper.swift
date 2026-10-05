@@ -36,6 +36,10 @@ struct AteEntryPaper: View {
     var onCorrectPlace: (() -> Void)?
     var onPhoto: ((Int) -> Void)?
     var onReprint: (() -> Void)?
+    /// "Ate with": who it was eaten with, printed under the place line (``AteWithLine``) — nothing
+    /// when nobody. A handle opens that person's page.
+    var with: [AteWithPerson] = []
+    var onWithPerson: ((AteWithPerson) -> Void)?
     /// `true`: the paper runs off the foot of the screen (the page continues). `false`: it ends at its
     /// content, rounded at the foot too, so what sits under it on the ground is in view.
     var fillsScreen = true
@@ -59,11 +63,16 @@ struct AteEntryPaper: View {
                 )
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            AteEntryPlaceLine(
-                place: place, suburb: suburb, day: day,
-                action: onPlace ?? onCorrectPlace,
-                secondary: onPlace == nil ? nil : onCorrectPlace
-            )
+            VStack(alignment: .leading, spacing: AteWithKitMetrics.underPlace) {
+                AteEntryPlaceLine(
+                    place: place, suburb: suburb, day: day,
+                    action: onPlace ?? onCorrectPlace,
+                    secondary: onPlace == nil ? nil : onCorrectPlace
+                )
+                if with.isEmpty == false {
+                    AteWithLine(people: with) { onWithPerson?($0) }
+                }
+            }
         }
         .padding(.top, AteMetrics.pagePaddingTop)
         .padding(.horizontal, AteMetrics.pagePaddingSide)

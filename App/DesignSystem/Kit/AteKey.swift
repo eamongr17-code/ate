@@ -13,6 +13,9 @@ struct AteKey: View {
         case diet
         /// One of the five codes the Diet key unfolds into.
         case code(DietTag)
+        /// "Ate with" — fourth, after the leaf, the same 40 round key: the people on it, or the
+        /// user-plus glyph when nobody is (``AteWithKeyFace``).
+        case with([AteWithPerson])
     }
 
     let kind: Kind
@@ -57,6 +60,14 @@ struct AteKey: View {
             .fixedSize()
         case .code(let tag):
             AteDietPill(tag: tag, identifier: "composer.diet.\(tag.rawValue)", action: action)
+        case .with(let people):
+            Button(action: action) { AteWithKeyFace(people: people).ateHitArea(.keyDisc) }
+                .buttonStyle(.plain)
+                .ateHitFootprint(.keyDisc)
+                .fixedSize()
+                .accessibilityLabel(people.isEmpty ? "With" : "With: " + people.map { "@\($0.handle)" }
+                    .joined(separator: ", "))
+                .accessibilityIdentifier("composer.key.with")
         }
     }
 }

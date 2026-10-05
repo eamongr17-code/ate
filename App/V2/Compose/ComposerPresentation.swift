@@ -43,6 +43,9 @@ struct ComposerPresentation: Identifiable, Hashable {
         var photos: [EntryCard.Photo] = []
         /// The receipt's lines, so a chip deleted during the edit clears its own line's tag.
         var items: [EntryCard.Item] = []
+        /// Who it was eaten with, as the author sees them (pending included) — the With key opens
+        /// holding them, and Done sends the difference.
+        var companions: [EntryCompanion] = []
     }
 
     /// Answering an "Ate with" tag: the composer, prefilled from the tag.
@@ -60,7 +63,8 @@ struct ComposerPresentation: Identifiable, Hashable {
                 placeName: card.place?.name,
                 composition: EntryBodyTokens.composition(for: card),
                 photos: card.photos.sorted { $0.position < $1.position },
-                items: card.items
+                items: card.items,
+                companions: card.companions
             )
         )
     }
