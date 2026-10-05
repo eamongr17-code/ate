@@ -163,6 +163,10 @@ jobs:
       - name: Sorter suites (sort-entry)
         run: node --test supabase/functions/sort-entry/*_test.ts
 
+      # send-push's logic (push.ts) is runtime-free too: fake APNs + fake database, under Node.
+      - name: Push sender suites (send-push)
+        run: node --test supabase/functions/send-push/*_test.ts
+
       # places-search's pure modules, same deal: no runtime APIs, so Node runs them. Only the
       # node-compatible suites are listed — blend_test.ts and vic_filter_test.ts import
       # deno.land/std and need `deno test`.

@@ -432,3 +432,8 @@ enabled = true
 # declarative_schema_path = "./schemas"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# send-push authorises its own callers (the service-role key, or the database's kick secret from 0059
+# push_configure, which is not a JWT), so the gateway's JWT check must not run in front of it.
+[functions.send-push]
+verify_jwt = false

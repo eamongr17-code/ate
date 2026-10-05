@@ -132,3 +132,40 @@ test('push_drop_tokens deletes dead tokens; push_kick is a silent no-op without 
   await tag(U.alice, E, U.dan);                                  // the insert trigger kicked and did not fail
   assert.equal((await asService(() => rows(`select public.push_kick() k`)))[0].k, false);
 });
+
+test('push_configure: keyless setup — stores the URL, generates the kick secret once, never returns it', async () => {
+  // PGlite has no Vault: a stand-in with the same names and call shapes (vault.create_secret/update_secret).
+  await db.exec(`
+    create schema if not exists vault;
+    create table if not exists vault.secrets (id uuid primary key default gen_random_uuid(), name text unique, secret text, description text);
+    create or replace view vault.decrypted_secrets as select id, name, secret as decrypted_secret, description from vault.secrets;
+    create or replace function vault.create_secret(new_secret text, new_name text default null, new_description text default '')
+      returns uuid language sql as $$ insert into vault.secrets (secret, name, description) values (new_secret, new_name, new_description) returning id $$;
+    create or replace function vault.update_secret(secret_id uuid, new_secret text default null, new_name text default null, new_description text default null)
+      returns void language sql as $$ update vault.secrets set secret = coalesce(new_secret, secret) where id = secret_id $$;
+  `);
+  const URL1 = 'https://cvoitgoaosofkougmarn.supabase.co/functions/v1/send-push';
+  assert.equal((await as(U.alice, () => error(db.query(`select public.push_configure($1)`, [URL1]))))?.code, '42501', 'not for clients');
+  for (const bad of ['http://x.supabase.co/functions/v1/send-push', 'https://x.supabase.co/functions/v1/sort-entry', '']) {
+    assert.equal((await asService(() => error(db.query(`select public.push_configure($1)`, [bad]))))?.code, '22023', bad);
+  }
+  const out = await asService(() => rows(`select public.push_configure($1) r`, [URL1]));
+  assert.equal(out[0].r, '', 'returns nothing (void)');
+  const vault = async () => Object.fromEntries((await rows(`select name, secret from vault.secrets`)).map((r) => [r.name, r.secret]));
+  let v = await vault();
+  assert.equal(v.send_push_url, URL1);
+  assert.match(v.send_push_kick_secret, /^[0-9a-f]{64}$/, 'database-generated, 32 random bytes');
+  const first = v.send_push_kick_secret;
+
+  await asService(() => db.query(`select public.push_configure($1)`, [URL1.replace('cvoit', 'vyaex')]));
+  v = await vault();
+  assert.equal(v.send_push_url, URL1.replace('cvoit', 'vyaex'), 're-running updates the URL');
+  assert.equal(v.send_push_kick_secret, first, '…and keeps the secret');
+
+  assert.equal((await asService(() => rows(`select public.push_kick_secret() s`)))[0].s, first, 'the function reads it with the service role');
+  assert.equal((await as(U.alice, () => error(db.query(`select public.push_kick_secret()`))))?.code, '42501');
+  // Vault ready, a tag ready, no pg_net here: the kick fails inside and swallows it.
+  const E = await w.visit(50, U.cleo, P.tipo, receipt(['Gnocchi']));
+  await tag(U.cleo, E, U.alice);
+  assert.equal((await asService(() => rows(`select public.push_kick() k`)))[0].k, false);
+});

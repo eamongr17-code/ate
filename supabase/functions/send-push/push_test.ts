@@ -9,9 +9,10 @@
 // here the rule is that the function sends exactly what the claim returns, and nothing when it returns [].
 
 import { test, assert, assertEquals } from '../sort-entry/harness.ts';
-import { createHandler, pushCopy, resetJwtCache, type Claimed, type Deps } from './push.ts';
+import { createHandler, pushCopy, resetJwtCache, resetKickSecretCache, type Claimed, type Deps } from './push.ts';
 
 const SERVICE = 'service-role-key-for-tests';
+const KICK = 'f0'.repeat(32); // what push_configure would have generated
 
 async function makeKey() {
   const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
@@ -42,7 +43,11 @@ const ROW: Claimed = {
 };
 
 type Sent = { url: string; headers: Record<string, string>; body: any };
-function world(opts: { secrets?: Record<string, string>; rows?: Claimed[]; apns?: (url: string) => Response; now?: () => number } = {}) {
+function world(opts: {
+  secrets?: Record<string, string>; rows?: Claimed[]; apns?: (url: string) => Response; now?: () => number;
+  kick?: string | null; failRpc?: string;
+} = {}) {
+  resetKickSecretCache();
   const rpcs: { name: string; args: any }[] = [];
   const sent: Sent[] = [];
   let dbOpened = 0;
@@ -54,6 +59,8 @@ function world(opts: { secrets?: Record<string, string>; rows?: Claimed[]; apns?
       return {
         rpc: async (name: string, args?: Record<string, unknown>) => {
           rpcs.push({ name, args });
+          if (name === opts.failRpc) return { data: null, error: { message: 'boom' } };
+          if (name === 'push_kick_secret') return { data: opts.kick === undefined ? KICK : opts.kick, error: null };
           return { data: name === 'push_claim_ate_with' ? (opts.rows ?? [ROW]) : 1, error: null };
         },
       };
@@ -112,26 +119,83 @@ test('happy path: one APNs request per token, each to ITS host, signed, with the
   assertEquals(odd.sent.length, 0, 'an unknown environment is never guessed at (and never dropped)');
 });
 
-test('no APNS secrets: a clean no-op — no claim, no APNs, nothing marked', async () => {
+test('no APNS secrets: a clean no-op — {configured:false}, no claim, no APNs, nothing marked', async () => {
   for (const missing of ['APNS_KEY_ID', 'APNS_TEAM_ID', 'APNS_PRIVATE_KEY']) {
     const secrets = { ...SECRETS };
     delete secrets[missing];
     const w = world({ secrets });
     const res = await w.call();
     assertEquals(res.status, 200);
-    assertEquals(await res.json(), { ok: true, skipped: 'apns_not_configured' }, missing);
+    assertEquals(await res.json(), { ok: true, configured: false }, missing);
     assertEquals([w.opened(), w.sent.length], [0, 0], `${missing}: touched nothing`);
   }
 });
 
-test('only the service role may call it', async () => {
+test('auth: the service-role key or the database\'s kick secret; anything else is 401', async () => {
   const w = world();
-  for (const auth of ['', 'Bearer ', 'Bearer anon-key', `Bearer ${SERVICE}x`]) {
-    assertEquals((await w.call(auth)).status, 401, JSON.stringify(auth));
+  assertEquals((await w.call(`Bearer ${SERVICE}`)).status, 200, 'service role');
+  assert(!w.rpcs.some((r) => r.name === 'push_kick_secret'), 'the service key needs no Vault read');
+
+  const k = world();
+  const res = await k.call(`Bearer ${KICK}`);
+  assertEquals(res.status, 200, 'the kick secret pg_net sends');
+  assertEquals((await res.json()).sent, 2);
+  await k.call(`Bearer ${KICK}`);
+  assertEquals(k.rpcs.filter((r) => r.name === 'push_kick_secret').length, 1, 'read once, then cached');
+
+  const bad = world();
+  for (const auth of ['', 'Bearer ', 'Bearer anon-key', `Bearer ${SERVICE}x`, `Bearer ${KICK.slice(1)}`, `Bearer ${KICK}0`]) {
+    assertEquals((await bad.call(auth)).status, 401, JSON.stringify(auth));
   }
-  const noKey = world({ secrets: { ...SECRETS, SUPABASE_SERVICE_ROLE_KEY: '' } });
-  assertEquals((await noKey.call('Bearer ')).status, 401, 'an unset key never matches an empty bearer');
-  assertEquals([w.opened(), w.sent.length], [0, 0]);
+  assertEquals([bad.sent.length, bad.rpcs.filter((r) => r.name !== 'push_kick_secret').length], [0, 0], 'a wrong bearer claims and sends nothing');
+
+  const unconfigured = world({ kick: null });
+  assertEquals((await unconfigured.call(`Bearer ${KICK}`)).status, 401, 'no kick secret in Vault: only the service key works');
+  const noKey = world({ secrets: { ...SECRETS, SUPABASE_SERVICE_ROLE_KEY: '' }, kick: '' });
+  assertEquals((await noKey.call('Bearer x')).status, 401, 'empty secrets never match');
+});
+
+test('settled per row: a failure mid-batch leaves the rows already sent marked; RPC errors are reported', async () => {
+  const second: Claimed = { ...ROW, notification_id: 'n-2', tokens: [{ token: 'ee'.repeat(32), apns_env: 'sandbox' }] };
+  const w = world({ rows: [ROW, second], apns: (url) => url.endsWith('ee'.repeat(32)) ? new Response('', { status: 410 }) : new Response('', { status: 200 }) });
+  // a mark that errors is reported, not swallowed
+  const markFails = world({ failRpc: 'push_mark_sent' });
+  const r1 = await markFails.call();
+  assertEquals(r1.status, 500);
+  const b1 = await r1.json();
+  assertEquals([b1.ok, b1.sent, b1.marked], [false, 2, 0]);
+  assert(String(b1.errors).includes('mark n-1'), 'names the row');
+  // a drop that errors is reported; the row is still marked
+  const dropFails = world({ rows: [second], apns: () => new Response('', { status: 410 }), failRpc: 'push_drop_tokens' });
+  const b2 = await (await dropFails.call()).json();
+  assertEquals([b2.ok, b2.dropped, b2.marked], [false, 0, 1]);
+  // row 1 is marked BEFORE row 2 is attempted
+  const r3 = await w.call();
+  assertEquals(w.rpcs.map((r) => r.name), ['push_claim_ate_with', 'push_mark_sent', 'push_drop_tokens', 'push_mark_sent']);
+  assertEquals((await r3.json()).marked, 2);
+});
+
+test('a throw mid-batch (a lost connection on row 2) keeps row 1 marked', async () => {
+  const second: Claimed = { ...ROW, notification_id: 'n-2', tokens: [{ token: 'ee'.repeat(32), apns_env: 'sandbox' }] };
+  const rpcs: string[] = [];
+  const handler = createHandler({
+    env: (k) => SECRETS[k],
+    db: () => ({
+      rpc: async (name: string) => {
+        rpcs.push(name);
+        if (name === 'push_claim_ate_with') return { data: [ROW, second], error: null };
+        if (name === 'push_drop_tokens') throw new Error('connection lost');
+        return { data: 1, error: null };
+      },
+    }),
+    fetch: async (url) => new Response('', { status: url.endsWith('ee'.repeat(32)) ? 410 : 200 }),
+  });
+  const res = await handler(new Request('http://x', { method: 'POST', headers: { Authorization: `Bearer ${SERVICE}` } }));
+  assertEquals(res.status, 500);
+  assertEquals(rpcs, ['push_claim_ate_with', 'push_mark_sent', 'push_drop_tokens'], 'row 1 was marked before the throw');
+  const body = await res.json();
+  assertEquals([body.marked, body.sent], [1, 2]);
+  assert(String(body.errors).includes('connection lost'));
 });
 
 test('410 and BadDeviceToken drop the token; the notification still counts as pushed', async () => {

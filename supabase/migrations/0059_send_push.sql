@@ -18,7 +18,7 @@
 --   push_drop_tokens(p_tokens text[]) → int: deletes tokens APNs called dead (410 / BadDeviceToken).
 --
 -- ─── Waking the sender (push_kick): pg_net POSTs `{}` to the function, but ONLY when something is
---   ready, and only once both Vault secrets exist — `send_push_url` and `send_push_service_key`. No
+--   ready, and only once both Vault secrets exist — `send_push_url` and `send_push_kick_secret`. No
 --   Vault secrets = no HTTP at all, so this migration is inert until the lead finishes setup. Called:
 --     * on INSERT of an ate_with notification (the tag of an already-sorted entry),
 --     * on an entry becoming sorted while it has pending tags (the usual case: tag, then sort),
@@ -27,6 +27,12 @@
 --   is configured in the dashboard (outside the repo) and fires on every insert, including ones not
 --   yet sendable (entry still sorting) — it would need its own retry anyway. Both triggers swallow
 --   every error: a push problem can never fail a tag, a sort or an insert.
+--   KEYLESS SETUP: push_configure(p_url) (service_role/postgres only) stores the URL and, once, a random
+--   32-byte kick secret the DATABASE generates — no one ever copies the service-role key. pg_net sends it
+--   as the bearer; send-push accepts it (read once through push_kick_secret(), service_role only) or the
+--   service-role key. Call push_configure only AFTER the APNS_* secrets are set and send-push is
+--   deployed: an unconfigured function answers {configured:false} and claims nothing, and the drain would
+--   keep waking it each minute while a tag is ready (≤ 24 h per tag).
 --   The extensions are created only where available (hosted Supabase has both; the PGlite test
 --   harness has neither, and there the kick is a no-op).
 --
@@ -150,6 +156,10 @@ begin
     from public.notifications n
     where n.type = 'ate_with' and n.pushed_at is null and n.read_at is null and n.dismissed_at is null
       and n.created_at > now() - interval '24 hours'
+      -- inline, not only inside push_is_ready: after SKIP LOCKED waits out a concurrent claim, READ
+      -- COMMITTED re-checks THIS where clause against the updated row — a function call is not re-run
+      -- against it, so a row claimed a moment ago must be refused here.
+      and (n.push_claimed_at is null or n.push_claimed_at < now() - interval '2 minutes')
       and public.push_is_ready(n.id)
     order by n.created_at
     limit least(greatest(coalesce(p_limit, 50), 1), 200)
@@ -222,7 +232,7 @@ begin
     return false;
   end if;
   execute $q$select (select decrypted_secret from vault.decrypted_secrets where name = 'send_push_url'),
-                    (select decrypted_secret from vault.decrypted_secrets where name = 'send_push_service_key')$q$
+                    (select decrypted_secret from vault.decrypted_secrets where name = 'send_push_kick_secret')$q$
     into v_url, v_key;
   if v_url is null or v_key is null then
     return false;                                -- setup not finished: stay silent
@@ -266,6 +276,46 @@ create trigger entries_push_kick_au
   for each row execute function public.trg_push_kick_on_sorted();
 
 -- ===========================================================================
+-- 4b. Keyless setup. Vault is reached through dynamic SQL so this file applies where Vault is absent.
+-- ===========================================================================
+-- Stores the function URL and, if absent, a database-generated kick secret. Returns nothing: the secret
+-- is never returned, raised or logged. Re-running it updates the URL and keeps the secret.
+create or replace function public.push_configure(p_url text)
+returns void language plpgsql volatile security definer set search_path = public, extensions as $$
+declare
+  v_url text := btrim(coalesce(p_url, ''));
+  v_id  uuid;
+begin
+  if v_url !~ '^https://[^/\s]+/functions/v1/send-push$' then
+    raise exception 'p_url must be https://<project>/functions/v1/send-push' using errcode = '22023';
+  end if;
+  execute $q$select id from vault.secrets where name = 'send_push_url'$q$ into v_id;
+  if v_id is null then
+    execute $q$select vault.create_secret($1, 'send_push_url', 'send-push function URL (0059)')$q$ using v_url;
+  else
+    execute $q$select vault.update_secret($1, $2)$q$ using v_id, v_url;
+  end if;
+  v_id := null;
+  execute $q$select id from vault.secrets where name = 'send_push_kick_secret'$q$ into v_id;
+  if v_id is null then
+    execute $q$select vault.create_secret(encode(extensions.gen_random_bytes(32), 'hex'), 'send_push_kick_secret',
+                                          'bearer pg_net sends to send-push (0059); generated here, never copied')$q$;
+  end if;
+end; $$;
+
+-- The kick secret, for send-push's own service-role client (it compares bearers against it).
+create or replace function public.push_kick_secret()
+returns text language plpgsql stable security definer set search_path = public, extensions as $$
+declare
+  v text;
+begin
+  execute $q$select decrypted_secret from vault.decrypted_secrets where name = 'send_push_kick_secret'$q$ into v;
+  return v;
+exception when others then
+  return null;
+end; $$;
+
+-- ===========================================================================
 -- 5. Extensions + the minute drain, only where the platform has them.
 -- ===========================================================================
 do $$
@@ -287,9 +337,13 @@ revoke all on function public.push_claim_ate_with(int)         from public, anon
 revoke all on function public.push_mark_sent(uuid[])           from public, anon, authenticated;
 revoke all on function public.push_drop_tokens(text[])         from public, anon, authenticated;
 revoke all on function public.push_kick()                      from public, anon, authenticated;
+revoke all on function public.push_configure(text)             from public, anon, authenticated;
+revoke all on function public.push_kick_secret()               from public, anon, authenticated;
 revoke all on function public.trg_push_kick_on_notification()  from public, anon, authenticated;
 revoke all on function public.trg_push_kick_on_sorted()        from public, anon, authenticated;
 grant execute on function public.push_claim_ate_with(int)  to service_role;
 grant execute on function public.push_mark_sent(uuid[])    to service_role;
 grant execute on function public.push_drop_tokens(text[])  to service_role;
 grant execute on function public.push_kick()               to service_role;
+grant execute on function public.push_configure(text)      to service_role;
+grant execute on function public.push_kick_secret()        to service_role;

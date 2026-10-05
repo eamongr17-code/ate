@@ -138,41 +138,69 @@ function sameSecret(a: string, b: string): boolean {
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
+// The kick secret (0059 push_configure), read once per isolate through the service-role client. Only a
+// found value is cached, so configuring after deploy needs no redeploy.
+let kickSecret: string | null = null;
+export function resetKickSecretCache(): void { kickSecret = null; }
+async function readKickSecret(db: Db): Promise<string> {
+  if (kickSecret) return kickSecret;
+  const r = await db.rpc('push_kick_secret');
+  const v = !r.error && typeof r.data === 'string' ? r.data : '';
+  if (v) kickSecret = v;
+  return v;
+}
+
 export function createHandler(deps: Deps): (req: Request) => Promise<Response> {
   return async (req) => {
-    if (!sameSecret(bearer(req), deps.env('SUPABASE_SERVICE_ROLE_KEY') ?? '')) {
+    // Authorised: the service-role key, or the database's own kick secret (what pg_net sends).
+    const token = bearer(req);
+    let db: Db | null = null;
+    const open = () => (db ??= deps.db());
+    if (!token) return json(401, { error: 'unauthorized' });
+    if (!sameSecret(token, deps.env('SUPABASE_SERVICE_ROLE_KEY') ?? '')
+        && !sameSecret(token, await readKickSecret(open()))) {
       return json(401, { error: 'unauthorized' });
     }
     const cfg = readApnsConfig(deps.env);
-    if (!cfg) return json(200, { ok: true, skipped: 'apns_not_configured' });
+    if (!cfg) return json(200, { ok: true, configured: false });   // claims nothing; harmless before the .p8
 
-    const db = deps.db();
-    const claimed = await db.rpc('push_claim_ate_with', { p_limit: 50 });
+    const claimed = await open().rpc('push_claim_ate_with', { p_limit: 50 });
     if (claimed.error) return json(500, { error: 'claim failed', detail: claimed.error.message });
     const rows = (claimed.data ?? []) as Claimed[];
     const nowMs = (deps.now ?? Date.now)();
 
-    const done: string[] = [];
-    const dead: string[] = [];
-    let sent = 0;
-    for (const row of rows) {
-      // The host is the TOKEN's: a TestFlight build on staging holds a production token, an Xcode build
-      // a sandbox one. Sending to the wrong host answers BadDeviceToken and would delete a live token.
-      const tokens = (row.tokens ?? []).filter((t) => t.apns_env === 'sandbox' || t.apns_env === 'production');
-      const outcomes: Outcome[] = [];
-      for (const { token, apns_env } of tokens) {
-        const jwt = await providerToken(cfg, nowMs);
-        const o = await sendOne(deps, apns_env as ApnsEnv, jwt, token, row, nowMs);
-        outcomes.push(o);
-        if (o === 'ok') sent++;
-        if (o === 'dead') dead.push(token);
+    let sent = 0, marked = 0, dropped = 0;
+    const errors: string[] = [];
+    try {
+      for (const row of rows) {
+        // The host is the TOKEN's: a TestFlight build on staging holds a production token, an Xcode build
+        // a sandbox one. Sending to the wrong host answers BadDeviceToken and would delete a live token.
+        const tokens = (row.tokens ?? []).filter((t) => t.apns_env === 'sandbox' || t.apns_env === 'production');
+        const outcomes: Outcome[] = [];
+        const dead: string[] = [];
+        for (const { token: device, apns_env } of tokens) {
+          const jwt = await providerToken(cfg, nowMs);
+          const o = await sendOne(deps, apns_env as ApnsEnv, jwt, device, row, nowMs);
+          outcomes.push(o);
+          if (o === 'ok') sent++;
+          if (o === 'dead') dead.push(device);
+        }
+        // Settled per row, as soon as its sends return — a later throw cannot leave a sent row unmarked.
+        if (dead.length) {
+          const r = await open().rpc('push_drop_tokens', { p_tokens: dead });
+          if (r.error) errors.push(`drop: ${r.error.message}`); else dropped += dead.length;
+        }
+        // Pushed unless EVERY attempt was transient (no device at all also counts: nothing to retry).
+        // A transient-only row keeps its claim, which goes stale in 2 min; the minute drain retries (≤ 5).
+        if (outcomes.length === 0 || outcomes.some((o) => o !== 'transient')) {
+          const r = await open().rpc('push_mark_sent', { p_ids: [row.notification_id] });
+          if (r.error) errors.push(`mark ${row.notification_id}: ${r.error.message}`); else marked++;
+        }
       }
-      // Pushed unless EVERY attempt was transient (no device at all also counts: nothing to retry).
-      // A transient-only row keeps its claim, which goes stale in 2 min; the minute drain retries (≤ 5).
-      if (outcomes.length === 0 || outcomes.some((o) => o !== 'transient')) done.push(row.notification_id);
+    } catch (e) {
+      errors.push(`send: ${e instanceof Error ? e.message : String(e)}`);
     }
-    if (dead.length) await db.rpc('push_drop_tokens', { p_tokens: dead });
-    if (done.length) await db.rpc('push_mark_sent', { p_ids: done });
-    return json(200, { ok: true, claimed: rows.length, sent, marked: done.length, dropped: dead.length });
+    const body = { ok: errors.length === 0, claimed: rows.length, sent, marked, dropped, ...(errors.length ? { errors } : {}) };
+    return json(errors.length ? 500 : 200, body);
   };
 }

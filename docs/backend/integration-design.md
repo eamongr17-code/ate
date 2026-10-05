@@ -355,11 +355,12 @@ undismissed, unblocked tag whose original has SORTED (so the dishes exist), with
 **Function secrets** (`supabase secrets set`, per project): `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY`
 (the .p8's full PEM text); absent → the function is a no-op. The host is PER TOKEN (`apns_env`: sandbox → api.sandbox,
 production → api.push), since a TestFlight build on staging holds a production token; one key serves both.
-**Vault secrets** (dashboard → Vault, per project): `send_push_url` = `https://<ref>.supabase.co/functions/v1/send-push`,
-`send_push_service_key` = that project's service role key. Absent → the database never calls the function.
-**One-time setup, in this order:** (1) merge → CI applies 0059 (creates pg_net, pg_cron and the minute drain);
-(2) set the three function secrets; (3) deploy `send-push` (default JWT check); (4) add the two Vault secrets — pushes
-start. Rotating the key = steps 2 only. Kill switch: delete `send_push_url` from Vault.
+**One-time setup per project (no key is ever copied):** (1) merge → CI applies 0059 (pg_net, pg_cron, the minute
+drain); (2) `supabase secrets set APNS_KEY_ID=… APNS_TEAM_ID=… APNS_PRIVATE_KEY="$(cat AuthKey_XXXX.p8)"`; (3) deploy
+`send-push` (`verify_jwt = false` is in config.toml — it checks its own bearer); (4) as service role,
+`select push_configure('https://<ref>.supabase.co/functions/v1/send-push')` — stores the URL and has the DATABASE
+generate the kick secret (Vault `send_push_url`, `send_push_kick_secret`; never returned). Pushes start. Do (4) only
+after (2)+(3): unconfigured, the function answers `{configured: false}`. Kill switch: delete `send_push_url` from Vault.
 
 **Wire change — 0059.** None for the app: two `notifications` columns it never reads, service-role-only functions, the push payload above.
 
