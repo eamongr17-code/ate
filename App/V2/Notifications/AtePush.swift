@@ -67,6 +67,13 @@ final class AtePush {
         send(hex)
     }
 
+    /// Signing out: this phone stops receiving the person's pushes. Before the session ends, since
+    /// the call needs it. Silent, like registering.
+    func forgetToken() async {
+        guard let token, let registrar else { return }
+        try? await registrar.unregister(token: token)
+    }
+
     private func send(_ token: String) {
         guard let registrar else { return }
         let environment = Self.environment

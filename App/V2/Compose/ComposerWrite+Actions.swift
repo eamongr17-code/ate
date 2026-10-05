@@ -146,6 +146,11 @@ extension V2ComposerWrite {
             let added = await sync.apply(entryID: entryID, from: before, to: after)
             if added > 0 { analytics(CompanionEvents.tagged(count: added)) }
         }
+        // The one ask (push): the first time someone is tagged, never at launch.
+        if Set(after).subtracting(before).isEmpty == false {
+            let services = services
+            Task { await AtePush.shared.askOnce(trigger: .tag, services: services) }
+        }
     }
 
     /// A save that did not land: the composer is the writing surface again.

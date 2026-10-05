@@ -51,6 +51,7 @@ struct V2SettingsList: View {
             Section {
                 AteGroupedRow(title: "Sign out", identifier: "settings.signOut") {
                     Task {
+                        await AtePush.shared.forgetToken()
                         await model.signOut()
                         context.app.endSession()
                     }
