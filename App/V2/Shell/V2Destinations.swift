@@ -19,6 +19,7 @@ struct V2Destinations: View {
         case .ratings(let score): V2RatingsPage(score: score, context: context)
         case .settings(let page): V2SettingsPage(page: page, context: context)
         case .following(let city): FeedFollowingPage(city: city, context: context)
+        case .notifications: V2NotificationsPage(context: context)
         }
     }
 }

@@ -8,6 +8,8 @@ struct AteApp: App {
     /// Resolved once at launch. Held as a `Result` so a misconfigured checkout still boots and
     /// shows what's missing instead of crashing on a force-unwrap.
     private let environment: Result<AteEnvironment, Error>
+    /// Push needs an app delegate: the APNs token and a tapped notification come back to one.
+    @UIApplicationDelegateAdaptor(AtePushDelegate.self) private var pushDelegate
 
     init() {
         let environment = Result { try AteEnvironment.resolve(bundle: .main) }

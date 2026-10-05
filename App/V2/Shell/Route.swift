@@ -27,11 +27,13 @@ enum Route: Hashable {
     case settings(SettingsPage)
     /// What you follow (4 Oct) — the followed categories, in shelf order, read in the Feed's city.
     case following(city: String?)
+    /// "Ate with": the notifications list, pushed from the bell on You.
+    case notifications
 
     /// Whether this destination exists yet.
     var isBuilt: Bool {
         switch self {
-        case .entry, .suggestions, .profile, .place, .dish, .tag, .ratings, .settings, .following:
+        case .entry, .suggestions, .profile, .place, .dish, .tag, .ratings, .settings, .following, .notifications:
             true
         }
     }

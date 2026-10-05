@@ -6,3 +6,5 @@
 ATE_ENVIRONMENT = staging
 SUPABASE_URL = $(SUPABASE_URL_STAGING)
 SUPABASE_KEY = $(SUPABASE_KEY_STAGING)
+// The aps-environment entitlement: sandbox APNs for Xcode installs, production for TestFlight and the store.
+ATE_APS_ENVIRONMENT = development

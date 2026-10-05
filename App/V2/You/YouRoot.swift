@@ -44,11 +44,21 @@ struct YouRoot: View {
             inline: AteInlineTitle(title: V2Tab.you.title),
             isCollapsed: isCollapsed
         ) {
+            if app.hasSession {
+                // "Ate with": the bell beside Settings, an ink count while anything is waiting.
+                AteGlassCountItem(icon: .bell, label: "Notifications", waiting: app.notifications.unreadCount,
+                                  identifier: "you.notifications") { router.open(.notifications) }
+            }
             AteGlassItem(icon: .settings, label: "Settings") { router.open(.settings(.root)) }
         }
         .task {
             await store.loadIfNeeded()
             app.services.analytics(YouEvents.youViewed())
+        }
+        // The bell's count, read again whenever You is shown.
+        .onAppear {
+            guard app.hasSession else { return }
+            Task { await app.notifications.refreshCount() }
         }
         // A new handle from Settings, or a session that arrived late: the header reads it again.
         .onChange(of: app.handle) { _, _ in Task { await store.refresh() } }

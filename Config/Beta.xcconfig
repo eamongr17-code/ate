@@ -11,3 +11,5 @@ SUPABASE_KEY = $(SUPABASE_KEY_STAGING)
 // auth flow yet; without it a TestFlight install can only ever show signed-out states).
 // Release never defines this, so the affordance cannot reach the App Store build.
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) BETA
+// The aps-environment entitlement: sandbox APNs for Xcode installs, production for TestFlight and the store.
+ATE_APS_ENVIRONMENT = production

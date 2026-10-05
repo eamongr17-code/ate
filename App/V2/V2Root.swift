@@ -36,6 +36,8 @@ struct V2Root: View {
                 app.linkedEntry = entryID
             }
         }
+        // "Ate with": the push token, the bell's count on foreground, and a tapped push opened.
+        .ateWithPushes(app)
         .task { await app.autoSignInIfRequested() }
         .onAppear { app.services.analytics(ShellEvents.newAppOpened()) }
         .onChange(of: scenePhase) { _, phase in

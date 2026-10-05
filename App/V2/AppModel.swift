@@ -18,6 +18,9 @@ final class AppModel {
     let saves: SaveAction
     /// The Saved shelf the save action keeps stale-marked; the Journal's Saved reads it.
     let savedDishes: SavedDishesStore
+    /// "Ate with": the bell's count and the notifications list — one of it, so a tag answered in the
+    /// composer is gone from the list and the count in the same turn.
+    let notifications: NotificationsStore
     private(set) var hasSession: Bool
     private(set) var isSigningIn = false
     /// Apple's display name, first sign-in only: the handle screen's suggestion.
@@ -54,6 +57,7 @@ final class AppModel {
         let shelf = SavedDishesStore(saves: services.saves)
         self.gate = gate
         self.savedDishes = shelf
+        self.notifications = NotificationsStore(reads: services.notifications, analytics: services.analytics)
         self.saves = SaveAction(
             saves: services.saves,
             analytics: services.analytics,

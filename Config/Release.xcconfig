@@ -4,3 +4,5 @@
 ATE_ENVIRONMENT = production
 SUPABASE_URL = $(SUPABASE_URL_PROD)
 SUPABASE_KEY = $(SUPABASE_KEY_PROD)
+// The aps-environment entitlement: sandbox APNs for Xcode installs, production for TestFlight and the store.
+ATE_APS_ENVIRONMENT = production

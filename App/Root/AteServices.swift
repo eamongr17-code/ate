@@ -57,6 +57,12 @@ struct AteServices {
     let companions: any CompanionTagging
     /// Tags sent behind the entry, kept on disk until they land. Worked with the outbox.
     let companionTags: CompanionTagSync
+    /// "Ate with", the hearing half (0058): the notifications list and the bell's count.
+    let notifications: any NotificationsReading
+    /// Answering a tag: the live prefill, your own entry from it, or no.
+    let ateWith: any AteWithResponding
+    /// This phone's APNs token, for whoever is signed in.
+    let pushTokens: any PushTokenRegistering
     /// The phone's own preferences — the appearance, and who still owes a handle. One object for
     /// the whole app, so the root that paints the appearance and the page that changes it agree.
     let preferences: AtePreferences
@@ -105,6 +111,10 @@ struct AteServices {
         self.companionTags = CompanionTagSync(
             service: companions, storeURL: preview == nil ? CompanionTagSync.defaultStoreURL : nil, owner: owner
         )
+        let notificationsClient = NotificationsClient(api: api)
+        self.notifications = preview?.notifications ?? notificationsClient
+        self.ateWith = preview?.ateWith ?? notificationsClient
+        self.pushTokens = preview?.pushTokens ?? notificationsClient
         self.preferences = AtePreferences.standard
         self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record, owner: owner)
         if api.isSignedIn || preview != nil { drafts.adoptUnownedDraft() }
@@ -147,6 +157,10 @@ struct AteServices {
         let search: any SearchReading
         let account: any AccountServing
         let companions: any CompanionTagging
+        // One in-memory object for the three, held as its protocols: a post dismisses its row.
+        let notifications: any NotificationsReading
+        let ateWith: any AteWithResponding
+        let pushTokens: any PushTokenRegistering
     }
 
     private static func previewServices() -> PreviewServices? {
@@ -160,12 +174,17 @@ struct AteServices {
         let service = DebugLaunch.has(.empty)
             ? InMemoryEntryService(others: social)
             : InMemoryEntryService.seeded(others: social, tagged: DebugLaunch.has(.tags))
+        let viewer = ViewerProfile.preview
+        let notifications = InMemoryNotifications.preview(
+            viewer: EntryCard.Author(id: viewer.id, username: viewer.username, name: viewer.name, city: viewer.city)
+        )
         return PreviewServices(
             entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
             feed: social, feedEdition: social, saves: social, profiles: social, stats: InMemoryStatsService(),
             placePages: social, dishPages: social, dishExplore: social, search: social,
             account: InMemoryAccountService(),
-            companions: InMemoryCompanionTagging.seeded(viewerID: EntryCard.previewSorted.authorID)
+            companions: InMemoryCompanionTagging.seeded(viewerID: EntryCard.previewSorted.authorID),
+            notifications: notifications, ateWith: notifications, pushTokens: notifications
         )
         #else
         return nil

@@ -114,15 +114,9 @@ struct AteWithDecodingTests {
         #expect(AteWithError(code: nil, message: nil) == .unreachable)
     }
 
-    @Test func apnsEnvironmentComesFromTheProfile() {
-        let profile = "<plist><dict><key>Entitlements</key><dict><key>aps-environment</key>\n\t"
-            + "<string>production</string>"
-        let development = profile.replacingOccurrences(of: "production", with: "development")
-        #expect(APNsEnvironment.from(provisioningProfile: profile) == .production)
-        #expect(APNsEnvironment.from(provisioningProfile: development) == .sandbox)
-        #expect(APNsEnvironment.from(provisioningProfile: nil) == .production)
-        #expect(APNsEnvironment.from(provisioningProfile: "<plist/>") == .sandbox)
-        #expect(APNsEnvironment.from(provisioningProfile: profile, isSimulator: true) == .sandbox)
+    @Test func apnsEnvironmentFollowsTheBuildConfiguration() {
+        #expect(APNsEnvironment.forBuild(isDebugBuild: true) == .sandbox)
+        #expect(APNsEnvironment.forBuild(isDebugBuild: false) == .production)
         #expect(APNsEnvironment.hex(Data([0x0A, 0xFF, 0x00])) == "0aff00")
     }
 }

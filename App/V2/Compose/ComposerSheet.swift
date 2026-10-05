@@ -25,14 +25,23 @@ struct ComposerSheet: View {
 
     var body: some View {
         ZStack {
-            V2ComposerWrite(
-                app: app,
-                presentation: presentation,
-                isCovered: printed != nil,
-                onPrinted: { handoff in
-                    withAnimation(reduceMotion ? nil : V2ComposerMotion.toPrinted) { printed = handoff }
+            Group {
+                if let companionID = presentation.respondingTo {
+                    // "Ate with": the prefilled scoring face (App/V2/Notifications).
+                    AteWithRespondFace(app: app, companionID: companionID, isCovered: printed != nil) { handoff in
+                        withAnimation(reduceMotion ? nil : V2ComposerMotion.toPrinted) { printed = handoff }
+                    }
+                } else {
+                    V2ComposerWrite(
+                        app: app,
+                        presentation: presentation,
+                        isCovered: printed != nil,
+                        onPrinted: { handoff in
+                            withAnimation(reduceMotion ? nil : V2ComposerMotion.toPrinted) { printed = handoff }
+                        }
+                    )
                 }
-            )
+            }
             .ateAccessibilityHidden(printed != nil)
             if let printed {
                 V2ComposerPrinted(app: app, handoff: printed)

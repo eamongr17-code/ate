@@ -53,6 +53,8 @@ enum AteIcon: String, CaseIterable {
     case userPlus
     /// "Remove me" on an entry you were tagged on — Lucide's user-minus.
     case userMinus
+    /// You's notifications ("Ate with") — Lucide's bell.
+    case bell
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
@@ -159,6 +161,10 @@ M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.70
         case .userMinus: // user-minus
             [Self.path("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"), AteVector.circle(9, 7, 4),
              Self.path("M22 11h-6")]
+        case .bell: // bell
+            [Self.path("M10.268 21a2 2 0 0 0 3.464 0"),
+             Self.path("M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8"
+                 + "c0 4.499-1.411 5.956-2.738 7.326")]
         case .listFilter: // list-filter
             [Self.path("M2 5h20"), Self.path("M6 12h12"), Self.path("M9 19h6")]
         case .heart: // heart
