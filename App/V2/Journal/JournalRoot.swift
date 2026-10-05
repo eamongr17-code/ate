@@ -23,6 +23,10 @@ struct JournalRoot: View {
     /// Bumped by every change to what the list is — a filter, a chip cleared — so
     /// the new list starts at its top: a lazy list keeps its offset while its rows are replaced.
     @State var listChanged = 0
+    /// Journal | Lists — the pinned switch (`lists-notifications.html` §3).
+    @State var shelf = JournalShelf.journal
+    /// The Lists shelf's New list sheet, opened from the glass group.
+    @State var isNamingList = false
     /// Journal search (`JournalRoot+Search`): the field over the header row while it is up.
     @State var isSearching = false
     @State var search: JournalSearchStore?
@@ -36,7 +40,7 @@ struct JournalRoot: View {
 
     var body: some View {
         ScrollViewReader { proxy in
-            list
+            shelfContent
                 .onChange(of: router.scrollToTop) { _, _ in
                     withAnimation(reduceMotion ? nil : .default) { proxy.scrollTo(Self.top, anchor: .top) }
                 }
@@ -51,13 +55,12 @@ struct JournalRoot: View {
         ) {
             controls
         }
-        // The switch area, pinned under the bar on the ground, never half under it (build 88), with
-        // the filter's chips beneath it; the list scrolls below. It holds no switch until Lists is
-        // built: a later lane puts "Journal | Lists" back here, above the chips (an AteSegmentedControl,
-        // as Journal | Saved was before 5 Oct), and switches the list on it.
+        // The switch, pinned under the bar on the ground, never half under it (build 88), with the
+        // filter's chips beneath it on the Journal; the shelf scrolls below.
         .safeAreaInset(edge: .top, spacing: 0) {
             VStack(spacing: 0) {
-                activeChips
+                shelfSwitch
+                if shelf == .journal { activeChips }
             }
             .ateGround()
         }
@@ -95,6 +98,7 @@ struct JournalRoot: View {
     /// The month you are in, once the wordmark has scrolled away — or, where the list does not run
     /// through time, "Journal". The year joins a month only when it is not this one.
     private var inlineTitle: AteInlineTitle {
+        if shelf == .lists { return AteInlineTitle(title: JournalShelf.lists.title) }
         let runsThroughTime = journal.query.sort.isChronological && journal.phase == .ready
         if runsThroughTime, let topMonth {
             let isThisYear = topMonth.year == AteMonth.containing(Date()).year
@@ -116,7 +120,9 @@ struct JournalRoot: View {
             AteGlassItem(icon: .search, label: "Search your journal", action: openJournalSearch)
                 .accessibilityIdentifier("journal.search")
         }
-        if hasSomethingToSort || filters.isFiltering(on: .journal) {
+        if shelf == .lists {
+            newListItem
+        } else if hasSomethingToSort || filters.isFiltering(on: .journal) {
             AteGlassToggleItem(
                 icon: .listFilter,
                 label: "Filter",
