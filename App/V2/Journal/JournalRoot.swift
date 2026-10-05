@@ -3,8 +3,8 @@ import SwiftUI
 
 /// **The Journal tab's root** — your record, under the wordmark.
 ///
-/// One native bar row: the wordmark leading and one glass group trailing (photos with their count,
-/// the filter). Under it the slips, a month's name scrolling with them over its first slip. Scrolled,
+/// One native bar row: the wordmark leading and one glass group trailing (the bell with its count,
+/// search, the filter). Under it the slips, a month's name scrolling with them over its first slip. Scrolled,
 /// the wordmark gives way to the month you are in. The filter is one sheet; while a filter is on its
 /// chips sit under the bar, each with ✕. (Saved is its own tab; the calendar was cut for launch.)
 struct JournalRoot: View {
@@ -62,6 +62,11 @@ struct JournalRoot: View {
         // Read ahead, so the filter sheet rises with its cities in it.
         .task { await journal.loadCitiesIfNeeded() }
         .task { await stores.photos.load() }
+        // The bell's tag count, read again whenever the Journal is shown (it moved here from You).
+        .onAppear {
+            guard app.hasSession else { return }
+            Task { await app.notifications.refreshCount() }
+        }
         // The Summary's one ask for photos was answered yes: the count can appear now.
         .onReceive(NotificationCenter.default.publisher(for: .atePhotoAccessGranted)) { _ in
             Task { await stores.photos.load() }
@@ -90,14 +95,19 @@ struct JournalRoot: View {
         return AteInlineTitle(title: V2Tab.journal.title)
     }
 
-    /// Photos and filter, in one glass group. The filter waits until there is something to sort;
-    /// photos stay, so a first entry can start from the camera roll.
+    /// Bell, search and filter, in one glass group (`lists-notifications.html` A1). The bell wears one
+    /// coral count — unread "Ate with" tags plus photo sittings — and stays on an empty Journal, so a
+    /// first entry can start from the camera roll. Search and the filter wait for something to find.
     @ViewBuilder
     private var controls: some View {
-        AteGlassItem(icon: .photoStack, label: "Photos to write up", badge: stores.photos.count) {
-            router.open(.suggestions, from: .journal)
+        AteGlassItem(icon: .bell, label: "Notifications", badge: inboxCount) {
+            router.open(.notifications, from: .journal)
         }
-        .accessibilityIdentifier("journal.suggestions")
+        .accessibilityIdentifier("journal.notifications")
+        if let openJournalSearch, hasSomethingToSort {
+            AteGlassItem(icon: .search, label: "Search your journal", action: openJournalSearch)
+                .accessibilityIdentifier("journal.search")
+        }
         if hasSomethingToSort || filters.isFiltering(on: .journal) {
             AteGlassToggleItem(
                 icon: .listFilter,
@@ -108,6 +118,18 @@ struct JournalRoot: View {
                 openFilter()
             }
         }
+    }
+
+    /// **Seam for the Journal search lane**: return the action that opens Journal search. While it is
+    /// `nil` the magnifier is not drawn — never a dead button.
+    var openJournalSearch: (() -> Void)? { nil }
+
+    /// The bell's one number. TODO: use AteKit's `JournalInboxCount` once the Lists lane lands it.
+    private var inboxCount: Int {
+        NotificationsInbox.count(
+            unreadTags: app.hasSession ? app.notifications.unreadCount : 0,
+            photoSuggestions: stores.photos.count
+        )
     }
 
     private var hasSomethingToSort: Bool {

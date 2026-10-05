@@ -1,13 +1,17 @@
 import Foundation
 
-/// One photo in the library, reduced to what a suggestion needs: its identity and when it was taken.
+/// One photo in the library, reduced to what a suggestion needs: its identity, when it was taken,
+/// and where, if the photo says (`PHAsset.location`; no extra permission).
 public struct PhotoSuggestionItem: Identifiable, Equatable, Sendable {
     public let id: String
     public let createdAt: Date
+    /// Where it was taken. Only ever used to OFFER nearby places as chips; never attached by itself.
+    public let coordinate: PhotoCoordinate?
 
-    public init(id: String, createdAt: Date) {
+    public init(id: String, createdAt: Date, coordinate: PhotoCoordinate? = nil) {
         self.id = id
         self.createdAt = createdAt
+        self.coordinate = coordinate
     }
 }
 
@@ -24,14 +28,16 @@ public struct PhotoSuggestionCluster: Identifiable, Equatable, Sendable {
     public var id: String { items.first?.id ?? "" }
     /// When the sitting started.
     public var date: Date { items.first?.createdAt ?? .distantPast }
+    /// Where the sitting was, from its first photo that carries a location. `nil` = no chips.
+    public var coordinate: PhotoCoordinate? { items.lazy.compactMap(\.coordinate).first }
 }
 
 /// **`Suggestions`** — recent photos, grouped into sittings and named the way a person would name
 /// them ("Friday night", "Last Sunday", "12 September").
 ///
 /// Pure, and tested against the artboard's own three rows. Design rule 8 is not touched here: a
-/// cluster carries photos and a time, and **never a place** — nothing about where a photo was taken
-/// ever reaches the composer.
+/// cluster carries photos, a time and at most a coordinate, and **never a place** — a place reaches
+/// the composer only when the person taps one of the nearby chips (``PhotoPlaceChips``).
 public enum PhotoSuggestions {
     /// How many photos one cluster offers the composer. The composer's own limit.
     public static let photoLimit = 5

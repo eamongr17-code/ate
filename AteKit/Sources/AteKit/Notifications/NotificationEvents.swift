@@ -48,6 +48,19 @@ public enum NotificationEvents {
         ])
     }
 
+    /// The Journal's Notifications page was opened: how many rows each of its two groups held.
+    public static func notificationsSectionOpened(tags: Int, photos: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "notifications_section_opened", parameters: [
+            "tags": String(max(0, tags)),
+            "photos": String(max(0, photos))
+        ])
+    }
+
+    /// A nearby-place chip on a photo sitting was tapped. `rank` is its position, from 1.
+    public static func photoPlaceChipTapped(rank: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "photo_place_chip_tapped", parameters: ["rank": String(rank)])
+    }
+
     public enum PermissionTrigger: String, Sendable {
         case notifications
         case tag
