@@ -50,7 +50,8 @@
 --   Declined is sticky and keeps its seat: untag cannot free it or turn a "no" into a second notification.
 --   The day budget is spent from an append-only ledger (ate_with_ledger) that untag/revoke never touch,
 --   serialised per actor; re-tagging the same person on the same entry within a day is QUIET (the
---   notification lands read and pushed — no badge, no push).
+--   notification lands read and pushed — no badge, no push) only if the untagged tag had reached them
+--   (pushed or read); otherwise the re-tag notifies normally.
 --
 -- ─── entry_cards + `companions` (trailing column, ADDITIVE): [{user_id, username, name, avatar_url,
 --   status, entry_id}] — the people this entry was eaten with. On an original: its accepted companions
@@ -122,8 +123,11 @@ create table if not exists public.ate_with_ledger (
   kind         text        not null check (kind in ('tag', 'invite')),
   entry_id     uuid        not null,
   recipient_id uuid        references public.profiles(id) on delete set null,
-  created_at   timestamptz not null default now()
+  created_at   timestamptz not null default now(),
+  delivered    boolean     not null default false   -- set by untag: this tag's notification had been pushed or read
 );
+-- (a local DB that applied an earlier draft of this file has the table without the flag)
+alter table public.ate_with_ledger add column if not exists delivered boolean not null default false;
 create index if not exists ate_with_ledger_actor_idx on public.ate_with_ledger (actor_id, created_at desc);
 
 comment on table public.entry_companions is
@@ -272,7 +276,9 @@ end; $$;
 -- Spend one unit of the actor's rolling-day budget (40 tags + invites), from the append-only ledger —
 -- untag/revoke delete companion and invite rows, never ledger rows, so a tag→untag loop still pays.
 -- Serialised per actor (advisory xact lock) so parallel calls on different entries cannot pass 40.
--- Returns true when this (entry, recipient) was already tagged within the day: a re-tag stays quiet.
+-- Returns true when this (entry, recipient) was already tagged within the day AND that earlier tag had
+-- actually reached them (its notification pushed or read before an untag — `delivered`): only then is
+-- the re-tag quiet. Tag → untag before anything was delivered → the re-tag is a normal, loud one.
 create or replace function public.ate_with_spend(p_uid uuid, p_kind text, p_entry_id uuid, p_recipient uuid)
 returns boolean language plpgsql volatile security definer set search_path = public, extensions as $$
 declare
@@ -287,7 +293,7 @@ begin
   v_again := p_recipient is not null and exists (
     select 1 from public.ate_with_ledger l
     where l.actor_id = p_uid and l.kind = 'tag' and l.entry_id = p_entry_id
-      and l.recipient_id = p_recipient and l.created_at > now() - interval '1 day');
+      and l.recipient_id = p_recipient and l.created_at > now() - interval '1 day' and l.delivered);
   insert into public.ate_with_ledger (actor_id, kind, entry_id, recipient_id)
   values (p_uid, p_kind, p_entry_id, p_recipient);
   return v_again;
@@ -432,6 +438,10 @@ with (security_invoker = true) as
 comment on view public.entry_cards is
   'The one entry shape for Journal slip / Feed slip / Entry page / Share receipt: entry + author + place (+ locality, 0035) + photos[] + items[] (each with the dish''s cover_url and its dietary tags[], 0036) + receipt footer (dish_count, avg_score over scored items) + where each finding sits in body (0-based UNICODE SCALAR offsets) + companions[] (0058, "ate with"). Read a single entry with get_entry_card; page lists via get_entry_feed / get_entries_by_author / get_entries_at_place.';
 
+-- An earlier draft (979136a) had entry_with_people(p_entry_id, p_author_id). Dropped only now, after the
+-- view above stopped depending on it, so a local DB that applied that draft keeps no orphan overload.
+drop function if exists public.entry_with_people(uuid, uuid);
+
 -- ===========================================================================
 -- 6. Tagging (the author's side).
 -- ===========================================================================
@@ -476,6 +486,18 @@ declare
   v_entry public.entries := public.ate_with_own_entry(p_entry_id);
   v_n     int;
 begin
+  -- Before the notification cascades away: did this tag reach them? Record it on its ledger row, so a
+  -- re-tag inside the day is quiet only when the first one was really delivered.
+  update public.ate_with_ledger l
+     set delivered = true
+   where l.id = (select max(x.id) from public.ate_with_ledger x
+                 where x.actor_id = v_entry.author_id and x.kind = 'tag'
+                   and x.entry_id = v_entry.id and x.recipient_id = p_user_id)
+     and exists (select 1 from public.notifications n
+                 join public.entry_companions c on c.id = n.companion_id
+                 where c.entry_id = v_entry.id and c.companion_id = p_user_id
+                   and c.status in ('pending', 'accepted')
+                   and (n.pushed_at is not null or n.read_at is not null));
   delete from public.entry_companions c
   where c.entry_id = v_entry.id and c.companion_id = p_user_id and c.status in ('pending', 'accepted');
   get diagnostics v_n = row_count;

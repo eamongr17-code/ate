@@ -270,13 +270,11 @@ test('rate limit: 40 a day from the ledger — untag-then-retag and mint-then-re
   assert.equal(await code(SPENDER, `select * from public.create_ate_with_invite($1)`, [E]), '54000');
   assert.equal(await code(SPENDER, `select * from public.ate_with_ledger`), '42501', 'no client read of the ledger');
 
-  // 21 tags of cleo on this entry, one live notification row at a time — and only the first was loud.
-  const cleo = await rows(`select count(*)::int n from public.notifications n join public.entry_companions c on c.id = n.companion_id
-    where c.entry_id = $1 and n.recipient_id = $2 and n.read_at is null and n.pushed_at is null`, [E, U.cleo]);
-  assert.equal(cleo[0].n, 0, 'the live row is a re-tag: born read and pushed (no badge, no push)');
+  // 21 tags of cleo on this entry, none untagged after delivery: one live row, and it is loud
+  // (quiet needs an earlier tag that reached her — see the quiet re-tag test).
   const live = (await inbox(U.cleo)).filter((n) => n.entry_id === E);
-  assert.equal(live.length, 1, 'still reachable in the inbox');
-  assert.ok(live[0].read_at);
+  assert.equal(live.length, 1, 'one live notification row at a time');
+  assert.equal(live[0].read_at, null);
 });
 
 test('seats: a declined tag keeps its seat', async () => {
@@ -304,6 +302,40 @@ test('entry_with_people called directly applies the entries rule: blocked by the
 test('my_notifications: a half cursor is 22023', async () => {
   assert.equal(await code(U.cleo, `select * from public.my_notifications(30, now(), null)`), '22023');
   assert.equal(await code(U.cleo, `select * from public.my_notifications(30, null, $1)`, [id(1)]), '22023');
+});
+
+test('quiet re-tag only after a delivered tag: immediate untag → loud; delivered → quiet; others loud', async () => {
+  const E = await w.visit(94, HOST, P.osteria, receipt(['Cannoli']), '2026-09-23T09:00:00Z');
+  const F = await w.visit(95, HOST, P.tipo, receipt(['Gnocchi']), '2026-09-23T10:00:00Z');
+  const loud = async (entry, who) => (await rows(`select n.read_at is null and n.pushed_at is null loud
+    from public.notifications n join public.entry_companions c on c.id = n.companion_id
+    where c.entry_id = $1 and c.companion_id = $2 and n.dismissed_at is null`, [entry, who]))[0]?.loud;
+  const untag = (entry, who) => as(HOST, () => db.query(`select public.untag_ate_with($1, $2)`, [entry, who]));
+
+  // (a) tag → untag before anything was delivered → re-tag is LOUD
+  await tag(HOST, E, X[4]);
+  await untag(E, X[4]);
+  await tag(HOST, E, X[4]);
+  assert.equal(await loud(E, X[4]), true, 'nothing reached them, so the re-tag must');
+
+  // (b) tag delivered (pushed by the sender) → untag → re-tag is QUIET
+  await asService(() => db.query(`update public.notifications n set pushed_at = now() from public.entry_companions c
+    where c.id = n.companion_id and c.entry_id = $1 and c.companion_id = $2`, [E, X[4]]));
+  await untag(E, X[4]);
+  await tag(HOST, E, X[4]);
+  assert.equal(await loud(E, X[4]), false, 'already alerted once today: quiet');
+  // …and delivered by being READ counts too
+  await tag(HOST, E, X[5]);
+  await prefill(X[5], (await inbox(X[5])).find((n) => n.entry_id === E).companion_id);
+  await untag(E, X[5]);
+  await tag(HOST, E, X[5]);
+  assert.equal(await loud(E, X[5]), false, 'read counts as delivered');
+
+  // (c) a different person on the same entry, and the same person on a different entry, stay loud
+  await tag(HOST, E, X[3]);
+  assert.equal(await loud(E, X[3]), true, 'a different person');
+  await tag(HOST, F, X[4]);
+  assert.equal(await loud(F, X[4]), true, 'a different entry');
 });
 
 test('delete_account: tags on both sides and tokens cascade; the other party keeps their own entry', async () => {
