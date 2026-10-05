@@ -1,6 +1,6 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0059` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0060` define it (0060 drafted, not yet applied). Forward-only; applied migrations
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
 account deletion **0032**; **every entry public 0033**; signed-out browse **0034**; dietary tags **0036**;
@@ -118,6 +118,9 @@ Catalogue data (authenticated SELECT, no client write). **Diet chips are NOT sto
 ### Ate with — `entry_companions` · `entry_invites` · `device_push_tokens` (0058)
 `entry_companions`: a person the author tagged on their entry; `status` pending → accepted (`response_entry_id` = the companion's OWN linked entry, UNIQUE, SET NULL if they delete it) | declined (sticky). UNIQUE `(entry_id, companion_id)` (total). Parties-only SELECT. `entry_invites`: sha256(token) only (UNIQUE, total), 14-day `expires_at`, single use → a companions row; inviter-only SELECT. `device_push_tokens`: `token` PK (total, the register upsert target), `apns_env` sandbox | production; owner SELECT/DELETE. No client write grant on any — RPCs only. `notifications` (0011) gains type `ate_with` + `companion_id` (cascade) + `pushed_at`. Cap 6 seats/entry (a decline keeps its seat); 40 tags+invites/day spent from `ate_with_ledger` (append-only, server-internal, serialised per actor; a same-day re-tag is quiet only when the untagged tag had been pushed or read — `ate_with_ledger.delivered`, set by untag); a new block withdraws pending tags. `entry_cards.companions` is the public projection (`entry_with_people`, DEFINER, viewer-relative).
 
+### Lists — `user_lists` · `user_list_items` (0060)
+`user_lists` (owner, name trimmed 1–80, `visibility` CHECK = `private` — a public flag is additive; ≤ 50/owner). `user_list_items` (list, owner, `entry_id`, `dish_id`, dense `position` 1…n, ≤ 100/list; UNIQUE `(list_id, entry_id, dish_id)` total). The grain is a visit's dish line, not `reviews.id` (a re-sort re-mints those): a trigger carries items across a dish change; a DEFERRED constraint trigger drops them at commit when the entry no longer prints that dish. Owner SELECT; no client write — RPCs only. The legacy `lists`/`list_dishes` stay dormant: `lists` still gets a system row per sign-up and its policy is public-read.
+
 ### `profiles` — changed (0018)
 Additive: `entry_seq` int (the order-number counter; never client-writable), `city` text (under the handle on You/Profile). `username` is `citext UNIQUE` — the handle.
 `delete_account()` deletes the auth user; FK cascades take every personal row (verified, else it RAISES — 0035), the catalogue stays. `handle_new_user` always leaves a profile (handle `ate<hex>` when no usable email). `deleted_at` hides a profile from everyone but its owner (0035).
@@ -219,6 +222,7 @@ nine RPCs (+ `feed_areas`, `feed_cities`, `get_entry_card`, 0055's `top_ate`, `n
 | `reports` | own | self | — | — |
 | `cities` (0046) | all (authenticated) | none | none | none |
 | `user_cravings` (0055) | own | none (`set_cravings`) | none | none (`set_cravings`) |
+| `user_lists` · `user_list_items` (0060) | own | none (RPCs) | none | none (RPCs) |
 | `restaurants` / `dishes` | all | dishes: authed (self-attributed); restaurants: none (RPC/service role) | none | none |
 
 The block filter is expressed **once**, in `blocked_with()`, applied in the SELECT policies of `profiles`,
@@ -256,3 +260,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0057 | `tag_pages` | `p_kind`/`p_slug` on `get_entry_feed` + `new_to_record` (drop+create, browse twins too); `my_taste_tags`; helper `tag_dish_ids` |
 | 0058 | `ate_with` | `entry_companions`, `entry_invites`, `device_push_tokens`, `ate_with_ledger`; notifications `ate_with` type; tag/untag/invite/redeem/prefill/respond/decline + `my_notifications`, push-token RPCs; `entry_cards.companions` (create or replace, trailing column); `delete_account` checks the new tables |
 | 0059 | `send_push` | notifications `push_claimed_at`/`push_attempts`; `push_is_ready`, `push_claim_ate_with`, `push_mark_sent`, `push_drop_tokens` (service_role); `push_kick` (pg_net → send-push, Vault-gated) on tag insert, on sort, and every minute (pg_cron); keyless setup `push_configure(url)` + `push_kick_secret()` (DB-generated bearer, service_role only); `register_push_token` env defaults to `production` |
+| 0060 | `lists_and_journal_search` | `user_lists`, `user_list_items` + item-follows-line triggers; list RPCs, `my_scored_dishes`; `search_my_entries` + trigram index on `search_key(entries.body)`; `delete_account` checks the list tables |

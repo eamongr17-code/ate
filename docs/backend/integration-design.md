@@ -366,3 +366,44 @@ after (2)+(3): unconfigured, the function answers `{configured: false}`. Kill sw
 
 **Wire change — 0058.** Additive: the RPCs above, three tables, `notifications.companion_id`/`pushed_at`, and a
 trailing `companions` key on every `entry_cards` row. Behavioural on a dormant RPC only: `unread_notification_count` counts `ate_with` alone.
+
+## Lists + Journal search (0060, draft — not applied)
+
+A list = a name + the owner's own dish lines in hand order. **Private** (`visibility` is always `private`;
+a public flag later is additive). Item grain = **(entry_id, dish_id)**, not a review id: it survives a re-sort,
+follows a dish correction/merge, and is removed (ranks close up) when that visit no longer prints the dish
+or the entry is deleted. Pre-entries lines can't be listed. Signed in only (anon → `42501`); no table writes.
+
+| Call | Returns · errors |
+|---|---|
+| `create_list(p_name)` · `rename_list(p_list_id, p_name)` | `{list_id, name, visibility, item_count, created_at, updated_at}`. Name trimmed, 1–80 chars, duplicates allowed. `22023 bad_list_name` · `54000 list_cap` (50 lists) · `P0002 list_not_found` (gone or not yours — indistinguishable) |
+| `delete_list(p_list_id)` | int: 1, or 0 = already gone (treat as done). Items go with it |
+| `add_list_item(p_list_id, p_entry_id, p_dish_id)` | `{item_id, list_id, entry_id, dish_id, item_position, added_at}` — appended last; idempotent (the same line again = the same item). `P0002 dish_line_not_found` (not your entry / dish not on it) · `54000 list_item_cap` (100) |
+| `remove_list_item(p_item_id)` | int 1 · 0 already gone. Later items move up one |
+| `reorder_list(p_list_id, p_item_ids uuid[])` | int count. The FULL ordered array of the list's item ids, each once; positions become 1…n in array order. Anything else → `22023 reorder_mismatch` (refetch `get_list`, reapply the drag) |
+| `my_lists(p_limit, p_cursor_created_at, p_cursor_id)` | `{list_id, name, visibility, item_count, covers text[], created_at, updated_at}[]`, newest created first; keyset `(created_at, list_id)` — both or neither (`22023`). `covers` = ≤ 4 distinct item photos in list order, `[]` none. Default/max 50 |
+| `get_list(p_list_id)` | jsonb `{list_id, name, visibility, item_count, created_at, updated_at, items:[{item_id, position, entry_id, dish_id, dish_name, restaurant_id, restaurant_name, locality, score, photo_url, visited_at, added_at}]}`, items in order (`position` 1…n), unpaged (≤ 100). `score` = that visit's line (null = unscored); `photo_url` = the line's photo, else the visit's first photo (may show another dish of that visit), else null. `P0002` |
+| `my_lists_for_dish_line(p_entry_id, p_dish_id)` | `{list_id, name, item_count, item_id}[]` — every list (my_lists' order); `item_id` non-null = this line is in it (pass it to `remove_list_item` to untick) |
+| `my_scored_dishes(p_query, p_scored_only, p_list_id, p_limit, p_cursor_visited_at, p_cursor_entry_id, p_cursor_dish_id)` | the picker: `{entry_id, dish_id, dish_name, restaurant_id, restaurant_name, locality, score, photo_url, visited_at, in_list}[]`, one row per (visit, dish), newest visit first. `p_query` matches dish OR place name (accent-folded substring; < 2 chars = no filter). `p_scored_only` default true. `in_list` vs `p_list_id` (false when null). 3-part keyset, all or none (`22023`). Default 30, max 100 |
+| `search_my_entries(p_query, p_limit, p_cursor_created_at, p_cursor_id)` | `entry_cards[]` — YOUR entries whose words, place name or a line's dish name contain the query (the Search tab's `search_key` rule: case- and accent-insensitive substring, so prefixes work; `%`/`_` literal; < 2 chars → `[]`). Journal order `(created_at, id)` DESC, keyset both or neither (`22023`). Default 20, max 50. Never another person's entry |
+
+The share image is rendered on the phone from `get_list`; no server call.
+
+**Notifications badge (C).** `unread_notification_count()` (0058) is sufficient for the "ate with" half: it counts
+exactly the unread, undismissed `ate_with` rows `my_notifications` can show (blocked/deactivated actors excluded).
+Badge = that int + the phone's own photo count. No server change.
+
+**Nearby places for a photo (D, proposal — nothing built).** `places-search op=nearby` takes `{lat, lng, radius?}`
+(default 2000 m, clamped 100–50 000) and returns ≤ 10 `restaurants[]` with `distance_meters`: PostGIS
+`restaurants_nearby` first; only when it finds < 5 does it call Google `searchNearby` (Pro-tier field mask, no
+photos — roughly US$0.03 a call) and upsert those places. Each call = one edge invocation + JWT check + one
+`places_rate_hit` (90/min/user, shared with autocomplete, fails open). ~20 clusters → 20 calls: inside the rate
+limit, but a burst that also collides with typing could `429`, and in a thin area it's up to 20 paid Google calls
+per import. Acceptable for a first cut if the phone runs them sequentially (or 4 at a time) and skips clusters
+within ~150 m of one already asked. If it ships widely, the batched variant is `op=nearby_batch {points: [{lat,
+lng}] ≤ 25}` → `{results: [{index, restaurants[]}]}`: one auth + one rate hit, one SQL call taking all points
+(`unnest` + LATERAL over the GIST index), Google only for points under the threshold, capped at ~5 Google calls
+per request. Rule 8 stands either way: these are suggestions the user taps, never an attached place; no point is stored.
+
+**Wire change — 0060.** Additive: two tables (owner SELECT only), the RPCs above, a trigram index on entry words.
+`delete_account` also verifies the list tables are empty (same signature, same reply). Nothing existing changes.
