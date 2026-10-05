@@ -29,6 +29,8 @@ struct AteEntryPaper: View {
     var onScoreDish: ((UUID) -> Void)?
     /// Your own entry: the dish's correction, one long press away.
     var onCorrectDish: ((AteSlip.Dish) -> Void)?
+    /// Your own entry: put the dish on a list, in the same long press (`lists-notifications.html` D1).
+    var onAddDishToList: ((AteSlip.Dish) -> Void)?
     /// Somebody else's entry: every row is a dish to save.
     var onSaveDish: ((AteSlip.Dish) -> Void)?
     var onPlace: (() -> Void)?
@@ -129,6 +131,9 @@ struct AteEntryPaper: View {
             dish: dish,
             action: primary,
             secondary: primary == nil ? nil : correct.map { (title: "Change the dish", action: $0) },
+            addToList: primary == nil ? nil : onAddDishToList.map { add in
+                (title: "Add to a list", action: { add(dish) })
+            },
             onSave: onSaveDish.map { save in { save(dish) } },
             identifier: "entry"
         )

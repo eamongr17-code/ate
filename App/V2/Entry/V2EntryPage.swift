@@ -37,6 +37,8 @@ private struct V2EntryScreen: View {
     @State private var more: EntryMoreStore
     @State private var isShowingActions = false
     @State private var isSharingReceipt = false
+    /// One of your dishes, on its way onto a list (`lists-notifications.html` D).
+    @State private var addingToList: AddToListTarget?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.atePhotoViewer) private var showPhotos
 
@@ -84,6 +86,7 @@ private struct V2EntryScreen: View {
                 }
             )
             .sheet(isPresented: $isShowingActions) { actionsSheet }
+            .sheet(item: $addingToList) { AddToListSheet(target: $0, app: context.app) }
             .sheet(isPresented: $isSharingReceipt) {
                 if let receipt = model.receipt, let card = model.card {
                     V2ReceiptShareSheet(
@@ -159,6 +162,7 @@ private struct V2EntryScreen: View {
             onDish: { dish in openDish(dish, card: card) },
             onScoreDish: { context.open(.dish($0), from: .entry) },
             onCorrectDish: card.isMine ? { model.correct($0) } : nil,
+            onAddDishToList: card.isMine ? { dish in addToList(dish, card: card) } : nil,
             onSaveDish: card.isMine ? nil : { dish in Task { await model.toggleSave(dish: dish) } },
             onPlace: card.place.map { place in {
                 PlacePreviews.shared.note(place.id, name: place.name)
@@ -197,6 +201,15 @@ private struct V2EntryScreen: View {
             restaurantID: card.place?.id, restaurantName: card.place?.name
         ))
         context.open(.dish(dish.dishID), from: .entry)
+    }
+
+    /// Add to a list: the line is this visit and this dish.
+    private func addToList(_ dish: AteSlip.Dish, card: EntryCard) {
+        guard context.gate.permitsWrite(.journal) else { return }
+        addingToList = AddToListTarget(
+            line: DishLine(entryID: card.id, dishID: dish.dishID), name: dish.name, place: card.place?.name,
+            score: dish.score, photoURL: card.photos.min { $0.position < $1.position }?.url
+        )
     }
 
     // MARK: - The bar

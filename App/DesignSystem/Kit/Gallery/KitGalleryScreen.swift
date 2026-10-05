@@ -28,6 +28,7 @@ struct KitGalleryScreen: View {
                     KitBuildStampLine()
                     atoms
                     composites
+                    lists
                     chrome
                 }
                 .padding(.top, KitGalleryMetrics.top)

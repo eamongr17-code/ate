@@ -20,6 +20,8 @@ struct SlipDishRow: View {
     var action: (() -> Void)?
     /// The other thing the row can do, one long press away — the entry page's correction.
     var secondary: (title: String, action: () -> Void)?
+    /// Above it in the same menu — "Add to a list" on your own entry (`lists-notifications.html` D1).
+    var addToList: (title: String, action: () -> Void)?
     /// Present where the dish can be saved: somebody else's entry, in any list or on its page.
     var onSave: (() -> Void)?
     var identifier = "journal.slip"
@@ -103,6 +105,9 @@ struct SlipDishRow: View {
             }
             .buttonStyle(.plain)
             .contextMenu {
+                if let addToList {
+                    Button(addToList.title, action: addToList.action)
+                }
                 if let secondary {
                     Button(secondary.title, action: secondary.action)
                 }
