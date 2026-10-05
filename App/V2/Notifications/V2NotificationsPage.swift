@@ -121,6 +121,7 @@ struct V2NotificationsPage: View {
     private func band(_ title: String, isFirst: Bool) -> some View {
         AteBandHeading(title: title)
             .frame(minHeight: AteMetrics.hit)
+            .padding(.horizontal, AteMetrics.gutter)
             .padding(.top, isFirst ? NotificationsMetrics.firstBandTop : NotificationsMetrics.bandTop)
             .accessibilityAddTraits(.isHeader)
             .plainRow()

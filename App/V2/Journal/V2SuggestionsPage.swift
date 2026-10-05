@@ -123,6 +123,7 @@ struct PhotoSuggestionRow: View {
                 .transition(.opacity)
             }
         }
+        .padding(.horizontal, AteMetrics.gutter)
         .padding(.top, isFirst ? SuggestionMetrics.firstTop : AteMetrics.loose)
         .padding(.bottom, AteMetrics.loose)
         .overlay(alignment: .top) { if isFirst == false { AteHairline() } }
@@ -192,8 +193,9 @@ struct SuggestionSkeletonRow: View {
                 surface: AtePalette.automatic.ground
             )
         }
+        .padding(.horizontal, AteMetrics.gutter)
         .padding(.vertical, AteMetrics.loose)
-        .overlay(alignment: .top) { AteHairline() }
+        .overlay(alignment: .top) { AteHairline().padding(.horizontal, AteMetrics.gutter) }
         .ateBreathing()
         .accessibilityHidden(true)
     }

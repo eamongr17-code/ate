@@ -109,11 +109,3 @@ public final class PhotoPlaceChips {
         return answers.first { $0.key.distance(to: coordinate) < Self.sameSpot }?.value
     }
 }
-
-/// **The Journal bell's one number** — unread "Ate with" tags (the server's count) plus photo
-/// sittings waiting to be written up (the device's count). Never below zero.
-public enum NotificationsInbox {
-    public static func count(unreadTags: Int, photoSuggestions: Int) -> Int {
-        max(0, unreadTags) + max(0, photoSuggestions)
-    }
-}

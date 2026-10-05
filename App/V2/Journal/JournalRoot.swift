@@ -23,10 +23,10 @@ struct JournalRoot: View {
     /// Bumped by every change to what the list is — a filter, a chip cleared — so
     /// the new list starts at its top: a lazy list keeps its offset while its rows are replaced.
     @State var listChanged = 0
-    /// Journal | Lists — the pinned switch (`lists-notifications.html` §3).
-    @State var shelf = JournalShelf.journal
-    /// The Lists shelf's New list sheet, opened from the glass group.
-    @State var isNamingList = false
+    /// Journal search (`JournalRoot+Search`): the field over the header row while it is up.
+    @State var isSearching = false
+    @State var search: JournalSearchStore?
+    @State var searchText = ""
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     static let top = "journal.top"
@@ -36,7 +36,7 @@ struct JournalRoot: View {
 
     var body: some View {
         ScrollViewReader { proxy in
-            shelfContent
+            list
                 .onChange(of: router.scrollToTop) { _, _ in
                     withAnimation(reduceMotion ? nil : .default) { proxy.scrollTo(Self.top, anchor: .top) }
                 }
@@ -51,16 +51,20 @@ struct JournalRoot: View {
         ) {
             controls
         }
-        // The switch, pinned under the bar on the ground, never half under it (build 88), with the
-        // filter's chips beneath it on the Journal; the shelf scrolls below.
+        // The switch area, pinned under the bar on the ground, never half under it (build 88), with
+        // the filter's chips beneath it; the list scrolls below. It holds no switch until Lists is
+        // built: a later lane puts "Journal | Lists" back here, above the chips (an AteSegmentedControl,
+        // as Journal | Saved was before 5 Oct), and switches the list on it.
         .safeAreaInset(edge: .top, spacing: 0) {
             VStack(spacing: 0) {
-                shelfSwitch
-                if shelf == .journal { activeChips }
+                activeChips
             }
             .ateGround()
         }
         .sheet(isPresented: $isFiltering) { filterSheet }
+        // Searching: the bar steps away and the search screen covers the switch and the shelf.
+        .toolbarVisibility(isSearching ? .hidden : .automatic, for: .navigationBar)
+        .overlay { searchOverlay }
         .task { await journal.loadIfNeeded() }
         // Read ahead, so the filter sheet rises with its cities in it.
         .task { await journal.loadCitiesIfNeeded() }
@@ -91,7 +95,6 @@ struct JournalRoot: View {
     /// The month you are in, once the wordmark has scrolled away — or, where the list does not run
     /// through time, "Journal". The year joins a month only when it is not this one.
     private var inlineTitle: AteInlineTitle {
-        if shelf == .lists { return AteInlineTitle(title: JournalShelf.lists.title) }
         let runsThroughTime = journal.query.sort.isChronological && journal.phase == .ready
         if runsThroughTime, let topMonth {
             let isThisYear = topMonth.year == AteMonth.containing(Date()).year
@@ -113,9 +116,7 @@ struct JournalRoot: View {
             AteGlassItem(icon: .search, label: "Search your journal", action: openJournalSearch)
                 .accessibilityIdentifier("journal.search")
         }
-        if shelf == .lists {
-            newListItem
-        } else if hasSomethingToSort || filters.isFiltering(on: .journal) {
+        if hasSomethingToSort || filters.isFiltering(on: .journal) {
             AteGlassToggleItem(
                 icon: .listFilter,
                 label: "Filter",
@@ -127,16 +128,15 @@ struct JournalRoot: View {
         }
     }
 
-    /// **Seam for the Journal search lane**: return the action that opens Journal search. While it is
-    /// `nil` the magnifier is not drawn — never a dead button.
-    var openJournalSearch: (() -> Void)? { nil }
+    /// The magnifier's action (`JournalRoot+Search`). `nil` would hide it — never a dead button.
+    var openJournalSearch: (() -> Void)? { openSearch }
 
-    /// The bell's one number. TODO: use AteKit's `JournalInboxCount` once the Lists lane lands it.
+    /// The bell's one number: unread tags plus photo sittings.
     private var inboxCount: Int {
-        NotificationsInbox.count(
-            unreadTags: app.hasSession ? app.notifications.unreadCount : 0,
-            photoSuggestions: stores.photos.count
-        )
+        JournalInboxCount(
+            ateWith: app.hasSession ? app.notifications.unreadCount : 0,
+            photos: stores.photos.count
+        ).total
     }
 
     private var hasSomethingToSort: Bool {

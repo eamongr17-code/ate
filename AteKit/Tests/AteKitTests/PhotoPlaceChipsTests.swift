@@ -123,13 +123,6 @@ struct PhotoPlaceChipsTests {
         #expect(chips.chips(for: "a").count == 3)
     }
 
-    @Test("The bell's number is tags plus photo sittings, never below zero")
-    func inboxCount() {
-        #expect(NotificationsInbox.count(unreadTags: 2, photoSuggestions: 3) == 5)
-        #expect(NotificationsInbox.count(unreadTags: 0, photoSuggestions: 0) == 0)
-        #expect(NotificationsInbox.count(unreadTags: -1, photoSuggestions: 2) == 2)
-    }
-
     @Test("A sitting's location is its first photo that has one")
     func clusterCoordinate() {
         let now = Date()
