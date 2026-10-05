@@ -1,0 +1,917 @@
+<title>Lists and Notifications</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=DM+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#EFEAE2; --fg:#24141F; --muted:#5E5560; --slip:#FFFFFF; --field:#E4DED4;
+  --hair:rgba(36,20,31,.14); --coral:#F0623F; --butter:#F6D365; --green:#3ECF64; --lilac:#B9A5EA;
+  --shadow:0 1px 0 rgba(36,20,31,.07);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#17111B; --fg:#F4EFE9; --muted:#B9AFBC; --slip:#231B24; --field:#2B2230; --hair:rgba(255,255,255,.16); --shadow:0 1px 0 rgba(0,0,0,.25); color-scheme:dark; } }
+:root[data-theme="dark"]{ --ground:#17111B; --fg:#F4EFE9; --muted:#B9AFBC; --slip:#231B24; --field:#2B2230; --hair:rgba(255,255,255,.16); --shadow:0 1px 0 rgba(0,0,0,.25); color-scheme:dark; }
+*{box-sizing:border-box}
+html,body{overflow-x:hidden}
+body{background:var(--ground);color:var(--fg);font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.5;margin:0;padding:40px 20px 80px}
+main{max-width:1180px;margin:0 auto;display:grid;gap:44px}
+.measure{max-width:720px}
+h1,h2,h3{font-family:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;letter-spacing:-.035em;line-height:1.05;text-wrap:balance;margin:0}
+h1{font-weight:800;font-size:44px} h2{font-weight:800;font-size:28px} h3{font-weight:600;font-size:18px;letter-spacing:-.01em}
+p{margin:0}
+.lede{font-size:20px;line-height:1.45}
+section{display:grid;gap:16px}
+.note{color:var(--muted);font-size:15px}
+.tag{display:inline-block;border-radius:999px;padding:2px 10px;font:600 12.5px/1.5 "Bricolage Grotesque",sans-serif;color:#24141F;background:var(--lilac);white-space:nowrap}
+.tag.rec{background:var(--green)}
+
+/* ---------- phones ---------- */
+.phones{display:flex;flex-wrap:wrap;gap:28px 22px}
+.cell{display:grid;gap:10px;width:289px;align-content:start}
+.cell h3{font-size:16px}
+.cell p{font-size:14.5px;color:var(--muted);line-height:1.4}
+.cell p b{color:var(--fg);font-family:"Bricolage Grotesque",sans-serif;font-weight:600}
+.ph{width:289px;height:625px;border-radius:40px;overflow:hidden;box-shadow:0 0 0 1px var(--hair),0 18px 40px rgba(36,20,31,.14);flex-shrink:0;max-width:100%}
+.ph.prop{box-shadow:0 0 0 3px var(--lilac),0 18px 40px rgba(36,20,31,.14)}
+.scr{width:390px;height:844px;transform:scale(.741);transform-origin:0 0;position:relative;overflow:hidden;font-family:"Newsreader",Georgia,serif;
+  --g:#EFEAE2;--ink:#24141F;--paper:#FFFFFF;--fld:#E4DED4;--mut:#5E5560;--hr:rgba(36,20,31,.14);--solid:#24141F;--solidfg:#FFFFFF;
+  --gl:rgba(255,255,255,.62);--glin:rgba(255,255,255,.9);--segon:#FFFFFF;--dimc:#B9B2A8;--tabon:rgba(36,20,31,.06);
+  background:var(--g);color:var(--ink)}
+.scr.dk{--g:#17111B;--ink:#F4EFE9;--paper:#231B24;--fld:#2B2230;--mut:#B9AFBC;--hr:rgba(255,255,255,.16);--solid:#E9E1D6;--solidfg:#24141F;
+  --gl:rgba(62,50,64,.58);--glin:rgba(255,255,255,.16);--segon:#4A3D4C;--dimc:#0B080D;--tabon:rgba(255,255,255,.10)}
+.sb{position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:6px 34px 0 44px;font:600 17px/1 -apple-system,"Helvetica Neue",sans-serif;z-index:9}
+.sb i{display:flex;gap:6px;align-items:center}
+.sb i b{display:block;background:currentColor;border-radius:2px}
+.glass{background:var(--gl);-webkit-backdrop-filter:blur(18px) saturate(1.7);backdrop-filter:blur(18px) saturate(1.7);
+  box-shadow:inset 0 0 0 .5px var(--glin),inset 0 1px 1px var(--glin),0 0 0 .5px rgba(36,20,31,.10),0 8px 22px rgba(36,20,31,.12);color:var(--ink)}
+.disc{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--ink);flex-shrink:0}
+.tick{background:var(--solid);color:var(--solidfg);box-shadow:inset 0 1px 1px rgba(255,255,255,.25),0 6px 16px rgba(36,20,31,.25)}
+.tick.off{opacity:.4}
+.ui{font-family:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif}
+.h{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.035em;line-height:1}
+.mt{font:500 13px/1.3 "Bricolage Grotesque",sans-serif;color:var(--mut)}
+.mt b{font-weight:600;color:var(--ink)}
+.lab{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5E5560}
+.row{display:flex;align-items:center}
+
+/* header */
+.nav{position:absolute;top:56px;left:16px;right:16px;height:44px;display:flex;align-items:center;justify-content:space-between;gap:10px;z-index:6}
+.grp{display:flex;align-items:center;height:44px;border-radius:999px;padding:0 4px;flex-shrink:0}
+.hit{position:relative;width:36px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--ink);flex-shrink:0}
+.hit.onink{background:var(--solid);color:var(--solidfg);border-radius:50%;width:36px;height:36px;margin:4px 0}
+.badge{position:absolute;top:3px;right:-2px;min-width:17px;height:17px;border-radius:9px;background:#F0623F;color:#24141F;font:600 10.5px/17px "Bricolage Grotesque",sans-serif;text-align:center;padding:0 4px}
+.wm{position:absolute;left:16px;top:62px;height:32px;width:67.6px;border-radius:8px;background:var(--ink);opacity:.88;z-index:6}
+.rtitle{font:800 38px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em;padding-left:4px}
+.ptitle{font:800 36px/1.02 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em;text-wrap:balance}
+.seg{display:flex;padding:3px;border-radius:999px;background:var(--fld);height:36px;box-sizing:content-box}
+.seg span{flex:1;display:flex;align-items:center;justify-content:center;border-radius:999px;font:600 14px/1 "Bricolage Grotesque",sans-serif;color:var(--mut)}
+.seg span.on{background:var(--segon);color:var(--ink);box-shadow:0 1px 2px rgba(36,20,31,.12),0 0 0 .5px rgba(36,20,31,.06)}
+.sfield{flex:1;min-width:0;height:44px;border-radius:999px;display:flex;align-items:center;gap:8px;padding:0 14px;font:600 17px/1 "Bricolage Grotesque",sans-serif;white-space:nowrap;overflow:hidden}
+.sfield .pmt{color:var(--mut);font-weight:500}
+.caret{display:inline-block;width:2px;height:22px;margin-left:1px;background:#F0623F;vertical-align:-4px}
+
+/* tab bar */
+.tabbar{position:absolute;left:21px;right:91px;bottom:21px;height:62px;border-radius:999px;display:flex;align-items:center;justify-content:space-around;padding:0 6px;z-index:7}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;font:600 10.5px/1 "Bricolage Grotesque",sans-serif;color:var(--ink);width:66px;height:54px;justify-content:center;border-radius:999px}
+.tab.on{background:var(--tabon);font-weight:800}
+.plusdisc{position:absolute;right:21px;bottom:21px;width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:7}
+
+/* slips (journal-saved, unchanged) */
+.list{position:absolute;left:12px;right:12px;display:grid;gap:12px;align-content:start}
+.slipwrap{filter:drop-shadow(0 1px 0 rgba(36,20,31,.07))}
+.slip{background:var(--paper);border-radius:16px 16px 0 0;padding:4px 16px 14px;display:flex;flex-direction:column;gap:10px;color:var(--ink)}
+.slip .cluster{--surf:var(--paper)}
+.etear{height:4px}
+.drow{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:44px}
+.drow+.drow{border-top:1px solid var(--hr)}
+.dn{font:800 20px/1.05 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;display:flex;align-items:center;gap:6px}
+.ds{display:flex;align-items:center;gap:5px;font:800 26px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.02em}
+.prose{font-size:19px;line-height:1.5;text-wrap:pretty}
+.sp{font-size:16px;line-height:1.5}
+.clamp2{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.placeline{display:flex;align-items:center;gap:5px;min-height:28px;white-space:nowrap;margin:2px 0 -6px}
+.placeline .pi{color:var(--mut)}
+.diet{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:999px;background:var(--fld);color:var(--mut);font:600 10.5px/1 "Bricolage Grotesque",sans-serif;letter-spacing:.06em;text-transform:uppercase}
+
+/* photos */
+.ph-img{display:block;flex-shrink:0}
+.cluster{display:flex;padding-left:6px}
+.cluster .ph-img{box-shadow:0 0 0 3px var(--surf,#fff)}
+.cluster>span+span{margin-left:-12px}
+.food1{background:radial-gradient(circle at 40% 40%,#E6A257,#9A4A1F 70%,#5C2A12)}
+.food2{background:radial-gradient(circle at 55% 45%,#F2946A,#C2452C 65%,#6E2316)}
+.food3{background:linear-gradient(160deg,#F1DFC4 0 30%,#6B4A2E 30% 42%,#E9D3B2 42% 70%,#5A3B22 70%)}
+.beer1{background:linear-gradient(180deg,#FFF6E0 0 22%,#F0B443 22% 100%)}
+.beer2{background:linear-gradient(180deg,#F7EBD2 0 18%,#9C4F1C 18% 100%)}
+.curry{background:radial-gradient(circle at 50% 50%,#F5C04A,#D9731F 55%,#7A2E10)}
+.lt{display:flex;align-items:center;justify-content:center;font-family:"Bricolage Grotesque",sans-serif;font-weight:800;color:#24141F;flex-shrink:0}
+.thumb{flex-shrink:0;display:block}
+
+/* rows */
+.tok{display:inline-flex;align-items:center;gap:3px;padding:3px 8px 3px 6px;border-radius:999px;background:#F6D365;color:#24141F;font:500 13px/1.2 "DM Mono",ui-monospace,monospace;white-space:nowrap;flex-shrink:0}
+.rk{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--fld)}
+.rk:last-child{border-bottom:0}
+.rk .n{width:28px;font:800 30px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.05em;text-align:center;flex-shrink:0}
+.rk .d,.pk .d,.dr .d{flex:1;display:grid;gap:2px;min-width:0}
+.rk .d b,.pk .d b,.dr .d b{font:800 18px/1.1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pk{display:flex;align-items:center;gap:12px;min-height:66px;border-top:1px solid var(--hr)}
+.pk:first-child{border-top:0}
+.dr{display:flex;align-items:center;gap:12px;min-height:70px;border-top:1px solid var(--hr)}
+.dr.first{border-top:0}
+.slot{width:54px;height:30px;border-radius:999px;border:1.5px dashed var(--hr);flex-shrink:0}
+.chk{width:28px;height:28px;border-radius:50%;background:var(--solid);color:var(--solidfg);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.chk.none{background:none}
+.addrow{display:flex;align-items:center;gap:12px;min-height:60px;border-top:1px solid var(--hr);font:600 17px/1 "Bricolage Grotesque",sans-serif}
+.band{font:600 16px/1 "Bricolage Grotesque",sans-serif;display:flex;align-items:center;justify-content:space-between;min-height:44px}
+.band i{color:var(--mut)}
+.recent{display:flex;align-items:center;gap:12px;min-height:58px;border-top:1px solid var(--hr);font:600 17px/1 "Bricolage Grotesque",sans-serif}
+.recent:first-child{border-top:0}
+.recent i{color:var(--mut)}
+.plrow{display:flex;align-items:center;gap:8px;min-height:62px;border-top:1px solid var(--hr)}
+.lr{display:flex;align-items:center;gap:12px;min-height:84px;border-top:1px solid var(--hr)}
+.lr:first-child{border-top:0}
+.lr .d{flex:1;display:grid;gap:3px;min-width:0}
+.lr .d b{font:600 17px/1.2 "Bricolage Grotesque",sans-serif;letter-spacing:-.01em}
+.lr>i{color:var(--mut)}
+
+/* list cards (proposed component) */
+.lcs{position:absolute;left:12px;right:12px;display:grid;gap:12px}
+.lc{position:relative;border-radius:16px;height:168px;padding:16px 16px 16px 18px;color:#24141F;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+.lc .tp{display:flex;justify-content:space-between;align-items:flex-start}
+.lc .ct{font:600 13px/1 "Bricolage Grotesque",sans-serif;opacity:.72;padding-top:4px}
+.lc .nm{font:800 27px/1.02 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-width:300px;text-wrap:balance}
+
+/* sheets */
+.dim{position:absolute;inset:0;background:var(--dimc)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--paper);border-radius:38px 38px 0 0;overflow:hidden;box-shadow:0 -10px 30px rgba(36,20,31,.12)}
+.top{position:absolute;left:16px;right:16px;top:14px;display:flex;justify-content:space-between;align-items:center}
+.field{display:flex;align-items:center;gap:10px;min-height:50px;padding:0 16px;border-radius:25px;background:var(--fld);font:600 17px/1.25 "Bricolage Grotesque",sans-serif}
+.field .pmt{color:var(--mut);font-weight:500}
+.pill{height:52px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:8px;font:600 16px/1 "Bricolage Grotesque",sans-serif;background:var(--solid);color:var(--solidfg)}
+.pill.sm{height:44px;font-size:15px;padding:0 24px}
+.foot{position:absolute;left:20px;right:20px;bottom:34px}
+.emp{position:absolute;left:20px;right:20px;top:150px;bottom:83px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center}
+.emp .ln{font:800 40px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.kbd{position:absolute;left:0;right:0;bottom:0;height:291px;background:#D3D5DB;padding:8px 3px 0;display:grid;gap:11px;align-content:start;z-index:8}
+.kbd .r{display:flex;justify-content:center;gap:6px}
+.kbd .r span{height:42px;flex:0 0 33px;background:#fff;border-radius:6px;box-shadow:0 1px 0 rgba(0,0,0,.3);font:400 22px/42px -apple-system,sans-serif;text-align:center;color:#111}
+.kbd .r span.w{flex:0 0 45px;background:#ABB0BA}
+.kbd .r span.spc{flex:0 0 190px}
+.menu{position:absolute;right:16px;top:104px;width:228px;border-radius:26px;padding:6px 0;z-index:8;background:rgba(255,255,255,.80)}
+.menu div{display:flex;align-items:center;justify-content:space-between;height:46px;padding:0 18px;font:500 17px/1 -apple-system,"Helvetica Neue",sans-serif;color:#24141F}
+.menu div.red{color:#B3261E}
+.menu div+div{border-top:.5px solid rgba(36,20,31,.12)}
+.swipe{position:relative;overflow:hidden;margin:0 -20px}
+.swipe .act{position:absolute;right:0;top:0;bottom:0;width:104px;background:#B3261E;color:#fff;display:flex;align-items:center;justify-content:center;font:600 16px/1 -apple-system,"Helvetica Neue",sans-serif}
+.swipe .rk{transform:translateX(-104px);background:var(--g);padding-left:20px;padding-right:20px}
+.dlg{position:absolute;left:10px;right:10px;bottom:30px;display:grid;gap:8px;z-index:9;font-family:-apple-system,"Helvetica Neue",sans-serif}
+.dlg .g{border-radius:28px;background:rgba(250,248,245,.94);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.2)}
+.dlg .t{padding:16px 20px 14px;text-align:center;font-size:13px;font-weight:600;color:#6B6670}
+.dlg .o{height:58px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#24141F;border-top:1px solid rgba(36,20,31,.1)}
+.dlg .o.red{color:#B3261E}
+.dlg .o.c{font-weight:600;border-top:0}
+.veil{position:absolute;inset:0;background:rgba(239,234,226,.45);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);z-index:7}
+.cmenu{position:absolute;left:20px;width:250px;border-radius:22px;background:rgba(255,255,255,.84);z-index:8;box-shadow:0 18px 40px rgba(36,20,31,.18);overflow:hidden}
+.cmenu div{display:flex;align-items:center;justify-content:space-between;height:48px;padding:0 18px;font:400 17px/1 -apple-system,"Helvetica Neue",sans-serif;color:#24141F}
+.cmenu div+div{border-top:.5px solid rgba(36,20,31,.12)}
+
+/* suggestions, notifications */
+.nrow{display:flex;align-items:center;gap:12px;min-height:62px;border-top:1px solid var(--hr)}
+.nrow.first{border-top:0}
+.nrow .d{flex:1;display:grid;gap:1px;min-width:0}
+.nrow .d b{font:600 17px/1.2 "Bricolage Grotesque",sans-serif;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.av{border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:"Bricolage Grotesque",sans-serif;font-weight:800;color:#24141F;flex-shrink:0}
+.a28{width:28px;height:28px;font-size:12px}.a36{width:36px;height:36px;font-size:16px}
+.cE{background:#F0623F}.cJ{background:#F6D365}.cM{background:#3ECF64}
+.sug{display:grid;gap:10px;padding:16px 0;border-top:1px solid var(--hr)}
+.sug.first{border-top:0;padding-top:4px}
+.pchips{display:flex;gap:8px;overflow:hidden}
+.pc{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 13px 0 10px;border-radius:999px;background:var(--fld);color:var(--ink);font:600 14px/1 "Bricolage Grotesque",sans-serif;white-space:nowrap;flex-shrink:0}
+.pc.on{background:var(--solid);color:var(--solidfg)}
+
+/* composer bits (ate-with) */
+.bar{position:absolute;left:10px;right:10px;height:56px;border-radius:999px;display:flex;align-items:center;justify-content:space-between;padding:0 6px 0 4px;z-index:9}
+.bar .hit{width:44px}
+.key{height:40px;padding:0 13px 0 9px;gap:5px;border-radius:999px;display:flex;align-items:center;font:600 14px/1 "Bricolage Grotesque",sans-serif;color:#24141F;white-space:nowrap;flex-shrink:0}
+.k-score{background:#F6D365}.k-place{background:#E4DED4;max-width:110px;overflow:hidden}
+.k-round{width:40px;padding:0;justify-content:center;background:#E4DED4;border-radius:50%}
+.k-new{box-shadow:0 0 0 2px #24141F}
+
+/* receipt */
+.receipt{background:#fff;border-radius:16px 16px 0 0;padding:22px 16px 14px;display:grid;gap:10px;color:#24141F}
+.rule{border-top:1.5px dashed rgba(36,20,31,.3)}
+.rl{display:flex;align-items:baseline;gap:8px}
+.rl .q{font:500 11px/1 "DM Mono",monospace;color:#5E5560;width:16px;flex-shrink:0}
+.rl .n{font:800 19px/1.1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.rl .s{font:800 21px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rl .dt{flex:1;min-width:16px;border-bottom:2px dotted rgba(36,20,31,.3);transform:translateY(-5px)}
+.rpl{font:400 10px/1.2 "DM Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:#5E5560;padding-left:24px;margin-top:-3px}
+.tear{height:4px}
+.wmi{display:inline-block;width:40px;height:15px;border-radius:4px;background:#24141F;opacity:.85}
+
+/* whole-number band (You) */
+.whole{background:var(--paper);border-radius:16px;box-shadow:0 1px 0 rgba(36,20,31,.07);display:flex;padding:14px 8px}
+.whole>div{flex:1;display:grid;justify-items:center;gap:4px}
+.whole>div+div{border-left:1.5px dashed rgba(36,20,31,.3)}
+.hist{display:flex;align-items:flex-end;gap:4px;height:92px}
+.hist span{flex:1;border-radius:6px 6px 0 0;background:#F6D365;display:block}
+.sgrp{padding:18px 0 10px;display:flex;align-items:center;gap:6px}
+.srow{display:flex;align-items:center;gap:12px;min-height:76px;border-top:1px solid var(--hr)}
+
+/* doc */
+.paired{display:grid;grid-template-columns:repeat(auto-fit,minmax(289px,1fr));gap:28px 22px;justify-items:start}
+.opt{display:grid;gap:10px;align-content:start}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15.5px;line-height:1.45}
+th{font:600 13.5px/1.2 "Bricolage Grotesque",sans-serif;text-align:left;padding:8px 14px 8px 0;border-bottom:1px solid var(--hair);color:var(--muted)}
+td{padding:11px 14px 11px 0;border-bottom:1px solid var(--hair);vertical-align:top}
+td:first-child{font-family:"Bricolage Grotesque",sans-serif;font-weight:600}
+code{font-family:"DM Mono",monospace;font-size:.82em;background:var(--field);padding:1px 5px;border-radius:6px}
+.qs{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.q{background:var(--slip);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);display:grid;gap:6px}
+.q h3{font-size:17px}
+.q p{font-size:15.5px;color:var(--muted)}
+.q b{color:var(--fg);font-family:"Bricolage Grotesque",sans-serif;font-weight:600}
+.q b.rec::after{content:" (recommended)";font-weight:500;color:var(--muted)}
+ul{margin:0;padding-left:22px;display:grid;gap:8px}
+@media (max-width:480px){h1{font-size:36px} .cell,.ph{width:100%} .ph{height:auto;aspect-ratio:390/844} .scr{transform:scale(var(--s,.741))} .paired{grid-template-columns:1fr}}
+</style>
+
+<main>
+<header class="measure" style="display:grid;gap:14px">
+  <h1>Lists and Notifications</h1>
+  <p class="lede">The next round, drawn from Eamon's 5 October decisions. Saved becomes a tab where Search was. The Journal gets its own search, a Lists shelf you write by hand, and one Notifications page behind the old photos button. The calendar goes. Everything here is built from the existing kit except two new pieces, both marked: the list card and the list receipt.</p>
+</header>
+
+<!-- ================= A. JOURNAL ================= -->
+<section>
+  <h2>1. The Journal, reshaped</h2>
+  <div class="phones">
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div><span class="wm"></span>
+        <div class="nav"><span></span><span class="grp glass"><span class="hit" data-i="bell"><span class="badge">5</span></span><span class="hit" data-i="search"></span><span class="hit" data-i="filter"></span></span></div>
+        <div class="seg" style="position:absolute;left:12px;right:12px;top:108px"><span class="on">Journal</span><span>Lists</span></div>
+        <div class="list" style="top:162px"><div data-slip="a"></div><div data-slip="b"></div></div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>A1. Journal at rest</h3>
+      <p><b>Recommended group: bell, search, filter.</b> The bell takes the photos button's slot, first in the group, wearing the existing coral count. The calendar goes. The switch now reads Journal | Lists, still pinned under the bar.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr dk">
+        <div class="sb"></div><span class="wm"></span>
+        <div class="nav"><span></span><span class="grp glass"><span class="hit" data-i="bell"><span class="badge">5</span></span><span class="hit" data-i="search"></span><span class="hit" data-i="filter"></span></span></div>
+        <div class="seg" style="position:absolute;left:12px;right:12px;top:108px"><span class="on">Journal</span><span>Lists</span></div>
+        <div class="list" style="top:162px"><div data-slip="a"></div><div data-slip="b"></div></div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>A1, dark</h3>
+      <p>Same frame in the ink theme. The coral count is the only colour in the header, as it is today.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div><span class="wm"></span>
+        <div class="nav"><span></span><span class="grp glass"><span class="hit" data-i="bell"><span class="badge">3</span></span></span></div>
+        <div class="seg" style="position:absolute;left:12px;right:12px;top:108px"><span class="on">Journal</span><span>Lists</span></div>
+        <div class="emp"><span class="ln">Nothing<br>on the tab.</span><span class="pill sm">Write your first</span></div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>A2. Empty Journal</h3>
+      <p>Search and filter wait until there is something to search; the bell stays, so a first entry can still start from a photo suggestion. Same rule the photos button had.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= B. SEARCH ================= -->
+<section>
+  <h2>2. Searching your own record</h2>
+  <p class="note measure">Your entries only: dish names, places, and the words you wrote. Never other people, never a location ask.</p>
+  <div class="paired">
+    <div class="cell opt">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav"><span class="sfield glass"><i data-i="search" data-s="18"></i><span class="pmt">Search your journal</span><span class="caret" style="margin-left:-6px"></span></span><span class="disc glass" data-i="x"></span></div>
+        <div style="position:absolute;left:20px;right:20px;top:116px" data-b="recents"></div>
+        <div class="kbd"></div>
+      </div></div>
+      <h3>A. The magnifier opens the field in the bar <span class="tag rec">Recommended</span></h3>
+      <p><b>Fork 1.</b> Tap search: the glass group grows into the system search field across the header row, the keyboard rises and the switch steps away. Before typing, your recent searches (the kit's recent row). The close disc ends it and puts back the shelf you were on. Native <code>.searchable</code>, presented from the toolbar.</p>
+    </div>
+    <div class="cell opt">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div><span class="wm"></span>
+        <div class="nav"><span></span><span class="grp glass"><span class="hit" data-i="bell"><span class="badge">5</span></span><span class="hit" data-i="filter"></span></span></div>
+        <div class="seg" style="position:absolute;left:12px;right:12px;top:108px"><span class="on">Journal</span><span>Lists</span></div>
+        <div class="field" style="position:absolute;left:12px;right:12px;top:160px"><i data-i="search" data-s="18"></i><span class="pmt">Search your journal</span></div>
+        <div class="list" style="top:226px"><div data-slip="a"></div><div data-slip="b"></div></div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>B. A field at the head of the list</h3>
+      <p>The 50pt field pill sits under the switch and scrolls away with the slips, like Notes and Apple Journal. The group drops to two icons. The cost: the field takes room above your newest entry every time you open the Journal, and it scrolls up under the pinned switch.</p>
+    </div>
+  </div>
+
+  <div class="phones" style="padding-top:8px">
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav"><span class="sfield glass"><i data-i="search" data-s="18"></i>burger</span><span class="disc glass" data-i="x"></span></div>
+        <div style="position:absolute;left:20px;right:20px;top:110px" data-b="results"></div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>B1. Results</h3>
+      <p>Three groups in a fixed order: Dishes (thumbnail, dish over place, your score), Places (the place row, your average there), Entries (your slips whose words match). Each group shows three; its chevron opens the rest. A dish opens its dish page, a slip opens the entry.</p>
+    </div>
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav"><span class="sfield glass"><i data-i="search" data-s="18"></i>lobster roll</span><span class="disc glass" data-i="x"></span></div>
+        <div class="emp" style="top:100px"><span class="ln">Not in<br>your record.</span></div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>B2. No results</h3>
+      <p>The one empty anatomy, no pill. Nothing suggests searching everyone: that is the Feed's magnifier (see 6), and pointing at it here would be helper copy.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= C. LISTS ================= -->
+<section>
+  <h2>3. Lists</h2>
+  <p class="note measure">Custom only. You name a list, pick dishes from your own entries, and put them in order by hand. Nothing is generated and nothing re-sorts itself.</p>
+  <div class="phones">
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div><span class="wm"></span>
+        <div class="nav"><span></span><span class="grp glass"><span class="hit" data-i="bell"><span class="badge">5</span></span><span class="hit" data-i="search"></span><span class="hit" data-i="listplus"></span></span></div>
+        <div class="seg" style="position:absolute;left:12px;right:12px;top:108px"><span>Journal</span><span class="on">Lists</span></div>
+        <div class="emp"><span class="ln">No lists<br>yet.</span><span class="pill sm">Make a list</span></div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>C1. Lists, empty</h3>
+      <p>On the Lists shelf the filter swaps for <b>New list</b> (Lucide list-plus), the way Saved used to drop the calendar. A plain + would read as a second composer. Empty: one line, one pill.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="dim"></div>
+        <div class="sheet" style="top:300px">
+          <div class="top"><span class="disc glass" data-i="x"></span><span class="disc tick" data-i="check"></span></div>
+          <div style="padding:76px 20px 0;display:grid;gap:16px">
+            <span class="h" style="font-size:30px">New list</span>
+            <div class="field">Melbourne’s best burgers<span class="caret"></span></div>
+          </div>
+        </div>
+        <div class="kbd"></div>
+      </div></div>
+      <h3>C2. Name it</h3>
+      <p>A sheet over the shelf: close top left, tick top right, the title, one field. The tick wakes on the first letter. Nothing else is asked: no colour, no cover, no description. The card's colour is given, like an avatar's.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="dim" style="background:#9E978E"></div>
+        <div class="sheet" style="top:62px;padding:22px 20px 0;display:grid;gap:14px;align-content:start">
+          <div class="row" style="margin:-8px -4px 0"><span class="disc glass" data-i="x"></span></div>
+          <span class="h" style="font-size:30px">Add dishes</span>
+          <div class="field"><i data-i="search" data-s="18"></i><span style="flex:1">burger</span><i data-i="xc" data-s="18" style="color:#5E5560"></i></div>
+          <div data-b="pick"></div>
+          <div class="pill foot">Add 3 dishes</div>
+        </div>
+      </div></div>
+      <h3>C3. Pick from your own dishes</h3>
+      <p>The tick moves straight to this sheet. Every dish you have written, best score first, unscored ones last with their empty slot; one row per dish even if you ate it twice, with your latest score. Search narrows it. Taps toggle the ink check; the pill counts and appends them in the order picked.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav"><span class="disc glass" data-i="back"></span><span class="grp glass"><span class="hit" data-i="share"></span><span class="hit" data-i="more"></span></span></div>
+        <div style="position:absolute;left:20px;right:20px;top:112px">
+          <div class="ptitle">Melbourne’s best burgers</div>
+          <div class="mt" style="padding:8px 0 10px">6 dishes</div>
+          <div data-b="burg"></div>
+        </div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>C4. The list page</h3>
+      <p>Pushed, tab bar staying. Large title, the count under it, then the Feed's ranked row: your order as the numeral, photo or letter tile, dish over place, your score token. No bookmark: these are your own dishes. Tap opens the entry. "Add dishes" is the picking sheets' add row, last.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav"><span class="disc glass" data-i="back"></span><span class="grp glass"><span class="hit" data-i="share"></span><span class="hit" data-i="more"></span></span></div>
+        <div style="position:absolute;left:20px;right:20px;top:112px">
+          <div class="ptitle">Melbourne’s best burgers</div>
+          <div class="mt" style="padding:8px 0 10px">6 dishes</div>
+          <div data-b="burgdrag"></div>
+        </div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>C5. Reorder by drag</h3>
+      <p>Long-press any row and it lifts; drag and the others part. Numerals renumber live and the order saves on drop. No edit mode and no handles: the native <code>List</code> move, with the impact haptic on lift and drop.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav"><span class="disc glass" data-i="back"></span><span class="grp glass"><span class="hit" data-i="share"></span><span class="hit" data-i="more"></span></span></div>
+        <div style="position:absolute;left:20px;right:20px;top:112px">
+          <div class="ptitle">Melbourne’s best burgers</div>
+          <div class="mt" style="padding:8px 0 10px">6 dishes</div>
+          <div data-b="burgswipe"></div>
+        </div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>C6. Remove by swipe</h3>
+      <p>Swipe left for Remove, the native row action. It takes the dish off this list only; the entry is untouched. No dialog: the Saved shelf's Undo pill rises above the tab bar for four seconds, the same as an unsave.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav"><span class="disc glass" data-i="back"></span><span class="grp glass"><span class="hit" data-i="share"></span><span class="hit" data-i="more"></span></span></div>
+        <div style="position:absolute;left:20px;right:20px;top:112px;opacity:.55">
+          <div class="ptitle">Melbourne’s best burgers</div>
+          <div class="mt" style="padding:8px 0 10px">6 dishes</div>
+          <div data-b="burg"></div>
+        </div>
+        <div class="menu glass"><div>Rename<i data-i="pencil" data-s="18"></i></div><div class="red">Delete list<i data-i="trash" data-s="18"></i></div></div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>C7. ••• Rename, Delete</h3>
+      <p>The one native Menu. Rename reopens C2 holding the name, titled "Rename". Delete has the system red role and asks once: "Delete Melbourne’s best burgers?" with a red Delete. The entries stay.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb" style="color:#24141F"></div>
+        <div class="dim"></div>
+        <div class="sheet" style="background:#F0623F;--surf:#F0623F;top:62px">
+          <div class="top"><span class="disc glass" style="background:rgba(255,255,255,.35)" data-i="x"></span><span class="disc glass" style="background:rgba(255,255,255,.35)" data-i="share"></span></div>
+          <div class="cluster" style="justify-content:center;padding:78px 0 0 0"><span class="ph-img food1" style="width:84px;height:84px;border-radius:24px;transform:rotate(-7deg)"></span><span class="ph-img food2" style="width:84px;height:84px;border-radius:24px;transform:rotate(5deg)"></span><span class="ph-img food3" style="width:84px;height:84px;border-radius:24px;transform:rotate(-3deg)"></span></div>
+          <div style="margin:24px 34px 0;filter:drop-shadow(0 1px 0 rgba(36,20,31,.07))">
+            <div class="receipt" style="gap:9px">
+              <span class="h" style="font-size:25px;line-height:1.02">Melbourne’s best burgers</span>
+              <div class="rule"></div>
+              <div style="display:grid;gap:7px" data-b="rlines"></div>
+              <div class="rule"></div>
+              <div class="row lab" style="justify-content:space-between;color:#24141F"><span>6 dishes</span><span>Mon 5 Oct 2026</span></div>
+              <div class="row lab" style="justify-content:space-between;color:#24141F"><span><span style="color:#5E5560">Judged by</span> @eamon</span><span class="wmi"></span></div>
+            </div>
+            <div class="tear" data-fill="#fff"></div>
+          </div>
+        </div>
+      </div></div>
+      <h3>C8. Share: the list receipt <span class="tag">New visual</span></h3>
+      <p>From the share disc. The receipt's own rules on the coral share ground: top three photos clear above the paper, the list's name as the head, then each dish with its rank in mono, dot leader and score printed like a price, the place in mono fine print beneath. Dashed rule, count and date, "Judged by @eamon" beside the wordmark, Edge B. No order number, no average: it is a ranking, not a bill. Ten lines at most; past ten, "+4 more" in fine print.</p>
+    </div>
+  </div>
+
+  <h3 style="padding-top:8px">The shelf, once there are lists</h3>
+  <div class="paired">
+    <div class="cell opt">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div><span class="wm"></span>
+        <div class="nav"><span></span><span class="grp glass"><span class="hit" data-i="bell"><span class="badge">5</span></span><span class="hit" data-i="search"></span><span class="hit" data-i="listplus"></span></span></div>
+        <div class="seg" style="position:absolute;left:12px;right:12px;top:108px"><span>Journal</span><span class="on">Lists</span></div>
+        <div class="lcs" style="top:162px" data-b="cards"></div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>A. Colour-blocked cards <span class="tag rec">Recommended</span> <span class="tag">New visual</span></h3>
+      <p><b>Fork 2.</b> Each list is a full-width card at the kit's 16pt radius, in one of the letter-tile accents picked from the list's id (never butter, which means a score; never coral, which is the share ground). The top three dishes as a small tilted cluster ringed in the card's colour, the count, the name big in Bricolage 800. It reads as an object you made, the way a slip does, without pretending to be printed paper. Newest edited first; long-press drags to reorder the shelf.</p>
+    </div>
+    <div class="cell opt">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div><span class="wm"></span>
+        <div class="nav"><span></span><span class="grp glass"><span class="hit" data-i="bell"><span class="badge">5</span></span><span class="hit" data-i="search"></span><span class="hit" data-i="listplus"></span></span></div>
+        <div class="seg" style="position:absolute;left:12px;right:12px;top:108px"><span>Journal</span><span class="on">Lists</span></div>
+        <div style="position:absolute;left:20px;right:20px;top:156px" data-b="lrows"></div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>B. Quiet rows</h3>
+      <p>What you follow's row: the list's number-one dish as the thumbnail, the name over the count, a chevron. Entirely inside today's kit and contract, nothing new to approve. But four lists look like a settings page, and a list is the most personal thing in the app after your words.</p>
+    </div>
+  </div>
+
+  <div class="phones" style="padding-top:8px">
+    <div class="cell">
+      <div class="ph"><div class="scr dk">
+        <div class="sb"></div><span class="wm"></span>
+        <div class="nav"><span></span><span class="grp glass"><span class="hit" data-i="bell"><span class="badge">5</span></span><span class="hit" data-i="search"></span><span class="hit" data-i="listplus"></span></span></div>
+        <div class="seg" style="position:absolute;left:12px;right:12px;top:108px"><span>Journal</span><span class="on">Lists</span></div>
+        <div class="lcs" style="top:162px" data-b="cards"></div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>Cards, dark</h3>
+      <p>The accents hold on the ink ground with ink lettering, as letter tiles and avatars already do. No dimming of the colour in dark.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= D. ADD TO A LIST ================= -->
+<section>
+  <h2>4. Add to a list, from anywhere</h2>
+  <div class="phones">
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav"><span class="disc glass" data-i="back"></span><span class="grp glass"><span class="hit" data-i="share"></span><span class="hit" data-i="more"></span></span></div>
+        <div style="position:absolute;left:12px;right:12px;top:112px;bottom:0;background:var(--paper);border-radius:24px 24px 0 0;padding:16px 20px 0;display:grid;gap:18px;align-content:start">
+          <div>
+            <div class="drow"><span class="dn" style="font-size:21px">Tagliatelle al ragù</span><span class="ds"><i data-i="star" data-s="16"></i>4.5</span></div>
+            <div class="drow"><span class="dn" style="font-size:21px">Tiramisu</span><span class="ds"><i data-i="star" data-s="16"></i>3.0</span></div>
+            <div class="drow"><span class="dn" style="font-size:21px">Prawn spaghetti</span><span></span></div>
+          </div>
+          <p class="prose" style="font-size:17px">Jess's birthday. The tagliatelle al ragù was unreal, rich, glossy, gone in four minutes. Tiramisu a bit flat after that.</p>
+        </div>
+        <div class="veil"></div>
+        <div style="position:absolute;left:20px;right:20px;top:120px;z-index:8;background:#fff;border-radius:16px;padding:6px 16px;box-shadow:0 14px 34px rgba(36,20,31,.18);transform:scale(1.03)">
+          <div class="drow"><span class="dn" style="font-size:21px">Tagliatelle al ragù</span><span class="ds"><i data-i="star" data-s="16"></i>4.5</span></div>
+        </div>
+        <div class="cmenu" style="top:196px"><div>Add to a list<i data-i="listplus" data-s="19"></i></div><div>Open dish<i data-i="utensils" data-s="19"></i></div></div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>D1. Long-press a dish you ate</h3>
+      <p>A list holds dishes, not visits, so the action lives on the dish row: the native context menu on any of your own dish rows (entry page, Journal slip, search results). The dish page's actions sheet gains the same row, "Add to a list", but only once you have eaten that dish yourself.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="dim"></div>
+        <div class="sheet" style="top:236px;padding:22px 20px 0;display:grid;gap:12px;align-content:start">
+          <div class="row" style="margin:-8px -4px 0"><span class="disc glass" data-i="x"></span></div>
+          <span class="h" style="font-size:30px">Add to a list</span>
+          <div class="dr first" style="min-height:62px"><span class="thumb food1" style="width:44px;height:44px;border-radius:12px"></span><span class="d"><b>Tagliatelle al ragù</b><span class="mt">Tipo 00</span></span><span class="tok"><i data-i="star" data-s="11"></i>4.5</span></div>
+          <div data-b="addlists"></div>
+          <div class="pill foot">Add to 1 list</div>
+        </div>
+      </div></div>
+      <h3>D2. Your lists</h3>
+      <p>Close, title, the dish as context, then your lists with their counts; one already holding the dish shows its check. Taps toggle; the pill counts ("Add to 2 lists", or "Done" when you only took it off). "New list" is the last row: it opens C2 and comes back with that list ticked. With no lists yet, the sheet is just the dish and "New list".</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= E. NOTIFICATIONS ================= -->
+<section>
+  <h2>5. Notifications</h2>
+  <div class="phones">
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav"><span class="disc glass" data-i="back"></span><span></span></div>
+        <div style="position:absolute;left:20px;right:20px;top:112px">
+          <div class="ptitle">Notifications</div>
+          <div class="band" style="padding-top:14px">Ate with</div>
+          <div class="nrow first"><span class="av a36 cE">E</span><span class="d"><b>@eamon ate with you</b><span class="mt">Tipo 00, Sat 19 Sep</span></span><span class="disc glass" style="width:36px;height:36px" data-i="x" data-s="16"></span></div>
+          <div class="nrow"><span class="av a36 cM">M</span><span class="d"><b>@marco.eats ate with you</b><span class="mt">Supernormal, Thu 17 Sep</span></span><span class="disc glass" style="width:36px;height:36px" data-i="x" data-s="16"></span></div>
+          <div class="band" style="padding-top:18px">From your photos</div>
+          <div data-b="sugs"></div>
+        </div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>E1. One page, two groups</h3>
+      <p>Pushed from the bell. Ate with first (somebody is waiting on you), then From your photos. Each group keeps its existing row exactly: the notification row with its X and Decline swipe; the sitting with day, time, muted ✕, tilted cluster and ink pen. A group with nothing in it is not shown. The old "From your photos" page folds into this one.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav"><span class="disc glass" data-i="back"></span><span></span></div>
+        <div style="position:absolute;left:20px;right:20px;top:112px"><div class="ptitle">Notifications</div></div>
+        <div class="emp"><span class="ln">Nothing new</span></div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>E2. Empty</h3>
+      <p>Both groups empty, or photos off and no tags: the existing line, no pill. The bell shows no count.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph prop"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav"><span class="disc glass" data-i="back"></span><span></span></div>
+        <div style="position:absolute;left:20px;right:20px;top:112px">
+          <div class="ptitle">Notifications</div>
+          <div class="band" style="padding-top:14px">From your photos</div>
+          <div data-b="sugschips"></div>
+        </div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>E3. Nearby places on a sitting <span class="tag">Proposal, not yet approved</span></h3>
+      <p>Where the photos carry a location, up to three places near it sit under the cluster as field-coloured pills with the pin. Tapping one inks it and attaches that place; the others fold away; tap it again to let go. Nothing is attached without the tap. A sitting with no photo location shows no pills (the second row).</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph prop"><div class="scr">
+        <div class="sb"></div>
+        <div class="dim"></div>
+        <div class="sheet" style="top:62px;--surf:#fff">
+          <div class="top"><span class="disc glass" data-i="x"></span><span class="disc tick" data-i="check"></span></div>
+          <div style="padding:76px 22px 0;display:grid;gap:18px">
+            <p class="prose" style="color:var(--mut)"><span class="caret" style="margin:0 2px 0 0"></span>What did you eat?</p>
+            <div class="cluster"><span class="ph-img food1" style="width:90px;height:90px;border-radius:25px;transform:rotate(-5deg)"></span><span class="ph-img food2" style="width:90px;height:90px;border-radius:25px;transform:rotate(4deg)"></span></div>
+          </div>
+          <div class="bar glass" style="bottom:300px">
+            <span class="row"><span class="hit" data-i="camera"></span><span class="hit" data-i="image"></span></span>
+            <span class="row" style="gap:5px"><span class="key k-score"><i data-i="star" data-s="15"></i>Score</span><span class="key k-place"><i data-i="pin" data-s="16"></i><span>Tipo 00</span></span><span class="key k-round" data-i="leaf" data-s="16"></span><span class="key k-round" data-i="userplus" data-s="17"></span></span>
+          </div>
+          <div class="kbd"></div>
+        </div>
+      </div></div>
+      <h3>E4. The pen, with the place you tapped <span class="tag">Proposal</span></h3>
+      <p>The composer opens holding the photos and the place in the Place key, so the tick is already awake. Without a tapped pill it opens exactly as today: photos, no place.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= F. SAVED + YOU ================= -->
+<section>
+  <h2>6. Saved as a tab, You without the bell</h2>
+  <div class="phones">
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav"><span class="rtitle">Saved</span><span class="grp glass"><span class="hit" data-i="filter"></span></span></div>
+        <div style="position:absolute;left:20px;right:20px;top:112px" data-b="saved"></div>
+        <div data-tb="saved"></div>
+      </div></div>
+      <h3>F1. Saved</h3>
+      <p>The shelf, promoted unchanged: dishes you kept, grouped by place, the filled bookmark unsaving in place with Undo. Native large title "Saved"; its filter (Rating, City; no Newest) is the only control. Empty: "Nothing saved yet." Search's Saved scope goes with it.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav"><span class="rtitle">You</span><span class="grp glass"><span class="hit" data-i="settings"></span></span></div>
+        <div style="position:absolute;left:20px;right:20px;top:116px;display:grid;gap:18px">
+          <div class="row" style="gap:12px"><span class="av cE" style="width:56px;height:56px;font-size:24px">E</span><span style="display:grid;gap:2px"><span class="h" style="font-size:26px">@eamon</span><span class="mt">Melbourne</span></span></div>
+          <div class="whole">
+            <div><span class="h" style="font-size:28px">58</span><span class="lab">Orders</span></div>
+            <div><span class="h" style="font-size:28px">31</span><span class="lab">Places</span></div>
+            <div><span class="h" style="font-size:28px">142</span><span class="lab">Dishes</span></div>
+          </div>
+          <div style="display:grid;gap:8px">
+            <div class="band">Your ratings<i data-i="chev" data-s="18"></i></div>
+            <div class="hist"><span style="height:10%"></span><span style="height:18%"></span><span style="height:30%"></span><span style="height:52%"></span><span style="height:80%"></span><span style="height:100%"></span><span style="height:64%"></span><span style="height:40%"></span><span style="height:22%"></span><span style="height:8%"></span></div>
+          </div>
+        </div>
+        <div data-tb="you"></div>
+      </div></div>
+      <h3>F2. You</h3>
+      <p>Back to Settings as the only corner control. Nothing else on You changes.</p>
+    </div>
+  </div>
+
+  <h3 style="padding-top:8px">Where searching everyone goes</h3>
+  <div class="paired">
+    <div class="cell opt">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav"><span style="display:grid;gap:3px"><span class="rtitle">Feed</span><span class="mt" style="padding-left:5px;font-size:14px">Melbourne</span></span><span class="grp glass"><span class="hit" data-i="search"></span><span class="hit" data-i="pin"></span></span></div>
+        <div style="position:absolute;left:20px;right:20px;top:136px;display:grid;gap:12px">
+          <span class="h" style="font-size:28px">The Top Ate</span>
+          <div style="position:relative;height:330px;border-radius:16px;overflow:hidden" class="food2">
+            <span class="tok" style="position:absolute;left:12px;top:12px;font-size:15px"><i data-i="star" data-s="13"></i>4.8</span>
+            <span class="disc glass" style="position:absolute;right:12px;top:12px" data-i="bm" data-s="20"></span>
+            <div style="position:absolute;left:0;right:0;bottom:0;height:120px;background:linear-gradient(transparent,rgba(0,0,0,.55))"></div>
+            <div style="position:absolute;left:16px;bottom:14px;color:#fff;display:grid;gap:2px"><span class="h" style="font-size:24px">Pork xiao long bao</span><span class="ui" style="font-weight:500;font-size:14px;opacity:.9">HuTong Dumpling Bar</span></div>
+          </div>
+        </div>
+        <div data-tb="feed"></div>
+      </div></div>
+      <h3>A. A magnifier on the Feed <span class="tag rec">Recommended</span></h3>
+      <p><b>Fork 3.</b> The Feed's group gains search beside the area control (two icons). It pushes today's Search page as is: Dishes, Places, People, opening on Dishes, recents first, minus the Saved scope. The Feed is where you look outward; the Journal stays strictly yours.</p>
+    </div>
+    <div class="cell opt">
+      <div class="ph"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav"><span class="sfield glass"><i data-i="search" data-s="18"></i>burger</span><span class="disc glass" data-i="x"></span></div>
+        <div class="seg" style="position:absolute;left:12px;right:12px;top:108px"><span class="on">Your journal</span><span>Everyone</span></div>
+        <div style="position:absolute;left:20px;right:20px;top:160px" data-b="results"></div>
+        <div data-tb="journal"></div>
+      </div></div>
+      <h3>B. An Everyone scope in the Journal's search</h3>
+      <p>One search field for the whole app, with a two-way switch under it while searching. Fewer doors, but it breaks decision 3 (your record only) at the edges, and People and Places need Search's scope switch anyway, so B ends up rebuilding Search inside the Journal.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= G. WHAT MOVED ================= -->
+<section class="measure">
+  <h2>7. What moved</h2>
+  <div class="wrap"><table>
+    <tr><th>Was</th><th>Now</th><th>Still reachable</th></tr>
+    <tr><td>Search tab</td><td>Gone</td><td>Dishes, places and people: the Feed's magnifier opens the same Search page (fork 3). Your own record: the Journal's search. People to tag: the With picker, recents first, searching every handle.</td></tr>
+    <tr><td>Saved shelf</td><td>Saved tab, third slot</td><td>Same content and filter. Search's Saved scope is removed.</td></tr>
+    <tr><td>Calendar</td><td>Cut for launch</td><td>The control goes; the zoom code stays dormant behind a flag for later.</td></tr>
+    <tr><td>Bell on You</td><td>Journal's glass group, first slot</td><td>One coral count for tags and photo sittings together. You keeps Settings only.</td></tr>
+    <tr><td>Photos button</td><td>Folded into Notifications</td><td>From your photos is a group on the Notifications page; its own page goes.</td></tr>
+    <tr><td>Journal | Saved</td><td>Journal | Lists</td><td>Same pinned switch, same place.</td></tr>
+  </table></div>
+</section>
+
+<section class="measure">
+  <h2>States and edges</h2>
+  <div class="wrap"><table>
+    <tr><th>Surface</th><th>Loading</th><th>Empty</th><th>Error and edges</th></tr>
+    <tr><td>Lists shelf</td><td>Card skeletons, breathing</td><td>"No lists yet." + Make a list</td><td>"Couldn't reach Ate." + Try again. Edits are optimistic and queue through the outbox like entries.</td></tr>
+    <tr><td>List page</td><td>Ranked-row skeletons</td><td>"Nothing on it yet." + Add dishes; share disc hidden</td><td>Deleting the only entry with a dish takes it off every list. Re-scoring shows the new score; the order never changes on its own.</td></tr>
+    <tr><td>Picker</td><td>Pick-row skeletons</td><td>No dishes yet: "Nothing to add yet."</td><td>Dishes already on the list arrive ticked; unticking one and committing takes it off.</td></tr>
+    <tr><td>Journal search</td><td>Rows fill in per group, no spinner</td><td>"Not in your record."</td><td>Searches are local-first over the loaded record, then the server for older entries.</td></tr>
+    <tr><td>Notifications</td><td>Notification-row and sitting skeletons</td><td>"Nothing new"</td><td>Push ask on first open, as today. Photo access is not asked here if push was asked on the same visit: one system prompt per visit. Photos off: the group is simply absent.</td></tr>
+    <tr><td>Badge</td><td colspan="3">Counts what is waiting: tags not yet answered or cleared, plus sittings not yet written or dismissed. Opening the page does not zero it; acting does.</td></tr>
+  </table></div>
+</section>
+
+<section class="measure">
+  <h2>Telemetry</h2>
+  <div class="wrap"><table>
+    <tr><th>Event</th><th>Properties</th></tr>
+    <tr><td>list.created</td><td>name length, from: shelf, empty state, add-to-list sheet</td></tr>
+    <tr><td>list.dishesAdded</td><td>count, from: picker, context menu, dish page</td></tr>
+    <tr><td>list.reordered / list.dishRemoved</td><td>list size, undo used</td></tr>
+    <tr><td>list.shared</td><td>lines printed, share target if known</td></tr>
+    <tr><td>journal.searched</td><td>query length, result counts per group, group tapped</td></tr>
+    <tr><td>notifications.opened</td><td>tags waiting, sittings waiting, badge shown</td></tr>
+    <tr><td>suggestion.placeTapped</td><td>pill position 1 to 3, then whether the entry posted with that place (proposal only)</td></tr>
+  </table></div>
+</section>
+
+<section class="measure">
+  <h2>Your call</h2>
+  <div class="qs">
+    <div class="q"><h3>1. Where the Journal's search field lives</h3>
+      <p><b class="rec">In the bar.</b> The magnifier in the glass group grows into the native field; the switch steps away while searching.</p>
+      <p><b>At the head of the list.</b> A field pill under the switch that scrolls away.</p>
+    </div>
+    <div class="q"><h3>2. What a list looks like on the shelf</h3>
+      <p><b class="rec">Colour-blocked cards.</b> A new card with a small tilted cluster; needs your sign-off as a new visual.</p>
+      <p><b>Quiet rows.</b> Today's follow row, nothing new.</p>
+    </div>
+    <div class="q"><h3>3. Where searching everyone goes</h3>
+      <p><b class="rec">The Feed's magnifier.</b> Pushes today's Search page, minus Saved.</p>
+      <p><b>An Everyone scope</b> inside the Journal's search.</p>
+    </div>
+  </div>
+  <p class="note">Also yours: the nearby-place pills (5, E3 and E4) are a proposal and are not built until you approve them. They read the photo's own location, so nothing asks for location access. Each sitting on screen costs one nearby-places lookup on the Places key we already pay for.</p>
+  <p class="note">Where the contract doesn't fit yet: a tilted cluster on list cards (the contract allows them only on slips, the entry, the dish hero, Share and Welcome); a receipt for a ranking (§8 says receipts are not for rankings), with each place as fine print under its line (§8: nothing under a line). The receipt follows your 5 October decision; the other two need your OK. The contract's tab list, Journal controls, calendar section and "Journal | Saved" all need rewriting to match this page. Photos are colour stand-ins and the dark block stands in for the real wordmark.</p>
+</section>
+</main>
+
+<script>
+(function(){
+  var P={
+    x:'<path d="M18 6 6 18M6 6l12 12"/>',
+    xc:'<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>',
+    check:'<path d="M20 6 9 17l-5-5"/>',
+    camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/>',
+    image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+    star:'<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z" fill="currentColor" stroke="none"/>',
+    pin:'<path d="M20 10c0 5-8 12-8 12s-8-7-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+    search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    share:'<path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>',
+    more:'<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>',
+    back:'<path d="m15 18-6-6 6-6"/>',
+    chev:'<path d="m9 18 6-6-6-6"/>',
+    book:'<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
+    utensils:'<path d="m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7M2.1 21.8l6.4-6.3M19 5l-7 7"/>',
+    plus:'<path d="M12 5v14M5 12h14"/>',
+    user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    userplus:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>',
+    bell:'<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
+    settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+    filter:'<path d="M2 5h20M6 12h12M9 19h6"/>',
+    listplus:'<path d="M11 12H3M16 6H3M16 18H3M18 9v6M21 12h-6"/>',
+    pencil:'<path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
+    trash:'<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+    history:'<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
+    bm:'<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+    bookf:'<path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" fill="currentColor"/>',
+    leaf:'<path d="M11 20a10 10 0 0 0 10-10 25.9 25.9 0 0 0-1.04-7.281 1 1 0 0 0-1.755-.325C15.833 5.5 13 5.5 9.8 6.1A7 7 0 0 0 11 20"/><path d="M2 21a5 5 0 0 1 2.911-4.544C7.613 15.212 8.351 15.24 11 13"/>'
+  };
+  function tok(v){return v?'<span class="tok"><i data-i="star" data-s="11"></i>'+v+'</span>':''}
+  function pic(p,name,s,r){
+    if(p.charAt(0)==='#') return '<span class="lt" style="width:'+s+'px;height:'+s+'px;border-radius:'+r+'px;background:'+p+';font-size:'+Math.round(s*.46)+'px">'+name.charAt(0)+'</span>';
+    return '<span class="thumb '+p+'" style="width:'+s+'px;height:'+s+'px;border-radius:'+r+'px"></span>';
+  }
+  var BURG=[['Double cheeseburger','Butchers Diner','5.0','food1'],['Smash burger','Royal Stacks','4.5','food2'],['The Easey','Easey’s','4.5','#36AEE6'],['Cheeseburger','Andrew’s Burgers','4.0','food3'],['Fried chicken burger','Belles Hot Chicken','4.0','#3ECF64'],['Mushroom burger','Lord of the Fries','3.5','#F490D4']];
+  function rk(it,n,extra){return '<div class="rk"'+(extra||'')+'><span class="n">'+n+'</span>'+pic(it[3],it[0],52,15)+'<span class="d"><b>'+it[0]+'</b><span class="mt">'+it[1]+'</span></span>'+tok(it[2])+'</div>'}
+  var ADD='<div class="addrow"><i data-i="plus" data-s="20"></i>Add dishes</div>';
+  var LISTS=[['Melbourne’s best burgers',6,'#3ECF64',['food1','food2','food3']],['Fitzroy’s greatest beers',5,'#B9A5EA',['beer1','beer2']],['The best Indian and Mexican dishes',12,'#36AEE6',['curry','food3','food2']],['Pasta to bring Mum to',3,'#F490D4',['food1']]];
+  var rot=[-5,4,-2];
+  var SUG=[['Friday night','9:40 pm',['food1','food2'],['Tipo 00','Pellegrini’s','Grossi Florentino']],['Last Sunday','1:15 pm',['food2','food3','food1'],null]];
+  function sug(u,i,chips){
+    var h='<div class="sug'+(i===0?' first':'')+'"><div class="row" style="gap:8px"><span class="ui" style="flex:1;font-weight:600;font-size:15px">'+u[0]+'</span><span class="mt">'+u[1]+'</span><i data-i="x" data-s="16" style="color:var(--mut);margin-left:6px"></i></div><div class="row" style="padding:4px 0 4px 6px"><span class="cluster" style="padding:0;--surf:var(--g)">';
+    u[2].forEach(function(c,j){h+='<span class="ph-img '+c+'" style="width:88px;height:88px;border-radius:24px;transform:rotate('+rot[j]+'deg)"></span>'});
+    h+='</span><span class="disc" style="margin-left:auto;background:var(--solid);color:var(--solidfg)" data-i="pencil" data-s="19"></span></div>';
+    if(chips&&u[3]){h+='<div class="pchips">';u[3].forEach(function(c){h+='<span class="pc"><i data-i="pin" data-s="14"></i>'+c+'</span>'});h+='</div>';}
+    return h+'</div>';
+  }
+  var B={
+    burg:function(){return BURG.map(function(b,i){return rk(b,i+1)}).join('')+ADD},
+    burgdrag:function(){
+      var o=[BURG[0],null,BURG[1],BURG[2],BURG[4],BURG[5]],h='';
+      o.forEach(function(b,i){
+        if(!b){h+='<div style="position:relative;height:71px;border-bottom:1px solid transparent"><div style="position:absolute;left:-10px;right:-10px;top:-2px;background:var(--paper);border-radius:16px;padding:0 10px;box-shadow:0 14px 34px rgba(36,20,31,.20);transform:scale(1.03);z-index:2">'+rk(BURG[3],2,' style="border-bottom:0"')+'</div></div>';}
+        else h+=rk(b,i+1);
+      });
+      return h+ADD;
+    },
+    burgswipe:function(){return BURG.slice(0,5).map(function(b,i){return rk(b,i+1)}).join('')+'<div class="swipe"><div class="act">Remove</div>'+rk(BURG[5],6,' style="border-bottom:0"')+'</div>'+ADD},
+    pick:function(){
+      var R=[['Double cheeseburger','Butchers Diner','5.0','food1',1],['Smash burger','Royal Stacks','4.5','food2',1],['The Easey','Easey’s','4.5','#36AEE6',1],['Cheeseburger','Andrew’s Burgers','4.0','food3',0],['Fried chicken burger','Belles Hot Chicken','4.0','#3ECF64',0],['Mushroom burger','Lord of the Fries','3.5','#F490D4',0],['Burger of the week','Easey’s','','#B9A5EA',0]];
+      return R.map(function(r){return '<div class="pk">'+pic(r[3],r[0],52,15)+'<span class="d"><b>'+r[0]+'</b><span class="mt">'+r[1]+'</span></span>'+(r[2]?tok(r[2]):'<span class="slot"></span>')+'<span class="chk'+(r[4]?'':' none')+'"'+(r[4]?' data-i="check" data-s="16"':'')+'></span></div>'}).join('');
+    },
+    rlines:function(){return BURG.map(function(b,i){return '<div><div class="rl"><span class="q">'+(i+1)+'</span><span class="n">'+b[0]+'</span><span class="dt"></span><span class="s">'+b[2]+'</span></div><div class="rpl">'+b[1]+'</div></div>'}).join('')},
+    cards:function(){return LISTS.map(function(l){
+      var c='<span class="cluster" style="padding:0;--surf:'+l[2]+'">';
+      l[3].forEach(function(p,j){c+='<span class="ph-img '+p+'" style="width:58px;height:58px;border-radius:16px;transform:rotate('+rot[j]+'deg)"></span>'});
+      return '<div class="lc" style="background:'+l[2]+'"><div class="tp"><span class="ct">'+l[1]+' dishes</span>'+c+'</span></div><span class="nm">'+l[0]+'</span></div>';
+    }).join('')},
+    lrows:function(){return LISTS.map(function(l){return '<div class="lr">'+pic(l[3][0],l[0],56,16)+'<span class="d"><b>'+l[0]+'</b><span class="mt">'+l[1]+' dishes</span></span><i data-i="chev" data-s="18"></i></div>'}).join('')},
+    addlists:function(){return LISTS.map(function(l,i){return '<div class="dr" style="min-height:58px"><span class="d"><b style="font-weight:600;font-size:17px;letter-spacing:-.01em">'+l[0]+'</b></span><span class="mt">'+l[1]+'</span><span class="chk'+(i===3?'':' none')+'"'+(i===3?' data-i="check" data-s="16"':'')+'></span></div>'}).join('')+'<div class="addrow"><i data-i="plus" data-s="20"></i>New list</div>'},
+    recents:function(){return ['burger','Tipo 00','dumplings','Fitzroy'].map(function(r){return '<div class="recent"><i data-i="history" data-s="20"></i>'+r+'</div>'}).join('')},
+    results:function(){
+      var h='<div class="band">Dishes<i data-i="chev" data-s="18"></i></div>';
+      BURG.slice(0,3).forEach(function(b,i){h+='<div class="dr'+(i===0?' first':'')+'">'+pic(b[3],b[0],52,15)+'<span class="d"><b>'+b[0]+'</b><span class="mt">'+b[1]+'</span></span>'+tok(b[2])+'</div>'});
+      h+='<div class="band" style="padding-top:8px">Places</div><div class="plrow" style="border-top:0"><i data-i="pin" data-s="18" style="color:var(--mut)"></i><span class="ui" style="font-weight:600;font-size:17px">Royal Stacks</span><span class="mt" style="flex:1">Collingwood</span>'+tok('4.5')+'</div>';
+      h+='<div class="band" style="padding-top:8px">Entries</div><div style="margin:0 -8px"><div data-slipx="d"></div></div>';
+      return h;
+    },
+    saved:function(){
+      var G=[['Tipo 00','CBD',[['food2','Prawn spaghetti','@jessw','4.4'],['#B9A5EA','Tiramisu','@tomk','4.2']]],['Kisume','CBD',[['food3','Salmon roll','@priya','4.7']]],['Butchers Diner','CBD',[['#36AEE6','Cheeseburger','@marcus.eats','']]]],sh='';
+      G.forEach(function(g){
+        sh+='<div class="sgrp"><span class="h" style="font-size:22px;letter-spacing:-.025em">'+g[0]+'</span><span class="mt" style="flex:1">'+g[1]+'</span><i data-i="chev" data-s="18" style="color:var(--mut)"></i></div>';
+        g[2].forEach(function(r){sh+='<div class="srow">'+pic(r[0],r[1],56,16)+'<span style="flex:1;display:grid;gap:2px"><span class="ui" style="font-weight:600;font-size:17px">'+r[1]+'</span><span class="mt">from '+r[2]+'</span></span>'+tok(r[3])+'<span class="hit" style="margin-right:-8px" data-i="bookf"></span></div>'});
+      });
+      return sh;
+    },
+    sugs:function(){return SUG.map(function(u,i){return sug(u,i,false)}).join('')},
+    sugschips:function(){return SUG.map(function(u,i){return sug(u,i,true)}).join('')}
+  };
+  document.querySelectorAll('[data-b]').forEach(function(el){el.innerHTML=B[el.getAttribute('data-b')]()});
+
+  function stok(v){return '<span class="tok" style="font-size:.78em;padding:0 7px 0 5px;line-height:1.55;vertical-align:1px"><i data-i="star" data-s="11"></i>'+v+'</span>'}
+  var S={
+    a:{d:[['Tagliatelle al ragù','4.5'],['Tiramisu','3.0','V'],['Prawn spaghetti','','GF']],w:'With Jess for her birthday. The tagliatelle al ragù '+stok('4.5')+' was unreal, rich, glossy, gone in four minutes. Tiramisu '+stok('3.0')+' a bit flat after that.',ph:['food1','food2','food3'],p:['Tipo 00','CBD','Sat 19 Sep']},
+    b:{d:[['Almond croissant','5.0']],w:'Queued twenty minutes like everyone else and the almond croissant '+stok('5.0')+' is the best thing I have eaten this year.',ph:['food2'],p:['Lune Croissanterie','CBD','Thu 17 Sep']},
+    d:{d:[['Cheeseburger','4.0']],w:'Late one after the gig. The cheeseburger '+stok('4.0')+' was exactly what it needed to be.',ph:['food3'],p:['Andrew’s Burgers','Albert Park','Sun 23 Aug']}
+  };
+  document.querySelectorAll('[data-slip],[data-slipx]').forEach(function(el){
+    var s=S[el.getAttribute('data-slip')||el.getAttribute('data-slipx')],h='<div class="slipwrap"><article class="slip"><div>';
+    s.d.forEach(function(r){h+='<div class="drow"><span class="dn">'+r[0]+(r[2]?'<span class="diet">'+r[2]+'</span>':'')+'</span>'+(r[1]?'<span class="ds"><i data-i="star" data-s="16"></i>'+r[1]+'</span>':'')+'</div>'});
+    h+='</div><p class="prose sp clamp2">'+s.w+'</p><div class="cluster" style="padding:2px 0 0 6px">';
+    s.ph.forEach(function(c,i){h+='<span class="ph-img '+c+'" style="width:80px;height:80px;border-radius:22px;transform:rotate('+rot[i]+'deg)"></span>'});
+    h+='</div><span class="placeline"><i class="pi" data-i="pin" data-s="15"></i><span class="ui" style="font-weight:600;font-size:14px">'+s.p[0]+'</span><span class="mt">'+s.p[1]+'</span><span class="mt" style="margin-left:auto">'+s.p[2]+'</span></span></article><div class="etear"></div></div>';
+    el.outerHTML=h;
+  });
+
+  var tabs=[['journal','book','Journal'],['feed','utensils','Feed'],['saved','bm','Saved'],['you','user','You']];
+  document.querySelectorAll('[data-tb]').forEach(function(t){
+    var on=t.getAttribute('data-tb');
+    t.outerHTML='<div class="tabbar glass">'+tabs.map(function(x){return '<span class="tab'+(x[0]===on?' on':'')+'"><i data-i="'+x[1]+'" data-s="24"></i>'+x[2]+'</span>'}).join('')+'</div><span class="plusdisc glass" data-i="plus" data-s="28"></span>';
+  });
+  var SB='<span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i>';
+  document.querySelectorAll('.sb').forEach(function(e){e.innerHTML=SB});
+  document.querySelectorAll('[data-i]').forEach(function(el){
+    var s=el.getAttribute('data-s')||22;
+    el.insertAdjacentHTML('afterbegin','<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex-shrink:0">'+(P[el.getAttribute('data-i')]||'')+'</svg>');
+  });
+  var rows=['qwertyuiop','asdfghjkl','zxcvbnm'];
+  document.querySelectorAll('.kbd').forEach(function(k){
+    var h='';
+    rows.forEach(function(r,i){
+      var keys=r.split('').map(function(c){return '<span>'+c+'</span>'}).join('');
+      if(i===2) keys='<span class="w">&#8679;</span>'+keys+'<span class="w">&#9003;</span>';
+      h+='<div class="r">'+keys+'</div>';
+    });
+    h+='<div class="r"><span class="w" style="font-size:16px">123</span><span class="spc"></span><span class="w" style="flex:0 0 88px;font-size:16px">return</span></div>';
+    k.innerHTML=h;
+  });
+  /* Edge B: 4pt wave, period fitted to the width so both ends match; flat paper. */
+  function edgeB(){
+    document.querySelectorAll('.tear,.etear').forEach(function(el){
+      var W=el.offsetWidth; if(!W) return;
+      var n=W/12, r=Math.round(n); if(Math.abs(n-Math.floor(n)-.5)<1e-9){ r=Math.floor(n); if(r%2) r+=1; }
+      r=Math.max(1,r); var Pp=W/r, d='M0 0';
+      for(var x=0;x<=W;x+=1){ d+='L'+x+' '+(2.1-1.5*Math.cos(2*Math.PI*x/Pp)).toFixed(2); }
+      d+='L'+W+' '+(2.1-1.5*Math.cos(2*Math.PI*W/Pp)).toFixed(2)+'L'+W+' 0Z';
+      var fill=el.getAttribute('data-fill')||getComputedStyle(el).getPropertyValue('--paper').trim()||'#fff';
+      el.innerHTML='<svg width="'+W+'" height="4" viewBox="0 0 '+W+' 4" style="display:block;overflow:visible" aria-hidden="true"><path d="'+d+'" fill="'+fill+'"/></svg>';
+    });
+  }
+  edgeB();
+  function fit(){
+    document.querySelectorAll('.ph').forEach(function(p){var s=p.clientWidth/390;p.querySelector('.scr').style.setProperty('--s',s)});
+  }
+  fit(); addEventListener('resize',fit);
+})();
+</script>
