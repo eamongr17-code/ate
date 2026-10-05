@@ -23,6 +23,11 @@ struct ComposerPresentation: Identifiable, Hashable {
     /// body** rather than writing a new one — the one path in the app that touches `entries.body`
     /// after it has landed, and it is the author's own hand.
     var editing: EditingEntry?
+    /// **Ate with**: the tag (`entry_companions.id`) being answered. Set, the sheet opens the
+    /// prefilled scoring face (``AteWithRespondFace``) instead of the words — the tagger's place and
+    /// dishes, read live — and its tick posts the person's OWN entry (`respond_ate_with`). `origin`
+    /// is not read on this path.
+    var respondingTo: UUID?
 
     /// The entry being edited, carried whole so the composer does not have to fetch it back.
     struct EditingEntry: Hashable {
@@ -38,6 +43,11 @@ struct ComposerPresentation: Identifiable, Hashable {
         var photos: [EntryCard.Photo] = []
         /// The receipt's lines, so a chip deleted during the edit clears its own line's tag.
         var items: [EntryCard.Item] = []
+    }
+
+    /// Answering an "Ate with" tag: the composer, prefilled from the tag.
+    static func respond(to companionID: UUID) -> ComposerPresentation {
+        ComposerPresentation(origin: .tabBar, respondingTo: companionID)
     }
 
     static func edit(_ card: EntryCard) -> ComposerPresentation {
