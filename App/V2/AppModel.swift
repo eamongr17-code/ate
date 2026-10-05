@@ -194,6 +194,8 @@ final class AppModel {
     func drainOutbox() async {
         let landed = await services.outbox.run()
         if landed.isEmpty == false { outboxLanded += 1 }
+        // Tags follow their entries: one that just landed takes its people with it.
+        await services.companionTags.run()
     }
 
     // MARK: - Getting out

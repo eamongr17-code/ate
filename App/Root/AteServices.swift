@@ -52,6 +52,11 @@ struct AteServices {
     let photos: any AtePhotoLibrary
     /// Your own account: the handle, the photo, the blocked list, sign out and delete.
     let account: any AccountServing
+    /// "Ate with", the tagging half (0058): tag and untag on your own entry, Remove me on someone
+    /// else's, and the picker's two reads.
+    let companions: any CompanionTagging
+    /// Tags sent behind the entry, kept on disk until they land. Worked with the outbox.
+    let companionTags: CompanionTagSync
     /// The phone's own preferences — the appearance, and who still owes a handle. One object for
     /// the whole app, so the root that paints the appearance and the page that changes it agree.
     let preferences: AtePreferences
@@ -95,6 +100,11 @@ struct AteServices {
         self.dishExplore = preview?.dishExplore ?? DishExploreClient(api: api)
         self.search = preview?.search ?? SearchClient(api: api)
         self.account = preview?.account ?? AccountClient(api: api)
+        let companions = preview?.companions ?? SupabaseCompanionTagging(api: api)
+        self.companions = companions
+        self.companionTags = CompanionTagSync(
+            service: companions, storeURL: preview == nil ? CompanionTagSync.defaultStoreURL : nil, owner: owner
+        )
         self.preferences = AtePreferences.standard
         self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record, owner: owner)
         if api.isSignedIn || preview != nil { drafts.adoptUnownedDraft() }
@@ -136,6 +146,7 @@ struct AteServices {
         let dishExplore: any DishExploreReading
         let search: any SearchReading
         let account: any AccountServing
+        let companions: any CompanionTagging
     }
 
     private static func previewServices() -> PreviewServices? {
@@ -153,7 +164,8 @@ struct AteServices {
             entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
             feed: social, feedEdition: social, saves: social, profiles: social, stats: InMemoryStatsService(),
             placePages: social, dishPages: social, dishExplore: social, search: social,
-            account: InMemoryAccountService()
+            account: InMemoryAccountService(),
+            companions: InMemoryCompanionTagging.seeded(viewerID: EntryCard.previewSorted.authorID)
         )
         #else
         return nil
