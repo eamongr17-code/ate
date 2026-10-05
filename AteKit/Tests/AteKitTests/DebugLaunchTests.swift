@@ -47,17 +47,7 @@ struct DebugLaunchTests {
         #expect(LaunchRoute("settings/appearance")?.screen == .settings(.appearance))
         #expect(LaunchRoute("settings/nope") == nil)
         #expect(LaunchRoute("calendar") == nil)
-    }
-
-    @Test("search takes its segment and its words, spaces and all")
-    func search() throws {
-        #expect(LaunchRoute("search")?.screen == .search(.places))
-        let route = try #require(LaunchRoute("search/dishes?q=cacio e pepe&filter"))
-        #expect(route.screen == .search(.dishes))
-        #expect(route.value(.query) == "cacio e pepe")
-        #expect(route.has(.filter))
-        #expect(route.has(.filtered) == false)
-        #expect(LaunchRoute("search/menus") == nil)
+        #expect(LaunchRoute("search") == nil, "Search is no longer a tab")
     }
 
     @Test("a screen's starting state rides on the query")
@@ -68,7 +58,6 @@ struct DebugLaunchTests {
         #expect(LaunchRoute("journal?filtered&filter")?.options == [.filtered: "", .filter: ""])
         #expect(LaunchRoute("composer?score")?.has(.score) == true)
         #expect(LaunchRoute("feed?location")?.has(.location) == true)
-        #expect(LaunchRoute("search/places?filtered&window=preset")?.value(.window) == "preset")
     }
 
     @Test("an option a screen does not take, or a value it does not know, refuses the whole route")
@@ -77,7 +66,6 @@ struct DebugLaunchTests {
         #expect(LaunchRoute("composer?sheet=place") == nil)
         #expect(LaunchRoute("journal?flitered") == nil)
         #expect(LaunchRoute("entry/\(Self.entry.uuidString)?sheet=menu") == nil)
-        #expect(LaunchRoute("search/places?window=someday") == nil)
     }
 
     // MARK: - Arguments

@@ -8,7 +8,7 @@ public enum ShellEvents {
         AnalyticsEvent(name: "new_app_opened")
     }
 
-    /// A tab of the new bar was chosen. `tab` is its name (`journal`, `feed`, `search`, `you`).
+    /// A tab of the new bar was chosen. `tab` is its name (`journal`, `feed`, `saved`, `you`).
     public static func tabSelected(_ tab: String) -> AnalyticsEvent {
         AnalyticsEvent(name: "tab_selected", parameters: ["tab": tab])
     }

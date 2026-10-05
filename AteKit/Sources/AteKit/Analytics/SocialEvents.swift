@@ -14,7 +14,7 @@ public enum SaveSource: String, Sendable, CaseIterable, Codable {
     case place
     /// A dish page — the one bookmark in its top bar.
     case dish
-    /// The Search tab's Saved segment — the shelf's own row, found by typing.
+    /// The Search tab's Saved segment (Search was cut 5 Oct); kept so the funnel's history decodes.
     case search
     /// A category's own page — its hero, ranked rows, places and new rows (4 Oct).
     case tag
@@ -32,6 +32,11 @@ public enum SocialEvents {
     /// The feed became visible. Once per appearance, not once per page.
     public static func feedViewed() -> AnalyticsEvent {
         AnalyticsEvent(name: "feed_viewed")
+    }
+
+    /// The Saved tab became visible — the dishes kept, read back.
+    public static func savedViewed() -> AnalyticsEvent {
+        AnalyticsEvent(name: "saved_viewed")
     }
 
     /// A page landed. `page` is 1-based and resets on refresh, so page 1 counts sessions and

@@ -6,17 +6,16 @@ import Foundation
 /// shell's own `Route` cases and its tabs and covers, named the same way.
 ///
 /// A screen's starting state rides on the link's query — `journal?filtered`,
-/// `entry/<id>?sheet=place`, `search/dishes?q=ra&filter` — and a query item a screen does not take is
+/// `entry/<id>?sheet=place`, `feed?location` — and a query item a screen does not take is
 /// a typo, so the whole route is refused rather than half-opened. What is written where is listed on
 /// ``Screen`` and ``Option``; the launch argument itself is ``DebugLaunch``'s.
 public struct LaunchRoute: Equatable, Sendable {
     public enum Screen: Equatable, Sendable {
         // Tabs.
         case journal
-        /// The Journal on its Saved shelf.
+        /// The Saved tab.
         case saved
         case feed
-        case search(SearchScope)
         case you
         // Pages, pushed on the tab they are normally reached from.
         case entry(UUID)
@@ -48,14 +47,10 @@ public struct LaunchRoute: Equatable, Sendable {
 
     /// A screen's starting state, as a query item.
     public enum Option: String, Sendable, CaseIterable {
-        /// Journal: Rating 4.0 and up. Search: vegetarian, 4.0 and up (with ``window``).
+        /// Journal: Rating 4.0 and up.
         case filtered
-        /// The filter sheet (Search) or the Rating chip's sheet (Journal), open over the list.
+        /// Journal: the filter sheet, open over the list.
         case filter
-        /// Search: `window=custom` (March to August 2026) or `window=preset` (This year).
-        case window
-        /// Search: the words in the field.
-        case query = "q"
         /// Feed: the location sheet, open.
         case location
         /// Entry: `sheet=place`, `sheet=dish` (the first dish's) or `sheet=share`.
@@ -83,7 +78,6 @@ public struct LaunchRoute: Equatable, Sendable {
         var values: Set<String>? {
             switch self {
             case .sheet: ["place", "dish", "share"]
-            case .window: ["custom", "preset"]
             case .present: ["filter", "actions", "pick"]
             default: nil
             }
@@ -127,7 +121,7 @@ public struct LaunchRoute: Equatable, Sendable {
     private static let words: [String: Screen] = [
         "journal": .journal, "saved": .saved, "feed": .feed, "you": .you, "suggestions": .suggestions,
         "composer": .composer, "welcome": .welcome, "first-run-handle": .firstRunHandle,
-        "settings": .settings(nil), "search": .search(.places), "kit": .kit
+        "settings": .settings(nil), "kit": .kit
     ]
 
     /// The pages named by an id.
@@ -146,7 +140,6 @@ public struct LaunchRoute: Equatable, Sendable {
             guard case .entry(let id)? = AteLinks.parse(url) else { return nil }
             return .entry(id)
         case "settings": return SettingsPage(rawValue: tail).map { .settings($0) }
-        case "search": return SearchScope(rawValue: tail).map { .search($0) }
         case "ratings": return Double(tail).map { .ratings(score: $0) }
         case "statement": return StatementMonth(iso: tail).map { .statement($0) }
         default: return nil
@@ -158,7 +151,6 @@ public struct LaunchRoute: Equatable, Sendable {
         switch screen {
         case .journal: [.filtered, .filter]
         case .feed: [.location]
-        case .search: [.query, .filtered, .filter, .window]
         case .entry: [.sheet, .addPlace]
         case .composer: [.score, .caret, .camera, .capture, .addPlace]
         case .summary: [.printing, .noPlace]

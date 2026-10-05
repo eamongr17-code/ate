@@ -10,6 +10,7 @@ struct SocialEventsTests {
     @Test("The feed's two events")
     func feed() {
         #expect(SocialEvents.feedViewed().name == "feed_viewed")
+        #expect(SocialEvents.savedViewed().name == "saved_viewed")
         let page = SocialEvents.feedPageLoaded(page: 2, itemCount: 20)
         #expect(page.name == "feed_page_loaded")
         #expect(page.parameters == ["page": "2", "items": "20"])

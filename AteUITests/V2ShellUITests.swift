@@ -14,11 +14,13 @@ final class V2ShellUITests: XCTestCase {
     func testTabsSwitch() {
         let app = launch()
         XCTAssertTrue(app.descendants(matching: .any)["v2.root.journal"].firstMatch.waitForExistence(timeout: 10))
-        for (name, root) in [("Feed", "feed"), ("Search", "search"), ("You", "you"), ("Journal", "journal")] {
+        for (name, root) in [("Feed", "feed"), ("Saved", "saved"), ("You", "you"), ("Journal", "journal")] {
             tab(app, name).tap()
             XCTAssertTrue(app.descendants(matching: .any)["v2.root.\(root)"].firstMatch.waitForExistence(timeout: 5), name)
             XCTAssertTrue(waitUntil(timeout: 3) { self.tab(app, name).isSelected }, "\(name) is the selected tab")
+            shootIfAsked("tab-\(root)")
         }
+        XCTAssertFalse(tab(app, "Search").exists, "Search is no longer a tab")
     }
 
     /// `+` presents the composer, and the tab under it never changes — during, and after.
@@ -68,6 +70,21 @@ final class V2ShellUITests: XCTestCase {
         XCTAssertTrue(waitUntil(timeout: 3) { slip.isHittable }, "re-tapping the tab scrolls to the top")
     }
 
+    /// Scrolled down the Saved shelf, a tap of its tab brings it back to its top.
+    func testSavedRetapScrollsToTop() {
+        let app = launch(["-ate-open", "saved"])
+        XCTAssertTrue(app.descendants(matching: .any)["v2.root.saved"].firstMatch.waitForExistence(timeout: 10))
+        let place = app.descendants(matching: .any).matching(identifier: "saved.place").firstMatch
+        XCTAssertTrue(place.waitForExistence(timeout: 10), "the shelf has a place")
+        app.swipeUp()
+        app.swipeUp()
+        XCTAssertTrue(waitUntil(timeout: 3) { place.isHittable == false }, "scrolled: the first place has left")
+        let saved = tab(app, "Saved")
+        saved.tap()
+        if waitUntil(timeout: 2, { place.isHittable }) == false { saved.tap() }
+        XCTAssertTrue(waitUntil(timeout: 3) { place.isHittable }, "re-tapping the tab scrolls to the top")
+    }
+
     /// The review stills: each root at rest and scrolled, a pushed page, the composer.
     func testCaptureShots() throws {
         let environment = ProcessInfo.processInfo.environment
@@ -80,7 +97,7 @@ final class V2ShellUITests: XCTestCase {
             save(String(format: "%02d-%@", number, what))
             number += 1
         }
-        for (name, root) in [("Journal", "journal"), ("Feed", "feed"), ("Search", "search"), ("You", "you")] {
+        for (name, root) in [("Journal", "journal"), ("Feed", "feed"), ("Saved", "saved"), ("You", "you")] {
             tab(app, name).tap()
             XCTAssertTrue(app.descendants(matching: .any)["v2.root.\(root)"].firstMatch.waitForExistence(timeout: 5))
             shoot("\(root)-rest")

@@ -1,7 +1,7 @@
 import AteKit
 import SwiftUI
 
-/// **The shell**: iOS 26's own `TabView` — Journal, Feed, Search, You — with `+` as a tab in the
+/// **The shell**: iOS 26's own `TabView` — Journal, Feed, Saved, You — with `+` as a tab in the
 /// bar's detached trailing slot, the composer as a sheet over it, and four routers, one stack each.
 ///
 /// - `+` is the search-role tab, because that is the slot iOS 26 draws as its own glass circle. Its
@@ -15,7 +15,7 @@ struct TabShell: View {
     @State private var selection: V2Tab
     @State private var journal: TabRouter<JournalStores>
     @State private var feed: TabRouter<V2FeedStores>
-    @State private var search: TabRouter<SearchStores>
+    @State private var saved: TabRouter<SavedStores>
     @State private var you: TabRouter<YouStores>
 
     init(app: AppModel, start: V2Launch.Start) {
@@ -25,7 +25,7 @@ struct TabShell: View {
         let services = app.services
         _journal = State(initialValue: TabRouter(tab: .journal) { JournalStores(services: services) })
         _feed = State(initialValue: TabRouter(tab: .feed) { V2FeedStores(services: services) })
-        _search = State(initialValue: TabRouter(tab: .search) { SearchStores(services: services) })
+        _saved = State(initialValue: TabRouter(tab: .saved) { SavedStores(app: app) })
         _you = State(initialValue: TabRouter(tab: .you) { YouStores(services: services) })
         if start.composes { app.compose(ComposerPresentation(origin: .tabBar)) }
     }
@@ -38,9 +38,9 @@ struct TabShell: View {
             Tab(value: V2Tab.feed) {
                 stack(feed) { FeedRoot(router: feed, app: app) }
             } label: { label(.feed) }
-            Tab(value: V2Tab.search) {
-                stack(search) { SearchRoot(router: search, app: app) }
-            } label: { label(.search) }
+            Tab(value: V2Tab.saved) {
+                stack(saved) { SavedRoot(router: saved, app: app) }
+            } label: { label(.saved) }
             Tab(value: V2Tab.you) {
                 stack(you) { YouRoot(router: you, app: app) }
             } label: { label(.you) }
@@ -101,12 +101,13 @@ struct TabShell: View {
         app.compose(ComposerPresentation(origin: .tabBar))
     }
 
-    /// Journal and You are yours. A browser tapping either is asked to sign in, and stays put.
+    /// Journal, Saved and You are yours. A browser tapping one is asked to sign in, and stays put.
     private func mayOpen(_ tab: V2Tab) -> Bool {
         switch tab {
         case .journal: app.gate.permitsWrite(.journal)
+        case .saved: app.gate.permitsWrite(.save)
         case .you: app.gate.permitsWrite(.you)
-        case .feed, .search, .compose: true
+        case .feed, .compose: true
         }
     }
 
@@ -114,7 +115,7 @@ struct TabShell: View {
         switch tab {
         case .journal: journal
         case .feed: feed
-        case .search: search
+        case .saved: saved
         case .you: you
         case .compose: nil
         }
@@ -149,9 +150,9 @@ struct TabShell: View {
     }
 
     /// A link's entry, pushed on the current tab — on the Feed for somebody reading signed out, since
-    /// Journal and You are a signed-in person's own.
+    /// Journal, Saved and You are a signed-in person's own.
     private func openLinkedEntry(_ entryID: UUID) {
-        if app.gate.isBrowsing, selection == .journal || selection == .you {
+        if app.gate.isBrowsing, [.journal, .saved, .you].contains(selection) {
             selection = .feed
         }
         guard let router = router(for: selection), router.path.last?.entryID != entryID else { return }

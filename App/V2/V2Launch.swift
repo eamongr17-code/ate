@@ -15,7 +15,7 @@ enum V2Launch {
         guard let route = DebugLaunch.route else { return Start() }
         switch route.screen {
         case .feed: return Start(tab: .feed)
-        case .search: return Start(tab: .search)
+        case .saved: return Start(tab: .saved)
         case .you: return Start(tab: .you)
         case .composer: return Start(composes: true)
         default: return Start()
