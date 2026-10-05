@@ -1,6 +1,6 @@
 # Ate — data model (V1)
 
-**Status:** the schema as `supabase/migrations/0001–0057` define it. Forward-only; applied migrations
+**Status:** the schema as `supabase/migrations/0001–0059` define it. Forward-only; applied migrations
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
 account deletion **0032**; **every entry public 0033**; signed-out browse **0034**; dietary tags **0036**;
@@ -115,7 +115,7 @@ Catalogue data (authenticated SELECT, no client write). **Diet chips are NOT sto
 ### `user_cravings` (0055)
 `(user_id, kind, slug)` **PK** (total), `label`, `position` (shelf order), `created_at`; kind ∈ the round-7 tag kinds. The tags a viewer follows — one Feed shelf each. Owner-read under RLS; **no client write grant**: `set_cravings` (DEFINER) replaces the whole set, accepting only a tag a dish carries now (or one already followed — so a re-save never fails). Cascades from `profiles`; `delete_account` verifies it.
 
-### Ate with — `entry_companions` · `entry_invites` · `device_push_tokens` (0058, DRAFT — not applied)
+### Ate with — `entry_companions` · `entry_invites` · `device_push_tokens` (0058)
 `entry_companions`: a person the author tagged on their entry; `status` pending → accepted (`response_entry_id` = the companion's OWN linked entry, UNIQUE, SET NULL if they delete it) | declined (sticky). UNIQUE `(entry_id, companion_id)` (total). Parties-only SELECT. `entry_invites`: sha256(token) only (UNIQUE, total), 14-day `expires_at`, single use → a companions row; inviter-only SELECT. `device_push_tokens`: `token` PK (total, the register upsert target), `apns_env` sandbox | production; owner SELECT/DELETE. No client write grant on any — RPCs only. `notifications` (0011) gains type `ate_with` + `companion_id` (cascade) + `pushed_at`. Cap 6 seats/entry (a decline keeps its seat); 40 tags+invites/day spent from `ate_with_ledger` (append-only, server-internal, serialised per actor; a same-day re-tag is quiet only when the untagged tag had been pushed or read — `ate_with_ledger.delivered`, set by untag); a new block withdraws pending tags. `entry_cards.companions` is the public projection (`entry_with_people`, DEFINER, viewer-relative).
 
 ### `profiles` — changed (0018)
@@ -254,4 +254,5 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0055 | `feed_edition` | `user_cravings`; `top_ate`, `new_to_record`, `craving_options` (+ browse twins), `because_you_loved`, `my_cravings`, `set_cravings`; `dishes_by_tag` + `p_city` + `saved` (drop+create); helpers `city_places`, `tag_label`; `delete_account` checks `user_cravings` |
 | 0056 | `faster_sort` | `sort_preview_cache.plan` nullable (null = a pending claim); `sort_preview_claim` (hit/pending/claimed/none, atomic on the PK), `sort_entry_context` (the sort's pre-model reads in one trip) — both service_role only |
 | 0057 | `tag_pages` | `p_kind`/`p_slug` on `get_entry_feed` + `new_to_record` (drop+create, browse twins too); `my_taste_tags`; helper `tag_dish_ids` |
-| 0058 | `ate_with` (DRAFT) | `entry_companions`, `entry_invites`, `device_push_tokens`, `ate_with_ledger`; notifications `ate_with` type; tag/untag/invite/redeem/prefill/respond/decline + `my_notifications`, push-token RPCs; `entry_cards.companions` (create or replace, trailing column); `delete_account` checks the new tables |
+| 0058 | `ate_with` | `entry_companions`, `entry_invites`, `device_push_tokens`, `ate_with_ledger`; notifications `ate_with` type; tag/untag/invite/redeem/prefill/respond/decline + `my_notifications`, push-token RPCs; `entry_cards.companions` (create or replace, trailing column); `delete_account` checks the new tables |
+| 0059 | `send_push` | notifications `push_claimed_at`/`push_attempts`; `push_is_ready`, `push_claim_ate_with`, `push_mark_sent`, `push_drop_tokens` (service_role); `push_kick` (pg_net → send-push, Vault-gated) on tag insert, on sort, and every minute (pg_cron) |

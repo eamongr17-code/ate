@@ -317,7 +317,7 @@ write). `23503` = missing FK (unknown dish/restaurant). `23514` = a CHECK refuse
 before the entry has a place). `23502 place_required` = an entry insert with no place (0040). `P0002` from
 `delete_entry` = already gone. `429` from `places-search` or a sort-entry preview = rate limited.
 
-## Ate with — tagging companions (0058, DRAFT: not applied anywhere yet)
+## Ate with — tagging companions (0058, on staging)
 
 The author tags people on their OWN entry (pick from `search_people`; send the `user_id`) or mints an invite
 link. The tagged person posts their own linked entry or declines. All RPCs signed in only; anon → `42501`.
@@ -346,18 +346,22 @@ ones, only to the author and that companion); a response lists the original's au
 companions. `entry_id` = that person's entry for the visit (tap → `get_entry_card`), null while pending. Blocked
 and deactivated people are absent. Raw `entry_companions` rows (incl. `declined`) are readable by the two parties only.
 
-**Push delivery (design; nothing built or configured yet).** A follow-up migration adds an AFTER INSERT trigger on
-`notifications` (`type = 'ate_with'`) that `pg_net`-posts `{notification_id}` to a new edge function `send-push`;
-the function URL and a shared webhook secret are read from Supabase Vault at call time, so nothing secret lands in
-a migration (preferred over a dashboard Database Webhook, which lives outside the repo and embeds the key). The
-function verifies the shared secret, loads the notification + the recipient's `device_push_tokens` with the
-service role, and skips a row already `pushed_at` or created by redeeming an invite (they are in the app). APNs
-token auth: an ES256 JWT signed with the `.p8` key, cached ≤ 50 min, from secrets `APNS_KEY_ID`, `APNS_TEAM_ID`,
-`APNS_PRIVATE_KEY`; `POST /3/device/<token>` with `apns-topic: com.eamongracias.ate`, `apns-push-type: alert`,
-body `{aps: {alert: {title, body: "@alice tagged you at Tipo 00"}, badge: <unread>, sound}, companion_id}`. Host per
-TOKEN from its `apns_env`: `api.sandbox.push.apple.com` / `api.push.apple.com` — so a TestFlight build pointed at
-staging still delivers. `410` / `BadDeviceToken` / `Unregistered` deletes the token; then stamp `pushed_at`. One key
-serves both hosts and both projects; staging and prod each hold their own copy of the three secrets.
+**Push delivery (0059 + `supabase/functions/send-push`; built, not deployed).** The app receives
+`{aps: {alert: {title: "@eamon ate with you at Tipo 00", body: "Tagliatelle al ragù, tiramisu, prawn spaghetti"},
+badge: <unread ate_with count>, sound: "default", "thread-id": "ate-with"}, type: "ate_with", companion_id,
+notification_id, entry_id}` (no `body` when the entry has no dishes; `apns-collapse-id` = `companion_id`). Tap →
+`ate_with_prefill(companion_id)`; `P0002` = withdrawn, show nothing. Sent once, only for a pending, unread,
+undismissed, unblocked tag whose original has SORTED (so the dishes exist), within 24 h of the tag; a quiet re-tag never pushes.
+**Function secrets** (`supabase secrets set`, per project): `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY`
+(the .p8's full PEM text), `APNS_ENV` = `sandbox` | `production` (picks the host; only tokens registered with the same
+`apns_env` are sent to, so staging with `sandbox` reaches Xcode builds only). Absent → the function is a no-op.
+**Vault secrets** (dashboard → Vault, per project): `send_push_url` = `https://<ref>.supabase.co/functions/v1/send-push`,
+`send_push_service_key` = that project's service role key. Absent → the database never calls the function.
+**One-time setup, in this order:** (1) merge → CI applies 0059 (creates pg_net, pg_cron and the minute drain);
+(2) set the four function secrets; (3) deploy `send-push` (default JWT check); (4) add the two Vault secrets — pushes
+start. Rotating the key = steps 2 only. Kill switch: delete `send_push_url` from Vault.
+
+**Wire change — 0059.** None for the app: two `notifications` columns it never reads, service-role-only functions, the push payload above.
 
 **Wire change — 0058.** Additive: the RPCs above, three tables, `notifications.companion_id`/`pushed_at`, and a
 trailing `companions` key on every `entry_cards` row. Behavioural on a dormant RPC only: `unread_notification_count` counts `ate_with` alone.
