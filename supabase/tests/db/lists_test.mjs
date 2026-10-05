@@ -288,6 +288,53 @@ test('delete_account: lists and items leave nothing behind', async () => {
   assert.equal((await rows(`select count(*)::int n from public.user_list_items where owner_id = $1`, [X]))[0].n, 0);
 });
 
+test('items follow a dish merge, and collapse when the list already holds the new dish', async () => {
+  const E = await w.visit(50, U.alice, P.marion, receipt(['Fries', 4], ['Chips', 3], ['Olives', 2]), '2026-09-10T09:00:00Z');
+  const fries = await dishOf(E, 'Fries');
+  const chips = await dishOf(E, 'Chips');
+  const olives = await dishOf(E, 'Olives');
+  const merged = await create(U.alice, 'Merge');
+  await add(U.alice, merged.list_id, E, olives.dish_id);
+  const other = await w.visit(51, U.bob, P.marion, receipt(['Green olives', 5]), '2026-09-10T10:00:00Z');
+  const green = await dishOf(other, 'Green olives');
+  await db.query(`select public.merge_dish($1, $2)`, [olives.dish_id, green.dish_id]); // service path, superuser here
+  let l = await getList(U.alice, merged.list_id);
+  assert.deepEqual(names(l), ['Green olives'], 'the item followed the merge');
+  assert.equal(l.items[0].dish_id, green.dish_id);
+
+  // collapse: the list holds (E, Fries) and (E, Chips); the Fries line is corrected to Chips
+  const L = await create(U.alice, 'Collapse');
+  await add(U.alice, L.list_id, E, fries.dish_id);
+  await add(U.alice, L.list_id, E, chips.dish_id);
+  await add(U.alice, L.list_id, E, green.dish_id);
+  await as(U.alice, () => db.query(`select public.correct_entry_dish(p_review_id => $1, p_dish_id => $2)`, [fries.review_id, chips.dish_id]));
+  l = await getList(U.alice, L.list_id);
+  assert.deepEqual(names(l), ['Chips', 'Green olives'], 'the duplicate went; no unique violation');
+  assert.deepEqual(l.items.map((i) => i.position), [1, 2], 'ranks closed up');
+});
+
+test('search queries are trimmed and capped at 100 characters', async () => {
+  const long = 'x'.repeat(101);
+  assert.equal(await code(U.alice, `select * from public.search_my_entries($1)`, [long]), '22023');
+  assert.equal(await code(U.alice, `select * from public.my_scored_dishes(p_query => $1)`, [long]), '22023');
+  assert.deepEqual(await as(U.alice, () => rows(`select id from public.search_my_entries($1)`, ['x'.repeat(100)])), []);
+  const padded = (await as(U.alice, () => rows(`select id from public.search_my_entries($1)`, ['   tiram   ']))).map((r) => r.id);
+  assert.deepEqual(padded, [A1], 'trimmed');
+});
+
+test('legacy lists/list_dishes (0004) are owner-read now: B cannot read A\'s rows', async () => {
+  const [sys] = await rows(`select id from public.lists where owner_id = $1 and is_system`, [U.alice]);
+  assert.ok(sys, 'sign-up still makes the system list (rows are real; nothing dropped)');
+  const g = await dishOf(A1, 'Gnocchi');
+  await db.query(`insert into public.list_dishes (list_id, dish_id, position) values ($1, $2, 1) on conflict do nothing`, [sys.id, g.dish_id]);
+  const read = (uid, sql) => as(uid, () => rows(sql, [U.alice]));
+  assert.equal((await read(U.bob, `select id from public.lists where owner_id = $1`)).length, 0);
+  assert.equal((await read(U.bob, `select ld.dish_id from public.list_dishes ld join public.lists l on l.id = ld.list_id where l.owner_id = $1`)).length, 0);
+  assert.equal((await as(U.bob, () => rows(`select * from public.list_dishes where list_id = $1`, [sys.id]))).length, 0);
+  assert.equal((await read(U.alice, `select id from public.lists where owner_id = $1`)).length, 1, 'the owner still reads hers');
+  assert.equal((await as(U.alice, () => rows(`select * from public.list_dishes where list_id = $1`, [sys.id]))).length, 1);
+});
+
 test('0060 is idempotent: re-applying it on a populated database changes nothing', async () => {
   const before = (await rows(`select (select count(*) from public.user_lists)::int l, (select count(*) from public.user_list_items)::int i`))[0];
   await db.exec(readFileSync(new URL('../../migrations/0060_lists_and_journal_search.sql', import.meta.url), 'utf8'));

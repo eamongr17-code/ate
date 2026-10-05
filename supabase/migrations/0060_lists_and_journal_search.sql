@@ -55,12 +55,19 @@
 --   prefix AND mid-word ("burg", "margh", "bánh") match, where a tsvector needs whole lexemes and a
 --   language config whose stemmer mangles Italian/Vietnamese dish names; (3) nothing denormalised to keep
 --   in step with re-sorts, corrections and renames — dish and place names are read live, and
---   their search_key trigram indexes already exist (0031). The one new index is a trigram GIN on
---   search_key(entries.body). Scale: the read is bounded by entries_author_idx (a few thousand rows per
---   user, walked newest-first and stopping at the page); for a rare term the planner can BitmapAnd the
---   body trigram index with it instead.
+--   their search_key trigram indexes already exist (0031). NO NEW INDEX: the body match is OR'd with the
+--   place and dish matches, so a body trigram index could never be chosen. The read is bounded by
+--   entries_author_idx instead — a few thousand rows per user, walked newest-first, stopping at the page.
+--   (If one user's Journal ever outgrows that, restructure as a UNION of three indexable id sets.)
+--   p_query is trimmed and capped at 100 characters (22023), here and in my_scored_dishes.
 --
--- WIRE IMPACT: ADDITIVE — two tables, new RPCs, one index. delete_account's body is 0058's plus the two
+-- LEGACY LEAK CLOSED: 0004's `lists_select_all` / `list_dishes_select_all` were `using (true)` — any
+--   signed-in user could read every user's legacy "Saved" list. Replaced with owner-only SELECT policies.
+--   Non-destructive (no row touched); nothing in the app, AteKit or supabase/ reads these tables across
+--   users (the only server readers — handle_new_user, merge_dish, delete_account — are DEFINER).
+--
+-- WIRE IMPACT: ADDITIVE — two tables, new RPCs. Behavioural on dormant tables only: legacy lists rows
+--   are now owner-read. delete_account's body is 0058's plus the two
 --   new tables in its "nothing survived" check (same signature, same reply). Nothing existing changes.
 
 set search_path = public, extensions;
@@ -96,9 +103,8 @@ create index if not exists user_list_items_line_idx  on public.user_list_items (
 create index if not exists user_list_items_dish_idx  on public.user_list_items (dish_id);
 create index if not exists user_list_items_owner_idx on public.user_list_items (owner_id);
 
--- Journal search: the words, accent-folded (dish + place names already have theirs, 0031).
-create index if not exists entries_body_search_trgm
-  on public.entries using gin (public.search_key(body) extensions.gin_trgm_ops);
+-- (an earlier local draft of this file built an unusable body trigram index; never applied anywhere)
+drop index if exists public.entries_body_search_trgm;
 
 comment on table public.user_lists is
   'Custom lists (0060): a named, hand-ordered list of the owner''s own dish lines. Private (visibility CHECK = private; a public flag is additive). ≤ 50 per owner. Owner-only SELECT; written by RPCs.';
@@ -119,6 +125,17 @@ create policy user_list_items_select_own on public.user_list_items
   for select to authenticated using (owner_id = (select auth.uid()));
 
 revoke all on public.user_lists, public.user_list_items from anon, authenticated;
+
+-- Legacy (0004): owner-only reads in place of `using (true)`. Write policies unchanged.
+drop policy if exists lists_select_all on public.lists;
+drop policy if exists lists_select_own on public.lists;
+create policy lists_select_own on public.lists
+  for select to authenticated using (owner_id = (select auth.uid()));
+drop policy if exists list_dishes_select_all on public.list_dishes;
+drop policy if exists list_dishes_select_own on public.list_dishes;
+create policy list_dishes_select_own on public.list_dishes
+  for select to authenticated using (
+    exists (select 1 from public.lists l where l.id = list_id and l.owner_id = (select auth.uid())));
 grant select on public.user_lists, public.user_list_items to authenticated;
 grant all    on public.user_lists, public.user_list_items to service_role;
 
@@ -236,6 +253,18 @@ begin
   return v;
 end; $$;
 
+-- A search query: trimmed; over 100 characters → 22023.
+create or replace function public.list_query(p_query text)
+returns text language plpgsql immutable set search_path = public, extensions as $$
+declare
+  v text := btrim(coalesce(p_query, ''));
+begin
+  if char_length(v) > 100 then
+    raise exception 'query_too_long' using errcode = '22023';
+  end if;
+  return v;
+end; $$;
+
 -- The photo an item shows: the line's own photo, else its visit's first photo (which may picture another
 -- dish of that visit — get_dish_reviews' rule), else null. Never another person's photo.
 create or replace function public.list_item_photo(p_entry_id uuid, p_dish_id uuid)
@@ -257,6 +286,8 @@ $$;
 
 revoke all on function public.list_own(uuid)                 from public, anon, authenticated;
 revoke all on function public.list_name(text)                from public, anon, authenticated;
+revoke all on function public.list_query(text)               from public, anon;
+grant execute on function public.list_query(text)            to authenticated, service_role;  -- the INVOKER reads call it
 revoke all on function public.list_item_photo(uuid, uuid)    from public, anon;
 revoke all on function public.list_item_score(uuid, uuid)    from public, anon;
 grant execute on function public.list_item_photo(uuid, uuid) to authenticated, service_role;
@@ -493,7 +524,8 @@ language plpgsql stable security invoker set search_path = public, extensions as
 #variable_conflict use_column
 declare
   v_uid uuid := (select auth.uid());
-  v_pat text := case when char_length(public.search_key(p_query)) >= 2 then public.search_pattern(p_query) end;
+  v_q   text := public.list_query(p_query);
+  v_pat text := case when char_length(public.search_key(v_q)) >= 2 then public.search_pattern(v_q) end;
 begin
   if not ((p_cursor_visited_at is null and p_cursor_entry_id is null and p_cursor_dish_id is null)
        or (p_cursor_visited_at is not null and p_cursor_entry_id is not null and p_cursor_dish_id is not null)) then
@@ -543,6 +575,7 @@ language plpgsql stable security invoker set search_path = public, extensions as
 #variable_conflict use_column
 declare
   v_uid uuid := (select auth.uid());
+  v_q   text := public.list_query(p_query);
   v_pat text;
 begin
   if v_uid is null then
@@ -551,10 +584,10 @@ begin
   if (p_cursor_created_at is null) <> (p_cursor_id is null) then
     raise exception 'p_cursor_created_at and p_cursor_id go together' using errcode = '22023';
   end if;
-  if char_length(public.search_key(p_query)) < 2 then
+  if char_length(public.search_key(v_q)) < 2 then
     return;
   end if;
-  v_pat := '%' || public.search_pattern(p_query) || '%';
+  v_pat := '%' || public.search_pattern(v_q) || '%';
   return query
   select c.*
   from public.entry_cards c
