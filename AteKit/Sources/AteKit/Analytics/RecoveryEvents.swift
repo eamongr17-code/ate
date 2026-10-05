@@ -15,6 +15,8 @@ public enum ActionFailure: String, Sendable, CaseIterable, Identifiable {
     case signIn = "sign_in"
     case avatar = "avatar_upload"
     case handle = "handle_save"
+    /// "Ate with": Remove me, on an entry the viewer was tagged on.
+    case removeMe = "remove_me"
 
     public var id: String { rawValue }
 
@@ -29,6 +31,7 @@ public enum ActionFailure: String, Sendable, CaseIterable, Identifiable {
         case .signIn: "Couldn't sign in."
         case .avatar: "Couldn't change your photo."
         case .handle: "Couldn't save your handle."
+        case .removeMe: "Couldn't remove you."
         }
     }
 }
