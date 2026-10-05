@@ -4,7 +4,7 @@ import SwiftUI
 /// **The shell**: iOS 26's own `TabView` — Journal, Feed, Saved, You — with `+` as a tab in the
 /// bar's detached trailing slot, the composer as a sheet over it, and four routers, one stack each.
 ///
-/// - `+` is the search-role tab, because that is the slot iOS 26 draws as its own glass circle. Its
+/// - `+` takes the role the system draws as its own glass circle (``composeRole``). Its
 ///   selection is refused in the binding: the composer comes up and the selected tab never changes.
 /// - The bar minimises on scroll down and comes back on scroll up (`.onScrollDown`), and it stays on
 ///   every pushed page — the system's own behaviour for a `NavigationStack` inside a `Tab`.
@@ -45,7 +45,7 @@ struct TabShell: View {
                 stack(you) { YouRoot(router: you, app: app) }
             } label: { label(.you) }
             // `+`: never shown, never selected — the binding turns its tap into the composer.
-            Tab(value: V2Tab.compose, role: .search) {
+            Tab(value: V2Tab.compose, role: Self.composeRole) {
                 Color.clear
             } label: {
                 Label {
@@ -71,6 +71,12 @@ struct TabShell: View {
             openLinkedEntry(entryID)
         }
         .onChange(of: selection, initial: true) { _, tab in router(for: tab)?.shown() }
+    }
+
+    /// The role that puts `+` in the bar's detached trailing slot. iOS 26 gives that slot to the
+    /// search tab; iOS 27 gives it to the new `.prominent` role and draws a search tab inside the bar.
+    private static var composeRole: TabRole {
+        if #available(iOS 27.0, *) { .prominent } else { .search }
     }
 
     // MARK: - Selection
