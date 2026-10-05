@@ -59,15 +59,18 @@ final class V2ShellUITests: XCTestCase {
         let app = launch()
         let slip = firstSlip(app)
         XCTAssertTrue(slip.waitForExistence(timeout: 10))
+        let home = slip.frame.minY
         app.swipeUp()
         app.swipeUp()
-        XCTAssertTrue(waitUntil(timeout: 3) { slip.isHittable == false }, "scrolled: the first slip has left")
+        // A tall first slip can stay partly on screen, so the measure is how far it has moved.
+        XCTAssertTrue(waitUntil(timeout: 3) { slip.exists == false || slip.frame.minY < home - 60 }, "scrolled: the first slip has moved up")
         // Scrolled down, the bar has minimised (the system's own): its first tap brings the bar back,
         // the next re-taps the tab. Tap until the root is home, twice at most.
         let journal = tab(app, "Journal")
+        func isHome() -> Bool { slip.exists && abs(slip.frame.minY - home) < 4 }
         journal.tap()
-        if waitUntil(timeout: 2, { slip.isHittable }) == false { journal.tap() }
-        XCTAssertTrue(waitUntil(timeout: 3) { slip.isHittable }, "re-tapping the tab scrolls to the top")
+        if waitUntil(timeout: 2, { isHome() }) == false { journal.tap() }
+        XCTAssertTrue(waitUntil(timeout: 3) { isHome() }, "re-tapping the tab scrolls to the top")
     }
 
     /// Scrolled down the Saved shelf, a tap of its tab brings it back to its top.
