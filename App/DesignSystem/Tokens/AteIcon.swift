@@ -49,6 +49,10 @@ enum AteIcon: String, CaseIterable {
     /// The filter sheet's Sort label (build 87, note 3) — Lucide's arrow-down-wide-narrow. A label
     /// icon is never a glyph the app uses as a control affordance.
     case arrowDownWideNarrow
+    /// The composer's With key, before anyone is on it ("Ate with") — Lucide's user-plus.
+    case userPlus
+    /// "Remove me" on an entry you were tagged on — Lucide's user-minus.
+    case userMinus
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
@@ -149,6 +153,12 @@ M11 20a10 10 0 0010-10 25.9 25.9 0 00-1.04-7.281 1 1 0 00-1.755-.325C15.833 5.5 
 M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 \
 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z
 """), Self.tagDot]
+        case .userPlus: // user-plus
+            [Self.path("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"), AteVector.circle(9, 7, 4),
+             Self.path("M19 8v6"), Self.path("M22 11h-6")]
+        case .userMinus: // user-minus
+            [Self.path("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"), AteVector.circle(9, 7, 4),
+             Self.path("M22 11h-6")]
         case .listFilter: // list-filter
             [Self.path("M2 5h20"), Self.path("M6 12h12"), Self.path("M9 19h6")]
         case .heart: // heart
