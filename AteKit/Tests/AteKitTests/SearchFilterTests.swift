@@ -2,60 +2,10 @@ import Foundation
 import Testing
 @testable import AteKit
 
-/// The Search tab's scopes and filters.
+/// The search filters — the values, the tag rule, and the reads that take them.
 @MainActor
-@Suite("Search — scopes and filters")
+@Suite("Search — filters")
 struct SearchFilterTests {
-    private func searchStore(_ service: FakeSearchService, analytics: @escaping AnalyticsRecorder = { _ in })
-        -> SearchStore {
-        SearchStore(service: service, pageSize: 20, debounce: .milliseconds(5), analytics: analytics)
-    }
-
-    @Test("the scopes show once typing starts, and clearing the field goes back to Places")
-    func scopesAppearWithTyping() async {
-        let service = FakeSearchService()
-        let store = searchStore(service)
-        #expect(store.showsScopes == false)
-        store.query = "r"
-        #expect(store.showsScopes)
-        store.select(.people)
-        store.query = ""
-        #expect(store.showsScopes == false)
-        #expect(store.scope == .places)
-    }
-
-    @Test("filters reach the filtered reads, re-ask the scope on screen, and are counted")
-    func filtersReachTheRead() async {
-        let service = FakeSearchService()
-        service.seed(dishes: [.fixture("Ragu", score: 4.6), .fixture("Ragu bianco", score: 3.2)])
-        let log = EventLog()
-        let store = searchStore(service, analytics: log.recorder)
-        store.select(.dishes)
-        store.query = "ragu"
-        await store.settle()
-        #expect(store.rows.count == 2)
-
-        let bar = SearchFilters(minimumScore: 4.0)
-        store.setFilters(bar)
-        await store.settle()
-        #expect(service.filtersAsked.last == bar)
-        #expect(store.rows.count == 1)
-        #expect(log.first(named: "search_filtered")?.parameters["min_score"] == "4.0")
-    }
-
-    /// Round 5 reverses round 4's rule (QA on #84): a pill over Nearby is a filter on Nearby.
-    @Test("Nearby is narrowed by the filters too (round 5)")
-    func nearbyFiltered() async {
-        let service = FakeSearchService()
-        service.seed(nearby: [.fixture("Tipo 00", score: nil)])
-        let store = searchStore(service)
-        store.setFilters(SearchFilters(minimumScore: 4.5))
-        await store.setOrigin(SearchOrigin(latitude: -37.8, longitude: 144.9))
-        await store.start()
-        #expect(service.filtersAsked.last == SearchFilters(minimumScore: 4.5), "Nearby is asked with the filters")
-        #expect(store.rows.isEmpty, "an unscored place never clears 4.5")
-    }
-
     @Test("a filter set toggles, keeps its order canonical, and prints its pills without a dot")
     func filterValues() {
         var filters = SearchFilters.none
@@ -74,7 +24,6 @@ struct SearchFilterTests {
         #expect(wire["p_tags"] == .array([.string("gf"), .string("vg")]))
         #expect(wire["p_min_score"] == .double(3.5))
         #expect(SearchFilters.none.parameters.isEmpty, "no filter is the unfiltered call, unchanged")
-        #expect(SearchFilters.applies(to: .people) == false)
     }
 
     @Test("several tags: a dish carries all of them; a place needs one dish that does (backend #71)")
@@ -135,59 +84,9 @@ struct SearchFilterTests {
         #expect(noScore.minimumScore == nil && noScore.count == 4)
         #expect(SearchFilters.none.pills.isEmpty)
     }
-
-    @Test("changing filters while People is loading never strands People on its skeleton")
-    func peopleNotStranded() async {
-        let service = FakeSearchService()
-        service.seed(people: [.fixture("pastaindex"), .fixture("pat")])
-        let store = SearchStore(service: service, scope: .people, pageSize: 10, debounce: .milliseconds(20))
-        service.setLatency(.milliseconds(150), for: .people)
-        store.query = "pa"
-        await service.waitForCall { $0.scope == .people }
-        // A filter set (or a pill taken off) while People's answer is in the air.
-        store.setFilters(SearchFilters(minimumScore: 4))
-        await store.settle()
-        try? await Task.sleep(for: .milliseconds(250))
-        #expect(store.phase == .ready, "People lands — the filters are not People's to throw away")
-        #expect(store.rows.count == 2)
-    }
-
-    @Test("filters narrow Places, Dishes and Saved — never People")
-    func scopes() {
-        #expect(SearchFilters.applies(to: .saved))
-        #expect(SearchFilters.applies(to: .people) == false)
-    }
 }
-
-/// QA on #84: filters on the lists shown before anything is typed.
-@MainActor
-@Suite("Search — filters with nothing typed")
-struct SearchUntypedFilterTests {
-    @Test("a filter narrows Nearby with nothing typed — the pill never sits over unfiltered rows")
-    func nearbyFiltered() async {
-        let service = FakeSearchService()
-        service.seed(nearby: [.fixture("Tipo 00", score: 4.6), .fixture("Etta", score: 3.9)])
-        let store = SearchStore(service: service, scope: .places, pageSize: 10, debounce: .milliseconds(20))
-        await store.setOrigin(SearchOrigin(latitude: -37.81, longitude: 144.96))
-        #expect(store.rows.count == 2 && store.isShowingNearby)
-        let filters = SearchFilters(minimumScore: 4.5)
-        store.setFilters(filters)
-        await store.settle()
-        #expect(service.filtersAsked.last == filters, "Nearby was read again, with the filter")
-        #expect(store.rows.count == 1, "and only what clears it is left")
-    }
-
-    @Test("a filter narrows the Saved shelf with nothing typed")
-    func savedFiltered() async {
-        let service = FakeSearchService()
-        service.seed(saved: [.fixture("Ragù", score: 4.6), .fixture("Toast", score: 3.5)])
-        let store = SearchStore(service: service, scope: .saved, pageSize: 10, debounce: .milliseconds(20))
-        await store.start()
-        #expect(store.rows.count == 2)
-        let filters = SearchFilters(minimumScore: 4.5)
-        store.setFilters(filters)
-        await store.settle()
-        #expect(service.filtersAsked.last == filters, "the shelf was read again, with the filter")
-        #expect(store.rows.count == 1, "and only what clears it is left")
+private extension PlaceResult {
+    static func fixture(_ name: String, score: Double? = 4.3, id: UUID = UUID()) -> PlaceResult {
+        PlaceResult(restaurantID: id, name: name, locality: "Carlton", score: score)
     }
 }

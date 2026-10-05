@@ -65,11 +65,6 @@ public struct SearchFilters: Sendable, Hashable {
         cuisines.count + tags.count + (band.isAll ? 0 : 1) + (city == nil ? 0 : 1) + (window.isAll ? 0 : 1)
     }
 
-    /// Every scope but People (round 5: the shelf takes the range and the city too, 0049).
-    public static func applies(to scope: SearchScope) -> Bool {
-        scope != .people
-    }
-
     // MARK: - The tag rule (backend #71)
 
     /// A dish matches the tag filter when it carries **every** picked code.

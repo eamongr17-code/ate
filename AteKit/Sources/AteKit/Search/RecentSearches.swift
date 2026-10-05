@@ -1,26 +1,24 @@
 import Foundation
 import Observation
 
-/// One thing somebody searched for: the words, and the scope they were looking in.
+/// One thing somebody searched for.
 public struct RecentSearch: Codable, Hashable, Sendable, Identifiable {
     public let text: String
-    public let scope: SearchScope
 
     /// Case-blind, so "Ragu" and "ragu" are one recent search.
     public var id: String { text.lowercased() }
 
-    public init(text: String, scope: SearchScope) {
+    public init(text: String) {
         self.text = text
-        self.scope = scope
     }
 }
 
-/// **What the Search tab shows before a character is typed** (rebuild, Eamon 3 Oct): your recent
-/// searches, newest first — never a location list, because Search never asks where the phone is.
+/// **What a search field shows before a character is typed**: your recent searches, newest first.
 ///
 /// A search is remembered when it is *used*: a result opened from it, or the Search key pressed. A
-/// keystroke on the way to a word is not a search. Kept on the phone, per person, at most
-/// ``limit``; searching the same words again moves them to the top rather than listing them twice.
+/// keystroke on the way to a word is not a search. Kept on the phone, per person and per search
+/// field (`surface`), at most ``limit``; searching the same words again moves them to the top rather
+/// than listing them twice.
 @MainActor
 @Observable
 public final class RecentSearches {
@@ -29,24 +27,32 @@ public final class RecentSearches {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let key: String
     @ObservationIgnored private let limit: Int
+    @ObservationIgnored private let minimumLength: Int
 
     public static let defaultLimit = 8
 
     /// `owner` keys the list to one person, so somebody signing in on this phone never sees the last
     /// person's searches. `nil` is somebody reading signed out.
-    public init(owner: UUID?, defaults: UserDefaults = .standard, limit: Int = RecentSearches.defaultLimit) {
+    public init(
+        owner: UUID?,
+        surface: String = "search",
+        defaults: UserDefaults = .standard,
+        limit: Int = RecentSearches.defaultLimit,
+        minimumLength: Int = 2
+    ) {
         self.defaults = defaults
-        self.key = Self.key(for: owner)
+        self.key = Self.key(for: owner, surface: surface)
         self.limit = limit
-        self.items = Self.decode(defaults.data(forKey: Self.key(for: owner)))
+        self.minimumLength = minimumLength
+        self.items = Self.decode(defaults.data(forKey: key))
     }
 
-    /// Remembers `text` as searched in `scope`. Below the search's own two-character floor it was
-    /// never a search, and is not remembered.
-    public func record(_ text: String, scope: SearchScope) {
+    /// Remembers `text`. Below the search's own two-character floor it was never a search, and is not
+    /// remembered.
+    public func record(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count >= scope.minimumQueryLength else { return }
-        let search = RecentSearch(text: trimmed, scope: scope)
+        guard trimmed.count >= minimumLength else { return }
+        let search = RecentSearch(text: trimmed)
         var next = items.filter { $0.id != search.id }
         next.insert(search, at: 0)
         items = Array(next.prefix(limit))
@@ -65,8 +71,8 @@ public final class RecentSearches {
 
     // MARK: - On the phone
 
-    static func key(for owner: UUID?) -> String {
-        "ate.search.recents." + (owner?.uuidString.lowercased() ?? "browsing")
+    static func key(for owner: UUID?, surface: String = "search") -> String {
+        "ate.\(surface).recents." + (owner?.uuidString.lowercased() ?? "browsing")
     }
 
     private func save() {

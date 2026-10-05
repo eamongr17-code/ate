@@ -18,24 +18,24 @@ struct RecentSearchesTests {
     @Test("newest first, and searching the same words again moves them to the top")
     func newestFirstWithoutRepeats() {
         let recents = RecentSearches(owner: owner, defaults: defaults())
-        recents.record("ragu", scope: .dishes)
-        recents.record("Tipo 00", scope: .places)
-        recents.record("Ragu", scope: .dishes)
+        recents.record("ragu")
+        recents.record("Tipo 00")
+        recents.record("Ragu")
         #expect(recents.items.map(\.text) == ["Ragu", "Tipo 00"])
     }
 
     @Test("a keystroke below the search's floor is not a search")
     func tooShortIsNotRemembered() {
         let recents = RecentSearches(owner: owner, defaults: defaults())
-        recents.record(" r ", scope: .dishes)
-        recents.record("   ", scope: .people)
+        recents.record(" r ")
+        recents.record("   ")
         #expect(recents.items.isEmpty)
     }
 
     @Test("kept to the limit, oldest dropped")
     func capped() {
         let recents = RecentSearches(owner: owner, defaults: defaults(), limit: 3)
-        for word in ["one", "two", "three", "four"] { recents.record(word, scope: .dishes) }
+        for word in ["one", "two", "three", "four"] { recents.record(word) }
         #expect(recents.items.map(\.text) == ["four", "three", "two"])
     }
 
@@ -43,21 +43,29 @@ struct RecentSearchesTests {
     func perPerson() {
         let store = defaults()
         let mine = RecentSearches(owner: owner, defaults: store)
-        mine.record("pho", scope: .dishes)
-        mine.record("@jessw", scope: .people)
+        mine.record("pho")
+        mine.record("@jessw")
 
         #expect(RecentSearches(owner: owner, defaults: store).items.map(\.text) == ["@jessw", "pho"])
         #expect(RecentSearches(owner: UUID(), defaults: store).items.isEmpty)
         #expect(RecentSearches(owner: nil, defaults: store).items.isEmpty)
     }
 
+    @Test("each search field keeps its own: the Journal's recents are not Search's")
+    func perSurface() {
+        let store = defaults()
+        RecentSearches(owner: owner, surface: "journal", defaults: store).record("burger")
+        #expect(RecentSearches(owner: owner, surface: "journal", defaults: store).items.map(\.text) == ["burger"])
+        #expect(RecentSearches(owner: owner, defaults: store).items.isEmpty)
+    }
+
     @Test("removing one and clearing all are remembered too")
     func removeAndClear() {
         let store = defaults()
         let recents = RecentSearches(owner: owner, defaults: store)
-        recents.record("pho", scope: .dishes)
-        recents.record("laksa", scope: .dishes)
-        recents.remove(RecentSearch(text: "PHO", scope: .places))
+        recents.record("pho")
+        recents.record("laksa")
+        recents.remove(RecentSearch(text: "PHO"))
         #expect(RecentSearches(owner: owner, defaults: store).items.map(\.text) == ["laksa"])
         recents.clear()
         #expect(RecentSearches(owner: owner, defaults: store).items.isEmpty)

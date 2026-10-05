@@ -146,52 +146,6 @@ extension SavedDish {
     }
 }
 
-/// What the current scope is showing. One value, so a view switches on the rows it has rather than
-/// on the scope it asked for — the two can disagree for exactly one frame, and that frame is where a
-/// dish row drawn as a person comes from.
-public enum SearchRows: Sendable, Hashable {
-    case places([PlaceResult])
-    case dishes([DishResult])
-    case people([PersonResult])
-    case saved([SavedDish])
-
-    public static func empty(for scope: SearchScope) -> SearchRows {
-        switch scope {
-        case .places: .places([])
-        case .dishes: .dishes([])
-        case .people: .people([])
-        case .saved: .saved([])
-        }
-    }
-
-    public var count: Int {
-        switch self {
-        case .places(let rows): rows.count
-        case .dishes(let rows): rows.count
-        case .people(let rows): rows.count
-        case .saved(let rows): rows.count
-        }
-    }
-
-    public var isEmpty: Bool {
-        switch self {
-        case .places(let rows): rows.isEmpty
-        case .dishes(let rows): rows.isEmpty
-        case .people(let rows): rows.isEmpty
-        case .saved(let rows): rows.isEmpty
-        }
-    }
-
-    public var scope: SearchScope {
-        switch self {
-        case .places: .places
-        case .dishes: .dishes
-        case .people: .people
-        case .saved: .saved
-        }
-    }
-}
-
 /// **Where the next page of a search starts** — the LAST row's key, every field of it
 /// (integration-design.md: "pass every cursor field from the last row"). One case per ordering,
 /// because the five RPCs order five ways and a cursor from one is meaningless to another.
