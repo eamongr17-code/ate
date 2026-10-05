@@ -47,7 +47,10 @@ struct V2ComposerWrite: View {
         self.presentation = presentation
         self.isCovered = isCovered
         self.onPrinted = onPrinted
-        _model = State(initialValue: ComposerModel(drafts: app.services.drafts, editing: presentation.editing))
+        let model = ComposerModel(drafts: app.services.drafts, editing: presentation.editing)
+        // A nearby chip tapped on a photo sitting: the Place key opens holding it.
+        if presentation.editing == nil, let place = presentation.place { _ = model.attach(place: place) }
+        _model = State(initialValue: model)
     }
 
     var services: AteServices { app.services }

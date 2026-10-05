@@ -2,13 +2,9 @@ import AteKit
 import SwiftUI
 import UIKit
 
-/// **From your photos** — the camera roll's recent meals, each sitting a row to write up: the day,
-/// the time, the photos as a tilted cluster, and the ink pen that opens the composer holding them.
-///
-/// A row carries **photos and a time and nothing else**: no place is guessed from a photo's
-/// location, and none is attached when the composer opens. The permission is asked here, when the
-/// page opens, and nowhere else. Tap to enter, ✕ to dismiss, gone after — a dismissed sitting never
-/// comes back, here or in the Journal's count (``PhotoSuggestionDismissals``).
+/// The old **From your photos** route. The page folded into Notifications on 5 Oct
+/// (`lists-notifications.html` E1): the route stays so nothing that pushes it breaks, and it opens
+/// the one page.
 struct V2SuggestionsPage: View {
     let context: V2PageContext
 
@@ -16,163 +12,140 @@ struct V2SuggestionsPage: View {
         self.context = context
     }
 
-    private enum Phase: Equatable {
-        case loading, ready, empty, denied
-    }
-
-    @State private var phase: Phase = .loading
-    @State private var clusters: [PhotoSuggestionCluster] = []
-    @State private var dismissals: PhotoSuggestionDismissals?
-    @State private var hasAsked = false
-    @Environment(\.openURL) private var openURL
-    @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private var library: any AtePhotoLibrary { context.services.photos }
-
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                switch phase {
-                case .loading:
-                    ForEach(0..<SuggestionMetrics.skeletons, id: \.self) { index in
-                        SuggestionSkeletonRow(photos: index == SuggestionMetrics.skeletons - 1 ? 1 : 2)
-                    }
-                case .ready:
-                    ForEach(clusters) { cluster in
-                        row(cluster)
-                            .transition(.opacity)
-                    }
-                case .empty:
-                    emptyBand(AteEmptyState(line: "Nothing\nto write up."))
-                case .denied:
-                    emptyBand(AteEmptyState(line: "Photos\nare off.", pill: ("Allow photos", { openSettings() })))
-                        .accessibilityIdentifier("suggestions.denied")
-                }
-            }
-            .padding(.horizontal, AteMetrics.gutter)
-            .padding(.bottom, AteMetrics.section)
-        }
-        .scrollIndicators(.hidden)
-        .scrollEdgeEffectStyle(.soft, for: .top)
-        .accessibilityIdentifier("v2.page.suggestions")
-        .ateGround()
-        .ateInlineTitle("From your photos")
-        .task { await load() }
-        // Back from Settings with the permission given: read the roll without another tap.
-        .onChange(of: scenePhase) { _, now in
-            guard now == .active, phase == .denied, library.isAuthorized else { return }
-            Task { await load() }
-        }
+        V2NotificationsPage(context: context)
+    }
+}
+
+/// **From your photos, as data** — the camera roll's recent meals grouped into sittings, newest
+/// first, a dismissed sitting gone for good (``PhotoSuggestionDismissals``). Owned by the
+/// Notifications page, which decides whether this visit may ask for the camera roll: the push
+/// prompt comes first, and a visit never shows two system prompts.
+@MainActor
+@Observable
+final class PhotoSuggestionsModel {
+    enum Phase: Equatable {
+        /// Not looked yet, or looking with nothing found so far.
+        case loading
+        case ready
+        case empty
+        /// No permission (refused, or not asked this visit): the group is simply not shown.
+        case off
     }
 
-    private func emptyBand(_ state: AteEmptyState) -> some View {
-        state.containerRelativeFrame(.vertical)
+    private(set) var phase: Phase = .loading
+    private(set) var clusters: [PhotoSuggestionCluster] = []
+
+    @ObservationIgnored private let services: AteServices
+    @ObservationIgnored private var dismissals: PhotoSuggestionDismissals?
+
+    init(services: AteServices) {
+        self.services = services
     }
 
-    // MARK: - A row
+    var library: any AtePhotoLibrary { services.photos }
+    var isSettled: Bool { phase != .loading }
 
-    private func row(_ cluster: PhotoSuggestionCluster) -> some View {
-        VStack(alignment: .leading, spacing: AteMetrics.snug) {
-            HStack(spacing: AteMetrics.snug) {
-                Text(PhotoSuggestions.title(for: cluster.date))
-                    .ateText(.control)
-                    .foregroundStyle(AtePalette.automatic.fg)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text(PhotoSuggestions.time(for: cluster.date))
-                    .ateText(.meta)
-                    .foregroundStyle(AtePalette.automatic.muted)
-                dismissButton(cluster)
-            }
-            HStack(spacing: AteMetrics.snug) {
-                SuggestionPhotos(library: library, ids: cluster.items.map(\.id))
-                Spacer(minLength: 0)
-                AteGlassDisc(icon: .edit, label: "Write up", role: .primary, identifier: "suggestions.write") {
-                    write(cluster)
-                }
-            }
-        }
-        .padding(.vertical, AteMetrics.loose)
-        .overlay(alignment: .top) { AteHairline() }
-        .contentShape(.rect)
-        // Tap to enter. The ✕ and the pen are real buttons inside the row, so they take their taps first.
-        .onTapGesture { write(cluster) }
-        .accessibilityElement(children: .contain)
-        .accessibilityAction(named: "Write up") { write(cluster) }
-        .accessibilityIdentifier("suggestions.row")
-    }
-
-    /// The row's ✕ — muted, at the corner, its 44 target hanging past the row's own lines.
-    private func dismissButton(_ cluster: PhotoSuggestionCluster) -> some View {
-        Button {
-            dismissRow(cluster)
-        } label: {
-            AteIcon.close.view(size: SuggestionMetrics.dismissGlyph)
-                .frame(width: AteMetrics.hit, height: AteMetrics.hit)
-                .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(AtePalette.automatic.muted)
-        .frame(width: SuggestionMetrics.dismissGlyph, height: SuggestionMetrics.dismissGlyph)
-        .accessibilityLabel("Dismiss")
-        .accessibilityIdentifier("suggestions.dismiss")
-    }
-
-    // MARK: - Doing things
-
-    /// The pen: the composer, holding these photos and no place.
-    private func write(_ cluster: PhotoSuggestionCluster) {
-        guard context.gate.permitsWrite(.compose) else { return }
-        AteHaptics.key()
-        context.app.compose(ComposerPresentation(
-            origin: .photoSuggestion,
-            assetIdentifiers: cluster.items.map(\.id)
-        ))
-    }
-
-    private func dismissRow(_ cluster: PhotoSuggestionCluster) {
-        dismissals?.dismiss(cluster)
-        context.services.analytics(SuggestionEvents.dismissed(photos: cluster.items.count))
-        withAnimation(reduceMotion ? nil : .easeOut(duration: SuggestionMetrics.dismissDuration)) {
-            clusters.removeAll { $0.id == cluster.id }
-            if clusters.isEmpty { phase = .empty }
-        }
-    }
-
-    private func openSettings() {
-        context.services.analytics(SuggestionEvents.photoAccessSettingsOpened())
-        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-        openURL(url)
-    }
-
-    // MARK: - Loading
-
-    private func load() async {
+    /// Reads the roll. `mayAsk`: the system's photo prompt may appear (never asked before, and no
+    /// other prompt this visit). Each sitting appears as its photos are confirmed as food; leaving
+    /// the page cancels the task, which stops the looking.
+    func load(mayAsk: Bool) async {
         if dismissals == nil {
-            dismissals = PhotoSuggestionDismissals(store: UserDefaultsStore(), owner: context.services.photoOwner)
+            dismissals = PhotoSuggestionDismissals(store: UserDefaultsStore(), owner: services.photoOwner)
         }
         if library.isAuthorized == false {
-            // Asked once, here and nowhere else. A refusal — now or from an earlier launch — is
-            // the denied state, with the one door out of it.
-            guard hasAsked == false else {
-                phase = .denied
-                return
-            }
-            hasAsked = true
-            guard await library.requestAuthorization() else {
-                phase = .denied
+            guard mayAsk, library.canAsk, await library.requestAuthorization() else {
+                phase = .off
                 return
             }
         }
-        if clusters.isEmpty { phase = .loading }
-        // Each sitting appears as its photos are confirmed as food, newest first. Leaving the page
-        // cancels this task, which stops the looking.
         for await food in library.recentProgressively() {
             clusters = dismissals?.clusters(food) ?? PhotoSuggestions.cluster(food)
             if clusters.isEmpty == false { phase = .ready }
         }
         guard Task.isCancelled == false else { return }
         phase = clusters.isEmpty ? .empty : .ready
+    }
+
+    func dismiss(_ cluster: PhotoSuggestionCluster) {
+        dismissals?.dismiss(cluster)
+        services.analytics(SuggestionEvents.dismissed(photos: cluster.items.count))
+        clusters.removeAll { $0.id == cluster.id }
+        if clusters.isEmpty { phase = .empty }
+    }
+}
+
+/// **A sitting to write up** — the day, the time, the muted ✕, the photos as a tilted cluster and
+/// the ink pen; under it, where the photos carry a location, up to three nearby places as chips.
+/// Tap the row (or the pen) for the composer holding the photos and no place; tap a chip for the
+/// composer holding the photos and that place. Nothing is attached without that tap.
+struct PhotoSuggestionRow: View {
+    let cluster: PhotoSuggestionCluster
+    /// The group's first sitting sits under its band: no hairline, 4 above (`.sug.first`).
+    var isFirst = false
+    let library: any AtePhotoLibrary
+    let chips: [PlaceSuggestion]
+    /// The chip being opened with, inked while its place resolves.
+    var pickedChip: String?
+    let onWrite: () -> Void
+    let onDismiss: () -> Void
+    let onChip: (PlaceSuggestion, Int) -> Void
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SuggestionMetrics.gap) {
+            HStack(spacing: AteMetrics.snug) {
+                Text(PhotoSuggestions.title(for: cluster.date))
+                    .ateText(.control)
+                    .foregroundStyle(palette.fg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(PhotoSuggestions.time(for: cluster.date))
+                    .ateText(.meta)
+                    .foregroundStyle(palette.muted)
+                dismissButton
+            }
+            HStack(spacing: AteMetrics.snug) {
+                SuggestionPhotos(library: library, ids: cluster.items.map(\.id))
+                Spacer(minLength: 0)
+                AteGlassDisc(icon: .edit, label: "Write up", role: .primary, identifier: "suggestions.write") {
+                    onWrite()
+                }
+            }
+            if chips.isEmpty == false {
+                AtePlaceChipRow {
+                    ForEach(Array(chips.enumerated()), id: \.element.id) { index, chip in
+                        AtePlaceChip(name: chip.name, isOn: pickedChip == chip.id, identifier: "suggestions.place") {
+                            onChip(chip, index + 1)
+                        }
+                    }
+                }
+                .transition(.opacity)
+            }
+        }
+        .padding(.top, isFirst ? SuggestionMetrics.firstTop : AteMetrics.loose)
+        .padding(.bottom, AteMetrics.loose)
+        .overlay(alignment: .top) { if isFirst == false { AteHairline() } }
+        .contentShape(.rect)
+        // Tap to enter. The ✕, the pen and the chips are real buttons, so they take their taps first.
+        .onTapGesture { onWrite() }
+        .accessibilityElement(children: .contain)
+        .accessibilityAction(named: "Write up") { onWrite() }
+        .accessibilityIdentifier("suggestions.row")
+    }
+
+    /// The row's ✕ — muted, at the corner, its 44 target hanging past the row's own lines.
+    private var dismissButton: some View {
+        Button(action: onDismiss) {
+            AteIcon.close.view(size: SuggestionMetrics.dismissGlyph)
+                .frame(width: AteMetrics.hit, height: AteMetrics.hit)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(palette.muted)
+        .frame(width: SuggestionMetrics.dismissGlyph, height: SuggestionMetrics.dismissGlyph)
+        .accessibilityLabel("Dismiss")
+        .accessibilityIdentifier("suggestions.dismiss")
     }
 }
 
@@ -202,7 +175,7 @@ private struct SuggestionPhotos: View {
 }
 
 /// A row before the roll has been read — its shape, never a spinner.
-private struct SuggestionSkeletonRow: View {
+struct SuggestionSkeletonRow: View {
     let photos: Int
 
     var body: some View {
@@ -226,14 +199,17 @@ private struct SuggestionSkeletonRow: View {
     }
 }
 
-private enum SuggestionMetrics {
-    static let skeletons = 3
+enum SuggestionMetrics {
+    static let skeletons = 2
     static let maximumPhotos = 3
     static let dismissGlyph: CGFloat = 16
     static let dismissDuration = 0.25
     static let titleBar: CGFloat = 112
     static let timeBar: CGFloat = 52
     static let bar: CGFloat = 14
+    static let firstTop: CGFloat = 4
+    /// `.sug{gap:10px}`.
+    static let gap: CGFloat = 10
 
     /// A tile's identity is its place in the row: a sitting's photos never reorder, so the tiles
     /// keep their place (and their tilt) as the images arrive.

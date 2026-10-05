@@ -121,7 +121,11 @@ final class SystemPhotoLibrary: AtePhotoLibrary {
         let since = Date().addingTimeInterval(-PhotoSuggestions.window)
         result.enumerateObjects { asset, _, _ in
             guard let created = asset.creationDate, created >= since else { return }
-            items.append(PhotoSuggestionItem(id: asset.localIdentifier, createdAt: created))
+            // Where it was taken, if the photo says — read from the asset, no location permission.
+            let coordinate = asset.location.map {
+                PhotoCoordinate(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude)
+            }
+            items.append(PhotoSuggestionItem(id: asset.localIdentifier, createdAt: created, coordinate: coordinate))
         }
         return items
     }
@@ -236,14 +240,18 @@ final class PreviewPhotoLibrary: AtePhotoLibrary {
         let hour: Int
         let minute: Int
         let names: [String]
+        /// Where the photos say they were taken. `nil`: the sitting offers no place chips.
+        var coordinate: PhotoCoordinate?
     }
 
     /// `Suggestions.dc.html`: a burger and a cake on Friday night, three dishes last Sunday, sushi
     /// the week before. Dated relative to today so the titles read as they do on the artboard.
     private static let sittings = [
-        Sitting(offsetDays: 2, hour: 21, minute: 40, names: ["burger", "cake"]),
+        Sitting(offsetDays: 2, hour: 21, minute: 40, names: ["burger", "cake"],
+                coordinate: PhotoCoordinate(latitude: -37.8125, longitude: 144.9650)),
         Sitting(offsetDays: 7, hour: 13, minute: 15, names: ["pizza", "penne", "tiramisu"]),
-        Sitting(offsetDays: 9, hour: 20, minute: 2, names: ["sushi"])
+        Sitting(offsetDays: 9, hour: 20, minute: 2, names: ["sushi"],
+                coordinate: PhotoCoordinate(latitude: -37.7955, longitude: 144.9665))
     ]
 
     func recent() async -> [PhotoSuggestionItem] {
@@ -257,7 +265,9 @@ final class PreviewPhotoLibrary: AtePhotoLibrary {
             components.minute = sitting.minute
             let start = calendar.date(from: components) ?? day
             return sitting.names.enumerated().map { index, name in
-                PhotoSuggestionItem(id: name, createdAt: start.addingTimeInterval(Double(index) * 300))
+                PhotoSuggestionItem(
+                    id: name, createdAt: start.addingTimeInterval(Double(index) * 300), coordinate: sitting.coordinate
+                )
             }
         }
     }

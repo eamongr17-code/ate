@@ -29,8 +29,10 @@ final class AtePush {
     // MARK: - The ask
 
     /// The system's prompt, if it has never been answered; then the token. Already answered: only the
-    /// token, if allowed. Counted once, when the person actually answers.
-    func askOnce(trigger: NotificationEvents.PermissionTrigger, services: AteServices) async {
+    /// token, if allowed. Counted once, when the person actually answers. Returns whether the system
+    /// prompt was shown — a screen shows one system prompt per visit.
+    @discardableResult
+    func askOnce(trigger: NotificationEvents.PermissionTrigger, services: AteServices) async -> Bool {
         registrar = services.pushTokens
         let center = UNUserNotificationCenter.current()
         let settings = await center.notificationSettings()
@@ -39,11 +41,13 @@ final class AtePush {
             let granted = (try? await center.requestAuthorization(options: [.alert, .badge, .sound])) ?? false
             services.analytics(NotificationEvents.pushPermissionResult(granted: granted, trigger: trigger))
             if granted { UIApplication.shared.registerForRemoteNotifications() }
+            return true
         case .authorized, .provisional, .ephemeral:
             UIApplication.shared.registerForRemoteNotifications()
         default:
             break
         }
+        return false
     }
 
     // MARK: - The token

@@ -19,6 +19,9 @@ struct ComposerPresentation: Identifiable, Hashable {
     /// images: the composer stages them itself, the same way the picker's are staged. Design rule 8
     /// is untouched — a photo brings its pixels and nothing else, never a place.
     var assetIdentifiers: [String] = []
+    /// A place the person TAPPED before the composer opened — a nearby chip on a photo sitting. The
+    /// composer opens with it on the Place key. Never set from a location alone (design rule 8).
+    var place: PlaceRef?
     /// Set when the composer opens on words that already exist. Done then **rewrites that entry's
     /// body** rather than writing a new one — the one path in the app that touches `entries.body`
     /// after it has landed, and it is the author's own hand.

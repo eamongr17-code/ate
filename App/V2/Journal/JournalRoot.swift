@@ -64,6 +64,7 @@ struct JournalRoot: View {
         .task { await stores.photos.load() }
         // The bell's tag count, read again whenever the Journal is shown (it moved here from You).
         .onAppear {
+            Task { await stores.photos.load() }
             guard app.hasSession else { return }
             Task { await app.notifications.refreshCount() }
         }
