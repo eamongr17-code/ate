@@ -338,7 +338,7 @@ theirs. The original deleted before a response withdraws the tag (prefill → `P
 | `ate_with_prefill(p_companion_id)` | jsonb `{companion_id, status, response_entry_id, entry_id, visited_at, sort_status, tagger{…}, place{id,name,address,locality}, dishes:[{dish_id, dish_name, position}]}` — one row per dish. `sort_status: pending` = dishes still on their way (retry), not "none". `status: accepted` → open `response_entry_id` instead. Marks the notification read. `P0002` not yours / withdrawn / blocked |
 | `respond_ate_with(p_companion_id, p_entry_id, p_items, p_body)` | `entry_cards[]` (one row: YOUR new entry — render it). `p_entry_id` client-minted (a retry with it returns the same card); `p_items` = `[{dish_id, score?, tags?}]` in receipt order, dishes at that place (omit = didn't have it; duplicates collapse); `p_body` optional words, default `''`. Same place + visit time as the original; `sort_status: sorted`; lines are `corrected` (a later `sort-entry` with `force` keeps them and adds what the words name). `22023` bad items / `dish_not_at_place` / `nothing_to_post` / declined · `23514` bad score · `23505` already answered with another id · `P0002` |
 | `decline_ate_with(p_companion_id)` | `'declined'`. Pending or accepted; an accepted entry stays theirs, unlinked. `P0002` not yours |
-| `register_push_token(p_token, p_apns_env)` · `unregister_push_token(p_token)` | void. Hex APNs token; `p_apns_env` `sandbox` (Xcode-installed builds) \| `production` (TestFlight + App Store) — from the build's `aps-environment`, not from Debug/Release. Register on every launch with permission (moves the token to whoever is signed in); unregister on sign-out. `22023` bad token/env |
+| `register_push_token(p_token, p_apns_env)` · `unregister_push_token(p_token)` | void. Hex APNs token; `p_apns_env` `sandbox` (Xcode-installed builds) \| `production` (TestFlight + App Store; the default when omitted or null, 0059) — from the build's `aps-environment`, not from Debug/Release: a Beta build on staging is `production`. Register on every launch with permission (moves the token to whoever is signed in); unregister on sign-out. `22023` bad token/env |
 
 **`entry_cards.companions`** (new trailing key, `[]` never null): `[{user_id, username, name, avatar_url, status,
 entry_id}]` — print "with @jess". An original lists accepted companions whose entry still stands (+ `pending`
@@ -353,12 +353,12 @@ notification_id, entry_id}` (no `body` when the entry has no dishes; `apns-colla
 `ate_with_prefill(companion_id)`; `P0002` = withdrawn, show nothing. Sent once, only for a pending, unread,
 undismissed, unblocked tag whose original has SORTED (so the dishes exist), within 24 h of the tag; a quiet re-tag never pushes.
 **Function secrets** (`supabase secrets set`, per project): `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY`
-(the .p8's full PEM text), `APNS_ENV` = `sandbox` | `production` (picks the host; only tokens registered with the same
-`apns_env` are sent to, so staging with `sandbox` reaches Xcode builds only). Absent → the function is a no-op.
+(the .p8's full PEM text); absent → the function is a no-op. The host is PER TOKEN (`apns_env`: sandbox → api.sandbox,
+production → api.push), since a TestFlight build on staging holds a production token; one key serves both.
 **Vault secrets** (dashboard → Vault, per project): `send_push_url` = `https://<ref>.supabase.co/functions/v1/send-push`,
 `send_push_service_key` = that project's service role key. Absent → the database never calls the function.
 **One-time setup, in this order:** (1) merge → CI applies 0059 (creates pg_net, pg_cron and the minute drain);
-(2) set the four function secrets; (3) deploy `send-push` (default JWT check); (4) add the two Vault secrets — pushes
+(2) set the three function secrets; (3) deploy `send-push` (default JWT check); (4) add the two Vault secrets — pushes
 start. Rotating the key = steps 2 only. Kill switch: delete `send_push_url` from Vault.
 
 **Wire change — 0059.** None for the app: two `notifications` columns it never reads, service-role-only functions, the push payload above.

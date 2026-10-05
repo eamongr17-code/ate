@@ -27,7 +27,6 @@ const SECRETS: Record<string, string> = {
   APNS_KEY_ID: 'KEY1234567',
   APNS_TEAM_ID: 'TEAM123456',
   APNS_PRIVATE_KEY: KEY.pem.replace(/\n/g, '\\n'), // as a one-line secret, escaped newlines
-  APNS_ENV: 'sandbox',
 };
 
 const ROW: Claimed = {
@@ -84,15 +83,17 @@ test('copy: exactly the approved push — who + where, then the dishes', () => {
   assert([...pushCopy({ ...ROW, dish_names: Array(40).fill('Gnocchi') }).body!].length <= 178, 'bounded');
 });
 
-test('happy path: one APNs request per matching token, signed, with the tag id; then marked pushed', async () => {
+test('happy path: one APNs request per token, each to ITS host, signed, with the tag id; then marked pushed', async () => {
   resetJwtCache();
   const w = world();
   const res = await w.call();
   assertEquals(res.status, 200);
-  assertEquals(await res.json(), { ok: true, claimed: 1, sent: 1, marked: 1, dropped: 0 });
-  assertEquals(w.sent.length, 1, 'only the sandbox token: a production token is never sent to the sandbox host');
+  assertEquals(await res.json(), { ok: true, claimed: 1, sent: 2, marked: 1, dropped: 0 });
+  assertEquals(w.sent.map((x) => x.url), [
+    `https://api.sandbox.push.apple.com/3/device/${'aa'.repeat(32)}`, // an Xcode-installed build
+    `https://api.push.apple.com/3/device/${'bb'.repeat(32)}`,         // a TestFlight build, even on staging
+  ], 'the host is the token\'s, never one per project');
   const [s] = w.sent;
-  assertEquals(s.url, `https://api.sandbox.push.apple.com/3/device/${'aa'.repeat(32)}`);
   assertEquals(s.headers['apns-topic'], 'com.eamongracias.ate');
   assertEquals(s.headers['apns-push-type'], 'alert');
   assertEquals(s.body.aps.alert, { title: '@eamon ate with you at Tipo 00', body: 'Tagliatelle al ragù, tiramisu, prawn spaghetti' });
@@ -104,14 +105,15 @@ test('happy path: one APNs request per matching token, signed, with the tag id; 
   assertEquals(jwt.claims.iss, 'TEAM123456');
   assertEquals(w.rpcs.map((r) => r.name), ['push_claim_ate_with', 'push_mark_sent']);
   assertEquals(w.rpcs[1].args, { p_ids: ['n-1'] });
+  assertEquals(w.sent[1].headers.authorization, s.headers.authorization, 'one key, one provider token, both hosts');
 
-  const prod = world({ secrets: { ...SECRETS, APNS_ENV: 'production' } });
-  await prod.call();
-  assertEquals(prod.sent.map((x) => x.url), [`https://api.push.apple.com/3/device/${'bb'.repeat(32)}`], 'APNS_ENV picks the host');
+  const odd = world({ rows: [{ ...ROW, tokens: [{ token: 'dd'.repeat(32), apns_env: 'staging' }] }] });
+  await odd.call();
+  assertEquals(odd.sent.length, 0, 'an unknown environment is never guessed at (and never dropped)');
 });
 
 test('no APNS secrets: a clean no-op — no claim, no APNs, nothing marked', async () => {
-  for (const missing of ['APNS_KEY_ID', 'APNS_TEAM_ID', 'APNS_PRIVATE_KEY', 'APNS_ENV']) {
+  for (const missing of ['APNS_KEY_ID', 'APNS_TEAM_ID', 'APNS_PRIVATE_KEY']) {
     const secrets = { ...SECRETS };
     delete secrets[missing];
     const w = world({ secrets });
@@ -120,8 +122,6 @@ test('no APNS secrets: a clean no-op — no claim, no APNs, nothing marked', asy
     assertEquals(await res.json(), { ok: true, skipped: 'apns_not_configured' }, missing);
     assertEquals([w.opened(), w.sent.length], [0, 0], `${missing}: touched nothing`);
   }
-  const bogus = world({ secrets: { ...SECRETS, APNS_ENV: 'staging' } });
-  assertEquals((await (await bogus.call()).json()).skipped, 'apns_not_configured', 'an unknown APNS_ENV is not configured');
 });
 
 test('only the service role may call it', async () => {
@@ -173,7 +173,7 @@ test('the provider token is cached under 50 minutes, then re-signed', async () =
   await w.call();
   t += 2 * 60_000;                                   // 51 minutes after the first
   await w.call();
-  const jwts = w.sent.map((s) => s.headers.authorization);
+  const jwts = w.sent.filter((_, i) => i % 2 === 0).map((s) => s.headers.authorization); // first token of each call
   assertEquals(jwts[0], jwts[1], 'reused inside 50 minutes');
   assert(jwts[2] !== jwts[0], 're-signed after 50 minutes');
   assertEquals((await verifyJwt(jwts[2].replace(/^bearer /, ''))).claims.iat, Math.floor(t / 1000));

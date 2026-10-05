@@ -14,9 +14,10 @@
 // (so never a quiet re-tag), no block, the tagger's entry sorted. This file never widens that set.
 //
 // APNs: HTTP/2 (Deno's fetch negotiates h2 by ALPN) with token auth — an ES256 JWT from the .p8 key,
-// cached under 50 minutes. Secrets: APNS_KEY_ID, APNS_TEAM_ID, APNS_PRIVATE_KEY (the .p8's PEM text),
-// APNS_ENV = sandbox | production (picks the host; only tokens registered with the same apns_env are
-// sent to). Topic com.eamongracias.ate. Payload: push.ts `payload()`; contract in integration-design.md.
+// cached under 50 minutes. Secrets: APNS_KEY_ID, APNS_TEAM_ID, APNS_PRIVATE_KEY (the .p8's PEM text).
+// The host is chosen PER TOKEN from device_push_tokens.apns_env (sandbox → api.sandbox.push.apple.com,
+// production → api.push.apple.com): a TestFlight build on staging holds a production token. One key
+// serves both hosts. Topic com.eamongracias.ate. Payload: push.ts `payload()`; contract in integration-design.md.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { createHandler, type Db } from './push.ts';

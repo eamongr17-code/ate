@@ -30,7 +30,8 @@
 --   The extensions are created only where available (hosted Supabase has both; the PGlite test
 --   harness has neither, and there the kick is a no-op).
 --
--- WIRE IMPACT: none for the app — two notifications columns it never reads, server-only functions.
+-- WIRE IMPACT: ADDITIVE — register_push_token's p_apns_env now defaults to 'production' (old calls unchanged).
+--   Otherwise none for the app: two notifications columns it never reads, server-only functions.
 
 set search_path = public, extensions;
 
@@ -64,6 +65,38 @@ begin
   return new;
 end; $$;
 revoke execute on function public.trg_notification_update_guard() from public, anon, authenticated;
+
+-- ===========================================================================
+-- 1b. The device's APNs environment, per token (it decides the host). 0058's `apns_env` IS that column —
+-- the client already sends it. A TestFlight (Beta) build talks to STAGING yet holds a PRODUCTION token,
+-- so the host can never be one per project: send-push picks it per token. Additive: the column and the
+-- parameter default to 'production' (TestFlight + App Store), so `register_push_token(p_token)` alone
+-- works and 0058's two-argument call is unchanged. Same signature → create or replace, grants survive.
+-- ===========================================================================
+alter table public.device_push_tokens alter column apns_env set default 'production';
+
+create or replace function public.register_push_token(p_token text, p_apns_env text default 'production')
+returns void language plpgsql volatile security definer set search_path = public, extensions as $$
+declare
+  v_uid   uuid := (select auth.uid());
+  v_token text := lower(btrim(coalesce(p_token, '')));
+  v_env   text := lower(btrim(coalesce(p_apns_env, 'production')));
+begin
+  if v_uid is null then
+    raise exception 'sign in to register' using errcode = '42501';
+  end if;
+  if v_token !~ '^[0-9a-f]{64,200}$' or v_env not in ('sandbox', 'production') then
+    raise exception 'bad push token or apns_env' using errcode = '22023';
+  end if;
+  insert into public.device_push_tokens (token, user_id, apns_env)
+  values (v_token, v_uid, v_env)
+  on conflict (token) do update                    -- PK: a TOTAL arbiter
+    set user_id = excluded.user_id, apns_env = excluded.apns_env, last_seen_at = now();
+  delete from public.device_push_tokens t
+  where t.user_id = v_uid
+    and t.token not in (select x.token from public.device_push_tokens x where x.user_id = v_uid
+                        order by x.last_seen_at desc limit 10);
+end; $$;
 
 -- ===========================================================================
 -- 2. Readiness — the one predicate the claim and the kick share.

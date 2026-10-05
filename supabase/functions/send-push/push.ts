@@ -32,16 +32,15 @@ export interface Claimed {
   tokens: { token: string; apns_env: string }[];
 }
 
-export interface ApnsConfig { keyId: string; teamId: string; privateKey: string; env: ApnsEnv }
+export interface ApnsConfig { keyId: string; teamId: string; privateKey: string }
 
 /** null = not configured → the function is a no-op (deploying before the .p8 exists is harmless). */
 export function readApnsConfig(env: Env): ApnsConfig | null {
   const keyId = env('APNS_KEY_ID')?.trim();
   const teamId = env('APNS_TEAM_ID')?.trim();
   const privateKey = env('APNS_PRIVATE_KEY')?.trim();
-  const e = env('APNS_ENV')?.trim();
-  if (!keyId || !teamId || !privateKey || (e !== 'sandbox' && e !== 'production')) return null;
-  return { keyId, teamId, privateKey, env: e };
+  if (!keyId || !teamId || !privateKey) return null;
+  return { keyId, teamId, privateKey };
 }
 
 // ─── Copy — design/rebuild/ate-with.html "The push": title = who + where, body = the dishes, nothing else.
@@ -98,10 +97,10 @@ export type Outcome = 'ok' | 'dead' | 'transient' | 'rejected';
 const DEAD_REASONS = new Set(['BadDeviceToken', 'Unregistered', 'DeviceTokenNotForTopic']);
 const AUTH_REASONS = new Set(['ExpiredProviderToken', 'InvalidProviderToken', 'MissingProviderToken']);
 
-async function sendOne(deps: Deps, cfg: ApnsConfig, jwt: string, token: string, row: Claimed, nowMs: number): Promise<Outcome> {
+async function sendOne(deps: Deps, env: ApnsEnv, jwt: string, token: string, row: Claimed, nowMs: number): Promise<Outcome> {
   let res: Response;
   try {
-    res = await deps.fetch(`https://${APNS_HOSTS[cfg.env]}/3/device/${token}`, {
+    res = await deps.fetch(`https://${APNS_HOSTS[env]}/3/device/${token}`, {
       method: 'POST',
       headers: {
         authorization: `bearer ${jwt}`,
@@ -157,13 +156,13 @@ export function createHandler(deps: Deps): (req: Request) => Promise<Response> {
     const dead: string[] = [];
     let sent = 0;
     for (const row of rows) {
-      // Only tokens registered for THIS host: a sandbox token sent to production (or the reverse)
-      // answers BadDeviceToken, which must never get a live token deleted.
-      const tokens = (row.tokens ?? []).filter((t) => t.apns_env === cfg.env).map((t) => t.token);
+      // The host is the TOKEN's: a TestFlight build on staging holds a production token, an Xcode build
+      // a sandbox one. Sending to the wrong host answers BadDeviceToken and would delete a live token.
+      const tokens = (row.tokens ?? []).filter((t) => t.apns_env === 'sandbox' || t.apns_env === 'production');
       const outcomes: Outcome[] = [];
-      for (const token of tokens) {
+      for (const { token, apns_env } of tokens) {
         const jwt = await providerToken(cfg, nowMs);
-        const o = await sendOne(deps, cfg, jwt, token, row, nowMs);
+        const o = await sendOne(deps, apns_env as ApnsEnv, jwt, token, row, nowMs);
         outcomes.push(o);
         if (o === 'ok') sent++;
         if (o === 'dead') dead.push(token);

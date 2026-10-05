@@ -113,6 +113,18 @@ test('the sender\'s calls are service_role only; a client can\'t touch the claim
   assert.deepEqual([n.push_claimed_at, n.push_attempts, n.pushed_at], [null, 0, null]);
 });
 
+test('register_push_token: the environment is per token, defaults to production; 0058\'s call shape still works', async () => {
+  const t1 = '11'.repeat(32), t2 = '22'.repeat(32), t3 = '33'.repeat(32);
+  await as(U.cleo, () => db.query(`select public.register_push_token($1)`, [t1]));                          // TestFlight build: no env sent
+  await as(U.cleo, () => db.query(`select public.register_push_token(p_token => $1, p_apns_env => 'sandbox')`, [t2])); // 0058's shape
+  await as(U.cleo, () => db.query(`select public.register_push_token($1, null)`, [t3]));
+  const got = await as(U.cleo, () => rows(`select token, apns_env from public.device_push_tokens order by token`));
+  assert.deepEqual(got, [{ token: t1, apns_env: 'production' }, { token: t2, apns_env: 'sandbox' }, { token: t3, apns_env: 'production' }]);
+  assert.equal((await as(U.cleo, () => error(db.query(`select public.register_push_token($1, 'staging')`, [t1]))))?.code, '22023');
+  assert.equal((await rows(`select count(*)::int n from pg_proc where proname = 'register_push_token'`))[0].n, 1, 'one overload');
+  for (const t of [t1, t2, t3]) await as(U.cleo, () => db.query(`select public.unregister_push_token($1)`, [t]));
+});
+
 test('push_drop_tokens deletes dead tokens; push_kick is a silent no-op without pg_net/Vault', async () => {
   assert.equal((await asService(() => rows(`select public.push_drop_tokens($1::text[]) n`, [[TOK]])))[0].n, 1);
   assert.equal((await rows(`select count(*)::int n from public.device_push_tokens`))[0].n, 0);
