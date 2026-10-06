@@ -1,5 +1,6 @@
 import AteKit
 import SwiftUI
+import TipKit
 
 /// What a row on the edition can do — handed down from ``FeedRoot`` so the sections draw and never
 /// decide.
@@ -229,8 +230,13 @@ struct FeedTopAte: View {
                     score: dish.score.map(AteScore.average),
                     isSaved: dish.isSaved,
                     onOpen: { actions.open(dish) },
-                    onSave: { actions.save(dish, .topAte) }
+                    onSave: {
+                        SaveTip().invalidate(reason: .actionPerformed)
+                        actions.save(dish, .topAte)
+                    }
                 )
+                // Save, taught once on the Feed's first dish.
+                .popoverTip(SaveTip(), arrowEdge: .bottom)
                 .padding(.bottom, AteMetrics.tight)
             }
             ForEach(Array(lines.enumerated().dropFirst()), id: \.element.id) { index, line in

@@ -462,7 +462,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
     <tr><td>Lists</td><td>Tip on the switch</td><td>Fifth entry</td></tr>
     <tr><td>Save</td><td>Tip on the bookmark</td><td>First Feed visit</td></tr>
   </table></div>
-  <p class="note">At most one tip on screen, at most one a day, each shown once ever. Tips never appear over a sheet other than the composer.</p>
+  <p class="note">Each tip shows once ever and goes when its control is used. Settings has Replay first run in Debug and Beta builds.</p>
 </section>
 
 <section class="measure">
@@ -491,7 +491,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
     <tr><th>Piece</th><th>SwiftUI</th></tr>
     <tr><td>The one ask</td><td>Pushed inside the Welcome <code>.fullScreenCover</code>; <code>PHPhotoLibrary.requestAuthorization(for: .readWrite)</code> on the pill; <code>NSPhotoLibraryUsageDescription</code> is the purpose line</td></tr>
     <tr><td>What it found</td><td>The Notifications photos section view, reused; the pen presents the composer sheet over the cover</td></tr>
-    <tr><td>Tips</td><td><code>TipKit</code>: one <code>Tip</code> per lesson with <code>.popoverTip</code>; <code>Tips.configure([.displayFrequency(.daily)])</code>; rules on entry count and first Feed visit; <code>invalidate</code> on first use</td></tr>
+    <tr><td>Tips</td><td><code>TipKit</code>: one <code>Tip</code> per lesson with <code>.popoverTip</code>; <code>Tips.configure([.displayFrequency(.immediate)])</code>; shown by condition (an entry and waiting photos; five entries); <code>invalidate</code> on first use</td></tr>
     <tr><td>Order #0001</td><td>Existing Printed sheet; dismissing it dismisses the cover onto the Journal</td></tr>
     <tr><td>Telemetry</td><td><code>onboarding.ask</code>, <code>onboarding.photos</code> (full / limited / denied), <code>onboarding.found</code> (count), <code>onboarding.first_entry</code>, <code>tip.shown</code> / <code>tip.dismissed</code></td></tr>
   </table></div>

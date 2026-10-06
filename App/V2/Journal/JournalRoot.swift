@@ -1,5 +1,6 @@
 import AteKit
 import SwiftUI
+import TipKit
 
 /// **The Journal tab's root** — your record, under the wordmark.
 ///
@@ -113,9 +114,15 @@ struct JournalRoot: View {
     @ViewBuilder
     private var controls: some View {
         AteGlassItem(icon: .bell, label: "Notifications", badge: inboxCount) {
+            BellTip(meals: stores.photos.count).invalidate(reason: .actionPerformed)
             router.open(.notifications, from: .journal)
         }
         .accessibilityIdentifier("journal.notifications")
+        // First run's second tip: the rest of the roll waits here, once there is an entry to show for it.
+        .popoverTip(
+            stores.photos.count > 0 && journal.entries.isEmpty == false ? BellTip(meals: stores.photos.count) : nil,
+            arrowEdge: .top
+        )
         if let openJournalSearch, hasSomethingToSort {
             AteGlassItem(icon: .search, label: "Search your journal", action: openJournalSearch)
                 .accessibilityIdentifier("journal.search")

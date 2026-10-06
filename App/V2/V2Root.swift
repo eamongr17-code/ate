@@ -1,7 +1,8 @@
 import AteKit
 import SwiftUI
 
-/// **The app's root under the environment**: the door, the first-run handle, or the tab shell.
+/// **The app's root under the environment**: the door, the first-run handle, the onboarding after it,
+/// or the tab shell.
 struct V2Root: View {
     @State private var app: AppModel
     /// Where the shell opens: a tab, and the composer over it (``V2Launch``).
@@ -18,6 +19,8 @@ struct V2Root: View {
         Group {
             if app.owesHandle {
                 V2FirstRunHandle(app: app)
+            } else if app.owesOnboarding {
+                V2Onboarding(app: app)
             } else if app.isInside {
                 TabShell(app: app, start: start)
                     .task(id: app.hasSession) { await app.loadHandle() }
