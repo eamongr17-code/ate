@@ -80,6 +80,12 @@ final class AppModel {
         hasSession && services.preferences.owesHandle(signedInAs: services.api.currentUserID)
     }
 
+    /// Past Handle and still to see the onboarding — the photo ask and the meals it found
+    /// (``V2Onboarding``).
+    var owesOnboarding: Bool {
+        hasSession && services.preferences.owesOnboarding(signedInAs: services.api.currentUserID)
+    }
+
     /// Past the door: signed in, or reading signed out.
     var isInside: Bool { hasSession || gate.isBrowsing }
 
@@ -194,6 +200,24 @@ final class AppModel {
         services.preferences.handleChosen(by: services.api.currentUserID)
         firstRunName = nil
         handle = chosen
+    }
+
+    // MARK: - The onboarding
+
+    /// The onboarding ended, however it ended: never again for this person. A meal picked opens the
+    /// composer on it, over the Journal the shell comes up on.
+    func finishOnboarding(_ exit: OnboardingEvents.Exit, writing presentation: ComposerPresentation? = nil) {
+        services.analytics(OnboardingEvents.finished(exit))
+        services.preferences.onboardingFinished()
+        if let presentation { compose(presentation) }
+    }
+
+    /// **Replay first run** (Settings, Debug and Beta): Handle, the onboarding and every tip again,
+    /// as a new person sees them, without signing out.
+    func replayFirstRun() {
+        guard let userID = services.api.currentUserID else { return }
+        AteTips.replay()
+        services.preferences.replayFirstRun(userID)
     }
 
     // MARK: - The outbox

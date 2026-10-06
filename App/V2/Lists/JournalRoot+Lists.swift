@@ -1,5 +1,6 @@
 import AteKit
 import SwiftUI
+import TipKit
 
 /// The Journal root's two shelves: your record, and your lists.
 enum JournalShelf: Hashable {
@@ -26,6 +27,14 @@ extension JournalRoot {
         )
         .padding(.horizontal, AteMetrics.listGutter)
         .padding(.vertical, AteMetrics.tight)
+        // The last first-run tip: Lists, once there is enough on the Journal to make one from.
+        .popoverTip(
+            shelf == .journal && journal.entries.count >= AteTips.listsAfterEntries ? ListsTip() : nil,
+            arrowEdge: .top
+        )
+        .onChange(of: shelf) { _, now in
+            if now == .lists { ListsTip().invalidate(reason: .actionPerformed) }
+        }
     }
 
     @ViewBuilder

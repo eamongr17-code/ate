@@ -18,6 +18,7 @@ struct AteApp: App {
         if case .success(let environment) = environment {
             AteApp.startObservability(environment)
         }
+        AteTips.configure()
     }
 
     var body: some Scene {

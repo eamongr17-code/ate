@@ -42,6 +42,7 @@ public final class AtePreferences {
         self.pendingHandleUserID = store.value(forKey: Key.pendingHandleUserID).flatMap(UUID.init(uuidString:))
         let chosen = (store.value(forKey: Key.handleChosenUserIDs) ?? "").split(separator: ",")
         self.handleChosenUserIDs = Set(chosen.compactMap { UUID(uuidString: String($0)) })
+        self.pendingOnboardingUserID = store.value(forKey: Key.pendingOnboardingUserID).flatMap(UUID.init(uuidString:))
         let asked = (store.value(forKey: Key.cravingsAsked) ?? "").split(separator: ",")
         self.cravingsAskedUserIDs = Set(asked.compactMap { UUID(uuidString: String($0)) })
     }
@@ -120,10 +121,43 @@ public final class AtePreferences {
         return handleChosenUserIDs.contains(userID) == false
     }
 
-    /// Continue on first run — written or kept, it is done, for good.
+    /// Continue on first run — written or kept, it is done, for good. The onboarding (the photo ask,
+    /// the meals it found) comes straight after, once.
     public func handleChosen(by userID: UUID?) {
         pendingHandleUserID = nil
-        if let userID { handleChosenUserIDs.insert(userID) }
+        if let userID {
+            handleChosenUserIDs.insert(userID)
+            pendingOnboardingUserID = userID
+        }
+    }
+
+    /// Who is still to see the onboarding after Handle: the photo ask and what it found. Kept on
+    /// the phone for the same reason as the handle — a first run killed half way picks up again.
+    public private(set) var pendingOnboardingUserID: UUID? {
+        didSet {
+            guard pendingOnboardingUserID != oldValue else { return }
+            store.setValue(pendingOnboardingUserID?.uuidString, forKey: Key.pendingOnboardingUserID)
+        }
+    }
+
+    /// Whether the person signed in right now is to be shown the onboarding. Bound to who is signed
+    /// in, like the handle.
+    public func owesOnboarding(signedInAs userID: UUID?) -> Bool {
+        guard let userID else { return false }
+        return pendingOnboardingUserID == userID
+    }
+
+    /// The onboarding ended — a meal picked, Not now, the close, or nothing found. Never again.
+    public func onboardingFinished() {
+        pendingOnboardingUserID = nil
+    }
+
+    /// **Replay first run** (Settings, Debug and Beta): the person goes through Handle and the
+    /// onboarding again as if new, without signing out.
+    public func replayFirstRun(_ userID: UUID) {
+        handleChosenUserIDs.remove(userID)
+        pendingOnboardingUserID = nil
+        pendingHandleUserID = userID
     }
 
     private enum Key {
@@ -131,6 +165,7 @@ public final class AtePreferences {
         static let pendingHandleUserID = "ate.pendingHandleUserID"
         static let handleChosenUserIDs = "ate.handleChosenUserIDs"
         static let cravingsAsked = "ate.cravingsAskAnswered"
+        static let pendingOnboardingUserID = "ate.pendingOnboardingUserID"
     }
 }
 

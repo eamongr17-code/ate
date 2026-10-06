@@ -367,6 +367,39 @@ struct AtePreferencesTests {
         #expect(relaunched.pendingHandleUserID == nil)
     }
 
+    @Test("the onboarding follows Handle once, and survives a relaunch until it is finished")
+    func onboardingFollowsHandleOnce() {
+        let store = InMemoryKeyValueStore()
+        let id = UUID()
+        let preferences = AtePreferences(store: store)
+        #expect(preferences.owesOnboarding(signedInAs: id) == false)
+        preferences.noteOwesHandle(id)
+        preferences.handleChosen(by: id)
+        #expect(preferences.owesOnboarding(signedInAs: id))
+        #expect(preferences.owesOnboarding(signedInAs: UUID()) == false)
+        #expect(preferences.owesOnboarding(signedInAs: nil) == false)
+        #expect(AtePreferences(store: store).owesOnboarding(signedInAs: id))
+        preferences.onboardingFinished()
+        #expect(preferences.owesOnboarding(signedInAs: id) == false)
+        #expect(AtePreferences(store: store).owesOnboarding(signedInAs: id) == false)
+    }
+
+    @Test("replaying first run sends the person back through Handle, then the onboarding")
+    func replayFirstRun() {
+        let store = InMemoryKeyValueStore()
+        let id = UUID()
+        let preferences = AtePreferences(store: store)
+        preferences.noteOwesHandle(id)
+        preferences.handleChosen(by: id)
+        preferences.onboardingFinished()
+        preferences.replayFirstRun(id)
+        #expect(preferences.owesHandle(signedInAs: id))
+        #expect(preferences.owesOnboarding(signedInAs: id) == false)
+        preferences.handleChosen(by: id)
+        #expect(preferences.owesHandle(signedInAs: id) == false)
+        #expect(preferences.owesOnboarding(signedInAs: id))
+    }
+
     @Test("a pending handle is bound to who is signed in, never to the next person")
     func owesHandleIsPerUser() {
         let preferences = AtePreferences(store: InMemoryKeyValueStore())

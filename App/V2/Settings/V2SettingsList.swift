@@ -98,12 +98,16 @@ struct V2SettingsList: View {
         }
     }
 
-    /// In Debug and Beta, the builds with the staging door, the component kit.
+    /// In Debug and Beta, the builds with the staging door: the component kit, and Replay first run —
+    /// Handle, the onboarding and every tip again, as a new person sees them.
     @ViewBuilder
     private var builds: some View {
         Section {
             if context.services.debugSignIn != nil {
                 AteGroupedRow(title: "Component kit") { context.open(.settings(.kit)) }
+                AteGroupedRow(title: "Replay first run", identifier: "settings.replayFirstRun") {
+                    context.app.replayFirstRun()
+                }
             }
         }
     }

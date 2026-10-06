@@ -1,6 +1,7 @@
 import AteKit
 import PhotosUI
 import SwiftUI
+import TipKit
 
 /// A composer toolbar key: **Score** (butter, an accent, so it carries ink) and **Place** (the field
 /// colour, so it carries the surface's own foreground).
@@ -170,6 +171,7 @@ struct ComposerToolbar: View {
                     activeForeground: AteColor.butter
                 ) {
                     AteHaptics.key()
+                    ScoreTip().invalidate(reason: .actionPerformed)
                     // The key is inverted while the panel is up, and pressing it again puts it away.
                     if model.scoring != nil {
                         model.dismissScoring()
@@ -177,6 +179,8 @@ struct ComposerToolbar: View {
                         analytics(model.insertScore())
                     }
                 }
+                // First run's first tip: the inline score, on the key that makes one.
+                .popoverTip(ScoreTip(), arrowEdge: .bottom)
                 // `ComposerPlaceB`: the key holds the place — its name, truncating at 150 — and opens
                 // the place sheet. The words never carry it.
                 ComposerKey(
