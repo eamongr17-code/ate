@@ -152,6 +152,7 @@ struct FeedScoreToken: View {
         .padding(.horizontal, 9)
         .padding(.vertical, 2)
         .background(AteColor.scoreFill, in: .capsule)
+        .ateEnamel()
         .foregroundStyle(AteColor.scoreInk)
         .accessibilityHidden(true)
     }
