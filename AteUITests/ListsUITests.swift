@@ -33,7 +33,7 @@ final class ListsUITests: XCTestCase {
         app.buttons["Add 2 dishes"].firstMatch.tap()
 
         let rows = app.descendants(matching: .any).matching(identifier: "list.row")
-        XCTAssertTrue(waitUntil(5) { picks.count == 0 && rows.count == 2 }, "on the new list's page with 2 rows")
+        XCTAssertTrue(waitUntil(5) { picks.firstMatch.exists == false && rows.count == 2 }, "on the new list's page with 2 rows")
         XCTAssertTrue(app.descendants(matching: .any)["list.page"].firstMatch.exists)
         shoot("A-04-new-list")
 
@@ -48,7 +48,7 @@ final class ListsUITests: XCTestCase {
         XCTAssertTrue(picks.firstMatch.waitForExistence(timeout: 8))
         picks.element(boundBy: 0).tap()
         app.buttons["Add 1 dish"].firstMatch.tap()
-        XCTAssertTrue(waitUntil(5) { picks.count == 0 && rows.count == 3 }, "still on the list page, one more row")
+        XCTAssertTrue(waitUntil(5) { picks.firstMatch.exists == false && rows.count == 3 }, "still on the list page, one more row")
         XCTAssertTrue(app.descendants(matching: .any)["list.page"].firstMatch.exists)
         shoot("A-05-existing-list")
     }
