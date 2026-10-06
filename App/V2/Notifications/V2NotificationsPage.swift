@@ -40,12 +40,24 @@ struct V2NotificationsPage: View {
     private var showsPhotos: Bool { photos.phase == .ready && photos.clusters.isEmpty == false }
     private var photosLoading: Bool { photos.phase == .loading }
 
+    /// The band between the title and the tab bar, so the one line sits centred in the page, not
+    /// stacked under the title (Eamon, build 95).
+    private var emptyBand: CGFloat {
+        let band = pageHeight - NotificationsMetrics.titleBand - AteMetrics.tabBarScrollInset
+        return max(band, NotificationsMetrics.emptyMinimum)
+    }
+
+    /// The list's own height: the empty line is centred in what the title leaves of it. (A List
+    /// row's container is the row, so `containerRelativeFrame` cannot measure the page here.)
+    @State private var pageHeight: CGFloat = 0
+
     var body: some View {
         List {
             AtePageTitle(title: NotificationsCopy.title)
                 .plainRow()
             content
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { pageHeight = $0 }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
@@ -104,12 +116,12 @@ struct V2NotificationsPage: View {
                     AteEmptyState(
                         line: NotificationsCopy.unreachable, pill: (title: NotificationsCopy.retry, action: retry)
                     )
-                        .containerRelativeFrame(.vertical) { height, _ in height * FeedEditionCopy.emptyShare }
+                        .frame(height: emptyBand)
                         .plainRow()
                         .accessibilityIdentifier("state.unreachable")
                 } else {
                     AteEmptyState(line: NotificationsCopy.empty)
-                        .containerRelativeFrame(.vertical) { height, _ in height * FeedEditionCopy.emptyShare }
+                        .frame(height: emptyBand)
                         .plainRow()
                         .accessibilityIdentifier("state.empty")
                 }
@@ -310,4 +322,9 @@ enum NotificationsMetrics {
     /// `.band` padding-top: 14 above the page's first group, 18 above the next.
     static let firstBandTop: CGFloat = 14
     static let bandTop: CGFloat = 18
+    /// What the page title row takes of the list's height, bar to the first band: measured on the
+    /// iPhone 17 Pro at the default type size.
+    static let titleBand: CGFloat = 150
+    /// The empty band never drops below this, so the line keeps clear of the title.
+    static let emptyMinimum: CGFloat = 260
 }
