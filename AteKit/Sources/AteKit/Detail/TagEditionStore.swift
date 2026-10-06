@@ -111,8 +111,15 @@ public final class TagEditionStore: SavedDishObserving {
     public var hasMore: Bool { dishes.count > TagEdition.rankedCount }
     public var places: [TagPlace] { TagEdition.places(from: dishes) }
     public var newTitle: String { TagEdition.newTitle(tag) }
-    /// The city under the title: the one the page is read in, or everywhere.
-    public var cityTitle: String { tag.city.map { AteCity.displayName(for: $0) } ?? "Everywhere" }
+    /// The city under the title: the one the page is read in, or everywhere. A place's own tag (a
+    /// suburb, a city) carries none: the title already says where, and "Northcote Everywhere" reads
+    /// as nonsense (Eamon, 6 Oct).
+    public var cityTitle: String? {
+        switch tag.kind {
+        case .suburb, .city: nil
+        default: tag.city.map { AteCity.displayName(for: $0) } ?? "Everywhere"
+        }
+    }
 
     // MARK: - Reading
 

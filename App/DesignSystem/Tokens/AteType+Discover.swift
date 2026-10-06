@@ -4,14 +4,14 @@ import SwiftUI
 // that no older style names. A kit view asks for a role here; it never writes a number into `.ateText`.
 
 extension AteTextStyle {
-    /// A pushed page's own large title — `.ptitle b`: Bricolage 800 at 44, `letter-spacing:-.035em`,
-    /// `line-height:1` (a category's name)…
+    /// A pushed page's own large title — `.ptitle b`: Bricolage 800 at 36 (44 before 6 Oct),
+    /// `letter-spacing:-.035em`, `line-height:1` (a category's name)…
     static let kitPageTitle = AteTextStyle(
-        voice: .display, size: 44, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
-    )
-    /// …and set at 36 when the title is a phrase ("What you follow").
-    static let kitPageTitleLong = AteTextStyle(
         voice: .display, size: 36, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
+    )
+    /// …and set at 30 (36 before 6 Oct) when the title is a phrase ("What you follow").
+    static let kitPageTitleLong = AteTextStyle(
+        voice: .display, size: 30, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
     )
     /// The ask card's question — `.h` at 26: Bricolage 800, `letter-spacing:-.035em`, `line-height:1`.
     static let kitAskTitle = AteTextStyle(

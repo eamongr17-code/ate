@@ -258,6 +258,28 @@ public final class DishPageStore: SavedDishObserving, EntryDeletionObserving {
         }
     }
 
+    /// **The rest of the reviews, read through** — the bands count everybody, so the page cannot wait
+    /// for a scroll to page them in. Capped, so a dish with thousands of reviews stops at a number
+    /// a phone can hold; a page that fails stops the run and says so inline, as ``loadMore()`` does.
+    public func loadRemaining(maxPages: Int = DishPageStore.bandPageLimit) async {
+        var pages = 0
+        while hasReachedEnd == false, nextCursor != nil, inlineErrorMessage == nil, pages < maxPages {
+            let before = reviews.count
+            await loadMore()
+            pages += 1
+            if reviews.count == before { break }
+        }
+    }
+
+    /// Ten pages of twenty: two hundred reviews, far past any dish on the record today.
+    public static let bandPageLimit = 10
+
+    /// Everyone else's reviews in their star bands, best first (``DishReviewBand``).
+    public var bands: [DishReviewBand] { DishReviewBand.bands(reviews) }
+
+    /// The viewer's own review, which stands above the bands.
+    public var myReview: DishReview? { reviews.first(where: \.isMine) }
+
     // MARK: - The bookmark
 
     /// Told by ``SavedDishBroadcast`` — including the roll-back when the server refuses.

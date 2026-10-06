@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// **The empty state** — one anatomy app-wide: a hand-drawn ink illustration, one line in Bricolage
-/// 800 at 40 under it, and at most one ink pill 22 below that, centred between the header and the tab
-/// bar. No second line, no helper copy. The line's own breaks are the design's and are honoured.
+/// 800 at 26 under it (``AteTextStyle/emptyTitle``; 40 read too loud, Eamon 6 Oct), and at most
+/// one ink pill 22 below that, centred between the header and the tab bar. No second line, no
+/// helper copy. The line's own breaks are the design's and are honoured.
 ///
 /// The drawing is Paper Trail (Eamon, 2026-10-06): receipts that haven't printed yet, in marker, ink
 /// only. When the band is too short for it (a sheet, a landscape phone) the drawing steps aside and
@@ -38,7 +39,7 @@ struct AteEmptyState: View {
                 AteEmptyDrawing(art: art)
                     .padding(.bottom, AteEmptyStateMetrics.artGap)
             }
-            AteTitle(text: line, style: .screenTitle)
+            AteTitle(text: line, style: .emptyTitle)
             if let pill {
                 AteInkPill(title: pill.title, size: .empty, action: pill.action)
                     .padding(.top, AteEmptyStateMetrics.gap)
@@ -99,6 +100,9 @@ enum AteEmptyStateMetrics {
     /// The drawing's height, and the air between it and the line.
     static let artHeight: CGFloat = 160
     static let artGap: CGFloat = 20
+    /// The least an empty state is given inside a sheet, so a search that empties the rows leaves
+    /// room for the line rather than collapsing the sheet under it.
+    static let sheetMinimum: CGFloat = 260
     /// The artwork's canvas (180 × 140).
     static let artAspect: CGFloat = 180.0 / 140.0
 }

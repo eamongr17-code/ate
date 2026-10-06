@@ -257,6 +257,19 @@ struct TagEditionTests {
         #expect(TagEdition.places(from: rows, limit: 1).count == 1)
     }
 
+    @Test("The subtitle: the city it is read in, Everywhere, or nothing on a place's own tag")
+    func cityTitle() {
+        let reads = Reads()
+        func title(_ tag: DishTagRoute) -> String? {
+            TagEditionStore(tag: tag, reads: reads, isSignedIn: { true }, analytics: EventLog().recorder,
+                            savedDishes: nil).cityTitle
+        }
+        #expect(title(Self.curry) == "Melbourne")
+        #expect(title(DishTagRoute(kind: .style, slug: "curry", label: "Curry")) == "Everywhere")
+        #expect(title(DishTagRoute(kind: .suburb, slug: "northcote-melbourne", label: "Northcote")) == nil)
+        #expect(title(DishTagRoute(kind: .city, slug: "melbourne", label: "Melbourne")) == nil)
+    }
+
     @Test("New in: a style mid-sentence, a cuisine as its own name")
     func newTitle() {
         #expect(TagEdition.newTitle(Self.curry) == "New in curry")

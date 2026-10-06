@@ -22,9 +22,9 @@ extension AteTextStyle {
     static let kitShelfDish = AteTextStyle(
         voice: .display, size: 17, weight: 700, trackingEm: -0.02, lineHeight: 1.15, textStyle: .body
     )
-    /// The hero's dish — `.hero .nm b`: 800 at 34, `line-height:1.02`, `-.035em`.
+    /// The hero's dish — `.hero .nm b`: 800 at 30 (34 before 6 Oct), `line-height:1.02`, `-.035em`.
     static let kitHeroDish = AteTextStyle(
-        voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.02, textStyle: .largeTitle
+        voice: .display, size: 30, weight: 800, trackingEm: -0.035, lineHeight: 1.02, textStyle: .largeTitle
     )
     /// …and its place — `.hero .nm span`: 500 at 15.
     static let kitHeroPlace = AteTextStyle(
@@ -44,10 +44,10 @@ extension AteTextStyle {
         voice: .display, size: 14, weight: 600, trackingEm: 0, lineHeight: 1.0, textStyle: .subheadline,
         maximumSize: 20
     )
-    /// A tab root's title on the header row — `.lt b`: 800 at 34, `-.035em` (the native large
+    /// A tab root's title on the header row — `.lt b`: 800 at 30 (34 before 6 Oct), `-.035em` (the native large
     /// title's own 34).
     static let kitRootTitle = AteTextStyle(
-        voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
+        voice: .display, size: 30, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
     )
     /// …and the city beside it — `.lt span`: 500 at 16, muted.
     static let kitRootSubtitle = AteTextStyle(

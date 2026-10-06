@@ -98,6 +98,12 @@ public enum DetailEvents {
         AnalyticsEvent(name: "dish_review_opened", parameters: ["target": target.rawValue])
     }
 
+    /// A star band on a dish page was opened (6 Oct): `stars` is `6`…`1`, or `none` for the
+    /// reviews with no number — which bands people look inside.
+    public static func dishBandOpened(stars: Int?) -> AnalyticsEvent {
+        AnalyticsEvent(name: "dish_band_opened", parameters: ["stars": stars.map(String.init) ?? "none"])
+    }
+
     /// A dish's photo on a place's menu opened the photo viewer (round 4).
     public static func menuPhotoOpened() -> AnalyticsEvent {
         AnalyticsEvent(name: "menu_photo_opened", parameters: [:])
