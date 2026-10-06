@@ -86,7 +86,7 @@ struct AteWithRespondFace: View {
         case .loading, .unreachable:
             skeleton
         case .gone:
-            AteEmptyState(line: AteWithCopy.gone)
+            AteEmptyState(line: AteWithCopy.gone, art: .torn)
                 .accessibilityIdentifier("respond.gone")
         case .answered:
             Color.clear

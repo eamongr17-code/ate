@@ -98,7 +98,7 @@ struct V2DishPage: View {
                 }
                 .transition(.opacity)
             case .unavailable:
-                AteEmptyState(line: "This dish\nisn't here.")
+                AteEmptyState(line: "This dish\nisn't here.", art: .torn)
                     .browseFillsPage()
             case .unreachable:
                 BrowsePage.unreachable { Task { await store.retry() } }

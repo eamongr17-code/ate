@@ -90,13 +90,14 @@ struct SavedRoot: View {
             }
             .padding(.top, AteMetrics.regular)
         case .empty where saved.filter.isEmpty == false:
-            emptyBand(AteEmptyState(line: "Nothing\nlike that.", pill: ("Clear", { apply(BrowseFilters()) })))
+            emptyBand(AteEmptyState(line: "Nothing\nlike that.", art: .search,
+                pill: ("Clear", { apply(BrowseFilters()) })))
         case .empty:
-            emptyBand(AteEmptyState(line: "Nothing saved\nyet."))
+            emptyBand(AteEmptyState(line: "Nothing saved\nyet.", art: .saved))
         case .signedOut:
-            emptyBand(AteEmptyState(line: "Nobody's\nsigned in."))
+            emptyBand(AteEmptyState(line: "Nobody's\nsigned in.", art: .printer))
         case .failed:
-            emptyBand(AteEmptyState(line: "Couldn't\nreach Ate.", pill: ("Try again", { retry() })))
+            emptyBand(AteEmptyState(line: "Couldn't\nreach Ate.", art: .torn, pill: ("Try again", { retry() })))
         case .ready:
             groups
         }

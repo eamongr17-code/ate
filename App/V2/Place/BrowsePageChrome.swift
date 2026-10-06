@@ -59,7 +59,7 @@ enum BrowsePage {
 
     /// The one failure a page shows when the phone or the server let it down: the line, and a retry.
     static func unreachable(retry: @escaping () -> Void) -> some View {
-        AteEmptyState(line: "Couldn't\nreach Ate.", pill: (title: "Try again", action: retry))
+        AteEmptyState(line: "Couldn't\nreach Ate.", art: .torn, pill: (title: "Try again", action: retry))
             .accessibilityIdentifier("state.unreachable")
     }
 }

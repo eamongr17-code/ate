@@ -30,13 +30,13 @@ struct FeedFollowingPage: View {
                     AteFollowRowSkeleton(isFirst: index == 0).plainRow()
                 }
             case .failed(let message):
-                AteEmptyState(line: message, pill: (title: "Try again", action: retry))
+                AteEmptyState(line: message, art: .torn, pill: (title: "Try again", action: retry))
                     .containerRelativeFrame(.vertical) { height, _ in height * FeedEditionCopy.emptyShare }
                     .plainRow()
                     .accessibilityIdentifier("state.unreachable")
             case .ready:
                 if store.rows.isEmpty {
-                    AteEmptyState(line: FeedFollowingCopy.empty)
+                    AteEmptyState(line: FeedFollowingCopy.empty, art: .rail)
                         .containerRelativeFrame(.vertical) { height, _ in height * FeedEditionCopy.emptyShare }
                         .plainRow()
                         .accessibilityIdentifier("state.empty")

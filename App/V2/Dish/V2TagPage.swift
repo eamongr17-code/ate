@@ -52,11 +52,11 @@ struct V2TagEditionPage: View {
                 case .loading:
                     loading
                 case .empty:
-                    AteEmptyState(line: V2TagCopy.empty)
+                    AteEmptyState(line: V2TagCopy.empty, art: .rail)
                         .containerRelativeFrame(.vertical) { height, _ in height * FeedEditionCopy.emptyShare }
                         .accessibilityIdentifier("state.empty")
                 case .failed(let message):
-                    AteEmptyState(line: message, pill: (title: "Try again", action: retry))
+                    AteEmptyState(line: message, art: .torn, pill: (title: "Try again", action: retry))
                         .containerRelativeFrame(.vertical) { height, _ in height * FeedEditionCopy.emptyShare }
                         .accessibilityIdentifier("state.unreachable")
                 case .ready:

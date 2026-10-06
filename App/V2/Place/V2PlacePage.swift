@@ -67,7 +67,7 @@ struct V2PlacePage: View {
             EmptyView()
         case .unavailable:
             // Deleted, or behind a block. Say that, and nothing else.
-            AteEmptyState(line: "This place\nisn't here.")
+            AteEmptyState(line: "This place\nisn't here.", art: .torn)
                 .browseFillsPage()
         case .unreachable:
             BrowsePage.unreachable { Task { await store.retry() } }
@@ -120,7 +120,7 @@ struct V2PlacePage: View {
             EmptyView()
         case .ready where store.dishes.isEmpty:
             // Nobody has written up a dish here yet. Not an error, and not an instruction.
-            AteEmptyState(line: "Nothing\nordered yet.")
+            AteEmptyState(line: "Nothing\nordered yet.", art: .rail)
                 .padding(.vertical, AteMetrics.section)
         case .ready:
             V2MenuPaper {

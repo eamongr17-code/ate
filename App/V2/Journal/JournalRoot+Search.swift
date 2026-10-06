@@ -96,11 +96,11 @@ private struct JournalSearchScreen: View {
         case .ready:
             results
         case .empty:
-            AteEmptyState(line: JournalSearchCopy.empty)
+            AteEmptyState(line: JournalSearchCopy.empty, art: .search)
                 .containerRelativeFrame(.vertical) { height, _ in height * JournalSearchMetrics.emptyShare }
                 .accessibilityIdentifier("journal.search.empty")
         case .failed:
-            AteEmptyState(line: JournalSearchCopy.unreachable, pill: (JournalSearchCopy.retry, {
+            AteEmptyState(line: JournalSearchCopy.unreachable, art: .torn, pill: (JournalSearchCopy.retry, {
                 Task { await store.submit() }
             }))
             .containerRelativeFrame(.vertical) { height, _ in height * JournalSearchMetrics.emptyShare }

@@ -37,3 +37,4 @@ supabase/.env
 *.log
 scratchpad/
 .claude/worktrees/
+design/empty-states/render/

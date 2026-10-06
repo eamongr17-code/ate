@@ -114,13 +114,14 @@ struct V2NotificationsPage: View {
             if tagRows.isEmpty && showsPhotos == false && photosLoading == false {
                 if tagsFailed {
                     AteEmptyState(
-                        line: NotificationsCopy.unreachable, pill: (title: NotificationsCopy.retry, action: retry)
+                        line: NotificationsCopy.unreachable, art: .torn,
+                        pill: (title: NotificationsCopy.retry, action: retry)
                     )
                         .frame(height: emptyBand)
                         .plainRow()
                         .accessibilityIdentifier("state.unreachable")
                 } else {
-                    AteEmptyState(line: NotificationsCopy.empty)
+                    AteEmptyState(line: NotificationsCopy.empty, art: .printer)
                         .frame(height: emptyBand)
                         .plainRow()
                         .accessibilityIdentifier("state.empty")

@@ -65,7 +65,7 @@ struct YouRoot: View {
                 .transition(.opacity)
         case .unavailable:
             // No session, or the header would not load: the page says who is missing and stops.
-            AteEmptyState(line: "Nobody's\nsigned in.")
+            AteEmptyState(line: "Nobody's\nsigned in.", art: .printer)
                 .containerRelativeFrame(.vertical)
                 .transition(.opacity)
         case .ready(let summary):
