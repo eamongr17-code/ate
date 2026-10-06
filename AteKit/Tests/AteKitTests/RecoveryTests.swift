@@ -46,6 +46,17 @@ struct PhotoSuggestionDismissalsTests {
         #expect(somebodyElse.count(items) == 3)
     }
 
+    @Test("Replay first run puts every dismissed sitting back, for the next launch too")
+    func resetOffersEverythingAgain() {
+        let store = InMemoryKeyValueStore()
+        let dismissals = PhotoSuggestionDismissals(store: store, owner: owner, now: { self.now })
+        dismissals.dismiss(dismissals.clusters(items)[0])
+        dismissals.reset()
+        #expect(dismissals.count(items) == 3)
+        let relaunched = PhotoSuggestionDismissals(store: store, owner: owner, now: { self.now })
+        #expect(relaunched.count(items) == 3)
+    }
+
     @Test("A photo taken after the dismissal is offered on its own")
     func newPhotosStillCome() {
         let store = InMemoryKeyValueStore()

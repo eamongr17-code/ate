@@ -43,6 +43,7 @@ public final class AtePreferences {
         let chosen = (store.value(forKey: Key.handleChosenUserIDs) ?? "").split(separator: ",")
         self.handleChosenUserIDs = Set(chosen.compactMap { UUID(uuidString: String($0)) })
         self.pendingOnboardingUserID = store.value(forKey: Key.pendingOnboardingUserID).flatMap(UUID.init(uuidString:))
+        self.replayingUserID = store.value(forKey: Key.replayingUserID).flatMap(UUID.init(uuidString:))
         let asked = (store.value(forKey: Key.cravingsAsked) ?? "").split(separator: ",")
         self.cravingsAskedUserIDs = Set(asked.compactMap { UUID(uuidString: String($0)) })
     }
@@ -152,11 +153,29 @@ public final class AtePreferences {
         pendingOnboardingUserID = nil
     }
 
-    /// **Replay first run** (Settings, Debug and Beta): the person goes through Handle and the
-    /// onboarding again as if new, without signing out.
+    /// **Replay first run** (Settings, Debug and Beta): the person is signed out and comes back
+    /// through Welcome, Handle and the onboarding exactly as a new account does. The mark outlives
+    /// the sign-out (which clears a pending handle) and is picked up by the next sign-in as them.
     public func replayFirstRun(_ userID: UUID) {
         handleChosenUserIDs.remove(userID)
+        cravingsAskedUserIDs.remove(userID)
         pendingOnboardingUserID = nil
+        replayingUserID = userID
+    }
+
+    /// Who asked to replay first run, waiting for their next sign-in.
+    public private(set) var replayingUserID: UUID? {
+        didSet {
+            guard replayingUserID != oldValue else { return }
+            store.setValue(replayingUserID?.uuidString, forKey: Key.replayingUserID)
+        }
+    }
+
+    /// A sign-in: if it is the person replaying first run, they owe a handle as a new account does.
+    /// Anyone else signing in leaves the mark for its owner.
+    public func signedIn(_ userID: UUID?) {
+        guard let userID, replayingUserID == userID else { return }
+        replayingUserID = nil
         pendingHandleUserID = userID
     }
 
@@ -166,6 +185,7 @@ public final class AtePreferences {
         static let handleChosenUserIDs = "ate.handleChosenUserIDs"
         static let cravingsAsked = "ate.cravingsAskAnswered"
         static let pendingOnboardingUserID = "ate.pendingOnboardingUserID"
+        static let replayingUserID = "ate.replayingFirstRunUserID"
     }
 }
 

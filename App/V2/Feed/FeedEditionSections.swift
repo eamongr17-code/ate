@@ -233,10 +233,10 @@ struct FeedTopAte: View {
                     onSave: {
                         SaveTip().invalidate(reason: .actionPerformed)
                         actions.save(dish, .topAte)
-                    }
+                    },
+                    // Save, taught once, on the Feed's first dish's bookmark.
+                    saveTip: SaveTip()
                 )
-                // Save, taught once on the Feed's first dish.
-                .popoverTip(SaveTip(), arrowEdge: .bottom)
                 .padding(.bottom, AteMetrics.tight)
             }
             ForEach(Array(lines.enumerated().dropFirst()), id: \.element.id) { index, line in

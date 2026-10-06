@@ -51,6 +51,12 @@ public final class PhotoSuggestionDismissals {
         store.setValue(Self.encode(dismissed), forKey: key)
     }
 
+    /// Replay first run: every sitting on offer again, as a new account sees the roll.
+    public func reset() {
+        dismissed = [:]
+        store.setValue(nil, forKey: key)
+    }
+
     // MARK: - Storage
 
     private struct Row: Codable {

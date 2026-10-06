@@ -1,5 +1,6 @@
 import AteKit
 import SwiftUI
+import TipKit
 
 /// **The hero card** — The Top Ate's first dish as a photo: the column's width × 330 at radius 16, a
 /// shade rising from its foot, the score token (hero size) top left and the glass bookmark disc top
@@ -17,6 +18,8 @@ struct AteHeroCard: View {
     var isSaved = false
     var onOpen: (() -> Void)?
     var onSave: (() -> Void)?
+    /// A tip on the bookmark — the Feed's Save tip, on its first dish.
+    var saveTip: (any Tip)?
 
     var body: some View {
         Button { onOpen?() } label: {
@@ -36,6 +39,7 @@ struct AteHeroCard: View {
             if let onSave {
                 AteSaveButton(dishName: name, isSaved: isSaved, identifier: "hero.save",
                               style: .glass(.hero), action: onSave)
+                    .popoverTip(saveTip, arrowEdge: .top)
                     .padding(AteHeroCardMetrics.inset)
             }
         }

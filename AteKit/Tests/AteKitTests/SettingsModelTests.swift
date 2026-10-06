@@ -384,7 +384,7 @@ struct AtePreferencesTests {
         #expect(AtePreferences(store: store).owesOnboarding(signedInAs: id) == false)
     }
 
-    @Test("replaying first run sends the person back through Handle, then the onboarding")
+    @Test("replaying first run outlives the sign-out and sends that person through Handle, then the onboarding")
     func replayFirstRun() {
         let store = InMemoryKeyValueStore()
         let id = UUID()
@@ -392,12 +392,23 @@ struct AtePreferencesTests {
         preferences.noteOwesHandle(id)
         preferences.handleChosen(by: id)
         preferences.onboardingFinished()
+        preferences.answeredCravingsAsk(id)
         preferences.replayFirstRun(id)
-        #expect(preferences.owesHandle(signedInAs: id))
-        #expect(preferences.owesOnboarding(signedInAs: id) == false)
-        preferences.handleChosen(by: id)
-        #expect(preferences.owesHandle(signedInAs: id) == false)
-        #expect(preferences.owesOnboarding(signedInAs: id))
+        #expect(preferences.hasAnsweredCravingsAsk(id) == false)
+        // Signing out clears a pending handle; the replay mark survives it, and a relaunch.
+        preferences.pendingHandleUserID = nil
+        let relaunched = AtePreferences(store: store)
+        relaunched.signedIn(UUID())
+        #expect(relaunched.owesHandle(signedInAs: id) == false)
+        relaunched.signedIn(id)
+        #expect(relaunched.owesHandle(signedInAs: id))
+        #expect(relaunched.owesOnboarding(signedInAs: id) == false)
+        relaunched.handleChosen(by: id)
+        #expect(relaunched.owesOnboarding(signedInAs: id))
+        // Once only: the next sign-in is an ordinary one.
+        relaunched.onboardingFinished()
+        relaunched.signedIn(id)
+        #expect(relaunched.owesHandle(signedInAs: id) == false)
     }
 
     @Test("a pending handle is bound to who is signed in, never to the next person")
