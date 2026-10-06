@@ -61,12 +61,6 @@ struct AteRootTitle: View {
 }
 
 enum AteHeaderGroundMetrics {
-    /// The fade under the solid ground: 14, inside the asked-for 12–16.
-    static let fade: CGFloat = 14
-    /// The solid stops this far above the bar's bottom edge — just under the 44pt controls, which
-    /// sit 5 above it — so the fade lands on the bar's edge and the content's first lines at rest
-    /// are left alone.
-    static let solidShort: CGFloat = 8
     /// The ground is off at rest and on once the content has gone this far under the bar.
     static let showAfter: CGFloat = 4
     /// The switch is a short step, not a scroll-driven fade (Eamon, build 94).
@@ -96,16 +90,11 @@ private struct AteHeaderGround: ViewModifier {
                 GeometryReader { proxy in
                     let bar = proxy.safeAreaInsets.top
                     let ground = AtePalette.automatic.ground
-                    VStack(spacing: 0) {
-                        ground.frame(height: max(0, bar - AteHeaderGroundMetrics.solidShort))
-                        LinearGradient(
-                            colors: [ground, ground.opacity(0)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        .frame(height: AteHeaderGroundMetrics.fade)
-                    }
-                    .ignoresSafeArea(edges: .top)
+                    // A hard edge at the bar's bottom, no gradient (Eamon, build 95: "faded" meant the
+                    // soft edge).
+                    ground
+                        .frame(height: bar)
+                        .ignoresSafeArea(edges: .top)
                 }
                 .opacity(shown)
                 .allowsHitTesting(false)
@@ -224,7 +213,7 @@ extension View {
     }
 
     /// **The header's ground** (build 87, note 1): the bar area — from the screen's top edge to just
-    /// under the title row's controls — is the page's ground, ending in a short soft fade, so
+    /// under the title row's controls — is the page's ground, ending in a hard edge at the bar's bottom (build 95), so
     /// scrolled content is never legible behind the title or the glass. The system's soft
     /// scroll-edge effect alone is too weak over white slips, and `.hard` cuts the content off with
     /// a sharp edge and a blurred ghost above it.
