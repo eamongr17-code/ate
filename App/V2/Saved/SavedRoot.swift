@@ -1,7 +1,7 @@
 import AteKit
 import SwiftUI
 
-/// **The Saved tab's root** — the dishes you kept, under their places, beneath the standard root
+/// **The Saved tab's root** — the dishes you kept, each over its place, beneath the standard root
 /// header. One control in the bar's glass group, the filter (the Journal's sheet, less the order);
 /// while a filter is on its chips sit under the bar, each with ✕. An unsave here leaves the row at
 /// once, with an Undo pill above the tab bar for four seconds.
@@ -113,63 +113,35 @@ struct SavedRoot: View {
         Task { await saved.refresh() }
     }
 
-    /// Each place a head, its dishes under it. The letter tiles are chosen for the shelf as it reads,
-    /// top to bottom, so no two dishes one above the other share an accent.
+    /// The dishes you kept, newest first — the dish leading each row, its place second (build 92: the
+    /// place heads made the shelf a wall of text). The letter tiles are chosen down the shelf as it
+    /// reads, so no two dishes one above the other share an accent.
     @ViewBuilder
     private var groups: some View {
-        let shelfDishes = saved.groups.flatMap(\.dishes)
-        let letters = Dictionary(
-            zip(shelfDishes.map(\.id), DishLetter.neighbourly(shelfDishes.map { ($0.dishID, $0.dishName) })),
-            uniquingKeysWith: { first, _ in first }
-        )
-        ForEach(saved.groups) { group in
-            placeHead(group)
-                .padding(.horizontal, AteMetrics.gutter)
-            ForEach(group.dishes) { dish in
-                AteDishRow(
-                    photo: .dish(letters[dish.id] ?? DishLetter(dishID: dish.dishID, name: dish.dishName),
-                                 cover: dish.dishCoverURL),
-                    name: dish.dishName,
-                    subtitle: dish.sourceUsername.map { "from @\($0)" },
-                    score: dish.dishScore.map { .average($0) },
-                    isFirst: dish.id == group.dishes.first?.id,
-                    isSaved: true,
-                    onSave: { Task { await app.saves.unsaveFromShelf(dish) } },
-                    onOpen: { router.open(.dish(dish.dishID), from: .saved) }
-                )
-                .padding(.horizontal, AteMetrics.gutter)
-                .task { await saved.loadMoreIfNeeded(after: dish) }
-                .accessibilityIdentifier("saved.dish")
-            }
+        let dishes = saved.dishes
+        let letters = DishLetter.neighbourly(dishes.map { ($0.dishID, $0.dishName) })
+        ForEach(Array(dishes.enumerated()), id: \.element.id) { index, dish in
+            AteDishRow(
+                photo: .dish(letters[index], cover: dish.dishCoverURL),
+                name: dish.dishName,
+                subtitle: Self.place(of: dish),
+                score: dish.dishScore.map { .average($0) },
+                isFirst: index == 0,
+                isSaved: true,
+                onSave: { Task { await app.saves.unsaveFromShelf(dish) } },
+                onOpen: { router.open(.dish(dish.dishID), from: .saved) }
+            )
+            .padding(.horizontal, AteMetrics.gutter)
+            .padding(.top, index == 0 ? AteMetrics.snug : 0)
+            .task { await saved.loadMoreIfNeeded(after: dish) }
+            .accessibilityIdentifier("saved.dish")
         }
     }
 
-    /// The place, its city, and the chevron onward to its page.
-    private func placeHead(_ group: SavedDishGroup) -> some View {
-        Button {
-            router.open(.place(group.restaurantID), from: .saved)
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: AteMetrics.snug) {
-                Text(group.restaurantName)
-                    .ateText(.slipPlace)
-                    .foregroundStyle(AtePalette.automatic.fg)
-                if let city = group.city {
-                    Text(city)
-                        .ateText(.meta)
-                        .foregroundStyle(AtePalette.automatic.muted)
-                }
-                Spacer(minLength: 0)
-                AteIcon.chevron.view(size: SavedMetrics.chevron)
-                    .foregroundStyle(AtePalette.automatic.muted)
-            }
-            .padding(.top, SavedMetrics.placeTop)
-            .padding(.bottom, SavedMetrics.placeBottom)
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
-        .accessibilityIdentifier("saved.place")
+    /// The place, and its city after it.
+    private static func place(of dish: SavedDish) -> String {
+        guard let city = dish.restaurantCity, city.isEmpty == false else { return dish.restaurantName }
+        return "\(dish.restaurantName), \(city)"
     }
 
     // MARK: - The bar
@@ -278,10 +250,6 @@ enum SavedMetrics {
     /// An empty state never squeezes below this, however small the screen.
     static let emptyMinimum: CGFloat = 320
     static let skeletonRows = 6
-    /// A place head: `padding:18px 0 10px`, its chevron 15.
-    static let placeTop: CGFloat = 18
-    static let placeBottom: CGFloat = 10
-    static let chevron: CGFloat = 15
     /// How long the shelf's Undo stays open.
     static let undoLifetime = Duration.seconds(4)
 }

@@ -64,15 +64,13 @@ extension View {
     }
 
     /// ``ateRootCollapse(_:)`` for a pushed page with its own large title: the same half-row
-    /// threshold, under the soft scroll edge every pushed page has. (The roots' `.hard` edge drew a
-    /// hairline and a blurred ghost of the content under a pushed bar — build 88.)
+    /// threshold. The bar's edge is the header's ground alone (``ateHeaderGround()``).
     func atePageCollapse(_ isCollapsed: Binding<Bool>) -> some View {
         onScrollGeometryChange(for: Bool.self) { geometry in
             geometry.contentOffset.y + geometry.contentInsets.top > AteRootHeaderMetrics.collapseAfter
         } action: { _, collapsed in
             isCollapsed.wrappedValue = collapsed
         }
-        .scrollEdgeEffectStyle(.soft, for: .top)
     }
 
     /// A pushed page that lays out its own bar items (the entry page: its byline or place, Share,

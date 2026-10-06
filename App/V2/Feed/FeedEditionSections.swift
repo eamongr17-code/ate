@@ -59,7 +59,6 @@ struct FeedEditionSections: View {
     @ViewBuilder
     private var loading: some View {
         AteSectionHeading(title: FeedEditionCopy.topAte, identifier: "feed.section.topAte")
-            .padding(.top, AteSectionHeadingMetrics.firstTop - AteSectionHeadingMetrics.top)
         VStack(spacing: 0) {
             AteSkeleton(kind: .hero)
                 .padding(.bottom, AteMetrics.tight)
@@ -99,8 +98,9 @@ struct FeedEditionSections: View {
     @ViewBuilder
     private var sections: some View {
         if edition.showsTopAte {
+            // A section like the others, a section's gap under the header — not pulled up under the
+            // root title, where the two read as a stack of headings (build 92).
             AteSectionHeading(title: FeedEditionCopy.topAte, identifier: "feed.section.topAte")
-                .padding(.top, AteSectionHeadingMetrics.firstTop - AteSectionHeadingMetrics.top)
                 .onAppear { edition.sectionAppeared(.topAte) }
             FeedTopAte(lines: edition.topAte, actions: actions)
         }

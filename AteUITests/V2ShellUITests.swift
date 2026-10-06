@@ -77,15 +77,15 @@ final class V2ShellUITests: XCTestCase {
     func testSavedRetapScrollsToTop() throws {
         let app = launch(["-ate-open", "saved"])
         XCTAssertTrue(app.descendants(matching: .any)["v2.root.saved"].firstMatch.waitForExistence(timeout: 10))
-        let place = app.descendants(matching: .any).matching(identifier: "saved.place").firstMatch
-        XCTAssertTrue(place.waitForExistence(timeout: 10), "the shelf has a place")
+        let place = app.descendants(matching: .any).matching(identifier: "saved.dish").firstMatch
+        XCTAssertTrue(place.waitForExistence(timeout: 10), "the shelf has a dish")
         let resting = place.frame.minY
         app.swipeUp()
         app.swipeUp()
         if waitUntil(timeout: 3, { place.isHittable == false }) == false {
             // The preview shelf holds two dishes: shorter than the screen, it has nowhere to scroll.
             guard place.frame.minY < resting - 1 else { throw XCTSkip("the shelf is too short to scroll") }
-            XCTFail("scrolled: the first place has left")
+            XCTFail("scrolled: the first dish has left")
         }
         let saved = tab(app, "Saved")
         saved.tap()

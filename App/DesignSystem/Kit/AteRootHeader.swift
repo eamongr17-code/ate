@@ -67,6 +67,50 @@ enum AteHeaderGroundMetrics {
     /// sit 5 above it — so the fade lands on the bar's edge and the content's first lines at rest
     /// are left alone.
     static let solidShort: CGFloat = 8
+    /// How far the content scrolls while the ground crossfades in: none at rest, all of it by 24.
+    static let crossfade: CGFloat = 24
+    /// The crossfade moves in steps this fine — smooth to the eye, and the overlay redraws only
+    /// when a step is crossed.
+    static let steps: CGFloat = 24
+}
+
+/// ``SwiftUICore/View/ateHeaderGround()``: the ground over the bar, as opaque as the page has
+/// scrolled under it.
+private struct AteHeaderGround: ViewModifier {
+    @State private var shown: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                let offset = geometry.contentOffset.y + geometry.contentInsets.top
+                let progress = min(max(offset / AteHeaderGroundMetrics.crossfade, 0), 1)
+                return (progress * AteHeaderGroundMetrics.steps).rounded() / AteHeaderGroundMetrics.steps
+            } action: { _, progress in
+                shown = progress
+            }
+            // The ground is the bar's only edge: the system's scroll-edge effect drew a lighter band and a
+            // line over the page even at rest (build 92).
+            .scrollEdgeEffectHidden(true, for: .top)
+            .overlay(alignment: .top) {
+                GeometryReader { proxy in
+                    let bar = proxy.safeAreaInsets.top
+                    let ground = AtePalette.automatic.ground
+                    VStack(spacing: 0) {
+                        ground.frame(height: max(0, bar - AteHeaderGroundMetrics.solidShort))
+                        LinearGradient(
+                            colors: [ground, ground.opacity(0)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: AteHeaderGroundMetrics.fade)
+                    }
+                    .ignoresSafeArea(edges: .top)
+                }
+                .opacity(shown)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+    }
 }
 
 enum AteRootHeaderMetrics {
@@ -182,30 +226,18 @@ extension View {
     /// under the title row's controls — is the page's ground, ending in a short soft fade, so
     /// scrolled content is never legible behind the title or the glass. The system's soft
     /// scroll-edge effect alone is too weak over white slips, and `.hard` cuts the content off with
-    /// a sharp edge and a blurred ghost above it. At rest it is ground on ground: invisible.
+    /// a sharp edge and a blurred ghost above it.
+    ///
+    /// Only while something is under it (build 92, note 1): at rest the page is one surface — no
+    /// band, no edge — and the ground crossfades in over the first ``AteHeaderGroundMetrics/crossfade``
+    /// points of scroll, and out again on the way back. It reads the first scroll view inside the
+    /// page and changes only its own opacity: the bar's layout never moves.
     ///
     /// Every bar modifier in the kit applies it (``ateRootToolbar``, ``ateInlineTitle``,
     /// ``ateInlineByline``), so roots and pushed pages get it once. Drawn over the page and under
     /// the navigation bar's own items, and never hit-tested.
     func ateHeaderGround() -> some View {
-        overlay(alignment: .top) {
-            GeometryReader { proxy in
-                let bar = proxy.safeAreaInsets.top
-                let ground = AtePalette.automatic.ground
-                VStack(spacing: 0) {
-                    ground.frame(height: max(0, bar - AteHeaderGroundMetrics.solidShort))
-                    LinearGradient(
-                        colors: [ground, ground.opacity(0)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: AteHeaderGroundMetrics.fade)
-                }
-                .ignoresSafeArea(edges: .top)
-            }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-        }
+        modifier(AteHeaderGround())
     }
 
     /// Reports whether a tab root's scroll view has moved far enough for its header to collapse —
@@ -222,6 +254,5 @@ extension View {
                 isCollapsed.wrappedValue = false
             }
         }
-        .scrollEdgeEffectStyle(.hard, for: .top)
     }
 }
