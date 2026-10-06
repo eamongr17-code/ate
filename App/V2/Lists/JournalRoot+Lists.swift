@@ -25,16 +25,25 @@ extension JournalRoot {
             selection: $shelf,
             identifier: "journal.shelf"
         )
+        // The last first-run tip: Lists, once there is enough on the Journal to make one from. It
+        // points at the Lists half, not the middle of the switch: anchored on a clear twin of it.
+        .overlay {
+            HStack(spacing: 0) {
+                Color.clear
+                Color.clear.popoverTip(listsTip, arrowEdge: .top)
+            }
+            .allowsHitTesting(false)
+        }
         .padding(.horizontal, AteMetrics.listGutter)
         .padding(.vertical, AteMetrics.tight)
-        // The last first-run tip: Lists, once there is enough on the Journal to make one from.
-        .popoverTip(
-            shelf == .journal && journal.entries.count >= AteTips.listsAfterEntries ? ListsTip() : nil,
-            arrowEdge: .top
-        )
         .onChange(of: shelf) { _, now in
             if now == .lists { ListsTip().invalidate(reason: .actionPerformed) }
         }
+    }
+
+    /// The Lists tip, from the fifth entry, while the Journal shelf is the one showing.
+    private var listsTip: ListsTip? {
+        shelf == .journal && journal.entries.count >= AteTips.listsAfterEntries ? ListsTip() : nil
     }
 
     @ViewBuilder

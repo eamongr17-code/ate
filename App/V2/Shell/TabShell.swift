@@ -1,5 +1,6 @@
 import AteKit
 import SwiftUI
+import TipKit
 
 /// **The shell**: iOS 26's own `TabView` — Journal, Feed, Saved, You — with `+` as a tab in the
 /// bar's detached trailing slot, the composer as a sheet over it, and four routers, one stack each.
@@ -57,12 +58,15 @@ struct TabShell: View {
         }
         .tabBarMinimizeBehavior(.onScrollDown)
         .tint(AteNativeChrome.tint)
+        // First run's tips wear Ate's face, at a width that lets them sit by their control.
+        .tipViewStyle(AteTipStyle())
         // One full-screen photo viewer for every photo under the tabs — slips, entries, the dish
         // hero, the menu. Kit photo surfaces open it themselves.
         .atePhotoViewerHost()
         .sheet(isPresented: Bindable(app).isComposing) {
             ComposerSheet(app: app)
                 .ateCoversThePage()
+                .tipViewStyle(AteTipStyle())
         }
         .ateLinkShell() // a waiting link is pushed once the tabs are up
         .onChange(of: app.linkedEntry, initial: true) { _, entryID in

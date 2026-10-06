@@ -178,6 +178,8 @@ final class AppModel {
 
     private func didSignIn() {
         gate.signedIn()
+        // Replay first run: the person who asked for it is a new account again from here.
+        services.preferences.signedIn(services.api.currentUserID)
         hasSession = services.hasSession
         // A draft from before drafts had owners goes to the person who just signed in.
         services.drafts.adoptUnownedDraft()
@@ -212,11 +214,13 @@ final class AppModel {
         if let presentation { compose(presentation) }
     }
 
-    /// **Replay first run** (Settings, Debug and Beta): Handle, the onboarding and every tip again,
-    /// as a new person sees them, without signing out.
+    /// **Replay first run** (Settings, Debug and Beta): marks this person to come back as a new
+    /// account does — Welcome, Handle, the onboarding with every sitting on offer, the Feed's cravings
+    /// card and every tip. The caller then signs out; the next sign-in as them picks the mark up.
     func replayFirstRun() {
         guard let userID = services.api.currentUserID else { return }
         AteTips.replay()
+        PhotoSuggestionDismissals(store: UserDefaultsStore(), owner: services.photoOwner).reset()
         services.preferences.replayFirstRun(userID)
     }
 
