@@ -9,14 +9,15 @@ extension AteTextStyle {
     // Titles — Bricolage 800. Tracking −3.5% above 30pt, −2.5% at slip sizes (the prototype
     // overrides `.h`'s letter-spacing for the 20/22pt place names).
 
-    /// A screen's own name: "Feed", "You", "Search". 40pt.
+    /// A screen's own name: "Feed", "You", "Search". 34pt (40 until Eamon's 6 Oct "some headings are too big"; every
+    /// heading stepped down one notch here, never per screen).
     static let screenTitle = AteTextStyle(
-        voice: .display, size: 40, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
+        voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
     )
     /// The place at the head of its own page — the biggest type in the app, because on the place
-    /// page the place is the whole subject. 44pt (`Restaurant.dc.html`).
+    /// page the place is the whole subject. 36pt (44 on `Restaurant.dc.html`, stepped down 6 Oct).
     static let placeTitle = AteTextStyle(
-        voice: .display, size: 44, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
+        voice: .display, size: 36, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
     )
     /// A dish's aggregate, printed like a price on its own page. 64pt — the one number big enough
     /// to be read across a table (`Dish.dc.html`).
@@ -24,18 +25,18 @@ extension AteTextStyle {
         voice: .display, size: 64, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
     )
     /// The place at the head of the entry page — the biggest type in the app after a screen's own
-    /// name, because on an entry the place IS the title. 38pt.
+    /// name, because on an entry the place IS the title. 32pt (38 before 6 Oct).
     static let entryPlace = AteTextStyle(
-        voice: .display, size: 38, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
+        voice: .display, size: 32, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
     )
-    /// A sheet's title. 30pt.
+    /// A sheet's title. 26pt (30 before 6 Oct).
     static let sheetTitle = AteTextStyle(
-        voice: .display, size: 30, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
+        voice: .display, size: 26, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
     )
-    /// The one line an empty slip says. 34pt — it sits inside paper, not on the ground, so it is a
-    /// step down from ``screenTitle``.
+    /// The one line an empty state says. 26pt — under its drawing it is a caption to the picture, so
+    /// it is well under ``screenTitle`` (Eamon, 6 Oct: the empty line was too big).
     static let emptyTitle = AteTextStyle(
-        voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
+        voice: .display, size: 26, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
     )
     /// The score a `Ratings` page is about, beside its stars. `.h` at 30.
     static let ratingsScore = AteTextStyle(

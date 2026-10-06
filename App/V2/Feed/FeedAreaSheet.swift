@@ -5,7 +5,8 @@ import SwiftUI
 /// the area is one too, not a pull-down menu). The kit's sheet, fitted to its rows: Near me,
 /// Everywhere, then every city with food, busiest first, the current one marked. A row is the
 /// answer: a tap hands back the location and the sheet closes; the root does the rest (Near me asks
-/// for the location there, and nowhere else).
+/// for the location there, and nowhere else). The search pill narrows the rows as you type (Eamon,
+/// 6 Oct: "the location button should allow search").
 struct FeedAreaSheet: View {
     let area: FeedAreaModel
     let onPick: (FeedLocation) -> Void
@@ -13,16 +14,28 @@ struct FeedAreaSheet: View {
     static let title = "Where?"
     static let nearMeTitle = "Near me"
     static let everywhereTitle = "Everywhere"
+    static let searchPrompt = "Search cities"
+    static let noMatch = "No city\nlike that."
 
+    @State private var query = ""
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        AteSheetScaffold(title: Self.title) {
-            VStack(spacing: 0) {
-                row(Self.nearMeTitle, .nearMe, identifier: "area.nearMe")
-                row(Self.everywhereTitle, .everywhere, identifier: "area.everywhere")
-                ForEach(cities) { city in
-                    row(city.name, .city(city.city), identifier: "area.city.\(city.city)")
+        AteSheetScaffold(title: Self.title, searchPrompt: Self.searchPrompt, searchText: $query) {
+            let matches = AteCity.matching(cities, query: query)
+            let showsNearMe = AteCity.title(Self.nearMeTitle, matches: query)
+            let showsEverywhere = AteCity.title(Self.everywhereTitle, matches: query)
+            if matches.isEmpty, showsNearMe == false, showsEverywhere == false {
+                AteEmptyState(line: Self.noMatch, art: .search)
+                    .frame(minHeight: AteEmptyStateMetrics.sheetMinimum)
+                    .accessibilityIdentifier("area.noMatch")
+            } else {
+                VStack(spacing: 0) {
+                    if showsNearMe { row(Self.nearMeTitle, .nearMe, identifier: "area.nearMe") }
+                    if showsEverywhere { row(Self.everywhereTitle, .everywhere, identifier: "area.everywhere") }
+                    ForEach(matches) { city in
+                        row(city.name, .city(city.city), identifier: "area.city.\(city.city)")
+                    }
                 }
             }
         }

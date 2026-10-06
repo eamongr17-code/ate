@@ -64,3 +64,29 @@ struct AteCitySlugTests {
         #expect(AteCity.displayName(for: "melbourne", in: [AteCity(city: "melbourne", name: "Melb")]) == "Melb")
     }
 }
+
+@Suite("The Feed's location search")
+struct AteCitySearchTests {
+    static let cities = [
+        AteCity(city: "melbourne", name: "Melbourne", region: "Victoria"),
+        AteCity(city: "adelaide", name: "Adelaide", region: "South Australia"),
+        AteCity(city: "geelong", name: "Geelong", region: "Victoria"),
+        AteCity(city: "sao-paulo", name: "São Paulo")
+    ]
+
+    @Test("a typed search keeps cities by name or region, ignoring case and accents, in order")
+    func matches() {
+        #expect(AteCity.matching(Self.cities, query: "ADE").map(\.city) == ["adelaide"])
+        #expect(AteCity.matching(Self.cities, query: "vic").map(\.city) == ["melbourne", "geelong"])
+        #expect(AteCity.matching(Self.cities, query: "sao").map(\.city) == ["sao-paulo"])
+        #expect(AteCity.matching(Self.cities, query: "zzz").isEmpty)
+    }
+
+    @Test("an empty or blank search keeps everything, and the fixed answers only when they match")
+    func blankAndFixed() {
+        #expect(AteCity.matching(Self.cities, query: "  ").count == Self.cities.count)
+        #expect(AteCity.title("Near me", matches: ""))
+        #expect(AteCity.title("Near me", matches: "near"))
+        #expect(AteCity.title("Everywhere", matches: "mel") == false)
+    }
+}

@@ -29,7 +29,7 @@ struct DishPageStoreTests {
             reviewID: UUID(),
             entryID: UUID(),
             author: EntryCard.Author(id: UUID(), username: handle),
-            score: score.map { Rating(rounding: $0) },
+            score: score.map { Rating(exactly: $0) ?? Rating(rounding: $0) },
             note: "Still the best thing on Little Bourke.",
             createdAt: Date(timeIntervalSince1970: 1_789_776_000 - minutesAgo * 60),
             isMine: mine
@@ -129,6 +129,45 @@ struct DishPageStoreTests {
         await store.loadMore()
         #expect(store.reviews.count == 3)
         #expect(store.reviews.map { $0.author?.username } == ["a", "b", "c"])
+    }
+
+    @Test("the bands read every page, bundle by whole star best first, and leave You out")
+    func bandsReadThrough() async {
+        let source = FakePlaceDishSource()
+        source.seed(dish: summary(), reviews: [
+            review(1, mine: true, handle: "me", score: 4.0),
+            review(5, handle: "a", score: 5.0), review(15, handle: "b", score: 4.5),
+            review(25, handle: "c", score: 4.0), review(35, handle: "d", score: nil),
+            review(45, handle: "e", score: 6.0), review(55, handle: "f", score: 0.5)
+        ])
+        let store = store(source, pageSize: 2)
+        await store.load()
+        await store.loadRemaining()
+        #expect(store.reviews.count == 7)
+        #expect(store.hasReachedEnd)
+        #expect(store.myReview?.author?.username == "me")
+        let bands = store.bands
+        #expect(bands.map(\.stars) == [6, 5, 4, 1, nil])
+        #expect(bands.first { $0.stars == 4 }?.reviews.map { $0.author?.username } == ["b", "c"])
+        #expect(bands.map(\.title) == ["6 stars", "5 stars", "4 stars", "1 star", "No score"])
+        #expect(bands.first?.countLine == "1 person")
+    }
+
+    @Test("reading through stops at its cap and at a page that fails")
+    func bandsCapAndFailure() async {
+        let source = FakePlaceDishSource()
+        source.seed(dish: summary(), reviews: (0..<10).map { review(Double($0), handle: "p\($0)") })
+        let capped = store(source, pageSize: 2)
+        await capped.load()
+        await capped.loadRemaining(maxPages: 2)
+        #expect(capped.reviews.count == 6)
+
+        let failing = store(source, pageSize: 2)
+        await failing.load()
+        source.failReviews(times: 1)
+        await failing.loadRemaining()
+        #expect(failing.reviews.count == 2)
+        #expect(failing.inlineErrorMessage != nil)
     }
 
     @Test("the three-part cursor is what the next page asks for")

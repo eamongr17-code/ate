@@ -3,8 +3,9 @@ import SwiftUI
 
 /// **One dish: its aggregate, and everything anybody has said about it.** Glass back left, the
 /// glass bookmark right — Save is the only action. Then the tilted hero, the name and its place, the
-/// aggregate (one decimal, stars to the nearest half), each review as who and how much with no words
-/// (round 4), and under them More to explore and More like this (round 7).
+/// aggregate (one decimal, stars to the nearest half), then your own review and everyone else's
+/// bundled by stars (6 Oct), each review as who and how much with no words (round 4), and under them
+/// More to explore and More like this (round 7).
 ///
 /// Opened from a row that knew the dish (round 6), the page draws from it at once and fills in
 /// place; opened by id alone, it waits as still shapes and fades in once. The bookmark is the one
@@ -18,6 +19,8 @@ struct V2DishPage: View {
     @State private var explore: DishExploreStore?
     @State private var isCollapsed = false
     @State private var titleBottom: CGFloat = 0
+    /// The star bands open on this page, by ``DishReviewBand/id``. All closed on arrival.
+    @State private var openBands: Set<Int> = []
 
     init(dishID: UUID, context: V2PageContext) {
         self.dishID = dishID
@@ -65,10 +68,14 @@ struct V2DishPage: View {
         }
         .refreshable {
             await store.refresh()
+            await store.loadRemaining()
             await explore?.refresh()
         }
         .task {
             await store.load()
+            // The bands count everybody, so the rest of the reviews are read through before the
+            // sections under them.
+            await store.loadRemaining()
             // After the page's own read, never beside it: the sections below the reviews must not
             // slow the part of the page somebody opened it for.
             guard store.summary != nil else { return }
@@ -232,23 +239,34 @@ struct V2DishPage: View {
         }
     }
 
-    /// One row each of the page's lazy stack, You first, then everyone else newest first.
+    /// Your own review on its own, first; then everyone else's bundled by stars, best first, each
+    /// band opening in place onto its reviews (Eamon, 6 Oct: never every review in one long list).
     @ViewBuilder
     private var reviewRows: some View {
-        ForEach(store.reviews) { review in
-            AteReviewRow(
-                userID: review.author?.id ?? review.reviewID,
-                name: Self.name(of: review),
-                handle: review.author?.username ?? "?",
-                rating: review.score,
-                isFirst: review.id == store.reviews.first?.id,
-                // Your own "You" is not a door: the You tab is your profile.
-                onProfile: review.isMine ? nil : review.author.map { author in { openProfile(author.id) } },
-                // A legacy review has no visit to open.
-                onOpen: review.entryID.map { entryID in { openEntry(entryID) } }
-            )
-            .task { await store.loadMoreIfNeeded(after: review) }
-            .padding(.top, review.id == store.reviews.first?.id ? AteMetrics.loose : 0)
+        let mine = store.myReview
+        if let mine {
+            reviewRow(mine, isFirst: true)
+                .padding(.top, AteMetrics.loose)
+                .padding(.horizontal, AteMetrics.listGutter)
+        }
+        let bands = store.bands
+        ForEach(bands) { band in
+            let isFirst = mine == nil && band.id == bands.first?.id
+            AteReviewBand(
+                title: band.title,
+                countLine: band.countLine,
+                faces: band.reviews.compactMap { review in
+                    review.author.map { AteReviewFace(id: $0.id, handle: $0.username) }
+                },
+                isOpen: isOpen(band),
+                isFirst: isFirst,
+                identifier: "dish.band.\(band.stars.map(String.init) ?? "none")"
+            ) {
+                ForEach(band.reviews) { review in
+                    reviewRow(review, isFirst: false)
+                }
+            }
+            .padding(.top, isFirst ? AteMetrics.loose : 0)
             .padding(.horizontal, AteMetrics.listGutter)
         }
         if let message = store.inlineErrorMessage {
@@ -259,6 +277,34 @@ struct V2DishPage: View {
                 .padding(.top, AteMetrics.regular)
                 .padding(.horizontal, AteMetrics.listGutter)
         }
+    }
+
+    private func reviewRow(_ review: DishReview, isFirst: Bool) -> some View {
+        AteReviewRow(
+            userID: review.author?.id ?? review.reviewID,
+            name: Self.name(of: review),
+            handle: review.author?.username ?? "?",
+            rating: review.score,
+            isFirst: isFirst,
+            // Your own "You" is not a door: the You tab is your profile.
+            onProfile: review.isMine ? nil : review.author.map { author in { openProfile(author.id) } },
+            // A legacy review has no visit to open.
+            onOpen: review.entryID.map { entryID in { openEntry(entryID) } }
+        )
+    }
+
+    private func isOpen(_ band: DishReviewBand) -> Binding<Bool> {
+        Binding(
+            get: { openBands.contains(band.id) },
+            set: { open in
+                if open {
+                    openBands.insert(band.id)
+                    context.services.analytics(DetailEvents.dishBandOpened(stars: band.stars))
+                } else {
+                    openBands.remove(band.id)
+                }
+            }
+        )
     }
 
     /// "You" for your own, the handle for everyone else's; an author who is blocked or gone loses

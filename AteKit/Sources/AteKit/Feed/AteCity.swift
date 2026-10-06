@@ -60,6 +60,28 @@ public struct AteCity: Sendable, Hashable, Identifiable, Decodable {
             ?? slug.split(separator: "-").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
     }
 
+    /// The cities a typed search keeps, in the order given: any whose name or region contains it,
+    /// ignoring case and accents ("ade" finds Adelaide, "vic" finds every Victorian city). An empty
+    /// search keeps them all.
+    public static func matching(_ cities: [AteCity], query: String) -> [AteCity] {
+        guard let needle = searchKey(query) else { return cities }
+        return cities.filter { city in
+            [city.name, city.region ?? ""].contains { searchKey($0)?.contains(needle) == true }
+        }
+    }
+
+    /// Whether a fixed answer beside the cities ("Near me", "Everywhere") stays under a typed search.
+    public static func title(_ title: String, matches query: String) -> Bool {
+        guard let needle = searchKey(query) else { return true }
+        return searchKey(title)?.contains(needle) == true
+    }
+
+    private static func searchKey(_ text: String) -> String? {
+        let key = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+        return key.isEmpty ? nil : key
+    }
+
     /// Busiest first, then by name — the servers' own order, made true whatever a reader does.
     public static func ordered(_ cities: [AteCity]) -> [AteCity] {
         cities.sorted { ($0.entryCount, $1.name) > ($1.entryCount, $0.name) }
