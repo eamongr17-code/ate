@@ -7,6 +7,18 @@ public enum ListEvents {
         AnalyticsEvent(name: "list_created")
     }
 
+    /// A New list affordance was tapped — the shelf's dashed card, or the glass group's list-plus.
+    public static func ctaTapped(from source: CTASource) -> AnalyticsEvent {
+        AnalyticsEvent(name: "list_cta_tapped", parameters: ["source": source.rawValue])
+    }
+
+    public enum CTASource: String, Sendable {
+        /// The dashed New list card first on the Lists shelf.
+        case shelf
+        /// The list-plus in the Journal's glass group.
+        case glass
+    }
+
     public static func renamed() -> AnalyticsEvent {
         AnalyticsEvent(name: "list_renamed")
     }

@@ -168,6 +168,9 @@ struct ListsDecodingTests {
     func events() {
         #expect(ListEvents.created().name == "list_created")
         #expect(ListEvents.renamed().name == "list_renamed")
+        #expect(ListEvents.ctaTapped(from: .shelf).name == "list_cta_tapped")
+        #expect(ListEvents.ctaTapped(from: .shelf).parameters == ["source": "shelf"])
+        #expect(ListEvents.ctaTapped(from: .glass).parameters == ["source": "glass"])
         #expect(ListEvents.deleted(items: 6).parameters == ["items": "6"])
         #expect(ListEvents.itemAdded(count: 3, from: .picker).parameters == ["count": "3", "from": "picker"])
         #expect(ListEvents.itemRemoved(listSize: 5, undone: true).parameters["undone"] == "true")

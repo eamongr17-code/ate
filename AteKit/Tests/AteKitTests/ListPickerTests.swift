@@ -155,5 +155,20 @@ struct ListPickerTests {
         #expect(await store.createList(named: "Pasta"))
         #expect(store.lists.map(\.name) == ["Pasta"] && store.lists[0].contains)
         #expect(shelf.lists.map(\.name) == ["Pasta"] && shelf.lists[0].itemCount == 1)
+        // The made list is kept on its server id, so the screen can open its page straight away.
+        let made = store.created
+        #expect(made != nil && made?.id == shelf.lists[0].id && made?.id == store.lists[0].listID)
+        let page = ListStore(listID: made?.id ?? UUID(), list: made, service: service, shelf: shelf)
+        await page.refresh()
+        #expect(page.items.map(\.dishName) == ["Ragu"])
+    }
+
+    @Test("a refused New list leaves nothing to open")
+    func refusedNewList() async {
+        let lines = [pickerLine("Ragu", daysAgo: 1)]
+        let store = AddToListStore(line: lines[0].line, service: InMemoryLists(lines: lines))
+        await store.load()
+        #expect(await store.createList(named: "   ") == false)
+        #expect(store.created == nil && store.failure == .badName)
     }
 }

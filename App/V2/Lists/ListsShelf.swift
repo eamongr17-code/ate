@@ -2,17 +2,17 @@ import AteKit
 import SwiftUI
 
 /// **The Lists shelf** (`lists-notifications.html` §3, colour cards) — your lists under Journal |
-/// Lists, newest made first, one full-width card each. New list (the glass group's list-plus, or the
-/// empty state's pill) names one, then goes straight to picking its dishes. Pull to refresh; the
-/// shelf pages as it nears its end.
+/// Lists, newest made first, one full-width card each, under the dashed New list card (always first,
+/// empty shelf included). New list (that card, or the glass group's list-plus) names one, opens its
+/// page and raises the picker over it. Pull to refresh; the shelf pages as it nears its end.
 struct ListsShelf: View {
     let app: AppModel
     let router: TabRouter<JournalStores>
     @Binding var isCollapsed: Bool
     @Binding var isNaming: Bool
 
-    /// The new list, once named: the picker rises for it.
-    @State private var picking: ListStore?
+    /// The new list, once named: its page opens as the name sheet goes.
+    @State private var opening: ListRoute?
 
     private var lists: ListsStore { app.lists }
 
@@ -31,25 +31,24 @@ struct ListsShelf: View {
         .refreshable { await lists.refresh() }
         .task { await lists.loadIfNeeded() }
         .accessibilityIdentifier("lists.shelf")
-        .sheet(isPresented: $isNaming) {
+        .sheet(isPresented: $isNaming, onDismiss: openMade) {
             ListNameSheet(title: ListsCopy.newList, initial: "") { name in
+                // The server's own id, so the page reads the list it opens (C2 → C4, C3 over it).
                 guard let made = await lists.create(name: name) else { return false }
-                // The tick moves straight on to picking its dishes (C2 → C3).
-                picking = ListStore(
-                    listID: made.id, list: made, service: app.services.lists, shelf: lists,
-                    analytics: app.services.analytics
-                )
+                opening = ListRoute(made, picksOnOpen: true)
                 return true
             }
-        }
-        .sheet(item: $picking) { store in
-            ListPickerSheet(list: store, services: app.services)
         }
         .listsFailureAlert(failure: lists.failure) { lists.clearFailure() }
     }
 
     @ViewBuilder
     private var content: some View {
+        AteNewListCard(title: ListsCopy.newList, identifier: "lists.newCard") {
+            guard app.gate.permitsWrite(.journal) else { return }
+            app.services.analytics(ListEvents.ctaTapped(from: .shelf))
+            isNaming = true
+        }
         switch lists.phase {
         case .loading:
             ForEach(0..<ListsMetrics.skeletonCards, id: \.self) { _ in
@@ -57,7 +56,7 @@ struct ListsShelf: View {
             }
             .transition(.opacity)
         case .empty:
-            emptyBand(AteEmptyState(line: ListsCopy.emptyShelf, pill: (ListsCopy.makeList, { openNaming() })))
+            emptyBand(AteEmptyState(line: ListsCopy.emptyShelf))
         case .failed:
             emptyBand(AteEmptyState(line: ListsCopy.unreachable, pill: (ListsCopy.tryAgain, { retry() })))
         case .ready:
@@ -80,14 +79,16 @@ struct ListsShelf: View {
     }
 
     private func emptyBand(_ state: AteEmptyState) -> some View {
+        // The band fills what the New list card leaves of the screen.
         state.containerRelativeFrame(.vertical) { length, _ in
-            max(length, ListsMetrics.emptyMinimum)
+            max(length - AteNewListCardMetrics.height - AteListCardMetrics.spacing, ListsMetrics.emptyMinimum)
         }
     }
 
-    private func openNaming() {
-        guard app.gate.permitsWrite(.journal) else { return }
-        isNaming = true
+    private func openMade() {
+        guard let route = opening else { return }
+        opening = nil
+        router.open(.list(route), from: .journal)
     }
 
     private func retry() {

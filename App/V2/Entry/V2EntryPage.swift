@@ -86,7 +86,9 @@ private struct V2EntryScreen: View {
                 }
             )
             .sheet(isPresented: $isShowingActions) { actionsSheet }
-            .sheet(item: $addingToList) { AddToListSheet(target: $0, app: context.app) }
+            .sheet(item: $addingToList) {
+                AddToListSheet(target: $0, app: context.app) { context.open(.list($0), from: .journal) }
+            }
             .sheet(isPresented: $isSharingReceipt) {
                 if let receipt = model.receipt, let card = model.card {
                     V2ReceiptShareSheet(

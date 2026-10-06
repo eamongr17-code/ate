@@ -17,6 +17,8 @@ public final class AddToListStore {
     public private(set) var lists: [ListMembership] = []
     public private(set) var phase: Phase = .loading
     public private(set) var failure: ListsError?
+    /// The list "New list" made here, as the server named it — the screen opens it once the line is on.
+    public private(set) var created: UserList?
 
     @ObservationIgnored private let service: any ListsServing
     @ObservationIgnored private let analytics: AnalyticsRecorder
@@ -96,6 +98,7 @@ public final class AddToListStore {
             let created = try await service.createList(name: name)
             analytics(ListEvents.created())
             shelf?.added(created)
+            self.created = created
             lists.insert(ListMembership(listID: created.id, name: created.name, itemCount: 0, itemID: nil), at: 0)
             guard let membership = lists.first else { return false }
             return await toggle(membership)

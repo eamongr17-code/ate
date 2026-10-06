@@ -2,14 +2,17 @@ import AteKit
 import Foundation
 
 /// **One of your lists, as a route** — its id, and the shelf's summary when it was opened from a
-/// card, so the page draws its name and count before its read answers.
+/// card, so the page draws its name and count before its read answers. A list just made opens with
+/// its picker already rising over it (`picksOnOpen`).
 struct ListRoute: Hashable {
     let id: UUID
     var summary: UserList?
+    var picksOnOpen = false
 
-    init(_ list: UserList) {
+    init(_ list: UserList, picksOnOpen: Bool = false) {
         id = list.id
         summary = list
+        self.picksOnOpen = picksOnOpen
     }
 
     init(id: UUID) {

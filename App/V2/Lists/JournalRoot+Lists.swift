@@ -41,6 +41,7 @@ extension JournalRoot {
     var newListItem: some View {
         AteGlassItem(icon: .listPlus, label: ListsCopy.newList) {
             guard app.gate.permitsWrite(.journal) else { return }
+            app.services.analytics(ListEvents.ctaTapped(from: .glass))
             isNamingList = true
         }
         .accessibilityIdentifier("lists.new")

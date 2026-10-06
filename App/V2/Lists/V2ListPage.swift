@@ -15,6 +15,8 @@ struct V2ListPage: View {
     @State private var isCollapsed = false
     @State private var isRenaming = false
     @State private var isPicking = false
+    /// A list just made raises its picker once, the first time the page shows.
+    @State private var hasPickedOnOpen = false
     @State private var isConfirmingDelete = false
     @State private var isSharing = false
     @Environment(\.dismiss) private var dismiss
@@ -60,6 +62,7 @@ struct V2ListPage: View {
         .animation(reduceMotion ? nil : .default, value: store.undoable?.id)
         .refreshable { await store.refresh() }
         .task { await store.loadIfNeeded() }
+        .onAppear(perform: pickOnOpen)
         .onChange(of: store.phase) { _, phase in
             if phase == .gone { dismiss() }
         }
@@ -238,6 +241,12 @@ struct V2ListPage: View {
     private func pick() {
         guard context.gate.permitsWrite(.journal) else { return }
         isPicking = true
+    }
+
+    private func pickOnOpen() {
+        guard route.picksOnOpen, hasPickedOnOpen == false else { return }
+        hasPickedOnOpen = true
+        pick()
     }
 
     private func retry() {

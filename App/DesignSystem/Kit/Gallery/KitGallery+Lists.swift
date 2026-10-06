@@ -8,6 +8,7 @@ extension KitGalleryScreen {
     var lists: some View {
         section("List card") {
             VStack(spacing: AteListCardMetrics.spacing) {
+                AteNewListCard(title: "New list") {}
                 AteListCard(id: KitListFixtures.burgers, name: "Melbourne\u{2019}s best burgers", count: 6,
                             covers: KitListFixtures.covers) {}
                 AteListCard(id: KitListFixtures.indian, name: "The best Indian and Mexican dishes in the inner north",

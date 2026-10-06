@@ -11,7 +11,6 @@ enum ListsCopy {
     static let undo = "Undo"
     static let addDishes = "Add dishes"
     static let addToList = "Add to a list"
-    static let makeList = "Make a list"
     static let emptyShelf = "No lists\nyet."
     static let emptyList = "Nothing on\nit yet."
     static let emptyPicker = "Nothing to\nadd yet."
