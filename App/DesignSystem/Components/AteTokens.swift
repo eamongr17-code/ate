@@ -157,6 +157,7 @@ struct ScoreToken: View {
         .frame(height: height)
         .foregroundStyle(dress.ink)
         .background(dress.fill, in: .capsule)
+        .ateEnamel(onDarkFill: dress == .blownAway)
         .ateShimmerOnce(dress.shimmers)
         .overlay {
             if isSelected {

@@ -92,6 +92,7 @@ struct AteScoreToken: View {
         .frame(height: drawn * AteScoreTokenMetrics.lineHeight + 2 * metrics.vertical)
         .foregroundStyle(dress.ink)
         .background(dress.fill, in: .capsule)
+        .ateEnamel(onDarkFill: dress == .blownAway)
         .ateShimmerOnce(dress.shimmers)
         .fixedSize()
         .accessibilityElement()
