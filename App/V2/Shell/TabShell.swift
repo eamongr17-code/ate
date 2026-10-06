@@ -75,8 +75,14 @@ struct TabShell: View {
 
     /// The role that puts `+` in the bar's detached trailing slot. iOS 26 gives that slot to the
     /// search tab; iOS 27 gives it to the new `.prominent` role and draws a search tab inside the bar.
+    /// `.prominent` exists only in the iOS 27 SDK; the TestFlight lane builds with Xcode 26, where
+    /// the search role keeps the slot on both OS versions, so the SDK decides at compile time.
     private static var composeRole: TabRole {
+        #if compiler(>=6.4)
         if #available(iOS 27.0, *) { .prominent } else { .search }
+        #else
+        .search
+        #endif
     }
 
     // MARK: - Selection
