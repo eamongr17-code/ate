@@ -30,10 +30,10 @@ struct V2TagRankedPage: View {
                     }
                     .transition(.opacity)
                 case .empty:
-                    AteEmptyState(line: "Nothing here\nyet.")
+                    AteEmptyState(line: "Nothing here\nyet.", art: .rail)
                         .browseFillsPage()
                 case .failed(let message):
-                    AteEmptyState(line: message, pill: (title: "Try again", action: retry))
+                    AteEmptyState(line: message, art: .torn, pill: (title: "Try again", action: retry))
                         .browseFillsPage()
                 case .ready:
                     rows

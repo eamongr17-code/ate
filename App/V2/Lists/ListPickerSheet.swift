@@ -52,10 +52,14 @@ struct ListPickerSheet: View {
                 }
             }
         case .empty:
-            AteEmptyState(line: picker.effectiveQuery == nil ? ListsCopy.emptyPicker : ListsCopy.noMatch)
+            AteEmptyState(
+                line: picker.effectiveQuery == nil ? ListsCopy.emptyPicker : ListsCopy.noMatch,
+                art: picker.effectiveQuery == nil ? .list : .search
+            )
                 .frame(minHeight: ListsMetrics.emptyMinimum)
         case .failed:
-            AteEmptyState(line: ListsCopy.unreachable, pill: (ListsCopy.tryAgain, { Task { await picker.start() } }))
+            AteEmptyState(line: ListsCopy.unreachable, art: .torn,
+                pill: (ListsCopy.tryAgain, { Task { await picker.start() } }))
                 .frame(minHeight: ListsMetrics.emptyMinimum)
         case .ready:
             let dishes = picker.rows

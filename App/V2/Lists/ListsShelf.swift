@@ -56,9 +56,9 @@ struct ListsShelf: View {
             }
             .transition(.opacity)
         case .empty:
-            emptyBand(AteEmptyState(line: ListsCopy.emptyShelf))
+            emptyBand(AteEmptyState(line: ListsCopy.emptyShelf, art: .lists))
         case .failed:
-            emptyBand(AteEmptyState(line: ListsCopy.unreachable, pill: (ListsCopy.tryAgain, { retry() })))
+            emptyBand(AteEmptyState(line: ListsCopy.unreachable, art: .torn, pill: (ListsCopy.tryAgain, { retry() })))
         case .ready:
             let accents = DishTileIdentity.paletteIndices(for: lists.lists.map(\.id), count: AteListCard.accents.count)
             ForEach(Array(lists.lists.enumerated()), id: \.element.id) { index, list in

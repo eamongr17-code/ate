@@ -94,7 +94,8 @@ struct AddToListSheet: View {
         case .loading:
             EmptyView()
         case .failed:
-            AteEmptyState(line: ListsCopy.unreachable, pill: (ListsCopy.tryAgain, { Task { await store.load() } }))
+            AteEmptyState(line: ListsCopy.unreachable, art: .torn,
+                pill: (ListsCopy.tryAgain, { Task { await store.load() } }))
                 .frame(minHeight: ListsMetrics.emptyMinimum)
         case .ready:
             ForEach(store.lists) { membership in

@@ -1,0 +1,191 @@
+<title>Ate Empty States</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=DM+Mono:wght@500&family=Newsreader:opsz,wght@6..72,400&family=Permanent+Marker&display=swap">
+<style>
+/* Layout: a review sheet. The pick first, then each variant as two strips (light app, dark app) of every real empty state. */
+:root{
+  --bg:#EFEAE2; --fg:#24141F; --muted:#5E5560; --rule:rgba(36,20,31,.14);
+  --coral:#F0623F; --butter:#F6D365; --green:#3ECF64; --pink:#F490D4; --sky:#36AEE6; --lilac:#B9A5EA;
+  --display:"Bricolage Grotesque", ui-rounded, system-ui, sans-serif;
+  --words:"Newsreader", Georgia, serif;
+  --mono:"DM Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#17111B;--fg:#F4EFE9;--muted:#B9AFBC;--rule:rgba(255,255,255,.14);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#17111B;--fg:#F4EFE9;--muted:#B9AFBC;--rule:rgba(255,255,255,.14);color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--words)}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:40px 80px;display:grid;gap:48px}
+h1,h2{font-family:var(--display);font-weight:800;letter-spacing:-.035em;line-height:1;margin:0;text-wrap:balance}
+h1{font-size:clamp(40px,7vw,72px)}
+h2{font-size:clamp(28px,4.5vw,40px)}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+p{font-size:18px;line-height:1.5;max-width:62ch;margin:0}
+.lede{display:grid;gap:16px}
+.note{font-size:16px;color:var(--muted)}
+.hero{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.dir{display:grid;gap:18px;border-top:1px solid var(--rule);padding-top:32px}
+.dir header{display:grid;gap:10px}
+.strip-label{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.strip{display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;scroll-snap-type:x proximity}
+/* The phone band: fixed app colours, independent of the page theme. */
+.app{--g:#EFEAE2;--i:#24141F;--m:#5E5560;--p:#FFFFFF;--pill:#24141F;--pillt:#EFEAE2;--edge:rgba(36,20,31,.08)}
+.app.dark{--g:#17111B;--i:#F4EFE9;--m:#B9AFBC;--p:#231B24;--pill:#F4EFE9;--pillt:#17111B;--edge:rgba(255,255,255,.08)}
+.tile{flex:0 0 218px;height:320px;background:var(--g);color:var(--i);border-radius:28px;display:grid;grid-template-rows:auto 1fr;scroll-snap-align:start;box-shadow:0 0 0 1px var(--edge) inset}
+.hero .tile{width:100%}
+.tile .hd{font-family:var(--display);font-weight:800;font-size:17px;letter-spacing:-.02em;padding:18px 18px 0;display:flex;justify-content:space-between;align-items:center}
+.tile .hd span{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--m)}
+.tile .bd{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:0 14px 18px;text-align:center}
+.tile svg{width:172px;height:auto;display:block;overflow:visible}
+.line{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:-.035em;line-height:1;white-space:pre-line}
+.pill{font-family:var(--display);font-weight:600;font-size:13px;background:var(--pill);color:var(--pillt);border-radius:99px;padding:9px 16px}
+.ship{display:grid;gap:12px;border-top:1px solid var(--rule);padding-top:32px}
+.ship ul{margin:0;padding-left:20px;display:grid;gap:8px;font-size:17px;line-height:1.45;max-width:70ch}
+@media (max-width:860px){.hero{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:480px){.hero{grid-template-columns:1fr}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- The hand: a slow wobble bends every line, a fine one roughs its edge like marker on paper. -->
+    <filter id="hand" x="-15%" y="-15%" width="130%" height="130%">
+      <feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="2" seed="4" result="wob"/>
+      <feDisplacementMap in="SourceGraphic" in2="wob" scale="4.5" xChannelSelector="R" yChannelSelector="G" result="bent"/>
+      <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="1" seed="9" result="grain"/>
+      <feDisplacementMap in="bent" in2="grain" scale="1.6" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <section class="lede">
+    <p class="kicker">Ate · empty states · round 2</p>
+    <h1>Paper Trail, by hand.</h1>
+    <p>The same idea, receipts that haven't printed yet, redrawn in thick marker the way your references are: wobbly lines, hatching instead of fills, scribbles where the text would go, and a bit of mischief (a pencil with nothing to write, a fly on an empty rail, a lens pulling a face).</p>
+  </section>
+
+  <section class="lede">
+    <div class="hero" id="hero"></div>
+    <p class="note">Two versions below: all ink, like your references, or ink with one small colour mark per drawing. My pick is all ink. It matches the references, and colour stays where DESIGN.md puts it, on scores and buttons.</p>
+  </section>
+
+  <div id="dirs"></div>
+
+  <section class="ship">
+    <p class="kicker">When you're happy with it</p>
+    <h2>How it ships</h2>
+    <ul>
+      <li>The empty state gains one drawing above its line; every screen keeps its copy and button.</li>
+      <li>The drawings ship as vector assets in a single ink colour, so dark mode flips them automatically.</li>
+      <li>For the real thing I'd have these drawn by hand (or traced from your sketches) rather than generated, so the wobble is a person's wobble. These set the scenes, the poses and the jokes.</li>
+      <li>DESIGN.md's "no illustration" rule for empty states gets updated to match.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+let uid = 0;
+// Seeded randomness so every drawing is the same on every load.
+let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const I = 'var(--i)';
+const S = (w=3.6) => `stroke="${I}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"`;
+/* A scribble standing in for a line of print. */
+const scrib = (x1, x2, y, amp=1.6) => {
+  let d = `M${x1} ${y}`; for (let x = x1 + 4; x <= x2; x += 4) d += ` L${x} ${(y + (rnd()-.5)*amp*2).toFixed(1)}`;
+  return `<path d="${d}" fill="none" ${S(2)}/>`;
+};
+/* A blank line on the docket: short dashes, a little uneven. */
+const blanks = (x1, x2, y) => { let o=''; for (let x=x1; x<x2-3; x+=7) o += `<line x1="${x}" y1="${y}" x2="${x+3+rnd()*1.5}" y2="${y+(rnd()-.5)}" ${S(2)} />`; return o; };
+/* Hatching clipped to a shape, the references' answer to a fill. */
+const hatch = (d, gap=4.5, ang=-35) => { const id='h'+(uid++); let l='';
+  for (let k=-160; k<320; k+=gap) l += `<line x1="${k}" y1="-40" x2="${k+120}" y2="160" ${S(1.6)}/>`;
+  return `<clipPath id="${id}"><path d="${d}"/></clipPath><g clip-path="url(#${id})" transform-origin="80 60">${l}</g>`; };
+const marker = (x,y,t,s=10,a=0) => `<text x="${x}" y="${y}" text-anchor="middle" font-family="Permanent Marker, cursive" font-size="${s}" fill="${I}" transform="rotate(${a} ${x} ${y})">${t}</text>`;
+const zig = (n,h=6) => Array.from({length:n},()=>`l${h} ${h} ${h} -${h}`).join(' ');
+const paper = d => `<path d="${d}" fill="var(--p)" ${S()}/>`;
+const fillOr = (color, d, colour) => colour ? `<path d="${d}" fill="${color}" ${S()}/>` : `<path d="${d}" fill="var(--p)" ${S()}/>${hatch(d)}<path d="${d}" fill="none" ${S()}/>`;
+
+const scenes = colour => ({
+  journal: () => {
+    const r = `M40 22 V94 ${zig(7)} V22 Z`;
+    return `${paper(r)}${marker(80,40,'#0001',10,-2)}${blanks(50,112,54)}${blanks(50,112,64)}${blanks(50,98,74)}
+      <rect x="25" y="13" width="110" height="13" rx="6" fill="${I}" ${S()}/>
+      <g transform="rotate(-38 128 86)">
+        <path d="M108 80 h34 v12 h-34 Z" fill="${colour?'var(--butter)':'var(--p)'}" ${S()}/>
+        <path d="M142 80 l12 6 -12 6 Z" fill="var(--p)" ${S()}/><path d="M150 84 l4 2 -4 2 Z" fill="${I}"/>
+        <path d="M108 80 h-7 v12 h7" fill="var(--p)" ${S()}/><line x1="104" y1="81" x2="104" y2="91" ${S(2)}/>
+      </g>`;
+  },
+  lists: () => `
+      <path d="M58 94 l14 -8 9 5 -3 9 -16 3 Z" fill="${colour?'var(--lilac)':'var(--p)'}" ${S(2.8)}/>${colour?'':scrib(62,76,95,1)}
+      <line x1="80" y1="96" x2="80" y2="18" ${S(3.8)}/><line x1="78" y1="18" x2="80" y2="12" ${S(2.6)}/>
+      <path d="M42 100 q38 -14 76 0 q-38 14 -76 0 Z" fill="${I}" ${S()}/>
+      <path d="M58 98 q12 -4 22 -4" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"/>`,
+  list: () => {
+    const r = `M40 18 H120 V94 ${zig(7).replace(/l6 6 6 -6/g,'l-6 6 -6 -6')} Z`.replace('V94 ','V94 ');
+    return `${paper(`M40 18 H120 V94 ${'l-6 6 -6 -6 '.repeat(6)}l-6 6 -2 -2 V18 Z`)}
+      ${marker(80,34,'DATE NIGHT',8.5,-1)}
+      ${marker(51,55,'1',10)}${blanks(60,110,52)}
+      ${marker(51,70,'2',10)}${blanks(60,110,67)}
+      ${marker(51,85,'3',10)}${blanks(60,104,82)}
+      <path d="M68 10 h24 v12 h-24 Z" fill="${colour?'var(--green)':I}" ${S()}/>`;
+  },
+  saved: () => {
+    const b = 'M96 6 h18 v38 l-9 -8 -9 8 Z';
+    return `${paper(`M42 14 V94 ${zig(6)} V14 Z`)}${blanks(52,94,32)}${blanks(52,104,44)}${blanks(52,90,56)}${blanks(52,102,68)}
+      ${colour?`<path d="${b}" fill="var(--coral)" ${S()}/>`:`<path d="${b}" fill="${I}" ${S()}/>`}`;
+  },
+  feed: () => {
+    let ghosts=''; [[28,46,28,44],[66,46,28,52],[104,46,28,40]].forEach(([x,y,w,h])=>{
+      for(let k=0;k<4;k++){} ghosts += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${I}" stroke-width="2" stroke-dasharray="3 6" stroke-linecap="round"/>`;});
+    return `${ghosts}<rect x="10" y="30" width="140" height="12" rx="3" fill="var(--p)" ${S()}/>
+      <circle cx="20" cy="36" r="2.4" fill="${I}"/><circle cx="140" cy="36" r="2.4" fill="${I}"/>
+      <path d="M40 104 q14 -16 26 -4 t26 -6 q10 -8 16 -18" fill="none" stroke="${I}" stroke-width="1.8" stroke-dasharray="2 4" stroke-linecap="round"/>
+      <g transform="translate(112 80) rotate(-30)">
+        <ellipse cx="0" cy="0" rx="5" ry="3.5" fill="${colour?'var(--sky)':I}" ${S(2)}/>
+        <path d="M-1 -2 q-5 -9 -9 -3 q2 4 9 3 M1 -2 q3 -9 8 -5 q-2 4 -8 5" fill="var(--p)" ${S(1.6)}/>
+      </g>`;
+  },
+  notifs: () => `${paper(`M50 42 V22 ${'l5 -4 5 4 '.repeat(6)} V42`)}
+      <rect x="24" y="42" width="112" height="52" rx="12" fill="var(--p)" ${S()}/>
+      ${hatch('M24 72 H136 V82 Q136 94 124 94 H36 Q24 94 24 82 Z', 4.5)}
+      <rect x="24" y="42" width="112" height="52" rx="12" fill="none" ${S()}/>
+      <line x1="42" y1="50" x2="118" y2="50" ${S(3)}/>
+      <circle cx="116" cy="62" r="4.5" fill="${colour?'var(--green)':'var(--p)'}" ${S(2.4)}/>
+      ${marker(132,20,'z',11,8)}${marker(142,10,'z',8,8)}`,
+  search: () => `${paper(`M28 14 V92 ${zig(6)} V14 Z`)}${scrib(38,82,30)}${blanks(38,90,44)}${blanks(38,80,56)}
+      <line x1="118" y1="90" x2="136" y2="108" ${S(7)}/>
+      <circle cx="104" cy="74" r="21" fill="var(--p)" ${S(3.8)}/>
+      <path d="M95 69 v4 M111 68 v4" ${S(3)}/><line x1="96" y1="82" x2="112" y2="81" ${S(2.8)}/>`,
+  error: () => `${paper('M44 14 H116 V52 l-6 5 -6 -5 -6 6 -6 -4 -6 5 -6 -6 -6 4 -6 -3 -6 5 -6 -4 -6 4 -6 -4 Z')}
+      ${marker(80,32,'#????',10,-2)}${blanks(54,106,44)}
+      <g transform="translate(8 10) rotate(8 80 84)">${paper('M44 64 l6 4 6 -5 6 6 6 -4 6 5 6 -6 6 4 6 -3 6 5 6 -4 6 4 6 -4 V104 H44 Z')}${blanks(54,106,84)}${blanks(54,92,94)}</g>
+      <path d="M36 60 l-8 -3 M38 66 l-9 2 M128 62 l9 -2 M126 70 l8 4" ${S(2.6)}/>`,
+});
+
+const STATES = [
+  {id:'journal', hd:'October', line:'Nothing\non the tab.', pill:'Write your first'},
+  {id:'lists', hd:'Lists', line:'No lists\nyet.', pill:'Make a list'},
+  {id:'list', hd:'Date night', line:'Nothing on\nit yet.', pill:'Add dishes'},
+  {id:'saved', hd:'Saved', line:'Nothing saved\nyet.'},
+  {id:'feed', hd:'Feed', line:"Nobody's written\nanything yet."},
+  {id:'notifs', hd:'Notifications', line:'Nothing new'},
+  {id:'search', hd:'Search', line:'Not in\nyour record.'},
+  {id:'error', hd:'Journal', line:"Couldn't\nreach Ate.", pill:'Try again'},
+];
+
+const art = (s, colour) => { seed = 11 + s.id.length * 7; return `<svg viewBox="0 0 160 120" role="img" aria-label="${s.line.replace('\n',' ')}"><g filter="url(#hand)">${scenes(colour)[s.id]()}</g></svg>`; };
+const tile = (s, colour, dark) => `<div class="app tile${dark?' dark':''}"><div class="hd">${s.hd}<span>${dark?'dark':'light'}</span></div>
+  <div class="bd">${art(s, colour)}<div class="line">${s.line}</div>${s.pill?`<div class="pill">${s.pill}</div>`:''}</div></div>`;
+
+const pick = ['journal','feed','search','error'];
+document.getElementById('hero').innerHTML = pick.map((id,k)=>tile(STATES.find(s=>s.id===id), false, k%2===1)).join('');
+
+const VARS = [
+  {key:'Ink only', colour:false, pitch:'Everything in the ink colour, black on linen and cream on plum. Hatching does the work fills used to.', badge:'My pick'},
+  {key:'Ink + one colour', colour:true, pitch:'The same drawings with one small mark in an accent: the pencil, the scrap on the spike, the bookmark, the fly, the printer light.'},
+];
+document.getElementById('dirs').innerHTML = VARS.map(v=>`<section class="dir">
+  <header><p class="kicker">${v.badge||'Variant'}</p><h2>${v.key}</h2><p>${v.pitch}</p></header>
+  <div class="strip-label">Light</div><div class="strip">${STATES.map(s=>tile(s,v.colour,false)).join('')}</div>
+  <div class="strip-label">Dark</div><div class="strip">${STATES.map(s=>tile(s,v.colour,true)).join('')}</div>
+</section>`).join('');
+</script>

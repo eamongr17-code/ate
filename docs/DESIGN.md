@@ -20,7 +20,9 @@ for exact sizes, colours, radii and copy; it is 390×844 and does not render out
    **Receipts print dish rows and scores only: never a per-dish quote under a line** (Share, Summary,
    statement, anywhere). **Edge B on dish entry slips, the place menu and every receipt** (the stats
    slip on You/Profile is whole, 16 all round).
-   **Empty states use no receipt motif**: one 40pt line and at most one ink pill, on the ground.
+   **Empty states** (Eamon, 2026-10-06): one hand-drawn ink illustration ("Paper Trail": receipts
+   that haven't printed yet, in marker, ink only), then one 40pt line and at most one ink pill, on the
+   ground. The drawing is picked by what the emptiness is, never by screen.
 5. **Colour is punctuation**, never decoration: score tokens, avatars, the + button, Share/Welcome
    grounds. No blobs, patterns, gradients-as-style, or colour-blocked feed cards.
 6. **The mess is tilt + overlap of photos**, only in small static clusters (entry slips, entry,

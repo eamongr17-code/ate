@@ -51,17 +51,18 @@ extension JournalRoot {
         case .empty:
             if journal.query.hasFilters {
                 // Clear is everything: the order, the range, the city, the months.
-                emptyBand(AteEmptyState(line: "Nothing\nlike that.", pill: ("Clear", { apply(BrowseFilters()) })))
+                emptyBand(AteEmptyState(line: "Nothing\nlike that.", art: .search,
+                    pill: ("Clear", { apply(BrowseFilters()) })))
             } else {
                 emptyBand(AteEmptyState(
-                    line: "Nothing\non the tab.",
+                    line: "Nothing\non the tab.", art: .journal,
                     pill: ("Write your first", { compose(ComposerPresentation(origin: .journalEmpty)) })
                 ))
             }
         case .signedOut:
-            emptyBand(AteEmptyState(line: "Nobody's\nsigned in."))
+            emptyBand(AteEmptyState(line: "Nobody's\nsigned in.", art: .printer))
         case .failed:
-            emptyBand(AteEmptyState(line: "Couldn't\nreach Ate.", pill: ("Try again", { retryJournal() })))
+            emptyBand(AteEmptyState(line: "Couldn't\nreach Ate.", art: .torn, pill: ("Try again", { retryJournal() })))
         case .ready:
             slips
         }

@@ -256,6 +256,6 @@ enum KitGalleryMetrics {
     /// An inline sheet's frame, standing in for the presented sheet.
     static let sheetHeight: CGFloat = 640
     static let shortSheetHeight: CGFloat = 400
-    static let emptyHeight: CGFloat = 300
+    static let emptyHeight: CGFloat = 380
 }
 #endif

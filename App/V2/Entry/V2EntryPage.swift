@@ -120,9 +120,10 @@ private struct V2EntryScreen: View {
             // itself is gone, where a retry would be a button that never works.
             switch failure {
             case .unreachable:
-                AteEmptyState(line: "Couldn't reach Ate.", pill: ("Try again", { Task { await model.retryLoad() } }))
+                AteEmptyState(line: "Couldn't reach Ate.", art: .torn,
+                    pill: ("Try again", { Task { await model.retryLoad() } }))
             case .gone:
-                AteEmptyState(line: "This entry\nis gone.")
+                AteEmptyState(line: "This entry\nis gone.", art: .torn)
                     .accessibilityIdentifier("entry.gone")
             }
         } else {

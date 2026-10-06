@@ -104,11 +104,11 @@ struct V2ListPage: View {
                     .listPlainRow()
             }
         case .failed:
-            AteEmptyState(line: ListsCopy.unreachable, pill: (ListsCopy.tryAgain, { retry() }))
+            AteEmptyState(line: ListsCopy.unreachable, art: .torn, pill: (ListsCopy.tryAgain, { retry() }))
                 .frame(minHeight: ListsMetrics.emptyMinimum)
                 .listPlainRow()
         case .empty:
-            AteEmptyState(line: ListsCopy.emptyList, pill: (ListsCopy.addDishes, { pick() }))
+            AteEmptyState(line: ListsCopy.emptyList, art: .list, pill: (ListsCopy.addDishes, { pick() }))
                 .frame(minHeight: ListsMetrics.emptyMinimum)
                 .listPlainRow()
                 .accessibilityIdentifier("list.empty")

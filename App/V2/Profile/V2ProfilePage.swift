@@ -92,7 +92,7 @@ struct V2ProfilePage: View {
             EmptyView()
         case .unavailable:
             // A blocked or deleted author is simply not there. Say that, and nothing else.
-            AteEmptyState(line: "This person\nisn't here.")
+            AteEmptyState(line: "This person\nisn't here.", art: .torn)
                 .containerRelativeFrame(.vertical)
         case .ready(let summary):
             AteProfileStats(summary: summary)
@@ -109,13 +109,13 @@ struct V2ProfilePage: View {
                 .ateCardWidth()
         case .empty:
             // Nothing public. Not an error, and not an invitation to do anything about it.
-            AteEmptyState(line: "Nothing\nto read yet.")
+            AteEmptyState(line: "Nothing\nto read yet.", art: .rail)
                 .containerRelativeFrame(.vertical) { height, _ in height / 2 }
         case .signedOut:
-            AteEmptyState(line: "Nobody's\nsigned in.")
+            AteEmptyState(line: "Nobody's\nsigned in.", art: .printer)
                 .containerRelativeFrame(.vertical) { height, _ in height / 2 }
         case .failed:
-            AteEmptyState(line: "Couldn't\nreach Ate.", pill: (title: "Try again", action: {
+            AteEmptyState(line: "Couldn't\nreach Ate.", art: .torn, pill: (title: "Try again", action: {
                 Task { await store.refresh() }
             }))
             .containerRelativeFrame(.vertical) { height, _ in height / 2 }

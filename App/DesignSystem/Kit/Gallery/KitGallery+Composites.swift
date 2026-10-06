@@ -109,9 +109,9 @@ extension KitGalleryScreen {
             .ateCardWidth()
         }
         section("Empty state") {
-            AteEmptyState(line: "Nothing\non the tab.", pill: ("Write your first", {}))
+            AteEmptyState(line: "Nothing\non the tab.", art: .journal, pill: ("Write your first", {}))
                 .frame(height: KitGalleryMetrics.emptyHeight)
-            AteEmptyState(line: "Nothing saved\nyet.")
+            AteEmptyState(line: "Nothing saved\nyet.", art: .saved)
                 .frame(height: KitGalleryMetrics.emptyHeight)
         }
         section("Skeleton") {
