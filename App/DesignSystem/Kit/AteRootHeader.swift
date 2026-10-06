@@ -67,26 +67,27 @@ enum AteHeaderGroundMetrics {
     /// sit 5 above it — so the fade lands on the bar's edge and the content's first lines at rest
     /// are left alone.
     static let solidShort: CGFloat = 8
-    /// How far the content scrolls while the ground crossfades in: none at rest, all of it by 24.
-    static let crossfade: CGFloat = 24
-    /// The crossfade moves in steps this fine — smooth to the eye, and the overlay redraws only
-    /// when a step is crossed.
-    static let steps: CGFloat = 24
+    /// The ground is off at rest and on once the content has gone this far under the bar.
+    static let showAfter: CGFloat = 4
+    /// The switch is a short step, not a scroll-driven fade (Eamon, build 94).
+    static let switchDuration: Double = 0.15
 }
 
-/// ``SwiftUICore/View/ateHeaderGround()``: the ground over the bar, as opaque as the page has
-/// scrolled under it.
+/// ``SwiftUICore/View/ateHeaderGround()``: the ground over the bar, there once the page has
+/// scrolled under it and gone at rest.
 private struct AteHeaderGround: ViewModifier {
     @State private var shown: CGFloat = 0
 
     func body(content: Content) -> some View {
         content
-            .onScrollGeometryChange(for: CGFloat.self) { geometry in
-                let offset = geometry.contentOffset.y + geometry.contentInsets.top
-                let progress = min(max(offset / AteHeaderGroundMetrics.crossfade, 0), 1)
-                return (progress * AteHeaderGroundMetrics.steps).rounded() / AteHeaderGroundMetrics.steps
-            } action: { _, progress in
-                shown = progress
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top > AteHeaderGroundMetrics.showAfter
+            } action: { _, scrolled in
+                // The same ground as always, there or not (Eamon, build 94: no faded header): it
+                // switches in a short step the moment content goes under the bar, never by degrees.
+                withAnimation(.easeOut(duration: AteHeaderGroundMetrics.switchDuration)) {
+                    shown = scrolled ? 1 : 0
+                }
             }
             // The ground is the bar's only edge: the system's scroll-edge effect drew a lighter band and a
             // line over the page even at rest (build 92).
@@ -229,9 +230,10 @@ extension View {
     /// a sharp edge and a blurred ghost above it.
     ///
     /// Only while something is under it (build 92, note 1): at rest the page is one surface — no
-    /// band, no edge — and the ground crossfades in over the first ``AteHeaderGroundMetrics/crossfade``
-    /// points of scroll, and out again on the way back. It reads the first scroll view inside the
-    /// page and changes only its own opacity: the bar's layout never moves.
+    /// band, no edge — and the ground switches in, whole, once the content has gone
+    /// ``AteHeaderGroundMetrics/showAfter`` points under the bar, and out again at rest (build 94:
+    /// never a scroll-driven fade). It reads the first scroll view inside the page and changes only
+    /// its own opacity: the bar's layout never moves.
     ///
     /// Every bar modifier in the kit applies it (``ateRootToolbar``, ``ateInlineTitle``,
     /// ``ateInlineByline``), so roots and pushed pages get it once. Drawn over the page and under

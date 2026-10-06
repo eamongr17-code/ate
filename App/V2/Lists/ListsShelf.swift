@@ -44,7 +44,7 @@ struct ListsShelf: View {
 
     @ViewBuilder
     private var content: some View {
-        AteNewListCard(title: ListsCopy.newList, identifier: "lists.newCard") {
+        AteAddRow(title: ListsCopy.newList, identifier: "lists.newCard") {
             guard app.gate.permitsWrite(.journal) else { return }
             app.services.analytics(ListEvents.ctaTapped(from: .shelf))
             isNaming = true
@@ -79,9 +79,9 @@ struct ListsShelf: View {
     }
 
     private func emptyBand(_ state: AteEmptyState) -> some View {
-        // The band fills what the New list card leaves of the screen.
+        // The band fills what the New list row leaves of the screen.
         state.containerRelativeFrame(.vertical) { length, _ in
-            max(length - AteNewListCardMetrics.height - AteListCardMetrics.spacing, ListsMetrics.emptyMinimum)
+            max(length - AteChoiceRowMetrics.addHeight - AteListCardMetrics.spacing, ListsMetrics.emptyMinimum)
         }
     }
 
