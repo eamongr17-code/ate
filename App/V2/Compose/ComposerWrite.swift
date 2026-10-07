@@ -210,7 +210,8 @@ struct V2ComposerWrite: View {
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, AteMetrics.gutter)
-                .padding(.bottom, AteMetrics.tight)
+                // Clear of the keys, tilt and all (Eamon, 7 Oct: it sat on the toolbar).
+                .padding(.bottom, AteMetrics.snug)
                 .accessibilityIdentifier("composer.photos")
                 .transition(.opacity)
             }
@@ -235,6 +236,7 @@ struct V2ComposerWrite: View {
                     model.dismissScoring(refocus: false)
                 },
                 onCode: pick,
+                worn: isChoosingDiet ? model.composition.dishTags(atDisplayOffset: model.caret) : [],
                 with: model.companions.map { AteWithPerson(id: $0.userID, handle: $0.handle) },
                 onWith: {
                     // Who and where both sit in keys, never in the words (`ate-with.html` 1a).

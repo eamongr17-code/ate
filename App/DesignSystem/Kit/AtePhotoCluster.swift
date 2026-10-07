@@ -10,7 +10,7 @@ struct AtePhotoCluster: View {
     enum Size: Equatable {
         /// An entry slip: 80, `-5 4 -2`, `padding:2px 0 0 6px`.
         case slip
-        /// The composer: 90.
+        /// The composer: 116 (Eamon, 7 Oct: "a bit bigger").
         case composer
         /// The printed receipt's stage: 96, `-7 5 -3`.
         case summary
@@ -22,8 +22,8 @@ struct AtePhotoCluster: View {
     var size: Size = .slip
     /// The colour directly behind the cluster — the ring is drawn in it. Defaults to the surface.
     var surface: Color?
-    /// A tapped photo. Unset, a photo opens the shell's viewer on these photos — every cluster is a
-    /// door to the viewer except the composer's, whose photos are being chosen (``onRemove``).
+    /// A tapped photo. Unset, a photo opens the viewer on these photos — every cluster is a door to
+    /// the viewer, the composer's too (its X is the way to take one out).
     var onTap: ((Int) -> Void)?
     var onRemove: ((Int) -> Void)?
 
@@ -41,7 +41,7 @@ struct AtePhotoCluster: View {
             bottomPadding: metrics.bottom,
             angles: metrics.angles,
             onRemove: onRemove,
-            onTap: onTap ?? (onRemove == nil ? { showPhotos(photos, at: $0) } : nil)
+            onTap: onTap ?? { showPhotos(photos, at: $0) }
         )
     }
 }
@@ -55,7 +55,8 @@ struct AtePhotoClusterMetrics {
     init(_ size: AtePhotoCluster.Size) {
         switch size {
         case .slip: (side, angles, top, bottom) = (AteMetrics.clusterPhoto, AtePhotoAngles.slip, 2, 0)
-        case .composer: (side, angles, top, bottom) = (AteMetrics.clusterPhotoComposer, AtePhotoAngles.slip, 4, 2)
+        // The tilt carries a corner ~5 past the square at 116: the air above and below covers it.
+        case .composer: (side, angles, top, bottom) = (AteMetrics.clusterPhotoComposer, AtePhotoAngles.slip, 8, 6)
         case .summary: (side, angles, top, bottom) = (96, [-7, 5, -3], 0, 0)
         case .entry: (side, angles, top, bottom) = (104, [-6, 5, -2], 6, 0)
         }

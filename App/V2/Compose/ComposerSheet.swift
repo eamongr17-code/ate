@@ -49,6 +49,8 @@ struct ComposerSheet: View {
                     .zIndex(1)
             }
         }
+        // A staged photo opens full screen from inside the sheet: the shell's viewer is under it.
+        .atePhotoViewerHost()
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
     }

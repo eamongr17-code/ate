@@ -118,6 +118,9 @@ public struct EntryComposition: Hashable, Codable, Sendable {
         }
         guard let found = ScoreLiteral.candidate(in: plain, caretUTF16: plainCaret) else { return nil }
         guard spans.contains(where: { $0.span.intersects(found.span) }) == false else { return nil }
+        // A code the dish already wears stays words: "salad GF gf" is one GF, never two.
+        guard tagCluster(around: found.span.location).contains(where: { $0.token.tag == found.mark.tag }) == false
+        else { return nil }
         return found
     }
 

@@ -83,3 +83,52 @@ extension InlineTokenEditor.Coordinator {
         true
     }
 }
+
+extension InlineTokenEditor.Coordinator {
+    /// **A dish's codes are one chip** (``DietChipJoin``), kept so as the words change under them: two
+    /// codes one space apart run on into each other and the space between them closes up; anything
+    /// typed between them parts them again. **Attributes only**, like ``attach(_:in:)``, so nothing
+    /// UIKit has registered for undo is disturbed — and a chip is only redrawn when its join moved.
+    func regroupTags(in view: InlineTokenTextView, reassertingSpaces: Bool = false) {
+        let storage = view.textStorage
+        let string = storage.string as NSString
+        var chips: [(index: Int, token: EntryToken)] = []
+        var opened: [Int] = []
+        for index in 0..<storage.length {
+            if storage.attribute(.ateCollapsedSpace, at: index, effectiveRange: nil) != nil { opened.append(index) }
+            guard string.character(at: index) == InlineTokenAttributes.objectReplacement,
+                  let box = storage.attribute(.ateToken, at: index, effectiveRange: nil) as? TokenBox,
+                  box.token.tag != nil else { continue }
+            chips.append((index, box.token))
+        }
+        let runs = InlineTokenAttributes.tagRuns(chips.map { $0.index..<($0.index + 1) }) { string.character(at: $0) }
+        let closed = Set(runs.spaces)
+        let stale = zip(chips, runs.joins).filter { chip, join in
+            (storage.attribute(.ateChipJoin, at: chip.index, effectiveRange: nil) as? Int) != join.rawValue
+        }
+        let reopened = opened.filter { closed.contains($0) == false }
+        let closing = reassertingSpaces ? Array(closed) : closed.filter { opened.contains($0) == false }
+        guard stale.isEmpty == false || reopened.isEmpty == false || closing.isEmpty == false else { return }
+
+        let wasRendering = isRendering
+        isRendering = true
+        let selection = view.selectedRange
+        storage.beginEditing()
+        for (chip, join) in stale {
+            storage.setAttributes(
+                attributes.attachmentString(for: chip.token, join: join).attributes(at: 0, effectiveRange: nil),
+                range: NSRange(location: chip.index, length: 1)
+            )
+        }
+        for index in reopened {
+            storage.setAttributes(baseAttributes(), range: NSRange(location: index, length: 1))
+        }
+        for index in closing {
+            storage.setAttributes(attributes.collapsedSpace(), range: NSRange(location: index, length: 1))
+        }
+        storage.endEditing()
+        view.selectedRange = selection
+        view.typingAttributes = baseAttributes()
+        isRendering = wasRendering
+    }
+}

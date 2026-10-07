@@ -8,24 +8,29 @@ import SwiftUI
 struct AteDietChip: View {
     let tag: DietTag
     var onGround = false
+    /// Where it sits in its dish's grouped chip (``DietChipJoin``); alone, a whole capsule.
+    var join: DietChipJoin = []
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        DietTagChip(tag: tag, fill: onGround ? palette.field : AteColor.tagFill)
+        DietTagChip(tag: tag, fill: onGround ? palette.field : AteColor.tagFill, join: join)
     }
 }
 
-/// A dish's tags in a row after its name — 4 apart (`.dname .diet + .diet`).
+/// A dish's tags after its name, grouped into one chip — `GF V VG` (Eamon, 7 Oct).
 struct AteDietChips: View {
     let tags: [DietTag]
     var onGround = false
 
     var body: some View {
         if tags.isEmpty == false {
-            HStack(spacing: TokenPillMetrics.dietGapBetween) {
-                ForEach(tags, id: \.self) { AteDietChip(tag: $0, onGround: onGround) }
+            HStack(spacing: 0) {
+                ForEach(Array(tags.enumerated()), id: \.element) { index, tag in
+                    AteDietChip(tag: tag, onGround: onGround, join: .at(index, of: tags.count))
+                }
             }
+            .accessibilityElement(children: .combine)
         }
     }
 }

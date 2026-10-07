@@ -71,8 +71,8 @@ enum ComposerPhotoStaging {
     /// The longest edge we keep. Generous for a share card at 3×, meaningless as a download.
     static let maximumDimension: CGFloat = 1600
     static let compressionQuality: CGFloat = 0.8
-    /// The preview a pick shows while its bytes are written — about a 90pt tile at 3×.
-    static let previewDimension: CGFloat = 300
+    /// The preview a pick shows while its bytes are written — about a 116pt tile at 3×.
+    static let previewDimension: CGFloat = 360
 
     /// The picker's key for an item, so the same photo is never staged twice.
     static func key(for item: PhotosPickerItem) -> String {

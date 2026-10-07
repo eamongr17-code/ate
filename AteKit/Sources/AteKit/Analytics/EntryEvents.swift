@@ -212,6 +212,11 @@ public enum EntryEvents {
         AnalyticsEvent(name: "dish_tag_added", parameters: ["code": tag.rawValue])
     }
 
+    /// The Diet key was pressed for a code the dish already wears, and took it back off.
+    public static func dishTagRemoved(_ tag: DietTag) -> AnalyticsEvent {
+        AnalyticsEvent(name: "dish_tag_removed", parameters: ["code": tag.rawValue])
+    }
+
     /// The Summary after Done: its ink **Share** was tapped (the share itself is still counted by
     /// `receipt_shared`, with `source=summary`, at the moment the image leaves)…
     public static func summaryShared(entryID: UUID) -> AnalyticsEvent {

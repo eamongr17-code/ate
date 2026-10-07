@@ -22,6 +22,8 @@ struct AteKeyCapsule<Library: View>: View {
     /// The Diet key was pressed: anything open (the slider) closes before the codes unfold.
     let onDiet: () -> Void
     let onCode: (DietTag) -> Void
+    /// The codes the dish at the caret already wears: on in the unfold, and a press takes one off.
+    var worn: [DietTag] = []
     /// "Ate with": the people on the With key, and what it opens. No key at all without `onWith`.
     var with: [AteWithPerson] = []
     var onWith: (() -> Void)?
@@ -84,7 +86,7 @@ struct AteKeyCapsule<Library: View>: View {
     }
 
     private func code(_ tag: DietTag) -> some View {
-        AteKey(kind: .code(tag)) {
+        AteKey(kind: .code(tag), isActive: worn.contains(tag)) {
             isChoosingDiet = false
             onCode(tag)
         }

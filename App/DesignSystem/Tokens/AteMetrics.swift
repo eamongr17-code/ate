@@ -212,8 +212,8 @@ enum AteMetrics {
 
     /// A photo in a static, tilted cluster — journal slip.
     static let clusterPhoto: CGFloat = 80
-    /// …in the composer, biggest of the three.
-    static let clusterPhotoComposer: CGFloat = 90
+    /// …in the composer, biggest of them all (Eamon, 7 Oct: 90 → 116).
+    static let clusterPhotoComposer: CGFloat = 116
     /// How far cluster photos overlap.
     static let clusterOverlap: CGFloat = 12
     /// The ring that separates overlapping photos, in the surface's own colour.

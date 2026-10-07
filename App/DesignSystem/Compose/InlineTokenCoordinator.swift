@@ -117,6 +117,8 @@ extension InlineTokenEditor {
                 view.textStorage.addAttributes(baseAttributes(), range: NSRange(0..<view.textStorage.length))
             }
             attach(edit.tokens, in: view)
+            // A render restyles every character, the closed-up spaces' kern with them.
+            regroupTags(in: view, reassertingSpaces: edit.restylesAll)
             rendered.remember(composition(from: view), as: view.textStorage.string)
 
             let length = view.textStorage.length
@@ -215,7 +217,7 @@ extension InlineTokenEditor {
         }
 
         /// The one attributed-string builder, shared with the read-only prose.
-        private var attributes: InlineTokenAttributes {
+        var attributes: InlineTokenAttributes {
             InlineTokenAttributes(
                 style: style,
                 palette: palette,
@@ -252,6 +254,7 @@ extension InlineTokenEditor {
             // Typing inside or beside an attachment can leave the pill's own attributes on new
             // characters; normalise before deriving so a token can't smear.
             normaliseTokens(in: view)
+            regroupTags(in: view)
             binding.wrappedValue = composition(from: view)
             // Noticed now, applied a turn later — see `scheduleScorePromotion`.
             if let promotion = promotableScore(in: view) { noticedPromotion = promotion }
@@ -338,6 +341,7 @@ extension InlineTokenEditor {
                 isRendering = true
                 let caret = view.selectedRange
                 attach(known, in: view)
+                regroupTags(in: view)
                 view.selectedRange = caret
                 view.typingAttributes = baseAttributes()
                 isRendering = false

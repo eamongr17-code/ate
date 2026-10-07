@@ -185,10 +185,10 @@ struct SlipDishRow: View {
     }
 }
 
-/// **A dish's tags as text** riding inside the name's `Text`: 6 after the name, 4 apart, each
-/// code in the chip's own voice, lifted 3 (`.dname .diet`). Real glyphs, so they scale with Dynamic
-/// Type (to the chip style's cap) and wrap with the word they follow; ``Renderer`` paints each
-/// chip's linen capsule behind its code. No picture is involved anywhere.
+/// **A dish's tags as text** riding inside the name's `Text`: 6 after the name, every code in one
+/// chip (``DietChipJoin``), in the chip's own voice, lifted 3 (`.dname .diet`). Real glyphs, so they
+/// scale with Dynamic Type (to the chip style's cap) and wrap with the word they follow;
+/// ``Renderer`` paints the linen capsule behind the codes. No picture is involved anywhere.
 enum DietTagRun {
     /// Marks a chip's characters — its padding and its code — so the renderer can find them.
     struct Chip: TextAttribute {
@@ -198,20 +198,22 @@ enum DietTagRun {
     static func text(tags: [DietTag], dynamicTypeSize: DynamicTypeSize) -> Text {
         let font = AteFont.uiFont(for: .dietTag, dynamicTypeSize: dynamicTypeSize)
         let scale = scale(dynamicTypeSize)
-        var run = Text(verbatim: "")
+        guard tags.isEmpty == false else { return Text(verbatim: "") }
+        let pad = spacer(TokenPillMetrics.dietPadding * scale, font: font)
+        var codes = Text(verbatim: "")
         for (index, tag) in tags.enumerated() {
-            let gap = index == 0 ? TokenPillMetrics.dietGapOnName : TokenPillMetrics.dietGapBetween
-            let pad = spacer(TokenPillMetrics.dietPadding * scale, font: font)
             let code = Text(verbatim: tag.label)
                 .font(Font(font))
                 .tracking(font.pointSize * AteTextStyle.dietTag.trackingEm)
                 .foregroundStyle(AteColor.tagInk)
-            let chip = Text("\(pad)\(code)\(pad)")
-                .baselineOffset(TokenPillMetrics.dietRiseOnName * scale)
-                .customAttribute(Chip(index: index))
-            run = Text("\(run)\(spacer(gap * scale, font: font))\(chip)")
+            codes = index == 0
+                ? code
+                : Text("\(codes)\(spacer(TokenPillMetrics.dietInnerPadding * 2 * scale, font: font))\(code)")
         }
-        return run
+        let chip = Text("\(pad)\(codes)\(pad)")
+            .baselineOffset(TokenPillMetrics.dietRiseOnName * scale)
+            .customAttribute(Chip(index: 0))
+        return Text("\(spacer(TokenPillMetrics.dietGapOnName * scale, font: font))\(chip)")
     }
 
     /// How far Dynamic Type has taken the chip from its drawn 10.5 (capped with the style).

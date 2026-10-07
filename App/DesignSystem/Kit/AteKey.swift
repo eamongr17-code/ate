@@ -19,7 +19,8 @@ struct AteKey: View {
     }
 
     let kind: Kind
-    /// The Score key inverts while its slider is open: ink pill, butter lettering.
+    /// The Score key inverts while its slider is open: ink pill, butter lettering. A code is on (ink)
+    /// when the dish already wears it, and pressing it takes it back off.
     var isActive = false
     let action: () -> Void
 
@@ -59,7 +60,7 @@ struct AteKey: View {
             )
             .fixedSize()
         case .code(let tag):
-            AteDietPill(tag: tag, identifier: "composer.diet.\(tag.rawValue)", action: action)
+            AteDietPill(tag: tag, isOn: isActive, identifier: "composer.diet.\(tag.rawValue)", action: action)
         case .with(let people):
             Button(action: action) { AteWithKeyFace(people: people).ateHitArea(.keyDisc) }
                 .buttonStyle(.plain)

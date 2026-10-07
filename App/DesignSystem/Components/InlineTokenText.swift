@@ -164,14 +164,15 @@ enum TokenPill {
         dynamicTypeSize: DynamicTypeSize,
         scale: CGFloat,
         colorScheme: ColorScheme = .light,
-        isSelected: Bool = false
+        isSelected: Bool = false,
+        join: DietChipJoin = []
     ) -> UIImage? {
         let key = Key(
             kind: kind, prose: prose, scale: scale, dynamicTypeSize: dynamicTypeSize,
-            palette: palette, colorScheme: colorScheme, isSelected: isSelected
+            palette: palette, colorScheme: colorScheme, isSelected: isSelected, join: join
         )
         if let cached = cache[key] { return cached }
-        let renderer = ImageRenderer(content: view(for: kind, prose: prose, isSelected: isSelected)
+        let renderer = ImageRenderer(content: view(for: kind, prose: prose, isSelected: isSelected, join: join)
             .environment(\.atePalette, palette)
             .environment(\.dynamicTypeSize, dynamicTypeSize)
             .environment(\.colorScheme, colorScheme))
@@ -183,7 +184,9 @@ enum TokenPill {
     }
 
     @ViewBuilder
-    private static func view(for kind: EntryTokenKind, prose: CGFloat, isSelected: Bool) -> some View {
+    private static func view(
+        for kind: EntryTokenKind, prose: CGFloat, isSelected: Bool, join: DietChipJoin
+    ) -> some View {
         // `prose` is the words' point size as already scaled for Dynamic Type, and the attachment's
         // bounds are measured from it — so the pill is drawn at the design's size of THAT prose, not
         // scaled a second time (which put AX-size digits in a pill measured for the prose, clipped).
@@ -195,7 +198,10 @@ enum TokenPill {
             PlaceToken(name: place.name, prose: prose)
                 .environment(\.dynamicTypeSize, .large)
         case .tag(let mark):
-            DietTagChip(tag: mark.tag).padding(.horizontal, TokenPillMetrics.dietMarginInProse)
+            // A code that runs on into its neighbour meets it edge to edge: no margin on that side.
+            DietTagChip(tag: mark.tag, join: join)
+                .padding(.leading, join.contains(.leading) ? 0 : TokenPillMetrics.dietMarginInProse)
+                .padding(.trailing, join.contains(.trailing) ? 0 : TokenPillMetrics.dietMarginInProse)
         }
     }
 
@@ -207,6 +213,7 @@ enum TokenPill {
         let palette: PaletteKey
         let colorScheme: ColorScheme
         let isSelected: Bool
+        let join: DietChipJoin
 
         init(
             kind: EntryTokenKind,
@@ -215,7 +222,8 @@ enum TokenPill {
             dynamicTypeSize: DynamicTypeSize,
             palette: AtePalette,
             colorScheme: ColorScheme,
-            isSelected: Bool
+            isSelected: Bool,
+            join: DietChipJoin
         ) {
             self.kind = kind
             self.prose = prose
@@ -224,6 +232,7 @@ enum TokenPill {
             self.palette = PaletteKey(palette)
             self.colorScheme = colorScheme
             self.isSelected = isSelected
+            self.join = join
         }
 
         /// A pill drawn on paper and the same pill drawn on the ink ground are different images and
