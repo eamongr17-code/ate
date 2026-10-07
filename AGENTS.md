@@ -54,7 +54,9 @@ feedback, and brand direction when he defines it. Everything else is the team's 
   docs above; a dispatch carries only the novel facts (scope, SHA, constraints, what's done).
 - **Design happens on the canvas, then in code.** Eamon reviews whole-app prototypes (the claude.ai
   design canvas) and annotates them; once approved they are snapshotted into `design/` and built
-  faithfully. Genuinely uncertain interactions still ship as two working variants behind a Debug toggle.
+  faithfully. New visual questions are asked once, up front, as one recommendation (plus an
+  alternative only when genuinely uncertain) shown as a mockup or screenshot — never two variants built
+  in Swift.
 - **Less ceremony.** Few, large, flow-complete PRs; no briefs or specs for work the design already
   answers; nothing is written for process' sake.
 - **Port, don't rewrite, solved logic.** Dish ranking, dedup, sitting state, sort orders come from the
@@ -64,6 +66,21 @@ feedback, and brand direction when he defines it. Everything else is the team's 
   (`claude-opus-5-5`; the bare `opus` alias resolves to an older model). Mechanical bulk work goes to haiku.
 - **The digest is the interface to Eamon.** The lead maintains one running CEO digest (artifact):
   shipped, in-flight, metrics, flagged decisions, escalations. Nothing else is written for him.
+
+## Speed and hygiene (standing duty)
+
+Speed of change is a product feature. Every round the lead keeps the codebase and the process light:
+
+- **Lanes:** at most three, on disjoint files, fresh agents each round with short briefs. QA reviews
+  backend/data/auth changes plus one code-first pass over the integrated round; app PRs merge on the
+  lane's own tests + green CI. The lead makes small fixes directly.
+- **Same-PR hygiene:** the PR that decides something deletes the loser, its switches, drives and
+  scripts; the PR that retires a feature deletes its code and tests. Nothing is "parked". Tests are
+  named by feature, never by round. Debug screens open through one route argument, not new flags.
+- **Round close-out, before the beta:** check PR CI critical path (≤ 8 min), flaky reruns (0), new
+  debug args (0), files within 50 lines of the lint cap, dead symbols, and whether any lane had to
+  touch fakes or `App/Root` for an unrelated feature. Anything over the line is fixed that round.
+- **Every ~3 rounds:** a short fresh velocity audit of app and pipeline; act on the quick wins.
 
 ## Docs budget
 
