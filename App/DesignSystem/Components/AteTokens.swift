@@ -50,22 +50,27 @@ enum TokenPillMetrics {
         switch kind {
         case .score: descent(height: height(for: kind, prose: prose), icon: starSide)
         case .place: descent(height: height(for: kind, prose: prose), icon: pinSide)
-        // Same box as the score pill's, so a dish's codes and its score sit level in the words.
-        case .tag: descent(height: height(for: kind, prose: prose), icon: starSide)
+        // Centred on the score pill's box, so a dish's codes and its score sit level in the words.
+        case .tag:
+            descent(height: prose * scoreHeightEm, icon: starSide)
+                - (prose * scoreHeightEm - height(for: kind, prose: prose)) / 2
         }
     }
 
-    // **A diet chip is the score pill's sibling** (Eamon, 9 Oct): the same capsule, height and mono
-    // voice, so a dish's codes and its score sit level on one line, but muted — the ground colour,
-    // no enamel — so the score stays the headline. In the words it is proportioned off the prose
-    // exactly like `.tok`; on its own (a dish row, a slip's name) it is that pill at slip prose, 16.
+    // **A diet chip is the score pill's sibling** (Eamon, 9 Oct): the same capsule and mono voice,
+    // centred on the same line, but muted — the ground colour — so the score stays the headline.
+    // **A step smaller than the score** (Eamon, build 103): at the same size a run of capitals reads
+    // bigger than a star and three digits, so the chip and its letters are cut to `dietScale` of the
+    // pill's. In the words it is proportioned off the prose like `.tok`; on its own (a dish row, a
+    // slip's name) it is that chip at slip prose, 16.
 
-    /// `.tok`'s line box, shared.
-    static let dietHeightEm: CGFloat = scoreHeightEm
-    /// The chip on its own: the pill a 16pt slip's words would draw.
+    /// The optical step down from the score pill, for the chip and its letters alike.
+    static let dietScale: CGFloat = 0.86
+    static let dietHeightEm: CGFloat = scoreHeightEm * dietScale
+    /// The chip on its own: the chip a 16pt slip's words would draw.
     static let dietHeight: CGFloat = (16 * dietHeightEm).rounded()
-    /// The score pill's 7 at its open end, at both of the chip's.
-    static let dietPadding: CGFloat = 7
+    /// The chip's inset at an end, a step in from the score pill's 7.
+    static let dietPadding: CGFloat = 6
     /// Half the air between two codes inside one grouped chip — 7 between them, so `GF V` never
     /// reads as `GFV`.
     static let dietInnerPadding: CGFloat = 3.5
@@ -163,10 +168,14 @@ extension AteTextStyle {
         AteTextStyle(voice: .mono, size: size * 0.78, weight: 500, lineHeight: 1.0, textStyle: .footnote)
     }
 
-    /// A diet chip's code in the words — the score numeral's own voice and size, so the two pills
-    /// match. Capitals already; no tracking, as the numeral has none.
+    /// A diet chip's code in the words — the score numeral's own voice, a step smaller
+    /// (``TokenPillMetrics/dietScale``) so a run of capitals doesn't outweigh the score, and opened
+    /// a touch so the smaller codes stay legible.
     static func dietToken(inProse size: CGFloat) -> AteTextStyle {
-        scoreToken(inProse: size)
+        AteTextStyle(
+            voice: .mono, size: size * 0.78 * TokenPillMetrics.dietScale, weight: 500,
+            trackingEm: 0.04, lineHeight: 1.0, textStyle: .footnote
+        )
     }
 
     /// A place token's name, sized against the prose it sits in — `.ptok`'s `font-size:.8em`.
