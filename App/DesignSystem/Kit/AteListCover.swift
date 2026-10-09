@@ -20,6 +20,8 @@ struct AteListCover: View {
     var accentIndex: Int?
     var style: Style = .tile
 
+    @Environment(\.atePalette) private var palette
+
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: AteListCoverMetrics.radius, style: .continuous)
         Color.clear
@@ -27,10 +29,7 @@ struct AteListCover: View {
             .frame(width: style == .hero ? AteListCoverMetrics.hero : nil)
             .overlay { art }
             .clipShape(shape)
-            .shadow(
-                color: style == .hero ? AteListCoverMetrics.liftColor : .clear,
-                radius: AteListCoverMetrics.liftRadius, y: AteListCoverMetrics.liftY
-            )
+            .ateBackground(palette.field, in: shape, shadow: style == .hero ? .cover : .none)
             .accessibilityHidden(true)
     }
 
@@ -189,10 +188,6 @@ enum AteListCoverMetrics {
     static let hero: CGFloat = 224
     /// Four photos or more make the mosaic.
     static let mosaic = 4
-    /// `.cov.lift{box-shadow:0 14px 34px rgba(36,20,31,.22)}`.
-    static let liftColor = AteColor.ink.opacity(0.22)
-    static let liftRadius: CGFloat = 17
-    static let liftY: CGFloat = 14
     /// `.cov.gen{padding:12px}`, and 18 on the hero.
     static let inset: CGFloat = 12
     static let heroInset: CGFloat = 18
