@@ -268,10 +268,11 @@ struct PhotoCluster: View {
 /// A tile's X and its long-press menu, when the cluster allows removing; inert otherwise. The X is
 /// the visible way (round 4); the long press stays as the second.
 ///
-/// The X sits **inside the photo's top-trailing corner and tilts with it** (Eamon, 7 Oct: it was
-/// pinned to the untilted square, so it floated off the corner of the photo you could see). It is an
-/// overlay of its own rather than part of the tile, so a tap on it never reaches the photo's own
-/// tap, which opens the viewer.
+/// The X sits **half off the photo's top-trailing corner, like a badge, and tilts with it** (Eamon,
+/// 7 Oct: pinned to the untilted square it floated off the corner; 9 Oct: tucked inside, the deep
+/// rounding left it sitting awkwardly). Its centre is on the corner's curve, not the square's
+/// corner, so half the disc is on the photo whatever the radius. It is an overlay of its own rather
+/// than part of the tile, so a tap on it never reaches the photo's own tap, which opens the viewer.
 private struct RemovablePhoto: ViewModifier {
     let index: Int
     let side: CGFloat
@@ -297,7 +298,7 @@ private struct RemovablePhoto: ViewModifier {
                                     .contentShape(.rect)
                             }
                             .buttonStyle(.plain)
-                            .offset(x: Self.shift, y: -Self.shift)
+                            .offset(x: shift, y: -shift)
                             .accessibilityLabel("Remove photo \(index + 1)")
                             .accessibilityIdentifier("photo.remove.\(index)")
                         }
@@ -315,12 +316,16 @@ private struct RemovablePhoto: ViewModifier {
         }
     }
 
-    /// A small disc inside the tile's corner — 24 across, its X 11, sitting 6 in from both edges.
+    /// A small disc, 24 across with an 11 X, centred on the corner's curve.
     private static let disc: CGFloat = 24
     private static let glyph: CGFloat = 11
-    private static let inset: CGFloat = 6
-    /// The 44 target is centred on the disc, so it moves out by the difference.
-    private static let shift = AteMetrics.hit / 2 - disc / 2 - inset
+
+    /// How far the 44 target moves out from the square's corner so the disc's centre lands on the
+    /// rounded corner at 45°, which is `r(1 − 1/√2)` in from each edge.
+    private var shift: CGFloat {
+        let radius = AteMetrics.photoRadius(side: side)
+        return AteMetrics.hit / 2 - radius * (1 - 1 / CGFloat(2).squareRoot())
+    }
 }
 
 /// The tilts the artboards draw, named by the screen that draws them. A view asks for a cluster's
