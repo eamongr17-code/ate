@@ -1,9 +1,9 @@
 import AteKit
 import SwiftUI
 
-/// **The Lists shelf** (`lists-notifications.html` §3, colour cards) — your lists under Journal |
-/// Lists, newest made first, one full-width card each, under the dashed New list card (always first,
-/// empty shelf included). New list (that card, or the glass group's list-plus) names one, opens its
+/// **The Lists shelf** (`lists-playlists.html`, approved 9 Oct) — your lists under Journal | Lists,
+/// newest made first, as a two-column grid of covers like a music library's playlists, after the
+/// dashed New list tile (always first, empty shelf included). New list (that card, or the glass group's list-plus) names one, opens its
 /// page and raises the picker over it. Pull to refresh; the shelf pages as it nears its end.
 struct ListsShelf: View {
     let app: AppModel
@@ -18,13 +18,14 @@ struct ListsShelf: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: AteListCardMetrics.spacing) {
-                content
+            LazyVGrid(columns: columns, alignment: .leading, spacing: AteListCoverMetrics.rowGap) {
+                tiles
             }
-            .padding(.horizontal, AteMetrics.listGutter)
+            .padding(.horizontal, AteListCoverMetrics.gutter)
             .padding(.top, AteMetrics.snug)
             .padding(.bottom, AteMetrics.section)
             .ateAnimation(AteMotion.fillIn, value: lists.phase)
+            band
         }
         .scrollIndicators(.hidden)
         .ateRootCollapse($isCollapsed)
@@ -42,9 +43,13 @@ struct ListsShelf: View {
         .listsFailureAlert(failure: lists.failure) { lists.clearFailure() }
     }
 
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: AteListCoverMetrics.columnGap, alignment: .top), count: 2)
+    }
+
     @ViewBuilder
-    private var content: some View {
-        AteAddRow(title: ListsCopy.newList, identifier: "lists.newCard") {
+    private var tiles: some View {
+        AteNewListTile(title: ListsCopy.newList, identifier: "lists.newCard") {
             guard app.gate.permitsWrite(.journal) else { return }
             app.services.analytics(ListEvents.ctaTapped(from: .shelf))
             isNaming = true
@@ -52,17 +57,15 @@ struct ListsShelf: View {
         switch lists.phase {
         case .loading:
             ForEach(0..<ListsMetrics.skeletonCards, id: \.self) { _ in
-                AteListCardSkeleton()
+                AteListTileSkeleton()
             }
             .transition(.opacity)
-        case .empty:
-            emptyBand(AteEmptyState(line: ListsCopy.emptyShelf, art: .lists))
-        case .failed:
-            emptyBand(AteEmptyState(line: ListsCopy.unreachable, art: .torn, pill: (ListsCopy.tryAgain, { retry() })))
+        case .empty, .failed:
+            EmptyView()
         case .ready:
-            let accents = DishTileIdentity.paletteIndices(for: lists.lists.map(\.id), count: AteListCard.accents.count)
+            let accents = DishTileIdentity.paletteIndices(for: lists.lists.map(\.id), count: AteListCover.accents.count)
             ForEach(Array(lists.lists.enumerated()), id: \.element.id) { index, list in
-                AteListCard(
+                AteListTile(
                     id: list.id,
                     name: list.name,
                     count: list.itemCount,
@@ -78,10 +81,18 @@ struct ListsShelf: View {
         }
     }
 
-    private func emptyBand(_ state: AteEmptyState) -> some View {
-        // The band fills what the New list row leaves of the screen.
-        state.containerRelativeFrame(.vertical) { length, _ in
-            max(length - AteChoiceRowMetrics.addHeight - AteListCardMetrics.spacing, ListsMetrics.emptyMinimum)
+    /// Under the New list tile when there is nothing to show beside it.
+    @ViewBuilder
+    private var band: some View {
+        switch lists.phase {
+        case .empty:
+            AteEmptyState(line: ListsCopy.emptyShelf, art: .lists)
+                .frame(minHeight: ListsMetrics.emptyMinimum)
+        case .failed:
+            AteEmptyState(line: ListsCopy.unreachable, art: .torn, pill: (ListsCopy.tryAgain, { retry() }))
+                .frame(minHeight: ListsMetrics.emptyMinimum)
+        case .loading, .ready:
+            EmptyView()
         }
     }
 

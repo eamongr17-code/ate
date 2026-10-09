@@ -1,10 +1,12 @@
 import AteKit
 import SwiftUI
 
-/// **One of your lists** (`lists-notifications.html` C4–C8) — pushed, the tab bar staying. Its name
-/// as the large title, the count under it, then the Feed's ranked row: your order as the numeral,
-/// photo or letter tile, dish over place, your score token; no bookmark (these are your own dishes).
-/// A tap opens the entry. Long-press drags to reorder (the native move, no edit mode); swipe left
+/// **One of your lists** (`lists-playlists.html`, approved 9 Oct; `lists-notifications.html` C5–C8)
+/// — pushed, the tab bar staying, opened like an album: the cover big and lifted, the name under it,
+/// your handle and the count, then Add dishes and Share side by side. Then the rows, numbered like a
+/// playlist's tracks: your order as a small numeral, photo or letter tile, dish over place, your score
+/// token; no bookmark (these are your own dishes). The name settles into the bar once the cover has
+/// scrolled away. A tap opens the entry. Long-press drags to reorder (the native move, no edit mode); swipe left
 /// removes, with Saved's Undo pill for four seconds. "Add dishes" is the last row. In the bar,
 /// Share (the list receipt) and the one native ••• Menu: Rename, Delete list.
 struct V2ListPage: View {
@@ -36,17 +38,9 @@ struct V2ListPage: View {
 
     var body: some View {
         List {
-            AtePageTitle(title: store.name, isLong: true)
+            hero
                 .listPlainRow()
-            Text(ListsCopy.dishes(store.list?.itemCount ?? store.count))
-                .ateText(.meta)
-                .foregroundStyle(AtePalette.automatic.muted)
-                .padding(.top, AteMetrics.snug)
-                .padding(.bottom, V2ListPageMetrics.countBottom)
-                .padding(.horizontal, AteMetrics.gutter)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .listPlainRow()
-                .accessibilityIdentifier("list.count")
+                .moveDisabled(true)
             content
         }
         .listStyle(.plain)
@@ -54,7 +48,11 @@ struct V2ListPage: View {
         .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
         .contentMargins(.bottom, AteMetrics.tabBarScrollInset, for: .scrollContent)
-        .atePageCollapse($isCollapsed)
+        .onScrollGeometryChange(for: Bool.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top > V2ListPageMetrics.collapseAfter
+        } action: { _, collapsed in
+            isCollapsed = collapsed
+        }
         .ateGround()
         .ateCollapsingTitle(store.name, isCollapsed: isCollapsed)
         .toolbar { toolbar }
@@ -92,6 +90,59 @@ struct V2ListPage: View {
         .listsFailureAlert(failure: isPicking || isRenaming ? nil : store.failure) { store.clearFailure() }
     }
 
+    // MARK: - The head
+
+    private var hero: some View {
+        VStack(spacing: 0) {
+            AteListCover(id: route.id, name: store.name, covers: store.list?.covers ?? [], style: .hero)
+            Text(store.name)
+                .ateText(.kitListHeroName)
+                .foregroundStyle(AtePalette.automatic.fg)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .padding(.top, V2ListPageMetrics.nameTop)
+                .accessibilityAddTraits(.isHeader)
+            byline
+                .padding(.top, V2ListPageMetrics.bylineTop)
+            HStack(spacing: V2ListPageMetrics.actionGap) {
+                AteInkPill(
+                    title: ListsCopy.addDishes, isEnabled: store.remaining > 0, identifier: "list.addPill"
+                ) { pick() }
+                if store.items.isEmpty == false {
+                    AteInkPill(title: ListsCopy.share, isQuiet: true, identifier: "list.sharePill") {
+                        isSharing = true
+                    }
+                }
+            }
+            .padding(.top, V2ListPageMetrics.actionsTop)
+        }
+        .padding(.horizontal, AteMetrics.gutter)
+        .padding(.top, AteMetrics.regular)
+        .padding(.bottom, V2ListPageMetrics.heroBottom)
+        .frame(maxWidth: .infinity)
+    }
+
+    /// Your handle on its avatar, then the count — a playlist's owner line.
+    private var byline: some View {
+        HStack(spacing: V2ListPageMetrics.bylineGap) {
+            if let handle = context.app.handle, let userID = context.services.api.currentUserID {
+                AteAvatar(userID: userID, handle: handle)
+                Text(handle)
+                    .ateText(.kitListByline)
+                    .foregroundStyle(AtePalette.automatic.fg)
+                    .lineLimit(1)
+                Text(verbatim: "·")
+                    .ateText(.meta)
+                    .foregroundStyle(AtePalette.automatic.muted)
+            }
+            Text(ListsCopy.dishes(store.list?.itemCount ?? store.count))
+                .ateText(.meta)
+                .foregroundStyle(AtePalette.automatic.muted)
+                .accessibilityIdentifier("list.count")
+        }
+        .accessibilityElement(children: .combine)
+    }
+
     // MARK: - The rows
 
     @ViewBuilder
@@ -108,8 +159,9 @@ struct V2ListPage: View {
                 .frame(minHeight: ListsMetrics.emptyMinimum)
                 .listPlainRow()
         case .empty:
-            AteEmptyState(line: ListsCopy.emptyList, art: .list, pill: (ListsCopy.addDishes, { pick() }))
-                .frame(minHeight: ListsMetrics.emptyMinimum)
+            // The hero's Add dishes is the way in; nothing else to say.
+            Color.clear
+                .frame(height: 0)
                 .listPlainRow()
                 .accessibilityIdentifier("list.empty")
         case .gone:
@@ -136,6 +188,7 @@ struct V2ListPage: View {
                 place: item.restaurantName,
                 score: item.score.map(AteScore.personal),
                 isLast: index == items.count - 1,
+                isTrack: true,
                 onOpen: { open(item) }
             )
             .padding(.horizontal, AteMetrics.gutter)
@@ -265,8 +318,15 @@ extension View {
 }
 
 enum V2ListPageMetrics {
-    /// The count line: `padding:8px 0 10px`.
-    static let countBottom: CGFloat = 10
+    /// `.hero .nm{margin-top:18px}`, `.by{margin-top:6px; gap:6px}`, `.acts{margin-top:16px; gap:10px}`.
+    static let nameTop: CGFloat = 18
+    static let bylineTop: CGFloat = 6
+    static let bylineGap: CGFloat = 6
+    static let actionsTop: CGFloat = 16
+    static let actionGap: CGFloat = 10
+    static let heroBottom: CGFloat = 16
+    /// The name takes the bar once the cover and the name under it have scrolled away.
+    static let collapseAfter: CGFloat = AteListCoverMetrics.hero + 60
     /// A ••• Menu item's Lucide glyph.
     static let menuGlyph: CGFloat = 18
 }

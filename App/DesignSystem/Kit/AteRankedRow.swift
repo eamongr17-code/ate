@@ -12,6 +12,9 @@ struct AteRankedRow: View {
     var score: AteScore?
     var isSaved = false
     var isLast = false
+    /// A list's own row (`lists-playlists.html` `.tr`): the order as a small muted numeral and the
+    /// 48 thumbnail, as a playlist numbers its tracks. The Top Ate keeps the big numeral.
+    var isTrack = false
     var onOpen: (() -> Void)?
     var onSave: (() -> Void)?
 
@@ -22,10 +25,10 @@ struct AteRankedRow: View {
             Button { onOpen?() } label: {
                 HStack(spacing: AteRankedRowMetrics.gap) {
                     Text(verbatim: "\(rank)")
-                        .ateText(.kitRankNumeral)
-                        .foregroundStyle(palette.fg)
-                        .frame(width: AteRankedRowMetrics.rankWidth)
-                    AteThumb(photo: photo, size: .row)
+                        .ateText(isTrack ? .kitListTrackRank : .kitRankNumeral)
+                        .foregroundStyle(isTrack ? palette.muted : palette.fg)
+                        .frame(width: isTrack ? AteRankedRowMetrics.trackRankWidth : AteRankedRowMetrics.rankWidth)
+                    AteThumb(photo: photo, size: isTrack ? .menu : .row)
                     VStack(alignment: .leading, spacing: AteRankedRowMetrics.lineGap) {
                         Text(name)
                             .ateText(.kitRankedDish)
@@ -67,6 +70,8 @@ enum AteRankedRowMetrics {
     static let gap: CGFloat = 12
     static let padding: CGFloat = 9
     static let rankWidth: CGFloat = 28
+    /// `.tr .tn{width:18px}`.
+    static let trackRankWidth: CGFloat = 18
     static let lineGap: CGFloat = 2
     static let saveLeading: CGFloat = 6
     static let saveTrailing: CGFloat = 12
