@@ -35,7 +35,7 @@ struct AteListCover: View {
 
     @ViewBuilder
     private var art: some View {
-        let photos = covers.map(AtePhoto.remote)
+        let photos = covers.map { AtePhoto.remote($0) }
         if photos.count >= AteListCoverMetrics.mosaic {
             VStack(spacing: 0) {
                 HStack(spacing: 0) {

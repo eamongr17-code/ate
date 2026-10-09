@@ -92,7 +92,7 @@ jobs:
           xcodebuild -project Ate.xcodeproj -scheme Ate \
             -destination 'generic/platform=iOS Simulator' \
             -clonedSourcePackagesDirPath "$SPM_CLONES" \
-            -configuration Debug ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build > build.log 2>&1 || { tail -50 build.log; exit 1; }
+            -configuration Debug ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build > build.log 2>&1 || { grep -E "(error|fatal error):" build.log | sort -u | head -40; tail -50 build.log; exit 1; }
           tail -2 build.log
 
       # Beta is the config the TestFlight lane archives, and it is NOT a DEBUG build — a #Preview
