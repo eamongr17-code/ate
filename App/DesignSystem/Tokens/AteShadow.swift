@@ -22,7 +22,7 @@ struct AteShadow: Equatable, Sendable {
     /// `0 14px 34px rgba(36,20,31,.22)`.
     static let cover = AteShadow(colour: AteColor.ink.opacity(0.22), offsetY: 14, blur: 34, spread: 0)
     /// No shadow: the same background, casting nothing.
-    static let none = AteShadow(colour: .clear, offsetY: 0, blur: 0, spread: 0)
+    static let flat = AteShadow(colour: .clear, offsetY: 0, blur: 0, spread: 0)
 }
 
 extension View {

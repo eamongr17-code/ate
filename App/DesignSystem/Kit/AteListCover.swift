@@ -29,17 +29,13 @@ struct AteListCover: View {
             .frame(width: style == .hero ? AteListCoverMetrics.hero : nil)
             .overlay { art }
             .clipShape(shape)
-            .ateBackground(palette.field, in: shape, shadow: style == .hero ? .cover : .none)
+            .ateBackground(palette.field, in: shape, shadow: style == .hero ? .cover : .flat)
             .accessibilityHidden(true)
-    }
-
-    private var photos: [AtePhoto] {
-        covers.map(AtePhoto.remote)
     }
 
     @ViewBuilder
     private var art: some View {
-        let photos = photos
+        let photos = covers.map(AtePhoto.remote)
         if photos.count >= AteListCoverMetrics.mosaic {
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
