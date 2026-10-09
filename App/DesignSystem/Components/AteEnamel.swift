@@ -1,45 +1,75 @@
 import SwiftUI
 
-/// **Enamel** — the score pill's depth (Eamon's pick of four, 2026-10-06): a hairline of light along
-/// the top edge and a hairline of shade along the bottom, both drawn *inside* the capsule, so the
-/// pill reads like an enamel badge without growing, casting a shadow or looking like a button.
+/// **Glass pills** — the score pill and the diet chip in the app's Liquid Glass (Eamon, 9 Oct: the
+/// enamel badge clashed with the glass around it). They keep their **filled colours**: butter (or
+/// brick for a 6) for a score, the muted ground for a diet chip.
 ///
-/// Inside, not a drop shadow: prose pills are rasterised to their exact bounds (``TokenPill``), and
-/// anything drawn outside the capsule would be clipped there and nowhere else. One stroke, the same
-/// on every pill that prints a score.
-private struct Enamel: ViewModifier {
-    /// The pill's fill is light (butter) — a brighter top and a softer bottom read as depth; on the
-    /// brick 6 the light is halved so it doesn't wash the red pink.
+/// Two drawings of one look, because there are two kinds of pill:
+/// - **Live pills** (a dish row's score, the hero's, a dish's codes beside its name) are iOS 26's own
+///   glass, tinted with the fill — ``SwiftUI/View/ateGlassPill(_:in:)``.
+/// - **Pills in the words** are rasterised into a text view's attachments (``TokenPill``), and real
+///   glass cannot sample what is behind an image. They carry the glass's light instead — a bright
+///   rim along the top and a soft sheen over the upper half, drawn *inside* the shape so nothing is
+///   clipped at the image's bounds — ``SwiftUI/View/ateGlassSheen(onDarkFill:rim:in:)``.
+private struct GlassSheen<S: InsettableShape>: ViewModifier {
+    /// On the brick 6 the light is halved so it doesn't wash the red pink.
     let onDarkFill: Bool
+    let shape: S
+    /// The bright rim. Off for a diet code that runs on into its neighbour, where the rim's sides
+    /// would draw a seam through the middle of one chip.
+    let rim: Bool
     @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
         content.overlay {
-            Capsule().strokeBorder(
-                LinearGradient(
-                    stops: [
-                        .init(color: .white.opacity(light), location: 0),
-                        .init(color: .white.opacity(0), location: 0.45),
-                        .init(color: shadeColor.opacity(0), location: 0.55),
-                        .init(color: shadeColor.opacity(shade), location: 1),
-                    ],
-                    startPoint: .top, endPoint: .bottom
-                ),
-                lineWidth: 1
-            )
+            ZStack {
+                shape.fill(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(sheen), location: 0),
+                            .init(color: .white.opacity(0), location: 0.55),
+                        ],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+                if rim {
+                    shape.strokeBorder(
+                        LinearGradient(
+                            stops: [
+                                .init(color: .white.opacity(rimLight), location: 0),
+                                .init(color: .white.opacity(rimLight * 0.25), location: 0.5),
+                                .init(color: .white.opacity(rimLight * 0.5), location: 1),
+                            ],
+                            startPoint: .top, endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+                }
+            }
             .allowsHitTesting(false)
         }
     }
 
     private var isDark: Bool { colorScheme == .dark }
-    private var light: Double { onDarkFill ? 0.28 : (isDark ? 0.38 : 0.6) }
-    private var shade: Double { isDark || onDarkFill ? 0.24 : 0.16 }
-    private var shadeColor: Color { isDark ? .black : AteColor.ink }
+    private var rimLight: Double { onDarkFill ? 0.35 : (isDark ? 0.4 : 0.75) }
+    private var sheen: Double { onDarkFill ? 0.12 : (isDark ? 0.14 : 0.3) }
 }
 
 extension View {
-    /// The score pill's enamel edge. See ``Enamel``.
-    func ateEnamel(onDarkFill: Bool = false) -> some View {
-        modifier(Enamel(onDarkFill: onDarkFill))
+    /// A pill in the words: its fill, with the glass's light drawn on. See ``GlassSheen``.
+    func ateGlassSheen<S: InsettableShape>(
+        onDarkFill: Bool = false, rim: Bool = true, in shape: S
+    ) -> some View {
+        modifier(GlassSheen(onDarkFill: onDarkFill, shape: shape, rim: rim))
+    }
+
+    /// A pill in the words, capsule-shaped.
+    func ateGlassSheen(onDarkFill: Bool = false) -> some View {
+        ateGlassSheen(onDarkFill: onDarkFill, in: Capsule())
+    }
+
+    /// A live pill: Liquid Glass tinted with the pill's own fill, so it stays a filled colour.
+    func ateGlassPill<S: Shape>(_ tint: Color, in shape: S) -> some View {
+        glassEffect(.regular.tint(tint), in: shape)
     }
 }

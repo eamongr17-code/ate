@@ -251,7 +251,17 @@ enum DietTagRun {
                 for (index, rect) in chips {
                     let baseline = baselines[index] ?? rect.maxY
                     let capsule = CGRect(x: rect.minX, y: baseline - baselineFromTop, width: rect.width, height: height)
-                    context.fill(Capsule().path(in: capsule), with: .color(fill))
+                    let path = Capsule().path(in: capsule)
+                    context.fill(path, with: .color(fill))
+                    // The glass's light, as the words' pills carry it (``GlassSheen``).
+                    context.fill(path, with: .linearGradient(
+                        Gradient(stops: [
+                            .init(color: .white.opacity(0.3), location: 0),
+                            .init(color: .white.opacity(0), location: 0.55),
+                        ]),
+                        startPoint: CGPoint(x: capsule.midX, y: capsule.minY),
+                        endPoint: CGPoint(x: capsule.midX, y: capsule.maxY)
+                    ))
                 }
                 context.draw(line)
             }
