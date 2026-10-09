@@ -42,7 +42,7 @@ enum TokenPillMetrics {
         switch kind {
         case .score: prose * scoreHeightEm
         case .place: prose * placeHeightEm
-        case .tag: dietHeight
+        case .tag: prose * dietHeightEm
         }
     }
 
@@ -50,39 +50,35 @@ enum TokenPillMetrics {
         switch kind {
         case .score: descent(height: height(for: kind, prose: prose), icon: starSide)
         case .place: descent(height: height(for: kind, prose: prose), icon: pinSide)
-        case .tag: dietDescent(rise: dietRiseInProse)
+        // Same box as the score pill's, so a dish's codes and its score sit level in the words.
+        case .tag: descent(height: height(for: kind, prose: prose), icon: starSide)
         }
     }
 
-    // `.diet` (`DietTagsB`): an absolute chip, not an em pill — 18 high, 6 either side, whatever the
-    // words around it are set in.
+    // **A diet chip is the score pill's sibling** (Eamon, 9 Oct): the same capsule, height and mono
+    // voice, so a dish's codes and its score sit level on one line, but muted — the ground colour,
+    // no enamel — so the score stays the headline. In the words it is proportioned off the prose
+    // exactly like `.tok`; on its own (a dish row, a slip's name) it is that pill at slip prose, 16.
 
-    static let dietHeight: CGFloat = 18
-    static let dietPadding: CGFloat = 6
-    /// Half the air between two codes inside one grouped chip — 7 between them, a little over the
-    /// chip's own 6 so `GF V` never reads as `GFV`.
+    /// `.tok`'s line box, shared.
+    static let dietHeightEm: CGFloat = scoreHeightEm
+    /// The chip on its own: the pill a 16pt slip's words would draw.
+    static let dietHeight: CGFloat = (16 * dietHeightEm).rounded()
+    /// The score pill's 7 at its open end, at both of the chip's.
+    static let dietPadding: CGFloat = 7
+    /// Half the air between two codes inside one grouped chip — 7 between them, so `GF V` never
+    /// reads as `GFV`.
     static let dietInnerPadding: CGFloat = 3.5
-    /// `.prose .diet{vertical-align:2px; margin:0 1px}` in the words…
-    static let dietRiseInProse: CGFloat = 2
+    /// `.prose .diet{margin:0 1px}` in the words…
     static let dietMarginInProse: CGFloat = 1
     /// …and `.dname .diet{margin-left:6px; vertical-align:3px}` after a dish's name.
     static let dietRiseOnName: CGFloat = 3
     static let dietGapOnName: CGFloat = 6
-
-    /// How far the chip hangs below the baseline of the text it sits in. The chip is an
-    /// `inline-flex` whose baseline is its code's, centred in 18 on a `line-height:1` box — so its
-    /// baseline sits `9 + (ascender − descender) / 2` from its top — and `vertical-align` lifts that
-    /// baseline off the surrounding one.
-    static func dietDescent(rise: CGFloat) -> CGFloat {
-        let font = AteFont.uiFont(for: .dietTag)
-        let baselineFromTop = dietHeight / 2 + (font.ascender + font.descender) / 2
-        return dietHeight - baselineFromTop - rise
-    }
 }
 
-/// **A dietary tag** — `DietTagsB`'s linen chip: the code in capitals, Bricolage 600, muted, on the
-/// ground colour so it reads as the paper showing through rather than as an accent. No stroke. The
-/// same chip after a dish's name on a card and inline in the words.
+/// **A dietary tag** — the score pill's muted sibling: the code in capitals, DM Mono 500 like the
+/// score's numeral, on the ground colour so it reads as the paper showing through rather than as an
+/// accent. No stroke, no enamel. The same chip after a dish's name on a card and inline in the words.
 struct DietTagChip: View {
     let tag: DietTag
     /// The ground showing through. Linen on paper and slips (the markup's own); on the linen ground
@@ -91,17 +87,22 @@ struct DietTagChip: View {
     var fill: Color = AteColor.tagFill
     /// Which sides run on into the dish's next and previous codes (``DietChipJoin``).
     var join: DietChipJoin = []
+    /// The prose it sits in, when it is inline in the words: then it is proportioned off it like the
+    /// score pill beside it. `nil` is the chip on its own.
+    var prose: CGFloat?
 
     var body: some View {
+        let style = prose.map(AteTextStyle.dietToken(inProse:)) ?? .dietTag
+        let height = prose.map { $0 * TokenPillMetrics.dietHeightEm } ?? TokenPillMetrics.dietHeight
         Text(tag.label)
-            .ateText(.dietTag)
+            .ateText(style)
             .lineLimit(1)
             .fixedSize()
             .padding(.leading, join.padding(.leading))
             .padding(.trailing, join.padding(.trailing))
-            .frame(height: TokenPillMetrics.dietHeight)
+            .frame(height: height)
             .foregroundStyle(AteColor.tagInk)
-            .background(fill, in: join.shape)
+            .background(fill, in: join.shape(height: height))
             .accessibilityElement()
             .accessibilityLabel(tag.spokenName)
     }
@@ -131,8 +132,8 @@ struct DietChipJoin: OptionSet, Hashable {
     }
 
     /// The capsule, cut square on the sides that run on.
-    var shape: UnevenRoundedRectangle {
-        let radius = TokenPillMetrics.dietHeight / 2
+    func shape(height: CGFloat) -> UnevenRoundedRectangle {
+        let radius = height / 2
         let leading = contains(.leading) ? 0 : radius
         let trailing = contains(.trailing) ? 0 : radius
         return UnevenRoundedRectangle(
@@ -149,6 +150,12 @@ extension AteTextStyle {
     /// point off the width of every pill in a 16pt slip.
     static func scoreToken(inProse size: CGFloat) -> AteTextStyle {
         AteTextStyle(voice: .mono, size: size * 0.78, weight: 500, lineHeight: 1.0, textStyle: .footnote)
+    }
+
+    /// A diet chip's code in the words — the score numeral's own voice and size, so the two pills
+    /// match. Capitals already; no tracking, as the numeral has none.
+    static func dietToken(inProse size: CGFloat) -> AteTextStyle {
+        scoreToken(inProse: size)
     }
 
     /// A place token's name, sized against the prose it sits in — `.ptok`'s `font-size:.8em`.

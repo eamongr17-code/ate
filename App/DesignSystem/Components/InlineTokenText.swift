@@ -199,9 +199,10 @@ enum TokenPill {
                 .environment(\.dynamicTypeSize, .large)
         case .tag(let mark):
             // A code that runs on into its neighbour meets it edge to edge: no margin on that side.
-            DietTagChip(tag: mark.tag, join: join)
+            DietTagChip(tag: mark.tag, join: join, prose: prose)
                 .padding(.leading, join.contains(.leading) ? 0 : TokenPillMetrics.dietMarginInProse)
                 .padding(.trailing, join.contains(.trailing) ? 0 : TokenPillMetrics.dietMarginInProse)
+                .environment(\.dynamicTypeSize, .large)
         }
     }
 
