@@ -69,8 +69,9 @@ enum TokenPillMetrics {
     static let dietHeightEm: CGFloat = scoreHeightEm * dietScale
     /// The chip on its own: the chip a 16pt slip's words would draw.
     static let dietHeight: CGFloat = (16 * dietHeightEm).rounded()
-    /// The chip's inset at an end, a step in from the score pill's 7.
-    static let dietPadding: CGFloat = 6
+    /// The chip's inset at an end. 8, not the score pill's 7: capitals run edge to edge, so they
+    /// need more air at the ends to sit in the capsule rather than fill it (Eamon, build 104).
+    static let dietPadding: CGFloat = 8
     /// Half the air between two codes inside one grouped chip — 7 between them, so `GF V` never
     /// reads as `GFV`.
     static let dietInnerPadding: CGFloat = 3.5
