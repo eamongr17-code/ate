@@ -1,6 +1,84 @@
 import Foundation
 
 public extension EntryComposition {
+    /// What the Diet key did: put a chip in, or took the dish's own back out.
+    enum DietKeyEdit: Equatable, Sendable {
+        case added(DietTag)
+        case removed(DietTag)
+    }
+
+    /// A Diet key press, done: the words after it, where the caret goes, and which way it went.
+    struct DietKeyResult: Equatable, Sendable {
+        public let composition: EntryComposition
+        public let caret: Int
+        public let edit: DietKeyEdit
+    }
+
+    /// **The Diet key, pressed** (Eamon, 7 Oct): a dish wears each code once. A code the dish's
+    /// chips already carry comes back off; anything else goes in as ``insertingTag(_:atDisplayOffset:)``
+    /// puts it. `nil` when there is nothing to do (no dish to wear it).
+    func togglingTag(_ tag: DietTag, atDisplayOffset caret: Int) -> DietKeyResult? {
+        if let worn = dishTagSpans(atDisplayOffset: caret).first(where: { $0.token.tag == tag }) {
+            let (next, newCaret) = removingTag(worn, caret: caret)
+            return DietKeyResult(composition: next, caret: newCaret, edit: .removed(tag))
+        }
+        guard let (next, newCaret) = insertingTag(tag, atDisplayOffset: caret) else { return nil }
+        return DietKeyResult(composition: next, caret: newCaret, edit: .added(tag))
+    }
+
+    /// The codes already on the dish a chip at `caret` would belong to.
+    func dishTags(atDisplayOffset caret: Int) -> [DietTag] {
+        dishTagSpans(atDisplayOffset: caret).compactMap(\.token.tag)
+    }
+
+    /// **The dish's chips** — the run of tag chips, only spaces between them, at the place the key
+    /// would put a new one: the caret, or in front of the score that ends just before it.
+    private func dishTagSpans(atDisplayOffset caret: Int) -> [EntryTokenSpan] {
+        let anchor = scoreEnding(beforeDisplayOffset: caret)?.span.location
+            ?? plainOffset(forDisplayOffset: caret)
+        return tagCluster(around: anchor)
+    }
+
+    /// Every tag chip touching `plainOffset` through spaces alone, either side, in order.
+    func tagCluster(around plainOffset: Int) -> [EntryTokenSpan] {
+        let units = Array(plain.utf16)
+        let tags = spans.filter { $0.token.tag != nil }
+        var before: [EntryTokenSpan] = []
+        var cursor = plainOffset
+        while true {
+            while cursor > 0, units[cursor - 1] == 32 { cursor -= 1 }
+            guard let chip = tags.first(where: { $0.span.endLocation == cursor }) else { break }
+            before.insert(chip, at: 0)
+            cursor = chip.span.location
+        }
+        var after: [EntryTokenSpan] = []
+        cursor = plainOffset
+        while true {
+            while cursor < units.count, units[cursor] == 32 { cursor += 1 }
+            guard let chip = tags.first(where: { $0.span.location == cursor }) else { break }
+            after.append(chip)
+            cursor = chip.span.endLocation
+        }
+        return before + after
+    }
+
+    /// A chip out, with one of the spaces it brought in, so "tiramisu GF 3.0" becomes "tiramisu
+    /// 3.0" and not "tiramisu  3.0". The caret keeps its place in the words around it.
+    private func removingTag(_ chip: EntryTokenSpan, caret: Int) -> (EntryComposition, caret: Int) {
+        let units = Array(plain.utf16)
+        var range = chip.span
+        if range.endLocation < units.count, units[range.endLocation] == 32 {
+            range = TextSpan(location: range.location, length: range.length + 1)
+        } else if range.location > 0, units[range.location - 1] == 32 {
+            range = TextSpan(location: range.location - 1, length: range.length + 1)
+        }
+        let start = displayOffset(forPlainOffset: range.location)
+        let removed = displayOffset(forPlainOffset: range.endLocation) - start
+        let next = applyingPlainEdit(replacing: range, with: "")
+        let newCaret = caret > start ? max(start, caret - removed) : caret
+        return (next, min(newCaret, next.displayString.utf16.count))
+    }
+
     /// **The Diet key** (prototype, round 3): puts a tag chip after the current dish.
     ///
     /// A chip belongs to **the nearest dish to its left** — the sorter's own rule (it attaches a

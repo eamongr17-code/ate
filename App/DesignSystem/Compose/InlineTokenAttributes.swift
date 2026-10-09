@@ -83,19 +83,48 @@ struct InlineTokenAttributes {
         ]
     }
 
+    /// The space that closes up between two codes of one dish's grouped chip (``DietChipJoin``):
+    /// still a character of the words, with no width of its own. Marked, so it can be opened again
+    /// when what is around it stops being two codes.
+    func collapsedSpace() -> [NSAttributedString.Key: Any] {
+        let width = (" " as NSString).size(withAttributes: [.font: font]).width
+        return base().merging([.kern: -width, .ateCollapsedSpace: true]) { _, new in new }
+    }
+
+    /// **Which tag chips run on into one** — codes with exactly one space between them, the way the
+    /// Diet key leaves them. Given the chips' ranges in order, each chip's join and the offset of
+    /// every space that closes up.
+    static func tagRuns(_ chips: [Range<Int>], unit: (Int) -> UInt16) -> (joins: [DietChipJoin], spaces: [Int]) {
+        var joins = Array(repeating: DietChipJoin(), count: chips.count)
+        var spaces: [Int] = []
+        for index in chips.indices.dropLast() {
+            let gap = chips[index].upperBound
+            guard chips[index + 1].lowerBound == gap + 1, unit(gap) == 32 else { continue }
+            joins[index].insert(.trailing)
+            joins[index + 1].insert(.leading)
+            spaces.append(gap)
+        }
+        return (joins, spaces)
+    }
+
     /// The whole composition: words, and one attachment per token.
     func attributedString(for composition: EntryComposition) -> NSAttributedString {
         let result = NSMutableAttributedString()
         let units = Array(composition.plain.utf16)
+        let tags = composition.spans.filter { $0.token.tag != nil }
+        let runs = Self.tagRuns(tags.map { $0.span.location..<$0.span.endLocation }, unit: { units[$0] })
+        let joins = Dictionary(zip(tags.map(\.token.id), runs.joins)) { first, _ in first }
+        let spaces = Set(runs.spaces)
         var cursor = 0
         for span in composition.spans {
             if span.span.location > cursor {
+                let closesUp = span.span.location - cursor == 1 && spaces.contains(cursor)
                 result.append(NSAttributedString(
                     string: String(decoding: units[cursor..<span.span.location], as: UTF16.self),
-                    attributes: base()
+                    attributes: closesUp ? collapsedSpace() : base()
                 ))
             }
-            result.append(attachmentString(for: span.token))
+            result.append(attachmentString(for: span.token, join: joins[span.token.id] ?? []))
             cursor = span.span.endLocation
         }
         if cursor < units.count {
@@ -108,7 +137,7 @@ struct InlineTokenAttributes {
     }
 
     /// One token = one attachment character, carrying the rendered pill and the token itself.
-    func attachmentString(for token: EntryToken) -> NSAttributedString {
+    func attachmentString(for token: EntryToken, join: DietChipJoin = []) -> NSAttributedString {
         let font = font
         let attachment = NSTextAttachment()
         if let image = TokenPill.image(
@@ -118,7 +147,8 @@ struct InlineTokenAttributes {
             dynamicTypeSize: dynamicTypeSize,
             scale: displayScale,
             colorScheme: colorScheme,
-            isSelected: token.id == selectedTokenID
+            isSelected: token.id == selectedTokenID,
+            join: join
         ) {
             image.accessibilityLabel = Self.accessibilityLabel(for: token)
             attachment.image = image
@@ -135,7 +165,7 @@ struct InlineTokenAttributes {
         }
         let string = NSMutableAttributedString(attachment: attachment)
         string.addAttributes(
-            base().merging([.ateToken: TokenBox(token)]) { _, new in new },
+            base().merging([.ateToken: TokenBox(token), .ateChipJoin: join.rawValue]) { _, new in new },
             range: NSRange(location: 0, length: string.length)
         )
         return string
@@ -195,4 +225,8 @@ final class TokenBox: NSObject {
 extension NSAttributedString.Key {
     /// Marks the one character an inline token occupies.
     static let ateToken = NSAttributedString.Key("ateToken")
+    /// A tag chip's place in its dish's grouped chip (``DietChipJoin``'s raw value).
+    static let ateChipJoin = NSAttributedString.Key("ateChipJoin")
+    /// A space closed up between two codes of one grouped chip.
+    static let ateCollapsedSpace = NSAttributedString.Key("ateCollapsedSpace")
 }

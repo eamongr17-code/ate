@@ -412,14 +412,18 @@ final class ComposerModel {
 
     // MARK: - The Diet key (prototype)
 
-    /// A tag chip after the current dish (``EntryComposition/insertingTag(_:atDisplayOffset:)``).
-    /// `nil` when there is no dish to its left: nothing goes in (the key's caller says so with a
-    /// haptic, never with copy).
+    /// A tag chip after the current dish (``EntryComposition/togglingTag(_:atDisplayOffset:)``), or
+    /// that dish's own chip of the same code taken back off — a dish wears each code once. `nil`
+    /// when there is no dish to its left: nothing goes in (the key's caller says so with a haptic,
+    /// never with copy).
     func insertTag(_ tag: DietTag) -> AnalyticsEvent? {
         focusRequest += 1
-        guard let (next, newCaret) = composition.insertingTag(tag, atDisplayOffset: caret) else { return nil }
-        apply(next, caret: newCaret)
-        return EntryEvents.dishTagAdded(tag)
+        guard let pressed = composition.togglingTag(tag, atDisplayOffset: caret) else { return nil }
+        apply(pressed.composition, caret: pressed.caret)
+        switch pressed.edit {
+        case .added(let tag): return EntryEvents.dishTagAdded(tag)
+        case .removed(let tag): return EntryEvents.dishTagRemoved(tag)
+        }
     }
 
     // MARK: - Typing a number and moving on

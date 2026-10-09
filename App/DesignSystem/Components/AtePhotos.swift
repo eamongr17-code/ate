@@ -230,14 +230,14 @@ struct PhotoCluster: View {
     /// follows so a dropped photo never leaves the strip looking gapped.
     @ViewBuilder
     private func tile(_ photo: AtePhoto, at index: Int, position: Int, count: Int) -> some View {
+        let tilt = angle(at: position)
         let drawn = AtePhotoTile(
             photo: photo,
             side: side,
             ring: count > 1 ? (surface ?? palette.ground) : nil,
             onFailure: { failed.insert(photo.id) }
         )
-        .rotationEffect(.degrees(angle(at: position)))
-        .modifier(RemovablePhoto(index: index, side: side, onRemove: onRemove))
+        .rotationEffect(.degrees(tilt))
 
         if let onTap {
             Button {
@@ -251,8 +251,9 @@ struct PhotoCluster: View {
                 .atePhotoSource(frames, index: index)
                 .accessibilityLabel("Photo \(position + 1) of \(count)")
                 .accessibilityIdentifier("photo.\(index)")
+                .modifier(RemovablePhoto(index: index, side: side, angle: tilt, onRemove: onRemove))
         } else {
-            drawn
+            drawn.modifier(RemovablePhoto(index: index, side: side, angle: tilt, onRemove: onRemove))
         }
     }
 
@@ -266,9 +267,16 @@ struct PhotoCluster: View {
 
 /// A tile's X and its long-press menu, when the cluster allows removing; inert otherwise. The X is
 /// the visible way (round 4); the long press stays as the second.
+///
+/// The X sits **inside the photo's top-trailing corner and tilts with it** (Eamon, 7 Oct: it was
+/// pinned to the untilted square, so it floated off the corner of the photo you could see). It is an
+/// overlay of its own rather than part of the tile, so a tap on it never reaches the photo's own
+/// tap, which opens the viewer.
 private struct RemovablePhoto: ViewModifier {
     let index: Int
     let side: CGFloat
+    /// The tile's tilt, which the X follows.
+    let angle: Double
     let onRemove: ((Int) -> Void)?
 
     @Environment(\.atePalette) private var palette
@@ -276,22 +284,24 @@ private struct RemovablePhoto: ViewModifier {
     func body(content: Content) -> some View {
         if let onRemove {
             content
-                .overlay(alignment: .topTrailing) {
-                    Button { onRemove(index) } label: {
-                        AteIcon.close.view(size: Self.glyph)
-                            .foregroundStyle(palette.inverted)
-                            .frame(width: Self.disc, height: Self.disc)
-                            .background(palette.fg, in: .circle)
-                            // Parted from the photo under it by a ring in the surface colour, as the
-                            // photos are from each other.
-                            .overlay { Circle().strokeBorder(palette.ground, lineWidth: 2).padding(-2) }
-                            .frame(width: AteMetrics.hit, height: AteMetrics.hit)
-                            .contentShape(.rect)
-                    }
-                    .buttonStyle(.plain)
-                    .offset(x: Self.shift, y: -Self.shift)
-                    .accessibilityLabel("Remove photo \(index + 1)")
-                    .accessibilityIdentifier("photo.remove.\(index)")
+                .overlay {
+                    Color.clear
+                        .frame(width: side, height: side)
+                        .overlay(alignment: .topTrailing) {
+                            Button { onRemove(index) } label: {
+                                AteIcon.close.view(size: Self.glyph)
+                                    .foregroundStyle(palette.inverted)
+                                    .frame(width: Self.disc, height: Self.disc)
+                                    .background(palette.fg, in: .circle)
+                                    .frame(width: AteMetrics.hit, height: AteMetrics.hit)
+                                    .contentShape(.rect)
+                            }
+                            .buttonStyle(.plain)
+                            .offset(x: Self.shift, y: -Self.shift)
+                            .accessibilityLabel("Remove photo \(index + 1)")
+                            .accessibilityIdentifier("photo.remove.\(index)")
+                        }
+                        .rotationEffect(.degrees(angle))
                 }
                 .contentShape(
                     .contextMenuPreview,
@@ -305,10 +315,10 @@ private struct RemovablePhoto: ViewModifier {
         }
     }
 
-    /// A small disc over the tile's corner — 22 across, its X 11, sitting 4 in from the corner.
-    private static let disc: CGFloat = 22
+    /// A small disc inside the tile's corner — 24 across, its X 11, sitting 6 in from both edges.
+    private static let disc: CGFloat = 24
     private static let glyph: CGFloat = 11
-    private static let inset: CGFloat = 4
+    private static let inset: CGFloat = 6
     /// The 44 target is centred on the disc, so it moves out by the difference.
     private static let shift = AteMetrics.hit / 2 - disc / 2 - inset
 }

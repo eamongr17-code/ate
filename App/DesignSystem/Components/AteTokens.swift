@@ -59,13 +59,15 @@ enum TokenPillMetrics {
 
     static let dietHeight: CGFloat = 18
     static let dietPadding: CGFloat = 6
+    /// Half the air between two codes inside one grouped chip — 7 between them, a little over the
+    /// chip's own 6 so `GF V` never reads as `GFV`.
+    static let dietInnerPadding: CGFloat = 3.5
     /// `.prose .diet{vertical-align:2px; margin:0 1px}` in the words…
     static let dietRiseInProse: CGFloat = 2
     static let dietMarginInProse: CGFloat = 1
-    /// …and `.dname .diet{margin-left:6px; vertical-align:3px}` after a dish's name, 4 apart.
+    /// …and `.dname .diet{margin-left:6px; vertical-align:3px}` after a dish's name.
     static let dietRiseOnName: CGFloat = 3
     static let dietGapOnName: CGFloat = 6
-    static let dietGapBetween: CGFloat = 4
 
     /// How far the chip hangs below the baseline of the text it sits in. The chip is an
     /// `inline-flex` whose baseline is its code's, centred in 18 on a `line-height:1` box — so its
@@ -87,18 +89,57 @@ struct DietTagChip: View {
     /// itself — the dish page, a search row — the ground's recessed `field` tone, since a linen chip
     /// on linen is no chip at all (round 4).
     var fill: Color = AteColor.tagFill
+    /// Which sides run on into the dish's next and previous codes (``DietChipJoin``).
+    var join: DietChipJoin = []
 
     var body: some View {
         Text(tag.label)
             .ateText(.dietTag)
             .lineLimit(1)
             .fixedSize()
-            .padding(.horizontal, TokenPillMetrics.dietPadding)
+            .padding(.leading, join.padding(.leading))
+            .padding(.trailing, join.padding(.trailing))
             .frame(height: TokenPillMetrics.dietHeight)
             .foregroundStyle(AteColor.tagInk)
-            .background(fill, in: .capsule)
+            .background(fill, in: join.shape)
             .accessibilityElement()
             .accessibilityLabel(tag.spokenName)
+    }
+}
+
+/// **A dish's codes are one chip** (Eamon, 7 Oct: "multiple dietaries should group together"). Two
+/// or more codes on one dish draw as a single capsule — `GF V VG` — rather than a row of pills: each
+/// code is a segment of it, square where it runs on into its neighbour.
+struct DietChipJoin: OptionSet, Hashable {
+    let rawValue: Int
+    /// Runs on from the code before it.
+    static let leading = DietChipJoin(rawValue: 1 << 0)
+    /// Runs on into the code after it.
+    static let trailing = DietChipJoin(rawValue: 1 << 1)
+
+    /// Each code's place in a run of `count`.
+    static func at(_ index: Int, of count: Int) -> DietChipJoin {
+        var join: DietChipJoin = []
+        if index > 0 { join.insert(.leading) }
+        if index < count - 1 { join.insert(.trailing) }
+        return join
+    }
+
+    /// The code's inset on one side: the chip's own 6 at an end, half the gap where it runs on.
+    func padding(_ side: DietChipJoin) -> CGFloat {
+        contains(side) ? TokenPillMetrics.dietInnerPadding : TokenPillMetrics.dietPadding
+    }
+
+    /// The capsule, cut square on the sides that run on.
+    var shape: UnevenRoundedRectangle {
+        let radius = TokenPillMetrics.dietHeight / 2
+        let leading = contains(.leading) ? 0 : radius
+        let trailing = contains(.trailing) ? 0 : radius
+        return UnevenRoundedRectangle(
+            topLeadingRadius: leading, bottomLeadingRadius: leading,
+            bottomTrailingRadius: trailing, topTrailingRadius: trailing,
+            style: .circular
+        )
     }
 }
 
