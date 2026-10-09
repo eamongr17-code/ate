@@ -11,7 +11,7 @@ extension AteTextStyle {
     )
     /// …and at 34 on the list's own page.
     static let kitListCoverNameHero = AteTextStyle(
-        voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title1,
+        voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title,
         maximumSize: 34
     )
     /// A shelf tile's name — `.tile b`: Bricolage 600 at 16, `line-height:1.2`, `-.01em`.
@@ -20,7 +20,7 @@ extension AteTextStyle {
     )
     /// The list page's name under its cover — `.hero .nm`: Bricolage 800 at 28, `line-height:1.05`.
     static let kitListHeroName = AteTextStyle(
-        voice: .display, size: 28, weight: 800, trackingEm: -0.035, lineHeight: 1.05, textStyle: .title1
+        voice: .display, size: 28, weight: 800, trackingEm: -0.035, lineHeight: 1.05, textStyle: .title
     )
     /// The handle under it — `.hero .by`: Bricolage 600 at 15.
     static let kitListByline = AteTextStyle(
