@@ -91,8 +91,8 @@ struct AteScoreToken: View {
         // pill grows with Dynamic Type instead of clipping its digits.
         .frame(height: drawn * AteScoreTokenMetrics.lineHeight + 2 * metrics.vertical)
         .foregroundStyle(dress.ink)
-        .background(dress.fill, in: .capsule)
-        .ateEnamel(onDarkFill: dress == .blownAway)
+        // Live, so the real thing: Liquid Glass tinted butter (brick for a 6) (Eamon, 9 Oct).
+        .ateGlassPill(dress.fill, in: .capsule)
         .ateShimmerOnce(dress.shimmers)
         .fixedSize()
         .accessibilityElement()

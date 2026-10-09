@@ -83,8 +83,9 @@ struct DietTagChip: View {
     let tag: DietTag
     /// The ground showing through. Linen on paper and slips (the markup's own); on the linen ground
     /// itself — the dish page, a search row — the ground's recessed `field` tone, since a linen chip
-    /// on linen is no chip at all (round 4).
-    var fill: Color = AteColor.tagFill
+    /// on linen is no chip at all (round 4). `nil` draws no fill: the caller wraps the chip in glass
+    /// (``AteDietChips``).
+    var fill: Color? = AteColor.tagFill
     /// Which sides run on into the dish's next and previous codes (``DietChipJoin``).
     var join: DietChipJoin = []
     /// The prose it sits in, when it is inline in the words: then it is proportioned off it like the
@@ -92,9 +93,19 @@ struct DietTagChip: View {
     var prose: CGFloat?
 
     var body: some View {
-        let style = prose.map(AteTextStyle.dietToken(inProse:)) ?? .dietTag
         let height = prose.map { $0 * TokenPillMetrics.dietHeightEm } ?? TokenPillMetrics.dietHeight
-        Text(tag.label)
+        if prose != nil {
+            // In the words it is an image, so it carries the glass's light rather than the glass
+            // (``GlassSheen``) — the sheen only, so a grouped chip shows no seams.
+            chip(height: height).ateGlassSheen(rim: false, in: join.shape(height: height))
+        } else {
+            chip(height: height)
+        }
+    }
+
+    private func chip(height: CGFloat) -> some View {
+        let style = prose.map(AteTextStyle.dietToken(inProse:)) ?? .dietTag
+        return Text(tag.label)
             .ateText(style)
             .lineLimit(1)
             .fixedSize()
@@ -102,7 +113,7 @@ struct DietTagChip: View {
             .padding(.trailing, join.padding(.trailing))
             .frame(height: height)
             .foregroundStyle(AteColor.tagInk)
-            .background(fill, in: join.shape(height: height))
+            .background(fill ?? .clear, in: join.shape(height: height))
             .accessibilityElement()
             .accessibilityLabel(tag.spokenName)
     }
@@ -205,7 +216,7 @@ struct ScoreToken: View {
         .frame(height: height)
         .foregroundStyle(dress.ink)
         .background(dress.fill, in: .capsule)
-        .ateEnamel(onDarkFill: dress == .blownAway)
+        .ateGlassSheen(onDarkFill: dress == .blownAway)
         .ateShimmerOnce(dress.shimmers)
         .overlay {
             if isSelected {

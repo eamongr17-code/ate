@@ -14,7 +14,13 @@ struct AteDietChip: View {
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        DietTagChip(tag: tag, fill: onGround ? palette.field : AteColor.tagFill, join: join)
+        let fill = onGround ? palette.field : AteColor.tagFill
+        if join.isEmpty {
+            // A whole chip on its own is live: Liquid Glass tinted with its muted fill.
+            DietTagChip(tag: tag, fill: nil).ateGlassPill(fill, in: .capsule)
+        } else {
+            DietTagChip(tag: tag, fill: fill, join: join)
+        }
     }
 }
 
@@ -23,13 +29,17 @@ struct AteDietChips: View {
     let tags: [DietTag]
     var onGround = false
 
+    @Environment(\.atePalette) private var palette
+
     var body: some View {
         if tags.isEmpty == false {
+            // One glass capsule for the whole group, so the codes read as one chip with no seams.
             HStack(spacing: 0) {
                 ForEach(Array(tags.enumerated()), id: \.element) { index, tag in
-                    AteDietChip(tag: tag, onGround: onGround, join: .at(index, of: tags.count))
+                    DietTagChip(tag: tag, fill: nil, join: .at(index, of: tags.count))
                 }
             }
+            .ateGlassPill(onGround ? palette.field : AteColor.tagFill, in: .capsule)
             .accessibilityElement(children: .combine)
         }
     }
