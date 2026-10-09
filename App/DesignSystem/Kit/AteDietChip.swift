@@ -3,8 +3,9 @@ import SwiftUI
 
 /// **A diet tag** — GF, DF, V, VG, NF: the code in capitals, in the score pill's DM Mono 500, muted,
 /// on a pill of the score's height with the ground showing through (`.diet`), in tinted glass. The
-/// existing ``DietTagChip``, with the one decision a caller makes named: whether it sits on paper (a slip, a sheet) or on the ground itself,
-/// where a linen chip on linen would be no chip at all and it recesses to the field tone instead.
+/// existing ``DietTagChip``, with the one decision a caller makes named: whether it sits on paper (a
+/// slip, a sheet) or on the ground itself, where a linen chip on linen would be no chip at all and it
+/// recesses to the field tone instead.
 struct AteDietChip: View {
     let tag: DietTag
     var onGround = false
