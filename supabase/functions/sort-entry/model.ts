@@ -26,7 +26,9 @@ import type { SortPlan } from './types.ts';
  */
 export const SORTER_MODELS = ['claude-haiku-4-5', 'claude-haiku-5-5', 'claude-sonnet-5'] as const;
 export type SorterModel = typeof SORTER_MODELS[number];
-export const DEFAULT_MODEL: SorterModel = 'claude-haiku-4-5';
+// Haiku 5.5 since the 10 Oct eval: core accuracy level with Haiku 4.5 (72 vs 73 of 80), ~0.3 s
+// faster at p50, ~9x cheaper. Its wordier notes are trimmed by validate.ts tidyNote.
+export const DEFAULT_MODEL: SorterModel = 'claude-haiku-5-5';
 
 export function isSorterModel(v: unknown): v is SorterModel {
   return typeof v === 'string' && (SORTER_MODELS as readonly string[]).includes(v);
@@ -101,6 +103,8 @@ const SYSTEM = [
   '6. Order the items as the dishes appear in their text.',
   '7. A note is the words that follow that dish (and its score) up to the next dish,',
   '   without the dish name or the score, and without leading glue ("and", "was", ",").',
+  '   Never put the score\'s words in the note: "was a 4.5, the best all week" -> note "the best all week";',
+  '   "is a solid four" alone -> no note.',
   '   It is printed under the dish on a receipt, so it must read as a comment on it.',
   '8. styles: 1-3 short lowercase words for what KIND of dish it is, as a menu would group it',
   '   ("pasta", "dumplings", "dessert", "fried chicken", "noodles"). Not the cuisine or country,',
