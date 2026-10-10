@@ -31,7 +31,7 @@ struct V2HandleScreen: View {
 
     private var page: some View {
         VStack(alignment: .leading, spacing: AteHandleFieldMetrics.pageGap) {
-            AteTitle(text: "Pick a\nhandle.", style: .handleTitle, alignment: .leading)
+            AteTitle(text: "Pick a handle.", style: .handleTitle, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
             AteHandleField(
                 text: Binding(get: { model.display }, set: { model.type($0) }),

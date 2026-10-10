@@ -1,25 +1,33 @@
 import AteKit
 import SwiftUI
 
-/// **The onboarding** (`design/rebuild/first-run.html`, steps 3–5) — straight after Handle, once.
+/// **The onboarding** (`design/rebuild/onboarding-v2.html`) — straight after Handle, once.
 ///
-/// 1. **The one ask**: "Your last meals are already in your photos.", one ink pill (Find them), and
-///    Not now. The only permission first run asks for, and the system's own prompt does the asking.
-/// 2. **What it found**: the From your photos rows exactly as Notifications draws them — sitting,
-///    time, cluster, nearby place chips, the pen. A pen or a chip opens the composer on that meal over
-///    the Journal; the close keeps every meal in Notifications.
+/// 1. **A photo of you** (``OnboardingPhotoStep``): the avatar, Apple's picker, Not now.
+/// 2. **The four cards** (``OnboardingCards``): one sample entry built up — words, photos, scores,
+///    the receipt it shares as.
+/// 3. **Start with your last meal**: Find it in my photos (the system's own prompt does the asking),
+///    Write one now (a blank composer), or Later (the empty Journal). Nothing assumes the roll has
+///    food in it.
+/// 4. **What it found**: the From your photos rows exactly as Notifications draws them. A pen or a
+///    chip opens the composer on that meal over the Journal; the close keeps every meal in
+///    Notifications.
+/// 5. **Nothing found**, or photos refused: said once, with Write one now and Later.
 ///
-/// Not now, a refusal, or an empty roll lands on the Journal as it always has. Nothing is written
-/// without the person writing it.
+/// Nothing is written without the person writing it.
 struct V2Onboarding: View {
     let app: AppModel
 
+    enum Step: Equatable {
+        case photo, cards, start, found
+        /// The roll had no meals, or access was refused.
+        case nothing(refused: Bool)
+    }
+
+    @State private var step: Step = .photo
     @State private var photos: PhotoSuggestionsModel
     @State private var isFinding = false
-    @State private var hasFound = false
     @State private var pickedChip: String?
-    /// Made once, so the two photos keep their identity across redraws.
-    @State private var askPhotos = AteWelcomeCardMetrics.photos.map { AtePhoto(image: Image($0)) }
     @Environment(\.atePalette) private var palette
 
     init(app: AppModel) {
@@ -32,61 +40,87 @@ struct V2Onboarding: View {
     var body: some View {
         NavigationStack {
             Group {
-                if hasFound {
+                switch step {
+                case .photo:
+                    OnboardingPhotoStep(app: app) { answer in
+                        app.services.analytics(OnboardingEvents.photo(answer))
+                        go(.cards)
+                    }
+                case .cards:
+                    OnboardingCards(onDone: { reached, skipped in
+                        app.services.analytics(OnboardingEvents.cards(reached: reached, skipped: skipped))
+                        go(.start)
+                    }, handle: app.handle ?? "")
+                case .start:
+                    start
+                case .found:
                     found
-                } else {
-                    ask
+                case .nothing(let refused):
+                    nothing(refused: refused)
                 }
             }
             .ateGround()
         }
+    }
+
+    private func go(_ next: Step) {
+        withAnimation(AteMotion.fillIn) { step = next }
+    }
+
+    // MARK: - Start with your last meal
+
+    private var start: some View {
+        door(
+            title: OnboardingCopy.start,
+            identifier: "v2.onboarding.start"
+        ) {
+            AteInkPill(
+                title: OnboardingCopy.find, isEnabled: isFinding == false, identifier: "onboarding.find"
+            ) {
+                app.services.analytics(OnboardingEvents.started(.photos))
+                findThem()
+            }
+            AteInkPill(title: OnboardingCopy.write, isQuiet: true, identifier: "onboarding.write") {
+                app.services.analytics(OnboardingEvents.started(.write))
+                writeBlank()
+            }
+            AteWelcomeLink(title: OnboardingCopy.later, colour: palette.fg, identifier: "onboarding.later") {
+                app.services.analytics(OnboardingEvents.started(.later))
+                finish(.skipped)
+            }
+        }
         .task { app.services.analytics(OnboardingEvents.asked()) }
     }
 
-    // MARK: - The one ask
+    private func nothing(refused: Bool) -> some View {
+        door(
+            title: refused ? OnboardingCopy.refused : OnboardingCopy.nothing,
+            identifier: "v2.onboarding.nothing"
+        ) {
+            AteInkPill(title: OnboardingCopy.write, identifier: "onboarding.nothing.write", action: writeBlank)
+            AteWelcomeLink(title: OnboardingCopy.later, colour: palette.fg, identifier: "onboarding.nothing.later") {
+                finish(refused ? .skipped : .nothingFound)
+            }
+        }
+    }
 
-    private var ask: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Welcome's two photos, tilted together above the line: the same mess an entry wears.
-            PhotoCluster(
-                photos: askPhotos,
-                side: OnboardingMetrics.photo,
-                surface: palette.ground,
-                topPadding: 0,
-                bottomPadding: 0,
-                overlap: AteWelcomeCardMetrics.overlap,
-                angles: OnboardingMetrics.angles
-            )
-            .frame(maxWidth: .infinity)
-            .padding(.top, OnboardingMetrics.askTop)
-            .accessibilityHidden(true)
-            AteTitle(text: OnboardingCopy.ask, style: .handleTitle, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, AteHandleFieldMetrics.pageInset)
-                .padding(.top, OnboardingMetrics.photosToTitle)
+    /// One centred line over the doors at the foot: the start screen and nothing-found.
+    private func door<Doors: View>(
+        title: String, identifier: String, @ViewBuilder doors: () -> Doors
+    ) -> some View {
+        VStack(spacing: 0) {
             Spacer(minLength: AteMetrics.section)
-            VStack(spacing: AteWelcomeCardMetrics.doorsGap) {
-                AteInkPill(
-                    title: OnboardingCopy.find, isEnabled: isFinding == false, identifier: "onboarding.find"
-                ) {
-                    findThem()
-                }
-                Button(action: notNow) {
-                    Text(OnboardingCopy.notNow)
-                        .ateText(.control)
-                        .underline()
-                        .frame(minHeight: AteMetrics.hit)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(palette.fg)
-                .accessibilityIdentifier("onboarding.notNow")
+            AteTitle(text: title, style: .handleTitle)
+                .padding(.horizontal, OnboardingMetrics.titleInset)
+            Spacer(minLength: AteMetrics.section)
+            VStack(spacing: OnboardingMetrics.doorsGap) {
+                doors()
             }
             .padding(.horizontal, AteMetrics.gutter)
             .ateContentBottom(AteWelcomeCardMetrics.doorsBottom)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .accessibilityIdentifier("v2.onboarding.ask")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier(identifier)
     }
 
     private func findThem() {
@@ -99,15 +133,16 @@ struct V2Onboarding: View {
             }
             isFinding = false
             app.services.analytics(OnboardingEvents.answered(allowed ? .allowed : .denied))
-            guard allowed else { return finish(.skipped) }
+            guard allowed else { return go(.nothing(refused: true)) }
             NotificationCenter.default.post(name: .atePhotoAccessGranted, object: nil)
-            hasFound = true
+            go(.found)
         }
     }
 
-    private func notNow() {
-        app.services.analytics(OnboardingEvents.answered(.skipped))
-        finish(.skipped)
+    /// Write one now: the blank composer, over the Journal.
+    private func writeBlank() {
+        AteHaptics.key()
+        finish(.wrote, writing: ComposerPresentation(origin: .onboarding))
     }
 
     // MARK: - What it found
@@ -160,7 +195,7 @@ struct V2Onboarding: View {
             await photos.load(mayAsk: false)
             guard Task.isCancelled == false else { return }
             app.services.analytics(OnboardingEvents.found(meals: photos.clusters.count))
-            if photos.clusters.isEmpty { finish(photos.phase == .off ? .skipped : .nothingFound) }
+            if photos.clusters.isEmpty { go(.nothing(refused: photos.phase == .off)) }
         }
         .accessibilityIdentifier("v2.onboarding.found")
     }
@@ -173,10 +208,11 @@ struct V2Onboarding: View {
                 width: OnboardingMetrics.titleBar, height: OnboardingMetrics.titleBarHeight, palette: .automatic
             )
                 .ateSkeletonSweep()
+                .frame(maxWidth: .infinity)
                 .accessibilityHidden(true)
         } else {
-            AteTitle(text: OnboardingCopy.found(photos.clusters.count), style: .handleTitle, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            AteTitle(text: OnboardingCopy.found(photos.clusters.count), style: .handleTitle)
+                .frame(maxWidth: .infinity)
         }
     }
 
@@ -217,21 +253,42 @@ private extension View {
 }
 
 enum OnboardingCopy {
-    static let ask = "Your last\nmeals are\nalready in\nyour photos."
-    static let find = "Find them"
+    static let photo = "Add a photo of you."
+    static let choosePhoto = "Choose a photo"
+    static let chooseAnother = "Choose another"
     static let notNow = "Not now"
+    static let skip = "Skip"
+    static let next = "Next"
+    static let start = "Start with your last meal."
+    static let find = "Find it in my photos"
+    static let write = "Write one now"
+    static let later = "Later"
+    static let nothing = "No meals in your photos yet."
+    static let refused = "No photos, no problem."
 
     static func found(_ meals: Int) -> String {
-        meals == 1 ? "1 meal\nin your photos." : "\(meals) meals\nin your photos."
+        meals == 1 ? "1 meal in your photos." : "\(meals) meals in your photos."
     }
 }
 
 enum OnboardingMetrics {
-    /// `first-run.html` step 3: the cluster at `top:132px`, 112 a side, `-7` and `5`; the title 66 under it.
-    static let askTop: CGFloat = 78
-    static let photo: CGFloat = 112
-    static let angles: [Double] = [-7, 5]
-    static let photosToTitle: CGFloat = 66
+    /// `onboarding-v2.html`: every title centred, 32 in from each edge, wrapping on its own.
+    static let titleInset: CGFloat = 32
+    /// Step 2: the avatar 176 across, the camera disc ringed in the ground on its edge.
+    static let avatar: CGFloat = 176
+    static let avatarToTitle: CGFloat = 50
+    static let badgeIcon: CGFloat = 20
+    static let badgeRing: CGFloat = 4
+    static let badgeInset: CGFloat = 2
+    /// The cards: the art 16 under the bar, the dots 18 over Next.
+    static let artTop: CGFloat = 16
+    static let dot: CGFloat = 8
+    static let dotsToPill: CGFloat = 18
+    /// The share card: the story at half size where it fits, the row's disc and two-line label.
+    static let storyScale: CGFloat = 0.5
+    static let shareRowHeight: CGFloat = 84
+    /// Start: the two pills and the link, 10 apart.
+    static let doorsGap: CGFloat = 10
     static let titleBar: CGFloat = 220
     static let titleBarHeight: CGFloat = 36
 }

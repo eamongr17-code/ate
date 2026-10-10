@@ -11,6 +11,7 @@ struct ComposerPresentation: Identifiable, Hashable {
         case journalEmpty = "journal_empty"
         case entryEdit = "entry_edit"
         case photoSuggestion = "photo_suggestion"
+        case onboarding
     }
 
     let id = UUID()

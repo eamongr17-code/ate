@@ -12,6 +12,8 @@ public enum ComposerOrigin: String, Sendable, CaseIterable, Codable {
     case entryEdit = "entry_edit"
     /// A cluster of recent photos on `Suggestions`, opened from the journal's header.
     case photoSuggestion = "photo_suggestion"
+    /// "Write one now" at the end of first run: a blank composer, for someone with no meal in the roll.
+    case onboarding
 }
 
 /// How a score token got into the words. The three are genuinely different products: the Score key
