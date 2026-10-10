@@ -106,6 +106,11 @@ const SYSTEM = [
   '   ("pasta", "dumplings", "dessert", "fried chicken", "noodles"). Not the cuisine or country,',
   '   not a place, not a diet (never "vegan" or "gluten free"), not an opinion. These describe the',
   '   dish only; they never change its name, score or note.',
+  '9. printed_name is dish_name as a menu would print it: SINGULAR when the plural is the',
+  '   diner\'s count ("six gin and tonics" -> "Gin & tonic"; "two serves of the dumplings" ->',
+  '   "Dumplings", since the dish itself is plural), in sentence case (first letter capital, the',
+  '   rest lowercase: "Pepperoni pizza"), keeping the capitals of a proper name ("Big Mac",',
+  '   "Peking duck"). Same dish, same words; only the number and the capitals change.',
 ].join('\n');
 
 const TOOL = {
@@ -125,6 +130,11 @@ const TOOL = {
           type: 'object',
           properties: {
             dish_name: { type: 'string', description: 'The dish as the text names it.' },
+            printed_name: {
+              type: 'string',
+              description:
+                'dish_name as a menu prints it: singular when the plural was a count, sentence case, proper names keeping their capitals.',
+            },
             score: {
               type: 'number',
               description:
@@ -241,6 +251,7 @@ export function planFromResponse(payload: unknown): SortPlan | null {
       const styles = cleanStyles(it.styles);
       return {
         dish_name: typeof it.dish_name === 'string' ? it.dish_name : '',
+        ...(typeof it.printed_name === 'string' && it.printed_name.trim() ? { printed_name: it.printed_name } : {}),
         score: typeof it.score === 'number' ? it.score : null,
         score_evidence: typeof it.score_evidence === 'string' ? it.score_evidence : null,
         note: typeof it.note === 'string' ? it.note : null,

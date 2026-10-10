@@ -77,7 +77,7 @@ enum AteColor {
     /// **A slip** — every card and printed page the reader looks at: the journal, feed and profile
     /// cards, the statement slip, the entry page, the monthly statement and the on-screen Share
     /// receipt. White on linen; in dark a plum card with light type on it (`.screen.dark .slip`).
-    /// The EXPORTED share image stays light — `ShareImage` renders in `.light` — and the
+    /// The EXPORTED share image stays light — `AteShareStoryImage` renders in `.light` — and the
     /// dimmed ``paper`` is left to the place menu and Welcome.
     static let slip = Color(light: .white, dark: Color(hex: 0x231B24))
 

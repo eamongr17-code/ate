@@ -3,8 +3,10 @@ import SwiftUI
 
 /// **Printed** — the composer's second face, inside the same sheet: the new entry's receipt on the
 /// coral ground, lying straight, the photos clear above it, centred in the room between the corner
-/// row and the foot. Close is the glass disc top left; Share, the only action, is the ink pill at the
-/// foot (live once the receipt has printed; "Print it again" when a print could not finish).
+/// row and the foot. Close is the glass disc top left; the foot is the row of ways out
+/// (``V2ReceiptShareRow``: Instagram Stories, Copy link, Messages, Save image, More), live once the
+/// receipt has printed — nothing opens before a person can share (Eamon, 10 Oct) — or "Print it
+/// again" when a print could not finish.
 ///
 /// The rules are the current Summary's (``EntrySummaryStore``), with build 87's speed change: the
 /// face comes up the moment the words are saved, and the receipt enters once — fed out of the printer
@@ -38,6 +40,7 @@ struct V2ComposerPrinted: View {
     let handoff: Handoff
 
     @State private var store: EntrySummaryStore
+    /// One of the row's sheets is up (the system sheet, Messages).
     @State private var isSharing = false
     @State private var isPickingPlace = false
     @State private var appearedAt = ContinuousClock.now
@@ -73,7 +76,7 @@ struct V2ComposerPrinted: View {
                 .scrollBounceBehavior(.basedOnSize)
                 .scrollIndicators(.hidden)
             }
-            V2PrintedFoot(pill: foot)
+            foot
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ateAccentGround(AteColor.coral)
@@ -87,11 +90,6 @@ struct V2ComposerPrinted: View {
         .onChange(of: store.card) { _, card in NotificationCenter.ateEntryChanged(card) }
         .onChange(of: store.showsReceipt, initial: true) { _, shows in countEntrance(shows) }
         .onDisappear { countDone() }
-        .sheet(isPresented: $isSharing, onDismiss: { store.shareEnded() }, content: {
-            V2ReceiptShareSheet(
-                receipt: receipt, photos: handoff.photos, source: .summary, analytics: services.analytics
-            )
-        })
         .v2PlaceSheet(isPresented: $isPickingPlace, directory: services.places) { place in
             guard let id = place.id else { return }
             isPickingPlace = false
@@ -118,21 +116,27 @@ struct V2ComposerPrinted: View {
         .accessibilityIdentifier("summary.receipt")
     }
 
-    /// The one action, at the foot: Share — off while there is nothing to send — or, when a print
-    /// could not finish, "Print it again".
-    private var foot: V2PrintedFoot.Pill {
+    /// The foot: the ways out — off while there is nothing to send — or, when a print could not
+    /// finish, "Print it again".
+    @ViewBuilder
+    private var foot: some View {
         if store.phase == .stalled {
-            return V2PrintedFoot.Pill(title: "Print it again", isEnabled: store.isBusy == false,
-                                      identifier: "summary.reprint") {
+            V2PrintedFoot(pill: V2PrintedFoot.Pill(
+                title: "Print it again", isEnabled: store.isBusy == false, identifier: "summary.reprint"
+            ) {
                 Task { await store.reprint() }
-            }
+            })
+        } else {
+            V2ReceiptShareRow(
+                receipt: receipt, photos: handoff.photos, source: .summary,
+                isEnabled: store.phase == .printed, analytics: services.analytics,
+                onFirstShare: send, isPresenting: $isSharing
+            )
+            .padding(.horizontal, AteMetrics.gutter)
+            .padding(.top, AteSheetScaffoldMetrics.footTop)
+            .padding(.bottom, AteSheetScaffoldMetrics.bareBottom)
+            .accessibilityIdentifier("summary.share")
         }
-        return V2PrintedFoot.Pill(
-            title: "Share",
-            isEnabled: store.phase == .printed && store.isSharing == false,
-            identifier: "summary.share",
-            action: send
-        )
     }
 
     /// Dish rows and scores only, never a note.
@@ -154,11 +158,11 @@ struct V2ComposerPrinted: View {
         }
     }
 
-    /// One `summary_shared` per sheet: the store refuses a second tap while one is up.
+    /// `summary_shared`, once per screen: the first disc tapped.
     private func send() {
         guard let event = store.share() else { return }
         services.analytics(event)
-        isSharing = true
+        store.shareEnded()
     }
 
     /// Close, top left — counted once, however the sheet goes.
@@ -200,7 +204,7 @@ struct V2ComposerPrinted: View {
         PhotoAccessAsk.shouldAsk(
             canAsk: library.canAsk,
             isPrinted: store.phase == .printed,
-            isPresentingOther: store.isSharing || isSharing || isPickingPlace
+            isPresentingOther: isSharing || isPickingPlace
         )
     }
 }

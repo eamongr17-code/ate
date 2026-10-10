@@ -10,15 +10,15 @@ public enum ShareDestination: String, Sendable, CaseIterable, Codable {
     case messages
     /// The picture was written to Photos — for a Reel, a TikTok, a carousel.
     case saved
-    /// The sticker went to the clipboard, to be pasted over a story of the person's own.
+    /// The sticker went to the clipboard (no longer offered; kept so old events still decode).
     case clipboard
     /// "More": the system sheet, whichever app it picked.
     case system
 }
 
-/// Which sticker left: the slip on the entry's photo, the slip alone, or one dish's score tag.
+/// Which page left: the receipt on the entry's photo, or the receipt alone on the coral ground.
 public enum ShareSticker: String, Sendable, CaseIterable, Codable {
-    case photo, slip, dish
+    case photo, slip
 }
 
 /// **The share loop, counted** (PRODUCT.md principle 6: the receipt is the marketing). Built here so

@@ -1,20 +1,36 @@
 import AteKit
 import SwiftUI
 
-/// **The share sticker** (10 Oct, Eamon: "simplify it a bit… it needs to look good in a small
-/// space"): the receipt stripped to what a glance needs, drawn to be stuck on a photo at a third of
-/// a story's width. Dish left, score right, no dot leader; the top score marked in butter so one
-/// number reads first; one dashed rule; one line of fine print (the place and its suburb, never the
-/// street); the signature and the wordmark. No order number, date, count or average — those stay
-/// on the receipt in the app. Scores never inferred: an unscored dish keeps an empty column.
+/// **The receipt** (10 Oct, Eamon: one receipt, "simplify it a bit… it needs to look good in a small
+/// space"): what prints after a review, what the entry page shares, and what is stuck on a photo.
+/// Dish left in the heading voice; every score in the same box in a fixed column, tabular digits,
+/// so nothing hangs off anything (the best one filled butter, the rest paper with a hairline; an
+/// unscored dish an empty dashed box, never a number — scores are never inferred); one dashed rule;
+/// one line of fine print (the place and its suburb, never the street); the signature and the
+/// wordmark. No order number, date, count or average.
 ///
-/// One drawing at one width (``AteShareSlipMetrics/width``) for the screen and the export alike.
+/// **Printing** (the Summary while the sorter works): skeleton bars where the dishes will be, under
+/// the paper feed. A receipt that cannot print without a place carries the Place key where the place
+/// prints.
+///
+/// One drawing at one width (``AteShareSlipMetrics/width``): on screen it is scaled up as a whole
+/// (``AtePrintedReceiptStage``); exported at 3× it is the sticker.
 struct AteShareSlip: View {
     let receipt: AteReceipt
+    /// Still being sorted: the dish lines are skeleton bars.
+    var isPrinting = false
+    /// …and whether the bars carry the feed. It stops once the wait is over.
+    var breathes = true
+    /// A receipt that cannot print without a place: the place slot is the Place key.
+    var onAddPlace: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.snug) {
-            dishes
+            if isPrinting {
+                ShareSlipSkeleton(breathes: breathes)
+            } else {
+                dishes
+            }
             AteDashedRule()
             placeLine
             signature
@@ -31,15 +47,13 @@ struct AteShareSlip: View {
     private var dishes: some View {
         VStack(alignment: .leading, spacing: AteMetrics.tight) {
             ForEach(receipt.items) { item in
-                HStack(alignment: .firstTextBaseline, spacing: AteMetrics.regular) {
+                HStack(alignment: .top, spacing: AteMetrics.regular) {
                     Text(item.name)
                         .ateText(.shareSlipDish)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    if let score = item.score {
-                        AteShareScore(score: score, isTop: item.id == topID)
-                    }
+                    AteShareScore(score: item.score, isTop: item.id == topID)
                 }
             }
         }
@@ -69,6 +83,17 @@ struct AteShareSlip: View {
                         .lineLimit(1)
                 }
             }
+        } else if let onAddPlace {
+            ComposerKey(
+                title: "Place",
+                icon: .place,
+                iconSize: AteShareSlipMetrics.placeKeyIcon,
+                background: AtePalette.slip.field,
+                foreground: AtePalette.slip.fg,
+                identifier: "summary.place",
+                action: onAddPlace
+            )
+            .frame(maxWidth: .infinity)
         }
     }
 
@@ -95,89 +120,98 @@ struct AteShareSlip: View {
     }
 }
 
-/// A score on the sticker: the numeral, and — for the top score — a butter mark behind it (the
-/// score token's own colour, design rule 5: colour is punctuation).
+/// A score's box in the receipt's column: the same size for every line. The top score is filled
+/// in the score token's own colour (design rule 5: colour is punctuation), every other score sits in
+/// a hairline, and no score at all is an empty dashed box.
 struct AteShareScore: View {
-    let score: Rating
+    let score: Rating?
     var isTop = false
 
     var body: some View {
-        Text(ScoreFormat.halfStep(score.value))
-            .ateText(.shareSlipScore)
-            .monospacedDigit()
-            .foregroundStyle(isTop ? ScoreStyle.of(score).ink : AtePalette.slip.fg)
-            .padding(.horizontal, isTop ? AteShareSlipMetrics.markInset : 0)
-            .padding(.vertical, isTop ? AteMetrics.hairspace : 0)
-            .background {
-                if isTop {
-                    RoundedRectangle(cornerRadius: AteShareSlipMetrics.markRadius, style: .continuous)
-                        .fill(ScoreStyle.of(score).fill)
-                }
+        ZStack {
+            if let score {
+                Text(ScoreFormat.halfStep(score.value))
+                    .ateText(.shareSlipScore)
+                    .monospacedDigit()
+                    .foregroundStyle(isTop ? ScoreStyle.of(score).ink : AtePalette.slip.fg)
             }
-            .fixedSize()
+        }
+        .frame(width: AteShareSlipMetrics.scoreColumn, height: AteShareSlipMetrics.scoreBox)
+        .background {
+            let shape = RoundedRectangle(cornerRadius: AteShareSlipMetrics.markRadius, style: .continuous)
+            if let score, isTop {
+                shape.fill(ScoreStyle.of(score).fill)
+            } else if score != nil {
+                shape.strokeBorder(AtePalette.slip.hairline, lineWidth: AteShareSlipMetrics.hairline)
+            } else {
+                shape.strokeBorder(
+                    AtePalette.slip.hairline, style: StrokeStyle(lineWidth: AteShareSlipMetrics.hairline, dash: [3, 3])
+                )
+            }
+        }
+        .padding(.top, AteShareSlipMetrics.scoreLift)
+        .accessibilityLabel(score.map { ScoreFormat.halfStep($0.value) } ?? "No score")
     }
 }
 
-/// **One dish's tag** — the sticker for the carousel habit (one photo per dish, a score on each,
-/// Reels and TikTok): the name, its score in a butter capsule, and a small wordmark. White paper, a
-/// capsule, so it reads as Ate's at any size. An unscored dish is its name alone.
-struct AteDishTag: View {
-    let name: String
-    var score: Rating?
+/// The dishes while they are being sorted: three rows at the dish lines' own height, the name and
+/// the score box as blank bars, the third unscored — an unrated dish is an empty slot even before it
+/// has a name.
+private struct ShareSlipSkeleton: View {
+    var breathes: Bool
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private static let rows: [(name: CGFloat, scored: Bool)] = [(118, true), (72, true), (98, false)]
 
     var body: some View {
-        HStack(spacing: AteMetrics.snug) {
-            Text(name)
-                .ateText(.shareTagName)
-                .lineLimit(1)
-                .foregroundStyle(AtePalette.slip.fg)
-            if let score {
-                Text(ScoreFormat.halfStep(score.value))
-                    .ateText(.shareTagScore)
-                    .monospacedDigit()
-                    .foregroundStyle(ScoreStyle.of(score).ink)
-                    .padding(.horizontal, AteShareSlipMetrics.markInset)
-                    .padding(.vertical, AteMetrics.tight)
-                    .background(Capsule().fill(ScoreStyle.of(score).fill))
+        VStack(alignment: .leading, spacing: AteMetrics.tight) {
+            ForEach(Array(Self.rows.enumerated()), id: \.offset) { _, row in
+                HStack(alignment: .top, spacing: AteMetrics.regular) {
+                    Capsule()
+                        .fill(AtePalette.slip.fg.opacity(AteShareSlipMetrics.skeletonOpacity))
+                        .frame(width: row.name, height: AteShareSlipMetrics.skeletonBar)
+                        .padding(.top, (AteShareSlipMetrics.scoreBox - AteShareSlipMetrics.skeletonBar) / 2)
+                    Spacer(minLength: 0)
+                    RoundedRectangle(cornerRadius: AteShareSlipMetrics.markRadius, style: .continuous)
+                        .fill(AtePalette.slip.fg.opacity(row.scored ? AteShareSlipMetrics.skeletonOpacity : 0))
+                        .frame(width: AteShareSlipMetrics.scoreColumn, height: AteShareSlipMetrics.scoreBox)
+                }
+                .frame(height: AteTextStyle.shareSlipDish.lineBox(dynamicTypeSize), alignment: .top)
             }
-            AteWordmark(height: AteShareSlipMetrics.tagWordmark)
-                .opacity(AteShareSlipMetrics.tagWordmarkOpacity)
         }
-        .padding(.leading, AteShareSlipMetrics.tagInset)
-        .padding(.trailing, AteShareSlipMetrics.tagInset - AteMetrics.tight)
-        .padding(.vertical, AteMetrics.snug)
-        .ateSlip()
-        .background(Capsule().fill(AtePalette.slip.ground))
-        .fixedSize()
-        .accessibilityElement(children: .combine)
+        .ateSkeletonSweep(breathes)
+        .accessibilityHidden(true)
     }
 }
 
 enum AteShareSlipMetrics {
-    /// The paper's width. Exported at 3× it is 600px — inside Meta's recommended sticker width and
-    /// about two fifths of a story.
+    /// The paper's width. On screen it runs 38 from each edge (``AtePrintedReceiptStage``); exported
+    /// at 3× it is 600px — inside Meta's recommended sticker width and about two fifths of a story.
     static let width: CGFloat = 200
     static let inset: CGFloat = 14
     static let top: CGFloat = 16
     static let bottom: CGFloat = 12
     static let radius: CGFloat = 10
     static let wordmark: CGFloat = 12
-    /// The butter mark behind the top score.
-    static let markInset: CGFloat = 5
-    static let markRadius: CGFloat = 4
-    /// The dish tag.
-    static let tagInset: CGFloat = 14
-    static let tagWordmark: CGFloat = 9
-    static let tagWordmarkOpacity: Double = 0.55
+    /// The score column: every box the same width and height, so the numbers stack.
+    static let scoreColumn: CGFloat = 38
+    static let scoreBox: CGFloat = 22
+    static let markRadius: CGFloat = 5
+    static let hairline: CGFloat = 1
+    /// The box sits a hair below the dish's cap height.
+    static let scoreLift: CGFloat = 1
+    static let placeKeyIcon: CGFloat = 16
+    static let skeletonBar: CGFloat = 10
+    static let skeletonOpacity: Double = 0.10
 }
 
 #if DEBUG
-#Preview("Share slip") {
+#Preview("Receipt") {
     VStack(spacing: AteMetrics.section) {
         AteShareSlip(receipt: .preview)
         AteShareSlip(receipt: .previewSingle)
-        AteDishTag(name: "Tagliatelle al ragù", score: Rating(rounding: 4.5))
-        AteDishTag(name: "Prawn spaghetti")
+        AteShareSlip(receipt: .preview, isPrinting: true)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .ateAccentGround(AteColor.coral)

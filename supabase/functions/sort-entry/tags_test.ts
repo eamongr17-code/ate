@@ -123,7 +123,7 @@ test('a marked tag lands on the dish it follows', () => {
   const body = 'Margherita 4.5 GF and the tiramisu 4 DF, loved it';
   assertEquals(lines(sort(body, mark(body, 'GF', 'DF'))), [
     ['Margherita', 4.5, ['gf']],
-    ['tiramisu', 4, ['df']],
+    ['Tiramisu', 4, ['df']],
   ]);
 });
 

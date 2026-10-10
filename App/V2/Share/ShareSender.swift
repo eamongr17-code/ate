@@ -2,53 +2,17 @@ import AteKit
 import SwiftUI
 import UIKit
 
-/// Render, and hand it to the system. **A render that fails is never silent**: it does not open the
-/// sheet and does not count as a share; the pill says "Try again" — one word on the control itself,
-/// no toast, no banner (design rule 1).
+/// What the system sheet is handed.
 struct ShareSender {
     /// The rendered picture — `Identifiable` so it can present the system sheet.
     struct Sending: Identifiable {
         let id = UUID()
         let image: UIImage
-        /// The card on a transparent ground, for an Instagram Stories sticker.
+        /// The receipt on a transparent ground, for an Instagram Stories sticker.
         var sticker: UIImage?
         /// What the system sheet is handed instead of the image — a link item, for a list.
         var items: [Any]?
     }
-
-    var sending: Sending?
-    var didFail = false
-
-    /// Renders and opens the sheet. The share is counted by the sheet itself, when the picture
-    /// actually leaves — and by where it went, so Instagram Stories reads as its own source.
-    @MainActor
-    mutating func send(artefact: ShareArtefact, photos: [AtePhoto]) {
-        guard let image = Self.render(artefact: artefact, photos: photos) else {
-            didFail = true
-            return
-        }
-        didFail = false
-        sending = Sending(
-            image: image,
-            sticker: ShareImage.sticker(artefact: artefact, photos: photos)
-        )
-    }
-
-    @MainActor
-    private static func render(artefact: ShareArtefact, photos: [AtePhoto]) -> UIImage? {
-        #if DEBUG
-        if forcesRenderFailure { return nil }
-        #endif
-        return ShareImage.render(artefact: artefact, photos: photos)
-    }
-
-    #if DEBUG
-    /// `-ate-fail-share-render`: the one state that cannot be reached by using the app, made
-    /// reachable so it can be driven and looked at like every other.
-    static var forcesRenderFailure: Bool {
-        DebugLaunch.isOn(.failShareRender)
-    }
-    #endif
 }
 
 /// Turning the photo URLs behind a receipt into something ``ImageRenderer`` can actually draw.

@@ -6,8 +6,21 @@
 
 /** One receipt line the sorter proposes. */
 export type SortItem = {
-  /** The dish, as the user's words name it. Resolved to a dishes row by 0021's find_or_create_dish. */
+  /**
+   * The dish's name. INTO validateItem it is the dish as the user's words name it (the
+   * anti-hallucination gate matches it against the words or the menu). OUT of validateItem it is
+   * the name the receipt prints and find_or_create_dish resolves (0021): the menu's own spelling
+   * when the dish is already on it, else `printed_name` when the model gave a sane one, else the
+   * words' spelling in sentence case (./validate.ts printedName).
+   */
   dish_name: string;
+  /**
+   * The MODEL's rendering of `dish_name` as a menu prints it (10 Oct, Eamon): singular when the
+   * plural was the diner's count ("six gin and tonics" → "Gin & tonic"), sentence case, a proper
+   * name keeping its capitals. Proposed only; validateItem decides whether it is used and never
+   * lets it name a different dish. Absent from the stub and after validation.
+   */
+  printed_name?: string;
   /**
    * The user's score, 0.5-5.0 in half steps — or 6, the secret score, ONLY on a span the client
    * marked (./six.ts, 0041) — or null when they never gave a number (DESIGN rule 7).

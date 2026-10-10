@@ -28,7 +28,6 @@ enum ComposerDebugLaunch {
     static var opensAddPlace: Bool { DebugLaunch.has(.addPlace) }
     static var opensPlaceSheet: Bool { DebugLaunch.route?.value(.sheet) == "place" }
     static var opensDishSheet: Bool { DebugLaunch.route?.value(.sheet) == "dish" }
-    static var opensShare: Bool { DebugLaunch.route?.value(.sheet) == "share" }
 
     /// Writes the seeded draft before the composer reads it — or wipes whatever a previous run left.
     static func seedDraftIfRequested(into drafts: any EntryDraftStoring) {

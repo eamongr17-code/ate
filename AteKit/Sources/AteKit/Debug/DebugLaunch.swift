@@ -38,8 +38,6 @@ public enum DebugLaunch {
         /// Undo and Redo buttons in the composer's header — XCUITest can neither shake nor
         /// three-finger swipe.
         case undoDrive = "-ate-undo-drive"
-        /// The share card's render fails, for its error state.
-        case failShareRender = "-ate-fail-share-render"
         #endif
     }
 

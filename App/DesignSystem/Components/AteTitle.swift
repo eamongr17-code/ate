@@ -71,7 +71,7 @@ struct AteExactText: View {
 extension EnvironmentValues {
     /// True while the subtree is being drawn into an image rather than onto the screen.
     ///
-    /// Set by ``ShareImage`` and read by anything that reaches for UIKit: `ImageRenderer` renders a
+    /// Set by ``AteShareStoryImage`` and read by anything that reaches for UIKit: `ImageRenderer` renders a
     /// `UIViewRepresentable` as a placeholder, so the components that use one need a pure-SwiftUI
     /// way to draw themselves for the artefact that actually leaves the app.
     @Entry var ateIsSnapshotting: Bool = false
