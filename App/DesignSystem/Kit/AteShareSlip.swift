@@ -50,7 +50,10 @@ struct AteShareSlip: View {
                 HStack(alignment: .top, spacing: AteMetrics.regular) {
                     Text(item.name)
                         .ateText(.shareSlipDish)
-                        .lineLimit(2)
+                        // A long name wraps, then sets down a little, before it is ever cut off:
+                        // the receipt is shared, and "Spanner crab spa…" says nothing.
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.75)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     AteShareScore(score: item.score, isTop: item.id == topID)
