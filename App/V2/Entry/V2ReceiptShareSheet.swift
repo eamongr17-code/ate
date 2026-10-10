@@ -20,7 +20,7 @@ struct V2ReceiptShareSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AteSheetHeader(title: nil) { dismiss() }
+            AteSheetHeader(title: receipt.shareTitle) { dismiss() }
             GeometryReader { room in
                 ScrollView {
                     AtePrintedReceiptStage(receipt: receipt, photos: photos)

@@ -4,8 +4,8 @@ import SwiftUI
 /// **The receipt** (10 Oct, Eamon: one receipt, "simplify it a bit… it needs to look good in a small
 /// space"): what prints after a review, what the entry page shares, and what is stuck on a photo.
 /// Dish left in the heading voice; every score in the same box in a fixed column, tabular digits,
-/// so nothing hangs off anything (the best one filled butter, the rest paper with a hairline; an
-/// unscored dish an empty dashed box, never a number — scores are never inferred); one dashed rule;
+/// so nothing hangs off anything (a 5.0 filled butter and a 6 brick, the rest paper with a
+/// hairline; an unscored dish an empty dashed box, never a number — scores are never inferred); one dashed rule;
 /// one line of fine print (the place and its suburb, never the street); the signature and the
 /// wordmark. No order number, date, count or average.
 ///
@@ -53,7 +53,7 @@ struct AteShareSlip: View {
                 HStack(alignment: .top, spacing: AteMetrics.regular) {
                     dishName(item)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    AteShareScore(score: item.score, isTop: item.id == topID)
+                    AteShareScore(score: item.score)
                 }
             }
         }
@@ -75,11 +75,6 @@ struct AteShareSlip: View {
         } else {
             name
         }
-    }
-
-    /// The best thing eaten: the first of the highest scores.
-    private var topID: UUID? {
-        receipt.items.filter { $0.score != nil }.max { ($0.score?.value ?? 0) < ($1.score?.value ?? 0) }?.id
     }
 
     @ViewBuilder
@@ -138,12 +133,15 @@ struct AteShareSlip: View {
     }
 }
 
-/// A score's box in the receipt's column: the same size for every line. The top score is filled
-/// in the score token's own colour (design rule 5: colour is punctuation), every other score sits in
-/// a hairline, and no score at all is an empty dashed box.
+/// A score's box in the receipt's column: the same size for every line. Every score sits in a
+/// hairline; only a perfect 5.0 (butter) and the secret 6 (brick, white numerals) are filled, in the
+/// score token's own colours (Eamon, 10 Oct: not "the best one", which read as random). No score at
+/// all is an empty dashed box.
 struct AteShareScore: View {
     let score: Rating?
-    var isTop = false
+
+    /// Filled only for the two scores that mean something more.
+    private var isFilled: Bool { score.map { $0.isPerfect || $0.isBlownAway } ?? false }
 
     var body: some View {
         ZStack {
@@ -151,13 +149,13 @@ struct AteShareScore: View {
                 Text(ScoreFormat.halfStep(score.value))
                     .ateText(.shareSlipScore)
                     .monospacedDigit()
-                    .foregroundStyle(isTop ? ScoreStyle.of(score).ink : AtePalette.slip.fg)
+                    .foregroundStyle(isFilled ? ScoreStyle.of(score).ink : AtePalette.slip.fg)
             }
         }
         .frame(width: AteShareSlipMetrics.scoreColumn, height: AteShareSlipMetrics.scoreBox)
         .background {
             let shape = RoundedRectangle(cornerRadius: AteShareSlipMetrics.markRadius, style: .continuous)
-            if let score, isTop {
+            if let score, isFilled {
                 shape.fill(ScoreStyle.of(score).fill)
             } else if score != nil {
                 shape.strokeBorder(AtePalette.slip.hairline, lineWidth: AteShareSlipMetrics.hairline)
