@@ -18,6 +18,11 @@ struct AteShadow: Equatable, Sendable {
     /// The composer's star popover: `0 18px 40px -18px rgba(36,20,31,.45)` (its 1.5px ink ring is a
     /// stroke, drawn by the panel itself).
     static let panel = AteShadow(colour: AteColor.ink.opacity(0.45), offsetY: 18, blur: 40, spread: -18)
+    /// A list's cover at the head of its page (`lists-playlists.html` `.cov.lift`):
+    /// `0 14px 34px rgba(36,20,31,.22)`.
+    static let cover = AteShadow(colour: AteColor.ink.opacity(0.22), offsetY: 14, blur: 34, spread: 0)
+    /// No shadow: the same background, casting nothing.
+    static let flat = AteShadow(colour: .clear, offsetY: 0, blur: 0, spread: 0)
 }
 
 extension View {

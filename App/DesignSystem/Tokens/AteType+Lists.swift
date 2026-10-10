@@ -1,16 +1,35 @@
 import SwiftUI
 
-// **Lists** (`design/rebuild/lists-notifications.html` §3): the list card and the list receipt.
+// **Lists** (`design/rebuild/lists-playlists.html`, `lists-notifications.html` §3): the cover and the receipt.
 
 extension AteTextStyle {
-    /// A list card's count — `.lc .ct`: Bricolage 600 at 13, `line-height:1` (drawn at 72%).
-    static let kitListCardCount = AteTextStyle(
-        voice: .display, size: 13, weight: 600, trackingEm: 0, lineHeight: 1.0, textStyle: .footnote,
-        maximumSize: 20
+    /// A cover's name where the list has no photo — `.cov.gen b`: Bricolage 800 at 22, `line-height:1`,
+    /// `-.035em`…
+    static let kitListCoverName = AteTextStyle(
+        voice: .display, size: 22, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title3,
+        maximumSize: 22
     )
-    /// A list card's name — `.lc .nm`: Bricolage 800 at 27, `line-height:1.02`, `-.035em`, two lines.
-    static let kitListCardName = AteTextStyle(
-        voice: .display, size: 27, weight: 800, trackingEm: -0.035, lineHeight: 1.02, textStyle: .title2
+    /// …and at 34 on the list's own page.
+    static let kitListCoverNameHero = AteTextStyle(
+        voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title,
+        maximumSize: 34
+    )
+    /// A shelf tile's name — `.tile b`: Bricolage 600 at 16, `line-height:1.2`, `-.01em`.
+    static let kitListTileName = AteTextStyle(
+        voice: .display, size: 16, weight: 600, trackingEm: -0.01, lineHeight: 1.2, textStyle: .callout
+    )
+    /// The list page's name under its cover — `.hero .nm`: Bricolage 800 at 28, `line-height:1.05`.
+    static let kitListHeroName = AteTextStyle(
+        voice: .display, size: 28, weight: 800, trackingEm: -0.035, lineHeight: 1.05, textStyle: .title
+    )
+    /// The handle under it — `.hero .by`: Bricolage 600 at 15.
+    static let kitListByline = AteTextStyle(
+        voice: .display, size: 15, weight: 600, trackingEm: 0, lineHeight: 1.3, textStyle: .subheadline
+    )
+    /// A row's place in the list — `.tr .tn`: DM Mono 500 at 13, muted.
+    static let kitListTrackRank = AteTextStyle(
+        voice: .mono, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.0, textStyle: .footnote,
+        maximumSize: 18
     )
     /// The list receipt's head — `.h` at 25, `line-height:1.02`.
     static let kitListReceiptTitle = AteTextStyle(

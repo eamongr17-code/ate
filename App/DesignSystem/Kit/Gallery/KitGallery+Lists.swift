@@ -2,20 +2,29 @@
 import AteKit
 import SwiftUI
 
-/// **Lists** (`lists-notifications.html` §3): the list card, the pick rows and the list receipt.
+/// **Lists** (`lists-playlists.html`, `lists-notifications.html` §3): the cover, the pick rows and the
+/// list receipt.
 extension KitGalleryScreen {
     @ViewBuilder
     var lists: some View {
-        section("List card") {
-            VStack(spacing: AteListCardMetrics.spacing) {
-                AteAddRow(title: "New list") {}
-                AteListCard(id: KitListFixtures.burgers, name: "Melbourne\u{2019}s best burgers", count: 6,
-                            covers: KitListFixtures.covers) {}
-                AteListCard(id: KitListFixtures.indian, name: "The best Indian and Mexican dishes in the inner north",
-                            count: 12) {}
-                AteListCardSkeleton()
+        section("List cover") {
+            VStack(spacing: AteMetrics.section) {
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: AteListCoverMetrics.columnGap), count: 2),
+                    alignment: .leading, spacing: AteListCoverMetrics.rowGap
+                ) {
+                    AteNewListTile(title: "New list") {}
+                    AteListTile(id: KitListFixtures.burgers, name: "Melbourne\u{2019}s best burgers", count: 6,
+                                covers: KitListFixtures.covers) {}
+                    AteListTile(id: KitListFixtures.indian, name: "The best Indian and Mexican dishes", count: 12,
+                                covers: Array(KitListFixtures.covers.prefix(1))) {}
+                    AteListTile(id: KitListFixtures.pasta, name: "Pasta to bring Mum to", count: 0) {}
+                    AteListTileSkeleton()
+                }
+                AteListCover(id: KitListFixtures.burgers, name: "Melbourne\u{2019}s best burgers",
+                             covers: KitListFixtures.covers, style: .hero)
             }
-            .padding(.horizontal, AteMetrics.listGutter)
+            .padding(.horizontal, AteListCoverMetrics.gutter)
         }
         section("Pick row") {
             VStack(spacing: 0) {
@@ -43,6 +52,7 @@ extension KitGalleryScreen {
 private enum KitListFixtures {
     static let burgers = UUID(uuidString: "B0E00000-0000-4000-8000-000000000001") ?? UUID()
     static let indian = UUID(uuidString: "B0E00000-0000-4000-8000-000000000002") ?? UUID()
-    static let covers = ["asset://burger", "asset://pizza", "asset://cake"]
+    static let pasta = UUID(uuidString: "B0E00000-0000-4000-8000-000000000003") ?? UUID()
+    static let covers = ["asset://burger", "asset://pizza", "asset://cake", "asset://burger"]
 }
 #endif
