@@ -258,7 +258,7 @@ private extension View {
 enum AteWithCopy {
     static let gone = "This visit isn't here."
     static let remove = "Remove"
-    static let placeholder = "What did you eat?"
+    static let placeholder = "What did you have today?"
 }
 
 enum AteWithMetrics {
