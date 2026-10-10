@@ -43,6 +43,8 @@ struct V2ComposerPrinted: View {
     /// One of the row's sheets is up (the system sheet, Messages).
     @State private var isSharing = false
     @State private var isPickingPlace = false
+    /// The dish name tapped on the receipt, being fixed in "Which dish?".
+    @State private var fixing: EntryModel.Correcting?
     @State private var appearedAt = ContinuousClock.now
     @State private var hasCountedEntrance = false
     /// The receipt was whole the moment the face came up (the tick's dots covered the sort).
@@ -96,6 +98,13 @@ struct V2ComposerPrinted: View {
             services.analytics(EntryEvents.placeAttached(source: .picked))
             Task { await store.attachPlace(id) }
         }
+        .v2DishSheet(
+            item: $fixing,
+            directory: services.places,
+            placeID: { store.card.place?.id },
+            placeName: { store.card.place?.name },
+            onPick: { item, dishID, dishName in fix(item, dishID: dishID, dishName: dishName) }
+        )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("summary")
     }
@@ -110,6 +119,10 @@ struct V2ComposerPrinted: View {
             breathes: store.phase == .sorting,
             onAddPlace: store.phase == .needsPlace && store.isBusy == false
                 ? { isPickingPlace = true } : nil,
+            onFixDish: store.phase == .printed ? { item in
+                guard store.isBusy == false, isSharing == false else { return }
+                fixing = EntryModel.Correcting(item: item)
+            } : nil,
             enters: true
         )
         .accessibilityElement(children: .contain)
@@ -155,6 +168,18 @@ struct V2ComposerPrinted: View {
             store.adopt(card)
         } else {
             store.sortFailed()
+        }
+    }
+
+    /// A name fixed from the receipt: the same `correct_entry_dish` as the entry page's long press,
+    /// and the line reprints in place.
+    private func fix(_ item: AteReceipt.Item, dishID: UUID?, dishName: String?) {
+        fixing = nil
+        services.analytics(EntryEvents.corrected(.dish))
+        Task {
+            if await store.correctDish(reviewID: item.id, dishID: dishID, dishName: dishName) == false {
+                AteHaptics.refused()
+            }
         }
     }
 

@@ -50,7 +50,8 @@ struct V2DishSheet: View {
                     isEnabled: trimmedQuery.isEmpty == false,
                     identifier: "dish.add"
                 ) {
-                    pick(dishID: nil, name: trimmedQuery)
+                    // What was typed, first letter up like every printed name; nothing else changed.
+                    pick(dishID: nil, name: trimmedQuery.prefix(1).uppercased() + trimmedQuery.dropFirst())
                 }
             }
         }

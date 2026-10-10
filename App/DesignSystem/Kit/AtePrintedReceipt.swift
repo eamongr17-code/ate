@@ -14,6 +14,8 @@ struct AtePrintedReceipt: View {
     var breathes = true
     /// A receipt that cannot print without a place: its place slot is the Place key.
     var onAddPlace: (() -> Void)?
+    /// Your own printed receipt: a tap on a dish name fixes it.
+    var onFixDish: ((AteReceipt.Item) -> Void)?
     /// Where it is in its entrance. Settled everywhere but the moment after the tick.
     var pose: ReceiptPose = .settled
     var isFeeding = false
@@ -33,7 +35,10 @@ struct AtePrintedReceipt: View {
     @ViewBuilder
     private var paper: some View {
         let slip = AteScaledLayout(scale: AtePrintedReceiptStage.scale) {
-            AteShareSlip(receipt: receipt, isPrinting: isPrinting, breathes: breathes, onAddPlace: onAddPlace)
+            AteShareSlip(
+                receipt: receipt, isPrinting: isPrinting, breathes: breathes, onAddPlace: onAddPlace,
+                onFixDish: onFixDish
+            )
                 .scaleEffect(AtePrintedReceiptStage.scale)
         }
         if isFeeding {
@@ -62,6 +67,7 @@ struct AtePrintedReceiptStage: View {
     var isPrinting = false
     var breathes = true
     var onAddPlace: (() -> Void)?
+    var onFixDish: ((AteReceipt.Item) -> Void)?
     var enters = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -75,6 +81,7 @@ struct AtePrintedReceiptStage: View {
         isPrinting: Bool = false,
         breathes: Bool = true,
         onAddPlace: (() -> Void)? = nil,
+        onFixDish: ((AteReceipt.Item) -> Void)? = nil,
         enters: Bool = false
     ) {
         self.receipt = receipt
@@ -82,6 +89,7 @@ struct AtePrintedReceiptStage: View {
         self.isPrinting = isPrinting
         self.breathes = breathes
         self.onAddPlace = onAddPlace
+        self.onFixDish = onFixDish
         self.enters = enters
         // Its first frame is the first frame of its entrance: never drawn whole, then snatched back.
         let feeds = enters && UIAccessibility.isReduceMotionEnabled == false
@@ -92,7 +100,7 @@ struct AtePrintedReceiptStage: View {
     var body: some View {
         AtePrintedReceipt(
             receipt: receipt, photos: photos, isPrinting: isPrinting, breathes: breathes,
-            onAddPlace: onAddPlace, pose: pose, isFeeding: isFeeding
+            onAddPlace: onAddPlace, onFixDish: onFixDish, pose: pose, isFeeding: isFeeding
         )
         .task { await enter() }
     }
