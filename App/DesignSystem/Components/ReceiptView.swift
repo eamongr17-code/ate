@@ -156,7 +156,7 @@ struct ReceiptView: View {
                     ReceiptSkeletonBar(width: 52)
                 }
                 .frame(height: 15)
-                .ateBreathing(breathes)
+                .ateSkeletonSweep(breathes)
             } else {
                 HStack {
                     Text(receipt.items.count == 1 ? "1 dish" : "\(receipt.items.count) dishes")
@@ -218,7 +218,7 @@ private struct ReceiptSkeletonLines: View {
             }
         }
         .padding(.top, AteMetrics.hairspace)
-        .ateBreathing(breathes)
+        .ateSkeletonSweep(breathes)
         .accessibilityHidden(true)
     }
 }
@@ -232,36 +232,6 @@ private struct ReceiptSkeletonBar: View {
         Capsule()
             .fill(AtePalette.slip.fg.opacity(0.10))
             .frame(width: width, height: height)
-    }
-}
-
-/// `@keyframes breathe{50%{opacity:.45}}`, 1.6s ease-in-out, forever — gated on Reduce Motion. The
-/// printing receipt's breath, and every kit skeleton's (``AteSkeleton``).
-struct AteBreathing: ViewModifier {
-    let isOn: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isDim = false
-
-    func body(content: Content) -> some View {
-        content
-            .opacity(isDim ? AteMotion.breatheLow : 1)
-            .onAppear { start() }
-            .onChange(of: isOn) { _, _ in start() }
-    }
-
-    private func start() {
-        guard isOn, reduceMotion == false else {
-            withAnimation(.easeOut(duration: 0.2)) { isDim = false }
-            return
-        }
-        withAnimation(AteMotion.breathe) { isDim = true }
-    }
-}
-
-extension View {
-    /// Breathes this subtree down to 45% and back (``AteBreathing``) while `isOn`.
-    func ateBreathing(_ isOn: Bool = true) -> some View {
-        modifier(AteBreathing(isOn: isOn))
     }
 }
 

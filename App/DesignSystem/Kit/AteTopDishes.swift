@@ -90,7 +90,7 @@ struct AteTopDishesSkeleton: View {
                 if index < AteTopDishesMetrics.count - 1 { Spacer(minLength: 0) }
             }
         }
-        .ateBreathing(breathes)
+        .ateSkeletonSweep(breathes)
         .accessibilityHidden(true)
     }
 }

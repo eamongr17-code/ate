@@ -98,7 +98,7 @@ struct AteScoreGroupHeaderSkeleton: View {
         )
         .padding(.top, AteMetrics.tight)
         .padding(.bottom, AteMetrics.snug)
-        .ateBreathing(breathes)
+        .ateSkeletonSweep(breathes)
         .accessibilityHidden(true)
     }
 }

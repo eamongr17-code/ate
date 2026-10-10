@@ -104,7 +104,7 @@ struct AteNotificationRowSkeleton: View {
         .overlay(alignment: .top) {
             if isFirst == false { AteHairline().padding(.horizontal, AteMetrics.gutter) }
         }
-        .ateBreathing()
+        .ateSkeletonSweep()
         .accessibilityHidden(true)
     }
 }

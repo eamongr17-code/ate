@@ -43,7 +43,7 @@ private struct AteDishHeroPlaceholder: View {
             .padding(.top, AteDishHeroMetrics.top)
             .padding(.leading, AteDishHeroMetrics.inset)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .ateBreathing()
+            .ateSkeletonSweep()
             .accessibilityHidden(true)
     }
 }
@@ -187,7 +187,7 @@ struct AteChipFlowSkeleton: View {
                            height: isExplore ? AteChipFlowMetrics.exploreHeight : AteMetrics.chipHeight)
             }
         }
-        .ateBreathing()
+        .ateSkeletonSweep()
         .accessibilityHidden(true)
     }
 }

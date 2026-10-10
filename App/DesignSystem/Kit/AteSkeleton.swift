@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// **Loading** — skeletons of the real components, breathing to 45% and back (never a spinner on a
-/// first load). Each kind is drawn at its component's own size and rhythm, so nothing moves when the
-/// real thing fills in.
+/// **Loading** — skeletons of the real components under the paper feed (``AteSkeletonSweep``; never
+/// a spinner on a first load). Each kind is drawn at its component's own size and rhythm, so nothing
+/// moves when the real thing fills in.
 struct AteSkeleton: View {
     enum Kind: Equatable {
         case dishRow, rankedRow, shelfCard, hero, entrySlip
@@ -23,7 +23,7 @@ struct AteSkeleton: View {
             case .entrySlip: entrySlip
             }
         }
-        .ateBreathing(breathes)
+        .ateSkeletonSweep(breathes)
         .accessibilityHidden(true)
     }
 

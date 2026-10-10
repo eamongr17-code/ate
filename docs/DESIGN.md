@@ -71,7 +71,8 @@ Type — three voices, bundled fonts (all OFL):
 Spacing: screen gutter 20; **list gutter 12** (Journal, Feed, Profile: slips and their headers);
 content top 60–70 under the status bar; 44pt minimum hit targets.
 Motion (all gated on Reduce Motion): receipt prints in (slide 24pt + fade, 0.6s); caret blink; voice
-pulse; score numerals roll; a printing receipt's skeleton lines breathe (to 45%, 1.6s).
+pulse; score numerals roll; every skeleton (and a printing receipt's lines) carries the paper feed:
+one band in the paper's colour crossing the screen, 1.6s a pass, all placeholders in step.
 
 ## Components
 

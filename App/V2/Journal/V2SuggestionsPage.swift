@@ -196,7 +196,7 @@ struct SuggestionSkeletonRow: View {
         .padding(.horizontal, AteMetrics.gutter)
         .padding(.vertical, AteMetrics.loose)
         .overlay(alignment: .top) { AteHairline().padding(.horizontal, AteMetrics.gutter) }
-        .ateBreathing()
+        .ateSkeletonSweep()
         .accessibilityHidden(true)
     }
 }

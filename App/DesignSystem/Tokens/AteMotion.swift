@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// **The four motion moments**, and no others (`docs/DESIGN.md`): the receipt prints in, the caret
-/// blinks, the voice button pulses, the score numerals roll.
+/// **The four motion moments**, plus the loaders' paper feed, and no others (`docs/DESIGN.md`): the
+/// receipt prints in, the caret blinks, the voice button pulses, the score numerals roll.
 ///
 /// Every one is gated on Reduce Motion. The gate lives here rather than at each call site, so a new
 /// animation cannot be added without going through a function that already respects the setting.
@@ -14,10 +14,17 @@ enum AteMotion {
     static let print = Animation.easeOut(duration: printDuration)
     /// The numerals rolling under a finger on the star slider.
     static let scoreRoll = Animation.snappy(duration: 0.18)
-    /// A receipt still printing (`SummaryLoading`): its skeleton lines breathe down to 45% and back,
-    /// 1.6s a breath, ease-in-out — half a cycle each way.
-    static let breathe = Animation.easeInOut(duration: 0.8).repeatForever(autoreverses: true)
-    static let breatheLow: Double = 0.45
+    /// **The paper feed** (round 6, Eamon): every skeleton on screen — and a receipt still printing
+    /// (`SummaryLoading`) — carries one soft highlight that crosses the screen left to right, 1.6s a
+    /// pass. It is timed off the clock and placed in screen space, so every placeholder shares the
+    /// same band and nothing pulses out of step. Drawn by ``AteSkeletonSweep``.
+    static let sweepPeriod: Double = 1.6
+    /// The band's width, and the distance it travels past each edge so it enters and leaves unseen.
+    static let sweepBand: CGFloat = 220
+    /// How far a pass travels: wider than any iPhone, so the band is off screen between passes.
+    static let sweepTravel: CGFloat = 480
+    /// How far a bar fades toward the paper under the band's peak — the old breath's 45%, travelling.
+    static let sweepDepth: Double = 0.6
     /// The Summary's receipt settling from where it prints (`top:160`) to where it rests (`top:180`)
     /// once the lines are in — the print's own ease, over the same 0.6s.
     static let settle = Animation.easeOut(duration: printDuration)

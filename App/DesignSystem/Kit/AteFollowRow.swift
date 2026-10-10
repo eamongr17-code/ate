@@ -63,7 +63,7 @@ struct AteFollowRowSkeleton: View {
         .overlay(alignment: .top) {
             if isFirst == false { AteHairline() }
         }
-        .ateBreathing()
+        .ateSkeletonSweep()
         .accessibilityHidden(true)
     }
 }
