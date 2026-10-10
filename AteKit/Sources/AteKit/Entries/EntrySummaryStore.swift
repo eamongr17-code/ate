@@ -37,15 +37,19 @@ public final class EntrySummaryStore {
         public var correctPlace: @Sendable (_ entryID: UUID, _ restaurantID: UUID) async throws -> EntryCard
         /// A forced re-sort, carrying the composer's tag chips again.
         public var resort: @Sendable (UUID) async throws -> Void
+        /// `correct_entry_dish`: a line re-named — a dish the place has (its id) or a new one (the name).
+        public var correctDish: @Sendable (_ reviewID: UUID, _ dishID: UUID?, _ dishName: String?) async throws -> Void
 
         public init(
             fetch: @escaping @Sendable (UUID) async throws -> EntryCard,
             correctPlace: @escaping @Sendable (UUID, UUID) async throws -> EntryCard,
-            resort: @escaping @Sendable (UUID) async throws -> Void
+            resort: @escaping @Sendable (UUID) async throws -> Void,
+            correctDish: @escaping @Sendable (UUID, UUID?, String?) async throws -> Void = { _, _, _ in }
         ) {
             self.fetch = fetch
             self.correctPlace = correctPlace
             self.resort = resort
+            self.correctDish = correctDish
         }
 
         /// The entry service's own calls. The re-print is forced (the first sort already ran) and
@@ -60,7 +64,8 @@ public final class EntrySummaryStore {
                 // would print as whatever the prose says.
                 resort: {
                     _ = try await entries.sort(entryID: $0, force: true, tagTokens: tagTokens, sixTokens: sixTokens)
-                }
+                },
+                correctDish: { try await entries.correctDish(reviewID: $0, dishID: $1, dishName: $2) }
             )
         }
     }
@@ -175,6 +180,25 @@ public final class EntrySummaryStore {
             phase = Self.phase(for: next)
         }
         if phase == .sorting { await watch() }
+    }
+
+    /// A dish name tapped on the printed receipt and fixed in "Which dish?": the name only (the score
+    /// and the words stay), then the row is read again so the line reprints in place. `false` when
+    /// it could not be fixed; the receipt keeps the name it had.
+    public func correctDish(reviewID: UUID, dishID: UUID?, dishName: String?) async -> Bool {
+        guard phase == .printed, isBusy == false else { return false }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            try await actions.correctDish(reviewID, dishID, dishName)
+        } catch {
+            return false
+        }
+        // A re-read that fails or comes back unprintable leaves the receipt as it was, never blank.
+        if let next = try? await actions.fetch(card.id), Self.phase(for: next) == .printed {
+            card = next
+        }
+        return true
     }
 
     // MARK: - The two pills, each counted once

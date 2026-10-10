@@ -124,7 +124,9 @@ struct NearMeTests {
         let first = await model.cityForFirstPage(wait: .milliseconds(100))
         #expect(first == "melbourne", "the busiest city, not Everywhere")
         #expect(model.hasResolvedNearMe == false)
-        try? await Task.sleep(for: .milliseconds(600))
+        // The late answer lands on its own; a busy CI runner can deliver it well after 400ms, so wait
+        // for it (up to 5s) rather than for a fixed time.
+        for _ in 0..<100 where reloads == 0 { try? await Task.sleep(for: .milliseconds(50)) }
         #expect(model.city == "geelong" && model.isNearMe)
         #expect(reloads == 1, "the late answer reloads the feed it moved")
         #expect(model.cityForNextPage == "melbourne", "until then, pages keep the city they started with")

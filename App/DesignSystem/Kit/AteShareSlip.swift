@@ -23,6 +23,9 @@ struct AteShareSlip: View {
     var breathes = true
     /// A receipt that cannot print without a place: the place slot is the Place key.
     var onAddPlace: (() -> Void)?
+    /// Your own printed receipt (10 Oct, approved): a tap on a dish name opens "Which dish?" to fix
+    /// it. Nothing on the paper says so; the line darkens under the finger like any tappable row.
+    var onFixDish: ((AteReceipt.Item) -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.snug) {
@@ -41,24 +44,36 @@ struct AteShareSlip: View {
         .frame(width: AteShareSlipMetrics.width)
         .ateSlip()
         .ateTornPaper(topRadius: AteShareSlipMetrics.radius)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: onFixDish == nil ? .combine : .contain)
     }
 
     private var dishes: some View {
         VStack(alignment: .leading, spacing: AteMetrics.tight) {
             ForEach(receipt.items) { item in
                 HStack(alignment: .top, spacing: AteMetrics.regular) {
-                    Text(item.name)
-                        .ateText(.shareSlipDish)
-                        // A long name wraps, then sets down a little, before it is ever cut off:
-                        // the receipt is shared, and "Spanner crab spa…" says nothing.
-                        .lineLimit(3)
-                        .minimumScaleFactor(0.75)
-                        .fixedSize(horizontal: false, vertical: true)
+                    dishName(item)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     AteShareScore(score: item.score, isTop: item.id == topID)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func dishName(_ item: AteReceipt.Item) -> some View {
+        let name = Text(item.name)
+            .ateText(.shareSlipDish)
+            // A long name wraps, then sets down a little, before it is ever cut off: the receipt is
+            // shared, and "Spanner crab spa…" says nothing.
+            .lineLimit(3)
+            .minimumScaleFactor(0.75)
+            .fixedSize(horizontal: false, vertical: true)
+        if let onFixDish {
+            Button { onFixDish(item) } label: { name }
+                .buttonStyle(ShareSlipNameStyle())
+                .accessibilityIdentifier("receipt.dish")
+        } else {
+            name
         }
     }
 
@@ -157,6 +172,21 @@ struct AteShareScore: View {
     }
 }
 
+/// A dish name you can fix: the slip's own ink, and a faint plate behind it while it is held.
+private struct ShareSlipNameStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(AtePalette.slip.fg)
+            .background {
+                RoundedRectangle(cornerRadius: AteShareSlipMetrics.markRadius, style: .continuous)
+                    .fill(AtePalette.slip.fg.opacity(configuration.isPressed ? AteShareSlipMetrics.pressedOpacity : 0))
+                    .padding(.horizontal, -AteShareSlipMetrics.pressedReach)
+                    .padding(.vertical, -AteShareSlipMetrics.pressedReach / 2)
+            }
+            .contentShape(Rectangle())
+    }
+}
+
 /// The dishes while they are being sorted: three rows at the dish lines' own height, the name and
 /// the score box as blank bars, the third unscored — an unrated dish is an empty slot even before it
 /// has a name.
@@ -201,6 +231,9 @@ enum AteShareSlipMetrics {
     static let scoreColumn: CGFloat = 38
     static let scoreBox: CGFloat = 22
     static let markRadius: CGFloat = 5
+    /// A dish name held under a finger: how dark its plate, and how far past the words it reaches.
+    static let pressedOpacity: Double = 0.08
+    static let pressedReach: CGFloat = 4
     static let hairline: CGFloat = 1
     /// The box sits a hair below the dish's cap height.
     static let scoreLift: CGFloat = 1

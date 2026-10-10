@@ -28,11 +28,11 @@ private final class Calls: @unchecked Sendable {
 private let tipo = EntryCard.Place(id: UUID(), name: "Tipo 00", address: "361 Little Bourke St")
 
 private func card(_ status: EntrySortStatus, id: UUID = UUID(), place: EntryCard.Place? = tipo,
-                  lines: Int = 1) -> EntryCard {
+                  lines: Int = 1, name: String = "Ragù") -> EntryCard {
     EntryCard(
         id: id, authorID: UUID(), body: "The ragù 4.5.", restaurantID: place?.id, orderNumber: 142,
         sortStatus: status, createdAt: Date(timeIntervalSince1970: 1_789_000_000), place: place,
-        items: (0..<lines).map { EntryCard.Item(reviewID: UUID(), dishID: UUID(), dishName: "Ragù",
+        items: (0..<lines).map { EntryCard.Item(reviewID: UUID(), dishID: UUID(), dishName: name,
                                                  score: Rating(exactly: 4.5), position: $0 + 1) }
     )
 }
@@ -43,6 +43,7 @@ private func store(
     fetch: @escaping @Sendable (UUID) throws -> EntryCard,
     correctPlace: @escaping @Sendable (UUID, UUID) throws -> EntryCard = { id, _ in card(.sorted, id: id) },
     resort: @escaping @Sendable (UUID) throws -> Void = { _ in },
+    correctDish: @escaping @Sendable (UUID, UUID?, String?) throws -> Void = { _, _, _ in },
     maxPolls: Int = 10
 ) -> EntrySummaryStore {
     EntrySummaryStore(
@@ -50,7 +51,8 @@ private func store(
         actions: EntrySummaryStore.Actions(
             fetch: { try fetch($0) },
             correctPlace: { try correctPlace($0, $1) },
-            resort: { try resort($0) }
+            resort: { try resort($0) },
+            correctDish: { try correctDish($0, $1, $2) }
         )
     )
 }
@@ -68,6 +70,31 @@ struct EntrySummaryStoreTests {
         await summary.watch()
         #expect(summary.phase == .printed)
         #expect(replies.calls == 3, "a failed read is one more wait; the sorted row ends it")
+    }
+
+    @Test("a dish name fixed on the printed receipt reprints that line, and a failed fix keeps the old name")
+    func fixingADishName() async {
+        let id = UUID()
+        let printed = card(.sorted, id: id)
+        let review = printed.items[0].reviewID
+        let fixed = card(.sorted, id: id, name: "Diavola pizza")
+        let sent = Calls()
+        let summary = store(printed, fetch: { _ in fixed }, correctDish: { reviewID, dishID, name in
+            sent.add("\(reviewID)|\(dishID.map(\.uuidString) ?? "-")|\(name ?? "-")")
+        })
+        #expect(await summary.correctDish(reviewID: review, dishID: nil, dishName: "Diavola pizza"))
+        #expect(sent.all == ["\(review)|-|Diavola pizza"])
+        #expect(summary.card.items[0].dishName == "Diavola pizza")
+        #expect(summary.phase == .printed)
+
+        struct Refused: Error {}
+        let refusing = store(printed, fetch: { _ in fixed }, correctDish: { _, _, _ in throw Refused() })
+        #expect(await refusing.correctDish(reviewID: review, dishID: nil, dishName: "Diavola pizza") == false)
+        #expect(refusing.card.items[0].dishName == "Ragù", "the receipt keeps the name it had")
+
+        let sorting = store(card(.pending, id: id)) { _ in fixed }
+        #expect(await sorting.correctDish(reviewID: review, dishID: nil, dishName: "x") == false,
+                "nothing to fix before it has printed")
     }
 
     @Test("a placeless entry sorts to nothing, and never prints or shares an empty receipt")
