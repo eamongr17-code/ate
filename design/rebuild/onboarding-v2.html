@@ -1,7 +1,7 @@
 <title>Onboarding v2</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=DM+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=DM+Mono:wght@400;500&display=swap">
 <style>
 :root{
   --ground:#EFEAE2; --fg:#24141F; --muted:#5E5560; --slip:#FFFFFF; --field:#E4DED4;
@@ -243,7 +243,21 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
 .wmb{display:block;background:var(--wm) no-repeat center/contain}
 .siwa{height:52px;border-radius:999px;background:#24141F;color:#fff;display:flex;align-items:center;justify-content:center;gap:7px;font:600 18px/1 -apple-system,"Helvetica Neue",sans-serif}
 .lnk{min-height:44px;display:flex;align-items:center;justify-content:center;font:600 16px/1 "Bricolage Grotesque",sans-serif;text-decoration:underline;text-underline-offset:4px}
-.big{font:800 44px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em;text-wrap:balance}
+.big{font:400 36px/1.05 "Young Serif",Georgia,serif;letter-spacing:-.02em;text-wrap:balance;text-align:center}
+.ttl{position:absolute;left:32px;right:32px;top:530px;font:400 36px/1.05 "Young Serif",Georgia,serif;letter-spacing:-.02em;text-wrap:balance;text-align:center}
+.art{position:absolute;left:24px;right:24px;top:116px}
+.art .slip .dn{font:400 20px/1.05 "Young Serif",Georgia,serif;letter-spacing:-.01em}
+.dots{position:absolute;left:0;right:0;bottom:118px;display:flex;justify-content:center;gap:8px}
+.dots span{width:8px;height:8px;border-radius:50%;background:var(--hr)} .dots span.on{background:var(--ink)}
+.rcpt{width:200px;background:#fff;border-radius:10px 10px 0 0;padding:16px 14px 12px;display:grid;gap:8px;color:#24141F}
+.rr{display:flex;align-items:flex-start;gap:10px}
+.rn{flex:1;font:400 17px/1.15 "Young Serif",Georgia,serif;letter-spacing:-.01em}
+.rs{width:38px;height:22px;border-radius:5px;box-shadow:inset 0 0 0 1px rgba(36,20,31,.14);display:flex;align-items:center;justify-content:center;font:800 18px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:1px}
+.rf{display:flex;align-items:center;gap:4px;font:400 10px/1.35 "DM Mono",monospace;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.rf .m{color:#5E5560}
+.srow5{position:absolute;left:12px;right:12px;top:398px;display:flex}
+.srow5>span{flex:1;display:grid;justify-items:center;gap:6px;font:600 11px/1.2 "Bricolage Grotesque",sans-serif;text-align:center}
+.srow5 .disc{width:52px;height:52px}
 /* TipKit popover (native, glass) */
 .tipk{position:absolute;z-index:9;border-radius:22px;padding:14px 14px 14px 16px;display:flex;gap:12px;align-items:flex-start;width:300px;
   background:rgba(255,255,255,.80);-webkit-backdrop-filter:blur(22px) saturate(1.8);backdrop-filter:blur(22px) saturate(1.8);
@@ -273,12 +287,12 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
 <main>
 <header class="measure" style="display:grid;gap:14px">
   <h1>Onboarding v2</h1>
-  <p class="lede">Your three changes to first run: a photo of you, three tap-through cards that show what Ate is before anyone logs a past meal, and a start screen that offers the camera roll instead of assuming it has food in it.</p>
+  <p class="lede">Revision 2. Headings are Young Serif now, centred, and wrap on their own rather than one word per line. The four cards build one entry step by step and end on sharing, with the receipt drawn exactly as it prints. Every piece is the app's own component, so a change to the kit changes onboarding too.</p>
 </header>
 
 <section>
   <h2>The flow</h2>
-  <p class="note measure">Welcome and Handle stay as approved. Lilac rings mark new screens. One line per screen, nothing else added; the cards are drawn from the real kit (a slip, the score token, a receipt), not illustrations.</p>
+  <p class="note measure">Lilac rings mark new screens. Under each phone, <b>Built from</b> names the real components the screen uses, fed sample data. None of it is a drawing.</p>
   <div class="phones">
 
     <!-- 1 Handle -->
@@ -287,33 +301,35 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
         <div class="sb"></div>
         <div class="nav" style="justify-content:flex-end"><span class="disc tick" data-i="check"></span></div>
         <div style="position:absolute;left:24px;right:24px;top:124px;display:grid;gap:28px">
-          <span class="big">Pick a<br>handle.</span>
+          <span class="big" style="text-align:left">Pick a handle.</span>
           <div class="row" style="gap:10px;padding-bottom:10px;border-bottom:2px solid #24141F"><span class="h" style="flex:1;font-size:30px;letter-spacing:-.02em">@eamon<span class="caret" style="height:28px;vertical-align:-3px"></span></span><span style="width:30px;height:30px;border-radius:50%;background:#3ECF64;display:flex;align-items:center;justify-content:center;color:#24141F" data-i="check" data-s="18"></span></div>
         </div>
         <div class="kbd"></div>
       </div></div>
       <h3>1. Handle <span class="tag rec">Approved</span></h3>
-      <p>Unchanged. The tick now leads to the photo step.</p>
+      <p>Only the title changes: Young Serif, on one line. It stays left-aligned to sit over its field. The tick leads to the photo step.</p>
+      <p><b>Built from</b> AteHandleField, AteGlassDisc</p>
     </div>
 
     <!-- 2 Photo of you -->
     <div class="cell">
       <div class="ph prop"><div class="scr">
         <div class="sb"></div>
-        <div style="position:absolute;left:0;right:0;top:132px;display:flex;justify-content:center">
+        <div style="position:absolute;left:0;right:0;top:150px;display:flex;justify-content:center">
           <div style="position:relative;width:176px;height:176px">
             <span class="av" style="width:176px;height:176px;font-size:80px;background:#F0623F">E</span>
             <span class="disc" style="position:absolute;right:2px;bottom:2px;background:var(--solid);color:var(--solidfg);box-shadow:0 0 0 4px var(--g)" data-i="camera" data-s="20"></span>
           </div>
         </div>
-        <div style="position:absolute;left:24px;right:24px;top:356px"><span class="big">Add a<br>photo of you.</span></div>
+        <div class="ttl" style="top:376px">Add a photo of you.</div>
         <div style="position:absolute;left:20px;right:20px;bottom:40px;display:grid;gap:6px">
           <div class="pill"><i data-i="image" data-s="20"></i>Choose a photo</div>
           <span class="lnk">Not now</span>
         </div>
       </div></div>
       <h3>2. A photo of you</h3>
-      <p>Your avatar as it will appear, the monogram until there's a photo. The pill opens Apple's photo picker, which needs no permission. Not now keeps the monogram; Settings → Photo changes it later.</p>
+      <p>Your avatar as it will appear: the monogram until there's a photo. The pill opens Apple's photo picker, which needs no permission. Not now keeps the monogram.</p>
+      <p><b>Built from</b> AteAvatar (profile size), AteInkPill, AteWelcomeLink</p>
     </div>
 
     <!-- 2b Photo picked -->
@@ -321,155 +337,171 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
       <div class="ph prop"><div class="scr">
         <div class="sb"></div>
         <div class="nav" style="justify-content:flex-end"><span class="disc tick" data-i="check"></span></div>
-        <div style="position:absolute;left:0;right:0;top:132px;display:flex;justify-content:center">
+        <div style="position:absolute;left:0;right:0;top:150px;display:flex;justify-content:center">
           <span style="display:block;width:176px;height:176px;border-radius:50%;background:radial-gradient(circle at 50% 38%,#E9B48E 0 22%,transparent 23%),radial-gradient(ellipse at 50% 100%,#3B2A3A 0 45%,transparent 46%),linear-gradient(160deg,#B9A5EA,#8C7BC4)"></span>
         </div>
-        <div style="position:absolute;left:24px;right:24px;top:356px"><span class="big">Add a<br>photo of you.</span></div>
+        <div class="ttl" style="top:376px">Add a photo of you.</div>
         <div style="position:absolute;left:20px;right:20px;bottom:40px;display:grid;gap:6px">
           <span class="lnk">Choose another</span>
         </div>
       </div></div>
       <h3>2b. Picked</h3>
-      <p>The photo lands in the circle and starts uploading. The ink tick top right goes on, the same finish as Handle. It's your avatar everywhere from here.</p>
+      <p>The photo fills the circle and uploads the same way Settings → Photo does. The tick goes on, the same finish as Handle.</p>
+      <p><b>Built from</b> AteAvatar, AteGlassDisc, the Settings photo upload</p>
     </div>
 
-    <!-- 3 Card 1 -->
+    <!-- 3 Card 1: write -->
     <div class="cell">
       <div class="ph prop"><div class="scr">
         <div class="sb"></div>
         <div class="nav" style="justify-content:flex-end"><span class="lnk" style="font-size:16px;padding:0 6px">Skip</span></div>
-        <div style="position:absolute;left:28px;right:28px;top:128px;transform:rotate(-2deg)">
-          <div class="slipwrap"><article class="slip" style="padding:18px 18px 18px;gap:12px">
-            <p class="prose" style="font-size:20px">The <b class="ui" style="font-weight:800;letter-spacing:-.02em">margherita</b> was the best I've had outside Naples. <b class="ui" style="font-weight:800;letter-spacing:-.02em">Garlic bread</b> was fine.<span class="caret"></span></p>
-            <div class="cluster" style="padding:0 0 0 6px;--surf:var(--paper)"><span class="ph-img food1" style="width:72px;height:72px;border-radius:20px;transform:rotate(-5deg)"></span><span class="ph-img food2" style="width:72px;height:72px;border-radius:20px;transform:rotate(4deg)"></span></div>
-          </article><div class="etear"></div></div>
-        </div>
-        <div style="position:absolute;left:24px;right:24px;top:452px"><span class="big">Write it in<br>your own<br>words.</span></div>
-        <div style="position:absolute;left:20px;right:20px;bottom:40px;display:grid;gap:18px">
-          <div class="row" style="justify-content:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:var(--ink)"></span><span style="width:8px;height:8px;border-radius:50%;background:var(--hr)"></span><span style="width:8px;height:8px;border-radius:50%;background:var(--hr)"></span></div>
-          <div class="pill">Next</div>
-        </div>
+        <div class="art"><div class="slipwrap"><article class="slip" style="padding:16px 16px 14px">
+          <p class="prose" style="font-size:19px">The margherita was the best I've had outside Naples. Garlic bread was fine.<span class="caret"></span></p>
+        </article><div class="etear"></div></div></div>
+        <div class="ttl">Write about what you ate.</div>
+        <div class="dots" data-on="0"></div>
+        <div class="foot"><div class="pill">Next</div></div>
       </div></div>
       <h3>3. Write it</h3>
-      <p>The first of three cards. Swipe or tap Next. Dishes in bold, the way the composer picks them out as you type. Skip jumps to the start screen, never past it.</p>
+      <p>One entry, started in your own words. Each card that follows adds one thing to this same entry. Skip goes to the start screen, never past it.</p>
+      <p><b>Built from</b> AteEntrySlip (words only), AteInkPill, page dots</p>
     </div>
 
-    <!-- 4 Card 2 -->
+    <!-- 4 Card 2: photos -->
     <div class="cell">
       <div class="ph prop"><div class="scr">
         <div class="sb"></div>
         <div class="nav" style="justify-content:flex-end"><span class="lnk" style="font-size:16px;padding:0 6px">Skip</span></div>
-        <div style="position:absolute;left:28px;right:28px;top:128px;transform:rotate(1.5deg)">
-          <div class="slipwrap"><article class="slip" style="padding:18px 18px 18px;gap:14px">
-            <p class="prose" style="font-size:20px">The <b class="ui" style="font-weight:800;letter-spacing:-.02em">margherita</b> <span class="tok" style="font-size:.78em;padding:0 7px 0 5px;line-height:1.55;vertical-align:1px"><i data-i="star" data-s="11"></i>4.5</span> was the best I've had outside Naples. <b class="ui" style="font-weight:800;letter-spacing:-.02em">Garlic bread</b> <span class="tok" style="font-size:.78em;padding:0 7px 0 5px;line-height:1.55;vertical-align:1px"><i data-i="star" data-s="11"></i>3.0</span> was fine.</p>
-          </article><div class="etear"></div></div>
-          <div class="row" style="gap:8px;margin-top:18px;justify-content:center;transform:rotate(-1.5deg)"><span class="key k-score"><i data-i="star" data-s="16"></i>Score</span><span class="key k-place"><i data-i="pin" data-s="16"></i>400 Gradi</span></div>
-        </div>
-        <div style="position:absolute;left:24px;right:24px;top:452px"><span class="big">Score the<br>dishes<br>as you go.</span></div>
-        <div style="position:absolute;left:20px;right:20px;bottom:40px;display:grid;gap:18px">
-          <div class="row" style="justify-content:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:var(--hr)"></span><span style="width:8px;height:8px;border-radius:50%;background:var(--ink)"></span><span style="width:8px;height:8px;border-radius:50%;background:var(--hr)"></span></div>
-          <div class="pill">Next</div>
-        </div>
+        <div class="art"><div class="slipwrap"><article class="slip" style="padding:16px 16px 14px">
+          <p class="prose" style="font-size:19px">The margherita was the best I've had outside Naples. Garlic bread was fine.</p>
+          <div class="cluster" style="padding:2px 0 0 6px"><span class="ph-img food1" style="width:80px;height:80px;border-radius:22px;transform:rotate(-5deg)"></span><span class="ph-img food2" style="width:80px;height:80px;border-radius:22px;transform:rotate(4deg)"></span></div>
+        </article><div class="etear"></div></div></div>
+        <div class="ttl">Add your photos.</div>
+        <div class="dots" data-on="1"></div>
+        <div class="foot"><div class="pill">Next</div></div>
       </div></div>
-      <h3>4. Score it</h3>
-      <p>The score token in the sentence, and the Score key it comes from. This is the lesson the Score tip teaches today, so that tip can go (your call below).</p>
+      <h3>4. Photos</h3>
+      <p>The same entry, now with its photos in the tilted cluster every slip uses.</p>
+      <p><b>Built from</b> AteEntrySlip, AtePhotoCluster</p>
     </div>
 
-    <!-- 5 Card 3 -->
+    <!-- 5 Card 3: score -->
     <div class="cell">
       <div class="ph prop"><div class="scr">
         <div class="sb"></div>
         <div class="nav" style="justify-content:flex-end"><span class="lnk" style="font-size:16px;padding:0 6px">Skip</span></div>
-        <div style="position:absolute;left:56px;right:56px;top:120px;transform:rotate(-2.5deg)">
-          <div class="slipwrap">
-            <div class="receipt">
-              <div style="display:grid;gap:6px"><div class="rl"><span class="n">Margherita</span><span class="dt"></span><span class="s">4.5</span></div><div class="rl"><span class="n">Garlic bread</span><span class="dt"></span><span class="s">3.0</span></div></div>
-              <div class="rule"></div>
-              <div class="row lab" style="justify-content:space-between;color:#24141F"><span>400 Gradi</span><span style="color:#5E5560">99 Lygon St</span></div>
-              <div class="rule"></div>
-              <div class="row lab" style="justify-content:space-between;color:#24141F"><span>Order #0001</span><span>Fri 2 Oct</span></div>
-              <div class="row lab" style="justify-content:space-between;color:#24141F"><span>@eamon</span><span class="wmb" style="height:18px;width:38px"></span></div>
+        <div class="art"><div class="slipwrap"><article class="slip">
+          <div><div class="drow"><span class="dn">Margherita</span><span class="ds"><i data-i="star" data-s="16"></i>4.5</span></div><div class="drow"><span class="dn">Garlic bread</span><span class="ds"><i data-i="star" data-s="16"></i>3.0</span></div></div>
+          <p class="prose" style="font-size:19px">The margherita <span class="tok" style="font-size:.78em;padding:0 7px 0 5px;line-height:1.55;vertical-align:1px"><i data-i="star" data-s="11"></i>4.5</span> was the best I've had outside Naples. Garlic bread <span class="tok" style="font-size:.78em;padding:0 7px 0 5px;line-height:1.55;vertical-align:1px"><i data-i="star" data-s="11"></i>3.0</span> was fine.</p>
+          <div class="cluster" style="padding:2px 0 0 6px"><span class="ph-img food1" style="width:80px;height:80px;border-radius:22px;transform:rotate(-5deg)"></span><span class="ph-img food2" style="width:80px;height:80px;border-radius:22px;transform:rotate(4deg)"></span></div>
+        </article><div class="etear"></div></div></div>
+        <div class="ttl">Score dishes as you go.</div>
+        <div class="dots" data-on="2"></div>
+        <div class="foot"><div class="pill">Next</div></div>
+      </div></div>
+      <h3>5. Scores</h3>
+      <p>Score tokens drop into the words, and the dishes rise to the top of the slip with their scores, exactly as a Journal entry shows them.</p>
+      <p><b>Built from</b> AteEntrySlip, AteScoreToken (inline), the slip's dish rows</p>
+    </div>
+
+    <!-- 6 Card 4: share -->
+    <div class="cell">
+      <div class="ph prop"><div class="scr">
+        <div class="sb"></div>
+        <div class="nav" style="justify-content:flex-end"><span class="lnk" style="font-size:16px;padding:0 6px">Skip</span></div>
+        <div style="position:absolute;left:0;right:0;top:112px;display:flex;justify-content:center">
+          <div style="position:relative;width:236px;height:270px;border-radius:24px;overflow:hidden" class="food1">
+            <div style="position:absolute;left:18px;top:28px;transform:rotate(-3deg)">
+              <div class="slipwrap"><div class="rcpt">
+                <div class="rr"><span class="rn">Margherita</span><span class="rs">4.5</span></div>
+                <div class="rr"><span class="rn">Garlic bread</span><span class="rs">3.0</span></div>
+                <div class="rule"></div>
+                <div class="rf"><span>400 Gradi</span><span class="m">·</span><span class="m">Brunswick East</span></div>
+                <div class="rf" style="justify-content:space-between"><span>@eamon</span><span class="wmb" style="height:12px;width:26px"></span></div>
+              </div><div class="tear" data-fill="#FFFFFF"></div></div>
             </div>
-            <div class="tear"></div>
           </div>
         </div>
-        <div style="position:absolute;left:24px;right:24px;top:452px"><span class="big">Ate prints<br>the receipt.</span></div>
-        <div style="position:absolute;left:20px;right:20px;bottom:40px;display:grid;gap:18px">
-          <div class="row" style="justify-content:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:var(--hr)"></span><span style="width:8px;height:8px;border-radius:50%;background:var(--hr)"></span><span style="width:8px;height:8px;border-radius:50%;background:var(--ink)"></span></div>
-          <div class="pill">Next</div>
+        <div class="srow5">
+          <span><b class="disc" style="background:var(--solid);color:var(--solidfg)" data-i="camera" data-s="20"></b>Instagram Stories</span>
+          <span><b class="disc glass" data-i="link" data-s="20"></b>Copy link</span>
+          <span><b class="disc glass" data-i="msg" data-s="20"></b>Messages</span>
+          <span><b class="disc glass" data-i="dl" data-s="20"></b>Save image</span>
+          <span><b class="disc glass" data-i="more" data-s="20"></b>More</span>
         </div>
+        <div class="ttl">Share it with friends.</div>
+        <div class="dots" data-on="3"></div>
+        <div class="foot"><div class="pill">Next</div></div>
       </div></div>
-      <h3>5. The receipt</h3>
-      <p>The same entry, printed: the approved receipt, in miniature. That's the whole product in three cards.</p>
+      <h3>6. Share</h3>
+      <p>The entry printed as it leaves the app: the receipt on its first photo, with the share screen's row under it. The receipt is the real one: dishes and score boxes, the place and suburb, your handle and the wordmark. It has no order number or date. Score boxes follow your rule from today's bug list, so only a 5 or 6 is filled.</p>
+      <p><b>Built from</b> AteShareSlip, AteShareRow (display only here)</p>
     </div>
 
-    <!-- 6 Start -->
+    <!-- 7 Start -->
     <div class="cell">
       <div class="ph prop"><div class="scr">
         <div class="sb"></div>
-        <div style="position:absolute;left:24px;right:24px;top:132px"><span class="big">Start with<br>your last<br>meal.</span></div>
+        <div class="ttl" style="top:300px">Start with your last meal.</div>
         <div style="position:absolute;left:20px;right:20px;bottom:40px;display:grid;gap:10px">
           <div class="pill"><i data-i="image" data-s="20"></i>Find it in my photos</div>
           <div class="pill" style="background:var(--fld);color:var(--ink)"><i data-i="pencil" data-s="19"></i>Write one now</div>
           <span class="lnk">Later</span>
         </div>
       </div></div>
-      <h3>6. Start</h3>
-      <p>Replaces "Your last meals are already in your photos." It no longer assumes the roll has food in it. Photos asks for access (Apple's prompt), then shows what it found. Write one now opens a blank composer. Later lands on the empty Journal.</p>
+      <h3>7. Start</h3>
+      <p>Find it in my photos asks for access with Apple's prompt, then shows what it found. Write one now opens a blank composer. Later lands on the empty Journal.</p>
+      <p><b>Built from</b> AteInkPill (ink and field), AteWelcomeLink</p>
     </div>
 
-    <!-- 7 Found (existing) -->
+    <!-- 8a Found -->
     <div class="cell">
       <div class="ph"><div class="scr">
         <div class="sb"></div>
         <div class="nav"><span class="disc glass" data-i="x"></span></div>
-        <div style="position:absolute;left:20px;right:20px;top:120px">
-          <span class="big" style="font-size:40px">14 meals<br>in your photos.</span>
-          <div style="margin-top:18px" data-b="sugschips"></div>
+        <div style="position:absolute;left:20px;right:20px;top:116px">
+          <div class="big">14 meals in your photos.</div>
+          <div style="margin-top:22px" data-b="sugschips"></div>
         </div>
       </div></div>
-      <h3>7a. Photos found meals <span class="tag rec">Approved</span></h3>
-      <p>Today's found list, unchanged. A pen or a place chip opens the composer on that meal.</p>
+      <h3>8a. Photos found meals <span class="tag rec">Approved</span></h3>
+      <p>Today's list, with the title centred in Young Serif to match. A pen or a place chip opens the composer on that meal.</p>
+      <p><b>Built from</b> PhotoSuggestionRow (the one Notifications uses)</p>
     </div>
 
-    <!-- 7b Nothing found -->
+    <!-- 8b Nothing -->
     <div class="cell">
       <div class="ph prop"><div class="scr">
         <div class="sb"></div>
-        <div style="position:absolute;left:24px;right:24px;top:132px"><span class="big">No meals in<br>your photos<br>yet.</span></div>
+        <div class="ttl" style="top:330px">No meals in your photos yet.</div>
         <div style="position:absolute;left:20px;right:20px;bottom:40px;display:grid;gap:6px">
           <div class="pill"><i data-i="pencil" data-s="19"></i>Write one now</div>
           <span class="lnk">Later</span>
         </div>
       </div></div>
-      <h3>7b. Nothing found, or Don't Allow</h3>
-      <p>Today an empty roll or a refusal drops you on the Journal with no explanation. Now it says so and offers the blank composer. After Don't Allow it reads "No photos, no problem." with the same two ways on.</p>
+      <h3>8b. Nothing found, or Don't Allow</h3>
+      <p>An empty roll or a refusal is no longer a dead end. After Don't Allow, the line reads "No photos, no problem." with the same two ways on.</p>
+      <p><b>Built from</b> AteInkPill, AteWelcomeLink</p>
     </div>
 
   </div>
-  <p class="note">Photos are colour stand-ins. Phones show the light default; dark uses the existing tokens. After any of 7a, 7b or a blank composer, the first save prints Order #0001 and lands on the Journal as today. Settings → Replay first run (Debug and Beta) replays all of this, the photo step included.</p>
+  <p class="note">Photos are colour stand-ins. Phones show the light default; dark mode uses the existing tokens. After any of 8a, 8b or a blank composer, the first save prints the receipt and lands on the Journal as it does today. Settings → Replay first run (Debug and Beta) replays all of this. The Score tip goes, because card 5 teaches scoring. The bell, Lists and Save tips stay.</p>
 </section>
 
 <section class="measure">
   <h2>What changes from the current build</h2>
   <ul>
     <li><b>New:</b> the photo step after Handle, uploading through the same path as Settings → Photo.</li>
-    <li><b>New:</b> three cards (native paged view, page dots, Next, Skip).</li>
+    <li><b>New:</b> four cards (native paged view, page dots, Next, Skip) that build one sample entry from the real slip, score token, receipt and share row.</li>
     <li><b>Replaced:</b> "Your last meals are already in your photos." becomes the start screen with three ways in.</li>
-    <li><b>New:</b> the nothing-found screen, so an empty roll or a refusal is never a dead end.</li>
-    <li>Unchanged: Welcome, Handle, the found list, the composer, Order #0001, the bell, Lists and Save tips.</li>
+    <li><b>New:</b> the nothing-found screen.</li>
+    <li><b>Type:</b> every onboarding title uses the app's title style (Young Serif) and wraps on its own, centred apart from Handle.</li>
+    <li><b>Removed:</b> the Score tip.</li>
     <li>Telemetry: <code>onboarding.photo</code> (picked / skipped), <code>onboarding.card</code> (index, skipped), <code>onboarding.start</code> (photos / write / later), alongside today's events.</li>
   </ul>
 </section>
-
-<section class="measure">
-  <h2>Your call</h2>
-  <div class="qs">
-    <div class="q"><h3>The Score tip</h3><p><b class="rec">Drop it</b> Card 4 already teaches scoring.</p><p><b>Keep it</b> A second reminder in the first composer.</p></div>
-    <div class="q"><h3>The cards</h3><p><b class="rec">Three</b> Write, score, receipt.</p><p><b>Two</b> Merge writing and scoring into one card.</p></div>
-  </div>
-</section>
 </main>
+
 
 
 <script>
@@ -502,6 +534,9 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
     history:'<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
     bm:'<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
     bookf:'<path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" fill="currentColor"/>',
+    link:'<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
+    msg:'<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+    dl:'<path d="M12 15V3M7 10l5 5 5-5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>',
     leaf:'<path d="M11 20a10 10 0 0 0 10-10 25.9 25.9 0 0 0-1.04-7.281 1 1 0 0 0-1.755-.325C15.833 5.5 13 5.5 9.8 6.1A7 7 0 0 0 11 20"/><path d="M2 21a5 5 0 0 1 2.911-4.544C7.613 15.212 8.351 15.24 11 13"/>'
   };
   function tok(v){return v?'<span class="tok"><i data-i="star" data-s="11"></i>'+v+'</span>':''}
@@ -582,6 +617,7 @@ ul{margin:0;padding-left:22px;display:grid;gap:8px}
     el.outerHTML=h;
   });
 
+  document.querySelectorAll('.dots').forEach(function(d){var n=+d.getAttribute('data-on'),h='';for(var i=0;i<4;i++)h+='<span'+(i===n?' class="on"':'')+'></span>';d.innerHTML=h});
   var tabs=[['journal','book','Journal'],['feed','utensils','Feed'],['saved','bm','Saved'],['you','user','You']];
   document.querySelectorAll('[data-tb]').forEach(function(t){
     var on=t.getAttribute('data-tb');
