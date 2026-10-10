@@ -54,6 +54,10 @@ struct AteWelcomeCard: View {
 /// line in the app, kept from the build.
 struct AteWelcomeLink: View {
     let title: String
+    /// Ink on Welcome's coral; first run's ground passes the surface's own foreground, so the link
+    /// still reads in dark.
+    var colour: Color = AteColor.ink
+    var identifier = "welcome.browse"
     let action: () -> Void
 
     var body: some View {
@@ -63,14 +67,14 @@ struct AteWelcomeLink: View {
                 .multilineTextAlignment(.center)
                 .padding(.bottom, AteMetrics.hairspace)
                 .overlay(alignment: .bottom) {
-                    Rectangle().fill(AteColor.ink).frame(height: AteWelcomeCardMetrics.underline)
+                    Rectangle().fill(colour).frame(height: AteWelcomeCardMetrics.underline)
                 }
                 .frame(minHeight: AteMetrics.hit)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(AteColor.ink)
-        .accessibilityIdentifier("welcome.browse")
+        .foregroundStyle(colour)
+        .accessibilityIdentifier(identifier)
     }
 }
 

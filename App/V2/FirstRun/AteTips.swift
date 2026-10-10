@@ -3,9 +3,9 @@ import Foundation
 import SwiftUI
 import TipKit
 
-/// **The three tips** (`design/rebuild/first-run.html`, steps 6, 8, 9): native TipKit popovers, each
+/// **The tips** (`design/rebuild/first-run.html`, steps 8, 9): native TipKit popovers, each
 /// on the control it explains, each gone for good once that control is used or its ✕ is tapped. Plus
-/// Save on the Feed. Words are the tips' only words; there is no tour.
+/// Save on the Feed. Scoring is taught by the first-run cards (`onboarding-v2.html`), so it has no tip.
 ///
 /// Replay first run (Settings, Debug and Beta) bumps an epoch that every tip's `id` carries, so each
 /// comes back as a tip TipKit has never seen — its datastore can only be reset before it is configured.
@@ -27,13 +27,6 @@ enum AteTips {
     static let listsAfterEntries = 5
 
     private static let epochKey = "ate.tips.epoch"
-}
-
-/// On the composer's Score key: the inline score is the one thing Ate does that nothing else does.
-struct ScoreTip: Tip {
-    var id: String { "tip.score.\(AteTips.epoch)" }
-    var title: Text { Text("Score as you write") }
-    var message: Text? { Text("Name a dish, then tap Score.") }
 }
 
 /// On the Journal's bell, once there is an entry and the roll holds more meals.

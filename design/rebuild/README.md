@@ -8,7 +8,8 @@ rebuild thread reads. Decisions here are settled; do not re-ask them.
 | `pattern-contract.html` | The cross-cutting UI rules every flow follows. Binding. |
 | `skeleton-spec.html` | Phase 2 brief: composition root, native navigation and chrome, 48 → 17 components. |
 | `compose-entry.html` | The approved Compose and Entry mockup. Also the visual kit every other mockup copies. |
-| `first-run.html` | Onboarding proposal (6 Oct): the photo ask, first entry from your photos, three TipKit tips. Awaiting Eamon. |
+| `first-run.html` | Onboarding (6 Oct, approved, PR #117): the photo ask, first entry from your photos, TipKit tips. Superseded after Handle by `onboarding-v2.html`. |
+| `onboarding-v2.html` | Onboarding v2 (10 Oct, approved): a photo of you, four cards that build one entry, the start screen, nothing-found. The Score tip is gone. |
 | `FLOW-BRIEF.md` | The shared brief for drawing a flow mockup. |
 
 ## Decisions (Eamon, 3 Oct 2026)

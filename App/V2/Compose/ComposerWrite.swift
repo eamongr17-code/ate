@@ -145,6 +145,7 @@ struct V2ComposerWrite: View {
         case .journalEmpty: .journalEmpty
         case .entryEdit: .entryEdit
         case .photoSuggestion: .photoSuggestion
+        case .onboarding: .onboarding
         }
     }
 
