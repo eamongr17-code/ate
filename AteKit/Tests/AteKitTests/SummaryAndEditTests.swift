@@ -282,8 +282,10 @@ struct SliderTitleTests {
 
     /// The slider's title for the one score at the end of `text`.
     private func title(_ text: String) -> String? {
-        let score = EntryToken(kind: .score(Rating(exactly: 3)!))
         let location = (text as NSString).range(of: " ", options: .backwards).location + 1
+        // The pill's rating is the one its digits print: a span that disagrees is not kept.
+        let digits = (text as NSString).substring(from: location)
+        let score = EntryToken(kind: .score(Rating(exactly: Double(digits)!)!))
         let words = EntryComposition(plain: text, spans: [
             EntryTokenSpan(token: score, span: TextSpan(location: location, length: text.utf16.count - location))
         ])
