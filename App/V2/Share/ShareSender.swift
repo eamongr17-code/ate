@@ -12,6 +12,8 @@ struct ShareSender {
         let image: UIImage
         /// The card on a transparent ground, for an Instagram Stories sticker.
         var sticker: UIImage?
+        /// What the system sheet is handed instead of the image — a link item, for a list.
+        var items: [Any]?
     }
 
     var sending: Sending?
@@ -55,9 +57,9 @@ struct ShareSender {
 /// the card is drawn — on screen and in the export alike, which is what makes the two identical.
 enum SharePhotos {
     @MainActor
-    static func resolve(_ urls: [URL]) async -> [AtePhoto] {
+    static func resolve(_ urls: [URL], limit: Int = 2) async -> [AtePhoto] {
         var resolved: [AtePhoto] = []
-        for url in urls.prefix(2) {
+        for url in urls.prefix(max(1, limit)) {
             guard let scheme = url.scheme, scheme == "http" || scheme == "https" else {
                 // A bundled fixture (`asset://`, `preview://`) — ``AtePhotoContent`` draws those
                 // synchronously, so the renderer sees a real picture without a round trip.

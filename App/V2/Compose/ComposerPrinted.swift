@@ -38,7 +38,7 @@ struct V2ComposerPrinted: View {
     let handoff: Handoff
 
     @State private var store: EntrySummaryStore
-    @State private var sender = V2ReceiptSender()
+    @State private var isSharing = false
     @State private var isPickingPlace = false
     @State private var appearedAt = ContinuousClock.now
     @State private var hasCountedEntrance = false
@@ -87,14 +87,11 @@ struct V2ComposerPrinted: View {
         .onChange(of: store.card) { _, card in NotificationCenter.ateEntryChanged(card) }
         .onChange(of: store.showsReceipt, initial: true) { _, shows in countEntrance(shows) }
         .onDisappear { countDone() }
-        .sheet(item: $sender.sending, onDismiss: { store.shareEnded() }, content: { sending in
-            ShareSheet(sending: sending) { destination in
-                services.analytics(EntryEvents.receiptShared(
-                    entryID: store.card.id,
-                    source: destination == .instagramStories ? .instagramStories : .summary
-                ))
-            }
-        })
+        .sheet(isPresented: $isSharing, onDismiss: { store.shareEnded() }) {
+            V2ReceiptShareSheet(
+                receipt: receipt, photos: handoff.photos, source: .summary, analytics: services.analytics
+            )
+        }
         .v2PlaceSheet(isPresented: $isPickingPlace, directory: services.places) { place in
             guard let id = place.id else { return }
             isPickingPlace = false
@@ -161,8 +158,7 @@ struct V2ComposerPrinted: View {
     private func send() {
         guard let event = store.share() else { return }
         services.analytics(event)
-        sender.send(receipt, photos: Array(handoff.photos.prefix(2)))
-        if sender.sending == nil { store.shareEnded() }
+        isSharing = true
     }
 
     /// Close, top left — counted once, however the sheet goes.
@@ -204,23 +200,8 @@ struct V2ComposerPrinted: View {
         PhotoAccessAsk.shouldAsk(
             canAsk: library.canAsk,
             isPrinted: store.phase == .printed,
-            isPresentingOther: store.isSharing || sender.sending != nil || isPickingPlace
+            isPresentingOther: store.isSharing || isSharing || isPickingPlace
         )
-    }
-}
-
-/// **Render, and hand it to the system.** A render that fails opens nothing and is felt, never
-/// written; the share is counted by the system sheet, when the picture actually leaves.
-struct V2ReceiptSender {
-    var sending: ShareSender.Sending?
-
-    @MainActor
-    mutating func send(_ receipt: AteReceipt, photos: [AtePhoto]) {
-        guard let image = AtePrintedReceiptImage.render(receipt, photos: photos) else {
-            AteHaptics.refused()
-            return
-        }
-        sending = ShareSender.Sending(image: image, sticker: AtePrintedReceiptImage.sticker(receipt, photos: photos))
     }
 }
 

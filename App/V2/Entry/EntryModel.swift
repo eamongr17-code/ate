@@ -459,6 +459,7 @@ enum EntryPresentation {
             place: card.place?.name ?? "",
             placeID: card.place?.id,
             address: card.place?.address,
+            locality: card.place?.locality,
             items: card.items.map {
                 AteReceipt.Item(
                     id: $0.reviewID, name: $0.dishName, score: $0.score,

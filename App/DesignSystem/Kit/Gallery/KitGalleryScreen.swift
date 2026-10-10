@@ -29,6 +29,7 @@ struct KitGalleryScreen: View {
                     atoms
                     composites
                     lists
+                    share
                     chrome
                 }
                 .padding(.top, KitGalleryMetrics.top)

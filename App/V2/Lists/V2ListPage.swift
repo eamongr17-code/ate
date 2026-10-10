@@ -8,7 +8,7 @@ import SwiftUI
 /// token; no bookmark (these are your own dishes). The name settles into the bar once the cover has
 /// scrolled away. A tap opens the entry. Long-press drags to reorder (the native move, no edit mode); swipe left
 /// removes, with Saved's Undo pill for four seconds. "Add dishes" is the last row. In the bar,
-/// Share (the list receipt) and the one native ••• Menu: Rename, Delete list.
+/// Share (the list as a link) and the one native ••• Menu: Rename, Delete list.
 struct V2ListPage: View {
     let route: ListRoute
     let context: V2PageContext
@@ -73,11 +73,7 @@ struct V2ListPage: View {
             ListPickerSheet(list: store, services: context.services)
         }
         .sheet(isPresented: $isSharing) {
-            ListShareSheet(
-                content: receipt,
-                photoURLs: (store.list?.covers ?? []).compactMap(URL.init(string:)),
-                analytics: context.services.analytics
-            )
+            ListShareSheet(share: share, analytics: context.services.analytics)
         }
         .confirmationDialog(
             ListsCopy.confirmDelete(store.name), isPresented: $isConfirmingDelete, titleVisibility: .visible
@@ -269,15 +265,10 @@ struct V2ListPage: View {
 
     // MARK: - Doing
 
-    /// The receipt: the top ten lines, the place as fine print, signed with your handle.
-    private var receipt: AteListReceiptContent {
-        let lines = store.items.prefix(ListsMetrics.receiptLines).map { item in
-            AteListReceiptContent.Line(
-                id: item.id, rank: item.position, dish: item.dishName, score: item.score, place: item.restaurantName
-            )
-        }
-        return AteListReceiptContent(
-            title: store.name, lines: Array(lines), count: store.count, date: Date(),
+    /// What leaves: the list as a link, named and covered as its page is.
+    private var share: ListShare {
+        ListShare(
+            id: route.id, name: store.name, count: store.count, covers: store.list?.covers ?? [],
             handle: context.app.handle ?? ""
         )
     }

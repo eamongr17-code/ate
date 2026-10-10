@@ -94,6 +94,7 @@ private struct V2EntryScreen: View {
                     V2ReceiptShareSheet(
                         receipt: receipt,
                         photoURLs: card.photos.sorted { $0.position < $1.position }.compactMap { URL(string: $0.url) },
+                        source: .entry,
                         analytics: services.analytics
                     )
                 }

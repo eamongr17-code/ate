@@ -60,6 +60,14 @@ enum AteIcon: String, CaseIterable {
     case listPlus
     /// Delete list — Lucide's trash.
     case trash
+    /// The share screen's Copy link — Lucide's link.
+    case link
+    /// Copy the sticker itself, to paste over a story of your own — Lucide's copy.
+    case copy
+    /// Save the picture to Photos — Lucide's download.
+    case download
+    /// Messages, in the share row — Lucide's message-circle.
+    case messageCircle
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
@@ -178,6 +186,17 @@ M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.70
              Self.path("M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2")]
         case .listFilter: // list-filter
             [Self.path("M2 5h20"), Self.path("M6 12h12"), Self.path("M9 19h6")]
+        case .link: // link
+            [Self.path("M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"),
+             Self.path("M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71")]
+        case .copy: // copy
+            [AteVector.rectangle(8, 8, 14, 14, 2),
+             Self.path("M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2")]
+        case .download: // download
+            [Self.path("M12 15V3"), Self.path("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"),
+             Self.path("m7 10 5 5 5-5")]
+        case .messageCircle: // message-circle
+            [Self.path("M7.9 20A9 9 0 1 0 4 16.1L2 22Z")]
         case .heart: // heart
             [Self.path("""
 M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 \

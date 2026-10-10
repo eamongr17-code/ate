@@ -83,6 +83,10 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Ate looks at your recent photos so it can offer the meals you haven't written up yet.</string>
 
+	<!-- Share: Save image writes the story page to Photos, add-only. -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Ate saves the picture you're sharing to your Photos.</string>
+
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

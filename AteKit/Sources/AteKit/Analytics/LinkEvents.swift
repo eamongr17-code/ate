@@ -16,6 +16,10 @@ public enum LinkEvents {
             AnalyticsEvent(name: "link_opened", parameters: [
                 "kind": "entry", "entry_id": id.uuidString.lowercased(), "recognised": "true"
             ])
+        case .list(let id):
+            AnalyticsEvent(name: "link_opened", parameters: [
+                "kind": "list", "list_id": id.uuidString.lowercased(), "recognised": "true"
+            ])
         case nil:
             AnalyticsEvent(name: "link_opened", parameters: ["recognised": "false"])
         }
