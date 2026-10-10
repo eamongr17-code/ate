@@ -73,8 +73,15 @@ extension AteFont {
     static func exactBaselineDrop(for style: AteTextStyle, dynamicTypeSize: DynamicTypeSize = .large) -> CGFloat {
         let font = uiFont(for: style, dynamicTypeSize: dynamicTypeSize)
         let natural = font.ascender - font.descender
-        return max(0, natural - style.lineBox(dynamicTypeSize))
+        let drop = max(0, natural - style.lineBox(dynamicTypeSize))
+        guard style.voice == .heading else { return drop }
+        return max(0, drop - font.pointSize * headingDropOvershoot)
     }
+
+    /// Young Serif's tall ascender (1046 against a 750 cap) makes the overflow rule above lift it too
+    /// far: on build 108 a slip's 20pt dish name sat 5.7pt above its score's baseline, tight to the
+    /// paper's top and loose over the words below. Measured off the device, as a fraction of the em.
+    private static let headingDropOvershoot: CGFloat = 0.285
 
     /// The style's cap height, in points — what a glyph set beside a numeral centres on.
     static func capHeight(for style: AteTextStyle, dynamicTypeSize: DynamicTypeSize = .large) -> CGFloat {
