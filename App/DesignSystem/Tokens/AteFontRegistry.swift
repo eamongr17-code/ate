@@ -79,8 +79,15 @@ final class AteFontRegistry: @unchecked Sendable {
     }
 
     /// PostScript names and axis ranges read out of the shipped files with a Core Text dump, not
-    /// guessed: Bricolage's default instance is its 96pt ExtraBold, and Newsreader's is 16pt Regular.
+    /// guessed: Caprasimo is one static weight, Bricolage's default instance is its 96pt ExtraBold,
+    /// and Newsreader's is 16pt Regular.
     private static let candidates: [Candidate] = [
+        Candidate(voice: .heading, italic: false, face: Face(
+            family: "Caprasimo",
+            regular: "Caprasimo-Regular",
+            variationAxes: nil,
+            opticalSizeRange: nil
+        )),
         Candidate(voice: .display, italic: false, face: Face(
             family: "Bricolage Grotesque",
             regular: "BricolageGrotesque-96ptExtraBold",

@@ -50,12 +50,13 @@
 		<key>UIImageName</key>
 		<string>LaunchWordmark</string>
 	</dict>
-	<!-- The three voices (docs/DESIGN.md), all OFL, bundled from App/Resources/Fonts.
+	<!-- The four voices (docs/DESIGN.md), all OFL, bundled from App/Resources/Fonts.
 	     A synchronized Xcode group copies them to the bundle root, which is where these
 	     paths point. AteType.swift also registers them at runtime as a safety net, so
 	     SwiftUI previews and the debug gallery get the real faces too. -->
 	<key>UIAppFonts</key>
 	<array>
+		<string>Caprasimo-Regular.ttf</string>
 		<string>BricolageGrotesque-Variable.ttf</string>
 		<string>Newsreader-Variable.ttf</string>
 		<string>Newsreader-Italic-Variable.ttf</string>

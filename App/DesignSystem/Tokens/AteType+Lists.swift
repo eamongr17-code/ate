@@ -6,12 +6,12 @@ extension AteTextStyle {
     /// A cover's name where the list has no photo — `.cov.gen b`: Bricolage 800 at 22, `line-height:1`,
     /// `-.035em`…
     static let kitListCoverName = AteTextStyle(
-        voice: .display, size: 22, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title3,
+        voice: .heading, size: 22, weight: 800, trackingEm: -0.01, lineHeight: 1.0, textStyle: .title3,
         maximumSize: 22
     )
     /// …and at 34 on the list's own page.
     static let kitListCoverNameHero = AteTextStyle(
-        voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title,
+        voice: .heading, size: 34, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title,
         maximumSize: 34
     )
     /// A shelf tile's name — `.tile b`: Bricolage 600 at 16, `line-height:1.2`, `-.01em`.
@@ -20,7 +20,7 @@ extension AteTextStyle {
     )
     /// The list page's name under its cover — `.hero .nm`: Bricolage 800 at 28, `line-height:1.05`.
     static let kitListHeroName = AteTextStyle(
-        voice: .display, size: 28, weight: 800, trackingEm: -0.035, lineHeight: 1.05, textStyle: .title
+        voice: .heading, size: 28, weight: 800, trackingEm: -0.02, lineHeight: 1.05, textStyle: .title
     )
     /// The handle under it — `.hero .by`: Bricolage 600 at 15.
     static let kitListByline = AteTextStyle(
@@ -33,7 +33,7 @@ extension AteTextStyle {
     )
     /// The list receipt's head — `.h` at 25, `line-height:1.02`.
     static let kitListReceiptTitle = AteTextStyle(
-        voice: .display, size: 25, weight: 800, trackingEm: -0.035, lineHeight: 1.02, textStyle: .title2,
+        voice: .heading, size: 25, weight: 800, trackingEm: -0.02, lineHeight: 1.02, textStyle: .title2,
         maximumSize: 25
     )
     /// A line's rank — `.rl .q`: DM Mono 500 at 11.
@@ -43,7 +43,7 @@ extension AteTextStyle {
     )
     /// A line's dish — `.rl .n`: Bricolage 800 at 19, `line-height:1.1`, `-.03em`.
     static let kitListReceiptDish = AteTextStyle(
-        voice: .display, size: 19, weight: 800, trackingEm: -0.03, lineHeight: 1.1, textStyle: .headline,
+        voice: .heading, size: 19, weight: 800, trackingEm: -0.01, lineHeight: 1.1, textStyle: .headline,
         maximumSize: 19
     )
     /// A line's score, printed like a price — `.rl .s`: Bricolage 800 at 21, `-.02em`.

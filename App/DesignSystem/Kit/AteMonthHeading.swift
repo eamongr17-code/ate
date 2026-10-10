@@ -41,6 +41,6 @@ enum AteMonthHeadingMetrics {
 extension AteTextStyle {
     /// `.mdiv`: Bricolage 800 at 22, `letter-spacing:-.025em`, `line-height:1`.
     static let kitMonthHeading = AteTextStyle(
-        voice: .display, size: 22, weight: 800, trackingEm: -0.025, lineHeight: 1.0, textStyle: .title2
+        voice: .heading, size: 22, weight: 800, trackingEm: -0.01, lineHeight: 1.0, textStyle: .title2
     )
 }

@@ -6,7 +6,7 @@ extension AteTextStyle {
 
     /// A dish on a receipt. 22pt/800, line-height 1.1.
     static let receiptLeadDish = AteTextStyle(
-        voice: .display, size: 22, weight: 800, trackingEm: -0.03, lineHeight: 1.1, textStyle: .title3
+        voice: .heading, size: 22, weight: 800, trackingEm: -0.01, lineHeight: 1.1, textStyle: .title3
     )
     /// Its score, printed like a price. 24pt/800.
     static let receiptLeadScore = AteTextStyle(
