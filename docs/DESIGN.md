@@ -72,7 +72,8 @@ Type — four voices, bundled fonts (all OFL):
 Spacing: screen gutter 20; **list gutter 12** (Journal, Feed, Profile: slips and their headers);
 content top 60–70 under the status bar; 44pt minimum hit targets.
 Motion (all gated on Reduce Motion): receipt prints in (slide 24pt + fade, 0.6s); caret blink; voice
-pulse; score numerals roll; a printing receipt's skeleton lines breathe (to 45%, 1.6s).
+pulse; score numerals roll; every skeleton (and a printing receipt's lines) carries the paper feed:
+one band in the paper's colour crossing the screen, 1.6s a pass, all placeholders in step.
 
 ## Components
 
@@ -150,5 +151,6 @@ same score token; a dietary code after a dish becomes a tag chip.
 ## Not drawn — build with the existing vocabulary
 
 Offline / not-yet-sorted entry (words show, the bill absent) · loading (skeletons of the real
-components, never a spinner for first load) · someone else's entry (= `Entry` with a byline and a
+components, never a spinner for first load; a wait with no shape gets the tally, a small receipt
+writing itself in, after 400ms) · someone else's entry (= `Entry` with a byline and a
 bookmark instead of edit) · system photo picker and keyboard.

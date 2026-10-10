@@ -324,10 +324,10 @@ enum AtePrefetch {
     }
 }
 
-/// **A photo from the network, drawn.** A still placeholder tile in the surface's field colour —
-/// never a spinner, never a shimmer — that the picture fades into when it arrives. A picture that is
-/// already decoded is there on the first frame, with no fade: redrawing a card must not replay its
-/// photos arriving.
+/// **A photo from the network, drawn.** A placeholder tile in the surface's field colour under the
+/// paper feed (``AteSkeletonSweep``) — never a spinner — that the picture fades into when it
+/// arrives. A picture that is already decoded is there on the first frame, with no fade: redrawing a
+/// card must not replay its photos arriving.
 struct AteRemotePhoto: View {
     let url: URL
     var size: AtePhotoSize = .large
@@ -375,7 +375,8 @@ struct AteRemotePhoto: View {
             if didFail, let failure {
                 DishLetterTile(dish: failure)
             } else {
-                placeholder ?? palette.field
+                (placeholder ?? palette.field)
+                    .ateSkeletonSweep(current == nil)
             }
             if let current {
                 Image(uiImage: current.image)

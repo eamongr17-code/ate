@@ -98,7 +98,7 @@ struct V2DishPage: View {
                         .padding(.leading, V2DishMetrics.heroInset)
                     AteSkeletonBar(width: V2DishMetrics.nameBar, height: V2DishMetrics.nameBarHeight,
                                    palette: .automatic)
-                        .ateBreathing()
+                        .ateSkeletonSweep()
                         .padding(.horizontal, AteMetrics.listGutter)
                     AteReviewRowSkeleton()
                         .padding(.horizontal, AteMetrics.listGutter)
@@ -151,7 +151,7 @@ struct V2DishPage: View {
             } else {
                 AteSkeletonBar(width: V2DishMetrics.aggregateBar, height: V2DishMetrics.aggregateBarHeight,
                                palette: .automatic)
-                    .ateBreathing()
+                    .ateSkeletonSweep()
                     .padding(.horizontal, AteMetrics.listGutter)
             }
         }
@@ -203,7 +203,7 @@ struct V2DishPage: View {
             } else {
                 AteSkeletonBar(width: V2DishMetrics.placeBar, height: V2DishMetrics.placeBarHeight,
                                palette: .automatic)
-                    .ateBreathing()
+                    .ateSkeletonSweep()
                     .frame(height: AteMetrics.hit)
             }
         }

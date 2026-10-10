@@ -93,7 +93,7 @@ struct AteReviewRowSkeleton: View {
                 }
             }
         }
-        .ateBreathing()
+        .ateSkeletonSweep()
         .accessibilityHidden(true)
     }
 }

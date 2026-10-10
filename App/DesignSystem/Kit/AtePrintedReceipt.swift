@@ -13,7 +13,7 @@ import UIKit
 struct AtePrintedReceipt: View {
     let receipt: AteReceipt
     var photos: [AtePhoto] = []
-    /// Still being sorted: the dish lines breathe as skeleton bars.
+    /// Still being sorted: the dish lines are skeleton bars under the paper feed.
     var isPrinting = false
     var breathes = true
     /// A receipt that cannot print without a place: its place slot is the Place key.

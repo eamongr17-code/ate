@@ -160,7 +160,7 @@ struct AteNewListTile: View {
     }
 }
 
-/// A tile while the shelf loads: the cover's square in the field colour, breathing.
+/// A tile while the shelf loads: the cover's square in the field colour, under the paper feed.
 struct AteListTileSkeleton: View {
     @Environment(\.atePalette) private var palette
 
@@ -168,7 +168,7 @@ struct AteListTileSkeleton: View {
         RoundedRectangle(cornerRadius: AteListCoverMetrics.radius, style: .continuous)
             .fill(palette.field)
             .aspectRatio(1, contentMode: .fit)
-            .ateBreathing()
+            .ateSkeletonSweep()
             .accessibilityHidden(true)
     }
 }

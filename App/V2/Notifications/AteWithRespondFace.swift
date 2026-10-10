@@ -176,7 +176,7 @@ struct AteWithRespondFace: View {
         .padding(.horizontal, AteMetrics.gutter)
         .padding(.top, AteMetrics.snug)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .ateBreathing()
+        .ateSkeletonSweep()
         .accessibilityHidden(true)
     }
 

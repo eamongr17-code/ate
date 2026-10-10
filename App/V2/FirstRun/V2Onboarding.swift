@@ -172,7 +172,7 @@ struct V2Onboarding: View {
             AteSkeletonBar(
                 width: OnboardingMetrics.titleBar, height: OnboardingMetrics.titleBarHeight, palette: .automatic
             )
-                .ateBreathing()
+                .ateSkeletonSweep()
                 .accessibilityHidden(true)
         } else {
             AteTitle(text: OnboardingCopy.found(photos.clusters.count), style: .handleTitle, alignment: .leading)

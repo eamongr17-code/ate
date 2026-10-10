@@ -125,6 +125,10 @@ enum AteColor {
     static let ground = Color(light: groundLight, dark: groundDark)
     /// The dark ground on its own — the app icon's dark appearance, which the launch moment wears.
     static let groundInk = groundDark
+
+    /// The paper feed's band (``AteSkeletonSweep``): the slip's own colour, so a skeleton bar fades
+    /// into the paper as it passes and the paper shows nothing.
+    static let skeletonSweep = slip
 }
 
 /// **The journal calendar's marks** (round 7, `CalendarMonth` / `CalendarYear`): a 5.0 day is

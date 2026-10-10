@@ -10,7 +10,7 @@ import SwiftUI
 /// The existing ``ReceiptView``, without the barcode the contract cut on 3 Oct.
 struct AteReceiptView: View {
     let receipt: AteReceipt
-    /// Still being sorted: the dish lines are breathing skeleton bars.
+    /// Still being sorted: the dish lines are skeleton bars under the paper feed.
     var isPrinting = false
     var breathes = true
     /// A receipt that cannot print without a place: the place slot is the Place key.

@@ -280,7 +280,7 @@ private struct V2PlaceSkeleton: View {
                 } else {
                     AteSkeletonBar(width: V2PlaceMetrics.nameBar, height: V2PlaceMetrics.nameBarHeight,
                                    palette: .automatic)
-                        .ateBreathing()
+                        .ateSkeletonSweep()
                 }
                 AteChipFlowSkeleton()
             }

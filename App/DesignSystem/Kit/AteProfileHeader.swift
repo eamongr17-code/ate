@@ -63,7 +63,7 @@ struct AteProfileHeaderSkeleton: View {
             }
             Spacer(minLength: 0)
         }
-        .ateBreathing(breathes)
+        .ateSkeletonSweep(breathes)
         .accessibilityHidden(true)
     }
 }
@@ -83,7 +83,7 @@ struct AteProfileStats: View {
             ])
         } else {
             AteStatsSlip(cells: [("—", "Orders"), ("—", "Places"), ("—", "Dishes")])
-                .ateBreathing()
+                .ateSkeletonSweep()
                 .accessibilityHidden(true)
         }
     }

@@ -130,6 +130,10 @@ extension KitGalleryScreen {
             AteSkeleton(kind: .hero).padding(.horizontal, KitGalleryMetrics.cardMargin)
             AteSkeleton(kind: .entrySlip).ateCardWidth()
         }
+        section("Page loader") {
+            AtePageLoader()
+                .frame(height: KitGalleryMetrics.emptyHeight)
+        }
     }
 
     struct ShelfItem: Identifiable {

@@ -115,7 +115,7 @@ struct AteScoreHistogramSkeleton: View {
             .frame(height: AteScoreHistogramMetrics.height, alignment: .bottom)
             Color.clear.frame(height: AteScoreHistogramMetrics.scaleHeight)
         }
-        .ateBreathing(breathes)
+        .ateSkeletonSweep(breathes)
         .accessibilityHidden(true)
     }
 }
