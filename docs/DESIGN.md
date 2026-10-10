@@ -150,5 +150,6 @@ same score token; a dietary code after a dish becomes a tag chip.
 ## Not drawn — build with the existing vocabulary
 
 Offline / not-yet-sorted entry (words show, the bill absent) · loading (skeletons of the real
-components, never a spinner for first load) · someone else's entry (= `Entry` with a byline and a
+components, never a spinner for first load; a wait with no shape gets the tally, a small receipt
+writing itself in, after 400ms) · someone else's entry (= `Entry` with a byline and a
 bookmark instead of edit) · system photo picker and keyboard.

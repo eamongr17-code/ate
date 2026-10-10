@@ -77,7 +77,7 @@ private struct V2FirstRunHandle: View {
             if let model {
                 V2HandleScreen(model: model) { app.handleChosen($0) }
             } else {
-                Color.clear.ateGround()
+                AtePageLoader().ateGround()
             }
         }
         .task {
