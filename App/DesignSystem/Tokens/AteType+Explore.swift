@@ -7,7 +7,7 @@ import SwiftUI
 extension AteTextStyle {
     /// "More to explore", "More like this": `.b` 800 at 20, `letter-spacing:-0.4px`.
     static let exploreHeading = AteTextStyle(
-        voice: .display, size: 20, weight: 800, trackingEm: -0.02, lineHeight: 1.2, textStyle: .title3
+        voice: .heading, size: 20, weight: 800, trackingEm: -0.01, lineHeight: 1.2, textStyle: .title3
     )
     /// A tag chip's label: `.b` 600 at 14, no tracking.
     static let exploreChip = AteTextStyle(

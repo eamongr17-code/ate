@@ -63,8 +63,9 @@ Accents (same in both modes, always carry `#24141F` text): coral `#F0623F` · bu
 (score token, histogram) · green `#3ECF64` · pink `#F490D4` · sky `#36AEE6` · lilac `#B9A5EA`.
 Destructive `#B3261E`.
 
-Type — three voices, bundled fonts (all OFL):
-- **Bricolage Grotesque** — titles (800, tracking −3.5%, line-height 1.0) and controls/labels (600, 15; meta 500, 13).
+Type — four voices, bundled fonts (all OFL):
+- **Young Serif** — headings: screen/page titles, places, dishes, list names (tracking −2% at 24+, −1% at 18–23, line-height 1.0). Chosen by Eamon 10 Oct to replace Bricolage titles.
+- **Bricolage Grotesque** — controls/labels (600, 15; meta 500, 13), scores and avatar letters (800).
 - **Newsreader** — the user's words, everywhere they appear (16–19, line-height 1.45–1.5; italic for quoted dish notes).
 - **DM Mono** — only inside receipts (line items 13; labels 11 uppercase, tracking 8%).
 

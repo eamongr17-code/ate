@@ -24,7 +24,7 @@ extension AteTextStyle {
     )
     /// The hero's dish — `.hero .nm b`: 800 at 30 (34 before 6 Oct), `line-height:1.02`, `-.035em`.
     static let kitHeroDish = AteTextStyle(
-        voice: .display, size: 30, weight: 800, trackingEm: -0.035, lineHeight: 1.02, textStyle: .largeTitle
+        voice: .heading, size: 30, weight: 800, trackingEm: -0.02, lineHeight: 1.02, textStyle: .largeTitle
     )
     /// …and its place — `.hero .nm span`: 500 at 15.
     static let kitHeroPlace = AteTextStyle(
@@ -37,7 +37,7 @@ extension AteTextStyle {
     )
     /// A ranked row's dish — `.rk .d b`: 800 at 18, `line-height:1.1`, `-.03em`.
     static let kitRankedDish = AteTextStyle(
-        voice: .display, size: 18, weight: 800, trackingEm: -0.03, lineHeight: 1.1, textStyle: .headline
+        voice: .heading, size: 18, weight: 800, trackingEm: -0.01, lineHeight: 1.1, textStyle: .headline
     )
     /// A filter chip's value — `.chip`: 600 at 14, `line-height:1`.
     static let kitChip = AteTextStyle(
@@ -47,7 +47,7 @@ extension AteTextStyle {
     /// A tab root's title on the header row — `.lt b`: 800 at 30 (34 before 6 Oct), `-.035em` (the native large
     /// title's own 34).
     static let kitRootTitle = AteTextStyle(
-        voice: .display, size: 30, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
+        voice: .heading, size: 30, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .largeTitle
     )
     /// …and the city beside it — `.lt span`: 500 at 16, muted.
     static let kitRootSubtitle = AteTextStyle(
@@ -88,7 +88,7 @@ extension AteTextStyle {
     /// the menu's 48, 64 on a shelf card). A picture of the dish, so never scaled with Dynamic Type.
     static func kitThumbInitial(_ size: CGFloat) -> AteTextStyle {
         AteTextStyle(
-            voice: .display, size: size, weight: 800, trackingEm: -0.02, lineHeight: 1.0,
+            voice: .heading, size: size, weight: 800, trackingEm: 0, lineHeight: 1.0,
             textStyle: .title2, maximumSize: size
         )
     }

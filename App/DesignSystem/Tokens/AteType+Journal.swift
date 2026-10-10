@@ -6,7 +6,7 @@ import SwiftUI
 extension AteTextStyle {
     /// A month's name over its entries, and at the head of the calendar: `.h` 34, `-1.2px`.
     static let monthTitle = AteTextStyle(
-        voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
+        voice: .heading, size: 34, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title
     )
     /// The numbers under a range slider's track: 14, muted.
     static let sliderLabel = AteTextStyle(

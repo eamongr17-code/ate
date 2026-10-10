@@ -1,9 +1,10 @@
 import CoreText
 import SwiftUI
 
-/// **The three voices** — and the only place in the app that is allowed to name a font.
+/// **The voices** — and the only place in the app that is allowed to name a font.
 ///
-/// - **Bricolage Grotesque** — titles (800, tracking −3.5%, line-height 1.0) and controls (600, 15).
+/// - **Young Serif** — headings: screen and page titles, places, dishes, list names. One heavy weight.
+/// - **Bricolage Grotesque** — controls (600, 15), labels, meta, scores and avatar letters.
 /// - **Newsreader** — the person's own words, everywhere they appear.
 /// - **DM Mono** — inside receipts, and nowhere else.
 ///
@@ -15,7 +16,9 @@ import SwiftUI
 /// system design (`.serif` for the words, `.monospaced` for receipts, the system sans for chrome) and
 /// the app still lays out correctly. Dynamic Type scaling is applied either way.
 enum AteVoice: Sendable {
-    /// Bricolage Grotesque — titles, controls, labels, meta. The app's furniture.
+    /// Young Serif — the words a screen is about: titles, places, dishes, list names. Not numbers.
+    case heading
+    /// Bricolage Grotesque — controls, labels, meta, scores. The app's furniture.
     case display
     /// Newsreader — the person's words. Never used for chrome.
     case prose
@@ -153,7 +156,7 @@ enum AteFont {
         let weight = UIFont.Weight(wght: style.weight)
         let base = UIFont.systemFont(ofSize: style.size, weight: weight)
         let design: UIFontDescriptor.SystemDesign = switch style.voice {
-        case .display: .default
+        case .heading, .display: .default
         case .prose: .serif
         case .mono: .monospaced
         }

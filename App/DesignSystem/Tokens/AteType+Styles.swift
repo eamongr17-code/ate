@@ -6,18 +6,18 @@ import SwiftUI
 
 extension AteTextStyle {
 
-    // Titles — Bricolage 800. Tracking −3.5% above 30pt, −2.5% at slip sizes (the prototype
-    // overrides `.h`'s letter-spacing for the 20/22pt place names).
+    // Titles — Young Serif (10 Oct: Eamon swapped the headings off Bricolage). Tracking −2% at 24pt
+    // and up, −1% at slip sizes, none below 18. Scores and avatar letters stay Bricolage 800.
 
     /// A screen's own name: "Feed", "You", "Search". 34pt (40 until Eamon's 6 Oct "some headings are too big"; every
     /// heading stepped down one notch here, never per screen).
     static let screenTitle = AteTextStyle(
-        voice: .display, size: 34, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
+        voice: .heading, size: 34, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .largeTitle
     )
     /// The place at the head of its own page — the biggest type in the app, because on the place
     /// page the place is the whole subject. 36pt (44 on `Restaurant.dc.html`, stepped down 6 Oct).
     static let placeTitle = AteTextStyle(
-        voice: .display, size: 36, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
+        voice: .heading, size: 36, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .largeTitle
     )
     /// A dish's aggregate, printed like a price on its own page. 64pt — the one number big enough
     /// to be read across a table (`Dish.dc.html`).
@@ -27,16 +27,16 @@ extension AteTextStyle {
     /// The place at the head of the entry page — the biggest type in the app after a screen's own
     /// name, because on an entry the place IS the title. 32pt (38 before 6 Oct).
     static let entryPlace = AteTextStyle(
-        voice: .display, size: 32, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
+        voice: .heading, size: 32, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .largeTitle
     )
     /// A sheet's title. 26pt (30 before 6 Oct).
     static let sheetTitle = AteTextStyle(
-        voice: .display, size: 26, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
+        voice: .heading, size: 26, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title
     )
     /// The one line an empty state says. 26pt — under its drawing it is a caption to the picture, so
     /// it is well under ``screenTitle`` (Eamon, 6 Oct: the empty line was too big).
     static let emptyTitle = AteTextStyle(
-        voice: .display, size: 26, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
+        voice: .heading, size: 26, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title
     )
     /// The score a `Ratings` page is about, beside its stars. `.h` at 30.
     static let ratingsScore = AteTextStyle(
@@ -48,7 +48,7 @@ extension AteTextStyle {
     )
     /// A pushed page's own name, beside a back arrow: "From your photos". 24pt.
     static let pageTitle = AteTextStyle(
-        voice: .display, size: 24, weight: 800, trackingEm: -0.025, lineHeight: 1.0, textStyle: .title2
+        voice: .heading, size: 24, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title2
     )
     /// "Pick a handle." — first run's one question, at the size of a place heading its own page.
     static var handleTitle: AteTextStyle { placeTitle }
@@ -56,16 +56,16 @@ extension AteTextStyle {
     /// `Handle.dc.html` overrides the tracking on that one input, because a handle is read letter
     /// by letter and the title's tight setting closes `@e` up into one shape.
     static let handleField = AteTextStyle(
-        voice: .display, size: 30, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title
+        voice: .heading, size: 30, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title
     )
     /// A place heading a group of rows — the Saved shelf's place heads. 22pt.
     static let slipPlace = AteTextStyle(
-        voice: .display, size: 22, weight: 800, trackingEm: -0.025, lineHeight: 1.05, textStyle: .title2
+        voice: .heading, size: 22, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .title2
     )
     /// **A dish in a slip's stack. 20pt** — the item itself, and the largest thing on a slip after
     /// its score. It wraps rather than truncating, so this never gets a line limit.
     static let slipDish = AteTextStyle(
-        voice: .display, size: 20, weight: 800, trackingEm: -0.03, lineHeight: 1.05, textStyle: .title3
+        voice: .heading, size: 20, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .title3
     )
     /// …and the score beside it, printed like a price. 26pt at `.h`'s own line height of 1.
     static let slipScore = AteTextStyle(
@@ -114,7 +114,7 @@ extension AteTextStyle {
     /// The dish on the score slider's panel (`RaterSize`): `.h` at 22, `-.03em`, `line-height:1.05`
     /// — the slip's dish voice, a step up, so the name and the number read on one scale.
     static let sliderDish = AteTextStyle(
-        voice: .display, size: 22, weight: 800, trackingEm: -0.03, lineHeight: 1.05, textStyle: .title2
+        voice: .heading, size: 22, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .title2
     )
     /// …and the live numeral beside it: `.h` at 28, `-.02em`, tabular.
     static let sliderScore = AteTextStyle(
