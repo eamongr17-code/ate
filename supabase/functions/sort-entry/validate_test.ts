@@ -9,7 +9,7 @@
 // one, because a bug here must not be able to write a lie.
 
 import { test, assert, assertEquals } from './harness.ts';
-import { evidenceSupportsScore, MAX_ITEMS, printedName, sentenceCase, validateItem, validatePlan } from './validate.ts';
+import { evidenceSupportsScore, MAX_ITEMS, printedName, sentenceCase, tidyNote, validateItem, validatePlan } from './validate.ts';
 import type { SortItem } from './types.ts';
 
 const BODY = 'Tipo 00. The tagliatelle al ragù 4.5 was unreal. Tiramisu, no number given, but lovely.';
@@ -87,8 +87,9 @@ test('a note that differs only in case is dropped, because Postgres position() i
   assertEquals(out.note, null, 'a looser test here would silently disagree with the SQL gate');
 });
 
-test('a verbatim note survives', () => {
-  assertEquals(validateItem(item({ note: 'was unreal.' }), { body: BODY })!.note, 'was unreal.');
+test('a verbatim note survives, minus the glue that joined it to the dish', () => {
+  assertEquals(validateItem(item({ note: 'unreal.' }), { body: BODY })!.note, 'unreal.');
+  assertEquals(validateItem(item({ note: 'was unreal.' }), { body: BODY })!.note, 'unreal.');
 });
 
 test('an over-long note is cut from the END only, and must still be verbatim', () => {
@@ -191,7 +192,7 @@ test('the same dish twice becomes one line, and a later score fills the gap', ()
   );
   assertEquals(plan.items.length, 1);
   assertEquals(plan.items[0].score, 4.5);
-  assertEquals(plan.items[0].note, 'was unreal.');
+  assertEquals(plan.items[0].note, 'unreal.');
   assertEquals(plan.items[0].evidence_offset, BODY.indexOf('4.5'), 'the promoted score brings its WHERE with it');
 });
 
@@ -268,4 +269,41 @@ test('a printed name never beats the menu: an existing dish keeps its own spelli
     { body: BODY, knownDishes: ['Tagliatelle al Ragù'] },
   )!;
   assertEquals(out.dish_name, 'Tagliatelle al Ragù');
+});
+
+// What the Haiku 5.5 eval returned (10 Oct): the note quoted the score clause, or the dish, or
+// ran on into the next dish. The receipt prints only what was said after the dish and its score.
+test('tidyNote: drops the score clause, the dish and the glue; never rewrites what is left', () => {
+  const t = (note: string, dish: string | null, evidence: string | null) => tidyNote(note, { dish, evidence });
+  assertEquals(t('is a solid four', 'Margherita', 'a solid four'), null);
+  assertEquals(t('4.5', 'Kingfish', '4.5'), null);
+  assertEquals(t('4.5 and', 'Pork bun', '4.5'), null);
+  assertEquals(t('were a 4', 'fish tacos', 'a 4'), null);
+  assertEquals(t('was a 4.5 and eliteeeee', 'Fishbowl margarita', 'a 4.5'), 'eliteeeee');
+  assertEquals(t('was a 4.5, the best thing all week', 'Lobster roll', '4.5'), 'the best thing all week');
+  assertEquals(t('I would give it a 4.5 and I do not give those out.', 'penne', 'a 4.5'), 'I do not give those out.');
+  assertEquals(t('no actually a 3.5 the bun was a bit doughy', 'bao', 'a 3.5'), 'the bun was a bit doughy');
+  assertEquals(t('a 4 bit metallic tho', 'uni', 'a 4'), 'bit metallic tho');
+  assertEquals(t('Honestly the tagliatelle al ragù is the only reason I come.', 'tagliatelle al ragù', null), 'the only reason I come.');
+  assertEquals(t('was so flaky it shattered everywhere', 'plain croissant', null), 'so flaky it shattered everywhere');
+  assertEquals(t('and the salsa had real heat.', 'Tacos', '4'), 'the salsa had real heat.');
+  assertEquals(t('which I could take or leave', 'Tamago', null), 'I could take or leave');
+  assertEquals(t('was $185 a head and worth it,', 'omakase', null), '$185 a head and worth it');
+  // the dish at the END of its own note is part of the comment
+  assertEquals(t('then we shared a second pappardelle.', 'pappardelle', null), 'then we shared a second pappardelle.');
+  // already clean: untouched
+  assertEquals(t('unreal, rich, glossy, gone in four minutes.', 'tagliatelle al ragù', '4.5'), 'unreal, rich, glossy, gone in four minutes.');
+});
+
+test('a note that runs on into the next dish stops before it', () => {
+  const body = 'San Danielle Pizza 3.5 cacio e pepe pizza 4 and the tiramisu was a 3 kinda dry';
+  const plan = validatePlan({
+    place_query: null, place_offset: null,
+    items: [
+      { dish_name: 'San Danielle Pizza', score: 3.5, score_evidence: '3.5', note: 'cacio e pepe pizza 4 and the tiramisu was a 3 kinda dry', evidence_offset: null, mention_text: null, mention_offset: null },
+      { dish_name: 'cacio e pepe pizza', score: 4, score_evidence: '4', note: null, evidence_offset: null, mention_text: null, mention_offset: null },
+      { dish_name: 'tiramisu', score: 3, score_evidence: 'a 3', note: 'kinda dry', evidence_offset: null, mention_text: null, mention_offset: null },
+    ],
+  }, { body });
+  assertEquals(plan.items.map((i) => i.note), [null, null, 'kinda dry']);
 });

@@ -276,7 +276,7 @@ if (!isDeno) {
     const rpcs = world.calls.filter((c) => c.kind === 'rpc').map((c) => c.name);
     assertEquals(rpcs, ['sort_entry_context', 'sort_preview_claim', 'apply_entry_sort', 'get_entry_card']);
     const meta = (world.calls.find((c) => c.name === 'apply_entry_sort')!.args as { p_meta: Record<string, unknown> }).p_meta;
-    assertEquals([meta.cache_hit, meta.model, typeof meta.model_ms, typeof meta.plan_ms], [false, 'claude-haiku-4-5', 'number', 'number']);
+    assertEquals([meta.cache_hit, meta.model, typeof meta.model_ms, typeof meta.plan_ms], [false, 'claude-haiku-5-5', 'number', 'number']);
   });
 
   test('sort-entry (0056): deployed ahead of the migration, it falls back to the serial reads and still sorts', async () => {

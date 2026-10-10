@@ -54,15 +54,16 @@ test('WITHOUT a key, sortWithModel makes NO network call and returns null', asyn
   assertEquals(calls, 0);
 });
 
-test('model ID: exactly the two evaluated aliases, haiku by default, no date suffixes', () => {
-  assertEquals(SORTER_MODELS, ['claude-haiku-4-5', 'claude-sonnet-5']);
-  assertEquals(DEFAULT_MODEL, 'claude-haiku-4-5');
-  assertEquals(resolveModel(undefined), 'claude-haiku-4-5');
-  assertEquals(resolveModel(null), 'claude-haiku-4-5');
-  assertEquals(resolveModel(''), 'claude-haiku-4-5');
-  assertEquals(resolveModel('  '), 'claude-haiku-4-5');
+test('model ID: exactly the evaluated aliases, haiku 5.5 by default, no date suffixes', () => {
+  assertEquals(SORTER_MODELS, ['claude-haiku-4-5', 'claude-haiku-5-5', 'claude-sonnet-5']);
+  assertEquals(DEFAULT_MODEL, 'claude-haiku-5-5');
+  assertEquals(resolveModel(undefined), 'claude-haiku-5-5');
+  assertEquals(resolveModel(null), 'claude-haiku-5-5');
+  assertEquals(resolveModel(''), 'claude-haiku-5-5');
+  assertEquals(resolveModel('  '), 'claude-haiku-5-5');
   assertEquals(resolveModel('claude-haiku-4-5'), 'claude-haiku-4-5');
   assertEquals(resolveModel('claude-sonnet-5'), 'claude-sonnet-5');
+  assertEquals(resolveModel('claude-haiku-5-5'), 'claude-haiku-5-5');
   assertEquals(resolveModel(' claude-sonnet-5\n'), 'claude-sonnet-5', 'a pasted secret keeps its newline');
 });
 
@@ -94,8 +95,17 @@ test('sonnet 5 gets no sampling parameters (it rejects them with a 400)', () => 
   assertEquals('temperature' in payload, false);
 });
 
-test('the request is haiku by default, deterministic, and forced through the tool', () => {
-  const req = buildRequest({ apiKey: 'sk-ant-xxx', body: 'Tipo 00. Pasta 4.5', knownDishes: ['Pasta'] });
+test('haiku 5.5 gets no sampling parameters and no thinking field, and is still forced through the tool', () => {
+  const req = buildRequest({ apiKey: 'sk-ant-xxx', body: 'Tipo 00. Pasta 4.5', knownDishes: ['Pasta'], model: 'claude-haiku-5-5' });
+  const payload = JSON.parse(req.body);
+  assertEquals(payload.model, 'claude-haiku-5-5');
+  assertEquals('temperature' in payload, false);
+  assertEquals('thinking' in payload, false);
+  assertEquals(payload.tool_choice, { type: 'tool', name: 'sort_entry' });
+});
+
+test('haiku 4.5 still gets temperature 0, and every request is forced through the tool', () => {
+  const req = buildRequest({ apiKey: 'sk-ant-xxx', body: 'Tipo 00. Pasta 4.5', knownDishes: ['Pasta'], model: 'claude-haiku-4-5' });
   const payload = JSON.parse(req.body);
 
   assertEquals(payload.model, 'claude-haiku-4-5');
@@ -196,7 +206,7 @@ test('0056: a hang falls back in ~5 s, and the reply cap is 800 for an ordinary 
   const req = m.buildRequest({ apiKey: 'k', body: 'Tiramisu 4.0' });
   assertEquals(JSON.parse(req.body).max_tokens, 800);
   for (const model of m.SORTER_MODELS) assertEquals(JSON.parse(m.buildRequest({ apiKey: 'k', body: 'x', model }).body).model, model);
-  assertEquals(m.DEFAULT_MODEL, 'claude-haiku-4-5', 'the default model is unchanged');
+  assertEquals(m.DEFAULT_MODEL, 'claude-haiku-5-5', 'Haiku 5.5 since the 10 Oct eval');
 });
 
 test('0056: a model call that hangs past the timeout returns no plan (the stub runs)', async () => {

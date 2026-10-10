@@ -69,6 +69,48 @@ export function sentenceCase(name: string): string {
   return first.toUpperCase() + rest.toLowerCase();
 }
 
+/** Words that join a dish (or its score) to the comment after it; never the start of a note. */
+const NOTE_GLUE = /^(?:[\s,;:.\-–—]+|(?:and|but|was|were|is|are|which|that|tho|though)\b)+/iu;
+
+/**
+ * The note as the receipt prints it under the dish: what was said AFTER the dish and its score.
+ * A model often quotes the whole clause ("was a 4.5, the best thing all week", "is a solid four");
+ * this keeps only what follows the dish name and the score's evidence, then drops the leading glue
+ * ("was", "and", ","). It only ever cuts from the ends, so the note stays a literal slice of the
+ * words; nothing left means no note.
+ */
+export function tidyNote(note: string, at: { dish?: string | null; evidence?: string | null }): string | null {
+  let n = note;
+  const after = (needle: string | null | undefined, keepIfEmpty: boolean) => {
+    if (!needle) return;
+    const i = n.toLowerCase().indexOf(needle.toLowerCase());
+    if (i < 0) return;
+    const rest = n.slice(i + needle.length);
+    // a dish named at the END of its own note ("then we shared a second pappardelle") is
+    // part of the comment; a score at the end of it is not
+    if (keepIfEmpty && !/\p{L}{2}/u.test(rest)) return;
+    n = rest;
+  };
+  after(at.dish, true);
+  after(at.evidence, false);
+  n = n.replace(NOTE_GLUE, '').replace(/[\s,;:\-–—]+$/u, '').trim();
+  // a lone number or "out of five" left over is part of the score, not a comment
+  return n.length === 0 || /^[\d.\/\s]+$/.test(n) ? null : n;
+}
+
+/** Cut a note where it runs on into ANOTHER dish of the same entry ("4 and the tiramisu was a 3"). */
+function cutAtOtherDishes(note: string, others: string[]): string | null {
+  const lower = note.toLowerCase();
+  let end = note.length;
+  for (const o of others) {
+    const i = o.length >= 3 ? lower.indexOf(o.toLowerCase()) : -1;
+    if (i >= 0 && i < end) end = i;
+  }
+  if (end === note.length) return note;
+  const cut = note.slice(0, end).replace(/[\s,;:\-–—]+$/u, '').replace(/\s+(?:and|the|then|with)$/iu, '').replace(/\s+(?:and|the)$/iu, '').trim();
+  return cut.length ? cut : null;
+}
+
 const isHalfStep = (n: number) => n >= 0.5 && n <= 5 && Math.abs(n * 2 - Math.round(n * 2)) < 1e-9;
 
 export type ValidateOptions = {
@@ -141,7 +183,7 @@ export function validateItem(item: SortItem, opts: ValidateOptions): SortItem | 
     note = (lastSpace > 80 ? cut.slice(0, lastSpace) : cut).trim();
     if (!body.includes(note)) note = null;
   }
-  if (note !== null && note.length === 0) note = null;
+  if (note !== null) note = tidyNote(note, { dish: spoken, evidence });
 
   // ---- WHERE: scalar offsets, verified or recomputed, never guessed --------
   // The parser supplies the exact occurrence it matched. A model supplies text only, so
@@ -213,6 +255,12 @@ export function validatePlan(plan: SortPlan, opts: ValidateOptions): SortPlan {
     if (!kept.note && item.note) kept.note = item.note;
     if (!kept.styles && item.styles) kept.styles = item.styles;
     // the mention stays the FIRST one — the receipt's line order follows the words.
+  }
+
+  for (const it of items) {
+    if (!it.note) continue;
+    const others = items.filter((o) => o !== it).map((o) => o.mention_text ?? o.dish_name);
+    it.note = cutAtOtherDishes(it.note, others);
   }
 
   const place = plan?.place_query ? String(plan.place_query).trim() : null;

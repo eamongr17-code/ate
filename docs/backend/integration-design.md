@@ -234,9 +234,9 @@ missing author/place as unavailable rather than crashing on a nil join.
 
 Two modes, one contract. **stub** (default, no network). **model**: a forced tool call, **only** with the
 `ANTHROPIC_API_KEY` secret set (`ATE_SORTER_MODE=stub` forces stub); a failure degrades to the stub.
-`ATE_SORTER_MODEL` = `claude-haiku-4-5` (default) | `claude-sonnet-5`, anything else → default; the response's
+`ATE_SORTER_MODEL` = `claude-haiku-5-5` (default since the 10 Oct eval) | `claude-haiku-4-5` | `claude-sonnet-5`, anything else → default; the response's
 `model` names it (null when the stub sorted). **Choose by eval:** from the function dir with the key in env,
-`deno run --allow-net --allow-env eval.ts --both` (or `--model <id>`; `node eval.ts` works too) grades each model
+`deno run --allow-net --allow-env eval.ts --all` (or `--model <id>`; `node eval.ts` works too) grades each model
 on the corpus: per-fixture PASS/CORE(dishes+scores)/FAIL, gate rejections, p50/p95, tokens and dollars.
 
 Both are post-validated identically, in TypeScript and SQL: a **score** survives only if its `score_evidence`
