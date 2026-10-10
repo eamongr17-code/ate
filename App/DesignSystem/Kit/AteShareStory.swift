@@ -2,40 +2,39 @@ import AteKit
 import SwiftUI
 import UIKit
 
-/// **What lands in a story** — a 9:16 page (360 × 640, exported at 3× to Instagram's 1080 × 1920)
-/// carrying one of the three stickers:
+/// **What leaves the app** — a 9:16 page (360 × 640, exported at 3× to Instagram's 1080 × 1920)
+/// carrying the receipt as a sticker. With a photo it is the entry's photo full-bleed and the
+/// receipt bottom-left at about two fifths of the width: the story people already post, with the
+/// proof attached. Without one it is the receipt alone, a touch larger, centred on the coral ground.
+/// Nobody picks: the entry decides.
 ///
-/// - ``ShareSticker/photo`` — the entry's photo full-bleed, the slip bottom-left: the story people
-///   already post, with the proof attached. The default.
-/// - ``ShareSticker/slip`` — the slip alone, centred on the coral ground: for a better photo of
-///   their own, an entry with none, or a paste onto a Reel.
-/// - ``ShareSticker/dish`` — one photo, one dish's tag: the carousel format.
-///
-/// The same view draws the screen's preview and every exported layer, so what is approved and what
-/// leaves cannot disagree. `layer` picks which part is drawn: the whole page, the background alone
-/// (Instagram's background layer), or the sticker alone on nothing (Instagram's sticker layer, and the
-/// clipboard).
+/// The same view draws every exported layer, so what is approved on screen and what leaves cannot
+/// disagree. `layer` picks which part is drawn: the whole page (Save image, Messages, More), the
+/// background alone (Instagram's background layer), or the sticker alone on nothing (Instagram's
+/// sticker layer).
 struct AteShareStory: View {
     enum Layer: Equatable {
         case whole, background, sticker
     }
 
-    let sticker: ShareSticker
     let receipt: AteReceipt
-    /// The photo behind the slip or the tag. `nil` draws the coral ground.
+    /// The photo behind the receipt. `nil` draws the coral ground.
     var photo: AtePhoto?
-    /// The dish a ``ShareSticker/dish`` page tags.
-    var dish: AteReceipt.Item?
     var layer: Layer = .whole
 
+    /// Which page this is, for the share count.
+    var sticker: ShareSticker { photo == nil ? .slip : .photo }
+
     var body: some View {
-        ZStack(alignment: sticker == .slip ? .center : .bottomLeading) {
+        ZStack(alignment: photo == nil ? .center : .bottomLeading) {
             if layer != .sticker {
                 background
             }
             if layer != .background {
-                stickerView
-                    .padding(sticker == .slip ? 0 : AteShareStoryMetrics.inset)
+                AteShareSlip(receipt: receipt)
+                    .scaleEffect(photo == nil ? AteShareStoryMetrics.slipAloneScale : AteShareStoryMetrics.slipScale,
+                                 anchor: photo == nil ? .center : .bottomLeading)
+                    .padding(photo == nil ? 0 : AteShareStoryMetrics.inset)
             }
         }
         .frame(width: AteShareStoryMetrics.width, height: AteShareStoryMetrics.height)
@@ -46,7 +45,7 @@ struct AteShareStory: View {
 
     @ViewBuilder
     private var background: some View {
-        if let photo, sticker != .slip {
+        if let photo {
             AtePhotoContent(photo: photo, contentMode: .fill)
                 .frame(width: AteShareStoryMetrics.width, height: AteShareStoryMetrics.height)
                 .clipped()
@@ -54,41 +53,26 @@ struct AteShareStory: View {
             AteColor.coral
         }
     }
-
-    @ViewBuilder
-    private var stickerView: some View {
-        switch sticker {
-        case .photo, .slip:
-            AteShareSlip(receipt: receipt)
-                .scaleEffect(sticker == .slip ? AteShareStoryMetrics.slipAloneScale : AteShareStoryMetrics.slipScale,
-                             anchor: sticker == .slip ? .center : .bottomLeading)
-        case .dish:
-            AteDishTag(name: dish?.name ?? "", score: dish?.score)
-        }
-    }
-
-    /// Whether this page has a photo behind it — what decides Instagram's background layer.
-    var hasPhotoBackground: Bool { photo != nil && sticker != .slip }
 }
 
 enum AteShareStoryMetrics {
     /// The story page, in points: Instagram's 1080 × 1920 at the export scale.
     static let width: CGFloat = 360
     static let height: CGFloat = 640
-    /// How far the slip or tag sits in from the page's edge.
+    /// How far the receipt sits in from the page's edge.
     static let inset: CGFloat = 22
-    /// The slip on a photo, scaled down to about two fifths of the width.
+    /// The receipt on a photo, at about two fifths of the width.
     static let slipScale: CGFloat = 0.8
-    /// The slip alone, a touch larger: it is the whole picture.
+    /// The receipt alone, a touch larger: it is the whole picture.
     static let slipAloneScale: CGFloat = 1.1
     static let radius: CGFloat = 18
 }
 
-/// **A sticker, rendered** — what each destination is handed.
+/// **The story, rendered** — what each destination is handed.
 struct AteShareRender {
     /// The whole page, opaque: Save image, Messages, More.
     let page: UIImage
-    /// The slip or tag alone, on nothing: Instagram's sticker layer, and the clipboard.
+    /// The receipt alone, on nothing: Instagram's sticker layer.
     let sticker: UIImage
     /// The photo alone, when there is one: Instagram's background layer. `nil` means the coral ground.
     let background: UIImage?
@@ -101,7 +85,7 @@ enum AteShareStoryImage {
     static func render(_ story: AteShareStory) -> AteShareRender? {
         guard let page = image(story, layer: .whole, opaque: true),
               let sticker = image(story, layer: .sticker, opaque: false) else { return nil }
-        let background = story.hasPhotoBackground ? image(story, layer: .background, opaque: true) : nil
+        let background = story.photo == nil ? nil : image(story, layer: .background, opaque: true)
         return AteShareRender(page: page, sticker: sticker, background: background)
     }
 
@@ -122,7 +106,7 @@ enum AteShareStoryImage {
 
 extension UIImage {
     /// A transparent page cropped to the pixels it actually has — so a sticker pasted into a story
-    /// is the slip, not a full-screen clear rectangle with a slip in one corner.
+    /// is the receipt, not a full-screen clear rectangle with a receipt in one corner.
     func ateTrimmedToContent() -> UIImage {
         guard let cgImage, let alphaOffset = Self.alphaOffset(of: cgImage),
               let data = cgImage.dataProvider?.data, let bytes = CFDataGetBytePtr(data) else { return self }
@@ -152,10 +136,8 @@ extension UIImage {
 #Preview("Share stories") {
     ScrollView(.horizontal) {
         HStack(spacing: AteMetrics.section) {
-            AteShareStory(sticker: .photo, receipt: .preview, photo: AtePhoto.swatches.first)
-            AteShareStory(sticker: .slip, receipt: .preview)
-            AteShareStory(sticker: .dish, receipt: .preview, photo: AtePhoto.swatches.first,
-                          dish: AteReceipt.preview.items.first)
+            AteShareStory(receipt: .preview, photo: AtePhoto.swatches.first)
+            AteShareStory(receipt: .preview)
         }
         .padding()
     }

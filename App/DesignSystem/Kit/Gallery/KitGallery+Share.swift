@@ -2,16 +2,14 @@
 import AteKit
 import SwiftUI
 
-/// **Share** (10 Oct, approved): the sticker, a dish tag, the three story pages and the row.
+/// **Share** (10 Oct, approved): the receipt on its stage, the two story pages and the row.
 extension KitGalleryScreen {
     @ViewBuilder
     var share: some View {
-        section("Share sticker") {
+        section("Printed receipt") {
             VStack(spacing: AteMetrics.section) {
-                AteShareSlip(receipt: .preview)
-                AteShareSlip(receipt: .previewSingle)
-                AteDishTag(name: "Tagliatelle al ragù", score: Rating(rounding: 4.5))
-                AteDishTag(name: "Prawn spaghetti")
+                AtePrintedReceiptStage(receipt: .preview, photos: Array(AtePhoto.swatches.prefix(2)))
+                AtePrintedReceiptStage(receipt: .previewSingle)
             }
             .padding(.vertical, AteMetrics.section)
             .frame(maxWidth: .infinity)
@@ -20,12 +18,8 @@ extension KitGalleryScreen {
         section("Story pages") {
             ScrollView(.horizontal) {
                 HStack(spacing: AteMetrics.regular) {
-                    storyPage(AteShareStory(sticker: .photo, receipt: .preview, photo: AtePhoto.swatches.first))
-                    storyPage(AteShareStory(sticker: .slip, receipt: .preview))
-                    storyPage(AteShareStory(
-                        sticker: .dish, receipt: .preview, photo: AtePhoto.swatches.dropFirst().first,
-                        dish: AteReceipt.preview.items.first
-                    ))
+                    storyPage(AteShareStory(receipt: .preview, photo: AtePhoto.swatches.first))
+                    storyPage(AteShareStory(receipt: .preview))
                 }
                 .padding(.horizontal, AteMetrics.gutter)
             }

@@ -96,7 +96,7 @@ test('six: nothing but a lone "6" or "6.0" can be marked', () => {
 test('six: a marked 6 is a score — stub, found the way a 4.5 is', () => {
   const body = 'Tiramisu 6, the pasta 4.5 and we were 6 people';
   const items = sort(body, [mark(body, '6', 0)]);
-  assertEquals(items.map((i) => [i.dish_name, i.score]), [['Tiramisu', 6], ['pasta', 4.5]]);
+  assertEquals(items.map((i) => [i.dish_name, i.score]), [['Tiramisu', 6], ['Pasta', 4.5]]);
   assertEquals(line(items, 'Tiramisu').score_evidence, '6');
   assertEquals(line(items, 'Tiramisu').evidence_offset, 9);
   assert(items.every((i) => !/6 people/.test(i.dish_name)), 'the typed 6 made nothing');
@@ -107,7 +107,7 @@ test('six: a marked "6.0", and a six between two dishes', () => {
   assertEquals(line(sort(a, [mark(a, '6.0')]), 'tiramisu').score, 6);
   const b = 'Tiramisu 6 pasta 4';
   const items = sort(b, [mark(b, '6')]);
-  assertEquals(items.map((i) => [i.dish_name, i.score]), [['Tiramisu', 6], ['pasta', 4]], 'the six is not the front of "6 pasta"');
+  assertEquals(items.map((i) => [i.dish_name, i.score]), [['Tiramisu', 6], ['Pasta', 4]], 'the six is not the front of "6 pasta"');
 });
 
 test('six: offsets are scalars — an emoji before the six', () => {
@@ -135,7 +135,7 @@ test('six: a model that missed a marked six — it goes to the dish before it, o
     items: [modelItem('Tiramisu', null, null), modelItem('pasta', 4.5, 'pasta 4.5')],
   };
   const items = sort(body, toks, { model });
-  assertEquals(items.map((i) => [i.dish_name, i.score]), [['Tiramisu', 6], ['pasta', 4.5]], 'pasta keeps its own 4.5');
+  assertEquals(items.map((i) => [i.dish_name, i.score]), [['Tiramisu', 6], ['Pasta', 4.5]], 'pasta keeps its own 4.5');
 });
 
 test('six: the model is told which sixes are marked, and that no other 6 is a score', () => {
@@ -189,7 +189,7 @@ test('six carry: a re-sort without six_tokens keeps the 6 (the QA probe)', () =>
   const body = 'Tiramisu 6 and the gnocchi 4 GF';
   const gf: TagToken = { offset: [...body].length - 2, length: 2 };
   const first = sort(body, [mark(body, '6')], { tags: [gf] });
-  assertEquals(first.map((i) => [i.dish_name, i.score]), [['Tiramisu', 6], ['gnocchi', 4]]);
+  assertEquals(first.map((i) => [i.dish_name, i.score]), [['Tiramisu', 6], ['Gnocchi', 4]]);
   // the tag-only re-sort (Entry edit), "Print it again", the retry: no six_tokens at all
   const again = resort(body, first, ['Tiramisu', 'Gnocchi'], [gf]);
   assertEquals(again.map((i) => [i.dish_name, i.score, i.evidence_offset]), [['Tiramisu', 6, 9], ['Gnocchi', 4, 27]]);

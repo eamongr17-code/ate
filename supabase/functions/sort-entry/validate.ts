@@ -34,6 +34,41 @@ export function evidenceSupportsScore(evidence: string, score: number): boolean 
   return findNumbers(evidence).some((h) => Math.abs(h.value - score) < 1e-9);
 }
 
+/**
+ * The name a receipt prints (10 Oct, Eamon: "Gin & tonic", not "Gin & tonics"; "Pepperoni pizza",
+ * not "Pepperoni Pizza"). `proposed` is the model's printed_name; it is used only when it is
+ * plainly the same dish as `spoken` — same first letters, about the same length — so the model can
+ * fix a number and the capitals but never rename a dish. Without one (the stub, or a model that
+ * left it out) the words' spelling is kept, in sentence case where the case carries no meaning: a
+ * name typed in all capitals or all lowercase gets one capital; a mixed-case name ("Big Mac") is
+ * somebody's own spelling and stays.
+ */
+export function printedName(spoken: string, proposed?: string | null): string {
+  const clean = (s: string) => s.trim().replace(/\s+/g, ' ');
+  // Letters only, '&' read as 'and', so a swap of the one for the other is the same dish.
+  const stem = (s: string) => clean(s).toLowerCase().replace(/&/g, 'and').replace(/[^\p{L}\p{N}]+/gu, '');
+  if (typeof proposed === 'string') {
+    const p = clean(proposed);
+    const a = stem(spoken);
+    const b = stem(p);
+    const sameDish = p.length > 0 && p.length <= 120 && a.length >= 2 && b.length >= 2 &&
+      a.slice(0, 3) === b.slice(0, 3) && Math.abs(a.length - b.length) <= Math.max(3, Math.ceil(a.length / 4));
+    if (sameDish) return sentenceCase(p);
+  }
+  return sentenceCase(clean(spoken));
+}
+
+/** One capital at the front; the rest lowered only when the name has no case of its own. */
+export function sentenceCase(name: string): string {
+  if (!name) return name;
+  const first = [...name][0];
+  const rest = name.slice(first.length);
+  const hasUpper = /\p{Lu}/u.test(rest);
+  const hasLower = /\p{Ll}/u.test(rest);
+  if (hasUpper && hasLower) return first.toUpperCase() + rest;
+  return first.toUpperCase() + rest.toLowerCase();
+}
+
 const isHalfStep = (n: number) => n >= 0.5 && n <= 5 && Math.abs(n * 2 - Math.round(n * 2)) < 1e-9;
 
 export type ValidateOptions = {
@@ -56,12 +91,19 @@ export function validateItem(item: SortItem, opts: ValidateOptions): SortItem | 
   const onMenu = knownByKey.get(dish.toLowerCase());
   if (!inBody && !onMenu) return null;
 
+  // The words' own spelling: where the mention is found, whatever the receipt prints.
+  const spoken = dish;
+
   // AN EXISTING DISH WINS ON A CASE-INSENSITIVE MATCH. Prose arrives lowercase
   // ("salmon roll"); the menu already says "Salmon roll" and that is the name the
   // receipt prints. (The database agrees independently: find_or_create_dish selects on
   // lower(name), so it resolves to the same row either way — this keeps the PLAN
   // honest about which dish it means.)
+  //
+  // Otherwise the receipt prints the name AS A MENU WOULD (10 Oct, Eamon): the model's
+  // printed_name when it is plainly the same dish, else the words in sentence case.
   if (onMenu && onMenu !== dish) dish = onMenu;
+  else dish = printedName(dish, item?.printed_name);
 
   // ---- score + evidence ---------------------------------------------------
   let score: number | null = typeof item.score === 'number' ? item.score : null;
@@ -112,12 +154,12 @@ export function validateItem(item: SortItem, opts: ValidateOptions): SortItem | 
   if (mentionText === null || mentionOffset === null) {
     // recover it: the dish is named SOMEWHERE in the words (case may differ, which is
     // why this is a lowercase search and the slice — not the name — is what we keep).
-    const at = body.toLowerCase().indexOf(dish.toLowerCase());
+    const at = body.toLowerCase().indexOf(spoken.toLowerCase());
     if (at < 0) {
       mentionText = null;
       mentionOffset = null;
     } else {
-      mentionText = body.slice(at, at + dish.length);
+      mentionText = body.slice(at, at + spoken.length);
       mentionOffset = scalarOffset(body, at);
     }
   }

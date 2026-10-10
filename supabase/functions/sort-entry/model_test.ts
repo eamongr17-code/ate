@@ -119,8 +119,8 @@ test('a tool call is read into a plan; omitted fields become null', () => {
         input: {
           place_query: 'Tipo 00',
           items: [
-            { dish_name: 'Pasta', score: 4.5, score_evidence: '4.5', note: 'unreal.' },
-            { dish_name: 'Tiramisu' },
+            { dish_name: 'Pasta', score: 4.5, score_evidence: '4.5', note: 'unreal.', printed_name: 'Pasta' },
+            { dish_name: 'Tiramisu', printed_name: '   ' },
           ],
         },
       },
@@ -133,7 +133,7 @@ test('a tool call is read into a plan; omitted fields become null', () => {
     place_offset: null,
     items: [
       {
-        dish_name: 'Pasta', score: 4.5, score_evidence: '4.5', note: 'unreal.',
+        dish_name: 'Pasta', printed_name: 'Pasta', score: 4.5, score_evidence: '4.5', note: 'unreal.',
         evidence_offset: null, mention_text: null, mention_offset: null,
       },
       {

@@ -42,7 +42,7 @@ struct ShareLinkTests {
         #expect(event.parameters["sticker"] == "photo")
         #expect(ShareDestination.allCases.map(\.rawValue).sorted()
             == ["clipboard", "instagram_stories", "link", "messages", "saved", "system"])
-        #expect(ShareSticker.allCases.map(\.rawValue).sorted() == ["dish", "photo", "slip"])
+        #expect(ShareSticker.allCases.map(\.rawValue).sorted() == ["photo", "slip"])
     }
 
     @Test func listSharedCarriesTheListAndItsSize() {

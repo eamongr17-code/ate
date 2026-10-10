@@ -99,12 +99,14 @@ extension KitGalleryScreen {
                 }
                 .padding(KitGalleryMetrics.paperPadding)
                 .background(AtePaperTone.slip.fill)
-                caption("Printed: dishes lead, place as fine print, no barcode")
-                AteReceiptView(receipt: .preview)
+                caption("Printed: dishes lead, scores in one column, place as fine print")
+                AteShareSlip(receipt: .preview)
                 caption("Printing")
-                AteReceiptView(receipt: .preview, isPrinting: true)
+                AteShareSlip(receipt: .preview, isPrinting: true)
+                caption("Waiting for a place")
+                AteShareSlip(receipt: .previewPlaceless, isPrinting: true, breathes: false, onAddPlace: {})
                 caption("One dish")
-                AteReceiptView(receipt: .previewSingle)
+                AteShareSlip(receipt: .previewSingle)
             }
             .ateCardWidth()
         }

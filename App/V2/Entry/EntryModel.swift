@@ -22,12 +22,6 @@ final class EntryModel: SavedDishObserving {
         var id: UUID { item.id }
     }
 
-    /// What `Share` is about — `Identifiable` so it can present a cover.
-    struct Sharing: Identifiable, Equatable {
-        let artefact: ShareArtefact
-        var id: UUID { artefact.entryID ?? UUID() }
-    }
-
     private(set) var card: EntryCard?
     private(set) var composition = EntryComposition()
     private(set) var photos: [AtePhoto] = []
@@ -44,8 +38,6 @@ final class EntryModel: SavedDishObserving {
     /// The delete did not go through. The entry is still here, and says so.
     var deleteFailed = false
     private(set) var isDeleting = false
-    /// Non-nil presents `Share` — the coral screen the receipt actually leaves from.
-    var sharing: Sharing?
     /// "Ate with": the viewer's own tag on this (somebody else's) entry — what "Remove me" declines.
     /// `nil` when they are not tagged on it, and then the row is not there.
     private(set) var myTag: UUID?
@@ -218,9 +210,6 @@ final class EntryModel: SavedDishObserving {
         if ComposerDebugLaunch.opensPlaceSheet, isFirstRead {
             isCorrectingPlace = true
         }
-        if ComposerDebugLaunch.opensShare, sharing == nil {
-            share()
-        }
         #endif
     }
 
@@ -254,21 +243,6 @@ final class EntryModel: SavedDishObserving {
     }
 
     // MARK: - Actions
-
-    /// Opens `Share` — the coral screen the artefact is approved on and sent from. `receipt_shared`
-    /// fires there, at the tap that actually sends it: looking at a receipt is not sharing one.
-    func share() {
-        guard let artefact = shareArtefact() else { return }
-        sharing = Sharing(artefact: artefact)
-    }
-
-    /// The share card's subject, built from this entry's own row so the artefact and the page can
-    /// never disagree about what was eaten. `nil` while the bill has not printed — there is nothing
-    /// to send yet, and a blank page is not an artefact.
-    func shareArtefact() -> ShareArtefact? {
-        guard let receipt, let card else { return nil }
-        return .entry(receipt, photos: card.photos.compactMap { URL(string: $0.url) })
-    }
 
     /// "Print it again". Two different failures wear the same button: an entry that never reached
     /// the server (the outbox gave up on it) and one that reached it and could not be sorted.

@@ -9,7 +9,7 @@
 // one, because a bug here must not be able to write a lie.
 
 import { test, assert, assertEquals } from './harness.ts';
-import { evidenceSupportsScore, MAX_ITEMS, validateItem, validatePlan } from './validate.ts';
+import { evidenceSupportsScore, MAX_ITEMS, printedName, sentenceCase, validateItem, validatePlan } from './validate.ts';
 import type { SortItem } from './types.ts';
 
 const BODY = 'Tipo 00. The tagliatelle al ragù 4.5 was unreal. Tiramisu, no number given, but lovely.';
@@ -221,4 +221,51 @@ test('junk in the items array cannot crash the gate', () => {
   // deno-lint-ignore no-explicit-any
   const junk: any = { place_query: null, items: [null, undefined, 42, 'nope', {}, { dish_name: 7 }] };
   assertEquals(validatePlan(junk, { body: BODY }).items, []);
+});
+
+// ---------------------------------------------------------------------------
+// THE PRINTED NAME (10 Oct, Eamon) — singular, sentence case, never a different dish
+// ---------------------------------------------------------------------------
+test('sentence case: one capital where the words carried none, a proper name left alone', () => {
+  assertEquals(sentenceCase('pepperoni pizza'), 'Pepperoni pizza');
+  assertEquals(sentenceCase('CHICKEN PARMA'), 'Chicken parma');
+  assertEquals(sentenceCase('Big Mac'), 'Big Mac');
+  assertEquals(sentenceCase('xiao long bao'), 'Xiao long bao');
+  assertEquals(sentenceCase('émincé'), 'Émincé');
+  assertEquals(sentenceCase(''), '');
+});
+
+test("the model's printed name is used when it is plainly the same dish", () => {
+  assertEquals(printedName('gin and tonics', 'Gin & tonic'), 'Gin & tonic');
+  assertEquals(printedName('Pepperoni Pizza', 'Pepperoni pizza'), 'Pepperoni pizza');
+  assertEquals(printedName('dumplings', 'Dumplings'), 'Dumplings');
+  assertEquals(printedName('big mac', 'Big Mac'), 'Big Mac');
+});
+
+test('a printed name that renames the dish is refused; the words win, in sentence case', () => {
+  assertEquals(printedName('gin and tonics', 'Negroni'), 'Gin and tonics');
+  assertEquals(printedName('gin and tonics', 'Gin and tonic with a lemon twist on the side'), 'Gin and tonics');
+  assertEquals(printedName('tiramisu', ''), 'Tiramisu');
+  assertEquals(printedName('tiramisu', null), 'Tiramisu');
+  assertEquals(printedName('tiramisu'), 'Tiramisu');
+});
+
+test('validate prints the singular the model proposed, found in the words as written', () => {
+  const body = 'Tusk. Spicy chicken burger 5, pepperoni pizza 2.5, and six gin and tonics, a solid 4.';
+  const out = validateItem(
+    item({ dish_name: 'gin and tonics', printed_name: 'Gin & tonic', score: 4, score_evidence: 'a solid 4', note: null }),
+    { body },
+  )!;
+  assertEquals(out.dish_name, 'Gin & tonic');
+  assertEquals(out.mention_text, 'gin and tonics', 'the mention is the words, not the print');
+  assertEquals(out.score, 4);
+  assertEquals('printed_name' in out, false, 'the proposal does not travel to SQL');
+});
+
+test('a printed name never beats the menu: an existing dish keeps its own spelling', () => {
+  const out = validateItem(
+    item({ dish_name: 'tagliatelle al ragù', printed_name: 'Tagliatelle al ragu' }),
+    { body: BODY, knownDishes: ['Tagliatelle al Ragù'] },
+  )!;
+  assertEquals(out.dish_name, 'Tagliatelle al Ragù');
 });

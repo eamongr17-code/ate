@@ -95,7 +95,7 @@ export const fixtures: Fixture[] = [
     body: 'Queued forty minutes for this cheeseburger 4.5 and would queue again.',
     knownDishes: [],
     place: null,
-    items: [{ dish_name: 'cheeseburger', score: 4.5, note: 'would queue again.' }],
+    items: [{ dish_name: 'Cheeseburger', score: 4.5, note: 'would queue again.' }],
   },
   {
     id: 'no-place-list',
@@ -105,7 +105,7 @@ export const fixtures: Fixture[] = [
     place: null,
     items: [
       { dish_name: 'Pork and chive', score: 4, note: null },
-      { dish_name: 'prawn', score: 3.5, note: null },
+      { dish_name: 'Prawn', score: 3.5, note: null },
     ],
   },
   {
@@ -380,7 +380,7 @@ export const fixtures: Fixture[] = [
     place: null,
     items: [
       { dish_name: 'Bolognese', score: 3.5, note: null },
-      { dish_name: 'bread', score: 4, note: null },
+      { dish_name: 'Bread', score: 4, note: null },
     ],
   },
   {
@@ -424,7 +424,7 @@ export const fixtures: Fixture[] = [
     body: 'Osteria Ilaria. We shared the pappardelle and then we shared a second pappardelle.',
     knownDishes: [],
     place: 'Osteria Ilaria',
-    items: [{ dish_name: 'pappardelle', score: null, note: 'then we shared a second pappardelle.' }],
+    items: [{ dish_name: 'Pappardelle', score: null, note: 'then we shared a second pappardelle.' }],
   },
   {
     id: 'low-score',
@@ -443,7 +443,7 @@ export const fixtures: Fixture[] = [
     body: 'New place on Gertrude called Petal & Pan. The sourdough focaccia 4.5, worth the walk.',
     knownDishes: [],
     place: 'Petal & Pan',
-    items: [{ dish_name: 'sourdough focaccia', score: 4.5, note: 'worth the walk.' }],
+    items: [{ dish_name: 'Sourdough focaccia', score: 4.5, note: 'worth the walk.' }],
   },
 
   // -------------------------------------------------------------------------
@@ -515,13 +515,13 @@ export const fixtures: Fixture[] = [
   {
     id: 'lowercase-prose-dish-no-menu',
     about:
-      'no place matched, so no menu: the name stays exactly as they wrote it and the DISPLAY name is normalised by find_or_create_dish on create, never here',
+      'no place matched, so no menu: the name is their own words in sentence case (validate.ts printedName) — never rewritten, only capitalised',
     body: 'salmon roll 4.5, wagyu nigiri 4.',
     knownDishes: [],
     place: null,
     items: [
-      { dish_name: 'salmon roll', score: 4.5, note: null },
-      { dish_name: 'wagyu nigiri', score: 4, note: null },
+      { dish_name: 'Salmon roll', score: 4.5, note: null },
+      { dish_name: 'Wagyu nigiri', score: 4, note: null },
     ],
   },
 
@@ -539,7 +539,7 @@ export const fixtures: Fixture[] = [
     body: 'Tipo 00. The tagliatelle al ragù 4.5 was rich, glossy, gone in four minutes.',
     knownDishes: [],
     place: 'Tipo 00',
-    items: [{ dish_name: 'tagliatelle al ragù', score: 4.5, note: 'rich, glossy, gone in four minutes.' }],
+    items: [{ dish_name: 'Tagliatelle al ragù', score: 4.5, note: 'rich, glossy, gone in four minutes.' }],
   },
   {
     id: 'accent-creme-brulee-on-the-menu',
@@ -571,7 +571,7 @@ export const fixtures: Fixture[] = [
     body: 'Dinner at Émile. The soufflé 5.',
     knownDishes: [],
     place: 'Émile',
-    items: [{ dish_name: 'soufflé', score: 5, note: null }],
+    items: [{ dish_name: 'Soufflé', score: 5, note: null }],
   },
 
   // -------------------------------------------------------------------------
@@ -679,7 +679,7 @@ export const fixtures: Fixture[] = [
     // is only part of the name here, and is fenced by nothing.
     resolvedPlace: { matchedName: 'PJ\'s Mexican cantina', candidatePhrase: 'PJ’s Mexican' },
     place: 'PJ’s Mexican',
-    items: [{ dish_name: 'fishbowl margarita', score: 4.5, note: 'eliteeeee', evidence_offset: 47 }],
+    items: [{ dish_name: 'Fishbowl margarita', score: 4.5, note: 'eliteeeee', evidence_offset: 47 }],
   },
   {
     id: 'lead-in-is-a-and-gets-a',
@@ -700,7 +700,7 @@ export const fixtures: Fixture[] = [
     knownDishes: [],
     resolvedPlace: { matchedName: 'Supernormal', candidatePhrase: 'Supernormal' },
     place: 'Supernormal',
-    items: [{ dish_name: 'lobster roll', score: 4.5, note: 'the best thing all week.' }],
+    items: [{ dish_name: 'Lobster roll', score: 4.5, note: 'the best thing all week.' }],
   },
   {
     id: 'lead-in-gave-the-dish-a',
@@ -709,7 +709,7 @@ export const fixtures: Fixture[] = [
     knownDishes: [],
     resolvedPlace: { matchedName: 'Beatrix', candidatePhrase: 'Beatrix' },
     place: 'Beatrix',
-    items: [{ dish_name: 'raspberry cake', score: 4.5, note: 'would again.' }],
+    items: [{ dish_name: 'Raspberry cake', score: 4.5, note: 'would again.' }],
   },
   {
     id: 'lead-in-a-solid',
@@ -718,7 +718,7 @@ export const fixtures: Fixture[] = [
     knownDishes: [],
     resolvedPlace: { matchedName: 'Tipo 00', candidatePhrase: 'Tipo 00' },
     place: 'Tipo 00',
-    items: [{ dish_name: 'tiramisu', score: 3.5, note: 'home.' }],
+    items: [{ dish_name: 'Tiramisu', score: 3.5, note: 'home.' }],
   },
 
   // -------------------------------------------------------------------------
@@ -766,7 +766,7 @@ export const fixtures: Fixture[] = [
     items: [
       { dish_name: 'San Danielle Pizza', score: 3.5, note: null },
       { dish_name: 'cacio e pepe pizza', score: 4, note: null },
-      { dish_name: 'tiramisu', score: 3, note: 'kinda dry' },
+      { dish_name: 'Tiramisu', score: 3, note: 'kinda dry' },
     ],
   },
   {
@@ -777,9 +777,9 @@ export const fixtures: Fixture[] = [
     place: 'Tipo 00',
     modelOnly: true,
     items: [
-      { dish_name: 'pappardelle', score: 4, note: null },
+      { dish_name: 'Pappardelle', score: 4, note: null },
       { dish_name: 'burnt butter gnocchi', score: 3.5, note: null },
-      { dish_name: 'tiramisu', score: 3, note: null },
+      { dish_name: 'Tiramisu', score: 3, note: null },
     ],
   },
   {
@@ -839,7 +839,7 @@ export const fixtures: Fixture[] = [
     place: 'Supernormal',
     modelOnly: true,
     items: [
-      { dish_name: 'lobster roll', score: 3.5, note: 'tbh overhyped' },
+      { dish_name: 'Lobster roll', score: 3.5, note: 'tbh overhyped' },
       { dish_name: 'peanut butter parfait', score: 4.5, note: "I'd go back just for it" },
     ],
   },

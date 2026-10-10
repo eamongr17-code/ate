@@ -96,150 +96,6 @@ struct AteReceipt: Equatable, Identifiable {
     }
 }
 
-/// **The receipt.** What Ate prints (design rule 4), and the one component the entry page and the
-/// share card both show — identically. If it looks different in the two places, that is a bug in the
-/// container, not a reason for a second component.
-///
-/// Its parts, in order (round 5 — **the dishes lead**, the place is fine print): the dishes in the
-/// title face with dot leaders and right-aligned scores — **dish rows and scores only, never a quote
-/// under a line** / a dashed rule / the place left, its address right / a dashed rule / order number
-/// and date, dish count and average / the handle and the wordmark / edge B.
-///
-/// **Printing** (`SummaryLoading.dc.html`): what is known prints at once — the place, the order
-/// number, the date, the handle — and the dishes still being sorted are skeleton bars with a slow
-/// breath, at the dishes' own rhythm. No words say so.
-struct ReceiptView: View {
-    let receipt: AteReceipt
-    /// The lines are still being sorted: skeleton rows where the items and the count will be.
-    var isPrinting = false
-    /// …and whether the skeleton breathes. It stops once the wait is over (the sort failed or ran
-    /// long) — a bar that pulses forever is a spinner by another name.
-    var breathes = true
-    /// A receipt that cannot print without a place (the Summary, when the plan is parked): the
-    /// place slot is the composer's own Place key, and tapping it attaches one. No words beside it.
-    var onAddPlace: (() -> Void)?
-    /// How far the first dish sits from the paper's top edge — `Share.dc.html`'s 22.
-    var topPadding: CGFloat = 22
-
-    var body: some View {
-        VStack(spacing: AteMetrics.snug + 2) {
-            // The dishes lead (round 5, Eamon: heroing the restaurant "goes against the thesis of
-            // the app"). The place is one line of fine print under them, never the title.
-            if isPrinting {
-                ReceiptSkeletonLines(breathes: breathes)
-            } else {
-                dishLines
-            }
-            AteDashedRule()
-            placeLine
-            AteDashedRule()
-            totals
-            footer
-        }
-        .padding(.top, topPadding)
-        .padding(.horizontal, AteMetrics.slipPadding)
-        .padding(.bottom, AteMetrics.regular + 2 + AteMetrics.tornEdgeHeight)
-        .ateSlip()
-        .ateTornPaper(topRadius: AteMetrics.receiptTop)
-    }
-
-    // MARK: - Bands
-
-    private var totals: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(verbatim: "Order #\(String(format: "%04d", receipt.orderNumber))")
-                Spacer(minLength: AteMetrics.snug)
-                Text(receipt.date.formatted(AteReceipt.dateFormat))
-            }
-            if isPrinting {
-                // `height:15px; justify-content:space-between` — the count and the average, not
-                // known until the lines are.
-                HStack {
-                    ReceiptSkeletonBar(width: 58)
-                    Spacer(minLength: AteMetrics.snug)
-                    ReceiptSkeletonBar(width: 52)
-                }
-                .frame(height: 15)
-                .ateSkeletonSweep(breathes)
-            } else {
-                HStack {
-                    Text(receipt.items.count == 1 ? "1 dish" : "\(receipt.items.count) dishes")
-                    Spacer(minLength: AteMetrics.snug)
-                    if let average = receipt.average {
-                        Text(verbatim: "Avg \(ScoreFormat.entryAverage(average))")
-                    }
-                }
-            }
-        }
-        .ateText(.receiptLabel)
-        .foregroundStyle(AtePalette.slip.fg)
-    }
-
-    private var footer: some View {
-        HStack {
-            signature
-                .ateText(.receiptLabel)
-                .foregroundStyle(AtePalette.slip.fg)
-                .lineLimit(1)
-            Spacer(minLength: AteMetrics.snug)
-            AteWordmark(height: AteMetrics.wordmarkFooter)
-        }
-    }
-
-    /// "@eamon", or "@eamon with @jess +1" — the same mono fine print, "with" muted.
-    private var signature: Text {
-        var line = AttributedString("@\(receipt.handle)")
-        if let with = CompanionLine.compact(receipt.companions) {
-            var word = AttributedString(" with ")
-            word.foregroundColor = AtePalette.slip.muted
-            line += word + AttributedString(with)
-        }
-        return Text(line)
-    }
-}
-
-/// The dishes while they are being sorted — `SummaryLoading`'s skeleton rows, at the dish lines' own
-/// height and gap so nothing moves when they print: the dish and the score as blank bars. The third
-/// row has no score, as the board draws it: an unrated dish is an empty slot even before it has a
-/// name.
-private struct ReceiptSkeletonLines: View {
-    var breathes: Bool
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    /// Name widths, and whether a score bar follows — the board's proportions.
-    private static let rows: [(name: CGFloat, scored: Bool)] = [(168, true), (96, true), (140, false)]
-
-    var body: some View {
-        VStack(spacing: AteMetrics.tight) {
-            ForEach(Array(Self.rows.enumerated()), id: \.offset) { _, row in
-                HStack(spacing: AteMetrics.snug) {
-                    ReceiptSkeletonBar(width: row.name, height: 14)
-                    Spacer(minLength: 0)
-                    if row.scored { ReceiptSkeletonBar(width: 34, height: 14) }
-                }
-                .frame(height: AteTextStyle.receiptLeadDish.lineBox(dynamicTypeSize))
-            }
-        }
-        .padding(.top, AteMetrics.hairspace)
-        .ateSkeletonSweep(breathes)
-        .accessibilityHidden(true)
-    }
-}
-
-/// `.sk` — `height:9px; border-radius:5px; background:rgba(36,20,31,.10)`.
-private struct ReceiptSkeletonBar: View {
-    let width: CGFloat
-    var height: CGFloat = 9
-
-    var body: some View {
-        Capsule()
-            .fill(AtePalette.slip.fg.opacity(0.10))
-            .frame(width: width, height: height)
-    }
-}
-
 // Fixtures are `DEBUG || BETA`, not `DEBUG`: the debug gallery ships to TestFlight, and a component
 // that can't be shown there is a component nobody can judge. Previews stay `DEBUG`.
 #if DEBUG || BETA
@@ -259,6 +115,15 @@ extension AteReceipt {
         handle: "eamon"
     )
 
+    /// A receipt that cannot print until a place is picked.
+    static let previewPlaceless = AteReceipt(
+        place: "",
+        items: [],
+        orderNumber: 144,
+        date: Date(timeIntervalSince1970: 1_789_300_000),
+        handle: "eamon"
+    )
+
     static let previewSingle = AteReceipt(
         place: "Butchers Diner",
         address: "224 Little Bourke St",
@@ -267,19 +132,5 @@ extension AteReceipt {
         date: Date(timeIntervalSince1970: 1_789_200_000),
         handle: "eamon"
     )
-}
-#endif
-
-#if DEBUG
-#Preview("Receipt") {
-    ScrollView {
-        VStack(spacing: AteMetrics.section) {
-            ReceiptView(receipt: .preview)
-            ReceiptView(receipt: .previewSingle)
-        }
-        .padding(.horizontal, AteMetrics.gutter)
-        .padding(.vertical, AteMetrics.section)
-    }
-    .ateGround()
 }
 #endif
