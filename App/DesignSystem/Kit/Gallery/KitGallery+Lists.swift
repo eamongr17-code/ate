@@ -2,8 +2,7 @@
 import AteKit
 import SwiftUI
 
-/// **Lists** (`lists-playlists.html`, `lists-notifications.html` §3): the cover, the pick rows and the
-/// list receipt.
+/// **Lists** (`lists-playlists.html`, `lists-notifications.html` §3): the cover and the pick rows.
 extension KitGalleryScreen {
     @ViewBuilder
     var lists: some View {
@@ -39,12 +38,6 @@ extension KitGalleryScreen {
             .padding(.horizontal, AteMetrics.gutter)
             .environment(\.atePalette, .surface)
             .background(AtePalette.surface.ground)
-        }
-        section("List receipt") {
-            AteListReceiptStage(content: .preview)
-                .padding(.vertical, AteMetrics.section)
-                .frame(maxWidth: .infinity)
-                .ateAccentGround(AteColor.coral)
         }
     }
 }

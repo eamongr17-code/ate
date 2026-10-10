@@ -68,12 +68,6 @@ enum ShareImage {
     }
 }
 
-/// Where a share went, as far as Ate counts it.
-enum ShareDestination: Equatable {
-    case system
-    case instagramStories
-}
-
 /// **Instagram Stories** — the receipt as a sticker in IG's story editor.
 ///
 /// Meta's documented contract: the PNG on `UIPasteboard` under `com.instagram.sharedSticker.*`, with
@@ -106,18 +100,19 @@ enum InstagramStories {
         return UIApplication.shared.canOpenURL(url)
     }
 
-    /// The pasteboard items, expiring after five minutes as Meta recommends.
+    /// The pasteboard items, expiring after five minutes as Meta recommends. With a `background` the
+    /// photo fills the story and the sticker floats on it; without one the story is the coral ground.
     @MainActor
-    static func share(sticker: UIImage) -> Bool {
+    static func share(sticker: UIImage, background: UIImage? = nil) -> Bool {
         guard let url = shareURL, let png = sticker.pngData() else { return false }
-        UIPasteboard.general.setItems(
-            [[
-                "com.instagram.sharedSticker.stickerImage": png,
-                "com.instagram.sharedSticker.backgroundTopColor": groundHex,
-                "com.instagram.sharedSticker.backgroundBottomColor": groundHex
-            ]],
-            options: [.expirationDate: Date().addingTimeInterval(5 * 60)]
-        )
+        var items: [String: Any] = ["com.instagram.sharedSticker.stickerImage": png]
+        if let background, let jpeg = background.jpegData(compressionQuality: 0.92) {
+            items["com.instagram.sharedSticker.backgroundImage"] = jpeg
+        } else {
+            items["com.instagram.sharedSticker.backgroundTopColor"] = groundHex
+            items["com.instagram.sharedSticker.backgroundBottomColor"] = groundHex
+        }
+        UIPasteboard.general.setItems([items], options: [.expirationDate: Date().addingTimeInterval(5 * 60)])
         UIApplication.shared.open(url)
         return true
     }
@@ -180,7 +175,7 @@ struct ShareSheet: UIViewControllerRepresentable {
 
     /// A rendered share card: the system destinations, plus Instagram Stories when it is set up.
     init(sending: ShareSender.Sending, onShared: @escaping (ShareDestination) -> Void) {
-        self.items = [sending.image]
+        self.items = sending.items ?? [sending.image]
         self.sticker = sending.sticker
         self.onShared = onShared
     }

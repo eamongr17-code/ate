@@ -17,6 +17,11 @@ for exact sizes, colours, radii and copy; it is 390×844 and does not render out
 4. **Receipts are what Ate prints** (white paper, mono type, dashed rules, dot leaders, edge B,
    16pt rounded top). Use one only where something was printed from the user's words.
    The receipt is the **share** artefact — `Summary`/`Share` — and `Entry` is a page, not a receipt.
+   **What leaves the app is the sticker** (Eamon, 10 Oct): the receipt stripped for a small space —
+   dish left, score right, no leaders, the top score marked in butter, one line of place · suburb,
+   the signature and the wordmark — on the person's own photo (default), alone, or as one dish's tag
+   for a carousel. Stories and Copy link are the first two ways out, the same size. A list shares as
+   a link, like a playlist, never as a receipt.
    **Receipts print dish rows and scores only: never a per-dish quote under a line** (Share, Summary,
    statement, anywhere). **Edge B on dish entry slips, the place menu and every receipt** (the stats
    slip on You/Profile is whole, 16 all round).

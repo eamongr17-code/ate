@@ -40,6 +40,9 @@ struct AteReceipt: Equatable, Identifiable {
     var place: String
     var placeID: UUID?
     var address: String?
+    /// The suburb — the one safe short label for a place. The share sticker prints it beside the
+    /// name where the receipt prints the street.
+    var locality: String?
     var items: [Item]
     /// The entry's number in the person's own sequence — `#0142`. Printed, not computed here.
     var orderNumber: Int
@@ -54,6 +57,7 @@ struct AteReceipt: Equatable, Identifiable {
         place: String,
         placeID: UUID? = nil,
         address: String? = nil,
+        locality: String? = nil,
         items: [Item],
         orderNumber: Int,
         date: Date,
@@ -64,6 +68,7 @@ struct AteReceipt: Equatable, Identifiable {
         self.place = place
         self.placeID = placeID
         self.address = address
+        self.locality = locality
         self.items = items
         self.orderNumber = orderNumber
         self.date = date
@@ -243,6 +248,7 @@ extension AteReceipt {
     static let preview = AteReceipt(
         place: "Tipo 00",
         address: "361 Little Bourke St",
+        locality: "Melbourne",
         items: [
             Item(name: "Tagliatelle al ragù", score: Rating(rounding: 4.5)),
             Item(name: "Tiramisu", score: Rating(rounding: 3)),

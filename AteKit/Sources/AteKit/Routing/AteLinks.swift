@@ -4,6 +4,8 @@ import Foundation
 public enum AteLink: Equatable, Sendable {
     /// One entry: someone's review, opened on its own page.
     case entry(UUID)
+    /// One list, shared the way a playlist is: a link, never a picture of its lines.
+    case list(UUID)
 }
 
 /// **Links into the app** — what a shared review sends, and what the app opens.
@@ -25,6 +27,8 @@ public enum AteLinks {
 
     /// The path segment an entry link carries.
     static let entrySegment = "entry"
+    /// …and a list link's.
+    static let listSegment = "list"
 
     /// `ate://entry/<id>` — the link a shared entry sends. Ids are lowercased, as Postgres writes them.
     public static func entry(_ id: UUID) -> URL {
@@ -33,6 +37,15 @@ public enum AteLinks {
 
     static func entry(_ id: UUID, base: URL) -> URL {
         URL(string: base.absoluteString + entrySegment + "/" + id.uuidString.lowercased())!
+    }
+
+    /// `ate://list/<id>` — the link a shared list sends (Spotify's playlist, not a receipt).
+    public static func list(_ id: UUID) -> URL {
+        list(id, base: base)
+    }
+
+    static func list(_ id: UUID, base: URL) -> URL {
+        URL(string: base.absoluteString + listSegment + "/" + id.uuidString.lowercased())!
     }
 
     /// Reads an incoming link. `nil` for anything that is not one of ours, or not well formed.
@@ -55,8 +68,11 @@ public enum AteLinks {
         } else {
             return nil
         }
-        guard segments.count == 2, segments[0].lowercased() == entrySegment,
-              let id = UUID(uuidString: segments[1]) else { return nil }
-        return .entry(id)
+        guard segments.count == 2, let id = UUID(uuidString: segments[1]) else { return nil }
+        switch segments[0].lowercased() {
+        case entrySegment: return .entry(id)
+        case listSegment: return .list(id)
+        default: return nil
+        }
     }
 }

@@ -59,6 +59,4 @@ enum ListsMetrics {
     static let nameLimit = 60
     /// How long the list page's Undo stays open — Saved's four seconds.
     static let undoLifetime = Duration.seconds(4)
-    /// The receipt prints ten lines; past ten, "+N more" in fine print.
-    static let receiptLines = 10
 }
