@@ -6,7 +6,7 @@ import SwiftUI
 
 extension AteTextStyle {
 
-    // Titles — Caprasimo (10 Oct: Eamon swapped the headings off Bricolage). Tracking −2% at 24pt
+    // Titles — Young Serif (10 Oct: Eamon swapped the headings off Bricolage). Tracking −2% at 24pt
     // and up, −1% at slip sizes, none below 18. Scores and avatar letters stay Bricolage 800.
 
     /// A screen's own name: "Feed", "You", "Search". 34pt (40 until Eamon's 6 Oct "some headings are too big"; every

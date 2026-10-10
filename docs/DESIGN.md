@@ -64,7 +64,7 @@ Accents (same in both modes, always carry `#24141F` text): coral `#F0623F` · bu
 Destructive `#B3261E`.
 
 Type — four voices, bundled fonts (all OFL):
-- **Caprasimo** — headings: screen/page titles, places, dishes, list names (tracking −2% at 24+, −1% at 18–23, line-height 1.0). Chosen by Eamon 10 Oct to replace Bricolage titles.
+- **Young Serif** — headings: screen/page titles, places, dishes, list names (tracking −2% at 24+, −1% at 18–23, line-height 1.0). Chosen by Eamon 10 Oct to replace Bricolage titles.
 - **Bricolage Grotesque** — controls/labels (600, 15; meta 500, 13), scores and avatar letters (800).
 - **Newsreader** — the user's words, everywhere they appear (16–19, line-height 1.45–1.5; italic for quoted dish notes).
 - **DM Mono** — only inside receipts (line items 13; labels 11 uppercase, tracking 8%).

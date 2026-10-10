@@ -56,7 +56,7 @@
 	     SwiftUI previews and the debug gallery get the real faces too. -->
 	<key>UIAppFonts</key>
 	<array>
-		<string>Caprasimo-Regular.ttf</string>
+		<string>YoungSerif-Regular.ttf</string>
 		<string>BricolageGrotesque-Variable.ttf</string>
 		<string>Newsreader-Variable.ttf</string>
 		<string>Newsreader-Italic-Variable.ttf</string>

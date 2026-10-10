@@ -3,7 +3,7 @@ import SwiftUI
 
 /// **The voices** — and the only place in the app that is allowed to name a font.
 ///
-/// - **Caprasimo** — headings: screen and page titles, places, dishes, list names. One heavy weight.
+/// - **Young Serif** — headings: screen and page titles, places, dishes, list names. One heavy weight.
 /// - **Bricolage Grotesque** — controls (600, 15), labels, meta, scores and avatar letters.
 /// - **Newsreader** — the person's own words, everywhere they appear.
 /// - **DM Mono** — inside receipts, and nowhere else.
@@ -16,7 +16,7 @@ import SwiftUI
 /// system design (`.serif` for the words, `.monospaced` for receipts, the system sans for chrome) and
 /// the app still lays out correctly. Dynamic Type scaling is applied either way.
 enum AteVoice: Sendable {
-    /// Caprasimo — the words a screen is about: titles, places, dishes, list names. Not numbers.
+    /// Young Serif — the words a screen is about: titles, places, dishes, list names. Not numbers.
     case heading
     /// Bricolage Grotesque — controls, labels, meta, scores. The app's furniture.
     case display
