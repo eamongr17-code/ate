@@ -35,6 +35,11 @@ export type FixtureItem = {
    * checks mechanically that whatever offset came back really points at the evidence.
    */
   evidence_offset?: number | null;
+  /**
+   * Optional, eval only: the EXACT name the receipt prints (singular, sentence case — "six gin and
+   * tonics" prints "Gin & tonic"). eval.ts reports it apart from PASS; the stub is not held to it.
+   */
+  printed?: string;
 };
 
 export type Fixture = {
@@ -873,6 +878,29 @@ export const fixtures: Fixture[] = [
       { dish_name: 'fish tacos', score: 4, note: null },
       { dish_name: 'elote', score: 4.5, note: 'messy but elite' },
       { dish_name: 'frozen marg', score: null, note: 'eliteeeee' },
+    ],
+  },
+  {
+    id: 'model-printed-count-plural',
+    about: 'a count makes the plural: "six gin and tonics" prints "Gin & tonic"; the place is in caps',
+    body: 'Tusk. Spicy chicken burger 5, pepperoni pizza 2.5, and six gin and tonics, a solid 4.',
+    place: 'Tusk',
+    modelOnly: true,
+    items: [
+      { dish_name: 'Spicy chicken burger', score: 5, note: null, printed: 'Spicy chicken burger' },
+      { dish_name: 'pepperoni pizza', score: 2.5, note: null, printed: 'Pepperoni pizza' },
+      { dish_name: 'gin and tonics', score: 4, note: null, printed: 'Gin & tonic' },
+    ],
+  },
+  {
+    id: 'model-and-inside-dish',
+    about: '"and" inside one dish name: "egg and bacon brioche" is one dish, never "and bacon brioche"',
+    body: 'Brunch at Higher Ground, egg and bacon brioche 4.5 so good, flat white a 3 bit burnt',
+    place: 'Higher Ground',
+    modelOnly: true,
+    items: [
+      { dish_name: 'egg and bacon brioche', score: 4.5, note: 'so good', printed: 'Egg and bacon brioche' },
+      { dish_name: 'flat white', score: 3, note: 'bit burnt', printed: 'Flat white' },
     ],
   },
 ];

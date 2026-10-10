@@ -6,11 +6,11 @@
 //
 //   cd supabase/functions/sort-entry
 //   deno run --allow-net --allow-env eval.ts --model claude-haiku-4-5
-//   deno run --allow-net --allow-env eval.ts --both
-//   (node eval.ts --both works too — same code, no Deno needed)
+//   deno run --allow-net --allow-env eval.ts --all
+//   (node eval.ts --all works too — same code, no Deno needed; --both is the old name for --all)
 //
 // Reads ANTHROPIC_API_KEY from the environment and never prints it. Spends real tokens
-// (a full --both run is roughly 2 x 80 short calls); nothing is written anywhere.
+// (a full --all run is roughly 3 x 80 short calls); nothing is written anywhere.
 //
 // GRADING, per fixture, after validate.ts:
 //   dishes  the same dishes in the same order (case-insensitive: the database matches
@@ -19,6 +19,8 @@
 //           the score's offset where the fixture pins one
 //   notes   every note equal (trailing punctuation ignored) — a style choice, reported
 //           separately because it is not a safety property
+//   names   where the fixture pins `printed`, the receipt's name exactly (case and number:
+//           "six gin and tonics" prints "Gin & tonic") — reported apart, not part of PASS
 //   PASS = all three. CORE = dishes + scores: the part that can mislead a reader.
 // Also counted: what the gate REJECTED from the raw reply (an unprovable score is the
 // model trying to infer one), call failures, latency, tokens and dollars.
@@ -32,6 +34,8 @@ import type { SortPlan } from './types.ts';
 /** USD per million tokens. */
 export const PRICING: Record<SorterModel, { input: number; output: number }> = {
   'claude-haiku-4-5': { input: 1, output: 5 },
+  // the ≤100K-token rate card; a sort prompt is ~1-2K tokens
+  'claude-haiku-5-5': { input: 0.1, output: 0.5 },
   'claude-sonnet-5': { input: 2, output: 10 },
 };
 
@@ -54,6 +58,8 @@ export type Grade = {
   dishes: boolean;
   scores: boolean;
   notes: boolean;
+  /** null when the fixture pins no printed name */
+  names: boolean | null;
   pass: boolean;
   core: boolean;
   /** what validate.ts threw away from the raw reply */
@@ -86,8 +92,10 @@ export function gradeFixture(f: Fixture, raw: SortPlan | null): Grade {
   }
 
   // a failed call proves nothing, even where the right answer is "no items"
+  // the dish is the one they named: either its printed name or the words it was found under
+  // ("gin and tonics" prints "Gin & tonic"; the print is graded below, under names)
   const dishes = raw !== null && got.length === want.length &&
-    want.every((w, i) => dishKey(w.dish_name) === dishKey(got[i].dish_name));
+    want.every((w, i) => [got[i].dish_name, got[i].mention_text ?? ''].some((g) => dishKey(w.dish_name) === dishKey(g)));
   const values = dishes && want.every((w, i) => w.score === got[i].score);
   // where the fixture pins WHERE the score is (a price in the same words also says
   // "4.5"), the model's evidence must land there too — the client draws the token on it
@@ -96,6 +104,8 @@ export function gradeFixture(f: Fixture, raw: SortPlan | null): Grade {
   const scores = values && offsets;
   const notes = dishes && want.every((w, i) => noteKey(w.note) === noteKey(got[i].note));
   const pass = dishes && scores && notes;
+  const pinsName = want.some((w) => w.printed !== undefined);
+  const names = pinsName ? dishes && want.every((w, i) => w.printed === undefined || w.printed === got[i].dish_name) : null;
 
   let diff = '';
   if (!raw) diff = 'no plan';
@@ -105,8 +115,10 @@ export function gradeFixture(f: Fixture, raw: SortPlan | null): Grade {
   } else if (!pass) {
     const what = !dishes ? 'dishes' : !scores ? 'scores' : 'notes';
     diff = `${what}: want ${line(want)} / got ${line(got)}`;
+  } else if (names === false) {
+    diff = `printed: want ${want.map((w) => w.printed ?? w.dish_name).join(' | ')} / got ${got.map((g) => g.dish_name).join(' | ')}`;
   }
-  return { id: f.id, modelOnly: Boolean(f.modelOnly), dishes, scores, notes, pass, core: scores, rejected, diff };
+  return { id: f.id, modelOnly: Boolean(f.modelOnly), dishes, scores, notes, names, pass, core: scores, rejected, diff };
 }
 
 export type FixtureRun = Grade & {
@@ -187,6 +199,8 @@ export type Summary = {
   core: number;
   modelOnly: number;
   modelOnlyCore: number;
+  namesPinned: number;
+  namesRight: number;
   rejectedScores: number;
   rejectedNotes: number;
   rejectedDishes: number;
@@ -215,6 +229,8 @@ export function summarise(run: ModelRun): Summary {
     core: r.filter((x) => x.core).length,
     modelOnly: r.filter((x) => x.modelOnly).length,
     modelOnlyCore: r.filter((x) => x.modelOnly && x.core).length,
+    namesPinned: r.filter((x) => x.names !== null).length,
+    namesRight: r.filter((x) => x.names === true).length,
     rejectedScores: r.reduce((a, x) => a + x.rejected.scores, 0),
     rejectedNotes: r.reduce((a, x) => a + x.rejected.notes, 0),
     rejectedDishes: r.reduce((a, x) => a + x.rejected.dishes, 0),
@@ -233,7 +249,7 @@ const usd = (n: number) => `$${n.toFixed(4)}`;
 const int = (n: number) => n.toLocaleString('en-AU');
 
 export function fixtureLine(r: FixtureRun): string {
-  const tag = r.pass ? 'PASS' : r.core ? 'CORE' : 'FAIL';
+  const tag = r.pass && r.names !== false ? 'PASS' : r.core ? 'CORE' : 'FAIL';
   const why = r.error ? `error: ${r.error}` : r.diff;
   return `  ${tag}  ${r.id}${r.modelOnly ? ' [model-only]' : ''}${why ? `  ${why}` : ''}`;
 }
@@ -243,7 +259,7 @@ export function summaryLines(s: Summary): string[] {
     `${s.model}`,
     `  score       PASS ${pct(s.pass, s.total)} · CORE dishes+scores ${pct(s.core, s.total)} · model-only CORE ${
       pct(s.modelOnlyCore, s.modelOnly)
-    }`,
+    } · printed names ${pct(s.namesRight, s.namesPinned)}`,
     `  gate        rejected ${s.rejectedScores} scores, ${s.rejectedNotes} notes, ${s.rejectedDishes} dishes · ${s.failures} failed calls`,
     `  latency     p50 ${ms(s.p50)} · p95 ${ms(s.p95)}`,
     `  tokens      ${int(s.inputTokens)} in · ${int(s.outputTokens)} out · ${usd(s.cost)} (${
@@ -252,11 +268,12 @@ export function summaryLines(s: Summary): string[] {
   ];
 }
 
-export function sideBySide(a: Summary, b: Summary): string[] {
+export function sideBySide(...all: Summary[]): string[] {
   const rows: Array<[string, (s: Summary) => string]> = [
     ['PASS (all assertions)', (s) => pct(s.pass, s.total)],
     ['CORE (dishes + scores)', (s) => pct(s.core, s.total)],
     ['model-only CORE', (s) => pct(s.modelOnlyCore, s.modelOnly)],
+    ['printed names', (s) => pct(s.namesRight, s.namesPinned)],
     ['scores rejected by gate', (s) => String(s.rejectedScores)],
     ['notes rejected by gate', (s) => String(s.rejectedNotes)],
     ['dishes rejected by gate', (s) => String(s.rejectedDishes)],
@@ -269,9 +286,10 @@ export function sideBySide(a: Summary, b: Summary): string[] {
     ['cost per 1,000 entries', (s) => usd(s.total ? (s.cost / s.total) * 1000 : 0)],
   ];
   const w0 = Math.max(...rows.map(([k]) => k.length));
-  const w1 = Math.max(a.model.length, ...rows.map(([, f]) => f(a).length));
-  const row = (k: string, x: string, y: string) => `${k.padEnd(w0)}   ${x.padEnd(w1)}   ${y}`;
-  return [row('', a.model, b.model), ...rows.map(([k, f]) => row(k, f(a), f(b)))];
+  const ws = all.map((s) => Math.max(s.model.length, ...rows.map(([, f]) => f(s).length)));
+  const row = (k: string, cells: string[]) =>
+    [k.padEnd(w0), ...cells.map((c, i) => (i === cells.length - 1 ? c : c.padEnd(ws[i])))].join('   ');
+  return [row('', all.map((s) => s.model)), ...rows.map(([k, f]) => row(k, all.map(f)))];
 }
 
 /** Belt and braces: whatever is printed, the key is not in it. */
@@ -284,7 +302,7 @@ export function parseArgs(args: string[]): { models: SorterModel[]; concurrency:
   let concurrency = 2;
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
-    if (a === '--both') models = [...SORTER_MODELS];
+    if (a === '--all' || a === '--both') models = [...SORTER_MODELS];
     else if (a === '--model' || a.startsWith('--model=')) {
       const v = a.includes('=') ? a.slice(a.indexOf('=') + 1) : args[++i];
       if (!isSorterModel(v)) return { error: `--model must be one of ${SORTER_MODELS.join(', ')}` };
@@ -295,7 +313,7 @@ export function parseArgs(args: string[]): { models: SorterModel[]; concurrency:
       concurrency = v;
     } else return { error: `unknown argument ${a}` };
   }
-  if (!models) return { error: `pass --model <${SORTER_MODELS.join('|')}> or --both` };
+  if (!models) return { error: `pass --model <${SORTER_MODELS.join('|')}> or --all` };
   return { models, concurrency };
 }
 
@@ -310,7 +328,7 @@ const exit = (code: number): never => (G.Deno ? G.Deno.exit(code) : G.process.ex
 async function main() {
   const parsed = parseArgs(cliArgs());
   if ('error' in parsed) {
-    console.error(`eval: ${parsed.error}\n  usage: deno run --allow-net --allow-env eval.ts (--model <id> | --both)`);
+    console.error(`eval: ${parsed.error}\n  usage: deno run --allow-net --allow-env eval.ts (--model <id> | --all)`);
     exit(2);
     return;
   }
@@ -330,9 +348,9 @@ async function main() {
     say('');
     summaryLines(s).forEach(say);
   }
-  if (summaries.length === 2) {
+  if (summaries.length > 1) {
     say('\nside by side');
-    sideBySide(summaries[0], summaries[1]).forEach(say);
+    sideBySide(...summaries).forEach(say);
   }
 }
 

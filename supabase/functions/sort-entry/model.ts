@@ -24,7 +24,7 @@ import type { SortPlan } from './types.ts';
  * never date-suffixed snapshots: the two were compared on the fixture corpus with eval.ts
  * and the choice is a config flip, not a code change.
  */
-export const SORTER_MODELS = ['claude-haiku-4-5', 'claude-sonnet-5'] as const;
+export const SORTER_MODELS = ['claude-haiku-4-5', 'claude-haiku-5-5', 'claude-sonnet-5'] as const;
 export type SorterModel = typeof SORTER_MODELS[number];
 export const DEFAULT_MODEL: SorterModel = 'claude-haiku-4-5';
 
@@ -222,7 +222,8 @@ export function buildRequest(opts: {
     body: JSON.stringify({
       model: opts.model ?? DEFAULT_MODEL,
       max_tokens: maxTokensFor(opts.body),
-      // Sonnet 5 rejects sampling parameters with a 400; Haiku 4.5 still takes them.
+      // Sonnet 5 and Haiku 5.5 reject sampling parameters with a 400; Haiku 4.5 still takes them.
+      // No `thinking` field for any of them: a forced tool call skips Haiku 5.5's default thinking.
       ...((opts.model ?? DEFAULT_MODEL) === 'claude-haiku-4-5' ? { temperature: 0 } : {}),
       system: SYSTEM,
       tools: [TOOL],

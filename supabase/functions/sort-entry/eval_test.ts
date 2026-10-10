@@ -178,6 +178,7 @@ test('a failed call is a FAIL with the reason, and rate limits are retried not s
 test('money: per-million pricing for both models', () => {
   assertEquals(costUsd('claude-haiku-4-5', { input_tokens: 1_000_000, output_tokens: 1_000_000 }), 6);
   assertEquals(costUsd('claude-sonnet-5', { input_tokens: 1_000_000, output_tokens: 1_000_000 }), 12);
+  assertEquals(costUsd('claude-haiku-5-5', { input_tokens: 1_000_000, output_tokens: 1_000_000 }), 0.6);
   assertEquals(costUsd('claude-haiku-4-5', { input_tokens: 2000, output_tokens: 200 }), 0.003);
 });
 
@@ -189,10 +190,12 @@ test('latency percentiles are nearest-rank', () => {
   assertEquals(percentile([], 50), null);
 });
 
-test('arguments: --model takes only the two IDs; --both runs both', () => {
+test('arguments: --model takes only the evaluated IDs; --all (or --both) runs every one', () => {
   assertEquals(parseArgs(['--model', 'claude-haiku-4-5']), { models: ['claude-haiku-4-5'], concurrency: 2 });
   assertEquals(parseArgs(['--model=claude-sonnet-5']), { models: ['claude-sonnet-5'], concurrency: 2 });
-  assertEquals(parseArgs(['--both', '--concurrency', '4']), { models: ['claude-haiku-4-5', 'claude-sonnet-5'], concurrency: 4 });
+  assertEquals(parseArgs(['--model', 'claude-haiku-5-5']), { models: ['claude-haiku-5-5'], concurrency: 2 });
+  assertEquals(parseArgs(['--all', '--concurrency', '4']), { models: ['claude-haiku-4-5', 'claude-haiku-5-5', 'claude-sonnet-5'], concurrency: 4 });
+  assertEquals(parseArgs(['--both']), parseArgs(['--all']), 'the old flag still works');
   assert('error' in parseArgs([]));
   assert('error' in parseArgs(['--model', 'claude-haiku-4-5-20251001']));
   assert('error' in parseArgs(['--model']));

@@ -45,7 +45,7 @@
 //         No network, no key, fully deterministic, pinned by ~50 fixtures.
 //   model (ONLY when ANTHROPIC_API_KEY is present in the function secrets):
 //         ./model.ts with a forced tool call, on ATE_SORTER_MODEL (claude-haiku-4-5 by
-//         default, or claude-sonnet-5). Inert without the key — the code path is
+//         default, claude-haiku-5-5 or claude-sonnet-5). Inert without the key — the code path is
 //         unreachable, not merely unused. A model failure falls back to the stub
 //         rather than failing the sort.
 //   ATE_SORTER_MODE=stub forces stub even with a key (eval/incident switch).
