@@ -124,31 +124,27 @@ extension UIImage {
     /// A transparent page cropped to the pixels it actually has — so a sticker pasted into a story
     /// is the slip, not a full-screen clear rectangle with a slip in one corner.
     func ateTrimmedToContent() -> UIImage {
-        guard let cgImage, let data = cgImage.dataProvider?.data, let bytes = CFDataGetBytePtr(data) else {
-            return self
-        }
-        let width = cgImage.width, height = cgImage.height
-        let bytesPerRow = cgImage.bytesPerRow, bytesPerPixel = cgImage.bitsPerPixel / 8
-        let alphaOffset: Int
-        switch cgImage.alphaInfo {
-        case .premultipliedFirst, .first, .noneSkipFirst: alphaOffset = 0
-        case .premultipliedLast, .last, .noneSkipLast: alphaOffset = bytesPerPixel - 1
-        default: return self
-        }
-        var minX = width, minY = height, maxX = -1, maxY = -1
-        for y in 0..<height {
-            let row = y * bytesPerRow
-            for x in 0..<width where bytes[row + x * bytesPerPixel + alphaOffset] > 0 {
-                if x < minX { minX = x }
-                if x > maxX { maxX = x }
-                if y < minY { minY = y }
-                if y > maxY { maxY = y }
+        guard let cgImage, let alphaOffset = Self.alphaOffset(of: cgImage),
+              let data = cgImage.dataProvider?.data, let bytes = CFDataGetBytePtr(data) else { return self }
+        let bytesPerPixel = cgImage.bitsPerPixel / 8
+        var box = CGRect.null
+        for row in 0..<cgImage.height {
+            let rowStart = row * cgImage.bytesPerRow + alphaOffset
+            for column in 0..<cgImage.width where bytes[rowStart + column * bytesPerPixel] > 0 {
+                box = box.union(CGRect(x: column, y: row, width: 1, height: 1))
             }
         }
-        guard maxX >= minX, maxY >= minY else { return self }
-        let rect = CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)
-        guard let cropped = cgImage.cropping(to: rect) else { return self }
+        guard box.isNull == false, let cropped = cgImage.cropping(to: box) else { return self }
         return UIImage(cgImage: cropped, scale: scale, orientation: imageOrientation)
+    }
+
+    /// Where a pixel's alpha byte sits, for the layouts `ImageRenderer` produces. `nil` is no alpha.
+    private static func alphaOffset(of image: CGImage) -> Int? {
+        switch image.alphaInfo {
+        case .premultipliedFirst, .first: 0
+        case .premultipliedLast, .last: image.bitsPerPixel / 8 - 1
+        default: nil
+        }
     }
 }
 

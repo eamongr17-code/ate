@@ -87,11 +87,11 @@ struct V2ComposerPrinted: View {
         .onChange(of: store.card) { _, card in NotificationCenter.ateEntryChanged(card) }
         .onChange(of: store.showsReceipt, initial: true) { _, shows in countEntrance(shows) }
         .onDisappear { countDone() }
-        .sheet(isPresented: $isSharing, onDismiss: { store.shareEnded() }) {
+        .sheet(isPresented: $isSharing, onDismiss: { store.shareEnded() }, content: {
             V2ReceiptShareSheet(
                 receipt: receipt, photos: handoff.photos, source: .summary, analytics: services.analytics
             )
-        }
+        })
         .v2PlaceSheet(isPresented: $isPickingPlace, directory: services.places) { place in
             guard let id = place.id else { return }
             isPickingPlace = false
