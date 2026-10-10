@@ -3,8 +3,9 @@ import SwiftUI
 /// **The paper feed** — the one motion a placeholder makes (``AteMotion/sweepPeriod``). A soft band
 /// in the paper's own colour crosses the subtree, drawn *atop* what is there (`sourceAtop`): it
 /// tints only pixels the skeleton drew, so a bar fades toward the paper as the band passes and the
-/// paper itself, already that colour, shows nothing. The band's place comes from the clock and the screen, never from the
-/// view, so a column of rows reads as one sheet feeding through rather than each row on its own beat.
+/// paper itself, already that colour, shows nothing. The band's place comes from the clock and the
+/// screen, never from the view, so a column of rows reads as one sheet feeding through rather than
+/// each row on its own beat.
 ///
 /// Reduce Motion, or `isOn` false: the placeholder is still.
 struct AteSkeletonSweep: ViewModifier {
