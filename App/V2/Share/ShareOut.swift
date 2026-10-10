@@ -56,15 +56,22 @@ enum PhotoSaver {
         guard status == .authorized || status == .limited else { return false }
         let pages = images.compactMap { $0.pngData() }
         do {
-            try await PHPhotoLibrary.shared().performChanges {
-                for data in pages {
-                    guard let image = UIImage(data: data) else { continue }
-                    PHAssetChangeRequest.creationRequestForAsset(from: image)
-                }
-            }
+            try await PHPhotoLibrary.shared().performChanges(creating(pages))
             return true
         } catch {
             return false
+        }
+    }
+
+    /// The change block, built outside the main actor. Photos runs it on its own queue; a closure
+    /// written inside `save` would inherit `@MainActor` and Swift 6 traps the moment it runs there
+    /// (the build-111 Save image crash).
+    private nonisolated static func creating(_ pages: [Data]) -> @Sendable () -> Void {
+        {
+            for data in pages {
+                guard let image = UIImage(data: data) else { continue }
+                PHAssetChangeRequest.creationRequestForAsset(from: image)
+            }
         }
     }
 }
