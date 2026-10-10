@@ -276,7 +276,8 @@ final class EntryModel: SavedDishObserving {
         return AteByline(
             userID: author.id,
             handle: author.username,
-            age: RelativeAge.short(card.createdAt)
+            age: RelativeAge.short(card.createdAt),
+            avatarURL: author.avatarURL.flatMap(URL.init(string:))
         )
     }
 

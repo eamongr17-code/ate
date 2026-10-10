@@ -27,7 +27,8 @@ enum EntrySlipPresentation {
                 userID: author.id,
                 handle: author.username,
                 age: RelativeAge.short(card.createdAt, now: now),
-                with: CompanionLine.compact(card.companions.map(\.username))
+                with: CompanionLine.compact(card.companions.map(\.username)),
+                avatarURL: author.avatarURL.flatMap(URL.init(string:))
             )
         }
         return slip
@@ -57,13 +58,15 @@ enum EntrySlipPresentation {
                 userID: card.authorID,
                 handle: card.author?.username ?? "",
                 age: RelativeAge.day(card.createdAt, timeZone: timeZone),
-                isYou: true
+                isYou: true,
+                avatarURL: card.author?.avatarURL.flatMap(URL.init(string:))
             )
         } else if let author = card.author {
             slip.byline = AteByline(
                 userID: author.id,
                 handle: author.username,
-                age: RelativeAge.short(card.createdAt, now: now)
+                age: RelativeAge.short(card.createdAt, now: now),
+                avatarURL: author.avatarURL.flatMap(URL.init(string:))
             )
         }
         return slip

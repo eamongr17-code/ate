@@ -107,6 +107,8 @@ struct AteByline: Equatable {
     var isYou = false
     /// "Ate with", after the handle — "@jess", "@jess +1" (``CompanionLine``). `nil` when nobody.
     var with: String?
+    /// Their photo, as the row carried it.
+    var avatarURL: URL?
 
     /// What the byline prints.
     var name: String { isYou ? "You" : "@\(handle)" }

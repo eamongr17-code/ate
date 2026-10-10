@@ -9,6 +9,9 @@ struct AteAvatar: View {
     var side: CGFloat = AteMetrics.avatar
     /// The monogram's own size; the design draws 12 in a 28pt disc and 34 in a 76pt one.
     var textStyle: AteTextStyle = .avatarInitial
+    /// Their photo, when the row that named them carried one. ``AteAvatarDirectory`` knows better
+    /// for anyone whose photo changed since (yours, set in Settings, at once).
+    var url: URL?
 
     var body: some View {
         Text(initials)
@@ -16,7 +19,23 @@ struct AteAvatar: View {
             .foregroundStyle(AteColor.ink)
             .frame(width: side, height: side)
             .background(AteColor.accents[AteAvatar.index(for: userID)], in: .circle)
+            .overlay {
+                // The photo over the letter: until it arrives (or if it never does) the letter shows.
+                if let photo {
+                    AteRemotePhoto(url: photo, size: .thumbnail, placeholder: .clear)
+                        .frame(width: side, height: side)
+                        .clipShape(.circle)
+                }
+            }
             .accessibilityHidden(true)
+    }
+
+    /// Noted since wins over what the row carried — including a photo since removed.
+    private var photo: URL? {
+        switch AteAvatarDirectory.shared.known(userID) {
+        case .some(let noted): noted
+        case .none: url
+        }
     }
 
     private var initials: String {
@@ -44,11 +63,33 @@ extension AteAvatar {
         case profile
     }
 
-    init(userID: UUID, handle: String, size: Size) {
+    init(userID: UUID, handle: String, size: Size, url: URL? = nil) {
         switch size {
-        case .byline: self.init(userID: userID, handle: handle)
-        case .review: self.init(userID: userID, handle: handle, side: 36, textStyle: .avatarInitialMedium)
-        case .profile: self.init(userID: userID, handle: handle, side: 76, textStyle: .avatarMonogram)
+        case .byline: self.init(userID: userID, handle: handle, url: url)
+        case .review: self.init(userID: userID, handle: handle, side: 36, textStyle: .avatarInitialMedium, url: url)
+        case .profile: self.init(userID: userID, handle: handle, side: 76, textStyle: .avatarMonogram, url: url)
         }
+    }
+}
+
+/// **Whose photo is what, now.** A row carries the avatar its author had when it was read; a photo
+/// set since — your own, in Settings — is noted here and wins everywhere the person is drawn, so
+/// changing it shows across the app at once rather than after every list is read again.
+@MainActor
+@Observable
+final class AteAvatarDirectory {
+    static let shared = AteAvatarDirectory()
+
+    /// `.some(nil)`: known to have no photo now.
+    private var urls: [UUID: URL?] = [:]
+
+    /// Their photo as last noted — `nil` when nothing was, `.some(nil)` when they have none.
+    func known(_ userID: UUID) -> URL?? { urls[userID] }
+
+    /// What the server says their photo is now. `nil` (no photo) is noted too: a removed photo stops
+    /// showing.
+    func note(_ userID: UUID, url: URL?) {
+        guard urls[userID] != .some(url) else { return }
+        urls[userID] = .some(url)
     }
 }

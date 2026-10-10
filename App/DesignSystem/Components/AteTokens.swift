@@ -199,6 +199,8 @@ struct ScoreToken: View {
     var isSelected = false
     /// What the pill prints, when it is not one person's half-step. See ``init(average:prose:)``.
     var printed: String?
+    /// The aggregate it prints, when it is one.
+    var average: Double?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -210,8 +212,10 @@ struct ScoreToken: View {
         let height = AteFont.size(for: style, dynamicTypeSize: dynamicTypeSize)
             * TokenPillMetrics.scoreHeightEm / 0.78
         // A person's perfect 5.0 and their secret 6 dress differently (`ScoreStyle`); an aggregate
-        // never does — an average of 5.0 is not anybody's perfect score.
-        let dress = printed == nil ? ScoreStyle.of(rating) : .standard
+        // never does — an average of 5.0 is not anybody's perfect score. A 6.0 average is all 6s.
+        let dress = printed == nil
+            ? ScoreStyle.of(rating)
+            : (average.map { ScoreStyle.of(average: $0) } ?? .standard)
         HStack(spacing: TokenPillMetrics.iconGap) {
             AteIcon.starFilled.view(size: TokenPillMetrics.starSide)
                 .foregroundStyle(dress.star)
@@ -246,7 +250,8 @@ extension ScoreToken {
     /// (integration-design.md, "Printing an aggregate"). VoiceOver still hears the nearest half, like
     /// every other score.
     init(average: Double, prose: CGFloat = 17) {
-        self.init(rating: Rating(rounding: average), prose: prose, printed: ScoreFormat.average(average))
+        self.init(rating: Rating(rounding: average), prose: prose, printed: ScoreFormat.average(average),
+                  average: average)
     }
 }
 

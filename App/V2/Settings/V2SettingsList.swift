@@ -90,6 +90,11 @@ struct V2SettingsList: View {
         }
         .ateFailureAlert($failure)
         .task { await model.loadIfNeeded() }
+        // What the server holds is everybody's: a new photo shows on You, your bylines, everywhere.
+        .onChange(of: model.avatarURL) { _, url in
+            guard let userID = model.userID else { return }
+            AteAvatarDirectory.shared.note(userID, url: url)
+        }
         // Back from the handle page: the row shows what the server now holds.
         .onAppear { Task { await model.reloadIfLoaded() } }
         .onChange(of: photo) { _, item in

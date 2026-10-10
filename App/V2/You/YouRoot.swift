@@ -70,7 +70,8 @@ struct YouRoot: View {
                 .transition(.opacity)
         case .ready(let summary):
             VStack(alignment: .leading, spacing: AteProfileHeaderMetrics.bandGap) {
-                AteProfileHeader(userID: summary.userID, handle: summary.username, city: summary.city)
+                AteProfileHeader(userID: summary.userID, handle: summary.username, city: summary.city,
+                                 avatarURL: summary.avatarURL.flatMap(URL.init(string:)))
                 AteProfileStats(summary: summary)
                 ratings
                 topDishes

@@ -49,5 +49,8 @@ struct V2ReceiptShareSheet: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("share.sheet")
+        // Its own viewer: the entry page's sits under this sheet, so a tapped photo waited there and
+        // opened only once the sheet was closed (build 110).
+        .atePhotoViewerHost()
     }
 }

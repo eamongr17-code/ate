@@ -256,7 +256,11 @@ struct V2DishPage: View {
                 title: band.title,
                 countLine: band.countLine,
                 faces: band.reviews.compactMap { review in
-                    review.author.map { AteReviewFace(id: $0.id, handle: $0.username) }
+                    review.author.map {
+                        AteReviewFace(
+                            id: $0.id, handle: $0.username, avatarURL: $0.avatarURL.flatMap(URL.init(string:))
+                        )
+                    }
                 },
                 isOpen: isOpen(band),
                 isFirst: isFirst,
@@ -285,6 +289,7 @@ struct V2DishPage: View {
             name: Self.name(of: review),
             handle: review.author?.username ?? "?",
             rating: review.score,
+            avatarURL: review.author?.avatarURL.flatMap(URL.init(string:)),
             isFirst: isFirst,
             // Your own "You" is not a door: the You tab is your profile.
             onProfile: review.isMine ? nil : review.author.map { author in { openProfile(author.id) } },
