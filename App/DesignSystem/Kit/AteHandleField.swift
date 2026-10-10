@@ -49,9 +49,8 @@ struct AteHandleField: View {
                 .frame(width: AteHandleFieldMetrics.disc, height: AteHandleFieldMetrics.disc)
                 .accessibilityHidden(true)
         case .checking:
-            ProgressView()
-                .controlSize(.small)
-                .tint(palette.muted)
+            AtePostingDots()
+                .foregroundStyle(palette.muted)
                 .frame(width: AteHandleFieldMetrics.disc, height: AteHandleFieldMetrics.disc)
                 .accessibilityLabel("Checking")
         case .available:

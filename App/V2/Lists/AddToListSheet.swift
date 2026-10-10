@@ -92,7 +92,8 @@ struct AddToListSheet: View {
     private var lists: some View {
         switch store.phase {
         case .loading:
-            EmptyView()
+            AteSheetSkeletonRows(count: ListsMetrics.skeletonRows, hasSubtitle: false)
+                .ateBreathing()
         case .failed:
             AteEmptyState(line: ListsCopy.unreachable, art: .torn,
                 pill: (ListsCopy.tryAgain, { Task { await store.load() } }))
