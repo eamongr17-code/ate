@@ -98,10 +98,11 @@ struct SlipDishRow: View {
     @ViewBuilder
     private func target(@ViewBuilder _ content: () -> some View) -> some View {
         if let action {
+            // Only the name and the score are the target (each carries its own shape below): the
+            // rest of the row is the slip's, and opens the entry (Eamon, 10 Oct).
             Button(action: action) {
                 content()
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(.rect)
             }
             .buttonStyle(.plain)
             .contextMenu {
@@ -130,6 +131,7 @@ struct SlipDishRow: View {
             .ateTextExact(.slipDish)
             .textRenderer(DietTagRun.Renderer(dynamicTypeSize: dynamicTypeSize))
             .offset(y: -metrics.nameLift)
+            .modifier(DishRowTarget())
             .accessibilityLabel(([dish.name] + dish.tags.map(\.spokenName)).joined(separator: ", "))
     }
 
@@ -147,6 +149,7 @@ struct SlipDishRow: View {
                     .offset(y: -lift)
             }
             .fixedSize()
+            .modifier(DishRowTarget())
             .accessibilityElement()
             .accessibilityLabel("Scored \(ScoreFormat.halfStep(score.value)) out of 5")
         }
@@ -157,6 +160,17 @@ struct SlipDishRow: View {
             // `margin:-10px -12px -10px 0` — the target stays 44, the mark sits on the paper's edge.
             .padding(.vertical, -10)
             .padding(.trailing, -12)
+    }
+
+    /// The name's or the score's own hit shape: its glyphs' box, grown to the row's 44 and given
+    /// straight back to the layout, so the row is drawn exactly as before.
+    private struct DishRowTarget: ViewModifier {
+        func body(content: Content) -> some View {
+            content
+                .padding(.vertical, AteMetrics.slipDishPadding)
+                .contentShape(.rect)
+                .padding(.vertical, -AteMetrics.slipDishPadding)
+        }
     }
 
     /// `gap:14px` between the score and its bookmark.

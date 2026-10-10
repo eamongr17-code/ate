@@ -13,6 +13,7 @@ struct AteReviewRow: View {
     let name: String
     let handle: String
     var rating: Rating?
+    var avatarURL: URL?
     var isFirst = false
     var onProfile: (() -> Void)?
     var onOpen: (() -> Void)?
@@ -23,7 +24,7 @@ struct AteReviewRow: View {
         HStack(spacing: 0) {
             door(onProfile, identifier: "dish.review.person") {
                 HStack(spacing: AteDishRowMetrics.gap) {
-                    AteAvatar(userID: userID, handle: handle, size: .review)
+                    AteAvatar(userID: userID, handle: handle, size: .review, url: avatarURL)
                     Text(name)
                         .ateText(.controlSmall)
                         .foregroundStyle(palette.fg)

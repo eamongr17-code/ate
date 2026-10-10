@@ -46,4 +46,10 @@ struct ScoreStyle: Hashable {
         if rating.isPerfect { return perfect }
         return standard
     }
+
+    /// The style an aggregate prints in. An average of 5.0 stays butter (it is not anybody's perfect
+    /// score), but one that prints **6.0** can only be made of 6s, and reads as the 6 it is.
+    static func of(average: Double) -> ScoreStyle {
+        ScoreFormat.average(average) == ScoreFormat.halfStep(Rating.blownAway.value) ? blownAway : standard
+    }
 }

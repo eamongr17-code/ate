@@ -8,12 +8,13 @@ struct AteInlineByline: View {
     let userID: UUID
     let handle: String
     var subtitle: String?
+    var avatarURL: URL?
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
         HStack(spacing: AteInlineBylineMetrics.gap) {
-            AteAvatar(userID: userID, handle: handle, size: .byline)
+            AteAvatar(userID: userID, handle: handle, size: .byline, url: avatarURL)
             VStack(alignment: .leading, spacing: AteRootHeaderMetrics.inlineGap) {
                 Text(verbatim: "@\(handle)")
                     .ateText(.kitInlineTitle)

@@ -317,7 +317,7 @@ struct EntrySlip: View {
 
     private func bylineName(_ byline: AteByline) -> some View {
         HStack(spacing: AteMetrics.snug) {
-            AteAvatar(userID: byline.userID, handle: byline.handle)
+            AteAvatar(userID: byline.userID, handle: byline.handle, url: byline.avatarURL)
             // A long handle truncates (`.trunc`); the age beside it never does.
             bylineText(byline)
                 .ateText(.controlSmall)

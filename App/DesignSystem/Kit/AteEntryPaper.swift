@@ -78,7 +78,9 @@ struct AteEntryPaper: View {
         }
         .padding(.top, AteMetrics.pagePaddingTop)
         .padding(.horizontal, AteMetrics.pagePaddingSide)
-        .padding(.bottom, AteMetrics.section)
+        // Ending at its content, the paper closes as it opens: the 44pt place line carries its own
+        // air, so the foot matches the top's 8 (Eamon, 10 Oct: no empty band under the place).
+        .padding(.bottom, fillsScreen ? AteMetrics.section : AteMetrics.pagePaddingTop)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(minHeight: fillsScreen ? Self.minimumHeight : nil, alignment: .top)
         .ateSlip()

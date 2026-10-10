@@ -65,7 +65,7 @@ struct AteReviewBand<Rows: View>: View {
     private var avatars: some View {
         HStack(spacing: -AteReviewBandMetrics.overlap) {
             ForEach(faces.prefix(AteReviewBandMetrics.faceCount)) { face in
-                AteAvatar(userID: face.id, handle: face.handle, size: .byline)
+                AteAvatar(userID: face.id, handle: face.handle, size: .byline, url: face.avatarURL)
                     .padding(AteReviewBandMetrics.ring)
                     .background(palette.ground, in: .circle)
             }
@@ -79,6 +79,7 @@ struct AteReviewBand<Rows: View>: View {
 struct AteReviewFace: Identifiable {
     let id: UUID
     let handle: String
+    var avatarURL: URL?
 }
 
 enum AteReviewBandMetrics {

@@ -55,15 +55,19 @@ struct AteExactText: View {
                 .foregroundStyle(colour ?? palette.fg)
                 .frame(maxWidth: .infinity, alignment: alignment.frameAlignment)
         } else {
+            let font = AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize)
             TitleLabel(
                 text: text,
-                font: AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize),
+                font: font,
                 lineHeight: style.lineHeight,
                 trackingEm: style.trackingEm,
                 alignment: alignment,
                 colour: colour ?? palette.fg,
                 lineLimit: lineLimit
             )
+            // The label is drawn taller than its line boxes so a descender can hang below the last
+            // one, and handed straight back to the layout: the words sit exactly where they did.
+            .padding(.vertical, -WordFittingLabel.bleed(for: font))
         }
     }
 }
@@ -98,12 +102,14 @@ private struct TitleLabel: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WordFittingLabel {
         let label = WordFittingLabel()
+        label.bleed = WordFittingLabel.bleed(for: font)
         label.isAccessibilityElement = false
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return label
     }
 
     func updateUIView(_ label: WordFittingLabel, context: Context) {
+        label.bleed = WordFittingLabel.bleed(for: font)
         label.numberOfLines = lineLimit ?? 0
         let textAlignment: NSTextAlignment = switch alignment {
         case .leading: .left
@@ -152,6 +158,25 @@ final class WordFittingLabel: UILabel {
             guard content != oldValue else { return }
             apply(scale: fittedWidth.map { scale(for: $0) } ?? 1)
         }
+    }
+
+    /// Room above and below the line boxes. A style set at `lineHeight: 1.0` (the dish page's 32pt
+    /// title) is a box tighter than its face, and a label draws nothing outside its own bounds:
+    /// the g of "Peking duck" lost its tail (build 110).
+    var bleed: CGFloat = 0 {
+        didSet { if bleed != oldValue { invalidateIntrinsicContentSize(); setNeedsDisplay() } }
+    }
+
+    /// A third of the face: more than any descender or accent hangs past a 1.0 line box.
+    static func bleed(for font: UIFont) -> CGFloat { (font.pointSize / 3).rounded(.up) }
+
+    override func drawText(in rect: CGRect) {
+        super.drawText(in: rect.insetBy(dx: 0, dy: bleed))
+    }
+
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        let inner = super.sizeThatFits(CGSize(width: size.width, height: max(0, size.height - 2 * bleed)))
+        return CGSize(width: inner.width, height: inner.height + 2 * bleed)
     }
 
     private var fittedWidth: CGFloat?

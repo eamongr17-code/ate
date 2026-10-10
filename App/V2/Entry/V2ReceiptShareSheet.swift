@@ -20,7 +20,7 @@ struct V2ReceiptShareSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AteSheetHeader(title: nil) { dismiss() }
+            AteSheetHeader(title: receipt.shareTitle) { dismiss() }
             GeometryReader { room in
                 ScrollView {
                     AtePrintedReceiptStage(receipt: receipt, photos: photos)
@@ -49,5 +49,8 @@ struct V2ReceiptShareSheet: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("share.sheet")
+        // Its own viewer: the entry page's sits under this sheet, so a tapped photo waited there and
+        // opened only once the sheet was closed (build 110).
+        .atePhotoViewerHost()
     }
 }

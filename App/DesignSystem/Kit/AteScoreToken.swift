@@ -74,7 +74,7 @@ struct AteScoreToken: View {
             printed = ScoreFormat.halfStep(value.value)
             rating = value
         case .average(let value):
-            dress = .standard
+            dress = .of(average: value)
             printed = ScoreFormat.average(value)
             rating = Rating(rounding: value)
         }

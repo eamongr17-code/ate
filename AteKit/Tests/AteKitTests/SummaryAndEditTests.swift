@@ -266,4 +266,29 @@ struct SliderTitleTests {
         #expect(words.dishWords(beforeTokenID: second.id) == nil)
         #expect(words.dishWords(beforeTokenID: first.id) == "The ragù")
     }
+
+    @Test("a dish of four words keeps its first: egg and bacon brioche")
+    func keepsTheWholeName() {
+        #expect(title("egg and bacon brioche 3.0") == "egg and bacon brioche")
+    }
+
+    @Test("the name runs back to the clause, past what was said before it")
+    func stopsAtTheClause() {
+        #expect(title("Great morning. We had the egg and bacon brioche 3.0") == "the egg and bacon brioche")
+        #expect(title("Busy, then I got the mac and cheese 4.0") == "the mac and cheese")
+        #expect(title("Pie of the day 4.0") == "Pie of the day")
+        #expect(title("Fish and chips with mushy peas 3.5") == "Fish and chips with mushy peas")
+    }
+
+    /// The slider's title for the one score at the end of `text`.
+    private func title(_ text: String) -> String? {
+        let location = (text as NSString).range(of: " ", options: .backwards).location + 1
+        // The pill's rating is the one its digits print: a span that disagrees is not kept.
+        let digits = (text as NSString).substring(from: location)
+        let score = EntryToken(kind: .score(Rating(exactly: Double(digits)!)!))
+        let words = EntryComposition(plain: text, spans: [
+            EntryTokenSpan(token: score, span: TextSpan(location: location, length: text.utf16.count - location))
+        ])
+        return words.dishWords(beforeTokenID: score.id)
+    }
 }

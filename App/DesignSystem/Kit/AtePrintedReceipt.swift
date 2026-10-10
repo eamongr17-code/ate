@@ -146,6 +146,13 @@ struct AteScaledLayout: Layout {
     }
 }
 
+extension AteReceipt {
+    /// The share screen's title (Eamon, 10 Oct): "Share your dish", or "dishes" for more than one.
+    var shareTitle: String {
+        items.count > 1 ? "Share your dishes" : "Share your dish"
+    }
+}
+
 enum AtePrintedReceiptMetrics {
     /// On screen the paper runs to 38 from each edge.
     static let screenInset: CGFloat = 38

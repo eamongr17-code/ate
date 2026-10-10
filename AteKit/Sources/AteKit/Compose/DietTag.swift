@@ -122,7 +122,7 @@ public struct SortEntryRequest: Encodable, Sendable {
 }
 
 public extension EntryComposition {
-    /// **The words a token is about** — up to three words before it, as the score slider's title.
+    /// **The words a token is about** — the clause before it, as the score slider's title.
     ///
     /// Read from the end of the last *score* before it, so an earlier pill's digits are never read
     /// as a name ("The ragù 0.5 0.5" once titled a panel "5 0 5"). Tag chips are skipped over, not
@@ -142,12 +142,29 @@ public extension EntryComposition {
         for tag in spans where tag.token.tag != nil && tag.span.location >= start && tag.span.endLocation <= end {
             for index in (tag.span.location - start)..<(tag.span.endLocation - start) { window[index] = 32 }
         }
-        let words = String(decoding: window, as: UTF16.self)
-            .split(whereSeparator: { $0.isWhitespace || $0 == "," || $0 == "." })
-            .suffix(3)
-            .joined(separator: " ")
-        return words.isEmpty ? nil : words
+        // The last clause before the pill — a dish's name runs back to the comma or full stop that
+        // began it, not a fixed three words ("Egg and bacon brioche" once titled "And bacon
+        // brioche"). Within it, what was said before the dish ("we had", "then I got") is dropped.
+        let clause = String(decoding: window, as: UTF16.self)
+            .split(whereSeparator: { ".,;:!?\n".contains($0) })
+            .last { $0.contains { $0.isWhitespace == false } } ?? ""
+        var words = clause.split(whereSeparator: \.isWhitespace).map(String.init)
+        if let leadIn = words.dropLast().lastIndex(where: { Self.dishLeadIns.contains($0.lowercased()) }) {
+            words.removeFirst(leadIn + 1)
+        }
+        let name = words.suffix(Self.dishWordsMaximum).joined(separator: " ")
+        return name.isEmpty ? nil : name
     }
+
+    /// The most words a slider's title takes — a long dish name, not a sentence.
+    static let dishWordsMaximum = 6
+
+    /// Words that say a dish is coming next, so they and everything before them are not its name:
+    /// "We had the egg and bacon brioche" is about "the egg and bacon brioche".
+    static let dishLeadIns: Set<String> = [
+        "had", "have", "got", "get", "ordered", "order", "tried", "try", "ate", "shared", "share",
+        "split", "loved", "we", "i", "then", "also", "plus"
+    ]
 
     /// Every tag chip in these words, located in Unicode scalars for the sort request. The two units
     /// part company at anything outside the Basic Multilingual Plane — an emoji earlier in the words

@@ -8,6 +8,7 @@ struct AteProfileHeader: View {
     let userID: UUID
     let handle: String
     var city: String?
+    var avatarURL: URL?
 
     @Environment(\.atePalette) private var palette
 
@@ -17,7 +18,8 @@ struct AteProfileHeader: View {
                 userID: userID,
                 handle: handle,
                 side: AteProfileHeaderMetrics.avatar,
-                textStyle: .avatarMonogramCompact
+                textStyle: .avatarMonogramCompact,
+                url: avatarURL
             )
             VStack(alignment: .leading, spacing: AteMetrics.hairspace) {
                 Text(verbatim: "@\(handle)")

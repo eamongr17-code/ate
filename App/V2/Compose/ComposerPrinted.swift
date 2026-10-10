@@ -66,7 +66,7 @@ struct V2ComposerPrinted: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AteSheetHeader(title: nil) { done() }
+            AteSheetHeader(title: receipt.shareTitle) { done() }
             // The photos and the receipt, centred in the room between the corners and the foot (a
             // long one scrolls).
             GeometryReader { room in

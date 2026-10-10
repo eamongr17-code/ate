@@ -39,6 +39,13 @@ final class TabRouter<Stores>: V2TabRouting {
 
     func open(_ route: Route, from source: DetailSource = .unknown) {
         guard route.isBuilt else { return }
+        // A page already on the stack is gone back to, never pushed again: a dish's page opens your
+        // entry, whose score opens the dish… and back would have been fifty swipes home (Eamon,
+        // 10 Oct).
+        if let index = path.lastIndex(of: route) {
+            path.removeSubrange(path.index(after: index)...)
+            return
+        }
         sources[route] = source
         path.append(route)
     }

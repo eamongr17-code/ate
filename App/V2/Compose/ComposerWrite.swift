@@ -156,7 +156,7 @@ struct V2ComposerWrite: View {
             revision: model.revision,
             caretAfterRender: model.caretAfterRender,
             style: .composerProse,
-            placeholder: "What did you eat?",
+            placeholder: "What did you have today?",
             focusRequest: model.focusRequest,
             isFocusSuspended: isHandingOver,
             selectedTokenID: model.scoring?.id,

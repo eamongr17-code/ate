@@ -80,7 +80,8 @@ struct V2ProfilePage: View {
 
     private var byline: AteInlineByline? {
         guard case .ready(let summary) = store.header else { return nil }
-        return AteInlineByline(userID: summary.userID, handle: summary.username, subtitle: summary.city)
+        return AteInlineByline(userID: summary.userID, handle: summary.username, subtitle: summary.city,
+                               avatarURL: summary.avatarURL.flatMap(URL.init(string:)))
     }
 
     // MARK: - Bands

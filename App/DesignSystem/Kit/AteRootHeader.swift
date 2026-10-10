@@ -117,6 +117,14 @@ enum AteRootHeaderMetrics {
     static let expandBefore: CGFloat = 8
     /// The hand-over between the root title and the inline one: a plain crossfade.
     static let collapse: Animation = .easeInOut(duration: 0.18)
+
+    /// The widest a pushed page's inline title may run beside the back disc and `trailing` glass
+    /// discs: the screen less the two 16 margins, a 44 disc and its 8 gap per button (back
+    /// included), and a further 8 between the title and the trailing group.
+    @MainActor static func inlineTitleBeside(trailing: Int) -> CGFloat {
+        let discs = CGFloat(trailing + 1) * (AteMetrics.hit + AteMetrics.snug)
+        return max(AteMetrics.hit, AteScreen.width - 2 * Self.trailing - discs - AteMetrics.snug)
+    }
 }
 
 /// **An inline bar title** — a pushed page's name (or byline), and a tab root's title once it has
@@ -126,6 +134,9 @@ enum AteRootHeaderMetrics {
 struct AteInlineTitle: View {
     let title: String
     var subtitle: String?
+    /// A ceiling for a title that can run long (a place's name). Unbounded, a long title claims the
+    /// bar's whole row and the system folds the trailing buttons into an empty overflow pill.
+    var maxWidth: CGFloat?
 
     @Environment(\.atePalette) private var palette
 
@@ -142,7 +153,8 @@ struct AteInlineTitle: View {
                     .lineLimit(1)
             }
         }
-        .fixedSize()
+        .fixedSize(horizontal: maxWidth == nil, vertical: true)
+        .frame(maxWidth: maxWidth, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }

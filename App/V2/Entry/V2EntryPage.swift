@@ -228,7 +228,10 @@ private struct V2EntryScreen: View {
                     // A place never attached is not guessed at: the day alone is the title.
                     AteInlineTitle(
                         title: card.place?.name ?? RelativeAge.day(card.createdAt),
-                        subtitle: card.place == nil ? nil : RelativeAge.day(card.createdAt)
+                        subtitle: card.place == nil ? nil : RelativeAge.day(card.createdAt),
+                        // Leaves room for Share and •••: a long place name truncates instead of
+                        // pushing them into the bar's overflow (build 110: an empty ••• pill).
+                        maxWidth: AteRootHeaderMetrics.inlineTitleBeside(trailing: card.isMine ? 2 : 1)
                     )
                 }
             }
@@ -312,7 +315,8 @@ private struct V2EntryByline: View {
 
     var body: some View {
         Button(action: action) {
-            AteInlineByline(userID: byline.userID, handle: byline.handle, subtitle: byline.age)
+            AteInlineByline(userID: byline.userID, handle: byline.handle, subtitle: byline.age,
+                            avatarURL: byline.avatarURL)
                 .frame(minHeight: AteMetrics.hit)
                 .contentShape(.rect)
         }
