@@ -124,7 +124,7 @@ extension AteTextStyle {
     /// scaled with the tile and never with Dynamic Type — it is a picture of the dish, not a label.
     static func dishInitial(tile side: CGFloat) -> AteTextStyle {
         AteTextStyle(
-            voice: .display, size: side * 26 / 56, weight: 800, trackingEm: -0.02, lineHeight: 1.0,
+            voice: .heading, size: side * 26 / 56, weight: 800, trackingEm: 0, lineHeight: 1.0,
             textStyle: .title2, maximumSize: side * 26 / 56
         )
     }
