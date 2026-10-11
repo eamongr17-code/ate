@@ -1,13 +1,15 @@
 import AteKit
 import SwiftUI
+import UIKit
 
-/// **The four cards** (`design/rebuild/onboarding-v2.html`, steps 3–6): one sample entry built up a
-/// step at a time — the words, then its photos, then its scores, then the receipt it shares as — so
-/// each card adds one thing to the last. Swipe or Next; Skip goes to the start screen, never past it.
+/// **The four cards** (`design/rebuild/onboarding-v2.html`, steps 3–6; restaged as instructions in
+/// `onboarding-cards.html`, 11 Oct): one sample entry built up a step at a time — the words, then its
+/// photos, then its scores, then the cards it shares as — each picture staging the gesture it
+/// teaches (``OnboardingArt``), with the title and one line under it saying it. Swipe or Next; Skip
+/// goes to the start screen, never past it.
 ///
-/// Every picture is the app's own component fed ``OnboardingSample``: ``AteEntrySlip``, its photo
-/// cluster and inline score tokens, ``AteShareStory`` (``AteShareSlip`` on the photo) and
-/// ``AteShareRow``. Change the kit and the cards change with it. Nothing on a card is tappable.
+/// The pictures are built from the kit fed ``OnboardingSample`` — ``AteEntrySlip``, ``StarSlider``,
+/// ``AteShareCard``, ``AteShareRow`` — so a kit change reaches them. Nothing on a card is tappable.
 struct OnboardingCards: View {
     /// Left the cards: the furthest one seen (1–4), and whether Skip did it.
     let onDone: (_ reached: Int, _ skipped: Bool) -> Void
@@ -59,53 +61,22 @@ struct OnboardingCards: View {
 
     private func cardPage(_ card: OnboardingCard) -> some View {
         VStack(spacing: 0) {
-            art(card)
+            OnboardingArt(card: card, sample: sample, handle: handle, isShowing: page == card.rawValue)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .padding(.top, OnboardingMetrics.artTop)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
-            AteTitle(text: card.title, style: .handleTitle)
-                .padding(.horizontal, OnboardingMetrics.titleInset)
-                .padding(.vertical, AteMetrics.section)
-        }
-    }
-
-    @ViewBuilder
-    private func art(_ card: OnboardingCard) -> some View {
-        switch card {
-        case .write:
-            AteEntrySlip(slip: sample.slip(photos: false, scores: false), surface: .journal)
-                .ateCardWidth()
-        case .photos:
-            AteEntrySlip(slip: sample.slip(photos: true, scores: false), surface: .journal)
-                .ateCardWidth()
-        case .scores:
-            AteEntrySlip(slip: sample.slip(photos: true, scores: true), surface: .journal)
-                .ateCardWidth()
-        case .share:
-            share
-        }
-    }
-
-    /// What leaves the app — the receipt on the entry's first photo — at whatever size the card has
-    /// room for, with the share screen's row of ways out under it.
-    private var share: some View {
-        GeometryReader { proxy in
-            let room = proxy.size.height - OnboardingMetrics.shareRowHeight - AteMetrics.loose
-            let scale = max(0.3, min(OnboardingMetrics.storyScale, room / AteShareStoryMetrics.height))
-            VStack(spacing: AteMetrics.loose) {
-                AteShareStory(receipt: sample.receipt(handle: handle), photo: sample.photos.first)
-                    .scaleEffect(scale, anchor: .topLeading)
-                    .frame(
-                        width: AteShareStoryMetrics.width * scale,
-                        height: AteShareStoryMetrics.height * scale,
-                        alignment: .topLeading
-                    )
-                    .clipShape(.rect(cornerRadius: AteShareStoryMetrics.radius * scale, style: .continuous))
-                AteShareRow(actions: OnboardingSample.shareActions)
-                    .padding(.horizontal, AteMetrics.regular)
+            VStack(spacing: AteMetrics.snug) {
+                AteTitle(text: card.title, style: .handleTitle)
+                Text(card.line)
+                    .ateText(.onboardingLine)
+                    .foregroundStyle(palette.muted)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, OnboardingMetrics.titleInset)
+            .padding(.top, AteMetrics.loose)
+            .padding(.bottom, AteMetrics.section)
         }
     }
 
@@ -136,6 +107,16 @@ enum OnboardingCard: Int, CaseIterable, Identifiable {
         case .share: "Share it with friends."
         }
     }
+
+    /// The one line under the title: how.
+    var line: String {
+        switch self {
+        case .write: "Just type. Ate picks out the dishes."
+        case .photos: "Pick them straight from your camera roll."
+        case .scores: "Slide across the stars. Half stars count."
+        case .share: "As a sticker, a story or a post."
+        }
+    }
 }
 
 /// **The one sample entry** the cards build: a margherita and a tiramisu, the bundled photos of
@@ -143,10 +124,24 @@ enum OnboardingCard: Int, CaseIterable, Identifiable {
 /// pages move.
 struct OnboardingSample {
     let photos = [AtePhoto(image: Image("Photos/pizza")), AtePhoto(image: Image("Photos/tiramisu"))]
+    /// The first photo in hand, for the share cards.
+    let sharePhoto = UIImage(named: "Photos/pizza")
     private let dishIDs = [UUID(), UUID()]
 
-    private static let first = Rating(rounding: 4.5)
+    static let first = Rating(rounding: 4.5)
     private static let second = Rating(rounding: 3.5)
+    static let firstDish = "Margherita"
+    static let place = "400 Gradi"
+    static let placeLine = "400 Gradi · Brunswick East"
+
+    /// The two entries the Write card's paper sits on.
+    static let olderEntries = [
+        "Salmon nigiri melted. Get the tuna too.",
+        "Smash burger at Royal Stacks, extra pickles."
+    ]
+    /// The Photos card's camera roll, and which of it is picked (in order).
+    static let roll = ["sushi", "pizza", "burger", "ragu", "prawn", "tiramisu", "penne", "cake", "sushi"]
+    static let picks: [Int?] = [nil, 1, nil, nil, nil, 2, nil, nil, nil]
 
     /// The words, with or without their score tokens. Each token's span is found in the text rather
     /// than counted by hand: a span that misses its words is dropped by the model.
@@ -178,7 +173,7 @@ struct OnboardingSample {
     func slip(photos withPhotos: Bool, scores: Bool) -> AteSlip {
         AteSlip(
             dishes: scores ? [
-                AteSlip.Dish(id: dishIDs[0], dishID: dishIDs[0], name: "Margherita", score: Self.first),
+                AteSlip.Dish(id: dishIDs[0], dishID: dishIDs[0], name: Self.firstDish, score: Self.first),
                 AteSlip.Dish(id: dishIDs[1], dishID: dishIDs[1], name: "Tiramisu", score: Self.second)
             ] : [],
             words: Self.words(scored: scores),
@@ -188,7 +183,7 @@ struct OnboardingSample {
 
     func receipt(handle: String) -> AteReceipt {
         AteReceipt(
-            place: "400 Gradi",
+            place: Self.place,
             locality: "Brunswick East",
             items: [
                 AteReceipt.Item(name: "Margherita", score: Self.first),
@@ -200,13 +195,15 @@ struct OnboardingSample {
         )
     }
 
-    /// The share screen's row as it reads after a review, drawn but not wired: the card shows the
+    /// The ink share sheet's row (``V2ReceiptShareRow``), drawn but not wired: the card shows the
     /// ways out, it does not share anything.
     static var shareActions: [AteShareRow.Action] {
         [
-            .init(id: "stories", icon: .camera, title: "Instagram Stories", isPrimary: true) {},
+            .init(id: "stories", icon: .camera, title: "Stories", brand: .instagram) {},
+            .init(id: "tiktok", icon: .music, title: "TikTok", brand: .tiktok) {},
+            .init(id: "messages", icon: .messageCircle, title: "Messages", brand: .messages) {},
+            .init(id: "instagram", icon: .library, title: "Instagram", brand: .instagram) {},
             .init(id: "link", icon: .link, title: "Copy link") {},
-            .init(id: "messages", icon: .messageCircle, title: "Messages") {},
             .init(id: "save", icon: .download, title: "Save image") {},
             .init(id: "more", icon: .more, title: "More") {}
         ]
