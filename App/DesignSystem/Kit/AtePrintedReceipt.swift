@@ -46,13 +46,13 @@ struct AtePrintedReceipt: View {
                     .scaleEffect(1 + (ReceiptEntrance.photoDrop - 1) * (1 - pose.photos))
                     .opacity(pose.photos)
             }
-            paper
+            printedPaper
         }
         .environment(\.atePalette, .accent(AteColor.coral))
     }
 
     @ViewBuilder
-    private var paper: some View {
+    private var printedPaper: some View {
         let scale = paperScale ?? AtePrintedReceiptStage.scale
         let slip = AteScaledLayout(scale: scale) {
             AteShareSlip(
