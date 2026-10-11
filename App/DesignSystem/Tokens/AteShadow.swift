@@ -27,6 +27,8 @@ struct AteShadow: Equatable, Sendable {
     static let shareCard = AteShadow(colour: Color.black.opacity(0.45), offsetY: 10, blur: 32, spread: 0)
     /// The sticker card's receipt on the ink sheet.
     static let shareSticker = AteShadow(colour: Color.black.opacity(0.4), offsetY: 10, blur: 28, spread: 0)
+    /// The share card's Saved tick — `.tick`: `0 6px 16px rgba(36,20,31,.25)`.
+    static let tick = AteShadow(colour: AteColor.ink.opacity(0.25), offsetY: 6, blur: 16, spread: 0)
     /// No shadow: the same background, casting nothing.
     static let flat = AteShadow(colour: .clear, offsetY: 0, blur: 0, spread: 0)
 }

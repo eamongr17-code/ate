@@ -72,6 +72,8 @@ enum AteIcon: String, CaseIterable {
     case music
     /// The share card's Adjust — Lucide's crop.
     case crop
+    /// A shared video, over its thumbnail on the share-to-Ate card — Lucide's play, filled.
+    case play
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
@@ -205,6 +207,8 @@ M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.70
             [AteVector.circle(8, 18, 4), Self.path("M12 18V2l7 4")]
         case .crop: // crop
             [Self.path("M6 2v14a2 2 0 0 0 2 2h14"), Self.path("M18 22V8a2 2 0 0 0-2-2H2")]
+        case .play: // play
+            [Self.playPath]
         case .heart: // heart
             [Self.path("""
 M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 \
@@ -223,6 +227,7 @@ M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.
         // `images` fills its own sun, in the SVG.
         case .photoStack: [Self.imagesDot]
         case .tag: [Self.tagDot]
+        case .play: [Self.playPath]
         default: []
         }
     }
@@ -250,6 +255,10 @@ M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1
 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3\
 .32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.\
 319-1.915
+""")
+    /// `play`: drawn filled, as the mockup's thumbnail mark is.
+    private static let playPath = path("""
+M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z
 """)
     private static let imagesDot = AteVector.circle(13, 7, 1)
     /// `tag`'s hole: `<circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>`.

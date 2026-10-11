@@ -93,6 +93,12 @@ extension V2ComposerWrite {
         AteHaptics.success()
         model.clearDraft()
         model.markEntrySaved()
+        // "I ate it": the dish is in the Journal now, so it leaves Saved. Only once the entry has
+        // landed: a queued one can still fail for good, and the dish must not vanish from both.
+        if case .saved = result, let id = model.fulfilsOwnSave {
+            let own = app.ownSaves
+            Task { await own.fulfil(id: id) }
+        }
         sendLatePhotos()
         // The people go behind the words, never in front of them: queued offline with the entry,
         // and sent once it has landed.

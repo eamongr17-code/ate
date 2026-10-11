@@ -38,6 +38,9 @@ public enum DebugLaunch {
         /// Undo and Redo buttons in the composer's header — XCUITest can neither shake nor
         /// three-finger swipe.
         case undoDrive = "-ate-undo-drive"
+        /// The full designs where the beta layout stands in for them (``AteBeta``): the Feed's
+        /// edition, Saved without your own dishes.
+        case fullEdition = "-ate-full-edition"
         #endif
     }
 

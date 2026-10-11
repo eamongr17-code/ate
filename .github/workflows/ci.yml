@@ -37,7 +37,7 @@ jobs:
           echo "$files"
           match() { echo "$files" | grep -qE "$1" && echo true || echo false; }
           echo "backend=$(match '^(supabase/|AteKit/Sources/|AteKit/Tests/AteKitTests/.*(Contract|Staging)|AteKit/Package|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
-          echo "app=$(match '^(App/|AteKit/|AteUITests/|Ate\.xcodeproj/|Config/|\.swiftlint\.yml|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
+          echo "app=$(match '^(App/|ShareExtension/|AteKit/|AteUITests/|Ate\.xcodeproj/|Config/|\.swiftlint\.yml|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   test:
@@ -62,7 +62,7 @@ jobs:
         run: sudo xcode-select -s /Applications/Xcode_26.5.app || sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
 
       - name: Write Secrets.xcconfig
-        # The example carries the real staging values (publishable by design); prod stays placeholder in CI.
+        # The example carries the real publishable keys (safe by design: RLS is the boundary).
         run: cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
 
       # Package clones only, keyed per commit so main's cache moves forward with every merge (a key on
@@ -166,6 +166,10 @@ jobs:
       # send-push's logic (push.ts) is runtime-free too: fake APNs + fake database, under Node.
       - name: Push sender suites (send-push)
         run: node --test supabase/functions/send-push/*_test.ts
+
+      # read-share's modules are runtime-free too (fetch/model/places are injected), so Node runs them.
+      - name: Share reader suites (read-share)
+        run: node --test supabase/functions/read-share/*_test.ts
 
       # places-search's pure modules, same deal: no runtime APIs, so Node runs them. Only the
       # node-compatible suites are listed — blend_test.ts and vic_filter_test.ts import

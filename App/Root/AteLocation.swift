@@ -33,8 +33,13 @@ final class AteLocation: NSObject, CLLocationManagerDelegate {
         case .denied, .restricted:
             return nil
         case .notDetermined:
+            #if ATE_EXTENSION
+            // The share extension cannot ask (no alert rises over another app); only the app asks.
+            return nil
+            #else
             manager.requestWhenInUseAuthorization()
             guard await authorized() else { return nil }
+            #endif
         default:
             break
         }

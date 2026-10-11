@@ -11,6 +11,8 @@
 		AE0000000000000000001C /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = AE00000000000000000018 /* Supabase */; };
 		AE0000000000000000001D /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = AE00000000000000000019 /* Sentry */; };
 		AE0000000000000000001E /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = AE0000000000000000001A /* TelemetryDeck */; };
+		AE0000000000000000005B /* AteKit in Frameworks */ = {isa = PBXBuildFile; productRef = AE0000000000000000005A /* AteKit */; };
+		AE00000000000000000052 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AE00000000000000000051 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -21,7 +23,28 @@
 			remoteGlobalIDString = AE00000000000000000002;
 			remoteInfo = Ate;
 		};
+		AE0000000000000000005D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AE00000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AE00000000000000000054;
+			remoteInfo = ShareExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AE00000000000000000053 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AE00000000000000000052 /* ShareExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		AE00000000000000000006 /* Ate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ate.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -31,17 +54,79 @@
 		AE00000000000000000020 /* Secrets.example.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.example.xcconfig; sourceTree = "<group>"; };
 		AE00000000000000000030 /* Beta.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Beta.xcconfig; sourceTree = "<group>"; };
 		AE00000000000000000041 /* AteUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AteUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AE00000000000000000051 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AE0000000000000000005C /* Exceptions for "App" folder in "ShareExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				DesignSystem/Components/AteHaptics.swift,
+				DesignSystem/Components/AteHitTarget.swift,
+				DesignSystem/Components/AteRows.swift,
+				DesignSystem/Components/AteSheet.swift,
+				DesignSystem/Components/AteSheetPresentation.swift,
+				DesignSystem/Components/AteSkeletonBar.swift,
+				DesignSystem/Compose/PostingIndicator.swift,
+				DesignSystem/Kit/AteChoiceRow.swift,
+				DesignSystem/Kit/AteFieldPill.swift,
+				DesignSystem/Kit/AteGlassDisc.swift,
+				DesignSystem/Kit/AteInkPill.swift,
+				DesignSystem/Kit/AteLinkCard.swift,
+				DesignSystem/Kit/AtePickPill.swift,
+				DesignSystem/Kit/AteSheetScaffold.swift,
+				DesignSystem/Shapes/ReceiptShapes.swift,
+				"DesignSystem/Tokens/AteColor+Discover.swift",
+				"DesignSystem/Tokens/AteColor+Kit.swift",
+				DesignSystem/Tokens/AteColor.swift,
+				DesignSystem/Tokens/AteFontRegistry.swift,
+				DesignSystem/Tokens/AteIcon.swift,
+				DesignSystem/Tokens/AteMetrics.swift,
+				DesignSystem/Tokens/AteMotion.swift,
+				DesignSystem/Tokens/AteShadow.swift,
+				"DesignSystem/Tokens/AteType+AteWith.swift",
+				"DesignSystem/Tokens/AteType+Chrome.swift",
+				"DesignSystem/Tokens/AteType+Discover.swift",
+				"DesignSystem/Tokens/AteType+Explore.swift",
+				"DesignSystem/Tokens/AteType+Feed.swift",
+				"DesignSystem/Tokens/AteType+Journal.swift",
+				"DesignSystem/Tokens/AteType+Kit.swift",
+				"DesignSystem/Tokens/AteType+LineBox.swift",
+				"DesignSystem/Tokens/AteType+Lists.swift",
+				"DesignSystem/Tokens/AteType+Receipt.swift",
+				"DesignSystem/Tokens/AteType+Styles.swift",
+				"DesignSystem/Tokens/AteType+YouHeader.swift",
+				DesignSystem/Tokens/AteType.swift,
+				DesignSystem/Tokens/AteVector.swift,
+				DesignSystem/Tokens/ScoreStyle.swift,
+				Resources/Fonts/BricolageGrotesque-Variable.ttf,
+				Resources/Fonts/YoungSerif-Regular.ttf,
+				Root/AteFailureAlert.swift,
+				Root/AteLocation.swift,
+				V2/Compose/ComposerPlaceSheet.swift,
+				V2/Compose/PlaceSearchModel.swift,
+			);
+			target = AE00000000000000000054 /* ShareExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AE00000000000000000012 /* App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AE0000000000000000005C /* Exceptions for "App" folder in "ShareExtension" target */,
+			);
 			path = App;
 			sourceTree = "<group>";
 		};
 		AE00000000000000000042 /* AteUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = AteUITests;
+			sourceTree = "<group>";
+		};
+		AE00000000000000000059 /* ShareExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ShareExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -65,6 +150,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AE00000000000000000057 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AE0000000000000000005B /* AteKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -72,6 +165,7 @@
 			isa = PBXGroup;
 			children = (
 				AE00000000000000000012 /* App */,
+				AE00000000000000000059 /* ShareExtension */,
 				AE00000000000000000042 /* AteUITests */,
 				AE00000000000000000005 /* Config */,
 				AE00000000000000000004 /* Products */,
@@ -83,6 +177,7 @@
 			children = (
 				AE00000000000000000006 /* Ate.app */,
 				AE00000000000000000041 /* AteUITests.xctest */,
+				AE00000000000000000051 /* ShareExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -109,10 +204,12 @@
 				AE00000000000000000009 /* Sources */,
 				AE0000000000000000000A /* Frameworks */,
 				AE0000000000000000000B /* Resources */,
+				AE00000000000000000053 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				AE0000000000000000005E /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				AE00000000000000000012 /* App */,
@@ -151,6 +248,29 @@
 			productReference = AE00000000000000000041 /* AteUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		AE00000000000000000054 /* ShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AE00000000000000000055 /* Build configuration list for PBXNativeTarget "ShareExtension" */;
+			buildPhases = (
+				AE00000000000000000056 /* Sources */,
+				AE00000000000000000057 /* Frameworks */,
+				AE00000000000000000058 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AE00000000000000000059 /* ShareExtension */,
+			);
+			name = ShareExtension;
+			packageProductDependencies = (
+				AE0000000000000000005A /* AteKit */,
+			);
+			productName = ShareExtension;
+			productReference = AE00000000000000000051 /* ShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -167,6 +287,9 @@
 					AE00000000000000000040 = {
 						CreatedOnToolsVersion = 26.5;
 						TestTargetID = AE00000000000000000002;
+					};
+					AE00000000000000000054 = {
+						CreatedOnToolsVersion = 26.5;
 					};
 				};
 			};
@@ -192,6 +315,7 @@
 			targets = (
 				AE00000000000000000002 /* Ate */,
 				AE00000000000000000040 /* AteUITests */,
+				AE00000000000000000054 /* ShareExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -205,6 +329,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AE00000000000000000045 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AE00000000000000000058 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -228,6 +359,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AE00000000000000000056 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -235,6 +373,11 @@
 			isa = PBXTargetDependency;
 			target = AE00000000000000000002 /* Ate */;
 			targetProxy = AE0000000000000000004B /* PBXContainerItemProxy */;
+		};
+		AE0000000000000000005E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AE00000000000000000054 /* ShareExtension */;
+			targetProxy = AE0000000000000000005D /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -455,6 +598,81 @@
 			};
 			name = Beta;
 		};
+		AE0000000000000000005F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/ShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9M6K835247;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/ShareExtension-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eamongracias.ate.share;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ATE_EXTENSION";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		AE00000000000000000060 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/ShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9M6K835247;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/ShareExtension-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eamongracias.ate.share;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ATE_EXTENSION";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		AE00000000000000000061 /* Beta */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/ShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9M6K835247;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/ShareExtension-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eamongracias.ate.share;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ATE_EXTENSION";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Beta;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -484,6 +702,16 @@
 				AE00000000000000000048 /* Debug */,
 				AE00000000000000000049 /* Release */,
 				AE0000000000000000004A /* Beta */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AE00000000000000000055 /* Build configuration list for PBXNativeTarget "ShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AE0000000000000000005F /* Debug */,
+				AE00000000000000000060 /* Release */,
+				AE00000000000000000061 /* Beta */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -543,6 +771,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AE00000000000000000016 /* XCRemoteSwiftPackageReference "SwiftSDK" */;
 			productName = TelemetryDeck;
+		};
+		AE0000000000000000005A /* AteKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AteKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

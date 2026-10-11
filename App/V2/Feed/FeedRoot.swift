@@ -34,13 +34,17 @@ struct FeedRoot: View {
                 // rows — never a lazy stack inside a `VStack` (the round-5 main-thread lock).
                 LazyVStack(alignment: .leading, spacing: 0) {
                     Color.clear.frame(height: 0).id(FeedRootAnchor.top)
-                    FeedEditionSections(
-                        edition: stores.edition,
-                        latest: stores.latest,
-                        isSignedIn: app.hasSession,
-                        actions: actions,
-                        onFollowing: openFollowing
-                    )
+                    if AteBeta.isOn {
+                        FeedBetaList(store: stores.everything, actions: actions)
+                    } else {
+                        FeedEditionSections(
+                            edition: stores.edition,
+                            latest: stores.latest,
+                            isSignedIn: app.hasSession,
+                            actions: actions,
+                            onFollowing: openFollowing
+                        )
+                    }
                 }
                 .ateAnimation(AteMotion.fillIn, value: stores.edition.showsAsk)
                 .padding(.bottom, AteMetrics.tabBarScrollInset)
@@ -60,28 +64,46 @@ struct FeedRoot: View {
             inline: AteInlineTitle(title: V2Tab.feed.title, subtitle: subtitle),
             isCollapsed: isCollapsed
         ) {
-            AteGlassItem(icon: .place, label: "Area") { isChoosingArea = true }
-                .accessibilityIdentifier("feed.area")
+            if AteBeta.isOn == false {
+                AteGlassItem(icon: .place, label: "Area") { isChoosingArea = true }
+                    .accessibilityIdentifier("feed.area")
+            }
         }
         .task {
             app.services.analytics(SocialEvents.feedViewed())
+            if AteBeta.isOn {
+                await stores.everything.loadIfNeeded()
+                return
+            }
             stores.edition.beginVisit()
             async let sections: Void = stores.edition.loadIfNeeded()
             await stores.latest.loadIfNeeded()
             await sections
         }
+        // Beta: the register includes your own receipts, so one you just posted goes straight in.
+        .onReceive(NotificationCenter.default.publisher(for: .ateV2EntryChanged)) { _ in
+            guard AteBeta.isOn else { return }
+            Task { await stores.everything.refresh() }
+        }
         // Read ahead, so the area sheet opens with its cities in it.
-        .task { await stores.area.loadCitiesIfNeeded() }
+        .task {
+            guard AteBeta.isOn == false else { return }
+            await stores.area.loadCitiesIfNeeded()
+        }
         // Back from a category page or What you follow: the set may have moved.
-        .onAppear { Task { await stores.edition.refreshCravings() } }
+        .onAppear {
+            guard AteBeta.isOn == false else { return }
+            Task { await stores.edition.refreshCravings() }
+        }
         .sheet(isPresented: $isChoosingArea) {
             FeedAreaSheet(area: stores.area) { pick in
                 Task { await choose(pick, in: stores) }
             }
         }
         .sheet(item: $acting) { entry in
-            FeedSlipActionsSheet(pressed: entry, latest: stores.latest, app: app) { authorID in
-                stores.latest.removeAuthor(authorID)
+            let list = AteBeta.isOn ? stores.everything : stores.latest
+            FeedSlipActionsSheet(pressed: entry, latest: list, app: app) { authorID in
+                list.removeAuthor(authorID)
             }
         }
     }
@@ -89,6 +111,7 @@ struct FeedRoot: View {
     /// The city under the title — nothing until the opening is settled, so a "Near me" it is about
     /// to take back never flashes; "Near me" once that is the pick.
     private var subtitle: String? {
+        guard AteBeta.isOn == false else { return nil }
         let area = stores.area
         guard area.hasOpened else { return nil }
         return area.location == .nearMe ? FeedAreaSheet.nearMeTitle : area.locationTitle
@@ -129,6 +152,10 @@ struct FeedRoot: View {
     }
 
     private func refresh(_ stores: V2FeedStores) async {
+        if AteBeta.isOn {
+            await stores.everything.refresh()
+            return
+        }
         async let cities: Void = stores.area.loadCities()
         async let sections: Void = stores.edition.refresh()
         await stores.latest.refresh()

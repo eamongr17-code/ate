@@ -92,4 +92,26 @@ extension AteTextStyle {
             textStyle: .title2, maximumSize: size
         )
     }
+
+    // Share to Ate (`share-to-ate.html`) — the card that rises over another app.
+
+    /// The card's title, "Save to Ate" — `.h` at `400 20px/1 'Young Serif'`, `.h`'s `-.035em`.
+    static let kitShareTitle = AteTextStyle(
+        voice: .heading, size: 20, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title3,
+        maximumSize: 26
+    )
+    /// …and the word under its tick — `.done`: Young Serif at 20, `line-height:1`. Capped: it sits in a
+    /// fixed 170 square.
+    static let kitShareDone = AteTextStyle(
+        voice: .heading, size: 20, weight: 800, trackingEm: 0, lineHeight: 1.0, textStyle: .title3,
+        maximumSize: 26
+    )
+    /// Where a shared post came from — `.linkcard .ui`: Bricolage 600 at 15.
+    static let kitLinkTitle = AteTextStyle(
+        voice: .display, size: 15, weight: 600, trackingEm: 0, lineHeight: 1.5, textStyle: .subheadline
+    )
+    /// A picked value's second line — a place's locality under its name: `.meta` at 12.
+    static let kitPickDetail = AteTextStyle(
+        voice: .display, size: 12, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .caption
+    )
 }
