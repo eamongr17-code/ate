@@ -45,10 +45,9 @@ struct SavedAddSheet: View {
             isPresented: $isPickingPlace,
             directory: app.services.places,
             title: SavedOwnCopy.placeTitle,
-            selected: { place?.id }
-        ) { picked in
-            place = picked
-        }
+            selected: { place?.id },
+            onPick: { picked in place = picked }
+        )
         .v2FailureAlert($failure, analytics: app.services.analytics)
     }
 
