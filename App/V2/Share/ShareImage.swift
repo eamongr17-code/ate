@@ -34,21 +34,50 @@ enum InstagramStories {
         return UIApplication.shared.canOpenURL(url)
     }
 
-    /// The pasteboard items, expiring after five minutes as Meta recommends. With a `background` the
-    /// photo fills the story and the sticker floats on it; without one the story is the coral ground.
+    /// The pasteboard items, expiring after five minutes as Meta recommends. A `sticker` floats on the
+    /// story, movable; a `background` fills it (the photo, or a whole card). With no background the
+    /// story is the coral ground, which the person can change in Instagram.
     @MainActor
-    static func share(sticker: UIImage, background: UIImage? = nil) -> Bool {
-        guard let url = shareURL, let png = sticker.pngData() else { return false }
-        var items: [String: Any] = ["com.instagram.sharedSticker.stickerImage": png]
+    static func share(sticker: UIImage?, background: UIImage? = nil) -> Bool {
+        guard let url = shareURL else { return false }
+        var items: [String: Any] = [:]
+        if let png = sticker?.pngData() {
+            items["com.instagram.sharedSticker.stickerImage"] = png
+        }
         if let background, let jpeg = background.jpegData(compressionQuality: 0.92) {
             items["com.instagram.sharedSticker.backgroundImage"] = jpeg
         } else {
             items["com.instagram.sharedSticker.backgroundTopColor"] = groundHex
             items["com.instagram.sharedSticker.backgroundBottomColor"] = groundHex
         }
+        guard items["com.instagram.sharedSticker.stickerImage"] != nil
+            || items["com.instagram.sharedSticker.backgroundImage"] != nil else { return false }
         UIPasteboard.general.setItems([items], options: [.expirationDate: Date().addingTimeInterval(5 * 60)])
         UIApplication.shared.open(url)
         return true
+    }
+}
+
+/// **TikTok and Instagram's own composer**, from the share row. Neither takes a picture straight from
+/// another app without its SDK (TikTok's needs a developer app Eamon has not made yet), so the card is
+/// saved to Photos first and the app opened: Instagram onto that very photo, TikTok onto its camera,
+/// where the newest photo is first.
+enum ShareApps {
+    static let tiktok = URL(string: "tiktok://")
+    /// Instagram's library hook: its composer, opened on one photo in the library.
+    static func instagram(libraryIdentifier: String) -> URL? {
+        var components = URLComponents()
+        components.scheme = "instagram"
+        components.host = "library"
+        components.queryItems = [URLQueryItem(name: "LocalIdentifier", value: libraryIdentifier)]
+        return components.url
+    }
+
+    /// Opens the app; `false` when it is not on the phone.
+    @MainActor
+    static func open(_ url: URL?) async -> Bool {
+        guard let url else { return false }
+        return await UIApplication.shared.open(url)
     }
 }
 

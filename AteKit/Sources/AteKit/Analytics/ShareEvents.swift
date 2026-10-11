@@ -14,11 +14,19 @@ public enum ShareDestination: String, Sendable, CaseIterable, Codable {
     case clipboard
     /// "More": the system sheet, whichever app it picked.
     case system
+    /// Saved to Photos, then TikTok opened to post it.
+    case tiktok
+    /// Saved to Photos, then Instagram's own composer opened on it.
+    case instagram
 }
 
 /// Which page left: the receipt on the entry's photo, or the receipt alone on the coral ground.
 public enum ShareSticker: String, Sendable, CaseIterable, Codable {
+    /// The old single page (before the share sheet's three cards); kept so old events still decode.
     case photo, slip
+    /// The share sheet's three cards (11 Oct): the receipt alone, the ready-made 9:16 story, and the
+    /// 4:5 post.
+    case sticker, story, post
 }
 
 /// **The share loop, counted** (PRODUCT.md principle 6: the receipt is the marketing). Built here so
@@ -26,15 +34,21 @@ public enum ShareSticker: String, Sendable, CaseIterable, Codable {
 public enum ShareEvents {
     /// A receipt left the app — the north-star event, under its existing name, now carrying where it
     /// went and which sticker it was. `source` is the screen the share started on.
+    /// `look` is the card's colour choice (the paper, or the story's ground); `adjusted` says the
+    /// photo was moved or zoomed off its automatic crop.
     public static func receiptShared(
-        entryID: UUID, source: ReceiptShareSource, destination: ShareDestination, sticker: ShareSticker
+        entryID: UUID, source: ReceiptShareSource, destination: ShareDestination, sticker: ShareSticker,
+        look: String? = nil, adjusted: Bool = false
     ) -> AnalyticsEvent {
-        AnalyticsEvent(name: "receipt_shared", parameters: [
+        var parameters = [
             "entry_id": entryID.uuidString.lowercased(),
             "source": source.rawValue,
             "destination": destination.rawValue,
             "sticker": sticker.rawValue
-        ])
+        ]
+        if let look { parameters["look"] = look }
+        if adjusted { parameters["adjusted"] = "true" }
+        return AnalyticsEvent(name: "receipt_shared", parameters: parameters)
     }
 
     /// A list left the app, as a link (or its cover, to Stories). `count` is how many dishes it holds.

@@ -2,7 +2,8 @@
 import AteKit
 import SwiftUI
 
-/// **Share** (10 Oct, approved): the receipt on its stage, the two story pages and the row.
+/// **Share** (11 Oct, approved): the receipt on its stage, the ink share sheet's three cards and its
+/// row.
 extension KitGalleryScreen {
     @ViewBuilder
     var share: some View {
@@ -15,15 +16,36 @@ extension KitGalleryScreen {
             .frame(maxWidth: .infinity)
             .ateAccentGround(AteColor.coral)
         }
-        section("Story pages") {
+        section("Share cards") {
             ScrollView(.horizontal) {
-                HStack(spacing: AteMetrics.regular) {
-                    storyPage(AteShareStory(receipt: .preview, photo: AtePhoto.swatches.first))
-                    storyPage(AteShareStory(receipt: .preview))
+                HStack(alignment: .center, spacing: AteMetrics.regular) {
+                    AteShareCard(format: .sticker, receipt: .preview, look: AteShareLook(paper: .butter))
+                    AteShareCardPreview(
+                        card: AteShareCard(format: .story, receipt: .preview, look: AteShareLook(ground: .coral)),
+                        width: V2ShareSheetMetrics.width(.story)
+                    )
+                    AteShareCardPreview(
+                        card: AteShareCard(format: .post, receipt: .preview), width: V2ShareSheetMetrics.width(.post)
+                    )
                 }
-                .padding(.horizontal, AteMetrics.gutter)
+                .padding(AteMetrics.gutter)
             }
             .scrollIndicators(.hidden)
+            .background(AteColor.ink)
+        }
+        section("Share to, on the ink sheet") {
+            AteShareRow(actions: [
+                .init(id: "stories", icon: .camera, title: "Stories", brand: .instagram) {},
+                .init(id: "tiktok", icon: .music, title: "TikTok", brand: .tiktok) {},
+                .init(id: "messages", icon: .messageCircle, title: "Messages", brand: .messages) {},
+                .init(id: "instagram", icon: .library, title: "Instagram", brand: .instagram) {},
+                .init(id: "link", icon: .link, title: "Copy link") {},
+                .init(id: "save", icon: .download, title: "Save image") {},
+                .init(id: "more", icon: .more, title: "More") {}
+            ])
+            .padding(.vertical, AteMetrics.section)
+            .environment(\.atePalette, .ink)
+            .background(AteColor.ink)
         }
         section("Share to") {
             AteShareRow(actions: [
@@ -38,17 +60,5 @@ extension KitGalleryScreen {
             .ateAccentGround(AteColor.coral)
         }
     }
-
-    /// A story page at half size.
-    private func storyPage(_ story: AteShareStory) -> some View {
-        AteScaledLayout(scale: KitShareMetrics.pageScale) {
-            story.scaleEffect(KitShareMetrics.pageScale)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: AteShareStoryMetrics.radius, style: .continuous))
-    }
-}
-
-private enum KitShareMetrics {
-    static let pageScale: CGFloat = 0.5
 }
 #endif

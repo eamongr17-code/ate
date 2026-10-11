@@ -25,6 +25,10 @@ struct AtePrintedReceipt: View {
     var isFeeding = false
     /// The height the stage has to fill, when known: the photo shrinks so photo and receipt fit it.
     var room: CGFloat?
+    /// The paper's scale on screen: by default it runs 38 from each edge; the share sheet's sticker
+    /// card sets its own.
+    var paperScale: CGFloat?
+    var paper: AteSharePaper = .white
 
     @Environment(\.atePhotoViewer) private var showPhotos
 
@@ -42,19 +46,20 @@ struct AtePrintedReceipt: View {
                     .scaleEffect(1 + (ReceiptEntrance.photoDrop - 1) * (1 - pose.photos))
                     .opacity(pose.photos)
             }
-            paper
+            printedPaper
         }
         .environment(\.atePalette, .accent(AteColor.coral))
     }
 
     @ViewBuilder
-    private var paper: some View {
-        let slip = AteScaledLayout(scale: AtePrintedReceiptStage.scale) {
+    private var printedPaper: some View {
+        let scale = paperScale ?? AtePrintedReceiptStage.scale
+        let slip = AteScaledLayout(scale: scale) {
             AteShareSlip(
                 receipt: receipt, isPrinting: isPrinting, breathes: breathes, onAddPlace: onAddPlace,
-                onFixDish: onFixDish
+                onFixDish: onFixDish, paper: paper
             )
-                .scaleEffect(AtePrintedReceiptStage.scale)
+                .scaleEffect(scale)
         }
         if isFeeding {
             // The paper rises out of a slot at its own foot: below the foot is inside the printer.
@@ -86,6 +91,9 @@ struct AtePrintedReceiptStage: View {
     var enters = false
     /// The height the stage has to fill (the room between the corners and the foot), when known.
     var room: CGFloat?
+    /// The paper's own scale (the share sheet's sticker card), in place of edge to edge.
+    var paperScale: CGFloat?
+    var paper: AteSharePaper = .white
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pose: ReceiptPose
@@ -100,7 +108,9 @@ struct AtePrintedReceiptStage: View {
         onAddPlace: (() -> Void)? = nil,
         onFixDish: ((AteReceipt.Item) -> Void)? = nil,
         enters: Bool = false,
-        room: CGFloat? = nil
+        room: CGFloat? = nil,
+        paperScale: CGFloat? = nil,
+        paper: AteSharePaper = .white
     ) {
         self.receipt = receipt
         self.photos = photos
@@ -110,6 +120,8 @@ struct AtePrintedReceiptStage: View {
         self.onFixDish = onFixDish
         self.enters = enters
         self.room = room
+        self.paperScale = paperScale
+        self.paper = paper
         // Its first frame is the first frame of its entrance: never drawn whole, then snatched back.
         let feeds = enters && UIAccessibility.isReduceMotionEnabled == false
         _pose = State(initialValue: feeds ? .start : .settled)
@@ -119,7 +131,8 @@ struct AtePrintedReceiptStage: View {
     var body: some View {
         AtePrintedReceipt(
             receipt: receipt, photos: photos, isPrinting: isPrinting, breathes: breathes,
-            onAddPlace: onAddPlace, onFixDish: onFixDish, pose: pose, isFeeding: isFeeding, room: room
+            onAddPlace: onAddPlace, onFixDish: onFixDish, pose: pose, isFeeding: isFeeding, room: room,
+            paperScale: paperScale, paper: paper
         )
         .task { await enter() }
     }
@@ -215,13 +228,6 @@ struct AteScaledLayout: Layout {
         guard let child = subviews.first else { return }
         let inner = ProposedViewSize(width: bounds.width / scale, height: bounds.height / scale)
         child.place(at: CGPoint(x: bounds.midX, y: bounds.midY), anchor: .center, proposal: inner)
-    }
-}
-
-extension AteReceipt {
-    /// The share screen's title (Eamon, 10 Oct): "Share your dish", or "dishes" for more than one.
-    var shareTitle: String {
-        items.count > 1 ? "Share your dishes" : "Share your dish"
     }
 }
 

@@ -68,6 +68,10 @@ enum AteIcon: String, CaseIterable {
     case download
     /// Messages, in the share row — Lucide's message-circle.
     case messageCircle
+    /// TikTok, in the share row (no brand marks) — Lucide's music-2.
+    case music
+    /// The share card's Adjust — Lucide's crop.
+    case crop
 
     /// What is stroked, in draw order.
     var strokes: [Path] {
@@ -197,6 +201,10 @@ M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.70
              Self.path("m7 10 5 5 5-5")]
         case .messageCircle: // message-circle
             [Self.path("M7.9 20A9 9 0 1 0 4 16.1L2 22Z")]
+        case .music: // music-2
+            [AteVector.circle(8, 18, 4), Self.path("M12 18V2l7 4")]
+        case .crop: // crop
+            [Self.path("M6 2v14a2 2 0 0 0 2 2h14"), Self.path("M18 22V8a2 2 0 0 0-2-2H2")]
         case .heart: // heart
             [Self.path("""
 M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 \

@@ -1,12 +1,12 @@
 import AteKit
 import SwiftUI
+import UIKit
 
-/// **Printed** — the composer's second face, inside the same sheet: the new entry's receipt on the
-/// coral ground, lying straight, the photos clear above it, centred in the room between the corner
-/// row and the foot. Close is the glass disc top left; the foot is the row of ways out
-/// (``V2ReceiptShareRow``: Instagram Stories, Copy link, Messages, Save image, More), live once the
-/// receipt has printed — nothing opens before a person can share (Eamon, 10 Oct) — or "Print it
-/// again" when a print could not finish.
+/// **Printed** — the composer's second face, inside the same sheet: the ink share sheet
+/// (``V2ShareSheet``, 11 Oct, approved), with the new entry's receipt printing on its sticker card.
+/// The story and post cards and the row of ways out come live once the receipt has printed —
+/// nothing opens before a person can share (Eamon, 10 Oct) — or "Print it again" takes the row's
+/// place when a print could not finish. No close: the sheet goes down by its handle.
 ///
 /// The rules are the current Summary's (``EntrySummaryStore``), with build 87's speed change: the
 /// face comes up the moment the words are saved, and the receipt enters once — fed out of the printer
@@ -47,9 +47,11 @@ struct V2ComposerPrinted: View {
     @State private var fixing: EntryModel.Correcting?
     @State private var appearedAt = ContinuousClock.now
     @State private var hasCountedEntrance = false
+    /// The first photo as pixels, for the share cards.
+    @State private var photo: UIImage?
+    @State private var photoLoaded = false
     /// The receipt was whole the moment the face came up (the tick's dots covered the sort).
     private let printedOnArrival: Bool
-    @Environment(\.dismiss) private var dismiss
 
     init(app: AppModel, handoff: Handoff) {
         self.app = app
@@ -66,22 +68,40 @@ struct V2ComposerPrinted: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AteSheetHeader(title: receipt.shareTitle) { done() }
-            // The photo and the receipt, centred in the room between the corners and the foot (a
-            // long one scrolls).
-            GeometryReader { room in
-                ScrollView {
-                    stage(room: room.size.height - 2 * AteMetrics.section)
-                        .padding(.vertical, AteMetrics.section)
-                        .frame(maxWidth: .infinity, minHeight: room.size.height)
-                }
-                .scrollBounceBehavior(.basedOnSize)
-                .scrollIndicators(.hidden)
-            }
-            foot
+            Spacer(minLength: AteMetrics.section)
+            V2ShareSheet(
+                receipt: receipt,
+                photo: photo,
+                source: .summary,
+                isLive: store.phase == .printed && photoLoaded,
+                printing: V2ShareSheet.Printing(
+                    isPrinting: store.phase != .printed,
+                    breathes: store.phase == .sorting,
+                    onAddPlace: store.phase == .needsPlace && store.isBusy == false
+                        ? { isPickingPlace = true } : nil,
+                    onFixDish: store.phase == .printed ? { item in
+                        guard store.isBusy == false, isSharing == false else { return }
+                        fixing = EntryModel.Correcting(item: item)
+                    } : nil,
+                    enters: true
+                ),
+                reprint: store.phase == .stalled ? V2PrintedFoot.Pill(
+                    title: "Print it again", isEnabled: store.isBusy == false, identifier: "summary.reprint"
+                ) {
+                    Task { await store.reprint() }
+                } : nil,
+                analytics: services.analytics,
+                onFirstShare: send,
+                isPresenting: $isSharing
+            )
+            .accessibilityIdentifier("summary.receipt")
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .ateAccentGround(AteColor.coral)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .background(AteColor.ink)
+        .task {
+            photo = await SharePhotos.image(handoff.photos.first)
+            photoLoaded = true
+        }
         // The sort's own reply first (it carries the card); the store's re-reads only if it never
         // comes — nothing polls while the reply is on its way.
         .task {
@@ -107,50 +127,6 @@ struct V2ComposerPrinted: View {
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("summary")
-    }
-
-    /// The receipt — on the paper from the first frame: its skeleton lines while it sorts, waits for
-    /// a place, or could not finish; the printed lines, in place, once the sort lands.
-    private func stage(room: CGFloat) -> some View {
-        AtePrintedReceiptStage(
-            receipt: receipt,
-            photos: Array(handoff.photos.prefix(2)),
-            isPrinting: store.phase != .printed,
-            breathes: store.phase == .sorting,
-            onAddPlace: store.phase == .needsPlace && store.isBusy == false
-                ? { isPickingPlace = true } : nil,
-            onFixDish: store.phase == .printed ? { item in
-                guard store.isBusy == false, isSharing == false else { return }
-                fixing = EntryModel.Correcting(item: item)
-            } : nil,
-            enters: true,
-            room: room
-        )
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("summary.receipt")
-    }
-
-    /// The foot: the ways out — off while there is nothing to send — or, when a print could not
-    /// finish, "Print it again".
-    @ViewBuilder
-    private var foot: some View {
-        if store.phase == .stalled {
-            V2PrintedFoot(pill: V2PrintedFoot.Pill(
-                title: "Print it again", isEnabled: store.isBusy == false, identifier: "summary.reprint"
-            ) {
-                Task { await store.reprint() }
-            })
-        } else {
-            V2ReceiptShareRow(
-                receipt: receipt, photos: handoff.photos, source: .summary,
-                isEnabled: store.phase == .printed, analytics: services.analytics,
-                onFirstShare: send, isPresenting: $isSharing
-            )
-            .padding(.horizontal, AteMetrics.gutter)
-            .padding(.top, AteSheetScaffoldMetrics.footTop)
-            .padding(.bottom, AteSheetScaffoldMetrics.bareBottom)
-            .accessibilityIdentifier("summary.share")
-        }
     }
 
     /// Dish rows and scores only, never a note.
@@ -189,12 +165,6 @@ struct V2ComposerPrinted: View {
         guard let event = store.share() else { return }
         services.analytics(event)
         store.shareEnded()
-    }
-
-    /// Close, top left — counted once, however the sheet goes.
-    private func done() {
-        countDone()
-        dismiss()
     }
 
     private func countDone() {

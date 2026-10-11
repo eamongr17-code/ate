@@ -52,26 +52,55 @@ struct MessagesComposer: UIViewControllerRepresentable {
 enum PhotoSaver {
     @MainActor
     static func save(_ images: [UIImage]) async -> Bool {
+        await saveReturningIdentifiers(images) != nil
+    }
+
+    /// The same, handing back each new photo's library identifier (for Instagram's library hook).
+    /// `nil` when nothing could be saved.
+    @MainActor
+    static func saveReturningIdentifiers(_ images: [UIImage]) async -> [String]? {
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
-        guard status == .authorized || status == .limited else { return false }
+        guard status == .authorized || status == .limited else { return nil }
         let pages = images.compactMap { $0.pngData() }
+        let made = CreatedAssets()
         do {
-            try await PHPhotoLibrary.shared().performChanges(creating(pages))
-            return true
+            try await PHPhotoLibrary.shared().performChanges(creating(pages, into: made))
+            return made.identifiers
         } catch {
-            return false
+            return nil
         }
     }
 
     /// The change block, built outside the main actor. Photos runs it on its own queue; a closure
     /// written inside `save` would inherit `@MainActor` and Swift 6 traps the moment it runs there
     /// (the build-111 Save image crash).
-    private nonisolated static func creating(_ pages: [Data]) -> @Sendable () -> Void {
+    private nonisolated static func creating(_ pages: [Data], into made: CreatedAssets) -> @Sendable () -> Void {
         {
             for data in pages {
                 guard let image = UIImage(data: data) else { continue }
-                PHAssetChangeRequest.creationRequestForAsset(from: image)
+                let request = PHAssetChangeRequest.creationRequestForAsset(from: image)
+                if let identifier = request.placeholderForCreatedAsset?.localIdentifier {
+                    made.append(identifier)
+                }
             }
         }
+    }
+}
+
+/// The identifiers Photos hands out inside its change block, read once the block has finished.
+private final class CreatedAssets: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [String] = []
+
+    var identifiers: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return stored
+    }
+
+    func append(_ identifier: String) {
+        lock.lock()
+        stored.append(identifier)
+        lock.unlock()
     }
 }
