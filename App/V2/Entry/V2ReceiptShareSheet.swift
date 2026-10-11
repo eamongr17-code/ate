@@ -2,7 +2,7 @@ import AteKit
 import SwiftUI
 
 /// **Share, from your own entry** (10 Oct, approved): the Printed screen again, as a sheet — close
-/// top left, the receipt large on the coral ground with its photos above it, and the row of ways out
+/// top left, the receipt large on the coral ground across its first photo, and the row of ways out
 /// at the foot (``V2ReceiptShareRow``). One receipt and one share surface in the app: what prints
 /// after a review and what this shows are the same drawing.
 ///
@@ -23,7 +23,9 @@ struct V2ReceiptShareSheet: View {
             AteSheetHeader(title: receipt.shareTitle) { dismiss() }
             GeometryReader { room in
                 ScrollView {
-                    AtePrintedReceiptStage(receipt: receipt, photos: photos)
+                    AtePrintedReceiptStage(
+                        receipt: receipt, photos: photos, room: room.size.height - 2 * AteMetrics.section
+                    )
                         .padding(.vertical, AteMetrics.section)
                         .frame(maxWidth: .infinity, minHeight: room.size.height)
                         .accessibilityElement(children: .contain)

@@ -3,10 +3,10 @@ import SwiftUI
 
 /// **The receipt** (10 Oct, Eamon: one receipt, "simplify it a bit… it needs to look good in a small
 /// space"): what prints after a review, what the entry page shares, and what is stuck on a photo.
-/// Dish left in the heading voice; every score in the same box in a fixed column, tabular digits,
-/// so nothing hangs off anything (a 5.0 filled butter and a 6 brick, the rest paper with a
-/// hairline; an unscored dish an empty dashed box, never a number — scores are never inferred); one dashed rule;
-/// one line of fine print (the place and its suburb, never the street); the signature and the
+/// Dish left in the heading voice; every score a star and its number in one fixed column, tabular
+/// digits, so nothing hangs off anything (a 5.0 filled butter and a 6 brick, the rest bare ink; an
+/// unscored dish an empty slot, never a number — scores are never inferred); one dashed rule; the
+/// place, and its suburb on the line under it (never the street, never cut); the signature and the
 /// wordmark. No order number, date, count or average.
 ///
 /// **Printing** (the Summary while the sorter works): skeleton bars where the dishes will be, under
@@ -80,22 +80,21 @@ struct AteShareSlip: View {
     @ViewBuilder
     private var placeLine: some View {
         if receipt.place.isEmpty == false {
-            HStack(spacing: AteMetrics.tight) {
+            // The place on its line, the suburb on the next (11 Oct, Eamon: "the suburb getting cut
+            // off… can't happen"). Either wraps before it is ever cut.
+            VStack(alignment: .leading, spacing: 0) {
                 Text(receipt.place)
                     .ateText(.shareSlipLabel)
                     .foregroundStyle(AtePalette.slip.fg)
-                    .lineLimit(1)
-                    .layoutPriority(1)
+                    .fixedSize(horizontal: false, vertical: true)
                 if let locality = receipt.locality, locality.isEmpty == false {
-                    Text(verbatim: "·")
-                        .ateText(.shareSlipLabel)
-                        .foregroundStyle(AtePalette.slip.muted)
                     Text(locality)
                         .ateText(.shareSlipLabel)
                         .foregroundStyle(AtePalette.slip.muted)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         } else if let onAddPlace {
             ComposerKey(
                 title: "Place",
@@ -133,10 +132,10 @@ struct AteShareSlip: View {
     }
 }
 
-/// A score's box in the receipt's column: the same size for every line. Every score sits in a
-/// hairline; only a perfect 5.0 (butter) and the secret 6 (brick, white numerals) are filled, in the
-/// score token's own colours (Eamon, 10 Oct: not "the best one", which read as random). No score at
-/// all is an empty dashed box.
+/// A score in the receipt's column: a star, then the number (11 Oct, Eamon: "no one is gonna know
+/// what 3.5 is"). Every score has the same slot, so the numbers stack. Only a perfect 5.0 (butter)
+/// and the secret 6 (brick, white) are filled, in the score token's own colours; every other score
+/// is bare ink on the paper. No score at all leaves the slot empty: scores are never inferred.
 struct AteShareScore: View {
     let score: Rating?
 
@@ -146,27 +145,25 @@ struct AteShareScore: View {
     var body: some View {
         ZStack {
             if let score {
-                Text(ScoreFormat.halfStep(score.value))
-                    .ateText(.shareSlipScore)
-                    .monospacedDigit()
-                    .foregroundStyle(isFilled ? ScoreStyle.of(score).ink : AtePalette.slip.fg)
+                let ink = isFilled ? ScoreStyle.of(score).ink : AtePalette.slip.fg
+                HStack(spacing: AteShareSlipMetrics.starGap) {
+                    AteIcon.starFilled.view(size: AteShareSlipMetrics.star)
+                    Text(ScoreFormat.halfStep(score.value))
+                        .ateText(.shareSlipScore)
+                        .monospacedDigit()
+                }
+                .foregroundStyle(ink)
             }
         }
         .frame(width: AteShareSlipMetrics.scoreColumn, height: AteShareSlipMetrics.scoreBox)
         .background {
-            let shape = RoundedRectangle(cornerRadius: AteShareSlipMetrics.markRadius, style: .continuous)
             if let score, isFilled {
-                shape.fill(ScoreStyle.of(score).fill)
-            } else if score != nil {
-                shape.strokeBorder(AtePalette.slip.hairline, lineWidth: AteShareSlipMetrics.hairline)
-            } else {
-                shape.strokeBorder(
-                    AtePalette.slip.hairline, style: StrokeStyle(lineWidth: AteShareSlipMetrics.hairline, dash: [3, 3])
-                )
+                RoundedRectangle(cornerRadius: AteShareSlipMetrics.markRadius, style: .continuous)
+                    .fill(ScoreStyle.of(score).fill)
             }
         }
         .padding(.top, AteShareSlipMetrics.scoreLift)
-        .accessibilityLabel(score.map { ScoreFormat.halfStep($0.value) } ?? "No score")
+        .accessibilityLabel(score.map { "\(ScoreFormat.halfStep($0.value)) stars" } ?? "No score")
     }
 }
 
@@ -225,14 +222,17 @@ enum AteShareSlipMetrics {
     static let bottom: CGFloat = 12
     static let radius: CGFloat = 10
     static let wordmark: CGFloat = 12
-    /// The score column: every box the same width and height, so the numbers stack.
-    static let scoreColumn: CGFloat = 38
-    static let scoreBox: CGFloat = 22
+    /// The score column: every slot the same width and height, so the numbers stack. Wide enough for
+    /// the star and "4.5".
+    static let scoreColumn: CGFloat = 48
+    static let scoreBox: CGFloat = 24
+    /// The star before every score, and the air between it and the number.
+    static let star: CGFloat = 11
+    static let starGap: CGFloat = 2
     static let markRadius: CGFloat = 5
     /// A dish name held under a finger: how dark its plate, and how far past the words it reaches.
     static let pressedOpacity: Double = 0.08
     static let pressedReach: CGFloat = 4
-    static let hairline: CGFloat = 1
     /// The box sits a hair below the dish's cap height.
     static let scoreLift: CGFloat = 1
     static let placeKeyIcon: CGFloat = 16
