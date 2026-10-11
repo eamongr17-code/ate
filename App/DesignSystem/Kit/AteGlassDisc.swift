@@ -22,6 +22,8 @@ struct AteGlassDisc: View {
     /// The tap landed and the thing is under way: three stepping dots replace the glyph.
     var isBusy = false
     var identifier: String?
+    /// The disc's diameter: the hit target, or the share sheet's larger row (``AteShareRowMetrics``).
+    var size: CGFloat = AteMetrics.hit
     let action: () -> Void
 
     @Environment(\.atePalette) private var palette
@@ -36,7 +38,7 @@ struct AteGlassDisc: View {
                 }
             }
             .foregroundStyle(role == .primary ? palette.inverted : palette.fg)
-            .frame(width: AteMetrics.hit, height: AteMetrics.hit)
+            .frame(width: size, height: size)
             .glassEffect(glass, in: .circle)
             .contentShape(.circle)
         }

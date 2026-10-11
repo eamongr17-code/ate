@@ -42,6 +42,14 @@ enum AteColor {
     /// that is not paper.
     static let viewerGround = Color.black
 
+    /// **Other apps' own colours**, on their discs in the ink share sheet's row (11 Oct, approved:
+    /// Spotify's row). Only there; the glyphs on them are still Ate's.
+    static let instagramColours = [
+        Color(hex: 0xFDF497), Color(hex: 0xFD5949), Color(hex: 0xD6249F), Color(hex: 0x285AEB)
+    ]
+    static let tiktok = Color.black
+    static let messagesGreen = Color(hex: 0x34C759)
+
     /// Near-black. The text colour on every accent and on every piece of receipt paper, in both
     /// modes — and the fill of the `+` button and the one ink pill per sheet.
     static let ink = Color(hex: 0x24141F)
@@ -176,6 +184,10 @@ struct AtePaperTone: Sendable {
     static let slip = AtePaperTone(fill: AteColor.slip, contact: AteColor.contact)
     /// Receipt paper — the place menu, Welcome.
     static let paper = AtePaperTone(fill: AteColor.paper, contact: AteColor.contact)
+    /// A receipt printed on an accent (the share sticker's paper choice): ink on it, as on every accent.
+    static func accent(_ colour: Color) -> AtePaperTone {
+        AtePaperTone(fill: colour, contact: AteColor.contact)
+    }
 }
 
 /// The six role colours, scoped to a surface. The direct equivalent of the prototype's CSS custom
@@ -262,6 +274,21 @@ struct AtePalette: Equatable, Sendable {
         palette.field = Color(light: AteColor.fieldLight, dark: AteColor.groundDark)
         return palette
     }()
+
+    /// **The ink sheet** (11 Oct, approved): the share sheet's ground, ink in both modes, so the cards
+    /// and the apps' own colours carry the colour. Light type, translucent chips.
+    static let ink = AtePalette(
+        ground: AteColor.ink,
+        fg: AteColor.fgDark,
+        muted: AteColor.mutedDark,
+        chip: Color.white.opacity(0.12),
+        field: Color.white.opacity(0.12),
+        hairline: Color.white.opacity(0.12),
+        inverted: AteColor.ink,
+        rule: AteColor.fgDark,
+        solid: AteColor.fgDark,
+        raised: Color.white.opacity(0.12)
+    )
 
     /// An accent ground — Share, Welcome. Ink text, white chips, in both modes.
     static func accent(_ colour: Color) -> AtePalette {

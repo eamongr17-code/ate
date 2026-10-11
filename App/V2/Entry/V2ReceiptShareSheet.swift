@@ -1,58 +1,35 @@
 import AteKit
 import SwiftUI
+import UIKit
 
-/// **Share, from your own entry** (10 Oct, approved): the Printed screen again, as a sheet — close
-/// top left, the receipt large on the coral ground across its first photo, and the row of ways out
-/// at the foot (``V2ReceiptShareRow``). One receipt and one share surface in the app: what prints
-/// after a review and what this shows are the same drawing.
+/// **Share, from your own entry** (11 Oct, approved): the ink share sheet (``V2ShareSheet``) over the
+/// entry page, sized to its cards and row. One share surface in the app: what follows a review and
+/// what this shows are the same sheet.
 ///
-/// The photos are fetched before the row is live, so the page that leaves is the page on screen.
+/// The first photo is fetched before the row is live, so the card that leaves is the card on screen.
 struct V2ReceiptShareSheet: View {
     let receipt: AteReceipt
-    /// The entry's photos, in order — fetched here.
+    /// The entry's photos, in order. The first goes on the cards.
     var photoURLs: [URL] = []
     var source: ReceiptShareSource = .entry
     let analytics: AnalyticsRecorder
 
-    @State private var photos: [AtePhoto] = []
-    @State private var photosLoaded = false
-    @Environment(\.dismiss) private var dismiss
+    @State private var photo: UIImage?
+    @State private var photoLoaded = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            AteSheetHeader(title: receipt.shareTitle) { dismiss() }
-            GeometryReader { room in
-                ScrollView {
-                    AtePrintedReceiptStage(
-                        receipt: receipt, photos: photos, room: room.size.height - 2 * AteMetrics.section
-                    )
-                        .padding(.vertical, AteMetrics.section)
-                        .frame(maxWidth: .infinity, minHeight: room.size.height)
-                        .accessibilityElement(children: .contain)
-                        .accessibilityIdentifier("share.receipt")
-                }
-                .scrollBounceBehavior(.basedOnSize)
-                .scrollIndicators(.hidden)
-            }
-            V2ReceiptShareRow(
-                receipt: receipt, photos: photos, source: source, isEnabled: photosLoaded, analytics: analytics
-            )
-            .padding(.horizontal, AteMetrics.gutter)
-            .padding(.top, AteMetrics.section)
-            .padding(.bottom, AteSheetScaffoldMetrics.bareBottom)
-        }
+        V2ShareSheet(
+            receipt: receipt, photo: photo, source: source, isLive: photoLoaded, analytics: analytics
+        )
+        .padding(.top, AteMetrics.section)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .ateAccentGround(AteColor.coral)
-        .presentationDetents([.large])
+        .background(AteColor.ink)
+        .presentationDetents([.height(V2ShareSheetMetrics.sheetHeight), .large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(AteColor.ink)
         .task {
-            photos = await SharePhotos.resolve(photoURLs)
-            photosLoaded = true
+            photo = await SharePhotos.image(photoURLs.first)
+            photoLoaded = true
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("share.sheet")
-        // Its own viewer: the entry page's sits under this sheet, so a tapped photo waited there and
-        // opened only once the sheet was closed (build 110).
-        .atePhotoViewerHost()
     }
 }

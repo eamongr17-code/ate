@@ -26,6 +26,8 @@ struct AteShareSlip: View {
     /// Your own printed receipt (10 Oct, approved): a tap on a dish name opens "Which dish?" to fix
     /// it. Nothing on the paper says so; the line darkens under the finger like any tappable row.
     var onFixDish: ((AteReceipt.Item) -> Void)?
+    /// The paper it is printed on: white, or an accent for the share sticker (11 Oct).
+    var paper: AteSharePaper = .white
 
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.snug) {
@@ -43,7 +45,7 @@ struct AteShareSlip: View {
         .padding(.bottom, AteShareSlipMetrics.bottom + AteMetrics.tornEdgeHeight)
         .frame(width: AteShareSlipMetrics.width)
         .ateSlip()
-        .ateTornPaper(topRadius: AteShareSlipMetrics.radius)
+        .ateTornPaper(paper.tone, topRadius: AteShareSlipMetrics.radius)
         .accessibilityElement(children: onFixDish == nil ? .combine : .contain)
     }
 

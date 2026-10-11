@@ -2,24 +2,24 @@ import AteKit
 import SwiftUI
 import UIKit
 
-/// **The receipt's ways out** (10 Oct, approved): the row under a printed receipt, on the Printed
-/// screen and on the entry page's share sheet alike — Instagram Stories first, in ink, then Copy
-/// link, Messages, Save image, More. Nothing opens before a person can share: the receipt on
-/// screen is the thing that leaves, as a story page (``AteShareStory``) with the entry's first
-/// photo behind it when there is one.
+/// **The receipt's ways out** (11 Oct, approved: the ink share sheet): one scrolling row under the
+/// cards, the apps in their own colours first — Stories, TikTok, Messages, Instagram — then Copy
+/// link, Save image and More. Whatever card is showing is what leaves (``AteShareCard``), rendered at
+/// the moment of the tap, so what leaves is what is on screen.
 ///
-/// Instagram Stories is always in the row. Until the Facebook App ID is configured (or without
-/// Instagram on the phone) it hands the page to the system sheet instead, where Instagram's own
-/// share extension sits. A share is counted when it actually leaves, by sticker and destination
-/// (`receipt_shared`); a disc that has just acted says so on itself — "Copied", "Saved" — and
-/// nothing else does (design rule 1).
+/// Instagram Stories takes each card its own way: the sticker as a sticker on Instagram's camera, the
+/// story as its photo plus the receipt as a movable sticker, the post as the story's background.
+/// Until the Facebook App ID is configured (or without Instagram on the phone) it hands the card to
+/// the system sheet instead. TikTok and Instagram save the card to Photos and open the app
+/// (``ShareApps``). A share is counted when it actually leaves, by card, look and destination
+/// (`receipt_shared`); a disc that has just acted says so on itself — "Copied", "Saved" — and nothing
+/// else does (design rule 1).
 struct V2ReceiptShareRow: View {
-    let receipt: AteReceipt
-    /// The entry's photos, already in hand. The first goes behind the receipt.
-    var photos: [AtePhoto] = []
+    /// The card showing now, with its look.
+    let card: AteShareCard
     /// The screen the share started on: the Printed screen after Done, or the entry page.
     let source: ReceiptShareSource
-    /// Off while the receipt is still printing, or its photos are still on their way.
+    /// Off while the receipt is still printing, or its photo is still on its way.
     var isEnabled = true
     let analytics: AnalyticsRecorder
     /// The first tap on any disc, once: the Printed screen's `summary_shared`.
@@ -30,7 +30,7 @@ struct V2ReceiptShareRow: View {
     @State private var sending: ShareSender.Sending?
     @State private var messaging: MessagesComposer.Draft?
     @State private var said: (id: String, word: String)?
-    @State private var isSaving = false
+    @State private var busy: String?
     @State private var hasShared = false
 
     var body: some View {
@@ -48,12 +48,17 @@ struct V2ReceiptShareRow: View {
 
     private var actions: [AteShareRow.Action] {
         [
-            .init(id: "stories", icon: .camera, title: "Instagram Stories", isPrimary: true, isEnabled: isEnabled,
+            .init(id: "stories", icon: .camera, title: "Stories", isEnabled: isEnabled, brand: .instagram,
                   action: shareToStories),
+            .init(id: "tiktok", icon: .music, title: word("tiktok", "TikTok"), isEnabled: isEnabled,
+                  isBusy: busy == "tiktok", brand: .tiktok, action: shareToTikTok),
+            .init(id: "messages", icon: .messageCircle, title: "Messages", isEnabled: isEnabled, brand: .messages,
+                  action: message),
+            .init(id: "instagram", icon: .library, title: "Instagram", isEnabled: isEnabled,
+                  isBusy: busy == "instagram", brand: .instagram, action: shareToInstagram),
             .init(id: "link", icon: .link, title: word("link", "Copy link"), isEnabled: isEnabled, action: copyLink),
-            .init(id: "messages", icon: .messageCircle, title: "Messages", isEnabled: isEnabled, action: message),
             .init(id: "save", icon: .download, title: word("save", "Save image"), isEnabled: isEnabled,
-                  isBusy: isSaving, action: save),
+                  isBusy: busy == "save", action: save),
             .init(id: "more", icon: .more, title: "More", isEnabled: isEnabled, action: more)
         ]
     }
@@ -62,15 +67,11 @@ struct V2ReceiptShareRow: View {
         said?.id == id ? said?.word ?? title : title
     }
 
-    private var story: AteShareStory {
-        AteShareStory(receipt: receipt, photo: photos.first)
-    }
+    private var link: URL { AteLinks.entry(card.receipt.id) }
 
-    private var link: URL { AteLinks.entry(receipt.id) }
-
-    /// The page, rendered now — never ahead of time, so what leaves is what is on screen.
+    /// The card, rendered now — never ahead of time, so what leaves is what is on screen.
     private func render() -> AteShareRender? {
-        guard let render = AteShareStoryImage.render(story) else {
+        guard let render = AteShareCardImage.render(card) else {
             AteHaptics.refused()
             return nil
         }
@@ -80,14 +81,55 @@ struct V2ReceiptShareRow: View {
     private func shareToStories() {
         first()
         guard let render = render() else { return }
-        if InstagramStories.isAvailable {
-            guard InstagramStories.share(sticker: render.sticker, background: render.background) else {
+        guard InstagramStories.isAvailable else {
+            present(ShareSender.Sending(image: render.page, sticker: render.sticker))
+            return
+        }
+        let shared = switch card.format {
+        case .sticker: InstagramStories.share(sticker: render.sticker)
+        case .story: InstagramStories.share(sticker: render.sticker, background: render.background)
+        case .post: InstagramStories.share(sticker: nil, background: render.page)
+        }
+        if shared {
+            count(.instagramStories)
+        } else {
+            AteHaptics.refused()
+        }
+    }
+
+    /// Saved to Photos, then TikTok opened: its upload picker starts on the newest photo. Without
+    /// TikTok on the phone the card is still saved, and the disc says so.
+    private func shareToTikTok() {
+        first()
+        guard let page = render()?.page else { return }
+        busy = "tiktok"
+        Task {
+            let saved = await PhotoSaver.save([page])
+            busy = nil
+            guard saved else {
                 AteHaptics.refused()
                 return
             }
-            count(.instagramStories)
-        } else {
-            present(ShareSender.Sending(image: render.page, sticker: render.sticker))
+            count(.tiktok)
+            if await ShareApps.open(ShareApps.tiktok) == false { say("tiktok", "Saved") }
+        }
+    }
+
+    /// Saved to Photos, then Instagram's composer opened on it; the system sheet when Instagram is
+    /// not there to open.
+    private func shareToInstagram() {
+        first()
+        guard let render = render() else { return }
+        busy = "instagram"
+        Task {
+            let identifiers = await PhotoSaver.saveReturningIdentifiers([render.page])
+            busy = nil
+            if let identifier = identifiers?.first,
+               await ShareApps.open(ShareApps.instagram(libraryIdentifier: identifier)) {
+                count(.instagram)
+            } else {
+                present(ShareSender.Sending(image: render.page, sticker: render.sticker))
+            }
         }
     }
 
@@ -112,10 +154,10 @@ struct V2ReceiptShareRow: View {
     private func save() {
         first()
         guard let page = render()?.page else { return }
-        isSaving = true
+        busy = "save"
         Task {
             let saved = await PhotoSaver.save([page])
-            isSaving = false
+            busy = nil
             if saved {
                 say("save", "Saved")
                 count(.saved)
@@ -154,7 +196,8 @@ struct V2ReceiptShareRow: View {
 
     private func count(_ destination: ShareDestination) {
         analytics(ShareEvents.receiptShared(
-            entryID: receipt.id, source: source, destination: destination, sticker: story.sticker
+            entryID: card.receipt.id, source: source, destination: destination, sticker: card.format.counted,
+            look: card.look.name(for: card.format), adjusted: card.look.isAdjusted(card.format)
         ))
     }
 }

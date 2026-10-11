@@ -41,8 +41,20 @@ struct ShareLinkTests {
         #expect(event.parameters["destination"] == "instagram_stories")
         #expect(event.parameters["sticker"] == "photo")
         #expect(ShareDestination.allCases.map(\.rawValue).sorted()
-            == ["clipboard", "instagram_stories", "link", "messages", "saved", "system"])
-        #expect(ShareSticker.allCases.map(\.rawValue).sorted() == ["photo", "slip"])
+            == ["clipboard", "instagram", "instagram_stories", "link", "messages", "saved", "system", "tiktok"])
+        #expect(ShareSticker.allCases.map(\.rawValue).sorted() == ["photo", "post", "slip", "sticker", "story"])
+        #expect(event.parameters["look"] == nil)
+        #expect(event.parameters["adjusted"] == nil)
+    }
+
+    @Test func receiptSharedCarriesTheCardsLookAndAnAdjustedPhoto() {
+        let event = ShareEvents.receiptShared(
+            entryID: Self.id, source: .summary, destination: .tiktok, sticker: .post, look: "photo", adjusted: true
+        )
+        #expect(event.parameters["sticker"] == "post")
+        #expect(event.parameters["destination"] == "tiktok")
+        #expect(event.parameters["look"] == "photo")
+        #expect(event.parameters["adjusted"] == "true")
     }
 
     @Test func listSharedCarriesTheListAndItsSize() {
