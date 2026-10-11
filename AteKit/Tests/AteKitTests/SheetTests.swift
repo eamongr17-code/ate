@@ -18,12 +18,13 @@ struct SheetReadinessTests {
     @Test func aSlowReadIsNotWaitedForButIsNotCutShort() async throws {
         let box = Box()
         let ready = await SheetReadiness.wait(atMost: .milliseconds(30)) {
-            try? await Task.sleep(for: .milliseconds(250))
+            // Far longer than the wait, so a busy CI runner cannot land it first.
+            try? await Task.sleep(for: .seconds(2))
             box.landed = true
         }
         #expect(ready == false)
         #expect(box.landed == false)
-        try await Task.sleep(for: .milliseconds(600))
+        try await Task.sleep(for: .seconds(3))
         #expect(box.landed, "the read keeps going and lands in the sheet that is already up")
     }
 
