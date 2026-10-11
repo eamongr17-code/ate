@@ -1,0 +1,90 @@
+# Prod — the one way the production database and edge functions change (AGENTS.md rule 5).
+#
+# Run by hand: Actions → Prod → Run workflow, on the integration branch. It always prints what it would
+# apply first (a dry run). Tick "apply" to then apply the pending migrations and deploy every edge
+# function to prod (project vyaexmnajnbryimbkgkf). Migrations are forward-only; nothing here deletes
+# data, and a migration that would is a CEO escalation before it is ever merged (rule 4d).
+#
+# Repository secrets it needs (Settings → Secrets and variables → Actions):
+#   SUPABASE_ACCESS_TOKEN       a personal access token (supabase.com/dashboard/account/tokens)
+#   SUPABASE_PROD_DB_PASSWORD   prod's database password (Database → Settings)
+# The functions' own secrets (ANTHROPIC_API_KEY, GOOGLE_PLACES_API_KEY, the APNS_* set) live in the prod
+# project itself (Edge Functions → Secrets) and are never read or written here.
+
+name: Prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply the migrations and deploy the functions (unticked: dry run only)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: prod
+  cancel-in-progress: false
+
+env:
+  PROD_REF: vyaexmnajnbryimbkgkf
+
+jobs:
+  prod:
+    name: Prod database + functions
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Secrets present
+        run: |
+          missing=""
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || missing="$missing SUPABASE_ACCESS_TOKEN"
+          [ -n "$SUPABASE_DB_PASSWORD" ] || missing="$missing SUPABASE_PROD_DB_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error title=Missing secrets::Add these repository secrets:$missing"
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link prod
+        run: supabase link --project-ref "$PROD_REF" --password "$SUPABASE_DB_PASSWORD"
+
+      - name: What would change (dry run)
+        run: |
+          supabase migration list --linked --password "$SUPABASE_DB_PASSWORD" | tee migration-list.txt
+          supabase db push --linked --dry-run --password "$SUPABASE_DB_PASSWORD" | tee dry-run.txt
+          {
+            echo "### Prod: pending migrations"
+            echo '```'
+            cat dry-run.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply migrations
+        if: inputs.apply
+        run: supabase db push --linked --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Deploy edge functions
+        if: inputs.apply
+        # Every function under supabase/functions, with config.toml's per-function settings
+        # (send-push takes no user JWT).
+        run: supabase functions deploy --project-ref "$PROD_REF" --use-api
+
+      - name: Smoke read
+        if: inputs.apply
+        env:
+          PROD_KEY: sb_publishable_EQqUPHQv-1yZrqqvOWphkw_IlFI2ALY
+        run: |
+          code=$(curl -s -o body.json -w '%{http_code}' \
+            "https://$PROD_REF.supabase.co/rest/v1/restaurants?select=id&limit=1" \
+            -H "apikey: $PROD_KEY")
+          echo "restaurants read: HTTP $code"
+          [ "$code" = "200" ] || { cat body.json; exit 1; }
+          echo "PROD APPLIED AND READABLE" >> "$GITHUB_STEP_SUMMARY"

@@ -62,7 +62,7 @@ jobs:
         run: sudo xcode-select -s /Applications/Xcode_26.5.app || sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
 
       - name: Write Secrets.xcconfig
-        # The example carries the real staging values (publishable by design); prod stays placeholder in CI.
+        # The example carries the real publishable keys (safe by design: RLS is the boundary).
         run: cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
 
       # Package clones only, keyed per commit so main's cache moves forward with every merge (a key on
