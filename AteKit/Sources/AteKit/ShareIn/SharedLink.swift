@@ -11,7 +11,7 @@ public enum SharedLink {
 
     /// The first https link in a run of text, as written (a trailing full stop or bracket is not part
     /// of it).
-    public static func first(in text: String?) -> URL? {
+    public static func find(in text: String?) -> URL? {
         guard let text, text.isEmpty == false,
               let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
         else { return nil }
@@ -25,12 +25,12 @@ public enum SharedLink {
 
     /// The first https link among everything shared: the URL attachments first (they are the
     /// post), then any text.
-    public static func first(urls: [URL], texts: [String]) -> URL? {
+    public static func find(urls: [URL], texts: [String]) -> URL? {
         for url in urls {
             if let found = https(url) { return found }
         }
         for text in texts {
-            if let found = first(in: text) { return found }
+            if let found = find(in: text) { return found }
         }
         return nil
     }

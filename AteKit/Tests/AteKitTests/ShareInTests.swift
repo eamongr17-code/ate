@@ -86,22 +86,22 @@ struct ReadShareDecodingTests {
 struct SharedLinkTests {
     @Test("the first https link in text, without the punctuation around it")
     func inText() {
-        #expect(SharedLink.first(in: "Look at this! https://vm.tiktok.com/ZMabc/.")?.absoluteString
+        #expect(SharedLink.find(in: "Look at this! https://vm.tiktok.com/ZMabc/.")?.absoluteString
             == "https://vm.tiktok.com/ZMabc/")
-        #expect(SharedLink.first(in: "http://insecure.example/x and https://www.instagram.com/reel/C1/")?
+        #expect(SharedLink.find(in: "http://insecure.example/x and https://www.instagram.com/reel/C1/")?
             .absoluteString == "https://www.instagram.com/reel/C1/")
-        #expect(SharedLink.first(in: "no link here") == nil)
-        #expect(SharedLink.first(in: nil) == nil)
+        #expect(SharedLink.find(in: "no link here") == nil)
+        #expect(SharedLink.find(in: nil) == nil)
     }
 
     @Test("a URL attachment wins over text, and only https counts")
     func attachmentsFirst() throws {
         let page = try #require(URL(string: "https://www.broadsheet.com.au/melbourne/x"))
         let file = try #require(URL(string: "file:///tmp/clip.mov"))
-        #expect(SharedLink.first(urls: [file, page], texts: ["https://vm.tiktok.com/a"]) == page)
-        #expect(SharedLink.first(urls: [file], texts: ["see https://vm.tiktok.com/a"])?.absoluteString
+        #expect(SharedLink.find(urls: [file, page], texts: ["https://vm.tiktok.com/a"]) == page)
+        #expect(SharedLink.find(urls: [file], texts: ["see https://vm.tiktok.com/a"])?.absoluteString
             == "https://vm.tiktok.com/a")
-        #expect(SharedLink.first(urls: [], texts: []) == nil)
+        #expect(SharedLink.find(urls: [], texts: []) == nil)
     }
 
     @Test("the words that came with the link, without the link alone")

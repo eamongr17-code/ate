@@ -96,7 +96,7 @@ struct SharedInput: Sendable {
                 }
             }
         }
-        let link = SharedLink.first(urls: urls, texts: texts)
+        let link = SharedLink.find(urls: urls, texts: texts)
         return SharedInput(link: link, text: SharedLink.text(texts, besides: link))
     }
 
