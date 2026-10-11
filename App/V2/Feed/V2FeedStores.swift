@@ -14,6 +14,8 @@ import SwiftUI
 struct V2FeedStores {
     let edition: FeedEditionStore
     let latest: EntryListStore
+    /// The beta Feed (``AteBeta``): every receipt, newest first, from everywhere (yours too), paged.
+    let everything: EntryListStore
     let area: FeedAreaModel
     /// The one location path the app has — asked from the Near me pick and nowhere else.
     let locator: AteLocation
@@ -51,6 +53,17 @@ struct V2FeedStores {
             )
         }
         latest.listen(to: services.entryDeletions)
+        let everything = EntryListStore(
+            fallbackMessage: "Couldn't load the feed.",
+            savedDishes: services.savedDishes
+        ) { cursor, pageSize in
+            try await reader.feedPage(after: cursor, pageSize: pageSize, includeOwn: true, area: nil, city: nil)
+        }
+        everything.listen(to: services.entryDeletions)
+        let analytics = services.analytics
+        everything.onPageLoaded = { page, count in
+            analytics(SocialEvents.feedPageLoaded(page: page, itemCount: count))
+        }
         let edition = FeedEditionStore(
             reads: services.feedEdition,
             store: UserDefaultsStore(),
@@ -76,6 +89,7 @@ struct V2FeedStores {
         }
         self.edition = edition
         self.latest = latest
+        self.everything = everything
         self.area = area
         self.locator = locator
     }
