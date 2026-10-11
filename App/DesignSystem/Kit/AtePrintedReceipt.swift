@@ -3,9 +3,13 @@ import SwiftUI
 import UIKit
 
 /// **The printed receipt on its coral stage** — what follows the composer's tick, and what the entry
-/// page's Share shows. The photos (two at most) sit in their tilted cluster clear **above** the
-/// paper, never over it; the receipt (``AteShareSlip``) lies straight under them, scaled up as a
-/// whole to run 38 from each edge of the screen, so one drawing serves the screen and the sticker.
+/// page's Share shows. The receipt (``AteShareSlip``) is scaled up as a whole to run 38 from each
+/// edge of the screen, so one drawing serves the screen and the sticker.
+///
+/// With a photo (11 Oct, approved): the entry's **first** photo, whole at its own shape and never
+/// cropped, with the receipt laid straight across its lower edge — the story that leaves, previewed
+/// (``AteShareStory`` puts that same photo behind the same receipt). A long receipt keeps its size and
+/// the photo gets smaller to leave it room (``ReceiptOnPhotoLayout``).
 struct AtePrintedReceipt: View {
     let receipt: AteReceipt
     var photos: [AtePhoto] = []
@@ -19,11 +23,22 @@ struct AtePrintedReceipt: View {
     /// Where it is in its entrance. Settled everywhere but the moment after the tick.
     var pose: ReceiptPose = .settled
     var isFeeding = false
+    /// The height the stage has to fill, when known: the photo shrinks so photo and receipt fit it.
+    var room: CGFloat?
+
+    @Environment(\.atePhotoViewer) private var showPhotos
 
     var body: some View {
-        VStack(spacing: AtePrintedReceiptMetrics.photoGap) {
-            if photos.isEmpty == false {
-                AtePhotoCluster(photos: Array(photos.prefix(2)), size: .summary, surface: AteColor.coral)
+        ReceiptOnPhotoLayout(room: room, photoWidth: AteScreen.width - 2 * AteMetrics.gutter) {
+            if let photo = photos.first {
+                AtePhotoContent(photo: photo, contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: AtePrintedReceiptMetrics.photoRadius, style: .continuous))
+                    // The cover's lift, as a list's cover sits on its page.
+                    .ateShadow(.cover)
+                    .contentShape(Rectangle())
+                    .onTapGesture { showPhotos(photos, at: 0) }
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityLabel("Photo")
                     .scaleEffect(1 + (ReceiptEntrance.photoDrop - 1) * (1 - pose.photos))
                     .opacity(pose.photos)
             }
@@ -69,6 +84,8 @@ struct AtePrintedReceiptStage: View {
     var onAddPlace: (() -> Void)?
     var onFixDish: ((AteReceipt.Item) -> Void)?
     var enters = false
+    /// The height the stage has to fill (the room between the corners and the foot), when known.
+    var room: CGFloat?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pose: ReceiptPose
@@ -82,7 +99,8 @@ struct AtePrintedReceiptStage: View {
         breathes: Bool = true,
         onAddPlace: (() -> Void)? = nil,
         onFixDish: ((AteReceipt.Item) -> Void)? = nil,
-        enters: Bool = false
+        enters: Bool = false,
+        room: CGFloat? = nil
     ) {
         self.receipt = receipt
         self.photos = photos
@@ -91,6 +109,7 @@ struct AtePrintedReceiptStage: View {
         self.onAddPlace = onAddPlace
         self.onFixDish = onFixDish
         self.enters = enters
+        self.room = room
         // Its first frame is the first frame of its entrance: never drawn whole, then snatched back.
         let feeds = enters && UIAccessibility.isReduceMotionEnabled == false
         _pose = State(initialValue: feeds ? .start : .settled)
@@ -100,7 +119,7 @@ struct AtePrintedReceiptStage: View {
     var body: some View {
         AtePrintedReceipt(
             receipt: receipt, photos: photos, isPrinting: isPrinting, breathes: breathes,
-            onAddPlace: onAddPlace, onFixDish: onFixDish, pose: pose, isFeeding: isFeeding
+            onAddPlace: onAddPlace, onFixDish: onFixDish, pose: pose, isFeeding: isFeeding, room: room
         )
         .task { await enter() }
     }
@@ -123,6 +142,59 @@ struct AtePrintedReceiptStage: View {
         try? await Task.sleep(for: ReceiptEntrance.feedRiseTime)
         isFeeding = false
         withAnimation(ReceiptEntrance.photosLand) { pose.photos = 1 }
+    }
+}
+
+/// **A photo with the receipt across its lower edge.** Two subviews: the photo (optional) and the
+/// paper. The paper keeps its own size; the photo is offered the full width inside the gutters and
+/// whatever height `room` leaves once the paper is placed, and fits itself to that at its own shape.
+/// The paper laps the photo's foot by ``AtePrintedReceiptMetrics/photoLap`` (less on a small photo),
+/// and is drawn over it.
+struct ReceiptOnPhotoLayout: Layout {
+    var room: CGFloat?
+    /// The widest the photo runs: the screen inside the gutters.
+    var photoWidth: CGFloat
+
+    private struct Frames {
+        var size: CGSize
+        var photo: CGSize?
+        var lap: CGFloat
+        var paper: CGSize
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        frames(proposal: proposal, subviews: subviews).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let frames = frames(proposal: proposal, subviews: subviews)
+        guard let paperView = subviews.last else { return }
+        var top = bounds.minY
+        if let photo = frames.photo, subviews.count > 1 {
+            subviews[0].place(
+                at: CGPoint(x: bounds.midX, y: top), anchor: .top, proposal: ProposedViewSize(photo)
+            )
+            top += photo.height - frames.lap
+        }
+        paperView.place(
+            at: CGPoint(x: bounds.midX, y: top), anchor: .top, proposal: ProposedViewSize(frames.paper)
+        )
+    }
+
+    private func frames(proposal: ProposedViewSize, subviews: Subviews) -> Frames {
+        guard let paperView = subviews.last else { return Frames(size: .zero, lap: 0, paper: .zero) }
+        let paper = paperView.sizeThatFits(.unspecified)
+        guard subviews.count > 1 else { return Frames(size: paper, lap: 0, paper: paper) }
+        let width = min(proposal.width ?? photoWidth, photoWidth)
+        let lapMax = AtePrintedReceiptMetrics.photoLap
+        let height = max(
+            AtePrintedReceiptMetrics.photoMinHeight,
+            (room ?? AtePrintedReceiptMetrics.photoDefaultRoom) - paper.height + lapMax
+        )
+        let photo = subviews[0].sizeThatFits(ProposedViewSize(width: width, height: height))
+        let lap = min(lapMax, photo.height * AtePrintedReceiptMetrics.photoLapShare)
+        let size = CGSize(width: max(photo.width, paper.width), height: photo.height - lap + paper.height)
+        return Frames(size: size, photo: photo, lap: lap, paper: paper)
     }
 }
 
@@ -156,8 +228,16 @@ extension AteReceipt {
 enum AtePrintedReceiptMetrics {
     /// On screen the paper runs to 38 from each edge.
     static let screenInset: CGFloat = 38
-    /// The cluster stands clear above the paper.
-    static let photoGap: CGFloat = 18
+    /// The photo's corners: the paper's own top, at the stage's scale (16, design rule 3).
+    @MainActor static var photoRadius: CGFloat { AteShareSlipMetrics.radius * AtePrintedReceiptStage.scale }
+    /// How far the receipt laps the foot of the photo, at most…
+    static let photoLap: CGFloat = 96
+    /// …and never more than this share of a small photo.
+    static let photoLapShare: CGFloat = 0.3
+    /// The smallest a photo gets beside a long receipt (the stage scrolls past that).
+    static let photoMinHeight: CGFloat = 160
+    /// The room assumed where the caller does not say (the kit gallery).
+    static let photoDefaultRoom: CGFloat = 560
     /// How far the feed's mask reaches past the paper's sides and top.
     static let maskReach: CGFloat = 40
 }

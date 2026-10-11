@@ -67,11 +67,11 @@ struct V2ComposerPrinted: View {
     var body: some View {
         VStack(spacing: 0) {
             AteSheetHeader(title: receipt.shareTitle) { done() }
-            // The photos and the receipt, centred in the room between the corners and the foot (a
+            // The photo and the receipt, centred in the room between the corners and the foot (a
             // long one scrolls).
             GeometryReader { room in
                 ScrollView {
-                    stage
+                    stage(room: room.size.height - 2 * AteMetrics.section)
                         .padding(.vertical, AteMetrics.section)
                         .frame(maxWidth: .infinity, minHeight: room.size.height)
                 }
@@ -111,7 +111,7 @@ struct V2ComposerPrinted: View {
 
     /// The receipt — on the paper from the first frame: its skeleton lines while it sorts, waits for
     /// a place, or could not finish; the printed lines, in place, once the sort lands.
-    private var stage: some View {
+    private func stage(room: CGFloat) -> some View {
         AtePrintedReceiptStage(
             receipt: receipt,
             photos: Array(handoff.photos.prefix(2)),
@@ -123,7 +123,8 @@ struct V2ComposerPrinted: View {
                 guard store.isBusy == false, isSharing == false else { return }
                 fixing = EntryModel.Correcting(item: item)
             } : nil,
-            enters: true
+            enters: true,
+            room: room
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("summary.receipt")

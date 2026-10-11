@@ -26,6 +26,11 @@ struct AteShadow: Equatable, Sendable {
 }
 
 extension View {
+    /// Casts `shadow` from this view's own pixels (a photo), for shadows with no spread.
+    func ateShadow(_ shadow: AteShadow) -> some View {
+        self.shadow(color: shadow.colour, radius: shadow.blur / 2, x: 0, y: shadow.offsetY)
+    }
+
     /// Fills `shape` behind this view and casts `shadow` from it, spread and all.
     func ateBackground(_ fill: Color, in shape: some InsettableShape, shadow: AteShadow) -> some View {
         background {
