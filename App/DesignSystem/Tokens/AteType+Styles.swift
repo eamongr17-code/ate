@@ -99,6 +99,14 @@ extension AteTextStyle {
     static let meta = AteTextStyle(
         voice: .display, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote
     )
+    /// The one line under a first-run card's title: how. 16pt/500.
+    static let onboardingLine = AteTextStyle(
+        voice: .display, size: 16, weight: 500, trackingEm: 0, lineHeight: 1.35, textStyle: .callout
+    )
+    /// A letter on the Write card's drawn keyboard: the system keyboard's 21, a picture, so capped.
+    static let onboardingKey = AteTextStyle(
+        voice: .display, size: 20, weight: 400, trackingEm: 0, lineHeight: 1.0, textStyle: .body, maximumSize: 20
+    )
     /// A dish's name under its tile in a small cluster — "Your top dishes". `.meta` at 12, in full ink:
     /// the name is the item, not a caption about it.
     static let tileCaption = AteTextStyle(
@@ -162,6 +170,11 @@ extension AteTextStyle {
     /// Welcome's promise, set italic and centred. 19pt.
     static let proseQuote = AteTextStyle(
         voice: .prose, size: 19, weight: 400, italic: true, lineHeight: 1.3, textStyle: .body
+    )
+    /// The words typing themselves on the first-run Write card (`onboarding-cards.html`). 22pt — the
+    /// composer's words, a step up, because the card is a picture of them.
+    static let onboardingWords = AteTextStyle(
+        voice: .prose, size: 22, weight: 400, lineHeight: 1.42, textStyle: .body, maximumSize: 26
     )
     /// The words on their own page (Entry) and in a journal slip. 16pt.
     static let prose = AteTextStyle(

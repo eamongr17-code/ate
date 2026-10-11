@@ -284,9 +284,6 @@ enum OnboardingMetrics {
     static let artTop: CGFloat = 16
     static let dot: CGFloat = 8
     static let dotsToPill: CGFloat = 18
-    /// The share card: the story at half size where it fits, the row's disc and two-line label.
-    static let storyScale: CGFloat = 0.5
-    static let shareRowHeight: CGFloat = 84
     /// Start: the two pills and the link, 10 apart.
     static let doorsGap: CGFloat = 10
     static let titleBar: CGFloat = 220
