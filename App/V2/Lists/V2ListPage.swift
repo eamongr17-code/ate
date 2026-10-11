@@ -1,5 +1,6 @@
 import AteKit
 import SwiftUI
+import UIKit
 
 /// **One of your lists** (`lists-playlists.html`, approved 9 Oct; `lists-notifications.html` C5–C8)
 /// — pushed, the tab bar staying, opened like an album: the cover big and lifted, the name under it,
@@ -20,7 +21,7 @@ struct V2ListPage: View {
     /// A list just made raises its picker once, the first time the page shows.
     @State private var hasPickedOnOpen = false
     @State private var isConfirmingDelete = false
-    @State private var isSharing = false
+    @State private var sharing: ShareSender.Sending?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -72,8 +73,13 @@ struct V2ListPage: View {
         .sheet(isPresented: $isPicking) {
             ListPickerSheet(list: store, services: context.services)
         }
-        .sheet(isPresented: $isSharing) {
-            ListShareSheet(share: share, analytics: context.services.analytics)
+        .sheet(item: $sharing) { sending in
+            ShareSheet(sending: sending) { destination in
+                context.services.analytics(
+                    ShareEvents.listShared(listID: route.id, destination: destination, count: store.count)
+                )
+            }
+            .presentationDetents([.medium, .large])
         }
         .confirmationDialog(
             ListsCopy.confirmDelete(store.name), isPresented: $isConfirmingDelete, titleVisibility: .visible
@@ -106,7 +112,7 @@ struct V2ListPage: View {
                 ) { pick() }
                 if store.items.isEmpty == false {
                     AteInkPill(title: ListsCopy.share, isQuiet: true, identifier: "list.sharePill") {
-                        isSharing = true
+                        shareList()
                     }
                 }
             }
@@ -208,7 +214,7 @@ struct V2ListPage: View {
     private var toolbar: some ToolbarContent {
         if store.items.isEmpty == false {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { isSharing = true } label: {
+                Button { shareList() } label: {
                     AteIcon.share.view(size: AteGlassDiscMetrics.glyph)
                 }
                 .accessibilityLabel("Share list")
@@ -271,6 +277,16 @@ struct V2ListPage: View {
             id: route.id, name: store.name, count: store.count, covers: store.list?.covers ?? [],
             handle: context.app.handle ?? ""
         )
+    }
+
+    /// Straight to the system share sheet: the link, with the cover and name in its header.
+    private func shareList() {
+        guard sharing == nil else { return }
+        let share = share
+        Task {
+            let items = await ListLinkShare.items(for: share)
+            sharing = ShareSender.Sending(image: UIImage(), items: items)
+        }
     }
 
     private func open(_ item: ListItem) {
