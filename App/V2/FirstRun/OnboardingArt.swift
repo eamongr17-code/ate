@@ -141,7 +141,8 @@ private struct OnboardingWriteArt: View {
     /// The words so far and the caret after them, blinking.
     private var typing: some View {
         TimelineView(.periodic(from: .now, by: OnboardingArtMetrics.caretBlink)) { context in
-            let isLit = reduceMotion || Int(context.date.timeIntervalSinceReferenceDate / OnboardingArtMetrics.caretBlink) % 2 == 0
+            let beat = Int(context.date.timeIntervalSinceReferenceDate / OnboardingArtMetrics.caretBlink)
+            let isLit = reduceMotion || beat % 2 == 0
             let sofar = Text(String(words.prefix(typed))).foregroundStyle(palette.fg)
             let caret = Text(OnboardingArtMetrics.caret).foregroundStyle(isLit ? AteColor.coral : .clear)
             Text("\(sofar)\(caret)")
