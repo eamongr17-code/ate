@@ -16,6 +16,10 @@ struct SavedRoot: View {
 
     @State private var isCollapsed = false
     @State private var isFiltering = false
+    /// The beta's + (``AteBeta``): a dish of your own.
+    @State private var isAdding = false
+    /// A dish of your own, opened.
+    @State private var openedOwn: OwnSave?
     /// Bumped by every change to what the list is, so the new list starts at its top: a lazy list
     /// keeps its offset while its rows are replaced.
     @State private var listChanged = 0
@@ -24,6 +28,11 @@ struct SavedRoot: View {
     private static let top = "saved.top"
 
     private var saved: SavedDishesStore { router.stores.saved }
+    private var own: OwnSavesStore { app.ownSaves }
+
+    /// Your own dishes join the shelf in the beta, and only while no filter is on: they have no
+    /// score, and the filter sheet does not know them yet.
+    private var showsOwn: Bool { AteBeta.isOn && saved.filter.isEmpty }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -52,9 +61,17 @@ struct SavedRoot: View {
         }
         .overlay(alignment: .bottom) { undo }
         .sheet(isPresented: $isFiltering) { filterSheet }
+        .sheet(isPresented: $isAdding) { SavedAddSheet(app: app) }
+        .sheet(item: $openedOwn) { save in
+            SavedOwnSheet(save: save, app: app) { ateIt(save) }
+        }
         .task {
             await saved.loadIfNeeded()
             app.services.analytics(SocialEvents.savedViewed())
+        }
+        .task {
+            guard AteBeta.isOn else { return }
+            await own.loadIfNeeded()
         }
         // Read ahead, so the filter sheet rises with its cities in it.
         .task { await saved.loadCitiesIfNeeded() }
@@ -76,6 +93,7 @@ struct SavedRoot: View {
         .ateRootCollapse($isCollapsed)
         .refreshable {
             Task { await saved.loadCities() }
+            if AteBeta.isOn { Task { await own.refresh() } }
             await saved.refresh()
         }
     }
@@ -89,6 +107,8 @@ struct SavedRoot: View {
                     .padding(.horizontal, AteMetrics.gutter)
             }
             .padding(.top, AteMetrics.regular)
+        case .empty where showsOwn && own.saves.isEmpty == false:
+            groups
         case .empty where saved.filter.isEmpty == false:
             emptyBand(AteEmptyState(line: "Nothing\nlike that.", art: .search,
                 pill: ("Clear", { apply(BrowseFilters()) })))
@@ -119,24 +139,67 @@ struct SavedRoot: View {
     /// reads, so no two dishes one above the other share an accent.
     @ViewBuilder
     private var groups: some View {
-        let dishes = saved.dishes
-        let letters = DishLetter.neighbourly(dishes.map { ($0.dishID, $0.dishName) })
-        ForEach(Array(dishes.enumerated()), id: \.element.id) { index, dish in
-            AteDishRow(
-                photo: .dish(letters[index], cover: dish.dishCoverURL),
-                name: dish.dishName,
-                subtitle: Self.place(of: dish),
-                score: dish.dishScore.map { .average($0) },
-                isFirst: index == 0,
-                isSaved: true,
-                onSave: { Task { await app.saves.unsaveFromShelf(dish) } },
-                onOpen: { router.open(.dish(dish.dishID), from: .saved) }
-            )
+        let rows = SavedShelf.rows(
+            ate: saved.phase == .ready ? saved.dishes : [],
+            own: showsOwn ? own.saves : [],
+            ateHasReachedEnd: saved.phase != .ready || saved.hasReachedEnd
+        )
+        let letters = DishLetter.neighbourly(rows.map(Self.letterKey))
+        ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+            Group {
+                switch row {
+                case .ate(let dish): ateRow(dish, letter: letters[index], isFirst: index == 0)
+                case .own(let save): ownRow(save, letter: letters[index], isFirst: index == 0)
+                }
+            }
             .padding(.horizontal, AteMetrics.gutter)
             .padding(.top, index == 0 ? AteMetrics.snug : 0)
-            .task { await saved.loadMoreIfNeeded(after: dish) }
-            .accessibilityIdentifier("saved.dish")
         }
+    }
+
+    private func ateRow(_ dish: SavedDish, letter: DishLetter, isFirst: Bool) -> some View {
+        AteDishRow(
+            photo: .dish(letter, cover: dish.dishCoverURL),
+            name: dish.dishName,
+            subtitle: Self.place(of: dish),
+            score: dish.dishScore.map { .average($0) },
+            isFirst: isFirst,
+            isSaved: true,
+            onSave: { Task { await app.saves.unsaveFromShelf(dish) } },
+            onOpen: { router.open(.dish(dish.dishID), from: .saved) }
+        )
+        .task { await saved.loadMoreIfNeeded(after: dish) }
+        .accessibilityIdentifier("saved.dish")
+    }
+
+    /// A dish you saved yourself: its mark where it came from, never a score; it opens its sheet.
+    private func ownRow(_ save: OwnSave, letter: DishLetter, isFirst: Bool) -> some View {
+        AteDishRow(
+            photo: .dish(letter, cover: nil),
+            name: save.dishName,
+            subtitle: SavedOwnCopy.place(of: save),
+            mark: save.source.mark,
+            isFirst: isFirst,
+            isSaved: true,
+            onSave: { Task { await own.remove(save) } },
+            onOpen: { openedOwn = save }
+        )
+        .accessibilityIdentifier("saved.own")
+    }
+
+    private static func letterKey(_ row: SavedShelf.Row) -> (UUID, String) {
+        switch row {
+        case .ate(let dish): (dish.dishID, dish.dishName)
+        case .own(let save): (save.id, save.dishName)
+        }
+    }
+
+    /// "I ate it": the sheet goes, and the composer opens on the dish and its place.
+    private func ateIt(_ save: OwnSave) {
+        guard app.gate.permitsWrite(.compose) else { return }
+        app.services.analytics(OwnSaveEvents.ateItTapped(source: save.source))
+        openedOwn = nil
+        app.compose(.ateIt(save))
     }
 
     /// The place, and its city after it.
@@ -151,6 +214,10 @@ struct SavedRoot: View {
     @ViewBuilder
     private var controls: some View {
         let hasSomethingToSort = saved.phase == .ready || saved.phase == .loading
+        if AteBeta.isOn {
+            AteGlassItem(icon: .compose, label: "Add a dish") { isAdding = true }
+                .accessibilityIdentifier("saved.add")
+        }
         if hasSomethingToSort || filters.isFiltering(on: .saved) {
             AteGlassToggleItem(
                 icon: .listFilter,
@@ -169,7 +236,19 @@ struct SavedRoot: View {
     /// leaving is what happened, and this is the way back.
     @ViewBuilder
     private var undo: some View {
-        if let dish = saved.undoable {
+        if let save = own.undoable {
+            AteInkPill(title: "Undo", size: .empty, identifier: "saved.undo") {
+                Task { await own.undoRemove() }
+            }
+            .accessibilityLabel("Undo, put back \(save.dishName)")
+            .padding(.bottom, AteMetrics.regular)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .task(id: save.id) {
+                try? await Task.sleep(for: SavedMetrics.undoLifetime)
+                guard Task.isCancelled == false else { return }
+                own.expireUndo(for: save)
+            }
+        } else if let dish = saved.undoable {
             AteInkPill(title: "Undo", size: .empty, identifier: "saved.undo") {
                 Task { await app.saves.undoUnsaveFromShelf() }
             }

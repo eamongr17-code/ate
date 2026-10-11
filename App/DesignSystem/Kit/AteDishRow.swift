@@ -24,6 +24,9 @@ struct AteDishRow: View {
     /// An icon before the subtitle — the menu's people mark.
     var subtitleIcon: AteIcon?
     var score: AteScore?
+    /// A dish you saved yourself: where it came from, as a small ink disc on the thumbnail's corner
+    /// (`beta-saved` mockup). Such a dish never has a score.
+    var mark: AteIcon?
     var style: Style = .list
     var isFirst = false
     var isSaved = false
@@ -48,6 +51,9 @@ struct AteDishRow: View {
                             .frame(width: AteDishRowMetrics.rankWidth, alignment: .leading)
                     }
                     AteThumb(photo: photo, size: isMenu ? .menu : .row)
+                        .overlay(alignment: .bottomTrailing) {
+                            if let mark { AteSourceMark(icon: mark) }
+                        }
                     let lineGap = isMenu ? AteDishRowMetrics.menuLineGap : AteDishRowMetrics.lineGap
                     VStack(alignment: .leading, spacing: lineGap) {
                         HStack(spacing: TokenPillMetrics.dietGapOnName) {
@@ -112,6 +118,32 @@ struct AteDishRow: View {
         if case .menu = style { return true }
         return false
     }
+}
+
+/// **Where an own save came from** — Lucide's glyph knocked out of an ink disc, ringed in the ground so
+/// it lifts off the thumbnail it sits on.
+struct AteSourceMark: View {
+    let icon: AteIcon
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        icon.view(size: AteSourceMarkMetrics.glyph)
+            .foregroundStyle(palette.inverted)
+            .frame(width: AteSourceMarkMetrics.disc, height: AteSourceMarkMetrics.disc)
+            .background(palette.solid, in: .circle)
+            .overlay { Circle().strokeBorder(palette.ground, lineWidth: AteSourceMarkMetrics.ring) }
+            .offset(x: AteSourceMarkMetrics.overhang, y: AteSourceMarkMetrics.overhang)
+            .accessibilityHidden(true)
+    }
+}
+
+enum AteSourceMarkMetrics {
+    /// `.src{width:22px;height:22px;right:-5px;bottom:-5px;box-shadow:0 0 0 2.5px ground}`.
+    static let disc: CGFloat = 22
+    static let glyph: CGFloat = 12
+    static let ring: CGFloat = 2.5
+    static let overhang: CGFloat = 5
 }
 
 enum AteDishRowMetrics {

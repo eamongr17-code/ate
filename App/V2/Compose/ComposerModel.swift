@@ -370,6 +370,18 @@ final class ComposerModel {
         focusRequest += 1
     }
 
+    /// Opens on these words, caret after them — only on a blank composer: a draft's words are never
+    /// replaced.
+    func startWords(with text: String) {
+        let words = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard editing == nil, composition.plain.isEmpty, words.isEmpty == false else { return }
+        composition = EntryComposition(plain: words + " ", spans: [])
+        let end = composition.displayString.utf16.count
+        caret = end
+        caretAfterRender = end
+        revision += 1
+    }
+
     // MARK: - The Place key
 
     /// Design rule 8: a place is attached because it was **tapped**, never from location — and it

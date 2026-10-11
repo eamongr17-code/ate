@@ -15,7 +15,11 @@ import SwiftUI
 struct V2PlaceSheet: View {
     let model: PlaceSearchModel
     let directory: any PlaceDirectory
+    var title = V2PlaceSheet.composerTitle
     let onPick: (PlaceRef) -> Void
+
+    /// The composer's question. A dish saved for later asks "Where is it?" instead.
+    static let composerTitle = "Where was this?"
 
     @State private var isAddingPlace = false
     @Environment(\.dismiss) private var dismiss
@@ -23,7 +27,7 @@ struct V2PlaceSheet: View {
     var body: some View {
         @Bindable var model = model
         AteSheetScaffold(
-            title: "Where was this?",
+            title: title,
             searchPrompt: "Search places",
             searchText: $model.query
         ) {
@@ -145,12 +149,13 @@ extension View {
     func v2PlaceSheet(
         isPresented: Binding<Bool>,
         directory: any PlaceDirectory,
+        title: String = V2PlaceSheet.composerTitle,
         initialQuery: @escaping @MainActor () -> String = { "" },
         selected: @escaping @MainActor () -> UUID? = { nil },
         onPick: @escaping (PlaceRef) -> Void
     ) -> some View {
         modifier(V2PlaceSheetPresenter(
-            isPresented: isPresented, directory: directory,
+            isPresented: isPresented, directory: directory, title: title,
             initialQuery: initialQuery, selected: selected, onPick: onPick
         ))
     }
@@ -159,6 +164,7 @@ extension View {
 private struct V2PlaceSheetPresenter: ViewModifier {
     @Binding var isPresented: Bool
     let directory: any PlaceDirectory
+    let title: String
     let initialQuery: @MainActor () -> String
     let selected: @MainActor () -> UUID?
     let onPick: (PlaceRef) -> Void
@@ -173,7 +179,7 @@ private struct V2PlaceSheetPresenter: ViewModifier {
             await fresh.start()
         }, content: {
             AteSheetHolderView(holder: holder) { model in
-                V2PlaceSheet(model: model, directory: directory, onPick: onPick)
+                V2PlaceSheet(model: model, directory: directory, title: title, onPick: onPick)
             }
         })
     }

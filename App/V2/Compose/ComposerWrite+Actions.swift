@@ -93,6 +93,11 @@ extension V2ComposerWrite {
         AteHaptics.success()
         model.clearDraft()
         model.markEntrySaved()
+        // "I ate it": the dish is in the Journal now, so it leaves Saved.
+        if let save = presentation.ateOwnSave {
+            let own = app.ownSaves
+            Task { await own.fulfil(id: save.id) }
+        }
         sendLatePhotos()
         // The people go behind the words, never in front of them: queued offline with the entry,
         // and sent once it has landed.

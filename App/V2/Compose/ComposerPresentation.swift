@@ -12,6 +12,7 @@ struct ComposerPresentation: Identifiable, Hashable {
         case entryEdit = "entry_edit"
         case photoSuggestion = "photo_suggestion"
         case onboarding
+        case savedOwn = "saved_own"
     }
 
     let id = UUID()
@@ -32,6 +33,9 @@ struct ComposerPresentation: Identifiable, Hashable {
     /// dishes, read live — and its tick posts the person's OWN entry (`respond_ate_with`). `origin`
     /// is not read on this path.
     var respondingTo: UUID?
+    /// **"I ate it"** on a dish you saved yourself: the composer opens on its place, with its name as
+    /// the first words, and once the entry is saved the dish leaves Saved.
+    var ateOwnSave: OwnSave?
 
     /// The entry being edited, carried whole so the composer does not have to fetch it back.
     struct EditingEntry: Hashable {
@@ -55,6 +59,14 @@ struct ComposerPresentation: Identifiable, Hashable {
     /// Answering an "Ate with" tag: the composer, prefilled from the tag.
     static func respond(to companionID: UUID) -> ComposerPresentation {
         ComposerPresentation(origin: .tabBar, respondingTo: companionID)
+    }
+
+    static func ateIt(_ save: OwnSave) -> ComposerPresentation {
+        ComposerPresentation(
+            origin: .savedOwn,
+            place: PlaceRef(id: save.restaurantID, name: save.restaurantName),
+            ateOwnSave: save
+        )
     }
 
     static func edit(_ card: EntryCard) -> ComposerPresentation {

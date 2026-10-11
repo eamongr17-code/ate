@@ -26,6 +26,8 @@ struct AteServices {
     let feedEdition: any FeedEditionReading
     /// The feed's one action, and the shelf it fills.
     let saves: any DishSaving
+    /// Dishes you saved yourself — typed, or shared in from TikTok or Instagram (0061).
+    let ownSaves: any OwnSaving
     /// Somebody else's page, and the two things you can do about them.
     let profiles: any ProfileReading
     /// What the You tab gives back: the histogram, a bar's dishes, and the monthly statements.
@@ -103,6 +105,7 @@ struct AteServices {
         self.feed = preview?.feed ?? EntryFeedClient(api: api)
         self.feedEdition = preview?.feedEdition ?? FeedEditionClient(api: api)
         self.saves = preview?.saves ?? SaveClient(api: api)
+        self.ownSaves = preview?.ownSaves ?? OwnSaveClient(api: api)
         self.profiles = preview?.profiles ?? ProfileClient(api: api)
         self.stats = preview?.stats ?? StatsClient(api: api)
         self.placePages = preview?.placePages ?? PlacePageClient(api: api)
@@ -153,6 +156,7 @@ struct AteServices {
         let feed: any EntryFeedReading
         let feedEdition: any FeedEditionReading
         let saves: any DishSaving
+        let ownSaves: any OwnSaving
         let profiles: any ProfileReading
         let stats: any StatsReading
         /// The place and dish pages are *derived* from the same in-memory entries, so a preview
@@ -188,7 +192,8 @@ struct AteServices {
         )
         return PreviewServices(
             entries: service, places: InMemoryPlaceDirectory(), photos: PreviewPhotoLibrary(),
-            feed: social, feedEdition: social, saves: social, profiles: social, stats: InMemoryStatsService(),
+            feed: social, feedEdition: social, saves: social, ownSaves: InMemoryOwnSaves.preview(),
+            profiles: social, stats: InMemoryStatsService(),
             placePages: social, dishPages: social, dishExplore: social, search: social,
             account: InMemoryAccountService(),
             companions: InMemoryCompanionTagging.seeded(viewerID: EntryCard.previewSorted.authorID),

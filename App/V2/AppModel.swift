@@ -18,6 +18,8 @@ final class AppModel {
     let saves: SaveAction
     /// The Saved shelf the save action keeps stale-marked; the Journal's Saved reads it.
     let savedDishes: SavedDishesStore
+    /// Your own saved dishes — one shelf, so a dish shared in or eaten is current on Saved at once.
+    let ownSaves: OwnSavesStore
     /// "Ate with": the bell's count and the notifications list — one of it, so a tag answered in the
     /// composer is gone from the list and the count in the same turn.
     let notifications: NotificationsStore
@@ -60,6 +62,7 @@ final class AppModel {
         let shelf = SavedDishesStore(saves: services.saves)
         self.gate = gate
         self.savedDishes = shelf
+        self.ownSaves = OwnSavesStore(service: services.ownSaves, analytics: services.analytics)
         self.notifications = NotificationsStore(reads: services.notifications, analytics: services.analytics)
         self.lists = ListsStore(service: services.lists, analytics: services.analytics)
         self.saves = SaveAction(
