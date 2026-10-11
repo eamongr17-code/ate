@@ -168,7 +168,11 @@ struct ShareCardScreen: View {
 
     /// The card goes back down, then the request is cancelled — the other app is as it was.
     private func close() {
-        guard isClosing == false else { return }
+        // A save in flight finishes first: closing now could drop the note that refreshes Saved.
+        guard isClosing == false, model.isSaving == false else {
+            withAnimation(reduceMotion ? nil : AteMotion.cardRise) { drag = 0 }
+            return
+        }
         isClosing = true
         model.dismissed()
         isUp = false

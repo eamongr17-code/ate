@@ -33,6 +33,8 @@ public struct SharedSessionStorage: AuthLocalStorage {
             try shared.store(key: key, value: value)
             try? legacy.remove(key: key)
         } catch {
+            // An older shared copy must not outlive this one: retrieve reads the shared slot first.
+            try? shared.remove(key: key)
             try legacy.store(key: key, value: value)
         }
     }

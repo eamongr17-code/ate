@@ -175,6 +175,12 @@ async function readTikTok(c: ClassifiedUrl, sharedText: string | null): Promise<
 }
 
 async function readLink(c: ClassifiedUrl, sharedText: string | null): Promise<Read> {
+  // No DNS check in this runtime → no fetch of an arbitrary host at all (fail closed): the shared
+  // text is all there is. TikTok's fixed hosts are unaffected.
+  if (!resolver) {
+    console.warn('read-share: no Deno.resolveDns; generic links read the shared text only');
+    return { url: c.url, meta: { ...EMPTY_META, caption: sharedText }, modelText: sharedText };
+  }
   const res = await safeFetch(c.url, {
     timeoutMs: PAGE_TIMEOUT_MS,
     maxBytes: PAGE_MAX_BYTES,

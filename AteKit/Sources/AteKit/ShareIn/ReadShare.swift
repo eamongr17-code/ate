@@ -146,7 +146,7 @@ public struct ReadShareClient: ReadSharing {
     private let functionName = "read-share"
     /// The server gives each of its fetches and the model a few seconds; past this the card stops
     /// waiting and the fields are filled by hand.
-    static let timeout: TimeInterval = 15
+    static let timeout: TimeInterval = 20
 
     public init(api: AteAPIClient) {
         self.api = api

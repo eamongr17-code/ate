@@ -90,8 +90,11 @@ struct SharedInput: Sendable {
                 if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier),
                    let url = await Self.loadURL(from: provider) {
                     urls.append(url)
-                } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier),
-                          let words = await Self.loadText(from: provider) {
+                    continue
+                }
+                // No URL came back (or none was offered): the words may still carry the link.
+                if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier),
+                   let words = await Self.loadText(from: provider) {
                     texts.append(words)
                 }
             }
