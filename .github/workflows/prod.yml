@@ -1,6 +1,6 @@
 # Prod — the one way the production database and edge functions change (AGENTS.md rule 5).
 #
-# Run by hand: Actions → Prod → Run workflow, on the integration branch. It always prints what it would
+# Run by hand: Actions → Prod → Run workflow, on the integration branch (or main; nothing else runs). It always prints what it would
 # apply first (a dry run). Tick "apply" to then apply the pending migrations and deploy every edge
 # function to prod (project vyaexmnajnbryimbkgkf). Migrations are forward-only; nothing here deletes
 # data, and a migration that would is a CEO escalation before it is ever merged (rule 4d).
@@ -31,6 +31,8 @@ env:
 jobs:
   prod:
     name: Prod database + functions
+    # Only what has been merged reaches prod: the integration branch or main, never a feature branch.
+    if: github.ref == 'refs/heads/claude/project-thread-2f9ty8' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

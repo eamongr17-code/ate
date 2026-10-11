@@ -77,13 +77,13 @@ public final class OwnSavesStore {
         guard let index = saves.firstIndex(of: save) else { return }
         generation += 1
         saves.remove(at: index)
-        undoable = save
         do {
             try await service.remove(id: save.id)
+            // Offered only once the row is really gone, so an Undo can never race the remove.
+            undoable = save
             analytics(OwnSaveEvents.removed(source: save.source))
         } catch {
             saves.insert(save, at: min(index, saves.count))
-            if undoable == save { undoable = nil }
         }
     }
 

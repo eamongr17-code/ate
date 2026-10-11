@@ -51,7 +51,10 @@ struct V2ComposerWrite: View {
         // A nearby chip tapped on a photo sitting: the Place key opens holding it.
         if presentation.editing == nil, let place = presentation.place { _ = model.attach(place: place) }
         // "I ate it": the dish's name starts the words — unless a draft is already holding some.
-        if let save = presentation.ateOwnSave { model.startWords(with: save.dishName) }
+        // Only then does posting take the dish off Saved: an unrelated held draft never does.
+        if let save = presentation.ateOwnSave, model.startWords(with: save.dishName) {
+            model.fulfilsOwnSave = save.id
+        }
         _model = State(initialValue: model)
     }
 

@@ -7,6 +7,7 @@ import SwiftUI
 struct FeedBetaList: View {
     let store: EntryListStore
     let actions: FeedEditionActions
+    @Environment(\.atePalette) private var palette
 
     var body: some View {
         switch store.phase {
@@ -42,7 +43,7 @@ struct FeedBetaList: View {
         if let message = store.inlineErrorMessage {
             Text(message)
                 .ateText(.meta)
-                .foregroundStyle(AtePalette.automatic.muted)
+                .foregroundStyle(palette.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.top, AteMetrics.section)
                 .ateCardWidth()

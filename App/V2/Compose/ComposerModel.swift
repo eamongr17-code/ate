@@ -370,16 +370,21 @@ final class ComposerModel {
         focusRequest += 1
     }
 
+    /// "I ate it" opened this composer on a blank page: posting it takes that own save off Saved.
+    var fulfilsOwnSave: UUID?
+
     /// Opens on these words, caret after them — only on a blank composer: a draft's words are never
     /// replaced.
-    func startWords(with text: String) {
+    @discardableResult
+    func startWords(with text: String) -> Bool {
         let words = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard editing == nil, composition.plain.isEmpty, words.isEmpty == false else { return }
+        guard editing == nil, composition.plain.isEmpty, words.isEmpty == false else { return false }
         composition = EntryComposition(plain: words + " ", spans: [])
         let end = composition.displayString.utf16.count
         caret = end
         caretAfterRender = end
         revision += 1
+        return true
     }
 
     // MARK: - The Place key

@@ -20,6 +20,8 @@ struct SavedRoot: View {
     @State private var isAdding = false
     /// A dish of your own, opened.
     @State private var openedOwn: OwnSave?
+    /// "I ate it" was tapped: the composer opens once the sheet has gone, never over it.
+    @State private var eating: OwnSave?
     /// Bumped by every change to what the list is, so the new list starts at its top: a lazy list
     /// keeps its offset while its rows are replaced.
     @State private var listChanged = 0
@@ -62,7 +64,7 @@ struct SavedRoot: View {
         .overlay(alignment: .bottom) { undo }
         .sheet(isPresented: $isFiltering) { filterSheet }
         .sheet(isPresented: $isAdding) { SavedAddSheet(app: app) }
-        .sheet(item: $openedOwn) { save in
+        .sheet(item: $openedOwn, onDismiss: composeEaten) { save in
             SavedOwnSheet(save: save, app: app) { ateIt(save) }
         }
         .task {
@@ -116,6 +118,8 @@ struct SavedRoot: View {
             emptyBand(AteEmptyState(line: "Nothing saved\nyet.", art: .saved))
         case .signedOut:
             emptyBand(AteEmptyState(line: "Nobody's\nsigned in.", art: .printer))
+        case .failed where showsOwn && own.saves.isEmpty == false:
+            groups
         case .failed:
             emptyBand(AteEmptyState(line: "Couldn't\nreach Ate.", art: .torn, pill: ("Try again", { retry() })))
         case .ready:
@@ -165,7 +169,10 @@ struct SavedRoot: View {
             score: dish.dishScore.map { .average($0) },
             isFirst: isFirst,
             isSaved: true,
-            onSave: { Task { await app.saves.unsaveFromShelf(dish) } },
+            onSave: {
+                if let pending = own.undoable { own.expireUndo(for: pending) }
+                Task { await app.saves.unsaveFromShelf(dish) }
+            },
             onOpen: { router.open(.dish(dish.dishID), from: .saved) }
         )
         .task { await saved.loadMoreIfNeeded(after: dish) }
@@ -181,7 +188,10 @@ struct SavedRoot: View {
             mark: save.source.mark,
             isFirst: isFirst,
             isSaved: true,
-            onSave: { Task { await own.remove(save) } },
+            onSave: {
+                if let pending = saved.undoable { saved.expireUndo(for: pending) }
+                Task { await own.remove(save) }
+            },
             onOpen: { openedOwn = save }
         )
         .accessibilityIdentifier("saved.own")
@@ -194,11 +204,17 @@ struct SavedRoot: View {
         }
     }
 
-    /// "I ate it": the sheet goes, and the composer opens on the dish and its place.
+    /// "I ate it": the sheet goes, and once it has, the composer opens on the dish and its place.
     private func ateIt(_ save: OwnSave) {
-        guard app.gate.permitsWrite(.compose) else { return }
         app.services.analytics(OwnSaveEvents.ateItTapped(source: save.source))
+        eating = save
         openedOwn = nil
+    }
+
+    private func composeEaten() {
+        guard let save = eating else { return }
+        eating = nil
+        guard app.gate.permitsWrite(.compose) else { return }
         app.compose(.ateIt(save))
     }
 

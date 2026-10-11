@@ -80,6 +80,11 @@ struct FeedRoot: View {
             await stores.latest.loadIfNeeded()
             await sections
         }
+        // Beta: the register includes your own receipts, so one you just posted goes straight in.
+        .onReceive(NotificationCenter.default.publisher(for: .ateV2EntryChanged)) { _ in
+            guard AteBeta.isOn else { return }
+            Task { await stores.everything.refresh() }
+        }
         // Read ahead, so the area sheet opens with its cities in it.
         .task {
             guard AteBeta.isOn == false else { return }
