@@ -20,6 +20,14 @@ on:
         description: "Apply the migrations and deploy the functions (unticked: dry run only)"
         type: boolean
         default: false
+      reset:
+        description: "ERASE prod and rebuild it from our migrations (backs it up first). Needs the box below."
+        type: boolean
+        default: false
+      confirm_reset:
+        description: "To reset, type ERASE PROD"
+        type: string
+        default: ""
 
 concurrency:
   group: prod
@@ -58,8 +66,42 @@ jobs:
       - name: Link prod
         run: supabase link --project-ref "$PROD_REF" --password "$SUPABASE_DB_PASSWORD"
 
+      # Read-only: which tables prod holds and roughly how many rows, so nothing is erased blind.
+      - name: What prod holds now
+        run: |
+          {
+            echo "### Prod: tables and row estimates"
+            echo '```'
+            supabase inspect db table-stats --linked 2>&1 || true
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Eamon, 2026-10-11: prod held the old Expo build's database; back it up, then rebuild from ours.
+      - name: Back up prod before a reset
+        if: inputs.reset && inputs.confirm_reset == 'ERASE PROD'
+        run: |
+          mkdir -p backup
+          supabase db dump --linked --password "$SUPABASE_DB_PASSWORD" -f backup/schema.sql
+          supabase db dump --linked --password "$SUPABASE_DB_PASSWORD" --data-only -f backup/data.sql
+          supabase db dump --linked --password "$SUPABASE_DB_PASSWORD" --role-only -f backup/roles.sql
+          ls -la backup
+
+      - uses: actions/upload-artifact@v4
+        if: inputs.reset && inputs.confirm_reset == 'ERASE PROD'
+        with:
+          name: prod-backup-before-reset
+          path: backup/
+          retention-days: 90
+          if-no-files-found: error
+
+      # Erases prod's database objects and data, then applies supabase/migrations from scratch.
+      - name: Reset prod (erase and rebuild)
+        if: inputs.reset && inputs.confirm_reset == 'ERASE PROD'
+        run: supabase db reset --linked --no-seed --yes
+
       - name: What would change (dry run)
         run: |
+          set -o pipefail
           supabase migration list --linked --password "$SUPABASE_DB_PASSWORD" | tee migration-list.txt
           supabase db push --linked --dry-run --password "$SUPABASE_DB_PASSWORD" | tee dry-run.txt
           {
@@ -70,17 +112,17 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Apply migrations
-        if: inputs.apply
+        if: inputs.apply || (inputs.reset && inputs.confirm_reset == 'ERASE PROD')
         run: supabase db push --linked --password "$SUPABASE_DB_PASSWORD"
 
       - name: Deploy edge functions
-        if: inputs.apply
+        if: inputs.apply || (inputs.reset && inputs.confirm_reset == 'ERASE PROD')
         # Every function under supabase/functions, with config.toml's per-function settings
         # (send-push takes no user JWT).
         run: supabase functions deploy --project-ref "$PROD_REF" --use-api
 
       - name: Smoke read
-        if: inputs.apply
+        if: inputs.apply || (inputs.reset && inputs.confirm_reset == 'ERASE PROD')
         env:
           PROD_KEY: sb_publishable_EQqUPHQv-1yZrqqvOWphkw_IlFI2ALY
         run: |
