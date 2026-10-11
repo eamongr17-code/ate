@@ -1,7 +1,7 @@
 # Beta → TestFlight (internal)
 #
-# Archives the Beta configuration (Release-grade build pointed at STAGING — see
-# Config/Beta.xcconfig; environment law: internal test builds never touch prod)
+# Archives the Beta configuration (Release-grade build pointed at PROD for testers — see
+# Config/Beta.xcconfig; test drives use Debug builds on staging, never this one)
 # and uploads it to App Store Connect for internal TestFlight distribution.
 #
 # ── Required repository SECRETS ────────────────────────────────────────────────
@@ -153,8 +153,8 @@ jobs:
             || sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
 
       - name: Write Secrets.xcconfig
-        # The example carries the real staging values (publishable by design); Beta
-        # resolves SUPABASE_* from the STAGING pair, so prod stays untouched.
+        # The example carries the real staging and prod values (publishable by design);
+        # Beta resolves SUPABASE_* from the PROD pair.
         run: cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
 
       - name: Cache SPM
@@ -343,7 +343,7 @@ jobs:
             echo "### Uploaded to TestFlight"
             echo ""
             echo "- bundle id: \`com.eamongracias.ate\`"
-            echo "- build: \`$BUILD_NUMBER\` (configuration Beta → STAGING)"
+            echo "- build: \`$BUILD_NUMBER\` (configuration Beta → PROD)"
             echo "- commit: \`${GITHUB_SHA:0:7}\`"
             echo ""
             echo "Processing takes a few minutes; the internal group gets it automatically once it clears."
