@@ -34,7 +34,7 @@ struct AtePrintedReceipt: View {
                 AtePhotoContent(photo: photo, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: AtePrintedReceiptMetrics.photoRadius, style: .continuous))
                     // The cover's lift, as a list's cover sits on its page.
-                    .shadow(color: AteShadow.cover.colour, radius: AteShadow.cover.blur / 2, y: AteShadow.cover.offsetY)
+                    .ateShadow(.cover)
                     .contentShape(Rectangle())
                     .onTapGesture { showPhotos(photos, at: 0) }
                     .accessibilityAddTraits(.isButton)
