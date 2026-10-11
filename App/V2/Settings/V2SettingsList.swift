@@ -103,13 +103,13 @@ struct V2SettingsList: View {
         }
     }
 
-    /// In Debug and Beta, the builds with the staging door: the component kit, and Replay first run —
-    /// signed out to Welcome, then Handle, the onboarding and every tip again, as a new account sees
-    /// them. (Only the system's photo prompt cannot be replayed: iOS asks once per install.)
+    /// In Debug and Beta (TestFlight, on prod too), never the App Store build: the component kit, and
+    /// Replay first run — signed out to Welcome, then Handle, the onboarding and every tip again, as a
+    /// new account sees them. (Only the system's photo prompt cannot be replayed: iOS asks once per install.)
     @ViewBuilder
     private var builds: some View {
         Section {
-            if context.services.debugSignIn != nil {
+            #if DEBUG || BETA
                 AteGroupedRow(title: "Component kit") { context.open(.settings(.kit)) }
                 AteGroupedRow(title: "Replay first run", identifier: "settings.replayFirstRun") {
                     context.app.replayFirstRun()
@@ -119,7 +119,7 @@ struct V2SettingsList: View {
                         context.app.endSession()
                     }
                 }
-            }
+            #endif
         }
     }
 
