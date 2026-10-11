@@ -1,15 +1,15 @@
-// Beta — Release-grade build pointed at STAGING. Used by TestFlight internal
-// builds during build-out (environment law: test drives never touch prod).
-// Promote to prod by shipping Release, not by editing this file.
+// Beta — Release-grade build for TestFlight testers, pointed at PROD: testers see the real, empty
+// world, never staging's seed (Eamon, 2026-10-11). Debug builds and every test drive stay on
+// staging (environment law); a Beta build is never used to drive tests.
 #include? "Secrets.xcconfig"
 
-ATE_ENVIRONMENT = beta
-SUPABASE_URL = $(SUPABASE_URL_STAGING)
-SUPABASE_KEY = $(SUPABASE_KEY_STAGING)
+ATE_ENVIRONMENT = production
+SUPABASE_URL = $(SUPABASE_URL_PROD)
+SUPABASE_KEY = $(SUPABASE_KEY_PROD)
 
-// BETA compiles the staging demo sign-in into TestFlight-internal builds (there is no real
-// auth flow yet; without it a TestFlight install can only ever show signed-out states).
-// Release never defines this, so the affordance cannot reach the App Store build.
+// BETA compiles the kit gallery and the staging demo sign-in into TestFlight builds. The demo
+// sign-in only appears on staging, so on prod testers sign in with Apple.
+// Release never defines this, so neither can reach the App Store build.
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) BETA
 // The aps-environment entitlement: sandbox APNs for Xcode installs, production for TestFlight and the store.
 ATE_APS_ENVIRONMENT = production
