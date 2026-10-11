@@ -167,6 +167,10 @@ jobs:
       - name: Push sender suites (send-push)
         run: node --test supabase/functions/send-push/*_test.ts
 
+      # read-share's modules are runtime-free too (fetch/model/places are injected), so Node runs them.
+      - name: Share reader suites (read-share)
+        run: node --test supabase/functions/read-share/*_test.ts
+
       # places-search's pure modules, same deal: no runtime APIs, so Node runs them. Only the
       # node-compatible suites are listed — blend_test.ts and vic_filter_test.ts import
       # deno.land/std and need `deno test`.
