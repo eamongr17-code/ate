@@ -29,7 +29,7 @@ struct AtePrintedReceipt: View {
     @Environment(\.atePhotoViewer) private var showPhotos
 
     var body: some View {
-        ReceiptOnPhotoLayout(room: room) {
+        ReceiptOnPhotoLayout(room: room, photoWidth: AteScreen.width - 2 * AteMetrics.gutter) {
             if let photo = photos.first {
                 AtePhotoContent(photo: photo, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: AtePrintedReceiptMetrics.photoRadius, style: .continuous))
@@ -152,6 +152,8 @@ struct AtePrintedReceiptStage: View {
 /// and is drawn over it.
 struct ReceiptOnPhotoLayout: Layout {
     var room: CGFloat?
+    /// The widest the photo runs: the screen inside the gutters.
+    var photoWidth: CGFloat
 
     private struct Frames {
         var size: CGSize
@@ -183,7 +185,7 @@ struct ReceiptOnPhotoLayout: Layout {
         guard let paperView = subviews.last else { return Frames(size: .zero, lap: 0, paper: .zero) }
         let paper = paperView.sizeThatFits(.unspecified)
         guard subviews.count > 1 else { return Frames(size: paper, lap: 0, paper: paper) }
-        let width = min(proposal.width ?? AteScreen.width, AteScreen.width) - 2 * AteMetrics.gutter
+        let width = min(proposal.width ?? photoWidth, photoWidth)
         let lapMax = AtePrintedReceiptMetrics.photoLap
         let height = max(
             AtePrintedReceiptMetrics.photoMinHeight,
@@ -227,7 +229,7 @@ enum AtePrintedReceiptMetrics {
     /// On screen the paper runs to 38 from each edge.
     static let screenInset: CGFloat = 38
     /// The photo's corners: the paper's own top, at the stage's scale (16, design rule 3).
-    static var photoRadius: CGFloat { AteShareSlipMetrics.radius * AtePrintedReceiptStage.scale }
+    @MainActor static var photoRadius: CGFloat { AteShareSlipMetrics.radius * AtePrintedReceiptStage.scale }
     /// How far the receipt laps the foot of the photo, at most…
     static let photoLap: CGFloat = 96
     /// …and never more than this share of a small photo.
