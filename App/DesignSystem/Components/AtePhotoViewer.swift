@@ -265,11 +265,22 @@ private struct ZoomablePhoto: UIViewRepresentable {
         var onDragEnd: (CGFloat, CGFloat) -> Void = { _, _ in }
         var dragsToDismiss = true
         var loading: Task<Void, Never>?
-        private var shownURL: URL?
+        private var shownID: AtePhoto.ID?
 
         func show(_ photo: AtePhoto) {
-            guard let url = photo.url, url != shownURL, let scrollView else { return }
-            shownURL = url
+            guard photo.id != shownID, let scrollView else { return }
+            guard let url = photo.url else {
+                // A photo held in memory, with no address: the composer's staged picks, and the
+                // share screen's fetched copies. Without this the viewer opened black (build 116).
+                guard let image = photo.image else { return }
+                shownID = photo.id
+                loading?.cancel()
+                let renderer = ImageRenderer(content: image)
+                renderer.scale = 1
+                scrollView.image = renderer.uiImage
+                return
+            }
+            shownID = photo.id
             loading?.cancel()
             if let standIn = AteImagePipeline.shared.bestCached(url, size: .full) {
                 scrollView.image = standIn.image
