@@ -20,4 +20,8 @@ enum AteKitColor {
     /// The off state every disabled control shares: a muted tick (`.tick.off{opacity:.4}`) and an
     /// ink pill waiting on its thing.
     static let disabledOpacity: Double = 0.4
+    /// What dims the other app under the share card — `.dim{background:rgba(0,0,0,.35)}`.
+    static let shareScrim = Color.black.opacity(0.35)
+    /// The share card's grabber, in the surface's ink — `rgba(36,20,31,.2)`.
+    static let grabberOpacity: Double = 0.2
 }

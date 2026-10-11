@@ -42,10 +42,13 @@ struct V2Root: View {
         // "Ate with": the push token, the bell's count on foreground, and a tapped push opened.
         .ateWithPushes(app)
         .task { await app.autoSignInIfRequested() }
+        // Anything the share extension left while the app was not running.
+        .task { await app.receiveShares() }
         .onAppear { app.services.analytics(ShellEvents.newAppOpened()) }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             Task { await app.drainOutbox() }
+            Task { await app.receiveShares() }
         }
     }
 

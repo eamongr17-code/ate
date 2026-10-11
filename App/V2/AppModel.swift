@@ -237,6 +237,20 @@ final class AppModel {
         await services.companionTags.run()
     }
 
+    // MARK: - Share to Ate
+
+    /// What the share extension left in the app group while the app was away: its events, sent now
+    /// with the app's own session, and — when a dish was saved from another app — Saved read again,
+    /// so it is at the top of Saved the moment the app is open.
+    func receiveShares() async {
+        let inbox = ShareInbox()
+        for event in inbox.takeEvents() {
+            services.analytics(event)
+        }
+        guard inbox.takeOwnSavesChanged(), hasSession else { return }
+        await ownSaves.refresh()
+    }
+
     // MARK: - Getting out
 
     /// Sign out, or a deleted account: the person's draft and queued

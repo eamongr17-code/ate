@@ -8,5 +8,11 @@
 	</array>
 	<key>aps-environment</key>
 	<string>$(ATE_APS_ENVIRONMENT)</string>
+	<!-- Shared with the share extension: the signed-in session (as a keychain access group) and
+	     the extension's notes to the app (AteKit's AteAppGroup, SharedSessionStorage, ShareInbox). -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.eamongracias.ate</string>
+	</array>
 </dict>
 </plist>

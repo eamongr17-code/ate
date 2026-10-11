@@ -31,6 +31,10 @@ enum AteMotion {
     /// A page that loads in pieces filling in once, over its still skeleton (round 4: no blinking,
     /// no shimmer — a still placeholder, then one fade). Gate with ``SwiftUICore/View/ateAnimation(_:value:)``.
     static let fillIn = Animation.easeOut(duration: 0.3)
+    /// The share card rising over another app, and going back down — the system sheet's own
+    /// movement, for the one card that cannot be a system sheet (`share-to-ate.html`). With Reduce
+    /// Motion it is simply there.
+    static let cardRise = Animation.spring(duration: 0.4, bounce: 0)
 }
 
 extension View {

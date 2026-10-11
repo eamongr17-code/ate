@@ -44,7 +44,7 @@ struct SavedAddSheet: View {
         .v2PlaceSheet(
             isPresented: $isPickingPlace,
             directory: app.services.places,
-            title: SavedOwnCopy.placeTitle,
+            title: V2PlaceSheet.savedTitle,
             selected: { place?.id },
             onPick: { picked in place = picked }
         )
@@ -108,37 +108,14 @@ struct SavedOwnSheet: View {
 }
 
 enum SavedOwnCopy {
-    static let placeTitle = "Where is it?"
-
     /// The place, and its city after it.
     static func place(of save: OwnSave) -> String {
         guard let city = save.restaurantCity, city.isEmpty == false else { return save.restaurantName }
         return "\(save.restaurantName), \(city)"
     }
 
-    /// "@sydneyeats on TikTok", "On Instagram", or the link's own site.
+    /// "@sydneyeats on TikTok", "On Instagram", or the link's own site — the share card's own line.
     static func linkTitle(_ save: OwnSave) -> String {
-        let site: String
-        switch save.source {
-        case .tiktok: site = "TikTok"
-        case .instagram: site = "Instagram"
-        case .link, .manual:
-            site = save.sourceURL.flatMap { URL(string: $0)?.host() }
-                .map { $0.hasPrefix("www.") ? String($0.dropFirst(4)) : $0 } ?? "the web"
-        }
-        guard let author = save.sourceAuthor, author.isEmpty == false else { return "On \(site)" }
-        return "\(author) on \(site)"
-    }
-}
-
-extension OwnSaveSource {
-    /// The mark on the thumbnail. No brand marks: TikTok is Lucide's music note, Instagram its camera.
-    var mark: AteIcon {
-        switch self {
-        case .manual: .edit
-        case .tiktok: .music
-        case .instagram: .camera
-        case .link: .link
-        }
+        OwnSaveSourceLine.title(source: save.source, url: save.sourceURL, author: save.sourceAuthor)
     }
 }

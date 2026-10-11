@@ -3,6 +3,7 @@
 
 included:
   - App
+  - ShareExtension
   - AteKit/Sources
   - AteKit/Tests
 
@@ -51,7 +52,7 @@ custom_rules:
   # Lucide is the one icon set (round 5): every icon is an `AteIcon` case, never an SF Symbol.
   no_sf_symbols:
     name: "No SF Symbols"
-    included: "/App/.*\\.swift$"
+    included: "/(App|ShareExtension)/.*\\.swift$"
     regex: '(Image|UIImage|Label)\s*\([^)]*\b(systemName|systemImage)\s*:'
     message: "Icons come from Lucide via AteIcon; add a case rather than using an SF Symbol."
     severity: error
@@ -59,7 +60,7 @@ custom_rules:
   # opens a screen with `-ate-open <route>`, never with a new one-off flag in the view that reads it.
   launch_arguments_in_one_place:
     name: "Launch arguments live in DebugLaunch"
-    included: "/(App|AteKit/Sources)/.*\\.swift$"
+    included: "/(App|ShareExtension|AteKit/Sources)/.*\\.swift$"
     excluded: "/DebugLaunch\\.swift$"
     regex: '-ate-[a-z]'
     match_kinds: [string]
@@ -67,32 +68,33 @@ custom_rules:
     severity: error
   # The component kit is the only place look-and-feel is decided, and it decides it through the
   # tokens (`App/DesignSystem/Tokens/`): no colour, font, radius or shadow literal in a kit
-  # component. Scoped to the kit and the app's screens (`App/V2/`); the older components under
+  # component. Scoped to the kit, the app's screens (`App/V2/`) and the share extension's card
+  # (`ShareExtension/`); the older components under
   # `App/DesignSystem/Components/` still carry literals and are outside it.
   kit_no_colour_literal:
     name: "No colour literal in the kit"
-    included: "/App/(DesignSystem/Kit|V2)/.*\\.swift$"
+    included: "/(App/(DesignSystem/Kit|V2)|ShareExtension)/.*\\.swift$"
     regex: '(\bColor\s*\(\s*(hex|red|white|light|\.sRGB|uiColor|\.displayP3)\b|\bColor\.(red|blue|green|black|white|gray|grey|orange|yellow|pink|purple|brown|cyan|mint|teal|indigo)\b|\bUIColor\s*\(|#colorLiteral)'
     excluded_match_kinds: [comment, doccomment, string]
     message: "Colours come from AteColor / AtePalette / AteKitColor; add a token rather than a literal."
     severity: error
   kit_no_font_literal:
     name: "No font literal in the kit"
-    included: "/App/(DesignSystem/Kit|V2)/.*\\.swift$"
+    included: "/(App/(DesignSystem/Kit|V2)|ShareExtension)/.*\\.swift$"
     regex: '(\.font\s*\(|\bFont\.(system|custom)\b|\bUIFont\s*\()'
     excluded_match_kinds: [comment, doccomment, string]
     message: "Type comes from an AteTextStyle through .ateText(_:); AteType is the only file that names a font."
     severity: error
   kit_no_radius_literal:
     name: "No radius literal in the kit"
-    included: "/App/(DesignSystem/Kit|V2)/.*\\.swift$"
+    included: "/(App/(DesignSystem/Kit|V2)|ShareExtension)/.*\\.swift$"
     regex: '\b(cornerRadius|cornerRadii|topLeadingRadius|topTrailingRadius|bottomLeadingRadius|bottomTrailingRadius)\s*:\s*[0-9]'
     excluded_match_kinds: [comment, doccomment, string]
     message: "Radii come from AteMetrics or the component's own metrics enum, never a number at the call."
     severity: error
   kit_no_shadow_literal:
     name: "No shadow in the kit"
-    included: "/App/(DesignSystem/Kit|V2)/.*\\.swift$"
+    included: "/(App/(DesignSystem/Kit|V2)|ShareExtension)/.*\\.swift$"
     regex: '\.shadow\s*\('
     excluded_match_kinds: [comment, doccomment, string]
     message: "Shadows come from AteShadow / ateContactLine; glass casts its own."

@@ -37,7 +37,7 @@ jobs:
           echo "$files"
           match() { echo "$files" | grep -qE "$1" && echo true || echo false; }
           echo "backend=$(match '^(supabase/|AteKit/Sources/|AteKit/Tests/AteKitTests/.*(Contract|Staging)|AteKit/Package|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
-          echo "app=$(match '^(App/|AteKit/|AteUITests/|Ate\.xcodeproj/|Config/|\.swiftlint\.yml|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
+          echo "app=$(match '^(App/|ShareExtension/|AteKit/|AteUITests/|Ate\.xcodeproj/|Config/|\.swiftlint\.yml|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   test:

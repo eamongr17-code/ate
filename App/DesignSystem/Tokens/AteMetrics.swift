@@ -17,9 +17,13 @@ enum AteScreen {
     /// The window's own size. The artboards are 390×844; anything that has to run off the bottom of
     /// the screen (the entry page) needs the real number rather than the drawn one.
     static var size: CGSize {
-        UIApplication.shared.connectedScenes
+        #if ATE_EXTENSION
+        return window?.bounds.size ?? CGSize(width: 390, height: 844)
+        #else
+        return UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.screen.bounds.size ?? CGSize(width: 390, height: 844)
+        #endif
     }
 
     static var width: CGFloat { size.width }
@@ -30,16 +34,26 @@ enum AteScreen {
 
     static var safeArea: UIEdgeInsets {
         if let cached { return cached }
+        #if ATE_EXTENSION
+        let insets = window?.safeAreaInsets ?? .zero
+        #else
         let insets = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .flatMap(\.windows)
             .first { $0.isKeyWindow }?
             .safeAreaInsets ?? .zero
+        #endif
         if insets != .zero { cached = insets }
         return insets
     }
 
     private static var cached: UIEdgeInsets?
+
+    #if ATE_EXTENSION
+    /// The share extension's window. An app extension has no `UIApplication` to ask, so its principal
+    /// controller hands its window in once it has one.
+    static weak var window: UIWindow?
+    #endif
 }
 
 extension View {

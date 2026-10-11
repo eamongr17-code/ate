@@ -20,6 +20,8 @@ struct V2PlaceSheet: View {
 
     /// The composer's question. A dish saved for later asks "Where is it?" instead.
     static let composerTitle = "Where was this?"
+    /// …the question for a dish saved for later — Saved's Add, and the share card.
+    static let savedTitle = "Where is it?"
 
     @State private var isAddingPlace = false
     @Environment(\.dismiss) private var dismiss
