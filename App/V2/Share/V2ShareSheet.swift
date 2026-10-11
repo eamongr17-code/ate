@@ -111,7 +111,7 @@ struct V2ShareSheet: View {
                 paper: look.paper
             )
             .environment(\.colorScheme, .light)
-            .shadow(color: Color.black.opacity(0.4), radius: 14, y: 10)
+            .ateShadow(.shareSticker)
         case .story, .post:
             let isFraming = isAdjusting && format == showing
             let preview = AteShareCardPreview(card: card(format), width: V2ShareSheetMetrics.width(format))

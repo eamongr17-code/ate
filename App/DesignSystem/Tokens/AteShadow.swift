@@ -21,6 +21,12 @@ struct AteShadow: Equatable, Sendable {
     /// A list's cover at the head of its page (`lists-playlists.html` `.cov.lift`):
     /// `0 14px 34px rgba(36,20,31,.22)`.
     static let cover = AteShadow(colour: AteColor.ink.opacity(0.22), offsetY: 14, blur: 34, spread: 0)
+    /// The photo printed on an accent story.
+    static let print = AteShadow(colour: AteColor.ink.opacity(0.35), offsetY: 8, blur: 24, spread: 0)
+    /// A share card lifted off the ink sheet.
+    static let shareCard = AteShadow(colour: Color.black.opacity(0.45), offsetY: 10, blur: 32, spread: 0)
+    /// The sticker card's receipt on the ink sheet.
+    static let shareSticker = AteShadow(colour: Color.black.opacity(0.4), offsetY: 10, blur: 28, spread: 0)
     /// No shadow: the same background, casting nothing.
     static let flat = AteShadow(colour: .clear, offsetY: 0, blur: 0, spread: 0)
 }

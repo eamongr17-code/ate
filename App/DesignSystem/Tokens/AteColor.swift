@@ -49,6 +49,8 @@ enum AteColor {
     ]
     static let tiktok = Color.black
     static let messagesGreen = Color(hex: 0x34C759)
+    /// The glyph on an app's own coloured disc.
+    static let onBrand = Color.white
 
     /// Near-black. The text colour on every accent and on every piece of receipt paper, in both
     /// modes — and the fill of the `+` button and the one ink pill per sheet.

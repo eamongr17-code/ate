@@ -73,7 +73,7 @@ struct AteShareCard: View {
                 if let photo {
                     AteFramedPhoto(image: photo, framing: framing, size: AteShareCardMetrics.printSize)
                         .clipShape(RoundedRectangle(cornerRadius: AteShareCardMetrics.printRadius, style: .continuous))
-                        .shadow(color: AteColor.ink.opacity(0.35), radius: 12, y: 8)
+                        .ateShadow(.print)
                         .rotationEffect(.degrees(AteShareCardMetrics.printTilt))
                         .padding(.top, AteShareCardMetrics.printTop)
                 }
@@ -233,7 +233,7 @@ struct AteShareCardPreview: View {
             card.scaleEffect(scale)
         }
         .clipShape(RoundedRectangle(cornerRadius: AteShareCardMetrics.previewRadius, style: .continuous))
-        .shadow(color: Color.black.opacity(0.45), radius: 16, y: 10)
+        .ateShadow(.shareCard)
     }
 }
 

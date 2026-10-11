@@ -116,7 +116,7 @@ struct AteBrandDisc: View {
                     icon.view(size: AteGlassDiscMetrics.glyph)
                 }
             }
-            .foregroundStyle(Color.white)
+            .foregroundStyle(AteColor.onBrand)
             .frame(width: size, height: size)
             .contentShape(.circle)
         }
