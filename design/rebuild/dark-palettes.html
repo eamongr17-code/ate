@@ -1,0 +1,201 @@
+<title>Ate Dark Palettes</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one row per screen, four real-scale (390×844pt) phones per row, one per palette. */
+:root{
+  --bg:#EFEAE2; --fg:#24141F; --muted:#5E5560; --card:#FFFFFF; --hair:rgba(36,20,31,.14); --pick:#F0623F;
+  --f-head:"Young Serif",Georgia,serif; --f-ui:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;
+  --f-prose:"Newsreader",Georgia,serif; --f-mono:"DM Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#121110;--fg:#F4EFE9;--muted:#ADA69E;--card:#1E1B19;--hair:rgba(255,255,255,.14);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121110;--fg:#F4EFE9;--muted:#ADA69E;--card:#1E1B19;--hair:rgba(255,255,255,.14);color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-prose);font-size:17px;line-height:1.5;padding:0 20px;padding-block:36px 80px}
+main{max-width:1720px;margin:0 auto;display:grid;gap:40px}
+h1,h2{font-family:var(--f-ui);font-weight:800;letter-spacing:-.035em;line-height:1.05;margin:0;text-wrap:balance}
+h1{font-size:40px}h2{font-size:24px}
+p{margin:0}
+.lede{max-width:68ch;font-size:19px}
+.key{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.k{background:var(--card);border:1px solid var(--hair);border-radius:16px;padding:14px 16px;display:grid;gap:8px;min-width:0}
+.k b{font-family:var(--f-ui);font-size:17px;letter-spacing:-.01em}
+.k span{font-size:15px;color:var(--muted);line-height:1.4}
+.sw{display:flex;gap:4px}.sw i{width:26px;height:26px;border-radius:7px;box-shadow:0 0 0 1px var(--hair)}
+.strip{overflow-x:auto;padding-bottom:12px}
+.row{display:flex;gap:28px;width:max-content}
+.cell{display:grid;gap:10px;width:390px}
+.cell h3{margin:0;font-family:var(--f-ui);font-size:16px;font-weight:700;letter-spacing:-.01em}
+.cell h3 em{font-style:normal;color:var(--muted);font-weight:500}
+
+/* ---------- the phone: everything inside reads its palette from --p-* set inline ---------- */
+.ph{width:390px;height:844px;border-radius:52px;overflow:hidden;position:relative;background:var(--p-ground);color:var(--p-fg);
+  box-shadow:0 0 0 1px var(--hair),0 20px 50px rgba(0,0,0,.28);font-family:var(--f-prose)}
+.sb{position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:8px 36px 0 48px;font:600 17px/1 -apple-system,"Helvetica Neue",sans-serif;z-index:5;color:var(--p-fg)}
+.island{position:absolute;top:11px;left:50%;width:124px;height:36px;margin-left:-62px;border-radius:20px;background:#000;z-index:6}
+.scroll{position:absolute;inset:0;padding:60px 12px 120px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.h{font-family:var(--f-head);font-weight:400;letter-spacing:-.01em;line-height:1.05}
+.ui{font-family:var(--f-ui);font-weight:600;font-size:15px;letter-spacing:-.01em}
+.meta{font-family:var(--f-ui);font-weight:500;font-size:13px;color:var(--s-muted,var(--p-muted))}
+.lab{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--s-muted)}
+.top{display:flex;align-items:center;justify-content:space-between;min-height:44px}
+.logo{font-family:var(--f-head);font-size:30px;line-height:1}
+.disc{width:44px;height:44px;border-radius:50%;background:var(--p-raised);display:flex;align-items:center;justify-content:center;position:relative;color:var(--p-fg)}
+.badge{position:absolute;top:-3px;right:-3px;min-width:18px;height:18px;border-radius:9px;background:#F0623F;color:#24141F;font:600 11px/18px var(--f-ui);text-align:center}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;background:var(--p-raised);color:var(--p-fg)}
+.month{display:flex;align-items:center;gap:10px;color:var(--p-muted)}
+.month::after{content:"";flex:1;border-top:1.5px dashed var(--p-rule)}
+
+/* the slip: --s-* are the slip's own roles */
+.slip{background:var(--s-bg);color:var(--s-fg);border-radius:16px 16px 0 0;padding:6px 16px 12px;display:flex;flex-direction:column;gap:10px}
+.tear{height:4px;background-size:12px 4px;background-repeat:round no-repeat;margin-top:-1px}
+.slipwrap{filter:drop-shadow(0 1px 0 rgba(0,0,0,.3))}
+.dish{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:40px}
+.dish .h{font-size:20px}
+.tok{display:inline-flex;align-items:center;gap:3px;padding:0 7px 0 5px;border-radius:999px;background:var(--p-butter);color:#24141F;font-family:var(--f-mono);font-size:13px;font-weight:500;line-height:1.55;white-space:nowrap}
+.prose{font-size:17px;line-height:1.45;color:var(--s-fg)}
+.prose .tok{font-size:.78em;vertical-align:1px}
+.pics{display:flex}
+.pic{width:64px;height:64px;border-radius:14px;box-shadow:0 0 0 3px var(--s-bg);flex-shrink:0}
+.pic+.pic{margin-left:-10px}
+.place{display:flex;align-items:center;gap:6px;color:var(--s-fg)}
+.place .meta{color:var(--s-muted)}
+.hair{border-top:1px solid var(--s-hair)}
+.who{display:flex;align-items:center;gap:8px}
+.av{width:28px;height:28px;border-radius:50%;color:#24141F;font:700 13px/28px var(--f-ui);text-align:center;flex-shrink:0}
+.tag{display:inline-flex;height:24px;align-items:center;padding:0 9px;border-radius:999px;background:var(--p-tag);color:var(--p-tagink);font:600 12px/1 var(--f-ui)}
+
+/* the tab bar: the app's own frost */
+.tabs{position:absolute;left:14px;right:14px;bottom:26px;display:flex;gap:10px;align-items:center;z-index:4}
+.bar{flex:1;height:62px;border-radius:31px;background:var(--p-glass);box-shadow:inset 0 0 0 1px var(--p-rim),0 8px 24px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:space-around;padding:0 6px}
+.t{display:flex;flex-direction:column;align-items:center;gap:2px;font:600 10px/1 var(--f-ui);color:var(--p-fg);opacity:.8;padding:7px 12px;border-radius:24px}
+.t.on{background:var(--p-raised);opacity:1}
+.plus{width:62px;height:62px;border-radius:50%;background:var(--p-solid);color:var(--p-solidink);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.scrim{position:absolute;left:0;right:0;bottom:0;height:150px;background:linear-gradient(to top,var(--p-ground) 40%,transparent);z-index:3}
+
+/* entry */
+.hero{position:absolute;top:0;left:0;right:0;height:330px;border-radius:0 0 28px 28px;overflow:hidden}
+.hero .grad{position:absolute;inset:auto 0 0 0;height:60%;background:linear-gradient(to top,rgba(0,0,0,.45),transparent)}
+.pips{position:absolute;bottom:16px;left:0;right:0;display:flex;gap:5px;justify-content:center}
+.pips i{width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.5)}.pips i:first-child{background:#fff}
+.ctl{position:absolute;top:58px;width:44px;height:44px;border-radius:50%;background:var(--p-glass);box-shadow:inset 0 0 0 1px var(--p-rim);display:flex;align-items:center;justify-content:center;color:var(--p-fg);z-index:4}
+.li{display:flex;align-items:baseline;gap:8px;font-family:var(--f-mono);font-size:14px;line-height:1.75;color:var(--s-fg)}
+.li .n{color:var(--s-muted)}
+.dots{flex:1;min-width:16px;border-bottom:1.5px dotted var(--s-rule);position:relative;top:-4px}
+.rule{border-top:1.5px dashed var(--s-rule)}
+.btns{display:flex;gap:10px}
+.btn{flex:1;height:52px;border-radius:999px;display:flex;align-items:center;justify-content:center;font:700 16px/1 var(--f-ui);letter-spacing:-.01em}
+.btn.solid{background:var(--p-solid);color:var(--p-solidink)}
+.btn.raised{background:var(--p-raised);color:var(--p-fg)}
+.barcode{height:30px;opacity:.9;background:repeating-linear-gradient(90deg,var(--s-fg) 0 2px,transparent 2px 5px,var(--s-fg) 5px 6px,transparent 6px 8px,var(--s-fg) 8px 11px,transparent 11px 13px)}
+
+@media (prefers-reduced-motion:no-preference){.strip{scroll-behavior:smooth}}
+</style>
+
+<main>
+  <header style="display:grid;gap:14px">
+    <h1>Dark mode, four ways</h1>
+    <p class="lede">Today's dark mode is tinted plum: the ground, the cards and every raised control lean purple, while light mode is warm linen and the accents are warm. That mismatch is most likely the “weird” feeling. Below, the current palette next to three alternatives, on the same three screens at real iPhone size. Scroll each row sideways on a small screen.</p>
+  </header>
+  <section class="key" id="key"></section>
+  <section style="display:grid;gap:14px"><h2>Journal</h2><div class="strip"><div class="row" id="r-journal"></div></div></section>
+  <section style="display:grid;gap:14px"><h2>Feed</h2><div class="strip"><div class="row" id="r-feed"></div></div></section>
+  <section style="display:grid;gap:14px"><h2>Entry</h2><div class="strip"><div class="row" id="r-entry"></div></div></section>
+</main>
+
+<script>
+// Each palette sets the app's role colours (ground, slip, raised, butter …) exactly as AteColor.swift would.
+const P = [
+  { id:"current", name:"Current · Plum", note:"What ships today. Purple-tinted near-black, mauve controls, softened butter.",
+    ground:"#17111B", slip:"#231B24", tear:"#1F1820", raised:"#4A3F50", tag:"#3A3040", tagink:"#B9AFBC",
+    fg:"#F4EFE9", muted:"#B9AFBC", sfg:"#F4EFE9", smuted:"#B9AFBC", shair:"rgba(255,255,255,.12)", srule:"rgba(255,255,255,.22)",
+    rule:"rgba(255,255,255,.22)", butter:"#CDB060", solid:"#E6DFD3", solidink:"#24141F", glass:"rgba(35,27,36,.94)", rim:"#4A3F50" },
+  { id:"espresso", name:"A · Espresso", note:"Warm brown-black, the dark twin of linen. Same warmth as light mode, so the two modes feel like one app.",
+    ground:"#14110E", slip:"#221D19", tear:"#1E1A16", raised:"#3F3731", tag:"#332C26", tagink:"#B8AEA3",
+    fg:"#F4EFE9", muted:"#B8AEA3", sfg:"#F4EFE9", smuted:"#B8AEA3", shair:"rgba(255,255,255,.11)", srule:"rgba(255,255,255,.22)",
+    rule:"rgba(255,255,255,.2)", butter:"#D6B65E", solid:"#EDE6DB", solidink:"#24141F", glass:"rgba(34,29,25,.94)", rim:"#3F3731" },
+  { id:"graphite", name:"B · Graphite", note:"Neutral greys like Apple's own dark mode. No tint at all, so the photos and accent colours do all the work.",
+    ground:"#0C0C0D", slip:"#1C1C1E", tear:"#19191B", raised:"#3A3A3C", tag:"#2C2C2E", tagink:"#A5A4A8",
+    fg:"#F5F4F1", muted:"#A5A4A8", sfg:"#F5F4F1", smuted:"#A5A4A8", shair:"rgba(255,255,255,.11)", srule:"rgba(255,255,255,.22)",
+    rule:"rgba(255,255,255,.2)", butter:"#E6C65F", solid:"#F5F4F1", solidink:"#111112", glass:"rgba(28,28,30,.94)", rim:"#3A3A3C" },
+  { id:"paper", name:"C · Paper at night", note:"Espresso ground, but receipts stay printed paper with ink type. Most on-brand, and the boldest change.",
+    ground:"#14110E", slip:"#E6DFD3", tear:"#DDD5C7", raised:"#3F3731", tag:"#D6CDBE", tagink:"#5E5560",
+    fg:"#F4EFE9", muted:"#B8AEA3", sfg:"#24141F", smuted:"#5E5560", shair:"rgba(36,20,31,.14)", srule:"rgba(36,20,31,.35)",
+    rule:"rgba(255,255,255,.2)", butter:"#F6D365", solid:"#EDE6DB", solidink:"#24141F", glass:"rgba(34,29,25,.94)", rim:"#3F3731" },
+];
+
+const vars = p => `--p-ground:${p.ground};--p-fg:${p.fg};--p-muted:${p.muted};--p-raised:${p.raised};--p-tag:${p.tag};--p-tagink:${p.tagink};--p-rule:${p.rule};--p-butter:${p.butter};--p-solid:${p.solid};--p-solidink:${p.solidink};--p-glass:${p.glass};--p-rim:${p.rim};--s-bg:${p.slip};--s-fg:${p.sfg};--s-muted:${p.smuted};--s-hair:${p.shair};--s-rule:${p.srule}`;
+const tear = c => `background-image:url("data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='12' height='4' viewBox='0 0 12 4' preserveAspectRatio='none'><path d='M0 0V.6C3 .6 3 3.6 6 3.6S9 .6 12 .6V0Z' fill='${c}'/></svg>`)}")`;
+const food = {
+  ragu:"radial-gradient(circle at 40% 45%,#E9B35B 0 18%,#B5532C 30%,#7A2E1B 55%,#3A1F17 80%)",
+  tira:"radial-gradient(circle at 55% 40%,#F1E2C8 0 20%,#8A5A3C 38%,#4A2C1F 70%)",
+  prawn:"radial-gradient(circle at 45% 50%,#F39A6B 0 16%,#E8C27A 30%,#7C8B3E 52%,#2E2A1E 80%)",
+  croiss:"radial-gradient(circle at 50% 45%,#F2D28E 0 22%,#C88A3E 42%,#6E4420 70%,#2C1C12 90%)",
+  pho:"radial-gradient(circle at 50% 50%,#E9D9B5 0 14%,#C47A3A 30%,#5D7A3A 48%,#25211B 78%)",
+  bun:"radial-gradient(circle at 45% 45%,#F7F1E6 0 26%,#D9B98A 42%,#6E5A3C 70%,#231D16 90%)",
+};
+const star = `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.6 7.1.7-5.4 4.8 1.6 7L12 17.3 5.8 21.1l1.6-7L2 9.3l7.1-.7z"/></svg>`;
+const tok = s => `<span class="tok">${star}${s}</span>`;
+const pin = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="opacity:.75"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.4"/></svg>`;
+const sb = `<div class="island"></div><div class="sb"><span>9:41</span><span style="display:flex;gap:6px;align-items:center"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3.5" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="17" height="8" rx="2" fill="currentColor"/><rect x="24" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".4"/></svg></span></div>`;
+const ico = {
+  journal:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 3.5h11a1.5 1.5 0 0 1 1.5 1.5v15l-3-2-3 2-3-2-3 2V5A1.5 1.5 0 0 1 6 3.5z"/><path d="M9 8.5h6M9 12h6"/></svg>`,
+  feed:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="16" height="6" rx="2"/><rect x="4" y="14" width="16" height="6" rx="2"/></svg>`,
+  saved:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6.5 3.5h11v17l-5.5-4-5.5 4z"/></svg>`,
+  you:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20c1.4-3.6 4.2-5.5 7.5-5.5s6.1 1.9 7.5 5.5" stroke-linecap="round"/></svg>`,
+};
+const tabs = on => `<div class="scrim"></div><div class="tabs"><div class="bar">${["journal","feed","saved","you"].map(t=>`<div class="t${t===on?" on":""}">${ico[t]}<span>${t[0].toUpperCase()+t.slice(1)}</span></div>`).join("")}</div><div class="plus"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div></div>`;
+const slip = (p, inner) => `<div class="slipwrap"><div class="slip">${inner}</div><div class="tear" style="${tear(p.slip)}"></div></div>`;
+
+const journal = p => `${sb}<div class="scroll">
+  <div class="top"><span class="logo">Ate</span><span class="disc"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="7.5" width="14" height="12" rx="3"/><path d="M7 4.5h10.5a3 3 0 0 1 3 3V16"/></svg><span class="badge">5</span></span></div>
+  <div class="month"><span class="ui" style="font-size:13px;color:inherit">September</span></div>
+  ${slip(p,`<div><div class="dish"><span class="h">Tagliatelle al ragù</span>${tok("4.5")}</div><div class="dish" style="min-height:30px"><span class="h" style="font-size:17px">Tiramisu</span>${tok("3.0")}</div></div>
+    <p class="prose" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">With Jess for her birthday. The tagliatelle al ragù ${tok("4.5")} was unreal, rich, glossy, gone in four minutes. Tiramisu ${tok("3.0")} a bit flat after that.</p>
+    <div class="pics"><div class="pic" style="background:${food.ragu}"></div><div class="pic" style="background:${food.tira}"></div><div class="pic" style="background:${food.prawn}"></div></div>
+    <div class="hair"></div><div class="place">${pin}<span class="ui">Tipo 00</span><span class="meta">CBD · Sat 19 Sep</span></div>`)}
+  ${slip(p,`<div class="dish"><span class="h">Almond croissant</span>${tok("5.0")}</div>
+    <p class="prose">Queued twenty minutes like everyone else and the almond croissant ${tok("5.0")} is the best thing I have eaten this year.</p>
+    <div class="pics"><div class="pic" style="background:${food.croiss}"></div></div>
+    <div class="hair"></div><div class="place">${pin}<span class="ui">Lune Croissanterie</span><span class="meta">CBD · Thu 17 Sep</span></div>`)}
+</div>${tabs("journal")}`;
+
+const feed = p => `${sb}<div class="scroll">
+  <div class="top"><span class="h" style="font-size:34px">Feed</span><span class="chip ui" style="font-size:14px">${pin}Melbourne</span></div>
+  ${slip(p,`<div class="who"><span class="av" style="background:#36AEE6">M</span><span class="ui" style="font-size:14px">maya</span><span class="meta">2h</span></div>
+    <div class="dish"><span class="h">Rare beef pho</span>${tok("4.0")}</div>
+    <p class="prose">Broth is clean and properly beefy. Go early, the herbs run out by one.</p>
+    <div class="pics"><div class="pic" style="background:${food.pho}"></div><div class="pic" style="background:${food.bun}"></div></div>
+    <div style="display:flex;gap:6px"><span class="tag">GF</span><span class="tag">DF</span></div>
+    <div class="hair"></div><div class="place">${pin}<span class="ui">Pho Chu The</span><span class="meta">Richmond</span></div>`)}
+  ${slip(p,`<div class="who"><span class="av" style="background:#F490D4">J</span><span class="ui" style="font-size:14px">jess</span><span class="meta">5h</span></div>
+    <div class="dish"><span class="h">Prawn spaghetti</span>${tok("4.5")}</div>
+    <p class="prose">Chilli, garlic, a lot of butter. Exactly what I wanted after a long week.</p>
+    <div class="pics"><div class="pic" style="background:${food.prawn}"></div></div>
+    <div class="hair"></div><div class="place">${pin}<span class="ui">Tipo 00</span><span class="meta">CBD</span></div>`)}
+</div>${tabs("feed")}`;
+
+const entry = p => `<div class="hero" style="background:${food.ragu}"><div class="grad"></div><div class="pips"><i></i><i></i><i></i></div></div>
+  <div class="island"></div><div class="sb" style="color:#fff"><span>9:41</span><span></span></div>
+  <div class="ctl" style="left:14px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div>
+  <div class="ctl" style="right:14px"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></div>
+  <div style="position:absolute;top:300px;left:12px;right:12px;display:flex;flex-direction:column;gap:14px">
+  ${slip(p,`<div style="display:flex;justify-content:space-between;padding-top:8px"><span class="lab">Order #0142</span><span class="lab">Sat 19 Sep 2026</span></div>
+    <span class="h" style="font-size:30px">Tipo 00</span>
+    <p class="prose">With Jess for her birthday. The tagliatelle al ragù ${tok("4.5")} was unreal, rich, glossy, gone in four minutes.</p>
+    <div class="rule"></div>
+    <div>
+      <div class="li"><span class="n">01</span><span>Tagliatelle al ragù</span><span class="dots"></span>${tok("4.5")}</div>
+      <div class="li"><span class="n">02</span><span>Tiramisu</span><span class="dots"></span>${tok("3.0")}</div>
+      <div class="li"><span class="n">03</span><span>Prawn spaghetti</span><span class="dots"></span><span class="n">—</span></div>
+    </div>
+    <div class="rule"></div>
+    <div style="display:flex;justify-content:space-between"><span class="lab">361 Little Bourke St</span><span class="lab">Avg 3.75</span></div>
+    <div class="barcode"></div>`)}
+  <div class="btns"><div class="btn raised">Edit</div><div class="btn solid">Share</div></div>
+  </div>`;
+
+const phone = (p, body) => `<div class="cell"><h3>${p.name}</h3><div class="ph" style="${vars(p)}">${body(p)}</div></div>`;
+document.getElementById("r-journal").innerHTML = P.map(p => phone(p, journal)).join("");
+document.getElementById("r-feed").innerHTML = P.map(p => phone(p, feed)).join("");
+document.getElementById("r-entry").innerHTML = P.map(p => phone(p, entry)).join("");
+document.getElementById("key").innerHTML = P.map(p => `<div class="k"><b>${p.name}</b><div class="sw">${[p.ground,p.slip,p.raised,p.butter,p.solid].map(c=>`<i style="background:${c}"></i>`).join("")}</div><span>${p.note}</span></div>`).join("");
+</script>

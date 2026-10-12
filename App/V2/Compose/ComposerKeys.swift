@@ -248,7 +248,7 @@ struct ComposerToolbar: View {
 
 /// The composer keys' fills. The Score key is butter in both modes; the Place key is the linen
 /// field it is drawn in (`Composer.dc.html`: `--field:#E4DED4`), **also in both modes** — in dark,
-/// the surface's own field (ink `#17111B` on the plum surface) read as a hole in the toolbar
+/// the surface's own field (the dark ground on the raised surface) read as a hole in the toolbar
 /// (Eamon, round 3). Like the Score key it carries ink either way.
 enum ComposerKeyColor {
     static let place = AteColor.keyFill

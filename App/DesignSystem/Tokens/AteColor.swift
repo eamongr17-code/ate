@@ -60,6 +60,12 @@ enum AteColor {
     /// UUID hash, never by array position in a list.
     static let accents: [Color] = [coral, butter, green, pink, sky, lilac]
 
+    // MARK: - Dark mode is Graphite (Eamon, 12 Oct)
+    //
+    // The plum dark palette read as a different app from warm linen. Eamon picked Graphite
+    // (`design/rebuild/dark-palettes.html`): neutral greys in the system's own steps, so photos and
+    // accents carry the colour. Every dark value below is Graphite; light is untouched.
+
     // MARK: - Role sources
     //
     // The raw light/dark pairs the palettes are built from. `private` on purpose: the only way to a
@@ -67,16 +73,15 @@ enum AteColor {
     // without every call site remembering it.
 
     fileprivate static let groundLight = Color(hex: 0xEFEAE2)
-    fileprivate static let groundDark = Color(hex: 0x17111B)
-    /// The Ink boards' dark values (`MainInk`/`FeedInk`, 2026-09-25): a warm off-white rather than
-    /// pure white, a lifted plum chip, and a field one step below it.
-    fileprivate static let fgDark = Color(hex: 0xF4EFE9)
+    fileprivate static let groundDark = Color(hex: 0x0C0C0D)
+    /// Graphite (12 Oct): a near-white, a raised grey chip, and a field one step below it.
+    fileprivate static let fgDark = Color(hex: 0xF5F4F1)
     fileprivate static let mutedLight = Color(hex: 0x5E5560)
-    fileprivate static let mutedDark = Color(hex: 0xB9AFBC)
+    fileprivate static let mutedDark = Color(hex: 0xA5A4A8)
     fileprivate static let chipLight = Color.white
-    fileprivate static let chipDark = Color(hex: 0x342A3A)
+    fileprivate static let chipDark = Color(hex: 0x2C2C2E)
     fileprivate static let fieldLight = Color(hex: 0xE4DED4)
-    fileprivate static let fieldDark = Color(hex: 0x231B24)
+    fileprivate static let fieldDark = Color(hex: 0x1C1C1E)
 
     /// Receipt paper. Its own token, and **dimmed in dark** so a white sheet doesn't burn a hole in
     /// the ink ground — but the text on it stays ``ink`` either way.
@@ -86,10 +91,10 @@ enum AteColor {
 
     /// **A slip** — every card and printed page the reader looks at: the journal, feed and profile
     /// cards, the statement slip, the entry page, the monthly statement and the on-screen Share
-    /// receipt. White on linen; in dark a plum card with light type on it (`.screen.dark .slip`).
+    /// receipt. White on linen; in dark a graphite card with light type on it (`.screen.dark .slip`).
     /// The EXPORTED share image stays light — `AteShareStoryImage` renders in `.light` — and the
     /// dimmed ``paper`` is left to the place menu and Welcome.
-    static let slip = Color(light: .white, dark: Color(hex: 0x231B24))
+    static let slip = Color(light: .white, dark: Color(hex: 0x1C1C1E))
 
     // MARK: - The paper's edge (`EdgeFinal.dc.html`, 2026-09-26; flat since round 3)
 
@@ -104,14 +109,14 @@ enum AteColor {
     // solid pill a dimmed cream rather than a bright one. **Light is untouched.**
 
     /// The softened butter — dark mode's score yellow.
-    fileprivate static let butterDark = Color(hex: 0xCDB060)
-    /// The lifted plum a control is raised in, in dark: the composer's keys, a chip on the ground.
-    fileprivate static let raisedDark = Color(hex: 0x4A3F50)
-    /// A diet tag chip's fill in dark — a step below the raised plum, so a chip reads as a tag and
+    fileprivate static let butterDark = Color(hex: 0xE6C65F)
+    /// The raised grey a control is raised in, in dark: the composer's keys, a chip on the ground.
+    fileprivate static let raisedDark = Color(hex: 0x3A3A3C)
+    /// A diet tag chip's fill in dark — a step below the raised grey, so a chip reads as a tag and
     /// not as a key.
-    fileprivate static let tagDark = Color(hex: 0x3A3040)
-    /// The solid pill in dark — the dimmed paper (``paper``'s own dark value), not bright cream.
-    fileprivate static let solidDark = Color(hex: 0xE6DFD3)
+    fileprivate static let tagDark = Color(hex: 0x2C2C2E)
+    /// The solid pill in dark — Graphite's near-white, the same as the foreground.
+    fileprivate static let solidDark = Color(hex: 0xF5F4F1)
 
     /// A person's score pill (``ScoreStyle``) and the composer's Score key. Always carries ``scoreInk``.
     static let scoreFill = Color(light: butter, dark: butterDark)
@@ -119,11 +124,11 @@ enum AteColor {
     static let scoreInk = ink
     /// A score drawn as a mark rather than a pill: a filled star, a histogram bar, the slider's burst.
     static let scoreMark = Color(light: butter, dark: butterDark)
-    /// The composer's Place and Diet keys and the diet codes — linen in light, raised plum in dark.
+    /// The composer's Place and Diet keys and the diet codes — linen in light, raised grey in dark.
     static let keyFill = Color(light: linenField, dark: raisedDark)
     /// The lettering on ``keyFill``.
     static let keyInk = Color(light: ink, dark: fgDark)
-    /// A diet tag chip's fill — the ground showing through in light (on a slip); plum in dark.
+    /// A diet tag chip's fill — the ground showing through in light (on a slip); grey in dark.
     static let tagFill = Color(light: ground, dark: tagDark)
     /// Its lettering.
     static let tagInk = Color(light: mutedLight, dark: mutedDark)
@@ -143,7 +148,7 @@ enum AteColor {
 
 /// **The journal calendar's marks** (round 7, `CalendarMonth` / `CalendarYear`): a 5.0 day is
 /// butter, a 6 day brick — the score's own colours, never decoration — and a quiet day is the
-/// artboard's `#D9D2C8` dot (the raised plum in dark).
+/// artboard's `#D9D2C8` dot (the raised grey in dark).
 enum AteCalendarColor {
     static let five = AteColor.butter
     static let six = AteColor.brick
@@ -159,7 +164,7 @@ enum AteCalendarColor {
 /// **The Feed's edition** (round 8, `Main`): its quiet rules and its New to the record badges.
 enum AteFeedColor {
     /// `#D9D2C8` — The Top Ate's dashed rules and the lines either side of "You're caught up" (the
-    /// raised plum in dark, as the calendar's quiet dot).
+    /// raised grey in dark, as the calendar's quiet dot).
     static let rule = Color(light: Color(hex: 0xD9D2C8), dark: AteColor.raisedDark)
     /// The `★6` badge: brick, white on it (the secret 6's own pairing).
     static let six = AteColor.brick
@@ -215,7 +220,7 @@ struct AtePalette: Equatable, Sendable {
     /// ``inverted``.
     var solid: Color
     /// **A control raised off the ground** — a chip in a header (the Feed's area, a place's counts).
-    /// `chip` in light; the raised plum in dark (round 5). Carries `fg`.
+    /// `chip` in light; the raised grey in dark (round 5). Carries `fg`.
     var raised: Color
 
     /// The app's ground, following light/dark.
@@ -233,8 +238,8 @@ struct AtePalette: Equatable, Sendable {
     )
 
     /// **A slip** — journal, feed and profile cards, and the statement slip. In light it is exactly
-    /// receipt paper; in dark it is a plum card whose type turns light (`.screen.dark .slip`:
-    /// `--fg:#F4EFE9; --muted:#B9AFBC; --chip:#342A3A; --field:#342A3A; --hair:white 12%`).
+    /// receipt paper; in dark it is a graphite card whose type turns light (`.screen.dark .slip`:
+    /// Graphite: `#1C1C1E` with `#F5F4F1` type, `#A5A4A8` muted, `#2C2C2E` chips, hairline white 12%).
     static let slip = AtePalette(
         ground: AteColor.slip,
         fg: Color(light: AteColor.ink, dark: AteColor.fgDark),
@@ -269,7 +274,7 @@ struct AtePalette: Equatable, Sendable {
     /// token table gives `chip` and `field` the same value in dark (`#2B2231`), so on a chip ground a
     /// field-coloured pill — the Place key, a sheet's search field — is invisible; Eamon caught
     /// exactly that driving the composer spike. A field is always a step *below* the surface it sits
-    /// in, and this is what makes that true in both modes: linen-grey on white, ink on plum.
+    /// in, and this is what makes that true in both modes: linen-grey on white, the dark ground on grey.
     static let surface: AtePalette = {
         var palette = AtePalette.automatic
         palette.ground = Color(light: AteColor.chipLight, dark: AteColor.chipDark)
