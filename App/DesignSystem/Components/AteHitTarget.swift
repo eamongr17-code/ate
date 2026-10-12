@@ -22,7 +22,7 @@ struct AteHitOutset: Equatable, Sendable {
         vertical = max(0, (AteMetrics.hit - height) / 2)
     }
 
-    /// A 40-tall key pill — the composer's Score and Place, Search's scopes.
+    /// A 40-tall key pill — the composer's Score and Diet, Search's scopes.
     static let key = AteHitOutset(height: AteMetrics.keyHeight)
     /// …and the icon-only 40 disc (the Diet key).
     static let keyDisc = AteHitOutset(width: AteMetrics.keyHeight, height: AteMetrics.keyHeight)

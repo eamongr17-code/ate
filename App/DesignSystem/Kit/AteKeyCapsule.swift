@@ -1,8 +1,10 @@
 import AteKit
 import SwiftUI
 
-/// **The composer's keys, floating in one glass capsule above the keyboard** (pattern contract §3,
-/// locked): camera and library, then Score and Place with their labels, then Diet as a leaf alone.
+/// **The composer's keys, floating in one glass capsule above the keyboard**: camera and library on
+/// the left, then the two keys that put a pill into the words, Score and Diet, both labelled. Where
+/// and who are not here: they are the sheet's byline (``AteComposerByline``, Eamon 2026-10-12), so a
+/// pill in this capsule always means "this goes into the review".
 /// The Diet key unfolds the capsule into the five codes behind a back arrow, springing out of the key
 /// (``ComposerDietUnfold``, round 5 "unfold B"), and a code folds it straight back.
 ///
@@ -10,23 +12,17 @@ import SwiftUI
 /// their butter and field fills on it. The library key is the caller's (it is a `PhotosPicker`, which
 /// needs the caller's selection), handed in as `library`.
 struct AteKeyCapsule<Library: View>: View {
-    /// What the Place key holds, if a place is attached.
-    let place: String?
     /// The Score key inverts (ink) while its slider is open.
     let isScoring: Bool
     @Binding var isChoosingDiet: Bool
     var isCameraEnabled = true
     let onCamera: () -> Void
     let onScore: () -> Void
-    let onPlace: () -> Void
     /// The Diet key was pressed: anything open (the slider) closes before the codes unfold.
     let onDiet: () -> Void
     let onCode: (DietTag) -> Void
     /// The codes the dish at the caret already wears: on in the unfold, and a press takes one off.
     var worn: [DietTag] = []
-    /// "Ate with": the people on the With key, and what it opens. No key at all without `onWith`.
-    var with: [AteWithPerson] = []
-    var onWith: (() -> Void)?
     @ViewBuilder var library: Library
 
     @Environment(\.atePalette) private var palette
@@ -65,15 +61,9 @@ struct AteKeyCapsule<Library: View>: View {
             .fixedSize()
             HStack(spacing: AteKeyCapsuleMetrics.gap) {
                 AteKey(kind: .score, isActive: isScoring, action: onScore)
-                AteKey(kind: .place(place), action: onPlace)
-                    // The place gives way first: Score and Diet keep their size, the name truncates.
-                    .layoutPriority(-1)
                 AteKey(kind: .diet) {
                     onDiet()
                     isChoosingDiet = true
-                }
-                if let onWith {
-                    AteKey(kind: .with(with), action: onWith)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)

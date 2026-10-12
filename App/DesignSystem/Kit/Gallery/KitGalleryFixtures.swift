@@ -8,6 +8,11 @@ import SwiftUI
 enum KitFixtures {
     static let longName = "Hand-cut pappardelle with slow-braised duck ragù and aged pecorino"
     static let longPlace = "Osteria Ilaria at the Old Melbourne Post Office"
+    /// Two people eaten with, for the composer's byline.
+    static let companions = [
+        AteWithPerson(id: UUID(uuidString: "6F1C2A4E-0000-4000-8000-000000000001")!, handle: "sam"),
+        AteWithPerson(id: UUID(uuidString: "6F1C2A4E-0000-4000-8000-000000000002")!, handle: "jo"),
+    ]
 
     static func dish(_ name: String, _ image: Image? = nil, accent: Int = 0) -> AtePhoto {
         AtePhoto(image: image, dish: DishLetter(dishID: UUID(), name: name, paletteIndex: accent))

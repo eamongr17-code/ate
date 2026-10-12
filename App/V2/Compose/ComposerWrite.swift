@@ -8,9 +8,10 @@ import SwiftUI
 /// disk before the next keystroke (``ComposerModel``, as the current composer runs it).
 ///
 /// The sheet's corners are its two controls: close, a glass disc top left, and the ink tick top
-/// right — muted until a place is attached, then stepping three dots while the entry posts. The keys
-/// float in one glass capsule above the keyboard (``AteKeyCapsule``); the score slide opens above
-/// them, so the keyboard never goes down; staged photos sit just above the keys.
+/// right — muted until a place is attached, then stepping three dots while the entry posts. Under
+/// them, where and who (``AteComposerByline``). The keys float in one glass capsule above the
+/// keyboard (``AteKeyCapsule``): photos, and the two keys that put pills in the words. The score
+/// slide opens above them, so the keyboard never goes down; staged photos sit just above the keys.
 struct V2ComposerWrite: View {
     let app: AppModel
     let presentation: ComposerPresentation
@@ -67,6 +68,7 @@ struct V2ComposerWrite: View {
             // Frozen from the tick to the hand-off: what is posted is exactly what was on screen at
             // the tap. Nothing dims; the controls just stop answering, to a finger and to VoiceOver.
             VStack(spacing: 0) {
+                byline.ateAccessibilityHidden(isFrozen)
                 editor.ateAccessibilityHidden(isFrozen)
                 keyBand.ateAccessibilityHidden(isFrozen)
             }
@@ -155,6 +157,27 @@ struct V2ComposerWrite: View {
         }
     }
 
+    // MARK: - Where and who
+
+    /// The place and the people, at the head of the sheet: never in the words.
+    private var byline: some View {
+        AteComposerByline(
+            place: model.place.flatMap { $0.name.isEmpty ? nil : $0.name },
+            people: model.companions.map { AteWithPerson(id: $0.userID, handle: $0.handle) },
+            onPlace: {
+                AteHaptics.key()
+                model.dismissScoring(refocus: false)
+                model.isPickingPlace = true
+            },
+            onPeople: {
+                AteHaptics.key()
+                model.dismissScoring(refocus: false)
+                model.isPickingCompanions = true
+            }
+        )
+        .padding(.top, AteMetrics.regular)
+    }
+
     // MARK: - The words
 
     private var editor: some View {
@@ -223,7 +246,6 @@ struct V2ComposerWrite: View {
                 .transition(.opacity)
             }
             AteKeyCapsule(
-                place: model.place.flatMap { $0.name.isEmpty ? nil : $0.name },
                 isScoring: model.scoring != nil,
                 isChoosingDiet: $isChoosingDiet,
                 isCameraEnabled: model.canAddPhotos,
@@ -233,24 +255,12 @@ struct V2ComposerWrite: View {
                     takePhoto()
                 },
                 onScore: scoreKey,
-                onPlace: {
-                    AteHaptics.key()
-                    model.dismissScoring(refocus: false)
-                    model.isPickingPlace = true
-                },
                 onDiet: {
                     AteHaptics.key()
                     model.dismissScoring(refocus: false)
                 },
                 onCode: pick,
                 worn: isChoosingDiet ? model.composition.dishTags(atDisplayOffset: model.caret) : [],
-                with: model.companions.map { AteWithPerson(id: $0.userID, handle: $0.handle) },
-                onWith: {
-                    // Who and where both sit in keys, never in the words (`ate-with.html` 1a).
-                    AteHaptics.key()
-                    model.dismissScoring(refocus: false)
-                    model.isPickingCompanions = true
-                },
                 library: { libraryKey }
             )
         }

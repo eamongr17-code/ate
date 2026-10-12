@@ -7,48 +7,6 @@ struct AteWithPerson: Identifiable, Equatable {
     let handle: String
 }
 
-/// **The With key's face** (`ate-with.html` 1a, 1d) — the composer's fourth key, the same 40pt round
-/// key as the Diet leaf. Empty, the user-plus glyph; with one person, their avatar fills it; two
-/// overlap; more than two, the count. It never grows past 40, so the capsule never widens.
-struct AteWithKeyFace: View {
-    let people: [AteWithPerson]
-
-    var body: some View {
-        Group {
-            switch people.count {
-            case 0:
-                AteIcon.userPlus.view(size: AteWithKitMetrics.keyGlyph)
-                    .foregroundStyle(AteColor.keyInk)
-            case 1:
-                avatar(people[0], side: AteWithKitMetrics.keyAvatar)
-            case 2:
-                ZStack {
-                    avatar(people[0], side: AteWithKitMetrics.keyPairAvatar)
-                        .offset(x: -AteWithKitMetrics.keyPairOffset)
-                    avatar(people[1], side: AteWithKitMetrics.keyPairAvatar)
-                        .padding(AteWithKitMetrics.ring)
-                        .background(AteColor.keyFill, in: .circle)
-                        .offset(x: AteWithKitMetrics.keyPairOffset)
-                }
-            default:
-                // Silent in the artboard beyond "a count for more": the number of people, in ink.
-                Text(verbatim: "\(people.count)")
-                    .ateText(.avatarInitialKey)
-                    .foregroundStyle(AteColor.keyFill)
-                    .frame(width: AteWithKitMetrics.keyAvatar, height: AteWithKitMetrics.keyAvatar)
-                    .background(AteColor.keyInk, in: .circle)
-            }
-        }
-        .frame(width: AteMetrics.keyHeight, height: AteMetrics.keyHeight)
-        .background(AteColor.keyFill, in: .circle)
-        .contentShape(.circle)
-    }
-
-    private func avatar(_ person: AteWithPerson, side: CGFloat) -> some View {
-        AteAvatar(userID: person.id, handle: person.handle, side: side, textStyle: .avatarInitialKey)
-    }
-}
-
 /// **"with @jess"** — at the foot of the entry's paper, under the place line (`ate-with.html` 1f):
 /// the byline avatar and the meta line, each handle opening that person's page. Never above the
 /// dishes.
@@ -150,13 +108,6 @@ struct AtePersonPickRow: View {
 }
 
 enum AteWithKitMetrics {
-    /// The key's glyph: `data-s="17"`.
-    static let keyGlyph: CGFloat = 17
-    /// One person fills the key: `.a30`.
-    static let keyAvatar: CGFloat = 30
-    /// Two people overlap inside the 40: two 24s, 8 apart from the centre, ringed in the key's fill.
-    static let keyPairAvatar: CGFloat = 24
-    static let keyPairOffset: CGFloat = 7
     /// The ring that parts two overlapping avatars (`box-shadow:0 0 0 3px` on the cluster, at this size 2).
     static let ring: CGFloat = 2
     /// Two byline avatars overlap by 10 on the entry's line.
