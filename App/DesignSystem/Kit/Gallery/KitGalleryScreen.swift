@@ -204,13 +204,9 @@ struct KitGalleryScreen: View {
             .padding(.horizontal, AteMetrics.gutter)
         }
         section("Composer key") {
-            row("Score · Score sliding · Place · Place held · Diet") {
+            row("Score · Score sliding · Diet") {
                 AteKey(kind: .score) {}
                 AteKey(kind: .score, isActive: true) {}
-                AteKey(kind: .place(nil)) {}
-            }
-            row("") {
-                AteKey(kind: .place(KitFixtures.longPlace)) {}
                 AteKey(kind: .diet) {}
             }
             row("Diet, unfolded") {
@@ -219,6 +215,14 @@ struct KitGalleryScreen: View {
             .environment(\.atePalette, .surface)
             .padding(.vertical, AteMetrics.snug)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AtePalette.surface.ground)
+            caption("Byline · empty · held")
+            VStack(alignment: .leading, spacing: AteMetrics.regular) {
+                AteComposerByline(place: nil, people: [], onPlace: {}, onPeople: {})
+                AteComposerByline(place: KitFixtures.longPlace, people: KitFixtures.companions, onPlace: {}, onPeople: {})
+            }
+            .environment(\.atePalette, .surface)
+            .padding(.vertical, AteMetrics.snug)
             .background(AtePalette.surface.ground)
         }
     }
