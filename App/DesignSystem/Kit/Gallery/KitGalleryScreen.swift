@@ -219,7 +219,12 @@ struct KitGalleryScreen: View {
             caption("Byline · empty · held")
             VStack(alignment: .leading, spacing: AteMetrics.regular) {
                 AteComposerByline(place: nil, people: [], onPlace: {}, onPeople: {})
-                AteComposerByline(place: KitFixtures.longPlace, people: KitFixtures.companions, onPlace: {}, onPeople: {})
+                AteComposerByline(
+                    place: KitFixtures.longPlace,
+                    people: KitFixtures.companions,
+                    onPlace: {},
+                    onPeople: {}
+                )
             }
             .environment(\.atePalette, .surface)
             .padding(.vertical, AteMetrics.snug)
