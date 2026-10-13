@@ -220,7 +220,13 @@ public struct SupabaseEntryService: EntryService {
             "p_entry_id": .string(entryID.uuidString.lowercased()),
             "p_eaten_at": .string(PostgRESTTimestamp.string(from: eatenAt))
         ]
-        _ = try await api.supabase.rpc("set_entry_date", params: parameters).execute()
+        do {
+            _ = try await api.supabase.rpc("set_entry_date", params: parameters).execute()
+        } catch let error as PostgrestError where error.code == "PGRST202" {
+            // A server without 0063 has no such function: the rest of the edit still saves, and the
+            // entry keeps the day it had.
+            return
+        }
     }
 
     public func matchPhotos(entryID: UUID) async {

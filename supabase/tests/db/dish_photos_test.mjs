@@ -133,3 +133,70 @@ test('reordering photos keeps every pairing; a photo overwritten in place is pru
   assert.ok(await code(() => as(U.alice, () => db.query(`select public.prune_photo_pairs($1)`, [e]))));
 });
 
+
+test('a hand pick outlives a re-sort; a No-dish photo stays out of matching (0064)', async () => {
+  const r = receipt(['Gnocchi', 4], ['Cannoli'], ['Spritz']);
+  const e = await w.visit(5, U.alice, P.tipo, r, undefined, { photos: ['r/1.jpg', 'r/2.jpg', 'r/3.jpg'] });
+  const c = await reviewId(e, 'Cannoli');
+  await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, $3)`, [e, photoUrl('r/1.jpg'), c]));
+  await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, null)`, [e, photoUrl('r/3.jpg')]));
+  const [entry] = await rows(`select photo_picks from public.entries where id = $1`, [e]);
+  assert.deepEqual(entry.photo_picks, { [photoUrl('r/1.jpg')]: 'cannoli', [photoUrl('r/3.jpg')]: null });
+
+  // The words are edited and re-sorted: every line is rebuilt, the pick with it.
+  await w.sortAs(e, P.tipo, r.items);
+  assert.equal((await lines(e)).find((l) => l.name === 'Cannoli').photo_url, null);
+
+  // A stale match gave the pick's photo to another dish; match-photos restores before it asks.
+  const g = await reviewId(e, 'Gnocchi');
+  await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb)`, [e, JSON.stringify([
+    { review_id: g, photo_url: photoUrl('r/1.jpg') },
+  ])]));
+  await asService(() => db.query(`select public.restore_photo_picks($1)`, [e]));
+  const got = await lines(e);
+  assert.deepEqual(got.map((l) => [l.name, l.photo_url, l.picked]), [
+    ['Gnocchi', null, false],
+    ['Cannoli', photoUrl('r/1.jpg'), true],
+    ['Spritz', null, false],
+  ]);
+
+  // Picking the same dish again moves the pick; a photo leaving the entry drops its pick.
+  const c2 = await reviewId(e, 'Cannoli');
+  await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, $3)`, [e, photoUrl('r/2.jpg'), c2]));
+  await as(U.alice, () => db.query(`delete from public.entry_photos where entry_id = $1 and position = 2`, [e]));
+  await asService(() => db.query(`select public.restore_photo_picks($1)`, [e]));
+  const [kept] = await rows(`select photo_picks from public.entries where id = $1`, [e]);
+  assert.deepEqual(kept.photo_picks, { [photoUrl('r/2.jpg')]: 'cannoli' });
+
+  assert.ok(await code(() => as(U.alice, () => db.query(`select public.restore_photo_picks($1)`, [e]))));
+});
+
+test('restore keeps one photo per line: two lines with one dish name, and a renamed picked line (QA, #155)', async () => {
+  // Two lines that end up with the same dish each keep the photo picked for them.
+  const r = receipt(['Gnocchi', 4], ['Spritz']);
+  const e = await w.visit(6, U.alice, P.tipo, r, undefined, { photos: ['d/1.jpg', 'd/2.jpg'] });
+  const first = await reviewId(e, 'Gnocchi');
+  const second = await reviewId(e, 'Spritz');
+  await as(U.alice, () => db.query(`select public.correct_entry_dish(p_review_id => $1, p_dish_name => 'Gnocchi')`,
+    [second]));
+  await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, $3)`, [e, photoUrl('d/1.jpg'), first]));
+  await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, $3)`, [e, photoUrl('d/2.jpg'), second]));
+  await asService(() => db.query(`select public.restore_photo_picks($1)`, [e]));
+  const held = await rows(`select id, photo_url from public.reviews where entry_id = $1`, [e]);
+  assert.equal(held.find((x) => x.id === first).photo_url, photoUrl('d/1.jpg'));
+  assert.equal(held.find((x) => x.id === second).photo_url, photoUrl('d/2.jpg'));
+
+  // A picked line renamed by the author keeps its photo through a re-sort; the rebuilt line under
+  // the old name does not get it too.
+  const r2 = receipt(['Cannoli'], ['Gnocchi', 4]);
+  const e2 = await w.visit(7, U.alice, P.tipo, r2, undefined, { photos: ['t/1.jpg', 't/2.jpg'] });
+  const cannoli = await reviewId(e2, 'Cannoli');
+  await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, $3)`, [e2, photoUrl('t/1.jpg'), cannoli]));
+  await as(U.alice, () => db.query(`select public.correct_entry_dish(p_review_id => $1, p_dish_name => 'Tiramisu')`,
+    [cannoli]));
+  const resorted = receipt(['Tiramisu'], ['Cannoli'], ['Gnocchi', 4]);
+  await w.sortAs(e2, P.tipo, resorted.items);
+  await asService(() => db.query(`select public.restore_photo_picks($1)`, [e2]));
+  const got = await lines(e2);
+  assert.deepEqual(got.filter((l) => l.photo_url === photoUrl('t/1.jpg')).map((l) => l.name), ['Tiramisu']);
+});

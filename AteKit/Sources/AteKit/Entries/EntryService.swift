@@ -189,8 +189,8 @@ public protocol EntryService: Sendable {
     func matchPhotos(entryID: UUID) async
 
     /// The author's own pairing (`set_review_photo`, 0063): this photo is this dish, or no dish
-    /// (`reviewID` nil). A later match leaves it alone until the words are re-sorted, which rebuilds
-    /// the line and pairs it afresh.
+    /// (`reviewID` nil). Matching never overrides it, and it outlives a re-sort: the next match puts
+    /// it back on the line carrying that dish (0064).
     func setReviewPhoto(entryID: UUID, photoURL: String, reviewID: UUID?) async throws
 
     /// Which dish each photo is: photo URL → review id. Photos no dish holds are absent.
