@@ -1,0 +1,109 @@
+// supabase/tests/db/dish_photos_test.mjs — when you ate it, and which photo is which dish (0063).
+//
+//   cd supabase/tests/db && npm ci && node --test
+
+import { after, before, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { world, U, P, id, photoUrl, receipt } from './fixtures.mjs';
+
+let w, db, as, asService, rows, error;
+after(async () => db?.close());
+
+const code = async (fn) => (await error(fn()))?.code ?? null;
+const lines = async (entryId) =>
+  rows(`select d.name, r.photo_url, r.photo_picked_at is not null as picked
+        from public.reviews r join public.dishes d on d.id = r.dish_id
+        where r.entry_id = $1 order by r.entry_position`, [entryId]);
+const reviewId = async (entryId, name) =>
+  (await rows(`select r.id from public.reviews r join public.dishes d on d.id = r.dish_id
+               where r.entry_id = $1 and d.name = $2`, [entryId, name]))[0].id;
+
+before(async () => {
+  w = await world();
+  ({ db, as, asService, rows, error } = w);
+});
+
+test('set_entry_date: the author moves the day; nobody else, never into the future', async () => {
+  const e = await w.visit(1, U.alice, P.tipo, receipt(['Gnocchi', 4.5]), '2026-10-13T09:00:00Z');
+  await as(U.alice, () => db.query(`select public.set_entry_date($1, $2)`, [e, '2026-10-11T19:30:00Z']));
+  const [row] = await rows(`select created_at from public.entries where id = $1`, [e]);
+  assert.equal(new Date(row.created_at).toISOString(), '2026-10-11T19:30:00.000Z');
+
+  assert.equal(await code(() => as(U.bob, () => db.query(`select public.set_entry_date($1, now())`, [e]))), 'P0002');
+  assert.equal(await code(() => as(U.alice, () => db.query(
+    `select public.set_entry_date($1, now() + interval '3 days')`, [e]))), '22023');
+  assert.equal(await code(() => as(null, () => db.query(`select public.set_entry_date($1, now())`, [e]))), '42501');
+});
+
+test('apply_photo_matches: each line gets its own photo; a photo not on the entry is ignored', async () => {
+  const e = await w.visit(2, U.alice, P.tipo, receipt(['Tagliatelle', 4.5], ['Tiramisu', 3], ['Prawn spaghetti']),
+    undefined, { photos: ['a/1.jpg', 'a/2.jpg', 'a/3.jpg'] });
+  const t = await reviewId(e, 'Tagliatelle');
+  const s = await reviewId(e, 'Tiramisu');
+  const p = await reviewId(e, 'Prawn spaghetti');
+  await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb)`, [e, JSON.stringify([
+    { review_id: t, photo_url: photoUrl('a/1.jpg') },
+    { review_id: s, photo_url: photoUrl('a/3.jpg') },
+    { review_id: p, photo_url: photoUrl('elsewhere.jpg') },
+  ])]));
+  assert.deepEqual((await lines(e)).map((l) => [l.name, l.photo_url]), [
+    ['Tagliatelle', photoUrl('a/1.jpg')],
+    ['Tiramisu', photoUrl('a/3.jpg')],
+    ['Prawn spaghetti', null],
+  ]);
+  const [entry] = await rows(`select photos_matched_at from public.entries where id = $1`, [e]);
+  assert.ok(entry.photos_matched_at);
+
+  // The cover read prefers the line's own photo (0026): the tiramisu is no longer the pasta.
+  const [cover] = await rows(`select public.dish_cover_url(dish_id) url from public.reviews where id = $1`, [s]);
+  assert.equal(cover.url, photoUrl('a/3.jpg'));
+
+  // Not the author's, and not anyone signed in: service role only.
+  assert.ok(await code(() => as(U.alice, () => db.query(`select public.apply_photo_matches($1, '[]'::jsonb)`, [e]))));
+});
+
+test('set_review_photo: the author pick moves the photo, survives a later match, and No dish clears it', async () => {
+  const e = id(2);
+  const t = await reviewId(e, 'Tagliatelle');
+  const s = await reviewId(e, 'Tiramisu');
+  const p = await reviewId(e, 'Prawn spaghetti');
+
+  await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, $3)`, [e, photoUrl('a/1.jpg'), p]));
+  let got = await lines(e);
+  assert.deepEqual(got.map((l) => [l.name, l.photo_url, l.picked]), [
+    ['Tagliatelle', null, true],
+    ['Tiramisu', photoUrl('a/3.jpg'), false],
+    ['Prawn spaghetti', photoUrl('a/1.jpg'), true],
+  ]);
+
+  // A later match only moves lines nobody picked, and never hands out a picked photo.
+  await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb)`, [e, JSON.stringify([
+    { review_id: t, photo_url: photoUrl('a/2.jpg') },
+    { review_id: p, photo_url: photoUrl('a/2.jpg') },
+    { review_id: s, photo_url: photoUrl('a/1.jpg') },
+  ])]));
+  got = await lines(e);
+  assert.deepEqual(got.map((l) => [l.name, l.photo_url]), [
+    ['Tagliatelle', null],
+    ['Tiramisu', null],
+    ['Prawn spaghetti', photoUrl('a/1.jpg')],
+  ]);
+
+  // No dish.
+  await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, null)`, [e, photoUrl('a/1.jpg')]));
+  assert.equal((await lines(e)).find((l) => l.name === 'Prawn spaghetti').photo_url, null);
+
+  assert.equal(await code(() => as(U.bob, () => db.query(`select public.set_review_photo($1, $2, $3)`,
+    [e, photoUrl('a/2.jpg'), t]))), 'P0002');
+  assert.equal(await code(() => as(U.alice, () => db.query(`select public.set_review_photo($1, $2, $3)`,
+    [e, photoUrl('nope.jpg'), t]))), '22023');
+});
+
+test('a photo removed from the entry leaves the line that had it', async () => {
+  const e = await w.visit(3, U.alice, P.tipo, receipt(['Gnocchi', 4], ['Cannoli']), undefined,
+    { photos: ['b/1.jpg', 'b/2.jpg'] });
+  const c = await reviewId(e, 'Cannoli');
+  await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, $3)`, [e, photoUrl('b/2.jpg'), c]));
+  await as(U.alice, () => db.query(`delete from public.entry_photos where entry_id = $1 and position = 1`, [e]));
+  assert.equal((await lines(e)).find((l) => l.name === 'Cannoli').photo_url, null);
+});

@@ -171,6 +171,10 @@ jobs:
       - name: Share reader suites (read-share)
         run: node --test supabase/functions/read-share/*_test.ts
 
+      # match-photos' pure module (plan, request, answer gate) under Node, like read-share.
+      - name: Photo matcher suites (match-photos)
+        run: node --test supabase/functions/match-photos/*_test.ts
+
       # places-search's pure modules, same deal: no runtime APIs, so Node runs them. Only the
       # node-compatible suites are listed — blend_test.ts and vic_filter_test.ts import
       # deno.land/std and need `deno test`.
