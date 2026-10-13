@@ -8,7 +8,8 @@
 //   → 200 { ok: true, matched: int }       (matched = lines whose photo was set or cleared)
 //     401 unauthorized · 404 not the caller's entry · 405 not POST · 422 bad body
 //
-// The author's own picks (set_review_photo, 0063) are never offered to the model. One line on the
+// The author's own picks (set_review_photo, 0063; kept on the entry through re-sorts, 0064) are
+// never offered to the model, and a photo they called "No dish" is never matched. One line on the
 // whole entry takes the first photo with no model. Anything more goes to Claude with the photos as
 // URL images (public storage) through a forced tool call (./match.ts), and only pairs naming a real
 // photo and a real line survive. Without ANTHROPIC_API_KEY, or on any model failure, nothing is
@@ -72,7 +73,7 @@ Deno.serve(async (req) => {
 
   const admin = adminClient();
   const { data: entry, error: entryError } = await admin
-    .from('entries').select('id, author_id').eq('id', entryId).maybeSingle();
+    .from('entries').select('id, author_id, photo_picks').eq('id', entryId).maybeSingle();
   if (entryError) {
     console.error('match-photos: entry read failed:', entryError.message);
     return json({ error: 'read failed' }, 500);
@@ -82,6 +83,9 @@ Deno.serve(async (req) => {
   // Photos an edit overwrote in place leave their lines first (0063), so those lines are open again.
   const pruned = await admin.rpc('prune_photo_pairs', { p_entry_id: entryId });
   if (pruned.error) console.error('match-photos: prune_photo_pairs failed:', pruned.error.message);
+  // The author's own pairings (0064) go back onto the lines a re-sort rebuilt, before anything is offered.
+  const restored = await admin.rpc('restore_photo_picks', { p_entry_id: entryId });
+  if (restored.error) console.error('match-photos: restore_photo_picks failed:', restored.error.message);
 
   const [photosRes, linesRes] = await Promise.all([
     admin.from('entry_photos').select('position, photo_url').eq('entry_id', entryId).order('position'),
@@ -95,8 +99,10 @@ Deno.serve(async (req) => {
     return json({ error: 'read failed' }, 500);
   }
 
+  // A photo the author said is "No dish" is never offered.
+  const picks = (entry.photo_picks ?? {}) as Record<string, string | null>;
   const photos: Photo[] = (photosRes.data ?? [])
-    .filter((p) => typeof p.photo_url === 'string')
+    .filter((p) => typeof p.photo_url === 'string' && picks[p.photo_url] !== null)
     .map((p) => ({ position: p.position as number, url: p.photo_url as string }));
   // deno-lint-ignore no-explicit-any
   const lines: Line[] = (linesRes.data ?? []).map((r: any) => ({
