@@ -15,12 +15,25 @@ import UIKit
 /// The shell hosts it (``SwiftUICore/View/atePhotoViewerHost()``), so a slip in the journal, a card
 /// in the feed, the entry page and the dish page all open the same viewer, the same way.
 struct AtePhotoViewerAction: Sendable {
-    fileprivate var present: (@MainActor @Sendable ([AtePhoto], Int) -> Void)?
+    fileprivate var present: (@MainActor @Sendable ([AtePhoto], Int, AtePhotoDishes?) -> Void)?
 
+    /// `dishes`: an entry's photos, with the dish each one is (0063) — the viewer names it under
+    /// the photo, and on your own entry lets you fix it.
     @MainActor
-    func callAsFunction(_ photos: [AtePhoto], at index: Int) {
-        present?(photos, index)
+    func callAsFunction(_ photos: [AtePhoto], at index: Int, dishes: AtePhotoDishes? = nil) {
+        present?(photos, index, dishes)
     }
+}
+
+/// Which dish each of an entry's photos is, as the viewer needs it.
+struct AtePhotoDishes: Sendable {
+    /// The entry's dishes, in receipt order.
+    var choices: [AtePhotoDishPill.Dish]
+    /// Photo URL → dish (review) id.
+    var paired: [String: UUID]
+    /// The author fixing one: the photo's URL and the dish, or `nil` for No dish. Answers whether it
+    /// held. `nil` on anybody else's entry: the pill only names.
+    var onPick: (@MainActor @Sendable (String, UUID?) async -> Bool)?
 }
 
 extension EnvironmentValues {
@@ -44,6 +57,7 @@ private struct AtePhotoViewing: Identifiable {
     let photos: [AtePhoto]
     let index: Int
     var origin: AtePhotoOrigin?
+    var dishes: AtePhotoDishes?
 }
 
 private struct AtePhotoViewerHost: ViewModifier {
@@ -59,13 +73,14 @@ private struct AtePhotoViewerHost: ViewModifier {
         content
             .environment(\.atePhotoOriginRelay, relay)
             .environment(\.atePhotoZoomNamespace, zoomSpace)
-            .environment(\.atePhotoViewer, AtePhotoViewerAction { photos, index in
+            .environment(\.atePhotoViewer, AtePhotoViewerAction { photos, index, dishes in
                 guard photos.isEmpty == false else { return }
                 AteTelemetry.record(BrowseEvents.photoPreviewOpened(photoCount: photos.count))
                 viewingBinding.wrappedValue = AtePhotoViewing(
                     photos: photos,
                     index: min(max(0, index), photos.count - 1),
-                    origin: relay.take()
+                    origin: relay.take(),
+                    dishes: dishes
                 )
             })
             .fullScreenCover(item: $viewing) { viewing in
@@ -73,6 +88,7 @@ private struct AtePhotoViewerHost: ViewModifier {
                     photos: viewing.photos,
                     index: viewing.index,
                     dragsToDismiss: false,
+                    dishes: viewing.dishes,
                     onIndex: { zoomIndex = $0 },
                     onClose: { viewingBinding.wrappedValue = nil }
                 )
@@ -95,18 +111,21 @@ private struct AtePhotoViewerHost: ViewModifier {
 /// double-tap) to zoom, and drag it down to put it back.
 ///
 /// Deliberately the system's own shape rather than the app's — this is the one place in Ate that is
-/// not paper. There is no chrome beyond the close button (design rule 1), no caption, no counter
-/// beyond the page dots a multi-photo entry already earns, and no editing: the entry is where a photo
-/// is managed, this is only where it is looked at.
+/// not paper. There is no chrome beyond the close button (design rule 1), no counter beyond the page
+/// dots a multi-photo entry already earns, and no editing of the photo itself. The one caption is
+/// an entry photo's dish (``AtePhotoDishPill``), which is the only place a photo is named.
 struct AtePhotoViewer: View {
     let photos: [AtePhoto]
     /// Which one was tapped.
     @State var index: Int
     /// Off under the native zoom (B), whose own drag-down owns the dismissal.
     var dragsToDismiss = true
+    var dishes: AtePhotoDishes?
     var onIndex: (Int) -> Void = { _ in }
     var onClose: () -> Void
 
+    /// The pairs as they stand here: a fix shows at once, and goes back if the server refuses it.
+    @State private var paired: [String: UUID]
     @State private var isZoomed = false
     @State private var drag: CGFloat = 0
     @State private var isShowing = false
@@ -120,12 +139,15 @@ struct AtePhotoViewer: View {
         photos: [AtePhoto],
         index: Int,
         dragsToDismiss: Bool = true,
+        dishes: AtePhotoDishes? = nil,
         onIndex: @escaping (Int) -> Void = { _ in },
         onClose: @escaping () -> Void
     ) {
         self.photos = photos
         _index = State(initialValue: index)
         self.dragsToDismiss = dragsToDismiss
+        self.dishes = dishes
+        _paired = State(initialValue: dishes?.paired ?? [:])
         self.onIndex = onIndex
         self.onClose = onClose
     }
@@ -159,6 +181,12 @@ struct AtePhotoViewer: View {
                 .padding(.leading, AteMetrics.snug)
                 .opacity(isShowing && drag == 0 ? 1 : 0)
         }
+        .overlay(alignment: .bottom) {
+            dishPill
+                .padding(.horizontal, AteMetrics.gutter)
+                .padding(.bottom, AtePhotoDishPillMetrics.bottom)
+                .opacity(isShowing && drag == 0 && isZoomed == false ? 1 : 0)
+        }
         .statusBarHidden()
         .accessibilityIdentifier("entry.photoViewer")
         .accessibilityAction(.escape) { close() }
@@ -183,6 +211,36 @@ struct AtePhotoViewer: View {
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { isShowing = true }
         }
         .onChange(of: index) { _, index in onIndex(index) }
+    }
+
+    /// The dish the photo now showing is — named, and on your own entry a menu to fix it.
+    @ViewBuilder private var dishPill: some View {
+        if let dishes, photos.indices.contains(index), let url = photos[index].url?.absoluteString {
+            let current = paired[url].flatMap { id in dishes.choices.first { $0.id == id } }
+            AtePhotoDishPill(
+                dish: current,
+                choices: dishes.onPick == nil ? [] : dishes.choices,
+                onPick: dishes.onPick.map { pick in
+                    { (choice: AtePhotoDishPill.Dish?) in choose(choice, for: url, with: pick) }
+                }
+            )
+        }
+    }
+
+    /// One photo, one dish: the dish's old photo lets go of it, as the server does (0063).
+    private func choose(
+        _ choice: AtePhotoDishPill.Dish?, for url: String,
+        with pick: @escaping @MainActor @Sendable (String, UUID?) async -> Bool
+    ) {
+        guard paired[url] != choice?.id else { return }
+        let before = paired
+        var next = paired.filter { $0.key != url && $0.value != choice?.id }
+        if let choice { next[url] = choice.id }
+        paired = next
+        AteHaptics.key()
+        Task {
+            if await pick(url, choice?.id) == false { paired = before }
+        }
     }
 
     /// The black thins as the photo is dragged away, so the page underneath shows through.

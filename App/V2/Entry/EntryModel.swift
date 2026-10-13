@@ -25,6 +25,9 @@ final class EntryModel: SavedDishObserving {
     private(set) var card: EntryCard?
     private(set) var composition = EntryComposition()
     private(set) var photos: [AtePhoto] = []
+    /// Which dish each photo is (photo URL → review id, 0063): named in the photo viewer. Written
+    /// only by `EntryModel+PhotoDishes`.
+    var photoDishes: [String: UUID] = [:]
     private(set) var state: State = .pending
     var isCorrectingPlace = false
     var correcting: Correcting?
@@ -43,7 +46,7 @@ final class EntryModel: SavedDishObserving {
     private(set) var myTag: UUID?
 
     private let route: EntryRoute
-    private let services: AteServices
+    let services: AteServices
     private let saves: SaveAction
     private var handle = ""
     private var hasReportedPrint = false
@@ -125,6 +128,7 @@ final class EntryModel: SavedDishObserving {
             let card = try await services.entries.entry(id: route.entryID)
             loadFailure = nil
             apply(card, isStuck: await services.outbox.isStuck(entryID: route.entryID))
+            await refreshPhotoDishes()
         } catch {
             // ``EntryRefreshFailure``: a cut-short read is nothing; **gone is gone even over a card
             // it was drawn from** (a stale card must not look live); anything else keeps the card
@@ -260,6 +264,8 @@ final class EntryModel: SavedDishObserving {
             _ = try? await services.entries.sort(
                 entryID: route.entryID, force: true, tagTokens: tokens.tags, sixTokens: tokens.sixes
             )
+            // A re-print rebuilds the lines: pair the photos with them again (0063).
+            await services.entries.matchPhotos(entryID: route.entryID)
         }
         await reload()
     }
@@ -380,6 +386,9 @@ final class EntryModel: SavedDishObserving {
             return
         }
         apply(updated)
+        // The lines were rebuilt at the new place: pair the photos with them again (0063).
+        await services.entries.matchPhotos(entryID: route.entryID)
+        await refreshPhotoDishes()
     }
 
     /// A line item: `correct_entry_dish`. A menu pick passes the id, "Add as a new dish" the name.

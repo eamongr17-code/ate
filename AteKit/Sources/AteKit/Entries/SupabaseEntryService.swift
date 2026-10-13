@@ -213,6 +213,42 @@ public struct SupabaseEntryService: EntryService {
             .execute()
     }
 
+    // MARK: - When, and which photo
+
+    public func setEntryDate(entryID: UUID, eatenAt: Date) async throws {
+        let parameters: [String: AnyJSON] = [
+            "p_entry_id": .string(entryID.uuidString.lowercased()),
+            "p_eaten_at": .string(PostgRESTTimestamp.string(from: eatenAt))
+        ]
+        _ = try await api.supabase.rpc("set_entry_date", params: parameters).execute()
+    }
+
+    public func matchPhotos(entryID: UUID) async {
+        _ = try? await api.supabase.functions.invoke(
+            "match-photos",
+            options: FunctionInvokeOptions(method: .post, body: ["entry_id": entryID.uuidString.lowercased()])
+        ) { _, _ in () }
+    }
+
+    public func setReviewPhoto(entryID: UUID, photoURL: String, reviewID: UUID?) async throws {
+        let parameters: [String: AnyJSON] = [
+            "p_entry_id": .string(entryID.uuidString.lowercased()),
+            "p_photo_url": .string(photoURL),
+            "p_review_id": reviewID.map { AnyJSON.string($0.uuidString.lowercased()) } ?? .null
+        ]
+        _ = try await api.supabase.rpc("set_review_photo", params: parameters).execute()
+    }
+
+    public func photoDishes(entryID: UUID) async throws -> [String: UUID] {
+        let data = try await api.supabase
+            .from("reviews")
+            .select("id, photo_url")
+            .eq("entry_id", value: entryID.uuidString.lowercased())
+            .execute()
+            .data
+        return try ReviewPhotoRow.map(from: data)
+    }
+
     // MARK: - Delete
 
     /// `rpc delete_entry(p_entry_id) → {photo_paths}`, then the files. The row is the delete: once

@@ -319,6 +319,7 @@ public actor EntryOutbox {
             item.hasInserted = true
         }
         var remaining: [QueuedPhoto] = []
+        var uploaded = 0
         for photo in item.pendingPhotos {
             // Deleted while this run was working it: stop, and upload nothing more.
             guard forgotten.contains(item.id) == false else { return }
@@ -327,23 +328,31 @@ public actor EntryOutbox {
                 try await entries.attach(photo: EntryPhotoUpload(
                     entryID: item.entry.id, position: photo.position, data: data
                 ))
+                uploaded += 1
             } catch {
                 remaining.append(photo)
                 throw error
             }
         }
         item.pendingPhotos = remaining
+        var sorted = false
         if item.needsSort, forgotten.contains(item.id) == false {
             let outcome = try await entries.sort(
                 entryID: item.entry.id, force: false, tagTokens: item.tagTokens ?? [], sixTokens: item.sixTokens ?? []
             )
             item.needsSort = false
+            sorted = true
             analytics(EntryEvents.sortCompleted(
                 mode: outcome.mode,
                 itemCount: outcome.itemCount,
                 durationMilliseconds: 0,
                 didAttachPlace: outcome.didAttachPlace
             ))
+        }
+        // New lines, or photos that arrived after them: pair them (0063). Server-side the call is a
+        // no-op for an entry with no photos.
+        if sorted || uploaded > 0, forgotten.contains(item.id) == false {
+            await entries.matchPhotos(entryID: item.entry.id)
         }
     }
 

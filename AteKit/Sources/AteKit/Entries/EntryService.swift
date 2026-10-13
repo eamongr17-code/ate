@@ -179,6 +179,22 @@ public protocol EntryService: Sendable {
     /// `_t.jpg` thumbnails) out of storage. The server refuses anybody else's.
     @discardableResult
     func delete(entryID: UUID) async throws -> EntryDeletion
+
+    /// When you ate it: `set_entry_date` (0063) moves `created_at`. Author only, never the future.
+    func setEntryDate(entryID: UUID, eatenAt: Date) async throws
+
+    /// `match-photos`: pair the entry's photos with its dishes, after the uploads and the sort (a
+    /// re-sort rebuilds the lines, so after every one). Best effort: it never throws, and a miss
+    /// leaves each dish drawing the entry's first photo, as before.
+    func matchPhotos(entryID: UUID) async
+
+    /// The author's own pairing (`set_review_photo`, 0063): this photo is this dish, or no dish
+    /// (`reviewID` nil). A later match leaves it alone until the words are re-sorted, which rebuilds
+    /// the line and pairs it afresh.
+    func setReviewPhoto(entryID: UUID, photoURL: String, reviewID: UUID?) async throws
+
+    /// Which dish each photo is: photo URL → review id. Photos no dish holds are absent.
+    func photoDishes(entryID: UUID) async throws -> [String: UUID]
 }
 
 public extension EntryService {
@@ -216,6 +232,19 @@ public extension EntryService {
     func delete(entryID: UUID) async throws -> EntryDeletion {
         throw EntryWriteFailure.rejected("delete is not supported here")
     }
+
+    func setEntryDate(entryID: UUID, eatenAt: Date) async throws {
+        throw EntryWriteFailure.rejected("setEntryDate is not supported here")
+    }
+
+    /// A service with no model has nothing to pair.
+    func matchPhotos(entryID: UUID) async {}
+
+    func setReviewPhoto(entryID: UUID, photoURL: String, reviewID: UUID?) async throws {
+        throw EntryWriteFailure.rejected("setReviewPhoto is not supported here")
+    }
+
+    func photoDishes(entryID: UUID) async throws -> [String: UUID] { [:] }
 
     /// The handle alone, when that is all a caller needs.
     func currentHandle() async -> String? {

@@ -109,6 +109,11 @@ struct V2ComposerWrite: View {
             analytics: services.analytics,
             onCommit: { model.setCompanions($0) }
         )
+        .v2DateSheet(
+            isPresented: $model.isPickingDate,
+            initial: { model.date.calendarDay() },
+            onPick: { model.pickDay($0) }
+        )
         .fullScreenCover(isPresented: $isTakingPhoto) {
             CameraPicker { image in captured(image) }.ignoresSafeArea()
         }
@@ -159,7 +164,7 @@ struct V2ComposerWrite: View {
 
     // MARK: - Where and who
 
-    /// The place and the people, at the head of the sheet: never in the words.
+    /// The place, the people and the day, at the head of the sheet: never in the words.
     private var byline: some View {
         AteComposerByline(
             place: model.place.flatMap { $0.name.isEmpty ? nil : $0.name },
@@ -173,6 +178,12 @@ struct V2ComposerWrite: View {
                 AteHaptics.key()
                 model.dismissScoring(refocus: false)
                 model.isPickingCompanions = true
+            },
+            day: model.date.label(),
+            onDay: {
+                AteHaptics.key()
+                model.dismissScoring(refocus: false)
+                model.isPickingDate = true
             }
         )
         .padding(.top, AteMetrics.regular)
@@ -331,6 +342,7 @@ struct V2ComposerWrite: View {
             || model.place?.id != editing.restaurantID
             || model.photos.map(\.id) != editing.photos.map(\.url)
             || model.companionsChanged
+            || model.date.changed
     }
 
     /// The composer is going away for good: nothing further goes early, and a preview in flight for

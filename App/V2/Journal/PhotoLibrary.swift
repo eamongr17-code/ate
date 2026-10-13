@@ -24,9 +24,14 @@ protocol AtePhotoLibrary {
     func thumbnail(id: String, side: CGFloat) async -> Image?
     /// The bytes the composer stages, at the size it keeps.
     func image(id: String, maximumDimension: CGFloat) async -> UIImage?
+    /// When each photo was taken, for the composer's date pill. Missing ones are left out.
+    func takenAt(ids: [String]) -> [Date]
 }
 
 extension AtePhotoLibrary {
+    /// A library that cannot say leaves the day alone.
+    func takenAt(ids: [String]) -> [Date] { [] }
+
     /// A library with nothing to work out yields its photos once.
     func recentProgressively() -> AsyncStream<[PhotoSuggestionItem]> {
         AsyncStream { continuation in
@@ -62,6 +67,16 @@ final class SystemPhotoLibrary: AtePhotoLibrary {
 
     var canAsk: Bool {
         PHPhotoLibrary.authorizationStatus(for: .readWrite) == .notDetermined
+    }
+
+    func takenAt(ids: [String]) -> [Date] {
+        guard isAuthorized, ids.isEmpty == false else { return [] }
+        let assets = PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
+        var dates: [Date] = []
+        assets.enumerateObjects { asset, _, _ in
+            if let created = asset.creationDate { dates.append(created) }
+        }
+        return dates
     }
 
     func requestAuthorization() async -> Bool {

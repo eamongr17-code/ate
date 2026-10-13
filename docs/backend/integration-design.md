@@ -266,6 +266,8 @@ PR, same rule as `place_locality()`); rows written before keep the mangle — re
 
 ## Wire-change log
 
+**Dates and dish photos — 0063 + match-photos.** Additive: `set_entry_date(p_entry_id, p_eaten_at)` (author; `22023` future/before 2000, `P0002` not yours) moves `entries.created_at`; `set_review_photo(p_entry_id, p_photo_url, p_review_id?)` (author; null = No dish) sets `reviews.photo_url` + `photo_picked_at`, which matching never overrides until a re-sort rebuilds the line; `POST /functions/v1/match-photos {entry_id}` (author JWT) prunes stale pairs and pairs photos with unpicked lines (forced tool call; no key → no write); `apply_photo_matches` / `prune_photo_pairs` are service-only. Deleting an `entry_photos` row clears the lines that held it. Clients call match-photos after the sort and uploads, after a re-sort, a place correction and an edit with photos.
+
 **Tag page — 0057.** Additive: trailing optional `p_kind`, `p_slug` on `get_entry_feed` and `new_to_record` (+ browse twins; drop+create, old calls bind unchanged and return the same rows); new `my_taste_tags`. Nothing existing changes meaning.
 
 **Faster logging — 0056 + sort-entry.** Additive: the sort reply (and its `skipped` reply) carries `entry_card`

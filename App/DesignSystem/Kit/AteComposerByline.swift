@@ -8,12 +8,18 @@ import SwiftUI
 /// Empty, each is an outlined pill with its glyph and word. Held, it fills with the field and prints
 /// what it holds: the place in full (wrapping to its own line before it truncates), the people as
 /// their avatars and handles.
+///
+/// The third is **when** (13 Oct beta, design/rebuild/date-and-photos.html): "Today" outlined until
+/// the day is another one — picked, or the photos' own — then filled with it ("Sun 11 Oct").
 struct AteComposerByline: View {
     /// The place attached, if one is.
     let place: String?
     let people: [AteWithPerson]
     let onPlace: () -> Void
     let onPeople: () -> Void
+    /// The day, as the pill prints it; `nil` is today. Shown only when there is `onDay` to open.
+    var day: String?
+    var onDay: (() -> Void)?
 
     var body: some View {
         AteFlow(spacing: AteComposerBylineMetrics.gap) {
@@ -37,6 +43,15 @@ struct AteComposerByline: View {
                         .ateText(.controlSmall)
                         .lineLimit(1)
                         .truncationMode(.tail)
+                }
+            }
+            if let onDay {
+                pill(identifier: "composer.key.date", label: "Date: \(day ?? "Today")",
+                     isHeld: day != nil, action: onDay) {
+                    AteIcon.calendar.view(size: AteComposerBylineMetrics.glyph)
+                    Text(day ?? "Today")
+                        .ateText(.controlSmall)
+                        .lineLimit(1)
                 }
             }
         }

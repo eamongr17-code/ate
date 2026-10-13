@@ -59,11 +59,17 @@ public final class EntrySummaryStore {
         ) -> Actions {
             Actions(
                 fetch: { try await entries.entry(id: $0) },
-                correctPlace: { try await entries.correctPlace(entryID: $0, restaurantID: $1) },
+                // Both rebuild the lines, so the photos are paired again after (0063).
+                correctPlace: {
+                    let card = try await entries.correctPlace(entryID: $0, restaurantID: $1)
+                    await entries.matchPhotos(entryID: $0)
+                    return card
+                },
                 // …and its secret 6s: a forced sort rebuilds every line, and a 6 not carried here
                 // would print as whatever the prose says.
                 resort: {
                     _ = try await entries.sort(entryID: $0, force: true, tagTokens: tagTokens, sixTokens: sixTokens)
+                    await entries.matchPhotos(entryID: $0)
                 },
                 correctDish: { try await entries.correctDish(reviewID: $0, dishID: $1, dishName: $2) }
             )

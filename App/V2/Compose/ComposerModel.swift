@@ -50,6 +50,10 @@ final class ComposerModel {
     /// **The place, held by the Place key** — never in the words (ComposerPlaceB, 2026-09-26). Set
     /// only because the person tapped it (design rule 8); the key prints its name.
     private(set) var place: PlaceRef?
+    /// **When they ate it**, held by the date pill (``EntryDateChoice``). An edit opens on the
+    /// entry's own moment.
+    private(set) var date = EntryDateChoice()
+    var isPickingDate = false
 
     init(drafts: any EntryDraftStoring, editing: ComposerPresentation.EditingEntry? = nil) {
         self.drafts = drafts
@@ -61,6 +65,7 @@ final class ComposerModel {
             self.composition = editing.composition
             self.place = editing.restaurantID.map { PlaceRef(id: $0, name: editing.placeName ?? "") }
             self.photos = editing.photos.map(StagedPhoto.init(existing:))
+            self.date = EntryDateChoice(editing: editing.createdAt)
             self.startedAt = Date()
             let end = editing.composition.displayString.utf16.count
             self.caret = end
@@ -77,6 +82,7 @@ final class ComposerModel {
             draft.restaurantID.map { PlaceRef(id: $0, name: draft.placeName ?? "") }
         }
         self.startedAt = resumed?.startedAt ?? Date()
+        self.date = EntryDateChoice(eatenAt: resumed?.eatenAt, isPicked: resumed?.isDatePicked ?? false)
         // Resuming puts the caret after the last thing they wrote, not in front of it: a text view
         // opens at offset 0, which would have them typing into the middle of their own sentence.
         let end = (resumed?.composition ?? EntryComposition()).displayString.utf16.count
@@ -152,7 +158,9 @@ final class ComposerModel {
             restaurantID: place?.id,
             placeName: place?.name,
             photoFiles: photos.compactMap(\.fileName),
-            startedAt: startedAt
+            startedAt: startedAt,
+            eatenAt: date.eatenAt,
+            isDatePicked: date.isPicked
         )
     }
 
@@ -262,23 +270,6 @@ final class ComposerModel {
         guard isEntrySaved, let handoff = lateHandoff, landedLate.isEmpty == false else { return nil }
         defer { landedLate = [] }
         return (handoff.request, landedLate)
-    }
-
-    /// What the save path is handed. The body is the words **verbatim** — `composition.plain`, with
-    /// the tokens' own characters still in them, because that is what the person wrote and the
-    /// sorter reads (design rule 9).
-    func request(from draft: EntryDraft, photoDirectory: URL) -> NewEntryRequest {
-        NewEntryRequest(
-            id: draft.id,
-            body: draft.composition.plain,
-            restaurantID: draft.restaurantID,
-            photoPaths: draft.photoFiles.map { photoDirectory.appending(path: $0).path() },
-            createdAt: draft.startedAt,
-            scoreCount: draft.composition.scores.count,
-            secondsFromOpen: draft.secondsFromOpen(),
-            tagTokens: draft.composition.tagTokens,
-            sixTokens: draft.composition.sixTokens
-        )
     }
 
     // MARK: - The Score key
@@ -412,6 +403,21 @@ final class ComposerModel {
     /// What the place sheet opens pre-filled with: the place already on the key, otherwise nothing —
     /// guessing from the prose is the sorter's job, and a location is never a guess we make.
     var placeQuery: String { place?.name ?? "" }
+
+    // MARK: - The date pill
+
+    /// A day from the calendar.
+    func pickDay(_ day: Date) {
+        date.pick(day)
+        isPickingDate = false
+        focusRequest += 1
+        persist()
+    }
+
+    /// Photos bring their own day to a new entry, unless the person already chose one.
+    func photosDated(_ dates: [Date?]) {
+        if date.photosDated(dates) { persist() }
+    }
 
     // MARK: - The With key
 

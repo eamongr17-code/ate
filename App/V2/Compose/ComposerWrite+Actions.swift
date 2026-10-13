@@ -64,13 +64,16 @@ extension V2ComposerWrite {
         let sorted = Latch<EntryCard?>()
         let finish: @Sendable () -> Void = {
             Task.detached {
-                await submission.finish(
+                let card = await submission.finish(
                     entryID: request.id,
                     photoPaths: request.photoPaths,
                     tagTokens: request.tagTokens,
                     sixTokens: request.sixTokens,
                     sorted: { await sorted.fulfil($0) }
                 )
+                // Its photos are paired with its dishes by now (0063): an open page reads them again.
+                guard let card, request.photoPaths.isEmpty == false else { return }
+                await MainActor.run { NotificationCenter.ateEntryChanged(card) }
             }
         }
         let result = await submission.submit(request, onInserted: finish)
@@ -91,6 +94,9 @@ extension V2ComposerWrite {
             return
         }
         AteHaptics.success()
+        if let source = model.date.source, model.date.daysAgo() > 0 {
+            analytics(EntryEvents.dated(source: source, daysAgo: model.date.daysAgo()))
+        }
         model.clearDraft()
         model.markEntrySaved()
         // "I ate it": the dish is in the Journal now, so it leaves Saved. Only once the entry has
@@ -180,7 +186,9 @@ extension V2ComposerWrite {
             originalPhotos: editing.photos,
             photos: model.editedPhotos,
             tags: EditTagDiff(original: editing.composition, current: model.composition, items: editing.items),
-            originalBody: editing.composition.plain
+            originalBody: editing.composition.plain,
+            originalEatenAt: editing.createdAt,
+            eatenAt: model.date.eatenAt
         )
         if model.hasPendingPhotos {
             model.handOffLatePhotos(to: NewEntryRequest(
@@ -199,14 +207,21 @@ extension V2ComposerWrite {
                 sendLatePhotos()
                 sendCompanions(entryID: editing.id, from: model.originalCompanions)
                 if edit.changesPlace { analytics(EntryEvents.corrected(.place)) }
+                if edit.changesDate { analytics(EntryEvents.corrected(.date)) }
                 AteHaptics.success()
                 NotificationCenter.ateEntryChanged(card)
                 dismiss()
                 // The re-sort lands after the sheet has gone: tell the entry page (and the lists)
                 // again, so dishes added in the edit appear the moment they are printed.
+                // Then the photos are paired with the dishes again (0063), without holding the lines.
                 Task.detached {
-                    guard let sorted = await edit.sort(on: entries) else { return }
-                    await MainActor.run { NotificationCenter.ateEntryChanged(sorted) }
+                    if let sorted = await edit.sort(on: entries) {
+                        await MainActor.run { NotificationCenter.ateEntryChanged(sorted) }
+                    }
+                    await edit.matchPhotos(on: entries)
+                    if let card = try? await entries.entry(id: edit.entryID) {
+                        await MainActor.run { NotificationCenter.ateEntryChanged(card) }
+                    }
                 }
             } catch {
                 // A failed edit never closes the composer and never loses a change.
@@ -235,6 +250,8 @@ extension V2ComposerWrite {
             images.append((id: identifier, image: image))
         }
         model.setPhotos(ComposerPhotoStaging.stage(images: images, in: model.photoDirectory, existing: model.photos))
+        // The suggestion's photos bring their own day (date-and-photos.html).
+        model.photosDated(services.photos.takenAt(ids: images.map(\.id)))
     }
 
     /// **Library picks appear at once**: a still tile the moment the picker closes, its preview as
@@ -270,6 +287,10 @@ extension V2ComposerWrite {
                     return
                 }
                 model.finishPhoto(id: id, fileName: staged.fileName, image: staged.image)
+                // The day it was taken: the file's own EXIF, else the library's record of it.
+                model.photosDated([
+                    staged.takenAt ?? item.itemIdentifier.flatMap { services.photos.takenAt(ids: [$0]).first }
+                ])
                 if model.lateHandoff != nil {
                     model.landLate(fileName: staged.fileName)
                     sendLatePhotos()

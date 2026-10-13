@@ -43,6 +43,18 @@ public enum PlaceAttachSource: String, Sendable, CaseIterable, Codable {
 public enum EntryCorrection: String, Sendable, CaseIterable, Codable {
     case place
     case dish
+    /// The day it was eaten, moved in an edit (0063).
+    case date
+    /// Which dish a photo is, fixed by hand in the photo viewer (0063).
+    case photo
+}
+
+/// Where a new entry's day came from, when it was not today.
+public enum EntryDateSource: String, Sendable, CaseIterable, Codable {
+    /// The person picked it on the date pill.
+    case picked
+    /// The photos' own day (the earliest of them).
+    case photos
 }
 
 /// Where a receipt was sent from. A closed set, because the north-star question is *which surface
@@ -191,6 +203,15 @@ public enum EntryEvents {
         AnalyticsEvent(
             name: "suggestion_filtered",
             parameters: ["count": String(max(0, count)), "kept": String(max(0, kept))]
+        )
+    }
+
+    /// A new entry was written for another day than today. `days_ago` is whole calendar days back,
+    /// so whether people backfill last night or last month is one histogram.
+    public static func dated(source: EntryDateSource, daysAgo: Int) -> AnalyticsEvent {
+        AnalyticsEvent(
+            name: "entry_dated",
+            parameters: ["source": source.rawValue, "days_ago": String(max(0, daysAgo))]
         )
     }
 
