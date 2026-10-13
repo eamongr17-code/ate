@@ -10,13 +10,14 @@ extension EntryModel {
         let choices = card.items.sorted { $0.position < $1.position }
             .map { AtePhotoDishPill.Dish(id: $0.reviewID, name: $0.dishName) }
         let entryID = card.id
-        return AtePhotoDishes(
-            choices: choices,
-            paired: photoDishes,
-            onPick: card.isMine ? { [weak self] url, reviewID in
-                await self?.pairPhoto(entryID: entryID, url: url, reviewID: reviewID) ?? false
-            } : nil
-        )
+        var onPick: (@MainActor @Sendable (String, UUID?) async -> Bool)?
+        if card.isMine {
+            onPick = { @MainActor [weak self] (url: String, reviewID: UUID?) async -> Bool in
+                guard let self else { return false }
+                return await self.pairPhoto(entryID: entryID, url: url, reviewID: reviewID)
+            }
+        }
+        return AtePhotoDishes(choices: choices, paired: photoDishes, onPick: onPick)
     }
 
     func refreshPhotoDishes() async {
