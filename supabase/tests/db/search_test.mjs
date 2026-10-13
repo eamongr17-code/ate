@@ -16,11 +16,11 @@ before(async () => {
   ({ db, as, rows } = w);
   await db.query(`update public.profiles set username = 'tipofan', name = 'Tipo Fan' where id = $1`, [U.dan]);
   await db.query(`update public.profiles set username = 'Tipsy', name = 'Tipsy Cleo', city = 'Fitzroy' where id = $1`, [U.cleo]);
-  await w.visit(1, U.alice, P.tipo, receipt(['Tipo pizza', 4.5], ['Gnocchi', 4]), '2026-09-01T09:00:00Z');
-  await w.visit(2, U.bob, P.tipo, receipt(['Tipo pizza', 3.5]), '2026-09-02T09:00:00Z');
-  await w.visit(3, U.bob, P.osteria, receipt(['Pappardelle al ragù', 4], ['Tipo tiramisù']), '2026-09-03T09:00:00Z');
-  await w.visit(4, U.cleo, P.far, receipt(['Tipo curry', 5]), '2026-09-04T09:00:00Z');
-  await w.visit(5, U.dan, P.marion, receipt(['Tipo toast', 3]), '2026-09-05T09:00:00Z');
+  await w.visit(1, U.alice, P.tipo, receipt(['Tipo Pizza', 4.5], ['Gnocchi', 4]), '2026-09-01T09:00:00Z');
+  await w.visit(2, U.bob, P.tipo, receipt(['Tipo Pizza', 3.5]), '2026-09-02T09:00:00Z');
+  await w.visit(3, U.bob, P.osteria, receipt(['Pappardelle al Ragù', 4], ['Tipo Tiramisù']), '2026-09-03T09:00:00Z');
+  await w.visit(4, U.cleo, P.far, receipt(['Tipo Curry', 5]), '2026-09-04T09:00:00Z');
+  await w.visit(5, U.dan, P.marion, receipt(['Tipo Toast', 3]), '2026-09-05T09:00:00Z');
 });
 after(async () => db?.close());
 
@@ -45,22 +45,22 @@ test('search_dishes: one row per dish with its place, only dishes with a line, w
     p_cursor_match_tier => $2, p_cursor_review_count => $3, p_cursor_dish_name => $4, p_cursor_dish_id => $5)`,
     [size, last?.match_tier ?? null, last?.review_count ?? null, last?.dish_name ?? null, last?.dish_id ?? null]));
   const whole = await page(null, 20);
-  assert.deepEqual(whole.map((r) => r.dish_name).sort(), ['Tipo curry', 'Tipo pizza', 'Tipo tiramisù', 'Tipo toast']);
+  assert.deepEqual(whole.map((r) => r.dish_name).sort(), ['Tipo Curry', 'Tipo Pizza', 'Tipo Tiramisù', 'Tipo Toast']);
   noEmptyStrings(whole, 'search_dishes');
-  const pizza = whole.find((r) => r.dish_name === 'Tipo pizza');
+  const pizza = whole.find((r) => r.dish_name === 'Tipo Pizza');
   assert.deepEqual([pizza.review_count, pizza.scored_count, Number(pizza.score), pizza.restaurant_name], [2, 2, 4, 'Tipo 00']);
   assert.ok(whole.every((r) => r.review_count > 0 && r.scored_count <= r.review_count));
-  assert.equal(whole.find((r) => r.dish_name === 'Tipo tiramisù').score, null, 'no scored line, no score');
+  assert.equal(whole.find((r) => r.dish_name === 'Tipo Tiramisù').score, null, 'no scored line, no score');
   assert.deepEqual((await w.walk((last) => page(last, 1))).map((r) => r.dish_id), whole.map((r) => r.dish_id));
 });
 
 test('search folds accents in the query, never in the menu\'s spelling', async () => {
   for (const q of ['ragu', 'ragù', 'RAGU']) {
     const got = await as(U.alice, () => rows(`select dish_name from public.search_dishes(p_query => $1)`, [q]));
-    assert.deepEqual(got.map((r) => r.dish_name), ['Pappardelle al ragù'], q);
+    assert.deepEqual(got.map((r) => r.dish_name), ['Pappardelle al Ragù'], q);
   }
   const all = await as(U.alice, () => rows(`select kind, title from public.search_all(p_query => 'tiramisu', p_limit_per_kind => 8)`));
-  assert.deepEqual(all, [{ kind: 'dish', title: 'Tipo tiramisù' }]);
+  assert.deepEqual(all, [{ kind: 'dish', title: 'Tipo Tiramisù' }]);
 });
 
 test('search_people: handle, name, avatar; case-insensitive; finds me as me; the cursor walks it', async () => {

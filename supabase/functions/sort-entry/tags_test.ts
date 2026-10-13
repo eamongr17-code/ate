@@ -249,7 +249,7 @@ test('MODEL accents: "GF Crème brûlée" → Crème brûlée, the tag on the di
     { dish_name: 'Café gourmand', score: 4, score_evidence: '4' },
     { dish_name: 'GF Crème brûlée', score: 4.5, score_evidence: '4.5' },
   ]);
-  assertEquals(lines(out), [['Café gourmand', 4, ['gf']], ['Crème brûlée', 4.5, ['df']]]);
+  assertEquals(lines(out), [['Café Gourmand', 4, ['gf']], ['Crème Brûlée', 4.5, ['df']]]);
 });
 
 test('MODEL emoji: scalar offsets survive astral characters before the dish and the tag', () => {

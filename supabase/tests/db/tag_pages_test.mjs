@@ -28,13 +28,13 @@ before(async () => {
     E[key] = await w.visit(n++, who, place, receipt([dish, score]), ago(days));
   };
   await v('aMarg', U.alice, P.tipo, 'Margherita', 5, 3);
-  await v('aCacio', U.alice, P.osteria, 'Cacio e pepe', 4.5, 4);
+  await v('aCacio', U.alice, P.osteria, 'Cacio e Pepe', 4.5, 4);
   await v('aRamen', U.alice, P.far, 'Ramen', 4, 1);
   await v('bTira', U.bob, P.tipo, 'Tiramisu', 6, 1);
   await v('bRamen', U.bob, P.far, 'Ramen', 4.5, 2);
-  await v('bToast', U.bob, P.marion, 'Anchovy toast', 3, 2);
+  await v('bToast', U.bob, P.marion, 'Anchovy Toast', 3, 2);
   await v('cMarg', U.cleo, P.tipo, 'Margherita', 4, 1.5);
-  for (const [k, name] of Object.entries({ marg: 'Margherita', cacio: 'Cacio e pepe', tira: 'Tiramisu', ramen: 'Ramen', toast: 'Anchovy toast' })) {
+  for (const [k, name] of Object.entries({ marg: 'Margherita', cacio: 'Cacio e Pepe', tira: 'Tiramisu', ramen: 'Ramen', toast: 'Anchovy Toast' })) {
     D[k] = (await rows(`select id from public.dishes where name = $1`, [name]))[0].id;
   }
 });

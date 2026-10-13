@@ -21,7 +21,7 @@ import {
   modelEnabled,
   type SorterModel,
 } from '../sort-entry/model.ts';
-import { sentenceCase } from '../sort-entry/validate.ts';
+import { titleCase } from '../sort-entry/validate.ts';
 
 export { modelEnabled };
 
@@ -50,9 +50,9 @@ const SYSTEM = [
   '   no dish (only "this place", "so good", emojis, a cuisine like "Thai food"), OMIT dish.',
   '   Never guess a dish from the place, the cuisine, the author or the hashtags\' mood.',
   '2. Print the dish as a menu would: SINGULAR when the plural is a count ("3 gin and tonics" ->',
-  '   "Gin & tonic"; but "Dumplings" stays plural, the dish itself is plural), sentence case',
-  '   (first letter capital, rest lowercase: "Pepperoni pizza"), keeping proper names\' capitals',
-  '   ("Big Mac", "Peking duck"). Same words otherwise: no adjectives added, none invented.',
+  '   "Gin & Tonic"; but "Dumplings" stays plural, the dish itself is plural), title case',
+  '   (every word capitalised, small words lower case: "Pepperoni Pizza", "Cacio e Pepe"), keeping',
+  '   proper names\' capitals ("Big Mac"). Same words otherwise: no adjectives added, none invented.',
   '3. place_query: the restaurant, cafe or bar name exactly as the caption writes it (a hashtag',
   '   or @handle that is clearly the venue may be given without the # or @). OMIT it when the',
   '   caption names no venue. Never infer a place from a suburb, a dish, a city or the author.',
@@ -65,7 +65,7 @@ const TOOL = {
   input_schema: {
     type: 'object',
     properties: {
-      dish: { type: 'string', description: 'The dish as a menu prints it: singular for a count, sentence case.' },
+      dish: { type: 'string', description: 'The dish as a menu prints it: singular for a count, title case.' },
       place_query: { type: 'string', description: 'The venue name as the caption writes it.' },
     },
   },
@@ -179,8 +179,8 @@ export function validateSuggestion(raw: { dish: unknown; place_query: unknown } 
   const dish = tidy(raw.dish, MAX_DISH);
   const place = tidy(raw.place_query, MAX_PLACE_QUERY);
   return {
-    // The prompt asks for sentence case; the model doesn't always give it (13 Oct beta). Enforced here.
-    dish: dish && groundedIn(dish, source) ? sentenceCase(dish) : null,
+    // The prompt asks for title case; the model doesn't always give it (13 Oct beta). Enforced here.
+    dish: dish && groundedIn(dish, source) ? titleCase(dish) : null,
     place_query: place && groundedIn(place, source) ? place : null,
   };
 }

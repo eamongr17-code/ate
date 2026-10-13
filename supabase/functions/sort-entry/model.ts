@@ -111,10 +111,10 @@ const SYSTEM = [
   '   not a place, not a diet (never "vegan" or "gluten free"), not an opinion. These describe the',
   '   dish only; they never change its name, score or note.',
   '9. printed_name is dish_name as a menu would print it: SINGULAR when the plural is the',
-  '   diner\'s count ("six gin and tonics" -> "Gin & tonic"; "two serves of the dumplings" ->',
-  '   "Dumplings", since the dish itself is plural), in sentence case (first letter capital, the',
-  '   rest lowercase: "Pepperoni pizza"), keeping the capitals of a proper name ("Big Mac",',
-  '   "Peking duck"). Same dish, same words; only the number and the capitals change.',
+  '   diner\'s count ("six gin and tonics" -> "Gin & Tonic"; "two serves of the dumplings" ->',
+  '   "Dumplings", since the dish itself is plural), in title case (every word capitalised, small',
+  '   words like "and", "with", "e", "al" lower case: "Pepperoni Pizza", "Cacio e Pepe"), keeping the',
+  '   capitals of a proper name ("Big Mac"). Same dish, same words; only the number and the capitals change.',
 ].join('\n');
 
 const TOOL = {
@@ -137,7 +137,7 @@ const TOOL = {
             printed_name: {
               type: 'string',
               description:
-                'dish_name as a menu prints it: singular when the plural was a count, sentence case, proper names keeping their capitals.',
+                'dish_name as a menu prints it: singular when the plural was a count, title case, proper names keeping their capitals.',
             },
             score: {
               type: 'number',

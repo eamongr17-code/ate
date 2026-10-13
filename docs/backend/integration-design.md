@@ -245,7 +245,7 @@ substring (Postgres `position()`); a **dish** only if named in the words or on t
 only if the body says that text there, else recomputed from the first occurrence, else null.
 
 A note is the **clause after the dish and its score**, cut at the next dish, glue trimmed (what
-`design/v1/Entry` prints). A matched dish keeps the menu's spelling; a new one is capitalised. A score the
+`design/v1/Entry` prints). A matched dish keeps the menu's spelling; a new one prints in title case ("Fish Stir Fry", 0065). A score the
 sentence marks belongs to the dish before it (`"<dish> was a 4.5"`, `"gave the <dish> a 4"`); `"table for 4"`
 never scores. The attached place's own name is never a dish, nor the front half of one.
 

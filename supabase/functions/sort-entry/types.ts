@@ -11,12 +11,12 @@ export type SortItem = {
    * anti-hallucination gate matches it against the words or the menu). OUT of validateItem it is
    * the name the receipt prints and find_or_create_dish resolves (0021): the menu's own spelling
    * when the dish is already on it, else `printed_name` when the model gave a sane one, else the
-   * words' spelling in sentence case (./validate.ts printedName).
+   * words' spelling in title case (./validate.ts printedName).
    */
   dish_name: string;
   /**
    * The MODEL's rendering of `dish_name` as a menu prints it (10 Oct, Eamon): singular when the
-   * plural was the diner's count ("six gin and tonics" → "Gin & tonic"), sentence case, a proper
+   * plural was the diner's count ("six gin and tonics" → "Gin & Tonic"), title case, a proper
    * name keeping its capitals. Proposed only; validateItem decides whether it is used and never
    * lets it name a different dish. Absent from the stub and after validation.
    */

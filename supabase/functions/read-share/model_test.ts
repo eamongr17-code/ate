@@ -40,11 +40,11 @@ test('grounding: words that are not there are not there', () => {
 test('validateSuggestion keeps only what the words support', () => {
   const words = '3 gin and tonics at Bar Americano, absolute vibes 🍸';
   assertEquals(validateSuggestion({ dish: 'Gin & tonic', place_query: 'Bar Americano' }, words),
-    { dish: 'Gin & tonic', place_query: 'Bar Americano' });
+    { dish: 'Gin & Tonic', place_query: 'Bar Americano' });
   assertEquals(validateSuggestion({ dish: 'Negroni', place_query: 'Bar Americano' }, words),
     { dish: null, place_query: 'Bar Americano' }, 'an invented dish is dropped');
   assertEquals(validateSuggestion({ dish: 'Gin & tonic', place_query: 'Melbourne' }, words),
-    { dish: 'Gin & tonic', place_query: null }, 'an invented place is dropped');
+    { dish: 'Gin & Tonic', place_query: null }, 'an invented place is dropped');
   assertEquals(validateSuggestion({ dish: 7, place_query: ['x'] }, words), NO_SUGGESTION);
   assertEquals(validateSuggestion({ dish: 'x'.repeat(121), place_query: '' }, 'x'.repeat(121)), NO_SUGGESTION);
   assertEquals(validateSuggestion({ dish: 'Croissant', place_query: '@lunecroissanterie' }, 'croissant @lunecroissanterie'),
@@ -53,10 +53,10 @@ test('validateSuggestion keeps only what the words support', () => {
 });
 
 
-test('validateSuggestion prints the dish with a capital whatever the model sent (13 Oct beta)', () => {
+test('validateSuggestion prints the dish in title case whatever the model sent (13 Oct beta)', () => {
   const words = 'the best gin and tonic at bar americano';
-  assertEquals(validateSuggestion({ dish: 'gin and tonic', place_query: null }, words).dish, 'Gin and tonic');
-  assertEquals(validateSuggestion({ dish: 'GIN AND TONIC', place_query: null }, words).dish, 'Gin and tonic');
+  assertEquals(validateSuggestion({ dish: 'gin and tonic', place_query: null }, words).dish, 'Gin and Tonic');
+  assertEquals(validateSuggestion({ dish: 'GIN AND TONIC', place_query: null }, words).dish, 'Gin and Tonic');
 });
 test('rawSuggestion reads the forced tool call and nothing else', () => {
   assertEquals(rawSuggestion(reply({ dish: 'Croissant' })), { dish: 'Croissant', place_query: undefined });

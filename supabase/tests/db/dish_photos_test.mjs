@@ -36,11 +36,11 @@ test('set_entry_date: the author moves the day; nobody else, never into the futu
 });
 
 test('apply_photo_matches: each line gets its own photo; a photo not on the entry is ignored', async () => {
-  const e = await w.visit(2, U.alice, P.tipo, receipt(['Tagliatelle', 4.5], ['Tiramisu', 3], ['Prawn spaghetti']),
+  const e = await w.visit(2, U.alice, P.tipo, receipt(['Tagliatelle', 4.5], ['Tiramisu', 3], ['Prawn Spaghetti']),
     undefined, { photos: ['a/1.jpg', 'a/2.jpg', 'a/3.jpg'] });
   const t = await reviewId(e, 'Tagliatelle');
   const s = await reviewId(e, 'Tiramisu');
-  const p = await reviewId(e, 'Prawn spaghetti');
+  const p = await reviewId(e, 'Prawn Spaghetti');
   await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb)`, [e, JSON.stringify([
     { review_id: t, photo_url: photoUrl('a/1.jpg') },
     { review_id: s, photo_url: photoUrl('a/3.jpg') },
@@ -49,7 +49,7 @@ test('apply_photo_matches: each line gets its own photo; a photo not on the entr
   assert.deepEqual((await lines(e)).map((l) => [l.name, l.photo_url]), [
     ['Tagliatelle', photoUrl('a/1.jpg')],
     ['Tiramisu', photoUrl('a/3.jpg')],
-    ['Prawn spaghetti', null],
+    ['Prawn Spaghetti', null],
   ]);
   const [entry] = await rows(`select photos_matched_at from public.entries where id = $1`, [e]);
   assert.ok(entry.photos_matched_at);
@@ -66,14 +66,14 @@ test('set_review_photo: the author pick moves the photo, survives a later match,
   const e = id(2);
   const t = await reviewId(e, 'Tagliatelle');
   const s = await reviewId(e, 'Tiramisu');
-  const p = await reviewId(e, 'Prawn spaghetti');
+  const p = await reviewId(e, 'Prawn Spaghetti');
 
   await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, $3)`, [e, photoUrl('a/1.jpg'), p]));
   let got = await lines(e);
   assert.deepEqual(got.map((l) => [l.name, l.photo_url, l.picked]), [
     ['Tagliatelle', null, true],
     ['Tiramisu', photoUrl('a/3.jpg'), false],
-    ['Prawn spaghetti', photoUrl('a/1.jpg'), true],
+    ['Prawn Spaghetti', photoUrl('a/1.jpg'), true],
   ]);
 
   // A later match only moves lines nobody picked, and never hands out a picked photo.
@@ -86,12 +86,12 @@ test('set_review_photo: the author pick moves the photo, survives a later match,
   assert.deepEqual(got.map((l) => [l.name, l.photo_url]), [
     ['Tagliatelle', null],
     ['Tiramisu', null],
-    ['Prawn spaghetti', photoUrl('a/1.jpg')],
+    ['Prawn Spaghetti', photoUrl('a/1.jpg')],
   ]);
 
   // No dish.
   await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, null)`, [e, photoUrl('a/1.jpg')]));
-  assert.equal((await lines(e)).find((l) => l.name === 'Prawn spaghetti').photo_url, null);
+  assert.equal((await lines(e)).find((l) => l.name === 'Prawn Spaghetti').photo_url, null);
 
   assert.equal(await code(() => as(U.bob, () => db.query(`select public.set_review_photo($1, $2, $3)`,
     [e, photoUrl('a/2.jpg'), t]))), 'P0002');
