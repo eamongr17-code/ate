@@ -29,7 +29,7 @@ async function unsorted(n, author, place) {
 }
 
 test('claim: a sorted entry\'s pending tag, with copy, badge and tokens — once', async () => {
-  const E = await w.visit(1, U.alice, P.tipo, receipt(['Tagliatelle al ragù', 5], ['Tiramisu'], ['Prawn spaghetti']));
+  const E = await w.visit(1, U.alice, P.tipo, receipt(['Tagliatelle al Ragù', 5], ['Tiramisu'], ['Prawn Spaghetti']));
   const t = await tag(U.alice, E, U.bob);
   const got = await claim();
   assert.equal(got.length, 1);
@@ -37,7 +37,7 @@ test('claim: a sorted entry\'s pending tag, with copy, badge and tokens — once
   assert.equal(r.companion_id, t.companion_id);
   assert.equal(r.actor_username, 'alice');
   assert.equal(r.place_name, 'Tipo 00');
-  assert.deepEqual(r.dish_names, ['Tagliatelle al ragù', 'Tiramisu', 'Prawn spaghetti']);
+  assert.deepEqual(r.dish_names, ['Tagliatelle al Ragù', 'Tiramisu', 'Prawn Spaghetti']);
   assert.equal(r.badge, 1);
   assert.deepEqual(r.tokens, [{ token: TOK, apns_env: 'sandbox' }]);
   assert.equal((await claim()).length, 0, 'a live claim is not handed out twice');

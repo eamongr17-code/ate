@@ -35,13 +35,12 @@ export function evidenceSupportsScore(evidence: string, score: number): boolean 
 }
 
 /**
- * The name a receipt prints (10 Oct, Eamon: "Gin & tonic", not "Gin & tonics"; "Pepperoni pizza",
- * not "Pepperoni Pizza"). `proposed` is the model's printed_name; it is used only when it is
- * plainly the same dish as `spoken` — same first letters, about the same length — so the model can
- * fix a number and the capitals but never rename a dish. Without one (the stub, or a model that
- * left it out) the words' spelling is kept, in sentence case where the case carries no meaning: a
- * name typed in all capitals or all lowercase gets one capital; a mixed-case name ("Big Mac") is
- * somebody's own spelling and stays.
+ * The name a receipt prints (10 Oct, Eamon: "Gin & tonic", not "Gin & tonics"; 13 Oct, Eamon: the
+ * headings capitalised, "Fish Stir Fry", not "Fish stir fry"). `proposed` is the model's
+ * printed_name; it is used only when it is plainly the same dish as `spoken` — same first letters,
+ * about the same length — so the model can fix a number and the capitals but never rename a dish.
+ * Without one (the stub, or a model that left it out) the words' spelling is kept. Either way the
+ * name is printed in title case (titleCase).
  */
 export function printedName(spoken: string, proposed?: string | null): string {
   const clean = (s: string) => s.trim().replace(/\s+/g, ' ');
@@ -53,20 +52,41 @@ export function printedName(spoken: string, proposed?: string | null): string {
     const b = stem(p);
     const sameDish = p.length > 0 && p.length <= 120 && a.length >= 2 && b.length >= 2 &&
       a.slice(0, 3) === b.slice(0, 3) && Math.abs(a.length - b.length) <= Math.max(3, Math.ceil(a.length / 4));
-    if (sameDish) return sentenceCase(p);
+    if (sameDish) return titleCase(p);
   }
-  return sentenceCase(clean(spoken));
+  return titleCase(clean(spoken));
 }
 
-/** One capital at the front; the rest lowered only when the name has no case of its own. */
-export function sentenceCase(name: string): string {
+/**
+ * Small words stay lower case inside a name ("Cacio e Pepe", "Tagliatelle al Ragù", "Fish & Chips");
+ * the first word is always capitalised. Mirrors public.dish_title (0065), which prints the same
+ * names in the database.
+ */
+const MINOR_WORDS = new Set([
+  'a', 'an', 'and', '&', 'or', 'of', 'with', 'on', 'in', 'the', 'to', 'for', 'n',
+  'al', 'alla', 'alle', 'di', 'da', 'de', 'del', 'della', 'e', 'con', 'y', 'en', 'au', 'aux', 'à',
+]);
+
+/**
+ * Title case, the way a menu prints a dish: every word's first letter capital ("Fish Stir Fry",
+ * "Stir-Fry" across a hyphen), small words lower case after the first. A word with a capital of its
+ * own past its first letter ("McFlurry", "BBQ") is somebody's spelling and stays — unless the whole
+ * name is in capitals, which carries no meaning ("CHICKEN PARMA" → "Chicken Parma").
+ */
+export function titleCase(name: string): string {
   if (!name) return name;
-  const first = [...name][0];
-  const rest = name.slice(first.length);
-  const hasUpper = /\p{Lu}/u.test(rest);
-  const hasLower = /\p{Ll}/u.test(rest);
-  if (hasUpper && hasLower) return first.toUpperCase() + rest;
-  return first.toUpperCase() + rest.toLowerCase();
+  const shouting = !/\p{Ll}/u.test(name);
+  const base = shouting ? name.toLowerCase() : name;
+  const capital = (part: string) => {
+    const first = [...part][0];
+    if (!first) return part;
+    const rest = part.slice(first.length);
+    return /\p{Lu}/u.test(rest) ? part : first.toUpperCase() + rest;
+  };
+  return base.split(' ').map((word, i) => {
+    if (i > 0 && MINOR_WORDS.has(word.toLowerCase())) return word.toLowerCase();
+    return word.split('-').map(capital).join('-');
+  }).join(' ');
 }
 
 /** Words that join a dish (or its score) to the comment after it; never the start of a note. */
@@ -143,7 +163,7 @@ export function validateItem(item: SortItem, opts: ValidateOptions): SortItem | 
   // honest about which dish it means.)
   //
   // Otherwise the receipt prints the name AS A MENU WOULD (10 Oct, Eamon): the model's
-  // printed_name when it is plainly the same dish, else the words in sentence case.
+  // printed_name when it is plainly the same dish, else the words, in title case.
   if (onMenu && onMenu !== dish) dish = onMenu;
   else dish = printedName(dish, item?.printed_name);
 

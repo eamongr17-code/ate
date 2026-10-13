@@ -13,7 +13,7 @@
 //           author: string | null,                      (≤ 100 — source_author)
 //           caption: string | null,                     (≤ 2200 — source_caption)
 //           thumbnail_url: string | null,               (https)
-//           dish: string | null,                        (≤ 120, singular, sentence case)
+//           dish: string | null,                        (≤ 120, singular, title case)
 //           place_query: string | null,                 (the venue as the words name it)
 //           place: { restaurant_id: uuid | null, google_place_id: string | null,
 //                    name: string, locality: string | null } | null }

@@ -24,18 +24,18 @@ const tags = async (dish, uid = U.bob) =>
 const withStyles = (r, ...styles) => ({ ...r, items: r.items.map((it, i) => (styles[i] ? { ...it, styles: styles[i] } : it)) });
 
 test('a new dish is tagged from its name and its place — style → cuisine → suburb → city', async () => {
-  const E = await w.visit(1, U.alice, P.tipo, receipt(['Potato gnocchi', 4.5], ['Tiramisu', 4]), '2026-09-01T09:00:00Z');
+  const E = await w.visit(1, U.alice, P.tipo, receipt(['Potato Gnocchi', 4.5], ['Tiramisu', 4]), '2026-09-01T09:00:00Z');
   assert.deepEqual(await tags(await dishAt(E, 1)), [
     'style:pasta:pasta', 'style:potatoes:potatoes', 'cuisine:italian:Italian', 'city:melbourne:Melbourne',
   ], 'Melbourne CBD is the city itself: no separate suburb chip');
 
-  const F = await w.visit(2, U.bob, P.marion, receipt(['Anchovy toast', 4]), '2026-09-02T09:00:00Z');
+  const F = await w.visit(2, U.bob, P.marion, receipt(['Anchovy Toast', 4]), '2026-09-02T09:00:00Z');
   assert.deepEqual(await tags(await dishAt(F, 1)), [
     'style:bread:bread', 'style:seafood:seafood', 'cuisine:wine-bar:Wine bar', 'suburb:fitzroy-melbourne:Fitzroy', 'city:melbourne:Melbourne',
   ], 'a suburb slug is qualified by its city: suburb names repeat across cities');
 
   // The hand-typed place (no address, no point) takes Fitzroy's city from its located namesake (0046).
-  const G = await w.visit(3, U.cleo, P.hand, receipt(['Flat white', 4]), '2026-09-03T09:00:00Z');
+  const G = await w.visit(3, U.cleo, P.hand, receipt(['Flat White', 4]), '2026-09-03T09:00:00Z');
   assert.deepEqual(await tags(await dishAt(G, 1)), ['style:coffee:coffee', 'suburb:fitzroy-melbourne:Fitzroy', 'city:melbourne:Melbourne'],
     'no cuisine on the place → no cuisine chip');
 
@@ -46,7 +46,7 @@ test('a new dish is tagged from its name and its place — style → cuisine →
 });
 
 test('the sorter\'s styles replace the keyword guess, are cleaned, skip the cuisine, and cap at 3; a stub sort keeps them', async () => {
-  const r = withStyles(receipt(['Cacio e pepe', 5]), [' Comfort  Food ', 'PASTA', 'vegan', 'Italian', '4.5', 'x']);
+  const r = withStyles(receipt(['Cacio e Pepe', 5]), [' Comfort  Food ', 'PASTA', 'vegan', 'Italian', '4.5', 'x']);
   const E = await w.visit(4, U.alice, P.osteria, r, '2026-09-04T09:00:00Z');
   const dish = await dishAt(E, 1);
   assert.deepEqual((await tags(dish)).filter((t) => t.startsWith('style')), ['style:comfort-food:comfort food', 'style:pasta:pasta'],
@@ -55,11 +55,11 @@ test('the sorter\'s styles replace the keyword guess, are cleaned, skip the cuis
   assert.deepEqual(plan[0].styles, ['comfort food', 'pasta', 'italian'], 'the plan records what the sorter proposed (validated)');
 
   // A later sort of the same dish adds, never removes, up to three.
-  await w.visit(5, U.bob, P.osteria, withStyles(receipt(['Cacio e pepe', 4]), ['cheese', 'peppery', 'noodles']), '2026-09-05T09:00:00Z');
+  await w.visit(5, U.bob, P.osteria, withStyles(receipt(['Cacio e Pepe', 4]), ['cheese', 'peppery', 'noodles']), '2026-09-05T09:00:00Z');
   assert.deepEqual((await tags(dish)).filter((t) => t.startsWith('style')).map((t) => t.split(':')[1]), ['comfort-food', 'pasta', 'cheese']);
 
   // A stub sort (no styles) of the same entry changes nothing.
-  await w.sortAs(E, P.osteria, receipt(['Cacio e pepe', 5]).items);
+  await w.sortAs(E, P.osteria, receipt(['Cacio e Pepe', 5]).items);
   assert.deepEqual((await tags(dish)).filter((t) => t.startsWith('style')).length, 3);
 });
 
@@ -122,7 +122,7 @@ test('similar_dishes: a shared style outranks a shared cuisine outranks the subu
   const at = (n) => names.indexOf(n);
   assert.ok(at('Linguine') < at('Spaghetti'), 'style + cuisine (12) before style alone (8)');
   assert.ok(at('Spaghetti') < at('Margherita'), 'style alone (8) before cuisine alone (4) — even at a lower score');
-  assert.ok(names.includes('Potato gnocchi') && at('Potato gnocchi') < at('Linguine'), 'same restaurant pasta: style + cuisine + city (13)');
+  assert.ok(names.includes('Potato Gnocchi') && at('Potato Gnocchi') < at('Linguine'), 'same restaurant pasta: style + cuisine + city (13)');
   assert.deepEqual((await as(U.dan, () => rows(`select * from public.similar_dishes($1, 2)`, [base]))).length, 2, 'p_limit');
 });
 

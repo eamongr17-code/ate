@@ -26,7 +26,7 @@ test('own saves: added, read back with the place, private to the owner', async (
   const a = await add(U.alice, '  Crab fried rice ', P.tipo, 'tiktok', 'https://www.tiktok.com/@x/video/1', '@x', 'So good');
   assert.ok(a.id);
   const [row] = await mine(U.alice);
-  assert.equal(row.dish_name, 'Crab fried rice', 'trimmed');
+  assert.equal(row.dish_name, 'Crab Fried Rice', 'trimmed');
   assert.equal(row.restaurant_id, P.tipo);
   assert.equal(row.restaurant_name, 'Tipo 00');
   assert.equal(row.restaurant_city, 'Melbourne');
@@ -76,12 +76,32 @@ test('own saves: they go with the account', async () => {
   assert.equal((await rows(`select count(*)::int n from public.own_saves where user_id = $1`, [U.dan]))[0].n, 0);
 });
 
-test('own saves: the dish name is printed with a capital, the rest as written (0062)', async () => {
+test('own saves: the dish name is printed in title case, own capitals kept (0062, 0065)', async () => {
   const a = await add(U.alice, '  margherita   pizza ', P.tipo);
   const b = await add(U.alice, 'big Mac', P.tipo);
   const names = new Map((await mine(U.alice)).map((r) => [r.id, r.dish_name]));
-  assert.equal(names.get(a.id), 'Margherita pizza');
+  assert.equal(names.get(a.id), 'Margherita Pizza');
   assert.equal(names.get(b.id), 'Big Mac');
   await one(U.alice, `select public.remove_own_save($1) n`, [a.id]);
   await one(U.alice, `select public.remove_own_save($1) n`, [b.id]);
+});
+
+test('dish_title (0065): title case, small words lower, own capitals kept, case only', async () => {
+  const cases = [
+    ['Fish stir fry', 'Fish Stir Fry'],
+    ['CHICKEN PARMA', 'Chicken Parma'],
+    ['BBQ pork bun', 'BBQ Pork Bun'],
+    ['McFlurry with oreo', 'McFlurry with Oreo'],
+    ['cacio e pepe', 'Cacio e Pepe'],
+    ['fish & chips', 'Fish & Chips'],
+    ['the works burger', 'The Works Burger'],
+    ['prawn stir-fry', 'Prawn Stir-Fry'],
+    ["chef's special", "Chef's Special"],
+    ['', ''],
+  ];
+  for (const [input, want] of cases) {
+    assert.equal((await rows(`select public.dish_title($1) t`, [input]))[0].t, want, input);
+  }
+  const [{ n }] = await rows(`select count(*)::int n from public.dishes where name <> public.dish_title(name)`);
+  assert.equal(n, 0, 'every stored dish already prints in title case');
 });

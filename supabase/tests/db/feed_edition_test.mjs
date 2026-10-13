@@ -31,16 +31,16 @@ before(async () => {
   await v(U.alice, P.tipo, 'Margherita', 5, 3);
   await v(U.bob, P.tipo, 'Margherita', 5, 2);
   await v(U.cleo, P.tipo, 'Tiramisu', 6, 1);
-  await v(U.alice, P.osteria, 'Cacio e pepe', 4.5, 4, { photos: ['alice/cacio.jpg'] });
-  await v(U.bob, P.osteria, 'Cacio e pepe', 4.5, 4);
+  await v(U.alice, P.osteria, 'Cacio e Pepe', 4.5, 4, { photos: ['alice/cacio.jpg'] });
+  await v(U.bob, P.osteria, 'Cacio e Pepe', 4.5, 4);
   for (const who of [U.alice, U.bob, U.cleo]) await v(who, P.osteria, 'Bucatini', 4.5, 5);
-  for (const who of [U.cleo, U.dan]) await v(who, P.marion, 'Anchovy toast', 5, 20);
-  await v(U.alice, P.far, 'Pad thai', 5, 2.5);
-  await v(U.bob, P.far, 'Pad thai', 4, 2.5);
-  for (const who of [U.cleo, U.dan]) await v(who, P.hand, 'Flat white', 5, 60);
+  for (const who of [U.cleo, U.dan]) await v(who, P.marion, 'Anchovy Toast', 5, 20);
+  await v(U.alice, P.far, 'Pad Thai', 5, 2.5);
+  await v(U.bob, P.far, 'Pad Thai', 4, 2.5);
+  for (const who of [U.cleo, U.dan]) await v(who, P.hand, 'Flat White', 5, 60);
   await v(U.bob, P.far, 'Ramen', 4, 1);
-  for (const [k, name] of Object.entries({ A: 'Margherita', B: 'Tiramisu', C: 'Cacio e pepe', D: 'Bucatini',
-    E: 'Anchovy toast', F: 'Pad thai', G: 'Flat white', R: 'Ramen' })) {
+  for (const [k, name] of Object.entries({ A: 'Margherita', B: 'Tiramisu', C: 'Cacio e Pepe', D: 'Bucatini',
+    E: 'Anchovy Toast', F: 'Pad Thai', G: 'Flat White', R: 'Ramen' })) {
     D[k] = (await rows(`select id from public.dishes where name = $1`, [name]))[0].id;
   }
   assert.equal((await rows(`select score::float s from public.reviews where dish_id = $1`, [D.B]))[0].s, 6);
@@ -121,7 +121,7 @@ test('top_ate: two scored lines from ONE person do not qualify a dish', async ()
 // ─── Because you loved ───────────────────────────────────────────────────────────────────────────
 test('because_you_loved: the newest 5.0-or-6 dish, and similar dishes the viewer never logged', async () => {
   const all = await loved(U.alice, null);
-  assert.deepEqual(all.map((r) => [K(r.anchor_dish_id), r.anchor_name, K(r.dish_id)]), [['F', 'Pad thai', 'R']],
+  assert.deepEqual(all.map((r) => [K(r.anchor_dish_id), r.anchor_name, K(r.dish_id)]), [['F', 'Pad Thai', 'R']],
     'anchor = Pad thai (5, 2.5 days ago, newer than Margherita); Ramen shares noodles + Thai');
   assert.deepEqual(Object.keys(all[0]), ['anchor_dish_id', 'anchor_name', 'dish_id', 'name', 'restaurant_id',
     'restaurant_name', 'score', 'review_count', 'cover_url', 'saved']);
@@ -254,7 +254,7 @@ test('set_cravings: a followed tag that empties can be re-saved under its label;
   assert.equal((await rows(`select count(*)::int n from public.dish_tag_links where kind = 'style' and slug = 'coffee'`))[0].n, 0);
   const again = await as(E, () => rows(`select * from public.set_cravings($1::jsonb)`, [JSON.stringify([{ kind: 'style', slug: 'coffee' }])]));
   assert.deepEqual(again, [{ kind: 'style', slug: 'coffee', label: 'coffee' }]);
-  await db.exec(`update public.dishes set name = 'Flat white' where id = '${D.G}'`);
+  await db.exec(`update public.dishes set name = 'Flat White' where id = '${D.G}'`);
 
   const [{ ok }] = await as(E, () => rows(`select (public.delete_account() ->> 'ok')::boolean ok`));
   assert.equal(ok, true);

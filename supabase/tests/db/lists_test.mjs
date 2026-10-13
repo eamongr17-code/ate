@@ -29,7 +29,7 @@ before(async () => {
   ({ db, as, rows, error } = w);
   A1 = await w.visit(1, U.alice, P.tipo, receipt(['Gnocchi', 4.5], ['Tiramisu', 5], ['Bread']), '2026-09-01T09:00:00Z',
     { photos: ['a/1.jpg'] });
-  A2 = await w.visit(2, U.alice, P.osteria, receipt(['Tagliatelle al ragù', 4], ['Burger', 3.5]), '2026-09-02T09:00:00Z');
+  A2 = await w.visit(2, U.alice, P.osteria, receipt(['Tagliatelle al Ragù', 4], ['Burger', 3.5]), '2026-09-02T09:00:00Z');
   B1 = await w.visit(3, U.bob, P.tipo, receipt(['Gnocchi', 2]), '2026-09-03T09:00:00Z');
 });
 
@@ -181,15 +181,15 @@ test('items follow their line: survive a re-sort, follow a correction, leave wit
 
 test('reads: get_list joins, my_lists counts + covers + keyset, my_lists_for_dish_line', async () => {
   const L = await create(U.dan, 'Dan\'s list');
-  const D1 = await w.visit(20, U.dan, P.osteria, receipt(['Tagliatelle al ragù', 5], ['Panna cotta']), '2026-09-06T09:00:00Z',
+  const D1 = await w.visit(20, U.dan, P.osteria, receipt(['Tagliatelle al Ragù', 5], ['Panna Cotta']), '2026-09-06T09:00:00Z',
     { photos: ['d/1.jpg', 'd/2.jpg'] });
-  const rag = await dishOf(D1, 'Tagliatelle al ragù');
+  const rag = await dishOf(D1, 'Tagliatelle al Ragù');
   await add(U.dan, L.list_id, D1, rag.dish_id);
-  await add(U.dan, L.list_id, D1, (await dishOf(D1, 'Panna cotta')).dish_id);
+  await add(U.dan, L.list_id, D1, (await dishOf(D1, 'Panna Cotta')).dish_id);
   const l = await getList(U.dan, L.list_id);
   const [i0, i1] = l.items;
   assert.equal(i0.entry_id, D1);
-  assert.equal(i0.dish_name, 'Tagliatelle al ragù');
+  assert.equal(i0.dish_name, 'Tagliatelle al Ragù');
   assert.equal(i0.restaurant_name, 'Osteria Ilaria');
   assert.equal(i0.locality, 'Carlton');
   assert.equal(i0.score, 5);
@@ -229,8 +229,8 @@ test('picker: my_scored_dishes — mine only, scored by default, dish or place n
   assert.ok(withUnscored.some((r) => r.dish_name === 'Bread'));
 
   const q = async (s) => (await as(U.alice, () => rows(`select dish_name from public.my_scored_dishes(p_query => $1)`, [s]))).map((r) => r.dish_name);
-  assert.deepEqual(await q('RAGU'), ['Tagliatelle al ragù'], 'case- and accent-insensitive');
-  assert.deepEqual((await q('osteria')).sort(), ['Burger', 'Tagliatelle al ragù'], 'place name');
+  assert.deepEqual(await q('RAGU'), ['Tagliatelle al Ragù'], 'case- and accent-insensitive');
+  assert.deepEqual((await q('osteria')).sort(), ['Burger', 'Tagliatelle al Ragù'], 'place name');
   assert.deepEqual(await q('gnoc'), ['Gnocchi'], 'prefix; bob\'s gnocchi absent');
 
   const burger = await dishOf(A2, 'Burger');
@@ -242,7 +242,7 @@ test('picker: my_scored_dishes — mine only, scored by default, dish or place n
 
 test('search_my_entries: words, dish and place names; accents; never another person\'s entry; keyset', async () => {
   await w.visit(30, U.alice, P.marion, { body: 'Crème brûlée at the bar, 100% worth it', items: [] }, '2026-09-07T09:00:00Z');
-  await w.visit(31, U.bob, P.osteria, receipt(['Tagliatelle al ragù', 5]), '2026-09-08T09:00:00Z');
+  await w.visit(31, U.bob, P.osteria, receipt(['Tagliatelle al Ragù', 5]), '2026-09-08T09:00:00Z');
   await w.visit(32, U.bob, P.marion, { body: 'creme brulee for me too', items: [] }, '2026-09-08T10:00:00Z');
   const s = async (query, uid = U.alice) =>
     (await as(uid, () => rows(`select id from public.search_my_entries($1)`, [query]))).map((r) => r.id);
@@ -295,11 +295,11 @@ test('items follow a dish merge, and collapse when the list already holds the ne
   const olives = await dishOf(E, 'Olives');
   const merged = await create(U.alice, 'Merge');
   await add(U.alice, merged.list_id, E, olives.dish_id);
-  const other = await w.visit(51, U.bob, P.marion, receipt(['Green olives', 5]), '2026-09-10T10:00:00Z');
-  const green = await dishOf(other, 'Green olives');
+  const other = await w.visit(51, U.bob, P.marion, receipt(['Green Olives', 5]), '2026-09-10T10:00:00Z');
+  const green = await dishOf(other, 'Green Olives');
   await db.query(`select public.merge_dish($1, $2)`, [olives.dish_id, green.dish_id]); // service path, superuser here
   let l = await getList(U.alice, merged.list_id);
-  assert.deepEqual(names(l), ['Green olives'], 'the item followed the merge');
+  assert.deepEqual(names(l), ['Green Olives'], 'the item followed the merge');
   assert.equal(l.items[0].dish_id, green.dish_id);
 
   // collapse: the list holds (E, Fries) and (E, Chips); the Fries line is corrected to Chips
@@ -309,7 +309,7 @@ test('items follow a dish merge, and collapse when the list already holds the ne
   await add(U.alice, L.list_id, E, green.dish_id);
   await as(U.alice, () => db.query(`select public.correct_entry_dish(p_review_id => $1, p_dish_id => $2)`, [fries.review_id, chips.dish_id]));
   l = await getList(U.alice, L.list_id);
-  assert.deepEqual(names(l), ['Chips', 'Green olives'], 'the duplicate went; no unique violation');
+  assert.deepEqual(names(l), ['Chips', 'Green Olives'], 'the duplicate went; no unique violation');
   assert.deepEqual(l.items.map((i) => i.position), [1, 2], 'ranks closed up');
 });
 

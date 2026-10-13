@@ -114,12 +114,12 @@ test('0041: a 6 counts as 6 — dish average, place average, place_dishes rank, 
 // ---------------------------------------------------------------------------------------------------
 test('0042: setup — tagged lines at three places', async () => {
   // R2: a GF+V pasta (both chips), R3: a GF curry and a separate V salad, R4 far away: a GF+V soup.
-  await visit(110, B, R2, 'Tipo pasta 3.5 GF V', [{ dish_name: 'Tipo pasta', score: 3.5, score_evidence: 'Tipo pasta 3.5', tags: ['gf', 'v'] }], '2026-09-04T09:00:00Z');
+  await visit(110, B, R2, 'Tipo pasta 3.5 GF V', [{ dish_name: 'Tipo Pasta', score: 3.5, score_evidence: 'Tipo pasta 3.5', tags: ['gf', 'v'] }], '2026-09-04T09:00:00Z');
   await visit(111, B, R3, 'Tipo curry 4.5 GF, salad 2 V', [
-    { dish_name: 'Tipo curry', score: 4.5, score_evidence: 'Tipo curry 4.5', tags: ['gf'] },
+    { dish_name: 'Tipo Curry', score: 4.5, score_evidence: 'Tipo curry 4.5', tags: ['gf'] },
     { dish_name: 'Salad', score: 2, score_evidence: 'salad 2', tags: ['v'] },
   ], '2026-09-05T09:00:00Z');
-  await visit(112, B, R4, 'Tipo soup 4 GF V', [{ dish_name: 'Tipo soup', score: 4, score_evidence: 'Tipo soup 4', tags: ['gf', 'v'] }], '2026-09-06T09:00:00Z');
+  await visit(112, B, R4, 'Tipo soup 4 GF V', [{ dish_name: 'Tipo Soup', score: 4, score_evidence: 'Tipo soup 4', tags: ['gf', 'v'] }], '2026-09-06T09:00:00Z');
 });
 
 const places = (args = '') => as(A, () => rows(`select name, cuisine, avg_rating::float a from public.search_places(p_query => 'tipo'${args})`));
@@ -161,10 +161,10 @@ test('0042: search_places — paging with filters walks exactly the filtered set
 
 test('0042: search_dishes — cuisine of the place, consensus chips carry every code, min score; paging', async () => {
   const dishes = (args = '') => as(A, () => rows(`select dish_name from public.search_dishes(p_query => 'tipo'${args})`));
-  assert.deepEqual((await dishes()).map((r) => r.dish_name).sort(), ['Tipo curry', 'Tipo pasta', 'Tipo soup']);
-  assert.deepEqual((await dishes(`, p_cuisines => '{Thai}'`)).map((r) => r.dish_name).sort(), ['Tipo curry', 'Tipo soup']);
-  assert.deepEqual((await dishes(`, p_tags => '{v,gf}'`)).map((r) => r.dish_name).sort(), ['Tipo pasta', 'Tipo soup']);
-  assert.deepEqual((await dishes(`, p_min_score => 4`)).map((r) => r.dish_name).sort(), ['Tipo curry', 'Tipo soup']);
+  assert.deepEqual((await dishes()).map((r) => r.dish_name).sort(), ['Tipo Curry', 'Tipo Pasta', 'Tipo Soup']);
+  assert.deepEqual((await dishes(`, p_cuisines => '{Thai}'`)).map((r) => r.dish_name).sort(), ['Tipo Curry', 'Tipo Soup']);
+  assert.deepEqual((await dishes(`, p_tags => '{v,gf}'`)).map((r) => r.dish_name).sort(), ['Tipo Pasta', 'Tipo Soup']);
+  assert.deepEqual((await dishes(`, p_min_score => 4`)).map((r) => r.dish_name).sort(), ['Tipo Curry', 'Tipo Soup']);
 
   const f = `p_tags => '{gf}'`;
   const whole = await as(A, () => rows(`select * from public.search_dishes(p_query => 'tipo', ${f})`));
@@ -205,9 +205,9 @@ test('0042: search_cuisines — grouped case-insensitively, busiest first; signe
 // ---------------------------------------------------------------------------------------------------
 test('0043: setup — alice\'s journal', async () => {
   // alice so far: id(101) Tipo 00 best 6 (Sept 2). Add: two unscored, two scored, a tagged one.
-  await visit(120, A, R3, 'Tipo curry 4.5 GF', [{ dish_name: 'Tipo curry', score: 4.5, score_evidence: 'Tipo curry 4.5', tags: ['gf'] }], '2026-09-10T09:00:00Z');
+  await visit(120, A, R3, 'Tipo curry 4.5 GF', [{ dish_name: 'Tipo Curry', score: 4.5, score_evidence: 'Tipo curry 4.5', tags: ['gf'] }], '2026-09-10T09:00:00Z');
   await visit(121, A, R3, 'salad again', [{ dish_name: 'Salad' }], '2026-09-11T09:00:00Z');
-  await visit(122, A, R2, 'Tipo pasta 4.5', [{ dish_name: 'Tipo pasta', score: 4.5, score_evidence: 'Tipo pasta 4.5' }], '2026-09-12T09:00:00Z');
+  await visit(122, A, R2, 'Tipo pasta 4.5', [{ dish_name: 'Tipo Pasta', score: 4.5, score_evidence: 'Tipo pasta 4.5' }], '2026-09-12T09:00:00Z');
   await visit(123, A, R2, 'just words', [], '2026-09-13T09:00:00Z');
   // 23:30 UTC on the 13th is the 14th in Melbourne
   await visit(124, A, R1, 'Tiramisu 3', [{ dish_name: 'Tiramisu', score: 3, score_evidence: 'Tiramisu 3' }], '2026-09-13T23:30:00Z');
@@ -365,20 +365,20 @@ test('0044: a placeless entry\'s parked plan carries its 6 the same way', async 
 // ---------------------------------------------------------------------------------------------------
 test('0045: place_dishes.tags = dish_summary.tags, signed in and out; the keyset still walks', async () => {
   // R2's pasta: one line, GF+V (0042 setup). Add a second pasta line tagged GF only → GF 2/2, V 1/2.
-  await visit(140, A, R2, 'Tipo pasta 4 GF', [{ dish_name: 'Tipo pasta', score: 4, score_evidence: 'Tipo pasta 4', tags: ['gf'] }],
+  await visit(140, A, R2, 'Tipo pasta 4 GF', [{ dish_name: 'Tipo Pasta', score: 4, score_evidence: 'Tipo pasta 4', tags: ['gf'] }],
     '2026-09-25T09:00:00Z');
   // …and a third, untagged → GF 2/3 (kept), V 1/3 (dropped)
-  await visit(141, B, R2, 'Tipo pasta 3', [{ dish_name: 'Tipo pasta', score: 3, score_evidence: 'Tipo pasta 3' }], '2026-09-25T10:00:00Z');
+  await visit(141, B, R2, 'Tipo pasta 3', [{ dish_name: 'Tipo Pasta', score: 3, score_evidence: 'Tipo pasta 3' }], '2026-09-25T10:00:00Z');
   for (const who of [A, null]) {
     const got = await as(who, () => rows(`select dish_id, dish_name, tags from public.place_dishes($1)`, [R2]));
-    const pasta = got.find((r) => r.dish_name === 'Tipo pasta');
+    const pasta = got.find((r) => r.dish_name === 'Tipo Pasta');
     const summary = (await as(who, () => rows(`select tags from public.dish_summary($1)`, [pasta.dish_id])))[0];
     assert.deepEqual(pasta.tags, ['gf'], who ? 'signed in' : 'signed out');
     assert.deepEqual(pasta.tags, summary.tags, 'the same rule as dish_summary');
   }
   // R3: curry (2 lines, GF 2/2, avg 4.5) leads salad (2 lines, V 1/2 → kept: half is enough)
   const whole = await as(A, () => rows(`select * from public.place_dishes($1)`, [R3]));
-  assert.deepEqual(whole.map((r) => [r.dish_name, r.tags]), [['Tipo curry', ['gf']], ['Salad', ['v']]]);
+  assert.deepEqual(whole.map((r) => [r.dish_name, r.tags]), [['Tipo Curry', ['gf']], ['Salad', ['v']]]);
   const p1 = await as(A, () => rows(`select * from public.place_dishes($1, 1)`, [R3]));
   const l = p1[0];
   const p2 = await as(A, () => rows(`select * from public.place_dishes($1, 1, $2, $3, $4, $5)`, [R3, l.review_count, l.score, l.dish_name, l.dish_id]));
@@ -388,9 +388,9 @@ test('0045: place_dishes.tags = dish_summary.tags, signed in and out; the keyset
 
 test('0042: search_dishes.tags — the chips of each row, filtered or not; paging unchanged', async () => {
   const got = await as(A, () => rows(`select dish_name, tags from public.search_dishes(p_query => 'tipo')`));
-  assert.deepEqual(got.map((r) => [r.dish_name, r.tags]).sort(), [['Tipo curry', ['gf']], ['Tipo pasta', ['gf']], ['Tipo soup', ['gf', 'v']]]);
+  assert.deepEqual(got.map((r) => [r.dish_name, r.tags]).sort(), [['Tipo Curry', ['gf']], ['Tipo Pasta', ['gf']], ['Tipo Soup', ['gf', 'v']]]);
   const f = await as(A, () => rows(`select dish_name, tags from public.search_dishes(p_query => 'tipo', p_tags => '{v}')`));
-  assert.deepEqual(f.map((r) => [r.dish_name, r.tags]), [['Tipo soup', ['gf', 'v']]]);
+  assert.deepEqual(f.map((r) => [r.dish_name, r.tags]), [['Tipo Soup', ['gf', 'v']]]);
   const whole = await as(A, () => rows(`select * from public.search_dishes(p_query => 'tipo')`));
   const p1 = await as(A, () => rows(`select * from public.search_dishes(p_query => 'tipo', p_limit => 1)`));
   const l = p1[0];
