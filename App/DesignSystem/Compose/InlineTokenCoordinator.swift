@@ -393,10 +393,13 @@ extension InlineTokenEditor {
                 callbacks.onTokenTap(token)
                 return
             }
-            // A tap anywhere else in the writing area puts the caret there and starts typing.
-            if view.isFirstResponder == false {
-                view.becomeFirstResponder()
-            }
+            // Already typing: the text view's own taps are the editing — a tap snaps the caret to a
+            // word's edge, a double tap selects the word, a tap on a selection brings up its menu.
+            // This recognizer runs alongside them, and setting the caret here as well collapsed every
+            // one of those back to a bare caret: double-tap to select never worked (13 Oct beta).
+            guard view.isFirstResponder == false else { return }
+            // Not yet typing: a tap anywhere in the writing area puts the caret there and starts.
+            view.becomeFirstResponder()
             guard let position = view.closestPosition(to: point) else { return }
             view.selectedRange = NSRange(
                 location: view.offset(from: view.beginningOfDocument, to: position),

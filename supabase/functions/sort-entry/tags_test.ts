@@ -111,6 +111,14 @@ test('a model that invents tags is overruled: validateItem drops them, only toke
   assertEquals(attachTagTokens([gated], body, [])[0].tags, []);
 });
 
+test('a dish name left once tag words are cut is still printed with a capital (13 Oct beta)', () => {
+  const body = 'gf salad 4 was fresh';
+  const modelled = { dish_name: 'Gf salad', score: 4, score_evidence: '4', note: null,
+    evidence_offset: 9, mention_text: 'gf salad', mention_offset: 0 } as SortItem;
+  const [line] = attachTagTokens([modelled], body, mark(body, 'gf'));
+  assertEquals(line.dish_name, 'Salad');
+});
+
 test('every line carries tags, [] when none — never absent after the tag step', () => {
   const items = sort('Margherita 4.5 and the tiramisu 4.', []);
   assertEquals(items.map((i) => i.tags), [[], []]);

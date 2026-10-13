@@ -202,7 +202,12 @@ extension V2ComposerWrite {
                 AteHaptics.success()
                 NotificationCenter.ateEntryChanged(card)
                 dismiss()
-                Task.detached { await edit.sort(on: entries) }
+                // The re-sort lands after the sheet has gone: tell the entry page (and the lists)
+                // again, so dishes added in the edit appear the moment they are printed.
+                Task.detached {
+                    guard let sorted = await edit.sort(on: entries) else { return }
+                    await MainActor.run { NotificationCenter.ateEntryChanged(sorted) }
+                }
             } catch {
                 // A failed edit never closes the composer and never loses a change.
                 isSaving = false
