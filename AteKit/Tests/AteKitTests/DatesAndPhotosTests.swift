@@ -64,10 +64,13 @@ struct DatesAndPhotosTests {
     func choice() {
         let now = date("2026-10-13T09:00:00Z")
         var choice = EntryDateChoice()
-        #expect(choice.photosDated([date("2026-10-13T02:00:00Z")], now: now, calendar: melbourne) == false)
+        let todays = choice.photosDated([date("2026-10-13T02:00:00Z")], now: now, calendar: melbourne)
+        #expect(todays == false)
         #expect(choice.eatenAt == nil)
-        #expect(choice.photosDated([date("2026-10-11T08:00:00Z"), date("2026-10-12T08:00:00Z")],
-                                   now: now, calendar: melbourne))
+        let moved = choice.photosDated(
+            [date("2026-10-11T08:00:00Z"), date("2026-10-12T08:00:00Z")], now: now, calendar: melbourne
+        )
+        #expect(moved)
         #expect(choice.eatenAt == date("2026-10-11T08:00:00Z"))
         #expect(choice.source == .photos)
         #expect(choice.daysAgo(now: now, calendar: melbourne) == 2)
@@ -75,7 +78,8 @@ struct DatesAndPhotosTests {
         choice.pick(date("2026-10-12T01:00:00Z"), now: now, calendar: melbourne)
         #expect(choice.source == .picked)
         #expect(choice.eatenAt == date("2026-10-12T08:00:00Z")) // the day picked, the photo's hour kept
-        #expect(choice.photosDated([date("2026-10-01T08:00:00Z")], now: now, calendar: melbourne) == false)
+        let afterPick = choice.photosDated([date("2026-10-01T08:00:00Z")], now: now, calendar: melbourne)
+        #expect(afterPick == false)
 
         choice.pick(now, now: now, calendar: melbourne)
         #expect(choice.eatenAt == nil)
@@ -88,7 +92,8 @@ struct DatesAndPhotosTests {
         let opened = date("2026-10-10T09:00:00Z")
         var choice = EntryDateChoice(editing: opened)
         #expect(choice.changed == false)
-        #expect(choice.photosDated([date("2026-10-01T08:00:00Z")], now: now, calendar: melbourne) == false)
+        let onEdit = choice.photosDated([date("2026-10-01T08:00:00Z")], now: now, calendar: melbourne)
+        #expect(onEdit == false)
         choice.pick(now, now: now, calendar: melbourne)
         #expect(choice.changed)
         #expect(choice.eatenAt == now) // today on an edit is a real day, not "now later"
