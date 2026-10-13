@@ -79,6 +79,10 @@ Deno.serve(async (req) => {
   }
   if (!entry || entry.author_id !== userId) return json({ error: 'not found' }, 404);
 
+  // Photos an edit overwrote in place leave their lines first (0063), so those lines are open again.
+  const pruned = await admin.rpc('prune_photo_pairs', { p_entry_id: entryId });
+  if (pruned.error) console.error('match-photos: prune_photo_pairs failed:', pruned.error.message);
+
   const [photosRes, linesRes] = await Promise.all([
     admin.from('entry_photos').select('position, photo_url').eq('entry_id', entryId).order('position'),
     admin.from('reviews')

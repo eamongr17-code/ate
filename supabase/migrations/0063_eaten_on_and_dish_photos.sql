@@ -11,8 +11,9 @@
 --        writes them with `apply_photo_matches` (service role);
 --      * the person fixes one with `set_review_photo` (author-only), which marks the line
 --        `photo_picked_at` so a later match never overrides their choice;
---      * a photo leaving the entry leaves every line that pointed at it (trigger below).
---    A re-sort rebuilds uncorrected lines (0053), so the client asks for a match again after it.
+--      * a photo leaving the entry leaves every line that pointed at it (trigger + prune below).
+--    A re-sort rebuilds uncorrected lines (0053), so the client asks for a match again after it;
+--    a pick made by hand lasts until then (the rebuilt line is a new row).
 
 set search_path = public, extensions;
 
@@ -123,25 +124,46 @@ revoke all on function public.apply_photo_matches(uuid, jsonb) from public, anon
 grant execute on function public.apply_photo_matches(uuid, jsonb) to service_role;
 
 -- ===========================================================================
--- 4. A photo that leaves the entry leaves its line.
+-- 4. A photo that leaves the entry leaves its line — and the line is open to matching again.
+--
+--    Only a DELETE is final. An edit moves photos one upsert at a time (EntryEdit.savePhotos), so
+--    while A,B becomes B,A there is a request where A is on no row: clearing on that UPDATE would
+--    throw away a pairing the next request puts right back (QA, PR #154). Photos overwritten in
+--    place are swept by prune_photo_pairs, which match-photos runs first, once the edit is done.
 -- ===========================================================================
+create or replace function public.prune_photo_pairs(p_entry_id uuid)
+returns int
+language plpgsql volatile security definer set search_path = public, extensions as $$
+declare
+  v_n int;
+begin
+  update public.reviews r set photo_url = null, photo_picked_at = null
+  where r.entry_id = p_entry_id
+    and r.photo_url is not null
+    and not exists (
+      select 1 from public.entry_photos p where p.entry_id = p_entry_id and p.photo_url = r.photo_url
+    );
+  get diagnostics v_n = row_count;
+  return v_n;
+end; $$;
+
+revoke all on function public.prune_photo_pairs(uuid) from public, anon, authenticated;
+grant execute on function public.prune_photo_pairs(uuid) to service_role;
+
 create or replace function public.entry_photo_left()
 returns trigger
 language plpgsql security definer set search_path = public, extensions as $$
 begin
-  if tg_op = 'UPDATE' and new.photo_url = old.photo_url then
-    return new;
-  end if;
   if not exists (
     select 1 from public.entry_photos p where p.entry_id = old.entry_id and p.photo_url = old.photo_url
   ) then
-    update public.reviews r set photo_url = null
+    update public.reviews r set photo_url = null, photo_picked_at = null
     where r.entry_id = old.entry_id and r.photo_url = old.photo_url;
   end if;
-  return coalesce(new, old);
+  return old;
 end; $$;
 
 drop trigger if exists entry_photo_left on public.entry_photos;
 create trigger entry_photo_left
-  after delete or update of photo_url on public.entry_photos
+  after delete on public.entry_photos
   for each row execute function public.entry_photo_left();

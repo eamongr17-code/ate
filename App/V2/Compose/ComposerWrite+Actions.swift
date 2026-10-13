@@ -288,8 +288,9 @@ extension V2ComposerWrite {
                 }
                 model.finishPhoto(id: id, fileName: staged.fileName, image: staged.image)
                 // The day it was taken: the file's own EXIF, else the library's record of it.
-                let libraryDay = item.itemIdentifier.flatMap { services.photos.takenAt(ids: [$0]).first }
-                model.photosDated([staged.takenAt ?? libraryDay])
+                model.photosDated([
+                    staged.takenAt ?? item.itemIdentifier.flatMap { services.photos.takenAt(ids: [$0]).first }
+                ])
                 if model.lateHandoff != nil {
                     model.landLate(fileName: staged.fileName)
                     sendLatePhotos()

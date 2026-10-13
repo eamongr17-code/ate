@@ -58,6 +58,13 @@ struct StagedPhoto: Identifiable, Equatable {
     }
 }
 
+/// One library pick, on disk: its file, what the tile draws, and when it was taken (its EXIF).
+struct StagedPick {
+    let fileName: String
+    let image: Image
+    let takenAt: Date?
+}
+
 /// **Staging picked photos.** `PhotosPicker` hands back opaque items; this turns each one into a
 /// JPEG on disk and a drawable image, in the order they were picked.
 ///
@@ -67,13 +74,6 @@ struct StagedPhoto: Identifiable, Equatable {
 /// format. **Off the main thread** (round 4): ImageIO decodes straight to the size it keeps, so a pick
 /// never stalls the words being typed.
 @MainActor
-/// One library pick, on disk: its file, what the tile draws, and when it was taken (its EXIF).
-struct StagedPick {
-    let fileName: String
-    let image: Image
-    let takenAt: Date?
-}
-
 enum ComposerPhotoStaging {
     /// The longest edge we keep. Generous for a share card at 3×, meaningless as a download.
     static let maximumDimension: CGFloat = 1600

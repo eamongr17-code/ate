@@ -227,15 +227,19 @@ final class MatchRecorder: EntryService, TestFake, @unchecked Sendable {
     private let lock = NSLock()
     private var dates: [Date] = []
     private var matches: [UUID] = []
+    private var photos: [EntryCard.Photo] = []
     var dated: [Date] { lock.withLock { dates } }
     var matched: [UUID] { lock.withLock { matches } }
 
     func authorID() async throws -> UUID { ViewerProfile.preview.id }
     func entry(id: UUID) async throws -> EntryCard {
-        EntryCard(id: id, authorID: UUID(), body: "", orderNumber: 1, createdAt: Date())
+        EntryCard(id: id, authorID: UUID(), body: "", orderNumber: 1, sortStatus: .sorted, createdAt: Date(),
+                  photos: lock.withLock { photos })
     }
     func updateBody(entryID: UUID, body: String) async throws {}
-    func attach(photo: EntryPhotoUpload) async throws {}
+    func attach(photo: EntryPhotoUpload) async throws {
+        lock.withLock { photos.append(EntryCard.Photo(url: photo.objectName(), position: photo.position)) }
+    }
     func attachExisting(entryID: UUID, position: Int, url: String) async throws {}
     func removePhotos(entryID: UUID, fromPosition position: Int, removedURLs: [String]) async throws {}
     func sort(entryID: UUID, force: Bool, tagTokens: [TagToken]) async throws -> SortOutcome {

@@ -180,11 +180,11 @@ public struct EntrySubmission: Sendable {
                 await sorted(didSort ? try? await entries.entry(id: entryID) : nil)
             }
         }
-        let landed = await uploaded
-        await outbox.recordProgress(entryID: entryID, uploadedPositions: landed, didSort: didSort)
-        // Which photo is which dish: once the lines exist and the photos are up (0063).
-        if didSort, landed.isEmpty == false { await entries.matchPhotos(entryID: entryID) }
+        await outbox.recordProgress(entryID: entryID, uploadedPositions: await uploaded, didSort: didSort)
         let card = try? await entries.entry(id: entryID)
+        // Which photo is which dish: once the lines exist and the photos are up (0063). The entry as
+        // read, not this call's own list: a pick that was late for Done may already be on it.
+        if didSort, card?.photos.isEmpty == false { await entries.matchPhotos(entryID: entryID) }
         if let card { await outbox.staged.confirm(entryID: entryID, card: card) }
         return card
     }
@@ -201,9 +201,10 @@ public struct EntrySubmission: Sendable {
         }
         do {
             try await entries.attach(photo: EntryPhotoUpload(entryID: request.id, position: position, data: data))
-            await entries.matchPhotos(entryID: request.id)
             if let card = try? await entries.entry(id: request.id) {
                 await outbox.staged.confirm(entryID: request.id, card: card)
+                // Paired now only if the lines exist; a sort still running pairs it when it ends.
+                if card.isSorted { await entries.matchPhotos(entryID: request.id) }
             }
             return true
         } catch {

@@ -99,11 +99,37 @@ test('set_review_photo: the author pick moves the photo, survives a later match,
     [e, photoUrl('nope.jpg'), t]))), '22023');
 });
 
-test('a photo removed from the entry leaves the line that had it', async () => {
+test('a photo removed from the entry leaves the line that had it, open to matching again', async () => {
   const e = await w.visit(3, U.alice, P.tipo, receipt(['Gnocchi', 4], ['Cannoli']), undefined,
     { photos: ['b/1.jpg', 'b/2.jpg'] });
   const c = await reviewId(e, 'Cannoli');
   await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, $3)`, [e, photoUrl('b/2.jpg'), c]));
   await as(U.alice, () => db.query(`delete from public.entry_photos where entry_id = $1 and position = 1`, [e]));
-  assert.equal((await lines(e)).find((l) => l.name === 'Cannoli').photo_url, null);
+  const cannoli = (await lines(e)).find((l) => l.name === 'Cannoli');
+  assert.equal(cannoli.photo_url, null);
+  assert.equal(cannoli.picked, false);
 });
+
+test('reordering photos keeps every pairing; a photo overwritten in place is pruned', async () => {
+  const e = await w.visit(4, U.alice, P.tipo, receipt(['Gnocchi', 4], ['Cannoli']), undefined,
+    { photos: ['s/1.jpg', 's/2.jpg'] });
+  const c = await reviewId(e, 'Cannoli');
+  await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, $3)`, [e, photoUrl('s/1.jpg'), c]));
+  // The edit's own order: position 0 takes s/2, then position 1 takes s/1 — two requests.
+  const put = (pos, path) => as(U.alice, () => db.query(
+    `update public.entry_photos set photo_url = $2 where entry_id = $1 and position = $3`, [e, photoUrl(path), pos]));
+  await put(0, 's/2.jpg');
+  await put(1, 's/1.jpg');
+  let cannoli = (await lines(e)).find((l) => l.name === 'Cannoli');
+  assert.equal(cannoli.photo_url, photoUrl('s/1.jpg'));
+  assert.equal(cannoli.picked, true);
+
+  // s/1 replaced outright by s/3: the sweep clears the line and opens it to matching again.
+  await put(1, 's/3.jpg');
+  assert.equal(await asService(() => db.query(`select public.prune_photo_pairs($1)`, [e])).then(() => 1), 1);
+  cannoli = (await lines(e)).find((l) => l.name === 'Cannoli');
+  assert.equal(cannoli.photo_url, null);
+  assert.equal(cannoli.picked, false);
+  assert.ok(await code(() => as(U.alice, () => db.query(`select public.prune_photo_pairs($1)`, [e]))));
+});
+
