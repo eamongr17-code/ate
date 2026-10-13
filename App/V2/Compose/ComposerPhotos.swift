@@ -67,6 +67,13 @@ struct StagedPhoto: Identifiable, Equatable {
 /// format. **Off the main thread** (round 4): ImageIO decodes straight to the size it keeps, so a pick
 /// never stalls the words being typed.
 @MainActor
+/// One library pick, on disk: its file, what the tile draws, and when it was taken (its EXIF).
+struct StagedPick {
+    let fileName: String
+    let image: Image
+    let takenAt: Date?
+}
+
 enum ComposerPhotoStaging {
     /// The longest edge we keep. Generous for a share card at 3×, meaningless as a download.
     static let maximumDimension: CGFloat = 1600
@@ -86,7 +93,7 @@ enum ComposerPhotoStaging {
         _ item: PhotosPickerItem,
         in directory: URL,
         preview: @escaping @MainActor (Image) -> Void
-    ) async -> (fileName: String, image: Image, takenAt: Date?)? {
+    ) async -> StagedPick? {
         guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
         let takenAt = await Task.detached(priority: .userInitiated) { ImageProcessing.takenAt(data) }.value
         let fileName = "\(UUID().uuidString.lowercased()).jpg"
@@ -104,7 +111,7 @@ enum ComposerPhotoStaging {
             return full
         }.value
         guard let written else { return nil }
-        return (fileName, Image(uiImage: UIImage(cgImage: written)), takenAt)
+        return StagedPick(fileName: fileName, image: Image(uiImage: UIImage(cgImage: written)), takenAt: takenAt)
     }
 
     /// Stages images the app already holds — a camera shot, or a cluster picked on `Suggestions`.

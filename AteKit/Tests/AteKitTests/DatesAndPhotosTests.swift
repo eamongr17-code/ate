@@ -97,7 +97,9 @@ struct DatesAndPhotosTests {
     @Test("a draft written before the date pill still opens, dated now")
     func oldDraftDecodes() throws {
         let draft = EntryDraft(composition: EntryComposition(plain: "Gnocchi", spans: []))
-        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(draft)) as! [String: Any]
+        var json = try #require(
+            try JSONSerialization.jsonObject(with: JSONEncoder().encode(draft)) as? [String: Any]
+        )
         json.removeValue(forKey: "eatenAt")
         json.removeValue(forKey: "isDatePicked")
         let decoded = try JSONDecoder().decode(EntryDraft.self, from: JSONSerialization.data(withJSONObject: json))
