@@ -180,7 +180,10 @@ public struct EntrySubmission: Sendable {
                 await sorted(didSort ? try? await entries.entry(id: entryID) : nil)
             }
         }
-        await outbox.recordProgress(entryID: entryID, uploadedPositions: await uploaded, didSort: didSort)
+        let landed = await uploaded
+        await outbox.recordProgress(entryID: entryID, uploadedPositions: landed, didSort: didSort)
+        // Which photo is which dish: once the lines exist and the photos are up (0063).
+        if didSort, landed.isEmpty == false { await entries.matchPhotos(entryID: entryID) }
         let card = try? await entries.entry(id: entryID)
         if let card { await outbox.staged.confirm(entryID: entryID, card: card) }
         return card
@@ -198,6 +201,7 @@ public struct EntrySubmission: Sendable {
         }
         do {
             try await entries.attach(photo: EntryPhotoUpload(entryID: request.id, position: position, data: data))
+            await entries.matchPhotos(entryID: request.id)
             if let card = try? await entries.entry(id: request.id) {
                 await outbox.staged.confirm(entryID: request.id, card: card)
             }

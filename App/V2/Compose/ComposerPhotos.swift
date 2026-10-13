@@ -86,8 +86,9 @@ enum ComposerPhotoStaging {
         _ item: PhotosPickerItem,
         in directory: URL,
         preview: @escaping @MainActor (Image) -> Void
-    ) async -> (fileName: String, image: Image)? {
+    ) async -> (fileName: String, image: Image, takenAt: Date?)? {
         guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
+        let takenAt = await Task.detached(priority: .userInitiated) { ImageProcessing.takenAt(data) }.value
         let fileName = "\(UUID().uuidString.lowercased()).jpg"
         let target = directory.appending(path: fileName)
         let previewSide = previewDimension
@@ -103,7 +104,7 @@ enum ComposerPhotoStaging {
             return full
         }.value
         guard let written else { return nil }
-        return (fileName, Image(uiImage: UIImage(cgImage: written)))
+        return (fileName, Image(uiImage: UIImage(cgImage: written)), takenAt)
     }
 
     /// Stages images the app already holds — a camera shot, or a cluster picked on `Suggestions`.
@@ -163,6 +164,18 @@ enum ImageProcessing {
             kCGImageSourceShouldCacheImmediately: true
         ]
         return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+    }
+
+    /// When the photo was taken, from its own EXIF (the original's, before the downscale strips it).
+    nonisolated static func takenAt(_ data: Data) -> Date? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        else { return nil }
+        let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any]
+        let tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
+        guard let value = exif?[kCGImagePropertyExifDateTimeOriginal] as? String
+                ?? tiff?[kCGImagePropertyTIFFDateTime] as? String else { return nil }
+        return EatenDay.exifDate(value, offset: exif?[kCGImagePropertyExifOffsetTimeOriginal] as? String)
     }
 
     /// A photo is only staged once its bytes are on disk — a photo that is on screen but not on disk

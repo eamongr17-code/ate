@@ -218,12 +218,14 @@ struct KitGalleryScreen: View {
             .background(AtePalette.surface.ground)
             caption("Byline · empty · held")
             VStack(alignment: .leading, spacing: AteMetrics.regular) {
-                AteComposerByline(place: nil, people: [], onPlace: {}, onPeople: {})
+                AteComposerByline(place: nil, people: [], onPlace: {}, onPeople: {}, onDay: {})
                 AteComposerByline(
                     place: KitFixtures.longPlace,
                     people: KitFixtures.companions,
                     onPlace: {},
-                    onPeople: {}
+                    onPeople: {},
+                    day: "Sun 11 Oct",
+                    onDay: {}
                 )
             }
             .environment(\.atePalette, .surface)

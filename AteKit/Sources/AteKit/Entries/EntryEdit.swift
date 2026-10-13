@@ -5,7 +5,8 @@ import Foundation
 ///
 /// Four steps, each only when it has something to do:
 ///
-/// 1. **The words** — `entries.body`, the author's own hand.
+/// 1. **The words** — `entries.body`, the author's own hand — and **the day**, when the date pill
+///    now holds another one (`set_entry_date`, 0063).
 /// 2. **The place**, when the Place key now holds a different one — `correct_entry_place`, which
 ///    re-resolves every line at it (and prints a parked plan).
 /// 3. **The photos**, when the staged set is not the one the entry had: kept photos re-pointed to
@@ -52,6 +53,10 @@ public struct EntryEdit: Sendable {
     public let originalPhotos: [EntryCard.Photo]
     /// The photos staged now, in order. `nil` leaves the entry's photos alone.
     public let photos: [Photo]?
+    /// When the entry said they ate when the composer opened on it.
+    public let originalEatenAt: Date?
+    /// When the date pill says now. `nil` leaves it alone.
+    public let eatenAt: Date?
 
     public init(
         entryID: UUID,
@@ -63,7 +68,9 @@ public struct EntryEdit: Sendable {
         originalPhotos: [EntryCard.Photo] = [],
         photos: [Photo]? = nil,
         tags: EditTagDiff? = nil,
-        originalBody: String? = nil
+        originalBody: String? = nil,
+        originalEatenAt: Date? = nil,
+        eatenAt: Date? = nil
     ) {
         self.entryID = entryID
         self.body = body
@@ -85,6 +92,15 @@ public struct EntryEdit: Sendable {
         self.tagRemovals = tags?.removals ?? []
         self.originalPhotos = originalPhotos.sorted { $0.position < $1.position }
         self.photos = photos
+        self.originalEatenAt = originalEatenAt
+        self.eatenAt = eatenAt
+    }
+
+    /// The date pill moved. A second either way is the same moment (the row keeps microseconds).
+    public var changesDate: Bool {
+        guard let eatenAt else { return false }
+        guard let originalEatenAt else { return true }
+        return abs(eatenAt.timeIntervalSince(originalEatenAt)) >= 1
     }
 
     /// A place was picked that the entry does not already have. Clearing a place is not something
@@ -120,6 +136,9 @@ public struct EntryEdit: Sendable {
     public func save(to entries: any EntryService, staged: StagedPhotoLedger? = nil) async throws -> EntryCard {
         if let staged { await staged.record(entryID: entryID, photos: addedPhotos) }
         try await entries.updateBody(entryID: entryID, body: body)
+        if changesDate, let eatenAt {
+            try await entries.setEntryDate(entryID: entryID, eatenAt: eatenAt)
+        }
         if changesPlace, let restaurantID {
             _ = try await entries.correctPlace(entryID: entryID, restaurantID: restaurantID)
         }
@@ -194,5 +213,14 @@ public struct EntryEdit: Sendable {
         ) else { return nil }
         if let card = outcome.card { return card }
         return try? await entries.entry(id: entryID)
+    }
+
+    /// After ``sort(on:)`` — or instead of it, for a photo-only edit — pair the photos with the
+    /// dishes again (0063): a re-sort rebuilds the lines, and an added photo has no dish yet. Kept
+    /// apart from the sort so the new lines show without waiting on the photos being looked at.
+    public func matchPhotos(on entries: any EntryService) async {
+        let hasPhotos = photos.map { $0.isEmpty == false } ?? (originalPhotos.isEmpty == false)
+        guard hasPhotos, skipsSort == false || changesPhotos else { return }
+        await entries.matchPhotos(entryID: entryID)
     }
 }

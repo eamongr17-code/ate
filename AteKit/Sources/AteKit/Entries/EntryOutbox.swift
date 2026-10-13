@@ -338,6 +338,7 @@ public actor EntryOutbox {
                 entryID: item.entry.id, force: false, tagTokens: item.tagTokens ?? [], sixTokens: item.sixTokens ?? []
             )
             item.needsSort = false
+            await entries.matchPhotos(entryID: item.entry.id)
             analytics(EntryEvents.sortCompleted(
                 mode: outcome.mode,
                 itemCount: outcome.itemCount,

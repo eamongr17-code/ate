@@ -19,6 +19,8 @@ public final class InMemoryEntryService: EntryService, InMemoryStandIn, @uncheck
     private let lock = NSLock()
     private var entries: [EntryCard] = []
     private var nextOrderNumber: Int
+    /// Entry → photo URL → review id: which dish each photo is.
+    private var photoLines: [UUID: [String: UUID]] = [:]
     private let profile: ViewerProfile
     /// How long a sort "takes". Non-zero so the pending state and the receipt printing in are both
     /// reachable on a simulator; zero in tests, which should not wait for theatre.
@@ -251,6 +253,38 @@ public final class InMemoryEntryService: EntryService, InMemoryStandIn, @uncheck
                 isMine: card.isMine, author: card.author, place: card.place, photos: card.photos
             )
         }
+    }
+
+    // MARK: - When, and which photo
+
+    public func setEntryDate(entryID: UUID, eatenAt: Date) async throws {
+        lock.withLock {
+            guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return }
+            entries[index] = entries[index].replacing(createdAt: eatenAt)
+            entries.sort { $0.createdAt > $1.createdAt }
+        }
+    }
+
+    /// No model here: a one-dish entry takes its first photo, as the server does without one.
+    public func matchPhotos(entryID: UUID) async {
+        lock.withLock {
+            guard let card = entries.first(where: { $0.id == entryID }),
+                  card.items.count == 1, let first = card.photos.min(by: { $0.position < $1.position })
+            else { return }
+            photoLines[entryID] = [first.url: card.items[0].reviewID]
+        }
+    }
+
+    public func setReviewPhoto(entryID: UUID, photoURL: String, reviewID: UUID?) async throws {
+        lock.withLock {
+            var lines = (photoLines[entryID] ?? [:]).filter { $0.key != photoURL && $0.value != reviewID }
+            if let reviewID { lines[photoURL] = reviewID }
+            photoLines[entryID] = lines
+        }
+    }
+
+    public func photoDishes(entryID: UUID) async throws -> [String: UUID] {
+        lock.withLock { photoLines[entryID] ?? [:] }
     }
 
     @discardableResult

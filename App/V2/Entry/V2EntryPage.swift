@@ -66,7 +66,12 @@ private struct V2EntryScreen: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .ateV2EntryChanged)) { note in
                 // An edit saved in the composer, or the receipt's place attached: read it again.
-                guard let card = note.object as? EntryCard, card.id == entry.entryID, card != model.card else { return }
+                guard let card = note.object as? EntryCard, card.id == entry.entryID else { return }
+                // The same row again: its photos were just paired with its dishes (0063).
+                guard card != model.card else {
+                    Task { await model.refreshPhotoDishes() }
+                    return
+                }
                 Task { await model.reload() }
             }
             .v2PlaceSheet(
@@ -174,7 +179,7 @@ private struct V2EntryScreen: View {
             } },
             // A place never attached is not guessed at: on your own entry the line attaches one.
             onCorrectPlace: card.isMine ? { model.isCorrectingPlace = true } : nil,
-            onPhoto: { showPhotos(model.photos, at: $0) },
+            onPhoto: { showPhotos(model.photos, at: $0, dishes: model.photoDishMenu) },
             onReprint: { Task { await model.retrySort() } },
             with: model.companions,
             onWithPerson: { context.open(.profile($0.id), from: .entry) },

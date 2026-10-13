@@ -30,6 +30,10 @@ public struct EntryDraft: Sendable, Hashable, Codable, Identifiable {
     /// honest number rather than a fresh zero.
     public var startedAt: Date
     public var savedAt: Date
+    /// When they ate it, from the date pill or the photos' own day. `nil` = now, as before.
+    public var eatenAt: Date?
+    /// The person chose the day themselves: a photo added afterwards does not move it.
+    public var isDatePicked: Bool
 
     public init(
         id: UUID = UUID(),
@@ -39,7 +43,9 @@ public struct EntryDraft: Sendable, Hashable, Codable, Identifiable {
         placeName: String? = nil,
         photoFiles: [String] = [],
         startedAt: Date = Date(),
-        savedAt: Date = Date()
+        savedAt: Date = Date(),
+        eatenAt: Date? = nil,
+        isDatePicked: Bool = false
     ) {
         self.id = id
         self.composition = composition
@@ -49,6 +55,8 @@ public struct EntryDraft: Sendable, Hashable, Codable, Identifiable {
         self.photoFiles = photoFiles
         self.startedAt = startedAt
         self.savedAt = savedAt
+        self.eatenAt = eatenAt
+        self.isDatePicked = isDatePicked
     }
 
     /// Hand-written for the **place-token migration**. A draft saved before the place moved to the
@@ -68,10 +76,12 @@ public struct EntryDraft: Sendable, Hashable, Codable, Identifiable {
         self.photoFiles = try container.decodeIfPresent([String].self, forKey: .photoFiles) ?? []
         self.startedAt = try container.decode(Date.self, forKey: .startedAt)
         self.savedAt = try container.decode(Date.self, forKey: .savedAt)
+        self.eatenAt = try container.decodeIfPresent(Date.self, forKey: .eatenAt)
+        self.isDatePicked = try container.decodeIfPresent(Bool.self, forKey: .isDatePicked) ?? false
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, composition, isPublic, restaurantID, placeName, photoFiles, startedAt, savedAt
+        case id, composition, isPublic, restaurantID, placeName, photoFiles, startedAt, savedAt, eatenAt, isDatePicked
     }
 
     /// At most five photos per entry (the composer's own cap; the column allows 24 positions).

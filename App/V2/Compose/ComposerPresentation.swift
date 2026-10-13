@@ -54,6 +54,8 @@ struct ComposerPresentation: Identifiable, Hashable {
         /// Who it was eaten with, as the author sees them (pending included) — the With key opens
         /// holding them, and Done sends the difference.
         var companions: [EntryCompanion] = []
+        /// When it was eaten — what the date pill opens on.
+        var createdAt = Date()
     }
 
     /// Answering an "Ate with" tag: the composer, prefilled from the tag.
@@ -80,7 +82,8 @@ struct ComposerPresentation: Identifiable, Hashable {
                 composition: EntryBodyTokens.composition(for: card),
                 photos: card.photos.sorted { $0.position < $1.position },
                 items: card.items,
-                companions: card.companions
+                companions: card.companions,
+                createdAt: card.createdAt
             )
         )
     }
