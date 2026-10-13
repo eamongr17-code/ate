@@ -170,3 +170,33 @@ test('a hand pick outlives a re-sort; a No-dish photo stays out of matching (006
 
   assert.ok(await code(() => as(U.alice, () => db.query(`select public.restore_photo_picks($1)`, [e]))));
 });
+
+test('restore keeps one photo per line: two lines with one dish name, and a renamed picked line (QA, #155)', async () => {
+  // Two lines that end up with the same dish each keep the photo picked for them.
+  const r = receipt(['Gnocchi', 4], ['Spritz']);
+  const e = await w.visit(6, U.alice, P.tipo, r, undefined, { photos: ['d/1.jpg', 'd/2.jpg'] });
+  const first = await reviewId(e, 'Gnocchi');
+  const second = await reviewId(e, 'Spritz');
+  await as(U.alice, () => db.query(`select public.correct_entry_dish(p_review_id => $1, p_dish_name => 'Gnocchi')`,
+    [second]));
+  await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, $3)`, [e, photoUrl('d/1.jpg'), first]));
+  await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, $3)`, [e, photoUrl('d/2.jpg'), second]));
+  await asService(() => db.query(`select public.restore_photo_picks($1)`, [e]));
+  const held = await rows(`select id, photo_url from public.reviews where entry_id = $1`, [e]);
+  assert.equal(held.find((x) => x.id === first).photo_url, photoUrl('d/1.jpg'));
+  assert.equal(held.find((x) => x.id === second).photo_url, photoUrl('d/2.jpg'));
+
+  // A picked line renamed by the author keeps its photo through a re-sort; the rebuilt line under
+  // the old name does not get it too.
+  const r2 = receipt(['Cannoli'], ['Gnocchi', 4]);
+  const e2 = await w.visit(7, U.alice, P.tipo, r2, undefined, { photos: ['t/1.jpg', 't/2.jpg'] });
+  const cannoli = await reviewId(e2, 'Cannoli');
+  await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, $3)`, [e2, photoUrl('t/1.jpg'), cannoli]));
+  await as(U.alice, () => db.query(`select public.correct_entry_dish(p_review_id => $1, p_dish_name => 'Tiramisu')`,
+    [cannoli]));
+  const resorted = receipt(['Tiramisu'], ['Cannoli'], ['Gnocchi', 4]);
+  await w.sortAs(e2, P.tipo, resorted.items);
+  await asService(() => db.query(`select public.restore_photo_picks($1)`, [e2]));
+  const got = await lines(e2);
+  assert.deepEqual(got.filter((l) => l.photo_url === photoUrl('t/1.jpg')).map((l) => l.name), ['Tiramisu']);
+});
