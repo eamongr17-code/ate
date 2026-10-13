@@ -83,6 +83,12 @@ struct JournalRoot: View {
         .onReceive(NotificationCenter.default.publisher(for: .atePhotoAccessGranted)) { _ in
             Task { await stores.photos.load() }
         }
+        // An entry changed after the composer closed — an edit's re-sort printing its new dishes, a
+        // correction on its page: put that one entry in place.
+        .onReceive(NotificationCenter.default.publisher(for: .ateV2EntryChanged)) { note in
+            guard let card = note.object as? EntryCard else { return }
+            journal.replace(card)
+        }
         // Something queued has landed, or the composer closed on a new entry: read the list again.
         .onChange(of: app.outboxLanded) { _, _ in
             journal.invalidate()

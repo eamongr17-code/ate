@@ -28,9 +28,11 @@ struct EditResortTests {
         let service = SixRecorder()
         let change = edit(from: opened, to: now)
         try await change.save(to: service)
-        await change.sort(on: service)
+        let sorted = await change.sort(on: service)
         #expect(service.forced == [true])
         #expect(service.sortedBodies == ["Tiramisu 4.0 honestly"])
+        // The entry as the sort left it comes back, so the page showing it can put the new lines up.
+        #expect(sorted?.id == change.entryID)
     }
 
     @Test("a photo-only edit makes no sort call")
@@ -38,7 +40,7 @@ struct EditResortTests {
         let opened = EntryComposition(plain: "Tiramisu 3.5", spans: [score(3.5, at: 9)])
         let service = SixRecorder()
         let change = edit(from: opened, to: opened, photos: [])
-        await change.sort(on: service)
+        #expect(await change.sort(on: service) == nil)
         #expect(service.forced.isEmpty)
         #expect(change.skipsSort)
     }

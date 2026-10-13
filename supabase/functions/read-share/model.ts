@@ -21,6 +21,7 @@ import {
   modelEnabled,
   type SorterModel,
 } from '../sort-entry/model.ts';
+import { sentenceCase } from '../sort-entry/validate.ts';
 
 export { modelEnabled };
 
@@ -178,7 +179,8 @@ export function validateSuggestion(raw: { dish: unknown; place_query: unknown } 
   const dish = tidy(raw.dish, MAX_DISH);
   const place = tidy(raw.place_query, MAX_PLACE_QUERY);
   return {
-    dish: dish && groundedIn(dish, source) ? dish : null,
+    // The prompt asks for sentence case; the model doesn't always give it (13 Oct beta). Enforced here.
+    dish: dish && groundedIn(dish, source) ? sentenceCase(dish) : null,
     place_query: place && groundedIn(place, source) ? place : null,
   };
 }

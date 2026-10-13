@@ -75,3 +75,13 @@ test('own saves: they go with the account', async () => {
   await rows(`delete from public.profiles where id = $1`, [U.dan]);
   assert.equal((await rows(`select count(*)::int n from public.own_saves where user_id = $1`, [U.dan]))[0].n, 0);
 });
+
+test('own saves: the dish name is printed with a capital, the rest as written (0062)', async () => {
+  const a = await add(U.alice, '  margherita   pizza ', P.tipo);
+  const b = await add(U.alice, 'big Mac', P.tipo);
+  const names = new Map((await mine(U.alice)).map((r) => [r.id, r.dish_name]));
+  assert.equal(names.get(a.id), 'Margherita pizza');
+  assert.equal(names.get(b.id), 'Big Mac');
+  await one(U.alice, `select public.remove_own_save($1) n`, [a.id]);
+  await one(U.alice, `select public.remove_own_save($1) n`, [b.id]);
+});

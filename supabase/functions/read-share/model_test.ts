@@ -52,6 +52,12 @@ test('validateSuggestion keeps only what the words support', () => {
   assertEquals(validateSuggestion(null, words), NO_SUGGESTION);
 });
 
+
+test('validateSuggestion prints the dish with a capital whatever the model sent (13 Oct beta)', () => {
+  const words = 'the best gin and tonic at bar americano';
+  assertEquals(validateSuggestion({ dish: 'gin and tonic', place_query: null }, words).dish, 'Gin and tonic');
+  assertEquals(validateSuggestion({ dish: 'GIN AND TONIC', place_query: null }, words).dish, 'Gin and tonic');
+});
 test('rawSuggestion reads the forced tool call and nothing else', () => {
   assertEquals(rawSuggestion(reply({ dish: 'Croissant' })), { dish: 'Croissant', place_query: undefined });
   assertEquals(rawSuggestion({ content: [{ type: 'text', text: '{"dish":"x"}' }] }), null);

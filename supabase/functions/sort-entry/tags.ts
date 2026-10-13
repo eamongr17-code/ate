@@ -22,6 +22,7 @@
 
 import { scalarLength, scalarOffset, sliceScalars } from './offsets.ts';
 import type { SortItem } from './types.ts';
+import { sentenceCase } from './validate.ts';
 
 /** The closed set, in its canonical order. Matches `reviews_tags_closed_set` (0036). */
 export const TAG_CODES = ['gf', 'df', 'v', 'vg', 'nf'] as const;
@@ -213,7 +214,9 @@ function stripTagSpans(
   const name = slice.replace(/\s+/g, ' ');
   return {
     ...item,
-    dish_name: knownByKey.get(name.toLowerCase()) ?? name,
+    // What is left once the tag words are cut is the words' own slice: printed like any other name
+    // (13 Oct beta: "gf salad" printed "salad", lower case).
+    dish_name: knownByKey.get(name.toLowerCase()) ?? sentenceCase(name),
     mention_text: slice,
     mention_offset: scalarOffset(body, best[0]),
   };

@@ -181,10 +181,18 @@ public struct EntryEdit: Sendable {
     /// and the entry page offers "Print it again".
     /// Forced when the words changed, carrying the current `tag_tokens` and `six_tokens`; skipped
     /// entirely for a photo-only edit.
-    public func sort(on entries: any EntryService) async {
-        guard skipsSort == false else { return }
-        _ = try? await entries.sort(
+    ///
+    /// Returns the entry as the sort left it — its reply's own card, else read back — so whatever is
+    /// showing the entry can put the new lines up the moment they exist (13 Oct beta: dishes added in
+    /// an edit didn't appear on the saved entry until much later). `nil` when nothing was sorted or
+    /// it could not be read.
+    @discardableResult
+    public func sort(on entries: any EntryService) async -> EntryCard? {
+        guard skipsSort == false else { return nil }
+        guard let outcome = try? await entries.sort(
             entryID: entryID, force: forcesSort, tagTokens: tagTokens, sixTokens: sixTokens
-        )
+        ) else { return nil }
+        if let card = outcome.card { return card }
+        return try? await entries.entry(id: entryID)
     }
 }
