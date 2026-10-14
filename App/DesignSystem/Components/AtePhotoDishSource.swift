@@ -3,7 +3,7 @@ import SwiftUI
 /// Where a slip's photos learn their dishes (0063). The shell sets it from the entry service, so a
 /// photo opened from the journal, the feed or a profile is named like one opened on its entry.
 struct AtePhotoDishSource: Sendable {
-    /// Photo URL → review id for an entry; for your own entry never matched, it asks for a match first.
+    /// Photo URL → review id for an entry; for one never matched (anyone's), it asks for a match first.
     var pairs: @MainActor @Sendable (_ entryID: UUID, _ isMine: Bool) async -> [String: UUID]
     /// Your own fix: this photo is this dish, or no dish. Answers whether it held.
     var pick: @MainActor @Sendable (_ entryID: UUID, _ url: String, _ reviewID: UUID?) async -> Bool

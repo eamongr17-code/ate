@@ -7,9 +7,12 @@
 //   body: { entry_id: uuid, unmatched_only?: bool }
 //   → 200 { ok: true, matched: int }       (matched = lines whose photo was set or cleared)
 //     unmatched_only: do nothing for an entry already matched once (photos_matched_at). The app
-//     sends it when the author opens an entry, so entries posted before matching existed, or whose
-//     match failed, get paired the next time they are looked at (14 Oct: photos still had no dish).
-//     401 unauthorized · 404 not the caller's entry · 405 not POST · 422 bad body
+//     sends it when anyone opens a photo of an entry with no dish paired, so entries posted before
+//     matching existed, or whose match failed, get paired the first time they are looked at. Any
+//     signed-in viewer who can see the entry may ask this (14 Oct, Eamon: the point is knowing which
+//     dish is in someone else's photo); a full re-match stays the author's.
+//     401 unauthorized · 404 not the caller's entry (or, with unmatched_only, not one they can
+//     see) · 405 not POST · 422 bad body
 //
 // The author's own picks (set_review_photo, 0063; kept on the entry through re-sorts, 0064) are
 // never offered to the model, and a photo they called "No dish" is never matched. One line on the
@@ -45,9 +48,13 @@ function adminClient() {
   return createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 }
 
+function bearer(req: Request): string {
+  return (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+}
+
 /** AUTH GATE (same shape as sort-entry / read-share): a token that resolves to a real USER. */
 async function authedUserId(req: Request): Promise<string | null> {
-  const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+  const token = bearer(req);
   if (!token) return null;
   try {
     const authClient = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } });
@@ -56,6 +63,20 @@ async function authedUserId(req: Request): Promise<string | null> {
     return data.user.id;
   } catch {
     return null;
+  }
+}
+
+/** Whether the caller can read the entry under their own RLS (visibility, blocks). */
+async function callerCanSee(req: Request, entryId: string): Promise<boolean> {
+  try {
+    const asCaller = createClient(SUPABASE_URL, ANON_KEY, {
+      auth: { persistSession: false },
+      global: { headers: { Authorization: `Bearer ${bearer(req)}` } },
+    });
+    const { data, error } = await asCaller.from('entries').select('id').eq('id', entryId).maybeSingle();
+    return !error && data != null;
+  } catch {
+    return false;
   }
 }
 
@@ -84,7 +105,10 @@ Deno.serve(async (req) => {
     console.error('match-photos: entry read failed:', entryError.message);
     return json({ error: 'read failed' }, 500);
   }
-  if (!entry || entry.author_id !== userId) return json({ error: 'not found' }, 404);
+  if (!entry) return json({ error: 'not found' }, 404);
+  if (entry.author_id !== userId && !(unmatchedOnly && await callerCanSee(req, entryId))) {
+    return json({ error: 'not found' }, 404);
+  }
   if (unmatchedOnly && entry.photos_matched_at != null) return json({ ok: true, matched: 0 });
 
   // Photos an edit overwrote in place leave their lines first (0063), so those lines are open again.

@@ -188,8 +188,8 @@ public protocol EntryService: Sendable {
     /// leaves each dish drawing the entry's first photo, as before.
     func matchPhotos(entryID: UUID) async
 
-    /// The same, only for an entry never matched (`unmatched_only`): asked when the author opens an
-    /// entry with no photo paired, so entries from before matching, or whose match failed, catch up.
+    /// The same, only for an entry never matched (`unmatched_only`): asked when anyone opens a photo
+    /// of an entry with no photo paired, so entries from before matching, or whose match failed, catch up.
     func matchPhotosIfNeverMatched(entryID: UUID) async
 
     /// The author's own pairing (`set_review_photo`, 0063): this photo is this dish, or no dish

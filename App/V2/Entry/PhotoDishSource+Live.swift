@@ -2,16 +2,16 @@ import AteKit
 import Foundation
 
 extension AtePhotoDishSource {
-    /// The entry service's own calls: the pairs as stored (0063), your own entry matched first when
-    /// it never was, and your fix through `set_review_photo`.
+    /// The entry service's own calls: the pairs as stored (0063), any entry matched first when it
+    /// never was (whoever is looking), and your fix through `set_review_photo`.
     @MainActor
     static func live(_ services: AteServices) -> AtePhotoDishSource {
         let entries = services.entries
         let analytics = services.analytics
         return AtePhotoDishSource(
-            pairs: { entryID, isMine in
+            pairs: { entryID, _ in
                 let read = (try? await entries.photoDishes(entryID: entryID)) ?? [:]
-                guard read.isEmpty, isMine else { return read }
+                guard read.isEmpty else { return read }
                 await entries.matchPhotosIfNeverMatched(entryID: entryID)
                 return (try? await entries.photoDishes(entryID: entryID)) ?? [:]
             },
