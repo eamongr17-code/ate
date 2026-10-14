@@ -75,8 +75,17 @@ on:
         description: "Archive only (no signing, no upload)"
         type: boolean
         default: false
-  # Manual only: Eamon tests one build per finished feedback round (2026-09-26),
-  # so merges to main must not upload to TestFlight.
+  # Every merge into the integration branch that changes the app uploads a build (Eamon, 2026-10-14:
+  # ship each merge without his Mac). A merge is a PR whose CI already passed; backend-only merges
+  # build nothing. The concurrency group below queues back-to-back merges instead of cancelling.
+  push:
+    branches: [claude/project-thread-2f9ty8]
+    paths:
+      - "App/**"
+      - "AteKit/**"
+      - "ShareExtension/**"
+      - "Config/**"
+      - "Ate.xcodeproj/**"
 
 concurrency:
   group: beta-${{ github.ref }}
