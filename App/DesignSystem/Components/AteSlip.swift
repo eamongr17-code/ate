@@ -70,6 +70,8 @@ struct AteSlip: Equatable, Identifiable {
     var viewerPhotos: [AtePhoto] = []
     /// Who wrote it — present in the feed, absent in your own journal and on their own profile.
     var byline: AteByline?
+    /// The viewer's own entry: its photos' dishes can be fixed from the viewer.
+    var isMine = false
     var density: Density = .regular
 
     init(

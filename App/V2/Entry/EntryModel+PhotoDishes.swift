@@ -17,7 +17,13 @@ extension EntryModel {
                 return await self.pairPhoto(entryID: entryID, url: url, reviewID: reviewID)
             }
         }
-        return AtePhotoDishes(choices: choices, paired: photoDishes, onPick: onPick)
+        let load: @MainActor @Sendable () async -> [String: UUID] = { @MainActor [weak self] in
+            guard let self else { return [:] }
+            await self.pairPhotosIfNeverPaired()
+            await self.refreshPhotoDishes()
+            return self.photoDishes
+        }
+        return AtePhotoDishes(choices: choices, paired: photoDishes, onPick: onPick, load: load)
     }
 
     /// Your own entry, sorted, with photos and not one of them paired: it was posted before matching

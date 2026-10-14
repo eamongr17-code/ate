@@ -34,6 +34,9 @@ struct AtePhotoDishes: Sendable {
     /// The author fixing one: the photo's URL and the dish, or `nil` for No dish. Answers whether it
     /// held. `nil` on anybody else's entry: the pill only names.
     var onPick: (@MainActor @Sendable (String, UUID?) async -> Bool)?
+    /// Reads the pairs as they stand now, once the viewer is up: a list's slip has none in hand, and
+    /// a match that lands while the entry is open shows without reopening it (14 Oct).
+    var load: (@MainActor @Sendable () async -> [String: UUID])?
 }
 
 extension EnvironmentValues {
@@ -211,6 +214,16 @@ struct AtePhotoViewer: View {
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { isShowing = true }
         }
         .onChange(of: index) { _, index in onIndex(index) }
+        .task { await loadPairs() }
+    }
+
+    /// The pairs as the server has them, unless a fix was made here in the meantime.
+    private func loadPairs() async {
+        guard let load = dishes?.load else { return }
+        let before = paired
+        let read = await load()
+        guard paired == before, read.isEmpty == false else { return }
+        paired = read
     }
 
     /// The dish the photo now showing is — named, and on your own entry a menu to fix it.

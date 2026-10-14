@@ -113,6 +113,7 @@ enum EntrySlipPresentation {
             photos: Array(viewerPhotos(card).prefix(maximumPhotos))
         )
         slip.viewerPhotos = viewerPhotos(card)
+        slip.isMine = card.isMine
         slip.wordsLineLimit = SlipAnatomy.wordsLineLimit(on: surface)
         return slip
     }
