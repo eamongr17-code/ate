@@ -20,6 +20,18 @@ extension EntryModel {
         return AtePhotoDishes(choices: choices, paired: photoDishes, onPick: onPick)
     }
 
+    /// Your own entry, sorted, with photos and not one of them paired: it was posted before matching
+    /// existed, or its match failed (14 Oct: photos still had no dish). Ask once; the server does
+    /// nothing for an entry it has already matched.
+    func pairPhotosIfNeverPaired() async {
+        guard hasAskedToPairPhotos == false, let card, card.isMine,
+              card.photos.isEmpty == false, card.items.isEmpty == false, photoDishes.isEmpty
+        else { return }
+        hasAskedToPairPhotos = true
+        await services.entries.matchPhotosIfNeverMatched(entryID: card.id)
+        await refreshPhotoDishes()
+    }
+
     func refreshPhotoDishes() async {
         guard let card, card.photos.isEmpty == false else {
             photoDishes = [:]

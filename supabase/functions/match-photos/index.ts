@@ -4,14 +4,17 @@
 // an entry's photos are uploaded and its words are sorted, and again after an edit re-sorts it.
 //
 //   POST /functions/v1/match-photos        (user JWT required — the anon key alone is a 401)
-//   body: { entry_id: uuid }
+//   body: { entry_id: uuid, unmatched_only?: bool }
 //   → 200 { ok: true, matched: int }       (matched = lines whose photo was set or cleared)
+//     unmatched_only: do nothing for an entry already matched once (photos_matched_at). The app
+//     sends it when the author opens an entry, so entries posted before matching existed, or whose
+//     match failed, get paired the next time they are looked at (14 Oct: photos still had no dish).
 //     401 unauthorized · 404 not the caller's entry · 405 not POST · 422 bad body
 //
 // The author's own picks (set_review_photo, 0063; kept on the entry through re-sorts, 0064) are
 // never offered to the model, and a photo they called "No dish" is never matched. One line on the
 // whole entry takes the first photo with no model. Anything more goes to Claude with the photos as
-// URL images (public storage) through a forced tool call (./match.ts), and only pairs naming a real
+// images (read from public storage here, thumbnails first) through a forced tool call (./match.ts), and only pairs naming a real
 // photo and a real line survive. Without ANTHROPIC_API_KEY, or on any model failure, nothing is
 // written: the lines keep what they had and cover reads fall back to the entry's first photo.
 //
@@ -64,8 +67,11 @@ Deno.serve(async (req) => {
   if (!userId) return json({ error: 'unauthorized' }, 401);
 
   let entryId: unknown;
+  let unmatchedOnly = false;
   try {
-    entryId = (await req.json())?.entry_id;
+    const body = await req.json();
+    entryId = body?.entry_id;
+    unmatchedOnly = body?.unmatched_only === true;
   } catch {
     return json({ error: 'bad body' }, 422);
   }
@@ -73,12 +79,13 @@ Deno.serve(async (req) => {
 
   const admin = adminClient();
   const { data: entry, error: entryError } = await admin
-    .from('entries').select('id, author_id, photo_picks').eq('id', entryId).maybeSingle();
+    .from('entries').select('id, author_id, photo_picks, photos_matched_at').eq('id', entryId).maybeSingle();
   if (entryError) {
     console.error('match-photos: entry read failed:', entryError.message);
     return json({ error: 'read failed' }, 500);
   }
   if (!entry || entry.author_id !== userId) return json({ error: 'not found' }, 404);
+  if (unmatchedOnly && entry.photos_matched_at != null) return json({ ok: true, matched: 0 });
 
   // Photos an edit overwrote in place leave their lines first (0063), so those lines are open again.
   const pruned = await admin.rpc('prune_photo_pairs', { p_entry_id: entryId });

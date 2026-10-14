@@ -21,6 +21,9 @@ import {
 export { modelEnabled, resolveModel };
 
 export type Photo = { position: number; url: string };
+/** A photo with its bytes, read by the function itself (see loadImages). */
+export type LoadedPhoto = Photo & { data: string; media_type: ImageType };
+export type ImageType = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
 export type Line = {
   review_id: string;
   dish: string;
@@ -35,6 +38,76 @@ export type Match = { review_id: string; photo_url: string };
 export const MAX_PHOTOS = 8;
 /** Images take longer than words: still a fast answer, but not the sorter's 5 s. */
 export const MATCH_TIMEOUT_MS = Math.max(DEFAULT_TIMEOUT_MS, 12_000);
+/** Each photo read from storage, before the model is asked. */
+export const IMAGE_TIMEOUT_MS = 5_000;
+
+/**
+ * `…/entry-0.jpg` → `…/entry-0_t.jpg`: the 480 px copy every upload writes beside the full one
+ * (PhotoThumbnail / PhotoAddress in AteKit). Enough to tell a pasta from a tiramisu, a fraction of
+ * the tokens, and fast to read. `null` when the URL has no file to derive it from.
+ */
+export function thumbnailUrl(url: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  const slash = u.pathname.lastIndexOf('/');
+  const file = u.pathname.slice(slash + 1);
+  if (!file || file.endsWith('_t.jpg')) return null;
+  const dot = file.lastIndexOf('.');
+  const stem = dot > 0 ? file.slice(0, dot) : file;
+  u.pathname = u.pathname.slice(0, slash + 1) + stem + '_t.jpg';
+  return u.toString();
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
+
+const IMAGE_TYPES: readonly ImageType[] = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+async function readImage(url: string, fetchImpl: typeof fetch, timeoutMs: number): Promise<{ data: string; media_type: ImageType } | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetchImpl(url, { signal: controller.signal });
+    if (!res.ok) return null;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (!bytes.length) return null;
+    const type = (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
+    return { data: toBase64(bytes), media_type: (IMAGE_TYPES as readonly string[]).includes(type) ? type as ImageType : 'image/jpeg' };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * The photos' bytes, read here rather than left for the API to fetch by URL (14 Oct: photos still
+ * had no dish; a URL the API cannot fetch, or a 1600 px original that runs past the timeout, fails
+ * the whole call silently). The thumbnail first, the original when there is none. A photo that
+ * cannot be read is left out; the order is kept.
+ */
+export async function loadImages(
+  photos: Photo[],
+  opts: { fetchImpl?: typeof fetch; timeoutMs?: number } = {},
+): Promise<LoadedPhoto[]> {
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  const timeoutMs = opts.timeoutMs ?? IMAGE_TIMEOUT_MS;
+  const read = await Promise.all(photos.map(async (p) => {
+    const thumb = thumbnailUrl(p.url);
+    const image = (thumb ? await readImage(thumb, fetchImpl, timeoutMs) : null) ?? await readImage(p.url, fetchImpl, timeoutMs);
+    return image ? { ...p, ...image } : null;
+  }));
+  return read.filter((p): p is LoadedPhoto => p !== null);
+}
 
 /**
  * What to do before any model is asked. `ask` lists only what is still open: the lines nobody
@@ -87,12 +160,15 @@ const SYSTEM = [
 
 export type ModelRequest = { url: string; headers: Record<string, string>; body: string };
 
-/** Pure: the request. Photos go as URL images (public storage), each labelled before it. */
-export function buildRequest(opts: { apiKey: string; photos: Photo[]; lines: Line[]; model?: SorterModel }): ModelRequest {
+/** Pure: the request. Each photo is labelled before it: its bytes when read, else its URL. */
+export function buildRequest(opts: { apiKey: string; photos: Array<Photo | LoadedPhoto>; lines: Line[]; model?: SorterModel }): ModelRequest {
   const content: Array<Record<string, unknown>> = [];
   opts.photos.forEach((p, i) => {
     content.push({ type: 'text', text: `Photo ${i + 1}:` });
-    content.push({ type: 'image', source: { type: 'url', url: p.url } });
+    const source = 'data' in p
+      ? { type: 'base64', media_type: p.media_type, data: p.data }
+      : { type: 'url', url: p.url };
+    content.push({ type: 'image', source });
   });
   const dishes = opts.lines
     .map((l, i) => `${i + 1}. ${l.dish}${l.note ? ` (the diner said: ${l.note.slice(0, 160)})` : ''}`)
@@ -152,7 +228,12 @@ export async function askModel(opts: {
   fetchImpl?: typeof fetch;
 }): Promise<Match[] | null> {
   if (!modelEnabled(opts.apiKey)) return null;
-  const req = buildRequest({ apiKey: String(opts.apiKey), photos: opts.photos, lines: opts.lines, model: opts.model });
+  const photos = await loadImages(opts.photos, { fetchImpl: opts.fetchImpl });
+  if (!photos.length) {
+    console.error('match-photos: no photo could be read from storage');
+    return null;
+  }
+  const req = buildRequest({ apiKey: String(opts.apiKey), photos, lines: opts.lines, model: opts.model });
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? MATCH_TIMEOUT_MS);
   try {
@@ -160,10 +241,10 @@ export async function askModel(opts: {
       method: 'POST', headers: req.headers, body: req.body, signal: controller.signal,
     });
     if (!res.ok) {
-      console.error('match-photos: model answered', res.status);
+      console.error('match-photos: model answered', res.status, (await res.text().catch(() => '')).slice(0, 300));
       return null;
     }
-    return matchesFromResponse(await res.json(), opts.photos, opts.lines);
+    return matchesFromResponse(await res.json(), photos, opts.lines);
   } catch (e) {
     console.error('match-photos: model call failed:', e instanceof Error ? e.message : String(e));
     return null;

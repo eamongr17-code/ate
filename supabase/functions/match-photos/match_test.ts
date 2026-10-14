@@ -4,7 +4,9 @@
 // gate on the answer (real indices, one photo per line), and inertness without a key.
 
 import { test, assert, assertEquals } from '../sort-entry/harness.ts';
-import { askModel, buildRequest, matchesFromResponse, MAX_PHOTOS, plan, type Line, type Photo } from './match.ts';
+import {
+  askModel, buildRequest, loadImages, matchesFromResponse, MAX_PHOTOS, plan, thumbnailUrl, type Line, type Photo,
+} from './match.ts';
 
 const photo = (position: number): Photo => ({ position, url: `https://x.test/p/${position}.jpg` });
 const line = (id: string, dish: string, extra: Partial<Line> = {}): Line =>
@@ -107,4 +109,62 @@ test('askModel: a good answer comes back as matches; a bad status as null', asyn
     [{ review_id: 'b', photo_url: photo(0).url }]);
   const bad = (async () => new Response('nope', { status: 529 })) as typeof fetch;
   assertEquals(await askModel({ apiKey: 'sk-ant-test', photos, lines, fetchImpl: bad }), null);
+});
+
+test('thumbnailUrl: the _t.jpg beside the original, query kept; none for a thumbnail or no file', () => {
+  assertEquals(thumbnailUrl('https://x.test/storage/v1/object/public/review-photos/u/e-0.jpg'),
+    'https://x.test/storage/v1/object/public/review-photos/u/e-0_t.jpg');
+  assertEquals(thumbnailUrl('https://x.test/p/e-1.jpeg?v=2'), 'https://x.test/p/e-1_t.jpg?v=2');
+  assertEquals(thumbnailUrl('https://x.test/p/e-1_t.jpg'), null);
+  assertEquals(thumbnailUrl('https://x.test/'), null);
+  assertEquals(thumbnailUrl('not a url'), null);
+});
+
+test('loadImages: thumbnail first, the original when it is missing, unreadable photos left out', async () => {
+  const seen: string[] = [];
+  const store: Record<string, string> = {
+    'https://x.test/p/0_t.jpg': 'thumb0',
+    'https://x.test/p/1.jpg': 'full1',
+  };
+  const fetchImpl = (async (url: string) => {
+    seen.push(url);
+    return url in store
+      ? new Response(store[url], { status: 200, headers: { 'content-type': 'image/jpeg' } })
+      : new Response('missing', { status: 404 });
+  }) as unknown as typeof fetch;
+  const got = await loadImages([photo(0), photo(1), photo(2)], { fetchImpl });
+  assertEquals(got.map((p) => p.position), [0, 1]);
+  assertEquals(atob(got[0].data), 'thumb0');
+  assertEquals(atob(got[1].data), 'full1');
+  assertEquals(got[0].media_type, 'image/jpeg');
+  assert(!seen.includes('https://x.test/p/0.jpg'));
+});
+
+test('askModel: photos go as base64, and answers number the photos that were read', async () => {
+  const lines = [line('a', 'A'), line('b', 'B')];
+  let body: { messages: Array<{ content: Array<Record<string, unknown>> }> } | null = null;
+  const fetchImpl = (async (url: string, init?: RequestInit) => {
+    if (url.startsWith('https://api.anthropic.com')) {
+      body = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify(reply([{ photo: 1, dish: 2 }])), { status: 200 });
+    }
+    // Photo 0 cannot be read at all; photo 1 can.
+    if (url.includes('/0')) return new Response('gone', { status: 404 });
+    return new Response('img', { status: 200, headers: { 'content-type': 'image/png' } });
+  }) as unknown as typeof fetch;
+  const got = await askModel({ apiKey: 'sk-ant-test', photos: [photo(0), photo(1)], lines, fetchImpl });
+  assertEquals(got, [{ review_id: 'b', photo_url: photo(1).url }]);
+  const image = body!.messages[0].content[1] as { source: Record<string, string> };
+  assertEquals(image.source.type, 'base64');
+  assertEquals(image.source.media_type, 'image/png');
+});
+
+test('askModel: no photo readable → null, and the model is not asked', async () => {
+  let asked = false;
+  const fetchImpl = (async (url: string) => {
+    if (url.startsWith('https://api.anthropic.com')) asked = true;
+    return new Response('gone', { status: 404 });
+  }) as unknown as typeof fetch;
+  assertEquals(await askModel({ apiKey: 'sk-ant-test', photos: [photo(0)], lines: [line('a', 'A'), line('b', 'B')], fetchImpl }), null);
+  assert(!asked);
 });
