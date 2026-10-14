@@ -63,6 +63,7 @@ struct TabShell: View {
         // One full-screen photo viewer for every photo under the tabs — slips, entries, the dish
         // hero, the menu. Kit photo surfaces open it themselves.
         .atePhotoViewerHost()
+        .environment(\.atePhotoDishSource, AtePhotoDishSource.live(app.services))
         .sheet(isPresented: Bindable(app).isComposing) {
             ComposerSheet(app: app)
                 .ateCoversThePage()

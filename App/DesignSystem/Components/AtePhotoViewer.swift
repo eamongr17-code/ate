@@ -34,10 +34,43 @@ struct AtePhotoDishes: Sendable {
     /// The author fixing one: the photo's URL and the dish, or `nil` for No dish. Answers whether it
     /// held. `nil` on anybody else's entry: the pill only names.
     var onPick: (@MainActor @Sendable (String, UUID?) async -> Bool)?
+    /// Reads the pairs as they stand now, once the viewer is up: a list's slip has none in hand, and
+    /// a match that lands while the entry is open shows without reopening it (14 Oct).
+    var load: (@MainActor @Sendable () async -> [String: UUID])?
+}
+
+/// Where a slip's photos learn their dishes (0063). The shell sets it from the entry service, so a
+/// photo opened from the journal, the feed or a profile is named like one opened on its entry.
+struct AtePhotoDishSource: Sendable {
+    /// Photo URL → review id for an entry; for your own entry never matched, it asks for a match first.
+    var pairs: @MainActor @Sendable (_ entryID: UUID, _ isMine: Bool) async -> [String: UUID]
+    /// Your own fix: this photo is this dish, or no dish. Answers whether it held.
+    var pick: @MainActor @Sendable (_ entryID: UUID, _ url: String, _ reviewID: UUID?) async -> Bool
+
+    /// The photos of a slip, with its dishes, for the viewer. `nil` with no dishes to name.
+    @MainActor
+    func dishes(for slip: AteSlip) -> AtePhotoDishes? {
+        guard slip.dishes.isEmpty == false else { return nil }
+        let entryID = slip.id
+        let isMine = slip.isMine
+        let pick = self.pick
+        let pairs = self.pairs
+        var onPick: (@MainActor @Sendable (String, UUID?) async -> Bool)?
+        if isMine {
+            onPick = { (url: String, reviewID: UUID?) async -> Bool in await pick(entryID, url, reviewID) }
+        }
+        return AtePhotoDishes(
+            choices: slip.dishes.map { AtePhotoDishPill.Dish(id: $0.id, name: $0.name) },
+            paired: [:],
+            onPick: onPick,
+            load: { await pairs(entryID, isMine) }
+        )
+    }
 }
 
 extension EnvironmentValues {
     @Entry var atePhotoViewer = AtePhotoViewerAction()
+    @Entry var atePhotoDishSource: AtePhotoDishSource?
 }
 
 extension View {
@@ -211,6 +244,16 @@ struct AtePhotoViewer: View {
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { isShowing = true }
         }
         .onChange(of: index) { _, index in onIndex(index) }
+        .task { await loadPairs() }
+    }
+
+    /// The pairs as the server has them, unless a fix was made here in the meantime.
+    private func loadPairs() async {
+        guard let load = dishes?.load else { return }
+        let before = paired
+        let read = await load()
+        guard paired == before, read.isEmpty == false else { return }
+        paired = read
     }
 
     /// The dish the photo now showing is — named, and on your own entry a menu to fix it.

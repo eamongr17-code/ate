@@ -26,6 +26,7 @@ struct EntrySlip: View {
     var identifier = "journal.slip"
 
     @Environment(\.atePhotoViewer) private var showPhotos
+    @Environment(\.atePhotoDishSource) private var dishSource
 
     var body: some View {
         Group {
@@ -112,7 +113,11 @@ struct EntrySlip: View {
                     topPadding: AteMetrics.hairspace,
                     bottomPadding: 0,
                     onTap: interactive ? { index in
-                        showPhotos(slip.viewerPhotos.isEmpty ? slip.photos : slip.viewerPhotos, at: index)
+                        showPhotos(
+                            slip.viewerPhotos.isEmpty ? slip.photos : slip.viewerPhotos,
+                            at: index,
+                            dishes: dishSource?.dishes(for: slip)
+                        )
                     } : nil
                 )
             }
