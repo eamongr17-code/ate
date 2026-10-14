@@ -7,7 +7,8 @@
 #
 # Repository secrets it needs (Settings → Secrets and variables → Actions):
 #   SUPABASE_ACCESS_TOKEN          a personal access token (already set for prod.yml)
-#   SUPABASE_STAGING_DB_PASSWORD   staging's database password (Database → Settings)
+#   STAGING_DB_PASSWORD            staging's database password (Database → Settings); already set.
+#                                  SUPABASE_STAGING_DB_PASSWORD is read first if it is ever added.
 # The functions' own secrets live in the staging project itself and are never read or written here.
 
 name: Staging
@@ -15,7 +16,7 @@ name: Staging
 on:
   push:
     branches: [claude/project-thread-2f9ty8]
-    paths: ["supabase/**"]
+    paths: ["supabase/**", ".github/workflows/staging.yml"]
   workflow_dispatch:
 
 concurrency:
@@ -33,7 +34,7 @@ jobs:
     timeout-minutes: 15
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD || secrets.STAGING_DB_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -41,7 +42,7 @@ jobs:
         run: |
           missing=""
           [ -n "$SUPABASE_ACCESS_TOKEN" ] || missing="$missing SUPABASE_ACCESS_TOKEN"
-          [ -n "$SUPABASE_DB_PASSWORD" ] || missing="$missing SUPABASE_STAGING_DB_PASSWORD"
+          [ -n "$SUPABASE_DB_PASSWORD" ] || missing="$missing STAGING_DB_PASSWORD"
           if [ -n "$missing" ]; then
             echo "::error title=Missing secrets::Add these repository secrets:$missing"
             exit 1
