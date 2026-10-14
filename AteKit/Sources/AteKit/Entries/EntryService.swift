@@ -188,6 +188,10 @@ public protocol EntryService: Sendable {
     /// leaves each dish drawing the entry's first photo, as before.
     func matchPhotos(entryID: UUID) async
 
+    /// The same, only for an entry never matched (`unmatched_only`): asked when the author opens an
+    /// entry with no photo paired, so entries from before matching, or whose match failed, catch up.
+    func matchPhotosIfNeverMatched(entryID: UUID) async
+
     /// The author's own pairing (`set_review_photo`, 0063): this photo is this dish, or no dish
     /// (`reviewID` nil). Matching never overrides it, and it outlives a re-sort: the next match puts
     /// it back on the line carrying that dish (0064).
@@ -239,6 +243,8 @@ public extension EntryService {
 
     /// A service with no model has nothing to pair.
     func matchPhotos(entryID: UUID) async {}
+
+    func matchPhotosIfNeverMatched(entryID: UUID) async { await matchPhotos(entryID: entryID) }
 
     func setReviewPhoto(entryID: UUID, photoURL: String, reviewID: UUID?) async throws {
         throw EntryWriteFailure.rejected("setReviewPhoto is not supported here")

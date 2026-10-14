@@ -236,6 +236,17 @@ public struct SupabaseEntryService: EntryService {
         ) { _, _ in () }
     }
 
+    public func matchPhotosIfNeverMatched(entryID: UUID) async {
+        let body: [String: AnyJSON] = [
+            "entry_id": .string(entryID.uuidString.lowercased()),
+            "unmatched_only": .bool(true)
+        ]
+        _ = try? await api.supabase.functions.invoke(
+            "match-photos",
+            options: FunctionInvokeOptions(method: .post, body: body)
+        ) { _, _ in () }
+    }
+
     public func setReviewPhoto(entryID: UUID, photoURL: String, reviewID: UUID?) async throws {
         let parameters: [String: AnyJSON] = [
             "p_entry_id": .string(entryID.uuidString.lowercased()),

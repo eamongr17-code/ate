@@ -52,6 +52,8 @@ final class EntryModel: SavedDishObserving {
     private var hasReportedPrint = false
     private var hasReportedOpen = false
     private var hasRetriedQuietly = false
+    /// An entry of yours with no photo paired has been offered to match-photos once on this page.
+    var hasAskedToPairPhotos = false
     /// The bookmarks broadcast while this page was open — laid over every later read.
     private var saveEdits = EntrySaveEdits()
     #if DEBUG
@@ -87,6 +89,7 @@ final class EntryModel: SavedDishObserving {
             if let card, case .printed = state { state = EntryPresentation.state(for: card, handle: handle) }
         }
         await findMyTag()
+        await pairPhotosIfNeverPaired()
         // An entry that arrived here unsorted keeps asking, quietly, until it is: the person was
         // told their words were saved, and the receipt is the other half of that.
         if card?.sortStatus == .pending, state != .failed { await waitForSort() }
