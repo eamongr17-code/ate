@@ -30,6 +30,9 @@ struct AppleSignIn {
         /// Apple's own display name, first time only. `signInWithIdToken` has no room for it, so the
         /// shell writes it to `profiles.name` itself; nil on every later sign-in, which is correct.
         let fullName: String?
+        /// Apple's one-time authorization code. The server trades it for the refresh token it
+        /// revokes when the account is deleted (App Store 5.1.1(v); `apple-token`, 0068).
+        let authorizationCode: String?
     }
 
     /// What the button asks Apple for: the name and email scopes, and the **hashed** nonce. Returns
@@ -71,7 +74,8 @@ struct AppleSignIn {
             identityToken: token,
             nonce: nonce,
             isFirstAuthorization: credential.email != nil || (name?.isEmpty == false),
-            fullName: name?.isEmpty == true ? nil : name
+            fullName: name?.isEmpty == true ? nil : name,
+            authorizationCode: credential.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
         )
     }
 
@@ -91,7 +95,22 @@ struct AppleSignIn {
                 nonce: credential.nonce
             )
         )
+        if let code = credential.authorizationCode {
+            keepRevocable(code, with: api)
+        }
         return SignedIn(userID: session.user.id, accountCreatedAt: session.user.createdAt)
+    }
+
+    /// Hands the authorization code to `apple-token`, which keeps Apple's refresh token so deleting
+    /// the account can revoke it. In the background and best-effort: sign-in never waits on it, and
+    /// the function is inert until the Sign in with Apple key is in its secrets.
+    private static func keepRevocable(_ code: String, with api: AteAPIClient) {
+        Task.detached(priority: .utility) {
+            _ = try? await api.supabase.functions.invoke(
+                "apple-token",
+                options: FunctionInvokeOptions(method: .post, body: ["action": "store", "code": code])
+            ) { _, _ in () }
+        }
     }
 
     // MARK: - Nonce

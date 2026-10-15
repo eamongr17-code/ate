@@ -297,7 +297,7 @@ public final class JournalStore: EntryDeletionObserving {
     }
 
     /// One short sentence in the journal's own voice. Never the raw error: a PostgREST body is noise
-    /// to the reader and Sentry already has it.
+    /// to the reader. (Sentry sees crashes only, not handled errors like this one.)
     static func message(for error: any Error) -> String {
         if let urlError = error as? URLError {
             switch urlError.code {
