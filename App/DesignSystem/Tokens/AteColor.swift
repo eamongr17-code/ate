@@ -43,7 +43,7 @@ enum AteColor {
     static let viewerGround = Color.black
 
     /// **Other apps' own colours**, on their discs in the ink share sheet's row (11 Oct, approved:
-    /// Spotify's row). Only there; the glyphs on them are still Ate's.
+    /// Spotify's row), and behind a saved dish's source mark.
     static let instagramColours = [
         Color(hex: 0xFDF497), Color(hex: 0xFD5949), Color(hex: 0xD6249F), Color(hex: 0x285AEB)
     ]

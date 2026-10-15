@@ -120,8 +120,8 @@ struct AteDishRow: View {
     }
 }
 
-/// **Where an own save came from** — Lucide's glyph knocked out of an ink disc, ringed in the ground so
-/// it lifts off the thumbnail it sits on.
+/// **Where an own save came from** — the glyph on an ink disc, or an app's own mark on that app's disc
+/// (TikTok's black, Instagram's gradient), ringed in the ground so it lifts off the thumbnail.
 struct AteSourceMark: View {
     let icon: AteIcon
 
@@ -129,9 +129,9 @@ struct AteSourceMark: View {
 
     var body: some View {
         icon.view(size: AteSourceMarkMetrics.glyph)
-            .foregroundStyle(palette.inverted)
+            .foregroundStyle(icon.brand == nil ? palette.inverted : AteColor.onBrand)
             .frame(width: AteSourceMarkMetrics.disc, height: AteSourceMarkMetrics.disc)
-            .background(palette.solid, in: .circle)
+            .background(icon.brand?.fill ?? AnyShapeStyle(palette.solid), in: .circle)
             .overlay { Circle().strokeBorder(palette.ground, lineWidth: AteSourceMarkMetrics.ring) }
             .offset(x: AteSourceMarkMetrics.overhang, y: AteSourceMarkMetrics.overhang)
             .accessibilityHidden(true)

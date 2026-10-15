@@ -76,8 +76,8 @@ struct AteShareRow: View {
     }
 }
 
-/// An app's colour, on its disc in the share row. The glyph is always Ate's own Lucide icon, never
-/// the app's mark.
+/// An app's colour, on its disc in the share row and behind a saved dish's source mark. TikTok's and
+/// Instagram's discs carry the app's own mark (``AteIcon/tiktok``, ``AteIcon/instagram``).
 enum AteShareBrand {
     case instagram, tiktok, messages
 

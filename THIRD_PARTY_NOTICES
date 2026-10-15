@@ -5,6 +5,11 @@ Ate's icons are the Lucide icon set (https://lucide.dev), taken from the
 `lucide-static` npm package, version 1.48.0, and carried as vector path data in
 App/DesignSystem/Tokens/AteIcon.swift.
 
+The TikTok and Instagram marks (AteIcon.tiktok, AteIcon.instagram) are the path
+data from Simple Icons (https://simpleicons.org), released under CC0 1.0. The
+marks themselves are trademarks of their owners and are used only to name
+those apps.
+
 The typefaces are licensed under the SIL Open Font License; their licences sit
 beside the fonts in App/Resources/Fonts/.
 

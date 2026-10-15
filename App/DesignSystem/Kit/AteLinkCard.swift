@@ -87,12 +87,12 @@ enum AteLinkCardMetrics {
 }
 
 extension OwnSaveSource {
-    /// The mark on the thumbnail. No brand marks: TikTok is Lucide's music note, Instagram its camera.
+    /// The mark on the thumbnail: TikTok's and Instagram's own; Lucide's pencil and link for the rest.
     var mark: AteIcon {
         switch self {
         case .manual: .edit
-        case .tiktok: .music
-        case .instagram: .camera
+        case .tiktok: .tiktok
+        case .instagram: .instagram
         case .link: .link
         }
     }
