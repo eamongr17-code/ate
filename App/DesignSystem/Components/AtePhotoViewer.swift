@@ -37,6 +37,8 @@ struct AtePhotoDishes: Sendable {
     /// Reads the pairs as they stand now, once the viewer is up: a list's slip has none in hand, and
     /// a match that lands while the entry is open shows without reopening it (14 Oct).
     var load: (@MainActor @Sendable () async -> [String: UUID])?
+    /// Who and where, under the dish on somebody else's photo: "@paris · 400 Gradi".
+    var byline: String?
 }
 
 extension EnvironmentValues {
@@ -185,9 +187,7 @@ struct AtePhotoViewer: View {
                 .opacity(isShowing && drag == 0 ? 1 : 0)
         }
         .overlay(alignment: .bottom) {
-            dishPill
-                .padding(.horizontal, AteMetrics.gutter)
-                .padding(.bottom, AtePhotoDishPillMetrics.bottom)
+            dishName
                 .opacity(isShowing && drag == 0 && isZoomed == false ? 1 : 0)
         }
         .statusBarHidden()
@@ -226,17 +226,20 @@ struct AtePhotoViewer: View {
         paired = read
     }
 
-    /// The dish the photo now showing is — named, and on your own entry a menu to fix it.
-    @ViewBuilder private var dishPill: some View {
+    /// The dish the photo now showing is. On your own entry a pill that is a menu to fix it; on
+    /// anybody else's a caption, with who and where, so it never reads as a button (15 Oct, B).
+    @ViewBuilder private var dishName: some View {
         if let dishes, photos.indices.contains(index), let url = photos[index].url?.absoluteString {
             let current = paired[url].flatMap { id in dishes.choices.first { $0.id == id } }
-            AtePhotoDishPill(
-                dish: current,
-                choices: dishes.onPick == nil ? [] : dishes.choices,
-                onPick: dishes.onPick.map { pick in
+            if dishes.onPick == nil {
+                if let current { AtePhotoDishCaption(dish: current.name, byline: dishes.byline) }
+            } else {
+                AtePhotoDishPill(dish: current, choices: dishes.choices, onPick: dishes.onPick.map { pick in
                     { (choice: AtePhotoDishPill.Dish?) in choose(choice, for: url, with: pick) }
-                }
-            )
+                })
+                .padding(.horizontal, AteMetrics.gutter)
+                .padding(.bottom, AtePhotoDishPillMetrics.bottom)
+            }
         }
     }
 
