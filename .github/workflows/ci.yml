@@ -176,7 +176,7 @@ jobs:
         run: node --test supabase/functions/match-photos/*_test.ts
 
       # places-search's pure modules, same deal: no runtime APIs, so Node runs them. Only the
-      # node-compatible suites are listed — blend_test.ts and vic_filter_test.ts import
+      # node-compatible suites are listed — blend_test.ts imports
       # deno.land/std and need `deno test`.
       - name: Places locality derivation (the restaurants.city suburb rule)
         run: node --test supabase/functions/places-search/locality_test.ts

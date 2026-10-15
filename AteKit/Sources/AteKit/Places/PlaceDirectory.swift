@@ -66,8 +66,10 @@ public struct PlaceSuggestion: Identifiable, Sendable, Hashable {
 /// correction. One seam, because the two surfaces must offer exactly the same set — the same action
 /// working identically everywhere it appears.
 public protocol PlaceDirectory: Sendable {
-    /// Typed query. Server order is preserved; the client never re-sorts a blend.
-    func search(_ query: String) async throws -> [PlaceSuggestion]
+    /// Typed query. Server order is preserved; the client never re-sorts a blend. `origin` is where
+    /// the phone is, when the sheet has it: Google ranks rooms near it first, wherever in the world
+    /// that is. It only ranks — nothing is attached from it (design rule 8).
+    func search(_ query: String, near origin: SearchOrigin?) async throws -> [PlaceSuggestion]
     /// The empty-query default: places this person has already eaten at.
     func recents(limit: Int) async throws -> [PlaceSuggestion]
     /// `PlaceSheet`'s Nearby section. Asked for **only** when the sheet has a location to ask with,
@@ -80,6 +82,13 @@ public protocol PlaceDirectory: Sendable {
     func add(name: String, suburb: String?, street: String?) async throws -> PlaceRef
     /// The dishes already on a place's menu, for the dish sheet.
     func dishes(atPlace placeID: UUID, limit: Int) async throws -> [PlaceDish]
+}
+
+public extension PlaceDirectory {
+    /// A typed query with no location to rank by — the server falls back to where you last ate.
+    func search(_ query: String) async throws -> [PlaceSuggestion] {
+        try await search(query, near: nil)
+    }
 }
 
 /// One dish on a place's menu, as the dish sheet lists it.

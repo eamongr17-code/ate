@@ -14,7 +14,7 @@ public struct InMemoryPlaceDirectory: PlaceDirectory, InMemoryStandIn {
         self.menu = menu ?? Self.tipoMenu
     }
 
-    public func search(_ query: String) async throws -> [PlaceSuggestion] {
+    public func search(_ query: String, near origin: SearchOrigin?) async throws -> [PlaceSuggestion] {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard needle.count >= 2 else { return [] }
         return places.filter { $0.name.lowercased().contains(needle) }

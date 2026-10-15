@@ -5,7 +5,7 @@
 // Three operations, switched by `?op=`:
 //   - op=autocomplete  body: { input: string, lat?, lng?, session_token? }
 //       → returns place predictions [{ google_place_id, name, secondary,
-//         distance_meters? }] — VIC-restricted, food/bev-only, capped at 5
+//         distance_meters? }] — worldwide (ranked near the caller), food/bev-only, capped at 5
 //         (PH-BE-1). FB2-BE-1: when BOTH lat+lng are sent, `origin` is forwarded
 //         to Google and each prediction carries `distance_meters` (metres from the
 //         origin); omitted otherwise (additive, back-compat). The wire field is
@@ -30,24 +30,20 @@
 //       → PostGIS-first KNN against our restaurants table (free, GIST-indexed,
 //         via the restaurants_nearby RPC); falls back to Google searchNearby
 //         ONLY when DB matches are below threshold, upserting the Google results.
-//         VIC-restricted, food/bev-only, capped at 10 (PH-BE-2).
+//         Food/bev-only, capped at 10 (PH-BE-2).
 //         Returns { stub, source, restaurants: [{ id, google_place_id, name,
 //         address, city, cuisine, cover_url, distance_meters? }] }. FB2-BE-1:
 //         distance_meters = the restaurants_nearby RPC's distance_m (DB rows) or a
 //         haversine from the query origin (Google-fallback rows), in metres.
 //
 // Places hardening (PH-BE-1 / PH-BE-2, Eamon-locked 2026-06-16):
-//   - VIC restriction: bounding-box locationRestriction (rectangle) + region
-//     'au' CONTAIN results to the VIC box (a hard restriction, not a bias). On
-//     top of containment, a server-side DROP removes only border-bleed — a
-//     result whose address/secondary text POSITIVELY names another AU
-//     state/territory (NSW/QLD/SA/WA/NT/TAS/ACT). A result with no state token
-//     (just a suburb + "Australia") is KEPT, because the rectangle already
-//     guarantees it sits inside the VIC box. (Earlier we required a VIC token,
-//     but Google routinely omits the state in autocomplete secondary text, which
-//     silently dropped legitimate Melbourne venues → 0 predictions → a
-//     RestaurantNotFoundError on the core flow. PH-BE-1+2 peer-review fix.)
-//     Applied to BOTH autocomplete and nearby (PH-E1 RESOLVED).
+//   - WORLDWIDE, RANKED NEAR YOU (0066, 2026-10-15 — replaces the VIC fence). The old hard
+//     VIC rectangle + region 'au' + other-state drop made every place outside Victoria
+//     unfindable, which broke the app the moment anyone travelled (Eamon, Thailand). Autocomplete
+//     now sends a `locationBias` circle — a ranking, never an exclusion — around, in order:
+//     the phone's location (the app sends it once the place sheet has it), else where this
+//     person last ate (places_bias_point, 0066), else nothing (Google's global ranking).
+//     Nearby was always a circle around the phone; it just loses the AU-state drop.
 //   - Food/bev types: autocomplete keeps the 5 includedPrimaryTypes — Places API
 //     (New) autocomplete CAPS includedPrimaryTypes at 5 (PH-E2 RESOLVED). Nearby
 //     uses the broader food/bev includedTypes set (searchNearby allows up to 50).
@@ -137,17 +133,13 @@ const json = (body: unknown, status = 200) =>
 // Places hardening constants (PH-BE-1 / PH-BE-2, Eamon-locked 2026-06-16).
 // ---------------------------------------------------------------------------
 
-// VIC bounding box (PH-E1): rectangle covering Victoria, Australia. low =
-// south-west corner, high = north-east corner. Used as `locationRestriction`
-// for autocomplete + nearby — a hard restriction, not a bias.
-// south = -39.20: covers VIC's southernmost point (Wilsons Promontory ~-39.14)
-// with a small margin. An earlier -37.5 was NORTH of Melbourne CBD (-37.81) and
-// silently excluded Melbourne, Geelong, the Mornington Peninsula, Phillip Island
-// and all of Gippsland → 0 autocomplete predictions for the core flow.
-const VIC_RECTANGLE = {
-  low: { latitude: -39.2, longitude: 140.96 },
-  high: { latitude: -33.98, longitude: 149.98 },
-};
+// The autocomplete bias circle. 50 km is the Places API (New) maximum for a circle bias: a metro
+// area, so a search in Bangkok ranks Bangkok first while a famous place elsewhere still appears.
+const BIAS_RADIUS_M = 50000;
+
+// Names and addresses in English wherever Google has them, so a Bangkok receipt reads like the
+// rest of the app. Google falls back to the local name when it has no English one.
+const LANGUAGE = 'en';
 
 // Autocomplete primary types (PH-E2): Places API (New) autocomplete caps
 // includedPrimaryTypes at 5 — keep exactly these 5 food/bev venue types.
@@ -197,35 +189,8 @@ const NEARBY_MAX_RADIUS_M = 50000;
 // nearby rows, serve from DB and skip the paid Google call entirely.
 const DB_NEARBY_THRESHOLD = 5;
 
-// VIC post-filter (PH-E1, hardened PH-BE-1+2 follow-up): the bounding-box
-// `locationRestriction` rectangle + `includedRegionCodes:['au']` already CONTAIN
-// results to the VIC box, so a result inside the box is presumed Victorian. The
-// only failure we still need to catch is border-bleed: a venue physically just
-// across the VIC line (the box overshoots the SA/NSW borders slightly) whose
-// address positively names ANOTHER Australian state/territory.
-//
-// Earlier we *required* a VIC/"Victoria" token — but Google routinely omits the
-// state from autocomplete secondary text (a real Melbourne venue shows
-// "Fitzroy, Australia" or just "Melbourne, Australia"), so require-VIC silently
-// dropped legitimate venues → 0 predictions → RestaurantNotFoundError on the
-// core "where did you eat?" flow. We now invert the rule:
-//
-//   DROP only when the text POSITIVELY names a non-VIC AU state/territory.
-//   KEEP everything else (no state token = inside-the-box = Victorian).
-//
-// Word-boundary anchors on the abbreviations so "WA" doesn't fire inside
-// "WARRNAMBOOL" and "SA" doesn't fire inside "SALE" — both legitimate VIC towns.
-const OTHER_AU_STATE_RE =
-  /\b(?:NSW|QLD|SA|WA|NT|TAS|ACT)\b|\bNew South Wales\b|\bQueensland\b|\bSouth Australia\b|\bWestern Australia\b|\bNorthern Territory\b|\bTasmania\b|\bAustralian Capital Territory\b/i;
-
-// Returns true when the text positively names a non-VIC state/territory → DROP.
-function namesOtherAuState(text: string | null | undefined): boolean {
-  return OTHER_AU_STATE_RE.test(text ?? '');
-}
-
 // ---------------------------------------------------------------------------
-// Fixture data (stub mode) — VIC venues so the stub experience matches the
-// production intent (VIC-only, food/bev). Coords are real Melbourne locations.
+// Fixture data (stub mode) — real Melbourne venues and coordinates.
 // ---------------------------------------------------------------------------
 type StubPlace = {
   google_place_id: string;
@@ -400,7 +365,13 @@ function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): num
 // Live Google path (active only when GOOGLE_PLACES_API_KEY is present).
 // Uses the Places API (New): Autocomplete + Place Details + Nearby Search.
 // ---------------------------------------------------------------------------
-async function googleAutocomplete(input: string, lat?: number, lng?: number, sessionToken?: string) {
+async function googleAutocomplete(
+  input: string,
+  lat?: number,
+  lng?: number,
+  sessionToken?: string,
+  bias?: { lat: number; lng: number } | null,
+) {
   // FB2-BE-1: when BOTH origin coords are present + finite, send `origin` so the
   // Places API (New) returns `distanceMeters` on each placePrediction. Omitted
   // when no origin → predictions carry no distance (back-compat, ranking + shape
@@ -414,11 +385,11 @@ async function googleAutocomplete(input: string, lat?: number, lng?: number, ses
       // PH-E2: 5 food/bev primary types (the New API autocomplete cap). Surfaces
       // venues, not cities/regions, for "where did you eat?".
       includedPrimaryTypes: AUTOCOMPLETE_PRIMARY_TYPES,
-      // PH-E1: hard-restrict to the VIC bounding box (replaces the prior
-      // locationBias circle — a bias merely re-ranked, this excludes) + scope
-      // to Australia for belt-and-suspenders country containment.
-      locationRestriction: { rectangle: VIC_RECTANGLE },
-      includedRegionCodes: ['au'],
+      // 0066: rank near the caller, never fence. No bias point → Google's own ranking.
+      ...(bias
+        ? { locationBias: { circle: { center: { latitude: bias.lat, longitude: bias.lng }, radius: BIAS_RADIUS_M } } }
+        : {}),
+      languageCode: LANGUAGE,
       // FB2-BE-1: origin → Google returns distanceMeters per suggestion. Only
       // sent when both coords are finite (additive).
       ...(hasOrigin ? { origin: { latitude: lat as number, longitude: lng as number } } : {}),
@@ -443,11 +414,6 @@ async function googleAutocomplete(input: string, lat?: number, lng?: number, ses
         ...(Number.isFinite(dm) ? { distance_meters: dm as number } : {}),
       };
     })
-    // PH-BE-1 follow-up: drop ONLY when the secondary text positively names
-    // another AU state/territory (border-bleed). A state-less "Melbourne,
-    // Australia" is KEPT — the locationRestriction rectangle already guarantees
-    // it's inside the VIC box, and Google often omits the state token.
-    .filter((p) => !namesOtherAuState(p.secondary))
     // PH-E3: cap typed predictions at 5.
     .slice(0, AUTOCOMPLETE_CAP);
 }
@@ -457,6 +423,7 @@ async function googleDetails(placeId: string, sessionToken?: string): Promise<St
   // the autocomplete session opened above). Omitted → standalone Details call.
   const detailsUrl = new URL(`https://places.googleapis.com/v1/places/${placeId}`);
   if (sessionToken) detailsUrl.searchParams.set('sessionToken', sessionToken);
+  detailsUrl.searchParams.set('languageCode', LANGUAGE);
   const res = await fetch(detailsUrl.toString(), {
     headers: {
       'X-Goog-Api-Key': GOOGLE_KEY,
@@ -464,7 +431,8 @@ async function googleDetails(placeId: string, sessionToken?: string): Promise<St
       // into a higher SKU tier and we discard it (cover_url stays ''). No Place
       // Photo calls until Eamon revisits.
       'X-Goog-FieldMask':
-        'id,displayName,formattedAddress,location,types,primaryTypeDisplayName',
+        // addressComponents (an Essentials field, same tier) names the town outside Australia.
+        'id,displayName,formattedAddress,addressComponents,location,types,primaryTypeDisplayName',
     },
   });
   if (!res.ok) return null;
@@ -472,7 +440,7 @@ async function googleDetails(placeId: string, sessionToken?: string): Promise<St
   if (!p.id) return null;
   // The SUBURB, not a street line: localityFromAddress mirrors place_locality() (0029). See
   // ./locality.ts for the mangle this replaced. Forward-only — existing rows are not rewritten.
-  const city = localityFromAddress(p.formattedAddress);
+  const city = localityFromAddress(p.formattedAddress, p.addressComponents);
   return {
     google_place_id: p.id,
     name: p.displayName?.text ?? 'Unknown',
@@ -496,21 +464,20 @@ async function googleNearby(lat: number, lng: number, radiusM: number): Promise<
       // BE-PLACES-1: no photos in the field mask (preserve the lower SKU tier).
       // `places.` prefix is required on the searchNearby field mask.
       'X-Goog-FieldMask':
-        'places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryTypeDisplayName',
+        'places.id,places.displayName,places.formattedAddress,places.addressComponents,places.location,places.types,places.primaryTypeDisplayName',
     },
     body: JSON.stringify({
       // PH-E2: broad food/bev type set (searchNearby allows up to 50).
       includedTypes: NEARBY_INCLUDED_TYPES,
       // PH-E3: ask Google for up to the cap (max 20 allowed by the API; 10 is well within).
       maxResultCount: NEARBY_CAP,
-      // searchNearby's locationRestriction must be a circle (it has no rectangle
-      // form). The VIC containment for nearby is enforced by (a) the device being
-      // in VIC and (b) the strict VIC post-filter below.
+      // A circle around the phone, wherever it is.
       locationRestriction: {
         circle: { center: { latitude: lat, longitude: lng }, radius: radiusM },
       },
       // Bias the ranking toward distance (closest first) for a "near me" list.
       rankPreference: 'DISTANCE',
+      languageCode: LANGUAGE,
     }),
   });
   if (!res.ok) return [];
@@ -520,7 +487,7 @@ async function googleNearby(lat: number, lng: number, radiusM: number): Promise<
     .filter((p) => p.id)
     .map((p) => {
       // Same derivation as op=details — one implementation, in ./locality.ts.
-      const city = localityFromAddress(p.formattedAddress);
+      const city = localityFromAddress(p.formattedAddress, p.addressComponents);
       return {
         google_place_id: p.id as string,
         name: p.displayName?.text ?? 'Unknown',
@@ -531,12 +498,7 @@ async function googleNearby(lat: number, lng: number, radiusM: number): Promise<
         cuisine: p.primaryTypeDisplayName?.text ?? '',
         cover_url: '',
       } as StubPlace;
-    })
-    // PH-BE-1 follow-up: same drop-only-on-other-state logic on nearby results
-    // (formattedAddress). The searchNearby circle + the device being in VIC keep
-    // results local; we only drop a result whose address positively names another
-    // AU state/territory (border-bleed), never one that merely omits the state.
-    .filter((p) => !namesOtherAuState(p.address));
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -679,6 +641,25 @@ async function searchLocalRestaurants(query: string, limit = AUTOCOMPLETE_CAP): 
   } catch (e) {
     console.error('search_local_restaurants threw (soft-fail to Places-only):', e);
     return [];
+  }
+}
+
+// 0066: where to rank a typed search around when the app sent no location — where this person
+// last ate. Soft-fail: no row, an unapplied 0066 or a DB hiccup all mean "no bias", never an error.
+async function lastPlacePoint(userId: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const { data, error } = await adminClient().rpc('places_bias_point', { p_user_id: userId });
+    if (error) {
+      console.error('places_bias_point failed (no bias):', error.message);
+      return null;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    const lat = Number(row?.lat);
+    const lng = Number(row?.lng);
+    return row && Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+  } catch (e) {
+    console.error('places_bias_point threw (no bias):', e);
+    return null;
   }
 }
 
@@ -862,10 +843,14 @@ Deno.serve(async (req) => {
       // `results` list. Local search is soft-fail (returns [] on any error) so it
       // can never break the core Places autocomplete. The DB call works in stub
       // mode too (the local catalogue is independent of the Google key).
+      const hasOrigin = Number.isFinite(acLat) && Number.isFinite(acLng);
       const [predictions, local] = await Promise.all([
         STUB
           ? Promise.resolve(stubAutocomplete(input, acLat, acLng))
-          : googleAutocomplete(input, acLat, acLng, sessionToken),
+          : (hasOrigin
+              ? Promise.resolve({ lat: acLat as number, lng: acLng as number })
+              : lastPlacePoint(userId)
+            ).then((bias) => googleAutocomplete(input, acLat, acLng, sessionToken, bias)),
         searchLocalRestaurants(input),
       ]);
       const results = blendResults(predictions as Prediction[], local as LocalMatch[]);
@@ -914,7 +899,7 @@ Deno.serve(async (req) => {
       }
 
       // 2) DB is thin → fall back to Google searchNearby for discovery, upsert
-      //    the (VIC-filtered) results so the DB warms for next time.
+      //    the results so the DB warms for next time.
       const googlePlaces = await googleNearby(lat, lng, radiusM);
       // FB2-BE-1: pass the query origin so each upserted Google row gets a
       // computed distance_meters (the upserted row no longer carries coords).
