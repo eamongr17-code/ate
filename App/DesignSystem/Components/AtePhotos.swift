@@ -91,14 +91,26 @@ struct AtePhotoTile: View {
     var ring: Color?
     /// The photo will not load and has no letter tile to fall back on (``AtePhotoContent``).
     var onFailure: (() -> Void)?
+    /// Set where the tile opens the viewer: the photo itself, clipped and inside the cluster's tilt,
+    /// is what the `.zoom` grows from and lands back in — not the square box around it, which cut
+    /// the ring and the tilted corners off as a photo closed (15 Oct).
+    var zoomSource: (frames: AtePhotoTileFrames, index: Int)?
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: AteMetrics.photoRadius(side: side), style: .continuous)
-        return AtePhotoContent(photo: photo, size: .forSide(side), onFailure: onFailure)
-        .frame(width: side, height: side)
-        .clipShape(shape)
+        let radius = AteMetrics.photoRadius(side: side)
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        let clipped = AtePhotoContent(photo: photo, size: .forSide(side), onFailure: onFailure)
+            .frame(width: side, height: side)
+            .clipShape(shape)
+        return Group {
+            if let zoomSource {
+                clipped.atePhotoSource(zoomSource.frames, index: zoomSource.index, radius: radius)
+            } else {
+                clipped
+            }
+        }
         .overlay {
             // `box-shadow:0 0 0 3px var(--surface)` — the ring sits entirely OUTSIDE the photo, so
             // the white parting between two overlapping tiles is a full 3pt, not half of one.
@@ -235,7 +247,8 @@ struct PhotoCluster: View {
             photo: photo,
             side: side,
             ring: count > 1 ? (surface ?? palette.ground) : nil,
-            onFailure: { failed.insert(photo.id) }
+            onFailure: { failed.insert(photo.id) },
+            zoomSource: onTap == nil ? nil : (frames, index)
         )
         .rotationEffect(.degrees(tilt))
 
@@ -248,7 +261,6 @@ struct PhotoCluster: View {
                 onTap(index)
             } label: { drawn.contentShape(.rect) }
                 .buttonStyle(.plain)
-                .atePhotoSource(frames, index: index)
                 .accessibilityLabel("Photo \(position + 1) of \(count)")
                 .accessibilityIdentifier("photo.\(index)")
                 .modifier(RemovablePhoto(index: index, side: side, angle: tilt, onRemove: onRemove))

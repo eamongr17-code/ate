@@ -57,15 +57,16 @@ final class AtePhotoTileFrames {
 
 extension View {
     /// Marks a photo tile as something a preview grows from: its frame is measured into `frames`,
-    /// and it is the `.zoom` transition's source.
-    func atePhotoSource(_ frames: AtePhotoTileFrames, index: Int) -> some View {
-        modifier(AtePhotoSourceModifier(frames: frames, index: index))
+    /// and it is the `.zoom` transition's source, landing in the tile's own rounded corners.
+    func atePhotoSource(_ frames: AtePhotoTileFrames, index: Int, radius: CGFloat) -> some View {
+        modifier(AtePhotoSourceModifier(frames: frames, index: index, radius: radius))
     }
 }
 
 private struct AtePhotoSourceModifier: ViewModifier {
     let frames: AtePhotoTileFrames
     let index: Int
+    let radius: CGFloat
     @Environment(\.atePhotoZoomNamespace) private var zoom
 
     func body(content: Content) -> some View {
@@ -73,7 +74,9 @@ private struct AtePhotoSourceModifier: ViewModifier {
             frames.frames[index] = frame
         }
         if let zoom {
-            measured.matchedTransitionSource(id: frames.sourceID(index), in: zoom)
+            measured.matchedTransitionSource(id: frames.sourceID(index), in: zoom) { source in
+                source.clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            }
         } else {
             measured
         }
