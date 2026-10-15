@@ -49,6 +49,8 @@
 //         unreachable, not merely unused. A model failure falls back to the stub
 //         rather than failing the sort.
 //   ATE_SORTER_MODE=stub forces stub even with a key (eval/incident switch).
+//   0067: every model call also spends the daily AI budget (ai_budget_hit: 100 sorts per user, 5,000
+//   calls across everyone); over it, or past 4,000 characters, the sort runs on the stub.
 //
 // BOTH modes go through ./validate.ts and then through apply_entry_sort's SQL checks
 // (migration 0021), which drop any score whose evidence is not literally in the words
@@ -110,6 +112,9 @@ const MODE: SorterMode = resolveMode(ANTHROPIC_KEY, Deno.env.get('ATE_SORTER_MOD
 const MODEL_ID = resolveModel(Deno.env.get('ATE_SORTER_MODEL'));
 /** What the response reports as `model`: the ID only when the model's plan was used. */
 const modelFor = (mode: SorterMode) => (mode === 'model' ? MODEL_ID : null);
+
+/** Longer words than this go to the stub parser, never the model (0067 spend guard). */
+const MODEL_MAX_BODY = 4000;
 
 /** A local match must clear this to attach a place. Mirrors the search blend's bar. */
 const PLACE_MATCH_MIN = 0.55;
@@ -430,6 +435,20 @@ async function purgeExpiredPreviews(admin: ReturnType<typeof adminClient>): Prom
   if (error) console.error('sort-entry: preview purge failed:', error.message);
 }
 
+/**
+ * The daily AI budget (0067), checked only when the model is actually about to be called (a cache
+ * hit costs nothing). Fails CLOSED to the stub: over budget, or the check itself failing, the entry
+ * is still sorted, by the rule-based parser.
+ */
+async function aiBudgetAllows(admin: ReturnType<typeof adminClient>, userId: string): Promise<boolean> {
+  const { data, error } = await admin.rpc('ai_budget_hit', { p_user_id: userId, p_kind: 'sort' });
+  if (error) {
+    console.error('sort-entry: ai budget check failed:', error.message);
+    return false;
+  }
+  return data === true;
+}
+
 /** The spend guard. Fails CLOSED: a preview is optional, the real sort after Done is not. */
 async function admitPreview(admin: ReturnType<typeof adminClient>, authorId: string): Promise<boolean> {
   const { data, error } = await admin.rpc('sort_preview_rate_hit', {
@@ -524,8 +543,8 @@ async function planFor(
       model: MODEL_ID,
       store: opts.preview,
       admit: opts.preview ? () => admitPreview(admin, opts.authorId) : undefined,
-      run: () =>
-        sortWithModel({
+      run: async () =>
+        body.length > MODEL_MAX_BODY || !(await aiBudgetAllows(admin, opts.authorId)) ? null : sortWithModel({
           apiKey: ANTHROPIC_KEY,
           model: MODEL_ID,
           body,

@@ -109,6 +109,16 @@ async function authedUserId(token: string): Promise<string | null> {
   }
 }
 
+/**
+ * The daily AI budget (0067: 40 share reads per user, shared ceiling across everyone). Asked only
+ * when the model would really be called. Fails CLOSED: no budget means no suggestion, never an error.
+ */
+async function aiBudgetAllows(admin: ReturnType<typeof adminClient>, userId: string): Promise<boolean> {
+  const { data, error } = await admin.rpc('ai_budget_hit', { p_user_id: userId, p_kind: 'share' });
+  if (error) console.error('read-share: ai budget check failed:', error.message);
+  return !error && data === true;
+}
+
 /** The cross-isolate ceiling. Fails OPEN on infra error, exactly as places-search does. */
 async function placesBudgetAllows(admin: ReturnType<typeof adminClient>, userId: string): Promise<boolean> {
   try {
@@ -275,9 +285,11 @@ Deno.serve(async (req) => {
 
   const startedAt = Date.now();
   const read = await readPost(classified, sharedText);
+  const input = modelInput(read.modelText, sharedText);
+  const spend = Boolean(ANTHROPIC_KEY) && input.trim() !== '' && await aiBudgetAllows(admin, userId);
   const suggestion = await suggestFromCaption({
-    apiKey: ANTHROPIC_KEY,
-    input: modelInput(read.modelText, sharedText),
+    apiKey: spend ? ANTHROPIC_KEY : null,
+    input,
     model: MODEL_ID,
   });
   const place = suggestion.place_query ? await resolvePlace(admin, token, suggestion.place_query) : null;

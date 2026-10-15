@@ -12,6 +12,9 @@ struct FeedSlipActionsSheet: View {
     let latest: EntryListStore
     let app: AppModel
     let onBlocked: (UUID) -> Void
+    /// A report or block that did not land. Said by the Feed (the sheet is gone by then), with the
+    /// same one-line alert the entry page uses.
+    let onFailed: (ActionFailure) -> Void
 
     private var entry: EntryCard { latest.entry(id: pressed.id) ?? pressed }
 
@@ -47,8 +50,12 @@ struct FeedSlipActionsSheet: View {
         let services = app.services
         let entryID = entry.id
         Task {
-            guard (try? await services.profiles.report(entryID: entryID, reason: nil, note: nil)) != nil else { return }
-            services.analytics(SocialEvents.entryReported())
+            do {
+                try await services.profiles.report(entryID: entryID, reason: nil, note: nil)
+                services.analytics(SocialEvents.entryReported())
+            } catch {
+                onFailed(.report)
+            }
         }
     }
 
@@ -56,9 +63,13 @@ struct FeedSlipActionsSheet: View {
         let services = app.services
         let authorID = entry.authorID
         Task {
-            guard (try? await services.profiles.block(userID: authorID)) != nil else { return }
-            services.analytics(SocialEvents.userBlocked())
-            onBlocked(authorID)
+            do {
+                try await services.profiles.block(userID: authorID)
+                services.analytics(SocialEvents.userBlocked())
+                onBlocked(authorID)
+            } catch {
+                onFailed(.block)
+            }
         }
     }
 }

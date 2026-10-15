@@ -69,6 +69,7 @@ function fakeWorld(opts: { noContextRpc?: boolean } = {}) {
     },
     get_entry_card: () => [CARD],
     sort_preview_rate_hit: () => true,
+    ai_budget_hit: () => true,
     sort_preview_purge_expired: () => 0,
     apply_entry_sort: (a) => [{ sort_status: 'sorted', restaurant_id: a.p_restaurant_id }],
     mark_entry_sort_failed: () => null,
@@ -274,7 +275,7 @@ if (!isDeno) {
     const reads = world.calls.filter((c) => c.kind === 'from').map((c) => c.table);
     assertEquals(reads, [], 'entry, place name, menu and six lines all came from sort_entry_context');
     const rpcs = world.calls.filter((c) => c.kind === 'rpc').map((c) => c.name);
-    assertEquals(rpcs, ['sort_entry_context', 'sort_preview_claim', 'apply_entry_sort', 'get_entry_card']);
+    assertEquals(rpcs, ['sort_entry_context', 'sort_preview_claim', 'ai_budget_hit', 'apply_entry_sort', 'get_entry_card']);
     const meta = (world.calls.find((c) => c.name === 'apply_entry_sort')!.args as { p_meta: Record<string, unknown> }).p_meta;
     assertEquals([meta.cache_hit, meta.model, typeof meta.model_ms, typeof meta.plan_ms], [false, 'claude-haiku-5-5', 'number', 'number']);
   });
@@ -322,5 +323,20 @@ if (!isDeno) {
     const res = await call({ entry_id: ENTRY });
     assertEquals([res.status, res.json.skipped, res.json.entry_card], [200, 'already sorted', CARD]);
     assert(!world.calls.some((c) => c.name === 'apply_entry_sort'));
+  });
+}
+
+if (!isDeno) {
+  test('sort-entry (0067): over the daily AI budget, the entry still sorts, on the stub, with no model call', async () => {
+    const { world, call, modelCalls } = await loadHandler('model');
+    const rpc = world.client.rpc;
+    world.client.rpc = async (name: string, args: Record<string, unknown>) =>
+      name === 'ai_budget_hit' ? { data: false, error: null } : rpc(name, args);
+    const res = await call({ entry_id: ENTRY, force: false, ...tokens });
+    assertEquals(res.status, 200, JSON.stringify(res.json));
+    assertEquals(modelCalls(), 0);
+    const [apply] = world.calls.filter((c) => c.kind === 'rpc' && c.name === 'apply_entry_sort');
+    assertEquals((apply.args as { p_mode: string }).p_mode, 'stub');
+    assertEquals(printed((apply.args as { p_items: never[] }).p_items), EXPECTED);
   });
 }
