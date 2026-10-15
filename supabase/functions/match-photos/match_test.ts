@@ -5,7 +5,8 @@
 
 import { test, assert, assertEquals } from '../sort-entry/harness.ts';
 import {
-  askModel, buildRequest, loadImages, matchesFromResponse, MAX_PHOTOS, plan, thumbnailUrl, type Line, type Photo,
+  askModel, buildRequest, loadImages, matchesFromResponse, MAX_IMAGE_BYTES, MAX_PHOTOS, ownPhotoReadUrl, plan, thumbnailUrl,
+  type Line, type Photo,
 } from './match.ts';
 
 const photo = (position: number): Photo => ({ position, url: `https://x.test/p/${position}.jpg` });
@@ -167,4 +168,40 @@ test('askModel: no photo readable → null, and the model is not asked', async (
   }) as unknown as typeof fetch;
   assertEquals(await askModel({ apiKey: 'sk-ant-test', photos: [photo(0)], lines: [line('a', 'A'), line('b', 'B')], fetchImpl }), null);
   assert(!asked);
+});
+
+test('ownPhotoReadUrl: only the author\'s own bucket folder, always read from our own storage', () => {
+  const me = '00000000-0000-4000-8000-00000000000A';
+  const base = 'https://ref.supabase.co/';
+  const own = 'https://ref.supabase.co/storage/v1/object/public/review-photos/00000000-0000-4000-8000-00000000000a/e/entry-0.jpg';
+  assertEquals(ownPhotoReadUrl(own, me, base), own);
+  // Another host naming our path is read from OUR storage, never theirs.
+  assertEquals(
+    ownPhotoReadUrl('http://169.254.169.254/storage/v1/object/public/review-photos/00000000-0000-4000-8000-00000000000a/x.jpg', me, base),
+    'https://ref.supabase.co/storage/v1/object/public/review-photos/00000000-0000-4000-8000-00000000000a/x.jpg',
+  );
+  assertEquals(ownPhotoReadUrl('https://evil.test/cat.jpg', me, base), null);
+  assertEquals(ownPhotoReadUrl('https://ref.supabase.co/storage/v1/object/public/review-photos/someone-else/x.jpg', me, base), null);
+  assertEquals(ownPhotoReadUrl('https://ref.supabase.co/storage/v1/object/public/review-photos/00000000-0000-4000-8000-00000000000a/%2e%2e/x.jpg', me, base), null);
+  assertEquals(ownPhotoReadUrl('https://ref.supabase.co/storage/v1/object/public/avatars/00000000-0000-4000-8000-00000000000a/x.jpg', me, base), null);
+  assertEquals(ownPhotoReadUrl('not a url', me, base), null);
+});
+
+test('loadImages: reads from `read` when set, keeps `url`, and skips an oversized photo', async () => {
+  const seen: string[] = [];
+  const fetchImpl = (async (url: string) => {
+    seen.push(url);
+    if (url.includes('big')) {
+      return new Response('x', { status: 200, headers: { 'content-length': String(MAX_IMAGE_BYTES + 1) } });
+    }
+    return url.endsWith('_t.jpg')
+      ? new Response('thumb', { status: 200, headers: { 'content-type': 'image/jpeg' } })
+      : new Response('missing', { status: 404 });
+  }) as unknown as typeof fetch;
+  const got = await loadImages([
+    { position: 0, url: 'https://stored.test/p/0.jpg', read: 'https://ours.test/p/0.jpg' },
+    { position: 1, url: 'https://stored.test/p/big.jpg', read: 'https://ours.test/p/big.jpg' },
+  ], { fetchImpl });
+  assertEquals(got.map((p) => [p.position, p.url]), [[0, 'https://stored.test/p/0.jpg']]);
+  assert(seen.every((u) => u.startsWith('https://ours.test/')));
 });

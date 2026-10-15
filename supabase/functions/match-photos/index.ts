@@ -25,7 +25,7 @@
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY (auto-injected).
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { askModel, plan, resolveModel, type Line, type Photo } from './match.ts';
+import { askModel, ownPhotoReadUrl, plan, resolveModel, type Line, type Photo } from './match.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -80,6 +80,14 @@ async function callerCanSee(req: Request, entryId: string): Promise<boolean> {
   }
 }
 
+/** Spends one call of the caller's daily AI budget. Fails CLOSED: no budget, no match. */
+async function aiBudgetAllows(admin: ReturnType<typeof adminClient>, userId: string): Promise<boolean> {
+  if (!ANTHROPIC_KEY) return false; // nothing to spend: askModel is inert without the key anyway
+  const { data, error } = await admin.rpc('ai_budget_hit', { p_user_id: userId, p_kind: 'match' });
+  if (error) console.error('match-photos: ai budget check failed:', error.message);
+  return !error && data === true;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
@@ -130,11 +138,17 @@ Deno.serve(async (req) => {
     return json({ error: 'read failed' }, 500);
   }
 
-  // A photo the author said is "No dish" is never offered.
+  // A photo the author said is "No dish" is never offered, nor one outside the author's own
+  // storage folder (0067: photo_url is client-written; it is read from our storage or not at all).
   const picks = (entry.photo_picks ?? {}) as Record<string, string | null>;
   const photos: Photo[] = (photosRes.data ?? [])
     .filter((p) => typeof p.photo_url === 'string' && picks[p.photo_url] !== null)
-    .map((p) => ({ position: p.position as number, url: p.photo_url as string }));
+    .map((p) => ({
+      position: p.position as number,
+      url: p.photo_url as string,
+      read: ownPhotoReadUrl(p.photo_url as string, entry.author_id, SUPABASE_URL),
+    }))
+    .filter((p): p is Photo & { read: string } => p.read !== null);
   // deno-lint-ignore no-explicit-any
   const lines: Line[] = (linesRes.data ?? []).map((r: any) => ({
     review_id: r.id,
@@ -147,9 +161,13 @@ Deno.serve(async (req) => {
   const next = plan(photos, lines);
   if (next.kind === 'nothing') return json({ ok: true, matched: 0 });
 
+  // The daily AI budget (0067: 60 matches per caller, shared ceiling). Over it, nothing is written,
+  // exactly as without a key; the next look at the photo asks again.
   const matches = next.kind === 'direct'
     ? next.matches
-    : await askModel({ apiKey: ANTHROPIC_KEY, photos: next.photos, lines: next.lines, model: MODEL_ID });
+    : await aiBudgetAllows(admin, userId)
+    ? await askModel({ apiKey: ANTHROPIC_KEY, photos: next.photos, lines: next.lines, model: MODEL_ID })
+    : null;
   if (!matches) return json({ ok: true, matched: 0 });
 
   const { data: n, error: writeError } = await admin.rpc('apply_photo_matches', {

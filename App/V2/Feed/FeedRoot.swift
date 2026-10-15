@@ -16,6 +16,11 @@ struct FeedRoot: View {
 
     @State private var isCollapsed = false
     @State private var acting: EntryCard?
+    @State private var failure: ActionFailure?
+    /// A failure that came back while the actions sheet was still leaving; said once it has gone,
+    /// since an alert cannot present over a dismissing sheet.
+    @State private var failureAfterSheet: ActionFailure?
+    @State private var isActionsSheetUp = false
     @State private var isChoosingArea = false
     @State private var scrollToTopAfterArea = 0
 
@@ -100,12 +105,26 @@ struct FeedRoot: View {
                 Task { await choose(pick, in: stores) }
             }
         }
-        .sheet(item: $acting) { entry in
-            let list = AteBeta.isOn ? stores.everything : stores.latest
-            FeedSlipActionsSheet(pressed: entry, latest: list, app: app) { authorID in
-                list.removeAuthor(authorID)
-            }
-        }
+        .sheet(item: $acting, onDismiss: sayFailureAfterSheet) { actionsSheet(for: $0) }
+        .ateFailureAlert($failure)
+    }
+
+    private func actionsSheet(for entry: EntryCard) -> some View {
+        let list = AteBeta.isOn ? stores.everything : stores.latest
+        return FeedSlipActionsSheet(
+            pressed: entry,
+            latest: list,
+            app: app,
+            onBlocked: { list.removeAuthor($0) },
+            onFailed: { if isActionsSheetUp { failureAfterSheet = $0 } else { failure = $0 } }
+        )
+        .onAppear { isActionsSheetUp = true }
+    }
+
+    private func sayFailureAfterSheet() {
+        isActionsSheetUp = false
+        failure = failureAfterSheet
+        failureAfterSheet = nil
     }
 
     /// The city under the title — nothing until the opening is settled, so a "Near me" it is about

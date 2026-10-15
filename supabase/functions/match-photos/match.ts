@@ -20,7 +20,8 @@ import {
 
 export { modelEnabled, resolveModel };
 
-export type Photo = { position: number; url: string };
+/** `url` is the stored address (what a match writes back); `read`, when set, is where its bytes are read. */
+export type Photo = { position: number; url: string; read?: string };
 /** A photo with its bytes, read by the function itself (see loadImages). */
 export type LoadedPhoto = Photo & { data: string; media_type: ImageType };
 export type ImageType = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
@@ -38,6 +39,8 @@ export type Match = { review_id: string; photo_url: string };
 export const MAX_PHOTOS = 8;
 /** Images take longer than words: still a fast answer, but not the sorter's 5 s. */
 export const MATCH_TIMEOUT_MS = Math.max(DEFAULT_TIMEOUT_MS, 12_000);
+/** A photo bigger than this is not read (the app uploads ~1600 px JPEGs, well under). */
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 /** Each photo read from storage, before the model is asked. */
 export const IMAGE_TIMEOUT_MS = 5_000;
 
@@ -62,6 +65,28 @@ export function thumbnailUrl(url: string): string | null {
   return u.toString();
 }
 
+const BUCKET_PATH = '/storage/v1/object/public/review-photos/';
+
+/**
+ * Where to read a stored photo (0067, the readiness review): only a file in the AUTHOR'S OWN folder
+ * of the review-photos bucket, and always from our own storage at `base` (SUPABASE_URL), whatever
+ * host the stored URL names. `entry_photos.photo_url` is client-written, so without this the
+ * function would fetch any address an author typed in. `null` = not ours: never read, never offered.
+ */
+export function ownPhotoReadUrl(url: string, authorId: string, base: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  const at = u.pathname.indexOf(BUCKET_PATH);
+  if (at < 0) return null;
+  const path = u.pathname.slice(at + BUCKET_PATH.length);
+  if (!path.toLowerCase().startsWith(`${authorId.toLowerCase()}/`) || path.includes('..') || /%(2e|2f|5c)/i.test(path)) return null;
+  return `${base.replace(/\/+$/, '')}${BUCKET_PATH}${path}`;
+}
+
 function toBase64(bytes: Uint8Array): string {
   let binary = '';
   for (let i = 0; i < bytes.length; i += 0x8000) {
@@ -76,10 +101,11 @@ async function readImage(url: string, fetchImpl: typeof fetch, timeoutMs: number
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetchImpl(url, { signal: controller.signal });
+    const res = await fetchImpl(url, { signal: controller.signal, redirect: 'error' });
     if (!res.ok) return null;
+    if (Number(res.headers.get('content-length') ?? 0) > MAX_IMAGE_BYTES) return null;
     const bytes = new Uint8Array(await res.arrayBuffer());
-    if (!bytes.length) return null;
+    if (!bytes.length || bytes.length > MAX_IMAGE_BYTES) return null;
     const type = (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
     return { data: toBase64(bytes), media_type: (IMAGE_TYPES as readonly string[]).includes(type) ? type as ImageType : 'image/jpeg' };
   } catch {
@@ -102,9 +128,10 @@ export async function loadImages(
   const fetchImpl = opts.fetchImpl ?? fetch;
   const timeoutMs = opts.timeoutMs ?? IMAGE_TIMEOUT_MS;
   const read = await Promise.all(photos.map(async (p) => {
-    const thumb = thumbnailUrl(p.url);
-    const image = (thumb ? await readImage(thumb, fetchImpl, timeoutMs) : null) ?? await readImage(p.url, fetchImpl, timeoutMs);
-    return image ? { ...p, ...image } : null;
+    const from = p.read ?? p.url;
+    const thumb = thumbnailUrl(from);
+    const image = (thumb ? await readImage(thumb, fetchImpl, timeoutMs) : null) ?? await readImage(from, fetchImpl, timeoutMs);
+    return image ? { position: p.position, url: p.url, ...image } : null;
   }));
   return read.filter((p): p is LoadedPhoto => p !== null);
 }
