@@ -13,6 +13,15 @@ extension AteTextStyle {
     static let kitInkPillSmall = AteTextStyle(
         voice: .display, size: 15, weight: 600, trackingEm: 0, lineHeight: 1.0, textStyle: .subheadline
     )
+    /// A photo's caption on somebody else's entry — `.capL b`: 600 at 17
+    /// (design/rebuild/photo-dish-caption.html, B).
+    static let kitPhotoCaptionDish = AteTextStyle(
+        voice: .display, size: 17, weight: 600, trackingEm: 0, lineHeight: 1.2, textStyle: .body
+    )
+    /// …and who and where under it — `.capL span`: 500 at 13.
+    static let kitPhotoCaptionByline = AteTextStyle(
+        voice: .display, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote
+    )
     /// A score token's numeral at a fixed size (`.tok` at `font-size:13px` on a card, `17px` on the
     /// hero) — DM Mono 500. Inline tokens size against their prose instead (``scoreToken(inProse:)``).
     static func kitScoreToken(_ size: CGFloat) -> AteTextStyle {

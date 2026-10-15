@@ -1,0 +1,92 @@
+<title>Photo Dish Caption</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: three iPhone frames at 393×852 side by side, wrapping on narrow screens. Photo viewer is always black (AteColor.viewerGround). */
+:root {
+  --page: #f3f1ee;
+  --ink: #1c1a18;
+  --muted: #6d6862;
+  --frame: #000;
+  --over: #fff;
+  --rec: #2f7a4f;
+  --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --mono: "DM Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --page: #141312; --ink: #f1eee9; --muted: #a39d95; --rec: #6cc590; color-scheme: dark } }
+:root[data-theme="dark"] { --page: #141312; --ink: #f1eee9; --muted: #a39d95; --rec: #6cc590; color-scheme: dark }
+body { background: var(--page); color: var(--ink); font-family: var(--display); }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 48px; display: grid; gap: 24px; justify-items: center; }
+h1 { font-size: 22px; font-weight: 800; margin: 0; text-wrap: balance; text-align: center; }
+.row { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; }
+figure { margin: 0; display: grid; gap: 10px; justify-items: center; }
+figcaption { font-size: 15px; font-weight: 600; text-align: center; max-width: 393px; }
+figcaption small { display: block; font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--muted); margin-top: 4px; letter-spacing: .02em; }
+.rec { color: var(--rec); }
+.phone { width: 393px; max-width: 100%; aspect-ratio: 393 / 852; background: var(--frame); border-radius: 48px; position: relative; overflow: hidden; box-shadow: 0 0 0 1px rgba(127,127,127,.25); }
+.photo { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); aspect-ratio: 3 / 4;
+  background:
+    radial-gradient(circle at 46% 44%, #e9c46a 0 9%, transparent 10%),
+    radial-gradient(circle at 58% 56%, #c8553d 0 7%, transparent 8%),
+    radial-gradient(circle at 40% 60%, #6a994e 0 6%, transparent 7%),
+    radial-gradient(circle at 52% 50%, #e8a95b 0 24%, transparent 25%),
+    radial-gradient(circle at 50% 50%, #f7f3ec 0 34%, #d9d2c6 35% 36%, transparent 37%),
+    linear-gradient(160deg, #5b3a29, #2e1d15); }
+.dots { position: absolute; left: 0; right: 0; bottom: 22px; display: flex; gap: 7px; justify-content: center; }
+.dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.35); }
+.dots i:first-child { background: #fff; }
+.close { position: absolute; top: 62px; right: 20px; width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.14); backdrop-filter: blur(12px); display: grid; place-items: center; color: #fff; font-size: 18px; }
+/* Current: glass capsule (kept for your own entries, where it's a menu) */
+.pill { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); height: 44px; padding: 0 16px; border-radius: 22px; display: flex; align-items: center; gap: 6px; color: var(--over); font-size: 16px; font-weight: 600; white-space: nowrap;
+  background: rgba(255,255,255,.16); backdrop-filter: blur(14px) saturate(1.4); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.35); }
+.pill svg, .cap svg { width: 16px; height: 16px; }
+.chev { opacity: .7; }
+/* A: plain caption, no capsule */
+.cap { position: absolute; left: 50%; bottom: 52px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; color: var(--over); font-size: 16px; font-weight: 600; white-space: nowrap; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
+/* B: left caption on a soft scrim */
+.scrim { position: absolute; left: 0; right: 0; bottom: 0; height: 170px; background: linear-gradient(to top, rgba(0,0,0,.7), transparent); }
+.capL { position: absolute; left: 20px; bottom: 52px; color: var(--over); display: grid; gap: 2px; }
+.capL b { font-size: 17px; font-weight: 600; }
+.capL span { font-size: 13px; opacity: .75; font-weight: 500; }
+</style>
+
+<div class="wrap">
+  <h1>Dish name on an opened photo</h1>
+  <div class="row">
+    <figure>
+      <div class="phone">
+        <div class="photo"></div>
+        <div class="close">✕</div>
+        <div class="pill">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/></svg>
+          Margherita
+          <svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 6l3-3 3 3M5 10l3 3 3-3"/></svg>
+        </div>
+        <div class="dots"><i></i><i></i><i></i></div>
+      </div>
+      <figcaption>Your own entry (Journal)<small>Unchanged: a glass button, because tapping it lets you fix the dish</small></figcaption>
+    </figure>
+    <figure>
+      <div class="phone">
+        <div class="photo"></div>
+        <div class="close">✕</div>
+        <div class="cap">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/></svg>
+          Margherita
+        </div>
+        <div class="dots"><i></i><i></i><i></i></div>
+      </div>
+      <figcaption>A · Someone else's (Feed) <span class="rec">· recommended</span><small>Plain caption: same words, no capsule, nothing to tap</small></figcaption>
+    </figure>
+    <figure>
+      <div class="phone">
+        <div class="photo"></div>
+        <div class="close">✕</div>
+        <div class="scrim"></div>
+        <div class="capL"><b>Margherita</b><span>Paris · 400 Gradi</span></div>
+        <div class="dots"><i></i><i></i><i></i></div>
+      </div>
+      <figcaption>B · Someone else's (Feed)<small>Photo caption bottom-left, with who and where</small></figcaption>
+    </figure>
+  </div>
+</div>

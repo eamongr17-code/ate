@@ -24,7 +24,8 @@ struct AtePhotoDishSource: Sendable {
             choices: slip.dishes.map { AtePhotoDishPill.Dish(id: $0.id, name: $0.name) },
             paired: [:],
             onPick: onPick,
-            load: { await pairs(entryID, isMine) }
+            load: { await pairs(entryID, isMine) },
+            byline: AtePhotoDishByline.line(who: slip.byline?.name, place: slip.place)
         )
     }
 }

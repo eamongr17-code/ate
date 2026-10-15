@@ -23,7 +23,8 @@ extension EntryModel {
             await self.refreshPhotoDishes()
             return self.photoDishes
         }
-        return AtePhotoDishes(choices: choices, paired: photoDishes, onPick: onPick, load: load)
+        let byline = AtePhotoDishByline.line(who: card.author.map { "@\($0.username)" }, place: card.place?.name)
+        return AtePhotoDishes(choices: choices, paired: photoDishes, onPick: onPick, load: load, byline: byline)
     }
 
     /// An entry, sorted, with photos and not one of them paired: it was posted before matching
