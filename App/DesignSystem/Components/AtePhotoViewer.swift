@@ -74,6 +74,7 @@ private struct AtePhotoViewerHost: ViewModifier {
 
     func body(content: Content) -> some View {
         let viewingBinding = $viewing
+        let zoomBinding = $zoomIndex
         let relay = relay
         content
             .environment(\.atePhotoOriginRelay, relay)
@@ -81,9 +82,13 @@ private struct AtePhotoViewerHost: ViewModifier {
             .environment(\.atePhotoViewer, AtePhotoViewerAction { photos, index, dishes in
                 guard photos.isEmpty == false else { return }
                 AteTelemetry.record(BrowseEvents.photoPreviewOpened(photoCount: photos.count))
+                let index = min(max(0, index), photos.count - 1)
+                // Before the cover goes up: the zoom reads its source as it presents, and a stale
+                // index grew every photo out of the first tile (15 Oct).
+                zoomBinding.wrappedValue = index
                 viewingBinding.wrappedValue = AtePhotoViewing(
                     photos: photos,
-                    index: min(max(0, index), photos.count - 1),
+                    index: index,
                     origin: relay.take(),
                     dishes: dishes
                 )
@@ -98,7 +103,6 @@ private struct AtePhotoViewerHost: ViewModifier {
                     onClose: { viewingBinding.wrappedValue = nil }
                 )
                 .navigationTransition(.zoom(sourceID: zoomSource(viewing), in: zoomSpace))
-                .onAppear { zoomIndex = viewing.index }
             }
     }
 
