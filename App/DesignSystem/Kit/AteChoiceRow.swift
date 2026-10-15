@@ -79,7 +79,7 @@ struct AteOpenRow: View {
             icon.view(size: AteChoiceRowMetrics.brandGlyph)
                 .foregroundStyle(AteColor.onBrand)
                 .frame(width: AteChoiceRowMetrics.brandDisc, height: AteChoiceRowMetrics.brandDisc)
-                .background(brand.fill, in: .circle)
+                .background(brand.fill(size: AteChoiceRowMetrics.brandDisc), in: .circle)
         } else {
             icon.view(size: AteChoiceRowMetrics.icon)
                 .foregroundStyle(palette.fg)

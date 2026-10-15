@@ -378,3 +378,25 @@ extension Color {
         })
     }
 }
+
+/// An app's colour, on its disc in the share row and behind a saved dish's source mark. TikTok's and
+/// Instagram's discs carry the app's own mark (``AteIcon/tiktok``, ``AteIcon/instagram``).
+enum AteShareBrand {
+    case instagram, tiktok, messages
+
+    /// The share row's 44 disc.
+    var fill: AnyShapeStyle { fill(size: 44) }
+
+    /// The fill for a disc this wide: Instagram's gradient spans the disc whatever its size.
+    func fill(size: CGFloat) -> AnyShapeStyle {
+        switch self {
+        case .instagram:
+            AnyShapeStyle(RadialGradient(
+                colors: AteColor.instagramColours,
+                center: UnitPoint(x: 0.3, y: 1.07), startRadius: 0, endRadius: size * 64 / 44
+            ))
+        case .tiktok: AnyShapeStyle(AteColor.tiktok)
+        case .messages: AnyShapeStyle(AteColor.messagesGreen)
+        }
+    }
+}

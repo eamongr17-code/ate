@@ -131,7 +131,7 @@ struct AteSourceMark: View {
         icon.view(size: AteSourceMarkMetrics.glyph)
             .foregroundStyle(icon.brand == nil ? palette.inverted : AteColor.onBrand)
             .frame(width: AteSourceMarkMetrics.disc, height: AteSourceMarkMetrics.disc)
-            .background(icon.brand?.fill ?? AnyShapeStyle(palette.solid), in: .circle)
+            .background(icon.brand?.fill(size: AteSourceMarkMetrics.disc) ?? AnyShapeStyle(palette.solid), in: .circle)
             .overlay { Circle().strokeBorder(palette.ground, lineWidth: AteSourceMarkMetrics.ring) }
             .offset(x: AteSourceMarkMetrics.overhang, y: AteSourceMarkMetrics.overhang)
             .accessibilityHidden(true)
