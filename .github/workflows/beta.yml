@@ -358,6 +358,25 @@ jobs:
             echo "Processing takes a few minutes; the internal group gets it automatically once it clears."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # Crash reports arrive as bare addresses unless Sentry has this build's dSYMs. Inert until the
+      # SENTRY_AUTH_TOKEN secret and the SENTRY_ORG / SENTRY_PROJECT variables exist; never fails a
+      # build (the TestFlight upload above is what matters).
+      - name: Upload debug symbols to Sentry
+        if: env.DRY_RUN != 'true'
+        continue-on-error: true
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SENTRY_AUTH_TOKEN" ] || [ -z "$SENTRY_ORG" ] || [ -z "$SENTRY_PROJECT" ]; then
+            echo "::notice title=Sentry symbols skipped::Set the SENTRY_AUTH_TOKEN secret and SENTRY_ORG / SENTRY_PROJECT variables to symbolicate crashes."
+            exit 0
+          fi
+          brew install getsentry/tools/sentry-cli > /dev/null
+          sentry-cli debug-files upload --include-sources "$RUNNER_TEMP/Ate.xcarchive/dSYMs"
+
       - name: Remove signing keychain and API key
         if: always()
         run: |

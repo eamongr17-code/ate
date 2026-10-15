@@ -171,6 +171,10 @@ jobs:
       - name: Share reader suites (read-share)
         run: node --test supabase/functions/read-share/*_test.ts
 
+      # apple-token's pure module (client secret, code exchange, revoke) under Node.
+      - name: Apple token suites (apple-token)
+        run: node --test supabase/functions/apple-token/*_test.ts
+
       # match-photos' pure module (plan, request, answer gate) under Node, like read-share.
       - name: Photo matcher suites (match-photos)
         run: node --test supabase/functions/match-photos/*_test.ts

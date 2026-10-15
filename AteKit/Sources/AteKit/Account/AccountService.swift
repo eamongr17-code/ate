@@ -254,11 +254,21 @@ public struct AccountClient: AccountServing {
         for bucket in Self.personalBuckets {
             try await purge(bucket: bucket, folder: folder)
         }
+        await revokeAppleToken()
         return try await api.rpc("delete_account")
     }
 
     public func signOut() async throws {
         try await api.supabase.auth.signOut()
+    }
+
+    /// Revokes the Apple token kept at sign-in (App Store 5.1.1(v); `apple-token`, 0068), before the
+    /// account and that token's row go. Best-effort: a failed revoke never blocks the deletion.
+    private func revokeAppleToken() async {
+        _ = try? await api.supabase.functions.invoke(
+            "apple-token",
+            options: FunctionInvokeOptions(method: .post, body: ["action": "revoke"])
+        ) { _, _ in () }
     }
 
     /// The two buckets whose objects are yours, each under a folder named for your id (0007).
