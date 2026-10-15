@@ -47,6 +47,46 @@ struct AteChoiceRow: View {
     }
 }
 
+/// **A row that opens somewhere outside Ate** — a saved dish's "On TikTok". Its source's mark leads
+/// (an app's own mark on that app's disc), and an arrow ends it: it opens the post, it picks nothing,
+/// so it carries no radio (15 Oct, Eamon: the empty circle read as a checkbox).
+struct AteOpenRow: View {
+    let title: String
+    var subtitle: String?
+    let icon: AteIcon
+    var identifier: String?
+    let action: () -> Void
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        AteListRow(
+            title: title,
+            subtitle: subtitle,
+            leading: { mark },
+            trailing: {
+                AteIcon.arrowUpRight.view(size: AteChoiceRowMetrics.icon)
+                    .foregroundStyle(palette.muted)
+            },
+            action: action
+        )
+        .accessibilityAddTraits(.isLink)
+        .accessibilityIdentifier(identifier ?? "row.open.\(title)")
+    }
+
+    @ViewBuilder private var mark: some View {
+        if let brand = icon.brand {
+            icon.view(size: AteChoiceRowMetrics.brandGlyph)
+                .foregroundStyle(AteColor.onBrand)
+                .frame(width: AteChoiceRowMetrics.brandDisc, height: AteChoiceRowMetrics.brandDisc)
+                .background(brand.fill(size: AteChoiceRowMetrics.brandDisc), in: .circle)
+        } else {
+            icon.view(size: AteChoiceRowMetrics.icon)
+                .foregroundStyle(palette.fg)
+        }
+    }
+}
+
 /// **The last row of a picking sheet** — "Add a new place", "Add as a new dish": a hairline, the plus
 /// and the words. It opens the next step rather than answering.
 struct AteAddRow: View {
@@ -99,4 +139,7 @@ enum AteChoiceRowMetrics {
     static let icon: CGFloat = 20
     /// The add row: `min-height:54px`.
     static let addHeight: CGFloat = 54
+    /// An open row's app disc, and the mark on it (`source-marks` mockup, 15 Oct).
+    static let brandDisc: CGFloat = 28
+    static let brandGlyph: CGFloat = 16
 }

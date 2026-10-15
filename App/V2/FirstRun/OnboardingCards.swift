@@ -199,10 +199,10 @@ struct OnboardingSample {
     /// ways out, it does not share anything.
     static var shareActions: [AteShareRow.Action] {
         [
-            .init(id: "stories", icon: .camera, title: "Stories", brand: .instagram) {},
-            .init(id: "tiktok", icon: .music, title: "TikTok", brand: .tiktok) {},
+            .init(id: "stories", icon: .instagram, title: "Stories", brand: .instagram) {},
+            .init(id: "tiktok", icon: .tiktok, title: "TikTok", brand: .tiktok) {},
             .init(id: "messages", icon: .messageCircle, title: "Messages", brand: .messages) {},
-            .init(id: "instagram", icon: .library, title: "Instagram", brand: .instagram) {},
+            .init(id: "instagram", icon: .instagram, title: "Instagram", brand: .instagram) {},
             .init(id: "link", icon: .link, title: "Copy link") {},
             .init(id: "save", icon: .download, title: "Save image") {},
             .init(id: "more", icon: .more, title: "More") {}

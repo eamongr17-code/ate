@@ -48,13 +48,13 @@ struct V2ReceiptShareRow: View {
 
     private var actions: [AteShareRow.Action] {
         [
-            .init(id: "stories", icon: .camera, title: "Stories", isEnabled: isEnabled, brand: .instagram,
+            .init(id: "stories", icon: .instagram, title: "Stories", isEnabled: isEnabled, brand: .instagram,
                   action: shareToStories),
-            .init(id: "tiktok", icon: .music, title: word("tiktok", "TikTok"), isEnabled: isEnabled,
+            .init(id: "tiktok", icon: .tiktok, title: word("tiktok", "TikTok"), isEnabled: isEnabled,
                   isBusy: busy == "tiktok", brand: .tiktok, action: shareToTikTok),
             .init(id: "messages", icon: .messageCircle, title: "Messages", isEnabled: isEnabled, brand: .messages,
                   action: message),
-            .init(id: "instagram", icon: .library, title: "Instagram", isEnabled: isEnabled,
+            .init(id: "instagram", icon: .instagram, title: "Instagram", isEnabled: isEnabled,
                   isBusy: busy == "instagram", brand: .instagram, action: shareToInstagram),
             .init(id: "link", icon: .link, title: word("link", "Copy link"), isEnabled: isEnabled, action: copyLink),
             .init(id: "save", icon: .download, title: word("save", "Save image"), isEnabled: isEnabled,

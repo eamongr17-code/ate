@@ -89,11 +89,10 @@ struct SavedOwnSheet: View {
                     .ateText(.meta)
                     .foregroundStyle(AtePalette.automatic.muted)
                 if let url = save.sourceURL.flatMap(URL.init(string:)) {
-                    AteChoiceRow(
+                    AteOpenRow(
                         title: SavedOwnCopy.linkTitle(save),
                         subtitle: save.sourceCaption,
                         icon: save.source.mark,
-                        isSelected: false,
                         identifier: "saved.own.link"
                     ) {
                         app.services.analytics(OwnSaveEvents.linkOpened(source: save.source))

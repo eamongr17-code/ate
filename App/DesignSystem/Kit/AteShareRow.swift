@@ -76,24 +76,6 @@ struct AteShareRow: View {
     }
 }
 
-/// An app's colour, on its disc in the share row. The glyph is always Ate's own Lucide icon, never
-/// the app's mark.
-enum AteShareBrand {
-    case instagram, tiktok, messages
-
-    var fill: AnyShapeStyle {
-        switch self {
-        case .instagram:
-            AnyShapeStyle(RadialGradient(
-                colors: AteColor.instagramColours,
-                center: UnitPoint(x: 0.3, y: 1.07), startRadius: 0, endRadius: 64
-            ))
-        case .tiktok: AnyShapeStyle(AteColor.tiktok)
-        case .messages: AnyShapeStyle(AteColor.messagesGreen)
-        }
-    }
-}
-
 /// **A disc in an app's colour** — the share row's Stories, TikTok and Messages on the ink sheet.
 /// The same size and tap as ``AteGlassDisc``; white glyph.
 struct AteBrandDisc: View {

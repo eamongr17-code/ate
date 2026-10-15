@@ -43,7 +43,7 @@ enum AteColor {
     static let viewerGround = Color.black
 
     /// **Other apps' own colours**, on their discs in the ink share sheet's row (11 Oct, approved:
-    /// Spotify's row). Only there; the glyphs on them are still Ate's.
+    /// Spotify's row), and behind a saved dish's source mark.
     static let instagramColours = [
         Color(hex: 0xFDF497), Color(hex: 0xFD5949), Color(hex: 0xD6249F), Color(hex: 0x285AEB)
     ]
@@ -376,5 +376,27 @@ extension Color {
         self.init(UIColor { traits in
             traits.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light)
         })
+    }
+}
+
+/// An app's colour, on its disc in the share row and behind a saved dish's source mark. TikTok's and
+/// Instagram's discs carry the app's own mark (``AteIcon/tiktok``, ``AteIcon/instagram``).
+enum AteShareBrand {
+    case instagram, tiktok, messages
+
+    /// The share row's 44 disc.
+    var fill: AnyShapeStyle { fill(size: 44) }
+
+    /// The fill for a disc this wide: Instagram's gradient spans the disc whatever its size.
+    func fill(size: CGFloat) -> AnyShapeStyle {
+        switch self {
+        case .instagram:
+            AnyShapeStyle(RadialGradient(
+                colors: AteColor.instagramColours,
+                center: UnitPoint(x: 0.3, y: 1.07), startRadius: 0, endRadius: size * 64 / 44
+            ))
+        case .tiktok: AnyShapeStyle(AteColor.tiktok)
+        case .messages: AnyShapeStyle(AteColor.messagesGreen)
+        }
     }
 }
