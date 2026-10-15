@@ -22,7 +22,7 @@ So the "Where" step now blends (a) Google Places predictions and (b) `source='ma
 ## 1. Where the blend happens — SERVER-SIDE (justified)
 
 In the `places-search` edge function's `op=autocomplete` branch. Rationale: it keeps ranking, the top-5 cap, and the VIC/food-bev Places logic in **one place** and hands the FE a single ranked list. On a query the edge fn now:
-1. fetches Places predictions (unchanged: VIC-restricted, food/bev, capped 5), AND
+1. fetches Places predictions (worldwide, ranked near the caller since 0066; food/bev, capped 5), AND
 2. calls `search_local_restaurants(input, 5)` (migration 0017; was `search_manual_restaurants`, 0015) for fuzzy matches against restaurants we already hold,
 3. merges them into a unified, ranked, capped-at-5, **discriminated** `results` list.
 

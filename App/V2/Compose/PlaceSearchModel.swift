@@ -32,6 +32,9 @@ final class PlaceSearchModel {
 
     private let directory: any PlaceDirectory
     private let location = AteLocation()
+    /// Where the phone is, once the sheet's one location ask has answered. Typed searches rank
+    /// around it, so a search in Bangkok finds Bangkok — it never attaches anything.
+    private var origin: SearchOrigin?
     private var search: Task<Void, Never>?
     private var pickedSuggestionID: String?
     /// The place the entry already carries. It comes back marked and its "Use …" button is there
@@ -70,6 +73,7 @@ final class PlaceSearchModel {
     private func loadNearby() async {
         defer { hasNearbyAnswered = true }
         guard let coordinate = await location.current() else { return }
+        origin = SearchOrigin(latitude: coordinate.latitude, longitude: coordinate.longitude)
         nearby = (try? await directory.nearby(
             latitude: coordinate.latitude, longitude: coordinate.longitude
         )) ?? []
@@ -112,7 +116,7 @@ final class PlaceSearchModel {
         }
         isSearching = true
         defer { isSearching = false }
-        let found = (try? await directory.search(trimmed)) ?? []
+        let found = (try? await directory.search(trimmed, near: origin)) ?? []
         guard Task.isCancelled == false else { return }
         isShowingRecents = false
         results = found

@@ -25,18 +25,20 @@ public struct PlaceDirectoryClient: PlaceDirectory {
         self.sessionToken = sessionToken
     }
 
-    public func search(_ query: String) async throws -> [PlaceSuggestion] {
+    public func search(_ query: String, near origin: SearchOrigin?) async throws -> [PlaceSuggestion] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count >= 2 else { return [] }
 
-        async let blended = try? restaurants.search(query: trimmed, origin: nil, sessionToken: sessionToken)
+        async let blended = try? restaurants.search(query: trimmed, origin: origin, sessionToken: sessionToken)
         async let held = try? searchAll(trimmed)
 
         // Places we already hold lead: selecting one costs nothing and cannot mint a duplicate row.
         var seen = Set<String>()
         var results: [PlaceSuggestion] = []
-        for suggestion in (await held ?? []) + (await blended ?? []).map(PlaceSuggestion.init)
+        for var suggestion in (await held ?? []) + (await blended ?? []).map(PlaceSuggestion.init)
         where seen.insert(suggestion.dedupKey).inserted {
+            // The origin only ranks; a typed row still prints no distance (PlaceSheet.dc.html).
+            suggestion.distanceMeters = nil
             results.append(suggestion)
         }
         return results

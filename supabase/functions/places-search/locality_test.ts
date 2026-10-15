@@ -78,7 +78,28 @@ test('nothing to name is an empty string, never a guess', () => {
   assertEquals(localityFromAddress(undefined), '');
 });
 
-test('interstate addresses still resolve (the VIC filter drops them, not this)', () => {
-  // localityFromAddress does not police the market — namesOtherAuState does, before the upsert.
+test('interstate addresses resolve like Victorian ones', () => {
   assertEquals(localityFromAddress('1 Martin Pl, Sydney NSW 2000, Australia'), 'Sydney');
+});
+
+test('abroad: Google\'s own town name wins when it sent components', () => {
+  const bangkok = [
+    { longText: 'Khlong Toei Nuea', types: ['sublocality_level_2', 'sublocality', 'political'] },
+    { longText: 'Watthana', types: ['sublocality_level_1', 'sublocality', 'political'] },
+    { longText: 'Bangkok', types: ['locality', 'political'] },
+    { longText: '10110', types: ['postal_code'] },
+  ];
+  assertEquals(localityFromAddress('12 Sukhumvit Soi 11, Khlong Toei Nuea, Watthana, Bangkok 10110, Thailand', bangkok), 'Bangkok');
+  // No locality: the district rather than a guess.
+  assertEquals(localityFromAddress('Some Rd, Watthana, Bangkok 10110, Thailand', bangkok.filter((c) => !c.types.includes('locality'))), 'Watthana');
+});
+
+test('abroad without components: the component before the country, postcode dropped', () => {
+  assertEquals(localityFromAddress('12 Sukhumvit Soi 11, Khlong Toei Nuea, Watthana, Bangkok 10110, Thailand'), 'Bangkok');
+  assertEquals(localityFromAddress('Charoen Prathet Rd, Chiang Mai 50100, Thailand'), 'Chiang Mai');
+  assertEquals(localityFromAddress('Rue de Rivoli, 75001 Paris, France'), 'Paris');
+});
+
+test('an Australian address ignores components (the state rule already answered)', () => {
+  assertEquals(localityFromAddress('119 Rose St, Fitzroy VIC 3065, Australia', [{ longText: 'Melbourne', types: ['locality'] }]), 'Fitzroy');
 });

@@ -27,16 +27,36 @@
 //   2. the component before the country, for an address with no state token.
 //   3. a two- or one-component address: the first component (Google always ends an AU
 //      formattedAddress with the country, so "Melbourne, Australia" is a suburb and a country).
+//   Outside Australia (0066, travel): no state token, so Google's own `addressComponents` name the
+//   town (locality → postal_town → district), and a postcode is never part of a locality
+//   ("Bangkok 10110, Thailand" → "Bangkok"). place_locality() reads the stored city back unchanged.
 //   '' when we cannot honestly name one — `restaurants.city` is NOT NULL, and `place_locality()`
 //   already treats '' as absent, so the client draws no chip rather than a guess.
 
 // `[^,]+?` cannot cross a comma, so the capture is one address component and nothing more.
 const AU_STATE_LOCALITY_RE = /([^,]+?)\s+(?:VIC|NSW|QLD|SA|WA|TAS|NT|ACT)\b/;
 
+/** A Places API (New) `addressComponents[]` item — only the fields this reads. */
+export type AddressComponent = { longText?: string; shortText?: string; types?: string[] };
+
+// Most specific town-sized name first. `sublocality_level_1` is a district of a big city
+// (Bangkok's khet) — better than nothing, worse than the city itself.
+const COMPONENT_ORDER = ['locality', 'postal_town', 'administrative_area_level_2', 'sublocality_level_1'];
+
+/** A postcode token, alone or at either end of an address component. */
+const POSTCODE_RE = /(^|\s)[A-Z]{0,2}\d[\d-]{2,}[A-Z]{0,2}(?=\s|$)/g;
+
+function withoutPostcode(part: string): string {
+  return part.replace(POSTCODE_RE, ' ').replace(/\s+/g, ' ').trim();
+}
+
 /**
  * The bare locality (suburb) for a Google `formattedAddress`, or `''` when it names none.
  */
-export function localityFromAddress(formattedAddress: string | null | undefined): string {
+export function localityFromAddress(
+  formattedAddress: string | null | undefined,
+  components: AddressComponent[] | null | undefined = undefined,
+): string {
   const address = (formattedAddress ?? '').trim();
   if (address === '') return '';
 
@@ -47,9 +67,15 @@ export function localityFromAddress(formattedAddress: string | null | undefined)
     if (locality !== '') return locality;
   }
 
+  // Outside Australia: Google's own name for the town, when it gave us components.
+  for (const type of COMPONENT_ORDER) {
+    const named = (components ?? []).find((c) => c.types?.includes(type))?.longText?.trim();
+    if (named) return named;
+  }
+
   const parts = address
     .split(',')
-    .map((part) => part.trim())
+    .map((part) => withoutPostcode(part.trim()))
     .filter((part) => part !== '');
 
   // 2. No state token: the component before the country.

@@ -172,7 +172,7 @@ private struct UnavailableSaves: OwnSaving {
 }
 
 private struct UnavailablePlaces: PlaceDirectory {
-    func search(_ query: String) async throws -> [PlaceSuggestion] { [] }
+    func search(_ query: String, near origin: SearchOrigin?) async throws -> [PlaceSuggestion] { [] }
     func recents(limit: Int) async throws -> [PlaceSuggestion] { [] }
     func nearby(latitude: Double, longitude: Double) async throws -> [PlaceSuggestion] { [] }
     func resolve(_ suggestion: PlaceSuggestion) async throws -> PlaceRef { throw ReadShareError.notAuthenticated }

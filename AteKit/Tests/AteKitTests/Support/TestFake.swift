@@ -131,7 +131,7 @@ extension AccountServing where Self: TestFake {
 }
 
 extension PlaceDirectory where Self: TestFake {
-    func search(_ query: String) async throws -> [PlaceSuggestion] { try unimplemented() }
+    func search(_ query: String, near origin: SearchOrigin?) async throws -> [PlaceSuggestion] { try unimplemented() }
     func recents(limit: Int) async throws -> [PlaceSuggestion] { try unimplemented() }
     func nearby(latitude: Double, longitude: Double) async throws -> [PlaceSuggestion] { try unimplemented() }
     func resolve(_ suggestion: PlaceSuggestion) async throws -> PlaceRef { try unimplemented() }
