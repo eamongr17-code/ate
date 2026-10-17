@@ -3,8 +3,8 @@ import SwiftUI
 
 /// **The Saved tab's root** — the dishes you kept, each over its place, beneath the standard root
 /// header. One control in the bar's glass group, the filter (the Journal's sheet, less the order);
-/// while a filter is on its chips sit under the bar, each with ✕. An unsave here leaves the row at
-/// once, with an Undo pill above the tab bar for four seconds.
+/// while a filter is on its chips sit under the bar, each with ✕. An unsave here — the bookmark, or
+/// a swipe on the row — leaves the row at once, with an Undo pill above the tab bar for four seconds.
 struct SavedRoot: View {
     let router: TabRouter<SavedStores>
     let app: AppModel
@@ -81,17 +81,20 @@ struct SavedRoot: View {
 
     // MARK: - The list
 
+    /// A plain `List` rather than a lazy stack, so a row takes the native swipe to remove — the
+    /// one a list's own rows take (``V2ListPage``) — beside its bookmark.
     private var list: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                Color.clear
-                    .frame(height: 0)
-                    .id(Self.top)
-                rows
-            }
-            .padding(.bottom, AteMetrics.section)
+        List {
+            Color.clear
+                .frame(height: 0)
+                .listPlainRow()
+                .id(Self.top)
+            rows
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
+        .contentMargins(.bottom, AteMetrics.section, for: .scrollContent)
         .ateRootCollapse($isCollapsed)
         .refreshable {
             Task { await saved.loadCities() }
@@ -104,11 +107,12 @@ struct SavedRoot: View {
     private var rows: some View {
         switch saved.phase {
         case .loading:
-            ForEach(0..<SavedMetrics.skeletonRows, id: \.self) { _ in
+            ForEach(0..<SavedMetrics.skeletonRows, id: \.self) { index in
                 AteSkeleton(kind: .dishRow)
                     .padding(.horizontal, AteMetrics.gutter)
+                    .padding(.top, index == 0 ? AteMetrics.regular : 0)
+                    .listPlainRow()
             }
-            .padding(.top, AteMetrics.regular)
         case .empty where showsOwn && own.saves.isEmpty == false:
             groups
         case .empty where saved.filter.isEmpty == false:
@@ -132,6 +136,7 @@ struct SavedRoot: View {
         state.containerRelativeFrame(.vertical) { length, _ in
             max(length, SavedMetrics.emptyMinimum)
         }
+        .listPlainRow()
     }
 
     private func retry() {
@@ -158,6 +163,24 @@ struct SavedRoot: View {
             }
             .padding(.horizontal, AteMetrics.gutter)
             .padding(.top, index == 0 ? AteMetrics.snug : 0)
+            .listPlainRow()
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button(SavedCopy.remove, role: .destructive) { remove(row) }
+                    .tint(AteColor.destructive)
+            }
+            .accessibilityAction(named: SavedCopy.remove) { remove(row) }
+        }
+    }
+
+    /// The bookmark and the swipe are the one remove: the row leaves, with the Undo pill.
+    private func remove(_ row: SavedShelf.Row) {
+        switch row {
+        case .ate(let dish):
+            if let pending = own.undoable { own.expireUndo(for: pending) }
+            Task { await app.saves.unsaveFromShelf(dish) }
+        case .own(let save):
+            if let pending = saved.undoable { saved.expireUndo(for: pending) }
+            Task { await own.remove(save) }
         }
     }
 
@@ -169,10 +192,7 @@ struct SavedRoot: View {
             score: dish.dishScore.map { .average($0) },
             isFirst: isFirst,
             isSaved: true,
-            onSave: {
-                if let pending = own.undoable { own.expireUndo(for: pending) }
-                Task { await app.saves.unsaveFromShelf(dish) }
-            },
+            onSave: { remove(.ate(dish)) },
             onOpen: { router.open(.dish(dish.dishID), from: .saved) }
         )
         .task { await saved.loadMoreIfNeeded(after: dish) }
@@ -188,10 +208,7 @@ struct SavedRoot: View {
             mark: save.source.mark,
             isFirst: isFirst,
             isSaved: true,
-            onSave: {
-                if let pending = saved.undoable { saved.expireUndo(for: pending) }
-                Task { await own.remove(save) }
-            },
+            onSave: { remove(.own(save)) },
             onOpen: { openedOwn = save }
         )
         .accessibilityIdentifier("saved.own")
@@ -340,6 +357,10 @@ struct SavedRoot: View {
             app.services.analytics(BrowseEvents.savedFiltered(filter, resultCount: saved.dishes.count))
         }
     }
+}
+
+enum SavedCopy {
+    static let remove = "Remove"
 }
 
 enum SavedMetrics {
