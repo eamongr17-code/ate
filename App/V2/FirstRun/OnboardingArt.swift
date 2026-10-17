@@ -14,8 +14,8 @@ import SwiftUI
 ///
 /// Built from the kit (``AteComposerByline``, ``InlineTokenText``, ``ComposerKey``,
 /// ``AteEntrySlip``), drawn on one canvas (``OnboardingArtMetrics/canvas``) and scaled down as a
-/// whole where the card has less room. Nothing here is tappable. With Reduce Motion each card is
-/// simply its finished picture.
+/// whole where the card has less room, never past its size in the mockup. Nothing here is
+/// tappable. With Reduce Motion each card is simply its finished picture.
 struct OnboardingArt: View {
     let card: OnboardingCard
     let handle: String
@@ -25,9 +25,10 @@ struct OnboardingArt: View {
     var body: some View {
         GeometryReader { proxy in
             let canvas = OnboardingArtMetrics.canvas
+            let width = proxy.size.width - OnboardingArtMetrics.inset * 2
             let scale = min(
                 OnboardingArtMetrics.maximumScale,
-                proxy.size.width / canvas.width,
+                width / canvas.width,
                 proxy.size.height / canvas.height
             )
             stage
@@ -75,7 +76,9 @@ private struct OnboardingPaper: View {
         .padding(.bottom, AteMetrics.slipPadding + AteMetrics.tornEdgeHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
         .ateTornPaper(.slip)
-        .ateShadow(.cover)
+        // One shadow for the whole paper, not one per pill and word inside it.
+        .compositingGroup()
+        .ateShadow(.lift)
     }
 
     /// The composer's own keys: the photos, Score, and Diet, each lighting as the card uses it.
@@ -203,7 +206,9 @@ private struct OnboardingShareArt: View {
             surface: .feed,
             onSave: { _ in }
         )
-        .ateShadow(.cover)
+        // One shadow for the whole paper, not one per pill and word inside it.
+        .compositingGroup()
+        .ateShadow(.lift)
         .padding(.horizontal, AteMetrics.tight)
         .opacity(isRisen ? 1 : 0)
         .offset(y: isRisen ? 0 : OnboardingArtMetrics.rise)
@@ -231,10 +236,11 @@ private struct OnboardingShareArt: View {
 
 /// `onboarding-calm.html`, in points and seconds.
 enum OnboardingArtMetrics {
-    /// Every card's picture is drawn on this, then scaled to the room the card has.
-    static let canvas = CGSize(width: 362, height: 400)
-    /// A taller phone shows it a little bigger, never more than this.
-    static let maximumScale: CGFloat = 1.1
+    /// Every card's picture is drawn on this (`.art`: 24 in from each side of a 402 phone), then
+    /// scaled down where the card has less room. Never up.
+    static let canvas = CGSize(width: 354, height: 400)
+    static let inset: CGFloat = 24
+    static let maximumScale: CGFloat = 1
     static let photosIcon: CGFloat = 22
 
     // Write

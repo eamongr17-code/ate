@@ -107,14 +107,15 @@ struct V2Onboarding: View {
     }
 
     /// One centred line over the doors at the foot: the start screen and nothing-found. The start
-    /// screen carries the Journal's own drawing over its line, printing out once.
+    /// screen carries the Journal's own drawing over its line, still.
     private func door<Doors: View>(
         title: String, identifier: String, drawing: Bool = false, @ViewBuilder doors: () -> Doors
     ) -> some View {
         VStack(spacing: 0) {
             Spacer(minLength: AteMetrics.section)
             if drawing {
-                OnboardingStartDrawing()
+                AteEmptyDrawing(art: .journal, height: OnboardingMetrics.drawing)
+                    .accessibilityHidden(true)
                     .padding(.bottom, OnboardingMetrics.drawingToTitle)
             }
             AteTitle(text: title, style: .handleTitle)
@@ -250,30 +251,6 @@ struct V2Onboarding: View {
     }
 }
 
-/// **The start screen's drawing** (`onboarding-calm.html`): the Journal's empty-state docket, #0001
-/// with its pencil, feeding out of the printer once from the top. Still with Reduce Motion.
-private struct OnboardingStartDrawing: View {
-    @State private var isPrinted = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        AteEmptyDrawing(art: .journal, height: OnboardingMetrics.drawing)
-            .mask(alignment: .top) {
-                GeometryReader { proxy in
-                    Rectangle()
-                        .frame(height: proxy.size.height * (isPrinted ? 1 : OnboardingMetrics.drawingFrom))
-                }
-            }
-            .task {
-                guard reduceMotion == false else {
-                    isPrinted = true
-                    return
-                }
-                withAnimation(OnboardingMetrics.printing) { isPrinted = true }
-            }
-    }
-}
-
 private extension View {
     /// A row of the found list: edge to edge on the ground, no system separator.
     func onboardingRow() -> some View {
@@ -318,10 +295,8 @@ enum OnboardingMetrics {
     /// Start: the two pills and the link, 10 apart.
     static let doorsGap: CGFloat = 10
     static let titleBar: CGFloat = 220
-    /// Start: the Journal's drawing 190 high, 28 over the title, printing out from its top half.
+    /// Start: the Journal's drawing 190 high, 28 over the title. It doesn't move (Eamon, 17 Oct).
     static let drawing: CGFloat = 190
     static let drawingToTitle: CGFloat = 28
-    static let drawingFrom: CGFloat = 0.45
-    static let printing = Animation.timingCurve(0.3, 0.7, 0.2, 1, duration: 2.4).delay(0.3)
     static let titleBarHeight: CGFloat = 36
 }

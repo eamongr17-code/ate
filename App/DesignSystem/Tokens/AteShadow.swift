@@ -22,6 +22,9 @@ struct AteShadow: Equatable, Sendable {
     /// `0 14px 34px rgba(36,20,31,.22)`.
     static let cover = AteShadow(colour: AteColor.ink.opacity(0.22), offsetY: 14, blur: 34, spread: 0)
     /// The photo printed on an accent story.
+    /// Onboarding's pictures lifted off the ground (`onboarding-calm.html` `.paper`):
+    /// `0 14px 34px rgba(36,20,31,.12)`.
+    static let lift = AteShadow(colour: AteColor.ink.opacity(0.12), offsetY: 14, blur: 34, spread: 0)
     static let print = AteShadow(colour: AteColor.ink.opacity(0.35), offsetY: 8, blur: 24, spread: 0)
     /// A share card lifted off the ink sheet.
     static let shareCard = AteShadow(colour: Color.black.opacity(0.45), offsetY: 10, blur: 32, spread: 0)
