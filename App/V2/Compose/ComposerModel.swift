@@ -449,23 +449,13 @@ final class ComposerModel {
         }
     }
 
-    // MARK: - Typing a number and moving on
+    // MARK: - Typing a dietary code and moving on
 
-    /// Done, and the keyboard's own path: anything still sitting in the words as a bare number — or
-    /// a dietary code straight after a dish — becomes a token, exactly as it would when they moved
-    /// on by typing.
+    /// Done, and the keyboard's own path: a dietary code still sitting straight after a dish becomes
+    /// a chip, exactly as it would when they moved on by typing. A typed number stays words: ratings
+    /// come only from the Score key (17 Oct, Eamon).
     @discardableResult
-    func promotePendingScoreLiteral() -> AnalyticsEvent? {
-        // `pendingScoreLiteral` refuses a span a token already covers. Without that, Done on
-        // "tiramisu <pill>" re-found the pill's own digits, replaced it with a new token of the
-        // same value, and reported a second `entry_score_token_created` for one score.
-        if let found = composition.pendingScoreLiteral(atDisplayOffset: caret) {
-            let isPhrase = composition.isPhrase(found.span)
-            composition = composition.promoting(plainSpan: found.span, to: EntryToken(kind: .score(found.rating)))
-            revision += 1
-            caretAfterRender = nil
-            return EntryEvents.scoreTokenCreated(source: .typed, isPhrase: isPhrase)
-        }
+    func promotePendingTagLiteral() -> AnalyticsEvent? {
         if let found = composition.pendingTagLiteral(atDisplayOffset: caret) {
             composition = composition.promoting(plainSpan: found.span, to: EntryToken(kind: .tag(found.mark)))
             revision += 1

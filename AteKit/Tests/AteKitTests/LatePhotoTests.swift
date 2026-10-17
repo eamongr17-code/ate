@@ -102,12 +102,12 @@ struct LatePhotoTests {
         await outbox.enqueue(QueuedEntry(
             entry: insert,
             pendingPhotos: [QueuedPhoto(position: 0, path: "/a.jpg"), QueuedPhoto(position: 1, path: "/b.jpg")],
-            hasInserted: true, sixTokens: [TagToken(offset: 1, length: 3)]
+            hasInserted: true, scoreTokens: [TagToken(offset: 1, length: 3)]
         ))
         let queued = try #require(await outbox.queued(entryID: insert.id))
         #expect(queued.pendingPhotos.map(\.position) == [0, 1, 2], "the late photo survives the enqueue")
         #expect(queued.needsSort, "the entry's own sort is still owed")
-        #expect(queued.sixTokens == [TagToken(offset: 1, length: 3)])
+        #expect(queued.scoreTokens == [TagToken(offset: 1, length: 3)])
     }
 
     @Test("after a successful submit with a late photo, the draft's photo folder is gone")

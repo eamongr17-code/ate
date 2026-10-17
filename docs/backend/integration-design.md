@@ -152,7 +152,8 @@ variant goes beside it at `<path minus extension>_t.jpg` (same owner-folder poli
 ```
 POST /functions/v1/sort-entry     { "entry_id": "<uuid>", "force": false, "dry_run": false,
                                     "tag_tokens": [{ "offset": 23, "length": 2 }],    // optional, 0036
-                                    "six_tokens": [{ "offset": 9, "length": 1 }] }    // optional, 0041
+                                    "six_tokens": [{ "offset": 9, "length": 1 }],     // optional, 0041
+                                    "score_tokens": [{ "offset": 9, "length": 1 }] }  // optional, 17 Oct
 → 200 { ok, mode: "stub"|"model", model, entry_id, sort_status, restaurant_id,
         place_query, place_offset, items:[…], entry_card }      // entry_card: 0056
   401 unauthorized · 403 not your entry · 404 unknown entry · 422 entry_id missing · 500 sort failed
@@ -168,7 +169,10 @@ in `body` ("GF"); send where it sits in `tag_tokens` (UNICODE SCALARS, like ever
 it (`gf`, `gluten free`, `vegan`, `GF/DF`…) onto the dish it FOLLOWS. Unmarked words never tag; omitting
 `tag_tokens` on a re-sort removes nothing. **The secret 6 (0041):** a 6 exists only where the composer marked
 it — send each marked `6`/`6.0` in `six_tokens` (scalars). It scores the dish it follows; a typed "6" never does. A re-sort without `six_tokens` keeps a 6 on its LINE
-(0044): wherever the dish now sits, if its score span still reads a lone 6. Changed to a 4 → 4; dish removed → gone.
+(0044): wherever the dish now sits, if its score span still reads a lone 6. Changed to a 4 → 4; dish removed → gone. **Only rated dishes (17 Oct):** an item with no score is
+dropped (an unrated "dish" is a description of another one). Send every score pill in `score_tokens` (same
+list as `six_tokens`; send `[]` when there are none): then a score survives only when its evidence covers a pill,
+so a number typed in prose is never a rating. A pill no dish claimed scores the dish named nearest before it, when that line has no score. Omitted → the prose is read as before (older builds).
 
 **Early sort (0039).** While composing, `{ "preview": true, "body": "<draft>", "tag_tokens": […], "six_tokens": […],
 "restaurant_id": "<uuid|null>" }` (no `entry_id`) → 200 `{ok, preview: true, cached, mode, model, entry_id: null,

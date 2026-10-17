@@ -2,8 +2,8 @@ import AteKit
 import SwiftUI
 import UIKit
 
-/// **Promotion** — the coordinator's half that turns a number the person typed (or a diet mark) into
-/// a pill once they have moved on from it. Out of `InlineTokenCoordinator.swift` so each file reads in
+/// **Promotion** — the coordinator's half that turns a diet mark the person typed into
+/// a chip once they have moved on from it. Out of `InlineTokenCoordinator.swift` so each file reads in
 /// one sitting; the checks that call it are still there.
 extension InlineTokenEditor.Coordinator {
 
@@ -19,9 +19,9 @@ extension InlineTokenEditor.Coordinator {
         var isPhrase = false
     }
 
-    /// "Typing a number after a dish becomes a score token." Read-only: the condition is the
-    /// character under the caret — a move-on straight after a digit.
-    func promotableScore(in view: InlineTokenTextView) -> Promotion? {
+    /// "Typing a dietary code after a dish becomes a tag chip." Read-only: the condition is the
+    /// character under the caret — a move-on straight after the code.
+    func promotableTag(in view: InlineTokenTextView) -> Promotion? {
         let caret = view.selectedRange
         guard caret.length == 0, caret.location > 0 else { return nil }
         let storage = view.textStorage
@@ -35,23 +35,18 @@ extension InlineTokenEditor.Coordinator {
         }
 
         let model = composition(from: view)
-        // Both finders refuse a span a token already covers, so a Score-key pill is never
-        // "promoted" twice. A number becomes a score; "tiramisu v" a tag chip (`DietTagsB`).
+        // "tiramisu v" becomes a tag chip (`DietTagsB`). A typed number never becomes a score
+        // (17 Oct, Eamon): a rating comes only from the Score key, so "4 of us" stays words.
         let offset = caret.location - 1
-        let score = model.pendingScoreLiteral(atDisplayOffset: offset)
-            .map { (span: $0.span, kind: EntryTokenKind.score($0.rating)) }
         let tag = model.pendingTagLiteral(atDisplayOffset: offset)
             .map { (span: $0.span, kind: EntryTokenKind.tag($0.mark)) }
-        guard let found = score ?? tag else { return nil }
+        guard let found = tag else { return nil }
 
         let start = model.displayOffset(forPlainOffset: found.span.location)
         let end = model.displayOffset(forPlainOffset: found.span.endLocation)
         let range = NSRange(location: start, length: end - start)
         guard let literal = text(at: range, in: view) else { return nil }
-        return Promotion(
-            range: range, literal: literal, token: EntryToken(kind: found.kind),
-            isPhrase: score != nil && model.isPhrase(found.span)
-        )
+        return Promotion(range: range, literal: literal, token: EntryToken(kind: found.kind))
     }
 
     /// Whether the words still say there what they said when this was noticed.

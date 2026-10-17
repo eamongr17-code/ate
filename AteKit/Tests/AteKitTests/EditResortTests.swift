@@ -14,7 +14,7 @@ struct EditResortTests {
     ) -> EntryEdit {
         EntryEdit(
             entryID: UUID(), body: now.plain, originalRestaurantID: nil, restaurantID: nil,
-            tagTokens: now.tagTokens, sixTokens: now.sixTokens,
+            tagTokens: now.tagTokens, scoreTokens: now.scoreTokens,
             originalPhotos: [EntryCard.Photo(url: "a", position: 0)], photos: photos,
             tags: EditTagDiff(original: opened, current: now, items: []),
             originalBody: opened.plain
@@ -54,7 +54,7 @@ struct EditResortTests {
         try await change.save(to: service)
         await change.sort(on: service)
         #expect(service.forced == [true])
-        #expect(service.sixes == [[TagToken(offset: 9, length: 3)]])
+        #expect(service.scores == [[TagToken(offset: 9, length: 3)]])
         #expect(service.sortedBodies == ["Tiramisu 6.0"])
     }
 }
@@ -65,7 +65,7 @@ final class SixRecorder: EntryService, TestFake, @unchecked Sendable {
     private var log: [[TagToken]] = []
     private var forces: [Bool] = []
     private var bodies: [String] = []
-    var sixes: [[TagToken]] { lock.withLock { log } }
+    var scores: [[TagToken]] { lock.withLock { log } }
     var forced: [Bool] { lock.withLock { forces } }
     /// The body the server holds at each sort — what it sorts from.
     var sortedBodies: [String] { lock.withLock { bodies } }
@@ -75,11 +75,11 @@ final class SixRecorder: EntryService, TestFake, @unchecked Sendable {
         EntryCard(id: id, authorID: UUID(), body: "", orderNumber: 1, createdAt: Date())
     }
     func sort(entryID: UUID, force: Bool, tagTokens: [TagToken]) async throws -> SortOutcome {
-        try await sort(entryID: entryID, force: force, tagTokens: tagTokens, sixTokens: [])
+        try await sort(entryID: entryID, force: force, tagTokens: tagTokens, scoreTokens: nil)
     }
-    func sort(entryID: UUID, force: Bool, tagTokens: [TagToken], sixTokens: [TagToken]) async throws -> SortOutcome {
+    func sort(entryID: UUID, force: Bool, tagTokens: [TagToken], scoreTokens: [TagToken]?) async throws -> SortOutcome {
         lock.withLock {
-            log.append(sixTokens)
+            log.append(scoreTokens ?? [])
             forces.append(force)
             bodies.append(body)
         }

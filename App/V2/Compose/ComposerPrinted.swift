@@ -29,7 +29,7 @@ struct V2ComposerPrinted: View {
         let sorted: Latch<EntryCard?>?
         /// The chips and 6s it was sorted with, so "Print it again" re-sorts with the same ones.
         let tagTokens: [TagToken]
-        let sixTokens: [TagToken]
+        let scoreTokens: [TagToken]?
         /// The tap on Post, for `summary_receipt_entered`'s `ms_from_done`.
         var doneAt: ContinuousClock.Instant = .now
         /// An early sort of exactly these inputs was out (or landed) before Done.
@@ -58,7 +58,7 @@ struct V2ComposerPrinted: View {
         self.handoff = handoff
         let store = EntrySummaryStore(
             card: handoff.card,
-            actions: .live(app.services.entries, tagTokens: handoff.tagTokens, sixTokens: handoff.sixTokens)
+            actions: .live(app.services.entries, tagTokens: handoff.tagTokens, scoreTokens: handoff.scoreTokens)
         )
         _store = State(initialValue: store)
         printedOnArrival = store.showsReceipt
