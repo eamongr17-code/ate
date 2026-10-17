@@ -14,12 +14,14 @@ struct AteTitle: View {
     let text: String
     var style: AteTextStyle = .emptyTitle
     var alignment: TextAlignment = .center
+    /// The logo set after the words in place of "ate." — "Write about what you [ate.]" (first run).
+    var endsWithWordmark = false
 
     var body: some View {
-        AteExactText(text: text, style: style, alignment: alignment)
+        AteExactText(text: text, style: style, alignment: alignment, endsWithWordmark: endsWithWordmark)
             .accessibilityElement()
             .accessibilityAddTraits(.isHeader)
-            .accessibilityLabel(text)
+            .accessibilityLabel(endsWithWordmark ? "\(text) ate." : text)
     }
 }
 
@@ -37,6 +39,8 @@ struct AteExactText: View {
     var colour: Color?
     /// Wraps freely by default; a number clamps it there, ending on an ellipsis.
     var lineLimit: Int?
+    /// The logo after the last word, at the type's size (``AteTitle/endsWithWordmark``).
+    var endsWithWordmark = false
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.atePalette) private var palette
@@ -63,7 +67,8 @@ struct AteExactText: View {
                 trackingEm: style.trackingEm,
                 alignment: alignment,
                 colour: colour ?? palette.fg,
-                lineLimit: lineLimit
+                lineLimit: lineLimit,
+                endsWithWordmark: endsWithWordmark
             )
             // The label is drawn taller than its line boxes so a descender can hang below the last
             // one, and handed straight back to the layout: the words sit exactly where they did.
@@ -99,6 +104,7 @@ private struct TitleLabel: UIViewRepresentable {
     let alignment: TextAlignment
     let colour: Color
     var lineLimit: Int?
+    var endsWithWordmark = false
 
     func makeUIView(context: Context) -> WordFittingLabel {
         let label = WordFittingLabel()
@@ -120,7 +126,8 @@ private struct TitleLabel: UIViewRepresentable {
             text: text, font: font, lineHeight: lineHeight, trackingEm: trackingEm,
             alignment: textAlignment,
             colour: UIColor(colour),
-            truncates: lineLimit != nil
+            truncates: lineLimit != nil,
+            endsWithWordmark: endsWithWordmark
         )
     }
 
@@ -151,6 +158,7 @@ final class WordFittingLabel: UILabel {
         var alignment: NSTextAlignment
         var colour: UIColor
         var truncates: Bool
+        var endsWithWordmark = false
     }
 
     var content: Content? {
@@ -231,7 +239,7 @@ final class WordFittingLabel: UILabel {
         // every line but the last between letters. The label's own mode, set after the text,
         // truncates the last line.
         paragraph.lineBreakMode = .byWordWrapping
-        attributedText = NSAttributedString(string: content.text, attributes: [
+        let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: content.colour,
             .paragraphStyle: paragraph,
@@ -241,7 +249,36 @@ final class WordFittingLabel: UILabel {
             // points high, which is a visible gap under a 38pt title. Half the leading, signed: it is
             // negative exactly when the box is tighter than the face, which is when CSS overflows it.
             .baselineOffset: (box - (font.ascender - font.descender)) / 2
-        ])
+        ]
+        let text = NSMutableAttributedString(string: content.text, attributes: attributes)
+        if content.endsWithWordmark {
+            text.append(NSAttributedString(string: " ", attributes: attributes))
+            text.append(Self.wordmark(font: font, colour: content.colour, attributes: attributes))
+        }
+        attributedText = text
         lineBreakMode = content.truncates ? .byTruncatingTail : .byWordWrapping
+    }
+
+    /// The logo as a character: a little taller than the type, sitting on its baseline with its
+    /// bowls' overshoot just under it, the way the letters around it do.
+    private static func wordmark(
+        font: UIFont, colour: UIColor, attributes: [NSAttributedString.Key: Any]
+    ) -> NSAttributedString {
+        let attachment = NSTextAttachment()
+        attachment.image = UIImage(resource: .ateWordmark).withTintColor(colour, renderingMode: .alwaysOriginal)
+        let height = font.pointSize * WordmarkMetrics.height
+        attachment.bounds = CGRect(
+            x: 0, y: -font.pointSize * WordmarkMetrics.drop,
+            width: height * WordmarkMetrics.aspect, height: height
+        )
+        let mark = NSMutableAttributedString(attributedString: NSAttributedString(attachment: attachment))
+        mark.addAttributes(attributes, range: NSRange(location: 0, length: mark.length))
+        return mark
+    }
+
+    private enum WordmarkMetrics {
+        static let height: CGFloat = 1.05
+        static let drop: CGFloat = 0.06
+        static let aspect: CGFloat = 758.0 / 359.0
     }
 }

@@ -73,6 +73,8 @@ enum AteEmptyArt: String, CaseIterable, Sendable {
 /// ink becomes the light foreground and the paper becomes the plum slip.
 struct AteEmptyDrawing: View {
     let art: AteEmptyArt
+    /// The empty state's own size unless a screen gives the drawing more room (first run's start).
+    var height: CGFloat = AteEmptyStateMetrics.artHeight
 
     @Environment(\.atePalette) private var palette
 
@@ -81,8 +83,7 @@ struct AteEmptyDrawing: View {
             layer("Paper").foregroundStyle(AteColor.slip)
             layer("Ink").foregroundStyle(palette.fg)
         }
-        .frame(width: AteEmptyStateMetrics.artHeight * AteEmptyStateMetrics.artAspect,
-               height: AteEmptyStateMetrics.artHeight)
+        .frame(width: height * AteEmptyStateMetrics.artAspect, height: height)
         .accessibilityHidden(true)
     }
 

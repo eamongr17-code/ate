@@ -1,11 +1,12 @@
 import AteKit
 import SwiftUI
 
-/// **The onboarding** (`design/rebuild/onboarding-v2.html`) — straight after Handle, once.
+/// **The onboarding** (`design/rebuild/onboarding-v2.html`; the cards and the start screen as
+/// `onboarding-calm.html` redrew them, 17 Oct) — straight after Handle, once.
 ///
 /// 1. **A photo of you** (``OnboardingPhotoStep``): the avatar, Apple's picker, Not now.
-/// 2. **The four cards** (``OnboardingCards``): one sample entry built up — words, photos, scores,
-///    the receipt it shares as.
+/// 2. **The three cards** (``OnboardingCards``): one entry written with its scores, its details,
+///    then as the Feed shows it.
 /// 3. **Start with your last meal**: Find it in my photos (the system's own prompt does the asking),
 ///    Write one now (a blank composer), or Later (the empty Journal). Nothing assumes the roll has
 ///    food in it.
@@ -72,7 +73,8 @@ struct V2Onboarding: View {
     private var start: some View {
         door(
             title: OnboardingCopy.start,
-            identifier: "v2.onboarding.start"
+            identifier: "v2.onboarding.start",
+            drawing: true
         ) {
             AteInkPill(
                 title: OnboardingCopy.find, isEnabled: isFinding == false, identifier: "onboarding.find"
@@ -104,12 +106,17 @@ struct V2Onboarding: View {
         }
     }
 
-    /// One centred line over the doors at the foot: the start screen and nothing-found.
+    /// One centred line over the doors at the foot: the start screen and nothing-found. The start
+    /// screen carries the Journal's own drawing over its line, printing out once.
     private func door<Doors: View>(
-        title: String, identifier: String, @ViewBuilder doors: () -> Doors
+        title: String, identifier: String, drawing: Bool = false, @ViewBuilder doors: () -> Doors
     ) -> some View {
         VStack(spacing: 0) {
             Spacer(minLength: AteMetrics.section)
+            if drawing {
+                OnboardingStartDrawing()
+                    .padding(.bottom, OnboardingMetrics.drawingToTitle)
+            }
             AteTitle(text: title, style: .handleTitle)
                 .padding(.horizontal, OnboardingMetrics.titleInset)
             Spacer(minLength: AteMetrics.section)
@@ -243,6 +250,30 @@ struct V2Onboarding: View {
     }
 }
 
+/// **The start screen's drawing** (`onboarding-calm.html`): the Journal's empty-state docket, #0001
+/// with its pencil, feeding out of the printer once from the top. Still with Reduce Motion.
+private struct OnboardingStartDrawing: View {
+    @State private var isPrinted = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        AteEmptyDrawing(art: .journal, height: OnboardingMetrics.drawing)
+            .mask(alignment: .top) {
+                GeometryReader { proxy in
+                    Rectangle()
+                        .frame(height: proxy.size.height * (isPrinted ? 1 : OnboardingMetrics.drawingFrom))
+                }
+            }
+            .task {
+                guard reduceMotion == false else {
+                    isPrinted = true
+                    return
+                }
+                withAnimation(OnboardingMetrics.printing) { isPrinted = true }
+            }
+    }
+}
+
 private extension View {
     /// A row of the found list: edge to edge on the ground, no system separator.
     func onboardingRow() -> some View {
@@ -287,5 +318,10 @@ enum OnboardingMetrics {
     /// Start: the two pills and the link, 10 apart.
     static let doorsGap: CGFloat = 10
     static let titleBar: CGFloat = 220
+    /// Start: the Journal's drawing 190 high, 28 over the title, printing out from its top half.
+    static let drawing: CGFloat = 190
+    static let drawingToTitle: CGFloat = 28
+    static let drawingFrom: CGFloat = 0.45
+    static let printing = Animation.timingCurve(0.3, 0.7, 0.2, 1, duration: 2.4).delay(0.3)
     static let titleBarHeight: CGFloat = 36
 }

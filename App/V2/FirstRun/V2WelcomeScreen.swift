@@ -2,9 +2,9 @@ import AteKit
 import AuthenticationServices
 import SwiftUI
 
-/// **Welcome** — a full-screen cover on coral: the two photos together above the printed slip (never
-/// on it), the slip with its wordmark and "Made to order" and no barcode, then Apple's own Sign in
-/// with Apple in black and "See what everyone's eating", which opens the Feed signed out.
+/// **Welcome** — a full-screen cover on coral: the logo traced on, five stars and the line
+/// (``AteWelcomeMark``), then Apple's own Sign in with Apple in black and "See what everyone's
+/// eating", which opens the Feed signed out.
 ///
 /// It is also the sign-in ask: when somebody reading signed out tries to write or save, this is the
 /// screen that comes up, and its link reads "Not now". A sign-in that fails (not one the person
@@ -27,7 +27,7 @@ struct V2WelcomeScreen: View {
 
     var body: some View {
         // Stacked rather than layered, so however tall the type makes either part they cannot
-        // overlap: at the largest sizes the page scrolls, Apple's button always clear of the slip
+        // overlap: at the largest sizes the page scrolls, Apple's button always clear of the mark
         // (App Review reads an obscured Sign in with Apple as a rejection).
         ViewThatFits(in: .vertical) {
             page
@@ -44,7 +44,7 @@ struct V2WelcomeScreen: View {
     private var page: some View {
         VStack(spacing: 0) {
             Spacer(minLength: AteMetrics.section)
-            AteWelcomeCard()
+            AteWelcomeMark()
             Spacer(minLength: AteMetrics.section)
             doors
         }

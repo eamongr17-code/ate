@@ -1,51 +1,54 @@
 import AteKit
 import SwiftUI
 
-/// **Welcome's printed slip** — two photos together in a tilted cluster, clear **above** the receipt
-/// (never on it), then the slip itself, tilted: the wordmark, "A record of everything worth
-/// ordering.", a dashed rule and "Made to order". No barcode (cut 3 Oct). Drawn on the coral ground,
-/// so the photos' ring is coral.
-struct AteWelcomeCard: View {
-    /// Made once, so the same two photos keep their identity across redraws.
-    @State private var photos = AteWelcomeCardMetrics.photos.map { AtePhoto(image: Image($0)) }
+/// **Welcome's mark** (`design/rebuild/onboarding-calm.html`, Welcome A, Eamon 17 Oct): the logo
+/// standing still, five stars popping in under it, then the line. Nothing else on the
+/// coral: no photos, no receipt. Ink throughout, since the coral never changes with the mode.
+struct AteWelcomeMark: View {
+    @State private var showsStars = false
+    @State private var showsLine = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: AteWelcomeCardMetrics.photosToSlip) {
-            PhotoCluster(
-                photos: photos,
-                side: AteWelcomeCardMetrics.photo,
-                surface: AteColor.coral,
-                topPadding: 0,
-                bottomPadding: 0,
-                overlap: AteWelcomeCardMetrics.overlap,
-                angles: AteWelcomeCardMetrics.angles
-            )
-            .frame(maxWidth: .infinity)
-            .accessibilityHidden(true)
-            paper
-                .rotationEffect(.degrees(AteWelcomeCardMetrics.slipAngle))
-                .padding(.horizontal, AteWelcomeCardMetrics.slipInset)
-        }
-    }
-
-    private var paper: some View {
-        VStack(spacing: AteWelcomeCardMetrics.paperGap) {
-            AteWordmark(height: AteWelcomeCardMetrics.wordmark)
-            Text("A record of everything\nworth ordering.")
-                .ateText(.proseQuote)
+        VStack(spacing: AteWelcomeCardMetrics.markGap) {
+            AteWordmark(height: AteWelcomeCardMetrics.wordmark, colour: AteColor.ink)
+            stars
+            Text(AteWelcomeCardMetrics.line)
+                .ateText(.welcomeLine)
                 .multilineTextAlignment(.center)
-            AteDashedRule()
-            Text("Made to order")
-                .ateText(.receiptLabel)
-                .foregroundStyle(AtePalette.slip.muted)
+                .foregroundStyle(AteColor.ink)
+                .frame(maxWidth: AteWelcomeCardMetrics.lineWidth)
+                .fixedSize(horizontal: false, vertical: true)
+                .opacity(showsLine ? 1 : 0)
+                .offset(y: showsLine ? 0 : AteWelcomeCardMetrics.lineRise)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, AteWelcomeCardMetrics.paperTop)
-        .padding(.horizontal, AteWelcomeCardMetrics.paperSide)
-        .padding(.bottom, AteWelcomeCardMetrics.paperSide + AteMetrics.tornEdgeHeight)
-        // The receipt palette, like every receipt Ate prints: white in light, the plum slip in dark.
-        .ateSlip()
-        .ateTornPaper()
+        .accessibilityElement(children: .combine)
+        .task { reveal() }
+    }
+
+    /// Five stars, popping in one after another as Welcome opens.
+    private var stars: some View {
+        HStack(spacing: AteWelcomeCardMetrics.starGap) {
+            ForEach(0..<AteWelcomeCardMetrics.starCount, id: \.self) { index in
+                AteIcon.starFilled.view(size: AteWelcomeCardMetrics.star)
+                    .foregroundStyle(AteColor.ink)
+                    .scaleEffect(showsStars ? 1 : AteWelcomeCardMetrics.starFrom)
+                    .rotationEffect(.degrees(showsStars ? 0 : AteWelcomeCardMetrics.starTurn))
+                    .opacity(showsStars ? 1 : 0)
+                    .animation(reduceMotion ? nil : pop(index), value: showsStars)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func pop(_ index: Int) -> Animation {
+        AteWelcomeCardMetrics.starPop.delay(Double(index) * AteWelcomeCardMetrics.starStep)
+    }
+
+    private func reveal() {
+        showsStars = true
+        withAnimation(reduceMotion ? nil : AteWelcomeCardMetrics.lineFade) { showsLine = true }
     }
 }
 
@@ -79,20 +82,20 @@ struct AteWelcomeLink: View {
 }
 
 enum AteWelcomeCardMetrics {
-    /// The build's two photos, `132` each, `-8` and `6`.
-    static let photos = ["Photos/pizza", "Photos/burger"]
-    static let photo: CGFloat = 132
-    static let angles: [Double] = [-8, 6]
-    static let overlap: CGFloat = 20
-    static let photosToSlip: CGFloat = 28
-    /// `left:50px; right:50px`, `rotate(-2.5deg)`.
-    static let slipInset: CGFloat = 50
-    static let slipAngle: Double = -2.5
-    /// `padding:30px 18px 18px; gap:14px`.
-    static let paperTop: CGFloat = 30
-    static let paperSide: CGFloat = 18
-    static let paperGap: CGFloat = 14
-    static let wordmark: CGFloat = 96
+    static let line = "A personal journal of the best food you've ever eaten."
+    /// The logo 123 high (260 across), the stars and the line 26 apart under it.
+    static let wordmark: CGFloat = 123
+    static let markGap: CGFloat = 26
+    static let lineWidth: CGFloat = 280
+    static let lineRise: CGFloat = 6
+    static let star: CGFloat = 22
+    static let starGap: CGFloat = 6
+    static let starCount = 5
+    static let starFrom: CGFloat = 0.3
+    static let starTurn: Double = -40
+    static let starStep: Double = 0.12
+    static let starPop = Animation.spring(response: 0.38, dampingFraction: 0.55)
+    static let lineFade = Animation.easeOut(duration: 0.8).delay(0.8)
     static let underline: CGFloat = 1
     /// `left:20; right:20; bottom:40; gap:6` — Apple's button, then the link.
     static let doorsGap: CGFloat = 6
