@@ -6,15 +6,15 @@ import Foundation
 public struct EarlySortInput: Hashable, Sendable {
     public let body: String
     public let tagTokens: [TagToken]
-    /// The secret 6s (`six_tokens`) — part of the input, so a plan cached without them is never
-    /// reused for words that hold one.
-    public let sixTokens: [TagToken]
+    /// Every score pill (`score_tokens`, its 6s included) — part of the input, so a plan cached
+    /// without them is never reused for words that hold one.
+    public let scoreTokens: [TagToken]
     public let restaurantID: UUID
 
-    public init(body: String, tagTokens: [TagToken], sixTokens: [TagToken] = [], restaurantID: UUID) {
+    public init(body: String, tagTokens: [TagToken], scoreTokens: [TagToken] = [], restaurantID: UUID) {
         self.body = body
         self.tagTokens = tagTokens
-        self.sixTokens = sixTokens
+        self.scoreTokens = scoreTokens
         self.restaurantID = restaurantID
     }
 
@@ -29,7 +29,7 @@ public struct EarlySortInput: Hashable, Sendable {
         self.init(
             body: composition.plain,
             tagTokens: composition.tagTokens,
-            sixTokens: composition.sixTokens,
+            scoreTokens: composition.scoreTokens,
             restaurantID: restaurantID
         )
     }

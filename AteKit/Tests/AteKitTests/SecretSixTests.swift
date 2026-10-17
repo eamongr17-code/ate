@@ -131,31 +131,40 @@ struct SixTokensTests {
             EntryTokenSpan(token: EntryToken(kind: .score(.perfect)), span: TextSpan(location: 5, length: 3))
         ])
         #expect(five.sixTokens.isEmpty)
+        // Every pill is a score token, a 6 or not (17 Oct).
+        #expect(five.scoreTokens == [TagToken(offset: 5, length: 3)])
+        #expect(withSix().scoreTokens == [TagToken(offset: 9, length: 3)])
     }
 
-    @Test("the sort request sends six_tokens only when there are any")
+    @Test("the sort request sends score_tokens whenever known, even empty; six_tokens only when any")
     func sortRequest() throws {
         let id = UUID()
         let plain = try JSONSerialization.jsonObject(with: JSONEncoder().encode(
             SortEntryRequest(entryID: id, force: false)
         )) as? [String: Any]
         #expect(plain?["six_tokens"] == nil)
-        let sixed = try JSONSerialization.jsonObject(with: JSONEncoder().encode(
-            SortEntryRequest(entryID: id, force: true, sixTokens: [TagToken(offset: 9, length: 3)])
+        #expect(plain?["score_tokens"] == nil)
+        let none = try JSONSerialization.jsonObject(with: JSONEncoder().encode(
+            SortEntryRequest(entryID: id, force: false, scoreTokens: [])
         )) as? [String: Any]
-        let tokens = sixed?["six_tokens"] as? [[String: Int]]
-        #expect(tokens == [["offset": 9, "length": 3]])
+        #expect((none?["score_tokens"] as? [[String: Int]]) == [])
+        #expect(none?["six_tokens"] == nil)
+        let sixed = try JSONSerialization.jsonObject(with: JSONEncoder().encode(
+            SortEntryRequest(entryID: id, force: true, scoreTokens: [TagToken(offset: 9, length: 3)])
+        )) as? [String: Any]
+        #expect((sixed?["six_tokens"] as? [[String: Int]]) == [["offset": 9, "length": 3]])
+        #expect((sixed?["score_tokens"] as? [[String: Int]]) == [["offset": 9, "length": 3]])
     }
 
     @Test("the early sort carries them — a plan cached without a 6 is not the plan for one")
     func earlySort() {
         let place = UUID()
         let input = EarlySortInput(composition: withSix(), restaurantID: place)
-        #expect(input?.sixTokens == [TagToken(offset: 9, length: 3)])
+        #expect(input?.scoreTokens == [TagToken(offset: 9, length: 3)])
         let plain = EarlySortInput(
             composition: EntryComposition(plain: "Tiramisu 6.0 honestly", spans: []), restaurantID: place
         )
-        #expect(plain?.sixTokens == [])
+        #expect(plain?.scoreTokens == [])
         #expect(input != plain)
     }
 
@@ -164,7 +173,7 @@ struct SixTokensTests {
         let (edited, _) = withSix().applyingDisplayEdit(replacing: TextSpan(location: 0, length: 0), with: "The ")
         #expect(edited.scores == [.blownAway])
         #expect(edited.plain == "The Tiramisu 6.0 honestly")
-        #expect(edited.sixTokens == [TagToken(offset: 13, length: 3)])
+        #expect(edited.scoreTokens == [TagToken(offset: 13, length: 3)])
     }
 
     @Test("a draft holding a 6 comes back holding a 6")
@@ -172,7 +181,7 @@ struct SixTokensTests {
         let draft = EntryDraft(composition: withSix())
         let decoded = try JSONDecoder().decode(EntryDraft.self, from: JSONEncoder().encode(draft))
         #expect(decoded.composition.scores == [.blownAway])
-        #expect(decoded.composition.sixTokens == [TagToken(offset: 9, length: 3)])
+        #expect(decoded.composition.scoreTokens == [TagToken(offset: 9, length: 3)])
     }
 
     @Test("re-opening a saved entry scored 6 puts the 6 pill back in its words")
@@ -187,7 +196,7 @@ struct SixTokensTests {
         )
         let composition = EntryBodyTokens.composition(for: card)
         #expect(composition.scores == [.blownAway])
-        #expect(composition.sixTokens == [TagToken(offset: 9, length: 3)])
+        #expect(composition.scoreTokens == [TagToken(offset: 9, length: 3)])
     }
 
     @Test("an edit's re-sort carries the 6, and so does the Summary's re-print")
@@ -196,14 +205,14 @@ struct SixTokensTests {
         let composition = withSix()
         let edit = EntryEdit(
             entryID: UUID(), body: composition.plain, originalRestaurantID: nil, restaurantID: nil,
-            tagTokens: [TagToken(offset: 0, length: 2)], sixTokens: composition.sixTokens
+            tagTokens: [TagToken(offset: 0, length: 2)], scoreTokens: composition.scoreTokens
         )
         await edit.sort(on: service)
-        #expect(service.sixes == [[TagToken(offset: 9, length: 3)]])
+        #expect(service.scores == [[TagToken(offset: 9, length: 3)]])
 
-        let actions = EntrySummaryStore.Actions.live(service, tagTokens: [], sixTokens: composition.sixTokens)
+        let actions = EntrySummaryStore.Actions.live(service, tagTokens: [], scoreTokens: composition.scoreTokens)
         try await actions.resort(UUID())
-        #expect(service.sixes.last == [TagToken(offset: 9, length: 3)])
+        #expect(service.scores.last == [TagToken(offset: 9, length: 3)])
     }
 
     @Test("a queued entry keeps its six tokens on disk, and an old queue still reads")
@@ -212,12 +221,12 @@ struct SixTokensTests {
             NewEntry(id: UUID(), authorID: UUID(), body: "x", restaurantID: nil, createdAt: Date())
         )
         let queued = QueuedEntry(
-            entry: insert, pendingPhotos: [], hasInserted: true, sixTokens: [TagToken(offset: 1, length: 3)]
+            entry: insert, pendingPhotos: [], hasInserted: true, scoreTokens: [TagToken(offset: 1, length: 3)]
         )
         let decoded = try JSONDecoder().decode(QueuedEntry.self, from: JSONEncoder().encode(queued))
-        #expect(decoded.sixTokens == [TagToken(offset: 1, length: 3)])
+        #expect(decoded.scoreTokens == [TagToken(offset: 1, length: 3)])
         let bare = QueuedEntry(entry: insert, pendingPhotos: [], hasInserted: true)
-        #expect(bare.sixTokens == nil)
+        #expect(bare.scoreTokens == nil)
     }
 }
 

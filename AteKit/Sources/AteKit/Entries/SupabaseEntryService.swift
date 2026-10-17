@@ -117,18 +117,18 @@ public struct SupabaseEntryService: EntryService {
 
     @discardableResult
     public func sort(entryID: UUID, force: Bool, tagTokens: [TagToken]) async throws -> SortOutcome {
-        try await sort(entryID: entryID, force: force, tagTokens: tagTokens, sixTokens: [])
+        try await sort(entryID: entryID, force: force, tagTokens: tagTokens, scoreTokens: nil)
     }
 
     @discardableResult
     public func sort(
-        entryID: UUID, force: Bool, tagTokens: [TagToken], sixTokens: [TagToken]
+        entryID: UUID, force: Bool, tagTokens: [TagToken], scoreTokens: [TagToken]?
     ) async throws -> SortOutcome {
         let response: SortResponse = try await api.supabase.functions.invoke(
             "sort-entry",
             options: FunctionInvokeOptions(
                 method: .post,
-                body: SortEntryRequest(entryID: entryID, force: force, tagTokens: tagTokens, sixTokens: sixTokens)
+                body: SortEntryRequest(entryID: entryID, force: force, tagTokens: tagTokens, scoreTokens: scoreTokens)
             )
         ) { data, _ in try Self.decodeSortResponse(data) }
         return SortOutcome(
@@ -315,13 +315,13 @@ public struct SupabaseEntryService: EntryService {
     struct PreviewSortRequest: Encodable, Sendable {
         let body: String
         let tagTokens: [TagToken]
-        let sixTokens: [TagToken]
+        let scoreTokens: [TagToken]
         let restaurantID: UUID
 
         init(_ input: EarlySortInput) {
             body = input.body
             tagTokens = input.tagTokens
-            sixTokens = input.sixTokens
+            scoreTokens = input.scoreTokens
             restaurantID = input.restaurantID
         }
 
@@ -329,6 +329,7 @@ public struct SupabaseEntryService: EntryService {
             case preview, body
             case tagTokens = "tag_tokens"
             case sixTokens = "six_tokens"
+            case scoreTokens = "score_tokens"
             case restaurantID = "restaurant_id"
         }
 
@@ -337,8 +338,9 @@ public struct SupabaseEntryService: EntryService {
             try container.encode(true, forKey: .preview)
             try container.encode(body, forKey: .body)
             try container.encode(tagTokens, forKey: .tagTokens)
-            if sixTokens.isEmpty == false {
-                try container.encode(sixTokens, forKey: .sixTokens)
+            try container.encode(scoreTokens, forKey: .scoreTokens)
+            if scoreTokens.isEmpty == false {
+                try container.encode(scoreTokens, forKey: .sixTokens)
             }
             try container.encode(restaurantID.uuidString.lowercased(), forKey: .restaurantID)
         }

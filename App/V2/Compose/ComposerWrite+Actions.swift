@@ -25,7 +25,7 @@ extension V2ComposerWrite {
         saveFailed = false
         isHandingOver = true
         model.dismissScoring(refocus: false)
-        model.promotePendingScoreLiteral().map(services.analytics)
+        model.promotePendingTagLiteral().map(services.analytics)
         // Done's last word to the early sort: the words exactly as they will be inserted. A preview
         // of them already out is left to land; a stale one gets one more, which the sort waits on.
         // Then nothing further goes.
@@ -68,7 +68,7 @@ extension V2ComposerWrite {
                     entryID: request.id,
                     photoPaths: request.photoPaths,
                     tagTokens: request.tagTokens,
-                    sixTokens: request.sixTokens,
+                    scoreTokens: request.scoreTokens,
                     sorted: { await sorted.fulfil($0) }
                 )
                 // Its photos are paired with its dishes by now (0063): an open page reads them again.
@@ -134,7 +134,7 @@ extension V2ComposerWrite {
             companions: model.companions.map(\.handle),
             sorted: sorted,
             tagTokens: request.tagTokens,
-            sixTokens: request.sixTokens,
+            scoreTokens: request.scoreTokens,
             doneAt: startedAt,
             cacheHit: cacheHit
         ))
@@ -182,7 +182,7 @@ extension V2ComposerWrite {
             originalRestaurantID: editing.restaurantID,
             restaurantID: model.place?.id,
             tagTokens: model.composition.tagTokens,
-            sixTokens: model.composition.sixTokens,
+            scoreTokens: model.composition.scoreTokens,
             originalPhotos: editing.photos,
             photos: model.editedPhotos,
             tags: EditTagDiff(original: editing.composition, current: model.composition, items: editing.items),

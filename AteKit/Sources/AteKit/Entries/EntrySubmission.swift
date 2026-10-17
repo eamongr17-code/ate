@@ -15,8 +15,9 @@ public struct NewEntryRequest: Sendable, Hashable {
     /// The composer's tag chips, in scalars — carried to the sort, and kept with the entry in the
     /// outbox so a sort that runs later still has them.
     public let tagTokens: [TagToken]
-    /// The secret 6s, in scalars (`six_tokens`) — carried beside the chips, for the same reason.
-    public let sixTokens: [TagToken]
+    /// Every score pill, in scalars (`score_tokens`) — carried beside the chips, for the same reason.
+    /// `nil` only where they cannot be known.
+    public let scoreTokens: [TagToken]?
 
     public init(
         id: UUID,
@@ -27,7 +28,7 @@ public struct NewEntryRequest: Sendable, Hashable {
         scoreCount: Int,
         secondsFromOpen: Int,
         tagTokens: [TagToken] = [],
-        sixTokens: [TagToken] = []
+        scoreTokens: [TagToken]? = nil
     ) {
         self.id = id
         self.body = body
@@ -37,7 +38,7 @@ public struct NewEntryRequest: Sendable, Hashable {
         self.scoreCount = scoreCount
         self.secondsFromOpen = secondsFromOpen
         self.tagTokens = tagTokens
-        self.sixTokens = sixTokens
+        self.scoreTokens = scoreTokens
     }
 }
 
@@ -132,7 +133,7 @@ public struct EntrySubmission: Sendable {
                 pendingPhotos: photos(of: request),
                 hasInserted: true,
                 tagTokens: request.tagTokens,
-                sixTokens: request.sixTokens
+                scoreTokens: request.scoreTokens
             ))
             return .saved(card)
         } catch {
@@ -146,7 +147,7 @@ public struct EntrySubmission: Sendable {
                 pendingPhotos: photos(of: request),
                 hasInserted: false,
                 tagTokens: request.tagTokens,
-                sixTokens: request.sixTokens
+                scoreTokens: request.scoreTokens
             ))
             analytics(EntryEvents.saved(savedEvent(request, queued: true)))
             return .queued(placeholder(for: entry, request: request))
@@ -166,11 +167,11 @@ public struct EntrySubmission: Sendable {
         entryID: UUID,
         photoPaths: [String],
         tagTokens: [TagToken] = [],
-        sixTokens: [TagToken] = [],
+        scoreTokens: [TagToken]? = nil,
         sorted: (@Sendable (EntryCard?) async -> Void)? = nil
     ) async -> EntryCard? {
         async let uploaded = upload(entryID: entryID, photoPaths: photoPaths)
-        let outcome = await sort(entryID: entryID, tagTokens: tagTokens, sixTokens: sixTokens)
+        let outcome = await sort(entryID: entryID, tagTokens: tagTokens, scoreTokens: scoreTokens)
         let didSort = outcome != nil
         if let sorted {
             // The sort's reply carries the sorted card (0056): print it. Read it only when it did not.
@@ -244,11 +245,11 @@ public struct EntrySubmission: Sendable {
         }
     }
 
-    private func sort(entryID: UUID, tagTokens: [TagToken], sixTokens: [TagToken]) async -> SortOutcome? {
+    private func sort(entryID: UUID, tagTokens: [TagToken], scoreTokens: [TagToken]?) async -> SortOutcome? {
         let startedAt = now()
         do {
             let outcome = try await entries.sort(
-                entryID: entryID, force: false, tagTokens: tagTokens, sixTokens: sixTokens
+                entryID: entryID, force: false, tagTokens: tagTokens, scoreTokens: scoreTokens
             )
             analytics(EntryEvents.sortCompleted(
                 mode: outcome.mode,
@@ -316,11 +317,12 @@ extension QueuedEntry {
         pendingPhotos: [QueuedPhoto],
         hasInserted: Bool,
         tagTokens: [TagToken] = [],
-        sixTokens: [TagToken] = []
+        scoreTokens: [TagToken]? = nil
     ) {
         self.init(entry: entry, pendingPhotos: pendingPhotos)
         self.hasInserted = hasInserted
         self.tagTokens = tagTokens.isEmpty ? nil : tagTokens
-        self.sixTokens = sixTokens.isEmpty ? nil : sixTokens
+        // Kept even when empty: no pills means no ratings, which is not the same as not knowing.
+        self.scoreTokens = scoreTokens
     }
 }

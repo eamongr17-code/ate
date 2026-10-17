@@ -219,7 +219,7 @@ struct AteWithRespondFace: View {
                 let card = try await model.post()
                 app.notifications.finished(companionID: companionID)
                 NotificationCenter.ateEntryChanged(card)
-                onPrinted(V2ComposerPrinted.Handoff(card: card, photos: [], sorted: nil, tagTokens: [], sixTokens: []))
+                onPrinted(V2ComposerPrinted.Handoff(card: card, photos: [], sorted: nil, tagTokens: [], scoreTokens: nil))
             } catch AteWithError.unreachable {
                 saveFailed = true
             } catch {

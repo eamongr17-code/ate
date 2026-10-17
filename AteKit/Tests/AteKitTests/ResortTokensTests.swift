@@ -13,14 +13,14 @@ struct ResortTokensTests {
         ))
         let queued = QueuedEntry(
             entry: insert, pendingPhotos: [], hasInserted: true,
-            tagTokens: [TagToken(offset: 0, length: 2)], sixTokens: [six]
+            tagTokens: [TagToken(offset: 0, length: 2)], scoreTokens: [six]
         )
         // The card has no lines yet — the sort failed — so only the outbox knows about the 6.
         let card = EntryCard(
             id: insert.id, authorID: insert.authorID, body: insert.body, orderNumber: 1, createdAt: Date()
         )
         let tokens = ResortTokens.resolve(queued: queued, card: card)
-        #expect(tokens.sixes == [six])
+        #expect(tokens.scores == [six])
         #expect(tokens.tags == [TagToken(offset: 0, length: 2)])
     }
 
@@ -34,11 +34,11 @@ struct ResortTokensTests {
                 evidenceOffset: 9, evidenceLength: 3, mentionOffset: 0, mentionLength: 8
             )]
         )
-        #expect(ResortTokens.resolve(queued: nil, card: card).sixes == [six])
+        #expect(ResortTokens.resolve(queued: nil, card: card).scores == [six])
     }
 
     @Test("nothing known, nothing sent")
     func empty() {
-        #expect(ResortTokens.resolve(queued: nil, card: nil) == ResortTokens(tags: [], sixes: []))
+        #expect(ResortTokens.resolve(queued: nil, card: nil) == ResortTokens(tags: [], scores: []))
     }
 }

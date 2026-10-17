@@ -86,17 +86,20 @@ public struct SortEntryRequest: Encodable, Sendable {
     public let force: Bool
     public let dryRun: Bool
     public let tagTokens: [TagToken]
-    /// The secret 6s — `six_tokens`, sent only when there are any.
-    public let sixTokens: [TagToken]
+    /// Every score pill in the words (`score_tokens`, 17 Oct): the only numbers the server reads as
+    /// ratings. `nil` when the caller cannot know them (a correction, a fake), and then the server
+    /// reads the prose as it always did. Also sent as `six_tokens` — the server keeps only the spans
+    /// that say a 6 — so a server that predates `score_tokens` still gets its sixes.
+    public let scoreTokens: [TagToken]?
 
     public init(
-        entryID: UUID, force: Bool, dryRun: Bool = false, tagTokens: [TagToken] = [], sixTokens: [TagToken] = []
+        entryID: UUID, force: Bool, dryRun: Bool = false, tagTokens: [TagToken] = [], scoreTokens: [TagToken]? = nil
     ) {
         self.entryID = entryID
         self.force = force
         self.dryRun = dryRun
         self.tagTokens = tagTokens
-        self.sixTokens = sixTokens
+        self.scoreTokens = scoreTokens
     }
 
     enum CodingKeys: String, CodingKey {
@@ -105,6 +108,7 @@ public struct SortEntryRequest: Encodable, Sendable {
         case dryRun = "dry_run"
         case tagTokens = "tag_tokens"
         case sixTokens = "six_tokens"
+        case scoreTokens = "score_tokens"
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -115,8 +119,12 @@ public struct SortEntryRequest: Encodable, Sendable {
         if tagTokens.isEmpty == false {
             try container.encode(tagTokens, forKey: .tagTokens)
         }
-        if sixTokens.isEmpty == false {
-            try container.encode(sixTokens, forKey: .sixTokens)
+        if let scoreTokens {
+            // Always, even empty: an entry with no pills has no ratings.
+            try container.encode(scoreTokens, forKey: .scoreTokens)
+            if scoreTokens.isEmpty == false {
+                try container.encode(scoreTokens, forKey: .sixTokens)
+            }
         }
     }
 }
@@ -180,6 +188,12 @@ public extension EntryComposition {
     /// back to prose.
     var sixTokens: [TagToken] {
         scalarTokens(for: spans.filter { $0.token.score == .blownAway }.map(\.span))
+    }
+
+    /// **Every score pill** (`score_tokens`, 17 Oct), its 6s included, in scalars. A rating comes only
+    /// from the Score key, so these are the only numbers in the words the sorter treats as one.
+    var scoreTokens: [TagToken] {
+        scalarTokens(for: spans.filter { $0.token.score != nil }.map(\.span))
     }
 
     private func scalarTokens(for tagSpans: [TextSpan]) -> [TagToken] {

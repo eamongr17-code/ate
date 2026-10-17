@@ -8,7 +8,8 @@
 //   POST /functions/v1/sort-entry
 //   body: { entry_id: uuid, force?: boolean, dry_run?: boolean,
 //           tag_tokens?: [{ offset, length }],         (0036 — scalar spans the client marked)
-//           six_tokens?: [{ offset, length }] }        (0041 — the secret 6, client-marked only)
+//           six_tokens?: [{ offset, length }],         (0041 — the secret 6, client-marked only)
+//           score_tokens?: [{ offset, length }] }      (every score pill; ./rated.ts)
 //   → 200 { ok, mode, model, entry_id, sort_status, restaurant_id, place_query, place_offset, items[],
 //           entry_card }                               (0056 — the sorted entry_cards row, or null)
 //     (every item carries `tags: string[]`, possibly [])
@@ -72,11 +73,15 @@
 // THE SECRET 6 IS NEVER INFERRED EITHER (0041). Scores are 0.5-5.0; a 6 exists only on a span the
 // client marked (`six_tokens`, ./six.ts). A typed "6" is not a score: the parser's numbers stop at 5
 // and validate.ts drops any 6 whose evidence does not cover a marked span, in every mode.
+//
+// ONLY RATED DISHES PRINT (./rated.ts). An unrated line is dropped, and when the client sends
+// `score_tokens` a score survives only on one of those pills: a number typed in prose is not a rating.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { fencedPlaceNames, mentionForPlaceName, parseEntry, placeCandidateSpans } from './parse.ts';
 import { validatePlan } from './validate.ts';
 import { resolveMode, resolveModel, sortWithModel } from './model.ts';
+import { keepRated, parseScoreTokens } from './rated.ts';
 import { attachTagTokens, parseTagTokens, tagTokenSpans, tagTokenWords, type TagToken } from './tags.ts';
 import {
   attachSixTokens,
@@ -612,7 +617,9 @@ Deno.serve(async (req) => {
   const dryRun = Boolean((body as { dry_run?: unknown }).dry_run);
   const preview = (body as { preview?: unknown }).preview === true;
   const tagTokens = parseTagTokens((body as { tag_tokens?: unknown }).tag_tokens);
-  const sixTokens = parseSixTokens((body as { six_tokens?: unknown }).six_tokens);
+  // Every score pill, when the client sends them (./rated.ts); its sixes are the 6s.
+  const scoreTokens = parseScoreTokens((body as { score_tokens?: unknown }).score_tokens);
+  const sixTokens = scoreTokens ?? parseSixTokens((body as { six_tokens?: unknown }).six_tokens);
 
   const admin = adminClient();
 
@@ -650,7 +657,7 @@ Deno.serve(async (req) => {
         restaurant_id: planned.restaurantId,
         place_query: planned.mention?.phrase ?? planned.validated.place_query,
         place_offset: planned.mention?.offset ?? planned.validated.place_offset,
-        items: planned.validated.items,
+        items: keepRated(planned.validated.items, scoreTokens),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -696,7 +703,7 @@ Deno.serve(async (req) => {
     // (./six.ts carryPriorSixes; apply_entry_sort enforces the same rule of record).
     const validated: SortPlan = {
       ...planned.validated,
-      items: carryPriorSixes(planned.validated.items, row.body, sixLines),
+      items: keepRated(carryPriorSixes(planned.validated.items, row.body, sixLines), scoreTokens),
     };
 
     if (dryRun) {
