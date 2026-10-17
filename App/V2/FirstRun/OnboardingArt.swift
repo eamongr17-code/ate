@@ -14,8 +14,8 @@ import SwiftUI
 ///
 /// Built from the kit (``AteComposerByline``, ``InlineTokenText``, ``ComposerKey``,
 /// ``AteEntrySlip``), drawn on one canvas (``OnboardingArtMetrics/canvas``) and scaled down as a
-/// whole where the card has less room, never past its size in the mockup. Nothing here is tappable. With Reduce Motion each card is
-/// simply its finished picture.
+/// whole where the card has less room, never past its size in the mockup. Nothing here is
+/// tappable. With Reduce Motion each card is simply its finished picture.
 struct OnboardingArt: View {
     let card: OnboardingCard
     let handle: String
