@@ -257,7 +257,7 @@ extension InlineTokenEditor {
             regroupTags(in: view)
             binding.wrappedValue = composition(from: view)
             // Noticed now, applied a turn later — see `scheduleScorePromotion`.
-            if let promotion = promotableScore(in: view) { noticedPromotion = promotion }
+            if let promotion = promotableTag(in: view) { noticedPromotion = promotion }
             scheduleScorePromotion(in: view)
         }
 
@@ -285,7 +285,7 @@ extension InlineTokenEditor {
                     let noticed = self.noticedPromotion
                     self.noticedPromotion = nil
                     let stillThere = noticed.flatMap { self.stillReads($0, in: view) ? $0 : nil }
-                    guard let promotion = self.promotableScore(in: view) ?? stillThere else { return }
+                    guard let promotion = self.promotableTag(in: view) ?? stillThere else { return }
                     self.apply(promotion, in: view)
                 }
             }

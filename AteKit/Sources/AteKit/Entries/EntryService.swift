@@ -146,7 +146,7 @@ public protocol EntryService: Sendable {
     /// the slider. A service that cannot send them (a fake, the in-memory preview) falls back to the
     /// sort without — never an error.
     @discardableResult
-    func sort(entryID: UUID, force: Bool, tagTokens: [TagToken], sixTokens: [TagToken]) async throws -> SortOutcome
+    func sort(entryID: UUID, force: Bool, tagTokens: [TagToken], scoreTokens: [TagToken]?) async throws -> SortOutcome
 
     /// One entry, freshly read — what the receipt is drawn from.
     func entry(id: UUID) async throws -> EntryCard
@@ -221,7 +221,7 @@ public extension EntryService {
     }
 
     @discardableResult
-    func sort(entryID: UUID, force: Bool, tagTokens: [TagToken], sixTokens: [TagToken]) async throws -> SortOutcome {
+    func sort(entryID: UUID, force: Bool, tagTokens: [TagToken], scoreTokens: [TagToken]?) async throws -> SortOutcome {
         try await sort(entryID: entryID, force: force, tagTokens: tagTokens)
     }
 

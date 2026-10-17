@@ -10,20 +10,30 @@ import Foundation
 ///    chips are on its lines, and the pills rebuilt from them are what the words say now.
 public struct ResortTokens: Equatable, Sendable {
     public let tags: [TagToken]
-    public let sixes: [TagToken]
+    /// Every score pill (`score_tokens`), its 6s included; `nil` when an old outbox kept none.
+    public let scores: [TagToken]?
 
-    public init(tags: [TagToken], sixes: [TagToken]) {
+    public init(tags: [TagToken], scores: [TagToken]?) {
         self.tags = tags
-        self.sixes = sixes
+        self.scores = scores
     }
 
     public static func resolve(queued: QueuedEntry?, card: EntryCard?) -> ResortTokens {
-        if let queued, queued.tagTokens != nil || queued.sixTokens != nil {
-            return ResortTokens(tags: queued.tagTokens ?? [], sixes: queued.sixTokens ?? [])
+        if let queued, queued.tagTokens != nil || queued.scoreTokens != nil {
+            return ResortTokens(tags: queued.tagTokens ?? [], scores: queued.scoreTokens)
         }
-        guard let card else { return ResortTokens(tags: [], sixes: []) }
+        // Nothing known: no `score_tokens` at all. An empty list would tell the server "no ratings".
+        guard let card else { return ResortTokens(tags: [], scores: nil) }
         let words = EntryBodyTokens.composition(for: card)
-        return ResortTokens(tags: words.tagTokens, sixes: words.sixTokens)
+        return ResortTokens(tags: words.tagTokens, scores: scoreTokens(of: words, rebuiltFrom: card.items))
+    }
+
+    /// The pills of words rebuilt from an entry's lines — or `nil` when a scored line got none back
+    /// (an older entry scored from prose, "a solid four"). Sending pills that miss a rated line would
+    /// have the sorter drop that dish; without them the server reads the prose as it did.
+    public static func scoreTokens(of words: EntryComposition, rebuiltFrom items: [EntryCard.Item]) -> [TagToken]? {
+        let pills = words.spans.filter { $0.token.score != nil }.count
+        return pills >= items.filter { $0.score != nil }.count ? words.scoreTokens : nil
     }
 }
 

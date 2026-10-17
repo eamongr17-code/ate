@@ -38,7 +38,7 @@ public struct EntryEdit: Sendable {
     /// The secret 6s in the edited words. A forced sort rebuilds every line and the sorter never
     /// reads a 6 out of prose, so a 6 not carried here would be lost to the very re-sort a new chip
     /// asks for.
-    public let sixTokens: [TagToken]
+    public let scoreTokens: [TagToken]?
     /// Whether the sort after the edit is forced: when the words changed (round 4), or the edit added
     /// a tag chip that was not there when it opened (``EditTagDiff/hasNewTags``). The server rebuilds
     /// only uncorrected lines, so hand corrections survive it; a photo never triggers one.
@@ -64,7 +64,7 @@ public struct EntryEdit: Sendable {
         originalRestaurantID: UUID?,
         restaurantID: UUID?,
         tagTokens: [TagToken],
-        sixTokens: [TagToken] = [],
+        scoreTokens: [TagToken]? = nil,
         originalPhotos: [EntryCard.Photo] = [],
         photos: [Photo]? = nil,
         tags: EditTagDiff? = nil,
@@ -77,7 +77,7 @@ public struct EntryEdit: Sendable {
         self.originalRestaurantID = originalRestaurantID
         self.restaurantID = restaurantID
         self.tagTokens = tagTokens
-        self.sixTokens = sixTokens
+        self.scoreTokens = scoreTokens
         // No baseline (a caller that only ever adds chips): any chip is new, as before.
         // Round 4: **the words changed, so the sort is forced** — a score changed from 3.5 to 4.0 in an
         // edit used to go nowhere, because an unforced sort is a no-op on a sorted entry. Forcing is safe
@@ -209,7 +209,7 @@ public struct EntryEdit: Sendable {
     public func sort(on entries: any EntryService) async -> EntryCard? {
         guard skipsSort == false else { return nil }
         guard let outcome = try? await entries.sort(
-            entryID: entryID, force: forcesSort, tagTokens: tagTokens, sixTokens: sixTokens
+            entryID: entryID, force: forcesSort, tagTokens: tagTokens, scoreTokens: scoreTokens
         ) else { return nil }
         if let card = outcome.card { return card }
         return try? await entries.entry(id: entryID)

@@ -265,7 +265,7 @@ final class EntryModel: SavedDishObserving {
                 queued: await services.outbox.queued(entryID: route.entryID), card: card
             )
             _ = try? await services.entries.sort(
-                entryID: route.entryID, force: true, tagTokens: tokens.tags, sixTokens: tokens.sixes
+                entryID: route.entryID, force: true, tagTokens: tokens.tags, scoreTokens: tokens.scores
             )
             // A re-print rebuilds the lines: pair the photos with them again (0063).
             await services.entries.matchPhotos(entryID: route.entryID)

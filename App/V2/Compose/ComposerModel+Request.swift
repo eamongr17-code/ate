@@ -15,7 +15,7 @@ extension ComposerModel {
             scoreCount: draft.composition.scores.count,
             secondsFromOpen: draft.secondsFromOpen(),
             tagTokens: draft.composition.tagTokens,
-            sixTokens: draft.composition.sixTokens
+            scoreTokens: draft.composition.scoreTokens
         )
     }
 }

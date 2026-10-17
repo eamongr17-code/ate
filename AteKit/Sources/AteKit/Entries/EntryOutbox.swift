@@ -39,8 +39,9 @@ public struct QueuedEntry: Sendable, Hashable, Codable, Identifiable {
     /// before tags existed still reads.
     public var tagTokens: [TagToken]?
 
-    /// The secret 6s owed to that sort (`six_tokens`). Optional for the same reason.
-    public var sixTokens: [TagToken]?
+    /// The score pills owed to that sort (`score_tokens`, its 6s included). `nil` for a queue written
+    /// before they were kept, and then the server reads the prose as it used to.
+    public var scoreTokens: [TagToken]?
 
     /// The server refused rather than failed to answer. Retrying cannot help, so the queue stops
     /// immediately instead of burning eight foregrounds to arrive at the same place.
@@ -149,7 +150,7 @@ public actor EntryOutbox {
             merged.hasInserted = item.hasInserted || existing.hasInserted
             merged.needsSort = item.needsSort || existing.needsSort
             merged.tagTokens = item.tagTokens ?? existing.tagTokens
-            merged.sixTokens = item.sixTokens ?? existing.sixTokens
+            merged.scoreTokens = item.scoreTokens ?? existing.scoreTokens
         }
         queue.removeAll { $0.id == item.id }
         queue.append(merged)
@@ -338,7 +339,7 @@ public actor EntryOutbox {
         var sorted = false
         if item.needsSort, forgotten.contains(item.id) == false {
             let outcome = try await entries.sort(
-                entryID: item.entry.id, force: false, tagTokens: item.tagTokens ?? [], sixTokens: item.sixTokens ?? []
+                entryID: item.entry.id, force: false, tagTokens: item.tagTokens ?? [], scoreTokens: item.scoreTokens
             )
             item.needsSort = false
             sorted = true
