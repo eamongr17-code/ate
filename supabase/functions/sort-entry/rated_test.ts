@@ -6,7 +6,7 @@
 // number is a rating.
 
 import { test, assertEquals } from './harness.ts';
-import { keepRated, parseScoreTokens } from './rated.ts';
+import { attachScoreTokens, keepRated, parseScoreTokens } from './rated.ts';
 import { scalarOffset } from './offsets.ts';
 import type { SortItem } from './types.ts';
 
@@ -59,4 +59,19 @@ test('score_tokens: absent is null, malformed spans dropped', () => {
   assertEquals(parseScoreTokens(undefined), null);
   assertEquals(parseScoreTokens('x'), null);
   assertEquals(parseScoreTokens([{ offset: 3, length: 3 }, { offset: -1, length: 1 }]), [{ offset: 3, length: 3 }]);
+});
+
+test('a pill nobody claimed scores the dish named just before it', () => {
+  const body = 'Batch Brew, did the job 3.0 hard to really blow my mind here.';
+  const pill = { offset: body.indexOf('3.0'), length: 3 };
+  const attached = attachScoreTokens([line(body, 'Batch Brew', null, null)], [pill], body);
+  const kept = keepRated(attached, [pill], body);
+  assertEquals(kept.map((i) => [i.dish_name, i.score, i.score_evidence, i.evidence_offset]), [['Batch Brew', 3, '3.0', pill.offset]]);
+});
+
+test('a claimed pill or an already-scored line is left alone', () => {
+  const body = 'Ragù 4.5 and 3.0';
+  const marks = [{ offset: 5, length: 3 }, { offset: 13, length: 3 }];
+  const out = attachScoreTokens([line(body, 'Ragù', '4.5', 4.5)], marks, body);
+  assertEquals(out.map((i) => [i.score, i.evidence_offset]), [[4.5, 5]]);
 });

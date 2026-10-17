@@ -19,7 +19,7 @@
 // `score_tokens` also feeds the secret 6 (./six.ts sixSpans keeps only the spans that say a six),
 // so a client sends the same list as `six_tokens` for servers that predate this file.
 
-import { scalarLength, scalarOffset } from './offsets.ts';
+import { scalarLength, scalarOffset, sliceScalars } from './offsets.ts';
 import { parseSixTokens, type SixToken } from './six.ts';
 import type { SortItem } from './types.ts';
 
@@ -62,6 +62,41 @@ export function keepRated(items: readonly SortItem[], marks: readonly ScoreToken
     }
     const at = markedOffset(it, marks, body ?? '');
     if (at !== null) out.push({ ...it, evidence_offset: at });
+  }
+  return out;
+}
+
+const PILL = /^(?:[0-5](?:\.[05])?|6(?:\.0)?)$/;
+
+/**
+ * A pill nobody claimed scores the line whose dish is named nearest BEFORE it, when that line has no
+ * score yet — the rule the secret 6 follows (./six.ts attachSixTokens), now for every pill (17 Oct:
+ * "Batch Brew, did the job <3.0>" printed Batch Brew unrated and the 3.0 as words). A pill is the
+ * diner's own rating from the Score key, so it is never left on the floor. Items are copied.
+ */
+export function attachScoreTokens(items: readonly SortItem[], marks: readonly ScoreToken[] | null, body: string): SortItem[] {
+  const out = items.map((it) => ({ ...it }));
+  if (!marks) return out;
+  const text = body ?? '';
+  for (const m of marks) {
+    const said = sliceScalars(text, m.offset, m.length);
+    if (!PILL.test(said)) continue;
+    const value = Number(said);
+    if (value < 0.5) continue;
+    const claimed = out.some((it) =>
+      it.score !== null && typeof it.evidence_offset === 'number' && it.score_evidence &&
+      it.evidence_offset <= m.offset && m.offset + m.length <= it.evidence_offset + scalarLength(it.score_evidence));
+    if (claimed) continue;
+    let owner = -1;
+    for (let i = 0; i < out.length; i++) {
+      const at = out[i].mention_offset;
+      if (typeof at !== 'number' || at > m.offset) continue;
+      if (owner < 0 || at > (out[owner].mention_offset as number)) owner = i;
+    }
+    if (owner < 0 || out[owner].score !== null) continue;
+    out[owner].score = value;
+    out[owner].score_evidence = said;
+    out[owner].evidence_offset = m.offset;
   }
   return out;
 }

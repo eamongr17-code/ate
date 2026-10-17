@@ -81,7 +81,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { fencedPlaceNames, mentionForPlaceName, parseEntry, placeCandidateSpans } from './parse.ts';
 import { validatePlan } from './validate.ts';
 import { resolveMode, resolveModel, sortWithModel } from './model.ts';
-import { keepRated, parseScoreTokens } from './rated.ts';
+import { attachScoreTokens, keepRated, parseScoreTokens } from './rated.ts';
 import { attachTagTokens, parseTagTokens, tagTokenSpans, tagTokenWords, type TagToken } from './tags.ts';
 import {
   attachSixTokens,
@@ -657,7 +657,7 @@ Deno.serve(async (req) => {
         restaurant_id: planned.restaurantId,
         place_query: planned.mention?.phrase ?? planned.validated.place_query,
         place_offset: planned.mention?.offset ?? planned.validated.place_offset,
-        items: keepRated(planned.validated.items, scoreTokens, draft.body),
+        items: keepRated(attachScoreTokens(planned.validated.items, scoreTokens, draft.body), scoreTokens, draft.body),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -703,7 +703,11 @@ Deno.serve(async (req) => {
     // (./six.ts carryPriorSixes; apply_entry_sort enforces the same rule of record).
     const validated: SortPlan = {
       ...planned.validated,
-      items: keepRated(carryPriorSixes(planned.validated.items, row.body, sixLines), scoreTokens, row.body),
+      items: keepRated(
+        attachScoreTokens(carryPriorSixes(planned.validated.items, row.body, sixLines), scoreTokens, row.body),
+        scoreTokens,
+        row.body,
+      ),
     };
 
     if (dryRun) {

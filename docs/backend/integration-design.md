@@ -172,7 +172,7 @@ it — send each marked `6`/`6.0` in `six_tokens` (scalars). It scores the dish 
 (0044): wherever the dish now sits, if its score span still reads a lone 6. Changed to a 4 → 4; dish removed → gone. **Only rated dishes (17 Oct):** an item with no score is
 dropped (an unrated "dish" is a description of another one). Send every score pill in `score_tokens` (same
 list as `six_tokens`; send `[]` when there are none): then a score survives only when its evidence covers a pill,
-so a number typed in prose is never a rating. Omitted → the prose is read as before (older builds).
+so a number typed in prose is never a rating. A pill no dish claimed scores the dish named nearest before it, when that line has no score. Omitted → the prose is read as before (older builds).
 
 **Early sort (0039).** While composing, `{ "preview": true, "body": "<draft>", "tag_tokens": […], "six_tokens": […],
 "restaurant_id": "<uuid|null>" }` (no `entry_id`) → 200 `{ok, preview: true, cached, mode, model, entry_id: null,
