@@ -92,6 +92,9 @@ struct SavedRoot: View {
             rows
         }
         .listStyle(.plain)
+        // A list gives every row 44 at least, the zero-high top anchor included: that was a gap
+        // over the first row (build 141).
+        .environment(\.defaultMinListRowHeight, 0)
         .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
         .contentMargins(.bottom, AteMetrics.section, for: .scrollContent)
