@@ -22,9 +22,18 @@ public struct ResortTokens: Equatable, Sendable {
         if let queued, queued.tagTokens != nil || queued.scoreTokens != nil {
             return ResortTokens(tags: queued.tagTokens ?? [], scores: queued.scoreTokens)
         }
-        guard let card else { return ResortTokens(tags: [], scores: []) }
+        // Nothing known: no `score_tokens` at all. An empty list would tell the server "no ratings".
+        guard let card else { return ResortTokens(tags: [], scores: nil) }
         let words = EntryBodyTokens.composition(for: card)
-        return ResortTokens(tags: words.tagTokens, scores: words.scoreTokens)
+        return ResortTokens(tags: words.tagTokens, scores: scoreTokens(of: words, rebuiltFrom: card.items))
+    }
+
+    /// The pills of words rebuilt from an entry's lines — or `nil` when a scored line got none back
+    /// (an older entry scored from prose, "a solid four"). Sending pills that miss a rated line would
+    /// have the sorter drop that dish; without them the server reads the prose as it did.
+    public static func scoreTokens(of words: EntryComposition, rebuiltFrom items: [EntryCard.Item]) -> [TagToken]? {
+        let pills = words.spans.filter { $0.token.score != nil }.count
+        return pills >= items.filter { $0.score != nil }.count ? words.scoreTokens : nil
     }
 }
 

@@ -657,7 +657,7 @@ Deno.serve(async (req) => {
         restaurant_id: planned.restaurantId,
         place_query: planned.mention?.phrase ?? planned.validated.place_query,
         place_offset: planned.mention?.offset ?? planned.validated.place_offset,
-        items: keepRated(planned.validated.items, scoreTokens),
+        items: keepRated(planned.validated.items, scoreTokens, draft.body),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -703,7 +703,7 @@ Deno.serve(async (req) => {
     // (./six.ts carryPriorSixes; apply_entry_sort enforces the same rule of record).
     const validated: SortPlan = {
       ...planned.validated,
-      items: keepRated(carryPriorSixes(planned.validated.items, row.body, sixLines), scoreTokens),
+      items: keepRated(carryPriorSixes(planned.validated.items, row.body, sixLines), scoreTokens, row.body),
     };
 
     if (dryRun) {

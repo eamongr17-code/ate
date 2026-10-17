@@ -19,7 +19,7 @@
 // `score_tokens` also feeds the secret 6 (./six.ts sixSpans keeps only the spans that say a six),
 // so a client sends the same list as `six_tokens` for servers that predate this file.
 
-import { scalarLength } from './offsets.ts';
+import { scalarLength, scalarOffset } from './offsets.ts';
 import { parseSixTokens, type SixToken } from './six.ts';
 import type { SortItem } from './types.ts';
 
@@ -30,20 +30,38 @@ export function parseScoreTokens(raw: unknown): ScoreToken[] | null {
   return Array.isArray(raw) ? parseSixTokens(raw) : null;
 }
 
-/** Does this line's score evidence, where it sits, cover a marked span? */
-function coversMark(item: SortItem, marks: readonly ScoreToken[]): boolean {
-  const at = item.evidence_offset;
-  if (typeof at !== 'number' || !item.score_evidence) return false;
-  const end = at + scalarLength(item.score_evidence);
-  return marks.some((m) => m.offset >= at && m.offset + m.length <= end);
+/**
+ * Where this line's score evidence sits on a marked span — its own offset when that covers one, else
+ * the first occurrence of the evidence that does — or null. A model returns evidence as text, so its
+ * offset is the FIRST match: "Waited 4.5 hrs. Brisket <4.5>" pointed the brisket at the prose 4.5.
+ */
+function markedOffset(item: SortItem, marks: readonly ScoreToken[], body: string): number | null {
+  const evidence = item.score_evidence;
+  if (!evidence) return null;
+  const len = scalarLength(evidence);
+  const covers = (at: number) => marks.some((m) => m.offset >= at && m.offset + m.length <= at + len);
+  if (typeof item.evidence_offset === 'number' && covers(item.evidence_offset)) return item.evidence_offset;
+  for (let i = body.indexOf(evidence); i >= 0; i = body.indexOf(evidence, i + 1)) {
+    const at = scalarOffset(body, i);
+    if (covers(at)) return at;
+  }
+  return null;
 }
 
 /**
- * The lines that print: scored ones, and — when the client marked its pills — scored by a pill.
- * Items are copied, never mutated.
+ * The lines that print: scored ones, and — when the client marked its pills — scored by a pill, with
+ * the evidence moved onto it. Items are copied, never mutated.
  */
-export function keepRated(items: readonly SortItem[], marks: readonly ScoreToken[] | null): SortItem[] {
-  return items
-    .filter((it) => it.score !== null && (marks === null || coversMark(it, marks)))
-    .map((it) => ({ ...it }));
+export function keepRated(items: readonly SortItem[], marks: readonly ScoreToken[] | null, body: string): SortItem[] {
+  const out: SortItem[] = [];
+  for (const it of items) {
+    if (it.score === null) continue;
+    if (marks === null) {
+      out.push({ ...it });
+      continue;
+    }
+    const at = markedOffset(it, marks, body ?? '');
+    if (at !== null) out.push({ ...it, evidence_offset: at });
+  }
+  return out;
 }

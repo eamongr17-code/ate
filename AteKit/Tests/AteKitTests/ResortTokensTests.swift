@@ -37,8 +37,21 @@ struct ResortTokensTests {
         #expect(ResortTokens.resolve(queued: nil, card: card).scores == [six])
     }
 
+    @Test("a rated line with no pill back sends no score tokens, so the re-sort keeps its dish")
+    func unpilledLine() {
+        let card = EntryCard(
+            id: UUID(), authorID: UUID(), body: "Ragu was a solid four", orderNumber: 1, sortStatus: .sorted,
+            createdAt: Date(),
+            items: [EntryCard.Item(
+                reviewID: UUID(), dishID: UUID(), dishName: "Ragu", score: Rating(rounding: 4), position: 1,
+                mentionOffset: 0, mentionLength: 4
+            )]
+        )
+        #expect(ResortTokens.resolve(queued: nil, card: card).scores == nil)
+    }
+
     @Test("nothing known, nothing sent")
     func empty() {
-        #expect(ResortTokens.resolve(queued: nil, card: nil) == ResortTokens(tags: [], scores: []))
+        #expect(ResortTokens.resolve(queued: nil, card: nil) == ResortTokens(tags: [], scores: nil))
     }
 }

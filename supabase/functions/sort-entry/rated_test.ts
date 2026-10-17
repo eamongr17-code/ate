@@ -21,30 +21,38 @@ function line(body: string, dish: string, evidence: string | null, score: number
 test('an unrated line is a description, not a dish', () => {
   const body = 'Pad thai with crispy pork belly 4.5';
   const items = [line(body, 'Pad thai', '4.5', 4.5), line(body, 'crispy pork belly', null, null)];
-  assertEquals(keepRated(items, null).map((i) => i.dish_name), ['Pad thai']);
+  assertEquals(keepRated(items, null, body).map((i) => i.dish_name), ['Pad thai']);
 });
 
 test('without score_tokens, a prose score still counts (older clients)', () => {
   const body = 'The ragù was a solid four';
-  assertEquals(keepRated([line(body, 'ragù', 'a solid four', 4)], null).length, 1);
+  assertEquals(keepRated([line(body, 'ragù', 'a solid four', 4)], null, body).length, 1);
 });
 
 test('with score_tokens, only a pill is a rating', () => {
   const body = 'Waited 4 minutes. Ragù 4.5, tiramisu a solid four';
   const pill = { offset: scalarOffset(body, body.indexOf('4.5')), length: 3 };
   const items = [line(body, 'Ragù', '4.5', 4.5), line(body, 'tiramisu', 'a solid four', 4)];
-  assertEquals(keepRated(items, [pill]).map((i) => i.dish_name), ['Ragù']);
+  assertEquals(keepRated(items, [pill], body).map((i) => i.dish_name), ['Ragù']);
 });
 
 test('a pill inside a longer evidence phrase counts', () => {
   const body = 'Gnocchi 4 out of 5';
   const pill = { offset: body.indexOf('4'), length: 1 };
-  assertEquals(keepRated([line(body, 'Gnocchi', '4 out of 5', 4)], [pill]).length, 1);
+  assertEquals(keepRated([line(body, 'Gnocchi', '4 out of 5', 4)], [pill], body).length, 1);
 });
 
 test('an empty score_tokens list means no ratings, so no dishes', () => {
   const body = 'Margherita 4.5';
-  assertEquals(keepRated([line(body, 'Margherita', '4.5', 4.5)], []), []);
+  assertEquals(keepRated([line(body, 'Margherita', '4.5', 4.5)], [], body), []);
+});
+
+test('evidence the model pointed at prose moves onto the pill', () => {
+  const body = 'Waited 4.5 hrs. Brisket 4.5';
+  const pillAt = body.lastIndexOf('4.5');
+  const item = { ...line(body, 'Brisket', '4.5', 4.5), evidence_offset: body.indexOf('4.5') };
+  const kept = keepRated([item], [{ offset: pillAt, length: 3 }], body);
+  assertEquals(kept.map((i) => i.evidence_offset), [pillAt]);
 });
 
 test('score_tokens: absent is null, malformed spans dropped', () => {

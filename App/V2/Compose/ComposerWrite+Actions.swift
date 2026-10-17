@@ -182,7 +182,10 @@ extension V2ComposerWrite {
             originalRestaurantID: editing.restaurantID,
             restaurantID: model.place?.id,
             tagTokens: model.composition.tagTokens,
-            scoreTokens: model.composition.scoreTokens,
+            // Only when every rated line came back as a pill: an older entry scored from prose would
+            // otherwise lose that dish to the re-sort.
+            scoreTokens: ResortTokens.scoreTokens(of: editing.composition, rebuiltFrom: editing.items) == nil
+                ? nil : model.composition.scoreTokens,
             originalPhotos: editing.photos,
             photos: model.editedPhotos,
             tags: EditTagDiff(original: editing.composition, current: model.composition, items: editing.items),
