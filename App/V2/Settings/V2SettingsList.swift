@@ -64,9 +64,11 @@ struct V2SettingsList: View {
         .ateGroupedList()
         .ateInlineTitle("Settings")
         // Apple's picker, then the photo placed in its circle; nothing is sent until the tick.
-        .ateAvatarPicker(isPresented: $isPickingPhoto, onFailure: { failure = .avatar }) { jpeg in
-            Task { await upload(jpeg) }
-        }
+        .ateAvatarPicker(
+            isPresented: $isPickingPhoto,
+            onFailure: { failure = .avatar },
+            onPicked: { jpeg in Task { await upload(jpeg) } }
+        )
         // The onboarding's three cards again, on their own: no handle, no photo ask, no sign-out.
         .fullScreenCover(isPresented: $isShowingTutorial) {
             V2Tutorial(handle: context.app.handle ?? model.handle ?? "") { reached, skipped in

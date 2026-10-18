@@ -61,9 +61,11 @@ struct OnboardingPhotoStep: View {
                 .sharedBackgroundVisibility(.hidden)
             }
         }
-        .ateAvatarPicker(isPresented: $isPicking, onFailure: { failure = .avatar }) { jpeg in
-            Task { await upload(jpeg) }
-        }
+        .ateAvatarPicker(
+            isPresented: $isPicking,
+            onFailure: { failure = .avatar },
+            onPicked: { jpeg in Task { await upload(jpeg) } }
+        )
         .ateFailureAlert($failure)
     }
 
