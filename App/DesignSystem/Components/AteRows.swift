@@ -35,13 +35,19 @@ struct AteListRow<Leading: View, Trailing: View>: View {
             HStack(spacing: AteMetrics.regular) {
                 leading
                 VStack(alignment: .leading, spacing: 1) {
+                    // One line each, ending in "…" (18 Oct, Eamon: a long place name stacked onto a
+                    // second line).
                     Text(title)
                         .ateText(.rowTitle)
                         .foregroundStyle(palette.fg)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                     if let subtitle {
                         Text(subtitle)
                             .ateText(.meta)
                             .foregroundStyle(palette.muted)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

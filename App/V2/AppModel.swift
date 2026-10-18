@@ -207,6 +207,12 @@ final class AppModel {
         handle = chosen
     }
 
+    /// A new handle from Settings: what receipts are signed with from now on. Unlike
+    /// ``handleChosen(_:)`` it owes nothing — first run was over long ago.
+    func handleRenamed(_ renamed: String) {
+        handle = renamed
+    }
+
     // MARK: - The onboarding
 
     /// The onboarding ended, however it ended: never again for this person. A meal picked opens the
@@ -215,16 +221,6 @@ final class AppModel {
         services.analytics(OnboardingEvents.finished(exit))
         services.preferences.onboardingFinished()
         if let presentation { compose(presentation) }
-    }
-
-    /// **Replay first run** (Settings, Debug and Beta): marks this person to come back as a new
-    /// account does — Welcome, Handle, the onboarding with every sitting on offer, the Feed's cravings
-    /// card and every tip. The caller then signs out; the next sign-in as them picks the mark up.
-    func replayFirstRun() {
-        guard let userID = services.api.currentUserID else { return }
-        AteTips.replay()
-        PhotoSuggestionDismissals(store: UserDefaultsStore(), owner: services.photoOwner).reset()
-        services.preferences.replayFirstRun(userID)
     }
 
     // MARK: - The outbox

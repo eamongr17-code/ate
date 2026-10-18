@@ -52,6 +52,12 @@ extension AteTextStyle {
     )
     /// "Pick a handle." — first run's one question, at the size of a place heading its own page.
     static var handleTitle: AteTextStyle { placeTitle }
+    /// "Write about what you [ate.]" on the first onboarding card: the handle title's size, set a
+    /// little closer than `.h`'s 1.0 (Eamon, 18 Oct: the two lines read airy). Safe for these words:
+    /// the first line has no descenders and the second's only tall shape is the logo.
+    static let onboardingWriteTitle = AteTextStyle(
+        voice: .heading, size: 36, weight: 800, trackingEm: -0.02, lineHeight: 0.92, textStyle: .largeTitle
+    )
     /// What is typed into the handle field. `.h` at 30 — and at **−2%**, not `.h`'s own −3.5%:
     /// `Handle.dc.html` overrides the tracking on that one input, because a handle is read letter
     /// by letter and the title's tight setting closes `@e` up into one shape.

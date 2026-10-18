@@ -35,21 +35,22 @@ struct V2SettingsPage: View {
                     isFirstRun: false
                 ),
                 onDone: { handle in
-                    // Receipts are signed with it from now on, and You reads it again.
-                    if handle != current { context.app.handleChosen(handle) }
+                    // Receipts are signed with it from now on, and You reads it again. A rename,
+                    // not first run: nothing about it sends the person back through onboarding.
+                    if handle != current { context.app.handleRenamed(handle) }
                     dismiss()
                 }
             )
         case .appearance:
             V2AppearancePage(model: model)
-        case .artificialIntelligence:
-            V2AIPage()
         case .blocked:
             V2BlockedPeoplePage(
                 store: BlockedPeopleStore(account: context.services.account, analytics: context.services.analytics)
             )
-        case .kit:
-            KitGalleryPage()
+        case .privacy:
+            V2LegalPage(document: .privacy)
+        case .terms:
+            V2LegalPage(document: .terms)
         }
     }
 }

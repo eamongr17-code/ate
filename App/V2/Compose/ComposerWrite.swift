@@ -219,7 +219,9 @@ struct V2ComposerWrite: View {
                     .accessibilityHidden(true)
             }
         }
-        .padding(.horizontal, AteMetrics.gutter)
+        // The editor's own caret lead sits in the gutter, so the words still start on it.
+        .padding(.leading, AteMetrics.gutter - CaretMetrics.lead)
+        .padding(.trailing, AteMetrics.gutter)
         .padding(.top, AteMetrics.snug)
     }
 

@@ -1,18 +1,17 @@
 import AteKit
-import PhotosUI
 import SwiftUI
 
 /// **Settings** — the system's inset grouped list on the linen ground, the build's rows in its order:
-/// Handle, Photo, Appearance · How Ate uses AI, Blocked people · Privacy, Terms · Sign out · Delete
-/// account, red, last, on its own, confirmed once. Every row either shows what is true on the right
+/// Handle, Photo, Appearance · Blocked people, Tutorial · Privacy, Terms · Sign out · Delete account,
+/// red, last, on its own, confirmed once. Every row either shows what is true on the right
 /// or goes somewhere; nothing explains itself.
 struct V2SettingsList: View {
     let model: SettingsModel
     let context: V2PageContext
 
-    @State private var photo: PhotosPickerItem?
     @State private var isPickingPhoto = false
     @State private var isConfirmingDelete = false
+    @State private var isShowingTutorial = false
     /// The data went but the login survived: the session is already over, once the alert is read.
     @State private var endsSessionAfterAlert = false
     @State private var deletedUserID: UUID?
@@ -20,7 +19,6 @@ struct V2SettingsList: View {
     @State private var avatarPreview: UIImage?
     /// A write that did not happen, said once.
     @State private var failure: ActionFailure?
-    @Environment(\.openURL) private var openURL
 
     var body: some View {
         List {
@@ -41,12 +39,12 @@ struct V2SettingsList: View {
                 .accessibilityIdentifier("settings.appearance")
             }
             Section {
-                AteGroupedRow(title: "How Ate uses AI") { context.open(.settings(.artificialIntelligence)) }
                 AteGroupedRow(title: "Blocked people") { context.open(.settings(.blocked)) }
+                AteGroupedRow(title: "Tutorial", identifier: "settings.tutorial") { isShowingTutorial = true }
             }
             Section {
-                AteGroupedRow(title: "Privacy") { openURL(AteLegal.privacy) }
-                AteGroupedRow(title: "Terms") { openURL(AteLegal.terms) }
+                AteGroupedRow(title: "Privacy", identifier: "settings.privacy") { context.open(.settings(.privacy)) }
+                AteGroupedRow(title: "Terms", identifier: "settings.terms") { context.open(.settings(.terms)) }
             }
             Section {
                 AteGroupedRow(title: "Sign out", identifier: "settings.signOut") {
@@ -62,11 +60,22 @@ struct V2SettingsList: View {
                     isConfirmingDelete = true
                 }
             }
-            builds
         }
         .ateGroupedList()
         .ateInlineTitle("Settings")
-        .photosPicker(isPresented: $isPickingPhoto, selection: $photo, matching: .images, photoLibrary: .shared())
+        // Apple's picker, then the photo placed in its circle; nothing is sent until the tick.
+        .ateAvatarPicker(
+            isPresented: $isPickingPhoto,
+            onFailure: { failure = .avatar },
+            onPicked: { jpeg in Task { await upload(jpeg) } }
+        )
+        // The onboarding's three cards again, on their own: no handle, no photo ask, no sign-out.
+        .fullScreenCover(isPresented: $isShowingTutorial) {
+            V2Tutorial(handle: context.app.handle ?? model.handle ?? "") { reached, skipped in
+                context.services.analytics(OnboardingEvents.tutorial(reached: reached, skipped: skipped))
+                isShowingTutorial = false
+            }
+        }
         // Apple requires account deletion to be confirmed, and a soft delete is still the end of
         // somebody's journal: a native dialog with the fewest words that can carry it.
         .confirmationDialog("Delete your account?", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
@@ -97,30 +106,6 @@ struct V2SettingsList: View {
         }
         // Back from the handle page: the row shows what the server now holds.
         .onAppear { Task { await model.reloadIfLoaded() } }
-        .onChange(of: photo) { _, item in
-            guard let item else { return }
-            Task { await upload(item) }
-        }
-    }
-
-    /// In Debug and Beta (TestFlight, on prod too), never the App Store build: the component kit, and
-    /// Replay first run — signed out to Welcome, then Handle, the onboarding and every tip again, as a
-    /// new account sees them. (Only the system's photo prompt cannot be replayed: iOS asks once per install.)
-    @ViewBuilder
-    private var builds: some View {
-        Section {
-            #if DEBUG || BETA
-                AteGroupedRow(title: "Component kit") { context.open(.settings(.kit)) }
-                AteGroupedRow(title: "Replay first run", identifier: "settings.replayFirstRun") {
-                    context.app.replayFirstRun()
-                    Task {
-                        await AtePush.shared.forgetToken()
-                        await model.signOut()
-                        context.app.endSession()
-                    }
-                }
-            #endif
-        }
     }
 
     // MARK: - Photo
@@ -150,18 +135,11 @@ struct V2SettingsList: View {
         .accessibilityHidden(true)
     }
 
-    /// Whatever the library hands over (a 12MP HEIC, usually) is drawn down to an avatar before it
-    /// leaves the phone: 512 on the long side, JPEG — the largest an avatar is ever shown is 76pt.
-    private func upload(_ item: PhotosPickerItem) async {
-        defer { photo = nil }
-        guard let data = try? await item.loadTransferable(type: Data.self),
-              let image = UIImage(data: data),
-              let jpeg = AvatarImage.jpeg(from: image) else {
-            failure = .avatar
-            return
-        }
+    /// What is in the circle, already drawn down to an avatar (``AvatarImage``): shown at once, dimmed
+    /// while it uploads.
+    private func upload(_ jpeg: Data) async {
         let previous = avatarPreview
-        avatarPreview = UIImage(data: jpeg) ?? image
+        avatarPreview = UIImage(data: jpeg)
         await model.setAvatar(AvatarUpload(data: jpeg))
         if model.didFail {
             // The row goes back to what the server still has, and the person is told.

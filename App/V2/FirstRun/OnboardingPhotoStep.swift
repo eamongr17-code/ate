@@ -1,19 +1,17 @@
 import AteKit
-import PhotosUI
 import SwiftUI
 
 /// **"Add a photo of you."** (`design/rebuild/onboarding-v2.html`, steps 2 and 2b) — straight after
 /// Handle. The avatar as it will be drawn everywhere, the monogram until there is a photo, with a
-/// camera disc on its edge. Choose a photo opens Apple's picker (no permission asked); the photo
-/// uploads the way Settings → Photo does, and the ink tick top right goes on. Not now keeps the
-/// monogram.
+/// camera disc on its edge. Choose a photo opens Apple's picker (no permission asked), then the photo
+/// in its circle (``AteAvatarCropper``); it uploads the way Settings → Photo does, and the ink tick
+/// top right goes on. Not now keeps the monogram.
 struct OnboardingPhotoStep: View {
     let app: AppModel
     /// The tick (a photo is on file) or Not now.
     let onDone: (OnboardingEvents.Photo) -> Void
 
     @State private var account: SettingsModel
-    @State private var item: PhotosPickerItem?
     @State private var isPicking = false
     /// The photo just picked, drawn in the circle while it uploads and after it lands.
     @State private var picked: UIImage?
@@ -63,11 +61,11 @@ struct OnboardingPhotoStep: View {
                 .sharedBackgroundVisibility(.hidden)
             }
         }
-        .photosPicker(isPresented: $isPicking, selection: $item, matching: .images, photoLibrary: .shared())
-        .onChange(of: item) { _, item in
-            guard let item else { return }
-            Task { await upload(item) }
-        }
+        .ateAvatarPicker(
+            isPresented: $isPicking,
+            onFailure: { failure = .avatar },
+            onPicked: { jpeg in Task { await upload(jpeg) } }
+        )
         .ateFailureAlert($failure)
     }
 
@@ -133,18 +131,11 @@ struct OnboardingPhotoStep: View {
         .ateContentBottom(AteWelcomeCardMetrics.doorsBottom)
     }
 
-    /// Drawn down and sent exactly as Settings → Photo sends it. A failure puts the circle back and
-    /// says so once.
-    private func upload(_ item: PhotosPickerItem) async {
-        defer { self.item = nil }
-        guard let data = try? await item.loadTransferable(type: Data.self),
-              let image = UIImage(data: data),
-              let jpeg = AvatarImage.jpeg(from: image) else {
-            failure = .avatar
-            return
-        }
+    /// Placed in its circle and sent exactly as Settings → Photo sends it. A failure puts the circle
+    /// back and says so once.
+    private func upload(_ jpeg: Data) async {
         let previous = picked
-        picked = UIImage(data: jpeg) ?? image
+        picked = UIImage(data: jpeg)
         await account.setAvatar(AvatarUpload(data: jpeg))
         if account.didFail {
             picked = previous

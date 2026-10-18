@@ -20,6 +20,8 @@ struct OnboardingEventsTests {
             == AnalyticsEvent(name: "onboarding_photo", parameters: ["answer": "picked"]))
         #expect(OnboardingEvents.cards(reached: 2, skipped: true)
             == AnalyticsEvent(name: "onboarding_cards", parameters: ["card": "2", "skipped": "true"]))
+        #expect(OnboardingEvents.tutorial(reached: 3, skipped: false)
+            == AnalyticsEvent(name: "settings_tutorial", parameters: ["card": "3", "skipped": "false"]))
         #expect(OnboardingEvents.started(.write)
             == AnalyticsEvent(name: "onboarding_start", parameters: ["start": "write"]))
     }
