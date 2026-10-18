@@ -31,7 +31,10 @@ struct V2PlaceSheet: View {
         AteSheetScaffold(
             title: title,
             searchPrompt: "Search places",
-            searchText: $model.query
+            searchText: $model.query,
+            // Nearby comes from Google and can take longer than the sheet waits: up to ten rows
+            // landing under a fitted sheet pushed it up the screen. It opens at full height instead.
+            holdsFullHeight: model.hasNearbyAnswered == false
         ) {
             VStack(alignment: .leading, spacing: AteMetrics.sheetGap) {
                 if model.hasResultsAnswered == false {
