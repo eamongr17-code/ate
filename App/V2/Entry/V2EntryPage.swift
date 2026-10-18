@@ -183,7 +183,7 @@ private struct V2EntryScreen: View {
             onReprint: { Task { await model.retrySort() } },
             with: model.companions,
             onWithPerson: { context.open(.profile($0.id), from: .entry) },
-            // The paper ends at its words: "More at" and "More like this" sit right under it.
+            // The paper ends at its words: "More at" and "Similar dishes" sit right under it.
             fillsScreen: false
         )
     }

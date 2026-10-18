@@ -1,8 +1,8 @@
 import AteKit
 import SwiftUI
 
-/// **Under a dish's reviews** (round 7): "More to explore" — the dish's tags as chips, each a door to
-/// its own page of dishes — and "More like this", the dishes most like it on one shelf of the kit's
+/// **Under a dish's reviews** (round 7): "Tags" — the dish's tags as chips, each a door to
+/// its own page of dishes — and "Similar dishes", the dishes most like it on one shelf of the kit's
 /// one card anatomy (contract §8), each a door to that dish.
 ///
 /// Read after the page's own read and drawn once: until then each heading stands over still shapes
@@ -14,7 +14,7 @@ struct V2DishExplore: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.regular) {
             if store.showsTags {
-                heading("More to explore")
+                heading("Tags")
                 Group {
                     if store.isSettled {
                         AteChipFlow(chips: store.tags.map(chip), isExplore: true)
@@ -26,7 +26,7 @@ struct V2DishExplore: View {
                 .transition(.opacity)
             }
             if store.showsSimilar {
-                heading("More like this")
+                heading("Similar dishes")
                 shelf
             }
         }
@@ -106,7 +106,7 @@ enum V2DishExploreMetrics {
 }
 
 extension DishPreview {
-    /// What a "More like this" card or a tag's row printed — the aggregate included, because the row
+    /// What a "Similar dishes" card or a tag's row printed — the aggregate included, because the row
     /// printed that very number.
     init(similar dish: SimilarDish) {
         self.init(

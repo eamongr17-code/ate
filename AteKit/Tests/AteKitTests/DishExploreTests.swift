@@ -23,12 +23,12 @@ struct DishExploreTests {
 
     // MARK: - The chips
 
-    @Test func chipsPrintStyleThenCuisineThenSuburbThenCity() {
+    @Test func chipsPrintStyleThenSuburbThenCityAndNoCuisine() {
         let tags = [
             Self.tag(.city, "Melbourne"), Self.tag(.cuisine, "Italian"), Self.tag(.style, "Pasta"),
             Self.tag(.suburb, "CBD"), Self.tag(.style, "Handmade"), Self.tag(.diet, "GF")
         ]
-        #expect(DishTagOrder.explore(tags).map(\.label) == ["Pasta", "Handmade", "Italian", "CBD", "Melbourne", "GF"])
+        #expect(DishTagOrder.explore(tags).map(\.label) == ["Pasta", "Handmade", "CBD", "Melbourne", "GF"])
     }
 
     @Test func aTagIsOneChipAndAnEmptyLabelIsNone() {
@@ -235,7 +235,7 @@ struct DishExploreTests {
         let prawn = try #require(service.visibleEntriesEverywhere()
             .flatMap(\.items).first { $0.dishName == "Prawn spaghetti" }?.dishID)
         let tags = try await service.dishTags(dishID: prawn)
-        #expect(tags.map(\.title) == ["Pasta", "Seafood", "Italian", "Melbourne"], "no suburb row for the CBD")
+        #expect(tags.map(\.title) == ["Pasta", "Seafood", "Melbourne"], "no cuisine chip; no suburb row for the CBD")
         let similar = try await service.similarDishes(dishID: prawn, limit: 10)
         #expect(similar.isEmpty == false)
         #expect(similar.contains { $0.dishID == prawn } == false)

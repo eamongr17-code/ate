@@ -1,13 +1,18 @@
 // supabase/tests/db/dish_tag_links_test.mjs — dish tags (0053) at the SQL level: what a dish is tagged
 // with (keyword styles, the sorter's styles, cuisine / suburb / city from its place, live diet chips),
 // how the tags follow their sources, and the three reads — dish_tags, similar_dishes, dishes_by_tag.
-// What sort-entry sends as items[].styles is pinned in functions/sort-entry/styles_test.ts.
+// What sort-entry sends as items[].styles is pinned in functions/sort-entry/styles_test.ts; the fixed
+// style list (0069) is pinned TS = SQL = keyword map below.
 //
 //   cd supabase/tests/db && npm ci && node --test
 
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { world, U, P, id, receipt } from './fixtures.mjs';
+import { DISH_STYLES } from '../../functions/sort-entry/styles.ts';
+
+const MIGRATIONS = new URL('../../migrations/', import.meta.url);
 
 let w, db, as, asService, rows, error;
 
@@ -45,18 +50,18 @@ test('a new dish is tagged from its name and its place — style → cuisine →
   assert.deepEqual(await tags(added), ['style:bread:bread', 'cuisine:italian:Italian', 'suburb:carlton-melbourne:Carlton', 'city:melbourne:Melbourne']);
 });
 
-test('the sorter\'s styles replace the keyword guess, are cleaned, skip the cuisine, and cap at 3; a stub sort keeps them', async () => {
+test('the sorter\'s styles replace the keyword guess, only from the list, and cap at 3; a stub sort keeps them', async () => {
   const r = withStyles(receipt(['Cacio e Pepe', 5]), [' Comfort  Food ', 'PASTA', 'vegan', 'Italian', '4.5', 'x']);
   const E = await w.visit(4, U.alice, P.osteria, r, '2026-09-04T09:00:00Z');
   const dish = await dishAt(E, 1);
-  assert.deepEqual((await tags(dish)).filter((t) => t.startsWith('style')), ['style:comfort-food:comfort food', 'style:pasta:pasta'],
-    'lower-cased and trimmed; a diet word, the cuisine, a number and a stub are dropped; the keyword guess is gone');
+  assert.deepEqual((await tags(dish)).filter((t) => t.startsWith('style')), ['style:pasta:pasta'],
+    'lower-cased and trimmed; anything off the list (a free-form word, a diet word, a cuisine, a number) is dropped; the keyword guess is gone');
   const [{ plan }] = await rows(`select sort_plan plan from public.entries where id = $1`, [E]);
-  assert.deepEqual(plan[0].styles, ['comfort food', 'pasta', 'italian'], 'the plan records what the sorter proposed (validated)');
+  assert.deepEqual(plan[0].styles, ['pasta'], 'the plan records what the sorter proposed (validated)');
 
   // A later sort of the same dish adds, never removes, up to three.
-  await w.visit(5, U.bob, P.osteria, withStyles(receipt(['Cacio e Pepe', 4]), ['cheese', 'peppery', 'noodles']), '2026-09-05T09:00:00Z');
-  assert.deepEqual((await tags(dish)).filter((t) => t.startsWith('style')).map((t) => t.split(':')[1]), ['comfort-food', 'pasta', 'cheese']);
+  await w.visit(5, U.bob, P.osteria, withStyles(receipt(['Cacio e Pepe', 4]), ['cheese', 'peppery', 'noodles', 'dessert']), '2026-09-05T09:00:00Z');
+  assert.deepEqual((await tags(dish)).filter((t) => t.startsWith('style')).map((t) => t.split(':')[1]), ['pasta', 'cheese', 'noodles']);
 
   // A stub sort (no styles) of the same entry changes nothing.
   await w.sortAs(E, P.osteria, receipt(['Cacio e Pepe', 5]).items);
@@ -65,12 +70,12 @@ test('the sorter\'s styles replace the keyword guess, are cleaned, skip the cuis
 
 test('a parked plan\'s styles land when the place is attached (correct_entry_place)', async () => {
   const E = id(20);
-  const r = withStyles(receipt(['Mystery bowl', 4]), ['rice', 'spicy']);
+  const r = withStyles(receipt(['Mystery bowl', 4]), ['rice', 'spicy']);  // 'spicy' is off the list
   await w.legacyPlaceless(E, U.alice, r.body, '2026-09-06T09:00:00Z');
   await w.sortAs(E, null, r.items);
   assert.equal((await rows(`select count(*)::int n from public.reviews where entry_id = $1`, [E]))[0].n, 0, 'parked, no lines');
   await as(U.alice, () => db.query(`select public.correct_entry_place($1, $2)`, [E, P.far]));
-  assert.deepEqual(await tags(await dishAt(E, 1)), ['style:rice:rice', 'style:spicy:spicy', 'cuisine:thai:Thai', 'city:geelong:Geelong'],
+  assert.deepEqual(await tags(await dishAt(E, 1)), ['style:rice:rice', 'cuisine:thai:Thai', 'city:geelong:Geelong'],
     'Geelong is its own city, and "Geelong" the suburb is that city');
 });
 
@@ -171,4 +176,60 @@ test('the backfill: dishes that existed before 0053 get the same tags a new one 
   await asService(() => db.query(`select public.dish_style_keyword_refresh(array(select id from public.dishes))`));
   const again = await rows(`select dish_id, kind, slug, label, source from public.dish_tag_links order by 1, 2, 3`);
   assert.deepEqual(again, before, 'idempotent, and the sorter\'s styles survive it');
+});
+
+test('0069: ONE style list — sort-entry\'s DISH_STYLES = dish_style_list() = dish_style_guess\'s map, same order', async () => {
+  const [{ list }] = await rows(`select public.dish_style_list() list`);
+  assert.deepEqual(list, [...DISH_STYLES]);
+  const map = [...readFileSync(new URL('0053_journal_days_and_dish_tags.sql', MIGRATIONS), 'utf8')
+    .matchAll(/^\s*\(\s*\d+,\s*'([a-z ]+)',/gm)].map((m) => m[1]);
+  assert.deepEqual(map, list, 'the keyword map guesses exactly the list');
+});
+
+test('0069: dish_styles_from_json keeps only listed styles, ≤3, first mention first, never raises', async () => {
+  const from = async (j) => (await as(U.alice, () => rows(`select public.dish_styles_from_json($1::jsonb) s`, [j])))[0].s;
+  assert.deepEqual(await from('["Comfort food", "PASTA", "Dim-Sum", "spicy", "pasta", "bbq", "cheese"]'), ['pasta', 'dim sum', 'bbq']);
+  assert.deepEqual(await from('["Crème brûlée", "fried chicken", "vegan", 4.5]'), []);
+  assert.deepEqual(await from('"pasta"'), []);
+  assert.deepEqual(await from('null'), []);
+});
+
+test('0069 cleanup: off-list styles and followed styles go, a bare dish gets its keyword guess, listed ones keep one label; idempotent', async () => {
+  const add = async (name) => (await as(U.dan, () => rows(
+    `insert into public.dishes (name, restaurant_id, created_by_user_id) values ($1, $2, $3) returning id`, [name, P.osteria, U.dan])))[0].id;
+  const octopus = await add('Grilled octopus');   // keyword guess: grilled, seafood
+  const hargow = await add('Har gow basket');     // keyword guess: dumplings, dim sum
+  const styleRows = async (dish) =>
+    (await rows(`select slug, label, source, ord from public.dish_tag_links where dish_id = $1 and kind = 'style' order by ord`, [dish]))
+      .map((t) => `${t.slug}:${t.label}:${t.source}:${t.ord}`);
+  // What the free-form sorter used to write (as the migration owner — clients cannot).
+  await db.query(`delete from public.dish_tag_links where kind = 'style' and dish_id = any($1::uuid[])`, [[octopus, hargow]]);
+  await db.query(`insert into public.dish_tag_links (dish_id, kind, slug, label, source, ord) values
+    ($1, 'style', 'comfort-food', 'comfort food', 'sorter', 1), ($1, 'style', 'peppery', 'peppery', 'sorter', 2),
+    ($2, 'style', 'spicy', 'spicy', 'sorter', 1), ($2, 'style', 'dim-sum', 'dim-sum', 'sorter', 2)`, [octopus, hargow]);
+  await db.query(`insert into public.user_cravings (user_id, kind, slug, label, position) values
+    ($1, 'style', 'comfort-food', 'comfort food', 0), ($1, 'style', 'pasta', 'pasta', 1), ($1, 'cuisine', 'italian', 'Italian', 2)
+    on conflict do nothing`, [U.alice]);
+
+  const sql = readFileSync(new URL('0069_fixed_dish_styles.sql', MIGRATIONS), 'utf8');
+  await db.exec(sql);
+
+  assert.deepEqual(await styleRows(octopus), ['grilled:grilled:keyword:1', 'seafood:seafood:keyword:2'],
+    'every style was off the list → the keyword guess, as a new dish gets');
+  assert.deepEqual(await styleRows(hargow), ['dim-sum:dim sum:sorter:1'],
+    'a listed sorter style stays (relabelled, renumbered); no keyword refill while a sorter style remains');
+  const offList = await rows(`select count(*)::int n from public.dish_tag_links where kind = 'style'
+    and not (slug = any (array(select public.tag_slug(l) from unnest(public.dish_style_list()) l)))`);
+  assert.equal(offList[0].n, 0, 'no style off the list anywhere');
+  assert.deepEqual((await rows(`select kind, slug from public.user_cravings where user_id = $1 order by position`, [U.alice]))
+    .map((c) => `${c.kind}:${c.slug}`), ['style:pasta', 'cuisine:italian'], 'only the removed style craving goes');
+  assert.equal(await as(U.alice, async () => (await rows(`select public.tag_label('style', 'dim-sum') l`))[0].l), 'dim sum');
+
+  const snapshot = async () => [
+    await rows(`select dish_id, kind, slug, label, source, ord from public.dish_tag_links order by 1, 2, 3`),
+    await rows(`select user_id, kind, slug, position from public.user_cravings order by 1, 2, 3`),
+  ];
+  const once = await snapshot();
+  await db.exec(sql);
+  assert.deepEqual(await snapshot(), once, 'a re-run changes nothing');
 });

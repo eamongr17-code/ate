@@ -140,7 +140,7 @@ function modelReply() {
       input: {
         place_query: null,
         items: [
-          { dish_name: 'Pasta', score: 4.5, score_evidence: 'Pasta 4.5', note: null, styles: ['Pasta', ' comfort  food'] },
+          { dish_name: 'Pasta', score: 4.5, score_evidence: 'Pasta 4.5', note: null, styles: ['Pasta', ' comfort  food', 'CHEESE'] },
           { dish_name: 'tiramisu', score: 6, score_evidence: 'tiramisu 6', note: null, styles: ['dessert', 'vegan', 42] },
         ],
       },
@@ -183,9 +183,9 @@ const tokens = { tag_tokens: [mark('GF')], six_tokens: [mark('6')] };
 const printed = (items: Array<{ dish_name: string; score: number | null; tags?: string[] }>) =>
   items.map((i) => [i.dish_name.toLowerCase(), i.score, i.tags ?? []]);
 const EXPECTED = [['pasta', 4.5, ['gf']], ['tiramisu', 6, []]];
-/** 0053: the model's style words, cleaned (lower-cased, trimmed, no diet words); the stub proposes none. */
+/** 0053/0069: the model's styles, cleaned (on the fixed list only, lower-cased, trimmed); the stub proposes none. */
 const styles = (items: Array<{ styles?: string[] }>) => items.map((i) => i.styles ?? []);
-const EXPECTED_STYLES = { model: [['pasta', 'comfort food'], ['dessert']], stub: [[], []] };
+const EXPECTED_STYLES = { model: [['pasta', 'cheese'], ['dessert']], stub: [[], []] };
 const WRITES_TO_ENTRIES = (c: Call) =>
   (c.kind === 'rpc' && (c.name === 'apply_entry_sort' || c.name === 'mark_entry_sort_failed'))
   || (c.kind === 'write' && c.table !== 'sort_preview_cache');

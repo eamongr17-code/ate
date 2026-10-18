@@ -25,8 +25,8 @@ struct FeedEditionActions {
     }
 }
 
-/// **The edition, section by section** — in the order Eamon set: The Top Ate, the one-time "What do
-/// you crave?" card (4 Oct), Because you loved…, New to the record, a shelf per followed category,
+/// **The edition, section by section** — in the order Eamon set: Top rated, the one-time "Follow a
+/// dish type" card (4 Oct), Similar to your <dish>, New reviews, a shelf per followed category,
 /// the latest receipts, What you follow, then the end. Loading is the Top Ate's skeleton; nothing at
 /// all is the one empty state, or the unreachable one with its retry.
 struct FeedEditionSections: View {
@@ -127,7 +127,7 @@ struct FeedEditionSections: View {
         }
     }
 
-    /// "What do you crave?" — the first time only: the six busiest categories as pills; a tap follows
+    /// "Follow a dish type" — the first time only: the six busiest dish types as pills; a tap follows
     /// at once, the third pick or the close folds the card for good.
     @ViewBuilder
     private var ask: some View {
@@ -192,10 +192,10 @@ struct FeedEditionSections: View {
 }
 
 enum FeedEditionCopy {
-    static let topAte = "The Top Ate"
-    static let new = "New to the record"
+    static let topAte = "Top rated"
+    static let new = "New reviews"
     static let latest = "Latest receipts"
-    static let ask = "What do you crave?"
+    static let ask = "Follow a dish type"
     static let following = "What you follow"
     /// How much of the screen an empty or unreachable state takes: the band between the bar and
     /// the tab bar, less the bars themselves.

@@ -113,9 +113,11 @@ public struct LovedShelf: Sendable, Hashable {
         self.dishes = dishes
     }
 
-    /// "Because you loved tagliatelle" — the dish's name, read mid-sentence: its first letter lowered,
-    /// unless the name opens on an acronym ("BBQ pork") or a single capital, which stay as written.
-    public var title: String { "Because you loved \(Self.midSentence(anchorName))" }
+    /// "Similar to your Tagliatelle" — the dish's name as printed (dish names are title case since 0065).
+    public var title: String { "Similar to your \(anchorName)" }
+
+    /// A name read mid-sentence: its first letter lowered, unless the name opens on an acronym
+    /// ("BBQ pork") or a single capital, which stay as written. ("New in curry".)
 
     static func midSentence(_ name: String) -> String {
         let characters = Array(name)

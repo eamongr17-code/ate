@@ -16,7 +16,7 @@
 // have to guess at. Any failure → null → index.ts falls back to the stub, so sorting
 // degrades rather than breaks.
 
-import { cleanStyles } from './styles.ts';
+import { cleanStyles, DISH_STYLES } from './styles.ts';
 import type { SortPlan } from './types.ts';
 
 /**
@@ -106,10 +106,11 @@ const SYSTEM = [
   '   Never put the score\'s words in the note: "was a 4.5, the best all week" -> note "the best all week";',
   '   "is a solid four" alone -> no note.',
   '   It is printed under the dish on a receipt, so it must read as a comment on it.',
-  '8. styles: 1-3 short lowercase words for what KIND of dish it is, as a menu would group it',
-  '   ("pasta", "dumplings", "dessert", "fried chicken", "noodles"). Not the cuisine or country,',
-  '   not a place, not a diet (never "vegan" or "gluten free"), not an opinion. These describe the',
-  '   dish only; they never change its name, score or note.',
+  '8. styles: 1-3 entries for what KIND of dish it is, as a menu would group it, chosen ONLY from',
+  `   this exact list, copied as written: ${DISH_STYLES.join(', ')}.`,
+  '   Most telling first (the dish type before how it is cooked, before its protein: "fried chicken"',
+  '   -> fried, chicken). No word off the list, ever; if nothing on it fits, omit styles. These',
+  '   describe the dish only; they never change its name, score or note.',
   '9. printed_name is dish_name as a menu would print it: SINGULAR when the plural is the',
   '   diner\'s count ("six gin and tonics" -> "Gin & Tonic"; "two serves of the dumplings" ->',
   '   "Dumplings", since the dish itself is plural), in title case (every word capitalised, small',
@@ -151,10 +152,10 @@ const TOOL = {
             note: { type: 'string', description: 'Exact substring of the text about this dish. Omit if none.' },
             styles: {
               type: 'array',
-              items: { type: 'string' },
+              items: { type: 'string', enum: DISH_STYLES },
               maxItems: 3,
               description:
-                '1-3 lowercase words for what kind of dish this is ("pasta", "dumplings", "dessert"). Not the cuisine, a place, a diet or an opinion.',
+                '1-3 styles from the list for what kind of dish this is, most telling first. Omit if none fits.',
             },
           },
           required: ['dish_name'],

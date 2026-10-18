@@ -22,6 +22,7 @@ import {
   sortWithModel,
   usageFromResponse,
 } from './model.ts';
+import { DISH_STYLES } from './styles.ts';
 
 test('mode resolution: stub unless a key exists', () => {
   assertEquals(resolveMode('', undefined), 'stub');
@@ -152,6 +153,25 @@ test('a tool call is read into a plan; omitted fields become null', () => {
       },
     ],
   });
+});
+
+test('0069: styles come only from the fixed list — the schema enum IS the list, and the prompt spells it out', () => {
+  const req = JSON.parse(buildRequest({ apiKey: 'k', body: 'Pasta 4' }).body);
+  const styles = req.tools[0].input_schema.properties.items.items.properties.styles;
+  assertEquals(styles.items.enum, [...DISH_STYLES]);
+  assertEquals(styles.maxItems, 3);
+  assertEquals(DISH_STYLES.length, 40);
+  assert(String(req.system).includes(DISH_STYLES.join(', ')), 'the system prompt lists every style, in order');
+
+  const plan = planFromResponse({
+    content: [{ type: 'tool_use', name: 'sort_entry', input: { items: [
+      { dish_name: 'Cacio e pepe', styles: ['comfort food', 'Pasta', 'peppery', 'cheese'] },
+      { dish_name: 'Har gow', styles: ['Dim-Sum'] },
+      { dish_name: 'Mystery', styles: ['spicy'] },
+    ] } }],
+  })!;
+  assertEquals(plan.items.map((i) => i.styles ?? null), [['pasta', 'cheese'], ['dim sum'], null],
+    'off-list words are dropped before the plan exists; a dish with none carries none');
 });
 
 test('a reply with no tool call is null, not a guess', () => {

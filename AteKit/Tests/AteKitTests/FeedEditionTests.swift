@@ -93,13 +93,13 @@ struct FeedEditionWireTests {
         #expect(set == .array([.object(["kind": .string("cuisine"), "slug": .string("italian")])]))
     }
 
-    @Test("Because you loved reads the dish mid-sentence, leaving acronyms alone")
+    @Test("Similar to your <dish> prints the name as written; midSentence leaves acronyms alone")
     func lovedTitle() {
         #expect(LovedShelf.midSentence("Tagliatelle") == "tagliatelle")
         #expect(LovedShelf.midSentence("BBQ pork") == "BBQ pork")
         #expect(LovedShelf.midSentence("X") == "X")
         let shelf = LovedShelf(anchorDishID: UUID(), anchorName: "Tagliatelle", dishes: [])
-        #expect(shelf.title == "Because you loved tagliatelle")
+        #expect(shelf.title == "Similar to your Tagliatelle")
     }
 
     @Test("A craving shelf's See all is the tag's own page, in the Feed's city")

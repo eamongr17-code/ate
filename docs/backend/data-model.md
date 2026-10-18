@@ -106,10 +106,10 @@ Catalogue data (authenticated SELECT, no client write). **Diet chips are NOT sto
 - `cuisine` / `suburb` / `city` (`source='place'`): derived from the dish's restaurant. Triggers keep them exact on dish insert/rename, restaurant `cuisine` change, every `place_city_cache` change and any `cities` change.
   - suburb = `place_locality()`, slug city-qualified (`fitzroy-melbourne`), omitted when it IS the city.
   - city = the 0052 cache's city, label `cities.name`.
-- `style`, 1–3 lowercase words ("pasta", "dumplings"):
+- `style`, only from the fixed list of 40 (`dish_style_list()`, 0069; identical to `DISH_STYLES` in `styles.ts`):
   - `source='keyword'` comes from `dish_style_guess(name)`, a fixed keyword map applied on dish insert and in the backfill. No model.
   - `source='sorter'` comes from sort-entry's `items[].styles` through `apply_entry_sort` (and `correct_entry_place` for a parked plan). A dish's first sorter styles replace its keyword ones; later sorts add up to 3 and never remove one.
-  - A style equal to the cuisine or a diet word is dropped (`dish_styles_from_json`, mirrored in `styles.ts`).
+  - A word not on the list is dropped (`dish_style_clean` via `dish_styles_from_json`, mirrored in `styles.ts`; the model gets the list as a schema enum).
   - **Changing the keyword map means a migration that re-runs `dish_style_keyword_refresh()`.**
 
 ### `user_cravings` (0055)
@@ -261,3 +261,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0058 | `ate_with` | `entry_companions`, `entry_invites`, `device_push_tokens`, `ate_with_ledger`; notifications `ate_with` type; tag/untag/invite/redeem/prefill/respond/decline + `my_notifications`, push-token RPCs; `entry_cards.companions` (create or replace, trailing column); `delete_account` checks the new tables |
 | 0059 | `send_push` | notifications `push_claimed_at`/`push_attempts`; `push_is_ready`, `push_claim_ate_with`, `push_mark_sent`, `push_drop_tokens` (service_role); `push_kick` (pg_net → send-push, Vault-gated) on tag insert, on sort, and every minute (pg_cron); keyless setup `push_configure(url)` + `push_kick_secret()` (DB-generated bearer, service_role only); `register_push_token` env defaults to `production` |
 | 0060 | `lists_and_journal_search` | `user_lists`, `user_list_items` + item-follows-line triggers; list RPCs, `my_scored_dishes`; `search_my_entries` (author-index bounded, no new index); legacy `lists`/`list_dishes` SELECT owner-only; `delete_account` checks the list tables |
+| 0069 | `fixed_dish_styles` | `dish_style_list()`; `dish_style_clean`/`dish_styles_from_json` keep only listed styles (create or replace); data: off-list style links and style cravings deleted, emptied dishes re-guessed |
