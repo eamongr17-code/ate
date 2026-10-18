@@ -119,36 +119,23 @@ public enum ListsError: Error, Sendable, Equatable {
 
     init(code: String?, message: String) {
         switch code {
-        case "54000":
-            if message.contains("list_item_cap") {
-                self = .itemCap
-            } else if message.contains("list_people_cap") {
-                self = .peopleCap
-            } else {
-                self = .listCap
+        case "42501": self = .signedOut
+        case let code?:
+            guard let reading = Self.readings[code] else {
+                self = .unreachable
+                return
             }
-        case "22023":
-            if message.contains("bad_list_name") {
-                self = .badName
-            } else if message.contains("reorder_mismatch") {
-                self = .reorderMismatch
-            } else {
-                self = .badInput
-            }
-        case "P0002":
-            if message.contains("dish_line_not_found") {
-                self = .lineNotFound
-            } else if message.contains("invite_not_found") {
-                self = .inviteNotFound
-            } else {
-                self = .listNotFound
-            }
-        case "42501":
-            self = .signedOut
-        default:
-            self = .unreachable
+            self = reading.named.first { message.contains($0.marker) }?.error ?? reading.otherwise
+        case nil: self = .unreachable
         }
     }
+
+    /// Each code's named refusals, checked in order, and what the code means when none is named.
+    private static let readings: [String: (named: [(marker: String, error: ListsError)], otherwise: ListsError)] = [
+        "54000": ([("list_item_cap", .itemCap), ("list_people_cap", .peopleCap)], .listCap),
+        "22023": ([("bad_list_name", .badName), ("reorder_mismatch", .reorderMismatch)], .badInput),
+        "P0002": ([("dish_line_not_found", .lineNotFound), ("invite_not_found", .inviteNotFound)], .listNotFound),
+    ]
 
     /// A cap: the one refusal the screens explain rather than quietly undo.
     public var isCap: Bool { self == .listCap || self == .itemCap || self == .peopleCap }

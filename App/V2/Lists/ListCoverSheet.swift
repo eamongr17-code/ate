@@ -64,11 +64,7 @@ struct ListCoverSheet: View {
                 }
             }
         }
-        .ateCoverPicker(isPresented: $isChoosing, onFailure: { photoFailed = true }) { jpeg in
-            picked = UIImage(data: jpeg)
-            pick = .fresh(jpeg)
-            AteHaptics.tick()
-        }
+        .ateCoverPicker(isPresented: $isChoosing, onFailure: { photoFailed = true }, onPicked: took)
         .alert(ListsCopy.photoFailed, isPresented: $photoFailed) {
             Button("OK", role: .cancel) {}
         }
@@ -141,6 +137,13 @@ struct ListCoverSheet: View {
         } else {
             isChoosing = true
         }
+    }
+
+    /// The crop's tick: the squared photo, shown in the preview until the sheet's own tick sends it.
+    private func took(_ jpeg: Data) {
+        picked = UIImage(data: jpeg)
+        pick = .fresh(jpeg)
+        AteHaptics.tick()
     }
 
     private func choose(_ item: ListItem) {

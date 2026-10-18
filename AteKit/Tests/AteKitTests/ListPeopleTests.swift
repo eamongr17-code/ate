@@ -86,7 +86,13 @@ struct ListPeopleDecodingTests {
 @MainActor
 @Suite("Lists — covers and people (0073)")
 struct ListPeopleStoreTests {
-    private func open(photos: [String?] = ["p0", "p1", nil]) async -> (InMemoryLists, ListStore, ListsStore) {
+    private struct Opened {
+        let service: InMemoryLists
+        let store: ListStore
+        let shelf: ListsStore
+    }
+
+    private func open(photos: [String?] = ["p0", "p1", nil]) async -> Opened {
         let lines = photos.enumerated().map { pickerLine("Dish \($0.offset)", daysAgo: $0.offset, photo: $0.element) }
         let service = InMemoryLists(lines: lines)
         let id = service.seed(name: "Date night", lines: lines.map(\.line), createdAt: base)
@@ -94,12 +100,13 @@ struct ListPeopleStoreTests {
         await shelf.refresh()
         let store = ListStore(listID: id, service: service, shelf: shelf)
         await store.refresh()
-        return (service, store, shelf)
+        return Opened(service: service, store: store, shelf: shelf)
     }
 
     @Test("a dish cover shows at once, reaches the shelf, and goes automatic when its item leaves")
     func dishCover() async throws {
-        let (_, store, shelf) = await open()
+        let opened = await open()
+        let (store, shelf) = (opened.store, opened.shelf)
         #expect(store.coverCandidates.map(\.dishName) == ["Dish 0", "Dish 1"], "only photos, once each")
         let pick = try #require(store.items.first { $0.dishName == "Dish 1" })
         #expect(await store.setCover(.item(pick.id)))
@@ -112,7 +119,8 @@ struct ListPeopleStoreTests {
 
     @Test("an upload lands as the server's URL; automatic clears it; a refusal puts the old one back")
     func uploadCover() async {
-        let (service, store, _) = await open()
+        let opened = await open()
+        let (service, store) = (opened.service, opened.store)
         #expect(await store.setCover(.upload(AvatarUpload(data: Data([1, 2, 3])))))
         let uploaded = store.list?.coverURL
         #expect(uploaded?.contains("list-covers") == true)
@@ -125,7 +133,8 @@ struct ListPeopleStoreTests {
 
     @Test("people: the whole set is sent; new ones are invited; the cap is refused before asking")
     func people() async {
-        let (service, store, _) = await open()
+        let opened = await open()
+        let (service, store) = (opened.service, opened.store)
         #expect(await store.setPeople([paris, jules]))
         #expect(store.people.map(\.status) == [.invited, .invited])
         #expect(await store.setPeople([paris]))
