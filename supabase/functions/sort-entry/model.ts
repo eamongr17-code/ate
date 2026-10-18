@@ -116,6 +116,12 @@ const SYSTEM = [
   '   "Dumplings", since the dish itself is plural), in title case (every word capitalised, small',
   '   words like "and", "with", "e", "al" lower case: "Pepperoni Pizza", "Cacio e Pepe"), keeping the',
   '   capitals of a proper name ("Big Mac"). Same dish, same words; only the number and the capitals change.',
+  '10. same_as: when a KNOWN MENU DISH is certainly the very dish they mean, named another way ("the',
+  '   carbonara" for "Spaghetti Carbonara", "spag bol" for "Spaghetti Bolognese"), copy that menu name',
+  '   exactly. A restaurant serves several pastas, steaks and pizzas: a different cut, protein, size,',
+  '   filling or style is a DIFFERENT dish ("Ribeye" is not "Sirloin", "Chicken Katsu" is not "Pork',
+  '   Katsu"), and so is anything their words add that the menu name lacks. If two menu dishes could',
+  '   fit, or you are unsure, omit same_as. Omit it too when dish_name already is a menu name.',
 ].join('\n');
 
 const TOOL = {
@@ -139,6 +145,11 @@ const TOOL = {
               type: 'string',
               description:
                 'dish_name as a menu prints it: singular when the plural was a count, title case, proper names keeping their capitals.',
+            },
+            same_as: {
+              type: 'string',
+              description:
+                'The known menu dish this certainly is, copied exactly, when they named it another way. Omit when unsure or when no menu dish fits.',
             },
             score: {
               type: 'number',
@@ -258,6 +269,7 @@ export function planFromResponse(payload: unknown): SortPlan | null {
       return {
         dish_name: typeof it.dish_name === 'string' ? it.dish_name : '',
         ...(typeof it.printed_name === 'string' && it.printed_name.trim() ? { printed_name: it.printed_name } : {}),
+        ...(typeof it.same_as === 'string' && it.same_as.trim() ? { same_as: it.same_as } : {}),
         score: typeof it.score === 'number' ? it.score : null,
         score_evidence: typeof it.score_evidence === 'string' ? it.score_evidence : null,
         note: typeof it.note === 'string' ? it.note : null,

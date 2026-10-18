@@ -1,0 +1,48 @@
+{
+  "_": "Spelling-key cases (18 Oct). same: one dish by spelling alone. different: never one by spelling. Read by same-dish_test.ts AND supabase/tests/db/dish_dedup_test.mjs, so public.dish_key and dishKey cannot drift.",
+  "same": [
+    ["Gnocchi", "Gnocchis"],
+    ["Mac & Cheese", "Mac and Cheese"],
+    ["Mac n Cheese", "mac and cheese"],
+    ["Fish & Chips", "fish and chip"],
+    ["Crème Brûlée", "Creme Brulee"],
+    ["Hot Dog", "Hotdog"],
+    ["Cheese Cake", "Cheesecake"],
+    ["The Burger", "Burger"],
+    ["Tacos", "Taco"],
+    ["Cookies", "Cookie"],
+    ["Berries", "Berry"],
+    ["Potatoes", "Potato"],
+    ["Sandwiches", "Sandwich"],
+    ["Pork & Chive Dumplings", "Pork and Chive Dumpling"],
+    ["Spaghetti alla Carbonara", "Spaghetti Alla Carbonara!"],
+    ["Bánh Mì", "Banh Mi"],
+    ["Steak w/ Fries", "Steak with Fries"],
+    ["Pad-Thai", "Pad Thai"],
+    ["Mum’s Lasagne", "Mum's Lasagne"]
+  ],
+  "different": [
+    ["Milk Chocolate", "Chocolate Milk"],
+    ["Ribeye", "Sirloin"],
+    ["Chicken Katsu", "Pork Katsu"],
+    ["Carbonara", "Spaghetti Carbonara"],
+    ["Half Chicken", "Whole Chicken"],
+    ["Hummus", "Humus"],
+    ["Margherita", "Marinara"]
+  ],
+  "keys": [
+    ["Gnocchis", "gnocchi"],
+    ["Mac & Cheese", "macandcheese"],
+    ["Crème Brûlée", "cremebrulee"],
+    ["Cookies", "cooki"],
+    ["Curry", "curri"],
+    ["Curries", "curri"],
+    ["Glasses", "glass"],
+    ["Hummus", "hummus"],
+    ["Boxes", "box"],
+    ["The A Team", "team"],
+    ["Smørrebrød", "smorrebrod"],
+    ["   ", ""],
+    ["!!!", ""]
+  ]
+}

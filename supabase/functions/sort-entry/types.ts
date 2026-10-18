@@ -22,6 +22,12 @@ export type SortItem = {
    */
   printed_name?: string;
   /**
+   * The MODEL's claim (18 Oct, Eamon) that this is the same dish as one already on the place's menu,
+   * in the menu's spelling ("the carbonara" → "Spaghetti Carbonara"). Proposed only: validateItem
+   * honours it only through ./same-dish.ts sameDishGate. Absent from the stub and after validation.
+   */
+  same_as?: string;
+  /**
    * The user's score, 0.5-5.0 in half steps — or 6, the secret score, ONLY on a span the client
    * marked (./six.ts, 0041) — or null when they never gave a number (DESIGN rule 7).
    */
