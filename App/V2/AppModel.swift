@@ -240,6 +240,24 @@ final class AppModel {
         await services.companionTags.run()
     }
 
+    /// **The receipt finishes in the background** (receipt fallback): the outbox is worked the moment
+    /// the connection comes back, and once a minute while the app is open — so an entry saved
+    /// offline, or one whose sort failed, prints without anybody pressing anything. Every run is a
+    /// no-op on an empty queue.
+    func keepOutboxMoving() async {
+        let restorations = Task { [weak self] in
+            for await _ in ConnectivityWatch.restorations() { await self?.drainOutbox() }
+        }
+        defer { restorations.cancel() }
+        while Task.isCancelled == false {
+            try? await Task.sleep(for: Self.outboxInterval)
+            guard Task.isCancelled == false else { return }
+            await drainOutbox()
+        }
+    }
+
+    private static let outboxInterval = Duration.seconds(60)
+
     // MARK: - Share to Ate
 
     /// What the share extension left in the app group while the app was away: its events, sent now

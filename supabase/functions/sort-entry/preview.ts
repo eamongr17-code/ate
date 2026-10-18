@@ -125,6 +125,9 @@ export function coerceCachedPlan(raw: unknown): SortPlan | null {
     if (typeof i.dish_name !== 'string') return null;
     items.push({
       dish_name: i.dish_name,
+      // the model's proposals ride the cached plan too; validate.ts decides on them as on a fresh one
+      ...(str(i.printed_name)?.trim() ? { printed_name: str(i.printed_name)! } : {}),
+      ...(str(i.same_as)?.trim() ? { same_as: str(i.same_as)! } : {}),
       score: typeof i.score === 'number' ? i.score : null,
       score_evidence: str(i.score_evidence),
       note: str(i.note),

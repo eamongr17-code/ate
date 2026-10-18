@@ -1,6 +1,6 @@
 import Foundation
 
-/// **What a forced re-sort carries** — the entry's tag chips and secret 6s — so "Print it again"
+/// **What a forced re-sort carries** — the entry's tag chips and secret 6s — so "Try again"
 /// never prints a 6 as prose (round 4).
 ///
 /// Two stores, in order of trust:

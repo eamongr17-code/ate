@@ -175,6 +175,10 @@ jobs:
       - name: Apple token suites (apple-token)
         run: node --test supabase/functions/apple-token/*_test.ts
 
+      # dish-dedup's scan (proposals for dishes that already exist) under Node, like match-photos.
+      - name: Duplicate dish scan suites (dish-dedup)
+        run: node --test supabase/functions/dish-dedup/*_test.ts
+
       # match-photos' pure module (plan, request, answer gate) under Node, like read-share.
       - name: Photo matcher suites (match-photos)
         run: node --test supabase/functions/match-photos/*_test.ts

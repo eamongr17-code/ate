@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import AteKit
 
-@Suite("Print it again carries the entry's 6s and chips")
+@Suite("Try again carries the entry's 6s and chips")
 struct ResortTokensTests {
     private let six = TagToken(offset: 9, length: 3)
 

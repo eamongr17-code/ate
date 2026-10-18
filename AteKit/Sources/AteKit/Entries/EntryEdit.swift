@@ -197,7 +197,7 @@ public struct EntryEdit: Sendable {
 
     /// Step four, after the composer has gone: forced only for a NEW chip, unforced otherwise. A sort is
     /// the server adding structure, not the person's write — a failure leaves the words as saved,
-    /// and the entry page offers "Print it again".
+    /// and the entry page offers "Try again".
     /// Forced when the words changed, carrying the current `tag_tokens` and `six_tokens`; skipped
     /// entirely for a photo-only edit.
     ///

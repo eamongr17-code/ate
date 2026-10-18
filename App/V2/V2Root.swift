@@ -45,6 +45,11 @@ struct V2Root: View {
         // Anything the share extension left while the app was not running.
         .task { await app.receiveShares() }
         .onAppear { app.services.analytics(ShellEvents.newAppOpened()) }
+        // Only while the app is in front: the connection back, and a minute's beat (receipt fallback).
+        .task(id: scenePhase == .active) {
+            guard scenePhase == .active else { return }
+            await app.keepOutboxMoving()
+        }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             Task { await app.drainOutbox() }

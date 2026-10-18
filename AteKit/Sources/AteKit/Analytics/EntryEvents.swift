@@ -175,6 +175,13 @@ public enum EntryEvents {
         AnalyticsEvent(name: "entry_sort_failed", parameters: ["reason": reason])
     }
 
+    /// A receipt's wait told the person they can close it (receipt fallback): `kind` is `slow`,
+    /// `unfinished` or `offline` (``ReceiptFallback``), `surface` is `summary` or `entry`. Once per
+    /// kind per screen.
+    public static func receiptFallbackShown(_ kind: ReceiptFallback, surface: String) -> AnalyticsEvent {
+        AnalyticsEvent(name: "receipt_fallback_shown", parameters: ["kind": kind.rawValue, "surface": surface])
+    }
+
     /// The receipt printed — the promise, kept. Fired once per entry per appearance of the printed
     /// state, which is the only moment the artefact exists for the person who wrote it.
     public static func receiptPrinted(itemCount: Int, hasAverage: Bool) -> AnalyticsEvent {

@@ -57,6 +57,25 @@ public struct Rating: Sendable, Hashable, Comparable, Codable {
 
     public static func < (lhs: Rating, rhs: Rating) -> Bool { lhs.halfSteps < rhs.halfSteps }
 
+    /// The plain word for the score, shown on the score panel as the finger slides (Eamon, 18 Oct:
+    /// `design/rebuild/rating-words.html`, option A). One word per half-step, so a score has a
+    /// reference point people share.
+    public var word: String {
+        switch halfSteps {
+        case 1: "Awful"
+        case 2: "Bad"
+        case 3: "Poor"
+        case 4: "Disappointing"
+        case 5: "Okay"
+        case 6: "Decent"
+        case 7: "Good"
+        case 8: "Delicious"
+        case 9: "Excellent"
+        case 10: "Perfect"
+        default: "Blown away"
+        }
+    }
+
     /// Codes as the bare number the `reviews.score` column holds.
     public init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(Double.self)

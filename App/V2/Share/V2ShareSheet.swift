@@ -31,8 +31,11 @@ struct V2ShareSheet: View {
     /// The receipt has printed and the photo is in: the other cards and the row are live.
     var isLive = true
     var printing = Printing()
-    /// In place of the row, when a print could not finish: "Print it again".
+    /// In place of the row, when a receipt could not finish: "Try again".
     var reprint: V2PrintedFoot.Pill?
+    /// In place of the row, while a receipt is slow, unfinished or offline (``ReceiptFallback``):
+    /// the line saying the entry is saved and can be closed, above ``reprint`` when there is one.
+    var note: String?
     let analytics: AnalyticsRecorder
     var onFirstShare: (() -> Void)?
     var isPresenting: Binding<Bool>?
@@ -238,7 +241,23 @@ struct V2ShareSheet: View {
 
     @ViewBuilder
     private var foot: some View {
-        if let reprint {
+        if let note {
+            VStack(spacing: 0) {
+                Text(note)
+                    .ateText(.kitReceiptFallback)
+                    .foregroundStyle(AtePalette.ink.muted)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, AteMetrics.gutter + AteMetrics.regular)
+                    .accessibilityIdentifier("summary.fallback")
+                if let reprint {
+                    V2PrintedFoot(pill: reprint)
+                } else {
+                    Color.clear.frame(height: AteSheetScaffoldMetrics.bareBottom)
+                }
+            }
+            .transition(.opacity)
+        } else if let reprint {
             V2PrintedFoot(pill: reprint)
         } else {
             V2ReceiptShareRow(

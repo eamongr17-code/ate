@@ -17,6 +17,15 @@ extension AteTextStyle {
     static let kitInkPillRow = AteTextStyle(
         voice: .display, size: 14, weight: 600, trackingEm: 0, lineHeight: 1.0, textStyle: .subheadline
     )
+    /// The line under a receipt that is slow, unfinished or offline — on the composer's ink
+    /// sheet: 500 at 17, `line-height:1.4` (design: receipt fallback states, 18 Oct)…
+    static let kitReceiptFallback = AteTextStyle(
+        voice: .display, size: 17, weight: 500, trackingEm: 0, lineHeight: 1.4, textStyle: .body
+    )
+    /// …and on the entry page, under its waiting rows: 500 at 15.
+    static let kitReceiptFallbackPage = AteTextStyle(
+        voice: .display, size: 15, weight: 500, trackingEm: 0, lineHeight: 1.4, textStyle: .subheadline
+    )
     /// A photo's caption on somebody else's entry — `.capL b`: 600 at 17
     /// (design/rebuild/photo-dish-caption.html, B).
     static let kitPhotoCaptionDish = AteTextStyle(

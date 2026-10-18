@@ -1,0 +1,100 @@
+<title>Rating Words</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Young+Serif&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: two iPhone composer frames at 393pt (A recommended, B alternative), then the full ladder of score panels. App colours are AteColor dark tokens. */
+:root {
+  --page: #f3f1ee; --label: #24141f; --labelMuted: #6d6862; --rec: #2f7a4f;
+  --sheet: #262628; --chip: #2C2C2E; --fg: #F5F4F1; --muted: #A5A4A8; --hair: #3A3A3C; --butter: #E6C65F; --plum: #24141F; --six: #F0623F;
+  --serif: "Young Serif", Georgia, serif; --sans: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif; --mono: "DM Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --page: #141312; --label: #f1eee9; --labelMuted: #a39d95; --rec: #6cc590; color-scheme: dark } }
+:root[data-theme="dark"] { --page: #141312; --label: #f1eee9; --labelMuted: #a39d95; --rec: #6cc590; color-scheme: dark }
+body { background: var(--page); color: var(--label); font-family: var(--sans); }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 48px; display: grid; gap: 28px; justify-items: center; }
+h1 { font-size: 22px; font-weight: 800; margin: 0; text-align: center; text-wrap: balance; }
+.row { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; }
+figure { margin: 0; display: grid; gap: 10px; justify-items: center; }
+figcaption { font-size: 15px; font-weight: 600; text-align: center; max-width: 393px; }
+figcaption small { display: block; font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--labelMuted); margin-top: 4px; }
+.rec { color: var(--rec); }
+
+.phone { width: 393px; max-width: 100%; background: var(--sheet); color: var(--fg); border-radius: 40px; overflow: hidden; box-shadow: 0 0 0 1px rgba(127,127,127,.25); padding: 20px 0 0; box-sizing: border-box; display: flex; flex-direction: column; }
+.top { display: flex; justify-content: space-between; padding: 0 20px; }
+.circle { width: 44px; height: 44px; border-radius: 50%; background: #3a3a3c; display: grid; place-items: center; color: var(--fg); font-size: 20px; }
+.circle.done { color: #6b6b6e; }
+.chips { display: flex; gap: 8px; padding: 14px 16px 0; }
+.chips span { border: 1px solid var(--hair); border-radius: 999px; padding: 6px 12px; color: var(--muted); font-weight: 600; font-size: 15px; }
+.prose { font-family: var(--serif); font-size: 21px; padding: 14px 20px 0; height: 150px; line-height: 1.3; }
+.pill { display: inline-flex; align-items: center; gap: 3px; background: var(--butter); color: var(--plum); font-family: var(--mono); font-weight: 500; font-size: 15px; border-radius: 10px; padding: 1px 7px; vertical-align: 2px; box-shadow: 0 0 0 1.5px var(--plum), 0 0 0 3px var(--butter); }
+.slot { padding: 0 12px 8px; }
+.capsule { margin: 0 8px; height: 60px; border-radius: 30px; background: #3a3a3c; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 22px; }
+.capsule .ic { color: var(--fg); font-size: 18px; width: 32px; }
+.capsule .sp { flex: 1; }
+.capsule .key { border-radius: 24px; padding: 11px 16px; font-weight: 600; font-size: 16px; }
+.capsule .score { background: var(--plum); color: var(--butter); }
+.capsule .diet { background: #48484a; color: var(--fg); }
+.keys { margin-top: 10px; height: 150px; background: #2f2f31; border-top: 1px solid #3a3a3c; }
+
+/* The score panel (StarSlider): padding 18/18/16, gap 12, 1.5px ring. */
+.panel { background: var(--chip); color: var(--fg); border-radius: 26px; box-shadow: inset 0 0 0 1.5px var(--fg); padding: 18px 18px 16px; display: grid; gap: 12px; box-sizing: border-box; width: 100%; }
+.head { display: flex; align-items: baseline; gap: 14px; }
+.word { flex: 1; min-width: 0; white-space: nowrap; }
+.A .word { font-family: var(--serif); font-size: 20px; letter-spacing: -0.01em; line-height: 1.05; }
+.B .word { font-family: var(--sans); font-weight: 600; font-size: 17px; color: var(--muted); }
+.num { font-family: var(--sans); font-weight: 800; font-size: 28px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+.stars { display: flex; height: 44px; align-items: center; }
+.stars svg { flex: 1; height: 34px; }
+
+.ladder { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; width: 100%; max-width: 980px; }
+.step { display: grid; gap: 6px; }
+.step label { font-family: var(--mono); font-size: 12px; color: var(--labelMuted); }
+.note { max-width: 560px; font-size: 15px; line-height: 1.5; color: var(--labelMuted); text-align: center; margin: 0; }
+</style>
+
+<div class="wrap">
+  <h1>Score panel: a word for the score</h1>
+  <p class="note">The panel shows the word for the score instead of your last words. It changes as your finger slides. Before you touch the stars there is no word and no number, as today.</p>
+  <div class="row" id="phones"></div>
+  <h1>Every step</h1>
+  <div class="ladder" id="ladder"></div>
+</div>
+
+<script>
+const words = [
+  [1, "0.5", "Awful"], [2, "1.0", "Bad"], [3, "1.5", "Poor"], [4, "2.0", "Disappointing"],
+  [5, "2.5", "Okay"], [6, "3.0", "Decent"], [7, "3.5", "Good"], [8, "4.0", "Delicious"],
+  [9, "4.5", "Excellent"], [10, "5.0", "Perfect"], [12, "6", "Blown away"],
+];
+const P = "M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4l-5.8 3.1 1.1-6.5L2.6 9.4l6.5-.9z";
+function star(fill, color) {
+  const id = "c" + Math.random().toString(36).slice(2);
+  const w = fill === 1 ? 24 : fill === 0.5 ? 12 : 0;
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><defs><clipPath id="${id}"><rect x="0" y="0" width="${w}" height="24"/></clipPath></defs>
+    <path d="${P}" fill="${color}" clip-path="url(#${id})"/><path d="${P}" fill="none" stroke="var(--fg)" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+}
+function stars(h) {
+  let s = "";
+  for (let i = 0; i < 5; i++) { const r = h - i * 2; s += star(r <= 0 ? 0 : r === 1 ? 0.5 : 1, "var(--butter)"); }
+  if (h === 12) s += star(1, "var(--six)");
+  return `<div class="stars">${s}</div>`;
+}
+function panel(v, [h, n, w]) {
+  return `<div class="panel ${v}"><div class="head"><span class="word">${w}</span><span class="num">${n}</span></div>${stars(h)}</div>`;
+}
+function phone(v, step) {
+  return `<div class="phone">
+    <div class="top"><span class="circle">✕</span><span class="circle done">✓</span></div>
+    <div class="chips"><span>Place</span><span>People</span><span>Today</span></div>
+    <div class="prose">Soup was honestly excellent <span class="pill">★ ${step[1]}</span></div>
+    <div class="slot">${panel(v, step)}</div>
+    <div class="capsule"><span class="ic">◎</span><span class="ic">▣</span><span class="sp"></span><span class="key score">★ Score</span><span class="key diet">Diet</span></div>
+    <div class="keys"></div></div>`;
+}
+const four = words[7];
+document.getElementById("phones").innerHTML =
+  `<figure>${phone("A", four)}<figcaption class="rec">A · Word in the dish font, a size down (recommended)<small>Young Serif 20, one line. The panel loses the second line, so it sits lower and smaller.</small></figcaption></figure>` +
+  `<figure>${phone("B", four)}<figcaption>B · Word as a quiet label<small>Bricolage 17 semibold, grey. The number leads.</small></figcaption></figure>`;
+document.getElementById("ladder").innerHTML = words.map(s =>
+  `<div class="step"><label>${s[1]}${s[0] === 12 ? " · the secret 6" : ""}</label>${panel("A", s)}</div>`).join("");
+</script>
