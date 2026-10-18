@@ -238,17 +238,14 @@ final class AppModel {
     /// offline, or one whose sort failed, prints without anybody pressing anything. Every run is a
     /// no-op on an empty queue.
     func keepOutboxMoving() async {
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask { @MainActor in
-                for await _ in ConnectivityWatch.restorations() { await self.drainOutbox() }
-            }
-            group.addTask { @MainActor in
-                while Task.isCancelled == false {
-                    try? await Task.sleep(for: Self.outboxInterval)
-                    guard Task.isCancelled == false else { return }
-                    await self.drainOutbox()
-                }
-            }
+        let restorations = Task { [weak self] in
+            for await _ in ConnectivityWatch.restorations() { await self?.drainOutbox() }
+        }
+        defer { restorations.cancel() }
+        while Task.isCancelled == false {
+            try? await Task.sleep(for: Self.outboxInterval)
+            guard Task.isCancelled == false else { return }
+            await drainOutbox()
         }
     }
 
