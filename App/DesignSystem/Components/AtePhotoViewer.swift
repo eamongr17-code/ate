@@ -25,41 +25,6 @@ struct AtePhotoViewerAction: Sendable {
     }
 }
 
-/// Which dish each of an entry's photos is, as the viewer needs it.
-struct AtePhotoDishes: Sendable {
-    /// The entry's dishes, in receipt order.
-    var choices: [AtePhotoDishPill.Dish]
-    /// Photo URL → dish (review) id.
-    var paired: [String: UUID]
-    /// The author fixing one: the photo's URL and the dish, or `nil` for No dish. Answers whether it
-    /// held. `nil` on anybody else's entry: the pill only names.
-    var onPick: (@MainActor @Sendable (String, UUID?) async -> Bool)?
-    /// Reads the pairs as they stand now, once the viewer is up: a list's slip has none in hand, and
-    /// a match that lands while the entry is open shows without reopening it (14 Oct).
-    var load: (@MainActor @Sendable () async -> [String: UUID])?
-    /// Who and where, under the dish on somebody else's photo: "@paris · 400 Gradi".
-    var byline: String?
-    /// Photo URL → its own byline, where one viewer holds several people's photos (a dish page's
-    /// hero). Falls back to ``byline``.
-    var bylines: [String: String] = [:]
-
-    /// Photos that are all one dish — a dish page's hero, a menu row's cover: each is named by it,
-    /// as a caption, wherever it opens (18 Oct: every full-screen photo names its dish).
-    static func one(
-        _ name: String, photos: [AtePhoto], byline: String?, bylines: [String: String] = [:]
-    ) -> AtePhotoDishes? {
-        let urls = photos.compactMap { $0.url?.absoluteString }
-        guard name.isEmpty == false, urls.isEmpty == false else { return nil }
-        let dish = AtePhotoDishPill.Dish(id: UUID(), name: name)
-        return AtePhotoDishes(
-            choices: [dish],
-            paired: Dictionary(urls.map { ($0, dish.id) }, uniquingKeysWith: { first, _ in first }),
-            byline: byline,
-            bylines: bylines
-        )
-    }
-}
-
 extension EnvironmentValues {
     @Entry var atePhotoViewer = AtePhotoViewerAction()
 }
