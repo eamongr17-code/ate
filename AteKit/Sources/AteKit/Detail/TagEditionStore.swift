@@ -1,47 +1,18 @@
 import Foundation
 import Observation
 
-/// **A place known for a category** — one card of a category page's "Places known for it": the place,
-/// and its best dish carrying the tag (the first of its rows in `dishes_by_tag`'s own order).
-public struct TagPlace: Sendable, Hashable, Identifiable {
-    public let restaurantID: UUID
-    public var dish: FeedDish
-
-    public var id: UUID { restaurantID }
-    /// A display string.
-    public var restaurantName: String { dish.restaurantName }
-
-    public init(restaurantID: UUID, dish: FeedDish) {
-        self.restaurantID = restaurantID
-        self.dish = dish
-    }
-}
-
 /// **A category page's rules** (`design/rebuild/discover.html`, approved 4 Oct), stated once so the
 /// tests hold them.
 public enum TagEdition {
     /// The hero and ranked rows 2 to 8: `dishes_by_tag` rows 1 to 8 as returned.
     public static let rankedCount = 8
-    /// The one `dishes_by_tag` read the page makes; the places shelf is grouped from it.
+    /// The one `dishes_by_tag` read the page makes.
     public static let readLimit = 50
-    public static let placesLimit = 10
     public static let newLimit = FeedEditionStore.newLimit
     /// Five receipts at most, then the end line. The page is finite.
     public static let receiptsCap = FeedEditionStore.latestCap
     /// "New in <tag>" looks back this far — the Feed's own first look back.
     public static let newLookBack: TimeInterval = 7 * 24 * 60 * 60
-
-    /// One card per place, in the order the dishes came: the first row per place is its best dish in
-    /// the category. A row with no place is left out.
-    public static func places(from dishes: [FeedDish], limit: Int = placesLimit) -> [TagPlace] {
-        var seen: Set<UUID> = []
-        return dishes.compactMap { dish -> TagPlace? in
-            guard let place = dish.restaurantID, seen.insert(place).inserted else { return nil }
-            return TagPlace(restaurantID: place, dish: dish)
-        }
-        .prefix(max(0, limit))
-        .map { $0 }
-    }
 
     /// "New in curry" — a dish style read mid-sentence (lowered), a cuisine as its own name
     /// ("New in Vietnamese").
@@ -52,9 +23,9 @@ public enum TagEdition {
 }
 
 /// **A category's own page, as an edition** (4 Oct): the #1 dish as the hero, 2 to 8 as ranked rows,
-/// the places known for it, what is new in it, its latest receipts, and the Follow toggle.
+/// what is new in it, its latest receipts, and the Follow toggle.
 ///
-/// One `dishes_by_tag` read (50 rows) feeds the hero, the ranks and the places. "New in" and the
+/// One `dishes_by_tag` read (50 rows) feeds the hero and the ranks. "New in" and the
 /// receipts are their own reads and stand alone: one that fails or answers nothing is not on the page
 /// (no error line for a missing section). Only the dishes read decides the page's own state.
 @MainActor
@@ -109,7 +80,6 @@ public final class TagEditionStore: SavedDishObserving {
     public var top: [FeedDish] { Array(dishes.prefix(TagEdition.rankedCount)) }
     /// More than eight: a "See all" row opens the plain ranked list.
     public var hasMore: Bool { dishes.count > TagEdition.rankedCount }
-    public var places: [TagPlace] { TagEdition.places(from: dishes) }
     public var newTitle: String { TagEdition.newTitle(tag) }
     /// The city under the title: the one the page is read in, or everywhere. A place's own tag (a
     /// suburb, a city) carries none: the title already says where, and "Northcote Everywhere" reads

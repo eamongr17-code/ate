@@ -246,17 +246,6 @@ struct TagEditionTests {
                         savedDishes: broadcast)
     }
 
-    @Test("Places known for it: one card per place, its best dish, in the order served")
-    func places() {
-        let hoJiak = UUID(), tonka = UUID()
-        let rows = [dish("Rendang", at: hoJiak), dish("Dal", at: tonka), dish("Fish head", at: hoJiak),
-                    dish("Nowhere", at: nil)]
-        let places = TagEdition.places(from: rows)
-        #expect(places.map(\.dish.name) == ["Rendang", "Dal"])
-        #expect(places.map(\.restaurantID) == [hoJiak, tonka])
-        #expect(TagEdition.places(from: rows, limit: 1).count == 1)
-    }
-
     @Test("The subtitle: the city it is read in, Everywhere, or nothing on a place's own tag")
     func cityTitle() {
         let reads = Reads()
@@ -363,7 +352,6 @@ struct TagEditionTests {
         await store.loadIfNeeded()
         broadcast.send(dishID: rendang.dishID, isSaved: true)
         #expect(store.top[0].isSaved)
-        #expect(store.places[0].dish.isSaved)
     }
 
     @Test("The route: a ranked See all, and an old route with no page reads as the edition")

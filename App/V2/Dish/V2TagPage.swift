@@ -5,8 +5,8 @@ import SwiftUI
 /// a Feed shelf's chevron, What you follow, or a dish page's More to explore. The category is the
 /// page's own large title with its city on the baseline, folding into the bar on scroll; a glass
 /// Follow / Following sits top right. The best dish in the city owns the top as the hero (no numeral),
-/// 2 to 8 follow as ranked rows (and "See all" past eight opens the plain ranked list), then Places
-/// known for it, New in <category>, the latest receipts with it on them (five at most), and the end.
+/// 2 to 8 follow as ranked rows (and "See all" past eight opens the plain ranked list), then New in
+/// <category>, the latest receipts with it on them (five at most), and the end.
 ///
 /// A route's `.ranked` page is that plain list (``V2TagRankedPage``).
 struct V2TagPage: View {
@@ -151,11 +151,6 @@ struct V2TagEditionSections: View {
                 actions.push(.tag(store.tag.ranked))
             }
         }
-        let places = store.places
-        if places.isEmpty == false {
-            AteSectionHeading(title: V2TagCopy.places, identifier: "tag.section.places")
-            V2TagPlacesShelf(places: places, actions: actions)
-        }
         if store.newDishes.isEmpty == false {
             AteSectionHeading(title: store.newTitle, identifier: "tag.section.new")
             FeedNewRows(rows: store.newDishes, actions: actions)
@@ -169,32 +164,6 @@ struct V2TagEditionSections: View {
         }
         AteEndRule(line: "You're caught up")
             .accessibilityIdentifier("tag.caughtUp")
-    }
-}
-
-/// Places known for it: one shelf card per place, its best dish in the category as the picture and
-/// the line under the place's name; the card opens the place, the bookmark saves the dish.
-struct V2TagPlacesShelf: View {
-    let places: [TagPlace]
-    let actions: FeedEditionActions
-
-    var body: some View {
-        let tiles = DishLetter.neighbourly(places.map { ($0.dish.dishID, $0.dish.name) })
-        let letters = Dictionary(zip(places.map(\.id), tiles), uniquingKeysWith: { first, _ in first })
-        AteShelf(items: places) { place in
-            let dish = place.dish
-            AteShelfCard(
-                photo: letters[place.id].map { AtePhoto.dish($0, cover: dish.coverURLString) }
-                    ?? AtePhoto.dish(dish.dishID, name: dish.name, cover: dish.coverURLString),
-                name: place.restaurantName,
-                place: dish.name,
-                score: dish.score.map(AteScore.average),
-                isSaved: dish.isSaved,
-                onOpen: { actions.push(.place(place.restaurantID)) },
-                onSave: { actions.save(dish, .cravingShelf) }
-            )
-        }
-        .accessibilityIdentifier("tag.places")
     }
 }
 
@@ -222,6 +191,5 @@ enum V2TagCopy {
     static let follow = "Follow"
     static let following = "Following"
     static let seeAll = "See all"
-    static let places = "Places known for it"
     static let empty = "Nothing here\nyet."
 }
