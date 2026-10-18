@@ -76,8 +76,6 @@ private struct OnboardingPaper: View {
         .padding(.bottom, AteMetrics.slipPadding + AteMetrics.tornEdgeHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
         .ateTornPaper(.slip)
-        // One shadow for the whole paper, not one per pill and word inside it.
-        .compositingGroup()
         .ateShadow(.lift)
     }
 
@@ -206,8 +204,6 @@ private struct OnboardingShareArt: View {
             surface: .feed,
             onSave: { _ in }
         )
-        // One shadow for the whole paper, not one per pill and word inside it.
-        .compositingGroup()
         .ateShadow(.lift)
         .padding(.horizontal, AteMetrics.tight)
         .opacity(isRisen ? 1 : 0)
