@@ -397,6 +397,20 @@ or the entry is deleted. Pre-entries lines can't be listed. Signed in only (anon
 
 The share image is rendered on the phone from `get_list`; no server call.
 
+**Covers and people (0073).** A list's owner picks its cover and invites up to 20 people, who view it
+(only the owner changes anything). Blocks hide a shared list both ways; a deleted owner's lists vanish.
+
+| Call | Returns · errors |
+|---|---|
+| `set_list_cover(p_list_id, p_item_id, p_photo_url)` | `{list_id, cover_item_id, cover_url}`. Neither = automatic (the `covers` mosaic). An item's photo follows the item: when it leaves the list the cover is automatic again. `p_photo_url` must be the owner's own `review-photos/<uid>/list-covers/…` public URL. Both → `22023` · bad URL `22023 bad_cover_url` · `P0002 cover_item_not_found` |
+| `set_list_people(p_list_id, p_user_ids uuid[])` | the whole set wanted; returns `list_people`. New ids get an invite (`list_invite` notification + push); missing ids are removed (invite withdrawn). Self, blocked, deleted ignored. `54000 list_people_cap` (20) |
+| `list_people(p_list_id)` | `{user_id, username, name, avatar_url, status invited\|accepted, invited_at}[]` — the owner sees all; a member sees accepted |
+| `my_list_invites()` · `respond_list_invite(p_list_id, p_accept)` · `leave_list(p_list_id)` | `{list_id, name, item_count, covers, cover_url, owner{id,username,name,avatar_url}, invited_at}[]` · `'accepted'`/`'declined'` (decline is silent; `P0002 invite_not_found`) · int 1/0 |
+| `my_lists(…, p_with_shared default false)` | adds `cover_url, is_own, owner, shelved_at`; with `p_with_shared` your accepted lists join the shelf. Keyset is now `(shelved_at, list_id)` (`p_cursor_created_at` carries `shelved_at`) |
+| `get_list` | adds `covers, cover_url, cover_item_id, is_own, membership owner\|invited\|accepted, owner, people`. An invitee may read it (the preview) |
+
+`unread_notification_count()` now also counts unanswered list invites. Uploads go to `review-photos/<uid>/list-covers/<list>.jpg` (upsert; the URL carries `?v=`).
+
 **Notifications badge (C).** `unread_notification_count()` (0058) is sufficient for the "ate with" half: it counts
 exactly the unread, undismissed `ate_with` rows `my_notifications` can show (blocked/deactivated actors excluded).
 Badge = that int + the phone's own photo count. No server change.

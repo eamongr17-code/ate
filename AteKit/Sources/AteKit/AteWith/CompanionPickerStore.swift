@@ -37,6 +37,8 @@ public final class CompanionPickerStore {
 
     /// Who the sheet opened holding — what the commit pill compares against.
     public let initial: [CompanionPerson]
+    /// How many may be picked: an entry's six seats, or a list's 20 people (0073).
+    public let limit: Int
 
     @ObservationIgnored private let service: any CompanionTagging
     @ObservationIgnored private let debounce: Duration
@@ -48,10 +50,12 @@ public final class CompanionPickerStore {
     public init(
         service: any CompanionTagging,
         selected: [CompanionPerson] = [],
+        limit: Int = CompanionPickerStore.cap,
         debounce: Duration = .milliseconds(250),
         pageSize: Int = 20
     ) {
-        let capped = Array(selected.prefix(Self.cap))
+        let capped = Array(selected.prefix(limit))
+        self.limit = limit
         self.service = service
         self.selected = capped
         self.initial = capped
@@ -78,7 +82,7 @@ public final class CompanionPickerStore {
         selected.contains { $0.userID == person.userID }
     }
 
-    public var isFull: Bool { selected.count >= Self.cap }
+    public var isFull: Bool { selected.count >= limit }
 
     /// The foot pill: "Add @jess", "Add 2 people" — or, with everyone unticked from an entry that had
     /// people, "Remove @jess". `nil` title is never returned; ``canCommit`` says whether it is live.

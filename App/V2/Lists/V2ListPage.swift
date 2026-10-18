@@ -9,7 +9,12 @@ import UIKit
 /// token; no bookmark (these are your own dishes). The name settles into the bar once the cover has
 /// scrolled away. A tap opens the entry. Long-press drags to reorder (the native move, no edit mode); swipe left
 /// removes, with Saved's Undo pill for four seconds. "Add dishes" is the last row. In the bar,
-/// Share (the list as a link) and the one native ••• Menu: Rename, Delete list.
+/// Share (the list as a link) and the one native ••• Menu: Rename, Change cover, Add people, Delete
+/// list (`list-cover-edit.html`). Tapping the cover opens the cover sheet too.
+///
+/// Somebody else's list (screen 9) reads the same but only the owner changes it: no Add dishes, no
+/// reordering or removing, and the ••• holds Leave list. Opened from an invite, it is a preview with
+/// Decline and Accept where Add dishes would be.
 struct V2ListPage: View {
     let route: ListRoute
     let context: V2PageContext
@@ -21,6 +26,9 @@ struct V2ListPage: View {
     /// A list just made raises its picker once, the first time the page shows.
     @State private var hasPickedOnOpen = false
     @State private var isConfirmingDelete = false
+    @State private var isCovering = false
+    @State private var isAddingPeople = false
+    @State private var isConfirmingLeave = false
     @State private var sharing: ShareSender.Sending?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -73,6 +81,12 @@ struct V2ListPage: View {
         .sheet(isPresented: $isPicking) {
             ListPickerSheet(list: store, services: context.services)
         }
+        .sheet(isPresented: $isCovering) {
+            ListCoverSheet(list: store)
+        }
+        .sheet(isPresented: $isAddingPeople) {
+            ListPeopleSheet(list: store, services: context.services)
+        }
         .sheet(item: $sharing) { sending in
             ShareSheet(sending: sending) { destination in
                 context.services.analytics(
@@ -89,14 +103,22 @@ struct V2ListPage: View {
             }
             .accessibilityIdentifier("list.delete.confirm")
         }
-        .listsFailureAlert(failure: isPicking || isRenaming ? nil : store.failure) { store.clearFailure() }
+        .confirmationDialog(
+            ListsCopy.confirmLeave(store.name), isPresented: $isConfirmingLeave, titleVisibility: .visible
+        ) {
+            Button(ListsCopy.leave, role: .destructive) {
+                Task { await store.leave() }
+            }
+            .accessibilityIdentifier("list.leave.confirm")
+        }
+        .listsFailureAlert(failure: isSheetUp ? nil : store.failure) { store.clearFailure() }
     }
 
     // MARK: - The head
 
     private var hero: some View {
         VStack(spacing: 0) {
-            AteListCover(id: route.id, name: store.name, covers: store.list?.covers ?? [], style: .hero)
+            cover
             Text(store.name)
                 .ateText(.kitListHeroName)
                 .foregroundStyle(AtePalette.automatic.fg)
@@ -106,17 +128,11 @@ struct V2ListPage: View {
                 .accessibilityAddTraits(.isHeader)
             byline
                 .padding(.top, V2ListPageMetrics.bylineTop)
-            HStack(spacing: V2ListPageMetrics.actionGap) {
-                AteInkPill(
-                    title: ListsCopy.addDishes, isEnabled: store.remaining > 0, identifier: "list.addPill"
-                ) { pick() }
-                if store.items.isEmpty == false {
-                    AteInkPill(title: ListsCopy.share, isQuiet: true, identifier: "list.sharePill") {
-                        shareList()
-                    }
-                }
+            // Whose it is decides the actions: none until the list has been read.
+            if store.list != nil {
+                actions
+                    .padding(.top, V2ListPageMetrics.actionsTop)
             }
-            .padding(.top, V2ListPageMetrics.actionsTop)
         }
         .padding(.horizontal, AteMetrics.gutter)
         .padding(.top, AteMetrics.regular)
@@ -124,12 +140,36 @@ struct V2ListPage: View {
         .frame(maxWidth: .infinity)
     }
 
-    /// Your handle on its avatar, then the count — a playlist's owner line.
+    /// The cover, big and lifted: the picked one, or the mosaic. The owner's opens the cover sheet.
+    @ViewBuilder
+    private var cover: some View {
+        let art = AteListCover(
+            id: route.id, name: store.name, covers: store.list?.covers ?? [], cover: store.list?.coverURL,
+            style: .hero
+        )
+        if store.isOwn && store.list != nil {
+            Button { isCovering = true } label: { art }
+                .buttonStyle(.plain)
+                .accessibilityLabel(ListsCopy.changeCover)
+                .accessibilityIdentifier("list.cover")
+        } else {
+            art
+        }
+    }
+
+    /// The owner, then everyone who accepted, each on their avatar, then the count — a playlist's
+    /// owner line. On your own list with people on it, a tap opens Add people.
+    @ViewBuilder
     private var byline: some View {
-        HStack(spacing: V2ListPageMetrics.bylineGap) {
-            if let handle = context.app.handle, let userID = context.services.api.currentUserID {
-                AteAvatar(userID: userID, handle: handle)
-                Text(handle)
+        let line = HStack(spacing: V2ListPageMetrics.bylineGap) {
+            let people = bylinePeople
+            if people.isEmpty == false {
+                if people.count == 1, let only = people.first {
+                    AteAvatar(userID: only.id, handle: only.username, url: only.avatarURL.flatMap(URL.init(string:)))
+                } else {
+                    AteAvatarStack(people: people)
+                }
+                Text(ListsCopy.byline(people.map(\.username)))
                     .ateText(.kitListByline)
                     .foregroundStyle(AtePalette.automatic.fg)
                     .lineLimit(1)
@@ -143,6 +183,40 @@ struct V2ListPage: View {
                 .accessibilityIdentifier("list.count")
         }
         .accessibilityElement(children: .combine)
+        if store.isOwn && store.people.isEmpty == false {
+            Button { isAddingPeople = true } label: { line }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("list.people")
+        } else {
+            line
+        }
+    }
+
+    /// Yours: Add dishes and Share. Someone else's: Share. An invite's preview: Decline and Accept.
+    @ViewBuilder
+    private var actions: some View {
+        HStack(spacing: V2ListPageMetrics.actionGap) {
+            switch store.role {
+            case .owner:
+                AteInkPill(
+                    title: ListsCopy.addDishes, isEnabled: store.remaining > 0, identifier: "list.addPill"
+                ) { pick() }
+                if store.items.isEmpty == false {
+                    AteInkPill(title: ListsCopy.share, isQuiet: true, identifier: "list.sharePill") {
+                        shareList()
+                    }
+                }
+            case .accepted:
+                if store.items.isEmpty == false {
+                    AteInkPill(title: ListsCopy.share, identifier: "list.sharePill") { shareList() }
+                }
+            case .invited:
+                AteInkPill(title: ListsCopy.decline, isQuiet: true, identifier: "list.decline") {
+                    answer(accept: false)
+                }
+                AteInkPill(title: ListsCopy.accept, identifier: "list.accept") { answer(accept: true) }
+            }
+        }
     }
 
     // MARK: - The rows
@@ -170,7 +244,7 @@ struct V2ListPage: View {
             EmptyView()
         case .ready:
             rows
-            if store.remaining > 0 {
+            if store.isOwn && store.remaining > 0 {
                 AteAddRow(title: ListsCopy.addDishes, identifier: "list.add") { pick() }
                     .padding(.horizontal, AteMetrics.gutter)
                     .listPlainRow()
@@ -196,16 +270,25 @@ struct V2ListPage: View {
             .padding(.horizontal, AteMetrics.gutter)
             .listPlainRow()
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                Button(ListsCopy.remove, role: .destructive) { remove(item) }
-                    .tint(AteColor.destructive)
+                if store.isOwn {
+                    Button(ListsCopy.remove, role: .destructive) { remove(item) }
+                        .tint(AteColor.destructive)
+                }
             }
-            .accessibilityAction(named: ListsCopy.remove) { remove(item) }
+            .accessibilityActions {
+                if store.isOwn {
+                    Button(ListsCopy.remove) { remove(item) }
+                }
+            }
             .accessibilityIdentifier("list.row")
         }
-        .onMove { source, destination in
-            AteHaptics.key()
-            Task { await store.move(fromOffsets: source, toOffset: destination) }
-        }
+        // Only the owner reorders; on someone else's list the rows hold still.
+        .onMove(perform: store.isOwn ? move : nil)
+    }
+
+    private func move(fromOffsets source: IndexSet, toOffset destination: Int) {
+        AteHaptics.key()
+        Task { await store.move(fromOffsets: source, toOffset: destination) }
     }
 
     // MARK: - The bar
@@ -221,25 +304,21 @@ struct V2ListPage: View {
                 .accessibilityIdentifier("list.share")
             }
         }
-        if store.list != nil {
+        if store.list != nil && store.role != .invited {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button { isRenaming = true } label: {
-                        Label {
-                            Text(ListsCopy.rename)
-                        } icon: {
-                            AteIcon.edit.barImage(size: V2ListPageMetrics.menuGlyph)
+                    if store.isOwn {
+                        ownerMenu
+                    } else {
+                        Button(role: .destructive) { isConfirmingLeave = true } label: {
+                            Label {
+                                Text(ListsCopy.leaveList)
+                            } icon: {
+                                AteIcon.userMinus.barImage(size: V2ListPageMetrics.menuGlyph)
+                            }
                         }
+                        .accessibilityIdentifier("list.leave")
                     }
-                    .accessibilityIdentifier("list.rename")
-                    Button(role: .destructive) { isConfirmingDelete = true } label: {
-                        Label {
-                            Text(ListsCopy.deleteList)
-                        } icon: {
-                            AteIcon.trash.barImage(size: V2ListPageMetrics.menuGlyph)
-                        }
-                    }
-                    .accessibilityIdentifier("list.delete")
                 } label: {
                     AteIcon.more.view(size: AteGlassDiscMetrics.glyph)
                 }
@@ -268,16 +347,69 @@ struct V2ListPage: View {
             }
         }
     }
+}
 
-    // MARK: - Doing
+// MARK: - Doing
 
-    /// What leaves: the list as a link, named and covered as its page is.
-    private var share: ListShare {
-        ListShare(
-            id: route.id, name: store.name, count: store.count, covers: store.list?.covers ?? [],
-            handle: context.app.handle ?? ""
-        )
+extension V2ListPage {
+    /// Whose list it is, then who has accepted; nobody still deciding.
+    private var bylinePeople: [ListPerson] {
+        let owner: ListPerson? = if store.isOwn {
+            context.app.handle.flatMap { handle in
+                context.services.api.currentUserID.map { ListPerson(id: $0, username: handle) }
+            }
+        } else {
+            store.list?.owner
+        }
+        let accepted = store.people.filter { $0.status == .accepted && $0.id != owner?.id }
+        return (owner.map { [$0] } ?? []) + accepted
     }
+
+    @ViewBuilder
+    private var ownerMenu: some View {
+        Button { isRenaming = true } label: {
+            Label {
+                Text(ListsCopy.rename)
+            } icon: {
+                AteIcon.edit.barImage(size: V2ListPageMetrics.menuGlyph)
+            }
+        }
+        .accessibilityIdentifier("list.rename")
+        Button { isCovering = true } label: {
+            Label {
+                Text(ListsCopy.changeCover)
+            } icon: {
+                AteIcon.library.barImage(size: V2ListPageMetrics.menuGlyph)
+            }
+        }
+        .accessibilityIdentifier("list.changeCover")
+        Button { addPeople() } label: {
+            Label {
+                Text(ListsCopy.addPeople)
+            } icon: {
+                AteIcon.userPlus.barImage(size: V2ListPageMetrics.menuGlyph)
+            }
+        }
+        .accessibilityIdentifier("list.addPeople")
+        Button(role: .destructive) { isConfirmingDelete = true } label: {
+            Label {
+                Text(ListsCopy.deleteList)
+            } icon: {
+                AteIcon.trash.barImage(size: V2ListPageMetrics.menuGlyph)
+            }
+        }
+        .accessibilityIdentifier("list.delete")
+    }
+
+    /// What leaves: the list as a link, named and covered as its page is, under its owner's handle.
+    private var share: ListShare {
+        let covers = store.list?.coverURL.map { [$0] } ?? store.list?.covers ?? []
+        let handle = store.isOwn ? context.app.handle : store.list?.owner?.username
+        return ListShare(id: route.id, name: store.name, count: store.count, covers: covers, handle: handle ?? "")
+    }
+
+    /// A sheet over the page says its own refusals.
+    private var isSheetUp: Bool { isPicking || isRenaming || isCovering || isAddingPeople }
 
     /// Straight to the system share sheet: the link, with the cover and name in its header.
     private func shareList() {
@@ -301,6 +433,30 @@ struct V2ListPage: View {
     private func pick() {
         guard context.gate.permitsWrite(.journal) else { return }
         isPicking = true
+    }
+
+    private func addPeople() {
+        guard context.gate.permitsWrite(.journal) else { return }
+        isAddingPeople = true
+    }
+
+    /// The invite's preview: Accept makes it one of your lists here and now; Decline closes it.
+    private func answer(accept: Bool) {
+        guard let list = store.list, let owner = list.owner else { return }
+        AteHaptics.key()
+        let invite = ListInvite(
+            listID: route.id, name: list.name, itemCount: store.count, covers: list.covers,
+            coverURL: list.coverURL, owner: owner, invitedAt: list.createdAt
+        )
+        Task {
+            guard await context.app.listInvites.respond(to: invite, accept: accept) else { return }
+            await context.app.notifications.refreshCount()
+            if accept {
+                await store.refresh()
+            } else {
+                dismiss()
+            }
+        }
     }
 
     private func pickOnOpen() {

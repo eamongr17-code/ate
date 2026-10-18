@@ -4,11 +4,13 @@ import UIKit
 /// step. 512 across at most, JPEG: the largest an avatar is ever shown is 176pt, on first run.
 enum AvatarImage {
     static let pixels: CGFloat = 512
+    /// A list's cover: 224pt on its page, so 1080 across covers a 3× screen with room.
+    static let coverPixels: CGFloat = 1080
     static let quality: CGFloat = 0.85
 
     /// Just the square inside the circle (``AteAvatarCropper``), in the photo's own points, drawn
     /// down to at most 512 across.
-    static func jpeg(from image: UIImage, cropping square: CGRect) -> Data? {
+    static func jpeg(from image: UIImage, cropping square: CGRect, pixels: CGFloat = pixels) -> Data? {
         guard square.width > 0 else { return nil }
         let side = min(pixels, square.width).rounded()
         let scale = side / square.width

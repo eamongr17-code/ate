@@ -17,7 +17,8 @@ public struct ListsClient: ListsServing {
             "p_limit": .integer(clamped),
             // Both halves of the keyset, or neither.
             "p_cursor_created_at": cursor.map { .string(PostgRESTTimestamp.string(from: $0.createdAt)) } ?? .null,
-            "p_cursor_id": cursor.map { .string(Self.id($0.id)) } ?? .null
+            "p_cursor_id": cursor.map { .string(Self.id($0.id)) } ?? .null,
+            "p_with_shared": .bool(true)
         ])
         return UserListPage(items: rows, requestedLimit: clamped)
     }
@@ -79,6 +80,72 @@ public struct ListsClient: ListsServing {
             query: query, scoredOnly: scoredOnly, listID: listID, after: cursor, limit: clamped
         ))
         return ListPickerPage(items: rows, requestedLimit: clamped)
+    }
+
+    // MARK: - Covers and people (0073)
+
+    public func setCover(listID: UUID, choice: ListCoverChoice) async throws -> String? {
+        var parameters: [String: AnyJSON] = ["p_list_id": .string(Self.id(listID))]
+        switch choice {
+        case .automatic:
+            break
+        case let .item(itemID):
+            parameters["p_item_id"] = .string(Self.id(itemID))
+        case let .upload(image):
+            parameters["p_photo_url"] = .string(try await upload(image, listID: listID))
+        }
+        let answer: CoverAnswer = try await call("set_list_cover", parameters)
+        return answer.coverURL
+    }
+
+    public func people(listID: UUID) async throws -> [ListPerson] {
+        try await call("list_people", ["p_list_id": .string(Self.id(listID))])
+    }
+
+    public func setPeople(listID: UUID, people: [ListPerson]) async throws -> [ListPerson] {
+        try await call("set_list_people", [
+            "p_list_id": .string(Self.id(listID)),
+            "p_user_ids": .array(people.map { .string(Self.id($0.id)) })
+        ])
+    }
+
+    public func invites() async throws -> [ListInvite] {
+        try await call("my_list_invites", [:])
+    }
+
+    public func respond(toInvite listID: UUID, accept: Bool) async throws {
+        let _: String = try await call("respond_list_invite", [
+            "p_list_id": .string(Self.id(listID)), "p_accept": .bool(accept)
+        ])
+    }
+
+    public func leave(listID: UUID) async throws {
+        let _: Int = try await call("leave_list", ["p_list_id": .string(Self.id(listID))])
+    }
+
+    /// `review-photos/<you>/list-covers/<list>.<ext>` — the prefix 0007's policy and `set_list_cover`
+    /// both check. Upserted with a cache-buster, like the avatar, so a new cover replaces the old file.
+    private func upload(_ image: AvatarUpload, listID: UUID) async throws -> String {
+        do {
+            let owner = try await api.requireCurrentUserID()
+            let path = "\(Self.id(owner))/list-covers/\(Self.id(listID)).\(image.fileExtension)"
+            let storage = api.supabase.storage.from("review-photos")
+            _ = try await storage.upload(
+                path, data: image.data, options: FileOptions(contentType: image.contentType, upsert: true)
+            )
+            let base = try storage.getPublicURL(path: path).absoluteString
+            return base + "?v=\(Int(Date().timeIntervalSince1970))"
+        } catch {
+            throw ListsError.of(error)
+        }
+    }
+
+    private struct CoverAnswer: Decodable {
+        let coverURL: String?
+
+        enum CodingKeys: String, CodingKey {
+            case coverURL = "cover_url"
+        }
     }
 
     // MARK: - Wire

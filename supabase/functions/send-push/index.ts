@@ -14,7 +14,7 @@
 //   service-role client (push_kick_secret()); nobody copies the service-role key. verify_jwt = false
 //   (config.toml): the kick secret is not a JWT, so this function checks its own bearer.
 //
-// WHAT IS SENT is decided in SQL (push_claim_ate_with, 0059): pending tag, unread, undismissed, unpushed
+// WHAT IS SENT is decided in SQL (push_claim_ate_with, 0059; list invites: push_claim_list_invites, 0073): pending tag, unread, undismissed, unpushed
 // (so never a quiet re-tag), no block, the tagger's entry sorted. This file never widens that set.
 //
 // APNs: HTTP/2 (Deno's fetch negotiates h2 by ALPN) with token auth — an ES256 JWT from the .p8 key,

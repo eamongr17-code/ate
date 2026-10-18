@@ -13,6 +13,10 @@ extension AteTextStyle {
     static let kitInkPillSmall = AteTextStyle(
         voice: .display, size: 15, weight: 600, trackingEm: 0, lineHeight: 1.0, textStyle: .subheadline
     )
+    /// …and inside a row (a list invite's Accept, Decline): 600 at 14.
+    static let kitInkPillRow = AteTextStyle(
+        voice: .display, size: 14, weight: 600, trackingEm: 0, lineHeight: 1.0, textStyle: .subheadline
+    )
     /// A photo's caption on somebody else's entry — `.capL b`: 600 at 17
     /// (design/rebuild/photo-dish-caption.html, B).
     static let kitPhotoCaptionDish = AteTextStyle(

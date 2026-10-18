@@ -12,6 +12,7 @@ import UserNotifications
 ///   about the app may wait on a push.
 /// - **The tap.** A tapped push carries `companion_id`; the root opens that tag's scoring sheet
 ///   straight over whatever tab is up, skipping the list (``SwiftUICore/View/ateWithPushes(_:)``).
+///   A list invite's push (0073) opens Notifications, where the invite waits on Accept or Decline.
 @MainActor
 @Observable
 final class AtePush {
@@ -19,6 +20,8 @@ final class AtePush {
 
     /// A tapped push's tag, waiting for the shell to be free to open it.
     var pendingTag: UUID?
+    /// A tapped list invite, waiting for the shell to open Notifications.
+    var pendingInvite = false
     /// The token, once APNs has answered.
     @ObservationIgnored private(set) var token: String?
     /// Who the token is registered with — the signed-in session's services.
@@ -98,6 +101,10 @@ final class AtePush {
     // MARK: - The tap
 
     func tapped(userInfo: [AnyHashable: Any]) {
+        if userInfo["type"] as? String == "list_invite" {
+            pendingInvite = true
+            return
+        }
         guard let raw = userInfo["companion_id"] as? String, let companionID = UUID(uuidString: raw) else { return }
         pendingTag = companionID
     }
@@ -165,6 +172,7 @@ private struct AteWithPushes: ViewModifier {
             }
             .onChange(of: canOpen, initial: true) { _, _ in openPending() }
             .onChange(of: AtePush.shared.pendingTag) { _, _ in openPending() }
+            .onChange(of: AtePush.shared.pendingInvite) { _, _ in openPending() }
     }
 
     private var canOpen: Bool {
@@ -172,6 +180,10 @@ private struct AteWithPushes: ViewModifier {
     }
 
     private func openPending() {
+        if canOpen, AtePush.shared.pendingInvite {
+            AtePush.shared.pendingInvite = false
+            app.linkedInvites = true
+        }
         guard canOpen, let companionID = AtePush.shared.pendingTag else { return }
         AtePush.shared.pendingTag = nil
         app.services.analytics(NotificationEvents.ateWithOpened(from: .push))

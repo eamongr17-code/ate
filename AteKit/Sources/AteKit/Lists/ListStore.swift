@@ -28,6 +28,11 @@ public final class ListStore {
     /// The last dish taken off, while it can still be put back — the Undo pill.
     public private(set) var undoable: ListItem?
     public private(set) var isAdding = false
+    /// Yours (every edit), or someone else's you view (0073). Owner until the server says otherwise,
+    /// so a list made here is editable before its first read.
+    public private(set) var role: ListDetail.Role = .owner
+    /// Who else is on it: everyone invited or accepted when it is yours, the accepted otherwise.
+    public private(set) var people: [ListPerson] = []
 
     @ObservationIgnored private var undoIndex: Int?
     @ObservationIgnored private let service: any ListsServing
@@ -48,6 +53,7 @@ public final class ListStore {
     ) {
         self.listID = listID
         self.list = list
+        if let list, list.isOwn == false { role = .accepted }
         self.service = service
         self.shelf = shelf
         self.analytics = analytics
@@ -55,6 +61,12 @@ public final class ListStore {
     }
 
     public var name: String { list?.name ?? "" }
+    public var isOwn: Bool { role == .owner }
+    /// Item photos the cover sheet offers, one per distinct photo, in list order.
+    public var coverCandidates: [ListItem] {
+        var seen = Set<String>()
+        return items.filter { item in item.photoURL.map { seen.insert($0).inserted } ?? false }
+    }
     public var count: Int { items.count }
     /// Room for this many more dishes before the 100 cap.
     public var remaining: Int { max(0, ListRules.itemCap - items.count) }
@@ -280,7 +292,7 @@ public final class ListStore {
         publish()
         do {
             let renamed = try await service.renameList(id: listID, name: name)
-            list = renamed.with(itemCount: items.count, covers: ListCovers.of(items))
+            list = renamed.keeping(before).with(itemCount: items.count, covers: ListCovers.of(items))
             publish()
             analytics(ListEvents.renamed())
             return true
@@ -307,10 +319,84 @@ public final class ListStore {
         }
     }
 
+    // MARK: - Cover, people, leaving (0073)
+
+    /// The cover sheet's tick. A dish photo shows at once; an upload once it has landed. Returns
+    /// whether the server took it.
+    @discardableResult
+    public func setCover(_ choice: ListCoverChoice) async -> Bool {
+        guard isOwn, let before = list else { return false }
+        switch choice {
+        case .automatic:
+            list = before.with(coverURL: nil, coverItemID: nil)
+        case let .item(itemID):
+            let photo = items.first { $0.id == itemID }?.photoURL
+            list = before.with(coverURL: photo, coverItemID: itemID)
+        case .upload:
+            break
+        }
+        publish()
+        do {
+            let resolved = try await service.setCover(listID: listID, choice: choice)
+            if let current = list {
+                list = current.with(coverURL: resolved, coverItemID: choice.itemID)
+            }
+            publish()
+            analytics(ListEvents.coverChanged(to: ListEvents.CoverKind(choice)))
+            return true
+        } catch {
+            list = before
+            publish()
+            failure = ListsError.of(error)
+            return false
+        }
+    }
+
+    /// The people picker's commit: the whole set wanted on the list. Returns whether it landed.
+    @discardableResult
+    public func setPeople(_ wanted: [ListPerson]) async -> Bool {
+        guard isOwn else { return false }
+        guard wanted.count <= ListRules.peopleCap else {
+            failure = .peopleCap
+            return false
+        }
+        let before = people
+        let known = Set(before.map(\.id))
+        do {
+            people = try await service.setPeople(listID: listID, people: wanted)
+            let invited = wanted.filter { known.contains($0.id) == false }.count
+            let removed = before.filter { person in wanted.contains { $0.id == person.id } == false }.count
+            if invited + removed > 0 { analytics(ListEvents.peopleChanged(invited: invited, removed: removed)) }
+            return true
+        } catch {
+            people = before
+            failure = ListsError.of(error)
+            return false
+        }
+    }
+
+    /// Off someone else's list. The page closes on `true`; the shelf has already let it go.
+    @discardableResult
+    public func leave() async -> Bool {
+        guard isOwn == false else { return false }
+        do {
+            try await service.leave(listID: listID)
+            analytics(ListEvents.left())
+            phase = .gone
+            shelf?.removed(listID: listID)
+            return true
+        } catch {
+            failure = ListsError.of(error)
+            return false
+        }
+    }
+
     // MARK: - Machinery
 
     private func adopt(_ detail: ListDetail) {
         list = detail.list
+        role = detail.role
+        people = detail.people
         items = detail.items
         hasLoaded = true
         renumber()
@@ -333,8 +419,13 @@ public final class ListStore {
     private func publish() {
         if hasLoaded || items.isEmpty == false { phase = items.isEmpty ? .empty : .ready }
         guard let current = list else { return }
-        let summary = current.with(itemCount: items.count, covers: ListCovers.of(items))
+        var summary = current.with(itemCount: items.count, covers: ListCovers.of(items))
+        // A dish pick follows its item: its photo, or automatic once the item has left.
+        if let pick = current.coverItemID {
+            summary = summary.with(coverURL: items.first { $0.id == pick }?.photoURL, coverItemID: pick)
+        }
         list = summary
-        shelf?.updated(summary)
+        // An invitation previewed here is not on the shelf; only a list there is told.
+        if role != .invited { shelf?.updated(summary) }
     }
 }

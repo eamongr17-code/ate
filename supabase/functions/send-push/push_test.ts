@@ -9,7 +9,7 @@
 // here the rule is that the function sends exactly what the claim returns, and nothing when it returns [].
 
 import { test, assert, assertEquals } from '../sort-entry/harness.ts';
-import { createHandler, pushCopy, resetJwtCache, resetKickSecretCache, type Claimed, type Deps } from './push.ts';
+import { createHandler, pushCopy, inviteCopy, resetJwtCache, resetKickSecretCache, type Claimed, type ClaimedInvite, type Deps } from './push.ts';
 
 const SERVICE = 'service-role-key-for-tests';
 const KICK = 'f0'.repeat(32); // what push_configure would have generated
@@ -44,7 +44,7 @@ const ROW: Claimed = {
 
 type Sent = { url: string; headers: Record<string, string>; body: any };
 function world(opts: {
-  secrets?: Record<string, string>; rows?: Claimed[]; apns?: (url: string) => Response; now?: () => number;
+  secrets?: Record<string, string>; rows?: Claimed[]; invites?: ClaimedInvite[]; apns?: (url: string) => Response; now?: () => number;
   kick?: string | null; failRpc?: string;
 } = {}) {
   resetKickSecretCache();
@@ -61,6 +61,7 @@ function world(opts: {
           rpcs.push({ name, args });
           if (name === opts.failRpc) return { data: null, error: { message: 'boom' } };
           if (name === 'push_kick_secret') return { data: opts.kick === undefined ? KICK : opts.kick, error: null };
+          if (name === 'push_claim_list_invites') return { data: opts.invites ?? [], error: null };
           return { data: name === 'push_claim_ate_with' ? (opts.rows ?? [ROW]) : 1, error: null };
         },
       };
@@ -110,8 +111,8 @@ test('happy path: one APNs request per token, each to ITS host, signed, with the
   assert(jwt.ok, 'ES256 signature verifies with the key\'s public half');
   assertEquals(jwt.header, { alg: 'ES256', kid: 'KEY1234567' });
   assertEquals(jwt.claims.iss, 'TEAM123456');
-  assertEquals(w.rpcs.map((r) => r.name), ['push_claim_ate_with', 'push_mark_sent']);
-  assertEquals(w.rpcs[1].args, { p_ids: ['n-1'] });
+  assertEquals(w.rpcs.map((r) => r.name), ['push_claim_ate_with', 'push_claim_list_invites', 'push_mark_sent']);
+  assertEquals(w.rpcs[2].args, { p_ids: ['n-1'] });
   assertEquals(w.sent[1].headers.authorization, s.headers.authorization, 'one key, one provider token, both hosts');
 
   const odd = world({ rows: [{ ...ROW, tokens: [{ token: 'dd'.repeat(32), apns_env: 'staging' }] }] });
@@ -171,7 +172,7 @@ test('settled per row: a failure mid-batch leaves the rows already sent marked; 
   assertEquals([b2.ok, b2.dropped, b2.marked], [false, 0, 1]);
   // row 1 is marked BEFORE row 2 is attempted
   const r3 = await w.call();
-  assertEquals(w.rpcs.map((r) => r.name), ['push_claim_ate_with', 'push_mark_sent', 'push_drop_tokens', 'push_mark_sent']);
+  assertEquals(w.rpcs.map((r) => r.name), ['push_claim_ate_with', 'push_claim_list_invites', 'push_mark_sent', 'push_drop_tokens', 'push_mark_sent']);
   assertEquals((await r3.json()).marked, 2);
 });
 
@@ -185,6 +186,7 @@ test('a throw mid-batch (a lost connection on row 2) keeps row 1 marked', async 
         rpcs.push(name);
         if (name === 'push_claim_ate_with') return { data: [ROW, second], error: null };
         if (name === 'push_drop_tokens') throw new Error('connection lost');
+        if (name === 'push_claim_list_invites') return { data: [], error: null };
         return { data: 1, error: null };
       },
     }),
@@ -192,7 +194,7 @@ test('a throw mid-batch (a lost connection on row 2) keeps row 1 marked', async 
   });
   const res = await handler(new Request('http://x', { method: 'POST', headers: { Authorization: `Bearer ${SERVICE}` } }));
   assertEquals(res.status, 500);
-  assertEquals(rpcs, ['push_claim_ate_with', 'push_mark_sent', 'push_drop_tokens'], 'row 1 was marked before the throw');
+  assertEquals(rpcs, ['push_claim_ate_with', 'push_claim_list_invites', 'push_mark_sent', 'push_drop_tokens'], 'row 1 was marked before the throw');
   const body = await res.json();
   assertEquals([body.marked, body.sent], [1, 2]);
   assert(String(body.errors).includes('connection lost'));
@@ -214,7 +216,7 @@ test('410 and BadDeviceToken drop the token; the notification still counts as pu
 test('a transient failure (5xx / network) leaves the row for the retry drain; nothing dropped', async () => {
   const w = world({ apns: () => new Response('', { status: 503 }) });
   assertEquals(await (await w.call()).json(), { ok: true, claimed: 1, sent: 0, marked: 0, dropped: 0 });
-  assertEquals(w.rpcs.map((r) => r.name), ['push_claim_ate_with']);
+  assertEquals(w.rpcs.map((r) => r.name), ['push_claim_ate_with', 'push_claim_list_invites']);
   const down = world({ apns: () => { throw new Error('ECONNRESET'); } });
   assertEquals((await (await down.call()).json()).marked, 0);
 });
@@ -222,7 +224,7 @@ test('a transient failure (5xx / network) leaves the row for the retry drain; no
 test('nothing claimed (quiet, read, dismissed, declined, blocked, unsorted) → nothing sent, nothing marked', async () => {
   const w = world({ rows: [] });
   assertEquals(await (await w.call()).json(), { ok: true, claimed: 0, sent: 0, marked: 0, dropped: 0 });
-  assertEquals([w.sent.length, w.rpcs.map((r) => r.name).join()], [0, 'push_claim_ate_with']);
+  assertEquals([w.sent.length, w.rpcs.map((r) => r.name).join()], [0, 'push_claim_ate_with,push_claim_list_invites']);
   const noDevice = world({ rows: [{ ...ROW, tokens: [] }] });
   await noDevice.call();
   assertEquals(noDevice.rpcs.find((r) => r.name === 'push_mark_sent')!.args, { p_ids: ['n-1'] }, 'no device: marked, not retried');
@@ -241,4 +243,38 @@ test('the provider token is cached under 50 minutes, then re-signed', async () =
   assertEquals(jwts[0], jwts[1], 'reused inside 50 minutes');
   assert(jwts[2] !== jwts[0], 're-signed after 50 minutes');
   assertEquals((await verifyJwt(jwts[2].replace(/^bearer /, ''))).claims.iat, Math.floor(t / 1000));
+});
+
+const INVITE: ClaimedInvite = {
+  notification_id: 'n-9',
+  list_id: '00000000-0000-4000-8000-0000000000d1',
+  recipient_id: '00000000-0000-4000-8000-00000000000c',
+  actor_username: 'eamon',
+  list_name: 'Date night',
+  badge: 1,
+  tokens: [{ token: 'cc'.repeat(32), apns_env: 'production' }],
+};
+
+test('list invites: claimed after the tags, "@who invited you to <list>", the list id, then marked pushed', async () => {
+  assertEquals(inviteCopy(INVITE), { title: '@eamon invited you to Date night' });
+  const w = world({ rows: [], invites: [INVITE] });
+  const res = await w.call();
+  assertEquals(res.status, 200);
+  assertEquals(w.sent.length, 1);
+  assert(w.sent[0].url.startsWith('https://api.push.apple.com/3/device/'));
+  assertEquals(w.sent[0].body.type, 'list_invite');
+  assertEquals(w.sent[0].body.list_id, INVITE.list_id);
+  assertEquals(w.sent[0].body.aps.alert.title, '@eamon invited you to Date night');
+  assertEquals(w.sent[0].headers['apns-collapse-id'], 'n-9');
+  const names = w.rpcs.map((r) => r.name);
+  assert(names.indexOf('push_claim_ate_with') < names.indexOf('push_claim_list_invites'));
+  assertEquals(w.rpcs.find((r) => r.name === 'push_mark_sent')?.args, { p_ids: ['n-9'] });
+});
+
+test('list invites: their claim failing still sends the tags already claimed, and reports 500', async () => {
+  const w = world({ failRpc: 'push_claim_list_invites' });
+  const res = await w.call();
+  assertEquals(res.status, 500);
+  assertEquals(w.sent.length, ROW.tokens.length);
+  assertEquals(w.rpcs.find((r) => r.name === 'push_mark_sent')?.args, { p_ids: [ROW.notification_id] });
 });

@@ -75,6 +75,11 @@ struct TabShell: View {
             app.linkedEntry = nil
             openLinkedEntry(entryID)
         }
+        .onChange(of: app.linkedInvites, initial: true) { _, isLinked in
+            guard isLinked else { return }
+            app.linkedInvites = false
+            openNotifications()
+        }
         .onChange(of: selection, initial: true) { _, tab in router(for: tab)?.shown() }
     }
 
@@ -164,6 +169,12 @@ struct TabShell: View {
                     ))
                 }
         }
+    }
+
+    /// A tapped list invite: Notifications, where the bell opens it, on the Journal.
+    private func openNotifications() {
+        selection = .journal
+        journal.open(.notifications, from: .journal)
     }
 
     /// A link's entry, pushed on the current tab — on the Feed for somebody reading signed out, since

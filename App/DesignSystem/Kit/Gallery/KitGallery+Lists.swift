@@ -22,6 +22,9 @@ extension KitGalleryScreen {
                 }
                 AteListCover(id: KitListFixtures.burgers, name: "Melbourne\u{2019}s best burgers",
                              covers: KitListFixtures.covers, style: .hero)
+                AteListTile(id: KitListFixtures.pasta, name: "Date night", count: 6,
+                            cover: "asset://cake", owner: KitListFixtures.eamon) {}
+                    .frame(width: AteListCoverMetrics.preview)
             }
             .padding(.horizontal, AteListCoverMetrics.gutter)
         }
@@ -39,6 +42,27 @@ extension KitGalleryScreen {
             .environment(\.atePalette, .surface)
             .background(AtePalette.surface.ground)
         }
+        section("Cover and people") {
+            VStack(alignment: .leading, spacing: AteMetrics.section) {
+                AteCoverUploadRow(title: "Upload from Photos", isOn: true) {}
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: AteListPeopleMetrics.cellGap), count: 3),
+                    spacing: AteListPeopleMetrics.cellGap
+                ) {
+                    AteCoverPhotoCell(url: "asset://burger", name: "Smash burger", isOn: true) {}
+                    AteCoverPhotoCell(url: "asset://pizza", name: "Margherita", isOn: false) {}
+                    AteCoverPhotoCell(url: "asset://cake", name: "Tiramisu", isOn: false) {}
+                }
+                AteAvatarStack(people: [KitListFixtures.eamon, KitListFixtures.paris])
+                AteListInviteRow(
+                    owner: KitListFixtures.eamon, line: "@eamon invited you to Date night", meta: "6 dishes",
+                    decline: "Decline", accept: "Accept", isFirst: true,
+                    onOpen: {}, onDecline: {}, onAccept: {}
+                )
+                .padding(.horizontal, -AteMetrics.gutter)
+            }
+            .padding(.horizontal, AteMetrics.gutter)
+        }
     }
 }
 
@@ -46,6 +70,8 @@ private enum KitListFixtures {
     static let burgers = UUID(uuidString: "B0E00000-0000-4000-8000-000000000001") ?? UUID()
     static let indian = UUID(uuidString: "B0E00000-0000-4000-8000-000000000002") ?? UUID()
     static let pasta = UUID(uuidString: "B0E00000-0000-4000-8000-000000000003") ?? UUID()
+    static let eamon = ListPerson(id: burgers, username: "eamon")
+    static let paris = ListPerson(id: indian, username: "paris")
     static let covers = ["asset://burger", "asset://pizza", "asset://cake", "asset://burger"]
 }
 #endif
