@@ -17,7 +17,8 @@ import SwiftUI
 /// sixth star comes out in the special colour with a small burst. No label. With Reduce Motion the
 /// star simply appears in its colour. The distance-and-time rules are `AteKit.SecretSix`.
 struct StarSlider: View {
-    /// What is being scored — the dish, named in the person's own words.
+    /// What is being scored — the dish, named in the person's own words. Heard by VoiceOver only;
+    /// the panel shows the score's word.
     let dishName: String
     @Binding var rating: Rating?
     /// The composer's slider can reach the secret 6; nothing else offers it.
@@ -52,24 +53,32 @@ struct StarSlider: View {
             .ateAnimation(AteMotion.scoreRoll, value: rating?.halfSteps ?? 0)
     }
 
-    /// `RaterSize.dc.html` (2026-09-26): the dish and its score on one scale — the name in the
-    /// slip's dish voice at 22, the numeral at 28, baselines shared, `gap:14px`; the panel
-    /// `padding:18px 18px 16px; gap:12px`.
+    /// The plain word for the score (``Rating/word``), live as the finger slides — never the
+    /// person's own words, which the last-words guess often got wrong (Eamon, 18 Oct,
+    /// `design/rebuild/rating-words.html` option A). Unscored it is empty like the numeral, but a
+    /// space holds the line so the panel doesn't jump on the first touch.
+    private var word: String { rating?.word ?? " " }
+
+    /// `RaterSize.dc.html` (2026-09-26), rebalanced for the word (18 Oct): the word in the dish
+    /// voice a step down at 20 on one line, the numeral at 28, baselines shared, `gap:14px`; the
+    /// panel `padding:18px 18px 16px; gap:12px`.
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.regular) {
             if dynamicTypeSize.isAccessibilitySize {
-                // At the accessibility sizes the name beside a 28pt-and-up numeral has a word's
-                // width and broke mid-word ("Tagliatell / e"): it takes the panel's width, never
-                // breaking a word (``WordFittingLabel``), with the score under it.
-                AteExactText(text: dishName, style: .sliderDish, alignment: .leading, lineLimit: 2)
+                // At the accessibility sizes a long word beside a 28pt-and-up numeral has no room:
+                // it takes the panel's width, never breaking a word (``WordFittingLabel``), with
+                // the score under it.
+                AteExactText(text: word, style: .sliderWord, alignment: .leading, lineLimit: 2)
                 score
             } else {
                 HStack(alignment: .firstTextBaseline, spacing: Self.headerGap) {
-                    Text(dishName)
-                        .ateText(.sliderDish)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Text(word)
+                        .ateText(.sliderWord)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentTransition(.opacity)
+                        .ateAnimation(AteMotion.scoreRoll, value: rating?.halfSteps ?? 0)
                     score
                 }
             }

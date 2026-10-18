@@ -121,10 +121,11 @@ extension AteTextStyle {
         voice: .mono, size: 11, weight: 500, trackingEm: 0.04, lineHeight: 1.0,
         textStyle: .caption2, maximumSize: 13, uppercase: true
     )
-    /// The dish on the score slider's panel (`RaterSize`): `.h` at 22, `-.03em`, `line-height:1.05`
-    /// — the slip's dish voice, a step up, so the name and the number read on one scale.
-    static let sliderDish = AteTextStyle(
-        voice: .heading, size: 22, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .title2
+    /// The score's word on the score slider's panel ("Delicious"): the dish voice `.h` at 20,
+    /// `line-height:1.05`, a step under the numeral so the word never outweighs it
+    /// (`design/rebuild/rating-words.html` option A).
+    static let sliderWord = AteTextStyle(
+        voice: .heading, size: 20, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .title2
     )
     /// …and the live numeral beside it: `.h` at 28, `-.02em`, tabular.
     static let sliderScore = AteTextStyle(
