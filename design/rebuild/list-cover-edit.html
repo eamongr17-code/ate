@@ -90,8 +90,8 @@ h3{font:600 16px/1.3 "Bricolage Grotesque",sans-serif;margin:14px 0 4px}
 .opt .lbl{flex:1}
 .chk{width:26px;height:26px;border-radius:50%;background:#24141F;color:#fff;display:flex;align-items:center;justify-content:center;visibility:hidden}
 .on .chk{visibility:visible}
-.band{position:absolute;top:410px;left:20px;right:20px;font:600 16px/1 "Bricolage Grotesque",sans-serif;padding-bottom:12px;border-top:1px solid rgba(36,20,31,.14);padding-top:22px}
-.grid{position:absolute;top:458px;left:20px;right:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.band{position:absolute;top:350px;left:20px;right:20px;font:600 16px/1 "Bricolage Grotesque",sans-serif;padding-bottom:12px;border-top:1px solid rgba(36,20,31,.14);padding-top:22px}
+.grid{position:absolute;top:398px;left:20px;right:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .cell-ph{position:relative;aspect-ratio:1;border-radius:12px;cursor:pointer;border:0;padding:0;max-width:100%}
 .cell-ph .chk{position:absolute;right:6px;bottom:6px;box-shadow:0 0 0 2px #fff}
 .cell-ph.on{box-shadow:0 0 0 3px #fff,0 0 0 5.5px #24141F}
@@ -137,12 +137,20 @@ h3{font:600 16px/1.3 "Bricolage Grotesque",sans-serif;margin:14px 0 4px}
 .stack{display:flex}.stack .av{box-shadow:0 0 0 2px #EFEAE2}.stack .av+.av{margin-left:-6px}
 .tile .by{display:flex;align-items:center;gap:5px}
 .tile .by .av{width:16px;height:16px;font-size:8px}
+.owner{position:absolute;top:8px;left:8px;width:28px;height:28px;font-size:12px;box-shadow:0 0 0 2px #fff,0 2px 6px rgba(36,20,31,.25)}
+.nrow{display:flex;align-items:center;gap:12px;min-height:62px;border-top:1px solid rgba(36,20,31,.14)}
+.nrow.first{border-top:0}
+.nrow .d{flex:1;display:grid;gap:1px;min-width:0}
+.nrow .d b{font:600 17px/1.2 "Bricolage Grotesque",sans-serif}
+.nrow .mt{font:500 13px/1.3 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.inv{display:flex;gap:10px;padding:0 0 4px 48px}
+.pill.sm{height:38px;padding:0 18px;font-size:14px}
 </style>
 
 <div class="wrap">
   <h1>List covers, and adding people to a list</h1>
   <h2 class="sec">Change a list's cover</h2>
-  <p class="note">Your list → ••• → Change cover. Pick one of the list's dish photos, or upload any photo and square it up. "Mosaic of the first four" is today's automatic cover and stays the default. The second phone is live: tap the options. All four phones are real iPhone 17 Pro size.</p>
+  <p class="note">Your list → ••• → Change cover. Pick one of the list's dish photos, or upload any photo and square it up. If you never pick one, the cover stays automatic: a mosaic of the first four photos, or the first photo when there are fewer. The second phone is live: tap the options. All four phones are real iPhone 17 Pro size.</p>
 
   <div class="row">
     <!-- 1. menu -->
@@ -195,7 +203,6 @@ h3{font:600 16px/1.3 "Bricolage Grotesque",sans-serif;margin:14px 0 4px}
           <div class="prev cover" id="prev"><div class="mosaic"><div class="p1"></div><div class="p2"></div><div class="p3"></div><div class="p4"></div></div></div>
           <div class="opts">
             <button class="opt" id="o-up" data-pick="up" type="button"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#24141F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg></span><span class="lbl">Upload from Photos</span><span class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></button>
-            <button class="opt on" id="o-auto" data-pick="auto" type="button"><span class="ic m"><i class="p1"></i><i class="p2"></i><i class="p3"></i><i class="p4"></i></span><span class="lbl">Mosaic of the first four</span><span class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></button>
           </div>
           <div class="band">Photos in this list</div>
           <div class="grid">
@@ -210,7 +217,7 @@ h3{font:600 16px/1.3 "Bricolage Grotesque",sans-serif;margin:14px 0 4px}
         <div class="home"></div>
       </div>
       <h3>2 · The cover sheet <span class="tag">Live</span></h3>
-      <p>The preview at the top shows exactly what the list will look like. Tick saves; the close leaves the cover as it was. Upload from Photos opens the system photo picker, then screen 3. Dishes without a photo don't appear in the grid.</p>
+      <p>The preview at the top shows exactly what the list will look like. Nothing is ticked until you pick; tapping your pick again unticks it and the preview goes back to the automatic mosaic. Tick saves; the close leaves the cover as it was. Upload from Photos opens the system photo picker, then screen 3. Dishes without a photo don't appear in the grid.</p>
     </div>
 
     <!-- 3. crop -->
@@ -252,7 +259,7 @@ h3{font:600 16px/1.3 "Bricolage Grotesque",sans-serif;margin:14px 0 4px}
   </div>
 
   <h2 class="sec second">Add people to a list</h2>
-  <p class="note">Your list → ••• → Add people. Everyone you add sees the list in their own Lists view, with your name on it, and it updates as you change it. They can open it and share it, but only you can add, remove, reorder, rename or change the cover. That's the default I picked; letting them add their own dishes too is a bigger change and can come later. They get a notification when you add them, and can leave the list from its ••• menu.</p>
+  <p class="note">Your list → ••• → Add people. Everyone who accepts sees the list in their own Lists view, with your name on it, and it updates as you change it. They can open it and share it, but only you can add, remove, reorder, rename or change the cover. That's the default I picked; letting them add their own dishes too is a bigger change and can come later. Each person gets an invite in their Notifications and the list only appears for them once they accept. They can leave it later from its ••• menu.</p>
   <div class="row">
     <div class="cell">
       <div class="ph">
@@ -274,12 +281,12 @@ h3{font:600 16px/1.3 "Bricolage Grotesque",sans-serif;margin:14px 0 4px}
             <div class="prow"><span class="av a36 cM">M</span><b>maya</b><span class="chk"></span></div>
             <div class="prow"><span class="av a36 cS">S</span><b>sam.eats</b><span class="chk"></span></div>
           </div>
-          <div class="foot">Add 2 people</div>
+          <div class="foot">Invite 2 people</div>
         </div>
         <div class="home"></div>
       </div>
-      <h3>5 · Pick people</h3>
-      <p>The same picker as "Who were you with?": people you've tagged first, typing searches every handle. People already on the list come ticked; untick to take someone off.</p>
+      <h3>5 · Invite people</h3>
+      <p>The same picker as "Who were you with?": people you've tagged first, typing searches every handle. People already on the list, or already invited, come ticked; untick to take someone off or cancel their invite.</p>
     </div>
 
     <div class="cell">
@@ -306,7 +313,28 @@ h3{font:600 16px/1.3 "Bricolage Grotesque",sans-serif;margin:14px 0 4px}
         <div class="home"></div>
       </div>
       <h3>6 · Your list, with people on it</h3>
-      <p>The owner line lists everyone on it, you first. Tapping it opens the picker again.</p>
+      <p>The owner line lists you and everyone who has accepted. Tapping it opens the picker again.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph">
+        <div class="island"></div>
+        <div class="status"><span>9:41</span><span>●●●</span></div>
+        <div class="nav"><div class="disc glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div></div>
+        <div class="shelf-h">Notifications</div>
+        <div class="plist" style="top:176px">
+          <div class="bandp">List invites</div>
+          <div class="nrow first"><span class="av a36">E</span><span class="d"><b>@eamon invited you to Date night</b><span class="mt">6 dishes</span></span></div>
+          <div class="inv"><span class="pill q sm">Decline</span><span class="pill sm">Accept</span></div>
+          <div class="bandp" style="padding-top:22px">Ate with</div>
+          <div class="nrow first"><span class="av a36 cM">M</span><span class="d"><b>@maya ate with you</b><span class="mt">Supernormal, Thu 15 Oct</span></span></div>
+        </div>
+        <div class="tabbar glass"><span class="on">Journal</span><span>Feed</span><span>Saved</span><span>You</span></div>
+        <div class="plusdisc glass"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#24141F" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+        <div class="home"></div>
+      </div>
+      <h3>7 · Paris gets the invite</h3>
+      <p>A push ("@eamon invited you to Date night") and a row in Notifications under its own group, above Ate with. Accept puts the list in her Lists view. Decline clears the row and Eamon isn't told. Tapping the row previews the list before she decides.</p>
     </div>
 
     <div class="cell">
@@ -317,15 +345,15 @@ h3{font:600 16px/1.3 "Bricolage Grotesque",sans-serif;margin:14px 0 4px}
         <div class="seg"><span>Journal</span><span class="on">Lists</span></div>
         <div class="lgrid">
           <div class="tile"><div class="c p6"></div><b>Coffee</b><span>4 dishes</span></div>
-          <div class="tile"><div class="c up"></div><b>Date night</b><span class="by"><span class="av">E</span>eamon · 6 dishes</span></div>
+          <div class="tile"><div class="c up" style="position:relative"><span class="av owner">E</span></div><b>Date night</b><span>6 dishes</span></div>
           <div class="tile"><div class="c" style="background:#3ECF64"><div class="gen">Ramen</div></div><b>Ramen</b><span>0 dishes</span></div>
         </div>
         <div class="tabbar glass"><span class="on">Journal</span><span>Feed</span><span>Saved</span><span>You</span></div>
         <div class="plusdisc glass"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#24141F" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
         <div class="home"></div>
       </div>
-      <h3>7 · Paris's Lists view</h3>
-      <p>Lists someone added you to sit with your own, in the order you were added, and carry the owner's handle under the name instead of just the count.</p>
+      <h3>8 · Paris's Lists view</h3>
+      <p>A list someone shared with you shows their profile photo in the top corner of its cover. Name and count stay exactly as on your own lists. Shared lists sit with yours, in the order you accepted them.</p>
     </div>
 
     <div class="cell">
@@ -353,7 +381,7 @@ h3{font:600 16px/1.3 "Bricolage Grotesque",sans-serif;margin:14px 0 4px}
         <div class="menu" style="width:200px"><div class="red">Leave list <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></div></div>
         <div class="home"></div>
       </div>
-      <h3>8 · Paris opens it</h3>
+      <h3>9 · Paris opens it</h3>
       <p>The same page without Add dishes, reordering or swipe-to-remove. Scores are Eamon's. Rows open Eamon's entries. ••• has only Leave list.</p>
     </div>
   </div>
@@ -363,7 +391,9 @@ h3{font:600 16px/1.3 "Bricolage Grotesque",sans-serif;margin:14px 0 4px}
 (function(){
   var prev=document.getElementById('prev');
   var opts=document.querySelectorAll('[data-pick]');
+  var cur=null;
   function show(k){
+    if(k===cur){k='auto'} cur=(k==='auto')?null:k;
     opts.forEach(function(o){o.classList.toggle('on',o.dataset.pick===k)});
     prev.innerHTML = k==='auto' ? '<div class="mosaic"><div class="p1"></div><div class="p2"></div><div class="p3"></div><div class="p4"></div></div>'
                    : '<div class="'+(k==='up'?'up':k)+'"></div>';
