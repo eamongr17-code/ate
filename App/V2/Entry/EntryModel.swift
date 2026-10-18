@@ -187,6 +187,19 @@ final class EntryModel: SavedDishObserving {
             apply(card)
             if card.sortStatus != .pending { return }
         }
+        // Past the watch: the page says the entry is saved and the receipt finishes in the
+        // background (receipt fallback), with "Try again" — never two grey rows forever.
+        guard Task.isCancelled == false, state == .pending else { return }
+        state = .failed
+    }
+
+    /// **The background finished something** (the outbox, on a connection back or a foreground): a
+    /// page still waiting on its receipt reads the entry again, and keeps watching if it has landed
+    /// but not yet sorted.
+    func recheck() async {
+        guard loadFailure == nil, state == .pending || state == .failed else { return }
+        await reload()
+        if card?.sortStatus == .pending, state == .pending { await waitForSort() }
     }
 
     private static let sortPollInterval = Duration.milliseconds(700)
@@ -251,7 +264,7 @@ final class EntryModel: SavedDishObserving {
 
     // MARK: - Actions
 
-    /// "Print it again". Two different failures wear the same button: an entry that never reached
+    /// "Try again". Two different failures wear the same button: an entry that never reached
     /// the server (the outbox gave up on it) and one that reached it and could not be sorted.
     func retrySort() async {
         state = .pending

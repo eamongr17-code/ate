@@ -108,6 +108,9 @@ public actor EntryOutbox {
     /// Entries forgotten because they were deleted. A run already holding one of them in its
     /// snapshot must neither push it nor write it back.
     private var forgotten: Set<UUID> = []
+    /// Entries the composer is finishing right now (``EntrySubmission/finish``): a run leaves them
+    /// alone, so a background drain never sorts the same entry beside it.
+    private var held: Set<UUID> = []
     /// Who is signed in now. **An entry is only ever pushed as its own author**: with somebody
     /// else signed in, another person's queued entry waits untouched for them — pushing it would be
     /// refused by RLS and marked blocked, or worse. Nil (tests) works every item.
@@ -156,6 +159,11 @@ public actor EntryOutbox {
         queue.append(merged)
         persist()
     }
+
+    /// The composer is sending this entry's photos and sort itself: runs skip it until ``release``.
+    public func hold(entryID: UUID) { held.insert(entryID) }
+
+    public func release(entryID: UUID) { held.remove(entryID) }
 
     public func remove(entryID: UUID) {
         queue.removeAll { $0.id == entryID }
@@ -213,7 +221,7 @@ public actor EntryOutbox {
 
         var landed: [UUID] = []
         for item in queue where item.isStuck == false && belongsToCurrentOwner(item) {
-            guard forgotten.contains(item.id) == false else { continue }
+            guard forgotten.contains(item.id) == false, held.contains(item.id) == false else { continue }
             var working = item
             pushing = item.id
             defer { pushing = nil }
@@ -302,7 +310,7 @@ public actor EntryOutbox {
         queue.first { $0.id == entryID }?.isStuck ?? false
     }
 
-    /// "Print it again": the person's own retry. Clears the give-up state and works the queue.
+    /// "Try again": the person's own retry. Clears the give-up state and works the queue.
     @discardableResult
     public func retry(entryID: UUID) async -> [UUID] {
         guard let index = queue.firstIndex(where: { $0.id == entryID }),

@@ -5,8 +5,12 @@ import UIKit
 /// **Printed** — the composer's second face, inside the same sheet: the ink share sheet
 /// (``V2ShareSheet``, 11 Oct, approved), with the new entry's receipt printing on its sticker card.
 /// The story and post cards and the row of ways out come live once the receipt has printed —
-/// nothing opens before a person can share (Eamon, 10 Oct) — or "Print it again" takes the row's
-/// place when a print could not finish. No close: the sheet goes down by its handle.
+/// nothing opens before a person can share (Eamon, 10 Oct) — or "Try again" takes the row's
+/// place when a receipt could not finish. No close: the sheet goes down by its handle.
+///
+/// **A wait that is not short says so** (receipt fallback, 18 Oct, approved): slow past 8s, unfinished,
+/// or never sent (offline), the row's place holds a line saying the entry is saved and the sheet can
+/// be closed — the receipt finishes in the background, and prints here if it lands while open.
 ///
 /// The rules are the current Summary's (``EntrySummaryStore``), with build 87's speed change: the
 /// face comes up the moment the words are saved, and the receipt enters once — fed out of the printer
@@ -14,7 +18,7 @@ import UIKit
 /// own, already read) — and the sorted lines print onto that same paper when the sort's reply lands.
 /// Never an empty coral sheet; never a dish name the server has not confirmed. An empty receipt is
 /// never printed or shared: a placeless entry keeps its skeleton with the Place key where the place
-/// prints, and picking one prints it. A print that could not finish offers "Print it again".
+/// prints, and picking one prints it. A receipt that could not finish offers "Try again".
 struct V2ComposerPrinted: View {
     /// What the writing face hands over once the words are accepted.
     struct Handoff {
@@ -27,13 +31,15 @@ struct V2ComposerPrinted: View {
         var companions: [String] = []
         /// The sort's own answer, heard as it lands.
         let sorted: Latch<EntryCard?>?
-        /// The chips and 6s it was sorted with, so "Print it again" re-sorts with the same ones.
+        /// The chips and 6s it was sorted with, so "Try again" re-sorts with the same ones.
         let tagTokens: [TagToken]
         let scoreTokens: [TagToken]?
         /// The tap on Post, for `summary_receipt_entered`'s `ms_from_done`.
         var doneAt: ContinuousClock.Instant = .now
         /// An early sort of exactly these inputs was out (or landed) before Done.
         var cacheHit = false
+        /// The words went to the outbox, not the server: the card is the local stand-in.
+        var isQueued = false
     }
 
     let app: AppModel
@@ -50,6 +56,10 @@ struct V2ComposerPrinted: View {
     /// The first photo as pixels, for the share cards.
     @State private var photo: UIImage?
     @State private var photoLoaded = false
+    /// The wait has run past ``ReceiptFallback/slowAfter``.
+    @State private var isSlow = false
+    /// The fallback lines already counted on this screen.
+    @State private var countedFallbacks: Set<ReceiptFallback> = []
     /// The receipt was whole the moment the face came up (the tick's dots covered the sort).
     private let printedOnArrival: Bool
 
@@ -58,6 +68,7 @@ struct V2ComposerPrinted: View {
         self.handoff = handoff
         let store = EntrySummaryStore(
             card: handoff.card,
+            isQueued: handoff.isQueued,
             actions: .live(app.services.entries, tagTokens: handoff.tagTokens, scoreTokens: handoff.scoreTokens)
         )
         _store = State(initialValue: store)
@@ -76,7 +87,7 @@ struct V2ComposerPrinted: View {
                 isLive: store.phase == .printed && photoLoaded,
                 printing: V2ShareSheet.Printing(
                     isPrinting: store.phase != .printed,
-                    breathes: store.phase == .sorting,
+                    breathes: store.phase == .sorting && store.isQueued == false,
                     onAddPlace: store.phase == .needsPlace && store.isBusy == false
                         ? { isPickingPlace = true } : nil,
                     onFixDish: store.phase == .printed ? { item in
@@ -85,11 +96,12 @@ struct V2ComposerPrinted: View {
                     } : nil,
                     enters: true
                 ),
-                reprint: store.phase == .stalled ? V2PrintedFoot.Pill(
-                    title: "Print it again", isEnabled: store.isBusy == false, identifier: "summary.reprint"
+                reprint: store.phase == .stalled && fallback?.offersRetry != false ? V2PrintedFoot.Pill(
+                    title: ReceiptFallback.retryTitle, isEnabled: store.isBusy == false, identifier: "summary.reprint"
                 ) {
                     Task { await store.reprint() }
                 } : nil,
+                note: fallback?.message,
                 analytics: services.analytics,
                 onFirstShare: send,
                 isPresenting: $isSharing
@@ -109,6 +121,14 @@ struct V2ComposerPrinted: View {
             await store.watch()
         }
         .task(id: store.phase == .printed) { await askForPhotosOnce() }
+        .task {
+            try? await Task.sleep(for: ReceiptFallback.slowAfter)
+            withAnimation(AteMotion.fillIn) { isSlow = true }
+        }
+        // The background finished something (the outbox, on a connection back or a foreground):
+        // a receipt still waiting here takes it.
+        .onChange(of: app.outboxLanded) { _, _ in Task { await store.recheck() } }
+        .onChange(of: fallback, initial: true) { _, kind in countFallback(kind) }
         .onChange(of: store.card) { _, card in NotificationCenter.ateEntryChanged(card) }
         .onChange(of: store.showsReceipt, initial: true) { _, shows in countEntrance(shows) }
         .onDisappear { countDone() }
@@ -127,6 +147,17 @@ struct V2ComposerPrinted: View {
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("summary")
+    }
+
+    /// The line in the row's place, while the receipt is slow, unfinished or never sent.
+    private var fallback: ReceiptFallback? {
+        ReceiptFallback.on(store.phase, isQueued: store.isQueued, isSlow: isSlow)
+    }
+
+    private func countFallback(_ kind: ReceiptFallback?) {
+        guard let kind, countedFallbacks.contains(kind) == false else { return }
+        countedFallbacks.insert(kind)
+        services.analytics(EntryEvents.receiptFallbackShown(kind, surface: "summary"))
     }
 
     /// Dish rows and scores only, never a note.

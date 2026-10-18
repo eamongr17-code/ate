@@ -14,7 +14,7 @@ struct AteEntryPaper: View {
     enum Dishes: Equatable {
         case rows([AteSlip.Dish])
         /// The words are saved and the structure has not arrived: two still rows. `isFailed` adds
-        /// "Print it again" under the words.
+        /// the line saying it finishes in the background, and "Try again", under the words.
         case pending(isFailed: Bool)
     }
 
@@ -47,6 +47,7 @@ struct AteEntryPaper: View {
     var fillsScreen = true
 
     @Environment(\.atePhotoViewer) private var showPhotos
+    @Environment(\.atePalette) private var palette
 
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.pageBandGap) {
@@ -116,12 +117,23 @@ struct AteEntryPaper: View {
         }
     }
 
-    /// A sort that failed: "Print it again" at its own width, under the words.
+    /// A receipt that did not finish (receipt fallback, 18 Oct): the line saying the entry is saved
+    /// and it finishes in the background, then "Try again" at its own width, under the words.
     @ViewBuilder
     private var reprint: some View {
         if dishes == .pending(isFailed: true), let onReprint {
-            AteInkPill(title: "Print it again", size: .empty, identifier: "entry.reprint", action: onReprint)
-                .environment(\.atePalette, .automatic)
+            VStack(spacing: AteMetrics.regular) {
+                Text(ReceiptFallback.entryPageMessage)
+                    .ateText(.kitReceiptFallbackPage)
+                    .foregroundStyle(palette.muted)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("entry.fallback")
+                AteInkPill(
+                    title: ReceiptFallback.retryTitle, size: .empty, identifier: "entry.reprint", action: onReprint
+                )
+                    .environment(\.atePalette, .automatic)
+            }
         }
     }
 

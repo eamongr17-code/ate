@@ -18,6 +18,9 @@ public struct NewEntryRequest: Sendable, Hashable {
     /// Every score pill, in scalars (`score_tokens`) — carried beside the chips, for the same reason.
     /// `nil` only where they cannot be known.
     public let scoreTokens: [TagToken]?
+    /// The place's name as the Place key shows it — only for the stand-in card of an entry that
+    /// went to the outbox, so its sheet and its slip still say where it was.
+    public let placeName: String?
 
     public init(
         id: UUID,
@@ -28,7 +31,8 @@ public struct NewEntryRequest: Sendable, Hashable {
         scoreCount: Int,
         secondsFromOpen: Int,
         tagTokens: [TagToken] = [],
-        scoreTokens: [TagToken]? = nil
+        scoreTokens: [TagToken]? = nil,
+        placeName: String? = nil
     ) {
         self.id = id
         self.body = body
@@ -39,6 +43,7 @@ public struct NewEntryRequest: Sendable, Hashable {
         self.secondsFromOpen = secondsFromOpen
         self.tagTokens = tagTokens
         self.scoreTokens = scoreTokens
+        self.placeName = placeName
     }
 }
 
@@ -84,18 +89,27 @@ public struct EntrySubmission: Sendable {
     private let outbox: EntryOutbox
     private let analytics: AnalyticsRecorder
     private let now: @Sendable () -> Date
+    private let insertPatience: Duration
 
     public init(
         entries: any EntryService,
         outbox: EntryOutbox,
         analytics: @escaping AnalyticsRecorder = { _ in },
-        now: @escaping @Sendable () -> Date = { Date() }
+        now: @escaping @Sendable () -> Date = { Date() },
+        insertPatience: Duration = EntrySubmission.insertPatience
     ) {
         self.entries = entries
         self.outbox = outbox
         self.analytics = analytics
         self.now = now
+        self.insertPatience = insertPatience
     }
+
+    /// **How long Post waits on the words** (receipt fallback): past this a slow connection is
+    /// treated as no connection — the entry goes to the outbox, the sheet says so, and nobody
+    /// watches dots. The insert is idempotent (the id is the client's, `23505` is success), so an
+    /// insert that did land is not written twice.
+    public static let insertPatience: Duration = .seconds(8)
 
     /// Step one: the words. Returns as soon as they are accepted — photos and the sorter are
     /// ``finish(entryID:photoPaths:)``, and the entry is already in the journal by then.
@@ -124,7 +138,7 @@ public struct EntrySubmission: Sendable {
         )
 
         do {
-            try await entries.insert(entry)
+            try await insertWithinPatience(entry)
             onInserted?()
             let card = try await entries.entry(id: entry.id)
             analytics(EntryEvents.saved(savedEvent(request, queued: false)))
@@ -170,6 +184,7 @@ public struct EntrySubmission: Sendable {
         scoreTokens: [TagToken]? = nil,
         sorted: (@Sendable (EntryCard?) async -> Void)? = nil
     ) async -> EntryCard? {
+        await outbox.hold(entryID: entryID)
         async let uploaded = upload(entryID: entryID, photoPaths: photoPaths)
         let outcome = await sort(entryID: entryID, tagTokens: tagTokens, scoreTokens: scoreTokens)
         let didSort = outcome != nil
@@ -182,6 +197,7 @@ public struct EntrySubmission: Sendable {
             }
         }
         await outbox.recordProgress(entryID: entryID, uploadedPositions: await uploaded, didSort: didSort)
+        await outbox.release(entryID: entryID)
         let card = try? await entries.entry(id: entryID)
         // Which photo is which dish: once the lines exist and the photos are up (0063). The entry as
         // read, not this call's own list: a pick that was late for Done may already be on it.
@@ -269,6 +285,27 @@ public struct EntrySubmission: Sendable {
         }
     }
 
+    /// The insert, or ``EntryWriteFailure/offline`` once ``insertPatience`` has passed — whichever
+    /// is first. A late insert is cancelled and never waited on: a request that ignores the
+    /// cancellation cannot hold Post (the ``Latch`` gives up on it at the deadline).
+    private func insertWithinPatience(_ entry: NewEntry) async throws {
+        let entries = self.entries
+        let landed = Latch<Result<Void, any Error>>()
+        let insert = Task {
+            do {
+                try await entries.insert(entry)
+                await landed.fulfil(.success(()))
+            } catch {
+                await landed.fulfil(.failure(error))
+            }
+        }
+        guard let result = await landed.value(before: .now + insertPatience) else {
+            insert.cancel()
+            throw EntryWriteFailure.offline
+        }
+        try result.get()
+    }
+
     // MARK: - Pieces
 
     private func photos(of request: NewEntryRequest) -> [QueuedPhoto] {
@@ -299,7 +336,8 @@ public struct EntrySubmission: Sendable {
             orderNumber: 0,
             sortStatus: .pending,
             createdAt: entry.createdAt,
-            isMine: true
+            isMine: true,
+            place: entry.restaurantID.flatMap { id in request.placeName.map { EntryCard.Place(id: id, name: $0) } }
         )
     }
 

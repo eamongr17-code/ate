@@ -25,7 +25,7 @@ public final class EntrySummaryStore {
         /// the Place key.
         case needsPlace
         /// The sorter failed, found nothing to print, or took longer than anyone waits on this
-        /// screen. The skeleton stops breathing and the ink pill offers "Print it again".
+        /// screen. The skeleton stops breathing and the ink pill offers "Try again".
         case stalled
     }
 
@@ -84,6 +84,10 @@ public final class EntrySummaryStore {
     public private(set) var isSharing = false
     /// A place is being attached to a placeless receipt: it stays on screen while that lands.
     public private(set) var isAttachingPlace = false
+    /// The words are in the outbox, not on the server (offline, or the insert ran past its
+    /// patience): nothing to poll, and nothing a re-sort could reach. The outbox lands it, and
+    /// ``recheck()`` hears that.
+    public private(set) var isQueued: Bool
     private var hasFinished = false
 
     private let actions: Actions
@@ -94,9 +98,11 @@ public final class EntrySummaryStore {
         card: EntryCard,
         pollInterval: Duration = .milliseconds(700),
         maxPolls: Int = 30,
+        isQueued: Bool = false,
         actions: Actions
     ) {
         self.card = card
+        self.isQueued = isQueued
         self.phase = Self.phase(for: card)
         self.actions = actions
         self.pollInterval = pollInterval
@@ -106,7 +112,7 @@ public final class EntrySummaryStore {
     /// Asks again until the row has settled, or the patience runs out. A fetch that fails (offline,
     /// the outbox still holding the entry) is one more wait, not the end.
     public func watch() async {
-        guard phase == .sorting else { return }
+        guard phase == .sorting, isQueued == false else { return }
         for _ in 0..<maxPolls {
             if pollInterval > .zero { try? await Task.sleep(for: pollInterval) }
             // The sort's own answer may have landed meanwhile (``adopt(_:)``, ``sortFailed()``):
@@ -150,6 +156,20 @@ public final class EntrySummaryStore {
         phase = .stalled
     }
 
+    /// **The background finished it** (receipt fallback): the outbox landed or sorted something, so
+    /// a receipt still waiting — or given up on, or never sent — reads its row again and takes
+    /// whatever is there now. A read that fails changes nothing.
+    public func recheck() async {
+        guard phase == .sorting || phase == .stalled, isBusy == false else { return }
+        guard let next = try? await actions.fetch(card.id) else { return }
+        guard phase == .sorting || phase == .stalled, isBusy == false, next.id == card.id else { return }
+        isQueued = false
+        card = next
+        // Landed but not sorted yet: back to waiting, and the watch takes it from here.
+        phase = Self.phase(for: next)
+        if phase == .sorting { await watch() }
+    }
+
     // MARK: - Recovering
 
     /// The Place key in the receipt's place slot: attach it, and the parked plan prints.
@@ -169,9 +189,9 @@ public final class EntrySummaryStore {
         if phase == .sorting { await watch() } else if phase == .needsPlace { phase = .stalled }
     }
 
-    /// "Print it again": a forced re-sort, then the same watch.
+    /// "Try again": a forced re-sort, then the same watch.
     public func reprint() async {
-        guard phase == .stalled, isBusy == false else { return }
+        guard phase == .stalled, isBusy == false, isQueued == false else { return }
         isBusy = true
         defer { isBusy = false }
         phase = .sorting
