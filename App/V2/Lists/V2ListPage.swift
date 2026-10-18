@@ -256,34 +256,39 @@ struct V2ListPage: View {
     private var rows: some View {
         let items = store.items
         let letters = DishLetter.neighbourly(items.map { ($0.dishID, $0.dishName) })
-        return ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-            AteRankedRow(
-                rank: item.position,
-                photo: .dish(letters[index], cover: item.photoURL),
-                name: item.dishName,
-                place: item.restaurantName,
-                score: item.score.map(AteScore.personal),
-                isLast: index == items.count - 1,
-                isTrack: true,
-                onOpen: { open(item) }
-            )
-            .padding(.horizontal, AteMetrics.gutter)
-            .listPlainRow()
-            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                if store.isOwn {
-                    Button(ListsCopy.remove, role: .destructive) { remove(item) }
-                        .tint(AteColor.destructive)
-                }
-            }
-            .accessibilityActions {
-                if store.isOwn {
-                    Button(ListsCopy.remove) { remove(item) }
-                }
-            }
-            .accessibilityIdentifier("list.row")
-        }
         // Only the owner reorders; on someone else's list the rows hold still.
-        .onMove(perform: store.isOwn ? move : nil)
+        let reorder: ((IndexSet, Int) -> Void)? = store.isOwn ? { move(fromOffsets: $0, toOffset: $1) } : nil
+        return ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+            row(item, letter: letters[index], isLast: index == items.count - 1)
+        }
+        .onMove(perform: reorder)
+    }
+
+    private func row(_ item: ListItem, letter: DishLetter, isLast: Bool) -> some View {
+        AteRankedRow(
+            rank: item.position,
+            photo: .dish(letter, cover: item.photoURL),
+            name: item.dishName,
+            place: item.restaurantName,
+            score: item.score.map(AteScore.personal),
+            isLast: isLast,
+            isTrack: true,
+            onOpen: { open(item) }
+        )
+        .padding(.horizontal, AteMetrics.gutter)
+        .listPlainRow()
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if store.isOwn {
+                Button(ListsCopy.remove, role: .destructive) { remove(item) }
+                    .tint(AteColor.destructive)
+            }
+        }
+        .accessibilityActions {
+            if store.isOwn {
+                Button(ListsCopy.remove) { remove(item) }
+            }
+        }
+        .accessibilityIdentifier("list.row")
     }
 
     private func move(fromOffsets source: IndexSet, toOffset destination: Int) {
