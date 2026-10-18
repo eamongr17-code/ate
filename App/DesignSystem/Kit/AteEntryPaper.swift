@@ -38,7 +38,7 @@ struct AteEntryPaper: View {
     var onCorrectPlace: (() -> Void)?
     var onPhoto: ((Int) -> Void)?
     var onReprint: (() -> Void)?
-    /// "Ate with": who it was eaten with, printed under the place line (``AteWithLine``) — nothing
+    /// "Ate with": who it was eaten with, printed above the place line (``AteWithLine``) — nothing
     /// when nobody. A handle opens that person's page.
     var with: [AteWithPerson] = []
     var onWithPerson: ((AteWithPerson) -> Void)?
@@ -65,16 +65,16 @@ struct AteEntryPaper: View {
                 )
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            VStack(alignment: .leading, spacing: AteWithKitMetrics.underPlace) {
-                AteEntryPlaceLine(
-                    place: place, suburb: suburb, day: day,
-                    action: onPlace ?? onCorrectPlace,
-                    secondary: onPlace == nil ? nil : onCorrectPlace
-                )
-                if with.isEmpty == false {
-                    AteWithLine(people: with) { onWithPerson?($0) }
-                }
+            // Who it was eaten with ends the entry; the ruled place line alone closes the paper
+            // (Eamon, 18 Oct: never a second line under the rule).
+            if with.isEmpty == false {
+                AteWithLine(people: with) { onWithPerson?($0) }
             }
+            AteEntryPlaceLine(
+                place: place, suburb: suburb, day: day,
+                action: onPlace ?? onCorrectPlace,
+                secondary: onPlace == nil ? nil : onCorrectPlace
+            )
         }
         .padding(.top, AteMetrics.pagePaddingTop)
         .padding(.horizontal, AteMetrics.pagePaddingSide)

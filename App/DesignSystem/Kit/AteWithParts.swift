@@ -7,7 +7,8 @@ struct AteWithPerson: Identifiable, Equatable {
     let handle: String
 }
 
-/// **"with @jess"** — at the foot of the entry's paper, under the place line (`ate-with.html` 1f):
+/// **"with @jess"** — at the foot of the entry's paper, just above the ruled place line
+/// (`with-placement.html` A):
 /// the byline avatar and the meta line, each handle opening that person's page. Never above the
 /// dishes.
 struct AteWithLine: View {
@@ -114,10 +115,6 @@ enum AteWithKitMetrics {
     static let avatarOverlap: CGFloat = 10
     /// A handle is the byline's 28 tall; a finger gets 44.
     static let handleHit = AteHitOutset(height: AteMetrics.avatar)
-    /// Under the place line: the artboard's `gap:10px` between its two rows, less what the place
-    /// line's 44pt row already holds below its words (`padding-top:14px` above, 18 tall) — the
-    /// "with" row starts 2 inside the place line's frame.
-    static let underPlace: CGFloat = -2
     /// A word space at 13pt, between "with" and each handle.
     static let wordSpace: CGFloat = 3.5
     /// The pick row's check: `.chk{width:28px}`, its glyph 16.
