@@ -1,0 +1,63 @@
+# TestFlight external (public link)
+#
+# Keeps Ate's external TestFlight group "Public link" set up: the beta app info testers see,
+# the beta review details Apple's reviewer reads, and the newest build submitted for beta
+# review. Idempotent. After the first setup, Beta's "Send to public link" job distributes
+# every new build, so nobody touches App Store Connect.
+#
+# Same ASC_* secrets as beta.yml, plus TF_CONTACT_PHONE (kept out of this public repo).
+# Script: .github/scripts/testflight_external.py.
+
+name: TestFlight external
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "status (read-only) | setup | distribute"
+        default: status
+  # Changing this lane re-runs it (idempotent): status, then setup once the phone secret exists.
+  push:
+    branches: [claude/project-thread-2f9ty8]
+    paths:
+      - ".github/workflows/testflight-external.yml"
+      - ".github/scripts/testflight_external.py"
+  # Beta calls this with mode=distribute after each upload.
+  workflow_call:
+    inputs:
+      mode:
+        type: string
+        default: distribute
+      build_number:
+        type: string
+        default: ""
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      TF_CONTACT_PHONE: ${{ secrets.TF_CONTACT_PHONE }}
+      # A fresh upload takes a while to process; distribute waits for it.
+      TF_WAIT_SECONDS: ${{ inputs.mode == 'distribute' && '1500' || '0' }}
+      TF_BUILD_NUMBER: ${{ inputs.build_number }}
+      TF_CONTACT_EMAIL: eamongr17@gmail.com
+      TF_CONTACT_FIRST: Eamon
+      TF_CONTACT_LAST: Gracias
+      TF_PRIVACY_URL: https://github.com/eamongr17-code/ate/blob/claude/project-thread-2f9ty8/legal/privacy.md
+      TF_DESCRIPTION: >-
+        Ate is a journal for the dishes you eat. Write about a meal the way you'd text a friend,
+        score the dishes, and Ate prints the receipt.
+      TF_WHATS_NEW: >-
+        Sign in with Apple and write up a meal you've had: name the place, score the dishes, add
+        photos, and share the receipt. Take a screenshot in the app to send feedback.
+      TF_REVIEW_NOTES: >-
+        Sign in with Apple (any Apple ID works); no demo account is needed. Location and photo
+        access are optional.
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install --quiet "pyjwt[crypto]==2.9.0"
+      - run: python .github/scripts/testflight_external.py "${{ inputs.mode || 'auto' }}"
