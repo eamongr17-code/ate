@@ -8,7 +8,7 @@
 //   { action: 'list' }                  → every open proposal
 //   { action: 'merge', ids: [n, …] }    → merges those (merge_dish_proposals, 0071); ids: 'all' = every open one
 //   { action: 'reject', ids: [n, …] }   → marks those rejected; a later scan never proposes them again
-//   401 not the service role · 405 not POST · 422 bad body
+//   401 not a service-role key · 405 not POST · 422 bad body
 //
 // A scan writes proposals only. Merging is a separate, named call a person makes after reading the
 // list. verify_jwt = false (config.toml): this checks its own bearer, which must be the service role.
@@ -27,14 +27,30 @@ const MODEL = (Deno.env.get('ATE_DEDUP_MODEL') ?? '').trim() || DEFAULT_SCAN_MOD
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
-/** Constant-time: the bearer is the service role key, or nothing is done. */
-function isServiceRole(req: Request): boolean {
-  const got = new TextEncoder().encode((req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim());
-  const want = new TextEncoder().encode(SERVICE_ROLE ?? '');
+/** Constant-time compare of two strings. */
+function same(a: string, b: string): boolean {
+  const got = new TextEncoder().encode(a);
+  const want = new TextEncoder().encode(b);
   if (!want.length || got.length !== want.length) return false;
   let diff = 0;
   for (let i = 0; i < got.length; i++) diff |= got[i] ^ want[i];
   return diff === 0;
+}
+
+/**
+ * The bearer is a service-role key, or nothing is done. The injected key is one form of it; a project
+ * on the new API keys hands the workflow another (sb_secret_…, 18 Oct prod: 401), so any other bearer
+ * is asked of the database itself: only the service role may read dish_merge_proposals (0071).
+ */
+async function isServiceRole(req: Request): Promise<boolean> {
+  const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+  if (!token) return false;
+  if (same(token, SERVICE_ROLE ?? '')) return true;
+  const headers: Record<string, string> = { apikey: token };
+  if (token.split('.').length === 3) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/dish_merge_proposals?select=id&limit=1`, { headers }).catch(() => null);
+  await res?.body?.cancel();
+  return res?.ok ?? false;
 }
 
 const ids = (raw: unknown): number[] | null =>
@@ -42,7 +58,7 @@ const ids = (raw: unknown): number[] | null =>
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
-  if (!isServiceRole(req)) return json({ error: 'unauthorized' }, 401);
+  if (!(await isServiceRole(req))) return json({ error: 'unauthorized' }, 401);
   const body = await req.json().then((b) => b ?? {}).catch(() => ({})) as { action?: unknown; ids?: unknown };
   const db = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
