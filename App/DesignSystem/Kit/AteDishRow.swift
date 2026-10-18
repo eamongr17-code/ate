@@ -130,9 +130,12 @@ struct AteSourceMark: View {
     var body: some View {
         icon.view(size: AteSourceMarkMetrics.glyph)
             .foregroundStyle(icon.brand == nil ? palette.inverted : AteColor.onBrand)
-            .frame(width: AteSourceMarkMetrics.disc, height: AteSourceMarkMetrics.disc)
-            .background(icon.brand?.fill(size: AteSourceMarkMetrics.disc) ?? AnyShapeStyle(palette.solid), in: .circle)
-            .overlay { Circle().strokeBorder(palette.ground, lineWidth: AteSourceMarkMetrics.ring) }
+            .frame(width: AteSourceMarkMetrics.face, height: AteSourceMarkMetrics.face)
+            .background(icon.brand?.fill(size: AteSourceMarkMetrics.face) ?? AnyShapeStyle(palette.solid), in: .circle)
+            // The ring is the ground disc behind, not a stroke over the fill: a stroke leaves the fill's
+            // anti-aliased edge showing round its outside as a hairline.
+            .padding(AteSourceMarkMetrics.ring)
+            .background(palette.ground, in: .circle)
             .offset(x: AteSourceMarkMetrics.overhang, y: AteSourceMarkMetrics.overhang)
             .accessibilityHidden(true)
     }
@@ -143,6 +146,8 @@ enum AteSourceMarkMetrics {
     static let disc: CGFloat = 22
     static let glyph: CGFloat = 12
     static let ring: CGFloat = 2.5
+    /// The coloured face inside the ring.
+    static let face: CGFloat = disc - 2 * ring
     static let overhang: CGFloat = 5
 }
 
