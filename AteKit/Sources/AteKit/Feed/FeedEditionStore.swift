@@ -143,8 +143,10 @@ public final class FeedEditionStore: SavedDishObserving {
                 cravings = read.cravings
                 shelves = read.shelves
                 // First time only: somebody who follows nothing and has never answered.
-                if wantsAsk, read.cravings.isEmpty, let options = answers.askOptions, options.isEmpty == false {
-                    askOptions = Array(options.prefix(Self.askOptionLimit))
+                // Dish types only: a cuisine is the place's Google type, not a dish (18 Oct).
+                let dishTypes = answers.askOptions?.filter { $0.group == .dishes } ?? []
+                if wantsAsk, read.cravings.isEmpty, dishTypes.isEmpty == false {
+                    askOptions = Array(dishTypes.prefix(Self.askOptionLimit))
                     askPicks = []
                     isAsking = true
                 }

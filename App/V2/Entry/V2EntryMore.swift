@@ -2,7 +2,7 @@ import AteKit
 import SwiftUI
 
 /// **Under an entry's paper, on the ground** (build 87, note 8): "More at <place>" — the place's best
-/// dishes this entry did not log — and "More like this" — the dishes most like the entry's best one.
+/// dishes this entry did not log — and "Similar dishes" — the dishes most like the entry's best one.
 /// Kit shelves under kit headings. Nothing is drawn until both reads have answered; then the sections
 /// with cards fade in together, in their final order. One with nothing (or whose read fell over) is
 /// not on the page at all.
@@ -19,7 +19,7 @@ struct V2EntryMore: View {
                 placeShelf(place)
             }
             if store.showsSimilar {
-                AteSectionHeading(title: "More like this", identifier: "entry.more.similar")
+                AteSectionHeading(title: "Similar dishes", identifier: "entry.more.similar")
                 similarShelf
             }
         }

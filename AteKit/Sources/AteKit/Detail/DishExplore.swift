@@ -45,7 +45,10 @@ public struct DishTag: Sendable, Hashable, Codable, Identifiable {
     }
 }
 
-/// **The tags in the order the dish page prints them**: style, cuisine, suburb, city (then diet).
+/// **The tags in the order the dish page prints them**: style, suburb, city (then diet).
+///
+/// No cuisine chip: a "cuisine" is the place's Google type ("Restaurant", "Cafe"), not a kind of dish,
+/// and a chip must say plainly what it is (Eamon, 18 Oct).
 ///
 /// The server already orders `dish_tags` that way; this says it out loud so the one rule the canvas
 /// draws is asserted by a test rather than trusted to a `select`. Stable within a kind, so the
@@ -53,7 +56,9 @@ public struct DishTag: Sendable, Hashable, Codable, Identifiable {
 public enum DishTagOrder {
     public static func explore(_ tags: [DishTag]) -> [DishTag] {
         var seen: Set<String> = []
-        let unique = tags.filter { seen.insert($0.id).inserted && $0.label.isEmpty == false }
+        let unique = tags.filter {
+            $0.kind != .cuisine && seen.insert($0.id).inserted && $0.label.isEmpty == false
+        }
         return Kind.allCases.flatMap { kind in unique.filter { $0.kind == kind } }
     }
 

@@ -23,12 +23,12 @@ struct DishExploreTests {
 
     // MARK: - The chips
 
-    @Test func chipsPrintStyleThenCuisineThenSuburbThenCity() {
+    @Test func chipsPrintStyleThenSuburbThenCityAndNoCuisine() {
         let tags = [
             Self.tag(.city, "Melbourne"), Self.tag(.cuisine, "Italian"), Self.tag(.style, "Pasta"),
             Self.tag(.suburb, "CBD"), Self.tag(.style, "Handmade"), Self.tag(.diet, "GF")
         ]
-        #expect(DishTagOrder.explore(tags).map(\.label) == ["Pasta", "Handmade", "Italian", "CBD", "Melbourne", "GF"])
+        #expect(DishTagOrder.explore(tags).map(\.label) == ["Pasta", "Handmade", "CBD", "Melbourne", "GF"])
     }
 
     @Test func aTagIsOneChipAndAnEmptyLabelIsNone() {
