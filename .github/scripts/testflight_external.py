@@ -100,6 +100,10 @@ def status():
         bd = details.get(x["relationships"]["buildBetaDetail"]["data"]["id"], {})
         print("build", at["version"], at["processingState"], "expired" if at["expired"] else "",
               "encryption:", at.get("usesNonExemptEncryption"), "external:", bd.get("externalBuildState"))
+    summary("### Beta review\n\n" + "\n".join(
+        f"- build {x['attributes']['version']}: "
+        f"{details.get(x['relationships']['buildBetaDetail']['data']['id'], {}).get('externalBuildState')}"
+        for x in b["data"]))
 
 
 def setup():
