@@ -109,7 +109,7 @@ struct V2PlacePage: View {
         }
     }
 
-    // MARK: - What to order
+    // MARK: - The Top Ate
 
     @ViewBuilder
     private var menu: some View {
@@ -205,14 +205,15 @@ struct V2PlacePage: View {
 
 // MARK: - The menu
 
-/// The menu's paper: "What to order" in the receipt's label, the rows, Edge B under it.
+/// The menu's paper: "The Top Ate" as a section heading (Eamon, 18 Oct), the rows, Edge B under it.
 private struct V2MenuPaper<Rows: View>: View {
     @ViewBuilder var rows: Rows
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("What to order")
-                .ateText(.receiptLabel)
+            Text(FeedEditionCopy.topAte)
+                .ateText(.feedSection)
+                .accessibilityAddTraits(.isHeader)
                 .padding(.bottom, AteMetrics.regular)
             rows
         }
@@ -242,8 +243,6 @@ private struct V2MenuRow: View {
             photo: photo,
             name: dish.name,
             tags: dish.tags,
-            subtitle: dish.peopleCount > 0 ? dish.peopleCount.formatted() : nil,
-            subtitleIcon: dish.peopleCount > 0 ? .you : nil,
             score: dish.score.map(AteScore.average),
             style: .menu(rank: rank),
             isFirst: rank == 1,

@@ -23,12 +23,11 @@ extension KitGalleryScreen {
             .padding(.horizontal, AteMetrics.gutter)
             caption("Menu, on paper")
             VStack(spacing: 0) {
-                AteDishRow(photo: KitFixtures.ragu, name: "Tagliatelle al ragù", subtitle: "24", subtitleIcon: .you,
+                AteDishRow(photo: KitFixtures.ragu, name: "Tagliatelle al ragù",
                            score: .average(4.6), style: .menu(rank: 1), isFirst: true)
-                AteDishRow(photo: KitFixtures.prawn, name: "Prawn spaghetti", tags: [.gf], subtitle: "17",
-                           subtitleIcon: .you, score: .average(4.4), style: .menu(rank: 2))
-                AteDishRow(photo: KitFixtures.focaccia, name: "Focaccia", subtitle: "3", subtitleIcon: .you,
-                           style: .menu(rank: 3))
+                AteDishRow(photo: KitFixtures.prawn, name: "Prawn spaghetti", tags: [.gf],
+                           score: .average(4.4), style: .menu(rank: 2))
+                AteDishRow(photo: KitFixtures.focaccia, name: "Focaccia", style: .menu(rank: 3))
             }
             .padding(.horizontal, AteMetrics.slipPadding)
             .padding(.bottom, AteMetrics.tornEdgeHeight + AteMetrics.tight)
