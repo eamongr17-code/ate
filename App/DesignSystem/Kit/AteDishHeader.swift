@@ -9,6 +9,8 @@ struct AteDishHero: View {
     let photos: [AtePhoto]
     /// A photo opens the shell's viewer on it — false while the photos are only a preview's.
     var opensViewer = true
+    /// The dish each photo is, for the viewer's caption.
+    var dishes: AtePhotoDishes?
 
     @Environment(\.atePhotoViewer) private var showPhotos
 
@@ -21,7 +23,7 @@ struct AteDishHero: View {
                 bottomPadding: 0,
                 overlap: AteDishHeroMetrics.overlap,
                 angles: AtePhotoAngles.dishHero,
-                onTap: opensViewer ? { showPhotos(photos, at: $0) } : nil
+                onTap: opensViewer ? { showPhotos(photos, at: $0, dishes: dishes) } : nil
             )
             .frame(maxWidth: .infinity, alignment: .leading)
         }

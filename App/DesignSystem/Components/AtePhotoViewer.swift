@@ -39,6 +39,25 @@ struct AtePhotoDishes: Sendable {
     var load: (@MainActor @Sendable () async -> [String: UUID])?
     /// Who and where, under the dish on somebody else's photo: "@paris · 400 Gradi".
     var byline: String?
+    /// Photo URL → its own byline, where one viewer holds several people's photos (a dish page's
+    /// hero). Falls back to ``byline``.
+    var bylines: [String: String] = [:]
+
+    /// Photos that are all one dish — a dish page's hero, a menu row's cover: each is named by it,
+    /// as a caption, wherever it opens (18 Oct: every full-screen photo names its dish).
+    static func one(
+        _ name: String, photos: [AtePhoto], byline: String?, bylines: [String: String] = [:]
+    ) -> AtePhotoDishes? {
+        let urls = photos.compactMap { $0.url?.absoluteString }
+        guard name.isEmpty == false, urls.isEmpty == false else { return nil }
+        let dish = AtePhotoDishPill.Dish(id: UUID(), name: name)
+        return AtePhotoDishes(
+            choices: [dish],
+            paired: Dictionary(urls.map { ($0, dish.id) }, uniquingKeysWith: { first, _ in first }),
+            byline: byline,
+            bylines: bylines
+        )
+    }
 }
 
 extension EnvironmentValues {
@@ -236,7 +255,7 @@ struct AtePhotoViewer: View {
         if let dishes, photos.indices.contains(index), let url = photos[index].url?.absoluteString {
             let current = paired[url].flatMap { id in dishes.choices.first { $0.id == id } }
             if dishes.onPick == nil {
-                if let current { AtePhotoDishCaption(dish: current.name, byline: dishes.byline) }
+                if let current { AtePhotoDishCaption(dish: current.name, byline: dishes.bylines[url] ?? dishes.byline) }
             } else {
                 AtePhotoDishPill(dish: current, choices: dishes.choices, onPick: dishes.onPick.map { pick in
                     { (choice: AtePhotoDishPill.Dish?) in choose(choice, for: url, with: pick) }
