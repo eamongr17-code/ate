@@ -21,6 +21,15 @@ struct RatingTests {
         #expect(Rating(rounding: input).value == expected)
     }
 
+    @Test("every score has its own word, from Awful to Blown away", arguments: [
+        (0.5, "Awful"), (1.0, "Bad"), (1.5, "Poor"), (2.0, "Disappointing"), (2.5, "Okay"),
+        (3.0, "Decent"), (3.5, "Good"), (4.0, "Delicious"), (4.5, "Excellent"), (5.0, "Perfect"),
+        (6.0, "Blown away")
+    ])
+    func word(value: Double, expected: String) {
+        #expect(Rating(exactly: value)?.word == expected)
+    }
+
     @Test("there is no zero rating — an unrated dish is a nil DishStats.score, not a 0 Rating")
     func noZeroRating() {
         #expect(Rating(exactly: 0) == nil)
