@@ -398,3 +398,15 @@ jobs:
             archive.log
             export.log
             upload.log
+
+  # Every uploaded build also goes to the external "Public link" group and into beta review
+  # (a no-op until that group exists). Never fails the upload above.
+  public-link:
+    name: Send to public link
+    needs: beta
+    if: needs.beta.result == 'success' && !inputs.dry_run
+    uses: ./.github/workflows/testflight-external.yml
+    with:
+      mode: distribute
+      build_number: ${{ github.run_number }}
+    secrets: inherit

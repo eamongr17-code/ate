@@ -68,9 +68,11 @@ def group(app_id):
     return None
 
 
-def builds(app_id, limit=5):
-    return call("GET", "/v1/builds", params={
-        "filter[app]": app_id, "sort": "-uploadedDate", "limit": limit, "include": "buildBetaDetail"})
+def builds(app_id, limit=5, version=None):
+    params = {"filter[app]": app_id, "sort": "-uploadedDate", "limit": limit, "include": "buildBetaDetail"}
+    if version:
+        params["filter[version]"] = version
+    return call("GET", "/v1/builds", params=params)
 
 
 def summary(text):
@@ -146,14 +148,19 @@ def distribute():
     if not g:
         print("::notice::No public-link group yet; nothing to distribute")
         return
-    # Right after an upload the build is still processing; wait for it (TF_WAIT_SECONDS).
+    # TF_BUILD_NUMBER picks the build Beta just uploaded; it can take a while to appear and
+    # process, so wait up to TF_WAIT_SECONDS. Without it, the newest build is used.
+    version = os.environ.get("TF_BUILD_NUMBER", "").strip() or None
     deadline = time.time() + int(os.environ.get("TF_WAIT_SECONDS") or "0")
     while True:
-        latest = builds(app_id, 1)["data"][0]
-        if latest["attributes"]["processingState"] == "VALID" or time.time() > deadline:
+        found = builds(app_id, 1, version)["data"]
+        latest = found[0] if found else None
+        if (latest and latest["attributes"]["processingState"] == "VALID") or time.time() > deadline:
             break
-        print("waiting for build", latest["attributes"]["version"], latest["attributes"]["processingState"])
+        print("waiting for build", version or "", latest and latest["attributes"]["processingState"])
         time.sleep(60)
+    if not latest:
+        sys.exit(f"::error::Build {version} never appeared in App Store Connect")
     at = latest["attributes"]
     if at["processingState"] != "VALID" or at["expired"]:
         sys.exit(f"::error::Build {at['version']} is {at['processingState']}; not distributing")
