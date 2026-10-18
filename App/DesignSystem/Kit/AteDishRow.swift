@@ -2,27 +2,25 @@ import AteKit
 import SwiftUI
 
 /// **A dish row** — the dish-first row every list prints (`.srow`): the straight thumbnail or letter
-/// tile, the dish with its diet chips, the place (or a count) under it, the score token at the right
+/// tile, the dish with its diet chips, the place under it, the score token at the right
 /// — an empty slot when nobody scored it — and the bookmark where the dish can be saved. Ruled at
 /// the top by a hairline except the first.
 ///
-/// The place menu's variant (`.mrow`) leads with the rank in mono fine print, takes the menu's 48
+/// The place menu's variant (`.mrow`) leads with the rank as The Top Ate's numeral, takes the menu's 48
 /// thumbnail and is ruled by the receipt's dashed line, because it sits on paper.
 struct AteDishRow: View {
     enum Style: Equatable {
         /// Search, Saved, Ratings, a dish's "More like this": 76 high, 56 thumbnail, hairlines.
         case list
-        /// A place's "What to order": 66 high, the rank, 48 thumbnail, dashed rules.
+        /// A place's Top Ate: 66 high, the rank, 48 thumbnail, dashed rules.
         case menu(rank: Int)
     }
 
     let photo: AtePhoto
     let name: String
     var tags: [DietTag] = []
-    /// The place, or on a menu the count of people who ate it.
+    /// The place, or what the list knows under the dish.
     var subtitle: String?
-    /// An icon before the subtitle — the menu's people mark.
-    var subtitleIcon: AteIcon?
     var score: AteScore?
     /// A dish you saved yourself: where it came from, as a small ink disc on the thumbnail's corner
     /// (`beta-saved` mockup). Such a dish never has a score.
@@ -45,10 +43,10 @@ struct AteDishRow: View {
             Button { onOpen?() } label: {
                 HStack(spacing: AteDishRowMetrics.gap) {
                     if case .menu(let rank) = style {
-                        Text(String(format: "%02d", rank))
-                            .ateText(.receiptLabel)
-                            .foregroundStyle(palette.muted)
-                            .frame(width: AteDishRowMetrics.rankWidth, alignment: .leading)
+                        Text(verbatim: "\(rank)")
+                            .ateText(.kitRankNumeral)
+                            .foregroundStyle(palette.fg)
+                            .frame(width: AteDishRowMetrics.rankWidth)
                     }
                     AteThumb(photo: photo, size: isMenu ? .menu : .row)
                         .overlay(alignment: .bottomTrailing) {
@@ -64,11 +62,10 @@ struct AteDishRow: View {
                             AteDietChips(tags: tags, onGround: isMenu == false)
                         }
                         if let subtitle {
-                            HStack(spacing: AteMetrics.tight) {
-                                subtitleIcon?.view(size: AteDishRowMetrics.subtitleIcon)
-                                Text(subtitle).ateText(.meta).lineLimit(1)
-                            }
-                            .foregroundStyle(palette.muted)
+                            Text(subtitle)
+                                .ateText(.meta)
+                                .lineLimit(1)
+                                .foregroundStyle(palette.muted)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -159,9 +156,8 @@ enum AteDishRowMetrics {
     /// The name over its place: `gap:3px` (the menu's `2px`).
     static let lineGap: CGFloat = 3
     static let menuLineGap: CGFloat = 2
-    /// The menu's rank column: `width:18px`.
-    static let rankWidth: CGFloat = 18
-    static let subtitleIcon: CGFloat = 13
+    /// The menu's rank column: The Top Ate's `.rk .n{width:28px}`.
+    static let rankWidth: CGFloat = AteRankedRowMetrics.rankWidth
     /// The bookmark's 44 target sits on the row's edge: the mark lines up with the column.
     static let saveBleed: CGFloat = 12
 }
