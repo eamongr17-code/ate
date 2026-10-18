@@ -1,0 +1,98 @@
+<title>With Row Placement</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Newsreader:opsz,wght@6..72,400&family=DM+Mono:wght@500&display=swap">
+<style>
+/* Layout: three iPhones side by side at true 393pt width, each showing the entry paper only. */
+:root{
+  --ground:#EFEAE2; --fg:#24141F; --muted:#5E5560; --slip:#FFFFFF; --hair:rgba(36,20,31,.14);
+  --butter:#F6D365; --coral:#F0623F; --pick:#24141F;
+  --display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;
+  --prose:"Newsreader",Georgia,serif; --mono:"DM Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --ground:#17111B; --fg:#F4EFE9; --muted:#B9AFBC; --hair:rgba(255,255,255,.16); --pick:#F6D365; color-scheme:dark } }
+:root[data-theme="dark"]{ --ground:#17111B; --fg:#F4EFE9; --muted:#B9AFBC; --hair:rgba(255,255,255,.16); --pick:#F6D365; color-scheme:dark }
+body{background:var(--ground);color:var(--fg);font-family:var(--display);padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:1280px;margin:0 auto;display:grid;gap:28px}
+h1{font-weight:800;font-size:34px;letter-spacing:-.035em;margin:0;text-wrap:balance}
+.lede{font-family:var(--prose);font-size:18px;line-height:1.45;max-width:640px;margin:0;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:28px}
+.cell{display:grid;gap:10px;width:393px;max-width:100%;align-content:start}
+.cell h2{margin:0;font-size:17px;font-weight:700;letter-spacing:-.01em;display:flex;gap:8px;align-items:center}
+.cell p{margin:0;font-family:var(--prose);font-size:15.5px;line-height:1.4;color:var(--muted)}
+.rec{font:500 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;background:var(--butter);color:#24141F;padding:4px 7px;border-radius:999px}
+.cell.pick .phone{box-shadow:0 0 0 3px var(--pick),0 18px 40px rgba(36,20,31,.16)}
+
+/* The phone itself is always the light app. */
+.phone{width:393px;max-width:100%;border-radius:44px;overflow:hidden;background:#EFEAE2;color:#24141F;box-shadow:0 0 0 1px var(--hair),0 18px 40px rgba(36,20,31,.14);padding:14px 13px 22px}
+.paper{background:#fff;border-radius:24px;padding:8px 20px 8px;display:grid;gap:16px}
+.dish{display:flex;justify-content:space-between;align-items:center;min-height:56px;padding-top:12px}
+.dish b{font:800 23px/1.1 var(--display);letter-spacing:-.03em}
+.dish span{font:800 23px/1 var(--display);display:flex;gap:6px;align-items:center}
+.words{font:400 19px/1.55 var(--prose);margin:0}
+.tok{display:inline-flex;align-items:center;gap:3px;padding:0 7px 0 5px;border-radius:999px;background:#F6D365;font:500 .78em/1.55 var(--mono);vertical-align:1px}
+.photo{width:108px;height:108px;border-radius:24px;transform:rotate(-6deg);margin:10px 0 4px 10px;background:radial-gradient(circle at 45% 40%,#F1D7A8,#C98A45 45%,#3B302B 70%)}
+.place{border-top:1px solid rgba(36,20,31,.14);min-height:44px;display:flex;align-items:center;gap:8px}
+.place .pn{font:600 16px/1 var(--display)}
+.place .sb{font:500 14px/1 var(--display);color:#5E5560;margin-left:2px}
+.place .d{margin-left:auto;font:500 14px/1 var(--display);color:#5E5560}
+.with{display:flex;align-items:center;gap:8px;min-height:28px}
+.av{width:28px;height:28px;border-radius:50%;background:#F0623F;display:flex;align-items:center;justify-content:center;font:800 12px/1 var(--display);flex-shrink:0}
+.with .t{font:500 14px/1 var(--display);color:#5E5560}
+.with .t b{font-weight:600;color:#24141F}
+.tight{margin-top:-2px}
+.more{font:800 26px/1 var(--display);letter-spacing:-.035em;padding:30px 7px 0}
+</style>
+
+<main>
+  <h1>Where "with @parisstewart" sits</h1>
+  <p class="lede">The entry page at true iPhone width. Today the row hangs under the place line, outside the footer it's ruled into. Two fixes, one recommended.</p>
+
+  <div class="row">
+    <div class="cell">
+      <h2>Today</h2>
+      <div class="phone" aria-label="Today">
+        <div class="paper">
+          <div class="dish"><b>Fried Chicken Pancake</b><span>★ 4.0</span></div>
+          <p class="words">Fried Chicken Pancake <span class="tok">★ 4.0</span> took a risk but honestly it paid off. It was a little savoury, a little sweet.</p>
+          <div class="photo"></div>
+          <div>
+            <div class="place"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E5560" stroke-width="2"><path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg><span class="pn">Small Wins</span><span class="sb">Armadale</span><span class="d">Sun 18 Oct</span></div>
+            <div class="with tight"><span class="av">P</span><span class="t">with <b>@parisstewart</b></span></div>
+          </div>
+        </div>
+        <div class="more">More at Small Wins</div>
+      </div>
+      <p>The rule reads as "the entry ends here", then a second footer line follows. The avatar is also the biggest thing in the footer.</p>
+    </div>
+
+    <div class="cell pick">
+      <h2>A · Above the rule <span class="rec">Recommended</span></h2>
+      <div class="phone" aria-label="Option A">
+        <div class="paper">
+          <div class="dish"><b>Fried Chicken Pancake</b><span>★ 4.0</span></div>
+          <p class="words">Fried Chicken Pancake <span class="tok">★ 4.0</span> took a risk but honestly it paid off. It was a little savoury, a little sweet.</p>
+          <div class="photo"></div>
+          <div class="with"><span class="av">P</span><span class="t">with <b>@parisstewart</b></span></div>
+          <div class="place"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E5560" stroke-width="2"><path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg><span class="pn">Small Wins</span><span class="sb">Armadale</span><span class="d">Sun 18 Oct</span></div>
+        </div>
+        <div class="more">More at Small Wins</div>
+      </div>
+      <p>Who you ate with closes the entry's story, then the ruled place line closes the paper. One footer, one line. Smallest change.</p>
+    </div>
+
+    <div class="cell">
+      <h2>B · Under the dish</h2>
+      <div class="phone" aria-label="Option B">
+        <div class="paper">
+          <div class="dish"><b>Fried Chicken Pancake</b><span>★ 4.0</span></div>
+          <div class="with" style="margin-top:-8px"><span class="av">P</span><span class="t">with <b>@parisstewart</b></span></div>
+          <p class="words">Fried Chicken Pancake <span class="tok">★ 4.0</span> took a risk but honestly it paid off. It was a little savoury, a little sweet.</p>
+          <div class="photo"></div>
+          <div class="place"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E5560" stroke-width="2"><path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg><span class="pn">Small Wins</span><span class="sb">Armadale</span><span class="d">Sun 18 Oct</span></div>
+        </div>
+        <div class="more">More at Small Wins</div>
+      </div>
+      <p>Reads like a byline at the top. But with three or four dish rows it gets pushed down and sits between the dishes and your words.</p>
+    </div>
+  </div>
+</main>
