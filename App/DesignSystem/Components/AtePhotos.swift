@@ -111,11 +111,15 @@ struct AtePhotoTile: View {
                 clipped
             }
         }
-        .overlay {
+        .background {
             // `box-shadow:0 0 0 3px var(--surface)` — the ring sits entirely OUTSIDE the photo, so
-            // the white parting between two overlapping tiles is a full 3pt, not half of one.
+            // the white parting between two overlapping tiles is a full 3pt, not half of one. It is
+            // a solid disc BEHIND the photo, not a stroke round it: a stroke's inner edge and the
+            // photo's edge are both anti-aliased, and the photo underneath showed through the seam
+            // as a dark hairline (18 Oct).
             if let ring {
-                shape.strokeBorder(ring, lineWidth: AteMetrics.photoRing)
+                RoundedRectangle(cornerRadius: radius + AteMetrics.photoRing, style: .continuous)
+                    .fill(ring)
                     .padding(-AteMetrics.photoRing)
             }
         }
