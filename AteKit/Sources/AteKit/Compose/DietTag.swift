@@ -184,7 +184,7 @@ public extension EntryComposition {
     /// **The secret 6s** (`six_tokens`, round 4 contract): every score pill the person marked 6 on the
     /// slider, located in Unicode scalars exactly as ``tagTokens`` are. The sorter never infers a 6
     /// from prose, so these are the only 6s the server will ever record — and any sort that rebuilds
-    /// an entry's lines (a forced re-sort, "Print it again") has to carry them again, or the 6 falls
+    /// an entry's lines (a forced re-sort, "Try again") has to carry them again, or the 6 falls
     /// back to prose.
     var sixTokens: [TagToken] {
         scalarTokens(for: spans.filter { $0.token.score == .blownAway }.map(\.span))

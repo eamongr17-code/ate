@@ -134,7 +134,7 @@ struct EntrySummaryStoreTests {
         #expect(summary.share() == nil)
     }
 
-    @Test("a stalled print recovers: Print it again re-sorts and watches, and Done is still there")
+    @Test("a stalled print recovers: Try again re-sorts and watches, and Done is still there")
     func stalledRecovers() async {
         let id = UUID()
         let resorted = Calls()

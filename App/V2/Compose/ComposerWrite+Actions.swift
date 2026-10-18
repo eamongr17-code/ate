@@ -111,12 +111,13 @@ extension V2ComposerWrite {
         sendCompanions(entryID: request.id, from: [])
 
         guard case .saved = result else {
-            // Queued offline: the insert never landed, so nothing has started — try the rest now
-            // (the outbox has it either way). Nothing to print yet; the journal's slip carries the wait.
+            // Queued: the insert never landed (offline, or past its patience), so nothing has
+            // started — try the rest now (the outbox has it either way). The printed face still
+            // comes up, saying the entry is saved and the receipt finishes once there is a
+            // connection (receipt fallback), rather than the sheet closing without a word.
             finish()
-            isSaving = false
             NotificationCenter.ateEntryChanged(card)
-            dismiss()
+            onPrinted(handoff(card, request: request, sorted: nil, doneAt: startedAt, cacheHit: cacheHit))
             return
         }
 
@@ -128,21 +129,30 @@ extension V2ComposerWrite {
             milliseconds: PostHold.milliseconds(since: startedAt)
         ))
         let shown = landed.flatMap { $0 } ?? card
-        onPrinted(V2ComposerPrinted.Handoff(
-            card: shown,
-            photos: model.photos.map(\.photo),
-            companions: model.companions.map(\.handle),
-            sorted: sorted,
-            tagTokens: request.tagTokens,
-            scoreTokens: request.scoreTokens,
-            doneAt: startedAt,
-            cacheHit: cacheHit
-        ))
+        onPrinted(handoff(shown, request: request, sorted: sorted, doneAt: startedAt, cacheHit: cacheHit))
         // The lists under the sheet hear about it once the receipt is up, not competing with it.
         Task {
             try? await Task.sleep(for: V2ComposerTiming.landing)
             NotificationCenter.ateEntryChanged(shown)
         }
+    }
+
+    /// What the printed face is handed. No latch means the words went to the outbox (queued).
+    private func handoff(
+        _ card: EntryCard, request: NewEntryRequest, sorted: Latch<EntryCard?>?,
+        doneAt: ContinuousClock.Instant, cacheHit: Bool
+    ) -> V2ComposerPrinted.Handoff {
+        V2ComposerPrinted.Handoff(
+            card: card,
+            photos: model.photos.map(\.photo),
+            companions: model.companions.map(\.handle),
+            sorted: sorted,
+            tagTokens: request.tagTokens,
+            scoreTokens: request.scoreTokens,
+            doneAt: doneAt,
+            cacheHit: cacheHit,
+            isQueued: sorted == nil
+        )
     }
 
     /// "Ate with": who was added and who was taken off, handed to the tag queue — detached, so

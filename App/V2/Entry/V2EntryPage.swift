@@ -36,6 +36,8 @@ private struct V2EntryScreen: View {
     @State private var model: EntryModel
     @State private var more: EntryMoreStore
     @State private var isShowingActions = false
+    /// `receipt_fallback_shown` went for this page.
+    @State private var hasCountedFallback = false
     @State private var isSharingReceipt = false
     /// One of your dishes, on its way onto a list (`lists-notifications.html` D).
     @State private var addingToList: AddToListTarget?
@@ -63,6 +65,12 @@ private struct V2EntryScreen: View {
             }
             .onChange(of: model.card) { _, card in
                 if let card { NotificationCenter.ateEntryChanged(card) }
+            }
+            .onChange(of: context.app.outboxLanded) { _, _ in Task { await model.recheck() } }
+            .onChange(of: model.state == .failed) { _, failed in
+                guard failed, model.card?.isMine == true, hasCountedFallback == false else { return }
+                hasCountedFallback = true
+                services.analytics(EntryEvents.receiptFallbackShown(.unfinished, surface: "entry"))
             }
             .onReceive(NotificationCenter.default.publisher(for: .ateV2EntryChanged)) { note in
                 // An edit saved in the composer, or the receipt's place attached: read it again.
