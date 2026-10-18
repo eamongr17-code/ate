@@ -13,7 +13,7 @@ public enum ListEvents {
     }
 
     public enum CTASource: String, Sendable {
-        /// The dashed New list card first on the Lists shelf.
+        /// The dashed New list card last on the Lists shelf.
         case shelf
         /// The list-plus in the Journal's glass group.
         case glass
