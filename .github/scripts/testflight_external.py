@@ -4,6 +4,7 @@
   setup       create/refresh the external group, beta app info and review details,
               then distribute the latest build (idempotent)
   distribute  add the newest processed build to the group and submit it for beta review
+  auto        what a push runs: status, then setup once the TF_CONTACT_PHONE secret exists
 
 Auth: the same App Store Connect API key the Beta workflow uploads with
 (ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8). Copy and contact fields come from env;
@@ -190,5 +191,13 @@ def distribute():
             f"- public link: {g.get('publicLink')} (enabled: {g.get('publicLinkEnabled')})")
 
 
+def auto():
+    status()
+    if os.environ.get("TF_CONTACT_PHONE", "").strip():
+        setup()
+    else:
+        print("::warning::TF_CONTACT_PHONE secret not set; setup skipped")
+
+
 if __name__ == "__main__":
-    {"status": status, "setup": setup, "distribute": distribute}[sys.argv[1]]()
+    {"status": status, "setup": setup, "distribute": distribute, "auto": auto}[sys.argv[1]]()

@@ -16,6 +16,12 @@ on:
       mode:
         description: "status (read-only) | setup | distribute"
         default: status
+  # Changing this lane re-runs it (idempotent): status, then setup once the phone secret exists.
+  push:
+    branches: [claude/project-thread-2f9ty8]
+    paths:
+      - ".github/workflows/testflight-external.yml"
+      - ".github/scripts/testflight_external.py"
   # Beta calls this with mode=distribute after each upload.
   workflow_call:
     inputs:
@@ -54,4 +60,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: pip install --quiet "pyjwt[crypto]==2.9.0"
-      - run: python .github/scripts/testflight_external.py "${{ inputs.mode }}"
+      - run: python .github/scripts/testflight_external.py "${{ inputs.mode || 'auto' }}"
