@@ -37,9 +37,12 @@ struct AteShadow: Equatable, Sendable {
 }
 
 extension View {
-    /// Casts `shadow` from this view's own pixels (a photo), for shadows with no spread.
+    /// Casts `shadow` from this view's own pixels (a photo, a whole receipt), for shadows with no
+    /// spread. Flattened first: a bare `.shadow` on a stack casts one per layer, so every pill and word
+    /// on a receipt smudged its own shadow onto the paper (the share sheet's sticker, 18 Oct).
     func ateShadow(_ shadow: AteShadow) -> some View {
-        self.shadow(color: shadow.colour, radius: shadow.blur / 2, x: 0, y: shadow.offsetY)
+        compositingGroup()
+            .shadow(color: shadow.colour, radius: shadow.blur / 2, x: 0, y: shadow.offsetY)
     }
 
     /// Fills `shape` behind this view and casts `shadow` from it, spread and all.
