@@ -437,3 +437,7 @@ enabled = true
 # push_configure, which is not a JWT), so the gateway's JWT check must not run in front of it.
 [functions.send-push]
 verify_jwt = false
+
+# dish-dedup authorises its own caller (the service-role key, from the Prod / Staging workflows only).
+[functions.dish-dedup]
+verify_jwt = false

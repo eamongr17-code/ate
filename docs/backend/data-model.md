@@ -143,6 +143,9 @@ thumbnails need no policy). **Dormant in V1:** `comments`, `review_likes`, `comm
    `saves (user_id, dish_id)`, `blocks (blocker_id, blocked_id)`, `entries (author_id, order_number)`.
 2. **`dishes_identity_uq` is PARTIAL BY DESIGN.** Dish creation is **select-then-insert** —
    `find_or_create_dish()` (0021), which catches `unique_violation` and re-selects. Never `ON CONFLICT`.
+   **0071:** it resolves exact name → a merged-away name (alias of its survivor) → the same `dish_key()`
+   (spelling key, mirrored by sort-entry `same-dish.ts`) → new. Model matching lives only in sort-entry
+   (`same_as`, behind `sameDishGate`), and merges only through `merge_dish` (logged, `unmerge_dish` undoes).
 3. **Never upsert `entries`.** The insert trigger consumes an order number; a conflicting upsert would
    burn one. Clients INSERT and treat `23505` as "already accepted" (the id is theirs, so it landed).
 4. **Multiple reviews per (user, dish)** are a feature (sittings), not a bug to constrain away.
@@ -262,3 +265,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0059 | `send_push` | notifications `push_claimed_at`/`push_attempts`; `push_is_ready`, `push_claim_ate_with`, `push_mark_sent`, `push_drop_tokens` (service_role); `push_kick` (pg_net → send-push, Vault-gated) on tag insert, on sort, and every minute (pg_cron); keyless setup `push_configure(url)` + `push_kick_secret()` (DB-generated bearer, service_role only); `register_push_token` env defaults to `production` |
 | 0060 | `lists_and_journal_search` | `user_lists`, `user_list_items` + item-follows-line triggers; list RPCs, `my_scored_dishes`; `search_my_entries` (author-index bounded, no new index); legacy `lists`/`list_dishes` SELECT owner-only; `delete_account` checks the list tables |
 | 0069 | `fixed_dish_styles` | `dish_style_list()`; `dish_style_clean`/`dish_styles_from_json` keep only listed styles (create or replace); data: off-list style links and style cravings deleted, emptied dishes re-guessed |
+| 0071 | `dish_dedup` | `dish_key()` + index; `find_or_create_dish` key/alias lookups; `merge_dish(src, tgt, reason, detail)` (same place, never two dishes one entry names; carries saves, legacy list rows, photo picks; logs `dish_merges`) + `unmerge_dish`; `dish_merge_proposals`, `dish_scan_places()`, `merge_dish_proposals()` for the dish-dedup scan (service role only) |

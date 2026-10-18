@@ -18,6 +18,16 @@ on:
     branches: [claude/project-thread-2f9ty8]
     paths: ["supabase/**", ".github/workflows/staging.yml"]
   workflow_dispatch:
+    inputs:
+      duplicate_dishes:
+        description: "Duplicate dishes: scan lists them (changes nothing); merge or reject the numbers below"
+        type: choice
+        options: [leave, scan, merge, reject]
+        default: leave
+      dish_numbers:
+        description: "Proposal numbers to merge or reject, e.g. 3,5,8 (merge also takes: all)"
+        type: string
+        default: ""
 
 concurrency:
   group: staging
@@ -88,3 +98,8 @@ jobs:
           echo "restaurants read: HTTP $code"
           [ "$code" = "200" ] || { cat body.json; exit 1; }
           echo "STAGING APPLIED AND READABLE" >> "$GITHUB_STEP_SUMMARY"
+
+      # Same dish, different names (0071). After the deploy, so the function and its tables exist.
+      - name: Duplicate dishes
+        if: ${{ inputs.duplicate_dishes && inputs.duplicate_dishes != 'leave' }}
+        run: .github/scripts/dish_dedup.sh "$STAGING_REF" "${{ inputs.duplicate_dishes }}" "${{ inputs.dish_numbers }}"
