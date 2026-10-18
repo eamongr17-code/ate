@@ -365,6 +365,20 @@ function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): num
 // Live Google path (active only when GOOGLE_PLACES_API_KEY is present).
 // Uses the Places API (New): Autocomplete + Place Details + Nearby Search.
 // ---------------------------------------------------------------------------
+// Google answers a bad key, a disabled API or missing billing with a non-2xx and an error body.
+// The callers still return nothing (search must not break), but the reason is logged so it shows in
+// the function's logs instead of disappearing.
+async function logGoogleFailure(what: string, res: Response): Promise<void> {
+  let reason = '';
+  try {
+    const body = await res.json();
+    reason = `${body?.error?.status ?? ''} ${body?.error?.message ?? ''}`.trim();
+  } catch {
+    // no JSON body; the status says enough
+  }
+  console.error(`Google Places ${what} failed: HTTP ${res.status} ${reason}`);
+}
+
 async function googleAutocomplete(
   input: string,
   lat?: number,
@@ -399,6 +413,10 @@ async function googleAutocomplete(
       ...(sessionToken ? { sessionToken } : {}),
     }),
   });
+  if (!res.ok) {
+    await logGoogleFailure('autocomplete', res);
+    return [];
+  }
   const data = await res.json();
   const suggestions = (data.suggestions ?? []) as any[];
   return suggestions
@@ -435,7 +453,10 @@ async function googleDetails(placeId: string, sessionToken?: string): Promise<St
         'id,displayName,formattedAddress,addressComponents,location,types,primaryTypeDisplayName',
     },
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    await logGoogleFailure('details', res);
+    return null;
+  }
   const p = await res.json();
   if (!p.id) return null;
   // The SUBURB, not a street line: localityFromAddress mirrors place_locality() (0029). See
@@ -480,7 +501,10 @@ async function googleNearby(lat: number, lng: number, radiusM: number): Promise<
       languageCode: LANGUAGE,
     }),
   });
-  if (!res.ok) return [];
+  if (!res.ok) {
+    await logGoogleFailure('nearby', res);
+    return [];
+  }
   const data = await res.json();
   const places = (data.places ?? []) as any[];
   return places
