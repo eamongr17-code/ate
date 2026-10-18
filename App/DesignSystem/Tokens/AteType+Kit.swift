@@ -13,6 +13,10 @@ extension AteTextStyle {
     static let kitInkPillSmall = AteTextStyle(
         voice: .display, size: 15, weight: 600, trackingEm: 0, lineHeight: 1.0, textStyle: .subheadline
     )
+    /// …and inside a row (a list invite's Accept, Decline): 600 at 14.
+    static let kitInkPillRow = AteTextStyle(
+        voice: .display, size: 14, weight: 600, trackingEm: 0, lineHeight: 1.0, textStyle: .subheadline
+    )
     /// The line under a receipt that is slow, unfinished or offline — on the composer's ink
     /// sheet: 500 at 17, `line-height:1.4` (design: receipt fallback states, 18 Oct)…
     static let kitReceiptFallback = AteTextStyle(

@@ -2,8 +2,12 @@ import AteKit
 import SwiftUI
 
 /// **Notifications** (`lists-notifications.html` E1–E3) — pushed from the Journal's bell, the tab
-/// bar staying. Two groups on one page: **Ate with** first (somebody is waiting on you), then **From
-/// your photos**. A group with nothing in it is not shown; both empty is the one empty line.
+/// bar staying. Three groups on one page: **List invites** (`list-cover-edit.html` 7), then **Ate
+/// with** (somebody is waiting on you), then **From your photos**. A group with nothing in it is not
+/// shown; all empty is the one empty line.
+///
+/// List invites: the owner, "@eamon invited you to Date night", the count, Decline and Accept. A tap
+/// on the row previews the list; Accept puts it on your Lists shelf; Decline clears it, untold.
 ///
 /// Ate with: one row type (``AteNotificationRow``), newest first — a tap opens the tag's scoring
 /// sheet, the X clears the row (the tag stays), a swipe declines (asked once).
@@ -37,6 +41,7 @@ struct V2NotificationsPage: View {
         context.app.hasSession && store.phase == .ready ? store.rows : []
     }
     private var tagsFailed: Bool { context.app.hasSession && store.phase == .failed }
+    private var invites: [ListInvite] { context.app.hasSession ? context.app.listInvites.invites : [] }
     private var showsPhotos: Bool { photos.phase == .ready && photos.clusters.isEmpty == false }
     private var photosLoading: Bool { photos.phase == .loading }
 
@@ -66,8 +71,13 @@ struct V2NotificationsPage: View {
         .ateGround()
         .ateCollapsingTitle(NotificationsCopy.title, isCollapsed: isCollapsed)
         .ateAnimation(AteMotion.fillIn, value: store.rows.map(\.id))
+        .ateAnimation(AteMotion.fillIn, value: invites.map(\.id))
         .ateAnimation(AteMotion.fillIn, value: photos.clusters.map(\.id))
-        .refreshable { await store.refresh() }
+        .refreshable {
+            async let waiting: Void = context.app.listInvites.refresh()
+            await store.refresh()
+            await waiting
+        }
         .task { await open() }
         .onDisappear { logOpened() }
         // Photos allowed elsewhere (Settings, or the Summary's ask) while the page was up: read the roll.
@@ -98,20 +108,24 @@ struct V2NotificationsPage: View {
                 AteNotificationRowSkeleton(isFirst: index == 0).plainRow()
             }
         } else {
+            if invites.isEmpty == false {
+                band(ListsCopy.listInvites, isFirst: true)
+                inviteRows
+            }
             if tagRows.isEmpty == false {
-                band(NotificationsCopy.ateWith, isFirst: true)
+                band(NotificationsCopy.ateWith, isFirst: invites.isEmpty)
                 tags
             }
             if showsPhotos {
-                band(NotificationsCopy.fromPhotos, isFirst: tagRows.isEmpty)
+                band(NotificationsCopy.fromPhotos, isFirst: tagRows.isEmpty && invites.isEmpty)
                 suggestions
             } else if photosLoading && tagRows.isEmpty {
-                band(NotificationsCopy.fromPhotos, isFirst: true)
+                band(NotificationsCopy.fromPhotos, isFirst: invites.isEmpty)
                 ForEach(0..<SuggestionMetrics.skeletons, id: \.self) { index in
                     SuggestionSkeletonRow(photos: index == 0 ? 2 : 1).plainRow()
                 }
             }
-            if tagRows.isEmpty && showsPhotos == false && photosLoading == false {
+            if tagRows.isEmpty && invites.isEmpty && showsPhotos == false && photosLoading == false {
                 if tagsFailed {
                     AteEmptyState(
                         line: NotificationsCopy.unreachable, art: .torn,
@@ -163,6 +177,23 @@ struct V2NotificationsPage: View {
         }
     }
 
+    private var inviteRows: some View {
+        ForEach(Array(invites.enumerated()), id: \.element.id) { index, invite in
+            AteListInviteRow(
+                owner: invite.owner,
+                line: ListsCopy.invited(by: invite.owner.username, to: invite.name),
+                meta: ListsCopy.dishes(invite.itemCount),
+                decline: ListsCopy.decline,
+                accept: ListsCopy.accept,
+                isFirst: index == 0,
+                onOpen: { context.open(.list(ListRoute(id: invite.listID)), from: .journal) },
+                onDecline: { answer(invite, accept: false) },
+                onAccept: { answer(invite, accept: true) }
+            )
+            .plainRow()
+        }
+    }
+
     private var suggestions: some View {
         ForEach(photos.clusters) { cluster in
             PhotoSuggestionRow(
@@ -188,12 +219,14 @@ struct V2NotificationsPage: View {
 
     private func open() async {
         async let tags: Void = refreshTags()
+        async let waiting: Void = refreshInvites()
         // Push first; the camera roll may ask only if push did not.
         let prompted = context.app.hasSession
             ? await AtePush.shared.askOnce(trigger: .notifications, services: context.services)
             : false
         await photos.load(mayAsk: prompted == false)
         await tags
+        await waiting
         logOpened()
     }
 
@@ -201,6 +234,11 @@ struct V2NotificationsPage: View {
         guard context.app.hasSession else { return }
         await store.refresh()
         context.services.analytics(NotificationEvents.notificationsOpened(unread: store.unreadCount))
+    }
+
+    private func refreshInvites() async {
+        guard context.app.hasSession else { return }
+        await context.app.listInvites.refresh()
     }
 
     /// `notifications_section_opened`, once a visit: when both groups have settled, or on leaving.
@@ -264,6 +302,16 @@ struct V2NotificationsPage: View {
             } catch {
                 await store.refresh()
             }
+        }
+    }
+
+    /// Accept or Decline: the row goes at once, the bell's count with it.
+    private func answer(_ invite: ListInvite, accept: Bool) {
+        guard context.gate.permitsWrite(.journal) else { return }
+        AteHaptics.key()
+        Task {
+            await context.app.listInvites.respond(to: invite, accept: accept)
+            await store.refreshCount()
         }
     }
 

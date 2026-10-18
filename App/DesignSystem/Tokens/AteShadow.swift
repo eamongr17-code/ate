@@ -32,6 +32,8 @@ struct AteShadow: Equatable, Sendable {
     static let shareSticker = AteShadow(colour: Color.black.opacity(0.4), offsetY: 10, blur: 28, spread: 0)
     /// The share card's Saved tick — `.tick`: `0 6px 16px rgba(36,20,31,.25)`.
     static let tick = AteShadow(colour: AteColor.ink.opacity(0.25), offsetY: 6, blur: 16, spread: 0)
+    /// A shared list's owner on its cover (`list-cover-edit.html` `.owner`): `0 2px 6px rgba(36,20,31,.25)`.
+    static let badge = AteShadow(colour: AteColor.ink.opacity(0.25), offsetY: 2, blur: 6, spread: 0)
     /// No shadow: the same background, casting nothing.
     static let flat = AteShadow(colour: .clear, offsetY: 0, blur: 0, spread: 0)
 }

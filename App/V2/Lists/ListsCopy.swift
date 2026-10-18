@@ -20,6 +20,21 @@ enum ListsCopy {
     static let searchPrompt = "Search your dishes"
     static let namePrompt = "Name"
     static let done = "Done"
+    // Covers and people (`list-cover-edit.html`).
+    static let changeCover = "Change cover"
+    static let cover = "Cover"
+    static let uploadFromPhotos = "Upload from Photos"
+    static let photosInThisList = "Photos in this list"
+    static let addPeople = "Add people"
+    static let peopleOnThisList = "People on this list"
+    static let peopleYouAteWith = "People you've eaten with"
+    static let searchHandles = "Search handles"
+    static let leaveList = "Leave list"
+    static let leave = "Leave"
+    static let listInvites = "List invites"
+    static let accept = "Accept"
+    static let decline = "Decline"
+    static let photoFailed = "Couldn't use that photo."
 
     static func dishes(_ count: Int) -> String {
         count == 1 ? "1 dish" : "\(count) dishes"
@@ -33,6 +48,23 @@ enum ListsCopy {
         count == 1 ? "Add to 1 list" : "Add to \(count) lists"
     }
 
+    static func invitePeople(_ count: Int) -> String {
+        count == 1 ? "Invite 1 person" : "Invite \(count) people"
+    }
+
+    static func confirmLeave(_ name: String) -> String {
+        "Leave \(name)?"
+    }
+
+    static func invited(by handle: String, to name: String) -> String {
+        "@\(handle) invited you to \(name)"
+    }
+
+    /// The owner line: you (or the owner) first, then everyone who accepted.
+    static func byline(_ handles: [String]) -> String {
+        handles.joined(separator: ", ")
+    }
+
     static func confirmDelete(_ name: String) -> String {
         "Delete \(name)?"
     }
@@ -43,7 +75,8 @@ enum ListsCopy {
         switch error {
         case .listCap: "50 lists is the most you can have."
         case .itemCap: "A list holds 100 dishes at most."
-        case .listNotFound, .signedOut: nil
+        case .peopleCap: "A list can have 20 people at most."
+        case .listNotFound, .inviteNotFound, .signedOut: nil
         case .badName, .reorderMismatch, .badInput, .lineNotFound, .unreachable: "Couldn't reach Ate."
         }
     }

@@ -53,6 +53,42 @@ public enum ListEvents {
         AnalyticsEvent(name: "list_reordered", parameters: ["list_size": String(max(0, listSize))])
     }
 
+    /// A new cover landed (0073): a dish photo, an upload, or back to automatic.
+    public static func coverChanged(to kind: CoverKind) -> AnalyticsEvent {
+        AnalyticsEvent(name: "list_cover_changed", parameters: ["cover": kind.rawValue])
+    }
+
+    public enum CoverKind: String, Sendable {
+        case automatic
+        case dish
+        case upload
+
+        public init(_ choice: ListCoverChoice) {
+            switch choice {
+            case .automatic: self = .automatic
+            case .item: self = .dish
+            case .upload: self = .upload
+            }
+        }
+    }
+
+    /// The owner changed who is on a list: how many were newly invited, how many taken off.
+    public static func peopleChanged(invited: Int, removed: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "list_people_changed", parameters: [
+            "invited": String(max(0, invited)), "removed": String(max(0, removed))
+        ])
+    }
+
+    /// An invitation answered from Notifications.
+    public static func inviteAnswered(accepted: Bool) -> AnalyticsEvent {
+        AnalyticsEvent(name: "list_invite_answered", parameters: ["accepted": accepted ? "true" : "false"])
+    }
+
+    /// Someone left a list they had accepted.
+    public static func left() -> AnalyticsEvent {
+        AnalyticsEvent(name: "list_left")
+    }
+
     /// The share image was handed to the system sheet. `lines` is how many dishes it printed.
     public static func shared(lines: Int) -> AnalyticsEvent {
         AnalyticsEvent(name: "list_shared", parameters: ["lines": String(max(0, lines))])

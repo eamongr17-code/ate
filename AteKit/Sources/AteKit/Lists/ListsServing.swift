@@ -6,7 +6,8 @@ import PostgREST
 /// One protocol, two implementations — Supabase, and memory for previews, tests and
 /// `-ate-preview-data`. Both throw ``ListsError``, so a store reads one set of refusals.
 public protocol ListsServing: Sendable {
-    /// `my_lists` — newest created first, keyset `(created_at, list_id)`. At most 50 a page.
+    /// `my_lists(p_with_shared: true)` — your lists and the ones you accepted, newest shelved first,
+    /// keyset `(shelved_at, list_id)`. At most 50 a page.
     func myLists(after cursor: PageCursor?, limit: Int) async throws -> UserListPage
     /// `get_list` — the list and every item, in order.
     func list(id: UUID) async throws -> ListDetail
@@ -29,6 +30,24 @@ public protocol ListsServing: Sendable {
     /// is no filter; over 100 is refused (the client trims it to 100 before asking).
     func myDishLines(query: String?, scoredOnly: Bool, listID: UUID?, after cursor: ListPickerCursor?, limit: Int)
         async throws -> ListPickerPage
+
+    // MARK: Covers and people (0073)
+
+    /// `set_list_cover` — an upload goes to `review-photos/<you>/list-covers/` first. Answers the
+    /// resolved cover (`nil` = automatic).
+    func setCover(listID: UUID, choice: ListCoverChoice) async throws -> String?
+    /// `list_people` — the owner sees everyone invited or accepted; a member, the accepted.
+    func people(listID: UUID) async throws -> [ListPerson]
+    /// `set_list_people` — the WHOLE set wanted on the list (sent as ids): new people are invited,
+    /// the rest taken off. `peopleCap` past 20.
+    func setPeople(listID: UUID, people: [ListPerson]) async throws -> [ListPerson]
+    /// `my_list_invites` — unanswered invitations, newest first.
+    func invites() async throws -> [ListInvite]
+    /// `respond_list_invite` — accept puts the list on your shelf; decline is silent. `inviteNotFound`
+    /// when it was withdrawn meanwhile.
+    func respond(toInvite listID: UUID, accept: Bool) async throws
+    /// `leave_list` — off someone else's list. Already off counts as done.
+    func leave(listID: UUID) async throws
 }
 
 public extension ListsServing {
@@ -44,6 +63,8 @@ public enum ListRules {
     public static let nameLimit = 80
     public static let queryLimit = 100
     public static let minimumQueryLength = 2
+    /// People on one list besides its owner (0073).
+    public static let peopleCap = 20
 
     /// The name the server will store: trimmed, 1…80 characters. `nil` is `bad_list_name`.
     public static func name(_ raw: String) -> String? {
@@ -67,6 +88,10 @@ public enum ListsError: Error, Sendable, Equatable {
     case listCap
     /// `54000 list_item_cap` — 100 items on one list.
     case itemCap
+    /// `54000 list_people_cap` — 20 people on one list.
+    case peopleCap
+    /// `P0002 invite_not_found` — the invitation was withdrawn, or already answered.
+    case inviteNotFound
     /// `22023 bad_list_name` — empty or over 80 characters once trimmed.
     case badName
     /// `22023 reorder_mismatch` — the ids were not exactly the list's items.
@@ -94,25 +119,24 @@ public enum ListsError: Error, Sendable, Equatable {
 
     init(code: String?, message: String) {
         switch code {
-        case "54000":
-            self = message.contains("list_item_cap") ? .itemCap : .listCap
-        case "22023":
-            if message.contains("bad_list_name") {
-                self = .badName
-            } else if message.contains("reorder_mismatch") {
-                self = .reorderMismatch
-            } else {
-                self = .badInput
+        case "42501": self = .signedOut
+        case let code?:
+            guard let reading = Self.readings[code] else {
+                self = .unreachable
+                return
             }
-        case "P0002":
-            self = message.contains("dish_line_not_found") ? .lineNotFound : .listNotFound
-        case "42501":
-            self = .signedOut
-        default:
-            self = .unreachable
+            self = reading.named.first { message.contains($0.marker) }?.error ?? reading.otherwise
+        case nil: self = .unreachable
         }
     }
 
+    /// Each code's named refusals, checked in order, and what the code means when none is named.
+    private static let readings: [String: (named: [(marker: String, error: ListsError)], otherwise: ListsError)] = [
+        "54000": ([("list_item_cap", .itemCap), ("list_people_cap", .peopleCap)], .listCap),
+        "22023": ([("bad_list_name", .badName), ("reorder_mismatch", .reorderMismatch)], .badInput),
+        "P0002": ([("dish_line_not_found", .lineNotFound), ("invite_not_found", .inviteNotFound)], .listNotFound),
+    ]
+
     /// A cap: the one refusal the screens explain rather than quietly undo.
-    public var isCap: Bool { self == .listCap || self == .itemCap }
+    public var isCap: Bool { self == .listCap || self == .itemCap || self == .peopleCap }
 }

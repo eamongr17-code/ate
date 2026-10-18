@@ -32,6 +32,17 @@ export interface Claimed {
   tokens: { token: string; apns_env: string }[];
 }
 
+/** One row of push_claim_list_invites (0073). */
+export interface ClaimedInvite {
+  notification_id: string;
+  list_id: string;
+  recipient_id: string;
+  actor_username: string;
+  list_name: string;
+  badge: number;
+  tokens: { token: string; apns_env: string }[];
+}
+
 export interface ApnsConfig { keyId: string; teamId: string; privateKey: string }
 
 /** null = not configured → the function is a no-op (deploying before the .p8 exists is harmless). */
@@ -66,6 +77,28 @@ export function payload(row: Claimed): Record<string, unknown> {
   };
 }
 
+// ─── A list invite (design/rebuild/list-cover-edit.html, screen 7): who + which list, nothing else.
+export function inviteCopy(row: Pick<ClaimedInvite, 'actor_username' | 'list_name'>): { title: string } {
+  return { title: `@${row.actor_username} invited you to ${row.list_name}` };
+}
+
+export function invitePayload(row: ClaimedInvite): Record<string, unknown> {
+  return {
+    aps: { alert: inviteCopy(row), badge: row.badge, sound: 'default', 'thread-id': 'list-invite' },
+    type: 'list_invite',
+    list_id: row.list_id,
+    notification_id: row.notification_id,
+  };
+}
+
+/** What one claimed row sends, whichever claim it came from. */
+interface Outgoing {
+  notificationId: string;
+  collapseId: string;
+  body: Record<string, unknown>;
+  tokens: { token: string; apns_env: string }[];
+}
+
 // ─── The provider token (ES256 JWT), cached per key under 50 minutes.
 const b64url = (bytes: Uint8Array) =>
   btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -97,7 +130,7 @@ export type Outcome = 'ok' | 'dead' | 'transient' | 'rejected';
 const DEAD_REASONS = new Set(['BadDeviceToken', 'Unregistered', 'DeviceTokenNotForTopic']);
 const AUTH_REASONS = new Set(['ExpiredProviderToken', 'InvalidProviderToken', 'MissingProviderToken']);
 
-async function sendOne(deps: Deps, env: ApnsEnv, jwt: string, token: string, row: Claimed, nowMs: number): Promise<Outcome> {
+async function sendOne(deps: Deps, env: ApnsEnv, jwt: string, token: string, row: Outgoing, nowMs: number): Promise<Outcome> {
   let res: Response;
   try {
     res = await deps.fetch(`https://${APNS_HOSTS[env]}/3/device/${token}`, {
@@ -108,10 +141,10 @@ async function sendOne(deps: Deps, env: ApnsEnv, jwt: string, token: string, row
         'apns-push-type': 'alert',
         'apns-priority': '10',
         'apns-expiration': String(Math.floor(nowMs / 1000) + 24 * 3600),
-        'apns-collapse-id': row.companion_id,
+        'apns-collapse-id': row.collapseId,
         'content-type': 'application/json',
       },
-      body: JSON.stringify(payload(row)),
+      body: JSON.stringify(row.body),
     });
   } catch {
     return 'transient';
@@ -166,11 +199,21 @@ export function createHandler(deps: Deps): (req: Request) => Promise<Response> {
 
     const claimed = await open().rpc('push_claim_ate_with', { p_limit: 50 });
     if (claimed.error) return json(500, { error: 'claim failed', detail: claimed.error.message });
-    const rows = (claimed.data ?? []) as Claimed[];
+    const rows: Outgoing[] = ((claimed.data ?? []) as Claimed[]).map((r) => ({
+      notificationId: r.notification_id, collapseId: r.companion_id, body: payload(r), tokens: r.tokens,
+    }));
+    const errors: string[] = [];
+    // The list invites' claim second: its failure never costs an "ate with" push already claimed.
+    const invites = await open().rpc('push_claim_list_invites', { p_limit: 50 });
+    if (invites.error) errors.push(`claim invites: ${invites.error.message}`);
+    else {
+      for (const r of (invites.data ?? []) as ClaimedInvite[]) {
+        rows.push({ notificationId: r.notification_id, collapseId: r.notification_id, body: invitePayload(r), tokens: r.tokens });
+      }
+    }
     const nowMs = (deps.now ?? Date.now)();
 
     let sent = 0, marked = 0, dropped = 0;
-    const errors: string[] = [];
     try {
       for (const row of rows) {
         // The host is the TOKEN's: a TestFlight build on staging holds a production token, an Xcode build
@@ -193,8 +236,8 @@ export function createHandler(deps: Deps): (req: Request) => Promise<Response> {
         // Pushed unless EVERY attempt was transient (no device at all also counts: nothing to retry).
         // A transient-only row keeps its claim, which goes stale in 2 min; the minute drain retries (≤ 5).
         if (outcomes.length === 0 || outcomes.some((o) => o !== 'transient')) {
-          const r = await open().rpc('push_mark_sent', { p_ids: [row.notification_id] });
-          if (r.error) errors.push(`mark ${row.notification_id}: ${r.error.message}`); else marked++;
+          const r = await open().rpc('push_mark_sent', { p_ids: [row.notificationId] });
+          if (r.error) errors.push(`mark ${row.notificationId}: ${r.error.message}`); else marked++;
         }
       }
     } catch (e) {

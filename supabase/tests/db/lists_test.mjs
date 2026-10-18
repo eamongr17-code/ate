@@ -338,6 +338,8 @@ test('legacy lists/list_dishes (0004) are owner-read now: B cannot read A\'s row
 test('0060 is idempotent: re-applying it on a populated database changes nothing', async () => {
   const before = (await rows(`select (select count(*) from public.user_lists)::int l, (select count(*) from public.user_list_items)::int i`))[0];
   await db.exec(readFileSync(new URL('../../migrations/0060_lists_and_journal_search.sql', import.meta.url), 'utf8'));
+  // 0073 replaced my_lists' signature; re-applying 0060 alone would leave both overloads side by side.
+  await db.exec(readFileSync(new URL('../../migrations/0073_list_covers_and_people.sql', import.meta.url), 'utf8'));
   await db.exec('grant usage on schema extensions to anon, authenticated, service_role;');
   assert.deepEqual((await rows(`select (select count(*) from public.user_lists)::int l, (select count(*) from public.user_list_items)::int i`))[0], before);
   assert.ok((await as(U.alice, () => rows(`select * from public.my_lists()`))).length > 0);

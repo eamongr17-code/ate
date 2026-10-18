@@ -10,12 +10,22 @@ extension View {
         onFailure: @escaping () -> Void,
         onPicked: @escaping (Data) -> Void
     ) -> some View {
-        modifier(AvatarPicking(isPresented: isPresented, onFailure: onFailure, onPicked: onPicked))
+        modifier(AvatarPicking(isPresented: isPresented, frame: .circle, onFailure: onFailure, onPicked: onPicked))
+    }
+
+    /// **A list's cover from Photos** — the same picker and crop, squared to the cover's shape.
+    func ateCoverPicker(
+        isPresented: Binding<Bool>,
+        onFailure: @escaping () -> Void,
+        onPicked: @escaping (Data) -> Void
+    ) -> some View {
+        modifier(AvatarPicking(isPresented: isPresented, frame: .cover, onFailure: onFailure, onPicked: onPicked))
     }
 }
 
 private struct AvatarPicking: ViewModifier {
     @Binding var isPresented: Bool
+    let frame: AteAvatarCropper.Frame
     let onFailure: () -> Void
     let onPicked: (Data) -> Void
 
@@ -30,11 +40,12 @@ private struct AvatarPicking: ViewModifier {
                 Task { await load(item) }
             }
             .fullScreenCover(item: $photo) { photo in
-                AteAvatarCropper(image: photo.image) {
+                AteAvatarCropper(image: photo.image, frame: frame) {
                     self.photo = nil
                 } onDone: { square in
                     self.photo = nil
-                    if let jpeg = AvatarImage.jpeg(from: photo.image, cropping: square) {
+                    let pixels = frame == .cover ? AvatarImage.coverPixels : AvatarImage.pixels
+                    if let jpeg = AvatarImage.jpeg(from: photo.image, cropping: square, pixels: pixels) {
                         onPicked(jpeg)
                     } else {
                         onFailure()

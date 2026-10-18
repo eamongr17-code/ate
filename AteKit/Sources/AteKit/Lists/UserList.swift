@@ -24,22 +24,55 @@ public struct UserList: Sendable, Hashable, Identifiable, Decodable {
     public let covers: [String]
     public let createdAt: Date
     public let updatedAt: Date
+    /// The cover the owner picked (0073), resolved: a dish photo of the list or an upload. `nil` is
+    /// automatic — ``covers``' mosaic.
+    public let coverURL: String?
+    /// The item whose photo is the cover, when the pick was a dish. Leaves with that item.
+    public let coverItemID: UUID?
+    /// Yours, or a list someone shared with you (``owner`` says whose).
+    public let isOwn: Bool
+    public let owner: ListPerson?
+    /// The shelf's order and keyset: when you made it, or when you accepted it.
+    public let shelvedAt: Date
 
-    public init(id: UUID, name: String, itemCount: Int, covers: [String] = [], createdAt: Date, updatedAt: Date) {
+    // A wide row deserves a wide initialiser.
+    // swiftlint:disable:next function_default_parameter_at_end
+    public init(
+        id: UUID,
+        name: String,
+        itemCount: Int,
+        covers: [String] = [],
+        createdAt: Date,
+        updatedAt: Date,
+        coverURL: String? = nil,
+        coverItemID: UUID? = nil,
+        isOwn: Bool = true,
+        owner: ListPerson? = nil,
+        shelvedAt: Date? = nil
+    ) {
         self.id = id
         self.name = name
         self.itemCount = max(0, itemCount)
         self.covers = Array(covers.prefix(Self.coverLimit))
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.coverURL = coverURL
+        self.coverItemID = coverURL == nil ? nil : coverItemID
+        self.isOwn = isOwn
+        self.owner = owner
+        self.shelvedAt = shelvedAt ?? createdAt
     }
 
     enum CodingKeys: String, CodingKey {
-        case name, covers
+        case name, covers, owner
         case id = "list_id"
         case itemCount = "item_count"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case coverURL = "cover_url"
+        case coverItemID = "cover_item_id"
+        case isOwn = "is_own"
+        case shelvedAt = "shelved_at"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -50,19 +83,45 @@ public struct UserList: Sendable, Hashable, Identifiable, Decodable {
             itemCount: try container.decodeIfPresent(Int.self, forKey: .itemCount) ?? 0,
             covers: (try? container.decodeIfPresent([String].self, forKey: .covers)) ?? [],
             createdAt: try container.decode(Date.self, forKey: .createdAt),
-            updatedAt: try container.decode(Date.self, forKey: .updatedAt)
+            updatedAt: try container.decode(Date.self, forKey: .updatedAt),
+            coverURL: try container.decodeIfPresent(String.self, forKey: .coverURL),
+            coverItemID: try container.decodeIfPresent(UUID.self, forKey: .coverItemID),
+            isOwn: try container.decodeIfPresent(Bool.self, forKey: .isOwn) ?? true,
+            owner: try? container.decodeIfPresent(ListPerson.self, forKey: .owner),
+            shelvedAt: try container.decodeIfPresent(Date.self, forKey: .shelvedAt)
         )
     }
 
-    /// The shelf's keyset: `(created_at, list_id)`, newest first.
-    public var cursor: PageCursor { PageCursor(createdAt: createdAt, id: id) }
+    /// The shelf's keyset: `(shelved_at, list_id)`, newest first. For your own lists that is
+    /// `(created_at, list_id)`, as before.
+    public var cursor: PageCursor { PageCursor(createdAt: shelvedAt, id: id) }
 
     public static let coverLimit = 4
 
     func with(name: String? = nil, itemCount: Int? = nil, covers: [String]? = nil, updatedAt: Date? = nil) -> UserList {
         UserList(
             id: id, name: name ?? self.name, itemCount: itemCount ?? self.itemCount, covers: covers ?? self.covers,
-            createdAt: createdAt, updatedAt: updatedAt ?? self.updatedAt
+            createdAt: createdAt, updatedAt: updatedAt ?? self.updatedAt, coverURL: coverURL,
+            coverItemID: coverItemID, isOwn: isOwn, owner: owner, shelvedAt: shelvedAt
+        )
+    }
+
+    /// The same list under another cover — `nil`, automatic.
+    public func with(coverURL: String?, coverItemID: UUID?) -> UserList {
+        UserList(
+            id: id, name: name, itemCount: itemCount, covers: covers, createdAt: createdAt, updatedAt: updatedAt,
+            coverURL: coverURL, coverItemID: coverItemID, isOwn: isOwn, owner: owner, shelvedAt: shelvedAt
+        )
+    }
+
+    /// Server-made rows that carry no cover or owner (`create_list`, `rename_list`) take them from
+    /// what the phone already knew.
+    func keeping(_ known: UserList) -> UserList {
+        UserList(
+            id: id, name: name, itemCount: itemCount, covers: covers.isEmpty ? known.covers : covers,
+            createdAt: createdAt, updatedAt: updatedAt, coverURL: coverURL ?? known.coverURL,
+            coverItemID: coverItemID ?? known.coverItemID, isOwn: isOwn, owner: owner ?? known.owner,
+            shelvedAt: known.shelvedAt
         )
     }
 }
@@ -139,26 +198,50 @@ public struct ListItem: Sendable, Hashable, Identifiable, Decodable {
     }
 }
 
-/// **A list with its items** — `get_list`. Items in order, unpaged (≤ 100).
+/// **A list with its items** — `get_list`. Items in order, unpaged (≤ 100). Also who it belongs to and
+/// who else is on it (0073).
 public struct ListDetail: Sendable, Hashable, Decodable {
+    public enum Role: String, Sendable, Hashable, Decodable {
+        /// Yours: every edit.
+        case owner
+        /// Someone invited you and you have not answered: a preview.
+        case invited
+        /// On your shelf, someone else's: you view it.
+        case accepted
+    }
+
     public let list: UserList
     public let items: [ListItem]
+    public let role: Role
+    /// The owner sees everyone invited or accepted; a member sees the accepted.
+    public let people: [ListPerson]
 
-    public init(list: UserList, items: [ListItem]) {
+    public init(list: UserList, items: [ListItem], role: Role = .owner, people: [ListPerson] = []) {
         self.list = list
         self.items = items.sorted { $0.position < $1.position }
+        self.role = role
+        self.people = people
     }
 
     enum CodingKeys: String, CodingKey {
-        case items
+        case items, people
+        case role = "membership"
     }
 
     public init(from decoder: any Decoder) throws {
-        let items = try decoder.container(keyedBy: CodingKeys.self).decode([ListItem].self, forKey: .items)
-        // `get_list` carries no covers; they are the items' own photos, the shelf's rule.
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let items = try container.decode([ListItem].self, forKey: .items)
+        // The automatic covers are the items' own photos, the shelf's rule.
         let summary = try UserList(from: decoder)
-        self.init(list: summary.with(covers: ListCovers.of(items)), items: items)
+        self.init(
+            list: summary.with(covers: ListCovers.of(items)),
+            items: items,
+            role: (try? container.decodeIfPresent(Role.self, forKey: .role)) ?? .owner,
+            people: (try? container.decodeIfPresent([ListPerson].self, forKey: .people)) ?? []
+        )
     }
+
+    public var isOwn: Bool { role == .owner }
 }
 
 /// **A row of the dish picker** — `my_scored_dishes`: one per (visit, dish), newest visit first.

@@ -133,7 +133,7 @@ public final class ListsStore {
         lists[index] = before.with(name: name)
         do {
             let renamed = try await service.renameList(id: list.id, name: name)
-            replace(list.id, with: renamed.with(covers: before.covers))
+            replace(list.id, with: renamed.keeping(before))
             analytics(ListEvents.renamed())
             return true
         } catch {
@@ -174,6 +174,14 @@ public final class ListsStore {
     /// A list made somewhere else (the Add to a list sheet's New list): on top of the shelf.
     public func added(_ list: UserList) {
         guard lists.contains(where: { $0.id == list.id }) == false else { return }
+        lists.insert(list, at: 0)
+        settlePhase()
+    }
+
+    /// An invitation accepted (Notifications): the list joins the shelf on top, where the server
+    /// shelves it too.
+    public func accepted(_ list: UserList) {
+        lists.removeAll { $0.id == list.id }
         lists.insert(list, at: 0)
         settlePhase()
     }

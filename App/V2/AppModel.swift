@@ -26,6 +26,11 @@ final class AppModel {
     /// Your lists — one shelf, so a list changed on its own page or from Add to a list is current on
     /// the Journal's Lists shelf in the same turn.
     let lists: ListsStore
+    /// Other people's lists waiting on Accept or Decline (0073) — the Notifications page's group, and
+    /// a list's own preview, answer through this one.
+    let listInvites: ListInvitesStore
+    /// A tapped list-invite push, waiting for the shell to open Notifications.
+    var linkedInvites = false
     private(set) var hasSession: Bool
     private(set) var isSigningIn = false
     /// Apple's display name, first sign-in only: the handle screen's suggestion.
@@ -64,7 +69,9 @@ final class AppModel {
         self.savedDishes = shelf
         self.ownSaves = OwnSavesStore(service: services.ownSaves, analytics: services.analytics)
         self.notifications = NotificationsStore(reads: services.notifications, analytics: services.analytics)
-        self.lists = ListsStore(service: services.lists, analytics: services.analytics)
+        let lists = ListsStore(service: services.lists, analytics: services.analytics)
+        self.lists = lists
+        self.listInvites = ListInvitesStore(service: services.lists, shelf: lists, analytics: services.analytics)
         self.saves = SaveAction(
             saves: services.saves,
             analytics: services.analytics,

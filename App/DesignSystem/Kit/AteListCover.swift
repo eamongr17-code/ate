@@ -5,18 +5,30 @@ import SwiftUI
 /// dishes. Square, at the kit's 16 radius, straight (a cover is a picture of the list, not a mess):
 /// four or more photos make a 2×2 mosaic of the first four, fewer show the first one whole, and none
 /// is the list's own accent with its name set on it in Bricolage 800, ink in both modes.
+///
+/// A cover the owner picked (`list-cover-edit.html`) shows whole instead of the mosaic. A list someone
+/// shared with you carries their photo in its top corner (screen 8); the name and count under it stay
+/// exactly as on your own lists.
 struct AteListCover: View {
     enum Style: Equatable {
         /// A tile on the shelf's grid: as wide as its column.
         case tile
         /// The head of the list's own page: 224, lifted.
         case hero
+        /// The cover sheet's preview (`list-cover-edit.html` 2): 176, flat.
+        case preview
     }
 
     let id: UUID
     let name: String
     /// The list's photos, in list order (``AteKit/UserList/covers``, at most four).
     var covers: [String] = []
+    /// The picked cover (``AteKit/UserList/coverURL``); `nil` is the automatic mosaic.
+    var cover: String?
+    /// A photo just squared up in the cover sheet, before it has uploaded: it wins over everything.
+    var image: UIImage?
+    /// Whose list it is, when it is not yours.
+    var owner: ListPerson?
     /// Set by the shelf so neighbours never share a colour; `nil` is the list's own.
     var accentIndex: Int?
     var style: Style = .tile
@@ -27,17 +39,42 @@ struct AteListCover: View {
         let shape = RoundedRectangle(cornerRadius: AteListCoverMetrics.radius, style: .continuous)
         Color.clear
             .aspectRatio(1, contentMode: .fit)
-            .frame(width: style == .hero ? AteListCoverMetrics.hero : nil)
+            .frame(width: width)
             .overlay { art }
             .clipShape(shape)
             .ateBackground(palette.field, in: shape, shadow: style == .hero ? .cover : .flat)
+            .overlay(alignment: .topLeading) {
+                if let owner, style == .tile {
+                    AteAvatar(
+                        userID: owner.id, handle: owner.username, side: AteListCoverMetrics.ownerSide,
+                        url: owner.avatarURL.flatMap(URL.init(string:))
+                    )
+                    .overlay { Circle().strokeBorder(AteColor.overPhoto, lineWidth: AteListCoverMetrics.ownerRing) }
+                    .ateShadow(.badge)
+                    .padding(AteListCoverMetrics.ownerInset)
+                }
+            }
             .accessibilityHidden(true)
+    }
+
+    private var width: CGFloat? {
+        switch style {
+        case .tile: nil
+        case .hero: AteListCoverMetrics.hero
+        case .preview: AteListCoverMetrics.preview
+        }
     }
 
     @ViewBuilder
     private var art: some View {
         let photos = covers.map { AtePhoto.remote($0) }
-        if photos.count >= AteListCoverMetrics.mosaic {
+        if let image {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+        } else if let cover {
+            AtePhotoContent(photo: .remote(cover), size: .large)
+        } else if photos.count >= AteListCoverMetrics.mosaic {
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
                     quarter(photos[0])
@@ -57,7 +94,7 @@ struct AteListCover: View {
 
     private func quarter(_ photo: AtePhoto) -> some View {
         Color.clear
-            .overlay { AtePhotoContent(photo: photo, size: style == .hero ? .large : .thumbnail) }
+            .overlay { AtePhotoContent(photo: photo, size: style == .tile ? .thumbnail : .large) }
             .clipped()
     }
 
@@ -92,6 +129,8 @@ struct AteListTile: View {
     let name: String
     let count: Int
     var covers: [String] = []
+    var cover: String?
+    var owner: ListPerson?
     /// Still being made: drawn, not yet a door.
     var isPending = false
     var accentIndex: Int?
@@ -103,7 +142,7 @@ struct AteListTile: View {
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: AteListCoverMetrics.captionGap) {
-                AteListCover(id: id, name: name, covers: covers, accentIndex: accentIndex)
+                AteListCover(id: id, name: name, covers: covers, cover: cover, owner: owner, accentIndex: accentIndex)
                 Text(name)
                     .ateText(.kitListTileName)
                     .foregroundStyle(palette.fg)
@@ -120,7 +159,7 @@ struct AteListTile: View {
         .buttonStyle(.plain)
         .disabled(isPending)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(name)
+        .accessibilityLabel(owner.map { "\(name), @\($0.username)'s list" } ?? name)
         .accessibilityValue(ListTileCopy.dishes(count))
         .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier(identifier ?? "list.tile")
@@ -183,6 +222,8 @@ enum AteListCoverMetrics {
     /// `.cov{border-radius:16px}`; the hero `width:224px`.
     static let radius: CGFloat = 16
     static let hero: CGFloat = 224
+    /// The cover sheet's preview, `.prev{width:176px}`.
+    static let preview: CGFloat = 176
     /// Four photos or more make the mosaic.
     static let mosaic = 4
     /// `.cov.gen{padding:12px}`, and 18 on the hero.
@@ -202,4 +243,8 @@ enum AteListCoverMetrics {
     static let columnGap: CGFloat = 14
     static let rowGap: CGFloat = 20
     static let gutter: CGFloat = 16
+    /// A shared list's owner: `.owner{top:8px;left:8px;width:28px}` with a 2pt white ring.
+    static let ownerSide: CGFloat = 28
+    static let ownerInset: CGFloat = 8
+    static let ownerRing: CGFloat = 2
 }

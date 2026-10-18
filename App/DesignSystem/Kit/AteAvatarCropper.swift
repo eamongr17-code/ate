@@ -6,8 +6,17 @@ import SwiftUI
 /// hairline on the circle's edge. Drag to move it, pinch to zoom; it can never leave a gap in the
 /// circle (``AvatarCrop``). The glass close top left keeps the old photo; the ink tick top right
 /// hands back what is in the circle, in the photo's own pixels. No words on screen.
+///
+/// A list's cover (`list-cover-edit.html` screen 3) is the same screen with the cover's own rounded
+/// square in place of the circle — ``Frame/cover``.
 struct AteAvatarCropper: View {
+    enum Frame {
+        case circle
+        case cover
+    }
+
     let image: UIImage
+    var frame: Frame = .circle
     let onCancel: () -> Void
     let onDone: (CGRect) -> Void
 
@@ -40,11 +49,17 @@ struct AteAvatarCropper: View {
                 }
                 Path { path in
                     path.addRect(CGRect(origin: .zero, size: proxy.size))
-                    path.addEllipse(in: circle)
+                    switch frame {
+                    case .circle:
+                        path.addEllipse(in: circle)
+                    case .cover:
+                        path.addRoundedRect(in: circle, cornerSize: CGSize(
+                            width: AteListCoverMetrics.radius, height: AteListCoverMetrics.radius
+                        ), style: .continuous)
+                    }
                 }
                 .fill(AteKitColor.cropScrim, style: FillStyle(eoFill: true))
-                Circle()
-                    .strokeBorder(AteKitColor.cropRing, lineWidth: AteAvatarCropperMetrics.ring)
+                edge
                     .frame(width: diameter, height: diameter)
                     .offset(x: circle.minX, y: circle.minY)
             }
@@ -68,6 +83,17 @@ struct AteAvatarCropper: View {
         .environment(\.colorScheme, .dark)
         .accessibilityIdentifier("avatarCrop")
         .accessibilityAction(.escape, onCancel)
+    }
+
+    @ViewBuilder
+    private var edge: some View {
+        switch frame {
+        case .circle:
+            Circle().strokeBorder(AteKitColor.cropRing, lineWidth: AteAvatarCropperMetrics.ring)
+        case .cover:
+            RoundedRectangle(cornerRadius: AteListCoverMetrics.radius, style: .continuous)
+                .strokeBorder(AteKitColor.cropRing, lineWidth: AteAvatarCropperMetrics.ring)
+        }
     }
 
     /// One gesture for both, so letting go commits exactly what was drawn while it moved.

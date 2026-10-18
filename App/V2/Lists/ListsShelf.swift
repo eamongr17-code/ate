@@ -66,6 +66,8 @@ struct ListsShelf: View {
                     name: list.name,
                     count: list.itemCount,
                     covers: list.covers,
+                    cover: list.coverURL,
+                    owner: list.isOwn ? nil : list.owner,
                     isPending: lists.isPending(list),
                     accentIndex: accents[index],
                     identifier: "lists.card"

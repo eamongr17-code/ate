@@ -11,6 +11,8 @@ struct AteInkPill: View {
         case sheet
         /// An empty state: 44, `padding:0 24px`, Bricolage 600 at 15.
         case empty
+        /// Answering inside a row (a list invite's Accept): `.pill.sm`, 38, `padding:0 18px`, 600 at 14.
+        case row
     }
 
     let title: String
@@ -26,11 +28,11 @@ struct AteInkPill: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .ateText(size == .sheet ? .kitInkPill : .kitInkPillSmall)
+                .ateText(textStyle)
                 .lineLimit(1)
-                .padding(.horizontal, size == .sheet ? AteInkPillMetrics.sheetPadding : AteInkPillMetrics.emptyPadding)
+                .padding(.horizontal, padding)
                 .frame(maxWidth: size == .sheet ? .infinity : nil)
-                .frame(height: size == .sheet ? AteInkPillMetrics.sheetHeight : AteInkPillMetrics.emptyHeight)
+                .frame(height: height)
                 .foregroundStyle(isQuiet ? palette.fg : palette.inverted)
                 .background(isQuiet ? palette.field : palette.solid, in: .capsule)
                 .contentShape(.capsule)
@@ -40,6 +42,30 @@ struct AteInkPill: View {
         .opacity(isEnabled ? 1 : AteKitColor.disabledOpacity)
         .accessibilityIdentifier(identifier ?? "pill.\(title)")
     }
+
+    private var textStyle: AteTextStyle {
+        switch size {
+        case .sheet: .kitInkPill
+        case .empty: .kitInkPillSmall
+        case .row: .kitInkPillRow
+        }
+    }
+
+    private var padding: CGFloat {
+        switch size {
+        case .sheet: AteInkPillMetrics.sheetPadding
+        case .empty: AteInkPillMetrics.emptyPadding
+        case .row: AteInkPillMetrics.rowPadding
+        }
+    }
+
+    private var height: CGFloat {
+        switch size {
+        case .sheet: AteInkPillMetrics.sheetHeight
+        case .empty: AteInkPillMetrics.emptyHeight
+        case .row: AteInkPillMetrics.rowHeight
+        }
+    }
 }
 
 enum AteInkPillMetrics {
@@ -47,4 +73,6 @@ enum AteInkPillMetrics {
     static let sheetPadding: CGFloat = 20
     static let emptyHeight: CGFloat = 44
     static let emptyPadding: CGFloat = 24
+    static let rowHeight: CGFloat = 38
+    static let rowPadding: CGFloat = 18
 }
