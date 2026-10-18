@@ -1,5 +1,4 @@
 import AteKit
-import PhotosUI
 import SwiftUI
 
 /// **Settings** — the system's inset grouped list on the linen ground, the build's rows in its order:
@@ -10,7 +9,6 @@ struct V2SettingsList: View {
     let model: SettingsModel
     let context: V2PageContext
 
-    @State private var photo: PhotosPickerItem?
     @State private var isPickingPhoto = false
     @State private var isConfirmingDelete = false
     @State private var isShowingTutorial = false
@@ -65,7 +63,12 @@ struct V2SettingsList: View {
         }
         .ateGroupedList()
         .ateInlineTitle("Settings")
-        .photosPicker(isPresented: $isPickingPhoto, selection: $photo, matching: .images, photoLibrary: .shared())
+        // Apple's picker, then the photo placed in its circle; nothing is sent until the tick.
+        .ateAvatarPicker(
+            isPresented: $isPickingPhoto,
+            onFailure: { failure = .avatar },
+            onPicked: { jpeg in Task { await upload(jpeg) } }
+        )
         // The onboarding's three cards again, on their own: no handle, no photo ask, no sign-out.
         .fullScreenCover(isPresented: $isShowingTutorial) {
             V2Tutorial(handle: context.app.handle ?? model.handle ?? "") { reached, skipped in
@@ -103,10 +106,6 @@ struct V2SettingsList: View {
         }
         // Back from the handle page: the row shows what the server now holds.
         .onAppear { Task { await model.reloadIfLoaded() } }
-        .onChange(of: photo) { _, item in
-            guard let item else { return }
-            Task { await upload(item) }
-        }
     }
 
     // MARK: - Photo
@@ -136,18 +135,11 @@ struct V2SettingsList: View {
         .accessibilityHidden(true)
     }
 
-    /// Whatever the library hands over (a 12MP HEIC, usually) is drawn down to an avatar before it
-    /// leaves the phone: 512 on the long side, JPEG — the largest an avatar is ever shown is 76pt.
-    private func upload(_ item: PhotosPickerItem) async {
-        defer { photo = nil }
-        guard let data = try? await item.loadTransferable(type: Data.self),
-              let image = UIImage(data: data),
-              let jpeg = AvatarImage.jpeg(from: image) else {
-            failure = .avatar
-            return
-        }
+    /// What is in the circle, already drawn down to an avatar (``AvatarImage``): shown at once, dimmed
+    /// while it uploads.
+    private func upload(_ jpeg: Data) async {
         let previous = avatarPreview
-        avatarPreview = UIImage(data: jpeg) ?? image
+        avatarPreview = UIImage(data: jpeg)
         await model.setAvatar(AvatarUpload(data: jpeg))
         if model.didFail {
             // The row goes back to what the server still has, and the person is told.

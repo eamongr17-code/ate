@@ -22,6 +22,10 @@ enum AteKitColor {
     static let disabledOpacity: Double = 0.4
     /// What dims the other app under the share card — `.dim{background:rgba(0,0,0,.35)}`.
     static let shareScrim = Color.black.opacity(0.35)
+    /// Over the photo outside the avatar's circle while it is positioned — black at 60%.
+    static let cropScrim = AteColor.viewerGround.opacity(0.6)
+    /// The avatar circle's hairline edge over the photo.
+    static let cropRing = AteColor.overPhoto.opacity(0.9)
     /// The share card's grabber, in the surface's ink — `rgba(36,20,31,.2)`.
     static let grabberOpacity: Double = 0.2
 }
