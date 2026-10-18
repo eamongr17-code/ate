@@ -5,7 +5,8 @@
 # review. Idempotent. After the first setup, Beta's "Send to public link" job distributes
 # every new build, so nobody touches App Store Connect.
 #
-# Same ASC_* secrets as beta.yml, plus TF_CONTACT_PHONE (kept out of this public repo).
+# Same ASC_* secrets as beta.yml, plus an optional TF_CONTACT_PHONE
+# (otherwise the phone already in App Store Connect is kept).
 # Script: .github/scripts/testflight_external.py.
 
 name: TestFlight external
@@ -16,7 +17,7 @@ on:
       mode:
         description: "status (read-only) | setup | distribute"
         default: status
-  # Changing this lane re-runs it (idempotent): status, then setup once the phone secret exists.
+  # Changing this lane re-runs it (idempotent): status, then setup.
   push:
     branches: [claude/project-thread-2f9ty8]
     paths:

@@ -4,11 +4,11 @@
   setup       create/refresh the external group, beta app info and review details,
               then distribute the latest build (idempotent)
   distribute  add the newest processed build to the group and submit it for beta review
-  auto        what a push runs: status, then setup once the TF_CONTACT_PHONE secret exists
+  auto        what a push runs: status, then setup
 
 Auth: the same App Store Connect API key the Beta workflow uploads with
 (ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8). Copy and contact fields come from env;
-the contact phone is a repo secret so it stays out of this public repo.
+the contact phone stays the one already in App Store Connect (or the TF_CONTACT_PHONE secret).
 """
 import base64, json, os, sys, time, urllib.error, urllib.parse, urllib.request
 
@@ -123,11 +123,16 @@ def setup():
     print("beta app info set for", locale)
 
     detail = call("GET", f"/v1/apps/{app_id}/betaAppReviewDetail")["data"]
+    review = {
+        "contactFirstName": env("TF_CONTACT_FIRST"), "contactLastName": env("TF_CONTACT_LAST"),
+        "contactEmail": env("TF_CONTACT_EMAIL"), "demoAccountRequired": False, "notes": env("TF_REVIEW_NOTES")}
+    # The phone already in App Store Connect is kept unless the secret overrides it.
+    if os.environ.get("TF_CONTACT_PHONE", "").strip():
+        review["contactPhone"] = os.environ["TF_CONTACT_PHONE"].strip()
+    elif not detail["attributes"].get("contactPhone"):
+        sys.exit("::error::No contact phone in App Store Connect; set the TF_CONTACT_PHONE secret")
     call("PATCH", f"/v1/betaAppReviewDetails/{detail['id']}", {"data": {
-        "type": "betaAppReviewDetails", "id": detail["id"], "attributes": {
-            "contactFirstName": env("TF_CONTACT_FIRST"), "contactLastName": env("TF_CONTACT_LAST"),
-            "contactPhone": env("TF_CONTACT_PHONE"), "contactEmail": env("TF_CONTACT_EMAIL"),
-            "demoAccountRequired": False, "notes": env("TF_REVIEW_NOTES")}}})
+        "type": "betaAppReviewDetails", "id": detail["id"], "attributes": review}})
     print("beta review details set")
 
     g = group(app_id)
@@ -193,10 +198,7 @@ def distribute():
 
 def auto():
     status()
-    if os.environ.get("TF_CONTACT_PHONE", "").strip():
-        setup()
-    else:
-        print("::warning::TF_CONTACT_PHONE secret not set; setup skipped")
+    setup()
 
 
 if __name__ == "__main__":
