@@ -27,29 +27,6 @@ struct V2AppearancePage: View {
     }
 }
 
-/// **How Ate uses AI** — one page of plain words, in the voice the app uses for words. The words are
-/// the current build's (``AICopy``, a copy proposal Eamon has still to approve).
-struct V2AIPage: View {
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: AteMetrics.loose) {
-                ForEach(AICopy.paragraphs, id: \.self) { paragraph in
-                    Text(paragraph)
-                        .ateText(.proseLarge)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            .padding(.horizontal, AteMetrics.gutter)
-            .padding(.top, AteMetrics.regular)
-            .padding(.bottom, AteMetrics.section)
-        }
-        .scrollEdgeEffectStyle(.soft, for: .top)
-        .ateGround()
-        .ateInlineTitle("How Ate uses AI")
-    }
-}
-
 /// **Blocked people** — who, and one way to undo it: Unblock in each row's swipe. Nobody blocked
 /// draws nothing: an empty list is the state, and a line saying so would be helper copy.
 struct V2BlockedPeoplePage: View {
@@ -76,5 +53,55 @@ struct V2BlockedPeoplePage: View {
         .ateInlineTitle("Blocked people")
         .task { await store.loadIfNeeded() }
         .refreshable { await store.refresh() }
+    }
+}
+
+/// **Privacy** and **Terms** — the documents themselves, on the ground, rather than a web page
+/// (``LegalDocument``): its headings in the heading voice, its paragraphs and points in the prose.
+struct V2LegalPage: View {
+    let document: LegalDocument
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: AteMetrics.regular) {
+                ForEach(Array(document.blocks.enumerated()), id: \.offset) { _, block in
+                    row(block)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, AteMetrics.gutter)
+            .padding(.top, AteMetrics.regular)
+            .padding(.bottom, AteMetrics.section)
+        }
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .ateGround()
+        .ateInlineTitle(document.title)
+    }
+
+    @ViewBuilder
+    private func row(_ block: LegalDocument.Block) -> some View {
+        switch block {
+        case .heading(let text):
+            Text(text)
+                .ateText(.slipDish)
+                .accessibilityAddTraits(.isHeader)
+                .padding(.top, AteMetrics.regular)
+        case .paragraph(let text):
+            prose(text)
+        case .bullet(let text):
+            HStack(alignment: .firstTextBaseline, spacing: AteMetrics.snug) {
+                Text(verbatim: "•").ateText(.prose).accessibilityHidden(true)
+                prose(text)
+            }
+        }
+    }
+
+    /// `**Bold**` and `_italic_` drawn, not printed.
+    private func prose(_ text: String) -> some View {
+        let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        return Text((try? AttributedString(markdown: text, options: options)) ?? AttributedString(text))
+            .ateText(.prose)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

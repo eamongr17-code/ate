@@ -11,10 +11,10 @@ enum SettingsPage: Hashable {
     case handle(current: String?)
     /// Appearance: System / Light / Dark.
     case appearance
-    /// How Ate uses AI.
-    case artificialIntelligence
     /// Blocked people.
     case blocked
-    /// The component kit's gallery — Debug and Beta builds only, from a row at Settings' foot.
-    case kit
+    /// The privacy policy, in the app (``LegalDocument/privacy``).
+    case privacy
+    /// The terms, in the app (``LegalDocument/terms``).
+    case terms
 }

@@ -42,7 +42,7 @@ public struct LaunchRoute: Equatable, Sendable {
     }
 
     public enum SettingsPage: String, Sendable, CaseIterable {
-        case handle, appearance, ai, blocked
+        case handle, appearance, blocked, privacy, terms
     }
 
     /// A screen's starting state, as a query item.
