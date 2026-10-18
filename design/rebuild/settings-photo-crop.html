@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Photo Crop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Newsreader:opsz,wght@6..72,400&family=Young+Serif&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:#EFEAE2; --fg:#24141F; --muted:#5E5560; --hair:rgba(36,20,31,.14); --lilac:#B9A5EA; --green:#3ECF64;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --ground:#17111B; --fg:#F4EFE9; --muted:#B9AFBC; --hair:rgba(255,255,255,.16); color-scheme:dark; } }
+:root[data-theme="dark"]{ --ground:#17111B; --fg:#F4EFE9; --muted:#B9AFBC; --hair:rgba(255,255,255,.16); color-scheme:dark; }
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--fg);font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.5;margin:0;padding:40px 16px 80px}
+.wrap{max-width:900px;margin:0 auto}
+h1{font:400 34px/1.05 "Young Serif",Georgia,serif;letter-spacing:-.02em;margin:0 0 10px}
+h3{font:600 16px/1.3 "Bricolage Grotesque",sans-serif;margin:14px 0 4px}
+.note{color:var(--muted);font-size:15px;margin:0 0 28px}
+.tag{display:inline-block;border-radius:999px;padding:2px 10px;font:600 12.5px/1.5 "Bricolage Grotesque",sans-serif;color:#24141F;background:var(--lilac);margin-left:6px;vertical-align:2px}
+.tag.rec{background:var(--green)}
+.row{display:flex;gap:36px;flex-wrap:wrap;justify-content:center}
+.cell{width:402px;max-width:100%}
+.cell p{font-size:14.5px;color:var(--muted);line-height:1.4;margin:0}
+
+/* the phone, at device scale: 402 x 874 */
+.ph{position:relative;width:402px;height:874px;max-width:100%;border-radius:54px;overflow:hidden;
+  box-shadow:0 0 0 1px var(--hair),0 18px 40px rgba(36,20,31,.14);touch-action:none;user-select:none}
+.status{position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;
+  padding:4px 34px 0 46px;font:600 17px "Bricolage Grotesque",sans-serif;z-index:5}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;border-radius:20px;background:#000;z-index:6}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:140px;height:5px;border-radius:3px;z-index:6}
+
+.photo{position:absolute;left:0;top:0;transform-origin:0 0;cursor:grab;will-change:transform}
+.photo:active{cursor:grabbing}
+.mask{position:absolute;inset:0;pointer-events:none}
+.mask circle.ring{fill:none;stroke:rgba(255,255,255,.9);stroke-width:1}
+
+/* glass disc + ink tick, as the app's sheets have them */
+.disc{position:absolute;top:62px;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:5;border:0;padding:0;cursor:pointer}
+.glass-dark{background:rgba(62,50,64,.58);backdrop-filter:blur(18px) saturate(1.7);-webkit-backdrop-filter:blur(18px) saturate(1.7);
+  box-shadow:inset 0 0 0 .5px rgba(255,255,255,.16),inset 0 1px 1px rgba(255,255,255,.16);color:#F4EFE9}
+.glass-light{background:rgba(255,255,255,.62);backdrop-filter:blur(18px) saturate(1.7);-webkit-backdrop-filter:blur(18px) saturate(1.7);
+  box-shadow:inset 0 0 0 .5px rgba(255,255,255,.9),inset 0 1px 1px rgba(255,255,255,.9),0 0 0 .5px rgba(36,20,31,.10),0 8px 22px rgba(36,20,31,.12);color:#24141F}
+.tick{background:#24141F;color:#fff;box-shadow:inset 0 1px 1px rgba(255,255,255,.25),0 6px 16px rgba(36,20,31,.25)}
+.tick.light{background:#E9E1D6;color:#24141F}
+.l{left:20px}.r{right:20px}
+
+/* B: on the ground */
+.b .pill{position:absolute;left:20px;right:20px;bottom:76px;height:52px;border-radius:26px;background:#24141F;color:#fff;
+  display:flex;align-items:center;justify-content:center;font:700 16px "Bricolage Grotesque",sans-serif;letter-spacing:-.01em;z-index:5}
+.b .link{position:absolute;left:0;right:0;bottom:36px;text-align:center;font:600 16px "Bricolage Grotesque",sans-serif;color:#24141F;z-index:5}
+
+.reset{font:600 13px "Bricolage Grotesque",sans-serif;color:var(--muted);background:none;border:1px solid var(--hair);border-radius:999px;padding:4px 12px;margin-top:10px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Your photo, in its circle</h1>
+  <p class="note">Settings → Photo → pick a photo → this screen, before anything is saved. Drag to move, pinch (or scroll) to zoom; the photo can never leave a gap in the circle. Tick saves exactly what's in the circle; the close goes back to Settings with the old photo. Both phones are live at real iPhone 17 Pro size.</p>
+
+  <div class="row">
+    <div class="cell">
+      <div class="ph a" id="a">
+        <div class="island"></div>
+        <div class="status" style="color:#fff"><span>9:41</span><span>●●●</span></div>
+        <button class="disc glass-dark l" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        <button class="disc tick light r" aria-label="Done"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button>
+        <div class="home" style="background:#fff"></div>
+      </div>
+      <h3>A · Dark, full screen <span class="tag rec">Recommended</span></h3>
+      <p>What iOS itself does when you set a contact photo: the whole photo on black, dimmed outside the circle so you can see what you're cutting off. The close and the tick are the same glass disc and ink tick as every sheet in Ate. No words on screen.</p>
+      <button class="reset" data-reset="a">Reset</button>
+    </div>
+
+    <div class="cell">
+      <div class="ph b" id="b" style="background:#EFEAE2">
+        <div class="island"></div>
+        <div class="status" style="color:#24141F"><span>9:41</span><span>●●●</span></div>
+        <button class="disc glass-light l" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        <div class="pill">Use photo</div>
+        <div class="link">Choose another</div>
+        <div class="home" style="background:#24141F"></div>
+      </div>
+      <h3>B · On the ground</h3>
+      <p>The linen ground, the photo faint outside the circle. An ink pill saves; "Choose another" reopens the picker. Feels more like Ate, less like iOS, and shows less of the photo around the circle.</p>
+      <button class="reset" data-reset="b">Reset</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// A stand-in photo: a portrait at a café table, drawn so it has a face to centre.
+const PHOTO = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1200" viewBox="0 0 900 1200">
+<defs><linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C9A27E"/><stop offset="1" stop-color="#8E6A4E"/></linearGradient>
+<linearGradient id="t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5B3A2A"/><stop offset="1" stop-color="#3A2419"/></linearGradient></defs>
+<rect width="900" height="1200" fill="url(#w)"/>
+<rect x="60" y="80" width="260" height="360" rx="8" fill="#E8D9C3" opacity=".55"/>
+<rect x="600" y="140" width="220" height="300" rx="8" fill="#F3E6D2" opacity=".45"/>
+<circle cx="700" cy="520" r="60" fill="#F6D365" opacity=".5"/>
+<path d="M240 1200 C250 900 330 800 450 800 C570 800 650 900 660 1200Z" fill="#3E5C76"/>
+<rect x="405" y="700" width="90" height="120" rx="30" fill="#D9A47F"/>
+<ellipse cx="450" cy="590" rx="150" ry="175" fill="#E2B08B"/>
+<path d="M300 560 C300 420 380 380 455 380 C540 380 610 430 605 560 C580 480 520 470 450 470 C380 470 330 490 300 560Z" fill="#2E1E18"/>
+<circle cx="395" cy="600" r="11" fill="#2E1E18"/><circle cx="505" cy="600" r="11" fill="#2E1E18"/>
+<path d="M410 680 Q450 708 490 680" stroke="#8A4A3A" stroke-width="9" fill="none" stroke-linecap="round"/>
+<rect x="0" y="1040" width="900" height="160" fill="url(#t)"/>
+<ellipse cx="190" cy="1060" rx="120" ry="34" fill="#fff"/><ellipse cx="190" cy="1052" rx="80" ry="20" fill="#F0623F"/>
+<rect x="690" y="960" width="70" height="110" rx="10" fill="#fff" opacity=".85"/>
+</svg>`);
+
+const D = 320;          // the circle, 320 across
+const CY = 437;         // centred on the screen
+
+function setup(id, opts){
+  const ph = document.getElementById(id);
+  const W = ph.clientWidth, H = ph.clientHeight;
+  const cx = W/2, cy = CY;
+  const img = new Image(); img.src = PHOTO; img.className = 'photo'; img.draggable = false;
+  img.width = 900; img.height = 1200;
+  ph.insertBefore(img, ph.querySelector('.disc'));
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns,'svg'); svg.setAttribute('class','mask'); svg.setAttribute('width',W); svg.setAttribute('height',H);
+  svg.innerHTML = `<defs><mask id="m${id}"><rect width="${W}" height="${H}" fill="#fff"/><circle cx="${cx}" cy="${cy}" r="${D/2}" fill="#000"/></mask></defs>
+    <rect width="${W}" height="${H}" fill="${opts.dim}" mask="url(#m${id})"/>
+    ${opts.ring ? `<circle class="ring" cx="${cx}" cy="${cy}" r="${D/2}"/>` : ''}`;
+  ph.insertBefore(svg, ph.querySelector('.disc'));
+
+  const min = D / Math.min(900,1200);   // smallest scale that still fills the circle
+  let s, x, y;
+  function reset(){ s = Math.max(min, opts.start(W)/900); x = cx - 900*s/2; y = cy - 1200*s*0.47; clamp(); draw(); }
+  function clamp(){
+    s = Math.min(Math.max(s, min), min*5);
+    const w = 900*s, h = 1200*s;
+    x = Math.min(cx - D/2, Math.max(cx + D/2 - w, x));
+    y = Math.min(cy - D/2, Math.max(cy + D/2 - h, y));
+  }
+  function draw(){ img.style.transform = `translate(${x}px,${y}px) scale(${s})`; }
+  function zoom(f, px, py){ const ns2 = Math.min(Math.max(s*f, min), min*5); const k = ns2/s; x = px - (px-x)*k; y = py - (py-y)*k; s = ns2; clamp(); draw(); }
+
+  const pts = new Map(); let last = null;
+  ph.addEventListener('pointerdown', e => { if (e.target.closest('.disc,.pill,.link')) return; ph.setPointerCapture(e.pointerId); pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); last = null; });
+  ph.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    const prev = pts.get(e.pointerId); pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if (pts.size === 1){ x += e.clientX-prev.x; y += e.clientY-prev.y; clamp(); draw(); }
+    else if (pts.size === 2){
+      const [p,q] = [...pts.values()]; const d = Math.hypot(p.x-q.x,p.y-q.y);
+      const r = ph.getBoundingClientRect(); const mx=(p.x+q.x)/2-r.left, my=(p.y+q.y)/2-r.top;
+      if (last) zoom(d/last, mx, my); last = d;
+    }
+  });
+  const up = e => { pts.delete(e.pointerId); last = null; };
+  ph.addEventListener('pointerup', up); ph.addEventListener('pointercancel', up);
+  ph.addEventListener('wheel', e => { e.preventDefault(); const r = ph.getBoundingClientRect(); zoom(Math.exp(-e.deltaY/400), e.clientX-r.left, e.clientY-r.top); }, {passive:false});
+  document.querySelector(`[data-reset="${id}"]`).onclick = reset;
+  img.onload = reset; if (img.complete) reset();
+}
+setup('a', {dim:'rgba(0,0,0,.6)', ring:true, start:W=>W});
+document.getElementById('a').style.background = '#000';
+setup('b', {dim:'rgba(239,234,226,.86)', ring:false, start:()=>D});
+</script>
+</body>
+</html>
