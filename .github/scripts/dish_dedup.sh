@@ -11,10 +11,15 @@ ref="$1"
 action="$2"
 raw_ids="${3:-}"
 
-key=$(supabase projects api-keys --project-ref "$ref" -o json \
-  | jq -r '[.[] | select(.name == "service_role")][0].api_key // empty')
-[ -n "$key" ] || { echo "::error::No service_role key for $ref"; exit 1; }
+# A secret key (sb_secret_…) when the project has one, else the legacy service_role key: a project on
+# the new API keys may have the legacy ones switched off. --reveal is tried first (newer CLIs mask secrets).
+keys=$(supabase projects api-keys --project-ref "$ref" --reveal -o json 2>/dev/null \
+  || supabase projects api-keys --project-ref "$ref" -o json)
+key=$(echo "$keys" | jq -r '([.[] | select((.api_key // "") | test("^sb_secret_[A-Za-z0-9_-]+$"))][0].api_key)
+                           // ([.[] | select(.name == "service_role")][0].api_key) // empty')
+[ -n "$key" ] || { echo "::error::No secret or service_role key for $ref"; exit 1; }
 echo "::add-mask::$key"
+case "$key" in sb_secret_*) echo "Using the project's secret key" ;; *) echo "Using the legacy service_role key" ;; esac
 
 case "$action" in
   scan) body='{"action":"scan"}' ;;
