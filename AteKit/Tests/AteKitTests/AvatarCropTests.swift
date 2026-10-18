@@ -9,7 +9,7 @@ struct AvatarCropTests {
 
     @Test("starts filling the circle, centred")
     func starts() {
-        #expect(crop.scale == 300.0 / 900.0)
+        #expect(abs(crop.scale - 1.0 / 3.0) < 0.000_001)
         #expect(abs(crop.origin.x) < 0.001 && abs(crop.origin.y + 50) < 0.001)
         #expect(close(crop.cropRect, CGRect(x: 0, y: 150, width: 900, height: 900)))
     }
