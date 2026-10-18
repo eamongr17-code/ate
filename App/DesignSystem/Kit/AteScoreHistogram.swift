@@ -5,11 +5,11 @@ import SwiftUI
 /// disagree about the shape of your own taste. An eleventh bar, the secret 6 in brick, is drawn once
 /// one has been given (``ScoreHistogram/drawnScores``).
 ///
-/// Butter, because butter is the colour a score is printed on everywhere else. The lit bar on
-/// Ratings is ink (the contract keeps coral to the Share and Welcome grounds). A bucket nobody has
+/// Butter, because butter is the colour a score is printed on everywhere else. With a bar lit on
+/// Ratings, it keeps its colour and the others go quiet grey (18 Oct, A; it was ink). A bucket nobody has
 /// used is drawn as **nothing** — not a stub: a score is never inferred.
 ///
-/// The `ScoreHistogramView` of the current build, with the lit bar re-coloured and each bar a button
+/// The `ScoreHistogramView` of the current build, with the lit bar spotlit and each bar a button
 /// that ticks the selection haptic.
 struct AteScoreHistogram: View {
     let histogram: ScoreHistogram
@@ -44,7 +44,7 @@ struct AteScoreHistogram: View {
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
                 AteScoreHistogramBar()
-                    .fill(isLit ? palette.fg : Self.fill(for: score))
+                    .fill(isLit || selected == nil ? Self.fill(for: score) : AteHistogramColor.rest)
                     .frame(height: height(for: score))
             }
             .frame(maxWidth: .infinity)

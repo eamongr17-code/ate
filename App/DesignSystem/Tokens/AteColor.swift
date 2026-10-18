@@ -161,6 +161,12 @@ enum AteCalendarColor {
     static let overPhoto = Color.white
 }
 
+/// **The ratings chart's spotlight** (18 Oct, Eamon picked A): with a bar tapped, it keeps its
+/// score colour and every other bar goes to the calendar's quiet grey.
+enum AteHistogramColor {
+    static let rest = Color(light: Color(hex: 0xD9D2C8), dark: AteColor.raisedDark)
+}
+
 /// **The Feed's edition** (round 8, `Main`): its quiet rules and its New to the record badges.
 enum AteFeedColor {
     /// `#D9D2C8` — The Top Ate's dashed rules and the lines either side of "You're caught up" (the

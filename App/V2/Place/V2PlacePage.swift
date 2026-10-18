@@ -131,6 +131,7 @@ struct V2PlacePage: View {
                         dish: dish,
                         rank: index + 1,
                         photo: .dish(letters[index], cover: dish.coverURLString),
+                        place: store.name,
                         onPhoto: { context.services.analytics(DetailEvents.menuPhotoOpened()) },
                         onOpen: { open(dish) }
                     )
@@ -235,6 +236,7 @@ private struct V2MenuRow: View {
     let dish: MenuDish
     let rank: Int
     let photo: AtePhoto
+    let place: String?
     let onPhoto: () -> Void
     let onOpen: () -> Void
 
@@ -247,7 +249,8 @@ private struct V2MenuRow: View {
             style: .menu(rank: rank),
             isFirst: rank == 1,
             onOpen: onOpen,
-            onPhoto: onPhoto
+            onPhoto: onPhoto,
+            photoByline: place
         )
         .accessibilityIdentifier("place.dish")
     }

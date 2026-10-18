@@ -25,22 +25,6 @@ struct AtePhotoViewerAction: Sendable {
     }
 }
 
-/// Which dish each of an entry's photos is, as the viewer needs it.
-struct AtePhotoDishes: Sendable {
-    /// The entry's dishes, in receipt order.
-    var choices: [AtePhotoDishPill.Dish]
-    /// Photo URL → dish (review) id.
-    var paired: [String: UUID]
-    /// The author fixing one: the photo's URL and the dish, or `nil` for No dish. Answers whether it
-    /// held. `nil` on anybody else's entry: the pill only names.
-    var onPick: (@MainActor @Sendable (String, UUID?) async -> Bool)?
-    /// Reads the pairs as they stand now, once the viewer is up: a list's slip has none in hand, and
-    /// a match that lands while the entry is open shows without reopening it (14 Oct).
-    var load: (@MainActor @Sendable () async -> [String: UUID])?
-    /// Who and where, under the dish on somebody else's photo: "@paris · 400 Gradi".
-    var byline: String?
-}
-
 extension EnvironmentValues {
     @Entry var atePhotoViewer = AtePhotoViewerAction()
 }
@@ -236,7 +220,7 @@ struct AtePhotoViewer: View {
         if let dishes, photos.indices.contains(index), let url = photos[index].url?.absoluteString {
             let current = paired[url].flatMap { id in dishes.choices.first { $0.id == id } }
             if dishes.onPick == nil {
-                if let current { AtePhotoDishCaption(dish: current.name, byline: dishes.byline) }
+                if let current { AtePhotoDishCaption(dish: current.name, byline: dishes.bylines[url] ?? dishes.byline) }
             } else {
                 AtePhotoDishPill(dish: current, choices: dishes.choices, onPick: dishes.onPick.map { pick in
                     { (choice: AtePhotoDishPill.Dish?) in choose(choice, for: url, with: pick) }

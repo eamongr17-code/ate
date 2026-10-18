@@ -1,0 +1,76 @@
+<title>Ratings Lit Bar</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Young+Serif&family=DM+Mono:wght@400&display=swap">
+<style>
+/* Layout: three iPhone frames at 393×852, light on top, the same three in dark below. Colours are AteColor tokens. */
+:root {
+  --page: #f3f1ee; --label: #24141f; --labelMuted: #6d6862; --rec: #2f7a4f;
+  --ground: #EFEAE2; --fg: #24141F; --muted: #5E5560; --hair: #D9D2C8;
+  --butter: #F6D365; --brick: #B23A1E; --coral: #F0623F; --sky: #36AEE6; --quiet: #D9D2C8; --chip: #fff;
+  --serif: "Young Serif", Georgia, serif; --sans: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif; --mono: "DM Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --page: #141312; --label: #f1eee9; --labelMuted: #a39d95; --rec: #6cc590; color-scheme: dark } }
+:root[data-theme="dark"] { --page: #141312; --label: #f1eee9; --labelMuted: #a39d95; --rec: #6cc590; color-scheme: dark }
+.dark { --ground: #0C0C0D; --fg: #F5F4F1; --muted: #A5A4A8; --hair: #3A3A3C; --butter: #E6C65F; --quiet: #3A3A3C; --chip: #2C2C2E; }
+body { background: var(--page); color: var(--label); font-family: var(--sans); }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 48px; display: grid; gap: 28px; justify-items: center; }
+h1 { font-size: 22px; font-weight: 800; margin: 0; text-align: center; text-wrap: balance; }
+.row { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; }
+figure { margin: 0; display: grid; gap: 10px; justify-items: center; }
+figcaption { font-size: 15px; font-weight: 600; text-align: center; max-width: 393px; }
+figcaption small { display: block; font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--labelMuted); margin-top: 4px; }
+.rec { color: var(--rec); }
+.phone { width: 393px; max-width: 100%; aspect-ratio: 393 / 852; background: var(--ground); color: var(--fg); border-radius: 48px; overflow: hidden; box-shadow: 0 0 0 1px rgba(127,127,127,.25); padding: 62px 20px 0; box-sizing: border-box; display: flex; flex-direction: column; }
+.phone.short { aspect-ratio: 393 / 470; }
+.back { width: 44px; height: 44px; border-radius: 50%; background: var(--chip); display: grid; place-items: center; font-size: 22px; margin-left: -4px; }
+.title { font-family: var(--serif); font-size: 34px; margin: 14px 0 22px; letter-spacing: -.02em; }
+.chart { display: flex; align-items: flex-end; gap: 4px; height: 92px; }
+.chart i { flex: 1; border-radius: 6px 6px 0 0; }
+.scale { display: flex; gap: 4px; margin-top: 8px; font-family: var(--mono); font-size: 10px; color: var(--muted); }
+.scale span { flex: 1; text-align: center; height: 13px; }
+.group { display: flex; align-items: center; gap: 8px; margin-top: 28px; padding-bottom: 8px; }
+.group b { font-weight: 800; font-size: 22px; }
+.stars { color: var(--fg); font-size: 15px; letter-spacing: 1px; }
+.group .n { margin-left: auto; color: var(--muted); font-size: 14px; }
+.dish { display: flex; align-items: center; gap: 12px; height: 76px; border-top: .5px solid var(--hair); }
+.dish:first-of-type { border-top: 0; }
+.tile { width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center; font-family: var(--serif); font-size: 26px; color: #24141F; flex: none; }
+.dish div { flex: 1; min-width: 0; }
+.dish p { margin: 0; font-weight: 600; font-size: 17px; }
+.dish span { color: var(--muted); font-size: 13px; }
+.tok { background: var(--butter); color: #24141F; font-weight: 800; font-size: 14px; border-radius: 8px; padding: 4px 7px; }
+</style>
+
+<div class="wrap">
+  <h1>Ratings chart: the bar you tapped</h1>
+  <div class="row" id="light"></div>
+  <h1>Dark mode</h1>
+  <div class="row" id="dark"></div>
+</div>
+
+<script>
+const counts = [0, 1, 0, 2, 3, 5, 9, 14, 11, 6]; // 0.5 … 5, highest 4.0
+const lit = 8; // 4.5 tapped
+const options = [
+  { key: "A", name: "A · Butter spotlight", note: "Tapped bar stays butter, the rest go quiet grey", rec: true, litFill: "var(--butter)", rest: "var(--quiet)" },
+  { key: "B", name: "B · Coral", note: "Tapped bar in brand coral, the rest butter", litFill: "var(--coral)", rest: "var(--butter)" },
+  { key: "C", name: "C · Sky", note: "Tapped bar in sky blue, the rest butter", litFill: "var(--sky)", rest: "var(--butter)" },
+];
+const dishes = [["T", "Tagliatelle al Ragù", "Tipo 00", "#F490D4"], ["F", "Fried Chicken Bao", "Gami", "#B9A5EA"], ["M", "Margherita", "400 Gradi", "#3ECF64"], ["P", "Prawn Toast", "Supernormal", "#36AEE6"]];
+function phone(o, dark) {
+  const max = Math.max(...counts);
+  const bars = counts.map((c, i) => {
+    const h = c ? Math.max(4, Math.round(88 * c / max)) : 0;
+    return `<i style="height:${h}px;background:${i === lit ? o.litFill : o.rest}"></i>`;
+  }).join("");
+  const scale = counts.map((_, i) => `<span>${(i + 1) % 2 === 0 ? (i + 1) / 2 : ""}</span>`).join("");
+  const rows = dark ? "" : dishes.map(d => `<div class="dish"><span class="tile" style="background:${d[3]}">${d[0]}</span><div><p>${d[1]}</p><span>${d[2]}</span></div><span class="tok">4.5</span></div>`).join("");
+  return `<figure><div class="phone ${dark ? "dark short" : ""}">
+    <div class="back">‹</div><div class="title">Ratings</div>
+    <div class="chart">${bars}</div><div class="scale">${scale}</div>
+    <div class="group"><b>4.5</b><span class="stars">★★★★½</span><span class="n">11 dishes</span></div>${rows}
+  </div><figcaption>${o.name}${o.rec ? ' <span class="rec">· recommended</span>' : ""}<small>${o.note}</small></figcaption></figure>`;
+}
+document.getElementById("light").innerHTML = options.map(o => phone(o, false)).join("");
+document.getElementById("dark").innerHTML = options.map(o => phone(o, true)).join("");
+</script>

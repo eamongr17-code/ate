@@ -17,6 +17,8 @@ import SwiftUI
 /// `.large` beside it only when the content is taller than the screen (where the body scrolls). It
 /// only grows while it is up, so a list that thins out never jumps under the thumb. A caller that
 /// passes `detents` (the composer, the printed receipt) takes the whole height and lays its own body.
+/// A sheet that goes up before a list of unknown length has arrived sets `holdsFullHeight`, and stands
+/// at full height until it lands, so the rows fill in without the sheet rising under them.
 struct AteSheetScaffold<Content: View>: View {
     typealias Primary = AteSheetPrimary
     typealias Commit = AteSheetCommit
@@ -29,12 +31,16 @@ struct AteSheetScaffold<Content: View>: View {
     var commit: Commit?
     /// `nil` fits the sheet to its content; a set takes over (and the body is not wrapped in a scroll).
     var detents: Set<PresentationDetent>?
+    /// Rows of unknown number are still on their way: the sheet stands at full height from the first
+    /// frame this is true, and stays there (it only grows while it is up).
+    var holdsFullHeight = false
     /// What close does; dismisses the sheet by default.
     var onClose: (() -> Void)?
     @ViewBuilder var content: Content
 
     @Environment(\.dismiss) private var dismiss
     @State private var fit = AteSheetFit(gap: 0, bottom: 0)
+    @State private var isHeldFull = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -67,6 +73,7 @@ struct AteSheetScaffold<Content: View>: View {
         .foregroundStyle(AtePalette.surface.fg)
         .background(AtePalette.surface.ground)
         .onChange(of: commit != nil, initial: true) { _, has in fit.hasFoot = has }
+        .onChange(of: holdsFullHeight, initial: true) { _, holds in if holds { isHeldFull = true } }
         .presentationDetents(detents ?? fittedDetents)
         .presentationDragIndicator(.visible)
         .presentationBackground(AtePalette.surface.ground)
@@ -90,6 +97,7 @@ struct AteSheetScaffold<Content: View>: View {
     /// joins it only when that is taller than the screen allows. Before the first measurement, the
     /// medium detent stands in for one layout pass.
     private var fittedDetents: Set<PresentationDetent> {
+        if isHeldFull { return [.large] }
         guard fit.tallest > 0 else { return [.medium] }
         let available = AteScreen.height - AteScreen.safeArea.top - AteScreen.safeArea.bottom
         return fit.tallest >= available ? [.large] : [.height(fit.tallest)]
