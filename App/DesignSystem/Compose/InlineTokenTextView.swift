@@ -13,6 +13,11 @@ enum CaretMetrics {
     static let drop: CGFloat = 4
     /// `margin-left:1px`.
     static let gap: CGFloat = 1
+    /// The room left of the first glyph of every line, so a caret at a line's start stands *before*
+    /// that glyph (the placeholder's "W", a first word) instead of over it. The text view is inset by
+    /// this much and the host pulls its leading padding in by the same, so the words still sit on the
+    /// gutter.
+    static let lead: CGFloat = width + gap
 }
 
 /// A `UITextView` with a placeholder, a plain-text pasteboard, and the design's caret.
@@ -56,7 +61,7 @@ final class InlineTokenTextView: UITextView {
         addSubview(placeholderLabel)
         NSLayoutConstraint.activate([
             placeholderLabel.topAnchor.constraint(equalTo: topAnchor),
-            placeholderLabel.leadingAnchor.constraint(equalTo: leadingAnchor),
+            placeholderLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: CaretMetrics.lead),
             placeholderLabel.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
     }
@@ -84,8 +89,11 @@ final class InlineTokenTextView: UITextView {
               let font = typingAttributes[.font] as? UIFont else { return system }
         let em = font.pointSize / CaretMetrics.designProse
         guard let baseline = baseline(near: system, font: font) else { return system }
+        // At a line's start there is no glyph to stand clear of, only the one after: the caret goes
+        // in the lead, a point clear of it. Anywhere else it follows the last glyph.
+        let atLineStart = system.minX <= textContainerInset.left + 0.5
         return CGRect(
-            x: system.minX + CaretMetrics.gap * em,
+            x: atLineStart ? textContainerInset.left - CaretMetrics.lead : system.minX + CaretMetrics.gap * em,
             y: baseline - (CaretMetrics.height - CaretMetrics.drop) * em,
             width: CaretMetrics.width,
             height: CaretMetrics.height * em

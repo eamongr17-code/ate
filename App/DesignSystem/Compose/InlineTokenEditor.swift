@@ -88,7 +88,8 @@ struct InlineTokenEditor: UIViewRepresentable {
         view.tintColor = UIColor(AteColor.coral)
         view.isScrollEnabled = true
         view.alwaysBounceVertical = true
-        view.textContainerInset = .zero
+        // Room for the caret before a line's first glyph (`CaretMetrics.lead`).
+        view.textContainerInset = UIEdgeInsets(top: 0, left: CaretMetrics.lead, bottom: 0, right: 0)
         view.textContainer.lineFragmentPadding = 0
         view.keyboardDismissMode = .interactive
         view.autocorrectionType = .yes
