@@ -18,7 +18,13 @@ struct AteTitle: View {
     var endsWithWordmark = false
 
     var body: some View {
-        AteExactText(text: text, style: style, alignment: alignment, endsWithWordmark: endsWithWordmark)
+        Group {
+            if endsWithWordmark {
+                WordmarkTitle(text: text, style: style)
+            } else {
+                AteExactText(text: text, style: style, alignment: alignment)
+            }
+        }
             .accessibilityElement()
             .accessibilityAddTraits(.isHeader)
             .accessibilityLabel(endsWithWordmark ? "\(text) ate." : text)
@@ -39,8 +45,6 @@ struct AteExactText: View {
     var colour: Color?
     /// Wraps freely by default; a number clamps it there, ending on an ellipsis.
     var lineLimit: Int?
-    /// The logo after the last word, at the type's size (``AteTitle/endsWithWordmark``).
-    var endsWithWordmark = false
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.atePalette) private var palette
@@ -67,8 +71,7 @@ struct AteExactText: View {
                 trackingEm: style.trackingEm,
                 alignment: alignment,
                 colour: colour ?? palette.fg,
-                lineLimit: lineLimit,
-                endsWithWordmark: endsWithWordmark
+                lineLimit: lineLimit
             )
             // The label is drawn taller than its line boxes so a descender can hang below the last
             // one, and handed straight back to the layout: the words sit exactly where they did.
@@ -104,7 +107,6 @@ private struct TitleLabel: UIViewRepresentable {
     let alignment: TextAlignment
     let colour: Color
     var lineLimit: Int?
-    var endsWithWordmark = false
 
     func makeUIView(context: Context) -> WordFittingLabel {
         let label = WordFittingLabel()
@@ -126,8 +128,7 @@ private struct TitleLabel: UIViewRepresentable {
             text: text, font: font, lineHeight: lineHeight, trackingEm: trackingEm,
             alignment: textAlignment,
             colour: UIColor(colour),
-            truncates: lineLimit != nil,
-            endsWithWordmark: endsWithWordmark
+            truncates: lineLimit != nil
         )
     }
 
@@ -158,7 +159,6 @@ final class WordFittingLabel: UILabel {
         var alignment: NSTextAlignment
         var colour: UIColor
         var truncates: Bool
-        var endsWithWordmark = false
     }
 
     var content: Content? {
@@ -250,35 +250,65 @@ final class WordFittingLabel: UILabel {
             // negative exactly when the box is tighter than the face, which is when CSS overflows it.
             .baselineOffset: (box - (font.ascender - font.descender)) / 2
         ]
-        let text = NSMutableAttributedString(string: content.text, attributes: attributes)
-        if content.endsWithWordmark {
-            text.append(NSAttributedString(string: " ", attributes: attributes))
-            text.append(Self.wordmark(font: font, colour: content.colour, attributes: attributes))
-        }
-        attributedText = text
+        attributedText = NSAttributedString(string: content.text, attributes: attributes)
         lineBreakMode = content.truncates ? .byTruncatingTail : .byWordWrapping
     }
+}
 
-    /// The logo as a character: a little taller than the type, sitting on its baseline with its
-    /// bowls' overshoot just under it, the way the letters around it do.
-    private static func wordmark(
-        font: UIFont, colour: UIColor, attributes: [NSAttributedString.Key: Any]
-    ) -> NSAttributedString {
-        let attachment = NSTextAttachment()
-        attachment.image = UIImage(resource: .ateWordmark).withTintColor(colour, renderingMode: .alwaysOriginal)
-        let height = font.pointSize * WordmarkMetrics.height
-        attachment.bounds = CGRect(
-            x: 0, y: -font.pointSize * WordmarkMetrics.drop,
-            width: height * WordmarkMetrics.aspect, height: height
-        )
-        let mark = NSMutableAttributedString(attributedString: NSAttributedString(attachment: attachment))
-        mark.addAttributes(attributes, range: NSRange(location: 0, length: mark.length))
-        return mark
+/// **A title that ends on the logo** — "Write about what you [ate.]" (first run).
+///
+/// The last word and the logo take the last line together; the words before it sit above. The two
+/// are stacked rather than set as one string because a logo set into the text as a picture lets
+/// iOS push its line down to the picture's height, whatever the paragraph says: build 152's lines
+/// came out 58pt apart against the 33 asked for. Stacked, the gap is exactly ``linePitch``.
+private struct WordmarkTitle: View {
+    let text: String
+    let style: AteTextStyle
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// Baseline to baseline, last line to the one above it, in ems: 40 at 36pt — as close as the
+    /// logo's t can come to the line above without touching it
+    /// (`design/rebuild/onboarding-title-spacing.html`, option B).
+    static let linePitch: CGFloat = 40.0 / 36.0
+
+    var body: some View {
+        let font = AteFont.uiFont(for: style, dynamicTypeSize: dynamicTypeSize)
+        let box = font.pointSize * style.lineHeight
+        let words = text.split(whereSeparator: \.isWhitespace).map(String.init)
+        VStack(spacing: font.pointSize * Self.linePitch - box) {
+            if words.count > 1 {
+                AteExactText(text: words.dropLast().joined(separator: " "), style: style)
+            }
+            lastLine(word: words.last ?? "", font: font, box: box)
+        }
     }
 
+    /// The last word and the logo, side by side on the word's baseline, centred as one line.
+    private func lastLine(word: String, font: UIFont, box: CGFloat) -> some View {
+        let kern = font.pointSize * style.trackingEm
+        let attributes: [NSAttributedString.Key: Any] = [.font: font, .kern: kern]
+        let wordWidth = NSAttributedString(string: word, attributes: attributes).size().width.rounded(.up)
+        let space = NSAttributedString(string: " ", attributes: attributes).size().width
+        let height = (font.pointSize * WordmarkMetrics.height).rounded()
+        // Where the word's baseline sits in its box: ``WordFittingLabel`` centres the face in the box
+        // the way CSS does, so the baseline is half the box plus half of ascender + descender.
+        let baseline = (box + font.ascender + font.descender) / 2
+        return HStack(alignment: .top, spacing: space) {
+            AteExactText(text: word, style: style)
+                .frame(width: wordWidth)
+            AteWordmark(height: height)
+                .accessibilityHidden(true)
+                .offset(y: baseline + font.pointSize * WordmarkMetrics.drop - height)
+                .frame(height: box, alignment: .top)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// The logo a little taller than the type, sitting on the baseline with its bowls' overshoot
+    /// just under it, the way the letters around it do.
     private enum WordmarkMetrics {
         static let height: CGFloat = 1.05
         static let drop: CGFloat = 0.06
-        static let aspect: CGFloat = 758.0 / 359.0
     }
 }

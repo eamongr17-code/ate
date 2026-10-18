@@ -53,8 +53,8 @@ extension AteTextStyle {
     /// "Pick a handle." — first run's one question, at the size of a place heading its own page.
     static var handleTitle: AteTextStyle { placeTitle }
     /// "Write about what you [ate.]" on the first onboarding card: the handle title's size, set a
-    /// little closer than `.h`'s 1.0 (Eamon, 18 Oct: the two lines read airy). Safe for these words:
-    /// the first line has no descenders and the second's only tall shape is the logo.
+    /// little closer than `.h`'s 1.0 where the words wrap. The gap down to the logo's line is set
+    /// by ``AteTitle``'s wordmark layout, not by this.
     static let onboardingWriteTitle = AteTextStyle(
         voice: .heading, size: 36, weight: 800, trackingEm: -0.02, lineHeight: 0.92, textStyle: .largeTitle
     )
