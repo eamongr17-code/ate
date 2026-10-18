@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>What to Order</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=DM+Mono:wght@400;500&display=swap">
+<style>
+:root{--ground:#EFEAE2;--fg:#24141F;--muted:#5E5560;--slip:#FFFFFF;--field:#E4DED4;--butter:#F6D365;--page:#E7E1D8}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#0F0B12}}
+:root[data-theme="dark"]{--page:#0F0B12}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);font-family:"Bricolage Grotesque",sans-serif;color:#24141F;padding:24px 16px 60px}
+.wrap{display:flex;gap:32px;flex-wrap:wrap;justify-content:center}
+.col{display:flex;flex-direction:column;gap:12px;align-items:center}
+.cap{font-weight:600;font-size:15px;color:var(--fg);max-width:390px;text-align:center}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .cap{color:#F4EFE9}}
+.cap small{display:block;font-weight:500;font-size:13px;opacity:.7;margin-top:4px}
+.scr{width:390px;height:844px;background:#EFEAE2;border-radius:48px;overflow:hidden;position:relative;box-shadow:0 0 0 10px #111,0 20px 40px rgba(0,0,0,.25);flex-shrink:0}
+.sb{height:54px;display:flex;justify-content:space-between;align-items:center;padding:14px 34px 0;font-weight:600;font-size:16px}
+.back{width:44px;height:44px;border-radius:50%;background:#F7F3EE;margin:6px 0 0 16px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px rgba(36,20,31,.08)}
+h1{font-family:"Young Serif",serif;font-weight:400;font-size:36px;letter-spacing:-.02em;line-height:1;margin:18px 20px 12px}
+.chips{display:flex;gap:8px;margin:0 20px}
+.chip{background:#fff;border-radius:999px;padding:7px 14px;font-weight:600;font-size:14px}
+.sec{font-family:"Young Serif",serif;font-weight:400;font-size:24px;letter-spacing:-.02em;line-height:1.02;margin:0}
+.ground-sec{padding:28px 20px 14px}
+.card{background:#fff;margin:0 12px;border-radius:22px 22px 0 0;padding:16px 16px 10px;position:relative}
+.card.first{margin-top:16px}
+.card:after{content:"";position:absolute;left:0;right:0;bottom:-5px;height:6px;background:radial-gradient(circle at 5px 0,#fff 4px,transparent 4.5px) 0 0/10px 6px repeat-x}
+.lab{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#24141F;padding-bottom:12px}
+.card .sec{padding:2px 0 12px}
+.row{display:flex;align-items:center;gap:12px;min-height:66px;padding:6px 0;border-top:1px dashed rgba(36,20,31,.28)}
+.row:first-of-type,.lab+.row,.sec+.row{border-top:0}
+.rk{font-family:"DM Mono",monospace;font-size:11px;color:var(--muted);width:18px;letter-spacing:.08em;color:#5E5560}
+.rn{font-weight:800;font-size:30px;letter-spacing:-.05em;line-height:1;width:28px;text-align:center}
+.th{width:48px;height:48px;border-radius:12px;flex-shrink:0}
+.t1{background:linear-gradient(135deg,#b39a82,#5b4636)}.t2{background:linear-gradient(135deg,#e2a05b,#7a4a2a)}.t3{background:linear-gradient(135deg,#dcd9cf,#8fa06a)}.t4{background:linear-gradient(135deg,#6b3a22,#1d0f0a)}
+.nm{flex:1;min-width:0}
+.nm b{display:block;font-weight:600;font-size:17px;letter-spacing:-.01em;line-height:1.2}
+.ppl{font-weight:500;font-size:13px;color:#5E5560;margin-top:2px}
+.tok{font-family:"DM Mono",monospace;font-weight:500;font-size:14px;background:var(--butter);border-radius:999px;padding:3px 10px;white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="col">
+<div class="cap">Now<small>Mono label and 01 ranks, people count under each dish</small></div>
+<div class="scr">
+<div class="sb"><span>1:50</span><span>●●●</span></div>
+<div class="back">‹</div>
+<h1>Small Wins</h1>
+<div class="chips"><span class="chip">★ 3.6</span><span class="chip">2</span><span class="chip">Armadale</span></div>
+<div class="card first">
+<div class="lab">What to order</div>
+<div class="row"><span class="rk">01</span><span class="th t1"></span><span class="nm"><b>Caramelised Banana Iced Latte</b><div class="ppl">👤 1</div></span><span class="tok">★ 4.0</span></div>
+<div class="row"><span class="rk">02</span><span class="th t2"></span><span class="nm"><b>Fried Chicken Pancake</b><div class="ppl">👤 1</div></span><span class="tok">★ 4.0</span></div>
+<div class="row"><span class="rk">03</span><span class="th t3"></span><span class="nm"><b>Crushed Avocado</b><div class="ppl">👤 1</div></span><span class="tok">★ 3.5</span></div>
+<div class="row"><span class="rk">04</span><span class="th t4"></span><span class="nm"><b>Batch Brew</b><div class="ppl">👤 1</div></span><span class="tok">★ 3.0</span></div>
+</div>
+</div>
+</div>
+
+<div class="col">
+<div class="cap">A (recommended)<small>Heading on the page like "The Top Ate", ranks like its numerals</small></div>
+<div class="scr">
+<div class="sb"><span>1:50</span><span>●●●</span></div>
+<div class="back">‹</div>
+<h1>Small Wins</h1>
+<div class="chips"><span class="chip">★ 3.6</span><span class="chip">2</span><span class="chip">Armadale</span></div>
+<div class="ground-sec"><h2 class="sec">What to order</h2></div>
+<div class="card">
+<div class="row"><span class="rn">1</span><span class="th t1"></span><span class="nm"><b>Caramelised Banana Iced Latte</b></span><span class="tok">★ 4.0</span></div>
+<div class="row"><span class="rn">2</span><span class="th t2"></span><span class="nm"><b>Fried Chicken Pancake</b></span><span class="tok">★ 4.0</span></div>
+<div class="row"><span class="rn">3</span><span class="th t3"></span><span class="nm"><b>Crushed Avocado</b></span><span class="tok">★ 3.5</span></div>
+<div class="row"><span class="rn">4</span><span class="th t4"></span><span class="nm"><b>Batch Brew</b></span><span class="tok">★ 3.0</span></div>
+</div>
+</div>
+</div>
+
+<div class="col">
+<div class="cap">B<small>Same heading font and numerals, heading kept inside the card</small></div>
+<div class="scr">
+<div class="sb"><span>1:50</span><span>●●●</span></div>
+<div class="back">‹</div>
+<h1>Small Wins</h1>
+<div class="chips"><span class="chip">★ 3.6</span><span class="chip">2</span><span class="chip">Armadale</span></div>
+<div class="card first">
+<h2 class="sec">What to order</h2>
+<div class="row"><span class="rn">1</span><span class="th t1"></span><span class="nm"><b>Caramelised Banana Iced Latte</b></span><span class="tok">★ 4.0</span></div>
+<div class="row"><span class="rn">2</span><span class="th t2"></span><span class="nm"><b>Fried Chicken Pancake</b></span><span class="tok">★ 4.0</span></div>
+<div class="row"><span class="rn">3</span><span class="th t3"></span><span class="nm"><b>Crushed Avocado</b></span><span class="tok">★ 3.5</span></div>
+<div class="row"><span class="rn">4</span><span class="th t4"></span><span class="nm"><b>Batch Brew</b></span><span class="tok">★ 3.0</span></div>
+</div>
+</div>
+</div>
+
+</div>
+</body>
+</html>

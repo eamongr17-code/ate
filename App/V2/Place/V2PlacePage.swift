@@ -242,8 +242,6 @@ private struct V2MenuRow: View {
             photo: photo,
             name: dish.name,
             tags: dish.tags,
-            subtitle: dish.peopleCount > 0 ? dish.peopleCount.formatted() : nil,
-            subtitleIcon: dish.peopleCount > 0 ? .you : nil,
             score: dish.score.map(AteScore.average),
             style: .menu(rank: rank),
             isFirst: rank == 1,
