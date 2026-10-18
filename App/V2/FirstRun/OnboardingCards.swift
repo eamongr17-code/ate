@@ -63,19 +63,34 @@ struct OnboardingCards: View {
                 .padding(.top, OnboardingMetrics.artTop)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
-            VStack(spacing: AteMetrics.snug) {
-                AteTitle(text: card.title, style: .handleTitle, endsWithWordmark: card == .write)
-                if let line = card.line {
-                    Text(line)
-                        .ateText(.onboardingLine)
-                        .foregroundStyle(palette.muted)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
+            // Every card's words are laid out unseen behind this card's, so the block is as tall as
+            // the tallest and each title starts at the same height, whatever its line count.
+            ZStack(alignment: .top) {
+                ForEach(OnboardingCard.allCases) { other in
+                    words(other).hidden().accessibilityHidden(true)
                 }
+                words(card)
             }
             .padding(.horizontal, OnboardingMetrics.titleInset)
             .padding(.top, AteMetrics.loose)
             .padding(.bottom, AteMetrics.section)
+        }
+    }
+
+    private func words(_ card: OnboardingCard) -> some View {
+        VStack(spacing: AteMetrics.snug) {
+            AteTitle(
+                text: card.title,
+                style: card == .write ? .onboardingWriteTitle : .handleTitle,
+                endsWithWordmark: card == .write
+            )
+            if let line = card.line {
+                Text(line)
+                    .ateText(.onboardingLine)
+                    .foregroundStyle(palette.muted)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 

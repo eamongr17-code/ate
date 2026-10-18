@@ -49,6 +49,12 @@ public enum OnboardingEvents {
         AnalyticsEvent(name: "onboarding_cards", parameters: ["card": String(card), "skipped": String(skipped)])
     }
 
+    /// Settings' Tutorial — the same cards, on their own — was left: the furthest card seen (1–3),
+    /// and whether Skip did it.
+    public static func tutorial(reached card: Int, skipped: Bool) -> AnalyticsEvent {
+        AnalyticsEvent(name: "settings_tutorial", parameters: ["card": String(card), "skipped": String(skipped)])
+    }
+
     public static func started(_ start: Start) -> AnalyticsEvent {
         AnalyticsEvent(name: "onboarding_start", parameters: ["start": start.rawValue])
     }

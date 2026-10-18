@@ -4,9 +4,9 @@ import SwiftUI
 
 /// **The component kit's gallery** — every atom and composite in every state the contract names
 /// (rated and unrated, photo and letter tile, 5.0 and 6, saved and unsaved, loading, empty, long
-/// names), on the app's ground in whichever mode the phone is in. Debug and Beta builds only:
-/// reached from the foot of Settings, or `-ate-open kit`. This is where the kit is judged before a
-/// screen is built from it.
+/// names), on the app's ground in whichever mode the phone is in. Debug and Beta builds only,
+/// and no longer a row in Settings (Eamon, 18 Oct). This is where the kit is judged before a screen
+/// is built from it.
 struct KitGalleryScreen: View {
     @State var saved: Set<String> = ["hero", "card.2", "row.3", "ranked.3"]
     @State var chips: [AteFilterChipRow.Chip] = [
