@@ -1,0 +1,373 @@
+<title>List Covers and People</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Newsreader:opsz,wght@6..72,400&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: four real-size iPhone 17 Pro frames (402×874) in a wrapping row, each with a short caption under it. */
+:root{
+  --ground:#EFEAE2; --fg:#24141F; --muted:#5E5560; --hair:rgba(36,20,31,.14); --lilac:#B9A5EA; --green:#3ECF64;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --ground:#17111B; --fg:#F4EFE9; --muted:#B9AFBC; --hair:rgba(255,255,255,.16); color-scheme:dark; } }
+:root[data-theme="dark"]{ --ground:#17111B; --fg:#F4EFE9; --muted:#B9AFBC; --hair:rgba(255,255,255,.16); color-scheme:dark; }
+*{box-sizing:border-box}
+html,body{overflow-x:hidden}
+body{background:var(--ground);color:var(--fg);font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.5;margin:0;
+  padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1720px;margin:0 auto}
+h1{font:800 40px/1.05 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em;margin:0 0 10px;text-wrap:balance}
+h3{font:600 16px/1.3 "Bricolage Grotesque",sans-serif;margin:14px 0 4px}
+.note{color:var(--muted);font-size:15px;margin:0 0 28px;max-width:720px}
+.row{display:flex;gap:36px 28px;flex-wrap:wrap}
+.cell{width:402px;max-width:100%;min-width:0}
+.cell p{font-size:14.5px;color:var(--muted);line-height:1.4;margin:0}
+.tag{display:inline-block;border-radius:999px;padding:2px 10px;font:600 12.5px/1.5 "Bricolage Grotesque",sans-serif;color:#24141F;background:var(--green);margin-left:6px;vertical-align:2px}
+
+/* the phone: always the app's light palette (the screens are the subject) */
+.ph{position:relative;width:402px;height:874px;max-width:100%;border-radius:54px;overflow:hidden;background:#EFEAE2;color:#24141F;
+  box-shadow:0 0 0 1px var(--hair),0 18px 40px rgba(36,20,31,.14);font-family:"Bricolage Grotesque",sans-serif}
+.ph.dark{background:#000;color:#fff}
+.status{position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:4px 34px 0 46px;font:600 17px "Bricolage Grotesque",sans-serif;z-index:9}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;border-radius:20px;background:#000;z-index:10}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:140px;height:5px;border-radius:3px;background:#24141F;z-index:10}
+.dark .home{background:#fff}
+.glass{background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(18px) saturate(1.7);backdrop-filter:blur(18px) saturate(1.7);
+  box-shadow:inset 0 0 0 .5px rgba(255,255,255,.9),inset 0 1px 1px rgba(255,255,255,.9),0 0 0 .5px rgba(36,20,31,.10),0 8px 22px rgba(36,20,31,.12);color:#24141F}
+.glass-dark{background:rgba(62,50,64,.58);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.16),inset 0 1px 1px rgba(255,255,255,.16);color:#F4EFE9}
+.disc{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:0;padding:0}
+.tick{background:#24141F;color:#fff;box-shadow:inset 0 1px 1px rgba(255,255,255,.25),0 6px 16px rgba(36,20,31,.25)}
+.tick.light{background:#E9E1D6;color:#24141F}
+.nav{position:absolute;top:60px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;z-index:6}
+.grp{display:flex;gap:8px}
+
+/* photos (stand-ins) */
+.p1{background:radial-gradient(circle at 40% 40%,#E6A257,#9A4A1F 70%,#5C2A12)}
+.p2{background:radial-gradient(circle at 55% 45%,#F2946A,#C2452C 65%,#6E2316)}
+.p3{background:linear-gradient(160deg,#F1DFC4 0 30%,#6B4A2E 30% 42%,#E9D3B2 42% 70%,#5A3B22 70%)}
+.p4{background:radial-gradient(circle at 50% 50%,#F5C04A,#D9731F 55%,#7A2E10)}
+.p5{background:radial-gradient(circle at 35% 60%,#B8D98A,#5E8C3A 60%,#2E4A1C)}
+.p6{background:radial-gradient(circle at 60% 40%,#F7E3C3,#D8A46A 55%,#8A5A2C)}
+.up{background:linear-gradient(180deg,#F6C9A8 0 38%,#D96C4A 38% 41%,#3B2A2E 41% 100%),#3B2A2E;position:relative}
+.up::after{content:"";position:absolute;left:18%;right:18%;bottom:14%;height:34%;border-radius:50% 50% 8px 8px;background:#F0E2CC;opacity:.9}
+.mosaic{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+
+/* list page */
+.cover{border-radius:16px;overflow:hidden;box-shadow:0 14px 30px rgba(36,20,31,.22)}
+.hero{position:absolute;top:120px;left:0;right:0;display:flex;flex-direction:column;align-items:center}
+.hero .cover{width:224px;height:224px}
+.hero .nm{margin-top:18px;font:800 30px/1.05 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.hero .by{margin-top:6px;display:flex;gap:6px;align-items:center;font:500 14px/1 "Bricolage Grotesque",sans-serif}
+.hero .by i{color:#5E5560;font-style:normal}
+.av{width:22px;height:22px;border-radius:50%;background:#F0623F;display:flex;align-items:center;justify-content:center;font:800 11px/1 "Bricolage Grotesque",sans-serif}
+.acts{margin-top:16px;display:flex;gap:10px}
+.pill{height:44px;border-radius:999px;display:flex;align-items:center;padding:0 22px;font:600 15px/1 "Bricolage Grotesque",sans-serif;background:#24141F;color:#fff}
+.pill.q{background:#E4DED4;color:#24141F}
+.rows{position:absolute;top:500px;left:16px;right:16px}
+.rk{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #E4DED4}
+.rk .n{width:24px;font:800 22px/1 "Bricolage Grotesque",sans-serif;text-align:center;color:#5E5560}
+.rk .t{width:48px;height:48px;border-radius:10px;flex-shrink:0}
+.rk .d{flex:1;display:grid;gap:2px;min-width:0}
+.rk .d b{font:800 17px/1.1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.rk .d span{font:500 13px/1.2 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.tok{padding:3px 8px;border-radius:999px;background:#F6D365;font:500 13px/1.2 "DM Mono",monospace}
+.veil{position:absolute;inset:0;background:rgba(239,234,226,.45);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);z-index:7}
+.menu{position:absolute;right:16px;top:112px;width:236px;border-radius:26px;padding:6px 0;z-index:8;background:rgba(255,255,255,.86);box-shadow:0 18px 40px rgba(36,20,31,.18)}
+.menu div{display:flex;align-items:center;justify-content:space-between;height:48px;padding:0 18px;font:400 17px/1 -apple-system,"Helvetica Neue",sans-serif;color:#24141F}
+.menu div+div{border-top:.5px solid rgba(36,20,31,.12)}
+.menu div.red{color:#B3261E}
+.menu div.new{background:rgba(185,165,234,.28)}
+
+/* cover sheet */
+.dimmer{position:absolute;inset:0;background:#B9B2A8}
+.sheet{position:absolute;left:0;right:0;bottom:0;top:62px;background:#fff;border-radius:38px 38px 0 0;box-shadow:0 -10px 30px rgba(36,20,31,.12);overflow:hidden}
+.sheet .top{position:absolute;left:16px;right:16px;top:14px;display:flex;justify-content:space-between;align-items:center}
+.sheet .ttl{font:600 17px/1 "Bricolage Grotesque",sans-serif}
+.prev{position:absolute;top:78px;left:50%;transform:translateX(-50%);width:176px;height:176px}
+.prev>div{width:100%;height:100%}
+.opts{position:absolute;top:278px;left:20px;right:20px}
+.opt{display:flex;align-items:center;gap:12px;min-height:58px;border-top:1px solid rgba(36,20,31,.14);font:600 17px/1 "Bricolage Grotesque",sans-serif;cursor:pointer;background:none;border-left:0;border-right:0;border-bottom:0;width:100%;padding:0;color:#24141F;text-align:left}
+.opt:first-child{border-top:0}
+.opt .ic{width:40px;height:40px;border-radius:10px;background:#E4DED4;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+.opt .ic.m{display:grid;grid-template-columns:1fr 1fr}
+.opt .lbl{flex:1}
+.chk{width:26px;height:26px;border-radius:50%;background:#24141F;color:#fff;display:flex;align-items:center;justify-content:center;visibility:hidden}
+.on .chk{visibility:visible}
+.band{position:absolute;top:410px;left:20px;right:20px;font:600 16px/1 "Bricolage Grotesque",sans-serif;padding-bottom:12px;border-top:1px solid rgba(36,20,31,.14);padding-top:22px}
+.grid{position:absolute;top:458px;left:20px;right:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cell-ph{position:relative;aspect-ratio:1;border-radius:12px;cursor:pointer;border:0;padding:0;max-width:100%}
+.cell-ph .chk{position:absolute;right:6px;bottom:6px;box-shadow:0 0 0 2px #fff}
+.cell-ph.on{box-shadow:0 0 0 3px #fff,0 0 0 5.5px #24141F}
+.cell-ph:focus-visible,.opt:focus-visible{outline:3px solid #B9A5EA;outline-offset:2px}
+
+/* crop */
+.crop{position:absolute;left:0;right:0;top:236px;height:402px}
+.crop .img{position:absolute;inset:-60px -40px;background:linear-gradient(180deg,#F6C9A8 0 38%,#D96C4A 38% 40%,#3B2A2E 40% 100%)}
+.crop .img::after{content:"";position:absolute;left:24%;right:24%;bottom:22%;height:32%;border-radius:50% 50% 10px 10px;background:#F0E2CC}
+.crop .frame{position:absolute;inset:0;border-radius:16px;box-shadow:0 0 0 999px rgba(0,0,0,.55);outline:1px solid rgba(255,255,255,.9)}
+.dark .nav{top:62px;left:20px;right:20px}
+
+/* shelf */
+.shelf-h{position:absolute;top:118px;left:20px;font:800 38px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.seg{position:absolute;top:170px;left:16px;right:16px;display:flex;padding:3px;border-radius:999px;background:#E4DED4;height:42px}
+.seg span{flex:1;display:flex;align-items:center;justify-content:center;border-radius:999px;font:600 14px/1 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.seg span.on{background:#fff;color:#24141F;box-shadow:0 1px 2px rgba(36,20,31,.12)}
+.lgrid{position:absolute;top:236px;left:16px;right:16px;display:grid;grid-template-columns:1fr 1fr;gap:20px 14px}
+.tile .c{aspect-ratio:1;border-radius:16px;overflow:hidden;max-width:100%}
+.tile b{display:block;margin-top:7px;font:600 16px/1.2 "Bricolage Grotesque",sans-serif}
+.tile span{font:500 13px/1.3 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.gen{display:flex;align-items:flex-end;padding:12px;font:800 24px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em;height:100%}
+.tabbar{position:absolute;left:21px;right:91px;bottom:24px;height:62px;border-radius:999px;display:flex;align-items:center;justify-content:space-around;font:600 10.5px/1 "Bricolage Grotesque",sans-serif;z-index:7}
+.tabbar span.on{font-weight:800}
+.plusdisc{position:absolute;right:21px;bottom:24px;width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:7}
+@media (prefers-reduced-motion: no-preference){ .prev>div{transition:opacity .15s} }
+
+.sec{font:800 26px/1.1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;margin:8px 0 8px}
+.sec.second{margin-top:56px}
+.field{position:absolute;left:20px;right:20px;top:76px;height:48px;border-radius:24px;background:#E4DED4;display:flex;align-items:center;gap:8px;padding:0 16px;font:500 17px/1 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.chips{position:absolute;left:20px;right:20px;top:138px;display:flex;gap:8px}
+.chip{height:34px;padding:0 12px;border-radius:999px;background:#24141F;color:#fff;display:flex;align-items:center;gap:6px;font:600 14px/1 "Bricolage Grotesque",sans-serif}
+.plist{position:absolute;left:20px;right:20px;top:190px}
+.prow{display:flex;align-items:center;gap:12px;min-height:62px;border-top:1px solid rgba(36,20,31,.14)}
+.prow.f{border-top:0}
+.prow b{flex:1;font:600 17px/1.2 "Bricolage Grotesque",sans-serif}
+.prow .chk{visibility:visible;background:none;box-shadow:inset 0 0 0 1.5px rgba(36,20,31,.25)}
+.prow.on .chk{background:#24141F}
+.a36{width:36px;height:36px;font-size:15px}
+.cJ{background:#F6D365}.cM{background:#3ECF64}.cS{background:#9FD3F0}.cP{background:#F5A9C8}
+.bandp{font:600 16px/1 "Bricolage Grotesque",sans-serif;padding:6px 0 12px}
+.foot{position:absolute;left:20px;right:20px;bottom:40px;height:52px;border-radius:26px;background:#24141F;color:#fff;display:flex;align-items:center;justify-content:center;font:600 16px/1 "Bricolage Grotesque",sans-serif}
+.stack{display:flex}.stack .av{box-shadow:0 0 0 2px #EFEAE2}.stack .av+.av{margin-left:-6px}
+.tile .by{display:flex;align-items:center;gap:5px}
+.tile .by .av{width:16px;height:16px;font-size:8px}
+</style>
+
+<div class="wrap">
+  <h1>List covers, and adding people to a list</h1>
+  <h2 class="sec">Change a list's cover</h2>
+  <p class="note">Your list → ••• → Change cover. Pick one of the list's dish photos, or upload any photo and square it up. "Mosaic of the first four" is today's automatic cover and stays the default. The second phone is live: tap the options. All four phones are real iPhone 17 Pro size.</p>
+
+  <div class="row">
+    <!-- 1. menu -->
+    <div class="cell">
+      <div class="ph">
+        <div class="island"></div>
+        <div class="status"><span>9:41</span><span>●●●</span></div>
+        <div class="nav">
+          <div class="disc glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+          <div class="grp">
+            <div class="disc glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg></div>
+            <div class="disc glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></div>
+          </div>
+        </div>
+        <div class="hero">
+          <div class="cover mosaic"><div class="p1"></div><div class="p2"></div><div class="p3"></div><div class="p4"></div></div>
+          <div class="nm">Date night</div>
+          <div class="by"><span class="av">E</span>eamon<i>·</i><i>6 dishes</i></div>
+          <div class="acts"><div class="pill">Add dishes</div><div class="pill q">Share</div></div>
+        </div>
+        <div class="rows">
+          <div class="rk"><span class="n">1</span><span class="t p1"></span><span class="d"><b>Cacio e Pepe</b><span>Tipo 00</span></span><span class="tok">9.0</span></div>
+          <div class="rk"><span class="n">2</span><span class="t p2"></span><span class="d"><b>Pork Belly Bao</b><span>Wonderbao</span></span><span class="tok">8.5</span></div>
+        </div>
+        <div class="veil"></div>
+        <div class="menu">
+          <div>Rename <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+          <div class="new">Change cover <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg></div>
+          <div class="new">Add people <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></div>
+          <div class="red">Delete list <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <h3>1 · The list's ••• menu</h3>
+      <p>"Change cover" and "Add people" join Rename and Delete list (highlighted here only to show what's new). Tapping the big cover itself also opens the cover sheet.</p>
+    </div>
+
+    <!-- 2. sheet (live) -->
+    <div class="cell">
+      <div class="ph">
+        <div class="dimmer"></div>
+        <div class="island"></div>
+        <div class="status"><span>9:41</span><span>●●●</span></div>
+        <div class="sheet">
+          <div class="top">
+            <div class="disc glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+            <span class="ttl">Cover</span>
+            <div class="disc tick"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+          </div>
+          <div class="prev cover" id="prev"><div class="mosaic"><div class="p1"></div><div class="p2"></div><div class="p3"></div><div class="p4"></div></div></div>
+          <div class="opts">
+            <button class="opt" id="o-up" data-pick="up" type="button"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#24141F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg></span><span class="lbl">Upload from Photos</span><span class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></button>
+            <button class="opt on" id="o-auto" data-pick="auto" type="button"><span class="ic m"><i class="p1"></i><i class="p2"></i><i class="p3"></i><i class="p4"></i></span><span class="lbl">Mosaic of the first four</span><span class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></button>
+          </div>
+          <div class="band">Photos in this list</div>
+          <div class="grid">
+            <button class="cell-ph p1" data-pick="p1" type="button" aria-label="Cacio e Pepe"><span class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></button>
+            <button class="cell-ph p2" data-pick="p2" type="button" aria-label="Pork Belly Bao"><span class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></button>
+            <button class="cell-ph p3" data-pick="p3" type="button" aria-label="Tiramisu"><span class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></button>
+            <button class="cell-ph p4" data-pick="p4" type="button" aria-label="Chicken Curry"><span class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></button>
+            <button class="cell-ph p5" data-pick="p5" type="button" aria-label="Green Papaya Salad"><span class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></button>
+            <button class="cell-ph p6" data-pick="p6" type="button" aria-label="Croissant"><span class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></button>
+          </div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <h3>2 · The cover sheet <span class="tag">Live</span></h3>
+      <p>The preview at the top shows exactly what the list will look like. Tick saves; the close leaves the cover as it was. Upload from Photos opens the system photo picker, then screen 3. Dishes without a photo don't appear in the grid.</p>
+    </div>
+
+    <!-- 3. crop -->
+    <div class="cell">
+      <div class="ph dark">
+        <div class="island"></div>
+        <div class="status"><span>9:41</span><span>●●●</span></div>
+        <div class="nav">
+          <div class="disc glass-dark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+          <div class="disc tick light"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+        </div>
+        <div class="crop"><div class="img"></div><div class="frame"></div></div>
+        <div class="home"></div>
+      </div>
+      <h3>3 · Square it up</h3>
+      <p>Your profile photo's crop screen, with a rounded square instead of the circle (the cover's own shape). Drag to move, pinch to zoom, tick to use it. The tick returns to the sheet with your photo in the preview and "Upload from Photos" checked.</p>
+    </div>
+
+    <!-- 4. shelf -->
+    <div class="cell">
+      <div class="ph">
+        <div class="island"></div>
+        <div class="status"><span>9:41</span><span>●●●</span></div>
+        <div class="shelf-h">Journal</div>
+        <div class="seg"><span>Journal</span><span class="on">Lists</span></div>
+        <div class="lgrid">
+          <div class="tile"><div class="c up"></div><b>Date night</b><span>6 dishes</span></div>
+          <div class="tile"><div class="c mosaic"><div class="p5"></div><div class="p6"></div><div class="p2"></div><div class="p4"></div></div><b>Brunch spots</b><span>9 dishes</span></div>
+          <div class="tile"><div class="c p2"></div><b>Best bao</b><span>3 dishes</span></div>
+          <div class="tile"><div class="c" style="background:#B9A5EA"><div class="gen">To try</div></div><b>To try</b><span>0 dishes</span></div>
+        </div>
+        <div class="tabbar glass"><span class="on">Journal</span><span>Feed</span><span>Saved</span><span>You</span></div>
+        <div class="plusdisc glass"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#24141F" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+        <div class="home"></div>
+      </div>
+      <h3>4 · The cover everywhere</h3>
+      <p>"Date night" now shows the uploaded photo on the shelf, on its page, and in the share link's preview. A chosen dish photo works the same way ("Best bao"). If that dish is later removed from the list, the cover goes back to the mosaic.</p>
+    </div>
+  </div>
+
+  <h2 class="sec second">Add people to a list</h2>
+  <p class="note">Your list → ••• → Add people. Everyone you add sees the list in their own Lists view, with your name on it, and it updates as you change it. They can open it and share it, but only you can add, remove, reorder, rename or change the cover. That's the default I picked; letting them add their own dishes too is a bigger change and can come later. They get a notification when you add them, and can leave the list from its ••• menu.</p>
+  <div class="row">
+    <div class="cell">
+      <div class="ph">
+        <div class="dimmer"></div>
+        <div class="island"></div>
+        <div class="status"><span>9:41</span><span>●●●</span></div>
+        <div class="sheet">
+          <div class="top">
+            <div class="disc glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+            <span class="ttl">People on this list</span>
+            <span style="width:44px"></span>
+          </div>
+          <div class="field"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search handles</div>
+          <div class="chips"><span class="chip">@paris ✕</span><span class="chip">@jules ✕</span></div>
+          <div class="plist">
+            <div class="bandp">People you've eaten with</div>
+            <div class="prow f on"><span class="av a36 cP">P</span><b>paris</b><span class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></div>
+            <div class="prow on"><span class="av a36 cJ">J</span><b>jules</b><span class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></div>
+            <div class="prow"><span class="av a36 cM">M</span><b>maya</b><span class="chk"></span></div>
+            <div class="prow"><span class="av a36 cS">S</span><b>sam.eats</b><span class="chk"></span></div>
+          </div>
+          <div class="foot">Add 2 people</div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <h3>5 · Pick people</h3>
+      <p>The same picker as "Who were you with?": people you've tagged first, typing searches every handle. People already on the list come ticked; untick to take someone off.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph">
+        <div class="island"></div>
+        <div class="status"><span>9:41</span><span>●●●</span></div>
+        <div class="nav">
+          <div class="disc glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+          <div class="grp">
+            <div class="disc glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg></div>
+            <div class="disc glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></div>
+          </div>
+        </div>
+        <div class="hero">
+          <div class="cover up" style="width:224px;height:224px"></div>
+          <div class="nm">Date night</div>
+          <div class="by"><span class="stack"><span class="av">E</span><span class="av cP">P</span><span class="av cJ">J</span></span>eamon, paris, jules<i>·</i><i>6 dishes</i></div>
+          <div class="acts"><div class="pill">Add dishes</div><div class="pill q">Share</div></div>
+        </div>
+        <div class="rows">
+          <div class="rk"><span class="n">1</span><span class="t p1"></span><span class="d"><b>Cacio e Pepe</b><span>Tipo 00</span></span><span class="tok">9.0</span></div>
+          <div class="rk"><span class="n">2</span><span class="t p2"></span><span class="d"><b>Pork Belly Bao</b><span>Wonderbao</span></span><span class="tok">8.5</span></div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <h3>6 · Your list, with people on it</h3>
+      <p>The owner line lists everyone on it, you first. Tapping it opens the picker again.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph">
+        <div class="island"></div>
+        <div class="status"><span>9:41</span><span>●●●</span></div>
+        <div class="shelf-h">Journal</div>
+        <div class="seg"><span>Journal</span><span class="on">Lists</span></div>
+        <div class="lgrid">
+          <div class="tile"><div class="c p6"></div><b>Coffee</b><span>4 dishes</span></div>
+          <div class="tile"><div class="c up"></div><b>Date night</b><span class="by"><span class="av">E</span>eamon · 6 dishes</span></div>
+          <div class="tile"><div class="c" style="background:#3ECF64"><div class="gen">Ramen</div></div><b>Ramen</b><span>0 dishes</span></div>
+        </div>
+        <div class="tabbar glass"><span class="on">Journal</span><span>Feed</span><span>Saved</span><span>You</span></div>
+        <div class="plusdisc glass"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#24141F" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+        <div class="home"></div>
+      </div>
+      <h3>7 · Paris's Lists view</h3>
+      <p>Lists someone added you to sit with your own, in the order you were added, and carry the owner's handle under the name instead of just the count.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph">
+        <div class="island"></div>
+        <div class="status"><span>9:41</span><span>●●●</span></div>
+        <div class="nav">
+          <div class="disc glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+          <div class="grp">
+            <div class="disc glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg></div>
+            <div class="disc glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></div>
+          </div>
+        </div>
+        <div class="hero">
+          <div class="cover up" style="width:224px;height:224px"></div>
+          <div class="nm">Date night</div>
+          <div class="by"><span class="stack"><span class="av">E</span><span class="av cP">P</span><span class="av cJ">J</span></span>eamon, paris, jules<i>·</i><i>6 dishes</i></div>
+          <div class="acts"><div class="pill q">Share</div></div>
+        </div>
+        <div class="rows">
+          <div class="rk"><span class="n">1</span><span class="t p1"></span><span class="d"><b>Cacio e Pepe</b><span>Tipo 00</span></span><span class="tok">9.0</span></div>
+          <div class="rk"><span class="n">2</span><span class="t p2"></span><span class="d"><b>Pork Belly Bao</b><span>Wonderbao</span></span><span class="tok">8.5</span></div>
+        </div>
+        <div class="veil"></div>
+        <div class="menu" style="width:200px"><div class="red">Leave list <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></div></div>
+        <div class="home"></div>
+      </div>
+      <h3>8 · Paris opens it</h3>
+      <p>The same page without Add dishes, reordering or swipe-to-remove. Scores are Eamon's. Rows open Eamon's entries. ••• has only Leave list.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var prev=document.getElementById('prev');
+  var opts=document.querySelectorAll('[data-pick]');
+  function show(k){
+    opts.forEach(function(o){o.classList.toggle('on',o.dataset.pick===k)});
+    prev.innerHTML = k==='auto' ? '<div class="mosaic"><div class="p1"></div><div class="p2"></div><div class="p3"></div><div class="p4"></div></div>'
+                   : '<div class="'+(k==='up'?'up':k)+'"></div>';
+  }
+  opts.forEach(function(o){o.addEventListener('click',function(){show(o.dataset.pick)})});
+})();
+</script>
