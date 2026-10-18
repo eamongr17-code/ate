@@ -12,13 +12,13 @@ extension KitGalleryScreen {
                     columns: Array(repeating: GridItem(.flexible(), spacing: AteListCoverMetrics.columnGap), count: 2),
                     alignment: .leading, spacing: AteListCoverMetrics.rowGap
                 ) {
-                    AteNewListTile(title: "New list") {}
                     AteListTile(id: KitListFixtures.burgers, name: "Melbourne\u{2019}s best burgers", count: 6,
                                 covers: KitListFixtures.covers) {}
                     AteListTile(id: KitListFixtures.indian, name: "The best Indian and Mexican dishes", count: 12,
                                 covers: Array(KitListFixtures.covers.prefix(1))) {}
                     AteListTile(id: KitListFixtures.pasta, name: "Pasta to bring Mum to", count: 0) {}
                     AteListTileSkeleton()
+                    AteNewListTile(title: "New list") {}
                 }
                 AteListCover(id: KitListFixtures.burgers, name: "Melbourne\u{2019}s best burgers",
                              covers: KitListFixtures.covers, style: .hero)

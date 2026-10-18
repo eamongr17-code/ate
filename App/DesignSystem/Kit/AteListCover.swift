@@ -127,7 +127,7 @@ struct AteListTile: View {
     }
 }
 
-/// **New list, as the shelf's first tile** — a dashed square with the plus, "New list" under it.
+/// **New list, as the shelf's last tile** — a dashed square with the plus, "New list" under it.
 struct AteNewListTile: View {
     let title: String
     var identifier: String?

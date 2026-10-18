@@ -3,7 +3,7 @@ import SwiftUI
 
 /// **The Lists shelf** (`lists-playlists.html`, approved 9 Oct) — your lists under Journal |
 /// Lists, newest made first, as a two-column grid of covers like a music library's playlists,
-/// after the dashed New list tile (always first, empty shelf included). New list (that tile, or the
+/// ending with the dashed New list tile (always last, alone on an empty shelf). New list (that tile, or the
 /// glass group's list-plus) names one, opens its page and raises the picker
 /// over it. Pull to refresh; the shelf pages as it nears its end.
 struct ListsShelf: View {
@@ -50,11 +50,6 @@ struct ListsShelf: View {
 
     @ViewBuilder
     private var tiles: some View {
-        AteNewListTile(title: ListsCopy.newList, identifier: "lists.newCard") {
-            guard app.gate.permitsWrite(.journal) else { return }
-            app.services.analytics(ListEvents.ctaTapped(from: .shelf))
-            isNaming = true
-        }
         switch lists.phase {
         case .loading:
             ForEach(0..<ListsMetrics.skeletonCards, id: \.self) { _ in
@@ -79,6 +74,11 @@ struct ListsShelf: View {
                 }
                 .task { await lists.loadMoreIfNeeded(after: list) }
             }
+        }
+        AteNewListTile(title: ListsCopy.newList, identifier: "lists.newCard") {
+            guard app.gate.permitsWrite(.journal) else { return }
+            app.services.analytics(ListEvents.ctaTapped(from: .shelf))
+            isNaming = true
         }
     }
 
