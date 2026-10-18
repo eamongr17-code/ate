@@ -170,7 +170,7 @@ struct V2DishPage: View {
 
     /// The tilted pair; a photo opens the viewer on it.
     private func hero(_ photos: [AtePhoto], tappable: Bool = true) -> some View {
-        AteDishHero(photos: photos, opensViewer: tappable)
+        AteDishHero(photos: photos, opensViewer: tappable, dishes: heroDishes(photos))
             .padding(.leading, V2DishMetrics.heroInset)
     }
 
@@ -365,4 +365,22 @@ enum V2DishMetrics {
     static let placeBarHeight: CGFloat = 14
     static let aggregateBar: CGFloat = 160
     static let aggregateBarHeight: CGFloat = 52
+}
+
+private extension V2DishPage {
+    /// Every hero photo is this dish: the viewer names it, with who took it (when their review has
+    /// arrived) and where.
+    func heroDishes(_ photos: [AtePhoto]) -> AtePhotoDishes? {
+        guard let summary = store.summary else { return nil }
+        let place = summary.restaurantName
+        var bylines: [String: String] = [:]
+        for photo in summary.photos {
+            let author = photo.entryID.flatMap { entry in store.reviews.first { $0.entryID == entry }?.author }
+            if let line = AtePhotoDishByline.line(who: author.map { "@\($0.username)" }, place: place) {
+                bylines[photo.url] = line
+            }
+        }
+        let byline = AtePhotoDishByline.line(who: nil, place: place)
+        return AtePhotoDishes.one(summary.name, photos: photos, byline: byline, bylines: bylines)
+    }
 }

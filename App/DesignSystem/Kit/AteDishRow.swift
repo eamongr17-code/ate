@@ -34,6 +34,8 @@ struct AteDishRow: View {
     /// A menu row's cover photo opens the shell's viewer (a letter tile is part of the row and opens
     /// the dish); this hears that it did.
     var onPhoto: (() -> Void)?
+    /// Under the dish on the full-screen cover: where it was eaten.
+    var photoByline: String?
 
     @Environment(\.atePalette) private var palette
     @Environment(\.atePhotoViewer) private var showPhotos
@@ -88,7 +90,8 @@ struct AteDishRow: View {
                 // never heard.
                 Button {
                     onPhoto?()
-                    showPhotos([photo], at: 0)
+                    let dishes = AtePhotoDishes.one(name, photos: [photo], byline: photoByline)
+                    showPhotos([photo], at: 0, dishes: dishes)
                 } label: {
                     Color.clear
                         .frame(width: AteThumbMetrics(.menu).height, height: AteThumbMetrics(.menu).height)
