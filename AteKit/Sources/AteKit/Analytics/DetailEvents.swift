@@ -115,6 +115,12 @@ public enum DetailEvents {
         AnalyticsEvent(name: "dish_tag_opened", parameters: ["kind": kind.rawValue])
     }
 
+    /// A chip under a place's name was tapped (20 Oct): `rating` and `people` scroll the page to the
+    /// menu and the visits, `suburb` opens the suburb's tag page.
+    public static func placeFactOpened(kind: String) -> AnalyticsEvent {
+        AnalyticsEvent(name: "place_fact_opened", parameters: ["kind": kind])
+    }
+
     /// A "More like this" card on a dish page was tapped (round 7). `position` is 1-based: how far
     /// along the carousel people go before one earns a tap.
     public static func similarDishOpened(position: Int) -> AnalyticsEvent {

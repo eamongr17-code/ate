@@ -276,4 +276,55 @@ struct PlacePageStoreTests {
 
         #expect(log.names.contains("restaurant_detail_viewed") == false)
     }
+
+    // MARK: - The suburb chip's door
+
+    @Test("the suburb chip opens the suburb's own tag, read off a dish here — never built on the phone")
+    func suburbTagComesFromADish() async {
+        let source = FakePlaceDishSource()
+        let top = dish("Tagliatelle", score: 4.6, reviews: 24)
+        source.seed(place: summary(locality: "Carlton"), dishes: [top], entries: [])
+        let explore = FakeDishExplore()
+        explore.seed(dishID: top.dishID, tags: [
+            DishTag(kind: .style, slug: "pasta", label: "pasta"),
+            DishTag(kind: .suburb, slug: "carlton-melbourne", label: "Carlton"),
+            DishTag(kind: .city, slug: "melbourne", label: "Melbourne")
+        ])
+        let store = PlacePageStore(restaurantID: placeID, places: source, explore: explore)
+        await store.load()
+
+        #expect(store.suburbTag == DishTag(kind: .suburb, slug: "carlton-melbourne", label: "Carlton"))
+    }
+
+    @Test("when the suburb IS the city, the city tag is the door")
+    func cityStandsInForTheSuburb() {
+        let tags = [DishTag(kind: .city, slug: "melbourne", label: "Melbourne")]
+        #expect(PlacePageStore.suburbTag(in: tags, locality: "Melbourne")?.kind == .city)
+        #expect(PlacePageStore.suburbTag(in: tags, locality: "Fitzroy") == nil,
+                "a tag that says another place is no door to this one")
+    }
+
+    @Test("no dishes, or a failed read, leaves the suburb a plain fact")
+    func noDishesNoDoor() async {
+        let source = FakePlaceDishSource()
+        source.seed(place: summary(locality: "Carlton"), dishes: [], entries: [])
+        let store = PlacePageStore(restaurantID: placeID, places: source, explore: FakeDishExplore())
+        await store.load()
+        #expect(store.suburbTag == nil)
+
+        let failing = FakeDishExplore()
+        failing.failTags(true)
+        let other = FakePlaceDishSource()
+        other.seed(place: summary(locality: "Carlton"), dishes: [dish("A", score: 4, reviews: 1)], entries: [])
+        let failed = PlacePageStore(restaurantID: placeID, places: other, explore: failing)
+        await failed.load()
+        #expect(failed.suburbTag == nil)
+    }
+
+    @Test("place_fact_opened carries which chip was tapped")
+    func factEvent() {
+        let event = DetailEvents.placeFactOpened(kind: "suburb")
+        #expect(event.name == "place_fact_opened")
+        #expect(event.parameters["kind"] == "suburb")
+    }
 }

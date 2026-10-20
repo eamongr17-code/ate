@@ -55,6 +55,7 @@ public final class PlacePageStore {
     public let entries: EntryListStore
 
     private let places: any PlacePageReading
+    private let explore: (any DishExploreReading)?
     private let analytics: AnalyticsRecorder
     private var hasLoadedHeader = false
     private var hasRecordedView = false
@@ -72,6 +73,7 @@ public final class PlacePageStore {
         savedDishes: SavedDishBroadcast? = nil,
         deletions: EntryDeletions? = nil,
         previews: PlacePreviews? = nil,
+        explore: (any DishExploreReading)? = nil,
         analytics: @escaping AnalyticsRecorder = { _ in }
     ) {
         self.restaurantID = restaurantID
@@ -79,6 +81,7 @@ public final class PlacePageStore {
         self.previewName = previews?.name(for: restaurantID)
         self.source = source
         self.places = places
+        self.explore = explore
         self.menuPageSize = menuPageSize
         self.analytics = analytics
         self.visits = EntryListStore(
@@ -166,6 +169,7 @@ public final class PlacePageStore {
         async let theirs: Void = entries.loadIfNeeded()
         _ = await (header, dishes, mine, theirs)
         latchSettled()
+        await loadSuburbTagIfNeeded()
     }
 
     public func refresh() async {
@@ -176,6 +180,7 @@ public final class PlacePageStore {
         async let theirs: Void = entries.refresh()
         _ = await (header, dishes, mine, theirs)
         latchSettled()
+        await loadSuburbTagIfNeeded()
     }
 
     /// "Try again", after a header that never came back. The same reads a pull to refresh makes,
@@ -243,6 +248,28 @@ public final class PlacePageStore {
         guard let index = shown.firstIndex(where: { $0.id == dish.id }),
               index >= shown.count - 3 else { return }
         await loadMoreDishes()
+    }
+
+    // MARK: - The suburb chip's door
+
+    /// **Where the suburb chip goes**: the same tag page a dish page's suburb chip opens. Its slug is
+    /// opaque and made on the server (``DishTag/slug``), and every dish here carries its place's
+    /// suburb (0053: `source 'place'`), so it is read from the first dish's tags rather than built.
+    /// The city tag stands in when the suburb IS the city (0053 omits the suburb then). `nil` — a
+    /// place nobody has ordered at yet, or a read that failed — leaves the chip a plain fact.
+    public private(set) var suburbTag: DishTag?
+
+    private func loadSuburbTagIfNeeded() async {
+        guard suburbTag == nil, let explore, let dish = dishes.first,
+              let locality = summary?.locality, locality.isEmpty == false,
+              let tags = try? await explore.dishTags(dishID: dish.dishID) else { return }
+        suburbTag = Self.suburbTag(in: tags, locality: locality)
+    }
+
+    /// The tag that says the place's suburb, exactly as the chip prints it: the suburb, else the city.
+    static func suburbTag(in tags: [DishTag], locality: String) -> DishTag? {
+        tags.first { $0.kind == .suburb && $0.label == locality }
+            ?? tags.first { $0.kind == .city && $0.label == locality }
     }
 
     // MARK: - The viewer's diet chips
