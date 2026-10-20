@@ -83,6 +83,10 @@ struct JournalRoot: View {
         .onReceive(NotificationCenter.default.publisher(for: .atePhotoAccessGranted)) { _ in
             Task { await stores.photos.load() }
         }
+        // Photos just posted with an entry: their sittings leave the count.
+        .onReceive(NotificationCenter.default.publisher(for: .ateSuggestionPhotosWrittenUp)) { _ in
+            Task { await stores.photos.load() }
+        }
         // An entry changed after the composer closed — an edit's re-sort printing its new dishes, a
         // correction on its page: put that one entry in place.
         .onReceive(NotificationCenter.default.publisher(for: .ateV2EntryChanged)) { note in
