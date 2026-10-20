@@ -127,6 +127,35 @@ struct ComposerDietEditTests {
         #expect(diet.toggle(.vg, in: words, atDisplayOffset: 12) == .on(.vg))
         #expect(diet.hasRemovals == false)
     }
+
+    @Test("a dish typed during the edit has no line: the key never reaches the saved dish before it")
+    func unsavedDish() {
+        let body = "Mushroom bao 4.5. Prawn toast 4.0"
+        let saved = [
+            items[0],
+            EntryCard.Item(
+                reviewID: prawn, dishID: UUID(), dishName: "Prawn toast", position: 2,
+                mentionOffset: 18, mentionLength: 11, tags: [.vg], dietTags: [.vg]
+            )
+        ]
+        var diet = ComposerDiet(editing: saved, body: body)
+        let edited = body + ". Tofu larb"
+        diet.follow(from: body, to: edited)
+        let words = EntryComposition(plain: edited, spans: [])
+        let end = (edited as NSString).length
+        #expect(diet.lit(in: words, atDisplayOffset: end) == [], "not the prawn toast's codes")
+        #expect(diet.toggle(.vg, in: words, atDisplayOffset: end) == nil)
+        #expect(diet.hasRemovals == false)
+        let diff = EditTagDiff(
+            original: EntryComposition(plain: body, spans: []), current: words, items: saved,
+            dietRemovals: diet.removals
+        )
+        #expect(diff.removals.isEmpty, "no veto on the prawn toast")
+        // The prawn toast itself still answers to the key.
+        #expect(diet.lit(in: words, atDisplayOffset: 33) == [.vg])
+        #expect(diet.toggle(.vg, in: words, atDisplayOffset: 33) == .off(.vg))
+        #expect(diet.removals == [prawn: [.vg]])
+    }
 }
 
 @MainActor

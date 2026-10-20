@@ -172,14 +172,14 @@ public struct ComposerDiet: Hashable, Sendable {
 
     // MARK: - Which dish
 
-    /// The saved line the caret's dish is: the one named nearest before it.
+    /// The saved line the caret's dish is: the one whose mention holds the dish word on the left.
+    /// `nil` for a dish typed during the edit — it has no line yet, and must never borrow the one before.
     func line(in composition: EntryComposition, atDisplayOffset caret: Int) -> Line? {
-        let anchor = Self.anchor(in: composition, atDisplayOffset: caret)
-        return lines
-            .compactMap { line in line.mention.map { (line, $0.location) } }
-            .filter { $0.1 < anchor }
-            .max { $0.1 < $1.1 }?
-            .0
+        guard let word = Self.dishWord(in: composition, atDisplayOffset: caret) else { return nil }
+        return lines.first { line in
+            guard let mention = line.mention else { return false }
+            return word.location >= mention.location && word.endLocation <= mention.endLocation
+        }
     }
 
     /// **The dish on the left, as a word**: the last word of the person's own before the place a

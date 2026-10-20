@@ -174,3 +174,28 @@ test('0074 LABEL: 3 different people within 12 months; vg counts as v and df; on
   assert.deepEqual(await summary(dish), { tags: ['df', 'v'], diet_counts: { gf: 1 } },
     'vg vetoed (and, at 3 people still, not counted below the label); v and df stand');
 });
+
+test('0074 T3: with every replaced line a candidate, the strongest match wins (QA repro: untagged lines must not steal)', async () => {
+  await setDiet(U.bob, []);
+  const item = (body, name, mention, extra = {}) => ({
+    dish_name: name, mention_text: mention, mention_offset: [...body.slice(0, body.indexOf(mention))].length,
+    score: 4, score_evidence: 'both 4', ...extra,
+  });
+  const b1 = 'Fries and burger, both 4';
+  const E = await w.visit(40, U.bob, P.marion,
+    { body: b1, items: [item(b1, 'Fries', 'Fries'), item(b1, 'Burger', 'burger', { tags: ['gf'] })] },
+    '2026-10-10T09:00:00Z');
+  const tagsOf = async () => (await lines(E)).map((l) => ({ [l.name]: l.tags }));
+  assert.deepEqual(await tagsOf(), [{ Fries: [] }, { Burger: ['gf'] }]);
+
+  const b2 = 'Burger and fries, both 4';
+  await as(U.bob, () => db.query(`update public.entries set body = $2 where id = $1`, [E, b2]));
+  await w.sortAs(E, P.marion, [item(b2, 'Burger', 'Burger'), item(b2, 'Fries', 'fries')]);
+  assert.deepEqual(await tagsOf(), [{ Burger: ['gf'] }, { Fries: [] }], 'a name match beats an earlier evidence match');
+
+  // a renamed dish matched only by evidence passes over the line another item names outright
+  const b3 = 'Chips and burger, both 4';
+  await as(U.bob, () => db.query(`update public.entries set body = $2 where id = $1`, [E, b3]));
+  await w.sortAs(E, P.marion, [item(b3, 'Chips', 'Chips'), item(b3, 'Burger', 'burger')]);
+  assert.deepEqual(await tagsOf(), [{ Chips: [] }, { Burger: ['gf'] }]);
+});

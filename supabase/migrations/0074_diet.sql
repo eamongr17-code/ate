@@ -490,7 +490,18 @@ begin
           or (v_mention  is not null and p.e ->> 'mention'  = lower(v_mention))
           or (v_evidence is not null and p.e ->> 'evidence' = v_evidence)
         )
-      order by p.ord
+      -- 0074: every replaced line is a candidate now, so the STRONGEST match wins before position:
+      -- same dish name, then same mention, then same score evidence. A weaker match also passes over
+      -- a line some item of this sort names outright (that item will claim it by name).
+      order by case
+                 when p.e ->> 'name' = lower(v_name) then 0
+                 when v_mention is not null and p.e ->> 'mention' = lower(v_mention) then 1
+                 else 2
+               end,
+               (p.e ->> 'name' <> lower(v_name)
+                and exists (select 1 from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) i
+                            where lower(btrim(coalesce(i ->> 'dish_name', ''))) = p.e ->> 'name')),
+               p.ord
       limit 1;
       if v_prior_ix is not null then
         v_prior_taken := v_prior_taken || v_prior_ix;
