@@ -194,6 +194,9 @@ struct V2Onboarding: View {
         .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
         .ateAnimation(AteMotion.fillIn, value: photos.clusters.map(\.id))
+        .onReceive(NotificationCenter.default.publisher(for: .ateSuggestionPhotosWrittenUp)) { _ in
+            photos.photosWrittenUp()
+        }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

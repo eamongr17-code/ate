@@ -52,6 +52,17 @@ public enum PhotoSuggestions {
         now: Date = Date(),
         gap: TimeInterval = PhotoSuggestions.gap
     ) -> [PhotoSuggestionCluster] {
+        sittings(items, now: now, gap: gap)
+            .map { PhotoSuggestionCluster(items: Array($0.prefix(photoLimit))) }
+            .sorted { $0.date > $1.date }
+    }
+
+    /// The sittings whole, oldest photo first in each — before the composer's five are taken.
+    static func sittings(
+        _ items: [PhotoSuggestionItem],
+        now: Date,
+        gap: TimeInterval = PhotoSuggestions.gap
+    ) -> [[PhotoSuggestionItem]] {
         let recent = items
             .filter { now.timeIntervalSince($0.createdAt) <= window && $0.createdAt <= now }
             .sorted { $0.createdAt < $1.createdAt }
@@ -64,8 +75,6 @@ public enum PhotoSuggestions {
             }
         }
         return clusters
-            .map { PhotoSuggestionCluster(items: Array($0.prefix(photoLimit))) }
-            .sorted { $0.date > $1.date }
     }
 
     /// How a sitting is named. Inside the last week it is the day and the part of it; exactly a week

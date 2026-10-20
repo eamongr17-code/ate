@@ -38,6 +38,8 @@ final class PhotoSuggestionsModel {
 
     @ObservationIgnored private let services: AteServices
     @ObservationIgnored private var dismissals: PhotoSuggestionDismissals?
+    /// The roll as last read, so a written-up sitting can leave without reading it again.
+    @ObservationIgnored private var food: [PhotoSuggestionItem] = []
 
     init(services: AteServices) {
         self.services = services
@@ -60,11 +62,22 @@ final class PhotoSuggestionsModel {
             }
         }
         for await food in library.recentProgressively() {
+            self.food = food
             clusters = dismissals?.clusters(food) ?? PhotoSuggestions.cluster(food)
             if clusters.isEmpty == false { phase = .ready }
         }
         guard Task.isCancelled == false else { return }
         phase = clusters.isEmpty ? .empty : .ready
+    }
+
+    /// An entry went out holding some of these photos (posted from a row, or picked in the
+    /// composer): their sittings leave the page at once.
+    func photosWrittenUp() {
+        guard dismissals != nil else { return }
+        let reread = PhotoSuggestionDismissals(store: UserDefaultsStore(), owner: services.photoOwner)
+        dismissals = reread
+        clusters = reread.clusters(food)
+        if phase == .ready, clusters.isEmpty { phase = .empty }
     }
 
     func dismiss(_ cluster: PhotoSuggestionCluster) {
