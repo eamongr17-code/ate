@@ -114,15 +114,15 @@ public final class PlacePageStore {
 
     public var name: String? { summary?.name }
 
-    /// The header's chips, in the artboard's order: the average, how many people, the cuisine, the
-    /// suburb. Built here rather than in the view so "a chip is only drawn when we actually have
-    /// the fact" is one rule in one place (design rule 8 — nothing is ever assumed).
+    /// The header's chips, in the artboard's order: the average, how many people, the suburb.
+    /// Built here rather than in the view so "a chip is only drawn when we actually have the fact"
+    /// is one rule in one place (design rule 8 — nothing is ever assumed). No cuisine chip: Google's
+    /// type is mostly just "Restaurant" or "Cafe", which tells nobody anything (Eamon, 20 Oct).
     public var facts: [PlaceFact] {
         guard let summary else { return [] }
         var facts: [PlaceFact] = []
         if let rating = summary.avgRating { facts.append(.rating(ScoreFormat.average(rating))) }
         if summary.peopleCount > 0 { facts.append(.people(summary.peopleCount.formatted())) }
-        if let cuisine = summary.cuisine, cuisine.isEmpty == false { facts.append(.word(cuisine)) }
         // The SUBURB, and only ever `locality`: `city` on a live Google row is a mangled slice of
         // the formatted address, and a chip is a fact or it is nothing (0029, design rule 8).
         if let locality = summary.locality, locality.isEmpty == false { facts.append(.word(locality)) }
