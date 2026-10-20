@@ -27,6 +27,45 @@ struct V2AppearancePage: View {
     }
 }
 
+/// **Diet** (`design/rebuild/diet.html`) — the same tick list as Appearance, except several can be
+/// ticked. Each tap saves at once. Vegan ticks Vegetarian and Dairy free as well, faded and locked: it
+/// covers them. A refused write puts the tick back and says so once.
+struct V2DietPage: View {
+    let diet: DietStore
+
+    @State private var failure: ActionFailure?
+
+    var body: some View {
+        let choice = diet.choice ?? DietChoice()
+        List {
+            Section {
+                ForEach(DietTag.allCases, id: \.self) { tag in
+                    let isCovered = choice.isCovered(tag)
+                    let isTicked = choice.isPicked(tag) || isCovered
+                    AteGroupedRow(
+                        title: tag.dietName, showsChevron: false, isCovered: isCovered,
+                        identifier: "settings.diet.\(tag.rawValue)"
+                    ) {
+                        AteHaptics.key()
+                        Task { if await diet.toggle(tag) == false { failure = .diet } }
+                    } trailing: {
+                        if isTicked {
+                            AteIcon.check.view(size: AteMetrics.settingsCheck)
+                                .opacity(isCovered ? AteKitColor.disabledOpacity : 1)
+                                .accessibilityLabel("Selected")
+                        }
+                    }
+                    .accessibilityAddTraits(isTicked ? .isSelected : [])
+                }
+            }
+        }
+        .ateGroupedList()
+        .ateInlineTitle("Diet")
+        .ateFailureAlert($failure)
+        .task { await diet.loadIfNeeded() }
+    }
+}
+
 /// **Blocked people** — who, and one way to undo it: Unblock in each row's swipe. Nobody blocked
 /// draws nothing: an empty list is the state, and a line saying so would be helper copy.
 struct V2BlockedPeoplePage: View {

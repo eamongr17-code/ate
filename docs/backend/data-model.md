@@ -4,7 +4,7 @@
 are never edited. V1 re-scope **0018–0023**; corrections + offsets **0024–0025**; covers, save toggle,
 report vocabulary **0026–0028**; detail + You audit **0029–0030**; Search scopes **0031**; Apple sign-in +
 account deletion **0032**; **every entry public 0033**; signed-out browse **0034**; dietary tags **0036**;
-round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry, dish-row chips) **0041–0045**; round 5 (cities, range + city filters, share read, saved filters) **0046–0049**; round 6 (date windows, menu by rating) **0050–0051**; read scale **0052**; round 7 (journal calendar, dish tags) **0053**; round 8 (the Feed edition, cravings) **0055**; faster logging **0056**; the tag page **0057**.
+round 3 (delete entry, Feed areas, early sort, place required) **0037–0040**; round 4 (secret 6, search filters, journal, six carry, dish-row chips) **0041–0045**; round 5 (cities, range + city filters, share read, saved filters) **0046–0049**; round 6 (date windows, menu by rating) **0050–0051**; read scale **0052**; round 7 (journal calendar, dish tags) **0053**; round 8 (the Feed edition, cravings) **0055**; faster logging **0056**; the tag page **0057**; diet **0074**.
 
 The atom the USER creates is an **entry** = one visit. The atom AGGREGATES are built from is still a
 per-dish **review**, now *linked* to an entry, not replaced by it. A **sorter** turns the words into
@@ -70,6 +70,11 @@ line inherits the entry's `created_at`, so `reviews.created_at` IS the visit's d
 else `23514`), trigger-canonicalised (lower, deduped, list order, NULL → `{}`). The USER'S, never inferred:
 the author's PATCH (owner-only RLS; not a correction) or client-marked tag tokens via the sorter. **A re-sort
 never removes a tag** — a rebuilt line inherits its predecessor's (R3 matching). Not `review_tags` (people).
+**`diet_tags`, `diet_off` text[] NOT NULL `{}` (0074)**, closed set, server-owned (a client write of either is
+ignored): `diet_tags` = the codes of `tags` that came from the author's diet (CHECK `⊆ tags`); `diet_off` = diet
+codes turned off on this line. `apply_entry_sort` stamps a NEW line with `profiles.diet` less its `items[].diet_off`;
+an inherited (T3, now matched against every replaced line) or corrected line is never re-stamped. Trigger
+`reviews_tags_diet`: a diet code leaving `tags` moves to `diet_off`, one coming back returns to `diet_tags`.
 
 ### `saves` (0020)
 `(user_id, dish_id)` **PK** + `source_entry_id` (→ entries, SET NULL), `source_user_id` (→ profiles,
@@ -124,6 +129,7 @@ Catalogue data (authenticated SELECT, no client write). **Diet chips are NOT sto
 ### `profiles` — changed (0018)
 Additive: `entry_seq` int (the order-number counter; never client-writable), `city` text (under the handle on You/Profile). `username` is `citext UNIQUE` — the handle.
 `delete_account()` deletes the auth user; FK cascades take every personal row (verified, else it RAISES — 0035), the catalogue stays. `handle_new_user` always leaves a profile (handle `ate<hex>` when no usable email). `deleted_at` hides a profile from everyone but its owner (0035).
+**`diet` text[] NOT NULL `{}` (0074)**: what the person always eats, closed set, canonical, stored as picked (vegan = `{vg}`); owner PATCH.
 
 ## Unchanged from Wave 0
 
@@ -184,8 +190,8 @@ except where noted; **entries = visits, reviews = receipt lines, and they are no
 | RPC | What it returns / counts |
 |---|---|
 | `place_summary(place)` | the header in one call. `entry_count` = VISITS here, `review_count` = LINES (18 lines from 8 visits at Tipo 00 — printing the wrong one is a lie); `my_visits`/`my_last_visit` = the "Your N visits" row; `locality` = `place_locality(address, city)`; `avg_rating` = mean of per-dish averages; empty text arrives as NULL, never `''` |
-| `place_dishes(place, …)` | "what to order", ranked **by rating (0051, Eamon)**: printed `score` desc (a 6 above every 5) → `review_count` desc → name → id; unscored after every scored dish. A single 5.0 now leads (0030's review-count-first `DishRanking` rule is retired). A dish with NO line is excluded (an abandoned "add a new dish" shell); an unscored dish WITH a line stays. 4-part keyset. `tags` (0045) = the `dish_summary.tags` rule; `search_dishes` rows carry it too (0042) |
-| `dish_summary(dish)` | dish + place + aggregates + `photos` (`photos[0].url` == `cover_url`) + the viewer's `saved` / `my_last_score`. A dish's "orders" IS `review_count`: one entry prints one line per dish. **`tags` (0036)** = codes carried by **at least half** of the lines `review_count` counts, and by at least one (`dish_consensus_tags`) — 1 of 1 and 1 of 2 list it, 1 of 3 does not |
+| `place_dishes(place, …)` | "what to order", ranked **by rating (0051, Eamon)**: printed `score` desc (a 6 above every 5) → `review_count` desc → name → id; unscored after every scored dish. A single 5.0 now leads (0030's review-count-first `DishRanking` rule is retired). A dish with NO line is excluded (an abandoned "add a new dish" shell); an unscored dish WITH a line stays. 4-part keyset. `tags` (0045) = the `dish_summary.tags` rule; `search_dishes` rows carry it too (0042); `diet_counts` (0074) as `dish_summary` |
+| `dish_summary(dish)` | dish + place + aggregates + `photos` (`photos[0].url` == `cover_url`) + the viewer's `saved` / `my_last_score`. A dish's "orders" IS `review_count`: one entry prints one line per dish. **`tags`** = the diet LABELS (`dish_consensus_tags`, 0074; 0036's half-of-lines rule is retired): code c when ≥ `dish_label_min_people()` (3) different people's visible lines from the last `dish_label_window()` (12 months) carry it — `vg` also counts as `v` and `df` — and no such line has c in `diet_off`. **`diet_counts`** jsonb (0074) = `{c: people}` for 0 < people < 3 |
 | `get_dish_reviews(dish, …)` | one row per LINE, the caller's own first then newest (3-part keyset). `entry_id` is **NULL on a pre-entries line**; `photos[]` is the review's ENTRY's, so it can hold another dish's photo |
 | `get_entries_at_place(place, scope, …)` | `setof entry_cards` — the ONE entry shape, never review rows. `scope ∈ mine\|others\|all` |
 | `get_entries_by_author(author, …)` | `setof entry_cards`. Every entry is public (0033): yours and a stranger's read the same; a blocked author reads empty |
@@ -219,7 +225,7 @@ nine RPCs (+ `feed_areas`, `feed_cities`, `get_entry_card`, 0055's `top_ate`, `n
 | `entries` | own, or not blocked (0033) | self, `restaurant_id` required (0040) | self (cols `body, visibility` only) | self (or `delete_entry`) |
 | `entry_photos` | parent entry visible | parent entry is own | own | own |
 | `reviews` | own, or not blocked (0033) | author | author | author |
-| `profiles` | self, or (not deactivated AND not blocked) | self | self (cols `username, name, avatar_url, bio, city`) | — (`delete_account()` RPC) |
+| `profiles` | self, or (not deactivated AND not blocked) | self | self (cols `username, name, avatar_url, bio, city`, `diet` 0074) | — (`delete_account()` RPC) |
 | `saves` | own | own | own | own |
 | `blocks` | rows you created | self as blocker | — | self as blocker |
 | `reports` | own | self | — | — |
@@ -237,7 +243,7 @@ directions without any query having to remember.
 `(body, visibility)`. `order_number`, every `sort_*`, `restaurant_source` and 0024's `place_*` are
 unwritable by clients on every path — the trigger and the 0021/0024 RPCs are their only writers.
 `restaurant_id` is insertable, not updatable (`correct_entry_place` re-resolves the dishes). `reviews` has
-no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanctioned path.
+no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanctioned path (`diet_tags`/`diet_off` follow `tags` by trigger, 0074).
 
 ## Migration index
 
@@ -267,3 +273,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0069 | `fixed_dish_styles` | `dish_style_list()`; `dish_style_clean`/`dish_styles_from_json` keep only listed styles (create or replace); data: off-list style links and style cravings deleted, emptied dishes re-guessed |
 | 0071 | `dish_dedup` | `dish_key()` + index; `find_or_create_dish` key/alias lookups; `merge_dish(src, tgt, reason, detail)` (same place, never two dishes one entry names; carries saves, legacy list rows, photo picks; logs `dish_merges`) + `unmerge_dish`; `dish_merge_proposals`, `dish_scan_places()`, `merge_dish_proposals()` for the dish-dedup scan (service role only) |
 | 0073 | `list_covers_and_people` | `user_lists.cover_item_id`/`cover_url`; `user_list_members` (invited → accepted, ≤ 20, owner writes via RPC); notifications `list_id` + `list_invite` type; `set_list_cover`, `set_list_people`, `list_people`, `my_list_invites`, `respond_list_invite`, `leave_list`; `my_lists`/`get_list` rebuilt as definer with shared lists; `push_claim_list_invites` + send-push sends invites |
+| 0074 | `diet` | `profiles.diet` (+ column grant); `reviews.diet_tags`/`diet_off` + trigger `reviews_tags_diet`; `apply_entry_sort` stamps new lines, `correct_entry_place` prints the plan's stamp (create or replace); `entry_cards.items[].diet_tags`; `dish_consensus_tags` = the label rule (constants `dish_label_min_people`, `dish_label_window`), `dish_diet_counts`; `dish_summary`/`place_dishes` + `diet_counts` (drop+create, browse twins too); vg-aware pre-filters in `place_has_tagged_dish`, `tag_dish_ids`, `dishes_by_tag` |

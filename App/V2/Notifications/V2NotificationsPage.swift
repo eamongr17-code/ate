@@ -85,6 +85,9 @@ struct V2NotificationsPage: View {
             guard now == .active, photos.phase == .off, photos.library.isAuthorized else { return }
             Task { await photos.load(mayAsk: false) }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .ateSuggestionPhotosWrittenUp)) { _ in
+            photos.photosWrittenUp()
+        }
         .onChange(of: context.app.isComposing) { _, isComposing in
             if isComposing == false { pickedChip = nil }
         }

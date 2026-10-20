@@ -23,7 +23,10 @@ struct V2Root: View {
                 V2Onboarding(app: app)
             } else if app.isInside {
                 TabShell(app: app, start: start)
-                    .task(id: app.hasSession) { await app.loadHandle() }
+                    .task(id: app.hasSession) {
+                        await app.loadHandle()
+                        await app.loadDiet()
+                    }
             } else {
                 welcome(isPrompt: false)
             }

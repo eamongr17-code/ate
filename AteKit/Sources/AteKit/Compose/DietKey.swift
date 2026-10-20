@@ -143,7 +143,7 @@ public extension EntryComposition {
     }
 
     /// The score pill that ends just before `offset`, with nothing but spaces between.
-    private func scoreEnding(beforeDisplayOffset offset: Int) -> EntryTokenSpan? {
+    func scoreEnding(beforeDisplayOffset offset: Int) -> EntryTokenSpan? {
         var plainOffset = self.plainOffset(forDisplayOffset: offset)
         let units = Array(plain.utf16)
         while plainOffset > 0, units[plainOffset - 1] == 32 { plainOffset -= 1 }

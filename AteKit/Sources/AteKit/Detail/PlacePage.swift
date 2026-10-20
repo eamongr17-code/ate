@@ -131,10 +131,13 @@ public struct MenuDish: Sendable, Hashable, Codable, Identifiable {
     /// ordered by rating), and part of its cursor.
     public let reviewCount: Int
     public let coverURLString: String?
-    /// The dish's consensus dietary tags, by `dish_summary`'s rule (0036). Read with
+    /// The dish's dietary labels, by `dish_summary`'s rule (the server's: 3 people). Read with
     /// `decodeIfPresent`: a `place_dishes` that does not carry the column yet still serves a menu —
     /// one that simply prints no chips.
     public let tags: [DietTag]
+    /// Codes below the label, `{code: n}` (`diet_counts`) — what the viewer's diet chips also let
+    /// through. Empty from a server that predates it.
+    public let dietCounts: DietCounts
 
     public var id: UUID { dishID }
     public var coverURL: URL? { coverURLString.flatMap(URL.init(string:)) }
@@ -152,7 +155,8 @@ public struct MenuDish: Sendable, Hashable, Codable, Identifiable {
         peopleCount: Int = 0,
         reviewCount: Int = 0,
         coverURLString: String? = nil,
-        tags: [DietTag] = []
+        tags: [DietTag] = [],
+        dietCounts: DietCounts = DietCounts()
     ) {
         self.dishID = dishID
         self.name = name
@@ -161,6 +165,7 @@ public struct MenuDish: Sendable, Hashable, Codable, Identifiable {
         self.reviewCount = reviewCount
         self.coverURLString = coverURLString
         self.tags = tags
+        self.dietCounts = dietCounts
     }
 
     public init(from decoder: any Decoder) throws {
@@ -172,10 +177,12 @@ public struct MenuDish: Sendable, Hashable, Codable, Identifiable {
         self.reviewCount = try container.decode(Int.self, forKey: .reviewCount)
         self.coverURLString = try container.decodeIfPresent(String.self, forKey: .coverURLString)
         self.tags = DietTag.decoding(try container.decodeIfPresent([String].self, forKey: .tags) ?? [])
+        self.dietCounts = (try? container.decodeIfPresent(DietCounts.self, forKey: .dietCounts)) ?? DietCounts()
     }
 
     enum CodingKeys: String, CodingKey {
         case score, tags
+        case dietCounts = "diet_counts"
         case dishID = "dish_id"
         case name = "dish_name"
         case peopleCount = "people_count"

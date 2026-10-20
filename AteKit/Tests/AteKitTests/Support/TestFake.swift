@@ -120,6 +120,8 @@ extension AccountServing where Self: TestFake {
     func setHandle(_ handle: String) async throws { try unimplemented() }
     func setName(_ name: String) async throws { try unimplemented() }
     func account() async throws -> AccountProfile { try unimplemented() }
+    func diet() async throws -> [DietTag] { try unimplemented() }
+    func setDiet(_ codes: [DietTag]) async throws { try unimplemented() }
     @discardableResult
     func setAvatar(_ image: AvatarUpload) async throws -> URL { try unimplemented() }
     func blockedPeople(after cursor: PageCursor?, pageSize: Int) async throws -> Page<BlockedPerson> {

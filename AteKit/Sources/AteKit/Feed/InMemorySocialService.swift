@@ -54,7 +54,7 @@ public final class InMemorySocialService: EntryFeedReading, DishSaving, ProfileR
                 reviewID: item.reviewID, dishID: dishID, dishName: item.dishName, score: item.score,
                 note: item.note, position: item.position, evidenceOffset: item.evidenceOffset,
                 evidenceLength: item.evidenceLength, mentionOffset: item.mentionOffset,
-                mentionLength: item.mentionLength, tags: item.tags
+                mentionLength: item.mentionLength, tags: item.tags, dietTags: item.dietTags
             )
         })
     }

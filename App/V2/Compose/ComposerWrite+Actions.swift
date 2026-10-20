@@ -69,6 +69,7 @@ extension V2ComposerWrite {
                     photoPaths: request.photoPaths,
                     tagTokens: request.tagTokens,
                     scoreTokens: request.scoreTokens,
+                    dietOffTokens: request.dietOffTokens,
                     sorted: { await sorted.fulfil($0) }
                 )
                 // Its photos are paired with its dishes by now (0063): an open page reads them again.
@@ -97,6 +98,7 @@ extension V2ComposerWrite {
         if let source = model.date.source, model.date.daysAgo() > 0 {
             analytics(EntryEvents.dated(source: source, daysAgo: model.date.daysAgo()))
         }
+        writeUpSuggestedPhotos()
         model.clearDraft()
         model.markEntrySaved()
         // "I ate it": the dish is in the Journal now, so it leaves Saved. Only once the entry has
@@ -149,6 +151,7 @@ extension V2ComposerWrite {
             sorted: sorted,
             tagTokens: request.tagTokens,
             scoreTokens: request.scoreTokens,
+            dietOffTokens: request.dietOffTokens,
             doneAt: doneAt,
             cacheHit: cacheHit,
             isQueued: sorted == nil
@@ -198,7 +201,10 @@ extension V2ComposerWrite {
                 ? nil : model.composition.scoreTokens,
             originalPhotos: editing.photos,
             photos: model.editedPhotos,
-            tags: EditTagDiff(original: editing.composition, current: model.composition, items: editing.items),
+            tags: EditTagDiff(
+                original: editing.composition, current: model.composition, items: editing.items,
+                dietRemovals: model.diet.removals
+            ),
             originalBody: editing.composition.plain,
             originalEatenAt: editing.createdAt,
             eatenAt: model.date.eatenAt
@@ -216,6 +222,7 @@ extension V2ComposerWrite {
             do {
                 let card = try await edit.save(to: entries, staged: staged)
                 isSaving = false
+                writeUpSuggestedPhotos()
                 model.markEntrySaved()
                 sendLatePhotos()
                 sendCompanions(entryID: editing.id, from: model.originalCompanions)
@@ -250,6 +257,16 @@ extension V2ComposerWrite {
     }
 
     // MARK: - Photos
+
+    /// The photos just posted are written up: their sittings leave From your photos and the
+    /// Journal's count (``PhotoSuggestionDismissals``). A picked or suggested photo is known by its
+    /// library id; one the entry already had, or a camera shot, matches nothing.
+    private func writeUpSuggestedPhotos() {
+        let ids = model.photos.filter { $0.remoteURL == nil }.map(\.id)
+        guard ids.isEmpty == false else { return }
+        PhotoSuggestionDismissals(store: UserDefaultsStore(), owner: services.photoOwner).writeUp(ids)
+        NotificationCenter.default.post(name: .ateSuggestionPhotosWrittenUp, object: nil)
+    }
 
     /// A composer opened from a photo suggestion arrives holding a cluster's photos: staged the same
     /// way the picker's are, and bringing nothing with them but their pixels — never a place.

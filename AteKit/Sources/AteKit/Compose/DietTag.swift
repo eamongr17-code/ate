@@ -91,15 +91,20 @@ public struct SortEntryRequest: Encodable, Sendable {
     /// reads the prose as it always did. Also sent as `six_tokens` — the server keeps only the spans
     /// that say a 6 — so a server that predates `score_tokens` still gets its sixes.
     public let scoreTokens: [TagToken]?
+    /// The author's diet codes turned off per dish (`diet_off_tokens`): sent only when there are
+    /// any, so every other sort is byte-for-byte the request it always was.
+    public let dietOffTokens: [DietOffToken]
 
     public init(
-        entryID: UUID, force: Bool, dryRun: Bool = false, tagTokens: [TagToken] = [], scoreTokens: [TagToken]? = nil
+        entryID: UUID, force: Bool, dryRun: Bool = false, tagTokens: [TagToken] = [], scoreTokens: [TagToken]? = nil,
+        dietOffTokens: [DietOffToken] = []
     ) {
         self.entryID = entryID
         self.force = force
         self.dryRun = dryRun
         self.tagTokens = tagTokens
         self.scoreTokens = scoreTokens
+        self.dietOffTokens = dietOffTokens
     }
 
     enum CodingKeys: String, CodingKey {
@@ -109,6 +114,7 @@ public struct SortEntryRequest: Encodable, Sendable {
         case tagTokens = "tag_tokens"
         case sixTokens = "six_tokens"
         case scoreTokens = "score_tokens"
+        case dietOffTokens = "diet_off_tokens"
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -118,6 +124,9 @@ public struct SortEntryRequest: Encodable, Sendable {
         try container.encode(dryRun, forKey: .dryRun)
         if tagTokens.isEmpty == false {
             try container.encode(tagTokens, forKey: .tagTokens)
+        }
+        if dietOffTokens.isEmpty == false {
+            try container.encode(dietOffTokens, forKey: .dietOffTokens)
         }
         if let scoreTokens {
             // Always, even empty: an entry with no pills has no ratings.

@@ -99,14 +99,15 @@ test('place tags follow the place: a cuisine change, a move, a new city alias', 
 });
 
 test('diet chips in dish_tags are dish_summary.tags, live', async () => {
-  const E = await w.visit(6, U.alice, P.tipo, receipt(['Burrata', 4, { tags: ['v', 'gf'] }]), '2026-09-07T09:00:00Z');
+  // 0074's label rule (3 different people) — the rule itself is diet_test.mjs; here, that the chips follow it.
+  const E = await w.visit(6, U.alice, P.tipo, receipt(['Burrata', 4, { tags: ['v', 'gf'] }]), '2026-10-07T09:00:00Z');
   const dish = await dishAt(E, 1);
-  assert.deepEqual((await tags(dish)).filter((t) => t.startsWith('diet')), ['diet:gf:GF', 'diet:v:V']);
-  await w.visit(7, U.bob, P.tipo, receipt(['Burrata', 5]), '2026-09-08T09:00:00Z');
-  await w.visit(8, U.cleo, P.tipo, receipt(['Burrata', 3, { tags: ['v'] }]), '2026-09-09T09:00:00Z');
+  assert.deepEqual((await tags(dish)).filter((t) => t.startsWith('diet')), [], 'one person is not a label');
+  await w.visit(7, U.bob, P.tipo, receipt(['Burrata', 5, { tags: ['v'] }]), '2026-10-08T09:00:00Z');
+  await w.visit(8, U.cleo, P.tipo, receipt(['Burrata', 3, { tags: ['v'] }]), '2026-10-09T09:00:00Z');
   const [{ tags: summary }] = await as(U.dan, () => rows(`select tags from public.dish_summary($1)`, [dish]));
   assert.deepEqual(summary, ['v']);
-  assert.deepEqual((await tags(dish, U.dan)).filter((t) => t.startsWith('diet')), ['diet:v:V'], '1 of 3 is not a consensus');
+  assert.deepEqual((await tags(dish, U.dan)).filter((t) => t.startsWith('diet')), ['diet:v:V'], 'v: 3 people; gf: 1');
   const byDiet = await as(U.dan, () => rows(`select name from public.dishes_by_tag('diet', 'v')`));
   assert.ok(byDiet.some((r) => r.name === 'Burrata'));
   assert.ok(!(await as(U.dan, () => rows(`select name from public.dishes_by_tag('diet', 'gf')`))).some((r) => r.name === 'Burrata'));

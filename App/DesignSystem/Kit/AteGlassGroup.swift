@@ -19,6 +19,20 @@ struct AteGlassGroup<Content: View>: View {
                     .frame(height: AteMetrics.hit)
                     .glassEffect(.regular.interactive(), in: .capsule)
                 }
+                // The counts are drawn over the glass, not in it: Liquid Glass blends what it holds,
+                // so a coral badge inside it read see-through over the bell.
+                .overlayPreferenceValue(AteGlassBadgeKey.self) { badges in
+                    GeometryReader { proxy in
+                        ForEach(badges.indices, id: \.self) { index in
+                            let slot = proxy[badges[index].bounds]
+                            AteGlassBadge(count: badges[index].count)
+                                .frame(width: slot.width, height: slot.height, alignment: .topTrailing)
+                                .offset(x: slot.minX, y: slot.minY)
+                        }
+                    }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
                 .accessibilityElement(children: .contain)
             }
         }
@@ -35,6 +49,8 @@ enum AteGlassGroupMetrics {
     static let badgePadding: CGFloat = 4
     static let badgeTop: CGFloat = 3
     static let badgeTrailing: CGFloat = 1
+    /// The cutout around the badge, in the glass's own colour, so it sits clear of the icon.
+    static let badgeRing: CGFloat = 1.5
 }
 
 /// One control in an ``AteGlassGroup``: an icon in its 36 × 44 slot, with an optional coral count
@@ -65,19 +81,47 @@ private struct AteGlassItemFace: View {
     var body: some View {
         icon.view(size: AteGlassDiscMetrics.glyph)
             .frame(width: AteGlassGroupMetrics.slot, height: AteMetrics.hit)
-            .overlay(alignment: .topTrailing) {
-                if let badge, badge > 0 {
-                    Text(verbatim: "\(badge)")
-                        .ateText(.kitBadge)
-                        .monospacedDigit()
-                        .padding(.horizontal, AteGlassGroupMetrics.badgePadding)
-                        .frame(minWidth: AteGlassGroupMetrics.badge, minHeight: AteGlassGroupMetrics.badge)
-                        .foregroundStyle(AteKitColor.badgeInk)
-                        .background(AteKitColor.badge, in: .capsule)
-                        .padding(.top, AteGlassGroupMetrics.badgeTop)
-                        .padding(.trailing, AteGlassGroupMetrics.badgeTrailing)
-                }
+            // The group draws the count over its glass (`AteGlassGroup`); the slot only says where.
+            .anchorPreference(key: AteGlassBadgeKey.self, value: .bounds) { slot in
+                guard let badge, badge > 0 else { return [] }
+                return [AteGlassBadgeSlot(count: badge, bounds: slot)]
             }
             .contentShape(.rect)
+    }
+}
+
+/// A control's count and the slot it sits in, carried up to the group.
+private struct AteGlassBadgeSlot {
+    let count: Int
+    let bounds: Anchor<CGRect>
+}
+
+private struct AteGlassBadgeKey: PreferenceKey {
+    static var defaultValue: [AteGlassBadgeSlot] { [] }
+    static func reduce(value: inout [AteGlassBadgeSlot], nextValue: () -> [AteGlassBadgeSlot]) {
+        value += nextValue()
+    }
+}
+
+/// The coral count, solid, ringed in the glass's colour, at the slot's top right.
+private struct AteGlassBadge: View {
+    let count: Int
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        Text(verbatim: "\(count)")
+            .ateText(.kitBadge)
+            .monospacedDigit()
+            .padding(.horizontal, AteGlassGroupMetrics.badgePadding)
+            .frame(minWidth: AteGlassGroupMetrics.badge, minHeight: AteGlassGroupMetrics.badge)
+            .foregroundStyle(AteKitColor.badgeInk)
+            .background(AteKitColor.badge, in: .capsule)
+            .padding(AteGlassGroupMetrics.badgeRing)
+            .background(palette.chip, in: .capsule)
+            // The ring grows outward; the coral stays where the contract puts it.
+            .offset(x: AteGlassGroupMetrics.badgeRing, y: -AteGlassGroupMetrics.badgeRing)
+            .padding(.top, AteGlassGroupMetrics.badgeTop)
+            .padding(.trailing, AteGlassGroupMetrics.badgeTrailing)
     }
 }

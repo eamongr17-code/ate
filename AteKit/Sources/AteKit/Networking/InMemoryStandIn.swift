@@ -116,6 +116,8 @@ public extension AccountServing where Self: InMemoryStandIn {
     func setHandle(_ handle: String) async throws { throw StandInUnsupported() }
     func setName(_ name: String) async throws { throw StandInUnsupported() }
     func account() async throws -> AccountProfile { throw StandInUnsupported() }
+    func diet() async throws -> [DietTag] { throw StandInUnsupported() }
+    func setDiet(_ codes: [DietTag]) async throws { throw StandInUnsupported() }
     @discardableResult
     func setAvatar(_ image: AvatarUpload) async throws -> URL { throw StandInUnsupported() }
     func blockedPeople(after cursor: PageCursor?, pageSize: Int) async throws -> Page<BlockedPerson> {

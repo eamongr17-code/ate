@@ -21,6 +21,9 @@ let db, as, asService, rows, error;
 before(async () => {
   db = await boot();
   ({ as, asService, rows, error } = actors(db));
+  // These suites test the diet FILTERS, chips and keysets on a two-person world, so the label threshold
+  // is dropped to 1 person here (local PGlite only). 0074's label rule itself is diet_test.mjs.
+  await db.exec(`create or replace function public.dish_label_min_people() returns int language sql immutable as $$ select 1 $$;`);
   await db.exec(`
     insert into auth.users (id, email) values ('${A}', 'alice@ate.test'), ('${B}', 'bob@ate.test');
     insert into public.restaurants (id, name, address, city, cuisine, source, location) values
@@ -364,19 +367,19 @@ test('0044: a placeless entry\'s parked plan carries its 6 the same way', async 
 // 0042/0045 — dish chips on place_dishes and search_dishes (the dish_summary.tags rule)
 // ---------------------------------------------------------------------------------------------------
 test('0045: place_dishes.tags = dish_summary.tags, signed in and out; the keyset still walks', async () => {
-  // R2's pasta: one line, GF+V (0042 setup). Add a second pasta line tagged GF only → GF 2/2, V 1/2.
+  // R2's pasta: one line, GF+V (0042 setup). Add a second pasta line tagged GF only → GF 2 people, V 1.
   await visit(140, A, R2, 'Tipo pasta 4 GF', [{ dish_name: 'Tipo Pasta', score: 4, score_evidence: 'Tipo pasta 4', tags: ['gf'] }],
     '2026-09-25T09:00:00Z');
-  // …and a third, untagged → GF 2/3 (kept), V 1/3 (dropped)
+  // …and a third, untagged → still GF and V (0074: people who marked it, not a share of the lines)
   await visit(141, B, R2, 'Tipo pasta 3', [{ dish_name: 'Tipo Pasta', score: 3, score_evidence: 'Tipo pasta 3' }], '2026-09-25T10:00:00Z');
   for (const who of [A, null]) {
     const got = await as(who, () => rows(`select dish_id, dish_name, tags from public.place_dishes($1)`, [R2]));
     const pasta = got.find((r) => r.dish_name === 'Tipo Pasta');
     const summary = (await as(who, () => rows(`select tags from public.dish_summary($1)`, [pasta.dish_id])))[0];
-    assert.deepEqual(pasta.tags, ['gf'], who ? 'signed in' : 'signed out');
+    assert.deepEqual(pasta.tags, ['gf', 'v'], who ? 'signed in' : 'signed out');
     assert.deepEqual(pasta.tags, summary.tags, 'the same rule as dish_summary');
   }
-  // R3: curry (2 lines, GF 2/2, avg 4.5) leads salad (2 lines, V 1/2 → kept: half is enough)
+  // R3: curry (2 lines, GF, avg 4.5) leads salad (2 lines, one V → kept)
   const whole = await as(A, () => rows(`select * from public.place_dishes($1)`, [R3]));
   assert.deepEqual(whole.map((r) => [r.dish_name, r.tags]), [['Tipo Curry', ['gf']], ['Salad', ['v']]]);
   const p1 = await as(A, () => rows(`select * from public.place_dishes($1, 1)`, [R3]));
@@ -388,9 +391,9 @@ test('0045: place_dishes.tags = dish_summary.tags, signed in and out; the keyset
 
 test('0042: search_dishes.tags — the chips of each row, filtered or not; paging unchanged', async () => {
   const got = await as(A, () => rows(`select dish_name, tags from public.search_dishes(p_query => 'tipo')`));
-  assert.deepEqual(got.map((r) => [r.dish_name, r.tags]).sort(), [['Tipo Curry', ['gf']], ['Tipo Pasta', ['gf']], ['Tipo Soup', ['gf', 'v']]]);
+  assert.deepEqual(got.map((r) => [r.dish_name, r.tags]).sort(), [['Tipo Curry', ['gf']], ['Tipo Pasta', ['gf', 'v']], ['Tipo Soup', ['gf', 'v']]]);
   const f = await as(A, () => rows(`select dish_name, tags from public.search_dishes(p_query => 'tipo', p_tags => '{v}')`));
-  assert.deepEqual(f.map((r) => [r.dish_name, r.tags]), [['Tipo Soup', ['gf', 'v']]]);
+  assert.deepEqual(f.map((r) => [r.dish_name, r.tags]).sort(), [['Tipo Pasta', ['gf', 'v']], ['Tipo Soup', ['gf', 'v']]]);
   const whole = await as(A, () => rows(`select * from public.search_dishes(p_query => 'tipo')`));
   const p1 = await as(A, () => rows(`select * from public.search_dishes(p_query => 'tipo', p_limit => 1)`));
   const l = p1[0];

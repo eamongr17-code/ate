@@ -61,12 +61,13 @@ struct SearchFilterTests {
         let vegetarian = try await social.dishes(
             query: "a", filters: SearchFilters(tags: [.v]), after: nil, pageSize: 20
         )
-        #expect(vegetarian.rows.map(\.name).contains("Raspberry cake"))
+        // One person marked the cake vegetarian: a count, not a label (3+ people), so it's no match.
+        #expect(vegetarian.rows.map(\.name).contains("Raspberry cake") == false)
         #expect(vegetarian.rows.allSatisfy { $0.tags.contains(.v) })
         let glutenFreeDairyFree = try await social.places(
             query: "i", filters: SearchFilters(tags: [.gf, .df]), after: nil, pageSize: 20
         )
-        #expect(glutenFreeDairyFree.rows.map(\.name) == ["Kisume"], "the salmon roll carries both")
+        #expect(glutenFreeDairyFree.rows.isEmpty, "the salmon roll's GF DF is one person's: not labelled")
         let cuisines = try await social.cuisines()
         #expect(cuisines.map(\.cuisine).contains("Japanese"))
     }

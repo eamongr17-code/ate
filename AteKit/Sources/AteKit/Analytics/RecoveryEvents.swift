@@ -19,6 +19,8 @@ public enum ActionFailure: String, Sendable, CaseIterable, Identifiable {
     case removeMe = "remove_me"
     /// A dish you added to Saved yourself.
     case addOwnSave = "add_own_save"
+    /// Settings → Diet, or the first-run step's Next.
+    case diet = "diet_save"
 
     public var id: String { rawValue }
 
@@ -35,6 +37,7 @@ public enum ActionFailure: String, Sendable, CaseIterable, Identifiable {
         case .handle: "Couldn't save your handle."
         case .removeMe: "Couldn't remove you."
         case .addOwnSave: "Couldn't save the dish."
+        case .diet: "Couldn't save your diet."
         }
     }
 }

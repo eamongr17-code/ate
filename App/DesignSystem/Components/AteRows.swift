@@ -139,11 +139,15 @@ struct AteChip: View {
     var sidePadding: CGFloat = 12
     /// `.controlSmall` by default; a dish page's tag chips set 14/600 with no tracking.
     var textStyle: AteTextStyle = .controlSmall
+    /// A chip that switches something on the page (a place's diet chips, `diet.html` `.chip.on`): ink
+    /// with light lettering while on. `nil` for a chip that is only a fact or a door.
+    var isOn: Bool?
     var action: (() -> Void)?
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
+        let isLit = isOn == true
         let content = HStack(spacing: AteMetrics.snug - 2) {
             if let icon { icon.view(size: iconSize) }
             Text(title).ateText(textStyle)
@@ -151,8 +155,8 @@ struct AteChip: View {
         .padding(.leading, icon == nil ? sidePadding : sidePadding - 2)
         .padding(.trailing, sidePadding)
         .atePillHeight(height)
-        .background(palette.raised, in: .capsule)
-        .foregroundStyle(palette.fg)
+        .background(isLit ? palette.solid : palette.raised, in: .capsule)
+        .foregroundStyle(isLit ? palette.inverted : palette.fg)
 
         if let action {
             // A 32 (or the feed's 40) pill reaches 44 to a finger.
@@ -160,6 +164,7 @@ struct AteChip: View {
             Button(action: action) { content.ateHitArea(hit) }
                 .buttonStyle(.plain)
                 .ateHitFootprint(hit)
+                .accessibilityAddTraits(isLit ? .isSelected : [])
         } else {
             content
         }

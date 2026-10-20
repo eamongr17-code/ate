@@ -9,14 +9,17 @@
 //   body: { entry_id: uuid, force?: boolean, dry_run?: boolean,
 //           tag_tokens?: [{ offset, length }],         (0036 — scalar spans the client marked)
 //           six_tokens?: [{ offset, length }],         (0041 — the secret 6, client-marked only)
+//           diet_off_tokens?: [{ offset, length?, code }], (0074 — a diet code turned off for one dish)
 //           score_tokens?: [{ offset, length }] }      (every score pill; ./rated.ts)
 //   → 200 { ok, mode, model, entry_id, sort_status, restaurant_id, place_query, place_offset, items[],
 //           entry_card }                               (0056 — the sorted entry_cards row, or null)
 //     (every item carries `tags: string[]`, possibly [])
+//     (and `diet_off: string[]`, possibly [] — 0074; the diet STAMP itself is the database's, so it
+//      shows in entry_card.items[].tags / diet_tags, not in items[].tags here)
 //     (`model` is the model ID that produced the plan, null when the stub did)
 //     401 unauthorized · 403 not your entry · 404 unknown entry · 422 bad request
 //
-//   EARLY SORT (round 3, 0039): { preview: true, body, tag_tokens?, six_tokens?, restaurant_id? }
+//   EARLY SORT (round 3, 0039): { preview: true, body, tag_tokens?, six_tokens?, diet_off_tokens?, restaurant_id? }
 //   → 200 { ok, preview: true, cached, mode, model, entry_id: null, restaurant_id, place_query,
 //           place_offset, items[] } · 422 bad draft · 429 rate limited (12 per 10 min per author)
 //   Runs on a DRAFT and writes nothing to entries or reviews. In model mode the model's raw plan
@@ -70,6 +73,11 @@
 // nothing: "the salad was gluten free" tags no line. A re-sort without tokens never removes
 // a tag already on a line — apply_entry_sort carries them over, like a correction.
 //
+// DIET (0074). The author's diet is stamped on every NEW line by apply_entry_sort, never here. The
+// client's `diet_off_tokens` say which codes NOT to stamp on one dish; they attach like tag tokens
+// (./tags.ts attachDietOffTokens) and travel as items[].diet_off. Never part of the preview cache key:
+// they do not change the plan, only what is stamped on it.
+//
 // THE SECRET 6 IS NEVER INFERRED EITHER (0041). Scores are 0.5-5.0; a 6 exists only on a span the
 // client marked (`six_tokens`, ./six.ts). A typed "6" is not a score: the parser's numbers stop at 5
 // and validate.ts drops any 6 whose evidence does not cover a marked span, in every mode.
@@ -82,7 +90,15 @@ import { fencedPlaceNames, mentionForPlaceName, parseEntry, placeCandidateSpans 
 import { validatePlan } from './validate.ts';
 import { resolveMode, resolveModel, sortWithModel } from './model.ts';
 import { attachScoreTokens, keepRated, parseScoreTokens } from './rated.ts';
-import { attachTagTokens, parseTagTokens, tagTokenSpans, tagTokenWords, type TagToken } from './tags.ts';
+import {
+  attachDietOffTokens,
+  attachTagTokens,
+  parseDietOffTokens,
+  parseTagTokens,
+  tagTokenSpans,
+  tagTokenWords,
+  type TagToken,
+} from './tags.ts';
 import {
   attachSixTokens,
   carryPriorSixes,
@@ -620,6 +636,8 @@ Deno.serve(async (req) => {
   // Every score pill, when the client sends them (./rated.ts); its sixes are the 6s.
   const scoreTokens = parseScoreTokens((body as { score_tokens?: unknown }).score_tokens);
   const sixTokens = scoreTokens ?? parseSixTokens((body as { six_tokens?: unknown }).six_tokens);
+  // 0074: diet codes turned off for one dish in Compose (attached last, to the final lines).
+  const dietOffTokens = parseDietOffTokens((body as { diet_off_tokens?: unknown }).diet_off_tokens);
 
   const admin = adminClient();
 
@@ -657,7 +675,11 @@ Deno.serve(async (req) => {
         restaurant_id: planned.restaurantId,
         place_query: planned.mention?.phrase ?? planned.validated.place_query,
         place_offset: planned.mention?.offset ?? planned.validated.place_offset,
-        items: keepRated(attachScoreTokens(planned.validated.items, scoreTokens, draft.body), scoreTokens, draft.body),
+        items: attachDietOffTokens(
+          keepRated(attachScoreTokens(planned.validated.items, scoreTokens, draft.body), scoreTokens, draft.body),
+          draft.body,
+          dietOffTokens,
+        ),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -701,12 +723,17 @@ Deno.serve(async (req) => {
     const { usedMode, cacheHit, cacheKey, restaurantId, mention } = planned;
     // 0044: a re-sort without six_tokens keeps a 6 the user marked before, on the line that carried it
     // (./six.ts carryPriorSixes; apply_entry_sort enforces the same rule of record).
+    // 0074: …and the diet codes turned off per dish, on the lines as they will be written.
     const validated: SortPlan = {
       ...planned.validated,
-      items: keepRated(
-        attachScoreTokens(carryPriorSixes(planned.validated.items, row.body, sixLines), scoreTokens, row.body),
-        scoreTokens,
+      items: attachDietOffTokens(
+        keepRated(
+          attachScoreTokens(carryPriorSixes(planned.validated.items, row.body, sixLines), scoreTokens, row.body),
+          scoreTokens,
+          row.body,
+        ),
         row.body,
+        dietOffTokens,
       ),
     };
 

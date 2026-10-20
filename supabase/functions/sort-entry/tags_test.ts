@@ -9,8 +9,10 @@
 
 import { test, assert, assertEquals } from './harness.ts';
 import {
+  attachDietOffTokens,
   attachTagTokens,
   canonicalTags,
+  parseDietOffTokens,
   parseTagTokens,
   tagCodesFor,
   tagTokenWords,
@@ -289,4 +291,59 @@ test('the model is TOLD the marked words are tags (and nothing when there are no
   assert(text.includes('DIETARY TAG WORDS the diner marked (GF | V)'), text);
   const without = JSON.parse(buildRequest({ apiKey: 'sk-ant-x', body }).body).messages[0].content as string;
   assert(!without.includes('DIETARY TAG'), 'no tag line without tags');
+});
+
+// ---------------------------------------------------------------------------
+// Diet off (0074): a diet code turned off for one dish, attached like a tag token
+// ---------------------------------------------------------------------------
+test('diet_off_tokens off the wire: {offset, length?, code}; malformed entries are dropped', () => {
+  assertEquals(parseDietOffTokens(undefined), []);
+  assertEquals(parseDietOffTokens({ offset: 0, code: 'vg' }), []);
+  assertEquals(
+    parseDietOffTokens([
+      { offset: 3, length: 5, code: 'vg' },
+      { offset: 4, code: 'VG' },                 // length optional; the tag vocabulary reads the same
+      { offset: 5, length: 2, code: 'vegan' },
+      { offset: 6, length: 2, code: 'gf/df' },   // one token per code
+      { offset: -1, length: 2, code: 'vg' },
+      { offset: 1.5, length: 2, code: 'vg' },
+      { offset: 3, length: -1, code: 'vg' },
+      { offset: 3, length: 2, code: 'keto' },
+      { offset: 3, length: 2 },
+      { offset: 3, length: 2, code: 7 },
+      null,
+    ]),
+    [
+      { offset: 3, length: 5, code: 'vg' },
+      { offset: 4, length: 0, code: 'vg' },
+      { offset: 5, length: 2, code: 'vg' },
+      { offset: 6, length: 2, code: 'gf' },
+      { offset: 6, length: 2, code: 'df' },
+    ],
+  );
+});
+
+test('a diet-off token lands on the dish named at or before it, never sets a tag', () => {
+  const body = 'Mushroom bao 4.5. Tofu larb 4. Prawn toast 4';
+  const items = sort(body, []);
+  const at = (word: string) => [...body.slice(0, body.indexOf(word))].length;
+  const out = attachDietOffTokens(items, body, [
+    { offset: at('toast'), length: 5, code: 'vg' },     // the dish's last word, as the composer sends it
+    { offset: at('Prawn'), length: 0, code: 'gf' },     // its first: the same line
+  ]);
+  assertEquals(out.map((i) => [i.dish_name, i.tags, i.diet_off]), [
+    ['Mushroom Bao', [], []],
+    ['Tofu Larb', [], []],
+    ['Prawn Toast', [], ['gf', 'vg']],
+  ]);
+  assertEquals(items[2].diet_off, undefined, 'items are copied, never mutated');
+});
+
+test('a diet-off token before every dish, or past the body, attaches to nothing', () => {
+  const body = 'So good. Pasta 4.5';
+  const out = attachDietOffTokens(sort(body, []), body, [
+    { offset: 0, length: 2, code: 'vg' },
+    { offset: 40, length: 1, code: 'gf' },
+  ]);
+  assertEquals(out.map((i) => i.diet_off), [[]]);
 });

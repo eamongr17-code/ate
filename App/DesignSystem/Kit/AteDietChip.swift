@@ -86,3 +86,57 @@ enum AteDietPillMetrics {
     static let padding: CGFloat = 13
     static let hitOutset: CGFloat = (AteMetrics.hit - AteMetrics.keyHeight) / 2
 }
+
+/// **A code below the label, said literally** — the dish page's `.signal` (`diet.html`): the code's
+/// chip, then "Ordered by 2 vegan eaters", muted, 8 apart.
+struct AteDietSignalLine: View {
+    let tag: DietTag
+    let line: String
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        HStack(spacing: AteDietSignalMetrics.gap) {
+            AteDietChip(tag: tag, onGround: true)
+            Text(line)
+                .ateText(.kitDietSignal)
+                .foregroundStyle(palette.muted)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("dish.diet.\(tag.rawValue)")
+    }
+}
+
+/// **What a place's dish row says about the diet chips that are on** (`diet.html`, the place page):
+/// the code's chip where the dish is labelled, the line "Ordered by N … eaters" where it is counted,
+/// 6 apart, under the dish's name.
+struct AteDietSignalRow: View {
+    let signals: [DietSignal]
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        HStack(spacing: AteDietSignalMetrics.rowGap) {
+            ForEach(signals) { signal in
+                if let line = signal.line {
+                    Text(line)
+                        .ateText(.meta)
+                        .foregroundStyle(palette.muted)
+                        .lineLimit(1)
+                } else {
+                    AteDietChip(tag: signal.tag)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+enum AteDietSignalMetrics {
+    /// `.signal{gap:8px}`; under the aggregate `margin-top:10px`.
+    static let gap: CGFloat = 8
+    static let top: CGFloat = 10
+    /// `.nm .meta{gap:6px; margin-top:3px}`.
+    static let rowGap: CGFloat = 6
+    static let rowTop: CGFloat = 3
+}

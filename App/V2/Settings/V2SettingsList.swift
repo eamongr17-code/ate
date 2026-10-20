@@ -2,7 +2,7 @@ import AteKit
 import SwiftUI
 
 /// **Settings** — the system's inset grouped list on the linen ground, the build's rows in its order:
-/// Handle, Photo, Appearance · Blocked people, Tutorial · Privacy, Terms · Sign out · Delete account,
+/// Handle, Photo, Diet, Appearance · Blocked people, Tutorial · Privacy, Terms · Sign out · Delete account,
 /// red, last, on its own, confirmed once. Every row either shows what is true on the right
 /// or goes somewhere; nothing explains itself.
 struct V2SettingsList: View {
@@ -30,6 +30,10 @@ struct V2SettingsList: View {
                     isPickingPhoto = true
                 } trailing: {
                     avatar
+                }
+                // What is saved: "Vegan", "Gluten free, Nut free", "None" — nothing until it is known.
+                AteGroupedRow(title: "Diet", value: context.app.diet.choice?.summary, identifier: "settings.diet") {
+                    context.open(.settings(.diet))
                 }
                 AteGroupedPicker(title: "Appearance", selection: Bindable(model).appearance) {
                     ForEach(AteAppearance.allCases, id: \.self) { appearance in
@@ -99,6 +103,7 @@ struct V2SettingsList: View {
         }
         .ateFailureAlert($failure)
         .task { await model.loadIfNeeded() }
+        .task { await context.app.loadDiet() }
         // What the server holds is everybody's: a new photo shows on You, your bylines, everywhere.
         .onChange(of: model.avatarURL) { _, url in
             guard let userID = model.userID else { return }

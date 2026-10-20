@@ -40,10 +40,14 @@ public struct DishSummary: Sendable, Hashable, Codable, Identifiable {
     /// ``Rating`` so one out-of-range row could never take the whole header down; read it through
     /// ``myLastRating``, which is the half-step or nothing.
     public let myLastScore: Double?
-    /// **What most people say about it** — `dish_summary.tags` (0036): a dietary code is listed when
-    /// at least half of the dish's lines the viewer can see carry it. `[]` when none qualifies, and
-    /// on a project that predates 0036. The users' own chips, aggregated — never inferred.
+    /// **The dish's labels** — `dish_summary.tags`: a dietary code the server has labelled the dish
+    /// with (at least 3 different people marked it, nobody of that diet turned it off; the server's
+    /// rule, never re-derived here). `[]` when none qualifies, and on a project that predates 0036.
+    /// The users' own marks, aggregated — never inferred.
     public let tags: [DietTag]
+    /// **Below the label** — `dish_summary.diet_counts`: `{code: n}` for codes 1–2 people marked.
+    /// Empty from a server that predates it.
+    public let dietCounts: DietCounts
 
     public var id: UUID { dishID }
     public var coverURL: URL? { coverURLString.flatMap(URL.init(string:)) }
@@ -67,7 +71,8 @@ public struct DishSummary: Sendable, Hashable, Codable, Identifiable {
         photos: [DishPhoto] = [],
         isSaved: Bool = false,
         myLastScore: Double? = nil,
-        tags: [DietTag] = []
+        tags: [DietTag] = [],
+        dietCounts: DietCounts = DietCounts()
     ) {
         self.dishID = dishID
         self.name = name
@@ -84,6 +89,7 @@ public struct DishSummary: Sendable, Hashable, Codable, Identifiable {
         self.isSaved = isSaved
         self.myLastScore = myLastScore
         self.tags = tags
+        self.dietCounts = dietCounts
     }
 
     /// Hand-written so a project that has not taken 0029 still serves a decodable header: the two
@@ -105,10 +111,15 @@ public struct DishSummary: Sendable, Hashable, Codable, Identifiable {
         self.isSaved = try container.decodeIfPresent(Bool.self, forKey: .isSaved) ?? false
         self.myLastScore = try container.decodeIfPresent(Double.self, forKey: .myLastScore)
         self.tags = DietTag.decoding(try container.decodeIfPresent([String].self, forKey: .tags) ?? [])
+        self.dietCounts = (try? container.decodeIfPresent(DietCounts.self, forKey: .dietCounts)) ?? DietCounts()
     }
+
+    /// The page's lines under the aggregate: "Ordered by 2 vegan eaters", per code below the label.
+    public var dietSignals: [DietSignal] { DietSignal.belowLabel(tags: tags, counts: dietCounts) }
 
     enum CodingKeys: String, CodingKey {
         case score, photos, tags
+        case dietCounts = "diet_counts"
         case dishID = "dish_id"
         case name = "dish_name"
         case restaurantID = "restaurant_id"

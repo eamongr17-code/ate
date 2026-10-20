@@ -80,6 +80,46 @@ struct PhotoSuggestionDismissalsTests {
         #expect(reread.contains("new"))
         #expect(reread.contains("old") == false)
     }
+
+    @Test("A posted photo takes its sitting off, for the next launch and the badge too")
+    func writtenUpRemovesTheSitting() {
+        let store = InMemoryKeyValueStore()
+        let dismissals = PhotoSuggestionDismissals(store: store, owner: owner, now: { self.now })
+        dismissals.writeUp(["b"])
+        #expect(dismissals.clusters(items).map(\.id) == ["c"])
+        #expect(dismissals.count(items) == 1)
+
+        let relaunched = PhotoSuggestionDismissals(store: store, owner: owner, now: { self.now })
+        #expect(relaunched.isWrittenUp("b"))
+        #expect(relaunched.count(items) == 1)
+        #expect(PhotoSuggestionDismissals(store: store, owner: UUID(), now: { self.now }).count(items) == 3)
+    }
+
+    @Test("Photos the composer never knew by library id match nothing")
+    func writtenUpIgnoresUnknownIds() {
+        let dismissals = PhotoSuggestionDismissals(store: InMemoryKeyValueStore(), owner: owner, now: { self.now })
+        dismissals.writeUp(["camera-\(UUID())"])
+        #expect(dismissals.count(items) == 3)
+    }
+
+    @Test("A photo taken after the post, in the same sitting, is still offered")
+    func writtenUpKeepsLaterPhotos() {
+        var clock = now.addingTimeInterval(-6000)
+        let dismissals = PhotoSuggestionDismissals(store: InMemoryKeyValueStore(), owner: owner, now: { clock })
+        dismissals.writeUp(["a"])
+        clock = now
+        let dessert = item("d", hoursAgo: 1)
+        #expect(dismissals.clusters(items + [dessert]).map(\.id) == ["d", "c"])
+    }
+
+    @Test("Replay first run never offers a posted photo again")
+    func resetKeepsWrittenUp() {
+        let dismissals = PhotoSuggestionDismissals(store: InMemoryKeyValueStore(), owner: owner, now: { self.now })
+        dismissals.writeUp(["c"])
+        dismissals.dismiss(dismissals.clusters(items)[0])
+        dismissals.reset()
+        #expect(dismissals.clusters(items).map(\.id) == ["b"])
+    }
 }
 
 @Suite("Recovery events")

@@ -278,7 +278,8 @@ final class EntryModel: SavedDishObserving {
                 queued: await services.outbox.queued(entryID: route.entryID), card: card
             )
             _ = try? await services.entries.sort(
-                entryID: route.entryID, force: true, tagTokens: tokens.tags, scoreTokens: tokens.scores
+                entryID: route.entryID, force: true, tagTokens: tokens.tags, scoreTokens: tokens.scores,
+                dietOffTokens: tokens.dietOffs
             )
             // A re-print rebuilds the lines: pair the photos with them again (0063).
             await services.entries.matchPhotos(entryID: route.entryID)
@@ -474,11 +475,12 @@ enum EntryPresentation {
     }
 
     /// The page's dish rows: the same rows a slip draws, from the same fields.
+    /// Your own entry never shows the codes your diet put on a dish; everyone else's does.
     static func dishes(for card: EntryCard) -> [AteSlip.Dish] {
         card.items.map {
             AteSlip.Dish(
                 id: $0.reviewID, dishID: $0.dishID, name: $0.dishName,
-                score: $0.score, isSaved: $0.saved, tags: $0.tags
+                score: $0.score, isSaved: $0.saved, tags: $0.shownTags(isMine: card.isMine)
             )
         }
     }

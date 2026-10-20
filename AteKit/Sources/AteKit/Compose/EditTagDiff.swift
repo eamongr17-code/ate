@@ -9,7 +9,8 @@ import Foundation
 ///
 /// - a chip whose id was not there at the start is **new** → the sort is forced, carrying the chips;
 /// - a starting chip that is gone was **removed** → its line's tag set is PATCHed without it
-///   (`setTags`), never a forced re-sort.
+///   (`setTags`), never a forced re-sort. So is a code the author's diet put on the line and the
+///   edit turned off on the Diet key — the server records that as the dish's diet-off.
 public struct EditTagDiff: Sendable, Equatable {
     /// One line's tag set after the edit.
     public struct Removal: Sendable, Equatable {
@@ -20,7 +21,14 @@ public struct EditTagDiff: Sendable, Equatable {
     public let hasNewTags: Bool
     public let removals: [Removal]
 
-    public init(original: EntryComposition, current: EntryComposition, items: [EntryCard.Item]) {
+    /// `dietRemovals`: the codes the author's diet put on a line that the edit turned off with the
+    /// Diet key (``ComposerDiet``), by review id — PATCHed out the same way.
+    public init(
+        original: EntryComposition,
+        current: EntryComposition,
+        items: [EntryCard.Item],
+        dietRemovals: [UUID: Set<DietTag>] = [:]
+    ) {
         let before = original.spans.filter { $0.token.tag != nil }.map(\.token)
         let now = Set(current.spans.filter { $0.token.tag != nil }.map(\.token.id))
         let beforeIDs = Set(before.map(\.id))
@@ -32,7 +40,8 @@ public struct EditTagDiff: Sendable, Equatable {
             removed[dishID, default: []].insert(tag)
         }
         removals = items.compactMap { item in
-            guard let gone = removed[item.dishID], gone.isDisjoint(with: item.tags) == false else { return nil }
+            let gone = (removed[item.dishID] ?? []).union(dietRemovals[item.reviewID] ?? [])
+            guard gone.isDisjoint(with: item.tags) == false else { return nil }
             return Removal(reviewID: item.reviewID, remaining: item.tags.filter { gone.contains($0) == false })
         }
     }

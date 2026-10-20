@@ -98,7 +98,8 @@ enum EntrySlipPresentation {
                     name: $0.dishName,
                     score: $0.score,
                     isSaved: $0.saved,
-                    tags: $0.tags
+                    // Your own entry never shows the codes your diet put there; everyone else's does.
+                    tags: $0.shownTags(isMine: card.isMine)
                 )
             },
             place: card.place?.name,

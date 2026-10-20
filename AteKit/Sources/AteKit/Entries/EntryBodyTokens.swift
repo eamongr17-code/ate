@@ -142,13 +142,14 @@ public enum EntryBodyTokens {
         mentions: [TextSpan],
         claimed: [TextSpan]
     ) -> [EntryTokenSpan] {
-        guard item.tags.isEmpty == false, let mention = mention(of: item, in: body) else { return [] }
+        // Only the codes the author typed: a code their diet put on the line was never in the words.
+        guard item.typedTags.isEmpty == false, let mention = mention(of: item, in: body) else { return [] }
         let units = body.units
         let stretchEnd = mentions
             .map(\.location)
             .filter { $0 >= mention.endLocation }
             .min() ?? units.count
-        var remaining = Set(item.tags)
+        var remaining = Set(item.typedTags)
         var spans: [EntryTokenSpan] = []
 
         func claim(_ start: Int, _ end: Int, text: String) {

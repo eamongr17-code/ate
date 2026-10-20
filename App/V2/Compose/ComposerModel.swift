@@ -12,6 +12,8 @@ import SwiftUI
 final class ComposerModel {
     var composition: EntryComposition {
         didSet {
+            // The diet's remembered dishes move with the words they are on.
+            diet.follow(from: oldValue.plain, to: composition.plain)
             persist()
             // A pill deleted or undone out from under the slider takes the slider with it.
             if slider.isOpen { slider.retain(onlyIfPresentIn: Set(composition.spans.map(\.token.id))) }
@@ -55,11 +57,16 @@ final class ComposerModel {
     private(set) var date = EntryDateChoice()
     var isPickingDate = false
 
-    init(drafts: any EntryDraftStoring, editing: ComposerPresentation.EditingEntry? = nil) {
+    /// **The author's diet on the Diet key** (``ComposerDiet``; ComposerModel+Diet).
+    var diet: ComposerDiet
+
+    init(drafts: any EntryDraftStoring, editing: ComposerPresentation.EditingEntry? = nil, diet: [DietTag] = []) {
         self.drafts = drafts
         self.editing = editing
         self.originalCompanions = editing?.companions.map(CompanionPerson.init) ?? []
         self.companions = originalCompanions
+        self.diet = editing.map { ComposerDiet(editing: $0.items, body: $0.composition.plain) }
+            ?? ComposerDiet(diet: diet)
         if let editing {
             self.draftID = editing.id
             self.composition = editing.composition
@@ -441,6 +448,7 @@ final class ComposerModel {
     /// never with copy).
     func insertTag(_ tag: DietTag) -> AnalyticsEvent? {
         focusRequest += 1
+        if let toggled = toggleDiet(tag) { return toggled }
         guard let pressed = composition.togglingTag(tag, atDisplayOffset: caret) else { return nil }
         apply(pressed.composition, caret: pressed.caret)
         switch pressed.edit {

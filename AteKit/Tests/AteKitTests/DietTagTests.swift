@@ -180,13 +180,22 @@ struct DietTagTests {
 @MainActor
 @Suite("Dietary tags — a dish's consensus")
 struct DishTagConsensusTests {
-    @Test("a dish's tags are the codes at least half of its lines carry, in canonical order")
+    @Test("a code is a dish's label at 3 different people; below that it is a count")
     func consensus() {
-        #expect(DishTagConsensus.tags(lines: []) == [])
-        #expect(DishTagConsensus.tags(lines: [[]]) == [])
-        #expect(DishTagConsensus.tags(lines: [[.v], []]) == [.v])
-        #expect(DishTagConsensus.tags(lines: [[.v], [], []]) == [])
-        #expect(DishTagConsensus.tags(lines: [[.vg, .gf], [.gf]]) == [.gf, .vg])
+        let (ann, ben, cat) = (UUID(), UUID(), UUID())
+        #expect(DishTagConsensus.labels(marks: []).tags == [])
+        #expect(DishTagConsensus.labels(marks: [(ann, [])]).counts.isEmpty)
+        // The old "half of the lines" rule would have labelled this; three people are needed now.
+        let two = DishTagConsensus.labels(marks: [(ann, [.v]), (ben, [.v])])
+        #expect(two.tags == [])
+        #expect(two.counts[.v] == 2)
+        // People, not lines: one person's three visits are one person.
+        let onePerson = DishTagConsensus.labels(marks: [(ann, [.gf]), (ann, [.gf]), (ann, [.gf])])
+        #expect(onePerson.tags == [])
+        #expect(onePerson.counts[.gf] == 1)
+        let three = DishTagConsensus.labels(marks: [(ann, [.vg, .gf]), (ben, [.vg]), (cat, [.vg, .nf])])
+        #expect(three.tags == [.vg])
+        #expect(three.counts.codes == [.gf, .nf], "canonical order, labelled codes left out")
     }
 
     @Test("dish_summary's tags decode; an older header without them has none")
@@ -214,14 +223,18 @@ struct DishTagConsensusTests {
         #expect(with.tags == [.vg])
     }
 
-    @Test("the in-memory pages derive consensus tags from the seeded lines")
+    @Test("the in-memory pages derive labels and counts from the seeded lines")
     func inMemoryTags() async throws {
         let social = InMemorySocialService.seededWithSaves()
         let tipo = UUID(uuidString: "B7E00000-0000-4000-8000-000000000001")!
         let menu = try await social.placeDishes(restaurantID: tipo, after: nil, pageSize: 50)
         let prawn = try #require(menu.items.first { $0.name == "Prawn spaghetti" })
-        #expect(prawn.tags == [.gf])
+        // Fewer than three people marked it: a count, not a label (the server's rule).
+        #expect(prawn.tags == [])
+        #expect(prawn.dietCounts[.gf] > 0)
         let summary = try await social.dishSummary(dishID: prawn.dishID)
-        #expect(summary.tags == [.gf])
+        #expect(summary.tags == [])
+        #expect(summary.dietCounts == prawn.dietCounts)
+        #expect(summary.dietSignals.map(\.tag) == [.gf])
     }
 }

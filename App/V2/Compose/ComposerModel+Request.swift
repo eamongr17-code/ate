@@ -16,6 +16,7 @@ extension ComposerModel {
             secondsFromOpen: draft.secondsFromOpen(),
             tagTokens: draft.composition.tagTokens,
             scoreTokens: draft.composition.scoreTokens,
+            dietOffTokens: diet.offTokens(in: draft.composition.plain),
             placeName: draft.placeName
         )
     }

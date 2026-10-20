@@ -14,6 +14,8 @@ public final class InMemoryAccountService: AccountServing, InMemoryStandIn, @unc
     public private(set) var isDeleted = false
     /// The name Apple gave, if it was written.
     public private(set) var name: String?
+    /// `profiles.diet`, as last written.
+    public private(set) var storedDiet: [DietTag] = []
     /// What `delete_account` answers. Set `authUserDeleted: false` to drive the half-deletion.
     public var deletion = AccountDeletion(ok: true, authUserDeleted: true)
     public private(set) var isSignedOut = false
@@ -65,6 +67,16 @@ public final class InMemoryAccountService: AccountServing, InMemoryStandIn, @unc
     public func account() async throws -> AccountProfile {
         try check()
         return lock.withLock { profile }
+    }
+
+    public func diet() async throws -> [DietTag] {
+        try check()
+        return lock.withLock { storedDiet }
+    }
+
+    public func setDiet(_ codes: [DietTag]) async throws {
+        try check()
+        lock.withLock { storedDiet = codes }
     }
 
     @discardableResult

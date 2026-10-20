@@ -57,6 +57,7 @@ extension InMemorySocialService: PlacePageReading, DishPageReading {
         let dishes = byDish.compactMap { dishID, rows -> MenuDish? in
             guard let first = rows.first else { return nil }
             let scores = rows.compactMap(\.item.score?.value)
+            let labels = DishTagConsensus.labels(marks: rows.map { (person: $0.entry.authorID, tags: $0.item.tags) })
             return MenuDish(
                 dishID: dishID,
                 name: first.item.dishName,
@@ -64,7 +65,8 @@ extension InMemorySocialService: PlacePageReading, DishPageReading {
                 peopleCount: Set(rows.map(\.entry.authorID)).count,
                 reviewCount: rows.count,
                 coverURLString: rows.compactMap { $0.entry.photos.first?.url }.first,
-                tags: DishTagConsensus.tags(lines: rows.map(\.item.tags))
+                tags: labels.tags,
+                dietCounts: labels.counts
             )
         }
         // The server's own order since 0051 (by rating). A dish nobody has reviewed is not on the menu.
@@ -102,6 +104,7 @@ extension InMemorySocialService: PlacePageReading, DishPageReading {
             throw AteAPIError.notFound(table: "dishes", id: dishID)
         }
         let scores = lines.compactMap(\.item.score?.value)
+        let labels = DishTagConsensus.labels(marks: lines.map { (person: $0.entry.authorID, tags: $0.item.tags) })
         return DishSummary(
             dishID: dishID,
             name: first.item.dishName,
@@ -119,7 +122,8 @@ extension InMemorySocialService: PlacePageReading, DishPageReading {
             },
             isSaved: first.item.saved,
             myLastScore: lines.filter(\.entry.isMine).compactMap(\.item.score?.value).first,
-            tags: DishTagConsensus.tags(lines: lines.map(\.item.tags))
+            tags: labels.tags,
+            dietCounts: labels.counts
         )
     }
 

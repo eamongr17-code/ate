@@ -236,12 +236,68 @@ public final class PlacePageStore {
         }
     }
 
-    /// The next page of the menu, cut with the four-part keyset. Fires as the last rows appear.
+    /// The next page of the menu, cut with the four-part keyset. Fires as the last rows **shown**
+    /// appear — with the diet chips on, the last of the dishes they let through.
     public func loadMoreDishesIfNeeded(after dish: MenuDish) async {
-        guard let index = dishes.firstIndex(where: { $0.id == dish.id }),
-              index >= dishes.count - 3 else { return }
+        let shown = shownDishes
+        guard let index = shown.firstIndex(where: { $0.id == dish.id }),
+              index >= shown.count - 3 else { return }
         await loadMoreDishes()
     }
+
+    // MARK: - The viewer's diet chips
+
+    /// **One chip per code of the viewer's diet** (`design/rebuild/diet.html`), each on until tapped.
+    /// `[]` for a viewer with no diet (or signed out): no chips, and the menu is the whole menu.
+    public private(set) var dietCodes: [DietTag] = []
+    /// The viewer's codes tapped off on this page.
+    public private(set) var dietOff: Set<DietTag> = []
+
+    /// The chips that are on.
+    public var dietOn: [DietTag] { dietCodes.filter { dietOff.contains($0) == false } }
+
+    /// The viewer's diet, as it now stands. A changed diet starts every chip on again.
+    public func useDiet(_ codes: [DietTag]) {
+        let codes = DietTag.allCases.filter { codes.contains($0) }
+        guard codes != dietCodes else { return }
+        dietCodes = codes
+        dietOff = []
+    }
+
+    public func toggleDiet(_ tag: DietTag) {
+        guard dietCodes.contains(tag) else { return }
+        let isOn = dietOff.contains(tag)
+        if isOn { dietOff.remove(tag) } else { dietOff.insert(tag) }
+        analytics(DietEvents.placeFilterToggled(tag, isOn: isOn, restaurantID: restaurantID))
+    }
+
+    /// **The Top Ate as drawn**: with chips on, only the dishes labelled with every code that is on
+    /// or ordered by people of that diet (``DietSignal/passes(_:tags:counts:)``) — in the server's
+    /// order, never re-sorted.
+    public var shownDishes: [MenuDish] {
+        let on = dietOn
+        guard on.isEmpty == false else { return dishes }
+        return dishes.filter { DietSignal.passes(on, tags: $0.tags, counts: $0.dietCounts) }
+    }
+
+    /// What a row says about the chips that are on: the code's chip, or "Ordered by N … eaters".
+    public func dietSignals(for dish: MenuDish) -> [DietSignal] {
+        DietSignal.forFilter(dietOn, tags: dish.tags, counts: dish.dietCounts)
+    }
+
+    /// With chips on, a page of the menu can let few dishes through: read on (a few pages at most)
+    /// until there are enough to fill the paper, or the menu ends.
+    public func fillFilteredMenu() async {
+        var pages = 0
+        while dietOn.isEmpty == false, shownDishes.count < Self.filteredMinimum,
+              nextMenuCursor != nil, pages < Self.filteredPages {
+            pages += 1
+            await loadMoreDishes()
+        }
+    }
+
+    static let filteredMinimum = 8
+    static let filteredPages = 5
 
     public func loadMoreDishes() async {
         guard isLoadingMenu == false, let cursor = nextMenuCursor else { return }

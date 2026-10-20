@@ -11,6 +11,9 @@ struct AteGroupedRow<Trailing: View>: View {
     let title: String
     var isDestructive = false
     var showsChevron = true
+    /// Lit by another choice that covers it (Settings → Diet: Vegan covers Vegetarian): the name
+    /// faded (`.gr.implied`), and not a button. The caller fades its own tick.
+    var isCovered = false
     var identifier: String?
     let action: () -> Void
     @ViewBuilder var trailing: Trailing
@@ -18,11 +21,13 @@ struct AteGroupedRow<Trailing: View>: View {
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        Button(action: action) {
+        // A covered row answers nothing — not `.disabled`, which would dim it a second time.
+        Button { if isCovered == false { action() } } label: {
             HStack(spacing: AteGroupedRowMetrics.gap) {
                 Text(title)
                     .ateText(.kitListRow)
                     .foregroundStyle(isDestructive ? AteColor.destructive : palette.fg)
+                    .opacity(isCovered ? AteKitColor.coveredRowOpacity : 1)
                 Spacer(minLength: AteMetrics.snug)
                 trailing
                 if showsChevron, isDestructive == false {
