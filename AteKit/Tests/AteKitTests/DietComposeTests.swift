@@ -151,9 +151,10 @@ struct ComposerDietEditTests {
             dietRemovals: diet.removals
         )
         #expect(diff.removals.isEmpty, "no veto on the prawn toast")
-        // The prawn toast itself still answers to the key.
-        #expect(diet.lit(in: words, atDisplayOffset: 33) == [.vg])
-        #expect(diet.toggle(.vg, in: words, atDisplayOffset: 33) == .off(.vg))
+        // The prawn toast itself still answers to the key (caret after its name; the plain "4.0"
+        // here is not a score pill, so a caret after it would sit on the word "0").
+        #expect(diet.lit(in: words, atDisplayOffset: 29) == [.vg])
+        #expect(diet.toggle(.vg, in: words, atDisplayOffset: 29) == .off(.vg))
         #expect(diet.removals == [prawn: [.vg]])
     }
 }
