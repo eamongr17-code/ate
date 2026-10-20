@@ -28,6 +28,7 @@ struct V2PlacePage: View {
             savedDishes: services.savedDishes,
             deletions: services.entryDeletions,
             previews: PlacePreviews.shared,
+            explore: services.dishExplore,
             analytics: services.analytics
         )
         // The viewer's diet chips are on from the first frame: the menu never flashes unfiltered.
@@ -36,12 +37,18 @@ struct V2PlacePage: View {
     }
 
     var body: some View {
+        ScrollViewReader { reader in
+            page(reader)
+        }
+    }
+
+    private func page(_ reader: ScrollViewProxy) -> some View {
         ScrollView {
             // One lazy stack, every visit its own row of it — never a lazy stack of slips inside
             // another stack (the shape that locked the old Feed's main thread).
             LazyVStack(alignment: .leading, spacing: 0) {
                 if store.isSettled {
-                    settled
+                    settled(reader)
                 } else {
                     V2PlaceSkeleton(name: store.previewName, titleBottom: $titleBottom)
                         .transition(.opacity)
@@ -68,7 +75,7 @@ struct V2PlacePage: View {
     // MARK: - Settled
 
     @ViewBuilder
-    private var settled: some View {
+    private func settled(_ reader: ScrollViewProxy) -> some View {
         switch store.header {
         case .loading:
             EmptyView()
@@ -81,7 +88,7 @@ struct V2PlacePage: View {
                 .browseFillsPage()
         case .ready(let summary):
             VStack(alignment: .leading, spacing: AteMetrics.loose) {
-                header(summary.name)
+                header(summary.name, reader: reader)
                 menu
             }
             .transition(.opacity)
@@ -90,30 +97,64 @@ struct V2PlacePage: View {
         }
     }
 
-    private func header(_ name: String) -> some View {
+    private func header(_ name: String, reader: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: V2PlaceMetrics.titleGap) {
             AteExactText(text: name, style: .placeTitle, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityAddTraits(.isHeader)
                 .browseTitleBottom($titleBottom)
             if store.facts.isEmpty == false || store.dietCodes.isEmpty == false {
-                AteChipFlow(chips: store.facts.map(Self.chip) + store.dietCodes.map(dietChip))
+                let facts = store.facts.map { chip($0, reader: reader) }
+                AteChipFlow(chips: facts + store.dietCodes.map(dietChip))
             }
         }
         .padding(.horizontal, AteMetrics.listGutter)
     }
 
-    /// A fact as its chip: the average with the star, how many people with their mark, a word.
-    private static func chip(_ fact: PlaceFact) -> AteChipFlow.Chip {
+    /// A fact as its chip: the average with the star, how many people with their mark, a word. Each
+    /// is a door, as every tag in the app is (Eamon, 20 Oct): the average to the menu ranked by it,
+    /// the people to their visits, the suburb to its tag page — the one a dish page's suburb opens.
+    private func chip(_ fact: PlaceFact, reader: ScrollViewProxy) -> AteChipFlow.Chip {
         switch fact {
         case .rating(let value):
-            AteChipFlow.Chip(id: fact.id, icon: .starFilled, title: value,
-                             accessibilityLabel: "Rated \(value) out of 5")
+            let action = menuTarget.map { target -> () -> Void in
+                { scroll(reader, to: target, kind: "rating") }
+            }
+            return AteChipFlow.Chip(id: fact.id, icon: .starFilled, title: value,
+                                    accessibilityLabel: "Rated \(value) out of 5",
+                                    identifier: "place.fact.rating", action: action)
         case .people(let value):
-            AteChipFlow.Chip(id: fact.id, icon: .feed, title: value, accessibilityLabel: "\(value) people")
+            let action = visitsTarget.map { target -> () -> Void in
+                { scroll(reader, to: target, kind: "people") }
+            }
+            return AteChipFlow.Chip(id: fact.id, icon: .feed, title: value,
+                                    accessibilityLabel: "\(value) people",
+                                    identifier: "place.fact.people", action: action)
         case .word(let value):
-            AteChipFlow.Chip(id: fact.id, title: value)
+            let action = store.suburbTag.map { tag -> () -> Void in { openSuburb(tag) } }
+            return AteChipFlow.Chip(id: fact.id, title: value, identifier: "place.fact.suburb", action: action)
         }
+    }
+
+    /// The menu's paper, when there is one to go to.
+    private var menuTarget: String? {
+        store.menu == .ready && store.shownDishes.isEmpty == false ? V2PlaceAnchor.menu : nil
+    }
+
+    /// The first visit on the page: yours, else everybody else's.
+    private var visitsTarget: UUID? {
+        store.visits.entries.first?.id ?? store.entries.entries.first?.id
+    }
+
+    private func scroll(_ reader: ScrollViewProxy, to target: some Hashable, kind: String) {
+        context.services.analytics(DetailEvents.placeFactOpened(kind: kind))
+        AteHaptics.key()
+        withAnimation(AteMotion.fillIn) { reader.scrollTo(target, anchor: .top) }
+    }
+
+    private func openSuburb(_ tag: DishTag) {
+        context.services.analytics(DetailEvents.placeFactOpened(kind: "suburb"))
+        context.open(.tag(DishTagRoute(tag)), from: .place)
     }
 
     /// One of the viewer's diet codes (`diet.html`: "Vegan"), on by default; a tap shows everything.
@@ -171,6 +212,7 @@ struct V2PlacePage: View {
                     .task { await store.loadMoreDishesIfNeeded(after: dish) }
                 }
             }
+            .id(V2PlaceAnchor.menu)
         }
     }
 
@@ -290,6 +332,11 @@ private struct V2MenuRow: View {
         )
         .accessibilityIdentifier("place.dish")
     }
+}
+
+/// Where the header's chips scroll the page to.
+private enum V2PlaceAnchor {
+    static let menu = "place.menu"
 }
 
 /// What the filtered menu's read-on waits on: the chips that are on, and the menu's first page.
