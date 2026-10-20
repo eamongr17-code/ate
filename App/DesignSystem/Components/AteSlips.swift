@@ -112,6 +112,8 @@ struct EntrySlip: View {
                     surface: AtePaperTone.slip.ring,
                     topPadding: AteMetrics.hairspace,
                     bottomPadding: 0,
+                    // Each entry leans its own way, the same way every time (``PhotoTilt``).
+                    angles: PhotoTilt.angles(seed: slip.id, count: slip.photos.count),
                     onTap: interactive ? { index in
                         showPhotos(
                             slip.viewerPhotos.isEmpty ? slip.photos : slip.viewerPhotos,
