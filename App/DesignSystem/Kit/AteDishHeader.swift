@@ -148,6 +148,9 @@ struct AteChipFlow: View {
         var icon: AteIcon?
         let title: String
         var accessibilityLabel: String?
+        /// A chip that switches the page (the viewer's diet chips on a place): on or off.
+        var isOn: Bool?
+        var identifier: String?
         var action: (() -> Void)?
     }
 
@@ -165,9 +168,11 @@ struct AteChipFlow: View {
                     iconSize: AteChipFlowMetrics.icon,
                     sidePadding: isExplore ? AteChipFlowMetrics.explorePadding : AteMetrics.regular,
                     textStyle: isExplore ? .exploreChip : .controlSmall,
+                    isOn: chip.isOn,
                     action: chip.action
                 )
                 .accessibilityLabel(chip.accessibilityLabel ?? chip.title)
+                .accessibilityIdentifier(chip.identifier ?? "")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

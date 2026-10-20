@@ -145,15 +145,30 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
         /// The dish's dietary tags, as the sorter read them out of the words (`tags: [String]`,
         /// lowercase codes). Optional on the wire: a row served before the column existed has none.
         public let tags: [DietTag]
+        /// **The codes on this line that came from the author's diet** (`diet_tags`), not from their
+        /// words — a subset of ``tags``. The author never sees these on their own screens
+        /// (``shownTags(isMine:)``); everyone else does. `[]` from a server that predates them.
+        public let dietTags: [DietTag]
 
         public var id: UUID { reviewID }
+
+        /// What a dish row prints: every code, except — on the author's own screens — the ones
+        /// their diet put there (`design/rebuild/diet.html`: "No VG chip anywhere: it's implied").
+        public func shownTags(isMine: Bool) -> [DietTag] {
+            isMine ? tags.filter { dietTags.contains($0) == false } : tags
+        }
+
+        /// The codes the author typed as chips — the only ones that can be found in the words.
+        public var typedTags: [DietTag] {
+            tags.filter { dietTags.contains($0) == false }
+        }
 
         // swiftlint:disable:next function_default_parameter_at_end
         public init(reviewID: UUID, dishID: UUID, dishName: String, score: Rating? = nil,
                     note: String? = nil, position: Int, saved: Bool = false,
                     evidenceOffset: Int? = nil, evidenceLength: Int? = nil,
                     mentionOffset: Int? = nil, mentionLength: Int? = nil,
-                    corrected: Bool = false, tags: [DietTag] = []) {
+                    corrected: Bool = false, tags: [DietTag] = [], dietTags: [DietTag] = []) {
             self.reviewID = reviewID
             self.dishID = dishID
             self.dishName = dishName
@@ -167,6 +182,7 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
             self.mentionLength = mentionLength
             self.corrected = corrected
             self.tags = tags
+            self.dietTags = dietTags.filter { tags.contains($0) }
         }
 
         /// Hand-written for one reason: `corrected` is a plain `Bool` in the app and a column that
@@ -186,7 +202,11 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
             self.mentionOffset = try container.decodeIfPresent(Int.self, forKey: .mentionOffset)
             self.mentionLength = try container.decodeIfPresent(Int.self, forKey: .mentionLength)
             self.corrected = try container.decodeIfPresent(Bool.self, forKey: .corrected) ?? false
-            self.tags = DietTag.decoding(try container.decodeIfPresent([String].self, forKey: .tags) ?? [])
+            let tags = DietTag.decoding(try container.decodeIfPresent([String].self, forKey: .tags) ?? [])
+            self.tags = tags
+            self.dietTags = DietTag.decoding(
+                (try? container.decodeIfPresent([String].self, forKey: .dietTags)) ?? []
+            ).filter { tags.contains($0) }
         }
 
         enum CodingKeys: String, CodingKey {
@@ -198,6 +218,7 @@ public struct EntryCard: Sendable, Hashable, Codable, Identifiable {
             case evidenceLength = "evidence_length"
             case mentionOffset = "mention_offset"
             case mentionLength = "mention_length"
+            case dietTags = "diet_tags"
         }
     }
 

@@ -43,6 +43,10 @@ public struct QueuedEntry: Sendable, Hashable, Codable, Identifiable {
     /// before they were kept, and then the server reads the prose as it used to.
     public var scoreTokens: [TagToken]?
 
+    /// The author's diet codes turned off per dish, owed to the same sort (`diet_off_tokens`).
+    /// Optional so a queue written before them still reads.
+    public var dietOffTokens: [DietOffToken]?
+
     /// The server refused rather than failed to answer. Retrying cannot help, so the queue stops
     /// immediately instead of burning eight foregrounds to arrive at the same place.
     public var isBlocked = false
@@ -154,6 +158,7 @@ public actor EntryOutbox {
             merged.needsSort = item.needsSort || existing.needsSort
             merged.tagTokens = item.tagTokens ?? existing.tagTokens
             merged.scoreTokens = item.scoreTokens ?? existing.scoreTokens
+            merged.dietOffTokens = item.dietOffTokens ?? existing.dietOffTokens
         }
         queue.removeAll { $0.id == item.id }
         queue.append(merged)
@@ -347,7 +352,8 @@ public actor EntryOutbox {
         var sorted = false
         if item.needsSort, forgotten.contains(item.id) == false {
             let outcome = try await entries.sort(
-                entryID: item.entry.id, force: false, tagTokens: item.tagTokens ?? [], scoreTokens: item.scoreTokens
+                entryID: item.entry.id, force: false, tagTokens: item.tagTokens ?? [], scoreTokens: item.scoreTokens,
+                dietOffTokens: item.dietOffTokens ?? []
             )
             item.needsSort = false
             sorted = true

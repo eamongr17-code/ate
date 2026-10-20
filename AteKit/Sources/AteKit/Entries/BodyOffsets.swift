@@ -34,6 +34,16 @@ struct BodyOffsets {
 
     // MARK: - The wire's offsets
 
+    /// A UTF-16 span as the wire's scalar offset + scalar length — the inverse of
+    /// ``span(scalarOffset:scalarLength:)``. `nil` when either end falls inside a scalar or outside
+    /// the body.
+    func scalarSpan(of span: TextSpan) -> (offset: Int, length: Int)? {
+        guard span.location >= 0, span.length > 0,
+              let start = scalarStarts.firstIndex(of: span.location),
+              let end = scalarStarts.firstIndex(of: span.endLocation) else { return nil }
+        return (start, end - start)
+    }
+
     /// A scalar offset + scalar length from the wire, as a UTF-16 span.
     ///
     /// `nil` when either half is missing, when the length is zero, or when the pair does not point

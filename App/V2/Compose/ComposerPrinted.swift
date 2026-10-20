@@ -34,6 +34,8 @@ struct V2ComposerPrinted: View {
         /// The chips and 6s it was sorted with, so "Try again" re-sorts with the same ones.
         let tagTokens: [TagToken]
         let scoreTokens: [TagToken]?
+        /// …and the diet codes turned off per dish.
+        var dietOffTokens: [DietOffToken] = []
         /// The tap on Post, for `summary_receipt_entered`'s `ms_from_done`.
         var doneAt: ContinuousClock.Instant = .now
         /// An early sort of exactly these inputs was out (or landed) before Done.
@@ -69,7 +71,10 @@ struct V2ComposerPrinted: View {
         let store = EntrySummaryStore(
             card: handoff.card,
             isQueued: handoff.isQueued,
-            actions: .live(app.services.entries, tagTokens: handoff.tagTokens, scoreTokens: handoff.scoreTokens)
+            actions: .live(
+                app.services.entries, tagTokens: handoff.tagTokens, scoreTokens: handoff.scoreTokens,
+                dietOffTokens: handoff.dietOffTokens
+            )
         )
         _store = State(initialValue: store)
         printedOnArrival = store.showsReceipt

@@ -48,7 +48,9 @@ struct V2ComposerWrite: View {
         self.presentation = presentation
         self.isCovered = isCovered
         self.onPrinted = onPrinted
-        let model = ComposerModel(drafts: app.services.drafts, editing: presentation.editing)
+        let model = ComposerModel(
+            drafts: app.services.drafts, editing: presentation.editing, diet: app.diet.codes
+        )
         // A nearby chip tapped on a photo sitting: the Place key opens holding it.
         if presentation.editing == nil, let place = presentation.place { _ = model.attach(place: place) }
         // "I ate it": the dish's name starts the words — unless a draft is already holding some.
@@ -273,7 +275,7 @@ struct V2ComposerWrite: View {
                     model.dismissScoring(refocus: false)
                 },
                 onCode: pick,
-                worn: isChoosingDiet ? model.composition.dishTags(atDisplayOffset: model.caret) : [],
+                worn: isChoosingDiet ? model.litCodes : [],
                 library: { libraryKey }
             )
         }
@@ -345,6 +347,7 @@ struct V2ComposerWrite: View {
             || model.photos.map(\.id) != editing.photos.map(\.url)
             || model.companionsChanged
             || model.date.changed
+            || model.diet.hasRemovals
     }
 
     /// The composer is going away for good: nothing further goes early, and a preview in flight for

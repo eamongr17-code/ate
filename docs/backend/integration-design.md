@@ -35,7 +35,8 @@ paraphrase), `position` (1-based), `saved` (the viewer's own save state), `cover
 null when the dish has none — **not** a photo from this entry; `photos[]` is that), `evidence_offset` +
 `evidence_length` (where the SCORE is in `body`), `mention_offset` + `mention_length` (where the DISH is
 named), `corrected` (the user fixed this line; no re-sort overwrites it), `tags` (0036: dietary codes, a
-subset of `gf df v vg nf` in that order, deduped, **`[]` never null** — the dish row's chips). Every
+subset of `gf df v vg nf` in that order, deduped, **`[]` never null** — the dish row's chips), `diet_tags` (0074: the
+codes of `tags` that came from the author's diet, `[]` when none — hide them on the author's OWN screens only). Every
 `*_offset`/`*_length` is null when we cannot point at it — then draw no token.
 
 **Inline tokens: place them, never search for them. Every `*_offset` is a 0-based UNICODE SCALAR (code-point)
@@ -77,9 +78,9 @@ their own order: `place_dishes` + `dishes_by_tag` `(score, review_count, name, d
 | Journal — place filter | `rpc my_entry_places()` | `{restaurant_id, name, locality, entry_count}[]` — where your entries are, busiest first. Optional keyset `(p_limit, p_cursor_entry_count, p_cursor_name, p_cursor_restaurant_id)`; no args = all |
 | Entry · Share link (`ate://entry/<id>`) | `rpc get_entry_card(p_entry_id)` (0048; or `GET /rest/v1/entry_cards?id=eq.<uuid>` signed in) | one `entry_card`, or `[]` = not visible / gone → "unavailable", never an error. **Works signed out** (`is_mine`/`saved` false) |
 | Place — header | `rpc place_summary(p_restaurant_id)` | `{restaurant_id, name, address, city, cuisine, cover_url, avg_rating, review_count, people_count, dish_count, my_visits, my_last_visit, locality, entry_count}` — **`locality` is the second chip** (`city` is unreliable, see below); `entry_count` = visits here, `review_count` = receipt lines; every text field is `null`, never `''` |
-| Place — what to order | `rpc place_dishes(p_restaurant_id, p_limit, p_cursor_review_count, p_cursor_score, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, score, people_count, review_count, cover_url, tags}[]` — `tags` = the dish's chips, the `dish_summary.tags` rule (0045). **By rating (0051):** printed `score` DESC (a 6 above every 5), then `review_count` DESC, then name, then id; unscored dishes after every scored one. **Never re-sort it client-side** (AteKit's `DishRanking` is the retired review-count-first rule). A dish with no line at all is not returned. **4-part keyset: pass all four from the last row** (`p_cursor_score` may be null) |
+| Place — what to order | `rpc place_dishes(p_restaurant_id, p_limit, p_cursor_review_count, p_cursor_score, p_cursor_dish_name, p_cursor_dish_id)` | `{dish_id, dish_name, score, people_count, review_count, cover_url, tags, diet_counts}[]` — `tags` = the dish's chips, the `dish_summary.tags` rule (0045); `diet_counts` as `dish_summary` (0074). **By rating (0051):** printed `score` DESC (a 6 above every 5), then `review_count` DESC, then name, then id; unscored dishes after every scored one. **Never re-sort it client-side** (AteKit's `DishRanking` is the retired review-count-first rule). A dish with no line at all is not returned. **4-part keyset: pass all four from the last row** (`p_cursor_score` may be null) |
 | Place — entries | `rpc get_entries_at_place(p_restaurant_id, p_scope, cursor…)` | `entry_cards[]`; `p_scope ∈ 'all'|'mine'|'others'` |
-| Dish — header | `rpc dish_summary(p_dish_id)` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_city, score, review_count, scored_count, people_count, cover_url, saved, my_last_score, photos, restaurant_locality, tags}` — `photos` = `[{url, entry_id}]` newest first for the header stack, `[]` when none, and **`photos[0].url == cover_url`**; `tags` = codes **at least half** of the `review_count` lines carry (and ≥1), `[]` when none |
+| Dish — header | `rpc dish_summary(p_dish_id)` | `{dish_id, dish_name, restaurant_id, restaurant_name, restaurant_city, score, review_count, scored_count, people_count, cover_url, saved, my_last_score, photos, restaurant_locality, tags}` — `photos` = `[{url, entry_id}]` newest first for the header stack, `[]` when none, and **`photos[0].url == cover_url`**; `tags` = the diet LABELS (0074): a code ≥ 3 different people marked in the last 12 months (`vg` counts as `v` and `df`) and none turned off, `[]` when none; `diet_counts` = `{code: n}` for 0 < n < 3 ("Ordered by n … eaters"), `{}` when none |
 | Dish — tag chips (0053) | `rpc dish_tags(p_dish_id)` | `{kind, slug, label}[]`: `style` (1–3, lower-case "pasta") → `cuisine` → `suburb` → `city` → `diet` (== `dish_summary.tags`, label `GF`). Slugs are opaque — pass them back to `dishes_by_tag` verbatim (a suburb's is city-qualified) |
 | Dish — more like this (0053) | `rpc similar_dishes(p_dish_id, p_limit)` | `{dish_id, name, restaurant_id, restaurant_name, score, review_count, cover_url}[]` — shares a style or the cuisine; weighted overlap (style > cuisine > suburb > city), then score. Default 10, max 50, unpaged |
 | Tag results (0053) · craving shelf (0055) | `rpc dishes_by_tag(p_kind, p_slug, p_limit, p_cursor_score, p_cursor_review_count, p_cursor_name, p_cursor_dish_id, p_city)` | the same row + `saved` (0055), best first (`place_dishes`' order: score, a 6 above every 5, unscored last → review_count → name → id). 4-part keyset, pass all four from the last row. `p_kind` ∉ the five → `22023`; unknown slug → `[]`. `p_city` (0055): only dishes whose place is in that city (null = everywhere, unknown → `[]`). Signed in only |
@@ -153,6 +154,7 @@ variant goes beside it at `<path minus extension>_t.jpg` (same owner-folder poli
 POST /functions/v1/sort-entry     { "entry_id": "<uuid>", "force": false, "dry_run": false,
                                     "tag_tokens": [{ "offset": 23, "length": 2 }],    // optional, 0036
                                     "six_tokens": [{ "offset": 9, "length": 1 }],     // optional, 0041
+                                    "diet_off_tokens": [{ "offset": 9, "length": 5, "code": "vg" }], // optional, 0074
                                     "score_tokens": [{ "offset": 9, "length": 1 }] }  // optional, 17 Oct
 → 200 { ok, mode: "stub"|"model", model, entry_id, sort_status, restaurant_id,
         place_query, place_offset, items:[…], entry_card }      // entry_card: 0056
@@ -173,8 +175,13 @@ it — send each marked `6`/`6.0` in `six_tokens` (scalars). It scores the dish 
 dropped (an unrated "dish" is a description of another one). Send every score pill in `score_tokens` (same
 list as `six_tokens`; send `[]` when there are none): then a score survives only when its evidence covers a pill,
 so a number typed in prose is never a rating. A pill no dish claimed scores the dish named nearest before it, when that line has no score. Omitted → the prose is read as before (older builds).
+**Diet (0074):** the server stamps the author's `profiles.diet` on every NEW line (never on one a re-sort rebuilds
+or a corrected one). To turn a code off for one dish in Compose, send `diet_off_tokens` — offset/length (scalars,
+`length` optional) on the dish's words, attached to the dish named nearest at or before it, plus `code`; codes
+outside the author's diet are ignored. Reply `items[].diet_off` echoes them; the stamp itself is in `entry_card`.
+On an edit the same token removes that code from the rebuilt line. Already saved: PATCH the line's `tags` without it.
 
-**Early sort (0039).** While composing, `{ "preview": true, "body": "<draft>", "tag_tokens": […], "six_tokens": […],
+**Early sort (0039).** While composing, `{ "preview": true, "body": "<draft>", "tag_tokens": […], "six_tokens": […], "diet_off_tokens": […],
 "restaurant_id": "<uuid|null>" }` (no `entry_id`) → 200 `{ok, preview: true, cached, mode, model, entry_id: null,
 restaurant_id, place_query, place_offset, items}` — the sort's plan shape. **Writes no entry and no line.** 422
 bad draft (>10k chars, bad uuid) · 429 `{error, retry_after}` over 12 previews / 10 min (a repeat of a cached
@@ -190,7 +197,8 @@ holds draft words, so expired rows are purged on every preview and deleting an e
 | Fix the place | `rpc correct_entry_place(p_entry_id, p_restaurant_id)` → the entry row. Re-resolves every line's dish at the new place, or prints the parked plan if the entry had none. Pins `restaurant_source='user'`, records `place_corrected_at`, clears the place token |
 | Fix a line's dish | `rpc correct_entry_dish(p_review_id, p_dish_id, p_dish_name)` → dish uuid. Pass `p_dish_id` for a menu pick, `p_dish_name` to name one. Score and note untouched |
 | Set / clear a score | `PATCH /rest/v1/reviews?id=eq.<uuid>` `{ "score": 4.5 }` (or `null`). Half steps 0.5–5.0, or `6` (0041); else `23514` |
-| Set a line's tags | `PATCH /rest/v1/reviews?id=eq.<uuid>` `{ "tags": ["gf", "v"] }` — the WHOLE set (`[]` clears). Canonicalised server-side; a code outside the five is `23514`; owner only. Not a correction |
+| Set a line's tags | `PATCH /rest/v1/reviews?id=eq.<uuid>` `{ "tags": ["gf", "v"] }` — the WHOLE set (`[]` clears). Canonicalised server-side; a code outside the five is `23514`; owner only. Not a correction. Dropping a `diet_tags` code turns it off for that dish (0074); `diet_tags`/`diet_off` themselves are not writable |
+| Set your diet | `PATCH /rest/v1/profiles?id=eq.<uid>` `{ "diet": ["vg"] }` — the WHOLE set (`[]` = none), as picked (vegan is `vg` alone). Read it back with `select=diet`. Applies to dishes logged afterwards (0074) |
 | Edit the words | `PATCH /rest/v1/entries?id=eq.<uuid>` `{ "body": "…" }`. (A `{visibility}` PATCH still succeeds and changes nothing — remove the control) |
 | Delete a visit | `rpc delete_entry(p_entry_id)` → `{photo_paths: [String]}` (0037), then `storage.from("review-photos").remove(paths: photo_paths)`. Paths are bucket-relative (`<uid>/<file>`), originals + their `_t.jpg`, yours only. Cascades photos rows, lines, their tags; dishes/places stay; aggregates move at once. `42501` not yours · `P0002` already gone (treat as done). A raw `DELETE /rest/v1/entries` still works but leaks the files |
 
@@ -273,6 +281,8 @@ PR, same rule as `place_locality()`); rows written before keep the mangle — re
 **Dates and dish photos — 0063 + match-photos.** Additive: `set_entry_date(p_entry_id, p_eaten_at)` (author; `22023` future/before 2000, `P0002` not yours) moves `entries.created_at`; `set_review_photo(p_entry_id, p_photo_url, p_review_id?)` (author; null = No dish) sets `reviews.photo_url` + `photo_picked_at`, which matching never overrides; `POST /functions/v1/match-photos {entry_id}` (author JWT) prunes stale pairs and pairs photos with unpicked lines (forced tool call; no key → no write); `apply_photo_matches` / `prune_photo_pairs` are service-only. Deleting an `entry_photos` row clears the lines that held it. Clients call match-photos after the sort and uploads, after a re-sort, a place correction and an edit with photos. With `unmatched_only: true` it does nothing for an entry already matched (`photos_matched_at`); any signed-in viewer who can see the entry may send that (a full re-match is the author's), and the app does when a photo of an entry with no photo paired is opened. The function reads each photo itself (the `_t.jpg` thumbnail first) and sends the bytes.
 
 **Picks outlive a re-sort — 0064.** Additive: `entries.photo_picks` (photo url → lower dish name, or null for No dish) is written by `set_review_photo`; match-photos runs service-only `restore_photo_picks(p_entry_id)` after the prune, so a pick returns to the rebuilt line carrying that dish, and a No-dish photo is never matched. Picks whose photo left the entry are dropped.
+
+**Diet — 0074 + sort-entry.** Additive: `profiles.diet` (owner PATCH); `entry_cards.items[].diet_tags`; `diet_counts` on `dish_summary` and `place_dishes` (+ browse; drop+create); sort-entry `diet_off_tokens` and `items[].diet_off`. **Behavioural:** every dish-level diet `tags` (dish_summary, place_dishes, search_dishes, dish_tags, the diet filters and tag pages) follows the label rule (3 people / 12 months / vg ⇒ v, df / any turn-off vetoes) instead of half-of-lines; new lines carry the author's diet in `tags`.
 
 **Tag page — 0057.** Additive: trailing optional `p_kind`, `p_slug` on `get_entry_feed` and `new_to_record` (+ browse twins; drop+create, old calls bind unchanged and return the same rows); new `my_taste_tags`. Nothing existing changes meaning.
 

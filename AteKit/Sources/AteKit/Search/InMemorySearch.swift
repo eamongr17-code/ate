@@ -180,7 +180,7 @@ extension InMemorySocialService: SearchReading {
                 score: scores.isEmpty ? nil : (scores.reduce(0, +) / Double(scores.count) * 10).rounded() / 10,
                 coverURLString: rows.compactMap { $0.0.photos.first?.url }.first,
                 peopleCount: Set(rows.map { $0.0.authorID }).count,
-                tags: DishTagConsensus.tags(lines: rows.map { $0.1.tags })
+                tags: DishTagConsensus.labels(marks: rows.map { (person: $0.0.authorID, tags: $0.1.tags) }).tags
             )
         }
         .sorted { $0.name < $1.name }

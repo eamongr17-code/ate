@@ -29,6 +29,9 @@ final class AppModel {
     /// Other people's lists waiting on Accept or Decline (0073) — the Notifications page's group, and
     /// a list's own preview, answer through this one.
     let listInvites: ListInvitesStore
+    /// Your diet — one of it, so a change in Settings is lit in the composer and on a place's chips
+    /// in the same turn.
+    let diet: DietStore
     /// A tapped list-invite push, waiting for the shell to open Notifications.
     var linkedInvites = false
     private(set) var hasSession: Bool
@@ -72,6 +75,7 @@ final class AppModel {
         let lists = ListsStore(service: services.lists, analytics: services.analytics)
         self.lists = lists
         self.listInvites = ListInvitesStore(service: services.lists, shelf: lists, analytics: services.analytics)
+        self.diet = DietStore(account: services.account, analytics: services.analytics)
         self.saves = SaveAction(
             saves: services.saves,
             analytics: services.analytics,
@@ -205,6 +209,12 @@ final class AppModel {
         if let handle, HandleName.isPlaceholder(handle), let userID = services.api.currentUserID {
             services.preferences.noteOwesHandle(userID)
         }
+    }
+
+    /// The diet the composer and a place's chips read — once a session, signed in only.
+    func loadDiet() async {
+        guard hasSession else { return }
+        await diet.loadIfNeeded()
     }
 
     /// Continue on the first-run handle: written or kept, first run is over for this person.

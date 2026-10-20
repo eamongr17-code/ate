@@ -69,6 +69,7 @@ extension V2ComposerWrite {
                     photoPaths: request.photoPaths,
                     tagTokens: request.tagTokens,
                     scoreTokens: request.scoreTokens,
+                    dietOffTokens: request.dietOffTokens,
                     sorted: { await sorted.fulfil($0) }
                 )
                 // Its photos are paired with its dishes by now (0063): an open page reads them again.
@@ -149,6 +150,7 @@ extension V2ComposerWrite {
             sorted: sorted,
             tagTokens: request.tagTokens,
             scoreTokens: request.scoreTokens,
+            dietOffTokens: request.dietOffTokens,
             doneAt: doneAt,
             cacheHit: cacheHit,
             isQueued: sorted == nil
@@ -198,7 +200,10 @@ extension V2ComposerWrite {
                 ? nil : model.composition.scoreTokens,
             originalPhotos: editing.photos,
             photos: model.editedPhotos,
-            tags: EditTagDiff(original: editing.composition, current: model.composition, items: editing.items),
+            tags: EditTagDiff(
+                original: editing.composition, current: model.composition, items: editing.items,
+                dietRemovals: model.diet.removals
+            ),
             originalBody: editing.composition.plain,
             originalEatenAt: editing.createdAt,
             eatenAt: model.date.eatenAt

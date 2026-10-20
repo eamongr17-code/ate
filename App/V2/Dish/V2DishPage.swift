@@ -210,9 +210,18 @@ struct V2DishPage: View {
         .padding(.horizontal, AteMetrics.listGutter)
     }
 
+    /// The aggregate, its labels beside the people count; under it, per code below the label, the
+    /// literal line — "Ordered by 2 vegan eaters" (`diet.html`).
     private func aggregate(_ summary: DishSummary) -> some View {
-        AteDishAggregate(score: summary.score, peopleCount: summary.peopleCount, tags: summary.tags)
-            .padding(.horizontal, AteMetrics.listGutter)
+        VStack(alignment: .leading, spacing: AteDietSignalMetrics.top) {
+            AteDishAggregate(score: summary.score, peopleCount: summary.peopleCount, tags: summary.tags)
+            ForEach(summary.dietSignals) { signal in
+                if let line = signal.line {
+                    AteDietSignalLine(tag: signal.tag, line: line)
+                }
+            }
+        }
+        .padding(.horizontal, AteMetrics.listGutter)
     }
 
     // MARK: - The reviews

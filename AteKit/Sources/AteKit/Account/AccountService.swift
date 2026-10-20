@@ -21,6 +21,12 @@ public protocol AccountServing: Sendable {
     /// The signed-in person as Settings shows them: handle, and the avatar if there is one.
     func account() async throws -> AccountProfile
 
+    /// `profiles.diet` — the codes they always eat by, as picked (`["vg"]`). `[]` when none.
+    func diet() async throws -> [DietTag]
+
+    /// Writes `profiles.diet`, the whole set. `[]` clears it.
+    func setDiet(_ codes: [DietTag]) async throws
+
     /// Uploads to `avatars/<uid>/…` and records the public URL on the profile. Returns the URL that
     /// was written, so the row on screen updates without a second read.
     @discardableResult
@@ -186,6 +192,27 @@ public struct AccountClient: AccountServing {
             .execute()
     }
 
+    public func diet() async throws -> [DietTag] {
+        let id = try await api.requireCurrentUserID()
+        let rows: [DietRow] = try await api.supabase
+            .from("profiles")
+            .select("diet")
+            .eq("id", value: id.uuidString.lowercased())
+            .limit(1)
+            .execute()
+            .value
+        return DietTag.decoding(rows.first?.diet ?? [])
+    }
+
+    public func setDiet(_ codes: [DietTag]) async throws {
+        let id = try await api.requireCurrentUserID()
+        _ = try await api.supabase
+            .from("profiles")
+            .update(DietRow(diet: DietChoice(codes).codes.map(\.rawValue)), returning: .minimal)
+            .eq("id", value: id.uuidString.lowercased())
+            .execute()
+    }
+
     public func account() async throws -> AccountProfile {
         let id = try await api.requireCurrentUserID()
         let rows: [AccountRow] = try await api.supabase
@@ -290,6 +317,12 @@ public struct AccountClient: AccountServing {
 
     private static let purgePageSize = 100
     private static let maximumPurgePages = 100
+
+    /// `profiles.diet text[]`. Optional on the way in: a project before the column, or a null, is
+    /// no diet.
+    private struct DietRow: Codable, Sendable {
+        let diet: [String]?
+    }
 
     private struct AccountRow: Decodable, Sendable {
         let id: UUID

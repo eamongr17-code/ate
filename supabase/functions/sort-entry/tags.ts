@@ -283,3 +283,63 @@ export function attachTagTokens(
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// DIET OFF (0074). A diner's diet is stamped on every NEW dish line by apply_entry_sort; in Compose
+// they may turn a code off for one dish. The client sends that as a token with the SAME shape and
+// attachment rule as a tag token, plus the code it turns off:
+//
+//   "diet_off_tokens": [{ "offset": 23, "length": 11, "code": "vg" }]
+//
+// `offset` (0-based UNICODE SCALARS into the body, like every offset here) places it: the token
+// belongs to the line whose dish is named nearest at or before it — send the dish's own mention
+// span. `length` is optional (≥ 0, default 0). `code` is a diet code ("vg"; the tag vocabulary is
+// accepted too, so "VG" / "vegan" read the same). Nothing here sets a tag: it only says which diet
+// codes NOT to stamp on that line, and the database ignores any code outside the author's diet.
+// ---------------------------------------------------------------------------
+
+/** A diet code the client turned off for the dish at (or just before) `offset`. */
+export type DietOffToken = { offset: number; length: number; code: TagCode };
+
+/** At most this many are read per sort, like tag tokens. */
+export const MAX_DIET_OFF_TOKENS = 96;
+
+/** Read `diet_off_tokens` off a request body. Anything malformed is dropped, never coerced. */
+export function parseDietOffTokens(raw: unknown): DietOffToken[] {
+  if (!Array.isArray(raw)) return [];
+  const out: DietOffToken[] = [];
+  for (const t of raw.slice(0, MAX_DIET_OFF_TOKENS)) {
+    const offset = (t as { offset?: unknown })?.offset;
+    const length = (t as { length?: unknown })?.length ?? 0;
+    const code = (t as { code?: unknown })?.code;
+    if (
+      typeof offset !== 'number' || !Number.isInteger(offset) || offset < 0 ||
+      typeof length !== 'number' || !Number.isInteger(length) || length < 0 || length > 400 ||
+      typeof code !== 'string'
+    ) continue;
+    for (const c of tagCodesFor(code)) out.push({ offset, length, code: c });
+  }
+  return out;
+}
+
+/**
+ * Put each diet-off token's code on the line it belongs to — the item whose mention starts nearest
+ * at or before the token (attachTagTokens' rule). Every returned item carries `diet_off` (possibly
+ * `[]`), canonical. A token past the body, or before every dish, is dropped. Items are copied.
+ */
+export function attachDietOffTokens(items: SortItem[], body: string, tokens: DietOffToken[]): SortItem[] {
+  const out = items.map((it) => ({ ...it, diet_off: [] as string[] }));
+  const bodyLength = scalarLength(body ?? '');
+  for (const t of tokens) {
+    if (t.offset + t.length > bodyLength) continue;
+    let owner = -1;
+    for (let i = 0; i < out.length; i++) {
+      const at = out[i].mention_offset;
+      if (typeof at !== 'number' || at > t.offset) continue;
+      if (owner < 0 || at > (out[owner].mention_offset as number)) owner = i;
+    }
+    if (owner < 0) continue;
+    out[owner].diet_off = canonicalTags([...(out[owner].diet_off ?? []), t.code]);
+  }
+  return out;
+}

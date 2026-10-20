@@ -36,6 +36,9 @@ struct AteDishRow: View {
     var onPhoto: (() -> Void)?
     /// Under the dish on the full-screen cover: where it was eaten.
     var photoByline: String?
+    /// Under the name while a place's diet chips are on: per code, its chip or "Ordered by N …
+    /// eaters" (``AteDietSignalRow``).
+    var dietSignals: [DietSignal] = []
 
     @Environment(\.atePalette) private var palette
     @Environment(\.atePhotoViewer) private var showPhotos
@@ -68,6 +71,10 @@ struct AteDishRow: View {
                                 .ateText(.meta)
                                 .lineLimit(1)
                                 .foregroundStyle(palette.muted)
+                        }
+                        if dietSignals.isEmpty == false {
+                            AteDietSignalRow(signals: dietSignals)
+                                .padding(.top, max(0, AteDietSignalMetrics.rowTop - lineGap))
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

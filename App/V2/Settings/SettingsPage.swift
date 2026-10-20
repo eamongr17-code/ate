@@ -11,6 +11,8 @@ enum SettingsPage: Hashable {
     case handle(current: String?)
     /// Appearance: System / Light / Dark.
     case appearance
+    /// Diet: the five codes, a tick list you can pick several in (`design/rebuild/diet.html`).
+    case diet
     /// Blocked people.
     case blocked
     /// The privacy policy, in the app (``LegalDocument/privacy``).

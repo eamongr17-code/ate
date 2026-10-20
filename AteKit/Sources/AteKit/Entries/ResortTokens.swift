@@ -12,20 +12,27 @@ public struct ResortTokens: Equatable, Sendable {
     public let tags: [TagToken]
     /// Every score pill (`score_tokens`), its 6s included; `nil` when an old outbox kept none.
     public let scores: [TagToken]?
+    /// The author's diet codes turned off per dish, while the outbox still holds them. Once a sort
+    /// has landed they are the server's (`reviews.diet_off`), and nothing is resent.
+    public let dietOffs: [DietOffToken]
 
-    public init(tags: [TagToken], scores: [TagToken]?) {
+    public init(tags: [TagToken], scores: [TagToken]?, dietOffs: [DietOffToken] = []) {
         self.tags = tags
         self.scores = scores
+        self.dietOffs = dietOffs
     }
 
     public static func resolve(queued: QueuedEntry?, card: EntryCard?) -> ResortTokens {
+        let dietOffs = queued?.dietOffTokens ?? []
         if let queued, queued.tagTokens != nil || queued.scoreTokens != nil {
-            return ResortTokens(tags: queued.tagTokens ?? [], scores: queued.scoreTokens)
+            return ResortTokens(tags: queued.tagTokens ?? [], scores: queued.scoreTokens, dietOffs: dietOffs)
         }
         // Nothing known: no `score_tokens` at all. An empty list would tell the server "no ratings".
-        guard let card else { return ResortTokens(tags: [], scores: nil) }
+        guard let card else { return ResortTokens(tags: [], scores: nil, dietOffs: dietOffs) }
         let words = EntryBodyTokens.composition(for: card)
-        return ResortTokens(tags: words.tagTokens, scores: scoreTokens(of: words, rebuiltFrom: card.items))
+        return ResortTokens(
+            tags: words.tagTokens, scores: scoreTokens(of: words, rebuiltFrom: card.items), dietOffs: dietOffs
+        )
     }
 
     /// The pills of words rebuilt from an entry's lines — or `nil` when a scored line got none back

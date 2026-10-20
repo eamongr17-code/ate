@@ -124,11 +124,23 @@ public struct SupabaseEntryService: EntryService {
     public func sort(
         entryID: UUID, force: Bool, tagTokens: [TagToken], scoreTokens: [TagToken]?
     ) async throws -> SortOutcome {
+        try await sort(
+            entryID: entryID, force: force, tagTokens: tagTokens, scoreTokens: scoreTokens, dietOffTokens: []
+        )
+    }
+
+    @discardableResult
+    public func sort(
+        entryID: UUID, force: Bool, tagTokens: [TagToken], scoreTokens: [TagToken]?, dietOffTokens: [DietOffToken]
+    ) async throws -> SortOutcome {
         let response: SortResponse = try await api.supabase.functions.invoke(
             "sort-entry",
             options: FunctionInvokeOptions(
                 method: .post,
-                body: SortEntryRequest(entryID: entryID, force: force, tagTokens: tagTokens, scoreTokens: scoreTokens)
+                body: SortEntryRequest(
+                    entryID: entryID, force: force, tagTokens: tagTokens, scoreTokens: scoreTokens,
+                    dietOffTokens: dietOffTokens
+                )
             )
         ) { data, _ in try Self.decodeSortResponse(data) }
         return SortOutcome(

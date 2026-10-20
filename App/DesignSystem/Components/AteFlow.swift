@@ -10,6 +10,8 @@ struct AteFlow: Layout {
     var spacing: CGFloat
     /// Between lines; the pills' own gap unless the markup says otherwise.
     var lineSpacing: CGFloat?
+    /// `justify-content:center` — each line centred in the row (the first-run diet step's chips).
+    var centresLines = false
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let lines = arrange(width: proposal.width, subviews: subviews)
@@ -21,7 +23,7 @@ struct AteFlow: Layout {
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         var top = bounds.minY
         for line in arrange(width: bounds.width, subviews: subviews) {
-            var left = bounds.minX
+            var left = centresLines ? bounds.minX + max(0, (bounds.width - line.width) / 2) : bounds.minX
             for item in line.items {
                 subviews[item.index].place(
                     at: CGPoint(x: left, y: top + line.height / 2),

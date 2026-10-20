@@ -55,7 +55,8 @@ public final class EntrySummaryStore {
         /// The entry service's own calls. The re-print is forced (the first sort already ran) and
         /// carries the chips the entry was written with.
         public static func live(
-            _ entries: any EntryService, tagTokens: [TagToken], scoreTokens: [TagToken]? = nil
+            _ entries: any EntryService, tagTokens: [TagToken], scoreTokens: [TagToken]? = nil,
+            dietOffTokens: [DietOffToken] = []
         ) -> Actions {
             Actions(
                 fetch: { try await entries.entry(id: $0) },
@@ -68,7 +69,10 @@ public final class EntrySummaryStore {
                 // …and its secret 6s: a forced sort rebuilds every line, and a 6 not carried here
                 // would print as whatever the prose says.
                 resort: {
-                    _ = try await entries.sort(entryID: $0, force: true, tagTokens: tagTokens, scoreTokens: scoreTokens)
+                    _ = try await entries.sort(
+                        entryID: $0, force: true, tagTokens: tagTokens, scoreTokens: scoreTokens,
+                        dietOffTokens: dietOffTokens
+                    )
                     await entries.matchPhotos(entryID: $0)
                 },
                 correctDish: { try await entries.correctDish(reviewID: $0, dishID: $1, dishName: $2) }

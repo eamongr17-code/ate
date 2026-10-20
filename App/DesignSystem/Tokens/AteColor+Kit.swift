@@ -20,6 +20,11 @@ enum AteKitColor {
     /// The off state every disabled control shares: a muted tick (`.tick.off{opacity:.4}`) and an
     /// ink pill waiting on its thing.
     static let disabledOpacity: Double = 0.4
+    /// A diet code another pick covers (Vegan → Vegetarian, Dairy free): lit but faded and locked —
+    /// the first-run chip at `.pk.implied{opacity:.45}`, a Settings row's name at `rgba(fg,.5)` with
+    /// its tick at `.4` (``disabledOpacity``).
+    static let coveredChipOpacity: Double = 0.45
+    static let coveredRowOpacity: Double = 0.5
     /// What dims the other app under the share card — `.dim{background:rgba(0,0,0,.35)}`.
     static let shareScrim = Color.black.opacity(0.35)
     /// Over the photo outside the avatar's circle while it is positioned — black at 60%.

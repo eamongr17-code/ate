@@ -61,6 +61,12 @@ export type SortItem = {
    */
   tags?: string[];
   /**
+   * Diet codes the diner turned OFF for this dish in Compose (0074): canonical, `[]` when none. Set
+   * ONLY by ./tags.ts attachDietOffTokens from the client's `diet_off_tokens`. apply_entry_sort keeps
+   * them out of the line's diet stamp and records them in reviews.diet_off.
+   */
+  diet_off?: string[];
+  /**
    * STYLE tags (0053): 1–3 lowercase words for what kind of dish this is ("pasta", "dumplings").
    * Proposed by the MODEL only and cleaned by ./styles.ts cleanStyles; absent when there are none
    * (the stub proposes none — the database tags every new dish from its name instead). They label

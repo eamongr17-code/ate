@@ -5,6 +5,8 @@ import SwiftUI
 /// `onboarding-calm.html` redrew them, 17 Oct) — straight after Handle, once.
 ///
 /// 1. **A photo of you** (``OnboardingPhotoStep``): the avatar, Apple's picker, Not now.
+/// 1b. **Set your dietary requirements** (``OnboardingDietStep``, `diet.html`): the five codes, Next
+///    or None of these.
 /// 2. **The three cards** (``OnboardingCards``): one entry written with its scores, its details,
 ///    then as the Feed shows it.
 /// 3. **Start with your last meal**: Find it in my photos (the system's own prompt does the asking),
@@ -20,7 +22,7 @@ struct V2Onboarding: View {
     let app: AppModel
 
     enum Step: Equatable {
-        case photo, cards, start, found
+        case photo, diet, cards, start, found
         /// The roll had no meals, or access was refused.
         case nothing(refused: Bool)
     }
@@ -45,8 +47,10 @@ struct V2Onboarding: View {
                 case .photo:
                     OnboardingPhotoStep(app: app) { answer in
                         app.services.analytics(OnboardingEvents.photo(answer))
-                        go(.cards)
+                        go(.diet)
                     }
+                case .diet:
+                    OnboardingDietStep(diet: app.diet) { go(.cards) }
                 case .cards:
                     OnboardingCards(onDone: { reached, skipped in
                         app.services.analytics(OnboardingEvents.cards(reached: reached, skipped: skipped))
@@ -262,6 +266,9 @@ private extension View {
 
 enum OnboardingCopy {
     static let photo = "Add a photo of you."
+    /// Eamon's title for the diet step (approving `diet.html`).
+    static let diet = "Set your dietary requirements"
+    static let noneOfThese = "None of these"
     static let choosePhoto = "Choose a photo"
     static let chooseAnother = "Choose another"
     static let notNow = "Not now"
@@ -299,4 +306,8 @@ enum OnboardingMetrics {
     static let drawing: CGFloat = 190
     static let drawingToTitle: CGFloat = 28
     static let titleBarHeight: CGFloat = 36
+    /// The diet step (`diet.html`): the title `top:190` over two 36 lines, the chips `top:300` — 38
+    /// under it — `left/right:24`. The doors sit where the photo step's do, so they don't jump.
+    static let dietTitleToChips: CGFloat = 38
+    static let dietChipsInset: CGFloat = 24
 }

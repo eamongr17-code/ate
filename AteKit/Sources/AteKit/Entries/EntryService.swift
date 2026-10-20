@@ -148,6 +148,13 @@ public protocol EntryService: Sendable {
     @discardableResult
     func sort(entryID: UUID, force: Bool, tagTokens: [TagToken], scoreTokens: [TagToken]?) async throws -> SortOutcome
 
+    /// The same, with the author's diet codes turned off per dish (`diet_off_tokens`). A service
+    /// that cannot send them falls back to the sort without — never an error.
+    @discardableResult
+    func sort(
+        entryID: UUID, force: Bool, tagTokens: [TagToken], scoreTokens: [TagToken]?, dietOffTokens: [DietOffToken]
+    ) async throws -> SortOutcome
+
     /// One entry, freshly read — what the receipt is drawn from.
     func entry(id: UUID) async throws -> EntryCard
 
@@ -223,6 +230,13 @@ public extension EntryService {
     @discardableResult
     func sort(entryID: UUID, force: Bool, tagTokens: [TagToken], scoreTokens: [TagToken]?) async throws -> SortOutcome {
         try await sort(entryID: entryID, force: force, tagTokens: tagTokens)
+    }
+
+    @discardableResult
+    func sort(
+        entryID: UUID, force: Bool, tagTokens: [TagToken], scoreTokens: [TagToken]?, dietOffTokens: [DietOffToken]
+    ) async throws -> SortOutcome {
+        try await sort(entryID: entryID, force: force, tagTokens: tagTokens, scoreTokens: scoreTokens)
     }
 
     /// A sort with no tag chips — a re-sort, a correction, an edit.

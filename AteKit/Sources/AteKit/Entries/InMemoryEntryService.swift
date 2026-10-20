@@ -217,7 +217,7 @@ public final class InMemoryEntryService: EntryService, InMemoryStandIn, @uncheck
                         dishID: dishID ?? item.dishID,
                         dishName: dishName ?? item.dishName,
                         score: item.score, note: item.note, position: item.position, saved: item.saved,
-                        tags: item.tags
+                        tags: item.tags, dietTags: item.dietTags
                     )
                 }
                 entries[index] = card.replacing(items: items)
@@ -235,7 +235,8 @@ public final class InMemoryEntryService: EntryService, InMemoryStandIn, @uncheck
                         score: item.score, note: item.note, position: item.position, saved: item.saved,
                         evidenceOffset: item.evidenceOffset, evidenceLength: item.evidenceLength,
                         mentionOffset: item.mentionOffset, mentionLength: item.mentionLength,
-                        corrected: item.corrected, tags: ReviewTagsPatch(tags: tags).tags
+                        corrected: item.corrected, tags: ReviewTagsPatch(tags: tags).tags,
+                        dietTags: item.dietTags
                     )
                 })
             }

@@ -18,6 +18,9 @@ public struct NewEntryRequest: Sendable, Hashable {
     /// Every score pill, in scalars (`score_tokens`) — carried beside the chips, for the same reason.
     /// `nil` only where they cannot be known.
     public let scoreTokens: [TagToken]?
+    /// The author's diet codes turned off per dish (`diet_off_tokens`), kept with the entry like the
+    /// chips so a sort that runs later still has them.
+    public let dietOffTokens: [DietOffToken]
     /// The place's name as the Place key shows it — only for the stand-in card of an entry that
     /// went to the outbox, so its sheet and its slip still say where it was.
     public let placeName: String?
@@ -32,6 +35,7 @@ public struct NewEntryRequest: Sendable, Hashable {
         secondsFromOpen: Int,
         tagTokens: [TagToken] = [],
         scoreTokens: [TagToken]? = nil,
+        dietOffTokens: [DietOffToken] = [],
         placeName: String? = nil
     ) {
         self.id = id
@@ -43,6 +47,7 @@ public struct NewEntryRequest: Sendable, Hashable {
         self.secondsFromOpen = secondsFromOpen
         self.tagTokens = tagTokens
         self.scoreTokens = scoreTokens
+        self.dietOffTokens = dietOffTokens
         self.placeName = placeName
     }
 }
@@ -147,7 +152,8 @@ public struct EntrySubmission: Sendable {
                 pendingPhotos: photos(of: request),
                 hasInserted: true,
                 tagTokens: request.tagTokens,
-                scoreTokens: request.scoreTokens
+                scoreTokens: request.scoreTokens,
+                dietOffTokens: request.dietOffTokens
             ))
             return .saved(card)
         } catch {
@@ -161,7 +167,8 @@ public struct EntrySubmission: Sendable {
                 pendingPhotos: photos(of: request),
                 hasInserted: false,
                 tagTokens: request.tagTokens,
-                scoreTokens: request.scoreTokens
+                scoreTokens: request.scoreTokens,
+                dietOffTokens: request.dietOffTokens
             ))
             analytics(EntryEvents.saved(savedEvent(request, queued: true)))
             return .queued(placeholder(for: entry, request: request))
@@ -182,11 +189,14 @@ public struct EntrySubmission: Sendable {
         photoPaths: [String],
         tagTokens: [TagToken] = [],
         scoreTokens: [TagToken]? = nil,
+        dietOffTokens: [DietOffToken] = [],
         sorted: (@Sendable (EntryCard?) async -> Void)? = nil
     ) async -> EntryCard? {
         await outbox.hold(entryID: entryID)
         async let uploaded = upload(entryID: entryID, photoPaths: photoPaths)
-        let outcome = await sort(entryID: entryID, tagTokens: tagTokens, scoreTokens: scoreTokens)
+        let outcome = await sort(
+            entryID: entryID, tagTokens: tagTokens, scoreTokens: scoreTokens, dietOffTokens: dietOffTokens
+        )
         let didSort = outcome != nil
         if let sorted {
             // The sort's reply carries the sorted card (0056): print it. Read it only when it did not.
@@ -261,11 +271,14 @@ public struct EntrySubmission: Sendable {
         }
     }
 
-    private func sort(entryID: UUID, tagTokens: [TagToken], scoreTokens: [TagToken]?) async -> SortOutcome? {
+    private func sort(
+        entryID: UUID, tagTokens: [TagToken], scoreTokens: [TagToken]?, dietOffTokens: [DietOffToken]
+    ) async -> SortOutcome? {
         let startedAt = now()
         do {
             let outcome = try await entries.sort(
-                entryID: entryID, force: false, tagTokens: tagTokens, scoreTokens: scoreTokens
+                entryID: entryID, force: false, tagTokens: tagTokens, scoreTokens: scoreTokens,
+                dietOffTokens: dietOffTokens
             )
             analytics(EntryEvents.sortCompleted(
                 mode: outcome.mode,
@@ -355,11 +368,13 @@ extension QueuedEntry {
         pendingPhotos: [QueuedPhoto],
         hasInserted: Bool,
         tagTokens: [TagToken] = [],
-        scoreTokens: [TagToken]? = nil
+        scoreTokens: [TagToken]? = nil,
+        dietOffTokens: [DietOffToken] = []
     ) {
         self.init(entry: entry, pendingPhotos: pendingPhotos)
         self.hasInserted = hasInserted
         self.tagTokens = tagTokens.isEmpty ? nil : tagTokens
+        self.dietOffTokens = dietOffTokens.isEmpty ? nil : dietOffTokens
         // Kept even when empty: no pills means no ratings, which is not the same as not knowing.
         self.scoreTokens = scoreTokens
     }

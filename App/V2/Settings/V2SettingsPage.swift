@@ -43,6 +43,8 @@ struct V2SettingsPage: View {
             )
         case .appearance:
             V2AppearancePage(model: model)
+        case .diet:
+            V2DietPage(diet: context.app.diet)
         case .blocked:
             V2BlockedPeoplePage(
                 store: BlockedPeopleStore(account: context.services.account, analytics: context.services.analytics)

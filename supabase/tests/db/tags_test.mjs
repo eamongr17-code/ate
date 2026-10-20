@@ -46,15 +46,15 @@ test('0036: a re-sort that does not mention a tag keeps it', async () => {
   assert.equal((await line(E, 2)).dish_id, salad.dish_id);
 });
 
-test('0036: dish_summary.tags is what at least half the dish\'s lines carry — signed in and out alike', async () => {
-  const E = await w.visit(2, U.bob, P.marion, receipt(['Risotto', 4, { tags: ['gf', 'v'] }]), '2026-09-02T09:00:00Z');
+test('0036 → 0074: dish_summary.tags is the LABEL rule (3 different people), signed in and out alike', async () => {
+  // 0036's "half of the lines" rule was replaced by 0074's label; the full rule is diet_test.mjs.
+  const E = await w.visit(2, U.bob, P.marion, receipt(['Risotto', 4, { tags: ['gf', 'v'] }]), '2026-10-02T09:00:00Z');
   const dish = (await line(E, 1)).dish_id;
-  assert.deepEqual((await consensus(dish)).tags, ['gf', 'v'], 'one line, tagged: that is the consensus');
-  await w.visit(3, U.cleo, P.marion, receipt(['Risotto', 3]), '2026-09-03T09:00:00Z');
-  assert.deepEqual(await consensus(dish), { tags: ['gf', 'v'], review_count: 2 }, '1 of 2 is half: still listed');
-  await w.visit(4, U.dan, P.marion, receipt(['Risotto', 5, { tags: ['v'] }]), '2026-09-04T09:00:00Z');
-  assert.deepEqual(await consensus(dish), { tags: ['v'], review_count: 3 }, 'gf: 1 of 3 is not half; v: 2 of 3 is');
+  assert.deepEqual((await consensus(dish)).tags, [], 'one person is not a label');
+  await w.visit(3, U.cleo, P.marion, receipt(['Risotto', 3, { tags: ['v'] }]), '2026-10-03T09:00:00Z');
+  await w.visit(4, U.dan, P.marion, receipt(['Risotto', 5, { tags: ['v'] }]), '2026-10-04T09:00:00Z');
+  assert.deepEqual(await consensus(dish), { tags: ['v'], review_count: 3 }, 'v: three people; gf: one');
   assert.deepEqual((await consensus(dish, null)).tags, ['v'], 'signed out agrees');
-  const [menu] = await as(null, () => rows(`select tags from public.place_dishes($1) where dish_id = $2`, [P.marion, dish]));
-  assert.deepEqual(menu.tags, ['v'], 'the menu row carries the same chips');
+  const [menu] = await as(null, () => rows(`select tags, diet_counts from public.place_dishes($1) where dish_id = $2`, [P.marion, dish]));
+  assert.deepEqual(menu, { tags: ['v'], diet_counts: { gf: 1 } }, 'the menu row carries the same chips, and the count below');
 });

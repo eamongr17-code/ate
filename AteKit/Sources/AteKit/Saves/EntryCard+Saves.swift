@@ -27,7 +27,8 @@ public extension EntryCard {
                 mentionOffset: item.mentionOffset,
                 mentionLength: item.mentionLength,
                 corrected: item.corrected,
-                tags: item.tags
+                tags: item.tags,
+                dietTags: item.dietTags
             )
         })
     }

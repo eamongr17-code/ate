@@ -136,4 +136,13 @@ extension AteTextStyle {
     static let kitPickDetail = AteTextStyle(
         voice: .display, size: 12, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .caption
     )
+    /// The diet step's choices — `.pk` on `diet.html`'s first-run screen: 600 at 17, `line-height:1`.
+    static let kitTogglePillLarge = AteTextStyle(
+        voice: .display, size: 17, weight: 600, trackingEm: 0, lineHeight: 1.0, textStyle: .body
+    )
+    /// The dish page's line for a code below the label — `.signal`: 500 at 14, `line-height:1.2`,
+    /// muted ("Ordered by 2 vegan eaters").
+    static let kitDietSignal = AteTextStyle(
+        voice: .display, size: 14, weight: 500, trackingEm: 0, lineHeight: 1.2, textStyle: .subheadline
+    )
 }
