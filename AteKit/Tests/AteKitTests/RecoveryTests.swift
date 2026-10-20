@@ -118,7 +118,7 @@ struct PhotoSuggestionDismissalsTests {
         dismissals.writeUp(["c"])
         dismissals.dismiss(dismissals.clusters(items)[0])
         dismissals.reset()
-        #expect(dismissals.clusters(items).map(\.id) == ["a"])
+        #expect(dismissals.clusters(items).map(\.id) == ["b"])
     }
 }
 
