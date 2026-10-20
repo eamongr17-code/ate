@@ -33,6 +33,13 @@ test('same spelling key folds into its survivor; one entry naming both keeps the
   assertEquals(r.rest.length, 4, 'gnocchi once, both tacos, the tiramisu');
 });
 
+test('"Pad Thai with Chicken" and "Chicken Pad Thai" fold with no model (20 Oct)', () => {
+  const a = dish('Pad Thai with Chicken', 1, '2026-10-20T01:00:00Z');
+  const b = dish('Chicken Pad Thai', 1, '2026-10-20T02:00:00Z');
+  const r = sameNameProposals(place([a, b, dish('Pad Thai with Prawn')]));
+  assertEquals(r.proposals.map((p) => [p.source_name, p.target_name, p.reason]), [['Chicken Pad Thai', 'Pad Thai with Chicken', 'same_name']]);
+});
+
 test('only pairs the fence allows go to the model', () => {
   const dishes = [
     dish('Spaghetti Carbonara'), dish('Carbonara'),

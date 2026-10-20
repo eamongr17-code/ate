@@ -8,7 +8,7 @@
 // is as much the point as every match.
 
 import { test, assert, assertEquals } from './harness.ts';
-import { couldBeSame, dishKey, sameDishGate } from './same-dish.ts';
+import { couldBeSame, dishKey, matchKey, sameDishGate } from './same-dish.ts';
 import { validateItem, validatePlan } from './validate.ts';
 import { planFromResponse } from './model.ts';
 import { coerceCachedPlan } from './preview.ts';
@@ -81,6 +81,21 @@ test('a rival with the target\'s own spelling key is a duplicate of it, not a se
   assertEquals(sameDishGate('Carbonara', 'Spaghetti Carbonara', [...MENU, 'Spaghetti Carbonaras']), 'Spaghetti Carbonara');
 });
 
+test('the match key reads "X with Y" as "Y X" (20 Oct: Pad Thai Aree), and nothing else moves', () => {
+  assertEquals(matchKey('Pad Thai with Chicken'), matchKey('Chicken Pad Thai'));
+  assertEquals(matchKey('Pad Thai w/ Chicken'), matchKey('chicken pad thai'));
+  assertEquals(matchKey('Rice with Fried Egg'), matchKey('Fried Egg Rice'));
+  assert(matchKey('Milk Chocolate') !== matchKey('Chocolate Milk'), 'no "with": order still counts');
+  assert(matchKey('Steak with Fries') !== matchKey('Steak Fries'), 'steak fries are a side');
+  assert(matchKey('Pad Thai with Chicken') !== matchKey('Pad Thai with Prawn'));
+  assert(matchKey('with Love') === dishKey('with Love') && matchKey('Served with') === dishKey('Served with'), 'nothing on one side: as typed');
+  assertEquals(matchKey('Chicken with Rice with Egg'), dishKey('Chicken with Rice with Egg'), 'two "with"s: as typed');
+  assert(couldBeSame('Chicken Pad Thai', 'Pad Thai with Chicken'));
+  assert(couldBeSame('Chicken Pad Thai', 'Pad Thai with Chicken and Egg'), 'in menu order the words fit');
+  assert(!couldBeSame('Chocolate Milk', 'Milk Chocolate Mousse'));
+  assertEquals(sameDishGate('Chicken Pad Thai', 'Pad Thai with Chicken', ['Pad Thai with Chicken', 'Pad See Ew']), 'Pad Thai with Chicken');
+});
+
 // ---------------------------------------------------------------------------
 // validate.ts — where the plan meets the menu
 // ---------------------------------------------------------------------------
@@ -93,6 +108,18 @@ test('a same-key menu dish wins with no model: the receipt prints the menu spell
   const out = validateItem(line({ dish_name: 'gnocchis', score: 4.5, score_evidence: '4.5' }), { body, knownDishes: ['Gnocchi'] })!;
   assertEquals(out.dish_name, 'Gnocchi');
   assertEquals(out.mention_text, 'gnocchis');
+});
+
+test('"Chicken Pad Thai" lands on the menu\'s "Pad Thai with Chicken" with no model', () => {
+  const body = 'chicken pad thai 4, so good';
+  const out = validateItem(line({ dish_name: 'chicken pad thai', score: 4, score_evidence: '4' }), {
+    body, knownDishes: ['Pad Thai with Chicken', 'Pad See Ew'],
+  })!;
+  assertEquals(out.dish_name, 'Pad Thai with Chicken');
+  const prawn = validateItem(line({ dish_name: 'prawn pad thai', score: 4, score_evidence: '4' }), {
+    body: 'prawn pad thai 4', knownDishes: ['Pad Thai with Chicken'],
+  })!;
+  assert(prawn.dish_name !== 'Pad Thai with Chicken', 'another protein is another dish');
 });
 
 test('the model\'s same_as names the menu dish only through the gate', () => {

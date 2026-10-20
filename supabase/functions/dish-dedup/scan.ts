@@ -4,7 +4,8 @@
 // under two names. It only PROPOSES; nothing merges until a person approves the list
 // (merge_dish_proposals, 0071). Pure: no IO except the injected fetch, so Node runs the suite.
 //
-//   1. same_name — the spelling key (../sort-entry/same-dish.ts dishKey) is the same. No judgement.
+//   1. same_name — the match key (../sort-entry/same-dish.ts matchKey: the spelling key, "X with Y"
+//                  read as "Y X") is the same. No judgement.
 //   2. ai        — a pair the deterministic fence allows (couldBeSame + exactly one dish at the place
 //                  fits the shorter name) AND the model, shown every dish at the place with a few of
 //                  the diners' notes, calls the same dish. "different" and "unsure" both stay apart.
@@ -12,7 +13,7 @@
 //
 // The dish that survives is the one more lines use, then the older one: what people already call it.
 
-import { couldBeSame, dishKey, sameDishGate } from '../sort-entry/same-dish.ts';
+import { couldBeSame, matchKey, sameDishGate } from '../sort-entry/same-dish.ts';
 
 export type ScanDish = { id: string; name: string; lines: number; created_at: string; notes: string[] };
 export type ScanPlace = { restaurant_id: string; place_name: string | null; dishes: ScanDish[]; shared_pairs: [string, string][] };
@@ -62,7 +63,7 @@ export function sameNameProposals(place: ScanPlace): { proposals: Proposal[]; re
   const groups = new Map<string, ScanDish[]>();
   const rest: ScanDish[] = [];
   for (const d of place.dishes) {
-    const k = dishKey(d.name);
+    const k = matchKey(d.name);
     if (!k) {
       rest.push(d);
       continue;
