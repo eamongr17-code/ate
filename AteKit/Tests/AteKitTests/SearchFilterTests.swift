@@ -67,7 +67,7 @@ struct SearchFilterTests {
         let glutenFreeDairyFree = try await social.places(
             query: "i", filters: SearchFilters(tags: [.gf, .df]), after: nil, pageSize: 20
         )
-        #expect(glutenFreeDairyFree.rows.map(\.name) == ["Kisume"], "the salmon roll carries both")
+        #expect(glutenFreeDairyFree.rows.isEmpty, "the salmon roll's GF DF is one person's: not labelled")
         let cuisines = try await social.cuisines()
         #expect(cuisines.map(\.cuisine).contains("Japanese"))
     }
