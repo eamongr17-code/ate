@@ -141,6 +141,14 @@ struct AteInlineTitle: View {
     @Environment(\.atePalette) private var palette
 
     var body: some View {
+        AteCappedWidth(cap: maxWidth) {
+            lines
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
+
+    private var lines: some View {
         VStack(alignment: .leading, spacing: AteRootHeaderMetrics.inlineGap) {
             Text(title)
                 .ateText(.kitInlineTitle)
@@ -153,10 +161,27 @@ struct AteInlineTitle: View {
                     .lineLimit(1)
             }
         }
-        .fixedSize(horizontal: maxWidth == nil, vertical: true)
-        .frame(maxWidth: maxWidth, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// Sizes its content to its natural width, up to `cap`, whatever width it is offered. The bar
+/// offers a leading item far less than the room it has beside the trailing discs, and a merely
+/// flexible frame takes that offer: a place's name cut to "Guz…" with the bar half empty (build 159).
+private struct AteCappedWidth: Layout {
+    let cap: CGFloat?
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let subview = subviews.first else { return .zero }
+        let natural = subview.sizeThatFits(.unspecified)
+        guard let cap, natural.width > cap else { return natural }
+        return subview.sizeThatFits(ProposedViewSize(width: cap, height: nil))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(
+            at: bounds.origin, anchor: .topLeading,
+            proposal: ProposedViewSize(width: bounds.width, height: bounds.height)
+        )
     }
 }
 
