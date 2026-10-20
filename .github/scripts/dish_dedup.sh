@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# .github/scripts/dish_dedup.sh <project-ref> <scan|merge|reject> [ids]
+# .github/scripts/dish_dedup.sh <project-ref> <scan|scan-merge-names|merge|reject> [ids]
 #
 # Same dish, different names (0071): calls the dish-dedup function on one project with its service-role
 # key, read here through SUPABASE_ACCESS_TOKEN and never printed, and writes the open proposals as a
-# table to the job summary. `scan` only proposes; `merge` and `reject` act on the numbers in `ids`
-# ("3,5,8"; merge also takes "all").
+# table to the job summary. `scan` only proposes; `scan-merge-names` also merges the pairs that are the
+# same name spelled or ordered differently (no model judged those); `merge` and `reject` act on the
+# numbers in `ids` ("3,5,8"; merge also takes "all").
 set -euo pipefail
 
 ref="$1"
@@ -23,6 +24,7 @@ case "$key" in sb_secret_*) echo "Using the project's secret key" ;; *) echo "Us
 
 case "$action" in
   scan) body='{"action":"scan"}' ;;
+  scan-merge-names) body='{"action":"scan","merge":"same_name"}' ;;
   merge|reject)
     if [ "$action" = merge ] && [ "$raw_ids" = all ]; then
       body='{"action":"merge","ids":"all"}'
@@ -42,10 +44,12 @@ echo "dish-dedup $action: HTTP $code"
 
 {
   echo "### Duplicate dishes: $action"
-  jq -r 'if .results then (.results[] | "- Proposal \(.proposal_id): \(.status)\(if .note then " (\(.note))" else "" end)")
-         elif .rejected then "- Rejected: \(.rejected | map(tostring) | join(", "))"
-         else "Places checked: \(.places). Pairs the model judged: \(.pairs_asked). New proposals: \(.new_proposals)." end' out.json
-  if [ "$action" = scan ]; then
+  jq -r '(if .places != null then "Places checked: \(.places). Pairs the model judged: \(.pairs_asked). New proposals: \(.new_proposals)." else empty end),
+         (if .results then (.results[] | "- Proposal \(.proposal_id): \(.status)\(if .note then " (\(.note))" else "" end)") else empty end),
+         (if .rejected then "- Rejected: \(.rejected | map(tostring) | join(", "))" else empty end)' out.json
+  if [ "$action" != merge ] && [ "$action" != reject ]; then
+    echo
+    echo "Still open:"
     echo
     echo '| # | Place | Keep | Merge into it | Why |'
     echo '|---|---|---|---|---|'

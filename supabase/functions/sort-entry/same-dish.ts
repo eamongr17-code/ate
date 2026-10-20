@@ -9,6 +9,9 @@
 //      compound ("Hot Dog" / "Hotdog"). Word ORDER is kept ("Milk Chocolate" ≠ "Chocolate Milk").
 //      MIRRORED EXACTLY by public.dish_key (0071), which find_or_create_dish matches on; the db suite
 //      pins the two against one table of names.
+//      matchKey goes one step further, here only: "X with Y" is read as "Y X", so "Pad Thai with
+//      Chicken" is "Chicken Pad Thai" (20 Oct, Eamon). The sorter matches on it before the name ever
+//      reaches the database, and the scan groups on it.
 //
 //   2. sameDishGate — the deterministic fence around the MODEL's "same as" (log time) and the scan's
 //      proposals (existing dishes). The model may judge; this decides whether it is allowed to:
@@ -74,6 +77,22 @@ export function dishWords(name: string): string[] {
 /** The spelling key: the words, run together. '' for a name with no words. */
 export function dishKey(name: string): string {
   return dishWords(name).join('');
+}
+
+/**
+ * The words in menu order: "X with Y" (one "with", something on each side) read as "Y X", so
+ * "Pad Thai with Chicken" and "Chicken Pad Thai" are one. Every other name keeps its own order.
+ */
+export function matchWords(name: string): string[] {
+  const words = dishWords(name);
+  const at = words.indexOf('with');
+  if (at <= 0 || at === words.length - 1 || words.lastIndexOf('with') !== at) return words;
+  return [...words.slice(at + 1), ...words.slice(0, at)];
+}
+
+/** The key the sorter and the scan match on: dishKey, with "X with Y" read as "Y X". */
+export function matchKey(name: string): string {
+  return matchWords(name).join('');
 }
 
 /** Words that name a kind of dish or a menu heading, not a dish. */
@@ -142,10 +161,13 @@ export function couldBeSame(name: string, target: string): boolean {
   const a = dishWords(name);
   const b = dishWords(target);
   if (!a.length || !b.length) return false;
-  if (a.join('') === b.join('')) return true;
+  if (a.join('') === b.join('') || matchKey(name) === matchKey(target)) return true;
   const [short, long] = a.length <= b.length ? [a, b] : [b, a];
   if (onlyGeneric(short)) return false;
-  return wordsFit(short, long);
+  if (wordsFit(short, long)) return true;
+  // "Chicken Pad Thai" may fit "Pad Thai with Chicken and Egg" read in menu order
+  const [ms, ml] = a.length <= b.length ? [matchWords(name), matchWords(target)] : [matchWords(target), matchWords(name)];
+  return wordsFit(ms, ml);
 }
 
 /**
@@ -160,6 +182,6 @@ export function sameDishGate(name: string, target: string, menu: string[]): stri
   const rivals = menu.filter((m) => key(m) !== key(onMenu) && key(m) !== key(name) && couldBeSame(name, m));
   // A rival with the target's own spelling key is the same dish twice on the menu (a duplicate the
   // scan will propose merging), not a second candidate.
-  const targetKey = dishKey(onMenu);
-  return rivals.every((r) => dishKey(r) === targetKey) ? onMenu : null;
+  const targetKey = matchKey(onMenu);
+  return rivals.every((r) => matchKey(r) === targetKey) ? onMenu : null;
 }
