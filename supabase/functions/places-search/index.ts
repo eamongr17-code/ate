@@ -102,6 +102,8 @@ import { AUTOCOMPLETE_CAP, blendResults, type LocalMatch, type Prediction } from
 // The suburb out of a Google formattedAddress. Its own module for the same reason as the blend's:
 // index.ts cannot be imported by a test, and this rule now has to match place_locality() exactly.
 import { localityFromAddress } from './locality.ts';
+// A place's name without the keywords padded onto its listing; mirrors clean_place_name() (0075).
+import { cleanPlaceName } from './name.ts';
 
 const GOOGLE_KEY = Deno.env.get('GOOGLE_PLACES_API_KEY') ?? '';
 const STUB = GOOGLE_KEY.trim() === '';
@@ -427,7 +429,9 @@ async function googleAutocomplete(
       const dm = s.placePrediction.distanceMeters;
       return {
         google_place_id: s.placePrediction.placeId as string,
-        name: (s.placePrediction.structuredFormat?.mainText?.text ?? s.placePrediction.text?.text) as string,
+        // Stored rows are cleaned by the restaurants trigger (0075); a prediction isn't stored yet,
+        // so it gets the same rule here and reads the same as the row it becomes.
+        name: cleanPlaceName((s.placePrediction.structuredFormat?.mainText?.text ?? s.placePrediction.text?.text) as string),
         secondary: (s.placePrediction.structuredFormat?.secondaryText?.text ?? '') as string,
         ...(Number.isFinite(dm) ? { distance_meters: dm as number } : {}),
       };

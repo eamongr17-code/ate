@@ -188,3 +188,6 @@ jobs:
       # deno.land/std and need `deno test`.
       - name: Places locality derivation (the restaurants.city suburb rule)
         run: node --test supabase/functions/places-search/locality_test.ts
+
+      - name: Places name cleaning (keywords padded onto a listing's name)
+        run: node --test supabase/functions/places-search/name_test.ts

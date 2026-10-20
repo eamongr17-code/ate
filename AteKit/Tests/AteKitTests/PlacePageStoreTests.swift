@@ -163,14 +163,14 @@ struct PlacePageStoreTests {
         #expect(store.facts.isEmpty, "no rating, nobody, no cuisine, no suburb → no chips")
     }
 
-    @Test("the chips read average, people, cuisine, suburb — in the artboard's order")
+    @Test("the chips read average, people, suburb — in the artboard's order, and never the cuisine")
     func factsAreOrdered() async {
         let source = FakePlaceDishSource()
         source.seed(place: summary())
         let store = store(source)
         await store.load()
 
-        #expect(store.facts == [.rating("4.3"), .people("31"), .word("Italian"), .word("CBD")])
+        #expect(store.facts == [.rating("4.3"), .people("31"), .word("CBD")])
     }
 
     /// `city` on a live Google row is a slice of the formatted address. Printing it would put
