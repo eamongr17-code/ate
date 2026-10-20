@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diet</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Newsreader:opsz,wght@6..72,400&family=DM+Mono:wght@400;500&display=swap">
+<style>
+:root{--ground:#EFEAE2;--fg:#24141F;--muted:#5E5560;--field:#E4DED4;--hair:rgba(36,20,31,.14);--butter:#F6D365;--green:#3ECF64;--page:#E7E1D8}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#0F0B12;--fg:#F4EFE9;--muted:#B9AFBC;--hair:rgba(255,255,255,.16);color-scheme:dark}}
+:root[data-theme="dark"]{--page:#0F0B12;--fg:#F4EFE9;--muted:#B9AFBC;--hair:rgba(255,255,255,.16);color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--fg);font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.5;padding:40px 16px 80px}
+.intro{max-width:820px;margin:0 auto 36px}
+.intro h1{font:800 40px/1.05 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em;margin:0 0 10px}
+.intro p{margin:0 0 8px;color:var(--muted);font-size:16px}
+.group{max-width:1300px;margin:0 auto 56px}
+.group>h2{font:800 26px/1.1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;margin:0 0 6px;text-align:center}
+.group>p.lead{color:var(--muted);font-size:15.5px;text-align:center;max-width:640px;margin:0 auto 22px}
+.wrap{display:flex;gap:32px;flex-wrap:wrap;justify-content:center}
+.col{display:flex;flex-direction:column;gap:12px;align-items:center;width:390px;max-width:100%}
+.cap{font:600 15px/1.3 "Bricolage Grotesque",sans-serif;text-align:center}
+.cap small{display:block;font-weight:500;font-size:13.5px;color:var(--muted);margin-top:4px;line-height:1.4}
+.tag{display:inline-block;border-radius:999px;padding:1px 9px;font:600 12px/1.6 "Bricolage Grotesque",sans-serif;color:#24141F;background:var(--green);margin-left:6px;vertical-align:1px}
+
+/* phone, real iPhone scale 390 x 844, always light */
+.scr{width:390px;height:844px;background:#EFEAE2;color:#24141F;border-radius:48px;overflow:hidden;position:relative;box-shadow:0 0 0 10px #111,0 20px 40px rgba(0,0,0,.25);flex-shrink:0;font-family:"Bricolage Grotesque",sans-serif}
+.sb{position:absolute;top:0;left:0;right:0;height:54px;display:flex;justify-content:space-between;align-items:center;padding:6px 34px 0 44px;font:600 17px/1 -apple-system,"Helvetica Neue",sans-serif;z-index:9}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;border-radius:20px;background:#000;z-index:10}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:140px;height:5px;border-radius:3px;background:#24141F;z-index:10}
+.glass{background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(18px) saturate(1.7);backdrop-filter:blur(18px) saturate(1.7);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.9),inset 0 1px 1px rgba(255,255,255,.8),0 0 0 .5px rgba(36,20,31,.10),0 8px 22px rgba(36,20,31,.12)}
+.disc{position:absolute;top:62px;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:8}
+.disc.l{left:16px}.disc.r{right:16px}
+.tick{background:#24141F;color:#fff;box-shadow:inset 0 1px 1px rgba(255,255,255,.25),0 6px 16px rgba(36,20,31,.25)}
+.navt{position:absolute;top:73px;left:0;right:0;text-align:center;font:600 17px/1 "Bricolage Grotesque",sans-serif;z-index:7}
+
+/* onboarding */
+.ob-title{position:absolute;left:32px;right:32px;top:190px;font:800 36px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.02em;text-align:center}
+.pks{position:absolute;left:24px;right:24px;top:300px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.pk{display:inline-flex;align-items:center;height:48px;padding:0 20px;border-radius:999px;background:#E4DED4;font:600 17px/1 "Bricolage Grotesque",sans-serif;color:#24141F;border:0;cursor:pointer;transition:background .18s,color .18s}
+.pk.on{background:#24141F;color:#fff}
+.pk.implied{background:#24141F;color:#fff;opacity:.45;cursor:default}
+.doors{position:absolute;left:20px;right:20px;bottom:56px;display:grid;gap:14px;justify-items:center}
+.inkpill{width:100%;height:52px;border-radius:999px;background:#24141F;color:#fff;display:flex;align-items:center;justify-content:center;font:600 17px/1 "Bricolage Grotesque",sans-serif;transition:opacity .18s}
+.inkpill.off{opacity:.3}
+.wlink{font:600 17px/1 "Bricolage Grotesque",sans-serif;height:44px;display:flex;align-items:center}
+
+/* settings, inset grouped */
+.set{position:absolute;left:0;right:0;top:120px;padding:0 16px}
+.grp{background:#fff;border-radius:26px;margin-bottom:22px;overflow:hidden}
+.gr{display:flex;align-items:center;justify-content:space-between;min-height:52px;padding:0 18px;font:500 17px/1 "Bricolage Grotesque",sans-serif;border-top:1px solid rgba(36,20,31,.1);cursor:pointer}
+.gr:first-child{border-top:0}
+.gr .v{display:flex;align-items:center;gap:6px;color:#5E5560}
+.gr.hl{background:rgba(246,211,101,.28)}
+.gr .ck{color:#24141F;font-weight:600}
+.gr.implied{color:rgba(36,20,31,.5);cursor:default}
+.gr.implied .ck{color:rgba(36,20,31,.4)}
+
+/* slips (journal / feed) */
+.lt{position:absolute;left:20px;top:64px;font:800 34px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.list{position:absolute;left:0;right:0;top:122px}
+.slip{background:#fff;border-radius:16px 16px 0 0;padding:12px 16px 14px;display:grid;gap:10px;margin:0 16px}
+.slipt{height:5px;margin:0 16px;background:radial-gradient(circle at 6px 6px,transparent 4px,#fff 4.5px) 0 -2px/12px 6px repeat-x;transform:scaleY(-1)}
+.by{display:flex;justify-content:space-between;align-items:center}
+.who{display:flex;align-items:center;gap:8px;font:600 14px/1 "Bricolage Grotesque",sans-serif}
+.av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:800 12px/1 "Bricolage Grotesque",sans-serif}
+.meta{font:500 13px/1.3 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.dr{display:flex;justify-content:space-between;align-items:center;min-height:44px;border-top:1px solid rgba(36,20,31,.14);gap:10px}
+.dr:first-child{border-top:0}
+.dn{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dn b{font:800 20px/1.05 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.sc{display:flex;align-items:center;gap:5px;font:800 26px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.02em}
+.sc svg{color:#24141F}
+.diet{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:999px;background:#EFEAE2;color:#5E5560;font:600 11px/1 "Bricolage Grotesque",sans-serif;letter-spacing:.06em;text-transform:uppercase}
+.diet.new{box-shadow:0 0 0 2px var(--butter)}
+.prose{font:400 16px/1.45 "Newsreader",Georgia,serif}
+.place{display:flex;align-items:center;gap:6px;font:600 14px/1 "Bricolage Grotesque",sans-serif;color:#5E5560}
+
+/* dish page */
+.dhero{position:absolute;left:0;right:0;top:0;height:330px}
+.f1{background:radial-gradient(circle at 40% 45%,#E8C77A,#B9893F 55%,#5C3A16)}
+.f2{background:radial-gradient(circle at 55% 45%,#9FC46B,#4E7A2E 60%,#21361A)}
+.dbody{position:absolute;left:0;right:0;top:350px;padding:0 20px;display:grid;gap:6px}
+.dbody h3{margin:0;font:800 36px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.plink{font:600 17px/1 "Bricolage Grotesque",sans-serif;color:#5E5560;height:36px;display:flex;align-items:center;gap:4px}
+.agg{display:flex;align-items:center;gap:14px;margin-top:4px}
+.agg .num{font:800 54px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.04em}
+.agg .stars{display:flex;gap:2px;color:#24141F}
+.agg .ml{display:flex;align-items:center;gap:8px;margin-top:4px;font:500 14px/1 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.signal{margin-top:10px;display:inline-flex;align-items:center;gap:8px;font:500 14px/1.2 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.rv{margin-top:18px;background:#fff;border-radius:16px;padding:14px 16px;display:grid;gap:6px}
+
+/* place page */
+.ph1{position:absolute;left:20px;top:116px;font:800 36px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.chips{position:absolute;left:20px;right:20px;top:166px;display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:#fff;border-radius:999px;padding:0 14px;height:34px;display:inline-flex;align-items:center;font-weight:600;font-size:14px}
+.chip.on{background:#24141F;color:#fff}
+.card{position:absolute;left:12px;right:12px;top:226px;background:#fff;border-radius:22px 22px 0 0;padding:16px 16px 10px}
+.sec{font:800 24px/1.02 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;margin:2px 0 8px}
+.prow{display:flex;align-items:center;gap:12px;min-height:66px;padding:6px 0;border-top:1px dashed rgba(36,20,31,.28)}
+.prow:first-of-type{border-top:0}
+.rn{font:800 30px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.05em;width:28px;text-align:center}
+.th{width:48px;height:48px;border-radius:12px;flex-shrink:0}
+.t1{background:linear-gradient(135deg,#b39a82,#5b4636)}.t2{background:linear-gradient(135deg,#e2a05b,#7a4a2a)}.t3{background:linear-gradient(135deg,#dcd9cf,#8fa06a)}.t4{background:linear-gradient(135deg,#9FC46B,#21361A)}
+.nm{flex:1;min-width:0}
+.nm b{display:block;font-weight:600;font-size:17px;letter-spacing:-.01em;line-height:1.2}
+.nm .meta{margin-top:3px;display:flex;gap:6px;align-items:center}
+.tok{font:500 14px/1 "DM Mono",monospace;background:var(--butter);border-radius:999px;padding:5px 10px;white-space:nowrap}
+
+/* rules table */
+.rules{max-width:820px;margin:0 auto}
+.rules h2{font:800 26px/1.1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;margin:0 0 12px}
+table{border-collapse:collapse;width:100%;font-size:15.5px;line-height:1.45}
+td{padding:11px 14px 11px 0;border-bottom:1px solid var(--hair);vertical-align:top}
+td:first-child{font:600 15px/1.4 "Bricolage Grotesque",sans-serif;white-space:nowrap;width:1%}
+@media (max-width:440px){.scr{transform:scale(.88);transform-origin:top center;margin-bottom:-100px}}
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>Diet</h1>
+  <p>You pick what you always eat once. Every dish you log is then saved with it, without you tagging anything. You don't see those tags on your own entries, but everyone else does. A dish is labelled for everyone once enough people mark it.</p>
+  <p>All phones are real iPhone size. The first two are live: tap the chips and the rows.</p>
+</div>
+
+<!-- 1. Onboarding + Settings -->
+<div class="group">
+  <h2>Setting your diet</h2>
+  <p class="lead">One new step in first run, straight after "Add a photo of you.", and a new Settings row that changes the same thing later.</p>
+  <div class="wrap">
+
+    <div class="col">
+      <div class="scr" id="ob">
+        <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
+        <div class="ob-title">Do you always eat any of these?</div>
+        <div class="pks" data-pick="ob">
+          <button class="pk" data-k="gf">Gluten free</button>
+          <button class="pk" data-k="df">Dairy free</button>
+          <button class="pk" data-k="v">Vegetarian</button>
+          <button class="pk" data-k="vg">Vegan</button>
+          <button class="pk" data-k="nf">Nut free</button>
+        </div>
+        <div class="doors">
+          <div class="inkpill off" id="obnext">Next</div>
+          <div class="wlink">None of these</div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">First run: after the photo step<small>Tap any number of chips. Next only works once one is picked, and "None of these" moves on with nothing saved. Picking Vegan also lights Vegetarian and Dairy free, faded, because vegan covers both. There's no extra copy, as on the other steps.</small></div>
+    </div>
+
+    <div class="col">
+      <div class="scr">
+        <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
+        <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="navt">Settings</div>
+        <div class="set">
+          <div class="grp">
+            <div class="gr">Handle<span class="v">@eamon ›</span></div>
+            <div class="gr">Photo<span class="v">›</span></div>
+            <div class="gr hl">Diet<span class="v">Vegan ›</span></div>
+          </div>
+          <div class="grp"><div class="gr">Appearance<span class="v">Automatic ⌃⌄</span></div></div>
+          <div class="grp">
+            <div class="gr">Blocked people<span class="v">›</span></div>
+            <div class="gr">Tutorial<span class="v">›</span></div>
+          </div>
+          <div class="grp">
+            <div class="gr">Privacy<span class="v">›</span></div>
+            <div class="gr">Terms<span class="v">›</span></div>
+          </div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">Settings: new "Diet" row after Photo<small>The value says what's saved: "Vegan", "Gluten free, Nut free", or "None". It's highlighted here only to show what's new.</small></div>
+    </div>
+
+    <div class="col">
+      <div class="scr" id="st">
+        <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
+        <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="navt">Diet</div>
+        <div class="set">
+          <div class="grp" data-pick="st">
+            <div class="gr" data-k="gf">Gluten free<span class="ck"></span></div>
+            <div class="gr" data-k="df">Dairy free<span class="ck"></span></div>
+            <div class="gr" data-k="v">Vegetarian<span class="ck"></span></div>
+            <div class="gr" data-k="vg">Vegan<span class="ck"></span></div>
+            <div class="gr" data-k="nf">Nut free<span class="ck"></span></div>
+          </div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">Settings → Diet<small>The same tick list as Appearance, except you can pick several. It saves as you tap. A change only applies to dishes you log from then on; older entries keep the diet they were saved with.</small></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 2. Own entry vs everyone else -->
+<div class="group">
+  <h2>Your entry vs. everyone else's view</h2>
+  <p class="lead">The same entry by @eamon, who is vegan. Two of the dishes were saved as vegan automatically. On the third he turned the tag off, because it was a friend's dish.</p>
+  <div class="wrap">
+
+    <div class="col">
+      <div class="scr">
+        <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
+        <div class="lt">Journal</div>
+        <div class="list" id="own"></div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">@eamon's own Journal<small>No VG chip anywhere: it's implied. A tag that isn't part of his diet still shows, like GF on the bao.</small></div>
+    </div>
+
+    <div class="col">
+      <div class="scr">
+        <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
+        <div class="lt">Feed</div>
+        <div class="list" id="pub"></div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">Anyone else, in Feed<small>VG shows on the two vegan dishes (outlined in butter here only to mark them). The same goes for the entry page, the dish page, the place page and share receipts. The prawn toast shows nothing because he turned the tag off.</small></div>
+    </div>
+
+    <div class="col">
+      <div class="scr">
+        <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
+        <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+        <div class="disc r tick"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <div style="position:absolute;left:20px;right:20px;top:130px" class="prose">
+          <span style="font-size:19px;line-height:1.6">Mushroom bao <span class="tok" style="font-size:13px;padding:2px 8px">★ 4.5</span> were the best thing. Tofu larb <span class="tok" style="font-size:13px;padding:2px 8px">★ 4.0</span>. Stole some of Sam's prawn toast <span class="tok" style="font-size:13px;padding:2px 8px;box-shadow:0 0 0 2px #24141F">★ 4.0</span></span>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:291px;padding:0 10px 10px">
+          <div class="glass" style="height:56px;border-radius:999px;display:flex;align-items:center;gap:8px;padding:0 8px">
+            <span class="diet" style="height:40px;padding:0 14px;font-size:13px;background:#24141F;color:#fff">VG</span>
+            <span class="diet" style="height:40px;padding:0 14px;font-size:13px;background:#E4DED4;color:#24141F">GF</span>
+            <span class="diet" style="height:40px;padding:0 14px;font-size:13px;background:#E4DED4;color:#24141F">DF</span>
+            <span class="diet" style="height:40px;padding:0 14px;font-size:13px;background:#E4DED4;color:#24141F">V</span>
+            <span class="diet" style="height:40px;padding:0 14px;font-size:13px;background:#E4DED4;color:#24141F">NF</span>
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:291px;background:#D3D5DB"></div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">Turning it off for one dish<small>In Compose, the diet codes for the dish being edited (prawn toast) already show VG lit. One tap turns it off for that dish only. Everything else in Compose stays as it is today.</small></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 3. Dish + place -->
+<div class="group">
+  <h2>What other people see on dishes and places</h2>
+  <p class="lead">A dish is labelled vegan once 3 different people have marked it and no vegan has turned it off, counting the last 12 months. Below that, the dish page shows the count.</p>
+  <div class="wrap">
+
+    <div class="col">
+      <div class="scr">
+        <div class="dhero f2"></div>
+        <div class="island"></div><div class="sb" style="color:#fff"><span>9:41</span><span>●●●</span></div>
+        <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="dbody">
+          <h3>Tofu Larb</h3>
+          <div class="plink">Lucy Liu ›</div>
+          <div class="agg"><span class="num">4.3</span><span><span class="stars" id="st1"></span><span class="ml">👤 7 people <span class="diet new">VG</span></span></span></div>
+          <div class="rv"><div class="who"><span class="av" style="background:#F6D365">P</span>@priya · 2d</div><div class="prose">Punchy, sour, lots of herbs.</div></div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">Dish page, labelled<small>5 people marked it vegan, so it carries the VG chip where the diet chips already sit today, beside the people count.</small></div>
+    </div>
+
+    <div class="col">
+      <div class="scr">
+        <div class="dhero f1"></div>
+        <div class="island"></div><div class="sb" style="color:#fff"><span>9:41</span><span>●●●</span></div>
+        <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="dbody">
+          <h3>Mushroom Bao</h3>
+          <div class="plink">Lucy Liu ›</div>
+          <div class="agg"><span class="num">4.5</span><span><span class="stars" id="st2"></span><span class="ml">👤 4 people</span></span></div>
+          <div class="signal"><span class="diet">VG</span>Ordered by 2 vegan eaters</div>
+          <div class="rv"><div class="who"><span class="av" style="background:#B9A5EA">E</span>@eamon · 1h</div><div class="prose">Best thing on the table.</div></div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">Dish page, below the threshold<small>Only 2 people marked it, so there's no label, just a literal line saying so. It's the same line for every diet ("Ordered by 1 gluten-free eater").</small></div>
+    </div>
+
+    <div class="col">
+      <div class="scr">
+        <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
+        <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="ph1">Lucy Liu</div>
+        <div class="chips"><span class="chip">★ 4.2</span><span class="chip">31</span><span class="chip">CBD</span><span class="chip on">Vegan</span></div>
+        <div class="card">
+          <div class="sec">The Top Ate</div>
+          <div class="prow"><span class="rn">1</span><span class="th t3"></span><span class="nm"><b>Mushroom Bao</b><span class="meta">Ordered by 2 vegan eaters</span></span><span class="tok">★ 4.5</span></div>
+          <div class="prow"><span class="rn">2</span><span class="th t4"></span><span class="nm"><b>Tofu Larb</b><span class="meta"><span class="diet">VG</span></span></span><span class="tok">★ 4.3</span></div>
+          <div class="prow"><span class="rn">3</span><span class="th t1"></span><span class="nm"><b>Eggplant Curry</b><span class="meta"><span class="diet">VG</span></span></span><span class="tok">★ 4.0</span></div>
+          <div class="prow"><span class="rn">4</span><span class="th t2"></span><span class="nm"><b>Smashed Cucumber</b><span class="meta"><span class="diet">VG</span></span></span><span class="tok">★ 3.5</span></div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">Place page, for a vegan viewer<small>A "Vegan" chip joins the place chips only if your diet is vegan, and it starts switched on. The Top Ate then lists only dishes that are labelled or have been ordered by vegan eaters. Tap the chip to see everything.</small></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="rules">
+  <h2>The rules underneath</h2>
+  <table>
+    <tr><td>Saving</td><td>When an entry is saved, every dish gets your diet's codes, unless you turned one off for that dish. Vegan saves as VG and also counts as V and DF.</td></tr>
+    <tr><td>Showing</td><td>On your own screens, codes that come from your diet are hidden. Anyone else sees every code.</td></tr>
+    <tr><td>Changing diet</td><td>The change only applies to dishes logged afterwards. Past entries are left alone.</td></tr>
+    <tr><td>Dish label</td><td>A dish is labelled once at least 3 different people have marked that code in the last 12 months and nobody with that diet has turned it off on the dish. Below 3 it shows "Ordered by N … eaters" instead.</td></tr>
+    <tr><td>Gluten free wording</td><td>The GF label means "people who eat gluten free marked it", not a guarantee. We never call a dish safe.</td></tr>
+  </table>
+</div>
+
+<script>
+const STAR='<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 6.9 7.5.7-5.7 5 1.7 7.4L12 18l-6.5 4 1.7-7.4-5.7-5 7.5-.7z"/></svg>';
+document.getElementById('st1').innerHTML=STAR.repeat(4);
+document.getElementById('st2').innerHTML=STAR.repeat(4)+'<span style="opacity:.5">'+STAR+'</span>';
+
+// Pickers: Vegan implies Vegetarian + Dairy free.
+function picker(root, opts){
+  const sel=new Set(opts.start||[]);
+  const items=[...root.querySelectorAll('[data-k]')];
+  function draw(){
+    const implied=sel.has('vg')?new Set(['v','df']):new Set();
+    items.forEach(el=>{
+      const k=el.dataset.k, on=sel.has(k), imp=!on&&implied.has(k);
+      el.classList.toggle('on',on); el.classList.toggle('implied',imp);
+      const ck=el.querySelector('.ck'); if(ck) ck.textContent=(on||imp)?'✓':'';
+    });
+    if(opts.onChange) opts.onChange(sel);
+  }
+  items.forEach(el=>el.addEventListener('click',()=>{
+    const k=el.dataset.k;
+    if(sel.has('vg') && (k==='v'||k==='df')) return;   // covered by Vegan
+    sel.has(k)?sel.delete(k):sel.add(k); draw();
+  }));
+  draw();
+}
+picker(document.querySelector('[data-pick="ob"]'),{onChange:s=>document.getElementById('obnext').classList.toggle('off',s.size===0)});
+picker(document.querySelector('[data-pick="st"]'),{start:['vg']});
+
+// The same entry, two viewers.
+const dishes=[
+  {n:'Mushroom Bao',s:'4.5',t:['vg','gf'],diet:['vg']},
+  {n:'Tofu Larb',s:'4.0',t:['vg'],diet:['vg']},
+  {n:'Prawn Toast',s:'4.0',t:[],diet:[]},
+];
+const LABEL={gf:'GF',df:'DF',v:'V',vg:'VG',nf:'NF'};
+function slip(viewerIsAuthor){
+  const rows=dishes.map(d=>{
+    const shown=d.t.filter(c=>!(viewerIsAuthor&&d.diet.includes(c)));
+    const chips=shown.map(c=>`<span class="diet${!viewerIsAuthor&&d.diet.includes(c)?' new':''}">${LABEL[c]}</span>`).join('');
+    return `<div class="dr"><span class="dn"><b>${d.n}</b>${chips}</span><span class="sc">${STAR.replace(/16/g,'18')}${d.s}</span></div>`;
+  }).join('');
+  return `<div class="slip"><div class="by"><span class="who"><span class="av" style="background:#B9A5EA">E</span>@eamon</span><span class="meta">1h</span></div>
+    <div>${rows}</div>
+    <div class="prose">Mushroom bao were the best thing. Stole some of Sam's prawn toast.</div>
+    <div class="place">📍 Lucy Liu · CBD</div></div><div class="slipt"></div>`;
+}
+document.getElementById('own').innerHTML=slip(true);
+document.getElementById('pub').innerHTML=slip(false);
+</script>
+</body>
+</html>
