@@ -23,7 +23,7 @@
 import { findNumbers } from './parse.ts';
 import { scalarLength, scalarOffset, verifiedScalarOffset } from './offsets.ts';
 import { sixEvidenceOffset, type SixSpan } from './six.ts';
-import { dishKey, sameDishGate } from './same-dish.ts';
+import { matchKey, sameDishGate } from './same-dish.ts';
 import { cleanStyles } from './styles.ts';
 import type { SortItem, SortPlan } from './types.ts';
 
@@ -134,11 +134,11 @@ function cutAtOtherDishes(note: string, others: string[]): string | null {
 
 const isHalfStep = (n: number) => n >= 0.5 && n <= 5 && Math.abs(n * 2 - Math.round(n * 2)) < 1e-9;
 
-/** The one menu dish with this name's spelling key, or null (none, or a duplicate pair: the oldest-first DB pick is not ours to guess). */
+/** The one menu dish with this name's match key (./same-dish.ts), or null (none, or a duplicate pair: the oldest-first DB pick is not ours to guess). */
 function uniqueByKey(menu: string[], name: string): string | null {
-  const k = dishKey(name);
+  const k = matchKey(name);
   if (!k) return null;
-  const hits = menu.filter((m) => dishKey(m) === k);
+  const hits = menu.filter((m) => matchKey(m) === k);
   return hits.length === 1 ? hits[0].trim() : null;
 }
 
@@ -180,7 +180,8 @@ export function validateItem(item: SortItem, opts: ValidateOptions): SortItem | 
   // printed_name when it is plainly the same dish, else the words, in title case.
   //
   // SAME DISH, OTHER WORDS (18 Oct, Eamon; ./same-dish.ts). Off an exact match, a menu dish with the
-  // same spelling key is the same dish ("Gnocchis", "Mac and Cheese" for "Mac & Cheese"), as
+  // same match key is the same dish ("Gnocchis", "Mac and Cheese" for "Mac & Cheese", "Chicken Pad
+  // Thai" for "Pad Thai with Chicken"), as
   // find_or_create_dish (0071) would resolve it anyway. Past that, only the model's `same_as` can name
   // a menu dish, and only through sameDishGate: the words fit, say more than a category, and fit no
   // other dish there. Never onto a dish another line of this entry names: the diner told them apart.
@@ -188,7 +189,7 @@ export function validateItem(item: SortItem, opts: ValidateOptions): SortItem | 
   const sameAs = onMenu || byKey || typeof item?.same_as !== 'string'
     ? null
     : sameDishGate(dish, item.same_as, known);
-  const claimed = sameAs !== null && (opts.planKeys?.has(dishKey(sameAs)) ?? false);
+  const claimed = sameAs !== null && (opts.planKeys?.has(matchKey(sameAs)) ?? false);
   if (onMenu && onMenu !== dish) dish = onMenu;
   else if (byKey) dish = byKey;
   else if (sameAs && !claimed) dish = sameAs;
@@ -280,13 +281,13 @@ export function validatePlan(plan: SortPlan, opts: ValidateOptions): SortPlan {
   const items: SortItem[] = [];
   const index = new Map<string, number>();
 
-  const planKeys = new Set((plan?.items ?? []).map((raw) => dishKey(String(raw?.dish_name ?? ''))).filter(Boolean));
+  const planKeys = new Set((plan?.items ?? []).map((raw) => matchKey(String(raw?.dish_name ?? ''))).filter(Boolean));
   for (const raw of plan?.items ?? []) {
     const item = validateItem(raw, { ...opts, planKeys });
     if (!item) continue;
     // one line per dish, by spelling key: "Taco" and "Tacos" in one entry are one line, as the
     // database would resolve them to one dish anyway
-    const key = dishKey(item.dish_name) || item.dish_name.toLowerCase();
+    const key = matchKey(item.dish_name) || item.dish_name.toLowerCase();
     const at = index.get(key);
     if (at === undefined) {
       if (items.length >= MAX_ITEMS) continue;

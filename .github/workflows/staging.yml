@@ -20,9 +20,9 @@ on:
   workflow_dispatch:
     inputs:
       duplicate_dishes:
-        description: "Duplicate dishes: scan lists them (changes nothing); merge or reject the numbers below"
+        description: "Duplicate dishes: scan lists them (changes nothing); scan-merge-names also merges same-name pairs; merge or reject the numbers below"
         type: choice
-        options: [leave, scan, merge, reject]
+        options: [leave, scan, scan-merge-names, merge, reject]
         default: leave
       dish_numbers:
         description: "Proposal numbers to merge or reject, e.g. 3,5,8 (merge also takes: all)"
