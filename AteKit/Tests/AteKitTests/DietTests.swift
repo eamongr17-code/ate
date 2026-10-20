@@ -68,7 +68,7 @@ struct DietLabelTests {
     @Test("counts round-trip as {code: n}")
     func countsEncode() throws {
         let data = try JSONEncoder().encode(DietCounts([.vg: 2]))
-        #expect(String(decoding: data, as: UTF8.self) == #"{"vg":2}"#)
+        #expect(String(bytes: data, encoding: .utf8) == #"{"vg":2}"#)
         #expect(try JSONDecoder().decode(DietCounts.self, from: data) == DietCounts([.vg: 2]))
     }
 
