@@ -5,6 +5,8 @@
 //
 //   POST /functions/v1/dish-dedup     Authorization: Bearer <service role key>
 //   { action: 'scan' }                  → proposes (./scan.ts) and returns every open proposal
+//   { action: 'scan', merge: 'same_name' } → the same, then merges the same-name proposals (no model
+//                                          judged those; Eamon, 20 Oct: one button, not two)
 //   { action: 'list' }                  → every open proposal
 //   { action: 'merge', ids: [n, …] }    → merges those (merge_dish_proposals, 0071); ids: 'all' = every open one
 //   { action: 'reject', ids: [n, …] }   → marks those rejected; a later scan never proposes them again
@@ -59,7 +61,7 @@ const ids = (raw: unknown): number[] | null =>
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
   if (!(await isServiceRole(req))) return json({ error: 'unauthorized' }, 401);
-  const body = await req.json().then((b) => b ?? {}).catch(() => ({})) as { action?: unknown; ids?: unknown };
+  const body = await req.json().then((b) => b ?? {}).catch(() => ({})) as { action?: unknown; ids?: unknown; merge?: unknown };
   const db = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
   const open = async () => {
@@ -98,9 +100,19 @@ Deno.serve(async (req) => {
             .upsert(fresh, { onConflict: 'source_dish_id,target_dish_id', ignoreDuplicates: true });
           if (insertError) throw new Error(insertError.message);
         }
+        let results: unknown[] | undefined;
+        if (body.merge === 'same_name') {
+          const names = (await open()).filter((p) => p.reason === 'same_name').map((p) => p.id);
+          results = [];
+          if (names.length) {
+            const { data, error: mergeError } = await db.rpc('merge_dish_proposals', { p_ids: names });
+            if (mergeError) throw new Error(mergeError.message);
+            results = data ?? [];
+          }
+        }
         return json({
           ok: true, places: (places ?? []).length, pairs_asked: asked, new_proposals: fresh.length,
-          model: ANTHROPIC_KEY ? MODEL : null, places_without_ai: failed, open: await open(),
+          model: ANTHROPIC_KEY ? MODEL : null, places_without_ai: failed, ...(results ? { results } : {}), open: await open(),
         });
       }
       case 'list':
