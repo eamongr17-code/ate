@@ -1,0 +1,48 @@
+name: Load test (staging)
+
+# Manual (Run workflow), or a push whose commit message contains [load-test] / [load-test smoke]
+# (workflow_dispatch only shows up once the file is on main). Runs supabase/tests/load/ate.js against STAGING (the script refuses anything else)
+# and keeps the k6 summary as an artifact. It aborts itself once staging gets slow or starts
+# failing, so it finds the breaking point without holding staging past it.
+on:
+  push:
+    paths: [supabase/tests/load/**, .github/workflows/load.yml]
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "ramp (10 → peak users over ~8 min) or smoke (2 users, 1 min)"
+        default: ramp
+        type: choice
+        options: [ramp, smoke]
+      peak:
+        description: "Peak simultaneous users for ramp"
+        default: "150"
+      egress_budget_mb:
+        description: "Stop before roughly this much response data (Free plan egress is 5 GB/month)"
+        default: "400"
+
+concurrency:
+  group: load-test
+  cancel-in-progress: false
+
+jobs:
+  k6:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[load-test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: grafana/setup-k6-action@v1
+      - name: k6
+        env:
+          PROFILE: ${{ inputs.profile || (contains(github.event.head_commit.message, '[load-test smoke]') && 'smoke' || 'ramp') }}
+          PEAK: ${{ inputs.peak || '150' }}
+          EGRESS_BUDGET_MB: ${{ inputs.egress_budget_mb || '400' }}
+        run: set -o pipefail; k6 run --summary-export summary.json supabase/tests/load/ate.js | tee k6.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-${{ github.run_number }}
+          path: |
+            k6.txt
+            summary.json
