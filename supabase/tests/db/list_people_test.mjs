@@ -33,6 +33,11 @@ before(async () => {
   ({ db, as, asService, rows, error } = w);
   A1 = await w.visit(1, U.alice, P.tipo, receipt(['Gnocchi', 4.5], ['Tiramisu', 5]), '2026-09-01T09:00:00Z',
     { photos: ['a/1.jpg'] });
+  // The photo is the tiramisu's (0079: a two-dish visit's photo is no dish's until matched).
+  const [tiramisu] = await rows(`select r.id from public.reviews r join public.dishes d on d.id = r.dish_id
+                                 where r.entry_id = $1 and d.name = 'Tiramisu'`, [A1]);
+  await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb)`,
+    [A1, JSON.stringify([{ review_id: tiramisu.id, photo_url: photoUrl('a/1.jpg') }])]));
   L = await create(U.alice, 'Date night');
   await add(U.alice, L.list_id, A1, await dishOf(A1, 'Gnocchi'));
   await add(U.alice, L.list_id, A1, await dishOf(A1, 'Tiramisu'));

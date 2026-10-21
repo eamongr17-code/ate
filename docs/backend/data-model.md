@@ -173,7 +173,8 @@ thumbnails need no policy). **Dormant in V1:** `comments`, `review_likes`, `comm
 | `my_saved_dishes` | saved dish + place + dish aggregate + provenance handle | caller-scoped; page on the keyset `(saved_at desc, dish_id desc)`. `cover_url` == the older `dish_cover_url` |
 
 **`cover_url` comes from the photos we actually have (0026).** `dish_cover_url`/`restaurant_cover_url` derive it
-live: the newest visible review with a photo (`coalesce(reviews.photo_url, its entry's first entry_photo)`).
+live: the newest visible review with a photo (`review_photo_url`, 0079: the line's own photo; its entry's first photo
+only when it is the entry's only line; never another dish's).
 `dish_photos(dish)` (0029) is the same ranking as a list (`photos[0].url` == `cover_url`).
 
 Since 0052 `dish_stats`/`restaurant_stats` are **per-row LATERAL** views (same columns and values): a join computes only the

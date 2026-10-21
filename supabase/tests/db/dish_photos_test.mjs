@@ -200,3 +200,34 @@ test('restore keeps one photo per line: two lines with one dish name, and a rena
   const got = await lines(e2);
   assert.deepEqual(got.filter((l) => l.photo_url === photoUrl('t/1.jpg')).map((l) => l.name), ['Tiramisu']);
 });
+
+test('a dish with no photo of its own never shows another dish of the entry (0079)', async () => {
+  // Two dishes, one photo, matched to the pad thai: the soup has no photo anywhere.
+  const e = await w.visit(20, U.alice, P.tipo, receipt(['Pad Thai', 4], ['Chicken Soup', 5]), undefined,
+    { photos: ['n/1.jpg'] });
+  const pad = await reviewId(e, 'Pad Thai');
+  const soup = await reviewId(e, 'Chicken Soup');
+  await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb)`,
+    [e, JSON.stringify([{ review_id: pad, photo_url: photoUrl('n/1.jpg') }])]));
+  const read = async (rid) => (await as(U.bob, () => db.query(
+    `select public.dish_cover_url(dish_id) cover, public.dish_photos(dish_id) photos,
+            public.list_item_photo(entry_id, dish_id) item
+     from public.reviews where id = $1`, [rid]))).rows[0];
+  const soupRead = await read(soup);
+  assert.equal(soupRead.cover, null);
+  assert.deepEqual(soupRead.photos, []);
+  assert.equal(soupRead.item, null);
+  assert.equal((await read(pad)).cover, photoUrl('n/1.jpg'));
+
+  // Before any match ran, neither line of a two-dish entry borrows the photo.
+  const e2 = await w.visit(21, U.alice, P.tipo, receipt(['Larb', 4], ['Som Tum', 3]), undefined,
+    { photos: ['n/2.jpg'] });
+  assert.equal((await read(await reviewId(e2, 'Som Tum'))).cover, null);
+
+  // One line: the entry's photo is that dish's, matched or not — unless the author said No dish.
+  const e3 = await w.visit(22, U.alice, P.tipo, receipt(['Khao Soi', 4.5]), undefined, { photos: ['n/3.jpg'] });
+  const k = await reviewId(e3, 'Khao Soi');
+  assert.equal((await read(k)).cover, photoUrl('n/3.jpg'));
+  await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, null)`, [e3, photoUrl('n/3.jpg')]));
+  assert.equal((await read(k)).cover, null);
+});
