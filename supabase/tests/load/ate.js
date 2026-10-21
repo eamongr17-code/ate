@@ -1,6 +1,6 @@
 // supabase/tests/load/ate.js — k6 load test of the app's own read/write paths. STAGING ONLY.
 //
-//   k6 run supabase/tests/load/ate.js                  ramp (default): 10 → 150 virtual users
+//   k6 run supabase/tests/load/ate.js                  ramp (default): steps up to PEAK (120) virtual users
 //   PROFILE=smoke k6 run supabase/tests/load/ate.js     2 users for a minute, to check the script
 //
 // Each virtual user is one person using the app: opens Feed, reads their Journal, searches, opens a
@@ -33,25 +33,29 @@ const HANDLES = [
 ];
 const QUERIES = ['ramen', 'pho', 'pizza', 'dumpling', 'laksa', 'burger', 'taco', 'croissant', 'curry', 'gnocchi', 'bao', 'chicken', 'fitz', 'small', 'jo'];
 
+// Every call's own latency in the summary (a threshold that can't fail makes k6 report the sub-metric).
+const CALLS = ['get_entry_feed', 'top_ate', 'unread_notification_count', 'feed_cities', 'my_entries', 'journal_days',
+  'my_entries_count', 'search_dishes', 'search_places', 'search_people', 'place_summary', 'place_dishes',
+  'get_entries_at_place', 'profile_summary', 'get_entries_by_author', 'get_entry_card', 'insert_entry', 'delete_entry'];
+
 const PROFILE = __ENV.PROFILE || 'ramp';
 const EGRESS_BUDGET_MB = Number(__ENV.EGRESS_BUDGET_MB || 400);
-const PEAK = Number(__ENV.PEAK || 200);
+const PEAK = Number(__ENV.PEAK || 120);
 
+// Ramp: climb to each step in 30 s, hold it a minute. Every request is tagged with the step it ran
+// under, so the summary shows latency per number of simultaneous users (where the knee is).
+const STEPS = [0.1, 0.2, 0.35, 0.5, 0.7, 1].map((f) => Math.max(1, Math.round(PEAK * f)));
 const profiles = {
   smoke: { stages: [{ duration: '1m', target: 2 }] },
   ramp: {
-    stages: [
-      { duration: '1m', target: 10 },
-      { duration: '1m', target: 10 },
-      { duration: '1m', target: Math.round(PEAK / 4) },
-      { duration: '1m', target: Math.round(PEAK / 4) },
-      { duration: '1m', target: Math.round(PEAK / 2) },
-      { duration: '1m', target: Math.round(PEAK / 2) },
-      { duration: '1m', target: PEAK },
-      { duration: '1m', target: PEAK },
-      { duration: '30s', target: 0 },
-    ],
+    stages: [...STEPS.flatMap((t) => [{ duration: '30s', target: t }, { duration: '1m', target: t }]),
+      { duration: '20s', target: 0 }],
   },
+};
+const stepOf = () => {
+  if (PROFILE !== 'ramp') return 'smoke';
+  const active = exec.instance.vusActive;
+  return String(STEPS.find((t) => active <= t) ?? PEAK);
 };
 
 export const options = {
@@ -61,6 +65,8 @@ export const options = {
     // The circuit breakers: stop the run (and the load on staging) once the app would feel broken.
     http_req_failed: [{ threshold: 'rate<0.10', abortOnFail: true, delayAbortEval: '30s' }],
     'http_req_duration{kind:read}': [{ threshold: 'p(95)<4000', abortOnFail: true, delayAbortEval: '30s' }],
+    ...Object.fromEntries(CALLS.map((c) => [`http_req_duration{name:${c}}`, ['max>=0']])),
+    ...Object.fromEntries(STEPS.map((t) => [`http_req_duration{users:${t}}`, ['max>=0']])),
   },
   summaryTrendStats: ['avg', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
 };
@@ -106,7 +112,7 @@ function track(r, name) {
 
 function rpc(user, fn, params, kind = 'read') {
   const r = http.post(`${STAGING}/rest/v1/rpc/${fn}`, JSON.stringify(params ?? {}),
-    { headers: headers(user), tags: { kind, name: fn } });
+    { headers: headers(user), tags: { kind, name: fn, users: stepOf() } });
   return track(r, fn);
 }
 
@@ -119,7 +125,7 @@ function screenOf(name, user, calls) {
   group(name, () => {
     const rs = http.batch(calls.map(([fn, p]) => ({
       method: 'POST', url: `${STAGING}/rest/v1/rpc/${fn}`, body: JSON.stringify(p ?? {}),
-      params: { headers: headers(user), tags: { kind: 'read', name: fn } },
+      params: { headers: headers(user), tags: { kind: 'read', name: fn, users: stepOf() } },
     })));
     rs.forEach((r, i) => track(r, calls[i][0]));
   });
@@ -176,7 +182,7 @@ export default function (data) {
       const r = http.post(`${STAGING}/rest/v1/entries`, JSON.stringify({
         id, author_id: user.id, body: 'Load test entry. Fried chicken 4. Noodles 3.5.',
         restaurant_id: pick(data.places),
-      }), { headers: { ...headers(user), Prefer: 'return=minimal' }, tags: { kind: 'write', name: 'insert_entry' } });
+      }), { headers: { ...headers(user), Prefer: 'return=minimal' }, tags: { kind: 'write', name: 'insert_entry', users: stepOf() } });
       track(r, 'insert_entry');
       if (r.status < 300) {
         rpc(user, 'get_entry_card', { p_entry_id: id });
