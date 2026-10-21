@@ -185,9 +185,9 @@ final class PlacesSession: Sendable {
 
     func current() -> PlacesSessionToken {
         let at = now()
-        return state.withLock { s in
-            if at.timeIntervalSince(s.minted) > Self.lifetime { s = (PlacesSessionToken(), at) }
-            return s.token
+        return state.withLock { held in
+            if at.timeIntervalSince(held.minted) > Self.lifetime { held = (PlacesSessionToken(), at) }
+            return held.token
         }
     }
 
