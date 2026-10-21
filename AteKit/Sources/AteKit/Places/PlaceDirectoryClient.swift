@@ -1,5 +1,6 @@
 import Foundation
 import Supabase
+import Synchronization
 
 /// The live place directory: the existing `places-search` blend, widened with `search_all`.
 ///
@@ -15,20 +16,23 @@ public struct PlaceDirectoryClient: PlaceDirectory {
     private let api: AteAPIClient
     private let restaurants: RestaurantSearchService
     private let places: any PlacesSearching
-    /// One Places session per sheet: the keystrokes and the final `op=details` are billed together.
-    private let sessionToken: PlacesSessionToken
+    /// One Places session per pick: the keystrokes and the final `op=details` are billed together.
+    /// The client lives as long as the app, so the session is retired on resolve and when it has sat
+    /// for a few minutes — a token reused after either is billed by Google per keystroke.
+    private let session: PlacesSession
 
     public init(api: AteAPIClient, sessionToken: PlacesSessionToken = PlacesSessionToken()) {
         self.api = api
         self.places = PlacesSearchClient(api: api)
         self.restaurants = RestaurantSearchService(api: api)
-        self.sessionToken = sessionToken
+        self.session = PlacesSession(first: sessionToken)
     }
 
     public func search(_ query: String, near origin: SearchOrigin?) async throws -> [PlaceSuggestion] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count >= 2 else { return [] }
 
+        let sessionToken = session.current()
         async let blended = try? restaurants.search(query: trimmed, origin: origin, sessionToken: sessionToken)
         async let held = try? searchAll(trimmed)
 
@@ -64,8 +68,9 @@ public struct PlaceDirectoryClient: PlaceDirectory {
             return PlaceRef(id: id, name: suggestion.name)
         case .googlePlace(let googlePlaceID):
             let response = try await places.details(
-                googlePlaceID: googlePlaceID, sessionToken: sessionToken
+                googlePlaceID: googlePlaceID, sessionToken: session.current()
             )
+            session.retire()
             return PlaceRef(id: response.restaurant.id, name: response.restaurant.name)
         }
     }
@@ -161,5 +166,33 @@ private extension String {
     var nonEmptyTrimmed: String? {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+/// The Places session a `PlaceDirectoryClient` is in: minted fresh after a resolve, or once the last
+/// one is older than Google keeps a session open.
+final class PlacesSession: Sendable {
+    /// Google closes an unfinished session after a few minutes; past this a new pick starts a new one.
+    static let lifetime: TimeInterval = 180
+
+    private let state: Mutex<(token: PlacesSessionToken, minted: Date)>
+    private let now: @Sendable () -> Date
+
+    init(first: PlacesSessionToken = PlacesSessionToken(), now: @escaping @Sendable () -> Date = Date.init) {
+        self.state = Mutex((first, now()))
+        self.now = now
+    }
+
+    func current() -> PlacesSessionToken {
+        let at = now()
+        return state.withLock { held in
+            if at.timeIntervalSince(held.minted) > Self.lifetime { held = (PlacesSessionToken(), at) }
+            return held.token
+        }
+    }
+
+    func retire() {
+        let at = now()
+        state.withLock { $0 = (PlacesSessionToken(), at) }
     }
 }
