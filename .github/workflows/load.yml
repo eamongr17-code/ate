@@ -16,7 +16,7 @@ on:
         options: [ramp, smoke]
       peak:
         description: "Peak simultaneous users for ramp"
-        default: "150"
+        default: "200"
       egress_budget_mb:
         description: "Stop before roughly this much response data (Free plan egress is 5 GB/month)"
         default: "400"
@@ -36,7 +36,7 @@ jobs:
       - name: k6
         env:
           PROFILE: ${{ inputs.profile || (contains(github.event.head_commit.message, '[load-test smoke]') && 'smoke' || 'ramp') }}
-          PEAK: ${{ inputs.peak || '150' }}
+          PEAK: ${{ inputs.peak || '200' }}
           EGRESS_BUDGET_MB: ${{ inputs.egress_budget_mb || '400' }}
         run: set -o pipefail; k6 run --summary-export summary.json supabase/tests/load/ate.js | tee k6.txt
       - if: always()

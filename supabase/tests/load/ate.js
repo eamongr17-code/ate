@@ -35,7 +35,7 @@ const QUERIES = ['ramen', 'pho', 'pizza', 'dumpling', 'laksa', 'burger', 'taco',
 
 const PROFILE = __ENV.PROFILE || 'ramp';
 const EGRESS_BUDGET_MB = Number(__ENV.EGRESS_BUDGET_MB || 400);
-const PEAK = Number(__ENV.PEAK || 150);
+const PEAK = Number(__ENV.PEAK || 200);
 
 const profiles = {
   smoke: { stages: [{ duration: '1m', target: 2 }] },
@@ -143,7 +143,7 @@ export default function (data) {
     ]);
   } else if (roll < 0.55) {
     screenOf('journal', user, [
-      ['my_entries', { p_sort: 'recent', p_limit: 20, p_tz: 'Australia/Melbourne' }],
+      ['my_entries', { p_sort: 'newest', p_limit: 20, p_tz: 'Australia/Melbourne' }],
       ['journal_days', { p_from: '2025-10-01', p_to: '2026-10-31', p_tz: 'Australia/Melbourne' }],
       ['my_entries_count', { p_tz: 'Australia/Melbourne' }],
     ]);
