@@ -182,7 +182,7 @@ test('dish_summary: counts, the score only when someone gave one, the photo stac
   assert.equal(d.scored_count, 7);
   assert.equal(d.people_count, 4, 'people are distinct reviewers; lines are not');
   assert.equal(num(d.my_last_score), 4, 'alice\'s latest Gnocchi');
-  assert.equal(d.photos[0]?.url, d.cover_url, 'the stack and the thumbnail are one derivation');
+  assert.equal(d.photos[0]?.url ?? null, d.cover_url, 'the stack and the thumbnail are one derivation');
   assert.ok(d.photos.every((p) => p.url));
   assert.notEqual(d.restaurant_locality, '');
   const focaccia = await dishAt(P.tipo, 'Focaccia');

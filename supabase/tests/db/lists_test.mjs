@@ -7,9 +7,9 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { world, U, P, id, receipt } from './fixtures.mjs';
+import { world, U, P, id, photoUrl, receipt } from './fixtures.mjs';
 
-let w, db, as, rows, error;
+let w, db, as, asService, rows, error;
 after(async () => db?.close());
 
 const code = async (uid, sql, params) => (await as(uid, () => error(db.query(sql, params))))?.code ?? null;
@@ -26,7 +26,7 @@ const names = (l) => l.items.map((i) => i.dish_name);
 let A1, A2, B1;
 before(async () => {
   w = await world();
-  ({ db, as, rows, error } = w);
+  ({ db, as, asService, rows, error } = w);
   A1 = await w.visit(1, U.alice, P.tipo, receipt(['Gnocchi', 4.5], ['Tiramisu', 5], ['Bread']), '2026-09-01T09:00:00Z',
     { photos: ['a/1.jpg'] });
   A2 = await w.visit(2, U.alice, P.osteria, receipt(['Tagliatelle al Ragù', 4], ['Burger', 3.5]), '2026-09-02T09:00:00Z');
@@ -184,6 +184,9 @@ test('reads: get_list joins, my_lists counts + covers + keyset, my_lists_for_dis
   const D1 = await w.visit(20, U.dan, P.osteria, receipt(['Tagliatelle al Ragù', 5], ['Panna Cotta']), '2026-09-06T09:00:00Z',
     { photos: ['d/1.jpg', 'd/2.jpg'] });
   const rag = await dishOf(D1, 'Tagliatelle al Ragù');
+  // The first photo is the ragù's; the panna cotta has none (0079: never borrows the ragù's).
+  await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb)`,
+    [D1, JSON.stringify([{ review_id: rag.review_id, photo_url: photoUrl('d/1.jpg') }])]));
   await add(U.dan, L.list_id, D1, rag.dish_id);
   await add(U.dan, L.list_id, D1, (await dishOf(D1, 'Panna Cotta')).dish_id);
   const l = await getList(U.dan, L.list_id);
@@ -194,14 +197,15 @@ test('reads: get_list joins, my_lists counts + covers + keyset, my_lists_for_dis
   assert.equal(i0.locality, 'Carlton');
   assert.equal(i0.score, 5);
   assert.equal(i1.score, null, 'unscored stays null');
-  assert.match(i0.photo_url, /d\/1\.jpg$/, 'the visit\'s first photo');
+  assert.match(i0.photo_url, /d\/1\.jpg$/, 'the line\'s own photo');
+  assert.equal(i1.photo_url, null, 'never another dish\'s photo (0079)');
   assert.equal(new Date(i0.visited_at).toISOString(), '2026-09-06T09:00:00.000Z');
 
   const second = await create(U.dan, 'Empty');
   const mine = await as(U.dan, () => rows(`select * from public.my_lists()`));
   assert.deepEqual(mine.map((m) => m.list_id), [second.list_id, L.list_id], 'newest first');
   assert.equal(mine[1].item_count, 2);
-  assert.equal(mine[1].covers.length, 1, 'distinct covers only (both items show the visit photo)');
+  assert.equal(mine[1].covers.length, 1, 'only items with a photo of their own');
   assert.deepEqual(mine[0].covers, []);
   const paged = await w.walk((last) => as(U.dan, () => rows(
     `select * from public.my_lists(p_limit => 1, p_cursor_created_at => $1, p_cursor_id => $2)`,
