@@ -2,6 +2,7 @@
 //
 //   k6 run supabase/tests/load/ate.js                  ramp (default): steps up to PEAK (120) virtual users
 //   PROFILE=smoke k6 run supabase/tests/load/ate.js     2 users for a minute, to check the script
+//   From GitHub: Actions → Load test, or push a commit whose message contains [load-test]
 //
 // Each virtual user is one person using the app: opens Feed, reads their Journal, searches, opens a
 // place, a profile and an entry, now and then logs an entry (and deletes it again). Think time
