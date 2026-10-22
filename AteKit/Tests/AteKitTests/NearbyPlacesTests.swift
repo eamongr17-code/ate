@@ -26,7 +26,7 @@ struct NearbyPlacesTests {
         var readCount: Int { reads.withLock { $0 } }
 
         func search(_ query: String, near origin: SearchOrigin?) async throws -> [PlaceSuggestion] { [] }
-        func recents(limit: Int) async throws -> [PlaceSuggestion] { [] }
+        func recents(limit: Int, since: Date) async throws -> [PlaceSuggestion] { [] }
         func nearby(latitude: Double, longitude: Double) async throws -> [PlaceSuggestion] {
             reads.withLock { $0 += 1 }
             if fails.withLock({ $0 }) { throw URLError(.notConnectedToInternet) }

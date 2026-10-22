@@ -2,12 +2,14 @@ import Foundation
 
 /// **The rooms around the phone, read once and shared.**
 ///
-/// The tab bar's + warms it, so by the time the Place key is tapped the sheet's Nearby section is
-/// already in hand. It warms only where the location permission is already given: the ask itself
+/// Opening the app warms it, and so does the tab bar's +, so by the time the Place key is tapped
+/// the sheet's Nearby section is already in hand. It warms only where the location permission is already given: the ask itself
 /// still belongs to the place sheet (``answer()``), the one moment the app has a use for it.
 ///
-/// One read serves every sheet opened within ``freshFor`` from roughly the same spot, so a + that
-/// is never followed by the Place key costs the read the sheet would have made anyway — never two.
+/// One read serves every warm and every sheet within ``freshFor`` from roughly the same spot, so
+/// opening the app ten times over lunch costs one read. The read itself is the database first
+/// (`places-search?op=nearby`); Google is asked only where we hold fewer than five rooms nearby,
+/// and what it returns is kept, so the next read there is the database's.
 @MainActor
 public final class NearbyPlaces {
     /// Where the phone was and the rooms around it. `rooms` is empty when the read failed.
@@ -25,7 +27,7 @@ public final class NearbyPlaces {
     public typealias Locate = @MainActor (_ mayAsk: Bool) async -> SearchOrigin?
 
     /// How long one read stands in for the next.
-    public static let freshFor: TimeInterval = 10 * 60
+    public static let freshFor: TimeInterval = 30 * 60
     /// How far the phone may have moved before the rooms are read again.
     public static let sameSpotMeters: Double = 150
 
@@ -45,8 +47,8 @@ public final class NearbyPlaces {
         self.now = now
     }
 
-    /// Starts the read in the background, silently. Does nothing when one is already under way or
-    /// the permission has not been given yet.
+    /// Starts the read in the background, silently. Does nothing when one is already under way or the
+    /// permission has not been given yet; a held read that is fresh and from the same spot stands.
     public func warm() {
         guard warming == nil else { return }
         warming = Task { [weak self] in

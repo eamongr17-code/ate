@@ -134,7 +134,7 @@ extension AccountServing where Self: TestFake {
 
 extension PlaceDirectory where Self: TestFake {
     func search(_ query: String, near origin: SearchOrigin?) async throws -> [PlaceSuggestion] { try unimplemented() }
-    func recents(limit: Int) async throws -> [PlaceSuggestion] { try unimplemented() }
+    func recents(limit: Int, since: Date) async throws -> [PlaceSuggestion] { try unimplemented() }
     func nearby(latitude: Double, longitude: Double) async throws -> [PlaceSuggestion] { try unimplemented() }
     func resolve(_ suggestion: PlaceSuggestion) async throws -> PlaceRef { try unimplemented() }
     func add(name: String, suburb: String?, street: String?) async throws -> PlaceRef { try unimplemented() }
@@ -154,7 +154,7 @@ extension PlacesSearching where Self: TestFake {
 
 extension RestaurantSearchProviding where Self: TestFake {
     func nearby(origin: SearchOrigin) async throws -> [RestaurantRowModel] { try unimplemented() }
-    func recents(limit: Int) async throws -> [RestaurantRowModel] { try unimplemented() }
+    func recents(limit: Int, since: Date?) async throws -> [RestaurantRowModel] { try unimplemented() }
     func search(query: String, origin: SearchOrigin?, sessionToken: PlacesSessionToken?) async throws
         -> [RestaurantRowModel] { try unimplemented() }
     func resolve(_ row: RestaurantRowModel, sessionToken: PlacesSessionToken?) async throws -> PickedRestaurant {

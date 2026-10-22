@@ -4,9 +4,11 @@ import SwiftUI
 /// **"Where was this?"** — the one place a place is chosen: the composer's Place key, a placeless
 /// receipt, and an entry's place line, so the same action works identically in all three.
 ///
-/// Search first; under it **Recent** (nothing typed) or **Best match**, then **Nearby** — the one
+/// Search first; under it **Recent** (nothing typed, and only places from entries in the last hour)
+/// or **Best match**, then **Nearby** — the one
 /// list in the app that asks for location, and only as this sheet opens. Nearby rooms are listed,
-/// never attached. Tapping a row picks it and closes the sheet: there is no button (a Google
+/// never attached. Tapping a row picks it and closes the sheet; tapping the marked row again takes
+/// it off and leaves the sheet up. There is no button (a Google
 /// prediction is turned into a real row first, and a place with no row is never attached). "Add a
 /// new place" is the last row, and opens a second sheet.
 ///
@@ -16,6 +18,9 @@ struct V2PlaceSheet: View {
     let model: PlaceSearchModel
     let directory: any PlaceDirectory
     var title = V2PlaceSheet.composerTitle
+    /// The marked place was tapped again. `nil` where a place cannot be taken off (a saved entry
+    /// always has one): the row is unmarked, and closing the sheet keeps the place it had.
+    var onClear: (() -> Void)?
     let onPick: (PlaceRef) -> Void
 
     /// The composer's question. A dish saved for later asks "Where is it?" instead.
@@ -80,6 +85,11 @@ struct V2PlaceSheet: View {
     /// A tap resolves the row there and then, and closes the sheet once it is a real place.
     private func pick(_ suggestion: PlaceSuggestion) {
         AteHaptics.key()
+        if model.isSelected(suggestion) {
+            model.unpick()
+            onClear?()
+            return
+        }
         Task {
             await model.pick(suggestion)
             guard let picked = model.picked, picked.id != nil else {
@@ -158,11 +168,12 @@ extension View {
         title: String = V2PlaceSheet.composerTitle,
         initialQuery: @escaping @MainActor () -> String = { "" },
         selected: @escaping @MainActor () -> UUID? = { nil },
+        onClear: (() -> Void)? = nil,
         onPick: @escaping (PlaceRef) -> Void
     ) -> some View {
         modifier(V2PlaceSheetPresenter(
             isPresented: isPresented, directory: directory, nearby: nearby, title: title,
-            initialQuery: initialQuery, selected: selected, onPick: onPick
+            initialQuery: initialQuery, selected: selected, onClear: onClear, onPick: onPick
         ))
     }
 }
@@ -174,6 +185,7 @@ private struct V2PlaceSheetPresenter: ViewModifier {
     let title: String
     let initialQuery: @MainActor () -> String
     let selected: @MainActor () -> UUID?
+    let onClear: (() -> Void)?
     let onPick: (PlaceRef) -> Void
 
     @State private var holder = AteSheetHolder<PlaceSearchModel>()
@@ -188,7 +200,9 @@ private struct V2PlaceSheetPresenter: ViewModifier {
             await fresh.start()
         }, content: {
             AteSheetHolderView(holder: holder) { model in
-                V2PlaceSheet(model: model, directory: directory, title: title, onPick: onPick)
+                V2PlaceSheet(
+                    model: model, directory: directory, title: title, onClear: onClear, onPick: onPick
+                )
             }
         })
     }

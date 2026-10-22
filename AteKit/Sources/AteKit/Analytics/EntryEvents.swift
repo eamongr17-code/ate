@@ -109,6 +109,11 @@ public enum EntryEvents {
         AnalyticsEvent(name: "entry_place_attached", parameters: ["source": source.rawValue])
     }
 
+    /// The place on the key was tapped again in the place sheet, taking it off.
+    public static func placeCleared() -> AnalyticsEvent {
+        AnalyticsEvent(name: "entry_place_cleared")
+    }
+
     /// What an entry was, at the moment it was saved. One value rather than six arguments, so a new
     /// dimension is added in one place and every call site keeps compiling.
     public struct SavedEntry: Sendable, Hashable {

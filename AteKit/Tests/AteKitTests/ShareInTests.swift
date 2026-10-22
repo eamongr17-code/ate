@@ -310,7 +310,7 @@ private struct FakePlaces: PlaceDirectory {
     var resolvesTo: UUID?
 
     func search(_ query: String, near origin: SearchOrigin?) async throws -> [PlaceSuggestion] { [] }
-    func recents(limit: Int) async throws -> [PlaceSuggestion] { [] }
+    func recents(limit: Int, since: Date) async throws -> [PlaceSuggestion] { [] }
     func nearby(latitude: Double, longitude: Double) async throws -> [PlaceSuggestion] { [] }
     func resolve(_ suggestion: PlaceSuggestion) async throws -> PlaceRef {
         guard let resolvesTo else { throw ReadShareError.failed(status: 502) }

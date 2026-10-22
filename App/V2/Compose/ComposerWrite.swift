@@ -103,6 +103,7 @@ struct V2ComposerWrite: View {
             nearby: services.nearbyPlaces,
             initialQuery: { model.placeQuery },
             selected: { model.place?.id },
+            onClear: { model.detachPlace().map(services.analytics) },
             onPick: { place in model.attach(place: place).map(services.analytics) }
         )
         .v2WithSheet(

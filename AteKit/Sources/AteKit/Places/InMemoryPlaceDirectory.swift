@@ -20,7 +20,7 @@ public struct InMemoryPlaceDirectory: PlaceDirectory, InMemoryStandIn {
         return places.filter { $0.name.lowercased().contains(needle) }
     }
 
-    public func recents(limit: Int) async throws -> [PlaceSuggestion] {
+    public func recents(limit: Int, since: Date) async throws -> [PlaceSuggestion] {
         Array(places.prefix(limit))
     }
 
