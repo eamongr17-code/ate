@@ -126,8 +126,12 @@ test('similar_dishes: a shared style outranks a shared cuisine outranks the subu
   const names = got.map((r) => r.name);
   assert.ok(!names.includes('Rigatoni') && !names.includes('Espresso') && !names.includes('Pappardelle'), JSON.stringify(names));
   const at = (n) => names.indexOf(n);
-  assert.ok(at('Linguine') < at('Spaghetti'), 'style + cuisine (12) before style alone (8)');
-  assert.ok(at('Spaghetti') < at('Margherita'), 'style alone (8) before cuisine alone (4) — even at a lower score');
+  // 0080: the area is the dish's place (no point sent) — Geelong's pasta is 60 km out.
+  assert.ok(!names.includes('Spaghetti'), 'Geelong is outside the area');
+  assert.ok(at('Linguine') < at('Margherita'), 'style + cuisine (12) before cuisine alone (4)');
+  // Seen from Geelong, the weights still order the area's dishes: style alone (8) is all there is.
+  const geelong = await as(U.dan, () => rows(`select name from public.similar_dishes($1, 50, -38.1490, 144.3600)`, [base]));
+  assert.deepEqual(geelong.map((r) => r.name), ['Spaghetti']);
   assert.ok(names.includes('Potato Gnocchi') && at('Potato Gnocchi') < at('Linguine'), 'same restaurant pasta: style + cuisine + city (13)');
   assert.deepEqual((await as(U.dan, () => rows(`select * from public.similar_dishes($1, 2)`, [base]))).length, 2, 'p_limit');
 });

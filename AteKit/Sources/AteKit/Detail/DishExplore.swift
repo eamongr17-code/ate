@@ -258,6 +258,17 @@ extension DishExploreReading {
     }
 }
 
+/// The phone's point for a suggestion read (0080): used for that answer, never stored.
+public struct SuggestionPoint: Sendable, Equatable {
+    public let latitude: Double
+    public let longitude: Double
+
+    public init(latitude: Double, longitude: Double) {
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+}
+
 /// The live reads: `dish_tags`, `similar_dishes`, `dishes_by_tag`.
 public struct DishExploreClient: DishExploreReading {
     /// `similar_dishes`' own default (it clamps at 50).
@@ -267,9 +278,13 @@ public struct DishExploreClient: DishExploreReading {
     public static let maximumPageSize = 100
 
     private let api: AteAPIClient
+    /// Where the phone is, when the app already has a fix (never asks). Suggestions come from around
+    /// it (0080); `nil` lets the server use the dish's place, or where you last ate.
+    private let here: @Sendable () async -> SuggestionPoint?
 
-    public init(api: AteAPIClient) {
+    public init(api: AteAPIClient, here: @escaping @Sendable () async -> SuggestionPoint? = { nil }) {
         self.api = api
+        self.here = here
     }
 
     public func dishTags(dishID: UUID) async throws -> [DishTag] {
@@ -281,13 +296,11 @@ public struct DishExploreClient: DishExploreReading {
     }
 
     public func similarDishes(dishID: UUID, limit: Int) async throws -> [SimilarDish] {
-        let data = try await api.supabase
-            .rpc("similar_dishes", params: [
-                "p_dish_id": AnyJSON.string(dishID.uuidString.lowercased()),
-                "p_limit": AnyJSON.integer(max(1, limit))
-            ])
-            .execute()
-            .data
+        let parameters: [String: AnyJSON] = [
+            "p_dish_id": .string(dishID.uuidString.lowercased()),
+            "p_limit": .integer(max(1, limit))
+        ]
+        let data = try await rpcNear("similar_dishes", parameters, point: await here())
         return try PostgRESTDate.decoder.decode([SimilarDish].self, from: data)
     }
 
@@ -308,12 +321,31 @@ public struct DishExploreClient: DishExploreReading {
             parameters["p_cursor_name"] = .string(cursor.name)
             parameters["p_cursor_dish_id"] = .string(cursor.dishID.uuidString.lowercased())
         }
-        let data = try await api.supabase
-            .rpc("dishes_by_tag", params: parameters)
-            .execute()
-            .data
+        // A city already says where; otherwise the dishes come from around the phone (0080).
+        let point = city == nil ? await here() : nil
+        let data = try await rpcNear("dishes_by_tag", parameters, point: point)
         let rows = try PostgRESTDate.decoder.decode([SimilarDish].self, from: data)
         return TagDishPage(items: rows, requestedLimit: limit)
+    }
+
+    /// The read with the phone's point in the body (POST, never a URL), when there is one. A server
+    /// without 0080 does not know `p_lat`/`p_lng`: then the plain call, which still answers.
+    private func rpcNear(
+        _ function: String,
+        _ parameters: [String: AnyJSON],
+        point: SuggestionPoint?
+    ) async throws -> Data {
+        guard let point else {
+            return try await api.supabase.rpc(function, params: parameters).execute().data
+        }
+        var near = parameters
+        near["p_lat"] = .double(point.latitude)
+        near["p_lng"] = .double(point.longitude)
+        do {
+            return try await api.supabase.rpc(function, params: near).execute().data
+        } catch let error as PostgrestError where error.code == "PGRST202" {
+            return try await api.supabase.rpc(function, params: parameters).execute().data
+        }
     }
 
     /// `dishes_by_tag`'s first-page parameters. `p_city` only when there is a city: everywhere is the
