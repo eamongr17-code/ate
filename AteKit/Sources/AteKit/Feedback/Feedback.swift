@@ -192,6 +192,12 @@ public actor FeedbackOutbox {
         }
     }
 
+    /// Keep it on disk and answer at once; the next ``flush()`` sends it. What the sheet does, so
+    /// the tester never waits on the upload (Eamon, 22 Oct).
+    public func post(_ report: FeedbackReport) throws {
+        try keep(report)
+    }
+
     /// Try every kept report once, oldest first. Sent or refused, it leaves the outbox; unreachable stays.
     public func flush() async {
         for (url, report) in kept() {

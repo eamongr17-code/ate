@@ -86,6 +86,21 @@ struct FeedbackTests {
         #expect(await service.sent == [report.id])
     }
 
+    @Test("posted: kept at once, sent on the flush")
+    func posted() async throws {
+        let service = FlakyFeedback()
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("outbox-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let outbox = FeedbackOutbox(service: service, directory: directory)
+        let report = FeedbackReport(body: "froze")
+        try await outbox.post(report)
+        #expect(await outbox.pending == 1)
+        #expect(await service.sent.isEmpty)
+        await outbox.flush()
+        #expect(await outbox.pending == 0)
+        #expect(await service.sent == [report.id])
+    }
+
     @Test("a refusal is thrown, never kept")
     func refusalIsNotKept() async throws {
         let service = FlakyFeedback()

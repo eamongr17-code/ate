@@ -87,6 +87,9 @@ private struct AtePhotoViewerHost: ViewModifier {
                     onClose: { viewingBinding.wrappedValue = nil }
                 )
                 .navigationTransition(.zoom(sourceID: zoomSource(viewing), in: zoomSpace))
+                // Black under the zoom: the cover's own ground is the system's white, which showed
+                // round the edges while the viewer's black faded in (feedback #1, 22 Oct).
+                .presentationBackground(AteColor.viewerGround)
             }
     }
 
