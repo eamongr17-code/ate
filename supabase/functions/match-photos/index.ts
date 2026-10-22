@@ -16,7 +16,7 @@
 //
 // The author's own picks (set_review_photo, 0063; kept on the entry through re-sorts, 0064) are
 // never offered to the model, and a photo they called "No dish" is never matched. One line on the
-// whole entry takes the first photo with no model. Anything more goes to Claude with the photos as
+// whole entry takes every photo with no model; a dish may hold several photos (0081, photo_dishes). Anything more goes to Claude with the photos as
 // images (read from public storage here, thumbnails first) through a forced tool call (./match.ts), and only pairs naming a real
 // photo and a real line survive. Without ANTHROPIC_API_KEY, or on any model failure, nothing is
 // written: the lines keep what they had and cover reads fall back to the entry's first photo.

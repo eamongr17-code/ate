@@ -5,9 +5,10 @@
 // index.ts does the reads and the one write (apply_photo_matches, 0063).
 //
 // The model only proposes, as everywhere in Ate: a pairing is kept only when it names a photo and a
-// line that exist, each photo goes to at most one line and each line takes at most one photo. A
-// line the author picked by hand is never offered. Without the key nothing is asked: one line takes
-// the first photo, and anything more is left as it is.
+// line that exist, and each photo goes to at most one line. A line may take several photos (22 Oct:
+// Paris's two photos of one noodle soup; only the first was named). A line the author picked by hand
+// is never offered. Without the key nothing is asked: one line takes every photo, and anything more
+// is left as it is.
 
 import {
   ANTHROPIC_URL,
@@ -148,9 +149,9 @@ export function plan(photos: Photo[], lines: Line[]):
   const openPhotos = [...photos].sort((a, b) => a.position - b.position).filter((p) => !held.has(p.url)).slice(0, MAX_PHOTOS);
   const openLines = lines.filter((l) => !l.picked);
   if (!openPhotos.length || !openLines.length) return { kind: 'nothing' };
-  // One dish left and the whole entry is about it: its photo is the first one. No model needed.
+  // One dish left and the whole entry is about it: every photo is that dish. No model needed.
   if (openLines.length === 1 && lines.length === 1) {
-    return { kind: 'direct', matches: [{ review_id: openLines[0].review_id, photo_url: openPhotos[0].url }] };
+    return { kind: 'direct', matches: openPhotos.map((p) => ({ review_id: openLines[0].review_id, photo_url: p.url })) };
   }
   return { kind: 'ask', photos: openPhotos, lines: openLines };
 }
@@ -180,7 +181,8 @@ export const TOOL = {
 
 const SYSTEM = [
   'You match a diner\'s food photos to the dishes they wrote about in one restaurant visit.',
-  'Each photo shows at most one listed dish as its subject; each dish has at most one photo.',
+  'Each photo shows at most one listed dish as its subject; a dish may have several photos (two angles,',
+  'before and after a bite), so pair every photo of it.',
   'Use what is visibly on the plate or in the glass. If a photo shows no listed dish (the room, a menu,',
   'people, a dish not in the list), or you cannot tell, leave it out. Never guess.',
 ].join(' ');
@@ -220,8 +222,8 @@ export function buildRequest(opts: { apiKey: string; photos: Array<Photo | Loade
 }
 
 /**
- * Pure: the model's pairs, kept only where they name a real photo and a real line, first claim wins
- * on either side.
+ * Pure: the model's pairs, kept only where they name a real photo and a real line. First claim on a
+ * photo wins; a line may take several photos.
  */
 export function matchesFromResponse(payload: unknown, photos: Photo[], lines: Line[]): Match[] | null {
   const content = (payload as { content?: Array<Record<string, unknown>> })?.content;
@@ -230,16 +232,14 @@ export function matchesFromResponse(payload: unknown, photos: Photo[], lines: Li
   const pairs = (call?.input as { pairs?: unknown } | undefined)?.pairs;
   if (!Array.isArray(pairs)) return null;
   const usedPhotos = new Set<number>();
-  const usedLines = new Set<number>();
   const out: Match[] = [];
   for (const raw of pairs) {
     const p = (raw ?? {}) as { photo?: unknown; dish?: unknown };
     const pi = typeof p.photo === 'number' && Number.isInteger(p.photo) ? p.photo - 1 : -1;
     const li = typeof p.dish === 'number' && Number.isInteger(p.dish) ? p.dish - 1 : -1;
     if (pi < 0 || pi >= photos.length || li < 0 || li >= lines.length) continue;
-    if (usedPhotos.has(pi) || usedLines.has(li)) continue;
+    if (usedPhotos.has(pi)) continue;
     usedPhotos.add(pi);
-    usedLines.add(li);
     out.push({ review_id: lines[li].review_id, photo_url: photos[pi].url });
   }
   return out;

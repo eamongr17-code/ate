@@ -56,7 +56,7 @@ extension EntryModel {
             return false
         }
         services.analytics(EntryEvents.corrected(.photo))
-        var next = photoDishes.filter { $0.key != url && $0.value != reviewID }
+        var next = photoDishes.filter { $0.key != url }
         if let reviewID { next[url] = reviewID }
         photoDishes = next
         return true

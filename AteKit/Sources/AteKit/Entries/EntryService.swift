@@ -204,7 +204,8 @@ public protocol EntryService: Sendable {
     /// it back on the line carrying that dish (0064).
     func setReviewPhoto(entryID: UUID, photoURL: String, reviewID: UUID?) async throws
 
-    /// Which dish each photo is: photo URL → review id. Photos no dish holds are absent.
+    /// Which dish each photo is: photo URL → review id (0081). Several photos may name one dish;
+    /// photos no dish holds are absent.
     func photoDishes(entryID: UUID) async throws -> [String: UUID]
 }
 

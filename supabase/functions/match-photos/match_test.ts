@@ -1,7 +1,7 @@
 // supabase/functions/match-photos/match_test.ts
 //
 // The model only proposes: these pin what is offered (never a picked line or its photo), the
-// gate on the answer (real indices, one photo per line), and inertness without a key.
+// gate on the answer (real indices, one line per photo), and inertness without a key.
 
 import { test, assert, assertEquals } from '../sort-entry/harness.ts';
 import {
@@ -20,9 +20,12 @@ test('plan: no photos or no open lines → nothing', () => {
   assertEquals(plan([photo(0)], [line('a', 'Gnocchi', { picked: true })]).kind, 'nothing');
 });
 
-test('plan: a one-dish entry takes its first photo without asking', () => {
+test('plan: a one-dish entry takes every photo, in order, without asking', () => {
   const p = plan([photo(1), photo(0)], [line('a', 'Gnocchi')]);
-  assertEquals(p, { kind: 'direct', matches: [{ review_id: 'a', photo_url: photo(0).url }] });
+  assertEquals(p, { kind: 'direct', matches: [
+    { review_id: 'a', photo_url: photo(0).url },
+    { review_id: 'a', photo_url: photo(1).url },
+  ] });
 });
 
 test('plan: picked lines and the photos they hold are never offered', () => {
@@ -66,12 +69,12 @@ test('buildRequest: labelled URL images, numbered dishes with notes, forced tool
   assert(content[4].text.includes('2. Tiramisu\n'));
 });
 
-test('matchesFromResponse: keeps real pairs, first claim wins on both sides', () => {
+test('matchesFromResponse: keeps real pairs, first claim on a photo wins, a dish takes several', () => {
   const photos = [photo(0), photo(1), photo(2)];
   const lines = [line('a', 'A'), line('b', 'B')];
   const got = matchesFromResponse(reply([
     { photo: 2, dish: 1 },
-    { photo: 3, dish: 1 }, // line 1 already has one
+    { photo: 3, dish: 1 }, // a second photo of dish 1
     { photo: 2, dish: 2 }, // photo 2 already taken
     { photo: 9, dish: 2 }, // no photo 9
     { photo: 1, dish: 0 }, // no dish 0
@@ -80,6 +83,7 @@ test('matchesFromResponse: keeps real pairs, first claim wins on both sides', ()
   ]), photos, lines);
   assertEquals(got, [
     { review_id: 'a', photo_url: photo(1).url },
+    { review_id: 'a', photo_url: photo(2).url },
     { review_id: 'b', photo_url: photo(0).url },
   ]);
 });

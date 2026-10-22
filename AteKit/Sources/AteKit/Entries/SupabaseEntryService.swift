@@ -270,12 +270,12 @@ public struct SupabaseEntryService: EntryService {
 
     public func photoDishes(entryID: UUID) async throws -> [String: UUID] {
         let data = try await api.supabase
-            .from("reviews")
-            .select("id, photo_url")
+            .from("photo_dishes")
+            .select("photo_url, review_id")
             .eq("entry_id", value: entryID.uuidString.lowercased())
             .execute()
             .data
-        return try ReviewPhotoRow.map(from: data)
+        return try PhotoDishRow.map(from: data)
     }
 
     // MARK: - Delete
