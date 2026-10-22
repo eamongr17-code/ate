@@ -273,7 +273,7 @@ public final class InMemoryEntryService: EntryService, InMemoryStandIn, @uncheck
                   card.items.count == 1, card.photos.isEmpty == false
             else { return }
             let dish = card.items[0].reviewID
-            photoLines[entryID] = Dictionary(card.photos.map { ($0.url, dish) }, uniquingKeysWith: { first, _ in first })
+            photoLines[entryID] = Dictionary(card.photos.map { ($0.url, dish) }, uniquingKeysWith: { kept, _ in kept })
         }
     }
 
