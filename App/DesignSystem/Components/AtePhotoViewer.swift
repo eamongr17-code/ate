@@ -87,9 +87,17 @@ private struct AtePhotoViewerHost: ViewModifier {
                     onClose: { viewingBinding.wrappedValue = nil }
                 )
                 .navigationTransition(.zoom(sourceID: zoomSource(viewing), in: zoomSpace))
-                // Black under the zoom: the cover's own ground is the system's white, which showed
-                // round the edges while the viewer's black faded in (feedback #1, 22 Oct).
-                .presentationBackground(AteColor.viewerGround)
+            }
+            // Black behind the viewer while it is up: the zoom draws the photo inside the screen's
+            // rounded corners, and the page showed round its edges (feedback #1 and #2, 22 Oct;
+            // Eamon picked this over dropping the zoom).
+            .overlay {
+                AteColor.viewerGround
+                    .ignoresSafeArea()
+                    .opacity(viewing == nil ? 0 : 1)
+                    .animation(.easeOut(duration: AtePhotoViewerHostMetrics.behind), value: viewing == nil)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
     }
 
@@ -99,6 +107,11 @@ private struct AtePhotoViewerHost: ViewModifier {
         let tiles = viewing.origin?.tiles ?? [:]
         return tiles[zoomIndex]?.sourceID ?? tiles[viewing.index]?.sourceID ?? "photo.none"
     }
+}
+
+enum AtePhotoViewerHostMetrics {
+    /// How fast the page goes black behind the viewer, and comes back.
+    static let behind: Double = 0.2
 }
 
 // MARK: - The viewer
