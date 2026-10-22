@@ -65,6 +65,7 @@ struct AteShareSlip: View {
     private func dishName(_ item: AteReceipt.Item) -> some View {
         let name = Text(item.name)
             .ateText(.shareSlipDish)
+            .ateTightLines(.shareSlipDish)
             // A long name wraps, then sets down a little, before it is ever cut off: the receipt is
             // shared, and "Spanner crab spa…" says nothing.
             .lineLimit(3)

@@ -4,9 +4,11 @@ extension AteTextStyle {
     // The receipt (10 Oct, Eamon: one receipt, simpler, built for a small space). Drawn at 200 wide:
     // scaled up on screen, read at a third of a story's width as a sticker.
 
-    /// A dish on the receipt. 17pt heading face.
+    /// A dish on the receipt. 17pt heading face, its lines set 1.05 like the app's other serif
+    /// titles (22 Oct, Eamon: a two-line name was "way too high"). Tighter than the font, so the
+    /// slip applies it with ``View/ateTightLines(_:)``.
     static let shareSlipDish = AteTextStyle(
-        voice: .heading, size: 17, weight: 800, trackingEm: -0.01, lineHeight: 1.15, textStyle: .body,
+        voice: .heading, size: 17, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .body,
         maximumSize: 17
     )
     /// Its score, printed like a price. 18pt/800.
