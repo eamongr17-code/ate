@@ -34,8 +34,10 @@ struct FeedBetaList: View {
     @ViewBuilder
     private var slips: some View {
         let entries = store.entries
+        // Save, taught once, on the first dish of the first slip somebody else wrote.
+        let tipped = entries.first { $0.isMine == false && $0.items.isEmpty == false }?.id
         ForEach(entries) { entry in
-            FeedSlip(entry: entry, actions: actions)
+            FeedSlip(entry: entry, actions: actions, saveTip: entry.id == tipped ? SaveTip() : nil)
                 .padding(.top, entry.id == entries.first?.id ? 0 : AteMetrics.slipGap)
                 .task { await store.loadMoreIfNeeded(after: entry) }
                 .task { await AtePrefetch.photos(after: entry, in: entries) }

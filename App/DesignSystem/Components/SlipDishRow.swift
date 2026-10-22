@@ -1,5 +1,6 @@
 import AteKit
 import SwiftUI
+import TipKit
 import UIKit
 
 /// **A dish row** — the dish-first unit every card leads with, and the entry page too
@@ -25,6 +26,8 @@ struct SlipDishRow: View {
     /// Present where the dish can be saved: somebody else's entry, in any list or on its page.
     var onSave: (() -> Void)?
     var identifier = "journal.slip"
+    /// A tip on the bookmark: the Feed's Save tip, on its first dish.
+    var saveTip: (any Tip)?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
@@ -83,6 +86,7 @@ struct SlipDishRow: View {
             }
             if let onSave {
                 bookmark(action: onSave)
+                    .popoverTip(saveTip, arrowEdge: .top)
                     // No text of its own: it centres on the numeral's caps, which is the centre of
                     // the score slot whether or not the slot is filled.
                     .alignmentGuide(.top) { $0[VerticalAlignment.center] - metrics.markCentre }

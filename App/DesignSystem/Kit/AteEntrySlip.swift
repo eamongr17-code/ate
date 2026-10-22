@@ -1,5 +1,6 @@
 import AteKit
 import SwiftUI
+import TipKit
 
 /// **The entry slip** — one anatomy for the Journal, the Feed, a profile and a place's visits: the
 /// byline (Feed, place visits), the dish rows, the words, the tilted photo cluster, the foot line —
@@ -24,6 +25,8 @@ struct AteEntrySlip: View {
     var onPlace: ((UUID) -> Void)?
     var onDish: ((AteSlip.Dish) -> Void)?
     var identifier = "journal.slip"
+    /// The beta Feed's Save tip, on this slip's first bookmark.
+    var saveTip: (any Tip)?
 
     var body: some View {
         EntrySlip(
@@ -33,7 +36,8 @@ struct AteEntrySlip: View {
             onSave: surface == .journal ? nil : onSave,
             onPlace: onPlace,
             onDish: onDish,
-            identifier: identifier
+            identifier: identifier,
+            saveTip: surface == .journal ? nil : saveTip
         )
     }
 

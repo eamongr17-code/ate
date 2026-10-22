@@ -1,6 +1,7 @@
 import AteKit
 import PhotosUI
 import SwiftUI
+import TipKit
 
 /// **Writing** — the composer's first face. Free prose, and the two things allowed to live inside it:
 /// a score, and a diet code after a dish, each a pill *in the sentence* (``InlineTokenEditor``). The
@@ -178,6 +179,7 @@ struct V2ComposerWrite: View {
             people: model.companions.map { AteWithPerson(id: $0.userID, handle: $0.handle) },
             onPlace: {
                 AteHaptics.key()
+                PlaceTip().invalidate(reason: .actionPerformed)
                 model.dismissScoring(refocus: false)
                 model.isPickingPlace = true
             },
@@ -191,9 +193,26 @@ struct V2ComposerWrite: View {
                 AteHaptics.key()
                 model.dismissScoring(refocus: false)
                 model.isPickingDate = true
-            }
+            },
+            placeTip: placeTip
         )
         .padding(.top, AteMetrics.regular)
+    }
+
+    // MARK: - First-post tips
+
+    /// Score, on a new entry's Score key until the person has scored or written an entry
+    /// (`first-post-tips.html` 1). The Journal retires it for anyone who already has one.
+    private var scoreTip: ScoreTip? {
+        model.editing == nil ? ScoreTip() : nil
+    }
+
+    /// Place, once there are words, no place, and the Score tip is done: one tip at a time, and only
+    /// while the tick is waiting on a place (`first-post-tips.html` 2).
+    private var placeTip: PlaceTip? {
+        guard model.editing == nil, model.place == nil, model.composition.isEmpty == false,
+              ScoreTip().shouldDisplay == false else { return nil }
+        return PlaceTip()
     }
 
     // MARK: - The words
@@ -281,6 +300,7 @@ struct V2ComposerWrite: View {
                 },
                 onCode: pick,
                 worn: isChoosingDiet ? model.litCodes : [],
+                scoreTip: scoreTip,
                 library: { libraryKey }
             )
         }
@@ -308,6 +328,7 @@ struct V2ComposerWrite: View {
     /// slide put away.
     private func scoreKey() {
         AteHaptics.key()
+        ScoreTip().invalidate(reason: .actionPerformed)
         if model.scoring != nil {
             model.dismissScoring()
         } else {

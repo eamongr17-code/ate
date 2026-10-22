@@ -1,5 +1,6 @@
 import AteKit
 import SwiftUI
+import TipKit
 
 /// **The composer's keys, floating in one glass capsule above the keyboard**: camera and library on
 /// the left, then the two keys that put a pill into the words, Score and Diet, both labelled. Where
@@ -23,6 +24,8 @@ struct AteKeyCapsule<Library: View>: View {
     let onCode: (DietTag) -> Void
     /// The codes the dish at the caret already wears: on in the unfold, and a press takes one off.
     var worn: [DietTag] = []
+    /// A tip on the Score key: a first entry's Score tip.
+    var scoreTip: (any Tip)?
     @ViewBuilder var library: Library
 
     @Environment(\.atePalette) private var palette
@@ -61,6 +64,7 @@ struct AteKeyCapsule<Library: View>: View {
             .fixedSize()
             HStack(spacing: AteKeyCapsuleMetrics.gap) {
                 AteKey(kind: .score, isActive: isScoring, action: onScore)
+                    .popoverTip(scoreTip, arrowEdge: .bottom)
                 AteKey(kind: .diet) {
                     onDiet()
                     isChoosingDiet = true

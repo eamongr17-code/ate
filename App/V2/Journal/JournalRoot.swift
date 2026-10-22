@@ -110,6 +110,10 @@ struct JournalRoot: View {
             guard isComposing == false else { return }
             Task { await journal.refresh() }
         }
+        // Somebody with an entry is past their first: the composer's Score and Place tips retire.
+        .onChange(of: journal.entries.isEmpty, initial: true) { _, isEmpty in
+            if isEmpty == false { AteTips.firstPostWritten() }
+        }
     }
 
     // MARK: - The bar
