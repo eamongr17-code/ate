@@ -9,12 +9,15 @@ struct AteTopDishes: View {
         /// The review's id: the same dish can be in the list twice.
         let id: UUID
         let dishID: UUID
+        /// The entry this score was written in, which the tile opens. Nil for a line older than
+        /// entries: that tile opens the dish instead.
+        var entryID: UUID?
         let name: String
         let photo: AtePhoto
     }
 
     let dishes: [Dish]
-    var onOpen: (UUID) -> Void = { _ in }
+    var onOpen: (Dish) -> Void = { _ in }
 
     @Environment(\.atePalette) private var palette
 
@@ -22,7 +25,7 @@ struct AteTopDishes: View {
         let shown = Array(dishes.prefix(AteTopDishesMetrics.count))
         HStack(alignment: .top, spacing: 0) {
             ForEach(Array(shown.enumerated()), id: \.element.id) { index, dish in
-                Button { onOpen(dish.dishID) } label: {
+                Button { onOpen(dish) } label: {
                     VStack(spacing: AteMetrics.snug) {
                         AteTopDishTile(photo: dish.photo)
                             .rotationEffect(.degrees(AteTopDishesMetrics.angles[index % AteTopDishesMetrics.count]))
