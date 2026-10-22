@@ -6,7 +6,8 @@
 //   POST /functions/v1/match-photos        (user JWT required — the anon key alone is a 401)
 //   body: { entry_id: uuid, unmatched_only?: bool }
 //   → 200 { ok: true, matched: int }       (matched = lines whose photo was set or cleared)
-//     unmatched_only: do nothing for an entry already matched once (photos_matched_at). The app
+//     unmatched_only: do nothing for an entry already matched once (photos_matched_at; with several
+//     dishes, once by the matcher that places them, photos_located_at, 0083). The app
 //     sends it when anyone opens a photo of an entry with no dish paired, so entries posted before
 //     matching existed, or whose match failed, get paired the first time they are looked at. Any
 //     signed-in viewer who can see the entry may ask this (14 Oct, Eamon: the point is knowing which
@@ -108,7 +109,7 @@ Deno.serve(async (req) => {
 
   const admin = adminClient();
   const { data: entry, error: entryError } = await admin
-    .from('entries').select('id, author_id, photo_picks, photos_matched_at').eq('id', entryId).maybeSingle();
+    .from('entries').select('id, author_id, photo_picks, photos_matched_at, photos_located_at').eq('id', entryId).maybeSingle();
   if (entryError) {
     console.error('match-photos: entry read failed:', entryError.message);
     return json({ error: 'read failed' }, 500);
@@ -117,7 +118,13 @@ Deno.serve(async (req) => {
   if (entry.author_id !== userId && !(unmatchedOnly && await callerCanSee(req, entryId))) {
     return json({ error: 'not found' }, 404);
   }
-  if (unmatchedOnly && entry.photos_matched_at != null) return json({ ok: true, matched: 0 });
+  // Matched once already: done, unless that was before dishes were placed (0083) and the entry has
+  // several dishes, so a shared-plate photo may name only one of them. Asked again once.
+  if (unmatchedOnly && entry.photos_matched_at != null) {
+    if (entry.photos_located_at != null) return json({ ok: true, matched: 0 });
+    const { count } = await admin.from('reviews').select('id', { count: 'exact', head: true }).eq('entry_id', entryId);
+    if ((count ?? 0) < 2) return json({ ok: true, matched: 0 });
+  }
 
   // Photos an edit overwrote in place leave their lines first (0063), so those lines are open again.
   const pruned = await admin.rpc('prune_photo_pairs', { p_entry_id: entryId });
@@ -173,6 +180,7 @@ Deno.serve(async (req) => {
   const { data: n, error: writeError } = await admin.rpc('apply_photo_matches', {
     p_entry_id: entryId,
     p_matches: matches,
+    p_located: next.kind === 'ask',
   });
   if (writeError) {
     console.error('match-photos: apply_photo_matches failed:', writeError.message);

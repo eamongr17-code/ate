@@ -5,10 +5,11 @@
 // index.ts does the reads and the one write (apply_photo_matches, 0063).
 //
 // The model only proposes, as everywhere in Ate: a pairing is kept only when it names a photo and a
-// line that exist, and each photo goes to at most one line. A line may take several photos (22 Oct:
-// Paris's two photos of one noodle soup; only the first was named). A line the author picked by hand
-// is never offered. Without the key nothing is asked: one line takes every photo, and anything more
-// is left as it is.
+// line that exist. A line may take several photos (22 Oct: Paris's two photos of one noodle soup;
+// only the first was named), and a photo several lines (22 Oct: a sandwich and its fries on one
+// plate, 0083). Each pairing may say where the dish sits in the photo: a box, from the same call. A
+// line the author picked by hand is never offered. Without the key nothing is asked: one line takes
+// every photo, and anything more is left as it is.
 
 import {
   ANTHROPIC_URL,
@@ -34,7 +35,9 @@ export type Line = {
   picked: boolean;
   photo_url: string | null;
 };
-export type Match = { review_id: string; photo_url: string };
+/** `box`: where the dish sits, [left, top, right, bottom] as 0–1 fractions of the image. */
+export type Match = { review_id: string; photo_url: string; box?: Box };
+export type Box = [number, number, number, number];
 
 /** More photos than this are not sent; the composer allows five. */
 export const MAX_PHOTOS = 8;
@@ -164,14 +167,19 @@ export const TOOL = {
     properties: {
       pairs: {
         type: 'array',
-        description: 'One entry per photo that clearly shows one of the listed dishes. Leave out photos that show none.',
+        description: 'One entry per listed dish clearly visible in a photo. A photo showing two dishes gets two entries. Leave out photos that show none.',
         items: {
           type: 'object',
           properties: {
             photo: { type: 'integer', description: 'The photo number, as labelled.' },
             dish: { type: 'integer', description: 'The dish number, as listed.' },
+            box: {
+              type: 'array',
+              items: { type: 'integer' },
+              description: 'Where this dish is in the photo: [left, top, right, bottom], each 0–1000 of the image width or height, tight around the food (and its plate or glass).',
+            },
           },
-          required: ['photo', 'dish'],
+          required: ['photo', 'dish', 'box'],
         },
       },
     },
@@ -181,8 +189,11 @@ export const TOOL = {
 
 const SYSTEM = [
   'You match a diner\'s food photos to the dishes they wrote about in one restaurant visit.',
-  'Each photo shows at most one listed dish as its subject; a dish may have several photos (two angles,',
-  'before and after a bite), so pair every photo of it.',
+  'A dish may have several photos (two angles, before and after a bite), so pair every photo of it.',
+  'A photo may show several listed dishes (a shared table, a burger and its fries): pair each one it',
+  'clearly shows, with a box around where it is. A dish only glimpsed at the edge is not paired.',
+  'Only the listed dishes count. A side, sauce or garnish served with a listed dish (the fries with a',
+  'club sandwich) is part of that dish and inside its box, never a dish of its own unless it is listed.',
   'Use what is visibly on the plate or in the glass. If a photo shows no listed dish (the room, a menu,',
   'people, a dish not in the list), or you cannot tell, leave it out. Never guess.',
 ].join(' ');
@@ -212,7 +223,7 @@ export function buildRequest(opts: { apiKey: string; photos: Array<Photo | Loade
     },
     body: JSON.stringify({
       model: opts.model ?? resolveModel(null),
-      max_tokens: 400,
+      max_tokens: 900,
       system: SYSTEM,
       tools: [TOOL],
       tool_choice: { type: 'tool', name: TOOL.name },
@@ -221,9 +232,22 @@ export function buildRequest(opts: { apiKey: string; photos: Array<Photo | Loade
   };
 }
 
+/** Dishes in one photo beyond this are not kept (a table of ten is no tag map). */
+export const MAX_DISHES_PER_PHOTO = 6;
+/** A box thinner than this (of the image) is noise, not a dish. */
+const MIN_BOX_SIDE = 0.03;
+
+/** Pure: the model's 0–1000 box as 0–1 fractions, or undefined when it is not a usable box. */
+export function boxFrom(raw: unknown): Box | undefined {
+  if (!Array.isArray(raw) || raw.length !== 4 || !raw.every((v) => typeof v === 'number' && Number.isFinite(v))) return undefined;
+  const [l, t, r, b] = (raw as number[]).map((v) => Math.min(1000, Math.max(0, v)) / 1000);
+  if (r - l < MIN_BOX_SIDE || b - t < MIN_BOX_SIDE) return undefined;
+  return [l, t, r, b];
+}
+
 /**
- * Pure: the model's pairs, kept only where they name a real photo and a real line. First claim on a
- * photo wins; a line may take several photos.
+ * Pure: the model's pairs, kept only where they name a real photo and a real line. One pairing per
+ * (photo, line), first claim wins; a line may take several photos and a photo several lines.
  */
 export function matchesFromResponse(payload: unknown, photos: Photo[], lines: Line[]): Match[] | null {
   const content = (payload as { content?: Array<Record<string, unknown>> })?.content;
@@ -231,16 +255,20 @@ export function matchesFromResponse(payload: unknown, photos: Photo[], lines: Li
   const call = content.find((b) => b?.type === 'tool_use' && b?.name === TOOL.name);
   const pairs = (call?.input as { pairs?: unknown } | undefined)?.pairs;
   if (!Array.isArray(pairs)) return null;
-  const usedPhotos = new Set<number>();
+  const used = new Set<string>();
+  const perPhoto = new Map<number, number>();
   const out: Match[] = [];
   for (const raw of pairs) {
-    const p = (raw ?? {}) as { photo?: unknown; dish?: unknown };
+    const p = (raw ?? {}) as { photo?: unknown; dish?: unknown; box?: unknown };
     const pi = typeof p.photo === 'number' && Number.isInteger(p.photo) ? p.photo - 1 : -1;
     const li = typeof p.dish === 'number' && Number.isInteger(p.dish) ? p.dish - 1 : -1;
     if (pi < 0 || pi >= photos.length || li < 0 || li >= lines.length) continue;
-    if (usedPhotos.has(pi)) continue;
-    usedPhotos.add(pi);
-    out.push({ review_id: lines[li].review_id, photo_url: photos[pi].url });
+    const key = `${pi}:${li}`;
+    if (used.has(key) || (perPhoto.get(pi) ?? 0) >= MAX_DISHES_PER_PHOTO) continue;
+    used.add(key);
+    perPhoto.set(pi, (perPhoto.get(pi) ?? 0) + 1);
+    const box = boxFrom(p.box);
+    out.push({ review_id: lines[li].review_id, photo_url: photos[pi].url, ...(box ? { box } : {}) });
   }
   return out;
 }
