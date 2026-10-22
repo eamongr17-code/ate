@@ -197,6 +197,14 @@ begin
   select p_entry_id, n->>'url', (n->>'line')::uuid from jsonb_array_elements(v_named) n
   on conflict (entry_id, photo_url, review_id) do nothing;
 
+  -- 0064's pass gives a photo to one line; a dish ticked beside it shows it too, if it has no other.
+  update public.reviews r
+     set photo_url = (select n->>'url' from jsonb_array_elements(v_named) n
+                      join public.entry_photos x on x.entry_id = p_entry_id and x.photo_url = n->>'url'
+                      where (n->>'line')::uuid = r.id order by x.position limit 1)
+   where r.entry_id = p_entry_id and r.photo_url is null
+     and exists (select 1 from jsonb_array_elements(v_named) n where (n->>'line')::uuid = r.id);
+
   return v_n;
 end; $$;
 

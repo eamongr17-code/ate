@@ -403,6 +403,7 @@ test('set_photo_dishes: the author ticks every dish a photo shows; boxes stay; i
   await asService(() => db.query(`select public.restore_photo_picks($1)`, [e]));
   await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb, true)`, [e, JSON.stringify([])]));
   assert.deepEqual((await pairs(e)).filter(([u]) => u === 's/1.jpg'), [['s/1.jpg', 'Chicken Soup'], ['s/1.jpg', 'Dumplings']]);
+  assert.equal((await lines(e)).find((l) => l.name === 'Dumplings').photo_url, photoUrl('s/1.jpg'));
 
   // Down to one, then none (a re-sort rebuilds the lines: their ids are new).
   const soupNow = await reviewId(e, 'Chicken Soup');
