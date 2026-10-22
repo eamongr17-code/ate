@@ -23,6 +23,8 @@ extension Route {
 /// sheet and never pushes the corner row off the top.
 struct FeedbackSheet: View {
     let app: AppModel
+    /// Called as the sheet goes: the Journal shows "Report sent" while it sends.
+    var onSent: () -> Void = {}
 
     @State private var words = ""
     @State private var shots: [FeedbackShot] = []
@@ -141,39 +143,35 @@ struct FeedbackSheet: View {
 
     // MARK: - Send
 
-    private func send() {
-        guard canSend else { return }
-        isSending = true
-        isFocused = false
-        Task {
-            let report = FeedbackReport(
-                body: words, screenshots: shots.map(\.data), build: FeedbackDevice.build,
-                device: FeedbackDevice.model, osVersion: FeedbackDevice.os, screens: ScreenTrail.app.screens
-            )
-            do {
-                let queued = try await app.services.feedback.send(report)
-                app.services.analytics(FeedbackEvents.sent(screenshots: report.screenshots.count, queued: queued))
-                AteHaptics.success()
-                dismiss()
-            } catch {
-                let reason = FeedbackError.of(error)
-                app.services.analytics(FeedbackEvents.refused(reason))
-                AteHaptics.refused()
-                refusal = Self.words(for: reason)
-                isSending = false
-            }
-        }
-    }
-
     /// Eamon asked for it (22 Oct): testers should know what a useful report holds.
     private static let howTo = "Tell us what you tapped, what you expected and what happened instead. "
         + "A photo of the screen helps. Ideas are welcome too."
 
-    private static func words(for error: FeedbackError) -> String {
-        switch error {
-        case .rateLimited: "That's ten in an hour. Try again later."
-        case .signedOut: "Sign in to send feedback."
-        case .badInput, .unreachable: "That didn't send. Try again."
+    /// Kept on disk, then the sheet goes at once with the toast; the outbox sends it behind, and
+    /// keeps it through a dropped connection (Eamon, 22 Oct: never wait on the upload).
+    private func send() {
+        guard canSend else { return }
+        isSending = true
+        isFocused = false
+        let report = FeedbackReport(
+            body: words, screenshots: shots.map(\.data), build: FeedbackDevice.build,
+            device: FeedbackDevice.model, osVersion: FeedbackDevice.os, screens: ScreenTrail.app.screens
+        )
+        let outbox = app.services.feedback
+        Task {
+            do {
+                try await outbox.post(report)
+            } catch {
+                AteHaptics.refused()
+                refusal = "That didn't save. Try again."
+                isSending = false
+                return
+            }
+            app.services.analytics(FeedbackEvents.sent(screenshots: report.screenshots.count, queued: false))
+            AteHaptics.success()
+            onSent()
+            dismiss()
+            await outbox.flush()
         }
     }
 }

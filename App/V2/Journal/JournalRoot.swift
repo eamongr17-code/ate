@@ -34,6 +34,7 @@ struct JournalRoot: View {
     @State var searchText = ""
     /// The bug's Feedback sheet (`feedback.html`), testers only.
     @State var isSendingFeedback = false
+    @State var feedbackToast: String?
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     static let top = "journal.top"
@@ -69,7 +70,10 @@ struct JournalRoot: View {
             .ateGround()
         }
         .sheet(isPresented: $isFiltering) { filterSheet }
-        .sheet(isPresented: $isSendingFeedback) { FeedbackSheet(app: app) }
+        .sheet(isPresented: $isSendingFeedback) {
+            FeedbackSheet(app: app) { feedbackToast = "Report sent. Thank you." }
+        }
+        .ateToast($feedbackToast)
         // Searching: the bar steps away and the search screen covers the switch and the shelf.
         .toolbarVisibility(isSearching ? .hidden : .automatic, for: .navigationBar)
         .overlay { searchOverlay }
