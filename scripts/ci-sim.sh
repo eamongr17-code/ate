@@ -19,7 +19,7 @@ for mode in dark light; do
   kill -INT "$rec"; wait "$rec" || true
   rm -rf "ci-out/f-$mode"; mkdir -p "ci-out/f-$mode"
   # The top 44% of the screen (status bar, header, the page under it), 6 frames a second.
-  ffmpeg -v error -i "ci-out/$mode.mp4" -vf "fps=6,crop=iw:ih*0.44:0:0,scale=150:-2" "ci-out/f-$mode/%04d.png"
+  ffmpeg -v error -i "ci-out/$mode.mp4" -vf "fps=5,crop=iw:ih*0.36:0:0,scale=200:-2" "ci-out/f-$mode/%04d.png"
   n=$(ls "ci-out/f-$mode" | wc -l | tr -d ' ')
   rows=$(( (n + 13) / 14 ))
   ffmpeg -v error -framerate 1 -i "ci-out/f-$mode/%04d.png" -vf "tile=14x$rows" -frames:v 1 -q:v 9 \

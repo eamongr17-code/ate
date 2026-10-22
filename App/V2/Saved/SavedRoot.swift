@@ -52,22 +52,16 @@ struct SavedRoot: View {
         }
         .accessibilityIdentifier("v2.root.saved")
         .ateGround()
-        .ateRootToolbar(
+        // The filter's chips are part of the glass header (`lighter-header.html`, B): the list
+        // scrolls under them, and they leave with it.
+        .ateGlassRootHeader(
             title: .text(V2Tab.saved.title),
             inline: AteInlineTitle(title: V2Tab.saved.title),
             isCollapsed: isCollapsed,
-            isBarHidden: isBarHidden
-        ) {
-            controls
-        }
-        // The filter's chips are part of the glass header (`lighter-header.html`, B): the list
-        // scrolls under them, and they leave with the bar.
-        .safeAreaBar(edge: .top, spacing: 0) {
-            if isBarHidden == false {
-                activeChips
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
-        }
+            isHidden: isBarHidden,
+            controls: { controls },
+            accessory: { activeChips }
+        )
         .overlay(alignment: .bottom) { undo }
         .sheet(isPresented: $isFiltering) { filterSheet }
         .sheet(isPresented: $isAdding) { SavedAddSheet(app: app) }

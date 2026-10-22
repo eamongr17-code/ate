@@ -56,28 +56,24 @@ struct JournalRoot: View {
         }
         .accessibilityIdentifier("v2.root.journal")
         .ateGround()
-        .ateRootToolbar(
+        // The switch is part of the header (22 Oct), pinned under its row, never half under it
+        // (build 88), with the filter's chips beneath it on the Journal; the shelf scrolls under
+        // all of it. Searching, the header steps away and the search screen covers the shelf.
+        .ateGlassRootHeader(
             title: .wordmark,
             inline: inlineTitle,
             isCollapsed: isCollapsed,
-            // Searching: the bar steps away and the search screen covers the switch and the shelf.
-            isBarHidden: isSearching || isBarHidden,
+            isHidden: isSearching || isBarHidden,
             showsApart: showsBug,
             apart: { bug },
-            controls: { controls }
-        )
-        // The switch, pinned under the bar as part of the header (22 Oct), never half under it
-        // (build 88), with the filter's chips beneath it on the Journal; the shelf scrolls under
-        // both, behind the scroll-edge effect a safe-area bar extends. It leaves with the bar.
-        .safeAreaBar(edge: .top, spacing: 0) {
-            if isBarHidden == false {
+            controls: { controls },
+            accessory: {
                 VStack(spacing: 0) {
                     shelfSwitch
                     if shelf == .journal { activeChips }
                 }
-                .transition(.move(edge: .top).combined(with: .opacity))
             }
-        }
+        )
         // Another shelf starts with its header showing.
         .onChange(of: shelf) { _, _ in isBarHidden = false }
         .sheet(isPresented: $isFiltering) { filterSheet }
