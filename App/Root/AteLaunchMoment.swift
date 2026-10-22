@@ -37,19 +37,20 @@ struct AteLaunchOverlay: View {
     }
 
     private func run() async {
-        // Long enough to be seen, not long enough to be waited on.
-        try? await Task.sleep(for: .milliseconds(450))
+        // Long enough to be seen, not long enough to be waited on: about half a second in all (Eamon,
+        // 22 Oct — it was a second, the slowest part of a warm launch).
+        try? await Task.sleep(for: .milliseconds(200))
         if reduceMotion {
-            withAnimation(.easeOut(duration: 0.3)) { opacity = 0 }
+            withAnimation(.easeOut(duration: 0.25)) { opacity = 0 }
         } else {
-            withAnimation(.snappy(duration: 0.18)) { logoScale = 0.92 }
-            try? await Task.sleep(for: .milliseconds(180))
-            withAnimation(.easeIn(duration: 0.35)) {
+            withAnimation(.snappy(duration: 0.12)) { logoScale = 0.92 }
+            try? await Task.sleep(for: .milliseconds(120))
+            withAnimation(.easeIn(duration: 0.25)) {
                 logoScale = 1.25
                 opacity = 0
             }
         }
-        try? await Task.sleep(for: .milliseconds(400))
+        try? await Task.sleep(for: .milliseconds(300))
         isDone = true
     }
 }
