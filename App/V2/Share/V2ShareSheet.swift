@@ -8,7 +8,8 @@ import UIKit
 /// The cards (``AteShareCard``): the receipt alone (a sticker), the ready-made story, and the 4:5 post
 /// — the last two only with a photo to put on them. Under each card its dots: the sticker's paper,
 /// the story's ground. Adjust (the crop disc after the dots) lets the photo be dragged and pinched,
-/// out as far as the whole photo, with a blurred copy of it filling the spare room.
+/// out as far as the whole photo, with a blurred copy of it filling the spare room. On the card in
+/// front, the receipt can be dragged anywhere on the page.
 ///
 /// The sticker card is the printed receipt itself (``AtePrintedReceiptStage``), so after a review it
 /// prints right there, takes the Place key, and a dish name can be tapped to fix it. The other cards
@@ -45,6 +46,9 @@ struct V2ShareSheet: View {
     @State private var isAdjusting = false
     @State private var dragStart: CGSize?
     @State private var zoomStart: CGFloat?
+    /// Where a receipt drag started, and the receipt's laid-out size on each card.
+    @State private var receiptStart: UnitPoint?
+    @State private var receiptSizes: [AteShareFormat: CGSize] = [:]
 
     private var formats: [AteShareFormat] {
         guard isLive else { return [.sticker] }
@@ -117,19 +121,58 @@ struct V2ShareSheet: View {
             .ateShadow(.shareSticker)
         case .story, .post:
             let isFraming = isAdjusting && format == showing
-            let preview = AteShareCardPreview(card: card(format), width: V2ShareSheetMetrics.width(format))
+            let width = V2ShareSheetMetrics.width(format)
+            let canMove = isLive && isAdjusting == false && format == showing
+            let preview = AteShareCardPreview(
+                card: card(format, onDragReceipt: canMove ? { moveReceipt(on: format, by: $0, width: width) } : nil),
+                width: width
+            )
             preview
                 .overlay { if isFraming { V2FramingGrid().allowsHitTesting(false) } }
                 .contentShape(Rectangle())
-                .gesture(framing(format, scale: preview.scale), including: isFraming ? .all : .none)
+                .gesture(framing(format, scale: preview.scale), including: isFraming ? .all : .subviews)
                 .accessibilityLabel(format == .story ? "Story" : "Post")
         }
     }
 
-    private func card(_ format: AteShareFormat) -> AteShareCard {
+    private func card(_ format: AteShareFormat, onDragReceipt: ((CGSize?) -> Void)? = nil) -> AteShareCard {
         AteShareCard(
             format: format, receipt: receipt, photo: photo, look: look,
-            receiptOpacity: isAdjusting && format == showing ? V2ShareSheetMetrics.adjustingReceipt : 1
+            receiptOpacity: isAdjusting && format == showing ? V2ShareSheetMetrics.adjustingReceipt : 1,
+            isReceiptHeld: receiptStart != nil && format == showing,
+            onReceiptSize: { receiptSizes[format] = $0 },
+            onDragReceipt: onDragReceipt
+        )
+    }
+
+    // MARK: - The receipt's place
+
+    /// Follows the finger: screen points, back to the page's, as a share of the room it can move in.
+    private func moveReceipt(on format: AteShareFormat, by translation: CGSize?, width: CGFloat) {
+        guard let translation else {
+            receiptStart = nil
+            return
+        }
+        let start = receiptStart ?? look.receiptSpot(for: format)
+        if receiptStart == nil {
+            receiptStart = start
+            AteHaptics.tick()
+        }
+        let page = format.pageSize
+        let scale = width / page.width
+        let room = AteReceiptSpotLayout.room(
+            page: page, receipt: receiptSizes[format] ?? .zero,
+            scale: format.receiptScale(on: look.ground), clear: format.receiptClear
+        )
+        func moved(_ from: CGFloat, _ by: CGFloat, _ across: CGFloat) -> CGFloat {
+            across > 0 ? min(max(from + by / scale / across, 0), 1) : from
+        }
+        look.setReceiptSpot(
+            UnitPoint(
+                x: moved(start.x, translation.width, room.width),
+                y: moved(start.y, translation.height, room.height)
+            ),
+            for: format
         )
     }
 

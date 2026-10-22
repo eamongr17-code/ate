@@ -57,6 +57,17 @@ struct ShareLinkTests {
         #expect(event.parameters["adjusted"] == "true")
     }
 
+    @Test func receiptSharedSaysTheReceiptWasMovedOnlyWhenItWas() {
+        let moved = ShareEvents.receiptShared(
+            entryID: Self.id, source: .entry, destination: .instagramStories, sticker: .story, receiptMoved: true
+        )
+        #expect(moved.parameters["receipt_moved"] == "true")
+        let still = ShareEvents.receiptShared(
+            entryID: Self.id, source: .entry, destination: .instagramStories, sticker: .story
+        )
+        #expect(still.parameters["receipt_moved"] == nil)
+    }
+
     @Test func listSharedCarriesTheListAndItsSize() {
         let event = ShareEvents.listShared(listID: Self.id, destination: .link, count: 12)
         #expect(event.name == "list_shared")

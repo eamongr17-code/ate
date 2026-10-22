@@ -87,8 +87,8 @@ struct V2ReceiptShareRow: View {
         }
         let shared = switch card.format {
         case .sticker: InstagramStories.share(sticker: render.sticker)
-        case .story: InstagramStories.share(sticker: render.sticker, background: render.background)
-        case .post: InstagramStories.share(sticker: nil, background: render.page)
+        // The whole card, the receipt where it was put: Instagram would drop a sticker in the middle.
+        case .story, .post: InstagramStories.share(sticker: nil, background: render.page)
         }
         if shared {
             count(.instagramStories)
@@ -197,7 +197,8 @@ struct V2ReceiptShareRow: View {
     private func count(_ destination: ShareDestination) {
         analytics(ShareEvents.receiptShared(
             entryID: card.receipt.id, source: source, destination: destination, sticker: card.format.counted,
-            look: card.look.name(for: card.format), adjusted: card.look.isAdjusted(card.format)
+            look: card.look.name(for: card.format), adjusted: card.look.isAdjusted(card.format),
+            receiptMoved: card.look.isReceiptMoved(card.format)
         ))
     }
 }

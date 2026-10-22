@@ -11,6 +11,10 @@ import UIKit
 /// - **Post** — 4:5 (1080 × 1350), for TikTok photo carousels and the Instagram feed: the photo
 ///   full-bleed with the receipt on it.
 ///
+/// On the story and the post the receipt can be dragged anywhere on the page (22 Oct, Eamon: "allow
+/// users to edit the receipt's location"). On a photo it starts small at the bottom left, so it
+/// covers as little of the dish as it can before anyone moves it.
+///
 /// The same view draws the card on screen and every layer that leaves, so the two cannot disagree.
 /// Always light: what leaves is a picture for somebody else's phone.
 struct AteShareCard: View {
@@ -31,6 +35,12 @@ struct AteShareCard: View {
     var layer: Layer = .whole
     /// On screen while the photo is adjusted: the receipt steps back so the photo can be seen.
     var receiptOpacity: Double = 1
+    /// On screen while the receipt is held: it lifts.
+    var isReceiptHeld = false
+    /// The receipt's own size in the page's points, as it is laid out (only on screen).
+    var onReceiptSize: ((CGSize) -> Void)?
+    /// A drag on the receipt, in screen points; `nil` when it ends. `nil` and the receipt stays put.
+    var onDragReceipt: ((CGSize?) -> Void)?
 
     var body: some View {
         Group {
@@ -47,19 +57,31 @@ struct AteShareCard: View {
 
     private var page: some View {
         let size = format.pageSize
-        return ZStack(alignment: .bottom) {
+        let scale = format.receiptScale(on: look.ground)
+        return ZStack(alignment: .topLeading) {
             if layer != .receipt {
                 ground(size: size)
             }
             if layer != .background {
-                AteShareSlip(receipt: receipt)
-                    .scaleEffect(format.receiptScale, anchor: .bottom)
-                    .padding(.bottom, format.receiptInset)
-                    .opacity(receiptOpacity)
+                AteReceiptSpotLayout(spot: look.receiptSpot(for: format), scale: scale, clear: format.receiptClear) {
+                    slip(scale: scale)
+                }
             }
         }
         .frame(width: size.width, height: size.height)
         .clipped()
+    }
+
+    private func slip(scale: CGFloat) -> some View {
+        let drag = DragGesture(minimumDistance: 0, coordinateSpace: .global)
+            .onChanged { onDragReceipt?($0.translation) }
+            .onEnded { _ in onDragReceipt?(nil) }
+        return AteShareSlip(receipt: receipt)
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { onReceiptSize?($0) }
+            .scaleEffect(scale * (isReceiptHeld ? AteShareCardMetrics.heldLift : 1), anchor: .topLeading)
+            .animation(.snappy(duration: 0.15), value: isReceiptHeld)
+            .opacity(receiptOpacity)
+            .highPriorityGesture(drag, including: onDragReceipt == nil ? .subviews : .all)
     }
 
     @ViewBuilder
@@ -112,21 +134,23 @@ enum AteShareFormat: String, CaseIterable, Identifiable {
         }
     }
 
-    /// The receipt's scale on the page: about three quarters of a story's width, a touch less on a post.
-    var receiptScale: CGFloat {
+    /// The receipt's scale on the page. On a photo, about half the page's width, so it covers as
+    /// little of the dish as it can (22 Oct); on an accent story, about three quarters, under the print.
+    func receiptScale(on ground: AteShareGround) -> CGFloat {
         switch self {
         case .sticker: 1
-        case .story: 1.3
-        case .post: 1.15
+        case .story: ground == .photo ? 0.95 : 1.3
+        case .post: 0.85
         }
     }
 
-    /// How far the receipt's foot sits above the page's: clear of Instagram's reply bar on a story.
-    var receiptInset: CGFloat {
+    /// The edges the receipt keeps clear of: on a story, Instagram's name bar at the top and its reply
+    /// bar at the foot.
+    var receiptClear: EdgeInsets {
         switch self {
-        case .sticker: 0
-        case .story: 56
-        case .post: 22
+        case .sticker: EdgeInsets()
+        case .story: EdgeInsets(top: 72, leading: 16, bottom: 56, trailing: 16)
+        case .post: EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16)
         }
     }
 }
@@ -167,6 +191,10 @@ struct AteShareLook: Equatable {
     var ground: AteShareGround = .photo
     var storyFraming = PhotoFraming.automatic
     var postFraming = PhotoFraming.automatic
+    /// Where the receipt was dragged to on each card, across the room it can move in; `nil` is where
+    /// it starts.
+    var storyReceipt: UnitPoint?
+    var postReceipt: UnitPoint?
 
     func framing(for format: AteShareFormat) -> PhotoFraming {
         format == .post ? postFraming : storyFraming
@@ -174,6 +202,27 @@ struct AteShareLook: Equatable {
 
     mutating func setFraming(_ framing: PhotoFraming, for format: AteShareFormat) {
         if format == .post { postFraming = framing } else { storyFraming = framing }
+    }
+
+    /// Where the receipt sits: where it was dragged, or the bottom left of a photo, or the middle of
+    /// an accent story's foot, under the print.
+    func receiptSpot(for format: AteShareFormat) -> UnitPoint {
+        let moved = format == .post ? postReceipt : storyReceipt
+        if let moved { return moved }
+        return format == .story && ground != .photo ? .bottom : .bottomLeading
+    }
+
+    mutating func setReceiptSpot(_ spot: UnitPoint, for format: AteShareFormat) {
+        if format == .post { postReceipt = spot } else { storyReceipt = spot }
+    }
+
+    /// The receipt was dragged off where it starts on this card.
+    func isReceiptMoved(_ format: AteShareFormat) -> Bool {
+        switch format {
+        case .sticker: false
+        case .story: storyReceipt != nil
+        case .post: postReceipt != nil
+        }
     }
 
     /// The colour choice, for the share count.
@@ -246,6 +295,46 @@ enum AteShareCardMetrics {
     /// The blur on the photo filling the room a zoomed-out photo leaves.
     static let fillBlur: CGFloat = 28
     static let previewRadius: CGFloat = 16
+    /// How much the receipt grows while it is held.
+    static let heldLift: CGFloat = 1.04
+}
+
+/// **The receipt, placed on a page** at a ``UnitPoint`` of the room it can move in: the page less
+/// ``AteShareFormat/receiptClear`` and less the receipt's own scaled size. A unit point, not points,
+/// so a receipt that grows (a place added after it was moved) stays on the page, and the export
+/// (`ImageRenderer`, one pass) lays it out exactly as the screen does.
+struct AteReceiptSpotLayout: Layout {
+    let spot: UnitPoint
+    /// The receipt's `scaleEffect`, anchored top-leading, which the layout cannot see.
+    let scale: CGFloat
+    let clear: EdgeInsets
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        proposal.replacingUnspecifiedDimensions()
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            let room = Self.room(page: bounds.size, receipt: size, scale: scale, clear: clear)
+            subview.place(
+                at: CGPoint(
+                    x: bounds.minX + clear.leading + spot.x * room.width,
+                    y: bounds.minY + clear.top + spot.y * room.height
+                ),
+                anchor: .topLeading,
+                proposal: ProposedViewSize(size)
+            )
+        }
+    }
+
+    /// How far the receipt's top-left corner can travel across and down.
+    static func room(page: CGSize, receipt: CGSize, scale: CGFloat, clear: EdgeInsets) -> CGSize {
+        CGSize(
+            width: max(0, page.width - clear.leading - clear.trailing - receipt.width * scale),
+            height: max(0, page.height - clear.top - clear.bottom - receipt.height * scale)
+        )
+    }
 }
 
 /// **The cards as pictures.** Light, at the default text size: the reader's own settings belong on
