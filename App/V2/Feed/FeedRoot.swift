@@ -6,7 +6,8 @@ import SwiftUI
 /// shelf per followed category, five latest receipts, What you follow, then the end.
 ///
 /// The chrome is the system's: "Feed" with its city as the subtitle in the native bar, folding inline
-/// on scroll, and one trailing glass group holding only the area pin, which opens the area sheet
+/// on scroll and stepping away while you scroll down (`lighter-header.html`, B), and one trailing
+/// glass group holding only the area pin, which opens the area sheet
 /// (Near me, Everywhere, the cities — ``FeedAreaSheet``). Following lives on each category's own
 /// page (4 Oct). It opens on your Journal's city; location is asked for only when Near me is picked
 /// (``V2FeedStores``). Signed out, The Top Ate and the latest receipts are the page.
@@ -15,6 +16,8 @@ struct FeedRoot: View {
     let app: AppModel
 
     @State private var isCollapsed = false
+    /// The glass header has stepped away (``SwiftUICore/View/ateRootBarHiding(_:)``).
+    @State private var isBarHidden = false
     @State private var acting: EntryCard?
     @State private var failure: ActionFailure?
     /// A failure that came back while the actions sheet was still leaving; said once it has gone,
@@ -56,6 +59,7 @@ struct FeedRoot: View {
             }
             .scrollIndicators(.hidden)
             .ateRootCollapse($isCollapsed)
+            .ateRootBarHiding($isBarHidden)
             .refreshable { await refresh(stores) }
             .onChange(of: router.scrollToTop + scrollToTopAfterArea) { _, _ in
                 withAnimation { reader.scrollTo(FeedRootAnchor.top, anchor: .top) }
@@ -67,7 +71,8 @@ struct FeedRoot: View {
             title: .text(V2Tab.feed.title),
             subtitle: subtitle,
             inline: AteInlineTitle(title: V2Tab.feed.title, subtitle: subtitle),
-            isCollapsed: isCollapsed
+            isCollapsed: isCollapsed,
+            isBarHidden: isBarHidden
         ) {
             if AteBeta.isOn == false {
                 AteGlassItem(icon: .place, label: "Area") { isChoosingArea = true }
