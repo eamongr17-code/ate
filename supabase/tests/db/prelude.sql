@@ -16,7 +16,7 @@ $$;
 grant usage on schema auth to anon, authenticated, service_role;
 grant execute on function auth.uid() to anon, authenticated, service_role;
 create schema storage;
-create table storage.buckets (id text primary key, name text, public boolean);
+create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
 create table storage.objects (id uuid default gen_random_uuid() primary key, bucket_id text, name text, owner uuid);
 alter table storage.objects enable row level security;
 create or replace function storage.foldername(name text) returns text[] language sql immutable as $$
