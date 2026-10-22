@@ -24,7 +24,7 @@ const pairs = async (entryId) =>
                from public.photo_dishes pd
                join public.reviews r on r.id = pd.review_id
                join public.dishes d on d.id = r.dish_id
-               where pd.entry_id = $1 order by pd.photo_url`, [entryId]))
+               where pd.entry_id = $1 order by pd.photo_url, d.name`, [entryId]))
     .map((x) => [x.photo_url.split('/review-photos/')[1], x.name]);
 
 before(async () => {
@@ -278,13 +278,13 @@ test('multi-dish: a dish takes several photos; No dish and a deleted photo leave
     { review_id: larb, photo_url: photoUrl('k/1.jpg') },
     { review_id: som, photo_url: photoUrl('k/2.jpg') },
     { review_id: larb, photo_url: photoUrl('k/3.jpg') },
-    { review_id: som, photo_url: photoUrl('k/3.jpg') }, // a photo names one dish: first claim wins
+    { review_id: som, photo_url: photoUrl('k/3.jpg') }, // k/3 shows both (0083)
   ])]));
-  assert.deepEqual(await pairs(e), [['k/1.jpg', 'Larb'], ['k/2.jpg', 'Som Tum'], ['k/3.jpg', 'Larb']]);
+  assert.deepEqual(await pairs(e), [['k/1.jpg', 'Larb'], ['k/2.jpg', 'Som Tum'], ['k/3.jpg', 'Larb'], ['k/3.jpg', 'Som Tum']]);
 
   // The author says k/1 is No dish: the larb keeps k/3 and shows it.
   await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, null)`, [e, photoUrl('k/1.jpg')]));
-  assert.deepEqual(await pairs(e), [['k/2.jpg', 'Som Tum'], ['k/3.jpg', 'Larb']]);
+  assert.deepEqual(await pairs(e), [['k/2.jpg', 'Som Tum'], ['k/3.jpg', 'Larb'], ['k/3.jpg', 'Som Tum']]);
   assert.equal((await lines(e)).find((l) => l.name === 'Larb').photo_url, photoUrl('k/3.jpg'));
 
   // A later match never hands back the No-dish photo, and leaves the picked larb alone.
@@ -312,4 +312,129 @@ test('a re-sort keeps both hand-picked photos of one dish (0081)', async () => {
   await asService(() => db.query(`select public.restore_photo_picks($1)`, [e]));
   assert.deepEqual(await pairs(e), [['q/1.jpg', 'Cannoli'], ['q/2.jpg', 'Cannoli']]);
   assert.ok((await lines(e)).find((l) => l.name === 'Cannoli').photo_url);
+});
+
+test('one photo, several dishes, each placed; the dish page crops onto its own (0083)', async () => {
+  // Eamon's City Beach plate: a club sandwich, its fries and a long black in one photo, and a
+  // second photo of the sandwich alone.
+  const e = await w.visit(33, U.alice, P.tipo, receipt(['Club Sandwich', 4], ['Fries', 3.5], ['Long Black']), undefined,
+    { photos: ['c/1.jpg', 'c/2.jpg'] });
+  const club = await reviewId(e, 'Club Sandwich');
+  const fries = await reviewId(e, 'Fries');
+  const coffee = await reviewId(e, 'Long Black');
+  await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb, true)`, [e, JSON.stringify([
+    { review_id: club, photo_url: photoUrl('c/1.jpg'), box: [0.4, 0.55, 1, 1] },
+    { review_id: fries, photo_url: photoUrl('c/1.jpg'), box: [0, 0.58, 0.48, 1] },
+    { review_id: coffee, photo_url: photoUrl('c/1.jpg'), box: [0.3, 0, 0.1, 0.34] }, // right of its left: no box
+    { review_id: club, photo_url: photoUrl('c/2.jpg'), box: [0.1, 0.1, 0.9, 0.9] },
+  ])]));
+  assert.deepEqual(await pairs(e), [
+    ['c/1.jpg', 'Club Sandwich'], ['c/1.jpg', 'Fries'], ['c/1.jpg', 'Long Black'], ['c/2.jpg', 'Club Sandwich'],
+  ]);
+  const boxes = await rows(`select review_id, box_left, box_bottom from public.photo_dishes where entry_id = $1 and photo_url = $2`,
+    [e, photoUrl('c/1.jpg')]);
+  assert.equal(boxes.find((b) => b.review_id === fries).box_bottom, 1);
+  assert.equal(boxes.find((b) => b.review_id === coffee).box_left, null);
+
+  // Main photos: the sandwich on its own beats the shared plate, though it came second.
+  const byName = Object.fromEntries((await lines(e)).map((l) => [l.name, l.photo_url]));
+  assert.equal(byName['Club Sandwich'], photoUrl('c/2.jpg'));
+  assert.equal(byName['Fries'], photoUrl('c/1.jpg'));
+  const [entry] = await rows(`select photos_located_at from public.entries where id = $1`, [e]);
+  assert.ok(entry.photos_located_at);
+
+  // The dish page: the shared photo says where the dish sits; a photo of it alone does not; an
+  // unplaced dish's shared photo has no box (shown whole).
+  const photosOf = async (rid) => (await as(U.bob, () => db.query(
+    `select public.dish_photos(dish_id) photos from public.reviews where id = $1`, [rid]))).rows[0].photos;
+  const clubPhotos = await photosOf(club);
+  assert.deepEqual(clubPhotos.map((p) => [p.url, p.box ?? null]), [
+    [photoUrl('c/2.jpg'), null],
+    [photoUrl('c/1.jpg'), [0.4, 0.55, 1, 1]],
+  ]);
+  const friesPhotos = await photosOf(fries);
+  assert.equal(friesPhotos.length, 1);
+  assert.equal(friesPhotos[0].box.length, 4);
+  assert.equal((await photosOf(coffee))[0].box, undefined);
+
+  // The author names the shared photo one dish by hand: it is that dish alone, and a re-match keeps it.
+  await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, $3)`, [e, photoUrl('c/1.jpg'), fries]));
+  assert.deepEqual(await pairs(e), [['c/1.jpg', 'Fries'], ['c/2.jpg', 'Club Sandwich']]);
+  await asService(() => db.query(`select public.restore_photo_picks($1)`, [e]));
+  assert.deepEqual(await pairs(e), [['c/1.jpg', 'Fries'], ['c/2.jpg', 'Club Sandwich']]);
+});
+
+test('a box the database cannot hold is refused at the table (0083)', async () => {
+  const e = await w.visit(34, U.alice, P.tipo, receipt(['Pho', 4], ['Banh Mi', 4]), undefined, { photos: ['v/1.jpg'] });
+  const pho = await reviewId(e, 'Pho');
+  assert.ok(await code(() => asService(() => db.query(
+    `insert into public.photo_dishes (entry_id, photo_url, review_id, box_left, box_top, box_right, box_bottom)
+     values ($1, $2, $3, 0.5, 0, 0.2, 1)`, [e, photoUrl('v/1.jpg'), pho]))));
+  // Old two-argument callers still work (default p_located false).
+  await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb)`, [e, JSON.stringify([
+    { review_id: pho, photo_url: photoUrl('v/1.jpg') },
+  ])]));
+  const [entry] = await rows(`select photos_located_at from public.entries where id = $1`, [e]);
+  assert.equal(entry.photos_located_at, null);
+});
+
+test('set_photo_dishes: the author ticks every dish a photo shows; boxes stay; it outlives a re-sort (0083)', async () => {
+  const r = receipt(['Chicken Soup', 4], ['Dumplings', 4.5], ['Bao']);
+  const e = await w.visit(35, U.alice, P.tipo, r, undefined, { photos: ['s/1.jpg', 's/2.jpg'] });
+  const soup = await reviewId(e, 'Chicken Soup');
+  const dumplings = await reviewId(e, 'Dumplings');
+  const bao = await reviewId(e, 'Bao');
+  await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb, true)`, [e, JSON.stringify([
+    { review_id: soup, photo_url: photoUrl('s/1.jpg'), box: [0, 0.2, 0.5, 0.8] },
+    { review_id: bao, photo_url: photoUrl('s/2.jpg') },
+  ])]));
+
+  // The dumplings were in s/1 too: the author ticks both.
+  await as(U.alice, () => db.query(`select public.set_photo_dishes($1, $2, $3::uuid[])`,
+    [e, photoUrl('s/1.jpg'), [dumplings, soup]]));
+  assert.deepEqual(await pairs(e), [['s/1.jpg', 'Chicken Soup'], ['s/1.jpg', 'Dumplings'], ['s/2.jpg', 'Bao']]);
+  const [kept] = await rows(`select box_left, box_right from public.photo_dishes where entry_id = $1 and review_id = $2`, [e, soup]);
+  assert.equal(kept.box_right, 0.5);
+  assert.equal((await lines(e)).find((l) => l.name === 'Dumplings').photo_url, photoUrl('s/1.jpg'));
+
+  // A re-sort and a re-match keep the author's ticks.
+  await w.sortAs(e, P.tipo, r.items);
+  await asService(() => db.query(`select public.prune_photo_pairs($1)`, [e]));
+  await asService(() => db.query(`select public.restore_photo_picks($1)`, [e]));
+  await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb, true)`, [e, JSON.stringify([])]));
+  assert.deepEqual((await pairs(e)).filter(([u]) => u === 's/1.jpg'), [['s/1.jpg', 'Chicken Soup'], ['s/1.jpg', 'Dumplings']]);
+  assert.equal((await lines(e)).find((l) => l.name === 'Dumplings').photo_url, photoUrl('s/1.jpg'));
+
+  // Down to one, then none (a re-sort rebuilds the lines: their ids are new).
+  const soupNow = await reviewId(e, 'Chicken Soup');
+  await as(U.alice, () => db.query(`select public.set_photo_dishes($1, $2, $3::uuid[])`, [e, photoUrl('s/1.jpg'), [soupNow]]));
+  assert.deepEqual((await pairs(e)).filter(([u]) => u === 's/1.jpg'), [['s/1.jpg', 'Chicken Soup']]);
+  await asService(() => db.query(`select public.restore_photo_picks($1)`, [e]));
+  assert.deepEqual((await pairs(e)).filter(([u]) => u === 's/1.jpg'), [['s/1.jpg', 'Chicken Soup']]);
+  await as(U.alice, () => db.query(`select public.set_photo_dishes($1, $2, $3::uuid[])`, [e, photoUrl('s/1.jpg'), []]));
+  assert.deepEqual((await pairs(e)).filter(([u]) => u === 's/1.jpg'), []);
+
+  // Nobody else, and only this entry's lines.
+  assert.equal(await code(() => as(U.bob, () => db.query(`select public.set_photo_dishes($1, $2, $3::uuid[])`,
+    [e, photoUrl('s/1.jpg'), [soupNow]]))), 'P0002');
+  const other = await w.visit(36, U.alice, P.tipo, receipt(['Pho', 4]), undefined, { photos: ['t/1.jpg'] });
+  const pho = await reviewId(other, 'Pho');
+  assert.equal(await code(() => as(U.alice, () => db.query(`select public.set_photo_dishes($1, $2, $3::uuid[])`,
+    [e, photoUrl('s/1.jpg'), [soupNow, pho]]))), '22023');
+});
+
+test('dish_photos names the other placed dishes on a shared photo (0083)', async () => {
+  const e = await w.visit(37, U.alice, P.tipo, receipt(['Chicken Soup', 4], ['Dumplings', 4.5]), undefined,
+    { photos: ['u/1.jpg'] });
+  const soup = await reviewId(e, 'Chicken Soup');
+  const dumplings = await reviewId(e, 'Dumplings');
+  await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb, true)`, [e, JSON.stringify([
+    { review_id: soup, photo_url: photoUrl('u/1.jpg'), box: [0, 0.2, 0.5, 0.8] },
+    { review_id: dumplings, photo_url: photoUrl('u/1.jpg'), box: [0.5, 0.3, 1, 0.9] },
+  ])]));
+  const [d] = (await as(U.bob, () => db.query(
+    `select public.dish_photos(dish_id) photos from public.reviews where id = $1`, [soup]))).rows;
+  assert.deepEqual(d.photos[0].box, [0, 0.2, 0.5, 0.8]);
+  assert.deepEqual(d.photos[0].with.map((x) => x.name), ['Dumplings']);
+  assert.equal(d.photos[0].with[0].box.length, 4);
 });

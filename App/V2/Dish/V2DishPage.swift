@@ -112,7 +112,7 @@ struct V2DishPage: View {
                     .browseFillsPage()
             case .ready(let summary):
                 VStack(alignment: .leading, spacing: AteMetrics.loose) {
-                    hero(store.heroPhotoURLs.map { AtePhoto.remote($0) })
+                    hero(heroPhotos)
                     title(name: summary.name, place: summary.restaurantName, placeID: summary.restaurantID)
                     aggregate(summary)
                 }
@@ -131,7 +131,7 @@ struct V2DishPage: View {
         let summary = store.isSettled ? store.summary : nil
         VStack(alignment: .leading, spacing: AteMetrics.loose) {
             if summary != nil {
-                hero(store.heroPhotoURLs.map { AtePhoto.remote($0) })
+                hero(heroPhotos)
             } else if let url = preview.photoURL {
                 hero([AtePhoto.remote(url)], tappable: false)
             } else if preview.hasPhotos == true {
@@ -390,6 +390,23 @@ private extension V2DishPage {
             }
         }
         let byline = AtePhotoDishByline.line(who: nil, place: place)
-        return AtePhotoDishes.one(summary.name, photos: photos, byline: byline, bylines: bylines)
+        var shared: [String: (box: PhotoDishBox, others: [DishPhoto.Other])] = [:]
+        for photo in summary.photos where shared[photo.url] == nil {
+            if let box = photo.box { shared[photo.url] = (box, photo.others) }
+        }
+        return AtePhotoDishes.one(summary.name, photos: photos, byline: byline, bylines: bylines, shared: shared)
+    }
+
+    /// The hero's photos; one this dish shares with other dishes is cropped onto it (0083).
+    var heroPhotos: [AtePhoto] {
+        let boxes = Dictionary(
+            (store.summary?.photos ?? []).compactMap { photo in photo.box.map { (photo.url, $0) } },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return store.heroPhotoURLs.map { url in
+            var photo = AtePhoto.remote(url)
+            photo.focus = boxes[url]
+            return photo
+        }
     }
 }

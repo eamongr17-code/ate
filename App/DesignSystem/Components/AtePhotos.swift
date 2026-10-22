@@ -12,12 +12,18 @@ struct AtePhoto: Identifiable, Equatable {
     /// Set where the photo is **a dish's** thumbnail: with no photo, or one that will not load, the
     /// tile is the dish's letter on its own accent (`NoPhotoA`) — never an empty grey square.
     var dish: DishLetter?
+    /// Where the dish a tile stands for sits, in a photo it shares with other dishes (0083): the
+    /// tile crops onto it. The full-screen viewer always shows the photo whole.
+    var focus: PhotoDishBox?
 
-    init(id: UUID = UUID(), image: Image? = nil, url: URL? = nil, dish: DishLetter? = nil) {
+    init(
+        id: UUID = UUID(), image: Image? = nil, url: URL? = nil, dish: DishLetter? = nil, focus: PhotoDishBox? = nil
+    ) {
         self.id = id
         self.image = image
         self.url = url
         self.dish = dish
+        self.focus = focus
     }
 
     /// A photo on the server, named by its address — so the same photo is the same tile on every
@@ -148,9 +154,11 @@ struct AtePhotoContent: View {
         if let image = photo.image {
             image.resizable().aspectRatio(contentMode: contentMode)
         } else if let url = photo.url {
+            // A tile cropped onto one dish of a shared photo reads closer in: the larger copy.
             AteRemotePhoto(
-                url: url, size: size, contentMode: contentMode, failure: photo.dish,
-                onFailure: photo.dish == nil ? onFailure : nil
+                url: url, size: photo.focus == nil || contentMode == .fit ? size : .large, contentMode: contentMode,
+                failure: photo.dish, onFailure: photo.dish == nil ? onFailure : nil,
+                focus: contentMode == .fill ? photo.focus : nil
             )
         } else if let dish = photo.dish {
             DishLetterTile(dish: dish)

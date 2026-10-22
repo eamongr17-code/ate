@@ -106,7 +106,8 @@ private struct AtePhotoViewerHost: ViewModifier {
 /// Deliberately the system's own shape rather than the app's — this is the one place in Ate that is
 /// not paper. There is no chrome beyond the close button (design rule 1), no counter beyond the page
 /// dots a multi-photo entry already earns, and no editing of the photo itself. The one caption is
-/// an entry photo's dish (``AtePhotoDishPill``), which is the only place a photo is named.
+/// an entry photo's dish (``AtePhotoDishPill``), which is the only place a photo is named; a photo
+/// of several dishes names each over it on a tap (``AtePhotoDishNames``).
 struct AtePhotoViewer: View {
     let photos: [AtePhoto]
     /// Which one was tapped.
@@ -118,7 +119,13 @@ struct AtePhotoViewer: View {
     var onClose: () -> Void
 
     /// The pairs as they stand here: a fix shows at once, and goes back if the server refuses it.
-    @State private var paired: [String: UUID]
+    @State private var paired: [String: [PhotoDishTag]]
+    /// A tap on a photo of several dishes floats every one's name over it; another puts them away.
+    @State private var namesShown = false
+    /// The dish a dish page opened the photo on keeps its name up until the first tap (0083).
+    @State private var focusShown = true
+    /// Each page's picture size, once it has loaded: where the names land.
+    @State private var imageSizes: [Int: CGSize] = [:]
     @State private var isZoomed = false
     @State private var drag: CGFloat = 0
     @State private var isShowing = false
@@ -157,8 +164,15 @@ struct AtePhotoViewer: View {
                         isZoomed: position == index ? $isZoomed : .constant(false),
                         dragsToDismiss: dragsToDismiss,
                         onDrag: { drag = $0 },
-                        onDragEnd: finishDrag
+                        onDragEnd: finishDrag,
+                        onTap: { tapped(at: position) },
+                        onImageSize: { size in if imageSizes[position] != size { imageSizes[position] = size } }
                     )
+                    .overlay {
+                        if position == index, isZoomed == false, drag == 0 {
+                            dishNames(at: position)
+                        }
+                    }
                     .tag(position)
                     .accessibilityLabel("Photo \(position + 1) of \(photos.count)")
                     .accessibilityAddTraits(.isImage)
@@ -201,7 +215,10 @@ struct AtePhotoViewer: View {
             }
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { isShowing = true }
         }
-        .onChange(of: index) { _, index in onIndex(index) }
+        .onChange(of: index) { _, index in
+            namesShown = false
+            onIndex(index)
+        }
         .task { await loadPairs() }
     }
 
@@ -214,16 +231,70 @@ struct AtePhotoViewer: View {
         paired = read
     }
 
-    /// The dish the photo now showing is. On your own entry a pill that is a menu to fix it; on
-    /// anybody else's a caption, with who and where, so it never reads as a button (15 Oct, B).
+    /// The dishes the photo at `position` shows, in receipt order.
+    private func dishesHere(_ position: Int) -> [AtePhotoDishPill.Dish] {
+        guard let dishes, photos.indices.contains(position), let url = photos[position].url?.absoluteString
+        else { return [] }
+        return dishes.dishes(in: url, paired: paired)
+    }
+
+    /// The placed dishes of a photo that shows several (0083): only those can be named over it.
+    private func placedNames(_ position: Int) -> [AtePhotoDishNames.Name] {
+        guard let url = photos[position].url?.absoluteString else { return [] }
+        let here = dishesHere(position)
+        guard here.count > 1 else { return [] }
+        let tags = paired[url] ?? []
+        return here.compactMap { dish in
+            guard let box = tags.first(where: { $0.reviewID == dish.id })?.box else { return nil }
+            return AtePhotoDishNames.Name(id: dish.id, name: dish.name, box: box)
+        }
+    }
+
+    /// The names floating over the photo now: all after a tap; before one, the dish a dish page
+    /// opened it on.
+    @ViewBuilder
+    private func dishNames(at position: Int) -> some View {
+        let placed = placedNames(position)
+        let shown = namesShown ? placed : (focusShown ? placed.filter { $0.id == dishes?.focus } : [])
+        if shown.isEmpty == false, let size = imageSizes[position] {
+            AtePhotoDishNames(names: shown, imageSize: size)
+        }
+    }
+
+    /// Tap: the names come up, or go away. A photo with nothing placed in it ignores the tap.
+    private func tapped(at position: Int) {
+        let placed = placedNames(position)
+        guard placed.isEmpty == false else { return }
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
+            if namesShown {
+                namesShown = false
+                focusShown = false
+            } else {
+                namesShown = true
+            }
+        }
+        if namesShown {
+            AteTelemetry.record(BrowseEvents.photoDishNamesShown(dishCount: placed.count, own: dishes?.onPick != nil))
+        }
+    }
+
+    /// The dishes the photo now showing is. On your own entry a pill that is a menu to fix them; on
+    /// anybody else's a caption, with who and where, so it never reads as a button (15 Oct, B). A
+    /// photo of several names them all, or the one a dish page opened it on (0083).
     @ViewBuilder private var dishName: some View {
         if let dishes, photos.indices.contains(index), let url = photos[index].url?.absoluteString {
-            let current = paired[url].flatMap { id in dishes.choices.first { $0.id == id } }
+            let here = dishesHere(index)
             if dishes.onPick == nil {
-                if let current { AtePhotoDishCaption(dish: current.name, byline: dishes.bylines[url] ?? dishes.byline) }
+                let focused = here.filter { $0.id == dishes.focus }
+                let named = focused.isEmpty ? here : focused
+                if named.isEmpty == false {
+                    AtePhotoDishCaption(
+                        dish: named.map(\.name).joined(separator: " · "), byline: dishes.bylines[url] ?? dishes.byline
+                    )
+                }
             } else {
-                AtePhotoDishPill(dish: current, choices: dishes.choices, onPick: dishes.onPick.map { pick in
-                    { (choice: AtePhotoDishPill.Dish?) in choose(choice, for: url, with: pick) }
+                AtePhotoDishPill(dishes: here, choices: dishes.choices, onPick: dishes.onPick.map { pick in
+                    { (ticked: [AtePhotoDishPill.Dish]) in choose(ticked, for: url, with: pick) }
                 })
                 .padding(.horizontal, AteMetrics.gutter)
                 .padding(.bottom, AtePhotoDishPillMetrics.bottom)
@@ -231,19 +302,20 @@ struct AtePhotoViewer: View {
         }
     }
 
-    /// One photo, one dish; a dish may keep several photos, as the server does (0081).
+    /// The photo is exactly these dishes; a dish that stays keeps where it sits (0083).
     private func choose(
-        _ choice: AtePhotoDishPill.Dish?, for url: String,
-        with pick: @escaping @MainActor @Sendable (String, UUID?) async -> Bool
+        _ ticked: [AtePhotoDishPill.Dish], for url: String,
+        with pick: @escaping @MainActor @Sendable (String, [UUID]) async -> Bool
     ) {
-        guard paired[url] != choice?.id else { return }
+        let ids = ticked.map(\.id)
+        let kept = paired[url] ?? []
+        guard kept.map(\.reviewID) != ids else { return }
         let before = paired
-        var next = paired.filter { $0.key != url }
-        if let choice { next[url] = choice.id }
-        paired = next
+        let next = ids.map { id in kept.first { $0.reviewID == id } ?? PhotoDishTag(reviewID: id) }
+        paired[url] = next.isEmpty ? nil : next
         AteHaptics.key()
         Task {
-            if await pick(url, choice?.id) == false { paired = before }
+            if await pick(url, ids) == false { paired = before }
         }
     }
 
@@ -272,199 +344,6 @@ struct AtePhotoViewer: View {
         } completion: {
             onClose()
         }
-    }
-}
-
-// MARK: - One page
-
-/// One photo that pinches, double-taps and pans like Photos — a `UIScrollView`, because SwiftUI has
-/// no zooming scroll view of its own (the one control that forces UIKit here). It also owns the
-/// drag-down, so it can refuse it while the photo is zoomed and win it from the pager when it is not.
-private struct ZoomablePhoto: UIViewRepresentable {
-    let photo: AtePhoto
-    @Binding var isZoomed: Bool
-    var dragsToDismiss = true
-    let onDrag: (CGFloat) -> Void
-    let onDragEnd: (CGFloat, CGFloat) -> Void
-
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    func makeUIView(context: Context) -> ZoomingScrollView {
-        let view = ZoomingScrollView()
-        view.delegate = context.coordinator
-        context.coordinator.scrollView = view
-        let doubleTap = UITapGestureRecognizer(
-            target: context.coordinator, action: #selector(Coordinator.doubleTapped(_:))
-        )
-        doubleTap.numberOfTapsRequired = 2
-        view.addGestureRecognizer(doubleTap)
-        let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.panned(_:)))
-        pan.delegate = context.coordinator
-        view.addGestureRecognizer(pan)
-        return view
-    }
-
-    func updateUIView(_ view: ZoomingScrollView, context: Context) {
-        let coordinator = context.coordinator
-        coordinator.onZoom = { zoomed in
-            if isZoomed != zoomed { isZoomed = zoomed }
-        }
-        coordinator.onDrag = onDrag
-        coordinator.onDragEnd = onDragEnd
-        coordinator.dragsToDismiss = dragsToDismiss
-        coordinator.show(photo)
-    }
-
-    static func dismantleUIView(_ view: ZoomingScrollView, coordinator: Coordinator) {
-        coordinator.loading?.cancel()
-    }
-
-    @MainActor
-    final class Coordinator: NSObject, UIScrollViewDelegate, UIGestureRecognizerDelegate {
-        weak var scrollView: ZoomingScrollView?
-        var onZoom: (Bool) -> Void = { _ in }
-        var onDrag: (CGFloat) -> Void = { _ in }
-        var onDragEnd: (CGFloat, CGFloat) -> Void = { _, _ in }
-        var dragsToDismiss = true
-        var loading: Task<Void, Never>?
-        private var shownID: AtePhoto.ID?
-
-        func show(_ photo: AtePhoto) {
-            guard photo.id != shownID, let scrollView else { return }
-            guard let url = photo.url else {
-                // A photo held in memory, with no address: the composer's staged picks, and the
-                // share screen's fetched copies. Without this the viewer opened black (build 116).
-                guard let image = photo.image else { return }
-                shownID = photo.id
-                loading?.cancel()
-                let renderer = ImageRenderer(content: image)
-                renderer.scale = 1
-                scrollView.image = renderer.uiImage
-                return
-            }
-            shownID = photo.id
-            loading?.cancel()
-            if let standIn = AteImagePipeline.shared.bestCached(url, size: .full) {
-                scrollView.image = standIn.image
-                if standIn.isFinal { return }
-            }
-            loading = Task { [weak scrollView] in
-                let image = await AteImagePipeline.shared.image(url, size: .full)
-                guard Task.isCancelled == false, let image else { return }
-                scrollView?.image = image
-            }
-        }
-
-        func viewForZooming(in scrollView: UIScrollView) -> UIView? {
-            (scrollView as? ZoomingScrollView)?.imageView
-        }
-
-        func scrollViewDidZoom(_ scrollView: UIScrollView) {
-            (scrollView as? ZoomingScrollView)?.centreImage()
-            onZoom(scrollView.zoomScale > scrollView.minimumZoomScale + 0.01)
-        }
-
-        @objc func doubleTapped(_ recognizer: UITapGestureRecognizer) {
-            guard let scrollView else { return }
-            if scrollView.zoomScale > scrollView.minimumZoomScale + 0.01 {
-                scrollView.setZoomScale(scrollView.minimumZoomScale, animated: true)
-            } else {
-                let point = recognizer.location(in: scrollView.imageView)
-                let scale = min(scrollView.maximumZoomScale, 2.5)
-                let size = CGSize(width: scrollView.bounds.width / scale, height: scrollView.bounds.height / scale)
-                scrollView.zoom(
-                    to: CGRect(x: point.x - size.width / 2, y: point.y - size.height / 2,
-                               width: size.width, height: size.height),
-                    animated: true
-                )
-            }
-        }
-
-        @objc func panned(_ recognizer: UIPanGestureRecognizer) {
-            let translation = recognizer.translation(in: recognizer.view).y
-            switch recognizer.state {
-            case .changed:
-                onDrag(translation)
-            case .ended, .cancelled, .failed:
-                onDragEnd(translation, recognizer.velocity(in: recognizer.view).y)
-            default:
-                break
-            }
-        }
-
-        /// The drag-down is only a drag-down: vertical, and only while the photo is at rest.
-        func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
-            guard let pan = recognizer as? UIPanGestureRecognizer, pan.view === scrollView,
-                  pan !== scrollView?.panGestureRecognizer else { return true }
-            guard dragsToDismiss, let scrollView,
-                  scrollView.zoomScale <= scrollView.minimumZoomScale + 0.01 else { return false }
-            let velocity = pan.velocity(in: scrollView)
-            return abs(velocity.y) > abs(velocity.x) * 1.2
-        }
-
-        /// The pager waits for the drag-down to fail, so a vertical swipe dismisses rather than
-        /// being swallowed by the horizontal paging.
-        func gestureRecognizer(
-            _ recognizer: UIGestureRecognizer,
-            shouldBeRequiredToFailBy other: UIGestureRecognizer
-        ) -> Bool {
-            guard recognizer.view === scrollView, recognizer is UIPanGestureRecognizer,
-                  recognizer !== scrollView?.panGestureRecognizer else { return false }
-            return other.view is UIScrollView && other.view !== scrollView
-        }
-    }
-}
-
-/// The scroll view one photo zooms in: the image fitted to the page at rest, centred as it zooms.
-final class ZoomingScrollView: UIScrollView {
-    let imageView = UIImageView()
-
-    var image: UIImage? {
-        get { imageView.image }
-        set {
-            imageView.image = newValue
-            setNeedsLayout()
-        }
-    }
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .clear
-        showsHorizontalScrollIndicator = false
-        showsVerticalScrollIndicator = false
-        contentInsetAdjustmentBehavior = .never
-        decelerationRate = .fast
-        minimumZoomScale = 1
-        maximumZoomScale = 4
-        bouncesZoom = true
-        imageView.contentMode = .scaleAspectFit
-        imageView.clipsToBounds = true
-        addSubview(imageView)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        guard zoomScale <= minimumZoomScale + 0.001 else { return }
-        imageView.frame = fittedFrame()
-        contentSize = imageView.frame.size
-        centreImage()
-    }
-
-    /// The photo's own aspect, fitted to the page — so zooming magnifies the photo, not black bars.
-    private func fittedFrame() -> CGRect {
-        guard let size = imageView.image?.size, size.width > 0, size.height > 0,
-              bounds.width > 0, bounds.height > 0 else { return CGRect(origin: .zero, size: bounds.size) }
-        let scale = min(bounds.width / size.width, bounds.height / size.height)
-        return CGRect(x: 0, y: 0, width: size.width * scale, height: size.height * scale)
-    }
-
-    func centreImage() {
-        let horizontal = max(0, (bounds.width - contentSize.width) / 2)
-        let vertical = max(0, (bounds.height - contentSize.height) / 2)
-        contentInset = UIEdgeInsets(top: vertical, left: horizontal, bottom: vertical, right: horizontal)
     }
 }
 

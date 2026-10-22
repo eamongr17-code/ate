@@ -1,11 +1,11 @@
 // supabase/functions/match-photos/match_test.ts
 //
 // The model only proposes: these pin what is offered (never a picked line or its photo), the
-// gate on the answer (real indices, one line per photo), and inertness without a key.
+// gate on the answer (real indices, one pairing per photo and dish, boxes), and inertness without a key.
 
 import { test, assert, assertEquals } from '../sort-entry/harness.ts';
 import {
-  askModel, buildRequest, loadImages, matchesFromResponse, MAX_IMAGE_BYTES, MAX_PHOTOS, ownPhotoReadUrl, plan, thumbnailUrl,
+  askModel, boxFrom, buildRequest, loadImages, matchesFromResponse, MAX_DISHES_PER_PHOTO, MAX_IMAGE_BYTES, MAX_PHOTOS, ownPhotoReadUrl, plan, thumbnailUrl,
   type Line, type Photo,
 } from './match.ts';
 
@@ -69,13 +69,14 @@ test('buildRequest: labelled URL images, numbered dishes with notes, forced tool
   assert(content[4].text.includes('2. Tiramisu\n'));
 });
 
-test('matchesFromResponse: keeps real pairs, first claim on a photo wins, a dish takes several', () => {
+test('matchesFromResponse: keeps real pairs, one per photo and dish, a dish takes several, a photo several', () => {
   const photos = [photo(0), photo(1), photo(2)];
   const lines = [line('a', 'A'), line('b', 'B')];
   const got = matchesFromResponse(reply([
     { photo: 2, dish: 1 },
     { photo: 3, dish: 1 }, // a second photo of dish 1
-    { photo: 2, dish: 2 }, // photo 2 already taken
+    { photo: 2, dish: 2 }, // photo 2 shows dish 2 too (a shared plate)
+    { photo: 2, dish: 1 }, // the same pair again
     { photo: 9, dish: 2 }, // no photo 9
     { photo: 1, dish: 0 }, // no dish 0
     { photo: 1.5, dish: 2 },
@@ -84,8 +85,39 @@ test('matchesFromResponse: keeps real pairs, first claim on a photo wins, a dish
   assertEquals(got, [
     { review_id: 'a', photo_url: photo(1).url },
     { review_id: 'a', photo_url: photo(2).url },
+    { review_id: 'b', photo_url: photo(1).url },
     { review_id: 'b', photo_url: photo(0).url },
   ]);
+});
+
+test('matchesFromResponse: a box comes back as 0–1 fractions; a broken box is dropped, the pair kept', () => {
+  const photos = [photo(0)];
+  const lines = [line('a', 'Club Sandwich'), line('b', 'Fries'), line('c', 'Long Black'), line('d', 'Aioli')];
+  const got = matchesFromResponse(reply([
+    { photo: 1, dish: 1, box: [400, 550, 1000, 1000] },
+    { photo: 1, dish: 2, box: [-20, 580, 480, 1200] }, // clamped into the image
+    { photo: 1, dish: 3, box: [0, 0, 210] }, // three numbers
+    { photo: 1, dish: 4, box: [500, 500, 510, 900] }, // a sliver
+  ]), photos, lines);
+  assertEquals(got, [
+    { review_id: 'a', photo_url: photo(0).url, box: [0.4, 0.55, 1, 1] },
+    { review_id: 'b', photo_url: photo(0).url, box: [0, 0.58, 0.48, 1] },
+    { review_id: 'c', photo_url: photo(0).url },
+    { review_id: 'd', photo_url: photo(0).url },
+  ]);
+});
+
+test('boxFrom: right-to-left or upside-down is no box', () => {
+  assertEquals(boxFrom([600, 100, 200, 400]), undefined);
+  assertEquals(boxFrom([100, 600, 400, 200]), undefined);
+  assertEquals(boxFrom('0,0,1,1'), undefined);
+  assertEquals(boxFrom([0, 0, 1000, 1000]), [0, 0, 1, 1]);
+});
+
+test('matchesFromResponse: at most MAX_DISHES_PER_PHOTO dishes on one photo', () => {
+  const lines = Array.from({ length: MAX_DISHES_PER_PHOTO + 2 }, (_, i) => line(`l${i}`, `Dish ${i}`));
+  const got = matchesFromResponse(reply(lines.map((_, i) => ({ photo: 1, dish: i + 1 }))), [photo(0)], lines);
+  assertEquals(got?.length, MAX_DISHES_PER_PHOTO);
 });
 
 test('matchesFromResponse: no tool call → null; empty pairs → no matches', () => {

@@ -207,6 +207,14 @@ public protocol EntryService: Sendable {
     /// Which dish each photo is: photo URL → review id (0081). Several photos may name one dish;
     /// photos no dish holds are absent.
     func photoDishes(entryID: UUID) async throws -> [String: UUID]
+
+    /// Every dish in each photo, with where it sits when the matcher placed it (0083): photo URL →
+    /// its dishes. Photos no dish holds are absent.
+    func photoDishTags(entryID: UUID) async throws -> [String: [PhotoDishTag]]
+
+    /// The author's own pairing of one photo with several dishes (`set_photo_dishes`, 0083): exactly
+    /// these lines, or none (No dish). Matching never overrides it, and it outlives a re-sort.
+    func setPhotoDishes(entryID: UUID, photoURL: String, reviewIDs: [UUID]) async throws
 }
 
 public extension EntryService {
@@ -266,6 +274,17 @@ public extension EntryService {
     }
 
     func photoDishes(entryID: UUID) async throws -> [String: UUID] { [:] }
+
+    /// One dish per photo, nowhere placed: a service that only knows the pairs.
+    func photoDishTags(entryID: UUID) async throws -> [String: [PhotoDishTag]] {
+        try await photoDishes(entryID: entryID).mapValues { [PhotoDishTag(reviewID: $0)] }
+    }
+
+    /// One dish or none goes through the single pick; several need a service that holds them.
+    func setPhotoDishes(entryID: UUID, photoURL: String, reviewIDs: [UUID]) async throws {
+        guard reviewIDs.count <= 1 else { throw EntryWriteFailure.rejected("setPhotoDishes is not supported here") }
+        try await setReviewPhoto(entryID: entryID, photoURL: photoURL, reviewID: reviewIDs.first)
+    }
 
     /// The handle alone, when that is all a caller needs.
     func currentHandle() async -> String? {

@@ -51,7 +51,16 @@ public enum BrowseEvents {
         AnalyticsEvent(name: "photo_preview_opened", parameters: ["photo_count": String(photoCount)])
     }
 
-    /// The entry page drew from the card it was opened with, before its own read answered.
+    /// A photo of several dishes was tapped and their names floated over them (0083). `dish_count`
+    /// is how many names showed; `own` whether it was the viewer's own entry.
+    public static func photoDishNamesShown(dishCount: Int, own: Bool) -> AnalyticsEvent {
+        AnalyticsEvent(
+            name: "photo_dish_names_shown",
+            parameters: ["dish_count": String(dishCount), "own": own ? "true" : "false"]
+        )
+    }
+
+        /// The entry page drew from the card it was opened with, before its own read answered.
     /// `seeded=false` is an entry opened by id alone (a dish page's review), which drew skeletons.
     public static func entryOpened(seeded: Bool) -> AnalyticsEvent {
         AnalyticsEvent(name: "entry_opened", parameters: ["seeded": seeded ? "true" : "false"])

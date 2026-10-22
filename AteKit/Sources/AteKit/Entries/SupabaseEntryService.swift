@@ -269,13 +269,29 @@ public struct SupabaseEntryService: EntryService {
     }
 
     public func photoDishes(entryID: UUID) async throws -> [String: UUID] {
+        try await photoDishTags(entryID: entryID).mapValues { $0[0].reviewID }
+    }
+
+    /// One read per entry (PK entry_id, photo_url, review_id): at most five photos × its lines.
+    public func photoDishTags(entryID: UUID) async throws -> [String: [PhotoDishTag]] {
         let data = try await api.supabase
             .from("photo_dishes")
-            .select("photo_url, review_id")
+            .select("photo_url, review_id, box_left, box_top, box_right, box_bottom")
             .eq("entry_id", value: entryID.uuidString.lowercased())
+            .order("created_at")
+            .order("review_id")
             .execute()
             .data
-        return try PhotoDishRow.map(from: data)
+        return try PhotoDishRow.tags(from: data)
+    }
+
+    public func setPhotoDishes(entryID: UUID, photoURL: String, reviewIDs: [UUID]) async throws {
+        let parameters: [String: AnyJSON] = [
+            "p_entry_id": .string(entryID.uuidString.lowercased()),
+            "p_photo_url": .string(photoURL),
+            "p_review_ids": .array(reviewIDs.map { .string($0.uuidString.lowercased()) })
+        ]
+        _ = try await api.supabase.rpc("set_photo_dishes", params: parameters).execute()
     }
 
     // MARK: - Delete

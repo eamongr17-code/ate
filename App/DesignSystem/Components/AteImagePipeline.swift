@@ -339,6 +339,8 @@ struct AteRemotePhoto: View {
     /// Told once the photo will not load and there is nothing to show for it — a cluster drops the
     /// tile rather than leave an empty square on the strip.
     var onFailure: (() -> Void)?
+    /// Crop onto this part of the picture rather than its middle (a dish in a shared photo, 0083).
+    var focus: PhotoDishBox?
 
     @State private var shown: Shown?
     @State private var didFail = false
@@ -357,9 +359,11 @@ struct AteRemotePhoto: View {
         contentMode: ContentMode = .fill,
         placeholder: Color? = nil,
         failure: DishLetter? = nil,
-        onFailure: (() -> Void)? = nil
+        onFailure: (() -> Void)? = nil,
+        focus: PhotoDishBox? = nil
     ) {
         self.url = url
+        self.focus = focus
         self.size = size
         self.contentMode = contentMode
         self.placeholder = placeholder
@@ -379,13 +383,32 @@ struct AteRemotePhoto: View {
                     .ateSkeletonSweep(current == nil)
             }
             if let current {
-                Image(uiImage: current.image)
-                    .resizable()
-                    .aspectRatio(contentMode: contentMode)
-                    .transition(.opacity)
+                if let focus {
+                    focused(current.image, on: focus)
+                        .transition(.opacity)
+                } else {
+                    Image(uiImage: current.image)
+                        .resizable()
+                        .aspectRatio(contentMode: contentMode)
+                        .transition(.opacity)
+                }
             }
         }
         .task(id: TaskKey(url: url, size: size)) { await load() }
+    }
+
+    /// The picture scaled and slid so `focus` fills the frame (``PhotoDishBox/crop(imageSize:aspect:)``).
+    private func focused(_ image: UIImage, on focus: PhotoDishBox) -> some View {
+        GeometryReader { proxy in
+            let frame = proxy.size
+            let crop = focus.crop(imageSize: image.size, aspect: frame.height > 0 ? frame.width / frame.height : 1)
+            let scale = crop.width > 0 ? frame.width / crop.width : 1
+            Image(uiImage: image)
+                .resizable()
+                .frame(width: image.size.width * scale, height: image.size.height * scale)
+                .offset(x: -crop.minX * scale, y: -crop.minY * scale)
+        }
+        .clipped()
     }
 
     /// Only ever the picture for *this* address: a recycled view must not show the last one's.

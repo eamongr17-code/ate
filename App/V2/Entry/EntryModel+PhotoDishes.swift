@@ -10,14 +10,14 @@ extension EntryModel {
         let choices = card.items.sorted { $0.position < $1.position }
             .map { AtePhotoDishPill.Dish(id: $0.reviewID, name: $0.dishName) }
         let entryID = card.id
-        var onPick: (@MainActor @Sendable (String, UUID?) async -> Bool)?
+        var onPick: (@MainActor @Sendable (String, [UUID]) async -> Bool)?
         if card.isMine {
-            onPick = { @MainActor [weak self] (url: String, reviewID: UUID?) async -> Bool in
+            onPick = { @MainActor [weak self] (url: String, reviewIDs: [UUID]) async -> Bool in
                 guard let self else { return false }
-                return await self.pairPhoto(entryID: entryID, url: url, reviewID: reviewID)
+                return await self.pairPhoto(entryID: entryID, url: url, reviewIDs: reviewIDs)
             }
         }
-        let load: @MainActor @Sendable () async -> [String: UUID] = { @MainActor [weak self] in
+        let load: @MainActor @Sendable () async -> [String: [PhotoDishTag]] = { @MainActor [weak self] in
             guard let self else { return [:] }
             await self.pairPhotosIfNeverPaired()
             await self.refreshPhotoDishes()
@@ -28,11 +28,13 @@ extension EntryModel {
     }
 
     /// An entry, sorted, with photos and not one of them paired: it was posted before matching
-    /// existed, or its match failed (14 Oct: photos still had no dish). Ask once, whoever's it is;
-    /// the server does nothing for an entry it has already matched.
+    /// existed, or its match failed (14 Oct: photos still had no dish). Or several dishes and none
+    /// placed: matched before a photo could hold several (0083). Ask once, whoever's it is; the
+    /// server does nothing for an entry it has already matched (and placed).
     func pairPhotosIfNeverPaired() async {
         guard hasAskedToPairPhotos == false, let card,
-              card.photos.isEmpty == false, card.items.isEmpty == false, photoDishes.isEmpty
+              card.photos.isEmpty == false, card.items.isEmpty == false,
+              photoDishes.isEmpty || (card.items.count > 1 && PhotoDishTag.wantsMatch(photoDishes))
         else { return }
         hasAskedToPairPhotos = true
         await services.entries.matchPhotosIfNeverMatched(entryID: card.id)
@@ -44,21 +46,21 @@ extension EntryModel {
             photoDishes = [:]
             return
         }
-        if let read = try? await services.entries.photoDishes(entryID: card.id) { photoDishes = read }
+        if let read = try? await services.entries.photoDishTags(entryID: card.id) { photoDishes = read }
     }
 
-    /// `set_review_photo`: this photo is this dish, or no dish. Matching never overrides it, and it
-    /// outlives a re-sort (0064).
-    private func pairPhoto(entryID: UUID, url: String, reviewID: UUID?) async -> Bool {
+    /// `set_photo_dishes`: this photo is these dishes, or none. Matching never overrides it, and it
+    /// outlives a re-sort (0064/0083). A dish that stays keeps where it sits.
+    private func pairPhoto(entryID: UUID, url: String, reviewIDs: [UUID]) async -> Bool {
         do {
-            try await services.entries.setReviewPhoto(entryID: entryID, photoURL: url, reviewID: reviewID)
+            try await services.entries.setPhotoDishes(entryID: entryID, photoURL: url, reviewIDs: reviewIDs)
         } catch {
             return false
         }
         services.analytics(EntryEvents.corrected(.photo))
-        var next = photoDishes.filter { $0.key != url }
-        if let reviewID { next[url] = reviewID }
-        photoDishes = next
+        let kept = photoDishes[url] ?? []
+        let next = reviewIDs.map { id in kept.first { $0.reviewID == id } ?? PhotoDishTag(reviewID: id) }
+        photoDishes[url] = next.isEmpty ? nil : next
         return true
     }
 }
