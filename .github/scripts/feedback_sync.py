@@ -150,8 +150,14 @@ def quote(body):
 
 
 def sync_app(db, repo, env_labels):
-    rows = db.rest("GET", f"feedback?status=eq.new&source=eq.app&order=created_at.asc&limit={BATCH}"
-                          "&select=id,user_id,body,screenshots,build,device,os_version,screens,fingerprint,created_at")
+    try:
+        rows = db.rest("GET", f"feedback?status=eq.new&source=eq.app&order=created_at.asc&limit={BATCH}"
+                              "&select=id,user_id,body,screenshots,build,device,os_version,screens,fingerprint,created_at")
+    except HTTPFail as e:
+        if e.code == 404:  # 0082 not applied to this database yet
+            print("::notice::feedback table not there yet (Prod apply pending)")
+            return None
+        raise
     if not rows:
         print("app: nothing new")
         return 0
@@ -295,6 +301,8 @@ def main():
     repo = Repo(os.environ["FEEDBACK_REPO"], os.environ["FEEDBACK_GITHUB_TOKEN"])
     repo.ensure_labels(LABELS)
     n = sync_app(db, repo, env_labels)
+    if n is None:
+        return
     if not env_labels:  # TestFlight feedback is prod's: Beta builds point at prod
         n += sync_testflight(db, repo, env_labels)
     print(f"filed {n}")

@@ -71,6 +71,9 @@ struct AteServices {
     let lists: any ListsServing
     /// Searching your own journal (`search_my_entries`, 0060).
     let journalSearch: any JournalSearching
+    /// Tester reports from the Journal's bug (`feedback.html`, 0082), kept on disk through a dropped
+    /// connection and worked with the outbox. A preview drive sends nowhere.
+    let feedback: FeedbackOutbox
     /// The phone's own preferences — the appearance, and who still owes a handle. One object for
     /// the whole app, so the root that paints the appearance and the page that changes it agree.
     let preferences: AtePreferences
@@ -128,6 +131,11 @@ struct AteServices {
         self.pushTokens = preview?.pushTokens ?? notificationsClient
         self.lists = preview?.lists ?? ListsClient(api: api)
         self.journalSearch = preview?.journalSearch ?? JournalSearchClient(api: api)
+        self.feedback = FeedbackOutbox(
+            service: preview == nil ? FeedbackClient(api: api) as any FeedbackServing : DiscardedFeedback(),
+            directory: preview == nil ? FeedbackOutbox.defaultDirectory()
+                : FileManager.default.temporaryDirectory.appendingPathComponent("feedback-preview")
+        )
         self.preferences = AtePreferences.standard
         self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record, owner: owner)
         if api.isSignedIn || preview != nil { drafts.adoptUnownedDraft() }
@@ -218,4 +226,9 @@ struct AteServices {
         nil
         #endif
     }
+}
+
+/// The preview drive's feedback: accepted, and sent nowhere.
+private struct DiscardedFeedback: FeedbackServing {
+    func send(_ report: FeedbackReport) async throws {}
 }

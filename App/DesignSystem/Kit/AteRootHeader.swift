@@ -200,6 +200,24 @@ extension View {
         isCollapsed: Bool = false,
         @ViewBuilder controls: () -> Controls
     ) -> some View {
+        ateRootToolbar(
+            title: title, subtitle: subtitle, inline: inline, isCollapsed: isCollapsed,
+            showsApart: false, apart: { EmptyView() }, controls: controls
+        )
+    }
+
+    /// The same header with one control **apart**: its own glass disc before the group, split off by
+    /// a fixed spacer — the Journal's bug (`feedback.html` A), which is not a Journal control.
+    func ateRootToolbar<Apart: View, Controls: View>(
+        title: AteRootHeaderTitle,
+        subtitle: String? = nil,
+        inline: AteInlineTitle? = nil,
+        isCollapsed: Bool = false,
+        showsApart: Bool,
+        @ViewBuilder apart: () -> Apart,
+        @ViewBuilder controls: () -> Controls
+    ) -> some View {
+        let apart = apart()
         let controls = controls()
         let showsInline = isCollapsed && inline != nil
         return toolbar {
@@ -224,6 +242,10 @@ extension View {
                 .animation(AteRootHeaderMetrics.collapse, value: showsInline)
             }
             .sharedBackgroundVisibility(.hidden)
+            if showsApart {
+                ToolbarItem(placement: .topBarTrailing) { apart }
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 controls
             }
