@@ -110,7 +110,7 @@ struct AteServices {
         self.stats = preview?.stats ?? StatsClient(api: api)
         self.placePages = preview?.placePages ?? PlacePageClient(api: api)
         self.dishPages = preview?.dishPages ?? DishPageClient(api: api)
-        self.dishExplore = preview?.dishExplore ?? DishExploreClient(api: api)
+        self.dishExplore = preview?.dishExplore ?? DishExploreClient(api: api) { await AteLastFix.point() }
         self.search = preview?.search ?? SearchClient(api: api)
         self.account = preview?.account ?? AccountClient(api: api)
         let companions = preview?.companions ?? SupabaseCompanionTagging(api: api)
