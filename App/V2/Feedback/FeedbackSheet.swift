@@ -1,5 +1,4 @@
 import AteKit
-import Photos
 import PhotosUI
 import SwiftUI
 
@@ -15,18 +14,18 @@ extension Route {
     }
 }
 
-/// **Feedback** (`design/rebuild/feedback.html` C–E) — the Journal's bug, for testers. Close top left,
-/// the send arrow top right, the title, the words. Under them today's screenshots, newest first: tap
-/// one to attach it; the + opens the picker on Screenshots. Three at most. The build and device go
-/// with it, in fine print so the tester can see them. Sent, the sheet drops with a success haptic;
-/// offline, the report waits in the outbox and sends itself.
+/// **Report a bug** (`design/rebuild/feedback.html` C–E; retitled, a how-to line added and today's
+/// screenshots dropped on Eamon's ask, 22 Oct) — the Journal's bug, for testers. Close top left,
+/// the send arrow top right, the title, the words. Under them the photos the tester added (tap one to
+/// take it off) and the + that opens the picker. Three at most. The build and device go with it, in
+/// fine print so the tester can see them. Sent, the sheet drops with a success haptic; offline, the
+/// report waits in the outbox and sends itself. Fitted to its content, so the keyboard lifts the whole
+/// sheet and never pushes the corner row off the top.
 struct FeedbackSheet: View {
     let app: AppModel
 
     @State private var words = ""
-    @State private var today: [FeedbackShot] = []
-    @State private var picked: [FeedbackShot] = []
-    @State private var attached: [String] = []
+    @State private var shots: [FeedbackShot] = []
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var isSending = false
     @State private var refusal: String?
@@ -34,28 +33,26 @@ struct FeedbackSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.atePalette) private var palette
 
-    private var shots: [FeedbackShot] { picked + today }
     private var canSend: Bool { FeedbackRules.canSend(words) && isSending == false }
 
     var body: some View {
         AteSheetScaffold(
-            title: "Feedback",
+            title: "Report a bug",
             primary: AteSheetPrimary(
                 icon: .arrowUp, label: "Send", isEnabled: canSend, isBusy: isSending, action: send
-            ),
-            detents: [.large]
+            )
         ) {
             VStack(alignment: .leading, spacing: FeedbackMetrics.gap) {
+                Text(Self.howTo)
+                    .ateText(.meta)
+                    .foregroundStyle(palette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
                 field
                 if let refusal {
                     Text(refusal)
                         .ateText(.meta)
                         .foregroundStyle(AteColor.coral)
                 }
-                Text("Screenshots from today")
-                    .ateText(.control)
-                    .foregroundStyle(palette.fg)
-                    .padding(.top, AteMetrics.tight)
                 tiles
                 Text(FeedbackDevice.summary)
                     .ateText(.scaleLabel)
@@ -66,7 +63,6 @@ struct FeedbackSheet: View {
             isFocused = true
             app.services.analytics(FeedbackEvents.opened())
         }
-        .task { await loadToday() }
         .onChange(of: pickerItems) { _, items in
             guard items.isEmpty == false else { return }
             Task { await take(items) }
@@ -100,12 +96,12 @@ struct FeedbackSheet: View {
         ScrollView(.horizontal) {
             HStack(spacing: FeedbackMetrics.tileGap) {
                 ForEach(shots) { shot in
-                    FeedbackTile(shot: shot, isOn: attached.contains(shot.id)) { toggle(shot) }
+                    FeedbackTile(shot: shot) { remove(shot) }
                 }
                 PhotosPicker(
                     selection: $pickerItems,
-                    maxSelectionCount: max(1, FeedbackRules.screenshotCap - attached.count),
-                    matching: .screenshots
+                    maxSelectionCount: max(1, FeedbackRules.screenshotCap - shots.count),
+                    matching: .images
                 ) {
                     AteIcon.compose.view(size: FeedbackMetrics.plusGlyph)
                         .foregroundStyle(palette.muted)
@@ -115,9 +111,9 @@ struct FeedbackSheet: View {
                                 .strokeBorder(palette.hairline, style: StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
                         }
                 }
-                .disabled(attached.count >= FeedbackRules.screenshotCap)
-                .accessibilityLabel("Add a screenshot")
-                .accessibilityIdentifier("feedback.addScreenshot")
+                .disabled(shots.count >= FeedbackRules.screenshotCap)
+                .accessibilityLabel("Add photos")
+                .accessibilityIdentifier("feedback.addPhotos")
             }
             .padding(FeedbackMetrics.ring)
         }
@@ -125,67 +121,22 @@ struct FeedbackSheet: View {
         .scrollClipDisabled()
     }
 
-    private func toggle(_ shot: FeedbackShot) {
-        if let index = attached.firstIndex(of: shot.id) {
-            attached.remove(at: index)
-            AteHaptics.tick()
-        } else if attached.count < FeedbackRules.screenshotCap {
-            attached.append(shot.id)
-            AteHaptics.tick()
-        } else {
-            AteHaptics.refused()
-        }
+    private func remove(_ shot: FeedbackShot) {
+        shots.removeAll { $0.id == shot.id }
+        AteHaptics.tick()
     }
 
-    // MARK: - Screenshots
-
-    /// Today's screenshots, if Ate already may read the library. Never asks.
-    private func loadToday() async {
-        guard app.services.isPreviewData == false, app.services.photos.isAuthorized else { return }
-        let options = PHFetchOptions()
-        options.predicate = NSPredicate(
-            format: "(mediaSubtypes & %d) != 0 AND creationDate >= %@",
-            PHAssetMediaSubtype.photoScreenshot.rawValue, Calendar.current.startOfDay(for: Date()) as NSDate
-        )
-        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        options.fetchLimit = FeedbackMetrics.todayLimit
-        let assets = PHAsset.fetchAssets(with: .image, options: options)
-        var ids: [String] = []
-        assets.enumerateObjects { asset, _, _ in ids.append(asset.localIdentifier) }
-        var loaded: [FeedbackShot] = []
-        for id in ids {
-            guard let thumbnail = await app.services.photos.thumbnail(id: id, side: FeedbackMetrics.tileHeight)
-            else { continue }
-            loaded.append(FeedbackShot(id: id, thumbnail: thumbnail, data: nil))
-        }
-        today = loaded
-    }
+    // MARK: - Photos
 
     /// From the picker: decoded, downscaled, attached straight away.
     private func take(_ items: [PhotosPickerItem]) async {
         pickerItems = []
-        for item in items where attached.count < FeedbackRules.screenshotCap {
+        for item in items where shots.count < FeedbackRules.screenshotCap {
             guard let data = try? await item.loadTransferable(type: Data.self),
-                  let jpeg = FeedbackImage.jpeg(from: data) else { continue }
-            let thumbnail = UIImage(data: jpeg).map { Image(uiImage: $0) } ?? Image(uiImage: UIImage())
-            let shot = FeedbackShot(id: "picked-\(UUID().uuidString)", thumbnail: thumbnail, data: jpeg)
-            picked.insert(shot, at: 0)
-            attached.append(shot.id)
+                  let jpeg = FeedbackImage.jpeg(from: data),
+                  let image = UIImage(data: jpeg) else { continue }
+            shots.append(FeedbackShot(id: UUID().uuidString, thumbnail: Image(uiImage: image), data: jpeg))
         }
-    }
-
-    private func jpegs() async -> [Data] {
-        var out: [Data] = []
-        for id in attached {
-            guard let shot = shots.first(where: { $0.id == id }) else { continue }
-            if let data = shot.data {
-                out.append(data)
-            } else if let image = await app.services.photos.image(id: id, maximumDimension: FeedbackImage.longest),
-                      let jpeg = image.jpegData(compressionQuality: FeedbackImage.quality) {
-                out.append(jpeg)
-            }
-        }
-        return out
     }
 
     // MARK: - Send
@@ -196,7 +147,7 @@ struct FeedbackSheet: View {
         isFocused = false
         Task {
             let report = FeedbackReport(
-                body: words, screenshots: await jpegs(), build: FeedbackDevice.build,
+                body: words, screenshots: shots.map(\.data), build: FeedbackDevice.build,
                 device: FeedbackDevice.model, osVersion: FeedbackDevice.os, screens: ScreenTrail.app.screens
             )
             do {
@@ -214,6 +165,10 @@ struct FeedbackSheet: View {
         }
     }
 
+    /// Eamon asked for it (22 Oct): testers should know what a useful report holds.
+    private static let howTo = "Tell us what you tapped, what you expected and what happened instead. "
+        + "A photo of the screen helps. Ideas are welcome too."
+
     private static func words(for error: FeedbackError) -> String {
         switch error {
         case .rateLimited: "That's ten in an hour. Try again later."
@@ -223,16 +178,15 @@ struct FeedbackSheet: View {
     }
 }
 
-/// One screenshot on offer: from today's library (loaded at send) or picked (already JPEG).
+/// One added photo, already JPEG.
 struct FeedbackShot: Identifiable {
     let id: String
     let thumbnail: Image
-    let data: Data?
+    let data: Data
 }
 
 private struct FeedbackTile: View {
     let shot: FeedbackShot
-    let isOn: Bool
     let action: () -> Void
 
     @Environment(\.atePalette) private var palette
@@ -246,29 +200,20 @@ private struct FeedbackTile: View {
                 .clipShape(.rect(cornerRadius: FeedbackMetrics.tileCorner))
                 .overlay {
                     RoundedRectangle(cornerRadius: FeedbackMetrics.tileCorner)
-                        .strokeBorder(
-                            isOn ? palette.solid : palette.hairline, lineWidth: isOn ? FeedbackMetrics.ring : 1
-                        )
+                        .strokeBorder(palette.hairline, lineWidth: 1)
                 }
-                .overlay(alignment: .bottomTrailing) { mark.padding(FeedbackMetrics.markInset) }
+                .overlay(alignment: .topTrailing) { mark.padding(FeedbackMetrics.markInset) }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Screenshot")
-        .accessibilityAddTraits(isOn ? .isSelected : [])
-        .accessibilityIdentifier("feedback.screenshot")
+        .accessibilityLabel("Remove photo")
+        .accessibilityIdentifier("feedback.photo")
     }
 
-    @ViewBuilder private var mark: some View {
-        if isOn {
-            AteIcon.check.view(size: FeedbackMetrics.checkGlyph)
-                .foregroundStyle(palette.inverted)
-                .frame(width: FeedbackMetrics.mark, height: FeedbackMetrics.mark)
-                .background(palette.solid, in: .circle)
-        } else {
-            Circle()
-                .strokeBorder(AteColor.paper, lineWidth: 2)
-                .frame(width: FeedbackMetrics.mark, height: FeedbackMetrics.mark)
-        }
+    private var mark: some View {
+        AteIcon.close.view(size: FeedbackMetrics.checkGlyph)
+            .foregroundStyle(palette.inverted)
+            .frame(width: FeedbackMetrics.mark, height: FeedbackMetrics.mark)
+            .background(palette.solid, in: .circle)
     }
 }
 
@@ -308,11 +253,11 @@ enum FeedbackImage {
 
 enum FeedbackMetrics {
     static let gap: CGFloat = 14
-    static let lines = 5
+    static let lines = 4
     static let fieldPadding: CGFloat = 14
     static let fieldCorner: CGFloat = 22
     static let tileWidth: CGFloat = 72
-    static let tileHeight: CGFloat = 156
+    static let tileHeight: CGFloat = 72
     static let tileCorner: CGFloat = 14
     static let tileGap: CGFloat = 10
     static let ring: CGFloat = 3
@@ -320,5 +265,4 @@ enum FeedbackMetrics {
     static let markInset: CGFloat = 6
     static let checkGlyph: CGFloat = 14
     static let plusGlyph: CGFloat = 22
-    static let todayLimit = 6
 }
