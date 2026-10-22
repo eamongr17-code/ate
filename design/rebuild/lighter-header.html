@@ -1,0 +1,196 @@
+<title>Lighter Journal Header</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Newsreader:opsz,wght@6..72,400&family=Young+Serif&family=DM+Mono:wght@500&display=swap">
+<style>
+/* Layout: three real-scale iPhones (393×852pt) side by side, each scrollable, page chrome kept quiet */
+:root{
+  --page:#F4F1EC; --page-fg:#24141F; --page-mut:#6E6470; --page-line:#DDD6CC; --accent:#E8775B;
+  --f-ui:"Bricolage Grotesque",system-ui,sans-serif; --f-dish:"Young Serif",Georgia,serif;
+  --f-note:"Newsreader",Georgia,serif; --f-mono:"DM Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#151416;--page-fg:#EEEAE4;--page-mut:#9C94A0;--page-line:#2C2A2E;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#151416;--page-fg:#EEEAE4;--page-mut:#9C94A0;--page-line:#2C2A2E;color-scheme:dark}
+body{background:var(--page);color:var(--page-fg);font-family:var(--f-ui);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+h1{font:700 28px/1.1 var(--f-ui);letter-spacing:-.02em;margin:0;text-wrap:balance}
+.lede{margin:0;color:var(--page-mut);font-size:15px;line-height:1.5;max-width:68ch}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.bar button{font:600 14px/1 var(--f-ui);padding:9px 14px;border-radius:999px;border:1px solid var(--page-line);background:transparent;color:var(--page-fg);cursor:pointer}
+.bar button[aria-pressed="true"]{background:var(--page-fg);color:var(--page);border-color:var(--page-fg)}
+.bar button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.opts{display:flex;flex-wrap:wrap;gap:28px;justify-content:center}
+.opt{display:flex;flex-direction:column;gap:12px;width:calc(415px*var(--z,1));min-width:0}
+.opt h2{font:700 18px/1.2 var(--f-ui);margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pick{font:500 11px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;background:var(--accent);color:#24141F;padding:5px 7px;border-radius:6px}
+.opt p{margin:0;min-height:6em;font-size:14px;line-height:1.45;color:var(--page-mut)}
+.opt p b{color:var(--page-fg);font-weight:600}
+.ctl{display:flex;gap:8px}
+.ctl button{flex:1;font:600 13px/1 var(--f-ui);padding:8px;border-radius:10px;border:1px solid var(--page-line);background:transparent;color:var(--page-fg);cursor:pointer}
+.note{font-size:13px;color:var(--page-mut);line-height:1.5;max-width:80ch;border-top:1px solid var(--page-line);padding-top:16px;margin:0}
+
+/* ---- the phone (pt = px) ---- */
+.phone{zoom:var(--z,1);width:393px;height:852px;border-radius:55px;position:relative;overflow:hidden;
+  box-shadow:0 0 0 10px #1a1a1c,0 0 0 11px #3a3a3e,0 24px 60px rgba(0,0,0,.25);margin:11px;
+  --ground:#EFEAE2;--slip:#fff;--fg:#24141F;--mut:rgba(36,20,31,.62);--glass:rgba(255,255,255,.58);--glass-line:rgba(255,255,255,.9);
+  --glass-shadow:0 2px 10px rgba(36,20,31,.10);--seg:rgba(36,20,31,.07);--seg-on:#fff;--pill:#F2D27A;--edge:rgba(239,234,226,.9)}
+.phone.dark{--ground:#0C0C0D;--slip:#1C1C1E;--fg:#F2F0EC;--mut:rgba(242,240,236,.58);--glass:rgba(44,44,48,.55);--glass-line:rgba(255,255,255,.14);
+  --glass-shadow:0 2px 12px rgba(0,0,0,.4);--seg:rgba(255,255,255,.08);--seg-on:rgba(255,255,255,.16);--edge:rgba(12,12,13,.88)}
+.screen{position:absolute;inset:0;background:var(--ground);color:var(--fg);font-family:var(--f-ui)}
+.scroll{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.scroll::-webkit-scrollbar{display:none}
+.status{position:absolute;top:0;left:0;right:0;height:54px;display:flex;justify-content:space-between;align-items:center;padding:6px 34px 0 46px;
+  font:600 17px/1 -apple-system,"SF Pro Text",system-ui,sans-serif;color:var(--fg);z-index:6;pointer-events:none}
+.status i{font-style:normal;font-size:13px;letter-spacing:.02em}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;background:#000;border-radius:20px;z-index:7}
+
+/* header row: title + glass */
+.head{position:absolute;left:0;right:0;top:54px;z-index:5;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .2s}
+.hrow{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px 0 20px}
+.head .seg{margin-top:6px}
+.head .t{font:600 19px/1 var(--f-ui);letter-spacing:-.01em}
+.glassrow{display:flex;gap:8px}
+.g{height:44px;min-width:44px;border-radius:22px;background:var(--glass);backdrop-filter:blur(14px) saturate(1.6);-webkit-backdrop-filter:blur(14px) saturate(1.6);
+  box-shadow:inset 0 0 0 .7px var(--glass-line),var(--glass-shadow);display:flex;align-items:center;justify-content:space-around;padding:0 6px}
+.g svg{width:22px;height:22px;stroke:var(--fg);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;margin:0 8px}
+.seg{display:flex;padding:3px;border-radius:999px;background:var(--glass);backdrop-filter:blur(14px) saturate(1.6);-webkit-backdrop-filter:blur(14px) saturate(1.6);box-shadow:inset 0 0 0 .7px var(--glass-line),var(--glass-shadow);height:36px;box-sizing:content-box;margin:0 16px}
+.seg span{flex:1;display:flex;align-items:center;justify-content:center;border-radius:999px;font:600 15px/1 var(--f-ui);color:var(--mut)}
+.seg span.on{background:var(--seg-on);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+
+/* the scroll-edge: blur under the bar, fading out (the system's soft edge) */
+.edge{position:absolute;left:0;right:0;top:0;z-index:4;pointer-events:none;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  background:linear-gradient(var(--edge),transparent);transition:height .28s cubic-bezier(.2,.8,.2,1),opacity .2s;opacity:0}
+.edge{-webkit-mask-image:linear-gradient(#000 70%,transparent);mask-image:linear-gradient(#000 70%,transparent)}
+.solid{position:absolute;left:0;right:0;top:0;background:var(--ground);z-index:4;transition:height .22s ease}
+.pinned{position:absolute;left:0;right:0;z-index:5;padding:8px 0;background:var(--ground);transition:transform .22s ease,opacity .18s}
+
+/* slips */
+.list{display:flex;flex-direction:column;gap:16px;padding:0 10px 140px}
+.slip{background:var(--slip);border-radius:22px 22px 0 0;padding:22px 20px 26px;position:relative;
+  -webkit-mask:radial-gradient(circle 5px at 50% 100%,transparent 98%,#000) bottom/12px 100% repeat-x;}
+.slip .who{display:flex;align-items:center;gap:10px;font:600 15px/1 var(--f-ui);margin-bottom:16px}
+.slip .who b{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#d9a487,#8a5a48)}
+.slip .who em{margin-left:auto;font-style:normal;color:var(--mut);font-weight:400}
+.dish{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.dish h3{margin:0;font:400 25px/1.1 var(--f-dish);letter-spacing:-.01em;text-wrap:balance}
+.dish .sc{font:700 25px/1 var(--f-ui);white-space:nowrap}
+.dish .sc::before{content:"★ ";font-size:18px;vertical-align:2px}
+.slip .n{font:400 18px/1.55 var(--f-note);margin:14px 0 0}
+.chip{display:inline-block;background:var(--pill);color:#24141F;border-radius:999px;font:500 13px/1 var(--f-mono);padding:4px 8px;vertical-align:2px}
+.ph{width:92px;height:92px;border-radius:22px;margin-top:16px}
+.where{white-space:nowrap;overflow:hidden;display:flex;gap:8px;align-items:baseline;margin-top:16px;font:600 15px/1.2 var(--f-ui)}
+.where span{overflow:hidden;text-overflow:ellipsis;color:var(--mut);font-weight:400}
+.where em{margin-left:auto;font-style:normal;color:var(--mut);font-weight:400;white-space:nowrap}
+.rule{height:1px;background:var(--mut);opacity:.25;margin:12px 0}
+
+/* bottom: minimised tab bar + compose */
+.dock{position:absolute;left:22px;right:22px;bottom:30px;display:flex;justify-content:space-between;z-index:5}
+.dock .g{width:56px;height:56px;border-radius:28px;padding:0}
+.dock .g svg{margin:0 auto}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:140px;height:5px;border-radius:3px;background:var(--fg);opacity:.85;z-index:7}
+@media (prefers-reduced-motion: reduce){.head,.edge,.solid,.pinned{transition:none}}
+</style>
+
+<style>
+.rowlabel{font:500 12px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--page-mut);margin:6px 0 -6px}
+.opt h2 span{font-weight:400;color:var(--page-mut)}
+.slip.feed .who{margin-bottom:14px}
+.bm{width:22px;height:22px;stroke:var(--fg);fill:none;stroke-width:1.8;margin-left:14px;flex-shrink:0}
+.panel{background:var(--slip);border-radius:22px;padding:4px 16px}
+.srow{display:flex;align-items:center;gap:12px;min-height:76px;border-top:1px solid var(--rowline)}
+.srow:first-child{border-top:0}
+.srow .th{width:56px;height:56px;border-radius:16px;flex-shrink:0}
+.srow .dd{flex:1;display:grid;gap:4px;min-width:0}
+.srow .dd b{font:400 19px/1.12 var(--f-dish);font-weight:400}
+.srow .dd span{font:400 14px/1.2 var(--f-ui);color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow .s{font:500 15px/1 var(--f-mono)}
+.phone{--rowline:rgba(36,20,31,.1)} .phone.dark{--rowline:rgba(255,255,255,.1)}
+.grp{display:flex;flex-direction:column;gap:14px}
+</style>
+<div class="wrap">
+  <h1>A lighter header for Journal, Feed and Saved</h1>
+  <p class="lede">Option B on all three tabs. The header is Liquid Glass and slides away while you scroll down, then comes back as soon as you scroll up or tap the clock. On Journal, the Journal/Lists switch is part of the header: it stays pinned with the title and hides with it. Each phone is drawn at real iPhone size and scrolls.</p>
+  <div class="grp"><div class="rowlabel">Light</div><div class="opts" id="light"></div></div>
+  <div class="grp"><div class="rowlabel">Dark</div><div class="opts" id="dark"></div></div>
+  <p class="note">At rest the page shows no band or edge at all. The glass edge under the bar appears only once something has scrolled under it, which is what stops the lighter band from builds 92 to 95 coming back. The bar, its buttons, the switch and the edge are the system's own Liquid Glass and scroll-edge effect, with nothing custom painted on top. Feed is shown as it is in the beta, with no buttons in its bar.</p>
+</div>
+
+<template id="phone">
+  <div class="phone"><div class="screen">
+    <div class="scroll"><div class="top"></div><div class="list"></div></div>
+    <div class="edge"></div>
+    <div class="head"><div class="hrow"><span class="t"></span><div class="glassrow"></div></div></div>
+    <div class="status"><span>8:30</span><i>5G ▮</i></div><div class="island"></div>
+    <div class="dock"><div class="g"></div><div class="g"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div></div>
+    <div class="home"></div>
+  </div></div>
+</template>
+
+<script>
+const IC={
+ bug:'<svg viewBox="0 0 24 24"><path d="M8 9a4 4 0 0 1 8 0v5a4 4 0 0 1-8 0z"/><path d="M12 9v9M4 13h4M16 13h4M5 8l3 2M19 8l-3 2M5 19l3-2M19 19l-3-2M9 5l1.5 2M15 5l-1.5 2"/></svg>',
+ bell:'<svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>',
+ search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>',
+ filter:'<svg viewBox="0 0 24 24"><path d="M4 7h16M7 12h10M10 17h4"/></svg>',
+ compose:'<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg>',
+ journal:'<svg viewBox="0 0 24 24"><rect x="6" y="3.5" width="12" height="17" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
+ feed:'<svg viewBox="0 0 24 24"><path d="M5 4l14 16M19 4L9 15M6 13l-2 2"/></svg>',
+ saved:'<svg viewBox="0 0 24 24"><path d="M7 4h10v16l-5-4-5 4z"/></svg>',
+ bm:'<svg class="bm" viewBox="0 0 24 24"><path d="M7 4h10v16l-5-4-5 4z"/></svg>'
+};
+const SLIPS=[
+ {d:"Mango Sticky Rice",s:"2.5",n:'Mango sticky rice <span class="chip">★ 2.5</span> I see the vision, but I’m not sure I fully got it tbh',p:"#e9b54a,#c98a2c",w:"White House Tea & Dine",a:"Khet Bang Na",t:"Thu 22 Oct",h:"@eamon",ago:"5h"},
+ {d:"Club Sandwich",s:"4.0",n:'Club sandwich sitting by the pool. Honestly it was delicious. Very simple but that’s what I wanted <span class="chip">★ 4.0</span>',p:"#d9b07a,#9a6a3a",w:"City Beach",a:"Khet Khlong Toei",t:"Thu 22 Oct",h:"@wamon",ago:"5h"},
+ {d:"Grilled Chicken with BBQ Rice",s:"4.0",d2:"Chicken Soup",s2:"5.0",n:'Grilled chicken with BBQ Rice <span class="chip">★ 4.0</span> from the top floor of a massive thrift market. Only $3 and came with some of the best chicken soup <span class="chip">★ 5.0</span> I’ve ever had (for free), legit revived me',p:"#b8553a,#6e2d1e",w:"Chatuchak Market",a:"Chatuchak",t:"Wed 21 Oct",h:"@parisstewart",ago:"8h"},
+ {d:"Egg Noodles with Shrimp Wonton",s:"4.5",n:'Egg noodles with shrimp wonton & braised pork in soup <span class="chip">★ 4.5</span> good for the soul, perfect portion',p:"#e2c48c,#a8794a",w:"Bamee Slow",a:"Ari",t:"Tue 20 Oct",h:"@parisstewart",ago:"1d"},
+ {d:"Pad Kra Pao",s:"3.5",n:'Pad kra pao with a crispy egg <span class="chip">★ 3.5</span> needed more chilli',p:"#7b8a3a,#3f4a1c",w:"Jay Fai",a:"Phra Nakhon",t:"Mon 19 Oct",h:"@wamon",ago:"2d"},
+ {d:"Tom Yum Goong",s:"5.0",n:'Tom yum goong <span class="chip">★ 5.0</span> the best I have had, sour and hot in equal measure',p:"#e07a3c,#a8401c",w:"P’Aor",a:"Ratchathewi",t:"Sun 18 Oct",h:"@eamon",ago:"3d"}
+];
+const SAVED=[["Khao Soi","Khao Soi Mae Manee · Ari","4.6","#d99a3c,#8a4a1c"],["Boat Noodles","Doy Kuay Teow Reua · Victory Monument","4.2","#7a3a2a,#3a1a12"],["Crab Omelette","Jay Fai · Phra Nakhon","4.8","#e8b860,#b07820"],["Moo Ping","Hia Wan · Phra Nakhon","","#a8603a,#5a2a14"],["Som Tam Thai","Som Tam Jay So · Silom","4.1","#9ab060,#4a6a20"],["Mango Sticky Rice","Mae Varee · Thong Lo","4.4","#f0c050,#c89020"],["Pork Leg Rice","Khao Kha Moo Charoen Saeng · Bang Rak","","#8a4a2a,#3a1a0a"],["Roti Gluay","Roti Mataba · Phra Nakhon","4.0","#e8c890,#a87840"],["Larb Moo","Zaap Classic · Ari","3.9","#8a6a3a,#4a3a1a"],["Thai Iced Tea","Cha Tra Mue · Siam","3.6","#e88a3a,#a8501a"],["Gai Tod","Soi Polo · Lumphini","4.7","#c8803a,#7a4010"],["Kanom Krok","Talat Phlu · Thon Buri","4.3","#f0e0b0,#c8a060"]];
+const dish=(d,sc,bm)=>`<div class="dish"><h3>${d}</h3><span style="display:flex;align-items:center"><span class="sc">${sc}</span>${bm?IC.bm:''}</span></div>`;
+const slip=(s,feed)=>`<div class="slip${feed?' feed':''}">${feed?`<div class="who"><b></b>${s.h}<em>${s.ago}</em></div>`:''}${dish(s.d,s.s,feed)}${s.d2?`<div class="rule"></div>${dish(s.d2,s.s2,feed)}`:""}<p class="n">${s.n}</p><div class="ph" style="background:linear-gradient(135deg,${s.p})"></div><div class="where">${s.w}<span>${s.a}</span>${feed?'':`<em>${s.t}</em>`}</div></div>`;
+const savedList=()=>`<div class="panel">${SAVED.map(r=>`<div class="srow"><div class="th" style="background:linear-gradient(135deg,${r[3]})"></div><div class="dd"><b>${r[0]}</b><span>${r[1]}</span></div>${r[2]?`<span class="s">★ ${r[2]}</span>`:''}${IC.bm.replace('fill:none','')}</div>`).join('')}</div>`;
+
+const SCREENS=[
+ {k:"journal",title:"October",name:"Journal",ctl:'<div class="g">'+IC.bug+'</div><div class="g">'+IC.bell+IC.search+IC.filter+'</div>',seg:true,dock:IC.journal},
+ {k:"feed",title:"Feed",name:"Feed",ctl:'',dock:IC.feed},
+ {k:"saved",title:"Saved",name:"Saved",ctl:'<div class="g">'+IC.compose+IC.filter+'</div>',dock:IC.saved}
+];
+const tpl=document.getElementById('phone');
+['light','dark'].forEach(mode=>{
+  const host=document.getElementById(mode);
+  SCREENS.forEach(sc=>{
+    const col=document.createElement('section');col.className='opt';
+    col.innerHTML=`<h2>${sc.name} <span>· ${mode}</span></h2>`;
+    const ph=tpl.content.firstElementChild.cloneNode(true);if(mode==='dark')ph.classList.add('dark');
+    col.appendChild(ph);
+    const ctl=document.createElement('div');ctl.className='ctl';
+    ctl.innerHTML=`<button type="button" data-d="380">Scroll down</button><button type="button" data-d="-120">Scroll up a little</button><button type="button" data-d="top">Top</button>`;
+    col.appendChild(ctl);host.appendChild(col);
+    build(ph,sc);
+    ctl.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const s=ph.querySelector('.scroll');
+      if(b.dataset.d==='top')s.scrollTo({top:0,behavior:'smooth'});else s.scrollBy({top:+b.dataset.d,behavior:'smooth'});});
+  });
+});
+
+function build(ph,sc){
+  const s=ph.querySelector('.scroll'),top=ph.querySelector('.top'),list=ph.querySelector('.list'),head=ph.querySelector('.head'),edge=ph.querySelector('.edge');
+  ph.querySelector('.t').textContent=sc.title;
+  ph.querySelector('.glassrow').innerHTML=sc.ctl;
+  ph.querySelector('.dock .g').innerHTML=sc.dock;
+  if(sc.seg)head.insertAdjacentHTML('beforeend','<div class="seg"><span class="on">Journal</span><span>Lists</span></div>');
+  list.innerHTML=sc.k==='saved'?savedList():SLIPS.map(x=>slip(x,sc.k==='feed')).join('');
+  const headH=sc.seg?100:52;           // the bar row, plus the switch on Journal
+  top.style.height=(54+headH+8)+'px';
+  const shown=54+headH+20, hiddenH=84;
+  let last=0,hidden=false;
+  edge.style.height=shown+'px';
+  s.addEventListener('scroll',()=>{const y=s.scrollTop;
+    if(y>last+4&&y>60)hidden=true;else if(y<last-4||y<60)hidden=false;last=y;
+    head.style.transform=hidden?`translateY(-${headH+60}px)`:'none';head.style.opacity=hidden?0:1;
+    edge.style.height=(hidden?hiddenH:shown)+'px';edge.style.opacity=y>4?1:0;},{passive:true});
+  const st=ph.querySelector('.status');st.style.pointerEvents='auto';st.addEventListener('click',()=>s.scrollTo({top:0,behavior:'smooth'}));
+}
+function fit(){const w=Math.min(window.innerWidth-32,1320);const z=Math.min(1,w/(393+22));document.documentElement.style.setProperty('--z',z.toFixed(3));}
+fit();addEventListener('resize',fit);
+</script>

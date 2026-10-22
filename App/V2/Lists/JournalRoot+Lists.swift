@@ -23,7 +23,8 @@ extension JournalRoot {
             options: [AteSegment(JournalShelf.journal, JournalShelf.journal.title),
                       AteSegment(.lists, JournalShelf.lists.title)],
             selection: $shelf,
-            identifier: "journal.shelf"
+            identifier: "journal.shelf",
+            onGlass: true
         )
         // The last first-run tip: Lists, once there is enough on the Journal to make one from. It
         // points at the Lists half, not the middle of the switch: anchored on a clear twin of it.
@@ -52,7 +53,9 @@ extension JournalRoot {
         case .journal:
             list
         case .lists:
-            ListsShelf(app: app, router: router, isCollapsed: $isCollapsed, isNaming: $isNamingList)
+            ListsShelf(
+                app: app, router: router, isCollapsed: $isCollapsed, isBarHidden: $isBarHidden, isNaming: $isNamingList
+            )
         }
     }
 

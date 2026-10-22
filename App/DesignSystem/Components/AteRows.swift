@@ -193,6 +193,9 @@ struct AteSegments<Value: Hashable>: View {
     /// controls (round 5 exploration).
     var hugs = false
     var identifier: String?
+    /// Over the page rather than on the ground (a root's pinned switch, which scrolls content
+    /// under it): the field is the system's Liquid Glass instead of the field colour.
+    var onGlass = false
 
     @Environment(\.atePalette) private var palette
 
@@ -221,10 +224,25 @@ struct AteSegments<Value: Hashable>: View {
             }
         }
         .padding(AteMetrics.tight)
-        .background(palette.field, in: .capsule)
+        .modifier(AteSegmentsField(onGlass: onGlass))
     }
 
     /// A segment is drawn 36 tall; a finger gets 44 (the outset lands on the pill's own rim).
     private static var hugPadding: CGFloat { 14 }
     private static var hitOutset: AteHitOutset { AteHitOutset(height: AteMetrics.segmentHeight) }
+}
+
+/// The segments' field: the field colour on the ground, or the system's glass over the page.
+private struct AteSegmentsField: ViewModifier {
+    let onGlass: Bool
+
+    @Environment(\.atePalette) private var palette
+
+    func body(content: Content) -> some View {
+        if onGlass {
+            content.glassEffect(.regular, in: .capsule)
+        } else {
+            content.background(palette.field, in: .capsule)
+        }
+    }
 }
