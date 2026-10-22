@@ -143,6 +143,10 @@ struct FeedbackSheet: View {
 
     // MARK: - Send
 
+    /// Eamon asked for it (22 Oct): testers should know what a useful report holds.
+    private static let howTo = "Tell us what you tapped, what you expected and what happened instead. "
+        + "A photo of the screen helps. Ideas are welcome too."
+
     /// Kept on disk, then the sheet goes at once with the toast; the outbox sends it behind, and
     /// keeps it through a dropped connection (Eamon, 22 Oct: never wait on the upload).
     private func send() {
