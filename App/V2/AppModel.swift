@@ -57,6 +57,12 @@ final class AppModel {
     /// Opens the composer. The one way in for every affordance: the tab bar's +, the empty
     /// Journal, a photo suggestion's pen, an entry's Edit. The caller has already asked the gate.
     func compose(_ presentation: ComposerPresentation) {
+        // A new entry with no place yet: read the rooms around the phone now, quietly, so the Place
+        // key opens on them. Never asks for the permission — that stays with the place sheet.
+        if presentation.place == nil, presentation.editing == nil, presentation.respondingTo == nil,
+           presentation.ateOwnSave == nil {
+            services.nearbyPlaces.warm()
+        }
         composing = presentation
         isComposing = true
     }

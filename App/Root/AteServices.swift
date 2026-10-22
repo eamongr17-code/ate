@@ -19,6 +19,8 @@ struct AteServices {
     let drafts: any EntryDraftStoring
     /// Finding, resolving and creating places — the Place key and the entry's place correction.
     let places: any PlaceDirectory
+    /// The rooms around the phone — warmed by the composer's +, read by the place sheet.
+    let nearbyPlaces: NearbyPlaces
     /// Everyone else's entries. Read-only, and its own seam: the feed never writes.
     let feed: any EntryFeedReading
     /// The Feed's edition (round 8): The Top Ate, Because you loved…, New to the record and the
@@ -100,7 +102,9 @@ struct AteServices {
         let drafts = EntryDraftStore(owner: owner)
         self.drafts = drafts
         self.entries = preview?.entries ?? SupabaseEntryService(api: api)
-        self.places = preview?.places ?? PlaceDirectoryClient(api: api)
+        let places = preview?.places ?? PlaceDirectoryClient(api: api)
+        self.places = places
+        self.nearbyPlaces = .aroundThisPhone(directory: places)
         self.photos = preview?.photos ?? SystemPhotoLibrary()
         self.feed = preview?.feed ?? EntryFeedClient(api: api)
         self.feedEdition = preview?.feedEdition ?? FeedEditionClient(api: api)

@@ -44,6 +44,7 @@ struct SavedAddSheet: View {
         .v2PlaceSheet(
             isPresented: $isPickingPlace,
             directory: app.services.places,
+            nearby: app.services.nearbyPlaces,
             title: V2PlaceSheet.savedTitle,
             selected: { place?.id },
             onPick: { picked in place = picked }

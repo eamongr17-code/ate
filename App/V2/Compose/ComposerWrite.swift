@@ -100,6 +100,7 @@ struct V2ComposerWrite: View {
         .v2PlaceSheet(
             isPresented: $model.isPickingPlace,
             directory: services.places,
+            nearby: services.nearbyPlaces,
             initialQuery: { model.placeQuery },
             selected: { model.place?.id },
             onPick: { place in model.attach(place: place).map(services.analytics) }

@@ -31,7 +31,8 @@ final class PlaceSearchModel {
     var isReady: Bool { hasResultsAnswered && hasNearbyAnswered }
 
     private let directory: any PlaceDirectory
-    private let location = AteLocation()
+    /// Usually already read by the time the sheet opens — the composer's + warmed it.
+    private let nearbyPlaces: NearbyPlaces
     /// Where the phone is, once the sheet's one location ask has answered. Typed searches rank
     /// around it, so a search in Bangkok finds Bangkok — it never attaches anything.
     private var origin: SearchOrigin?
@@ -46,8 +47,9 @@ final class PlaceSearchModel {
     /// never feels like waiting.
     private static let debounce = Duration.milliseconds(280)
 
-    init(directory: any PlaceDirectory, query: String = "", selected: UUID? = nil) {
+    init(directory: any PlaceDirectory, nearby: NearbyPlaces, query: String = "", selected: UUID? = nil) {
         self.directory = directory
+        self.nearbyPlaces = nearby
         self.query = query
         self.selectedRestaurantID = selected
     }
@@ -72,11 +74,9 @@ final class PlaceSearchModel {
     /// The one location ask in the app, made as the sheet opens. No permission, no section.
     private func loadNearby() async {
         defer { hasNearbyAnswered = true }
-        guard let coordinate = await location.current() else { return }
-        origin = SearchOrigin(latitude: coordinate.latitude, longitude: coordinate.longitude)
-        nearby = (try? await directory.nearby(
-            latitude: coordinate.latitude, longitude: coordinate.longitude
-        )) ?? []
+        guard let answer = await nearbyPlaces.answer() else { return }
+        origin = answer.origin
+        nearby = answer.rooms
     }
 
     /// Tapping a row resolves it there and then: a Google prediction becomes a real row, which is
