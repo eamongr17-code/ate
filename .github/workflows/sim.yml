@@ -4,6 +4,9 @@ name: Simulator run
 # Runs `scripts/ci-sim.sh` from the chosen ref if it exists, else `xcodebuild test` with the given filter.
 # Everything written to ci-out/ (plus the result bundle) comes back as an artifact.
 on:
+  # TEMPORARY (glass header drive): runs on this branch's pushes, since cloud threads cannot dispatch.
+  push:
+    branches: [claude/project-thread-z588j8]
   workflow_dispatch:
     inputs:
       ref:
@@ -20,13 +23,13 @@ on:
 
 jobs:
   sim:
-    name: Simulator run (${{ inputs.ref }})
+    name: Simulator run (${{ inputs.ref || github.sha }})
     runs-on: macos-26
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Select Xcode 26
         run: sudo xcode-select -s /Applications/Xcode_26.5.app || sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
@@ -37,7 +40,7 @@ jobs:
       - name: Boot simulator
         id: sim
         run: |
-          udid=$(xcrun simctl create ci-sim "${{ inputs.device }}")
+          udid=$(xcrun simctl create ci-sim "${{ inputs.device || 'iPhone 17 Pro' }}")
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
