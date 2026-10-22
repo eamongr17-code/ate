@@ -5,7 +5,8 @@ import Foundation
 /// **Where the phone is — asked for once, on one screen.**
 ///
 /// The permission is requested when `PlaceSheet` opens and nowhere else, because that is the only
-/// moment the app has a use for it: listing the rooms around you so you can tap one. Design rule 8
+/// moment the app has a use for it: listing the rooms around you so you can tap one. The composer's
+/// + reads it early without asking (``current(mayAsk:)``), so that list is ready when the sheet is. Design rule 8
 /// still holds with no asterisk — **nothing is ever attached from a location**. A place gets onto an
 /// entry because it was named or tapped, and a refused permission costs exactly one section.
 @MainActor
@@ -20,8 +21,9 @@ final class AteLocation: NSObject, CLLocationManagerDelegate {
     }
 
     /// Asks if it has never been asked, then answers with a coordinate or `nil`. `nil` is not an
-    /// error — it is a Nearby section that simply is not there.
-    func current() async -> CLLocationCoordinate2D? {
+    /// error — it is a Nearby section that simply is not there. `mayAsk` false never raises the
+    /// alert: a permission not yet given answers `nil`.
+    func current(mayAsk: Bool = true) async -> CLLocationCoordinate2D? {
         #if DEBUG
         // A preview-data run answers from the middle of the launch market and asks nobody: the
         // simulator's permission alert is not part of what `PlaceSheet.dc.html` draws.
@@ -33,6 +35,7 @@ final class AteLocation: NSObject, CLLocationManagerDelegate {
         case .denied, .restricted:
             return nil
         case .notDetermined:
+            guard mayAsk else { return nil }
             #if ATE_EXTENSION
             // The share extension cannot ask (no alert rises over another app); only the app asks.
             return nil
@@ -84,5 +87,17 @@ final class AteLocation: NSObject, CLLocationManagerDelegate {
         let pending = waiting
         waiting = []
         pending.forEach { $0.resume(returning: coordinate) }
+    }
+}
+
+extension NearbyPlaces {
+    /// The rooms around this phone, located by its own ``AteLocation``.
+    static func aroundThisPhone(directory: any PlaceDirectory) -> NearbyPlaces {
+        let location = AteLocation()
+        return NearbyPlaces(directory: directory, locate: { mayAsk in
+            await location.current(mayAsk: mayAsk).map {
+                SearchOrigin(latitude: $0.latitude, longitude: $0.longitude)
+            }
+        })
     }
 }

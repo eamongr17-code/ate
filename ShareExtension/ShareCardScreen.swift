@@ -11,6 +11,7 @@ import SwiftUI
 struct ShareCardScreen: View {
     let model: ShareCardModel
     let places: any PlaceDirectory
+    let nearby: NearbyPlaces
     /// The card is done: `true` once the dish is in Saved.
     let onFinish: (_ saved: Bool) -> Void
 
@@ -49,6 +50,7 @@ struct ShareCardScreen: View {
         .v2PlaceSheet(
             isPresented: $isPickingPlace,
             directory: places,
+            nearby: nearby,
             title: V2PlaceSheet.savedTitle,
             initialQuery: { model.placeQuery },
             selected: { model.place?.id },

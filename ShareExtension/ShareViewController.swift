@@ -28,7 +28,9 @@ final class ShareViewController: UIViewController {
 
         let services = ShareServices.make()
         let model = services.model()
-        let screen = ShareCardScreen(model: model, places: services.places) { [weak self] saved in
+        let screen = ShareCardScreen(
+            model: model, places: services.places, nearby: .aroundThisPhone(directory: services.places)
+        ) { [weak self] saved in
             self?.finish(saved: saved)
         }
         let host = UIHostingController(rootView: screen)

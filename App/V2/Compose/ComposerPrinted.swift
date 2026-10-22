@@ -137,7 +137,9 @@ struct V2ComposerPrinted: View {
         .onChange(of: store.card) { _, card in NotificationCenter.ateEntryChanged(card) }
         .onChange(of: store.showsReceipt, initial: true) { _, shows in countEntrance(shows) }
         .onDisappear { countDone() }
-        .v2PlaceSheet(isPresented: $isPickingPlace, directory: services.places) { place in
+        .v2PlaceSheet(
+            isPresented: $isPickingPlace, directory: services.places, nearby: services.nearbyPlaces
+        ) { place in
             guard let id = place.id else { return }
             isPickingPlace = false
             services.analytics(EntryEvents.placeAttached(source: .picked))

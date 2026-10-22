@@ -85,6 +85,7 @@ private struct V2EntryScreen: View {
             .v2PlaceSheet(
                 isPresented: $model.isCorrectingPlace,
                 directory: services.places,
+                nearby: services.nearbyPlaces,
                 initialQuery: { model.card?.place?.name ?? "" },
                 selected: { model.card?.restaurantID },
                 onPick: { place in Task { await model.correctPlace(place) } }

@@ -154,13 +154,14 @@ extension View {
     func v2PlaceSheet(
         isPresented: Binding<Bool>,
         directory: any PlaceDirectory,
+        nearby: NearbyPlaces,
         title: String = V2PlaceSheet.composerTitle,
         initialQuery: @escaping @MainActor () -> String = { "" },
         selected: @escaping @MainActor () -> UUID? = { nil },
         onPick: @escaping (PlaceRef) -> Void
     ) -> some View {
         modifier(V2PlaceSheetPresenter(
-            isPresented: isPresented, directory: directory, title: title,
+            isPresented: isPresented, directory: directory, nearby: nearby, title: title,
             initialQuery: initialQuery, selected: selected, onPick: onPick
         ))
     }
@@ -169,6 +170,7 @@ extension View {
 private struct V2PlaceSheetPresenter: ViewModifier {
     @Binding var isPresented: Bool
     let directory: any PlaceDirectory
+    let nearby: NearbyPlaces
     let title: String
     let initialQuery: @MainActor () -> String
     let selected: @MainActor () -> UUID?
@@ -179,7 +181,9 @@ private struct V2PlaceSheetPresenter: ViewModifier {
     func body(content: Content) -> some View {
         let holder = holder
         content.ateSheet(isPresented: $isPresented, name: "place", prepare: {
-            let fresh = PlaceSearchModel(directory: directory, query: initialQuery(), selected: selected())
+            let fresh = PlaceSearchModel(
+                directory: directory, nearby: nearby, query: initialQuery(), selected: selected()
+            )
             holder.value = fresh
             await fresh.start()
         }, content: {
