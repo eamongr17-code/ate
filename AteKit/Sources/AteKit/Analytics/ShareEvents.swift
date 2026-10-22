@@ -35,10 +35,11 @@ public enum ShareEvents {
     /// A receipt left the app — the north-star event, under its existing name, now carrying where it
     /// went and which sticker it was. `source` is the screen the share started on.
     /// `look` is the card's colour choice (the paper, or the story's ground); `adjusted` says the
-    /// photo was moved or zoomed off its automatic crop.
+    /// photo was moved or zoomed off its automatic crop; `receiptMoved` that the receipt was dragged off
+    /// where it starts on the card.
     public static func receiptShared(
         entryID: UUID, source: ReceiptShareSource, destination: ShareDestination, sticker: ShareSticker,
-        look: String? = nil, adjusted: Bool = false
+        look: String? = nil, adjusted: Bool = false, receiptMoved: Bool = false
     ) -> AnalyticsEvent {
         var parameters = [
             "entry_id": entryID.uuidString.lowercased(),
@@ -48,6 +49,7 @@ public enum ShareEvents {
         ]
         if let look { parameters["look"] = look }
         if adjusted { parameters["adjusted"] = "true" }
+        if receiptMoved { parameters["receipt_moved"] = "true" }
         return AnalyticsEvent(name: "receipt_shared", parameters: parameters)
     }
 
