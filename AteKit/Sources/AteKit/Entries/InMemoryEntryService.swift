@@ -266,19 +266,19 @@ public final class InMemoryEntryService: EntryService, InMemoryStandIn, @uncheck
         }
     }
 
-    /// No model here: a one-dish entry takes its first photo, as the server does without one.
+    /// No model here: a one-dish entry takes every photo, as the server does without one.
     public func matchPhotos(entryID: UUID) async {
         lock.withLock {
             guard let card = entries.first(where: { $0.id == entryID }),
-                  card.items.count == 1, let first = card.photos.min(by: { $0.position < $1.position })
+                  card.items.count == 1, card.photos.isEmpty == false
             else { return }
-            photoLines[entryID] = [first.url: card.items[0].reviewID]
+            photoLines[entryID] = Dictionary(card.photos.map { ($0.url, card.items[0].reviewID) }, uniquingKeysWith: { first, _ in first })
         }
     }
 
     public func setReviewPhoto(entryID: UUID, photoURL: String, reviewID: UUID?) async throws {
         lock.withLock {
-            var lines = (photoLines[entryID] ?? [:]).filter { $0.key != photoURL && $0.value != reviewID }
+            var lines = (photoLines[entryID] ?? [:]).filter { $0.key != photoURL }
             if let reviewID { lines[photoURL] = reviewID }
             photoLines[entryID] = lines
         }

@@ -192,13 +192,15 @@ struct DatesAndPhotosTests {
 
     // MARK: - Reading the pairs
 
-    @Test("which dish each photo is: lines without a photo are left out")
-    func reviewPhotoRows() throws {
+    @Test("which dish each photo is: two photos of one dish are both that dish")
+    func photoDishRows() throws {
         let a = UUID(), b = UUID()
         let json = """
-        [{"id":"\(a.uuidString)","photo_url":"https://x/1.jpg"},{"id":"\(b.uuidString)","photo_url":null}]
+        [{"photo_url":"https://x/1.jpg","review_id":"\(a.uuidString)"},
+         {"photo_url":"https://x/2.jpg","review_id":"\(a.uuidString)"},
+         {"photo_url":"https://x/3.jpg","review_id":"\(b.uuidString)"}]
         """
-        #expect(try ReviewPhotoRow.map(from: Data(json.utf8)) == ["https://x/1.jpg": a])
+        #expect(try PhotoDishRow.map(from: Data(json.utf8)) == ["https://x/1.jpg": a, "https://x/2.jpg": a, "https://x/3.jpg": b])
     }
 
     @Test("the in-memory stand-in: a pick moves the photo, No dish clears it")
@@ -208,8 +210,10 @@ struct DatesAndPhotosTests {
         try await service.setReviewPhoto(entryID: entry, photoURL: "p1", reviewID: tiramisu)
         try await service.setReviewPhoto(entryID: entry, photoURL: "p1", reviewID: pasta)
         #expect(try await service.photoDishes(entryID: entry) == ["p1": pasta])
+        try await service.setReviewPhoto(entryID: entry, photoURL: "p2", reviewID: pasta)
+        #expect(try await service.photoDishes(entryID: entry) == ["p1": pasta, "p2": pasta])
         try await service.setReviewPhoto(entryID: entry, photoURL: "p1", reviewID: nil)
-        #expect(try await service.photoDishes(entryID: entry).isEmpty)
+        #expect(try await service.photoDishes(entryID: entry) == ["p2": pasta])
     }
 
     @Test("events: a backdated entry and the two new corrections")

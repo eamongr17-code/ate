@@ -231,14 +231,14 @@ struct AtePhotoViewer: View {
         }
     }
 
-    /// One photo, one dish: the dish's old photo lets go of it, as the server does (0063).
+    /// One photo, one dish; a dish may keep several photos, as the server does (0081).
     private func choose(
         _ choice: AtePhotoDishPill.Dish?, for url: String,
         with pick: @escaping @MainActor @Sendable (String, UUID?) async -> Bool
     ) {
         guard paired[url] != choice?.id else { return }
         let before = paired
-        var next = paired.filter { $0.key != url && $0.value != choice?.id }
+        var next = paired.filter { $0.key != url }
         if let choice { next[url] = choice.id }
         paired = next
         AteHaptics.key()
