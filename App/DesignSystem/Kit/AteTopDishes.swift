@@ -11,7 +11,7 @@ struct AteTopDishes: View {
         let dishID: UUID
         /// The entry this score was written in, which the tile opens. Nil for a line older than
         /// entries: that tile opens the dish instead.
-        var entryID: UUID? = nil
+        var entryID: UUID?
         let name: String
         let photo: AtePhoto
     }
