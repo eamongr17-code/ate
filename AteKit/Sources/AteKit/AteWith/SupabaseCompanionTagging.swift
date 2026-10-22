@@ -46,6 +46,20 @@ public struct SupabaseCompanionTagging: CompanionTagging {
         return rows.first?.id
     }
 
+    public func declinedSeats(onEntry entryID: UUID) async throws -> Int {
+        let me = try await api.requireCurrentUserID()
+        let rows: [TagRow] = try await api.supabase
+            .from("entry_companions")
+            .select("id")
+            .eq("entry_id", value: entryID.uuidString.lowercased())
+            .eq("tagger_id", value: me.uuidString.lowercased())
+            .eq("status", value: EntryCompanion.Status.declined.rawValue)
+            .limit(CompanionPickerStore.cap)
+            .execute()
+            .value
+        return rows.count
+    }
+
     /// The viewer's own tags, newest first, with the person embedded — a blocked person's profile is
     /// invisible under RLS (0019), so their embed is `null` and they drop out here. (A block also
     /// withdraws pending tags between the pair, 0058.)

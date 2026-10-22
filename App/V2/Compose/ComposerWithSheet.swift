@@ -9,6 +9,8 @@ import SwiftUI
 struct ComposerWithSheet: View {
     let service: any CompanionTagging
     let initial: [CompanionPerson]
+    /// The entry being edited, if any — its declined tags still hold seats.
+    let entryID: UUID?
     let analytics: AnalyticsRecorder
     let onCommit: ([CompanionPerson]) -> Void
 
@@ -18,14 +20,16 @@ struct ComposerWithSheet: View {
     init(
         service: any CompanionTagging,
         initial: [CompanionPerson],
+        entryID: UUID?,
         analytics: @escaping AnalyticsRecorder,
         onCommit: @escaping ([CompanionPerson]) -> Void
     ) {
         self.service = service
         self.initial = initial
+        self.entryID = entryID
         self.analytics = analytics
         self.onCommit = onCommit
-        _store = State(initialValue: CompanionPickerStore(service: service, selected: initial))
+        _store = State(initialValue: CompanionPickerStore(service: service, selected: initial, entryID: entryID))
     }
 
     var body: some View {
@@ -108,11 +112,14 @@ extension View {
         isPresented: Binding<Bool>,
         service: any CompanionTagging,
         initial: @escaping @MainActor () -> [CompanionPerson],
+        entryID: UUID?,
         analytics: @escaping AnalyticsRecorder,
         onCommit: @escaping ([CompanionPerson]) -> Void
     ) -> some View {
         sheet(isPresented: isPresented) {
-            ComposerWithSheet(service: service, initial: initial(), analytics: analytics, onCommit: onCommit)
+            ComposerWithSheet(
+                service: service, initial: initial(), entryID: entryID, analytics: analytics, onCommit: onCommit
+            )
         }
     }
 }
