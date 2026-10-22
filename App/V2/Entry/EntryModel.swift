@@ -25,9 +25,9 @@ final class EntryModel: SavedDishObserving {
     private(set) var card: EntryCard?
     private(set) var composition = EntryComposition()
     private(set) var photos: [AtePhoto] = []
-    /// Which dish each photo is (photo URL → review id, 0063): named in the photo viewer. Written
+    /// Which dishes each photo shows (photo URL → its dishes, 0063/0083): named in the photo viewer. Written
     /// only by `EntryModel+PhotoDishes`.
-    var photoDishes: [String: UUID] = [:]
+    var photoDishes: [String: [PhotoDishTag]] = [:]
     private(set) var state: State = .pending
     var isCorrectingPlace = false
     var correcting: Correcting?

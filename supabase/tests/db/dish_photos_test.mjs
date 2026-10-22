@@ -377,3 +377,63 @@ test('a box the database cannot hold is refused at the table (0083)', async () =
   const [entry] = await rows(`select photos_located_at from public.entries where id = $1`, [e]);
   assert.equal(entry.photos_located_at, null);
 });
+
+test('set_photo_dishes: the author ticks every dish a photo shows; boxes stay; it outlives a re-sort (0083)', async () => {
+  const r = receipt(['Chicken Soup', 4], ['Dumplings', 4.5], ['Bao']);
+  const e = await w.visit(35, U.alice, P.tipo, r, undefined, { photos: ['s/1.jpg', 's/2.jpg'] });
+  const soup = await reviewId(e, 'Chicken Soup');
+  const dumplings = await reviewId(e, 'Dumplings');
+  const bao = await reviewId(e, 'Bao');
+  await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb, true)`, [e, JSON.stringify([
+    { review_id: soup, photo_url: photoUrl('s/1.jpg'), box: [0, 0.2, 0.5, 0.8] },
+    { review_id: bao, photo_url: photoUrl('s/2.jpg') },
+  ])]));
+
+  // The dumplings were in s/1 too: the author ticks both.
+  await as(U.alice, () => db.query(`select public.set_photo_dishes($1, $2, $3::uuid[])`,
+    [e, photoUrl('s/1.jpg'), [dumplings, soup]]));
+  assert.deepEqual(await pairs(e), [['s/1.jpg', 'Chicken Soup'], ['s/1.jpg', 'Dumplings'], ['s/2.jpg', 'Bao']]);
+  const [kept] = await rows(`select box_left, box_right from public.photo_dishes where entry_id = $1 and review_id = $2`, [e, soup]);
+  assert.equal(kept.box_right, 0.5);
+  assert.equal((await lines(e)).find((l) => l.name === 'Dumplings').photo_url, photoUrl('s/1.jpg'));
+
+  // A re-sort and a re-match keep the author's ticks.
+  await w.sortAs(e, P.tipo, r.items);
+  await asService(() => db.query(`select public.prune_photo_pairs($1)`, [e]));
+  await asService(() => db.query(`select public.restore_photo_picks($1)`, [e]));
+  await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb, true)`, [e, JSON.stringify([])]));
+  assert.deepEqual((await pairs(e)).filter(([u]) => u === 's/1.jpg'), [['s/1.jpg', 'Chicken Soup'], ['s/1.jpg', 'Dumplings']]);
+
+  // Down to one, then none (a re-sort rebuilds the lines: their ids are new).
+  const soupNow = await reviewId(e, 'Chicken Soup');
+  await as(U.alice, () => db.query(`select public.set_photo_dishes($1, $2, $3::uuid[])`, [e, photoUrl('s/1.jpg'), [soupNow]]));
+  assert.deepEqual((await pairs(e)).filter(([u]) => u === 's/1.jpg'), [['s/1.jpg', 'Chicken Soup']]);
+  await asService(() => db.query(`select public.restore_photo_picks($1)`, [e]));
+  assert.deepEqual((await pairs(e)).filter(([u]) => u === 's/1.jpg'), [['s/1.jpg', 'Chicken Soup']]);
+  await as(U.alice, () => db.query(`select public.set_photo_dishes($1, $2, $3::uuid[])`, [e, photoUrl('s/1.jpg'), []]));
+  assert.deepEqual((await pairs(e)).filter(([u]) => u === 's/1.jpg'), []);
+
+  // Nobody else, and only this entry's lines.
+  assert.equal(await code(() => as(U.bob, () => db.query(`select public.set_photo_dishes($1, $2, $3::uuid[])`,
+    [e, photoUrl('s/1.jpg'), [soupNow]]))), 'P0002');
+  const other = await w.visit(36, U.alice, P.tipo, receipt(['Pho', 4]), undefined, { photos: ['t/1.jpg'] });
+  const pho = await reviewId(other, 'Pho');
+  assert.equal(await code(() => as(U.alice, () => db.query(`select public.set_photo_dishes($1, $2, $3::uuid[])`,
+    [e, photoUrl('s/1.jpg'), [soupNow, pho]]))), '22023');
+});
+
+test('dish_photos names the other placed dishes on a shared photo (0083)', async () => {
+  const e = await w.visit(37, U.alice, P.tipo, receipt(['Chicken Soup', 4], ['Dumplings', 4.5]), undefined,
+    { photos: ['u/1.jpg'] });
+  const soup = await reviewId(e, 'Chicken Soup');
+  const dumplings = await reviewId(e, 'Dumplings');
+  await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb, true)`, [e, JSON.stringify([
+    { review_id: soup, photo_url: photoUrl('u/1.jpg'), box: [0, 0.2, 0.5, 0.8] },
+    { review_id: dumplings, photo_url: photoUrl('u/1.jpg'), box: [0.5, 0.3, 1, 0.9] },
+  ])]));
+  const [d] = (await as(U.bob, () => db.query(
+    `select public.dish_photos(dish_id) photos from public.reviews where id = $1`, [soup]))).rows;
+  assert.deepEqual(d.photos[0].box, [0, 0.2, 0.5, 0.8]);
+  assert.deepEqual(d.photos[0].with.map((x) => x.name), ['Dumplings']);
+  assert.equal(d.photos[0].with[0].box.length, 4);
+});

@@ -20,7 +20,7 @@ public final class InMemoryEntryService: EntryService, InMemoryStandIn, @uncheck
     private var entries: [EntryCard] = []
     private var nextOrderNumber: Int
     /// Entry → photo URL → review id: which dish each photo is.
-    private var photoLines: [UUID: [String: UUID]] = [:]
+    private var photoLines: [UUID: [String: [PhotoDishTag]]] = [:]
     private let profile: ViewerProfile
     /// How long a sort "takes". Non-zero so the pending state and the receipt printing in are both
     /// reachable on a simulator; zero in tests, which should not wait for theatre.
@@ -273,19 +273,38 @@ public final class InMemoryEntryService: EntryService, InMemoryStandIn, @uncheck
                   card.items.count == 1, card.photos.isEmpty == false
             else { return }
             let dish = card.items[0].reviewID
-            photoLines[entryID] = Dictionary(card.photos.map { ($0.url, dish) }, uniquingKeysWith: { kept, _ in kept })
+            photoLines[entryID] = Dictionary(
+                card.photos.map { ($0.url, [PhotoDishTag(reviewID: dish)]) }, uniquingKeysWith: { kept, _ in kept }
+            )
         }
     }
 
     public func setReviewPhoto(entryID: UUID, photoURL: String, reviewID: UUID?) async throws {
         lock.withLock {
             var lines = (photoLines[entryID] ?? [:]).filter { $0.key != photoURL }
-            if let reviewID { lines[photoURL] = reviewID }
+            if let reviewID { lines[photoURL] = [PhotoDishTag(reviewID: reviewID)] }
+            photoLines[entryID] = lines
+        }
+    }
+
+    public func setPhotoDishes(entryID: UUID, photoURL: String, reviewIDs: [UUID]) async throws {
+        lock.withLock {
+            var lines = photoLines[entryID] ?? [:]
+            let kept = lines[photoURL] ?? []
+            var seen = Set<UUID>()
+            let next = reviewIDs.filter { seen.insert($0).inserted }.map { id in
+                kept.first { $0.reviewID == id } ?? PhotoDishTag(reviewID: id)
+            }
+            lines[photoURL] = next.isEmpty ? nil : next
             photoLines[entryID] = lines
         }
     }
 
     public func photoDishes(entryID: UUID) async throws -> [String: UUID] {
+        lock.withLock { (photoLines[entryID] ?? [:]).mapValues { $0[0].reviewID } }
+    }
+
+    public func photoDishTags(entryID: UUID) async throws -> [String: [PhotoDishTag]] {
         lock.withLock { photoLines[entryID] ?? [:] }
     }
 

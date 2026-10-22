@@ -140,15 +140,66 @@ public struct DishPhoto: Sendable, Hashable, Codable {
     public let url: String
     /// Which entry it was taken on. Optional for the same reason ``DishReview/entryID`` is.
     public let entryID: UUID?
+    /// Where this dish sits, when the photo shows other dishes too and the matcher placed it (0083):
+    /// the dish page crops onto it. `nil`: the photo is this dish, shown whole.
+    public let box: PhotoDishBox?
+    /// The other dishes placed in the same photo, so the viewer can name them too (0083).
+    public let others: [Other]
 
-    public init(url: String, entryID: UUID? = nil) {
+    /// Another dish in the same photo, and where it sits.
+    public struct Other: Sendable, Hashable, Codable {
+        public let name: String
+        public let box: PhotoDishBox?
+
+        public init(name: String, box: PhotoDishBox?) {
+            self.name = name
+            self.box = box
+        }
+
+        enum CodingKeys: String, CodingKey { case name, box }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            name = try container.decode(String.self, forKey: .name)
+            box = (try? container.decodeIfPresent([Double].self, forKey: .box)).flatMap { PhotoDishBox($0) }
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(name, forKey: .name)
+            try container.encodeIfPresent(box.map { [$0.left, $0.top, $0.right, $0.bottom] }, forKey: .box)
+        }
+    }
+
+    public init(url: String, entryID: UUID? = nil, box: PhotoDishBox? = nil, others: [Other] = []) {
         self.url = url
         self.entryID = entryID
+        self.box = box
+        self.others = others
     }
 
     enum CodingKeys: String, CodingKey {
         case url
         case entryID = "entry_id"
+        case box
+        case others = "with"
+    }
+
+    /// `box` and `with` arrive only on a shared photo (0083); a malformed one is read as absent.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        url = try container.decode(String.self, forKey: .url)
+        entryID = try container.decodeIfPresent(UUID.self, forKey: .entryID)
+        box = (try? container.decodeIfPresent([Double].self, forKey: .box)).flatMap { PhotoDishBox($0) }
+        others = (try? container.decodeIfPresent([Other].self, forKey: .others)) ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(url, forKey: .url)
+        try container.encodeIfPresent(entryID, forKey: .entryID)
+        try container.encodeIfPresent(box.map { [$0.left, $0.top, $0.right, $0.bottom] }, forKey: .box)
+        if others.isEmpty == false { try container.encode(others, forKey: .others) }
     }
 }
 

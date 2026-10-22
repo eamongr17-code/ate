@@ -19,6 +19,8 @@ struct BrowseEventsTests {
     @Test("the photo viewer, the one filter sheet and the entry page report what they need")
     func otherEvents() {
         #expect(BrowseEvents.photoPreviewOpened(photoCount: 3).parameters == ["photo_count": "3"])
+        let names = BrowseEvents.photoDishNamesShown(dishCount: 2, own: false)
+        #expect(names.name == "photo_dish_names_shown" && names.parameters == ["dish_count": "2", "own": "false"])
         let journal = BrowseEvents.filterOpened(on: .journal)
         #expect(journal.name == "filter_opened" && journal.parameters == ["surface": "journal"])
         #expect(BrowseEvents.filterOpened(on: .search).parameters == ["surface": "search"])

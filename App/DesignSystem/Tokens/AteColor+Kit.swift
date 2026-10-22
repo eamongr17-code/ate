@@ -31,6 +31,9 @@ enum AteKitColor {
     static let cropScrim = AteColor.viewerGround.opacity(0.6)
     /// The avatar circle's hairline edge over the photo.
     static let cropRing = AteColor.overPhoto.opacity(0.9)
+    /// A dish's name over its photo — an ink capsule at 78%, so the food shows at its edge
+    /// (`.tag{background:rgba(20,14,18,.78)}`).
+    static let photoDishName = AteColor.ink.opacity(0.78)
     /// The share card's grabber, in the surface's ink — `rgba(36,20,31,.2)`.
     static let grabberOpacity: Double = 0.2
 }

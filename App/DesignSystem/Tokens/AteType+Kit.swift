@@ -31,6 +31,11 @@ extension AteTextStyle {
     static let kitPhotoCaptionDish = AteTextStyle(
         voice: .display, size: 17, weight: 600, trackingEm: 0, lineHeight: 1.2, textStyle: .body
     )
+    /// A dish's name floating over it in a photo of several — `.tag`: 600 at 16
+    /// (design/rebuild/photo-dish-tags.html).
+    static let kitPhotoDishName = AteTextStyle(
+        voice: .display, size: 16, weight: 600, trackingEm: -0.01, lineHeight: 1.0, textStyle: .body
+    )
     /// …and who and where under it — `.capL span`: 500 at 13.
     static let kitPhotoCaptionByline = AteTextStyle(
         voice: .display, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote

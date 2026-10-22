@@ -204,6 +204,80 @@ struct DatesAndPhotosTests {
         #expect(try PhotoDishRow.map(from: Data(json.utf8)) == want)
     }
 
+    @Test("several dishes in one photo, each once, with where it sits (0083); old readers name the first")
+    func photoDishTags() throws {
+        let soup = UUID(), dumplings = UUID()
+        let json = """
+        [{"photo_url":"https://x/1.jpg","review_id":"\(soup.uuidString)",
+          "box_left":0,"box_top":0.2,"box_right":0.5,"box_bottom":0.8},
+         {"photo_url":"https://x/1.jpg","review_id":"\(dumplings.uuidString)",
+          "box_left":null,"box_top":null,"box_right":null,"box_bottom":null},
+         {"photo_url":"https://x/1.jpg","review_id":"\(soup.uuidString)"}]
+        """
+        let tags = try PhotoDishRow.tags(from: Data(json.utf8))
+        #expect(tags["https://x/1.jpg"]?.map(\.reviewID) == [soup, dumplings])
+        #expect(tags["https://x/1.jpg"]?.first?.box == PhotoDishBox(left: 0, top: 0.2, right: 0.5, bottom: 0.8))
+        #expect(tags["https://x/1.jpg"]?.last?.box == nil)
+        #expect(try PhotoDishRow.map(from: Data(json.utf8)) == ["https://x/1.jpg": soup])
+    }
+
+    @Test("worth one more match: no pairs, or several dishes and none placed")
+    func wantsMatch() {
+        let a = UUID(), b = UUID()
+        let placed = PhotoDishBox([0, 0, 0.5, 0.5])
+        #expect(PhotoDishTag.wantsMatch([:]))
+        #expect(PhotoDishTag.wantsMatch(["1": [PhotoDishTag(reviewID: a)], "2": [PhotoDishTag(reviewID: b)]]))
+        #expect(PhotoDishTag.wantsMatch(["1": [PhotoDishTag(reviewID: a)], "2": [PhotoDishTag(reviewID: a)]]) == false)
+        let shared = [PhotoDishTag(reviewID: a, box: placed), PhotoDishTag(reviewID: b)]
+        #expect(PhotoDishTag.wantsMatch(["1": shared]) == false)
+    }
+
+    @Test("a dish page crops a shared photo onto its dish: square, inside the picture, at most 3×")
+    func cropOntoDish() throws {
+        let photo = CGSize(width: 1080, height: 1350)
+        let sandwich = try #require(PhotoDishBox([0.4, 0.55, 1, 1]))
+        let crop = sandwich.crop(imageSize: photo, aspect: 1)
+        #expect(abs(crop.width - crop.height) < 0.001)
+        #expect(crop.maxX <= 1080.001 && crop.maxY <= 1350.001 && crop.minX >= 0 && crop.minY >= 0)
+        #expect(crop.contains(CGPoint(x: sandwich.centerX * 1080, y: sandwich.centerY * 1350)))
+        let crumb = try #require(PhotoDishBox([0.5, 0.5, 0.51, 0.51]))
+        #expect(crumb.crop(imageSize: photo, aspect: 1).width == 360)
+    }
+
+    @Test("a box must be inside the image and the right way round")
+    func boxBounds() {
+        #expect(PhotoDishBox([0.6, 0.1, 0.2, 0.4]) == nil)
+        #expect(PhotoDishBox([0, 0, 1.2, 1]) == nil)
+        #expect(PhotoDishBox([0, 0, 1]) == nil)
+        #expect(PhotoDishBox([0.2, 0.4, 0.6, 1])?.centerX == 0.4)
+    }
+
+    @Test("a dish page photo: box and the other dishes on a shared photo; none on its own")
+    func dishPhotoDecode() throws {
+        let json = """
+        [{"url":"https://x/1.jpg","entry_id":"\(UUID().uuidString)","box":[0,0.2,0.5,0.8],
+          "with":[{"name":"Dumplings","box":[0.5,0.3,1,0.9]}]},
+         {"url":"https://x/2.jpg","box":[0.9,0,0.1,1]},
+         {"url":"https://x/3.jpg"}]
+        """
+        let photos = try JSONDecoder().decode([DishPhoto].self, from: Data(json.utf8))
+        #expect(photos[0].box?.right == 0.5)
+        #expect(photos[0].others.map(\.name) == ["Dumplings"])
+        #expect(photos[1].box == nil)
+        #expect(photos[2].others.isEmpty)
+    }
+
+    @Test("the in-memory stand-in: ticking several dishes keeps each once, in the order ticked")
+    func inMemoryTicks() async throws {
+        let service = InMemoryEntryService()
+        let entry = UUID(), soup = UUID(), dumplings = UUID()
+        try await service.setPhotoDishes(entryID: entry, photoURL: "p1", reviewIDs: [soup, dumplings, soup])
+        #expect(try await service.photoDishTags(entryID: entry)["p1"]?.map(\.reviewID) == [soup, dumplings])
+        #expect(try await service.photoDishes(entryID: entry) == ["p1": soup])
+        try await service.setPhotoDishes(entryID: entry, photoURL: "p1", reviewIDs: [])
+        #expect(try await service.photoDishTags(entryID: entry).isEmpty)
+    }
+
     @Test("the in-memory stand-in: a pick moves the photo, No dish clears it")
     func inMemoryPick() async throws {
         let service = InMemoryEntryService()

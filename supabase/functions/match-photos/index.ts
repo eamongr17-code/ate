@@ -166,7 +166,11 @@ Deno.serve(async (req) => {
   }));
 
   const next = plan(photos, lines);
-  if (next.kind === 'nothing') return json({ ok: true, matched: 0 });
+  if (next.kind === 'nothing') {
+    // Nothing left to place (every photo the author's own): don't be asked again on every look.
+    if (unmatchedOnly) await admin.from('entries').update({ photos_located_at: new Date().toISOString() }).eq('id', entryId);
+    return json({ ok: true, matched: 0 });
+  }
 
   // The daily AI budget (0067: 60 matches per caller, shared ceiling). Over it, nothing is written,
   // exactly as without a key; the next look at the photo asks again.
