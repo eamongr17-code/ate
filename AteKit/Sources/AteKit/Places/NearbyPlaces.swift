@@ -3,8 +3,9 @@ import Foundation
 /// **The rooms around the phone, read once and shared.**
 ///
 /// Opening the app warms it, and so does the tab bar's +, so by the time the Place key is tapped
-/// the sheet's Nearby section is already in hand. It warms only where the location permission is already given: the ask itself
-/// still belongs to the place sheet (``answer()``), the one moment the app has a use for it.
+/// the sheet's Nearby section is already in hand. It warms only where the location permission is
+/// already given: the ask itself still belongs to the place sheet (``answer()``), the one moment
+/// the app has a use for it.
 ///
 /// One read serves every warm and every sheet within ``freshFor`` from roughly the same spot, so
 /// opening the app ten times over lunch costs one read. The read itself is the database first

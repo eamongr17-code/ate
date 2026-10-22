@@ -85,7 +85,7 @@ extension V2ComposerWrite {
             if result.isPlaceRequired {
                 // The server says there is no place: the Place key is empty again and the tick
                 // waits on it — not a retry that cannot work.
-                model.placeRefused()
+                model.detachPlace()
                 analytics(EntryEvents.saveFailed(isEdit: false, reason: "place_required"))
                 return
             }
