@@ -67,18 +67,19 @@ struct FeedRoot: View {
         }
         .accessibilityIdentifier("v2.root.feed")
         .ateGround()
-        .ateRootToolbar(
+        .ateGlassRootHeader(
             title: .text(V2Tab.feed.title),
             subtitle: subtitle,
             inline: AteInlineTitle(title: V2Tab.feed.title, subtitle: subtitle),
             isCollapsed: isCollapsed,
-            isBarHidden: isBarHidden
-        ) {
-            if AteBeta.isOn == false {
-                AteGlassItem(icon: .place, label: "Area") { isChoosingArea = true }
-                    .accessibilityIdentifier("feed.area")
+            isHidden: isBarHidden,
+            controls: {
+                if AteBeta.isOn == false {
+                    AteGlassItem(icon: .place, label: "Area") { isChoosingArea = true }
+                        .accessibilityIdentifier("feed.area")
+                }
             }
-        }
+        )
         .task {
             app.services.analytics(SocialEvents.feedViewed())
             if AteBeta.isOn {
