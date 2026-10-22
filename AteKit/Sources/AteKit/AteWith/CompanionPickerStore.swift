@@ -37,10 +37,13 @@ public final class CompanionPickerStore {
 
     /// Who the sheet opened holding — what the commit pill compares against.
     public let initial: [CompanionPerson]
-    /// How many may be picked: an entry's six seats, or a list's 20 people (0073).
-    public let limit: Int
+    /// How many may be picked: an entry's six seats less any declines on it, or a list's 20 people
+    /// (0073).
+    public private(set) var limit: Int
 
     @ObservationIgnored private let service: any CompanionTagging
+    /// The entry being edited, whose declined seats count against ``limit``.
+    @ObservationIgnored private let entryID: UUID?
     @ObservationIgnored private let debounce: Duration
     @ObservationIgnored private let pageSize: Int
     @ObservationIgnored private var pending: Task<Void, Never>?
@@ -51,12 +54,14 @@ public final class CompanionPickerStore {
         service: any CompanionTagging,
         selected: [CompanionPerson] = [],
         limit: Int = CompanionPickerStore.cap,
+        entryID: UUID? = nil,
         debounce: Duration = .milliseconds(250),
         pageSize: Int = 20
     ) {
         let capped = Array(selected.prefix(limit))
         self.limit = limit
         self.service = service
+        self.entryID = entryID
         self.selected = capped
         self.initial = capped
         self.debounce = debounce
@@ -122,8 +127,11 @@ public final class CompanionPickerStore {
         selected.removeAll { $0.userID == person.userID }
     }
 
-    /// The standing list, as the sheet rises.
+    /// The standing list, as the sheet rises — and, editing an entry, the seats its declines hold.
     public func loadRecents() async {
+        if let entryID, let declined = try? await service.declinedSeats(onEntry: entryID) {
+            limit = max(selected.count, limit - declined)
+        }
         do {
             recents = try await service.recentCompanions(limit: Self.recentLimit)
             if isSearching == false { phase = .ready }
