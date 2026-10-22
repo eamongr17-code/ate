@@ -17,4 +17,15 @@ public enum ShellEvents {
     public static func composeOpened(over tab: String) -> AnalyticsEvent {
         AnalyticsEvent(name: "compose_opened", parameters: ["over": tab])
     }
+
+    /// A list's first read of a launch landed: how long the server took (`duration_ms`), and whether
+    /// the rows from last time were already on screen while it did (`from_cache`). The app's own
+    /// measure of how fast it feels on a cold open.
+    public static func listFirstRead(_ list: String, durationMilliseconds: Int, fromCache: Bool) -> AnalyticsEvent {
+        AnalyticsEvent(name: "list_first_read", parameters: [
+            "list": list,
+            "duration_ms": String(max(0, durationMilliseconds)),
+            "from_cache": fromCache ? "true" : "false"
+        ])
+    }
 }

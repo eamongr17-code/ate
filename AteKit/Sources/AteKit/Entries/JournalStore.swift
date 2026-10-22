@@ -41,9 +41,15 @@ public final class JournalStore: EntryDeletionObserving {
     /// The order and filters the list is showing (round 4). The default is the journal itself and
     /// reads the plain journal path; anything else reads `my_entries`.
     public private(set) var query = JournalQuery()
+    /// The server has answered at least once this session.
+    public var hasLoaded: Bool { hasLoadedOnce }
+    /// This session's first rows came from the cache, before the server answered.
+    public private(set) var drewFromCache = false
 
     private let entryService: any EntryService
     private let querying: (any JournalQuerying)?
+    /// The journal as it last stood, drawn on a cold open before the first read lands.
+    private let cache: EntryPageCache?
     private let pageSize: Int
     private let calendar: Calendar
     private var nextCursor: JournalCursor?
@@ -63,10 +69,12 @@ public final class JournalStore: EntryDeletionObserving {
         pageSize: Int = 30,
         calendar: Calendar = .autoupdatingCurrent,
         deletions: EntryDeletions? = nil,
-        querying: (any JournalQuerying)? = nil
+        querying: (any JournalQuerying)? = nil,
+        cache: EntryPageCache? = nil
     ) {
         self.entryService = entries
         self.querying = querying
+        self.cache = cache
         cityList = AteCityList { try await querying?.myEntryCities() ?? [] }
         self.pageSize = pageSize
         self.calendar = calendar
@@ -78,7 +86,27 @@ public final class JournalStore: EntryDeletionObserving {
 
     public func loadIfNeeded() async {
         guard hasLoadedOnce == false || needsRefresh else { return }
+        showCachedIfEmpty()
         await loadFirstPage()
+    }
+
+    /// A cold open draws the journal as it last stood, at once; the read below replaces it. Never
+    /// over rows already here, and never for a filtered list, which is a different list.
+    private func showCachedIfEmpty() {
+        guard hasLoadedOnce == false, entries.isEmpty, query.isDefault,
+              let cached = cache?.read(), cached.isEmpty == false else { return }
+        entries = cached
+        seenIDs = Set(cached.map(\.id))
+        phase = .ready
+        drewFromCache = true
+        regroup()
+    }
+
+    /// The journal's first page, kept for the next cold open — only the plain journal, only once it
+    /// has been read from the server at least once this session.
+    private func persist() {
+        guard let cache, hasLoadedOnce, query.isDefault, phase != .signedOut else { return }
+        cache.write(Array(entries.prefix(pageSize)))
     }
 
     /// Pull to refresh. Existing entries stay on screen until the new first page arrives, so a
@@ -139,6 +167,7 @@ public final class JournalStore: EntryDeletionObserving {
             keepPinned()
             phase = entries.isEmpty ? .empty : .ready
             inlineErrorMessage = nil
+            persist()
         } catch is CancellationError {
             return
         } catch {
@@ -192,6 +221,7 @@ public final class JournalStore: EntryDeletionObserving {
         }
         phase = .ready
         regroup()
+        persist()
     }
 
     /// Replaces one entry in place — the receipt arriving, a correction landing, visibility flipping.
@@ -199,6 +229,7 @@ public final class JournalStore: EntryDeletionObserving {
         guard let index = entries.firstIndex(where: { $0.id == card.id }) else { return }
         entries[index] = card
         regroup()
+        persist()
     }
 
     /// An entry was deleted. It leaves the page now, keeps its id in `seenIDs` so a page read
@@ -208,6 +239,7 @@ public final class JournalStore: EntryDeletionObserving {
         entries.remove(at: index)
         if entries.isEmpty, phase == .ready { phase = .empty }
         regroup()
+        persist()
     }
 
     public func entryDeleted(_ entryID: UUID) {

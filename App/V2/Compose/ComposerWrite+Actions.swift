@@ -280,7 +280,10 @@ extension V2ComposerWrite {
             ) else { continue }
             images.append((id: identifier, image: image))
         }
-        model.setPhotos(ComposerPhotoStaging.stage(images: images, in: model.photoDirectory, existing: model.photos))
+        let staged = await ComposerPhotoStaging.stage(images: images, in: model.photoDirectory, existing: [])
+        // Anything picked while they were written stays, after them.
+        let added = model.photos.filter { photo in staged.contains { $0.id == photo.id } == false }
+        model.setPhotos(Array((staged + added).prefix(EntryDraft.photoLimit)))
         // The suggestion's photos bring their own day (date-and-photos.html).
         model.photosDated(services.photos.takenAt(ids: images.map(\.id)))
     }
@@ -417,13 +420,19 @@ extension V2ComposerWrite {
     }
 
     /// A photo from the camera lands in the cluster exactly as one from the library does.
+    /// The 12-megapixel shot is cut down off the main thread; the tile appears when it is written.
     func captured(_ image: UIImage) {
-        model.setPhotos(ComposerPhotoStaging.stage(
-            images: [(id: UUID().uuidString, image: image)],
-            in: model.photoDirectory,
-            existing: model.photos
-        ))
-        services.analytics(EntryEvents.cameraCaptured(photoCount: model.photos.count))
+        Task {
+            let staged = await ComposerPhotoStaging.stage(
+                images: [(id: UUID().uuidString, image: image)],
+                in: model.photoDirectory,
+                existing: model.photos
+            )
+            // Anything picked while it was written stays too.
+            let added = model.photos.filter { photo in staged.contains { $0.id == photo.id } == false }
+            model.setPhotos(Array((staged + added).prefix(EntryDraft.photoLimit)))
+            services.analytics(EntryEvents.cameraCaptured(photoCount: model.photos.count))
+        }
     }
 }
 

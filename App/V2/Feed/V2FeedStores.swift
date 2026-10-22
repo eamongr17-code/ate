@@ -60,6 +60,7 @@ struct V2FeedStores {
             try await reader.feedPage(after: cursor, pageSize: pageSize, includeOwn: true, area: nil, city: nil)
         }
         everything.listen(to: services.entryDeletions)
+        everything.cache = services.pageCache("feed")
         let analytics = services.analytics
         everything.onPageLoaded = { page, count in
             analytics(SocialEvents.feedPageLoaded(page: page, itemCount: count))
