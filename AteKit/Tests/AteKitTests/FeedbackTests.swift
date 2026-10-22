@@ -38,7 +38,7 @@ struct FeedbackTests {
         trail.visit("journal")
         trail.visit("entry")
         #expect(trail.screens == ["journal", "entry"])
-        for n in 0..<30 { trail.visit("s\(n)") }
+        for step in 0..<30 { trail.visit("s\(step)") }
         #expect(trail.screens.count == 20)
         #expect(trail.screens.first == "s10")
         #expect(trail.screens.last == "s29")
