@@ -47,6 +47,8 @@ public enum DetailSource: String, Sendable, CaseIterable, Codable {
     case tag
     /// An entry page's "More at" or "More like this" shelf (build 87).
     case entryMore = "entry_more"
+    /// The You tab — "Your top dishes" and the Ratings page's rows, which open your own entry.
+    case you
 }
 
 /// Which affordance a "log" call to action was tapped on.

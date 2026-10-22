@@ -126,9 +126,19 @@ struct V2RatingsPage: View {
             subtitle: dish.restaurantName.flatMap { $0.isEmpty ? nil : $0 },
             score: Rating(exactly: dish.score).map(AteScore.personal),
             isFirst: isFirst,
-            onOpen: { context.open(.dish(dish.dishID), from: .unknown) }
+            onOpen: { open(dish) }
         )
         .accessibilityIdentifier("ratings.dish")
+    }
+
+    /// Each row is one of your reviews, so it opens the entry it was written in (Eamon, 22 Oct) —
+    /// the dish's page only for a line older than entries, which has none to open.
+    private func open(_ dish: ScoredDish) {
+        if let entryID = dish.entryID {
+            context.open(.entry(EntryRoute(entryID: entryID)), from: .you)
+        } else {
+            context.open(.dish(dish.dishID), from: .you)
+        }
     }
 
     /// The page before it has arrived: the chart, a score line and a screenful of rows.

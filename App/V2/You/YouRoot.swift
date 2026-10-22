@@ -97,7 +97,9 @@ struct YouRoot: View {
         }
     }
 
-    /// "Your top dishes" — up to four, best score first, tilted.
+    /// "Your top dishes" — up to four, best score first, tilted. A tile opens your own entry, not the
+    /// dish's page (Eamon, 22 Oct): for a dish scored more than once, the one behind the tile —
+    /// your highest score for it, the newest at that score.
     @ViewBuilder
     private var topDishes: some View {
         if store.top.isEmpty == false {
@@ -108,11 +110,18 @@ struct YouRoot: View {
                         AteTopDishes.Dish(
                             id: dish.id,
                             dishID: dish.dishID,
+                            entryID: dish.entryID,
                             name: dish.dishName,
                             photo: .dish(dish.dishID, name: dish.dishName, cover: dish.coverURL)
                         )
                     },
-                    onOpen: { router.open(.dish($0)) }
+                    onOpen: { dish in
+                        if let entryID = dish.entryID {
+                            router.open(.entry(EntryRoute(entryID: entryID)), from: .you)
+                        } else {
+                            router.open(.dish(dish.dishID), from: .you)
+                        }
+                    }
                 )
             }
         }
