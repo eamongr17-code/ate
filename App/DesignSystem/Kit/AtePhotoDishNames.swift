@@ -102,10 +102,10 @@ private struct AtePhotoDishNamesLayout: Layout {
                 subview.place(at: tip, anchor: .bottom, proposal: ProposedViewSize(size))
             } else {
                 let width = min(size.width, bounds.width - metrics.edge * 2)
-                let x = min(max(tip.x - width / 2, bounds.minX + metrics.edge), bounds.maxX - metrics.edge - width)
-                let y = tip.y - metrics.pointerHeight - size.height + 1
+                let left = min(max(tip.x - width / 2, bounds.minX + metrics.edge), bounds.maxX - metrics.edge - width)
+                let top = tip.y - metrics.pointerHeight - size.height + 1
                 subview.place(
-                    at: CGPoint(x: x, y: max(bounds.minY + metrics.edge, y)),
+                    at: CGPoint(x: left, y: max(bounds.minY + metrics.edge, top)),
                     anchor: .topLeading,
                     proposal: ProposedViewSize(width: width, height: size.height)
                 )
