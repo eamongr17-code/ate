@@ -1,0 +1,259 @@
+<title>First Post Tips</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a short brief, then phones at real iPhone 17 Pro size (402 x 874), wrapping to one column on a phone. */
+:root{
+  --ground:#EFEAE2; --fg:#24141F; --muted:#5E5560; --hair:rgba(36,20,31,.14); --lilac:#B9A5EA; --green:#3ECF64; --code:#E4DED4;
+  --f-display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Newsreader",Georgia,serif;
+  --f-mono:"DM Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --ground:#17111B; --fg:#F4EFE9; --muted:#B9AFBC; --hair:rgba(255,255,255,.16); --code:#2B2230; color-scheme:dark; } }
+:root[data-theme="dark"]{ --ground:#17111B; --fg:#F4EFE9; --muted:#B9AFBC; --hair:rgba(255,255,255,.16); --code:#2B2230; color-scheme:dark; }
+*{box-sizing:border-box}
+html,body{overflow-x:hidden}
+body{background:var(--ground);color:var(--fg);font-family:var(--f-body);font-size:17px;line-height:1.5;margin:0;
+  padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:1300px;margin:0 auto;display:grid;gap:44px}
+.measure{max-width:720px;display:grid;gap:12px}
+h1,h2,h3{font-family:var(--f-display);letter-spacing:-.035em;line-height:1.05;text-wrap:balance;margin:0}
+h1{font-weight:800;font-size:44px} h2{font-weight:800;font-size:28px} h3{font-weight:600;font-size:17px;letter-spacing:-.01em}
+p{margin:0}
+.lede{font-size:19px;line-height:1.45}
+.note{color:var(--muted);font-size:15px}
+code{font-family:var(--f-mono);font-size:.82em;background:var(--code);padding:1px 5px;border-radius:6px}
+section{display:grid;gap:18px}
+.phones{display:flex;flex-wrap:wrap;gap:36px 28px}
+.cell{display:grid;gap:10px;width:402px;max-width:100%;align-content:start}
+.cell p{font-size:15px;color:var(--muted);line-height:1.42}
+.cell p b{color:var(--fg);font-family:var(--f-display);font-weight:600}
+.rules{border-collapse:collapse;font-size:15px;min-width:640px}
+.rules th,.rules td{text-align:left;padding:10px 14px 10px 0;border-bottom:1px solid var(--hair);vertical-align:top}
+.rules th{font:600 13px/1.2 var(--f-display);color:var(--muted);letter-spacing:.02em}
+.tw{overflow-x:auto}
+
+/* ---------- the phone, 1:1 ---------- */
+.ph{width:402px;max-width:100%;height:874px;border-radius:54px;overflow:hidden;box-shadow:0 0 0 1px var(--hair),0 18px 40px rgba(36,20,31,.14);position:relative}
+.scr{position:absolute;inset:0;overflow:hidden;font-family:var(--f-body);
+  --g:#EFEAE2;--ink:#24141F;--paper:#FFFFFF;--fld:#E4DED4;--mut:#5E5560;--hr:rgba(36,20,31,.14);--solid:#24141F;--solidfg:#FFFFFF;
+  --gl:rgba(255,255,255,.62);--glin:rgba(255,255,255,.9);--dimc:#B9B2A8;--tabon:rgba(36,20,31,.06);
+  background:var(--g);color:var(--ink)}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;border-radius:20px;background:#000;z-index:12}
+.sb{position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:6px 36px 0 48px;font:600 17px/1 -apple-system,"Helvetica Neue",sans-serif;z-index:11}
+.sb i{display:flex;gap:6px;align-items:center}
+.sb i b{display:block;background:currentColor;border-radius:2px}
+.glass{background:var(--gl);-webkit-backdrop-filter:blur(18px) saturate(1.7);backdrop-filter:blur(18px) saturate(1.7);
+  box-shadow:inset 0 0 0 .5px var(--glin),inset 0 1px 1px var(--glin),0 0 0 .5px rgba(36,20,31,.10),0 8px 22px rgba(36,20,31,.12);color:var(--ink)}
+.disc{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--ink);flex-shrink:0}
+.tick{background:var(--solid);color:var(--solidfg);box-shadow:inset 0 1px 1px rgba(255,255,255,.25),0 6px 16px rgba(36,20,31,.25)}
+.tick.off{opacity:.4}
+.ui{font-family:var(--f-display)}
+.mt{font:500 13px/1.3 var(--f-display);color:var(--mut)}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:140px;height:5px;border-radius:3px;background:var(--ink);z-index:12}
+.tabbar{position:absolute;left:21px;right:93px;bottom:21px;height:62px;border-radius:999px;display:flex;align-items:center;justify-content:space-around;padding:0 6px;z-index:7}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;font:600 10.5px/1 var(--f-display);color:var(--ink);width:68px;height:54px;justify-content:center;border-radius:999px}
+.tab.on{background:var(--tabon);font-weight:800}
+.plusdisc{position:absolute;right:21px;bottom:21px;width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:7}
+
+/* the composer sheet */
+.dim{position:absolute;inset:0;background:var(--dimc)}
+.sheet{position:absolute;left:0;right:0;top:62px;bottom:0;background:var(--paper);border-radius:38px 38px 0 0;overflow:hidden;z-index:5}
+.sheet .top{position:absolute;top:16px;left:16px;right:16px;display:flex;justify-content:space-between}
+.byline{position:absolute;top:72px;left:16px;right:16px;display:flex;flex-wrap:wrap;gap:8px}
+.bp{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 13px 0 11px;border-radius:999px;box-shadow:inset 0 0 0 1px var(--hr);font:600 14px/1 var(--f-display)}
+.words{position:absolute;top:124px;left:16px;right:16px;font:400 19px/1.5 var(--f-body)}
+.words .pmt{color:var(--mut)}
+.caret{display:inline-block;width:2px;height:22px;background:#F0623F;vertical-align:-4px;margin:0 1px}
+.stok{display:inline-flex;align-items:center;gap:3px;padding:0 7px 0 5px;border-radius:999px;background:#F6D365;color:#24141F;font:500 .78em/1.55 var(--f-mono);vertical-align:1px}
+.keys{position:absolute;left:8px;right:8px;bottom:344px;height:56px;border-radius:999px;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 6px;z-index:8}
+.keys .media{display:flex}
+.keys .hit{width:44px;height:44px;display:flex;align-items:center;justify-content:center}
+.keys .rt{display:flex;gap:6px}
+.key{height:40px;display:inline-flex;align-items:center;gap:6px;padding:0 14px 0 12px;border-radius:999px;font:600 15px/1 var(--f-display);color:#24141F}
+.key.score{background:#F6D365;width:96px;justify-content:center}
+.key.diet{background:#E4DED4;width:44px;padding:0;justify-content:center}
+.kbd{position:absolute;left:0;right:0;bottom:0;height:336px;background:#D3D5DB;padding:8px 3px 0;display:grid;gap:11px;align-content:start;z-index:10}
+.kbd .r{display:flex;justify-content:center;gap:6px}
+.kbd .r span{height:42px;flex:0 0 34px;background:#fff;border-radius:6px;box-shadow:0 1px 0 rgba(0,0,0,.3);font:400 22px/42px -apple-system,sans-serif;text-align:center;color:#111}
+.kbd .r span.w{flex:0 0 46px;background:#ABB0BA}
+.kbd .r span.spc{flex:0 0 196px}
+
+/* the beta Feed */
+.lt{position:absolute;left:20px;top:61px;z-index:6}
+.lt b{font:800 34px/1 var(--f-display);letter-spacing:-.035em}
+.feed{position:absolute;left:16px;right:16px;top:118px;display:grid;gap:14px}
+.slip{background:var(--paper);border-radius:16px 16px 0 0;padding:12px 16px 14px;display:grid;gap:10px}
+.slipt{height:4px;margin-top:-14px;background:radial-gradient(circle at 6px 6px,transparent 4px,var(--paper) 4.5px) 0 -2px/12px 6px repeat-x}
+.by{display:flex;justify-content:space-between;align-items:center}
+.av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:800 12px/1 var(--f-display);color:#24141F}
+.dr{display:flex;justify-content:space-between;align-items:center;min-height:44px;border-top:1px solid var(--hr)}
+.dr b{font:800 20px/1.05 var(--f-display);letter-spacing:-.03em}
+.sc{display:flex;align-items:center;gap:5px;font:800 26px/1 var(--f-display);letter-spacing:-.02em}
+.prose{font-size:16px;line-height:1.5;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.place{display:flex;align-items:center;gap:6px}
+.row{display:flex;align-items:center}
+
+/* TipKit popover, as AteTipStyle draws it: title, one muted line, a quiet close. No glyph. */
+.tipk{position:absolute;z-index:9;border-radius:22px;padding:14px 14px 14px 16px;display:flex;gap:12px;align-items:flex-start;width:300px;
+  background:#FBFAF8;
+  box-shadow:inset 0 0 0 .5px rgba(255,255,255,.95),0 0 0 .5px rgba(36,20,31,.14),0 14px 34px rgba(36,20,31,.18);color:#24141F}
+.tipk .tt{flex:1;display:grid;gap:3px}
+.tipk .tt b{font:600 16px/1.2 var(--f-display);letter-spacing:-.01em}
+.tipk .tt span{font:400 16px/1.35 var(--f-body);color:#5E5560}
+.tipk .xx{color:#8A828B}
+.tipk:after{content:"";position:absolute;width:18px;height:18px;background:inherit;transform:rotate(45deg);border-radius:3px;background:#FBFAF8}
+.tipk.up:after{top:-7px;left:var(--ax,40px);box-shadow:-.5px -.5px 0 rgba(36,20,31,.14)}
+.tipk.dn:after{bottom:-7px;left:var(--ax,40px);box-shadow:.5px .5px 0 rgba(36,20,31,.14)}
+@media (prefers-reduced-motion: no-preference){ .tipk{animation:tipin .35s ease-out both} @keyframes tipin{from{opacity:0;transform:scale(.96)}} }
+</style>
+
+<main>
+<header class="measure">
+  <h1>First post tips</h1>
+  <p class="lede">Two one-time tips on a person's first entry, in the same style as the bell and Lists tips, plus the Save tip restored on the beta Feed. No new screens, no tour.</p>
+  <p class="note">Phones are live size (iPhone 17 Pro). Tips are native TipKit popovers drawn with Ate's tip style. Each shows once ever, one at a time, and goes the moment its control is used or its ✕ is tapped.</p>
+</header>
+
+<section>
+  <h2>The three tips</h2>
+  <div class="phones">
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="island"></div><div class="sb"></div>
+        <div class="dim"></div>
+        <div class="sheet">
+          <div class="top"><span class="disc glass" data-i="x"></span><span class="disc tick off" data-i="check"></span></div>
+          <div class="byline">
+            <span class="bp"><i data-i="pin" data-s="16"></i>Place</span>
+            <span class="bp"><i data-i="userplus" data-s="16"></i>People</span>
+            <span class="bp"><i data-i="cal" data-s="16"></i>Today</span>
+          </div>
+          <div class="words"><span class="caret" style="margin-left:0"></span><span class="pmt">What did you have today?</span></div>
+        </div>
+        <div class="tipk dn" style="left:86px;bottom:416px;--ax:191px"><span class="tt"><b>Score a dish</b><span>Type its name, then tap Score.</span></span><i class="xx" data-i="x" data-s="16"></i></div>
+        <div class="keys glass">
+          <span class="media"><span class="hit" data-i="camera"></span><span class="hit" data-i="image"></span></span>
+          <span class="rt"><span class="key score"><i data-i="star" data-s="16"></i>Score</span><span class="key diet" data-i="leaf" data-s="16"></span></span>
+        </div>
+        <div class="kbd"></div>
+      </div></div>
+      <h3>1. Score a dish</h3>
+      <p>The first composer a person opens, before they type. The tip points at the Score key. It goes after their first score, or the ✕.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="island"></div><div class="sb"></div>
+        <div class="dim"></div>
+        <div class="sheet">
+          <div class="top"><span class="disc glass" data-i="x"></span><span class="disc tick off" data-i="check"></span></div>
+          <div class="byline">
+            <span class="bp"><i data-i="pin" data-s="16"></i>Place</span>
+            <span class="bp"><i data-i="userplus" data-s="16"></i>People</span>
+            <span class="bp"><i data-i="cal" data-s="16"></i>Today</span>
+          </div>
+          <div class="words">Cacio e pepe <span class="stok"><i data-i="star" data-s="11"></i>4.5</span> was perfect, really peppery. The tiramisu <span class="stok"><i data-i="star" data-s="11"></i>3.5</span> was fine.<span class="caret"></span></div>
+        </div>
+        <div class="tipk up" style="left:16px;top:180px;--ax:42px"><span class="tt"><b>Add the place</b><span>Ate needs it to post your entry.</span></span><i class="xx" data-i="x" data-s="16"></i></div>
+        <div class="keys glass">
+          <span class="media"><span class="hit" data-i="camera"></span><span class="hit" data-i="image"></span></span>
+          <span class="rt"><span class="key score"><i data-i="star" data-s="16"></i>Score</span><span class="key diet" data-i="leaf" data-s="16"></span></span>
+        </div>
+        <div class="kbd"></div>
+      </div></div>
+      <h3>2. Add the place</h3>
+      <p>Only when the person has written something, there's still no place, and the tick is grey. It points at the Place pill. If the entry started from a photo with a place already on it, this tip never shows.</p>
+    </div>
+
+    <div class="cell">
+      <div class="ph"><div class="scr">
+        <div class="island"></div><div class="sb"></div>
+        <div class="lt"><b>Feed</b></div>
+        <div class="feed">
+          <div>
+            <div class="slip">
+              <div class="by"><span class="row" style="gap:8px"><span class="av" style="background:#B9A5EA">P</span><span class="ui" style="font-size:14px;font-weight:600">@paris</span></span><span class="mt">2h</span></div>
+              <div>
+                <div class="dr"><b>Nduja Pizza</b><span class="row" style="gap:14px"><span class="sc"><i data-i="star" data-s="16"></i>4.8</span><span class="hit" data-i="bm" style="margin-right:-2px"></span></span></div>
+                <div class="dr"><b>Burrata</b><span class="row" style="gap:14px"><span class="sc"><i data-i="star" data-s="16"></i>4.2</span><span class="hit" data-i="bm" style="margin-right:-2px"></span></span></div>
+              </div>
+              <p class="prose">The nduja one is the move. Spicy, a bit sweet from the honey, base properly charred.</p>
+              <div class="place"><i data-i="pin" data-s="15" style="color:var(--mut)"></i><span class="ui" style="font-weight:600;font-size:14px">Pizzeria Harbour</span><span class="mt">Abbotsford</span></div>
+            </div>
+            <div class="slipt"></div>
+          </div>
+          <div>
+            <div class="slip">
+              <div class="by"><span class="row" style="gap:8px"><span class="av" style="background:#36AEE6">E</span><span class="ui" style="font-size:14px;font-weight:600">@eamon</span></span><span class="mt">Yesterday</span></div>
+              <div><div class="dr"><b>Kouign-amann</b><span class="row" style="gap:14px"><span class="sc"><i data-i="star" data-s="16"></i>4.7</span><span class="hit" data-i="bm" style="margin-right:-2px"></span></span></div></div>
+              <p class="prose">Worth the queue. Shattering outside, buttery layers.</p>
+              <div class="place"><i data-i="pin" data-s="15" style="color:var(--mut)"></i><span class="ui" style="font-weight:600;font-size:14px">Oyster Bakehouse</span><span class="mt">Carlton</span></div>
+            </div>
+            <div class="slipt"></div>
+          </div>
+        </div>
+        <div class="tipk up" style="left:86px;top:226px;--ax:262px"><span class="tt"><b>Save a dish</b><span>Tap the bookmark to keep it for later.</span></span><i class="xx" data-i="x" data-s="16"></i></div>
+        <div data-tb="feed"></div><div class="home"></div>
+      </div></div>
+      <h3>3. Save a dish (restored)</h3>
+      <p>The existing Save tip, now on the beta Feed testers actually see. It points at the first dish's bookmark on someone else's entry, and goes after the first save, or the ✕.</p>
+    </div>
+  </div>
+</section>
+
+<section class="measure">
+  <h2>When each one shows</h2>
+  <div class="tw"><table class="rules">
+    <tr><th>Tip</th><th>Shows</th><th>Never shows</th><th>Goes for good</th></tr>
+    <tr><td>Score a dish</td><td>Composer, while you have no entries yet</td><td>Editing an entry</td><td>First score, or ✕</td></tr>
+    <tr><td>Add the place</td><td>Composer, first entry, words written, no place</td><td>A place is already attached</td><td>Place picked, or ✕</td></tr>
+    <tr><td>Save a dish</td><td>Beta Feed, first dish with a bookmark</td><td>Your own entries</td><td>First save, or ✕</td></tr>
+  </table></div>
+  <p class="note">On 10 Oct you dropped an earlier Score tip because the first onboarding card teaches scoring. This brings it back on the first entry only, worded as an instruction. If you'd rather keep it out, the Place tip and Save fix stand on their own.</p>
+</section>
+</main>
+
+<script>
+(function(){
+  var P={
+    x:'<path d="M18 6 6 18M6 6l12 12"/>',
+    check:'<path d="M20 6 9 17l-5-5"/>',
+    star:'<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z" fill="currentColor" stroke="none"/>',
+    pin:'<path d="M20 10c0 5-8 12-8 12s-8-7-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+    userplus:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>',
+    cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+    image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+    leaf:'<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10Z"/><path d="M2 21c0-3 1.9-5.4 5.2-6.1C9.6 14.4 12 13 13 12"/>',
+    book:'<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
+    utensils:'<path d="m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7M2.1 21.8l6.4-6.3M19 5l-7 7"/>',
+    plus:'<path d="M12 5v14M5 12h14"/>',
+    user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    bm:'<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>'
+  };
+  var tabs=[['journal','book','Journal'],['feed','utensils','Feed'],['saved','bm','Saved'],['you','user','You']];
+  document.querySelectorAll('[data-tb]').forEach(function(t){
+    var on=t.getAttribute('data-tb');
+    t.outerHTML='<div class="tabbar glass">'+tabs.map(function(x){return '<span class="tab'+(x[0]===on?' on':'')+'"><i data-i="'+x[1]+'" data-s="24"></i>'+x[2]+'</span>'}).join('')+'</div><span class="plusdisc glass" data-i="plus" data-s="28"></span>';
+  });
+  var SB='<span>9:41</span><i><b style="width:17px;height:11px"></b><b style="width:25px;height:12px;border-radius:4px"></b></i>';
+  document.querySelectorAll('.sb').forEach(function(e){e.innerHTML=SB});
+  document.querySelectorAll('[data-i]').forEach(function(el){
+    var s=el.getAttribute('data-s')||22;
+    el.insertAdjacentHTML('afterbegin','<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex-shrink:0">'+(P[el.getAttribute('data-i')]||'')+'</svg>');
+  });
+  var rows=['qwertyuiop','asdfghjkl','zxcvbnm'];
+  document.querySelectorAll('.kbd').forEach(function(k){
+    var h='';
+    rows.forEach(function(r,i){
+      var keys=r.split('').map(function(c){return '<span>'+c+'</span>'}).join('');
+      if(i===2) keys='<span class="w">&#8679;</span>'+keys+'<span class="w">&#9003;</span>';
+      h+='<div class="r">'+keys+'</div>';
+    });
+    h+='<div class="r"><span class="w" style="font-size:16px">123</span><span class="spc"></span><span class="w" style="flex:0 0 90px;font-size:16px">return</span></div>';
+    k.innerHTML=h;
+  });
+})();
+</script>
