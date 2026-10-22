@@ -400,9 +400,10 @@ final class ComposerModel {
         return EntryEvents.placeAttached(source: .picked)
     }
 
-    /// The server said the entry has no place (`place_required`). The key goes back to empty, and
-    /// Done with it, so the Place key is once again the obvious next step.
-    func placeRefused() {
+    /// The place comes off the key: tapped again in the place sheet, or the server said the entry has
+    /// no place (`place_required`). The key goes back to empty, and Done with it, so the Place key is
+    /// once again the obvious next step.
+    func detachPlace() {
         place = nil
         persist()
     }

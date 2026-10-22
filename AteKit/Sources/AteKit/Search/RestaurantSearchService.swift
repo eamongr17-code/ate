@@ -8,7 +8,7 @@ public protocol RestaurantSearchProviding: Sendable {
     /// §11.1 empty-query default: nearby, distance-ascending, ≤10, served by the edge function.
     func nearby(origin: SearchOrigin) async throws -> [RestaurantRowModel]
     /// §11.1 empty-query default: the last `limit` restaurants this viewer logged at.
-    func recents(limit: Int) async throws -> [RestaurantRowModel]
+    func recents(limit: Int, since: Date?) async throws -> [RestaurantRowModel]
     /// §11.1 ≥2 chars: the server-ranked blend. **Returned in server order, never re-sorted.**
     func search(
         query: String,
@@ -54,12 +54,21 @@ public struct RestaurantSearchService: RestaurantSearchProviding {
 
     // MARK: - Recents
 
-    public func recents(limit: Int = RestaurantSearchService.defaultRecentsLimit) async throws -> [RestaurantRowModel] {
+    /// `since` narrows the scan to entries made after it (`created_at` is indexed per reviewer), so
+    /// the usual answer — nothing in the last hour — is one small read that returns no rows.
+    public func recents(
+        limit: Int = RestaurantSearchService.defaultRecentsLimit,
+        since: Date? = nil
+    ) async throws -> [RestaurantRowModel] {
         let viewerID = try await api.requireCurrentUserID()
         let page = try await api.page(
             Review.self,
             request: PageRequest(limit: Self.recentsScanPageSize)
-        ) { $0.eq("reviewer_id", value: viewerID.uuidString) }
+        ) { query in
+            let mine = query.eq("reviewer_id", value: viewerID.uuidString)
+            guard let since else { return mine }
+            return mine.gte("created_at", value: PostgRESTTimestamp.string(from: since))
+        }
 
         // Newest-first order, deduped, capped — the restaurant you logged at most recently leads.
         var ordered: [UUID] = []

@@ -132,7 +132,7 @@ public extension PlaceDirectory where Self: InMemoryStandIn {
     func search(_ query: String, near origin: SearchOrigin?) async throws -> [PlaceSuggestion] {
         throw StandInUnsupported()
     }
-    func recents(limit: Int) async throws -> [PlaceSuggestion] { throw StandInUnsupported() }
+    func recents(limit: Int, since: Date) async throws -> [PlaceSuggestion] { throw StandInUnsupported() }
     func nearby(latitude: Double, longitude: Double) async throws -> [PlaceSuggestion] { throw StandInUnsupported() }
     func resolve(_ suggestion: PlaceSuggestion) async throws -> PlaceRef { throw StandInUnsupported() }
     func add(name: String, suburb: String?, street: String?) async throws -> PlaceRef { throw StandInUnsupported() }

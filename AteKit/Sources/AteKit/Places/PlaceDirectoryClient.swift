@@ -48,8 +48,8 @@ public struct PlaceDirectoryClient: PlaceDirectory {
         return results
     }
 
-    public func recents(limit: Int) async throws -> [PlaceSuggestion] {
-        let rows = try await restaurants.recents(limit: limit)
+    public func recents(limit: Int, since: Date) async throws -> [PlaceSuggestion] {
+        let rows = try await restaurants.recents(limit: limit, since: since)
         return rows.map(PlaceSuggestion.init)
     }
 

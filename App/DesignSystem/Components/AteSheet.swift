@@ -14,6 +14,7 @@ struct AteSearchField: View {
     var textStyle: AteTextStyle = .rowTitle
 
     @Environment(\.atePalette) private var palette
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         HStack(spacing: 10) {
@@ -25,9 +26,14 @@ struct AteSearchField: View {
             .textFieldStyle(.plain)
             .foregroundStyle(palette.fg)
             .submitLabel(.search)
+            .focused($isFocused)
         }
         .padding(.horizontal, horizontalPadding)
         .atePillHeight(height)
         .background(background ?? palette.field, in: .capsule)
+        // The whole pill is the field: the text itself is one line tall, and a tap above or below it
+        // (or on the glass) would otherwise do nothing.
+        .contentShape(.capsule)
+        .onTapGesture { isFocused = true }
     }
 }

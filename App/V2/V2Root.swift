@@ -51,6 +51,10 @@ struct V2Root: View {
         // Only while the app is in front: the connection back, and a minute's beat (receipt fallback).
         .task(id: scenePhase == .active) {
             guard scenePhase == .active else { return }
+            // Opening the app is the likeliest moment before an entry: the rooms around the phone
+            // are read now, quietly, so the place sheet opens on them. One read per half hour and
+            // block (``NearbyPlaces``); never asks for the permission.
+            if app.hasSession { app.services.nearbyPlaces.warm() }
             await app.keepOutboxMoving()
         }
         .onChange(of: scenePhase) { _, phase in

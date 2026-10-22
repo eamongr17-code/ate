@@ -16,6 +16,7 @@ struct EntryEventsTests {
             == "entry_composer_opened")
         #expect(EntryEvents.scoreTokenCreated(source: .key).name == "entry_score_token_created")
         #expect(EntryEvents.placeAttached(source: .picked).name == "entry_place_attached")
+        #expect(EntryEvents.placeCleared().name == "entry_place_cleared")
         #expect(EntryEvents.saved(.init(photoCount: 0, hasPlace: false, scoreCount: 0,
                                         secondsFromOpen: 0)).name == "entry_saved")
         #expect(EntryEvents.sortCompleted(mode: "stub", itemCount: 0, durationMilliseconds: 0,

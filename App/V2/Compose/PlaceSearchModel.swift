@@ -38,10 +38,17 @@ final class PlaceSearchModel {
     private var origin: SearchOrigin?
     private var search: Task<Void, Never>?
     private var pickedSuggestionID: String?
+    /// The place the entry carried was tapped again and taken off: nothing is marked until the next
+    /// pick.
+    private var isCleared = false
     /// The place the entry already carries. It comes back marked and its "Use …" button is there
     /// from the first frame — a sheet that opens with nothing chosen makes the person re-pick the
     /// answer they already gave.
     private let selectedRestaurantID: UUID?
+
+    /// Recent places are the ones from this sitting: entries made within the last hour. Anywhere
+    /// earlier is somewhere you have just been, the place you are least likely to be at now.
+    static let recentWindow: TimeInterval = 60 * 60
 
     /// Long enough that a fast typist costs one Places call rather than eight, short enough that it
     /// never feels like waiting.
@@ -58,6 +65,7 @@ final class PlaceSearchModel {
 
     func isSelected(_ suggestion: PlaceSuggestion) -> Bool {
         if let pickedSuggestionID { return pickedSuggestionID == suggestion.id }
+        if isCleared { return false }
         return suggestion.restaurantID != nil && suggestion.restaurantID == selectedRestaurantID
     }
 
@@ -99,6 +107,14 @@ final class PlaceSearchModel {
         if picked == nil { pickedSuggestionID = nil }
     }
 
+    /// The marked row, tapped again: it is unmarked rather than picked twice.
+    func unpick() {
+        pickedSuggestionID = nil
+        picked = nil
+        isResolving = false
+        isCleared = true
+    }
+
     private func schedule() {
         search?.cancel()
         search = Task { [weak self] in
@@ -127,14 +143,15 @@ final class PlaceSearchModel {
     /// The place the entry already has, found in a result set — so its "Use …" button is live
     /// without a tap.
     private func adoptSelected(from suggestions: [PlaceSuggestion]) {
-        guard picked == nil, let selectedRestaurantID,
+        guard picked == nil, isCleared == false, let selectedRestaurantID,
               let match = suggestions.first(where: { $0.restaurantID == selectedRestaurantID })
         else { return }
         picked = PlaceRef(id: selectedRestaurantID, name: match.name)
     }
 
     private func loadRecents() async {
-        let recent = (try? await directory.recents(limit: 5)) ?? []
+        let since = Date().addingTimeInterval(-Self.recentWindow)
+        let recent = (try? await directory.recents(limit: 5, since: since)) ?? []
         guard Task.isCancelled == false else { return }
         isShowingRecents = true
         results = recent

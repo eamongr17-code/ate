@@ -47,6 +47,7 @@ struct SavedAddSheet: View {
             nearby: app.services.nearbyPlaces,
             title: V2PlaceSheet.savedTitle,
             selected: { place?.id },
+            onClear: { place = nil },
             onPick: { picked in place = picked }
         )
         .v2FailureAlert($failure, analytics: app.services.analytics)

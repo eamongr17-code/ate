@@ -70,8 +70,10 @@ public protocol PlaceDirectory: Sendable {
     /// the phone is, when the sheet has it: Google ranks rooms near it first, wherever in the world
     /// that is. It only ranks — nothing is attached from it (design rule 8).
     func search(_ query: String, near origin: SearchOrigin?) async throws -> [PlaceSuggestion]
-    /// The empty-query default: places this person has already eaten at.
-    func recents(limit: Int) async throws -> [PlaceSuggestion]
+    /// The empty-query default: the places on this person's entries made since `since` — the
+    /// place sheet passes the last hour, for several entries at one sitting. Older places are not
+    /// offered: somewhere you ate last week is the place you are least likely to be at now.
+    func recents(limit: Int, since: Date) async throws -> [PlaceSuggestion]
     /// `PlaceSheet`'s Nearby section. Asked for **only** when the sheet has a location to ask with,
     /// which is only ever after the person allowed it on this screen. Design rule 8 is untouched:
     /// this lists rooms, it never attaches one.
