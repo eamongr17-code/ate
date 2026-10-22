@@ -1,0 +1,60 @@
+name: Feedback
+
+# Tester feedback → issues in the private repo eamongr17-code/ate-feedback, every hour
+# (.github/scripts/feedback_sync.py). Reads prod's new reports (the bug button) and TestFlight's own
+# feedback, files them, marks them filed. Never changes the schema or anyone's entries.
+#
+# Repository secrets it needs:
+#   SUPABASE_ACCESS_TOKEN   already set (Prod uses it) — the service key is read from it at run time
+#   FEEDBACK_GITHUB_TOKEN   fine-grained token: ate-feedback only, Issues + Contents read and write
+#   ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8   already set (Beta uses them) — TestFlight feedback
+# Until FEEDBACK_GITHUB_TOKEN exists the run says so and passes, so the schedule never goes red.
+
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Which database to read (staging: Debug builds' reports, labelled staging)"
+        type: choice
+        options: [prod, staging]
+        default: prod
+
+permissions: {}
+
+concurrency:
+  group: feedback-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: File new feedback
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      FEEDBACK_GITHUB_TOKEN: ${{ secrets.FEEDBACK_GITHUB_TOKEN }}
+      FEEDBACK_REPO: eamongr17-code/ate-feedback
+      PROJECT_REF: ${{ inputs.environment == 'staging' && 'cvoitgoaosofkougmarn' || 'vyaexmnajnbryimbkgkf' }}
+      ENV_LABEL: ${{ inputs.environment == 'staging' && 'staging' || '' }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - name: Token present
+        id: ready
+        run: |
+          if [ -z "$FEEDBACK_GITHUB_TOKEN" ]; then
+            echo "::notice title=Feedback not connected::Add the FEEDBACK_GITHUB_TOKEN repository secret to start filing tester feedback."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.ready.outputs.ok == 'true'
+      - run: pip install --quiet "pyjwt[crypto]==2.9.0"
+        if: steps.ready.outputs.ok == 'true'
+      - name: Sync
+        if: steps.ready.outputs.ok == 'true'
+        run: python3 .github/scripts/feedback_sync.py
