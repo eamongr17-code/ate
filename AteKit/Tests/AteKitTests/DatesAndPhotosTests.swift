@@ -200,7 +200,8 @@ struct DatesAndPhotosTests {
          {"photo_url":"https://x/2.jpg","review_id":"\(a.uuidString)"},
          {"photo_url":"https://x/3.jpg","review_id":"\(b.uuidString)"}]
         """
-        #expect(try PhotoDishRow.map(from: Data(json.utf8)) == ["https://x/1.jpg": a, "https://x/2.jpg": a, "https://x/3.jpg": b])
+        let want = ["https://x/1.jpg": a, "https://x/2.jpg": a, "https://x/3.jpg": b]
+        #expect(try PhotoDishRow.map(from: Data(json.utf8)) == want)
     }
 
     @Test("the in-memory stand-in: a pick moves the photo, No dish clears it")
