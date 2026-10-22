@@ -162,7 +162,8 @@ private struct AteRootBarHiding: ViewModifier {
                 run = (run >= 0) == (step >= 0) ? run + step : step
                 if run > AteGlassRootHeaderMetrics.hideAfter, new.depth > AteGlassRootHeaderMetrics.hideBelow {
                     set(true)
-                } else if run < -AteGlassRootHeaderMetrics.showAfter {
+                } else if run < -AteGlassRootHeaderMetrics.showAfter, phase == .interacting {
+                    // Up only under the finger: the small give as a drag lets go is not a scroll up.
                     set(false)
                 }
             }
@@ -186,7 +187,7 @@ enum AteGlassRootHeaderMetrics {
     /// …only once the page is this far under it…
     static let hideBelow: CGFloat = 120
     /// …and is back after this much scrolling up, or whenever the page is this near its top.
-    static let showAfter: CGFloat = 16
+    static let showAfter: CGFloat = 40
     static let showWithin: CGFloat = 24
     /// The header leaving or coming back.
     static let slide: Animation = .smooth(duration: 0.28)
