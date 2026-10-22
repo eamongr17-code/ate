@@ -254,6 +254,7 @@ final class AppModel {
         if landed.isEmpty == false { outboxLanded += 1 }
         // Tags follow their entries: one that just landed takes its people with it.
         await services.companionTags.run()
+        await services.feedback.flush()
     }
 
     /// **The receipt finishes in the background** (receipt fallback): the outbox is worked the moment

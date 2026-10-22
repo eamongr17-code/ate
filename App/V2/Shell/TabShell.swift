@@ -80,7 +80,10 @@ struct TabShell: View {
             app.linkedInvites = false
             openNotifications()
         }
-        .onChange(of: selection, initial: true) { _, tab in router(for: tab)?.shown() }
+        .onChange(of: selection, initial: true) { _, tab in
+            router(for: tab)?.shown()
+            ScreenTrail.app.visit(tab.rawValue)
+        }
     }
 
     /// The role that puts `+` in the bar's detached trailing slot. iOS 26 gives that slot to the

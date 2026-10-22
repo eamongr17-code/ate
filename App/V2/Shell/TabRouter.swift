@@ -39,6 +39,8 @@ final class TabRouter<Stores>: V2TabRouting {
 
     func open(_ route: Route, from source: DetailSource = .unknown) {
         guard route.isBuilt else { return }
+        // Where a tester has been, for the bug's report: the tab and the page's kind, never an id.
+        ScreenTrail.app.visit("\(tab.rawValue).\(route.trailName)")
         // A page already on the stack is gone back to, never pushed again: a dish's page opens your
         // entry, whose score opens the dish… and back would have been fifty swipes home (Eamon,
         // 10 Oct).

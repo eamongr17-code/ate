@@ -32,6 +32,8 @@ struct JournalRoot: View {
     @State var isSearching = false
     @State var search: JournalSearchStore?
     @State var searchText = ""
+    /// The bug's Feedback sheet (`feedback.html`), testers only.
+    @State var isSendingFeedback = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     static let top = "journal.top"
@@ -52,10 +54,11 @@ struct JournalRoot: View {
         .ateRootToolbar(
             title: .wordmark,
             inline: inlineTitle,
-            isCollapsed: isCollapsed
-        ) {
-            controls
-        }
+            isCollapsed: isCollapsed,
+            showsApart: showsBug,
+            apart: { bug },
+            controls: { controls }
+        )
         // The switch, pinned under the bar on the ground, never half under it (build 88), with the
         // filter's chips beneath it on the Journal; the shelf scrolls below.
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -66,6 +69,7 @@ struct JournalRoot: View {
             .ateGround()
         }
         .sheet(isPresented: $isFiltering) { filterSheet }
+        .sheet(isPresented: $isSendingFeedback) { FeedbackSheet(app: app) }
         // Searching: the bar steps away and the search screen covers the switch and the shelf.
         .toolbarVisibility(isSearching ? .hidden : .automatic, for: .navigationBar)
         .overlay { searchOverlay }
@@ -116,6 +120,24 @@ struct JournalRoot: View {
             return AteInlineTitle(title: topMonth.name(), subtitle: isThisYear ? nil : String(topMonth.year))
         }
         return AteInlineTitle(title: V2Tab.journal.title)
+    }
+
+    /// The bug, apart from the group (`feedback.html` A): TestFlight and Debug builds only, signed in,
+    /// never in an App Store build.
+    private var showsBug: Bool {
+        #if DEBUG || BETA
+        app.hasSession
+        #else
+        false
+        #endif
+    }
+
+    private var bug: some View {
+        Button { isSendingFeedback = true } label: {
+            AteIcon.bug.view(size: AteGlassDiscMetrics.glyph)
+        }
+        .accessibilityLabel("Send feedback")
+        .accessibilityIdentifier("journal.feedback")
     }
 
     /// Bell, search and filter, in one glass group (`lists-notifications.html` A1). The bell wears one

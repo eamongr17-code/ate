@@ -75,6 +75,10 @@ enum AteIcon: String, CaseIterable {
     case crop
     /// A shared video, over its thumbnail on the share-to-Ate card — Lucide's play, filled.
     case play
+    /// The Journal's bug, for testers (`feedback.html`) — Lucide's bug.
+    case bug
+    /// Send, on the feedback sheet — Lucide's arrow-up.
+    case arrowUp
 
     // Other apps' own marks — the one exception to Lucide (15 Oct, Eamon: the music note read as a
     // fake TikTok logo). Each is the app's official single-colour glyph, from Simple Icons (CC0),
@@ -193,6 +197,15 @@ M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.70
             [Self.path("M10.268 21a2 2 0 0 0 3.464 0"),
              Self.path("M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8"
                  + "c0 4.499-1.411 5.956-2.738 7.326")]
+        case .bug: // bug
+            [Self.path("m8 2 1.88 1.88"), Self.path("M14.12 3.88 16 2"),
+             Self.path("M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"),
+             Self.path("M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"),
+             Self.path("M12 20v-9"), Self.path("M6.53 9C4.6 8.8 3 7.1 3 5"), Self.path("M6 13H2"),
+             Self.path("M3 21c0-2.1 1.7-3.9 3.8-4"), Self.path("M20.97 5c0 2.1-1.6 3.8-3.5 4"),
+             Self.path("M22 13h-4"), Self.path("M17.2 17c2.1.1 3.8 1.9 3.8 4")]
+        case .arrowUp: // arrow-up
+            [Self.path("m5 12 7-7 7 7"), Self.path("M12 19V5")]
         case .listPlus: // list-plus
             [Self.path("M11 12H3"), Self.path("M16 6H3"), Self.path("M16 18H3"), Self.path("M18 9v6"),
              Self.path("M21 12h-6")]
