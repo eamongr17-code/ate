@@ -279,7 +279,10 @@ extension V2ComposerWrite {
             ) else { continue }
             images.append((id: identifier, image: image))
         }
-        model.setPhotos(ComposerPhotoStaging.stage(images: images, in: model.photoDirectory, existing: model.photos))
+        let staged = await ComposerPhotoStaging.stage(images: images, in: model.photoDirectory, existing: [])
+        // Anything picked while they were written stays, after them.
+        let added = model.photos.filter { photo in staged.contains { $0.id == photo.id } == false }
+        model.setPhotos(Array((staged + added).prefix(EntryDraft.photoLimit)))
         // The suggestion's photos bring their own day (date-and-photos.html).
         model.photosDated(services.photos.takenAt(ids: images.map(\.id)))
     }

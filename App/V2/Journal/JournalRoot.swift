@@ -77,11 +77,11 @@ struct JournalRoot: View {
         // Searching: the bar steps away and the search screen covers the switch and the shelf.
         .toolbarVisibility(isSearching ? .hidden : .automatic, for: .navigationBar)
         .overlay { searchOverlay }
-        .task { await journal.loadIfNeeded() }
+        .task { await loadJournal() }
         // Read ahead, so the filter sheet rises with its cities in it.
         .task { await journal.loadCitiesIfNeeded() }
-        .task { await stores.photos.load() }
-        // The bell's tag count, read again whenever the Journal is shown (it moved here from You).
+        // The photo count and the bell's tag count, read whenever the Journal is shown — the first
+        // time included, so the count is not also read from a `.task` (it scans the camera roll).
         .onAppear {
             Task { await stores.photos.load() }
             guard app.hasSession else { return }
@@ -110,6 +110,18 @@ struct JournalRoot: View {
             guard isComposing == false else { return }
             Task { await journal.refresh() }
         }
+    }
+
+    /// The journal's read — and, the first time this launch, how long it took (`list_first_read`).
+    private func loadJournal() async {
+        let isFirst = journal.hasLoaded == false
+        let started = ContinuousClock.now
+        await journal.loadIfNeeded()
+        guard isFirst, journal.hasLoaded, journal.phase != .signedOut else { return }
+        let milliseconds = Int((ContinuousClock.now - started) / .milliseconds(1))
+        app.services.analytics(ShellEvents.listFirstRead(
+            "journal", durationMilliseconds: milliseconds, fromCache: journal.drewFromCache
+        ))
     }
 
     // MARK: - The bar

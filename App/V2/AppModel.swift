@@ -301,6 +301,8 @@ final class AppModel {
             let outbox = services.outbox
             Task { await outbox.discard(authoredBy: deletedUserID) }
         }
+        // The lists a cold open draws from are the person's own: nothing of them outlives the session.
+        EntryPageCache.clearAll()
         onSessionEnded()
     }
 }

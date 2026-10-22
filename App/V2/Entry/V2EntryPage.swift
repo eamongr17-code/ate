@@ -47,7 +47,9 @@ private struct V2EntryScreen: View {
     init(entry: EntryRoute, context: V2PageContext) {
         self.entry = entry
         self.context = context
-        _model = State(initialValue: EntryModel(route: entry, services: context.services, saves: context.saves))
+        _model = State(initialValue: EntryModel(
+            route: entry, services: context.services, saves: context.saves, handle: context.app.handle
+        ))
         _more = State(initialValue: EntryMoreStore(places: context.services.placePages,
                                                    explore: context.services.dishExplore))
     }

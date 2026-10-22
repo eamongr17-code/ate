@@ -57,6 +57,9 @@ public final class EntryListStore: SavedDishObserving, EntryDeletionObserving {
     /// straight to one in the same turn, and an observer would see no change at all and report
     /// nothing. The event belongs where the page actually arrives.
     public var onPageLoaded: (@MainActor (Int, Int) -> Void)?
+    /// The list as it last stood, drawn on a cold open before the first read lands (the beta Feed).
+    /// Set it before the first load; `nil` keeps nothing.
+    public var cache: EntryPageCache?
 
     /// How close to the end a row must be before the next page is asked for.
     private static let prefetchDistance = 4
@@ -85,7 +88,23 @@ public final class EntryListStore: SavedDishObserving, EntryDeletionObserving {
 
     public func loadIfNeeded() async {
         guard hasLoadedOnce == false else { return }
+        showCachedIfEmpty()
         await loadFirstPage()
+    }
+
+    /// The rows the list last showed, at once; the read below replaces them.
+    private func showCachedIfEmpty() {
+        guard hasLoadedOnce == false, entries.isEmpty,
+              let cached = cache?.read(), cached.isEmpty == false else { return }
+        entries = cached
+        seenIDs = Set(cached.map(\.id))
+        phase = .ready
+    }
+
+    /// The first page, kept for the next cold open — once the server has answered this session.
+    private func persist() {
+        guard let cache, hasLoadedOnce, phase != .signedOut else { return }
+        cache.write(Array(entries.prefix(pageSize)))
     }
 
     /// Pull to refresh, and what a block does to every open list. Existing rows stay on screen until
@@ -148,6 +167,7 @@ public final class EntryListStore: SavedDishObserving, EntryDeletionObserving {
             append(page)
             phase = entries.isEmpty ? .empty : .ready
             inlineErrorMessage = nil
+            persist()
         } catch is CancellationError {
             return
         } catch {
@@ -185,6 +205,7 @@ public final class EntryListStore: SavedDishObserving, EntryDeletionObserving {
         entries.removeAll { $0.authorID == authorID }
         seenIDs = Set(entries.map(\.id))
         if entries.isEmpty, phase == .ready { phase = .empty }
+        persist()
     }
 
     /// An entry was deleted: it leaves now, and a later page that still carries it (read before
@@ -193,6 +214,7 @@ public final class EntryListStore: SavedDishObserving, EntryDeletionObserving {
         guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return }
         entries.remove(at: index)
         if entries.isEmpty, phase == .ready { phase = .empty }
+        persist()
     }
 
     public func entryDeleted(_ entryID: UUID) {

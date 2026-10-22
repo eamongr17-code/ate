@@ -76,8 +76,8 @@ struct StagedPick {
 @MainActor
 enum ComposerPhotoStaging {
     /// The longest edge we keep. Generous for a share card at 3×, meaningless as a download.
-    static let maximumDimension: CGFloat = 1600
-    static let compressionQuality: CGFloat = 0.8
+    nonisolated static let maximumDimension: CGFloat = 1600
+    nonisolated static let compressionQuality: CGFloat = 0.8
     /// The preview a pick shows while its bytes are written — about a 116pt tile at 3×.
     static let previewDimension: CGFloat = 360
 
@@ -115,23 +115,25 @@ enum ComposerPhotoStaging {
     }
 
     /// Stages images the app already holds — a camera shot, or a cluster picked on `Suggestions`.
-    /// Same file, same downscale, same order as the picker's path.
+    /// Same file, same downscale, same order as the picker's path — and, like it, **off the main
+    /// thread**: five photos re-encoded in line were a visible stall as the composer opened.
     static func stage(
         images: [(id: String, image: UIImage)],
         in directory: URL,
         existing: [StagedPhoto]
-    ) -> [StagedPhoto] {
+    ) async -> [StagedPhoto] {
         var staged = existing
         for candidate in images where staged.count < EntryDraft.photoLimit {
-            guard staged.contains(where: { $0.id == candidate.id }) == false,
-                  let jpeg = downscaled(candidate.image) else { continue }
+            guard staged.contains(where: { $0.id == candidate.id }) == false else { continue }
             let fileName = "\(UUID().uuidString.lowercased()).jpg"
-            guard ImageProcessing.write(jpeg, to: directory.appending(path: fileName)) else { continue }
-            staged.append(StagedPhoto(
-                id: candidate.id,
-                fileName: fileName,
-                image: Image(uiImage: UIImage(data: jpeg) ?? candidate.image)
-            ))
+            let target = directory.appending(path: fileName)
+            let source = candidate.image
+            let written = await Task.detached(priority: .userInitiated) { () -> UIImage? in
+                guard let jpeg = downscaled(source), ImageProcessing.write(jpeg, to: target) else { return nil }
+                return UIImage(data: jpeg)?.preparingForDisplay() ?? source
+            }.value
+            guard let written else { continue }
+            staged.append(StagedPhoto(id: candidate.id, fileName: fileName, image: Image(uiImage: written)))
         }
         return staged
     }
@@ -145,7 +147,7 @@ enum ComposerPhotoStaging {
         }
     }
 
-    private static func downscaled(_ image: UIImage) -> Data? {
+    nonisolated private static func downscaled(_ image: UIImage) -> Data? {
         let longest = max(image.size.width, image.size.height)
         guard longest > maximumDimension else { return image.jpegData(compressionQuality: compressionQuality) }
         let scale = maximumDimension / longest

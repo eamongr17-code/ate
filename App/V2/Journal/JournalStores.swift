@@ -12,7 +12,8 @@ struct JournalStores {
         journal = JournalStore(
             entries: services.entries,
             deletions: services.entryDeletions,
-            querying: services.journalQuerying
+            querying: services.journalQuerying,
+            cache: services.pageCache("journal")
         )
         photos = JournalPhotoCount(services: services)
     }

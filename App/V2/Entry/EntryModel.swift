@@ -60,10 +60,12 @@ final class EntryModel: SavedDishObserving {
     private var hasReadOnce = false
     #endif
 
-    init(route: EntryRoute, services: AteServices, saves: SaveAction) {
+    /// `handle`: the signed-in person's, when the app already holds it — then the page never asks.
+    init(route: EntryRoute, services: AteServices, saves: SaveAction, handle: String? = nil) {
         self.route = route
         self.services = services
         self.saves = saves
+        if let handle { self.handle = handle }
         // **Drawn from the card in hand** (round 4): a slip already holds the whole row, so the page
         // is complete on the push and the read below only refreshes it. Without one (an entry opened
         // by id) the page is its skeleton until the read answers — never an empty sheet of paper.
@@ -82,7 +84,10 @@ final class EntryModel: SavedDishObserving {
         // The handle only signs a receipt whose row carries no author, so it is read beside the
         // entry rather than in front of it. It used to be awaited first: two round trips in series
         // before the page could draw a thing, which is most of the blank page that was reported.
-        async let signature = services.entries.currentHandle()
+        // The app usually holds it already (``AppModel/handle``); only a page opened before that read
+        // landed asks for it.
+        let knowsHandle = handle.isEmpty == false
+        async let signature: String? = knowsHandle ? nil : await services.entries.currentHandle()
         await reload()
         if let read = await signature {
             handle = read

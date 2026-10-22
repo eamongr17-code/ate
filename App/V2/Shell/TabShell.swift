@@ -84,6 +84,38 @@ struct TabShell: View {
             router(for: tab)?.shown()
             ScreenTrail.app.visit(tab.rawValue)
         }
+        .task { await warmTheOtherTabs() }
+    }
+
+    // MARK: - Reading ahead
+
+    /// How long the tab the app opened on has the connection to itself before the others are read.
+    private static let warmDelay = Duration.milliseconds(1200)
+
+    /// **The other tabs, read behind the one on screen**, so a first tap on Feed, Saved or You lands
+    /// on rows rather than a skeleton. Each read is the one its root would make on appearing, behind
+    /// the same once-only guard, so a tab tapped while one is in flight does not ask twice.
+    private func warmTheOtherTabs() async {
+        try? await Task.sleep(for: Self.warmDelay)
+        guard Task.isCancelled == false else { return }
+        if AteBeta.isOn {
+            let list = feed.stores.everything
+            Task {
+                await list.loadIfNeeded()
+                // …and the first screenful's photos, so the slips open with their pictures in them.
+                let first = PhotoAddress.upcoming(in: list.entries, after: -1)
+                await AteImagePipeline.shared.prefetch(first, size: .thumbnail)
+            }
+        }
+        guard app.hasSession else { return }
+        let shelf = app.savedDishes
+        Task { await shelf.loadIfNeeded() }
+        if AteBeta.isOn {
+            let own = app.ownSaves
+            Task { await own.loadIfNeeded() }
+        }
+        let summary = you.stores.you
+        Task { await summary.loadIfNeeded() }
     }
 
     /// The role that puts `+` in the bar's detached trailing slot. iOS 26 gives that slot to the
