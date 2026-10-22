@@ -112,8 +112,7 @@ struct V2ComposerWrite: View {
         .v2WithSheet(
             isPresented: $model.isPickingCompanions,
             service: services.companions,
-            initial: { model.companions },
-            entryID: model.editing?.id,
+            opening: { (model.companions, model.editing?.id) },
             analytics: services.analytics,
             onCommit: { model.setCompanions($0) }
         )

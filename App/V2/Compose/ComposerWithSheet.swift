@@ -107,18 +107,20 @@ enum ComposerWithSheetMetrics {
 }
 
 extension View {
-    /// The composer's people sheet, over whatever presents it.
+    /// The composer's people sheet, over whatever presents it. `opening` is who it opens holding, and
+    /// the entry being edited (nil for a new one).
     func v2WithSheet(
         isPresented: Binding<Bool>,
         service: any CompanionTagging,
-        initial: @escaping @MainActor () -> [CompanionPerson],
-        entryID: UUID?,
+        opening: @escaping @MainActor () -> (people: [CompanionPerson], entryID: UUID?),
         analytics: @escaping AnalyticsRecorder,
         onCommit: @escaping ([CompanionPerson]) -> Void
     ) -> some View {
         sheet(isPresented: isPresented) {
+            let opened = opening()
             ComposerWithSheet(
-                service: service, initial: initial(), entryID: entryID, analytics: analytics, onCommit: onCommit
+                service: service, initial: opened.people, entryID: opened.entryID, analytics: analytics,
+                onCommit: onCommit
             )
         }
     }
