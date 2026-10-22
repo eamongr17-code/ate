@@ -21,6 +21,7 @@ extension JournalRoot {
         }
         .scrollIndicators(.hidden)
         .ateRootCollapse($isCollapsed)
+        .ateRootBarHiding($isBarHidden)
         .refreshable { await refresh() }
         .onScrollTargetVisibilityChange(idType: UUID.self, threshold: JournalShelfMetrics.visibleShare) { visible in
             noteTopMonth(visible)

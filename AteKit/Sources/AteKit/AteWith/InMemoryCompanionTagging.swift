@@ -67,6 +67,11 @@ public final class InMemoryCompanionTagging: CompanionTagging, @unchecked Sendab
         lock.withLock { taggedOnMe[entryID] = UUID() }
     }
 
+    /// Somebody the viewer tagged on their entry said no.
+    public func declineTag(onEntry entryID: UUID, userID: UUID) {
+        lock.withLock { tags[entryID]?[userID]?.status = .declined }
+    }
+
     public var callLog: [String] { lock.withLock { calls } }
 
     // MARK: - CompanionTagging
@@ -112,6 +117,13 @@ public final class InMemoryCompanionTagging: CompanionTagging, @unchecked Sendab
         try lock.withLock {
             try call("myTag")
             return taggedOnMe[entryID]
+        }
+    }
+
+    public func declinedSeats(onEntry entryID: UUID) async throws -> Int {
+        try lock.withLock {
+            try call("declinedSeats")
+            return tags[entryID, default: [:]].values.filter { $0.status == .declined }.count
         }
     }
 

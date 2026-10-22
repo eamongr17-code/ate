@@ -9,6 +9,8 @@ import SwiftUI
 struct ComposerWithSheet: View {
     let service: any CompanionTagging
     let initial: [CompanionPerson]
+    /// The entry being edited, if any — its declined tags still hold seats.
+    let entryID: UUID?
     let analytics: AnalyticsRecorder
     let onCommit: ([CompanionPerson]) -> Void
 
@@ -18,14 +20,16 @@ struct ComposerWithSheet: View {
     init(
         service: any CompanionTagging,
         initial: [CompanionPerson],
+        entryID: UUID?,
         analytics: @escaping AnalyticsRecorder,
         onCommit: @escaping ([CompanionPerson]) -> Void
     ) {
         self.service = service
         self.initial = initial
+        self.entryID = entryID
         self.analytics = analytics
         self.onCommit = onCommit
-        _store = State(initialValue: CompanionPickerStore(service: service, selected: initial))
+        _store = State(initialValue: CompanionPickerStore(service: service, selected: initial, entryID: entryID))
     }
 
     var body: some View {
@@ -103,16 +107,21 @@ enum ComposerWithSheetMetrics {
 }
 
 extension View {
-    /// The composer's people sheet, over whatever presents it.
+    /// The composer's people sheet, over whatever presents it. `opening` is who it opens holding, and
+    /// the entry being edited (nil for a new one).
     func v2WithSheet(
         isPresented: Binding<Bool>,
         service: any CompanionTagging,
-        initial: @escaping @MainActor () -> [CompanionPerson],
+        opening: @escaping @MainActor () -> (people: [CompanionPerson], entryID: UUID?),
         analytics: @escaping AnalyticsRecorder,
         onCommit: @escaping ([CompanionPerson]) -> Void
     ) -> some View {
         sheet(isPresented: isPresented) {
-            ComposerWithSheet(service: service, initial: initial(), analytics: analytics, onCommit: onCommit)
+            let opened = opening()
+            ComposerWithSheet(
+                service: service, initial: opened.people, entryID: opened.entryID, analytics: analytics,
+                onCommit: onCommit
+            )
         }
     }
 }

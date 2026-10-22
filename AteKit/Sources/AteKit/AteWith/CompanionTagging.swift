@@ -16,6 +16,9 @@ public protocol CompanionTagging: Sendable {
     /// The viewer's own tag on someone else's entry (`entry_companions.id`), if they are tagged on
     /// it and have not declined — what "Remove me" acts on. `nil` when they are not.
     func myTag(onEntry entryID: UUID) async throws -> UUID?
+    /// How many people declined a tag on the viewer's own entry. A decline keeps its seat (0058) but
+    /// is never printed, so the picker counts it to stop at the server's six.
+    func declinedSeats(onEntry entryID: UUID) async throws -> Int
     /// The people the viewer has tagged most recently, newest first, each once. Bounded.
     func recentCompanions(limit: Int) async throws -> [CompanionPerson]
     /// Every handle on Ate (`search_people`), keyset-paged; never the viewer, never anyone blocked

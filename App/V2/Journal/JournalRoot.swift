@@ -8,6 +8,8 @@ import TipKit
 /// search, the filter). Under it the slips, a month's name scrolling with them over its first slip. Scrolled,
 /// the wordmark gives way to the month you are in. The filter is one sheet; while a filter is on its
 /// chips sit under the bar, each with ✕. (Saved is its own tab; the calendar was cut for launch.)
+/// The header is glass (`lighter-header.html`, B): the bar, the switch and the chips step away
+/// together while you scroll down and come back on any scroll up.
 struct JournalRoot: View {
     let router: TabRouter<JournalStores>
     let app: AppModel
@@ -18,6 +20,8 @@ struct JournalRoot: View {
     }
 
     @State var isCollapsed = false
+    /// The glass header has stepped away (``SwiftUICore/View/ateRootBarHiding(_:)``).
+    @State var isBarHidden = false
     @State var isFiltering = false
     /// The month of the slip at the top of the screen — the inline title, once scrolled.
     @State var topMonth: AteMonth?
@@ -56,26 +60,31 @@ struct JournalRoot: View {
             title: .wordmark,
             inline: inlineTitle,
             isCollapsed: isCollapsed,
+            // Searching: the bar steps away and the search screen covers the switch and the shelf.
+            isBarHidden: isSearching || isBarHidden,
             showsApart: showsBug,
             apart: { bug },
             controls: { controls }
         )
-        // The switch, pinned under the bar on the ground, never half under it (build 88), with the
-        // filter's chips beneath it on the Journal; the shelf scrolls below.
-        .safeAreaInset(edge: .top, spacing: 0) {
-            VStack(spacing: 0) {
-                shelfSwitch
-                if shelf == .journal { activeChips }
+        // The switch, pinned under the bar as part of the header (22 Oct), never half under it
+        // (build 88), with the filter's chips beneath it on the Journal; the shelf scrolls under
+        // both, behind the scroll-edge effect a safe-area bar extends. It leaves with the bar.
+        .safeAreaBar(edge: .top, spacing: 0) {
+            if isBarHidden == false {
+                VStack(spacing: 0) {
+                    shelfSwitch
+                    if shelf == .journal { activeChips }
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
-            .ateGround()
         }
+        // Another shelf starts with its header showing.
+        .onChange(of: shelf) { _, _ in isBarHidden = false }
         .sheet(isPresented: $isFiltering) { filterSheet }
         .sheet(isPresented: $isSendingFeedback) {
             FeedbackSheet(app: app) { feedbackToast = "Report sent. Thank you." }
         }
         .ateToast($feedbackToast)
-        // Searching: the bar steps away and the search screen covers the switch and the shelf.
-        .toolbarVisibility(isSearching ? .hidden : .automatic, for: .navigationBar)
         .overlay { searchOverlay }
         .task { await loadJournal() }
         // Read ahead, so the filter sheet rises with its cities in it.

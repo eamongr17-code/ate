@@ -15,6 +15,8 @@ struct SavedRoot: View {
     }
 
     @State private var isCollapsed = false
+    /// The glass header has stepped away (``SwiftUICore/View/ateRootBarHiding(_:)``).
+    @State private var isBarHidden = false
     @State private var isFiltering = false
     /// The beta's + (``AteBeta``): a dish of your own.
     @State private var isAdding = false
@@ -53,13 +55,18 @@ struct SavedRoot: View {
         .ateRootToolbar(
             title: .text(V2Tab.saved.title),
             inline: AteInlineTitle(title: V2Tab.saved.title),
-            isCollapsed: isCollapsed
+            isCollapsed: isCollapsed,
+            isBarHidden: isBarHidden
         ) {
             controls
         }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            activeChips
-                .ateGround()
+        // The filter's chips are part of the glass header (`lighter-header.html`, B): the list
+        // scrolls under them, and they leave with the bar.
+        .safeAreaBar(edge: .top, spacing: 0) {
+            if isBarHidden == false {
+                activeChips
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
         .overlay(alignment: .bottom) { undo }
         .sheet(isPresented: $isFiltering) { filterSheet }
@@ -99,6 +106,7 @@ struct SavedRoot: View {
         .scrollIndicators(.hidden)
         .contentMargins(.bottom, AteMetrics.section, for: .scrollContent)
         .ateRootCollapse($isCollapsed)
+        .ateRootBarHiding($isBarHidden)
         .refreshable {
             Task { await saved.loadCities() }
             if AteBeta.isOn { Task { await own.refresh() } }

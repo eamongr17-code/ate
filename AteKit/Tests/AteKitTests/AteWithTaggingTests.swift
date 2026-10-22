@@ -128,6 +128,22 @@ struct CompanionPickerStoreTests {
         #expect(store.toggle(person(7)))
     }
 
+    @Test("editing an entry, a declined tag still holds its seat: five left, not six")
+    func declinedHoldsSeat() async throws {
+        let entry = UUID()
+        let people = (1...7).map(person)
+        let tagging = service(people: people)
+        for someone in people.prefix(2) { _ = try await tagging.tag(entryID: entry, userID: someone.userID) }
+        tagging.declineTag(onEntry: entry, userID: people[0].userID)
+        // The card prints only the one still standing; the decline is invisible but counted.
+        let store = CompanionPickerStore(service: tagging, selected: [people[1]], entryID: entry)
+        await store.loadRecents()
+        #expect(store.limit == 5)
+        for someone in people[2...5] { #expect(store.toggle(someone)) }
+        #expect(store.isFull)
+        #expect(store.toggle(people[6]) == false)
+    }
+
     @Test("the pill counts: Add @jess, Add 2 people; everyone unticked from an edit is Remove")
     func commit() {
         let fresh = CompanionPickerStore(service: service())

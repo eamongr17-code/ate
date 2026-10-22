@@ -103,6 +103,76 @@ private struct AteHeaderGround: ViewModifier {
     }
 }
 
+/// The glass header's bar: the system's soft scroll-edge effect in place of the ground, and the bar
+/// hidden while `isBarHidden`. Without it (`nil`), the ground.
+private struct AteRootBarEdge: ViewModifier {
+    let isBarHidden: Bool?
+
+    func body(content: Content) -> some View {
+        if let isBarHidden {
+            content
+                .scrollEdgeEffectStyle(.soft, for: .top)
+                .toolbarVisibility(isBarHidden ? .hidden : .automatic, for: .navigationBar)
+        } else {
+            content.ateHeaderGround()
+        }
+    }
+}
+
+/// ``SwiftUICore/View/ateRootBarHiding(_:)``. Reads the raw offset, never offset plus inset: the
+/// inset shrinks as the bar leaves, and that would read as a scroll up and bring it straight back.
+private struct AteRootBarHiding: ViewModifier {
+    @Binding var isHidden: Bool
+    /// How far the page has moved in one direction since it last turned (down positive).
+    @State private var run: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private struct Reading: Equatable {
+        var offset: CGFloat
+        /// How far under the top edge the content has gone: zero at rest.
+        var depth: CGFloat
+        /// Past the end — the bottom's rubber band, which must not bring the bar back.
+        var isPastEnd: Bool
+        var insetTop: CGFloat
+    }
+
+    func body(content: Content) -> some View {
+        content.onScrollGeometryChange(for: Reading.self) { geometry in
+            let end = geometry.contentSize.height - geometry.containerSize.height + geometry.contentInsets.bottom
+            return Reading(
+                offset: geometry.contentOffset.y,
+                depth: geometry.contentOffset.y + geometry.contentInsets.top,
+                isPastEnd: geometry.contentOffset.y > end,
+                insetTop: geometry.contentInsets.top
+            )
+        } action: { old, new in
+            if new.depth < AteRootHeaderMetrics.showWithin {
+                run = 0
+                set(false)
+                return
+            }
+            // The bar itself leaving or arriving moves the inset (and may nudge the offset): not a scroll.
+            guard new.insetTop == old.insetTop else {
+                run = 0
+                return
+            }
+            guard new.isPastEnd == false, old.isPastEnd == false else { return }
+            let step = new.offset - old.offset
+            run = (run >= 0) == (step >= 0) ? run + step : step
+            if run > AteRootHeaderMetrics.hideAfter, new.depth > AteRootHeaderMetrics.hideBelow {
+                set(true)
+            } else if run < -AteRootHeaderMetrics.showAfter {
+                set(false)
+            }
+        }
+    }
+
+    private func set(_ hidden: Bool) {
+        guard hidden != isHidden else { return }
+        withAnimation(reduceMotion ? nil : AteRootHeaderMetrics.barSlide) { isHidden = hidden }
+    }
+}
+
 enum AteRootHeaderMetrics {
     /// `.wm{left:16px; height:32px}`; `.lt{left:20px}`; the group `right:16px`.
     static let wordmark: CGFloat = 32
@@ -117,6 +187,15 @@ enum AteRootHeaderMetrics {
     static let expandBefore: CGFloat = 8
     /// The hand-over between the root title and the inline one: a plain crossfade.
     static let collapse: Animation = .easeInOut(duration: 0.18)
+    /// The glass header leaves after this much scrolling down in one go…
+    static let hideAfter: CGFloat = 24
+    /// …only once the page is this far under the bar (its title row and the Journal's switch)…
+    static let hideBelow: CGFloat = 160
+    /// …and is back after this much scrolling up, or whenever the page is this near its top.
+    static let showAfter: CGFloat = 16
+    static let showWithin: CGFloat = 24
+    /// The bar and the switch leaving or coming back together.
+    static let barSlide: Animation = .smooth(duration: 0.28)
 
     /// The widest a pushed page's inline title may run beside the back disc and `trailing` glass
     /// discs: the screen less the two 16 margins, a 44 disc and its 8 gap per button (back
@@ -198,21 +277,27 @@ extension View {
         subtitle: String? = nil,
         inline: AteInlineTitle? = nil,
         isCollapsed: Bool = false,
+        isBarHidden: Bool? = nil,
         @ViewBuilder controls: () -> Controls
     ) -> some View {
         ateRootToolbar(
             title: title, subtitle: subtitle, inline: inline, isCollapsed: isCollapsed,
-            showsApart: false, apart: { EmptyView() }, controls: controls
+            isBarHidden: isBarHidden, showsApart: false, apart: { EmptyView() }, controls: controls
         )
     }
 
     /// The same header with one control **apart**: its own glass disc before the group, split off by
     /// a fixed spacer — the Journal's bug (`feedback.html` A), which is not a Journal control.
+    ///
+    /// `isBarHidden` makes it the **glass header** (`lighter-header.html`, B, 22 Oct): no ground —
+    /// the page scrolls under the bar behind the system's soft scroll-edge effect — and the bar steps
+    /// away while it is `true` (``ateRootBarHiding(_:)``). `nil` keeps the ground (You).
     func ateRootToolbar<Apart: View, Controls: View>(
         title: AteRootHeaderTitle,
         subtitle: String? = nil,
         inline: AteInlineTitle? = nil,
         isCollapsed: Bool = false,
+        isBarHidden: Bool? = nil,
         showsApart: Bool,
         @ViewBuilder apart: () -> Apart,
         @ViewBuilder controls: () -> Controls
@@ -251,7 +336,14 @@ extension View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .ateHeaderGround()
+        .modifier(AteRootBarEdge(isBarHidden: isBarHidden))
+    }
+
+    /// Hides a glass header's bar while the page scrolls down and brings it back on any scroll up,
+    /// or near the top — Safari's bar, and the tab bar's own minimise. Apply to the root's own
+    /// `ScrollView` or `List`, beside ``ateRootCollapse(_:)``.
+    func ateRootBarHiding(_ isHidden: Binding<Bool>) -> some View {
+        modifier(AteRootBarHiding(isHidden: isHidden))
     }
 
     /// A pushed page's inline title, leading — beside the system's back — exactly where a collapsed
