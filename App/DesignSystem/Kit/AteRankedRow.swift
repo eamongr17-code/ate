@@ -19,6 +19,11 @@ struct AteRankedRow: View {
     var onSave: (() -> Void)?
 
     @Environment(\.atePalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var nameLift: CGFloat {
+        AteFont.exactBaselineDrop(for: .kitRankedDish, dynamicTypeSize: dynamicTypeSize)
+    }
 
     var body: some View {
         HStack(spacing: AteRankedRowMetrics.gap) {
@@ -30,8 +35,10 @@ struct AteRankedRow: View {
                         .frame(width: isTrack ? AteRankedRowMetrics.trackRankWidth : AteRankedRowMetrics.rankWidth)
                     AteThumb(photo: photo, size: isTrack ? .menu : .row)
                     VStack(alignment: .leading, spacing: AteRankedRowMetrics.lineGap) {
+                        // Its exact line box, tighter than the face's own (build 181: too airy).
                         Text(name)
-                            .ateText(.kitRankedDish)
+                            .ateTextExact(.kitRankedDish)
+                            .offset(y: -nameLift)
                             .foregroundStyle(palette.fg)
                             .lineLimit(2)
                         if let place {
