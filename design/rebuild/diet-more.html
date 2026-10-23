@@ -281,7 +281,7 @@ td:first-child{font:600 15px/1.4 "Bricolage Grotesque",sans-serif;white-space:no
         <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
         <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
         <div class="ph1">Lucy Liu</div>
-        <div class="chips"><span class="chip">★ 4.2</span><span class="chip">31</span><span class="chip">CBD</span><span class="chip on">Peanut free</span><span class="q" style="align-self:center">?</span></div>
+        <div class="chips"><span class="chip">★ 4.2</span><span class="chip">31</span><span class="chip">CBD</span></div>
         <div class="card">
           <div class="sec">The Top Ate</div>
           <div class="prow"><span class="rn">1</span><span class="th t4"></span><span class="nm"><b>Tofu Larb</b><span class="meta"><span class="diet">PF</span></span></span><span class="tok">★ 4.3</span></div>
@@ -290,7 +290,7 @@ td:first-child{font:600 15px/1.4 "Bricolage Grotesque",sans-serif;white-space:no
         </div>
         <div class="home"></div>
       </div>
-      <div class="cap">Place page, for a peanut-free viewer<small>Rows show the plain PF pill. The "?" sits right after your diet filter chip, so it reads as part of that, not The Top Ate. Nut-free eaters count toward PF too.</small></div>
+      <div class="cap">Place page, for a peanut-free viewer<small>No diet chip on the place itself, so a restaurant is never labelled. Only dishes carry pills. Nut-free eaters count toward PF too.</small></div>
     </div>
 
     <div class="col">
@@ -298,15 +298,15 @@ td:first-child{font:600 15px/1.4 "Bricolage Grotesque",sans-serif;white-space:no
         <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
         <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
         <div class="ph1">Lucy Liu</div>
-        <div class="chips"><span class="chip">★ 4.2</span><span class="chip">31</span><span class="chip">CBD</span><span class="chip on">Peanut free</span><span class="q hot" style="align-self:center">?</span></div>
-        <div class="card">
+        <div class="chips"><span class="chip">★ 4.2</span><span class="chip">31</span><span class="chip">CBD</span></div>
+        <div class="card" style="z-index:12">
           <div class="sec">The Top Ate</div>
-          <div class="prow"><span class="rn">1</span><span class="th t4"></span><span class="nm"><b>Tofu Larb</b><span class="meta"><span class="diet">PF</span></span></span><span class="tok">★ 4.3</span></div>
+          <div class="prow"><span class="rn">1</span><span class="th t4"></span><span class="nm"><b>Tofu Larb</b><span class="meta"><span class="diet" style="box-shadow:0 0 0 3px var(--butter)">PF</span></span></span><span class="tok">★ 4.3</span></div>
           <div class="prow"><span class="rn">2</span><span class="th t3"></span><span class="nm"><b>Mushroom Bao</b><span class="meta"><span class="diet">PF</span></span></span><span class="tok">★ 4.5</span></div>
           <div class="prow"><span class="rn">3</span><span class="th t1"></span><span class="nm"><b>Eggplant Curry</b><span class="meta"><span class="diet">PF</span></span></span><span class="tok">★ 4.0</span></div>
         </div>
         <div class="scrim"></div>
-        <div class="pop" style="top:214px">
+        <div class="pop" style="top:345px">
           <div class="pr"><span class="nmx">Tofu Larb</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>6</span></div>
           <div class="pr"><span class="nmx">Mushroom Bao</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>3</span></div>
           <div class="pr"><span class="nmx">Eggplant Curry</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>1</span></div>
@@ -314,7 +314,7 @@ td:first-child{font:600 15px/1.4 "Bricolage Grotesque",sans-serif;white-space:no
         </div>
         <div class="home"></div>
       </div>
-      <div class="cap">Tapping "?" on the place page<small>Same popover, listing each dish on the page with how many peanut-free eaters logged it.</small></div>
+      <div class="cap">Tapping a pill on the place page<small>There's no "?" here: tapping any PF pill opens the popover, listing each dish with how many peanut-free eaters logged it.</small></div>
     </div>
 
   </div>
@@ -330,6 +330,7 @@ td:first-child{font:600 15px/1.4 "Bricolage Grotesque",sans-serif;white-space:no
     <tr><td>Below 3 people</td><td>No pill and no sentence anywhere. This removes today’s "Ordered by 2 vegan eaters" line from the dish page and the place page. The count still shows in the "?" popover, and the place page filter still includes the dish.</td></tr>
     <tr><td>Dairy free</td><td>Stays a diet, because most people who pick it are lactose intolerant. It can move to Allergies if you'd rather.</td></tr>
     <tr><td>Halal wording</td><td>The label means halal eaters order it, not that the restaurant is certified. Same as Gluten free today.</td></tr>
+    <tr><td>Place page</td><td>No diet chip or filter on the place. Today's "Vegan" filter chip goes, so a restaurant is never labelled. The Top Ate lists every dish as normal, and the pills on each dish carry the information.</td></tr>
   </table>
 </div>
 
