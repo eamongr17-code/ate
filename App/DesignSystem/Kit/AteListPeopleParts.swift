@@ -1,85 +1,63 @@
 import AteKit
 import SwiftUI
 
-// **A list's cover and people** (`list-cover-edit.html`, approved 18 Oct) — the few parts the cover
-// sheet, the list's byline and the Notifications page's invites draw.
+// **A list's cover and people** (`list-cover-edit.html`, approved 18 Oct; the cover sheet redone as
+// `list-cover-sheet.html` A, 23 Oct) — the few parts the cover sheet, the list's byline and the
+// Notifications page's invites draw.
 
-/// **Upload from Photos** (screen 2, `.opt`) — a 40 field-coloured tile holding the image glyph, the
-/// words, and the ink tick when the cover is an upload. 58 high.
-struct AteCoverUploadRow: View {
+/// **One choice on the Change cover sheet** (`list-cover-sheet.html` A, approved 23 Oct) — the
+/// Add dishes row with the radio mark: a 56 picture (the cover it would make, or the dish's photo),
+/// the name over its meta line, and the mark at the end. A tap is the answer. While an upload goes
+/// up, its row holds a spinner where the mark is. Ruled at the top by a hairline except the first.
+struct AteCoverChoiceRow<Picture: View>: View {
     let title: String
+    var subtitle: String?
+    /// The dish rows name a dish (the heading voice); Automatic and the upload are controls.
+    var titleStyle: AteTextStyle = .rowTitle
     let isOn: Bool
-    var identifier = "cover.upload"
+    var isBusy = false
+    var isFirst = false
+    var identifier: String?
+    @ViewBuilder let picture: Picture
     let action: () -> Void
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: AteListPeopleMetrics.optionGap) {
-                AteIcon.library.view(size: AteListPeopleMetrics.optionGlyph)
-                    .foregroundStyle(palette.fg)
-                    .frame(width: AteListPeopleMetrics.optionTile, height: AteListPeopleMetrics.optionTile)
-                    .background(
-                        palette.field,
-                        in: .rect(cornerRadius: AteListPeopleMetrics.optionRadius, style: .continuous)
-                    )
-                Text(title)
-                    .ateText(.rowTitle)
-                    .foregroundStyle(palette.fg)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                AteTickMark(isOn: isOn)
+            HStack(spacing: AtePickRowMetrics.gap) {
+                picture
+                    .frame(width: AteListPeopleMetrics.picture, height: AteListPeopleMetrics.picture)
+                VStack(alignment: .leading, spacing: AtePickRowMetrics.lineGap) {
+                    Text(title)
+                        .ateText(titleStyle)
+                        .foregroundStyle(palette.fg)
+                        .lineLimit(1)
+                    if let subtitle {
+                        Text(subtitle)
+                            .ateText(.meta)
+                            .foregroundStyle(palette.muted)
+                            .lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if isBusy {
+                    ProgressView()
+                        .frame(width: AtePickRowMetrics.tick, height: AtePickRowMetrics.tick)
+                } else {
+                    AteRadioMark(isSelected: isOn)
+                }
             }
-            .frame(minHeight: AteListPeopleMetrics.optionHeight)
+            .frame(maxWidth: .infinity, minHeight: AtePickRowMetrics.height)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
-        .accessibilityIdentifier(identifier)
-    }
-}
-
-/// **One of the list's photos, to pick as its cover** (screen 2, `.cell-ph`) — square at 12, and when
-/// picked an ink ring outside a white one, with the tick in its corner.
-struct AteCoverPhotoCell: View {
-    let url: String
-    /// The dish, for VoiceOver.
-    let name: String
-    let isOn: Bool
-    let action: () -> Void
-
-    @Environment(\.atePalette) private var palette
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: AteListPeopleMetrics.cellRadius, style: .continuous)
-        Button(action: action) {
-            Color.clear
-                .aspectRatio(1, contentMode: .fit)
-                .overlay { AtePhotoContent(photo: .remote(url), size: .thumbnail) }
-                .clipShape(shape)
-                .overlay(alignment: .bottomTrailing) {
-                    if isOn {
-                        AteTickMark(isOn: true)
-                            .overlay { Circle().strokeBorder(AteColor.overPhoto, lineWidth: AteListPeopleMetrics.ring) }
-                            .padding(AteListPeopleMetrics.cellTickInset)
-                    }
-                }
-                .padding(isOn ? AteListPeopleMetrics.ringGap : 0)
-                .overlay {
-                    if isOn {
-                        RoundedRectangle(
-                            cornerRadius: AteListPeopleMetrics.cellRadius + AteListPeopleMetrics.ringGap,
-                            style: .continuous
-                        )
-                        .strokeBorder(palette.solid, lineWidth: AteListPeopleMetrics.pickRing)
-                    }
-                }
-                .contentShape(shape)
+        .overlay(alignment: .top) {
+            if isFirst == false { AteHairline() }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(name)
+        .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
-        .accessibilityIdentifier("cover.photo")
+        .accessibilityIdentifier(identifier ?? "cover.choice")
     }
 }
 
@@ -167,21 +145,9 @@ struct AteListInviteRow: View {
 }
 
 enum AteListPeopleMetrics {
-    /// `.opt{gap:12px; min-height:58px}`, `.opt .ic{width:40px; border-radius:10px}`, its glyph 22.
-    static let optionGap: CGFloat = 12
-    static let optionHeight: CGFloat = 58
-    static let optionTile: CGFloat = 40
-    static let optionRadius: CGFloat = 10
-    static let optionGlyph: CGFloat = 22
-    /// `.grid{repeat(3,1fr); gap:8px}`, `.cell-ph{border-radius:12px}`, its tick `right:6px; bottom:6px`.
-    static let columns = 3
-    static let cellGap: CGFloat = 8
-    static let cellRadius: CGFloat = 12
-    static let cellTickInset: CGFloat = 6
-    /// `.cell-ph.on{box-shadow:0 0 0 3px #fff, 0 0 0 5.5px ink}`: a 3 gap, then 2.5 of ink.
-    static let ringGap: CGFloat = 3
-    static let pickRing: CGFloat = 2.5
-    /// The white edge round a tick over a photo, and round each stacked avatar.
+    /// A cover choice's picture: the dish row's 56 (``AteThumb/Size/row``).
+    static let picture: CGFloat = 56
+    /// The ground's edge round each stacked avatar.
     static let ring: CGFloat = 2
     /// `.stack .av+.av{margin-left:-6px}`.
     static let stackOverlap: CGFloat = 6

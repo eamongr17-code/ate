@@ -24,7 +24,7 @@ extension KitGalleryScreen {
                              covers: KitListFixtures.covers, style: .hero)
                 AteListTile(id: KitListFixtures.pasta, name: "Date night", count: 6,
                             cover: "asset://cake", owner: KitListFixtures.eamon) {}
-                    .frame(width: AteListCoverMetrics.preview)
+                    .frame(width: AteListCoverMetrics.hero)
             }
             .padding(.horizontal, AteListCoverMetrics.gutter)
         }
@@ -44,15 +44,26 @@ extension KitGalleryScreen {
         }
         section("Cover and people") {
             VStack(alignment: .leading, spacing: AteMetrics.section) {
-                AteCoverUploadRow(title: "Upload from Photos", isOn: true) {}
-                LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: AteListPeopleMetrics.cellGap), count: 3),
-                    spacing: AteListPeopleMetrics.cellGap
-                ) {
-                    AteCoverPhotoCell(url: "asset://burger", name: "Smash burger", isOn: true) {}
-                    AteCoverPhotoCell(url: "asset://pizza", name: "Margherita", isOn: false) {}
-                    AteCoverPhotoCell(url: "asset://cake", name: "Tiramisu", isOn: false) {}
+                VStack(spacing: 0) {
+                    AteCoverChoiceRow(title: "Automatic", subtitle: "First 4 dish photos", isOn: false,
+                                      isFirst: true) {
+                        AteListCover(id: KitListFixtures.burgers, name: "Burgers", covers: KitListFixtures.covers,
+                                     style: .row)
+                    } action: {}
+                    AteSheetSectionLabel(title: "Dish photos")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    AteCoverChoiceRow(title: "Smash burger", subtitle: "Royal Stacks", titleStyle: .kitRankedDish,
+                                      isOn: true, isFirst: true) {
+                        AteThumb(photo: .remote("asset://burger"))
+                    } action: {}
+                    AteCoverChoiceRow(title: "Margherita", subtitle: "Tipo 00", titleStyle: .kitRankedDish,
+                                      isOn: false) {
+                        AteThumb(photo: .remote("asset://pizza"))
+                    } action: {}
+                    AteAddRow(title: "Upload from Photos", icon: .library) {}
                 }
+                .environment(\.atePalette, .surface)
+                .background(AtePalette.surface.ground)
                 AteAvatarStack(people: [KitListFixtures.eamon, KitListFixtures.paris])
                 AteListInviteRow(
                     owner: KitListFixtures.eamon, line: "@eamon invited you to Date night", meta: "6 dishes",

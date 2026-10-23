@@ -88,9 +88,11 @@ struct AteOpenRow: View {
 }
 
 /// **The last row of a picking sheet** — "Add a new place", "Add as a new dish": a hairline, the plus
-/// and the words. It opens the next step rather than answering.
+/// and the words. It opens the next step rather than answering. "Upload from Photos" swaps the plus
+/// for the photo glyph.
 struct AteAddRow: View {
     let title: String
+    var icon: AteIcon = .compose
     var isEnabled = true
     var identifier: String?
     let action: () -> Void
@@ -102,7 +104,7 @@ struct AteAddRow: View {
             VStack(spacing: 0) {
                 AteHairline()
                 HStack(spacing: AteMetrics.regular) {
-                    AteIcon.compose.view(size: AteChoiceRowMetrics.icon)
+                    icon.view(size: AteChoiceRowMetrics.icon)
                     Text(title).ateText(.control)
                     Spacer(minLength: 0)
                 }
