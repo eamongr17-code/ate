@@ -5,8 +5,8 @@ import SwiftUI
 /// finish. The Top Ate, the one-time "What do you crave?", Because you loved…, New to the record, a
 /// shelf per followed category, five latest receipts, What you follow, then the end.
 ///
-/// The chrome is the system's: "Feed" with its city as the subtitle in the native bar, folding inline
-/// on scroll and stepping away while you scroll down (`lighter-header.html`, B), and one trailing
+/// The chrome is the glass header: "Feed" with its city as the subtitle, stepping away with your
+/// scroll down and back with your scroll up (`lighter-header.html`, B), and one trailing
 /// glass group holding only the area pin, which opens the area sheet
 /// (Near me, Everywhere, the cities — ``FeedAreaSheet``). Following lives on each category's own
 /// page (4 Oct). It opens on your Journal's city; location is asked for only when Near me is picked
@@ -15,9 +15,8 @@ struct FeedRoot: View {
     let router: TabRouter<V2FeedStores>
     let app: AppModel
 
-    @State private var isCollapsed = false
-    /// The glass header has stepped away (``SwiftUICore/View/ateRootBarHiding(_:)``).
-    @State private var isBarHidden = false
+    /// How far the glass header has stepped away, 0 to 1 (``SwiftUICore/View/ateRootBarHiding(_:)``).
+    @State private var barHidden: CGFloat = 0
     @State private var acting: EntryCard?
     @State private var failure: ActionFailure?
     /// A failure that came back while the actions sheet was still leaving; said once it has gone,
@@ -58,8 +57,7 @@ struct FeedRoot: View {
                 .padding(.bottom, AteMetrics.tabBarScrollInset)
             }
             .scrollIndicators(.hidden)
-            .ateRootCollapse($isCollapsed)
-            .ateRootBarHiding($isBarHidden)
+            .ateRootBarHiding($barHidden)
             .refreshable { await refresh(stores) }
             .onChange(of: router.scrollToTop + scrollToTopAfterArea) { _, _ in
                 withAnimation { reader.scrollTo(FeedRootAnchor.top, anchor: .top) }
@@ -70,9 +68,7 @@ struct FeedRoot: View {
         .ateGlassRootHeader(
             title: .text(V2Tab.feed.title),
             subtitle: subtitle,
-            inline: AteInlineTitle(title: V2Tab.feed.title, subtitle: subtitle),
-            isCollapsed: isCollapsed,
-            isHidden: isBarHidden,
+            hidden: barHidden,
             controls: {
                 if AteBeta.isOn == false {
                     AteGlassItem(icon: .place, label: "Area") { isChoosingArea = true }

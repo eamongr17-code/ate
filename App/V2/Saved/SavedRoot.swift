@@ -14,9 +14,8 @@ struct SavedRoot: View {
         self.app = app
     }
 
-    @State private var isCollapsed = false
-    /// The glass header has stepped away (``SwiftUICore/View/ateRootBarHiding(_:)``).
-    @State private var isBarHidden = false
+    /// How far the glass header has stepped away, 0 to 1 (``SwiftUICore/View/ateRootBarHiding(_:)``).
+    @State private var barHidden: CGFloat = 0
     @State private var isFiltering = false
     /// The beta's + (``AteBeta``): a dish of your own.
     @State private var isAdding = false
@@ -56,9 +55,7 @@ struct SavedRoot: View {
         // scrolls under them, and they leave with it.
         .ateGlassRootHeader(
             title: .text(V2Tab.saved.title),
-            inline: AteInlineTitle(title: V2Tab.saved.title),
-            isCollapsed: isCollapsed,
-            isHidden: isBarHidden,
+            hidden: barHidden,
             controls: { controls },
             accessory: { activeChips }
         )
@@ -99,8 +96,7 @@ struct SavedRoot: View {
         .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
         .contentMargins(.bottom, AteMetrics.section, for: .scrollContent)
-        .ateRootCollapse($isCollapsed)
-        .ateRootBarHiding($isBarHidden)
+        .ateRootBarHiding($barHidden)
         .refreshable {
             Task { await saved.loadCities() }
             if AteBeta.isOn { Task { await own.refresh() } }
