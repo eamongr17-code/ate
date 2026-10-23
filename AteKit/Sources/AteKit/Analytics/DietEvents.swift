@@ -1,7 +1,7 @@
 import Foundation
 
 /// **Diet** (`design/rebuild/diet.html`): what a person says they always eat, the one code they turn
-/// off for a dish, and the place page's diet chips.
+/// off for a dish, and the counts behind a dish's diet pills.
 public enum DietEvents {
     /// Where the diet was set.
     public enum Source: String, Sendable {
@@ -35,6 +35,21 @@ public enum DietEvents {
             "on": String(isOn),
             "restaurant_id": restaurantID.uuidString.lowercased()
         ])
+    }
+
+    /// Where the diet counts popover opened (`diet-more.html`).
+    public enum CountsSurface: String, Sendable {
+        /// The "?" after a dish page's pills.
+        case dish
+        /// A diet pill on a place's Top Ate row.
+        case place
+    }
+
+    /// The diet counts popover opened: the "?" on a dish, or a pill on a place's row (`code`, there).
+    public static func countsOpened(surface: CountsSurface, code: DietTag? = nil) -> AnalyticsEvent {
+        var parameters = ["surface": surface.rawValue]
+        if let code { parameters["code"] = code.rawValue }
+        return AnalyticsEvent(name: "diet_counts_opened", parameters: parameters)
     }
 
     static func joined(_ codes: [DietTag]) -> String {

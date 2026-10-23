@@ -3,22 +3,48 @@ import Foundation
 /// **A dietary tag on a dish** (`DietTagsB.dc.html`, 2026-09-26): a small linen chip after the dish's
 /// name, in the words and on the card's dish row.
 ///
-/// Five codes, lowercase on the wire (`entry_cards` items carry `tags: [String]`). The sorter reads
-/// them out of the body exactly as it reads a score, so nothing about a tag is sent beside the words.
+/// Ten codes, lowercase on the wire (`entry_cards` items carry `tags: [String]`): the five of
+/// 0036 and the five of 0084 (`design/rebuild/diet-more.html`), appended so the server's canonical
+/// order is the order of the cases. The sorter reads them out of the body exactly as it reads a
+/// score, so nothing about a tag is sent beside the words.
 public enum DietTag: String, CaseIterable, Codable, Sendable, Hashable {
     // The wire's own codes, one letter included.
     // swiftlint:disable:next identifier_name
-    case gf, df, v, vg, nf
+    case gf, df, v, vg, nf, pe, ha, ef, pf, sf
 
-    /// A code as the person typed it, in any case. `nil` for anything that is not one of the five.
+    /// A code as the wire or a chip writes it, in any case: the code itself ("pe") or the chip's
+    /// label ("PESC"). `nil` for anything that is neither.
     public init?(code: String) {
-        self.init(rawValue: code.lowercased())
+        let lowered = code.lowercased()
+        if let tag = DietTag(rawValue: lowered) {
+            self = tag
+        } else if let tag = DietTag.allCases.first(where: { $0.label.lowercased() == lowered }) {
+            self = tag
+        } else {
+            return nil
+        }
     }
 
-    /// What the chip prints: the code in capitals.
-    public var label: String { rawValue.uppercased() }
+    /// **A code a person may type straight into the words** — the five two-letter-or-less
+    /// shorthands of 0036 ("gf", "v", "vg"). The newer codes go in only from the Diet key: "ha",
+    /// "pe" or "sf" after a word are far more often something else.
+    public init?(typed text: String) {
+        guard let tag = DietTag(rawValue: text.lowercased()), DietTag.typeable.contains(tag) else { return nil }
+        self = tag
+    }
 
-    /// What VoiceOver says — the chip's two letters are an abbreviation, not a word.
+    static let typeable: Set<DietTag> = [.gf, .df, .v, .vg, .nf]
+
+    /// What the chip prints: the code in capitals, with Pescatarian and Halal spelt so they read.
+    public var label: String {
+        switch self {
+        case .pe: "PESC"
+        case .ha: "HALAL"
+        default: rawValue.uppercased()
+        }
+    }
+
+    /// What VoiceOver says — the chip's letters are an abbreviation, not a word.
     public var spokenName: String {
         switch self {
         case .gf: "gluten free"
@@ -26,6 +52,11 @@ public enum DietTag: String, CaseIterable, Codable, Sendable, Hashable {
         case .v: "vegetarian"
         case .vg: "vegan"
         case .nf: "nut free"
+        case .pe: "pescatarian"
+        case .ha: "halal"
+        case .ef: "egg free"
+        case .pf: "peanut free"
+        case .sf: "shellfish free"
         }
     }
 
@@ -241,7 +272,7 @@ public enum DietTagLiteral {
         while start > 0, isASCIILetter(units[start - 1]) { start -= 1 }
         guard start < caret, caret - start <= 2 else { return nil }
         let literal = String(decoding: units[start..<caret], as: UTF16.self)
-        guard let tag = DietTag(code: literal) else { return nil }
+        guard let tag = DietTag(typed: literal) else { return nil }
 
         // Nothing but a boundary after it: "gfx" is not a tag.
         if caret < units.count, let scalar = Unicode.Scalar(units[caret]),

@@ -12,6 +12,11 @@ public extension DietTag {
         case .v: "Vegetarian"
         case .vg: "Vegan"
         case .nf: "Nut free"
+        case .pe: "Pescatarian"
+        case .ha: "Halal"
+        case .ef: "Egg free"
+        case .pf: "Peanut free"
+        case .sf: "Shellfish free"
         }
     }
 
@@ -23,21 +28,49 @@ public extension DietTag {
         case .v: "vegetarian"
         case .vg: "vegan"
         case .nf: "nut-free"
+        case .pe: "pescatarian"
+        case .ha: "halal"
+        case .ef: "egg-free"
+        case .pf: "peanut-free"
+        case .sf: "shellfish-free"
         }
     }
 
-    /// What this code covers beyond itself: vegan is vegetarian and dairy free.
+    /// What this code covers beyond itself (0084): vegan is vegetarian, pescatarian, dairy free and
+    /// egg free; vegetarian is pescatarian; nut free is peanut free. The whole reach, not one step.
     var covers: Set<DietTag> {
-        self == .vg ? [.v, .df] : []
+        switch self {
+        case .vg: [.v, .pe, .df, .ef]
+        case .v: [.pe]
+        case .nf: [.pf]
+        default: []
+        }
     }
+
+    /// An allergy rather than a way of eating (`diet-more.html`): Settings lists these under
+    /// "Allergies", and their counts end with the reminder to check with staff.
+    var isAllergy: Bool {
+        switch self {
+        case .gf, .ef, .nf, .pf, .sf: true
+        default: false
+        }
+    }
+
+    /// **The order a person picks in** (`diet-more.html`): the ways of eating, then the allergies.
+    static let pickingOrder: [DietTag] = diets + allergies
+    /// Settings' "Diets" group, and the first run's top rows.
+    static let diets: [DietTag] = [.v, .vg, .pe, .ha, .df]
+    /// Settings' "Allergies" group, and the first run's rows below the gap.
+    static let allergies: [DietTag] = [.gf, .ef, .nf, .pf, .sf]
 }
 
 /// **The codes a person always eats by** — `profiles.diet`, as the onboarding chips and the
 /// Settings tick list hold it.
 ///
-/// Stored is only what was picked (`["vg"]`); what a pick covers (Vegan → Vegetarian, Dairy free)
-/// is drawn lit, faded and locked, and never stored. Picking Vegan takes Vegetarian and Dairy free
-/// out of the picks, so they read as covered rather than as two more choices that can't be undone.
+/// Stored is only what was picked (`["vg"]`); what a pick covers (Vegan → Vegetarian, Pescatarian,
+/// Dairy free, Egg free; Vegetarian → Pescatarian; Nut free → Peanut free) is drawn lit, faded and
+/// locked, and never stored. Picking Vegan takes what it covers out of the picks, so they read as
+/// covered rather than as more choices that can't be undone.
 public struct DietChoice: Hashable, Sendable {
     public private(set) var picked: Set<DietTag>
 
@@ -47,7 +80,7 @@ public struct DietChoice: Hashable, Sendable {
         self.picked = picked.subtracting(covered)
     }
 
-    /// What is stored, in the canonical order (gf, df, v, vg, nf).
+    /// What is stored, in the canonical order (gf, df, v, vg, nf, pe, ha, ef, pf, sf).
     public var codes: [DietTag] { DietTag.allCases.filter(picked.contains) }
 
     public var isEmpty: Bool { picked.isEmpty }
@@ -72,16 +105,18 @@ public struct DietChoice: Hashable, Sendable {
         return next
     }
 
-    /// The Settings row's value: "Vegan", "Gluten free, Nut free", "None".
+    /// The Settings row's value, in picking order: "Vegan", "Halal, Nut free", "None".
     public var summary: String {
-        codes.isEmpty ? "None" : codes.map(\.dietName).joined(separator: ", ")
+        let picks = DietTag.pickingOrder.filter(picked.contains)
+        return picks.isEmpty ? "None" : picks.map(\.dietName).joined(separator: ", ")
     }
 }
 
 // MARK: - What everybody else marked a dish
 
-/// **A dish's diet codes below the label** — `diet_counts` on `dish_summary` and on the place page's
-/// dish rows: `{code: n}`, n of 1–2, for a code not yet labelled (the server labels at 3 people).
+/// **How many people of each diet logged a dish** — `diet_counts` on `dish_summary` and on the place
+/// page's dish rows: `{code: n}` for every code somebody counted and nobody turned off (0084; an
+/// older server sent only the codes below the label, n of 1–2).
 /// Decoded leniently: an unknown code, a zero, or an older server with no object at all is simply
 /// nothing.
 public struct DietCounts: Hashable, Sendable, Codable {
@@ -162,5 +197,38 @@ public enum DietSignal: Hashable, Sendable, Identifiable {
     /// counted for it. Nothing on keeps every dish.
     public static func passes(_ on: [DietTag], tags: [DietTag], counts: DietCounts) -> Bool {
         on.allSatisfy { tags.contains($0) || counts[$0] > 0 }
+    }
+}
+
+// MARK: - The "?" popover
+
+/// **One line of a dish's "?" popover** (`diet-more.html`): the code's pill, its name, and how many
+/// people of that diet logged the dish. The pills alone say nothing about numbers; this is where
+/// they are.
+public struct DietCountLine: Hashable, Sendable, Identifiable {
+    public let tag: DietTag
+    /// `nil` for a label an older server sent no count for (it counted only below the label).
+    public let people: Int?
+
+    public init(tag: DietTag, people: Int?) {
+        self.tag = tag
+        self.people = people
+    }
+
+    public var id: String { tag.rawValue }
+
+    /// What the line prints after the person glyph: the count, or "3+" for a label with none.
+    public var peopleText: String {
+        people.map(String.init) ?? "\(DishTagConsensus.labelPeople)+"
+    }
+
+    /// The dish page's lines: the labels in the order the pills print them, then every other code
+    /// somebody counted (no pill yet), canonical order.
+    public static func dish(tags: [DietTag], counts: DietCounts) -> [DietCountLine] {
+        let labelled = tags.map { DietCountLine(tag: $0, people: counts[$0] > 0 ? counts[$0] : nil) }
+        let counted = counts.codes
+            .filter { tags.contains($0) == false }
+            .map { DietCountLine(tag: $0, people: counts[$0]) }
+        return labelled + counted
     }
 }

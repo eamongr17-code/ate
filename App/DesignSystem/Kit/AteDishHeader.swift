@@ -59,13 +59,19 @@ enum AteDishHeroMetrics {
 }
 
 /// **A dish's aggregate** — the number at 64 to one decimal, and beside it five stars filled to the
-/// nearest half, over how many people and the dish's diet chips. An unrated dish prints no number
-/// and no stars: the people line alone, or nothing (scores are never inferred).
+/// nearest half, over how many people and the dish's diet chips, then the "?" that opens how many
+/// people of each diet logged it (`diet-more.html`). An unrated dish prints no number and no stars:
+/// the people line alone, or nothing (scores are never inferred).
 struct AteDishAggregate: View {
     let score: Double?
     let peopleCount: Int
     var tags: [DietTag] = []
+    /// The "?" popover's lines; none, no "?".
+    var counts: [DietCountLine] = []
+    /// The "?" was tapped.
+    var onCounts: (() -> Void)?
 
+    @State private var isShowingCounts = false
     @Environment(\.atePalette) private var palette
 
     var body: some View {
@@ -91,7 +97,7 @@ struct AteDishAggregate: View {
 
     @ViewBuilder
     private var meta: some View {
-        if peopleCount > 0 || tags.isEmpty == false {
+        if peopleCount > 0 || tags.isEmpty == false || counts.isEmpty == false {
             HStack(spacing: AteMetrics.snug) {
                 if peopleCount > 0 {
                     HStack(spacing: AteMetrics.tight) {
@@ -104,6 +110,13 @@ struct AteDishAggregate: View {
                 }
                 AteDietChips(tags: tags, onGround: true)
                     .accessibilityIdentifier("dish.tags")
+                if counts.isEmpty == false {
+                    AteDietCountsButton(isPresented: $isShowingCounts, onOpen: onCounts) {
+                        AteDietCountsList(rows: counts.map {
+                            AteDietCountsList.Row(id: $0.id, tag: $0.tag, title: $0.tag.dietName, people: $0.peopleText)
+                        })
+                    }
+                }
             }
         }
     }

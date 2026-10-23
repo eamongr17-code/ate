@@ -6,7 +6,7 @@ import TipKit
 /// the left, then the two keys that put a pill into the words, Score and Diet, both labelled. Where
 /// and who are not here: they are the sheet's byline (``AteComposerByline``, Eamon 2026-10-12), so a
 /// pill in this capsule always means "this goes into the review".
-/// The Diet key unfolds the capsule into the five codes behind a back arrow, springing out of the key
+/// The Diet key unfolds the capsule into the diet codes behind a back arrow, springing out of the key
 /// (``ComposerDietUnfold``, round 5 "unfold B"), and a code folds it straight back.
 ///
 /// The capsule is iOS 26's own Liquid Glass (`GlassEffectContainer` + `.glassEffect`); the keys keep
@@ -24,6 +24,8 @@ struct AteKeyCapsule<Library: View>: View {
     let onCode: (DietTag) -> Void
     /// The codes the dish at the caret already wears: on in the unfold, and a press takes one off.
     var worn: [DietTag] = []
+    /// The codes in the order they unfold: the author's diet first (``ComposerModel/dietKeyOrder``).
+    var codes: [DietTag] = DietTag.pickingOrder
     /// A tip on the Score key: a first entry's Score tip.
     var scoreTip: (any Tip)?
     @ViewBuilder var library: Library
@@ -33,7 +35,7 @@ struct AteKeyCapsule<Library: View>: View {
 
     var body: some View {
         GlassEffectContainer {
-            ComposerDietUnfold(isChoosingDiet: isChoosingDiet, keys: keys, back: back, code: code)
+            ComposerDietUnfold(isChoosingDiet: isChoosingDiet, codes: codes, keys: keys, back: back, code: code)
                 .padding(.vertical, AteKeyCapsuleMetrics.inset)
                 .padding(.leading, AteKeyCapsuleMetrics.inset)
                 .padding(.trailing, AteKeyCapsuleMetrics.trailing)

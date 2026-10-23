@@ -62,7 +62,7 @@ public enum PreviewSorter {
         // Tags sit between the dish and its score; they are not part of its name.
         var nameEnd = scoreIndex
         var tags: [DietTag] = []
-        while nameEnd > 0, let tag = DietTag(code: words[nameEnd - 1]) {
+        while nameEnd > 0, let tag = DietTag(typed: words[nameEnd - 1]) {
             tags.insert(tag, at: 0)
             nameEnd -= 1
         }

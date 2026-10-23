@@ -14,6 +14,13 @@ extension ComposerModel {
         return DietTag.allCases.filter { lit.contains($0) }
     }
 
+    /// The Diet key's codes in the order they unfold (`diet-more.html`): the author's own diet first,
+    /// so turning one off for a dish is one tap even though ten codes scroll; then the rest.
+    var dietKeyOrder: [DietTag] {
+        let own = DietTag.pickingOrder.filter(diet.diet.contains)
+        return own + DietTag.pickingOrder.filter { own.contains($0) == false }
+    }
+
     /// A code the author's diet puts on the dish at the caret turns off for it, or back on. `nil` when
     /// the code is not the diet's for this dish: the key then puts a chip in, as it always did.
     func toggleDiet(_ tag: DietTag) -> AnalyticsEvent? {

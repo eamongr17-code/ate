@@ -43,6 +43,21 @@ struct DietTagTests {
         #expect(candidate(text) == nil)
     }
 
+    @Test("the newer codes are never typed into chips — only the Diet key puts them in", arguments: [
+        "laksa ha", "salmon pe", "noodles sf", "omelette ef", "satay pf", "kebab halal", "fish pesc"
+    ])
+    func newerCodesStayWords(text: String) {
+        #expect(candidate(text) == nil)
+    }
+
+    @Test("a chip's label reads back as its code; the wire's code too")
+    func labels() {
+        #expect(DietTag.pe.label == "PESC" && DietTag.ha.label == "HALAL" && DietTag.sf.label == "SF")
+        #expect(DietTag(code: "PESC") == .pe && DietTag(code: "Halal") == .ha && DietTag(code: "pe") == .pe)
+        #expect(DietTag(code: "keto") == nil)
+        #expect(DietTag(typed: "ha") == nil && DietTag(typed: "GF") == .gf)
+    }
+
     @Test("a second tag after the first is still a tag")
     func secondTag() throws {
         let found = try #require(candidate("salad gf vg"))
@@ -180,7 +195,7 @@ struct DietTagTests {
 @MainActor
 @Suite("Dietary tags — a dish's consensus")
 struct DishTagConsensusTests {
-    @Test("a code is a dish's label at 3 different people; below that it is a count")
+    @Test("a code is a dish's label at 3 different people; every code carries its count")
     func consensus() {
         let (ann, ben, cat) = (UUID(), UUID(), UUID())
         #expect(DishTagConsensus.labels(marks: []).tags == [])
@@ -194,8 +209,9 @@ struct DishTagConsensusTests {
         #expect(onePerson.tags == [])
         #expect(onePerson.counts[.gf] == 1)
         let three = DishTagConsensus.labels(marks: [(ann, [.vg, .gf]), (ben, [.vg]), (cat, [.vg, .nf])])
-        #expect(three.tags == [.vg])
-        #expect(three.counts.codes == [.gf, .nf], "canonical order, labelled codes left out")
+        #expect(three.tags == [.df, .v, .vg, .pe, .ef], "vegan counts as everything it covers")
+        #expect(three.counts.codes == [.gf, .df, .v, .vg, .nf, .pe, .ef, .pf], "every counted code, canonical order")
+        #expect(three.counts[.vg] == 3 && three.counts[.pf] == 1)
     }
 
     @Test("dish_summary's tags decode; an older header without them has none")
