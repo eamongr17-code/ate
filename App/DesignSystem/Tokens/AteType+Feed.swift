@@ -1,7 +1,7 @@
 import SwiftUI
 
 // **The Feed's edition** (round 8, `Main.dc.html` / `Scrolled.dc.html`). Where the artboard sets no
-// `line-height` the style takes the face's own `normal` (Bricolage and DM Mono both 1.2–1.3 of the
+// `line-height` the style takes the face's own `normal` (DM Sans and DM Mono both about 1.3 of the
 // size), which is what a single-line `Text` draws at by itself.
 
 extension AteTextStyle {

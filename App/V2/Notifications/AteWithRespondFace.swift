@@ -22,6 +22,7 @@ struct AteWithRespondFace: View {
     @FocusState private var isWriting: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(
         app: AppModel,
@@ -135,7 +136,7 @@ struct AteWithRespondFace: View {
             HStack(spacing: AteMetrics.snug) {
                 AteAvatar(userID: prefill.tagger.id, handle: prefill.tagger.username, size: .byline)
                 let handle = Text(verbatim: "@\(prefill.tagger.username)")
-                    .fontWeight(.semibold)
+                    .font(AteFont.font(for: .metaStrong, dynamicTypeSize: dynamicTypeSize))
                     .foregroundStyle(AtePalette.surface.fg)
                 Text("with \(handle)")
                     .ateText(.meta)

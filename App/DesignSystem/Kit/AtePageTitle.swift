@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// **A pushed page's own large title** (`discover.html` `.ptitle`) — the page's name in Bricolage 800,
+/// **A pushed page's own large title** (`discover.html` `.ptitle`) — the page's name in Young Serif,
 /// an optional muted subtitle on its baseline (a category's city), sitting 12 under the bar and
 /// leaving the band to 176 before the content. It scrolls away with the content; the page puts
 /// ``AteInlineTitle`` in the bar once it has (``SwiftUICore/View/ateCollapsingTitle(_:subtitle:isCollapsed:)``).

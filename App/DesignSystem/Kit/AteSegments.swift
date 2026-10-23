@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// **The segmented control** — the one the design has: a pill for each choice inside a
-/// field-coloured pill, the current one raised, every title in Bricolage (the system's segmented
+/// field-coloured pill, the current one raised, every title in DM Sans (the system's segmented
 /// `Picker` draws in SF and cannot be given the app's type). Journal | Saved, the filter sheet's
 /// Sort, Search's scopes. Fills its row, its choices sharing the width equally.
 ///

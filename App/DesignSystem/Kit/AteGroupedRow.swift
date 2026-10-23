@@ -80,26 +80,39 @@ struct AteGroupedRowValue: View {
     }
 }
 
-/// **A single choice in a row** — a native `Menu` picker (Appearance: System, Light, Dark), its label
-/// leading and the system's own value and chevrons trailing.
+/// **A single choice in a row** — a native `Menu` (Appearance: System, Light, Dark) holding an inline
+/// picker, so the choices keep the system's ticks. The row itself is drawn here rather than by a
+/// `.menu` picker, whose value is set in the system font and cannot be given ours.
 struct AteGroupedPicker<Value: Hashable, Options: View>: View {
     let title: String
+    /// The chosen option's name, as the row shows it on the right.
+    let value: String
     @Binding var selection: Value
     @ViewBuilder var options: Options
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        Picker(selection: $selection) {
-            options
+        Menu {
+            Picker(title, selection: $selection) {
+                options
+            }
+            .pickerStyle(.inline)
         } label: {
-            Text(title)
-                .ateText(.kitListRow)
-                .foregroundStyle(palette.fg)
+            HStack(spacing: AteGroupedRowMetrics.gap) {
+                Text(title)
+                    .ateText(.kitListRow)
+                    .foregroundStyle(palette.fg)
+                Spacer(minLength: AteMetrics.snug)
+                AteGroupedRowValue(value: value)
+                AteIcon.chevronsUpDown.view(size: AteMetrics.settingsChevron)
+                    .foregroundStyle(palette.muted)
+            }
+            .frame(minHeight: AteGroupedRowMetrics.height)
+            .contentShape(.rect)
         }
-        .pickerStyle(.menu)
-        .tint(palette.muted)
-        .frame(minHeight: AteGroupedRowMetrics.height)
+        .buttonStyle(.plain)
+        .accessibilityValue(value)
         .listRowInsets(AteGroupedRowMetrics.insets)
         .listRowBackground(palette.chip)
     }

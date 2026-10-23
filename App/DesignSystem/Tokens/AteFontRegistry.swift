@@ -79,7 +79,7 @@ final class AteFontRegistry: @unchecked Sendable {
     }
 
     /// PostScript names and axis ranges read out of the shipped files with a Core Text dump, not
-    /// guessed: Young Serif is one static weight, Bricolage's default instance is its 96pt ExtraBold,
+    /// guessed: Young Serif is one static weight, DM Sans's default instance is its 9pt Regular,
     /// and Newsreader's is 16pt Regular.
     private static let candidates: [Candidate] = [
         Candidate(voice: .heading, italic: false, face: Face(
@@ -89,10 +89,10 @@ final class AteFontRegistry: @unchecked Sendable {
             opticalSizeRange: nil
         )),
         Candidate(voice: .display, italic: false, face: Face(
-            family: "Bricolage Grotesque",
-            regular: "BricolageGrotesque-96ptExtraBold",
+            family: "DM Sans",
+            regular: "DMSans-9ptRegular",
             variationAxes: [AteFontAxis.weight, AteFontAxis.opticalSize],
-            opticalSizeRange: 12...96
+            opticalSizeRange: 9...40
         )),
         Candidate(voice: .prose, italic: false, face: Face(
             family: "Newsreader",

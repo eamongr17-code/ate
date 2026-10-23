@@ -35,7 +35,9 @@ struct V2SettingsList: View {
                 AteGroupedRow(title: "Diet", value: context.app.diet.choice?.summary, identifier: "settings.diet") {
                     context.open(.settings(.diet))
                 }
-                AteGroupedPicker(title: "Appearance", selection: Bindable(model).appearance) {
+                AteGroupedPicker(
+                    title: "Appearance", value: model.appearance.title, selection: Bindable(model).appearance
+                ) {
                     ForEach(AteAppearance.allCases, id: \.self) { appearance in
                         Text(appearance.title).tag(appearance)
                     }

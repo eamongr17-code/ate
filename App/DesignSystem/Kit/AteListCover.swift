@@ -4,7 +4,7 @@ import SwiftUI
 /// **A list's cover** (`lists-playlists.html`, approved 9 Oct) — a list drawn as a playlist of
 /// dishes. Square, at the kit's 16 radius, straight (a cover is a picture of the list, not a mess):
 /// four or more photos make a 2×2 mosaic of the first four, fewer show the first one whole, and none
-/// is the list's own accent with its name set on it in Bricolage 800, ink in both modes.
+/// is the list's own accent with its name set on it in Young Serif, ink in both modes.
 ///
 /// A cover the owner picked (`list-cover-edit.html`) shows whole instead of the mosaic. A list someone
 /// shared with you carries their photo in its top corner (screen 8); the name and count under it stay

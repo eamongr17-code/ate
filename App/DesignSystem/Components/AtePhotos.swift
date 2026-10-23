@@ -45,7 +45,7 @@ struct AtePhoto: Identifiable, Equatable {
 
 /// **The letter tile** (`NoPhotoA.dc.html`, 2026-09-26): what a dish with no photo shows wherever a
 /// dish thumbnail appears — the slot keeps its shape, filled with one accent and the dish's first
-/// letter in Bricolage 800 (26 on a 56 tile), ink on it like every accent. The accent is the dish's:
+/// letter in Young Serif (26 on a 56 tile), ink on it like every accent. The accent is the dish's:
 /// picked from its id (``DishTileIdentity/paletteIndex(for:count:)``, stable across launches), and
 /// **never butter**, which means a score.
 struct DishLetter: Equatable, Sendable {

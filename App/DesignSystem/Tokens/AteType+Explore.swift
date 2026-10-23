@@ -1,8 +1,8 @@
 import SwiftUI
 
 // **A dish page's "More to explore" and "More like this"** (round 7, `DishExplore.dc.html`). The
-// artboard sets none of these a `line-height`, so each is Bricolage's own `normal` — its 930/270
-// ascender and descender, 1.2 of the size.
+// artboard sets none of these a `line-height`, so each is the face's own `normal` — DM Sans's 992/310
+// ascender and descender, 1.3 of the size.
 
 extension AteTextStyle {
     /// "More to explore", "More like this": `.b` 800 at 20, `letter-spacing:-0.4px`.

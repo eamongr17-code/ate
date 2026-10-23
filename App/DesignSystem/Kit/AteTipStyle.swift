@@ -2,7 +2,7 @@ import SwiftUI
 import TipKit
 
 /// **A first-run tip's face** — TipKit's own popover, with Ate's words in it: the title in
-/// Bricolage, one line of prose under it in muted ink, and a quiet ✕. Its width is fixed
+/// DM Sans, one line of prose under it in muted ink, and a quiet ✕. Its width is fixed
 /// (`first-run.html`'s 300) so the system lays the popover beside the control it points at.
 /// Left to fill the screen it sits centred whatever it points to (Eamon, build 98).
 struct AteTipStyle: TipViewStyle {

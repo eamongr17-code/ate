@@ -5,7 +5,7 @@ import SwiftUI
 /// control surface, in three bands:
 ///
 /// - **The header** (``AteSheetHeader``), fixed: close as a glass disc top left, the primary action
-///   (the ink tick, or Share) mirrored top right when there is one, and the title in Bricolage 800 at
+///   (the ink tick, or Share) mirrored top right when there is one, and the title in Young Serif at
 ///   30 under that row. Its geometry is ``SheetHeaderGeometry``'s, so no sheet can move its X.
 /// - **The body**: an optional 50pt search pill in the field colour, then the content. It scrolls
 ///   when it outgrows the screen.
