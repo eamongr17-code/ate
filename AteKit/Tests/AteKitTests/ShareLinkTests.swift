@@ -68,6 +68,15 @@ struct ShareLinkTests {
         #expect(still.parameters["receipt_moved"] == nil)
     }
 
+    @Test func receiptSharedSaysWhenItWasOneDishOfSeveral() {
+        let one = ShareEvents.receiptShared(
+            entryID: Self.id, source: .entry, destination: .saved, sticker: .story, oneDish: true
+        )
+        #expect(one.parameters["one_dish"] == "true")
+        let whole = ShareEvents.receiptShared(entryID: Self.id, source: .entry, destination: .saved, sticker: .story)
+        #expect(whole.parameters["one_dish"] == nil)
+    }
+
     @Test func listSharedCarriesTheListAndItsSize() {
         let event = ShareEvents.listShared(listID: Self.id, destination: .link, count: 12)
         #expect(event.name == "list_shared")

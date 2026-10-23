@@ -21,6 +21,8 @@ struct V2ReceiptShareRow: View {
     let source: ReceiptShareSource
     /// Off while the receipt is still printing, or its photo is still on its way.
     var isEnabled = true
+    /// The card is one dish's receipt from a review of several.
+    var oneDish = false
     let analytics: AnalyticsRecorder
     /// The first tap on any disc, once: the Printed screen's `summary_shared`.
     var onFirstShare: (() -> Void)?
@@ -198,7 +200,7 @@ struct V2ReceiptShareRow: View {
         analytics(ShareEvents.receiptShared(
             entryID: card.receipt.id, source: source, destination: destination, sticker: card.format.counted,
             look: card.look.name(for: card.format), adjusted: card.look.isAdjusted(card.format),
-            receiptMoved: card.look.isReceiptMoved(card.format)
+            receiptMoved: card.look.isReceiptMoved(card.format), oneDish: oneDish
         ))
     }
 }
