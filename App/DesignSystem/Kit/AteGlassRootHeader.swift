@@ -24,6 +24,7 @@ private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>:
     @State private var height: CGFloat = AteMetrics.hit
     @State private var isOverPage = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.atePalette) private var palette
 
     func body(content: Content) -> some View {
         content
@@ -43,25 +44,32 @@ private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>:
 
     // MARK: - The frost
 
-    /// The system's regular material from the screen's top edge to the header's bottom, fading out
-    /// just past it; the status bar's height alone while the header is away. Off at rest (build 92:
-    /// at rest the page is one surface).
+    /// The page's own ground from the screen's top edge to the header's bottom, easing out over the
+    /// page past it; the status bar's height alone while the header is away. A blur under the ground
+    /// softens what shows through, but the colour is the ground's, never the material's own grey
+    /// (build 177: a lighter band with an edge, in dark mode most of all). Off at rest (build 92: at
+    /// rest the page is one surface).
     private var frost: some View {
         GeometryReader { proxy in
             let top = proxy.safeAreaInsets.top
             let solid = top + (isHidden ? 0 : height)
             let fade = AteGlassRootHeaderMetrics.fade
-            Rectangle()
-                .fill(.regularMaterial)
-                .frame(height: solid + fade)
-                .mask {
-                    LinearGradient(
-                        stops: [.init(color: .black, location: solid / (solid + fade)),
-                                .init(color: .clear, location: 1)],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                }
-                .ignoresSafeArea(edges: .top)
+            let total = solid + fade
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                Rectangle().fill(palette.ground.opacity(AteGlassRootHeaderMetrics.groundOpacity))
+            }
+            .frame(height: total)
+            .mask {
+                // Eased, so neither the start nor the end of the fade shows as a line.
+                LinearGradient(
+                    stops: AteGlassRootHeaderMetrics.fadeCurve.map {
+                        .init(color: .black.opacity($0.alpha), location: (solid + fade * $0.at) / total)
+                    },
+                    startPoint: .top, endPoint: .bottom
+                )
+            }
+            .ignoresSafeArea(edges: .top)
         }
         .opacity(isOverPage ? 1 : 0)
         .allowsHitTesting(false)
@@ -179,7 +187,14 @@ private struct AteRootBarHiding: ViewModifier {
 
 enum AteGlassRootHeaderMetrics {
     /// The frost runs this far past the header's bottom, fading out, so the page meets it softly.
-    static let fade: CGFloat = 14
+    static let fade: CGFloat = 36
+    /// The ground over the blur: near enough the page's own that the frost reads as the ground.
+    static let groundOpacity: Double = 0.9
+    /// The fade's ease (smoothstep): from the header's bottom (`at` 0) to the frost's end (`at` 1).
+    static let fadeCurve: [(at: CGFloat, alpha: Double)] = stride(from: 0, through: 8, by: 1).map {
+        let step = Double($0) / 8
+        return (CGFloat(step), 1 - step * step * (3 - 2 * step))
+    }
     /// How far past the header's own height it travels to clear the status bar.
     static let clearance: CGFloat = 80
     /// The header leaves after this much scrolling down in one go…
