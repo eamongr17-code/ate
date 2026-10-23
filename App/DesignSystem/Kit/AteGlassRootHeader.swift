@@ -89,6 +89,8 @@ private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>:
             titleRow
             accessory
         }
+        // The header's own foot, so the first slip never sits tight under the title (build 181).
+        .padding(.bottom, AteGlassRootHeaderMetrics.foot)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
         // Up past the status bar, as far as the page has taken it; the page under it never moves.
         .offset(y: -hidden * travel)
@@ -178,6 +180,8 @@ extension EnvironmentValues {
 enum AteGlassRootHeaderMetrics {
     /// The frost runs this far past the header's bottom, fading out, so the page meets it softly.
     static let fade: CGFloat = 31
+    /// The room under the header's last row, title or accessory, before the page starts.
+    static let foot: CGFloat = AteMetrics.snug
     /// The ground over the blur: near enough the page's own that the frost reads as the ground,
     /// with the page faintly through it (Eamon, build 180: a little glass, not a new colour).
     static let groundOpacity: Double = 0.82

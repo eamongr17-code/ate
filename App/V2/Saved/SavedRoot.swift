@@ -327,7 +327,8 @@ struct SavedRoot: View {
                     apply(filters.clearing(chip))
                 }
             )
-            .padding(.vertical, AteMetrics.snug)
+            // The header's foot is the room under them.
+            .padding(.top, AteMetrics.snug)
         }
     }
 

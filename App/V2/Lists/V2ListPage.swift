@@ -120,7 +120,7 @@ struct V2ListPage: View {
         VStack(spacing: 0) {
             cover
             Text(store.name)
-                .ateText(.kitListHeroName)
+                .ateTextExactLifted(.kitListHeroName)
                 .foregroundStyle(AtePalette.automatic.fg)
                 .multilineTextAlignment(.center)
                 .lineLimit(3)
