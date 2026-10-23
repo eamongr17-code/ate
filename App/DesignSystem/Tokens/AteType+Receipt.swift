@@ -11,9 +11,9 @@ extension AteTextStyle {
         voice: .heading, size: 17, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .body,
         maximumSize: 17
     )
-    /// Its score, printed like a price. 18pt/800.
+    /// Its score, printed like a price. 18pt/700.
     static let shareSlipScore = AteTextStyle(
-        voice: .display, size: 18, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .body,
+        voice: .display, size: 18, weight: 700, trackingEm: -0.02, lineHeight: 1.0, textStyle: .body,
         maximumSize: 18
     )
     /// The one line of fine print, and the signature. DM Mono 10, uppercase.

@@ -7,9 +7,9 @@ import SwiftUI
 /// (``isQuiet``), as a playlist pairs Play with Shuffle (`lists-playlists.html` `.acts`).
 struct AteInkPill: View {
     enum Size: Equatable {
-        /// A sheet's foot: 52, full width, Bricolage 600 at 16.
+        /// A sheet's foot: 52, full width, DM Sans 600 at 16.
         case sheet
-        /// An empty state: 44, `padding:0 24px`, Bricolage 600 at 15.
+        /// An empty state: 44, `padding:0 24px`, DM Sans 600 at 15.
         case empty
         /// Answering inside a row (a list invite's Accept): `.pill.sm`, 38, `padding:0 18px`, 600 at 14.
         case row

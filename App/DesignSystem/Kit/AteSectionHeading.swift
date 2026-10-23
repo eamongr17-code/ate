@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// **A section's heading** — the Feed edition's `.sec`: the section's name in Bricolage 800 at 28,
+/// **A section's heading** — the Feed edition's `.sec`: the section's name in Young Serif at 24,
 /// and, on a shelf, a muted chevron at the right that opens the whole list — the chevron alone, since
 /// the contract has no text links; VoiceOver hears "See all". No eyebrow above it, no rule under it.
 struct AteSectionHeading: View {

@@ -48,7 +48,7 @@ struct AteDietChips: View {
 
 /// **A diet code as a button** — where a code is chosen rather than shown: the filter sheet's Diet
 /// group and the composer's Diet unfold, so the two match. Key size (40 high, a 44 target),
-/// Bricolage 600 at 14; the field colour when off, ink with light lettering when on. The display
+/// DM Sans 600 at 14; the field colour when off, ink with light lettering when on. The display
 /// chip (``AteDietChip``) stays the small tag a dish wears.
 struct AteDietPill: View {
     let tag: DietTag

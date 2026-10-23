@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// **A choice that toggles in place** — the cravings sheet's `.pk`: 42 high, Bricolage 600 at 16,
+/// **A choice that toggles in place** — the cravings sheet's `.pk`: 42 high, DM Sans 600 at 16,
 /// the field colour when off and ink with light lettering when on. Many can be on; the sheet's ink
 /// pill commits them. A 44 target.
 struct AteTogglePill: View {

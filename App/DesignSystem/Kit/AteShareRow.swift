@@ -122,7 +122,7 @@ enum AteShareRowMetrics {
 }
 
 extension AteTextStyle {
-    /// The word under a share disc. Bricolage 500 at 11.
+    /// The word under a share disc. DM Sans 500 at 11.
     static let shareRowLabel = AteTextStyle(
         voice: .display, size: 11, weight: 500, trackingEm: 0, lineHeight: 1.15, textStyle: .caption,
         maximumSize: 14

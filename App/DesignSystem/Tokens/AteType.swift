@@ -4,13 +4,14 @@ import SwiftUI
 /// **The voices** — and the only place in the app that is allowed to name a font.
 ///
 /// - **Young Serif** — headings: screen and page titles, places, dishes, list names. One heavy weight.
-/// - **Bricolage Grotesque** — controls (600, 15), labels, meta, scores and avatar letters.
+/// - **DM Sans** — controls (600, 15), labels, meta, scores and avatar letters (23 Oct, replacing
+///   Bricolage Grotesque: calmer beside Young Serif, and DM Mono's sister face).
 /// - **Newsreader** — the person's own words, everywhere they appear.
 /// - **DM Mono** — inside receipts, and nowhere else.
 ///
 /// The families ship as variable fonts, so a weight is a point on the `wght` axis rather than a
 /// separate file, and the optical-size axis is driven from the actual point size (that is what `opsz`
-/// is for: Bricolage at 13 is a different drawing from Bricolage at 40).
+/// is for: DM Sans at 13 is a different drawing from DM Sans at 40).
 ///
 /// Everything degrades: if the font files are missing from the bundle, each voice falls back to a
 /// system design (`.serif` for the words, `.monospaced` for receipts, the system sans for chrome) and
@@ -18,7 +19,7 @@ import SwiftUI
 enum AteVoice: Sendable {
     /// Young Serif — the words a screen is about: titles, places, dishes, list names. Not numbers.
     case heading
-    /// Bricolage Grotesque — controls, labels, meta, scores. The app's furniture.
+    /// DM Sans — controls, labels, meta, scores. The app's furniture.
     case display
     /// Newsreader — the person's words. Never used for chrome.
     case prose
