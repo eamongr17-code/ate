@@ -142,6 +142,13 @@ jobs:
           [ "$code" = "200" ] || { cat body.json; exit 1; }
           echo "PROD APPLIED AND READABLE" >> "$GITHUB_STEP_SUMMARY"
 
+      # Chain restaurants (0085): every apply links the chains among the places we hold (websites checked
+      # once per place, only for repeated names). A failure here never fails the apply.
+      - name: Chain restaurants
+        if: inputs.apply || (inputs.reset && inputs.confirm_reset == 'ERASE PROD')
+        continue-on-error: true
+        run: .github/scripts/dish_dedup.sh "$PROD_REF" chains
+
       # Same dish, different names (0071). After the deploy, so the function and its tables exist.
       - name: Duplicate dishes
         if: ${{ inputs.duplicate_dishes && inputs.duplicate_dishes != 'leave' }}
