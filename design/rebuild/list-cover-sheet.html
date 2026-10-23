@@ -1,0 +1,165 @@
+<title>List Cover Sheet</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Young+Serif&family=Newsreader:opsz,wght@6..72,400&display=swap">
+<style>
+/* Layout: real-size iPhone 17 Pro frames (402×874) in a wrapping row, light then dark, each with a caption. */
+:root{
+  --page:#EFEAE2; --page-fg:#24141F; --page-muted:#5E5560; --page-hair:rgba(36,20,31,.14); --green:#3ECF64;
+  --serif:"Young Serif",Georgia,serif; --ui:"Bricolage Grotesque",-apple-system,sans-serif; --prose:"Newsreader",Georgia,serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --page:#17111B; --page-fg:#F4EFE9; --page-muted:#B9AFBC; --page-hair:rgba(255,255,255,.16); color-scheme:dark } }
+:root[data-theme="dark"]{ --page:#17111B; --page-fg:#F4EFE9; --page-muted:#B9AFBC; --page-hair:rgba(255,255,255,.16); color-scheme:dark }
+*{box-sizing:border-box}
+html,body{overflow-x:hidden}
+body{background:var(--page);color:var(--page-fg);font-family:var(--prose);font-size:17px;line-height:1.5;margin:0;
+  padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1720px;margin:0 auto}
+h1{font:800 40px/1.05 var(--ui);letter-spacing:-.035em;margin:0 0 10px;text-wrap:balance}
+h2{font:800 26px/1.1 var(--ui);letter-spacing:-.03em;margin:48px 0 8px}
+h3{font:600 16px/1.3 var(--ui);margin:14px 0 4px}
+.note{color:var(--page-muted);font-size:15px;margin:0 0 24px;max-width:760px}
+.note b{color:var(--page-fg);font-weight:600}
+.row{display:flex;gap:36px 28px;flex-wrap:wrap}
+.cell{width:402px;max-width:100%;min-width:0}
+.cell p{font-size:14.5px;color:var(--page-muted);line-height:1.4;margin:0}
+.tag{display:inline-block;border-radius:999px;padding:2px 10px;font:600 12.5px/1.5 var(--ui);color:#24141F;background:var(--green);margin-left:6px;vertical-align:2px}
+ul.fix{margin:0 0 8px;padding-left:20px;color:var(--page-muted);font-size:15px;max-width:760px}
+ul.fix li{margin:2px 0}
+
+/* ---- the phone. Its colours are the app's own (AteColor / AtePalette.surface), set per mode on .ph ---- */
+.ph{--bg:#EFEAE2;--fg:#24141F;--muted:#5E5560;--sheet:#FFFFFF;--field:#E4DED4;--hair:rgba(36,20,31,.14);--solid:#24141F;--on-solid:#FFFFFF;--ring:rgba(36,20,31,.3);--dim:rgba(36,20,31,.28);
+  position:relative;width:402px;height:874px;max-width:100%;border-radius:54px;overflow:hidden;background:var(--bg);color:var(--fg);
+  box-shadow:0 0 0 1px var(--page-hair),0 18px 40px rgba(36,20,31,.14);font-family:var(--ui)}
+.ph.dk{--bg:#0C0C0D;--fg:#F5F4F1;--muted:#A5A4A8;--sheet:#2C2C2E;--field:#0C0C0D;--hair:rgba(255,255,255,.16);--solid:#F5F4F1;--on-solid:#2C2C2E;--ring:rgba(245,244,241,.3);--dim:rgba(0,0,0,.45)}
+.status{position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:4px 34px 0 46px;font:600 17px var(--ui);z-index:9}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;border-radius:20px;background:#000;z-index:10}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:140px;height:5px;border-radius:3px;background:var(--fg);z-index:10}
+
+/* the list page behind, under the sheet's dim */
+.behind{position:absolute;inset:0}
+.behind .hero{position:absolute;top:120px;left:0;right:0;display:flex;flex-direction:column;align-items:center}
+.behind .cover{width:224px;height:224px;border-radius:16px;overflow:hidden}
+.behind .nm{margin-top:18px;font:400 30px/1.05 var(--serif)}
+.dim{position:absolute;inset:0;background:var(--dim)}
+
+/* the sheet: AteSheetScaffold — corner row at 14, title at 72 (Young Serif 26), body on the 20 gutter */
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--sheet);border-radius:38px 38px 0 0;padding-bottom:34px;box-shadow:0 -10px 30px rgba(0,0,0,.10)}
+.grab{position:absolute;top:5px;left:50%;transform:translateX(-50%);width:36px;height:5px;border-radius:3px;background:var(--hair)}
+.corner{display:flex;justify-content:space-between;padding:14px 16px 0}
+.disc{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:color-mix(in srgb,var(--sheet) 70%,var(--field));box-shadow:inset 0 0 0 .5px var(--hair),0 6px 16px rgba(0,0,0,.08);color:var(--fg)}
+.ttl{font:400 26px/1 var(--serif);letter-spacing:-.02em;padding:14px 20px 0}
+.body{padding:14px 20px 24px}
+
+/* rows: AteListRow / AtePickRow anatomy */
+.r{display:flex;align-items:center;gap:12px;min-height:66px;border-top:1px solid var(--hair);cursor:pointer}
+.r.first{border-top:0}
+.r .t{width:56px;height:56px;border-radius:16px;flex-shrink:0;overflow:hidden}
+.r .d{flex:1;min-width:0;display:grid;gap:2px}
+.r .d b{font:400 18px/1.1 var(--serif);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r .d b.ui{font:600 17px/1.2 var(--ui);letter-spacing:-.01em}
+.r .d span{font:500 13px/1.3 var(--ui);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.radio{width:28px;height:28px;border-radius:50%;flex-shrink:0;box-shadow:inset 0 0 0 1.5px var(--ring);display:flex;align-items:center;justify-content:center;color:transparent}
+.on .radio{background:var(--solid);box-shadow:none;color:var(--on-solid)}
+.lbl{font:500 13px/1.3 var(--ui);color:var(--muted);padding:14px 0 8px}
+.add{display:flex;align-items:center;gap:12px;min-height:58px;border-top:1px solid var(--hair);font:600 15px/1.2 var(--ui);letter-spacing:-.01em}
+
+/* grid variant: AteCoverPhotoCell + the Report a bug sheet's dashed + tile */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 8px}
+.tile{display:grid;gap:6px;min-width:0;cursor:pointer}
+.tile .sq{position:relative;aspect-ratio:1;border-radius:12px;max-width:100%}
+.tile .sq>.ph-in{position:absolute;inset:0;border-radius:12px;overflow:hidden}
+.tile.on .sq{box-shadow:0 0 0 3px var(--sheet),0 0 0 5.5px var(--solid)}
+.tile .sq .radio{position:absolute;right:6px;bottom:6px;box-shadow:0 0 0 2px #fff;background:var(--solid);color:var(--on-solid);visibility:hidden}
+.tile.on .sq .radio{visibility:visible}
+.tile span{font:500 13px/1.3 var(--ui);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.on span{color:var(--fg);font-weight:600}
+.tile .plus{position:absolute;inset:0;border-radius:12px;border:1.5px dashed var(--hair);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+
+/* photo stand-ins */
+.p1{background:radial-gradient(circle at 45% 40%,#F4E7CF 0 14%,#C98A3E 15% 34%,#7A4A22 35% 58%,#3A3433 59%)}
+.p2{background:radial-gradient(circle at 55% 45%,#F2946A,#C2452C 65%,#6E2316)}
+.p3{background:linear-gradient(160deg,#F1DFC4 0 30%,#6B4A2E 30% 42%,#E9D3B2 42% 70%,#5A3B22 70%)}
+.p4{background:radial-gradient(circle at 50% 50%,#B8D98A,#5E8C3A 60%,#2E4A1C)}
+.mosaic{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+.mosaic>i{display:block}
+.r:focus-visible,.tile:focus-visible{outline:3px solid #B9A5EA;outline-offset:2px}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="chk" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="img" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></g></symbol>
+  <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="wrap">
+  <h1>Change cover sheet, redone</h1>
+  <p class="note">Same job as today: pick one of the list's dish photos, upload any photo, or go back to the automatic mosaic. What changes is that it's built from parts the app already uses, so it looks like its neighbours.</p>
+  <ul class="fix">
+    <li>The big preview goes. The list page behind the sheet already shows the cover, and it changes the moment you pick.</li>
+    <li>Tapping a choice picks it and closes the sheet, like "Which dish?" and the place sheet. No grey tick top right.</li>
+    <li>"Automatic" becomes a choice you can see and tap, instead of untapping a photo to get it back.</li>
+    <li>Group label in the sheet style (small, muted) instead of the page-style heading. Title says what you're doing: "Change cover".</li>
+  </ul>
+
+  <h2>A · Rows, like Add dishes <span class="tag">Recommended</span></h2>
+  <p class="note">Each dish is the same row as Add dishes and "Which dish?": photo, dish, place, and the round mark on the right. "Upload from Photos" is the last row, the way "Add as a new dish" ends the dish sheet. Tap any row to try it.</p>
+  <div class="row" data-variant="a">
+    <div class="cell"><div class="ph" data-phone></div><h3>A · Light</h3><p>Today's cover is the Chicken Waffle photo, so its row is marked.</p></div>
+    <div class="cell"><div class="ph dk" data-phone></div><h3>A · Dark</h3><p>Same sheet in dark mode.</p></div>
+  </div>
+
+  <h2>B · Photo grid</h2>
+  <p class="note">Bigger photos to judge by eye. The tiles are the ones this sheet has now, with the dish name under each; upload is the dashed + tile from Report a bug. Less like the rest of the app's sheets than A.</p>
+  <div class="row" data-variant="b">
+    <div class="cell"><div class="ph" data-phone></div><h3>B · Light</h3><p>Tap a tile to try it.</p></div>
+    <div class="cell"><div class="ph dk" data-phone></div><h3>B · Dark</h3><p>Same sheet in dark mode.</p></div>
+  </div>
+  <p class="note" style="margin-top:28px">Both: Upload from Photos opens Apple's picker, then the existing square crop; its tick saves the cover and the sheet closes. If the cover is already an upload, an "Uploaded photo" row (or tile) shows it, marked, above the dishes. A list with no dish photos shows only Automatic and Upload from Photos.</p>
+</div>
+
+<script>
+const dishes=[
+  {n:"Chicken Waffle",p:"Small Wins",c:"p1"},
+  {n:"Pork Belly Bao",p:"Wonderbao",c:"p2"},
+  {n:"Cacio e Pepe",p:"Tipo 00",c:"p3"},
+  {n:"Green Curry",p:"Soi 38",c:"p4"}
+];
+const svg=(id,s)=>`<svg width="${s}" height="${s}" aria-hidden="true"><use href="#${id}"/></svg>`;
+const mosaic=`<div class="mosaic" style="width:100%;height:100%">${dishes.map(d=>`<i class="${d.c}"></i>`).join("")}</div>`;
+const shell=(inner)=>`
+  <div class="behind"><div class="hero"><div class="cover p1" data-hero></div><div class="nm">Brunch</div></div></div>
+  <div class="dim"></div>
+  <div class="island"></div><div class="status"><span>9:41</span><span>●●●</span></div>
+  <div class="sheet"><div class="grab"></div>
+    <div class="corner"><div class="disc" role="button" aria-label="Close">${svg("x",20)}</div></div>
+    <div class="ttl">Change cover</div>
+    <div class="body">${inner}</div>
+  </div>
+  <div class="home"></div>`;
+const rowsA=()=>`
+  <div class="r first" tabindex="0" data-pick="auto"><div class="t">${mosaic}</div><div class="d"><b class="ui">Automatic</b><span>First 4 dish photos</span></div><div class="radio">${svg("chk",16)}</div></div>
+  <div class="lbl">Dish photos</div>
+  ${dishes.map((d,i)=>`<div class="r${i===0?" on":""}" tabindex="0" data-pick="${i}"><div class="t ${d.c}"></div><div class="d"><b>${d.n}</b><span>${d.p}</span></div><div class="radio">${svg("chk",16)}</div></div>`).join("")}
+  <div class="add">${svg("img",22)}Upload from Photos</div>`;
+const gridB=()=>`<div class="grid">
+  <div class="tile" tabindex="0" data-pick="auto"><div class="sq"><div class="ph-in">${mosaic}</div><div class="radio">${svg("chk",16)}</div></div><span>Automatic</span></div>
+  ${dishes.map((d,i)=>`<div class="tile${i===0?" on":""}" tabindex="0" data-pick="${i}"><div class="sq"><div class="ph-in ${d.c}"></div><div class="radio">${svg("chk",16)}</div></div><span>${d.n}</span></div>`).join("")}
+  <div class="tile"><div class="sq"><div class="plus">${svg("plus",26)}</div></div><span>Upload</span></div>
+</div>`;
+document.querySelectorAll("[data-variant]").forEach(row=>{
+  const v=row.dataset.variant;
+  row.querySelectorAll("[data-phone]").forEach(ph=>{
+    ph.innerHTML=shell(v==="a"?rowsA():gridB());
+    const hero=ph.querySelector("[data-hero]");
+    ph.addEventListener("click",e=>{
+      const t=e.target.closest("[data-pick]"); if(!t) return;
+      ph.querySelectorAll("[data-pick]").forEach(x=>x.classList.toggle("on",x===t));
+      const k=t.dataset.pick;
+      hero.className="cover"+(k==="auto"?"":" "+dishes[+k].c);
+      hero.innerHTML=k==="auto"?mosaic:"";
+    });
+  });
+});
+</script>
