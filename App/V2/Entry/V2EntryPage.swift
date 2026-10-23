@@ -109,7 +109,12 @@ private struct V2EntryScreen: View {
                 if let receipt = model.receipt, let card = model.card {
                     V2ReceiptShareSheet(
                         receipt: receipt,
-                        photoURLs: card.photos.sorted { $0.position < $1.position }.compactMap { URL(string: $0.url) },
+                        photos: card.photos,
+                        loadPairs: { [model] in
+                            await model.pairPhotosIfNeverPaired()
+                            await model.refreshPhotoDishes()
+                            return model.photoDishes
+                        },
                         source: .entry,
                         analytics: services.analytics
                     )

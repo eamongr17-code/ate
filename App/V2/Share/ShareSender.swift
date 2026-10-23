@@ -53,10 +53,29 @@ extension SharePhotos {
         return renderer.uiImage
     }
 
-    /// The entry's first photo, from its address.
+    /// The entry's photos as pixels, by position: the ones in memory drawn, the rest fetched side by
+    /// side (at most five).
     @MainActor
-    static func image(_ url: URL?) async -> UIImage? {
-        guard let url else { return nil }
-        return await AteImagePipeline.shared.image(url, size: .full)
+    static func images(_ photos: [(position: Int, photo: AtePhoto)]) async -> [Int: UIImage] {
+        var images: [Int: UIImage] = [:]
+        var remote: [(position: Int, url: URL)] = []
+        for (position, photo) in photos {
+            if let url = photo.url {
+                remote.append((position, url))
+            } else if let image = await Self.image(photo) {
+                images[position] = image
+            }
+        }
+        let fetched = await withTaskGroup(of: (Int, UIImage?).self, returning: [Int: UIImage].self) { group in
+            for (position, url) in remote {
+                group.addTask { (position, await AteImagePipeline.shared.image(url, size: .full)) }
+            }
+            var fetched: [Int: UIImage] = [:]
+            for await (position, image) in group {
+                if let image { fetched[position] = image }
+            }
+            return fetched
+        }
+        return images.merging(fetched) { held, _ in held }
     }
 }
