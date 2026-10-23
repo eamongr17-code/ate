@@ -21,6 +21,13 @@ extension View {
     func ateTextExact(_ style: AteTextStyle) -> some View {
         modifier(AteExactLineModifier(style: style))
     }
+
+    /// ``ateTextExact(_:)`` with its glyphs lifted back to where CSS draws them
+    /// (``AteFont/exactBaselineDrop(for:dynamicTypeSize:)``): a wrapping title tighter than its face,
+    /// standing on its own rather than baseline-aligned in a row.
+    func ateTextExactLifted(_ style: AteTextStyle) -> some View {
+        modifier(AteExactLiftedModifier(style: style))
+    }
 }
 
 private struct AteLineBoxModifier: ViewModifier {
@@ -49,6 +56,17 @@ private struct AteExactLineModifier: ViewModifier {
             .tracking(font.pointSize * style.trackingEm)
             .lineHeight(.exact(points: style.lineBox(dynamicTypeSize)))
             .textCase(style.uppercase ? .uppercase : nil)
+    }
+}
+
+private struct AteExactLiftedModifier: ViewModifier {
+    let style: AteTextStyle
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    func body(content: Content) -> some View {
+        content
+            .ateTextExact(style)
+            .offset(y: -AteFont.exactBaselineDrop(for: style, dynamicTypeSize: dynamicTypeSize))
     }
 }
 

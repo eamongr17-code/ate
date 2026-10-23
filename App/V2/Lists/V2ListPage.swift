@@ -32,7 +32,6 @@ struct V2ListPage: View {
     @State private var sharing: ShareSender.Sending?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(_ route: ListRoute, context: V2PageContext) {
         self.route = route
@@ -120,10 +119,8 @@ struct V2ListPage: View {
     private var hero: some View {
         VStack(spacing: 0) {
             cover
-            // Its exact line box, tighter than the face's own (Eamon, build 181: too airy).
             Text(store.name)
-                .ateTextExact(.kitListHeroName)
-                .offset(y: -AteFont.exactBaselineDrop(for: .kitListHeroName, dynamicTypeSize: dynamicTypeSize))
+                .ateTextExactLifted(.kitListHeroName)
                 .foregroundStyle(AtePalette.automatic.fg)
                 .multilineTextAlignment(.center)
                 .lineLimit(3)
