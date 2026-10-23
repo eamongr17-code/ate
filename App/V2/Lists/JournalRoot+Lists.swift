@@ -37,7 +37,6 @@ extension JournalRoot {
         .padding(.horizontal, AteMetrics.listGutter)
         // Clear of the glass group's foot above it.
         .padding(.top, AteMetrics.snug)
-        .padding(.bottom, AteMetrics.tight)
         .onChange(of: shelf) { _, now in
             if now == .lists { ListsTip().invalidate(reason: .actionPerformed) }
         }
