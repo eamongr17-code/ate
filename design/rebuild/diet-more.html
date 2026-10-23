@@ -77,6 +77,8 @@ body{margin:0;background:var(--page);color:var(--fg);font-family:"Newsreader",Ge
 .gh{font:500 13px/1 "Bricolage Grotesque",sans-serif;color:#5E5560;text-transform:uppercase;letter-spacing:.06em;padding:0 18px 8px}
 .bar{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
 .bar::-webkit-scrollbar{display:none}
+.diet.n{background:transparent;box-shadow:inset 0 0 0 1px rgba(36,20,31,.28)}
+.diet.n i{font-style:normal;margin-left:4px;color:#24141F}
 .new-hl{box-shadow:inset 0 0 0 2px var(--butter)}
 .prose{font:400 16px/1.45 "Newsreader",Georgia,serif}
 .place{display:flex;align-items:center;gap:6px;font:600 14px/1 "Bricolage Grotesque",sans-serif;color:#5E5560}
@@ -125,7 +127,7 @@ td:first-child{font:600 15px/1.4 "Bricolage Grotesque",sans-serif;white-space:no
 
 <div class="intro">
   <h1>More diet options</h1>
-  <p>Five new options join the five there today: Pescatarian, Halal, Egg free, Peanut free and Shellfish free. Allergies change how they show on dishes: a dish is never labelled "nut free", it only says how many nut-free eaters ordered it.</p>
+  <p>Five new options join the five there today: Pescatarian, Halal, Egg free, Peanut free and Shellfish free. Allergies change how they show on dishes: a dish is never labelled "nut free", it only shows how many nut-free eaters ordered it.</p>
   <p>All phones are real iPhone size. The first two are live: tap the chips and the rows. New options are outlined in butter only to mark them for this review.</p>
 </div>
 
@@ -221,7 +223,7 @@ td:first-child{font:600 15px/1.4 "Bricolage Grotesque",sans-serif;white-space:no
 
 <div class="group">
   <h2>What other people see on dishes and places</h2>
-  <p class="lead">Diets work as today: labelled once 3 people mark the dish. Allergies never get a label, however many people mark the dish. They only show the count.</p>
+  <p class="lead">Diets work as today: labelled once 3 people mark the dish. Allergies never get a label. In lists they show a small count chip; the dish page spells it out.</p>
   <div class="wrap">
 
     <div class="col">
@@ -239,7 +241,7 @@ td:first-child{font:600 15px/1.4 "Bricolage Grotesque",sans-serif;white-space:no
         </div>
         <div class="home"></div>
       </div>
-      <div class="cap">Dish page<small>VG and Halal are diets past the threshold, so they label the dish. 6 nut-free eaters is above 3, but nuts are an allergy, so it stays a count. Gluten free is now an allergy too, so it never labels.</small></div>
+      <div class="cap">Dish page<small>The dish page is the one place the full sentence appears, once per allergy. VG and Halal are diets past the threshold, so they label the dish. 6 nut-free eaters is above 3, but nuts are an allergy, so it stays a count. Gluten free is now an allergy too, so it never labels.</small></div>
     </div>
 
     <div class="col">
@@ -250,13 +252,13 @@ td:first-child{font:600 15px/1.4 "Bricolage Grotesque",sans-serif;white-space:no
         <div class="chips"><span class="chip">★ 4.2</span><span class="chip">31</span><span class="chip">CBD</span><span class="chip on">Peanut free</span></div>
         <div class="card">
           <div class="sec">The Top Ate</div>
-          <div class="prow"><span class="rn">1</span><span class="th t4"></span><span class="nm"><b>Tofu Larb</b><span class="meta">Ordered by 6 peanut-free eaters</span></span><span class="tok">★ 4.3</span></div>
-          <div class="prow"><span class="rn">2</span><span class="th t3"></span><span class="nm"><b>Mushroom Bao</b><span class="meta">Ordered by 3 peanut-free eaters</span></span><span class="tok">★ 4.5</span></div>
-          <div class="prow"><span class="rn">3</span><span class="th t1"></span><span class="nm"><b>Eggplant Curry</b><span class="meta">Ordered by 1 peanut-free eater</span></span><span class="tok">★ 4.0</span></div>
+          <div class="prow"><span class="rn">1</span><span class="th t4"></span><span class="nm"><b>Tofu Larb</b><span class="meta"><span class="diet n">PF<i>6</i></span></span></span><span class="tok">★ 4.3</span></div>
+          <div class="prow"><span class="rn">2</span><span class="th t3"></span><span class="nm"><b>Mushroom Bao</b><span class="meta"><span class="diet n">PF<i>3</i></span></span></span><span class="tok">★ 4.5</span></div>
+          <div class="prow"><span class="rn">3</span><span class="th t1"></span><span class="nm"><b>Eggplant Curry</b><span class="meta"><span class="diet n">PF<i>1</i></span></span></span><span class="tok">★ 4.0</span></div>
         </div>
         <div class="home"></div>
       </div>
-      <div class="cap">Place page, for a peanut-free viewer<small>Works as today: the chip appears for your own options and starts on. Every row says the count; none says "peanut free". Nut-free eaters count here too, since nut free covers peanuts.</small></div>
+      <div class="cap">Place page, for a peanut-free viewer<small>An allergy shows as an outlined chip with a count ("PF 6") instead of a sentence. Outlined with a number means "6 peanut-free eaters ordered it"; a filled chip with no number (VG) is a label. Nut-free eaters count here too.</small></div>
     </div>
 
   </div>
@@ -268,7 +270,7 @@ td:first-child{font:600 15px/1.4 "Bricolage Grotesque",sans-serif;white-space:no
     <tr><td>New codes</td><td>Pescatarian (PESC), Halal (HALAL), Egg free (EF), Peanut free (PF), Shellfish free (SF).</td></tr>
     <tr><td>What covers what</td><td>Vegan covers Vegetarian, Pescatarian, Dairy free and Egg free. Vegetarian covers Pescatarian. Nut free covers Peanut free. A covered option is lit and faded in the picker, and counts toward that option on dishes.</td></tr>
     <tr><td>Diets</td><td>Vegetarian, Vegan, Pescatarian, Halal, Dairy free. Labelled once 3 people mark the dish in 12 months with no veto, as today.</td></tr>
-    <tr><td>Allergies</td><td>Gluten free, Egg free, Nut free, Peanut free, Shellfish free. Never labelled. Always "Ordered by N … eaters". This changes Gluten free and Nut free, which label today.</td></tr>
+    <tr><td>Allergies</td><td>Gluten free, Egg free, Nut free, Peanut free, Shellfish free. Never labelled. Lists show an outlined count chip ("NF 6"); the dish page says "Ordered by 6 nut-free eaters". This changes Gluten free and Nut free, which label today.</td></tr>
     <tr><td>Dairy free</td><td>Stays a diet, because most people who pick it are lactose intolerant. It can move to Allergies if you'd rather.</td></tr>
     <tr><td>Halal wording</td><td>The label means halal eaters order it, not that the restaurant is certified. Same as Gluten free today.</td></tr>
   </table>
