@@ -15,8 +15,9 @@ struct AteListCover: View {
         case tile
         /// The head of the list's own page: 224, lifted.
         case hero
-        /// The cover sheet's preview (`list-cover-edit.html` 2): 176, flat.
-        case preview
+        /// A choice on the Change cover sheet (`list-cover-sheet.html` A): the dish row's 56, flat; with
+        /// no photos, only its colour (the name has no room).
+        case row
     }
 
     let id: UUID
@@ -61,7 +62,7 @@ struct AteListCover: View {
         switch style {
         case .tile: nil
         case .hero: AteListCoverMetrics.hero
-        case .preview: AteListCoverMetrics.preview
+        case .row: AteListCoverMetrics.row
         }
     }
 
@@ -73,7 +74,7 @@ struct AteListCover: View {
                 .resizable()
                 .scaledToFill()
         } else if let cover {
-            AtePhotoContent(photo: .remote(cover), size: .large)
+            AtePhotoContent(photo: .remote(cover), size: style == .row ? .thumbnail : .large)
         } else if photos.count >= AteListCoverMetrics.mosaic {
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
@@ -86,7 +87,9 @@ struct AteListCover: View {
                 }
             }
         } else if let first = photos.first {
-            AtePhotoContent(photo: first, size: .large)
+            AtePhotoContent(photo: first, size: style == .row ? .thumbnail : .large)
+        } else if style == .row {
+            accent
         } else {
             named
         }
@@ -94,7 +97,7 @@ struct AteListCover: View {
 
     private func quarter(_ photo: AtePhoto) -> some View {
         Color.clear
-            .overlay { AtePhotoContent(photo: photo, size: style == .tile ? .thumbnail : .large) }
+            .overlay { AtePhotoContent(photo: photo, size: style == .hero ? .large : .thumbnail) }
             .clipped()
     }
 
@@ -222,8 +225,8 @@ enum AteListCoverMetrics {
     /// `.cov{border-radius:16px}`; the hero `width:224px`.
     static let radius: CGFloat = 16
     static let hero: CGFloat = 224
-    /// The cover sheet's preview, `.prev{width:176px}`.
-    static let preview: CGFloat = 176
+    /// A cover choice's picture: the dish row's 56.
+    static let row: CGFloat = 56
     /// Four photos or more make the mosaic.
     static let mosaic = 4
     /// `.cov.gen{padding:12px}`, and 18 on the hero.

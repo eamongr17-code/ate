@@ -2,182 +2,143 @@ import AteKit
 import SwiftUI
 import UIKit
 
-/// **Change cover** (`list-cover-edit.html` 2–3, approved 18 Oct) — close, "Cover", the ink tick.
-/// The preview is exactly what the list will look like. Under it, Upload from Photos (Apple's
-/// picker, then the photo squared up in the cover's own shape), then the list's dish photos, each
-/// once. Nothing is ticked while the cover is automatic; tapping the pick again unticks it and the
-/// preview goes back to the mosaic. The tick saves; the close leaves the cover as it was.
+/// **Change cover** (`list-cover-sheet.html` A, approved 23 Oct; replaces `list-cover-edit.html` 2–3)
+/// — a sheet that picks one row, built like Add dishes: close, the title, then Automatic (the mosaic
+/// it makes), the upload when the cover is one, "Dish photos" over each of the list's dish photos once,
+/// and Upload from Photos last. A tap is the answer: the cover changes on the page behind and the sheet
+/// closes. Upload goes through Apple's picker and the square crop; its row spins until the photo is up.
 struct ListCoverSheet: View {
     let list: ListStore
 
-    /// What the sheet will save: the cover as it opened, or a change.
+    /// The cover as the sheet opened.
     private enum Pick: Equatable {
         case automatic
         case item(UUID)
-        /// The upload already on the list.
-        case kept
-        /// A photo just squared up, not yet sent.
-        case fresh(Data)
+        case upload
     }
 
-    @State private var pick: Pick
-    @State private var picked: UIImage?
     @State private var isChoosing = false
-    @State private var isSaving = false
+    @State private var isUploading = false
+    /// The squared photo while it uploads, shown in the upload's row.
+    @State private var fresh: UIImage?
     @State private var photoFailed = false
     @Environment(\.dismiss) private var dismiss
 
-    private let opened: Pick
-
-    init(list: ListStore) {
-        self.list = list
-        let opened: Pick = if let item = list.list?.coverItemID {
-            .item(item)
-        } else if list.list?.coverURL != nil {
-            .kept
-        } else {
-            .automatic
-        }
-        self.opened = opened
-        _pick = State(initialValue: opened)
-    }
-
     var body: some View {
-        AteSheetScaffold(
-            title: ListsCopy.cover,
-            primary: AteSheetPrimary(
-                icon: .check, label: ListsCopy.done, isEnabled: pick != opened, isBusy: isSaving, action: save
-            )
-        ) {
+        AteSheetScaffold(title: ListsCopy.changeCover) {
             VStack(alignment: .leading, spacing: 0) {
-                preview
-                    .frame(maxWidth: .infinity)
-                    .padding(.bottom, ListCoverSheetMetrics.previewBottom)
-                AteCoverUploadRow(title: ListsCopy.uploadFromPhotos, isOn: isUpload, action: upload)
+                automatic
+                if fresh != nil || current == .upload { uploaded }
                 if candidates.isEmpty == false {
-                    AteHairline()
-                    AteBandHeading(title: ListsCopy.photosInThisList)
-                        .padding(.top, ListCoverSheetMetrics.bandTop)
-                        .padding(.bottom, ListCoverSheetMetrics.bandBottom)
-                        .accessibilityAddTraits(.isHeader)
-                    grid
+                    AteSheetSectionLabel(title: ListsCopy.dishPhotos)
+                        .padding(.top, AteMetrics.regular)
+                    ForEach(candidates) { item in
+                        if let photo = item.photoURL {
+                            dish(item, photo: photo)
+                        }
+                    }
                 }
+                AteAddRow(
+                    title: ListsCopy.uploadFromPhotos, icon: .library,
+                    isEnabled: isUploading == false, identifier: "cover.upload"
+                ) { isChoosing = true }
             }
+            .disabled(isUploading)
         }
-        .ateCoverPicker(isPresented: $isChoosing, onFailure: { photoFailed = true }, onPicked: took)
+        .interactiveDismissDisabled(isUploading)
+        .ateCoverPicker(isPresented: $isChoosing, onFailure: { photoFailed = true }, onPicked: upload)
         .alert(ListsCopy.photoFailed, isPresented: $photoFailed) {
             Button("OK", role: .cancel) {}
         }
         .listsFailureAlert(failure: list.failure) { list.clearFailure() }
     }
 
-    // MARK: - Parts
+    // MARK: - Rows
 
-    private var preview: some View {
-        AteListCover(
-            id: list.listID,
-            name: list.name,
-            covers: list.list?.covers ?? [],
-            cover: previewCover,
-            image: pickedImage,
-            style: .preview
-        )
-        .animation(.easeOut(duration: ListCoverSheetMetrics.fade), value: pick)
+    private var automatic: some View {
+        AteCoverChoiceRow(
+            title: ListsCopy.automatic,
+            subtitle: ListsCopy.automaticFrom(photos: covers.count),
+            isOn: current == .automatic && fresh == nil,
+            isFirst: true,
+            identifier: "cover.automatic"
+        ) {
+            AteListCover(id: list.listID, name: list.name, covers: covers, style: .row)
+        } action: {
+            choose(.automatic)
+        }
     }
 
-    private var grid: some View {
-        LazyVGrid(
-            columns: Array(
-                repeating: GridItem(.flexible(), spacing: AteListPeopleMetrics.cellGap),
-                count: AteListPeopleMetrics.columns
-            ),
-            spacing: AteListPeopleMetrics.cellGap
+    private var uploaded: some View {
+        AteCoverChoiceRow(
+            title: ListsCopy.uploadedPhoto,
+            isOn: true,
+            isBusy: isUploading,
+            identifier: "cover.uploaded"
         ) {
-            ForEach(candidates) { item in
-                if let photo = item.photoURL {
-                    AteCoverPhotoCell(url: photo, name: item.dishName, isOn: pick == .item(item.id)) {
-                        choose(item)
-                    }
-                }
-            }
+            AteListCover(
+                id: list.listID, name: list.name, covers: covers,
+                cover: list.list?.coverURL, image: fresh, style: .row
+            )
+        } action: {
+            dismiss()
+        }
+    }
+
+    private func dish(_ item: ListItem, photo: String) -> some View {
+        AteCoverChoiceRow(
+            title: item.dishName,
+            subtitle: item.restaurantName,
+            titleStyle: .kitRankedDish,
+            isOn: current == .item(item.id) && fresh == nil,
+            identifier: "cover.photo"
+        ) {
+            AteThumb(photo: .dish(item.dishID, name: item.dishName, cover: photo))
+        } action: {
+            choose(.item(item.id))
         }
     }
 
     // MARK: - State
 
     private var candidates: [ListItem] { list.coverCandidates }
+    private var covers: [String] { list.list?.covers ?? [] }
 
-    private var isUpload: Bool {
-        switch pick {
-        case .kept, .fresh: true
-        case .automatic, .item: false
-        }
-    }
-
-    private var previewCover: String? {
-        switch pick {
-        case .automatic, .fresh: nil
-        case let .item(id): candidates.first { $0.id == id }?.photoURL
-        case .kept: list.list?.coverURL
-        }
-    }
-
-    private var pickedImage: UIImage? {
-        if case .fresh = pick { return picked }
-        return nil
+    private var current: Pick {
+        if let item = list.list?.coverItemID { return .item(item) }
+        if list.list?.coverURL != nil { return .upload }
+        return .automatic
     }
 
     // MARK: - Doing
 
-    /// The upload row: Photos when nothing is uploaded, and unticks an upload already picked.
-    private func upload() {
-        if isUpload {
-            AteHaptics.tick()
-            pick = .automatic
-        } else {
-            isChoosing = true
-        }
-    }
-
-    /// The crop's tick: the squared photo, shown in the preview until the sheet's own tick sends it.
-    private func took(_ jpeg: Data) {
-        picked = UIImage(data: jpeg)
-        pick = .fresh(jpeg)
-        AteHaptics.tick()
-    }
-
-    private func choose(_ item: ListItem) {
-        AteHaptics.tick()
-        pick = pick == .item(item.id) ? .automatic : .item(item.id)
-    }
-
-    private func save() {
-        let choice: ListCoverChoice
-        switch pick {
-        case .automatic: choice = .automatic
-        case let .item(id): choice = .item(id)
-        case let .fresh(data): choice = .upload(AvatarUpload(data: data))
-        case .kept:
+    /// The page behind shows the new cover at once (the store is optimistic); a refusal puts the old
+    /// one back and is said there, once the sheet is down.
+    private func choose(_ pick: Pick) {
+        guard pick != current else {
             dismiss()
             return
         }
+        AteHaptics.tick()
+        let choice: ListCoverChoice = if case let .item(id) = pick { .item(id) } else { .automatic }
+        Task { _ = await list.setCover(choice) }
+        dismiss()
+    }
+
+    /// The crop's tick: the photo goes up with the sheet still open, its row spinning; a refusal keeps
+    /// the sheet up, said once in the alert.
+    private func upload(_ jpeg: Data) {
         AteHaptics.key()
-        isSaving = true
+        fresh = UIImage(data: jpeg)
+        isUploading = true
         Task {
-            let saved = await list.setCover(choice)
-            isSaving = false
-            // A refusal keeps the sheet up, said once in the alert.
-            if saved { dismiss() }
+            let saved = await list.setCover(.upload(AvatarUpload(data: jpeg)))
+            isUploading = false
+            if saved {
+                dismiss()
+            } else {
+                fresh = nil
+            }
         }
     }
-}
-
-enum ListCoverSheetMetrics {
-    /// `.prev{top:78px; height:176px}` to `.opts{top:278px}`: 24 under the preview.
-    static let previewBottom: CGFloat = 24
-    /// `.band{padding-top:22px; padding-bottom:12px}`.
-    static let bandTop: CGFloat = 22
-    static let bandBottom: CGFloat = 12
-    /// `.prev>div{transition:opacity .15s}`.
-    static let fade: Double = 0.15
 }
