@@ -192,8 +192,8 @@ enum AteGlassRootHeaderMetrics {
     static let groundOpacity: Double = 0.9
     /// The fade's ease (smoothstep): from the header's bottom (`at` 0) to the frost's end (`at` 1).
     static let fadeCurve: [(at: CGFloat, alpha: Double)] = stride(from: 0, through: 8, by: 1).map {
-        let t = Double($0) / 8
-        return (CGFloat(t), 1 - t * t * (3 - 2 * t))
+        let step = Double($0) / 8
+        return (CGFloat(step), 1 - step * step * (3 - 2 * step))
     }
     /// How far past the header's own height it travels to clear the status bar.
     static let clearance: CGFloat = 80
