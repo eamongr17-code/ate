@@ -23,8 +23,7 @@ extension JournalRoot {
             options: [AteSegment(JournalShelf.journal, JournalShelf.journal.title),
                       AteSegment(.lists, JournalShelf.lists.title)],
             selection: $shelf,
-            identifier: "journal.shelf",
-            onGlass: true
+            identifier: "journal.shelf"
         )
         // The last first-run tip: Lists, once there is enough on the Journal to make one from. It
         // points at the Lists half, not the middle of the switch: anchored on a clear twin of it.
@@ -36,7 +35,9 @@ extension JournalRoot {
             .allowsHitTesting(false)
         }
         .padding(.horizontal, AteMetrics.listGutter)
-        .padding(.vertical, AteMetrics.tight)
+        // Clear of the glass group's foot above it.
+        .padding(.top, AteMetrics.snug)
+        .padding(.bottom, AteMetrics.tight)
         .onChange(of: shelf) { _, now in
             if now == .lists { ListsTip().invalidate(reason: .actionPerformed) }
         }

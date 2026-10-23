@@ -11,10 +11,8 @@ struct AteSegmentedControl<Value: Hashable>: View {
     @Binding var selection: Value
     /// Each choice's identifier is this, a dot, and its title in lower case.
     var identifier: String?
-    /// Over the page, on the system's glass (``AteSegments/onGlass``).
-    var onGlass = false
 
     var body: some View {
-        AteSegments(options: options, selection: $selection, hugs: false, identifier: identifier, onGlass: onGlass)
+        AteSegments(options: options, selection: $selection, hugs: false, identifier: identifier)
     }
 }
