@@ -4,7 +4,7 @@ import SwiftUI
 /// **A dish to pick** (`lists-notifications.html` C3, "Add dishes") — one of your own dishes in a
 /// sheet that ticks many: the straight thumbnail or letter tile, the dish over its place, the score
 /// token only when it was scored (an unscored dish has nothing in its place — Eamon, on the page),
-/// and the ink tick, empty until picked. Ruled at the top by a hairline except the first.
+/// and the ink tick once picked; until then the score sits at the row's right edge. Ruled at the top by a hairline except the first.
 struct AtePickRow: View {
     let photo: AtePhoto
     let name: String
@@ -35,8 +35,14 @@ struct AtePickRow: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 AteScoreToken(score)
-                AteTickMark(isOn: isSelected)
+                // Only while picked: an empty slot left the score inset from the rows' right edge
+                // (Eamon, build 181). The score steps aside for it.
+                if isSelected {
+                    AteTickMark(isOn: true)
+                        .transition(.scale.combined(with: .opacity))
+                }
             }
+            .ateAnimation(AteMotion.scoreRoll, value: isSelected)
             .frame(maxWidth: .infinity, minHeight: AtePickRowMetrics.height)
             .contentShape(.rect)
         }
