@@ -286,6 +286,8 @@ PR, same rule as `place_locality()`); rows written before keep the mangle — re
 
 **Diet — 0074 + sort-entry.** Additive: `profiles.diet` (owner PATCH); `entry_cards.items[].diet_tags`; `diet_counts` on `dish_summary` and `place_dishes` (+ browse; drop+create); sort-entry `diet_off_tokens` and `items[].diet_off`. **Behavioural:** every dish-level diet `tags` (dish_summary, place_dishes, search_dishes, dish_tags, the diet filters and tag pages) follows the label rule (3 people / 12 months / vg ⇒ v, df / any turn-off vetoes) instead of half-of-lines; new lines carry the author's diet in `tags`.
 
+**More diet options — 0084.** Additive: codes `pe`, `ha`, `ef`, `pf`, `sf` everywhere a diet code is accepted (sort-entry reads PESC/HALAL/EF/PF/SF chips). **Behavioural:** `diet_counts` holds every counted code nobody turned off (was: only codes below the label); vg also counts as ef and pe, v as pe, nf as pf.
+
 **Tag page — 0057.** Additive: trailing optional `p_kind`, `p_slug` on `get_entry_feed` and `new_to_record` (+ browse twins; drop+create, old calls bind unchanged and return the same rows); new `my_taste_tags`. Nothing existing changes meaning.
 
 **Faster logging — 0056 + sort-entry.** Additive: the sort reply (and its `skipped` reply) carries `entry_card`

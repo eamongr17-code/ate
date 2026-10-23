@@ -1,7 +1,7 @@
 // supabase/tests/db/diet_test.mjs — DIET (0074) at the SQL level: profiles.diet (owner PATCH, canonical,
 // closed set), the stamp on NEW lines and never on inherited/corrected ones, turning a code off (in
 // Compose via items[].diet_off, and after save via the tags PATCH), and the dish LABEL rule (3 different
-// people within 12 months, vg counting as v and df, any diet_off a veto) with diet_counts below it —
+// people within 12 months, vg counting as v, df, ef and pe (0084), any diet_off a veto) with diet_counts —
 // on dish_summary, place_dishes, and every filter that reads it.
 // Where a diet-off token lands in the words is sort-entry's job — functions/sort-entry/tags_test.ts.
 //
@@ -138,28 +138,28 @@ test('0074: a parked plan carries its stamp to the place it is printed at', asyn
   await setDiet(U.dan, []);
 });
 
-test('0074 LABEL: 3 different people within 12 months; vg counts as v and df; one diet_off vetoes', async () => {
+test('0074 + 0084 LABEL: 3 different people within 12 months; vg counts as v, df, ef, pe; one diet_off vetoes', async () => {
   const at = P.osteria;
   const r = (tags) => receipt(['Eggplant Curry', 4, { tags }]);
   const E1 = await w.visit(11, U.alice, at, r(['vg']), '2026-10-05T09:00:00Z');   // alice's diet stamps vg too
   const dish = (await lines(E1))[0].dish_id;
-  assert.deepEqual(await summary(dish), { tags: [], diet_counts: { df: 1, v: 1, vg: 1 } }, 'one person: counts, no label');
+  assert.deepEqual(await summary(dish), { tags: [], diet_counts: { df: 1, v: 1, vg: 1, pe: 1, ef: 1 } }, 'one person: counts, no label');
 
   await w.visit(12, U.alice, at, r(['vg']), '2026-10-06T09:00:00Z');
-  assert.deepEqual((await summary(dish)).diet_counts, { df: 1, v: 1, vg: 1 }, 'the same person twice is one person');
+  assert.deepEqual((await summary(dish)).diet_counts, { df: 1, v: 1, vg: 1, pe: 1, ef: 1 }, 'the same person twice is one person');
 
   await w.visit(13, U.bob, at, r(['v']), '2026-10-07T09:00:00Z');
   await w.visit(14, U.cleo, at, r(['vg', 'gf']), '2026-10-08T09:00:00Z');
-  assert.deepEqual(await summary(dish), { tags: ['v'], diet_counts: { df: 2, vg: 2, gf: 1 } },
-    'v: alice (vg), bob (v), cleo (vg) = 3 → labelled; df and vg 2 each → counted');
+  assert.deepEqual(await summary(dish), { tags: ['v', 'pe'], diet_counts: { gf: 1, df: 2, v: 3, vg: 2, pe: 3, ef: 2 } },
+    'v and pe: alice (vg), bob (v), cleo (vg) = 3 → labelled; every counted code carries its count (0084)');
 
   await w.visit(15, U.dan, at, r(['vg']), '2025-09-01T09:00:00Z');                   // 13+ months ago
-  assert.deepEqual((await summary(dish)).tags, ['v'], 'a line outside the window counts for nothing');
+  assert.deepEqual((await summary(dish)).tags, ['v', 'pe'], 'a line outside the window counts for nothing');
   await w.visit(16, U.dan, at, r(['vg']), '2026-10-09T09:00:00Z');
-  assert.deepEqual(await summary(dish), { tags: ['df', 'v', 'vg'], diet_counts: { gf: 1 } }, 'dan makes 3 vegans');
-  assert.deepEqual(await summary(dish, null), { tags: ['df', 'v', 'vg'], diet_counts: { gf: 1 } }, 'signed out agrees');
+  assert.deepEqual(await summary(dish), { tags: ['df', 'v', 'vg', 'pe', 'ef'], diet_counts: { gf: 1, df: 3, v: 4, vg: 3, pe: 4, ef: 3 } }, 'dan makes 3 vegans');
+  assert.deepEqual(await summary(dish, null), { tags: ['df', 'v', 'vg', 'pe', 'ef'], diet_counts: { gf: 1, df: 3, v: 4, vg: 3, pe: 4, ef: 3 } }, 'signed out agrees');
   const [menu] = await as(U.bob, () => rows(`select tags, diet_counts from public.place_dishes($1) where dish_id = $2`, [at, dish]));
-  assert.deepEqual(menu, { tags: ['df', 'v', 'vg'], diet_counts: { gf: 1 } }, 'the place page row agrees');
+  assert.deepEqual(menu, { tags: ['df', 'v', 'vg', 'pe', 'ef'], diet_counts: { gf: 1, df: 3, v: 4, vg: 3, pe: 4, ef: 3 } }, 'the place page row agrees');
 
   // the filters find a v dish whose lines say only vg
   const [f] = await as(U.bob, () => rows(
@@ -171,8 +171,27 @@ test('0074 LABEL: 3 different people within 12 months; vg counts as v and df; on
   const [aliceLine] = await lines(E1);
   await patchTags(U.alice, aliceLine.id, []);
   assert.deepEqual((await lines(E1))[0].diet_off, ['vg']);
-  assert.deepEqual(await summary(dish), { tags: ['df', 'v'], diet_counts: { gf: 1 } },
-    'vg vetoed (and, at 3 people still, not counted below the label); v and df stand');
+  assert.deepEqual(await summary(dish), { tags: ['df', 'v', 'pe', 'ef'], diet_counts: { gf: 1, df: 3, v: 4, pe: 4, ef: 3 } },
+    'vg vetoed (and so not counted either); v, df, pe and ef stand');
+});
+
+test('0084: the five new codes — closed set, nut free counts as peanut free, filters follow', async () => {
+  await setDiet(U.alice, ['ha', 'PF', 'sf']);
+  assert.deepEqual(await dietOf(U.alice), ['ha', 'pf', 'sf'], 'accepted, canonical');
+  await setDiet(U.alice, []);
+  const at = P.tipo;
+  const r = (tags) => receipt(['Satay Chicken', 4, { tags }]);
+  const E1 = await w.visit(41, U.alice, at, r(['nf', 'ha']), '2026-10-10T09:00:00Z');
+  const dish = (await lines(E1))[0].dish_id;
+  await w.visit(42, U.bob, at, r(['pf', 'ha']), '2026-10-11T09:00:00Z');
+  await w.visit(43, U.cleo, at, r(['pf', 'ef', 'sf']), '2026-10-12T09:00:00Z');
+  assert.deepEqual(await summary(dish), { tags: ['pf'], diet_counts: { nf: 1, ha: 2, ef: 1, pf: 3, sf: 1 } },
+    'pf: alice (nf), bob, cleo = 3 → labelled; pf never counts toward nf');
+  const [f] = await as(U.bob, () => rows(
+    `select public.place_has_tagged_dish($1, '{pf}') as place, $2 = any(public.tag_dish_ids('diet', 'pf')) as tag_page`, [at, dish]));
+  assert.deepEqual(f, { place: true, tag_page: true });
+  assert.deepEqual((await rows(`select public.diet_tags_implied('{v}') as v, public.diet_tags_implied('{vg,nf}') as vgnf`))[0],
+    { v: ['v', 'pe'], vgnf: ['df', 'v', 'vg', 'nf', 'pe', 'ef', 'pf'] });
 });
 
 test('0074 T3: with every replaced line a candidate, the strongest match wins (QA repro: untagged lines must not steal)', async () => {

@@ -1,6 +1,6 @@
 // supabase/functions/sort-entry/tags.ts
 //
-// DIETARY TAGS on a receipt line (migration 0036): gf · df · v · vg · nf.
+// DIETARY TAGS on a receipt line (migrations 0036, 0084): gf · df · v · vg · nf · pe · ha · ef · pf · sf.
 //
 // A tag is the USER'S, like a score. The sorter never infers one: "the waiter said it was
 // gluten free" in the prose tags nothing. The ONLY way a tag reaches the sorter is a span of
@@ -24,8 +24,8 @@ import { scalarLength, scalarOffset, sliceScalars } from './offsets.ts';
 import type { SortItem } from './types.ts';
 import { titleCase } from './validate.ts';
 
-/** The closed set, in its canonical order. Matches `reviews_tags_closed_set` (0036). */
-export const TAG_CODES = ['gf', 'df', 'v', 'vg', 'nf'] as const;
+/** The closed set, in its canonical order. Matches `reviews_tags_closed_set` (0036, 0084). */
+export const TAG_CODES = ['gf', 'df', 'v', 'vg', 'nf', 'pe', 'ha', 'ef', 'pf', 'sf'] as const;
 export type TagCode = typeof TAG_CODES[number];
 
 /** A client-marked span of the body: 0-based scalar offset + scalar length. */
@@ -45,6 +45,12 @@ const WORDS: Record<string, TagCode> = {
   'v': 'v', 'veg': 'v', 'vego': 'v', 'veggie': 'v', 'vegetarian': 'v',
   'vg': 'vg', 've': 'vg', 'vegan': 'vg',
   'nf': 'nf', 'nut free': 'nf', 'nutfree': 'nf',
+  // 0084. The chips print PESC and HALAL; 'pe' / 'ha' are the wire codes a diet-off token sends.
+  'pe': 'pe', 'pesc': 'pe', 'pescatarian': 'pe', 'pescetarian': 'pe',
+  'ha': 'ha', 'halal': 'ha',
+  'ef': 'ef', 'egg free': 'ef', 'eggfree': 'ef',
+  'pf': 'pf', 'peanut free': 'pf', 'peanutfree': 'pf',
+  'sf': 'sf', 'shellfish free': 'sf', 'shellfishfree': 'sf',
 };
 
 function normaliseWord(s: string): string {

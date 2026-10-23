@@ -49,8 +49,8 @@ const lines = (items: SortItem[]) => items.map((i) => [i.dish_name, i.score, i.t
 // ---------------------------------------------------------------------------
 // The vocabulary
 // ---------------------------------------------------------------------------
-test('the closed set is exactly gf, df, v, vg, nf, in that order', () => {
-  assertEquals([...TAG_CODES], ['gf', 'df', 'v', 'vg', 'nf']);
+test('the closed set is exactly gf, df, v, vg, nf, pe, ha, ef, pf, sf, in that order', () => {
+  assertEquals([...TAG_CODES], ['gf', 'df', 'v', 'vg', 'nf', 'pe', 'ha', 'ef', 'pf', 'sf']);
 });
 
 test('canonical: lower case, deduped, ordered by the list, unknown codes gone', () => {
@@ -66,6 +66,9 @@ test('a marked token is read in the words people actually write', () => {
     ['VG', ['vg']], ['vegan', ['vg']], ['Vegan!', ['vg']],
     ['NF', ['nf']], ['nut-free', ['nf']],
     ['GF/DF', ['gf', 'df']], ['vegan & nut free', ['vg', 'nf']], ['df, gf', ['gf', 'df']],
+    ['PESC', ['pe']], ['pescatarian', ['pe']], ['HALAL', ['ha']], ['Halal', ['ha']],
+    ['EF', ['ef']], ['egg-free', ['ef']], ['PF', ['pf']], ['peanut free', ['pf']],
+    ['SF', ['sf']], ['shellfish free', ['sf']], ['halal & nut free', ['nf', 'ha']],
   ];
   for (const [text, want] of cases) assertEquals(tagCodesFor(text), want, text);
 });

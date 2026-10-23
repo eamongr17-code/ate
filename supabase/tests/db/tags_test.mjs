@@ -53,8 +53,8 @@ test('0036 → 0074: dish_summary.tags is the LABEL rule (3 different people), s
   assert.deepEqual((await consensus(dish)).tags, [], 'one person is not a label');
   await w.visit(3, U.cleo, P.marion, receipt(['Risotto', 3, { tags: ['v'] }]), '2026-10-03T09:00:00Z');
   await w.visit(4, U.dan, P.marion, receipt(['Risotto', 5, { tags: ['v'] }]), '2026-10-04T09:00:00Z');
-  assert.deepEqual(await consensus(dish), { tags: ['v'], review_count: 3 }, 'v: three people; gf: one');
-  assert.deepEqual((await consensus(dish, null)).tags, ['v'], 'signed out agrees');
+  assert.deepEqual(await consensus(dish), { tags: ['v', 'pe'], review_count: 3 }, 'v (and pe, which v counts as): three people; gf: one');
+  assert.deepEqual((await consensus(dish, null)).tags, ['v', 'pe'], 'signed out agrees');
   const [menu] = await as(null, () => rows(`select tags, diet_counts from public.place_dishes($1) where dish_id = $2`, [P.marion, dish]));
-  assert.deepEqual(menu, { tags: ['v'], diet_counts: { gf: 1 } }, 'the menu row carries the same chips, and the count below');
+  assert.deepEqual(menu, { tags: ['v', 'pe'], diet_counts: { gf: 1, v: 3, pe: 3 } }, 'the menu row carries the same chips, and every count');
 });
