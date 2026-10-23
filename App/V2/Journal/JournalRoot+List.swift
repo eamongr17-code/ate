@@ -20,12 +20,8 @@ extension JournalRoot {
             .padding(.bottom, AteMetrics.section)
         }
         .scrollIndicators(.hidden)
-        .ateRootCollapse($isCollapsed)
-        .ateRootBarHiding($isBarHidden)
+        .ateRootBarHiding($barHidden)
         .refreshable { await refresh() }
-        .onScrollTargetVisibilityChange(idType: UUID.self, threshold: JournalShelfMetrics.visibleShare) { visible in
-            noteTopMonth(visible)
-        }
     }
 
     // MARK: - Empty
@@ -120,17 +116,9 @@ extension JournalRoot {
         let isThisYear = month.year == AteMonth.containing(Date()).year
         return AteMonthHeading(month: month.name(), year: isThisYear ? nil : String(month.year))
     }
-
-    private func noteTopMonth(_ visible: [UUID]) {
-        guard let top = journal.entries.first(where: { visible.contains($0.id) }) else { return }
-        let month = AteMonth.containing(top.createdAt)
-        if month != topMonth { topMonth = month }
-    }
 }
 
 enum JournalShelfMetrics {
-    /// How much of a slip must be on screen to count as the one you are reading.
-    static let visibleShare = 0.2
     /// An empty state never squeezes below this, however small the screen.
     static let emptyMinimum: CGFloat = 320
     static let skeletons = 3

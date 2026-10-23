@@ -55,7 +55,7 @@ extension JournalRoot {
             list
         case .lists:
             ListsShelf(
-                app: app, router: router, isCollapsed: $isCollapsed, isBarHidden: $isBarHidden, isNaming: $isNamingList
+                app: app, router: router, barHidden: $barHidden, isNaming: $isNamingList
             )
         }
     }

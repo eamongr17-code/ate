@@ -3,8 +3,10 @@ import SwiftUI
 /// **The glass header** (`lighter-header.html` B, 22 Oct) — Journal, Feed and Saved. The root's
 /// title row (title leading, the glass group trailing, a control apart before it), and under it an
 /// accessory (the Journal's switch, the filter's chips), as one header over the page: no ground, the
-/// page scrolling under it behind the system's regular material once it is under it. Scrolling down
-/// the header steps away, up to the status bar; any scroll up, or the page's top, brings it back.
+/// page scrolling under it behind a frost of its own ground once it is under it. The header follows
+/// the finger: scrolling down it steps away up to the status bar as fast as the page moves, scrolling
+/// up it comes back the same way, and it settles all there or all away when the scroll stops. One
+/// title, always: the header no longer folds its title inline (Eamon, build 180).
 ///
 /// The header is drawn over the page, never in the navigation bar, and the room kept for it never
 /// changes while it comes and goes: build 174 hid the native bar, and the inset leaving with it
@@ -12,9 +14,8 @@ import SwiftUI
 private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>: ViewModifier {
     let title: AteRootHeaderTitle
     let subtitle: String?
-    let inline: AteInlineTitle?
-    let isCollapsed: Bool
-    let isHidden: Bool
+    /// How far it has stepped away: 0 all there, 1 all away.
+    let hidden: CGFloat
     let showsApart: Bool
     let apart: Apart
     let controls: Controls
@@ -23,7 +24,6 @@ private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>:
     /// The header's height, title row and accessory: the room the page keeps under it.
     @State private var height: CGFloat = AteMetrics.hit
     @State private var isOverPage = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.atePalette) private var palette
 
     func body(content: Content) -> some View {
@@ -40,19 +40,25 @@ private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>:
             }
             .overlay(alignment: .top) { frost }
             .overlay(alignment: .top) { header }
+            .environment(\.ateGlassHeaderTravel, travel)
     }
+
+    /// How far the header moves from all there to all away: its height, and past the status bar.
+    private var travel: CGFloat { height + AteGlassRootHeaderMetrics.clearance }
+
+    private var isAway: Bool { hidden >= 1 }
 
     // MARK: - The frost
 
     /// The page's own ground from the screen's top edge to the header's bottom, easing out over the
-    /// page past it; the status bar's height alone while the header is away. A blur under the ground
-    /// softens what shows through, but the colour is the ground's, never the material's own grey
-    /// (build 177: a lighter band with an edge, in dark mode most of all). Off at rest (build 92: at
-    /// rest the page is one surface).
+    /// page past it, following the header as it moves; the status bar's height alone while it is
+    /// away. A blur under the ground shows the page faintly through it, but the colour is the
+    /// ground's, never the material's own grey (build 177: a lighter band with an edge, in dark mode
+    /// most of all). Off at rest (build 92: at rest the page is one surface).
     private var frost: some View {
         GeometryReader { proxy in
             let top = proxy.safeAreaInsets.top
-            let solid = top + (isHidden ? 0 : height)
+            let solid = top + max(0, height - hidden * travel)
             let fade = AteGlassRootHeaderMetrics.fade
             let total = solid + fade
             ZStack {
@@ -84,31 +90,18 @@ private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>:
             accessory
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
-        // Up past the status bar, as the native bar leaves; the page under it never moves.
-        .offset(y: isHidden ? -(height + AteGlassRootHeaderMetrics.clearance) : 0)
-        .opacity(isHidden ? 0 : 1)
-        .allowsHitTesting(isHidden == false)
-        .accessibilityHidden(isHidden)
+        // Up past the status bar, as far as the page has taken it; the page under it never moves.
+        .offset(y: -hidden * travel)
+        .opacity(1 - hidden)
+        .allowsHitTesting(hidden < 0.5)
+        .accessibilityHidden(isAway)
     }
 
     private var titleRow: some View {
-        let showsInline = isCollapsed && inline != nil
-        return HStack(spacing: AteMetrics.snug) {
-            // The root title and the inline one stacked, crossfading, as in the native bar.
-            ZStack(alignment: .leading) {
-                AteRootTitle(title: title, subtitle: subtitle)
-                    .accessibilityIdentifier("root.title")
-                    .opacity(showsInline ? 0 : 1)
-                    .accessibilityHidden(showsInline)
-                if let inline {
-                    inline
-                        .accessibilityIdentifier("root.inlineTitle")
-                        .opacity(showsInline ? 1 : 0)
-                        .accessibilityHidden(showsInline == false)
-                }
-            }
-            .fixedSize()
-            .animation(AteRootHeaderMetrics.collapse, value: showsInline)
+        HStack(spacing: AteMetrics.snug) {
+            AteRootTitle(title: title, subtitle: subtitle)
+                .accessibilityIdentifier("root.title")
+                .fixedSize()
             Spacer(minLength: 0)
             if showsApart {
                 apart
@@ -123,15 +116,15 @@ private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>:
     }
 }
 
-/// ``SwiftUICore/View/ateRootBarHiding(_:)``. Only a finger's scroll counts — a drag or its coast —
-/// and after each change the header is left alone while it moves.
+/// ``SwiftUICore/View/ateRootBarHiding(_:)``. Only a finger's scroll moves the header — a drag or
+/// its coast — point for point with the page, so a slow scroll brings it back slowly and a flick
+/// fast; when the scroll stops it settles the nearer way.
 private struct AteRootBarHiding: ViewModifier {
-    @Binding var isHidden: Bool
-    /// How far the page has moved in one direction since it last turned (down positive).
-    @State private var run: CGFloat = 0
+    @Binding var hidden: CGFloat
     @State private var phase: ScrollPhase = .idle
-    /// No change before this: the last one is still settling.
-    @State private var settling = Date.distantPast
+    /// How far under the header the page last was.
+    @State private var depth: CGFloat = 0
+    @Environment(\.ateGlassHeaderTravel) private var travel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private struct Reading: Equatable {
@@ -146,7 +139,7 @@ private struct AteRootBarHiding: ViewModifier {
         content
             .onScrollPhaseChange { _, now in
                 phase = now
-                if now == .idle { run = 0 }
+                if now == .idle { settle() }
             }
             .onScrollGeometryChange(for: Reading.self) { geometry in
                 let end = geometry.contentSize.height - geometry.containerSize.height + geometry.contentInsets.bottom
@@ -156,40 +149,38 @@ private struct AteRootBarHiding: ViewModifier {
                     isPastEnd: geometry.contentOffset.y > end
                 )
             } action: { old, new in
-                if new.depth < AteGlassRootHeaderMetrics.showWithin {
-                    run = 0
-                    set(false)
-                    return
-                }
+                depth = new.depth
+                var next = hidden
                 let isFinger = phase == .interacting || phase == .decelerating
-                guard isFinger, Date.now >= settling, new.isPastEnd == false, old.isPastEnd == false else {
-                    run = 0
-                    return
+                if isFinger, new.isPastEnd == false, old.isPastEnd == false {
+                    next += (new.offset - old.offset) / travel
                 }
-                let step = new.offset - old.offset
-                run = (run >= 0) == (step >= 0) ? run + step : step
-                if run > AteGlassRootHeaderMetrics.hideAfter, new.depth > AteGlassRootHeaderMetrics.hideBelow {
-                    set(true)
-                } else if run < -AteGlassRootHeaderMetrics.showAfter, phase == .interacting {
-                    // Up only under the finger: the small give as a drag lets go is not a scroll up.
-                    set(false)
-                }
+                // Never further away than the page has gone under it: at the top it is all there.
+                next = min(max(next, 0), 1, max(new.depth, 0) / travel)
+                if next != hidden { hidden = next }
             }
     }
 
-    private func set(_ hidden: Bool) {
-        guard hidden != isHidden else { return }
-        settling = .now.addingTimeInterval(AteGlassRootHeaderMetrics.settle)
-        run = 0
-        withAnimation(reduceMotion ? nil : AteGlassRootHeaderMetrics.slide) { isHidden = hidden }
+    /// Half way or more, and with room for it, all away; otherwise all there.
+    private func settle() {
+        guard hidden > 0, hidden < 1 else { return }
+        let away = hidden >= 0.5 && depth >= travel
+        withAnimation(reduceMotion ? nil : AteGlassRootHeaderMetrics.slide) { hidden = away ? 1 : 0 }
     }
+}
+
+extension EnvironmentValues {
+    /// How far a glass header moves from all there to all away, for its page's
+    /// ``SwiftUICore/View/ateRootBarHiding(_:)``.
+    @Entry var ateGlassHeaderTravel: CGFloat = 160
 }
 
 enum AteGlassRootHeaderMetrics {
     /// The frost runs this far past the header's bottom, fading out, so the page meets it softly.
-    static let fade: CGFloat = 36
-    /// The ground over the blur: near enough the page's own that the frost reads as the ground.
-    static let groundOpacity: Double = 0.9
+    static let fade: CGFloat = 31
+    /// The ground over the blur: near enough the page's own that the frost reads as the ground,
+    /// with the page faintly through it (Eamon, build 180: a little glass, not a new colour).
+    static let groundOpacity: Double = 0.82
     /// The fade's ease (smoothstep): from the header's bottom (`at` 0) to the frost's end (`at` 1).
     static let fadeCurve: [(at: CGFloat, alpha: Double)] = stride(from: 0, through: 8, by: 1).map {
         let step = Double($0) / 8
@@ -197,44 +188,33 @@ enum AteGlassRootHeaderMetrics {
     }
     /// How far past the header's own height it travels to clear the status bar.
     static let clearance: CGFloat = 80
-    /// The header leaves after this much scrolling down in one go…
-    static let hideAfter: CGFloat = 24
-    /// …only once the page is this far under it…
-    static let hideBelow: CGFloat = 120
-    /// …and is back after this much scrolling up, or whenever the page is this near its top.
-    static let showAfter: CGFloat = 40
-    static let showWithin: CGFloat = 24
-    /// The header leaving or coming back.
-    static let slide: Animation = .smooth(duration: 0.28)
-    /// How long after the header moves before it may move again: its slide, and a little more.
-    static let settle: TimeInterval = 0.45
+    /// The header settling all there or all away once a scroll stops.
+    static let slide: Animation = .smooth(duration: 0.24)
 }
 
 extension View {
     /// Installs a tab root's **glass header** (``AteGlassRootHeader``) in place of the native bar:
-    /// the same title, inline title and glass group as ``ateRootToolbar(title:subtitle:inline:isCollapsed:controls:)``,
-    /// with an `accessory` under the row, the whole of it away while `isHidden`.
+    /// the same title and glass group as ``ateRootToolbar(title:subtitle:inline:isCollapsed:controls:)``
+    /// (never an inline title), with an `accessory` under the row, the whole of it `hidden` of the way
+    /// away (0 to 1).
     func ateGlassRootHeader<Apart: View, Controls: View, Accessory: View>(
         title: AteRootHeaderTitle,
         subtitle: String? = nil,
-        inline: AteInlineTitle? = nil,
-        isCollapsed: Bool,
-        isHidden: Bool,
+        hidden: CGFloat,
         showsApart: Bool = false,
         @ViewBuilder apart: () -> Apart = { EmptyView() },
         @ViewBuilder controls: () -> Controls,
         @ViewBuilder accessory: () -> Accessory = { EmptyView() }
     ) -> some View {
         modifier(AteGlassRootHeader(
-            title: title, subtitle: subtitle, inline: inline, isCollapsed: isCollapsed, isHidden: isHidden,
+            title: title, subtitle: subtitle, hidden: hidden,
             showsApart: showsApart, apart: apart(), controls: controls(), accessory: accessory()
         ))
     }
 
-    /// Hides a glass header while the page scrolls down and brings it back on any scroll up, or near
-    /// the top — Safari's bar, and the tab bar's own minimise. Apply to the root's own `ScrollView`
-    /// or `List`, beside ``ateRootCollapse(_:)``.
-    func ateRootBarHiding(_ isHidden: Binding<Bool>) -> some View {
-        modifier(AteRootBarHiding(isHidden: isHidden))
+    /// Moves a glass header away as the page scrolls down and back as it scrolls up, with the finger,
+    /// and all there near the top — Safari's bar. Apply to the root's own `ScrollView` or `List`.
+    func ateRootBarHiding(_ hidden: Binding<CGFloat>) -> some View {
+        modifier(AteRootBarHiding(hidden: hidden))
     }
 }

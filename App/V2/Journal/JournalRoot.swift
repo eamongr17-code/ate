@@ -19,12 +19,9 @@ struct JournalRoot: View {
         self.app = app
     }
 
-    @State var isCollapsed = false
-    /// The glass header has stepped away (``SwiftUICore/View/ateRootBarHiding(_:)``).
-    @State var isBarHidden = false
+    /// How far the glass header has stepped away, 0 to 1 (``SwiftUICore/View/ateRootBarHiding(_:)``).
+    @State var barHidden: CGFloat = 0
     @State var isFiltering = false
-    /// The month of the slip at the top of the screen — the inline title, once scrolled.
-    @State var topMonth: AteMonth?
     /// Bumped by every change to what the list is — a filter, a chip cleared — so
     /// the new list starts at its top: a lazy list keeps its offset while its rows are replaced.
     @State var listChanged = 0
@@ -61,9 +58,7 @@ struct JournalRoot: View {
         // all of it. Searching, the header steps away and the search screen covers the shelf.
         .ateGlassRootHeader(
             title: .wordmark,
-            inline: inlineTitle,
-            isCollapsed: isCollapsed,
-            isHidden: isSearching || isBarHidden,
+            hidden: isSearching ? 1 : barHidden,
             showsApart: showsBug,
             apart: { bug },
             controls: { controls },
@@ -75,7 +70,7 @@ struct JournalRoot: View {
             }
         )
         // Another shelf starts with its header showing.
-        .onChange(of: shelf) { _, _ in isBarHidden = false }
+        .onChange(of: shelf) { _, _ in barHidden = 0 }
         .sheet(isPresented: $isFiltering) { filterSheet }
         .sheet(isPresented: $isSendingFeedback) {
             FeedbackSheet(app: app) { feedbackToast = "Report sent. Thank you." }
@@ -134,18 +129,6 @@ struct JournalRoot: View {
     }
 
     // MARK: - The bar
-
-    /// The month you are in, once the wordmark has scrolled away — or, where the list does not run
-    /// through time, "Journal". The year joins a month only when it is not this one.
-    private var inlineTitle: AteInlineTitle {
-        if shelf == .lists { return AteInlineTitle(title: JournalShelf.lists.title) }
-        let runsThroughTime = journal.query.sort.isChronological && journal.phase == .ready
-        if runsThroughTime, let topMonth {
-            let isThisYear = topMonth.year == AteMonth.containing(Date()).year
-            return AteInlineTitle(title: topMonth.name(), subtitle: isThisYear ? nil : String(topMonth.year))
-        }
-        return AteInlineTitle(title: V2Tab.journal.title)
-    }
 
     /// The bug, apart from the group (`feedback.html` A): TestFlight and Debug builds only, signed in,
     /// never in an App Store build.
