@@ -5,7 +5,7 @@ import SwiftUI
 /// `onboarding-calm.html` redrew them, 17 Oct) — straight after Handle, once.
 ///
 /// 1. **A photo of you** (``OnboardingPhotoStep``): the avatar, Apple's picker, Not now.
-/// 1b. **Set your dietary requirements** (``OnboardingDietStep``, `diet.html`): the five codes, Next
+/// 1b. **Set your dietary requirements** (``OnboardingDietStep``, `diet.html`): the ten codes, Next
 ///    or None of these.
 /// 2. **The three cards** (``OnboardingCards``): one entry written with its scores, its details,
 ///    then as the Feed shows it.
@@ -313,4 +313,6 @@ enum OnboardingMetrics {
     /// under it — `left/right:24`. The doors sit where the photo step's do, so they don't jump.
     static let dietTitleToChips: CGFloat = 38
     static let dietChipsInset: CGFloat = 24
+    /// The gap between the diets and the allergies (`diet-more.html`: one row's gap plus 16).
+    static let dietGroupGap: CGFloat = 26
 }

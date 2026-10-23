@@ -300,6 +300,7 @@ struct V2ComposerWrite: View {
                 },
                 onCode: pick,
                 worn: isChoosingDiet ? model.litCodes : [],
+                codes: model.dietKeyOrder,
                 scoreTip: scoreTip,
                 library: { libraryKey }
             )

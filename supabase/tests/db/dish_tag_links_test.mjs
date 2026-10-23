@@ -106,8 +106,8 @@ test('diet chips in dish_tags are dish_summary.tags, live', async () => {
   await w.visit(7, U.bob, P.tipo, receipt(['Burrata', 5, { tags: ['v'] }]), '2026-10-08T09:00:00Z');
   await w.visit(8, U.cleo, P.tipo, receipt(['Burrata', 3, { tags: ['v'] }]), '2026-10-09T09:00:00Z');
   const [{ tags: summary }] = await as(U.dan, () => rows(`select tags from public.dish_summary($1)`, [dish]));
-  assert.deepEqual(summary, ['v']);
-  assert.deepEqual((await tags(dish, U.dan)).filter((t) => t.startsWith('diet')), ['diet:v:V'], 'v: 3 people; gf: 1');
+  assert.deepEqual(summary, ['v', 'pe']);
+  assert.deepEqual((await tags(dish, U.dan)).filter((t) => t.startsWith('diet')), ['diet:v:V', 'diet:pe:PE'], 'v (and pe, 0084): 3 people; gf: 1');
   const byDiet = await as(U.dan, () => rows(`select name from public.dishes_by_tag('diet', 'v')`));
   assert.ok(byDiet.some((r) => r.name === 'Burrata'));
   assert.ok(!(await as(U.dan, () => rows(`select name from public.dishes_by_tag('diet', 'gf')`))).some((r) => r.name === 'Burrata'));

@@ -3,13 +3,13 @@ import SwiftUI
 
 /// **A composer key** — the keys that float in the composer's glass capsule above the keyboard.
 /// Score (butter) and Diet (field), both labelled: the two keys that put a pill into the words. Diet
-/// unfolds into the five codes. Place and people are the composer's byline (``AteComposerByline``).
+/// unfolds into the diet codes. Place and people are the composer's byline (``AteComposerByline``).
 /// The existing ``ComposerKey``, with each kind's dress decided once.
 struct AteKey: View {
     enum Kind: Equatable {
         case score
         case diet
-        /// One of the five codes the Diet key unfolds into.
+        /// One of the codes the Diet key unfolds into.
         case code(DietTag)
     }
 

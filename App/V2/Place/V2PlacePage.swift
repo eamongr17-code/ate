@@ -31,8 +31,6 @@ struct V2PlacePage: View {
             explore: services.dishExplore,
             analytics: services.analytics
         )
-        // The viewer's diet chips are on from the first frame: the menu never flashes unfiltered.
-        store.useDiet(context.app.diet.codes)
         _store = State(initialValue: store)
     }
 
@@ -65,10 +63,6 @@ struct V2PlacePage: View {
         .browseBarTitle(store.name ?? store.previewName, isShown: isCollapsed)
         .refreshable { await store.refresh() }
         .task { await store.load() }
-        // A diet changed in Settings is this page's chips as well.
-        .onChange(of: context.app.diet.codes) { _, codes in store.useDiet(codes) }
-        // With chips on, read on until the paper has dishes to show (or the menu ends).
-        .task(id: FilteredMenu(on: store.dietOn, isReady: store.menu == .ready)) { await store.fillFilteredMenu() }
         .accessibilityIdentifier("place.page")
     }
 
@@ -103,9 +97,9 @@ struct V2PlacePage: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityAddTraits(.isHeader)
                 .browseTitleBottom($titleBottom)
-            if store.facts.isEmpty == false || store.dietCodes.isEmpty == false {
-                let facts = store.facts.map { chip($0, reader: reader) }
-                AteChipFlow(chips: facts + store.dietCodes.map(dietChip))
+            // No diet chip here: a restaurant is never labelled, only its dishes (Eamon, 23 Oct).
+            if store.facts.isEmpty == false {
+                AteChipFlow(chips: store.facts.map { chip($0, reader: reader) })
             }
         }
         .padding(.horizontal, AteMetrics.listGutter)
@@ -138,7 +132,7 @@ struct V2PlacePage: View {
 
     /// The menu's paper, when there is one to go to.
     private var menuTarget: String? {
-        store.menu == .ready && store.shownDishes.isEmpty == false ? V2PlaceAnchor.menu : nil
+        store.menu == .ready && store.dishes.isEmpty == false ? V2PlaceAnchor.menu : nil
     }
 
     /// The first visit on the page: yours, else everybody else's.
@@ -157,20 +151,6 @@ struct V2PlacePage: View {
         context.open(.tag(DishTagRoute(tag)), from: .place)
     }
 
-    /// One of the viewer's diet codes (`diet.html`: "Vegan"), on by default; a tap shows everything.
-    private func dietChip(_ tag: DietTag) -> AteChipFlow.Chip {
-        AteChipFlow.Chip(
-            id: "diet:\(tag.rawValue)",
-            title: tag.dietName,
-            isOn: store.dietOff.contains(tag) == false,
-            identifier: "place.diet.\(tag.rawValue)",
-            action: {
-                AteHaptics.key()
-                store.toggleDiet(tag)
-            }
-        )
-    }
-
     // MARK: - The Top Ate
 
     @ViewBuilder
@@ -184,17 +164,9 @@ struct V2PlacePage: View {
             // Nobody has written up a dish here yet. Not an error, and not an instruction.
             AteEmptyState(line: "Nothing\nordered yet.", art: .rail)
                 .padding(.vertical, AteMetrics.section)
-        case .ready where store.shownDishes.isEmpty:
-            // The diet chips let nothing through: what is true, in the menu's own words.
-            AteEmptyState(
-                line: "Nothing \(store.dietOn.map(\.eaterWord).joined(separator: ", "))\nordered yet.",
-                art: .rail
-            )
-            .padding(.vertical, AteMetrics.section)
         case .ready:
             V2MenuPaper {
-                let dishes = store.shownDishes
-                let hidden = Set(store.dietOn)
+                let dishes = store.dishes
                 // Letter tiles chosen for the menu as it reads, so neighbours never match.
                 let letters = DishLetter.neighbourly(dishes.map { ($0.dishID, $0.name) })
                 ForEach(Array(dishes.enumerated()), id: \.element.id) { index, dish in
@@ -203,9 +175,11 @@ struct V2PlacePage: View {
                         rank: index + 1,
                         photo: .dish(letters[index], cover: dish.coverURLString),
                         place: store.name,
-                        // The chips that are on say their piece under the name, not beside it.
-                        tags: dish.tags.filter { hidden.contains($0) == false },
-                        dietSignals: store.dietSignals(for: dish),
+                        tags: dish.tags,
+                        tagCounts: { tagCounts(for: dish.tags, in: dishes) },
+                        onTagCounts: {
+                            context.services.analytics(DietEvents.countsOpened(surface: .place, code: dish.tags.first))
+                        },
                         onPhoto: { context.services.analytics(DetailEvents.menuPhotoOpened()) },
                         onOpen: { open(dish) }
                     )
@@ -213,6 +187,22 @@ struct V2PlacePage: View {
                 }
             }
             .id(V2PlaceAnchor.menu)
+        }
+    }
+
+    /// **A row's pills, tapped** (`diet-more.html`): every dish on the menu wearing the same pill, with
+    /// how many people of that diet logged it. One code: the dishes alone; several: each with its pill.
+    private func tagCounts(for tags: [DietTag], in dishes: [MenuDish]) -> [AteDietCountsList.Row] {
+        tags.flatMap { tag in
+            dishes.filter { $0.tags.contains(tag) }.map { dish in
+                let people = dish.dietCounts[tag]
+                return AteDietCountsList.Row(
+                    id: "\(tag.rawValue):\(dish.id)",
+                    tag: tags.count > 1 ? tag : nil,
+                    title: dish.name,
+                    people: people > 0 ? "\(people)" : DietCountLine(tag: tag, people: nil).peopleText
+                )
+            }
         }
     }
 
@@ -313,7 +303,8 @@ private struct V2MenuRow: View {
     let photo: AtePhoto
     let place: String?
     let tags: [DietTag]
-    let dietSignals: [DietSignal]
+    let tagCounts: () -> [AteDietCountsList.Row]
+    let onTagCounts: () -> Void
     let onPhoto: () -> Void
     let onOpen: () -> Void
 
@@ -328,7 +319,8 @@ private struct V2MenuRow: View {
             onOpen: onOpen,
             onPhoto: onPhoto,
             photoByline: place,
-            dietSignals: dietSignals
+            tagCounts: tagCounts,
+            onTagCounts: onTagCounts
         )
         .accessibilityIdentifier("place.dish")
     }
@@ -337,12 +329,6 @@ private struct V2MenuRow: View {
 /// Where the header's chips scroll the page to.
 private enum V2PlaceAnchor {
     static let menu = "place.menu"
-}
-
-/// What the filtered menu's read-on waits on: the chips that are on, and the menu's first page.
-private struct FilteredMenu: Equatable {
-    let on: [DietTag]
-    let isReady: Bool
 }
 
 /// The menu's rows before they arrive.

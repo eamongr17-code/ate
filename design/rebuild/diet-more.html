@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>More Diet Options</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Newsreader:opsz,wght@6..72,400&family=DM+Mono:wght@400;500&display=swap">
+<style>
+:root{--ground:#EFEAE2;--fg:#24141F;--muted:#5E5560;--field:#E4DED4;--hair:rgba(36,20,31,.14);--butter:#F6D365;--green:#3ECF64;--page:#E7E1D8}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#0F0B12;--fg:#F4EFE9;--muted:#B9AFBC;--hair:rgba(255,255,255,.16);color-scheme:dark}}
+:root[data-theme="dark"]{--page:#0F0B12;--fg:#F4EFE9;--muted:#B9AFBC;--hair:rgba(255,255,255,.16);color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--fg);font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.5;padding:40px 16px 80px}
+.intro{max-width:820px;margin:0 auto 36px}
+.intro h1{font:800 40px/1.05 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em;margin:0 0 10px}
+.intro p{margin:0 0 8px;color:var(--muted);font-size:16px}
+.group{max-width:1300px;margin:0 auto 56px}
+.group>h2{font:800 26px/1.1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;margin:0 0 6px;text-align:center}
+.group>p.lead{color:var(--muted);font-size:15.5px;text-align:center;max-width:640px;margin:0 auto 22px}
+.wrap{display:flex;gap:32px;flex-wrap:wrap;justify-content:center}
+.col{display:flex;flex-direction:column;gap:12px;align-items:center;width:390px;max-width:100%}
+.cap{font:600 15px/1.3 "Bricolage Grotesque",sans-serif;text-align:center}
+.cap small{display:block;font-weight:500;font-size:13.5px;color:var(--muted);margin-top:4px;line-height:1.4}
+.tag{display:inline-block;border-radius:999px;padding:1px 9px;font:600 12px/1.6 "Bricolage Grotesque",sans-serif;color:#24141F;background:var(--green);margin-left:6px;vertical-align:1px}
+
+/* phone, real iPhone scale 390 x 844, always light */
+.scr{width:390px;height:844px;background:#EFEAE2;color:#24141F;border-radius:48px;overflow:hidden;position:relative;box-shadow:0 0 0 10px #111,0 20px 40px rgba(0,0,0,.25);flex-shrink:0;font-family:"Bricolage Grotesque",sans-serif}
+.sb{position:absolute;top:0;left:0;right:0;height:54px;display:flex;justify-content:space-between;align-items:center;padding:6px 34px 0 44px;font:600 17px/1 -apple-system,"Helvetica Neue",sans-serif;z-index:9}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;border-radius:20px;background:#000;z-index:10}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:140px;height:5px;border-radius:3px;background:#24141F;z-index:10}
+.glass{background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(18px) saturate(1.7);backdrop-filter:blur(18px) saturate(1.7);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.9),inset 0 1px 1px rgba(255,255,255,.8),0 0 0 .5px rgba(36,20,31,.10),0 8px 22px rgba(36,20,31,.12)}
+.disc{position:absolute;top:62px;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:8}
+.disc.l{left:16px}.disc.r{right:16px}
+.tick{background:#24141F;color:#fff;box-shadow:inset 0 1px 1px rgba(255,255,255,.25),0 6px 16px rgba(36,20,31,.25)}
+.navt{position:absolute;top:73px;left:0;right:0;text-align:center;font:600 17px/1 "Bricolage Grotesque",sans-serif;z-index:7}
+
+/* onboarding */
+.ob-title{position:absolute;left:32px;right:32px;top:190px;font:800 36px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.02em;text-align:center}
+.pks{position:absolute;left:24px;right:24px;top:300px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.pk{display:inline-flex;align-items:center;height:48px;padding:0 20px;border-radius:999px;background:#E4DED4;font:600 17px/1 "Bricolage Grotesque",sans-serif;color:#24141F;border:0;cursor:pointer;transition:background .18s,color .18s}
+.pk.on{background:#24141F;color:#fff}
+.pk.implied{background:#24141F;color:#fff;opacity:.45;cursor:default}
+.doors{position:absolute;left:20px;right:20px;bottom:56px;display:grid;gap:14px;justify-items:center}
+.inkpill{width:100%;height:52px;border-radius:999px;background:#24141F;color:#fff;display:flex;align-items:center;justify-content:center;font:600 17px/1 "Bricolage Grotesque",sans-serif;transition:opacity .18s}
+.inkpill.off{opacity:.3}
+.wlink{font:600 17px/1 "Bricolage Grotesque",sans-serif;height:44px;display:flex;align-items:center}
+
+/* settings, inset grouped */
+.set{position:absolute;left:0;right:0;top:120px;padding:0 16px}
+.grp{background:#fff;border-radius:26px;margin-bottom:22px;overflow:hidden}
+.gr{display:flex;align-items:center;justify-content:space-between;min-height:52px;padding:0 18px;font:500 17px/1 "Bricolage Grotesque",sans-serif;border-top:1px solid rgba(36,20,31,.1);cursor:pointer}
+.gr:first-child{border-top:0}
+.gr .v{display:flex;align-items:center;gap:6px;color:#5E5560}
+.gr.hl{background:rgba(246,211,101,.28)}
+.gr .ck{color:#24141F;font-weight:600}
+.gr.implied{color:rgba(36,20,31,.5);cursor:default}
+.gr.implied .ck{color:rgba(36,20,31,.4)}
+
+/* slips (journal / feed) */
+.lt{position:absolute;left:20px;top:64px;font:800 34px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.list{position:absolute;left:0;right:0;top:122px}
+.slip{background:#fff;border-radius:16px 16px 0 0;padding:12px 16px 14px;display:grid;gap:10px;margin:0 16px}
+.slipt{height:5px;margin:0 16px;background:radial-gradient(circle at 6px 6px,transparent 4px,#fff 4.5px) 0 -2px/12px 6px repeat-x;transform:scaleY(-1)}
+.by{display:flex;justify-content:space-between;align-items:center}
+.who{display:flex;align-items:center;gap:8px;font:600 14px/1 "Bricolage Grotesque",sans-serif}
+.av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:800 12px/1 "Bricolage Grotesque",sans-serif}
+.meta{font:500 13px/1.3 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.dr{display:flex;justify-content:space-between;align-items:center;min-height:44px;border-top:1px solid rgba(36,20,31,.14);gap:10px}
+.dr:first-child{border-top:0}
+.dn{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dn b{font:800 20px/1.05 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.sc{display:flex;align-items:center;gap:5px;font:800 26px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.02em}
+.sc svg{color:#24141F}
+.diet{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:999px;background:#EFEAE2;color:#5E5560;font:600 11px/1 "Bricolage Grotesque",sans-serif;letter-spacing:.06em;text-transform:uppercase}
+.diet.new{box-shadow:0 0 0 2px var(--butter)}
+.pk.gap{flex-basis:100%;height:6px;padding:0;background:none}
+.gh{font:500 13px/1 "Bricolage Grotesque",sans-serif;color:#5E5560;text-transform:uppercase;letter-spacing:.06em;padding:0 18px 8px}
+.bar{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.bar::-webkit-scrollbar{display:none}
+.diet.n{background:transparent;box-shadow:inset 0 0 0 1px rgba(36,20,31,.28)}
+.diet.n i{font-style:normal;margin-left:4px;color:#24141F}
+.ml .diet{margin-left:2px}
+.q{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 1.5px #5E5560;color:#5E5560;font:700 13px/1 "Bricolage Grotesque",sans-serif;vertical-align:middle;flex-shrink:0}
+.q.hot{box-shadow:inset 0 0 0 1.5px #5E5560,0 0 0 3px var(--butter)}
+.pop{position:absolute;left:20px;right:20px;background:#fff;border-radius:22px;padding:16px 18px;box-shadow:0 0 0 .5px rgba(36,20,31,.1),0 18px 40px rgba(36,20,31,.22);z-index:12;display:grid;gap:10px}
+.pop .pr{display:flex;align-items:center;gap:10px;font:500 15px/1.25 "Bricolage Grotesque",sans-serif}
+.pop .pr .diet{min-width:52px;justify-content:center}
+.pop .nmx{flex:1}
+.pop .cnt{display:inline-flex;align-items:center;gap:4px;font:600 15px/1 "Bricolage Grotesque",sans-serif;font-variant-numeric:tabular-nums}
+.pop .ft{font:500 13px/1.35 "Bricolage Grotesque",sans-serif;color:#5E5560;border-top:1px solid rgba(36,20,31,.12);padding-top:10px}
+.scrim{position:absolute;inset:0;background:rgba(36,20,31,.18);z-index:11}
+.new-hl{box-shadow:inset 0 0 0 2px var(--butter)}
+.prose{font:400 16px/1.45 "Newsreader",Georgia,serif}
+.place{display:flex;align-items:center;gap:6px;font:600 14px/1 "Bricolage Grotesque",sans-serif;color:#5E5560}
+
+/* dish page */
+.dhero{position:absolute;left:0;right:0;top:0;height:330px}
+.f1{background:radial-gradient(circle at 40% 45%,#E8C77A,#B9893F 55%,#5C3A16)}
+.f2{background:radial-gradient(circle at 55% 45%,#9FC46B,#4E7A2E 60%,#21361A)}
+.dbody{position:absolute;left:0;right:0;top:350px;padding:0 20px;display:grid;gap:6px}
+.dbody h3{margin:0;font:800 36px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.plink{font:600 17px/1 "Bricolage Grotesque",sans-serif;color:#5E5560;height:36px;display:flex;align-items:center;gap:4px}
+.agg{display:flex;align-items:center;gap:14px;margin-top:4px}
+.agg .num{font:800 54px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.04em}
+.agg .stars{display:flex;gap:2px;color:#24141F}
+.agg .ml{display:flex;align-items:center;gap:8px;margin-top:4px;font:500 14px/1 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.signal{margin-top:10px;display:inline-flex;align-items:center;gap:8px;font:500 14px/1.2 "Bricolage Grotesque",sans-serif;color:#5E5560}
+.rv{margin-top:18px;background:#fff;border-radius:16px;padding:14px 16px;display:grid;gap:6px}
+
+/* place page */
+.ph1{position:absolute;left:20px;top:116px;font:800 36px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.035em}
+.chips{position:absolute;left:20px;right:20px;top:166px;display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:#fff;border-radius:999px;padding:0 14px;height:34px;display:inline-flex;align-items:center;font-weight:600;font-size:14px}
+.chip.on{background:#24141F;color:#fff}
+.card{position:absolute;left:12px;right:12px;top:226px;background:#fff;border-radius:22px 22px 0 0;padding:16px 16px 10px}
+.sec{font:800 24px/1.02 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;margin:2px 0 8px}
+.prow{display:flex;align-items:center;gap:12px;min-height:66px;padding:6px 0;border-top:1px dashed rgba(36,20,31,.28)}
+.prow:first-of-type{border-top:0}
+.rn{font:800 30px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.05em;width:28px;text-align:center}
+.th{width:48px;height:48px;border-radius:12px;flex-shrink:0}
+.t1{background:linear-gradient(135deg,#b39a82,#5b4636)}.t2{background:linear-gradient(135deg,#e2a05b,#7a4a2a)}.t3{background:linear-gradient(135deg,#dcd9cf,#8fa06a)}.t4{background:linear-gradient(135deg,#9FC46B,#21361A)}
+.nm{flex:1;min-width:0}
+.nm b{display:block;font-weight:600;font-size:17px;letter-spacing:-.01em;line-height:1.2}
+.nm .meta{margin-top:3px;display:flex;gap:6px;align-items:center}
+.tok{font:500 14px/1 "DM Mono",monospace;background:var(--butter);border-radius:999px;padding:5px 10px;white-space:nowrap}
+
+/* rules table */
+.rules{max-width:820px;margin:0 auto}
+.rules h2{font:800 26px/1.1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;margin:0 0 12px}
+table{border-collapse:collapse;width:100%;font-size:15.5px;line-height:1.45}
+td{padding:11px 14px 11px 0;border-bottom:1px solid var(--hair);vertical-align:top}
+td:first-child{font:600 15px/1.4 "Bricolage Grotesque",sans-serif;white-space:nowrap;width:1%}
+@media (max-width:440px){.scr{transform:scale(.88);transform-origin:top center;margin-bottom:-100px}}
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>More diet options</h1>
+  <p>Five new options join the five there today: Pescatarian, Halal, Egg free, Peanut free and Shellfish free. Dishes show no written-out lines anywhere, just pills, with a small "?" that opens the counts.</p>
+  <p>All phones are real iPhone size. The first two are live: tap the chips and the rows. New options are outlined in butter only to mark them for this review.</p>
+</div>
+
+<div class="group">
+  <h2>Setting your diet</h2>
+  <p class="lead">Same first-run step and Settings page as today, with ten options instead of five.</p>
+  <div class="wrap">
+
+    <div class="col">
+      <div class="scr">
+        <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
+        <div class="ob-title">Set your dietary requirements</div>
+        <div class="pks" data-pick="ob" style="top:280px">
+          <button class="pk" data-k="v">Vegetarian</button>
+          <button class="pk" data-k="vg">Vegan</button>
+          <button class="pk new-hl" data-k="pe">Pescatarian</button>
+          <button class="pk new-hl" data-k="ha">Halal</button>
+          <button class="pk" data-k="df">Dairy free</button>
+          <span class="pk gap"></span>
+          <button class="pk" data-k="gf">Gluten free</button>
+          <button class="pk new-hl" data-k="ef">Egg free</button>
+          <button class="pk" data-k="nf">Nut free</button>
+          <button class="pk new-hl" data-k="pf">Peanut free</button>
+          <button class="pk new-hl" data-k="sf">Shellfish free</button>
+        </div>
+        <div class="doors">
+          <div class="inkpill off" id="obnext">Next</div>
+          <div class="wlink">None of these</div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">First run<small>Diets on top, allergies below a small gap, with no extra headings. Vegan lights Vegetarian, Pescatarian, Dairy free and Egg free, faded. Vegetarian lights Pescatarian. Nut free lights Peanut free.</small></div>
+    </div>
+
+    <div class="col">
+      <div class="scr">
+        <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
+        <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="navt">Diet</div>
+        <div class="set" data-pick="st">
+          <div class="gh">Diets</div>
+          <div class="grp">
+            <div class="gr" data-k="v">Vegetarian<span class="ck"></span></div>
+            <div class="gr" data-k="vg">Vegan<span class="ck"></span></div>
+            <div class="gr new-hl" data-k="pe">Pescatarian<span class="ck"></span></div>
+            <div class="gr new-hl" data-k="ha">Halal<span class="ck"></span></div>
+            <div class="gr" data-k="df">Dairy free<span class="ck"></span></div>
+          </div>
+          <div class="gh">Allergies</div>
+          <div class="grp">
+            <div class="gr" data-k="gf">Gluten free<span class="ck"></span></div>
+            <div class="gr new-hl" data-k="ef">Egg free<span class="ck"></span></div>
+            <div class="gr" data-k="nf">Nut free<span class="ck"></span></div>
+            <div class="gr new-hl" data-k="pf">Peanut free<span class="ck"></span></div>
+            <div class="gr new-hl" data-k="sf">Shellfish free<span class="ck"></span></div>
+          </div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">Settings → Diet<small>Ten rows need two groups, so they get plain "Diets" and "Allergies" headers. Shown with Vegan and Peanut free picked.</small></div>
+    </div>
+
+    <div class="col">
+      <div class="scr">
+        <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
+        <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+        <div class="disc r tick"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <div style="position:absolute;left:20px;right:20px;top:130px" class="prose">
+          <span style="font-size:19px;line-height:1.6">Grilled prawns <span class="tok" style="font-size:13px;padding:2px 8px;box-shadow:0 0 0 2px #24141F">★ 4.5</span> with a big satay salad <span class="tok" style="font-size:13px;padding:2px 8px">★ 4.0</span></span>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:291px;padding:0 10px 10px">
+          <div class="glass bar" style="height:56px;border-radius:999px;align-items:center;padding:0 8px">
+            <span class="diet" style="height:40px;padding:0 14px;font-size:13px;background:#24141F;color:#fff;flex-shrink:0">PESC</span>
+            <span class="diet" style="height:40px;padding:0 14px;font-size:13px;background:#24141F;color:#fff;flex-shrink:0">PF</span>
+            <span class="diet" style="height:40px;padding:0 14px;font-size:13px;background:#E4DED4;color:#24141F;flex-shrink:0">GF</span>
+            <span class="diet" style="height:40px;padding:0 14px;font-size:13px;background:#E4DED4;color:#24141F;flex-shrink:0">DF</span>
+            <span class="diet" style="height:40px;padding:0 14px;font-size:13px;background:#E4DED4;color:#24141F;flex-shrink:0">V</span>
+            <span class="diet" style="height:40px;padding:0 14px;font-size:13px;background:#E4DED4;color:#24141F;flex-shrink:0">VG</span>
+            <span class="diet" style="height:40px;padding:0 14px;font-size:13px;background:#E4DED4;color:#24141F;flex-shrink:0">HALAL</span>
+            <span class="diet" style="height:40px;padding:0 14px;font-size:13px;background:#E4DED4;color:#24141F;flex-shrink:0">EF</span>
+            <span class="diet" style="height:40px;padding:0 14px;font-size:13px;background:#E4DED4;color:#24141F;flex-shrink:0">NF</span>
+            <span class="diet" style="height:40px;padding:0 14px;font-size:13px;background:#E4DED4;color:#24141F;flex-shrink:0">SF</span>
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:291px;background:#D3D5DB"></div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">Compose<small>Ten codes no longer fit the bar, so it scrolls sideways. Your own codes come first, lit, so turning one off for a dish is still one tap. Swipe the bar to see the rest.</small></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="group">
+  <h2>What other people see on dishes and places</h2>
+  <p class="lead">Diets and allergies both show as plain pills once 3 people mark the dish. Counts and the allergy caveat sit behind a small "?".</p>
+  <div class="wrap">
+
+    <div class="col">
+      <div class="scr">
+        <div class="dhero f2"></div>
+        <div class="island"></div><div class="sb" style="color:#fff"><span>9:41</span><span>●●●</span></div>
+        <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="dbody">
+          <h3>Tofu Larb</h3>
+          <div class="plink">Lucy Liu ›</div>
+          <div class="agg"><span class="num">4.3</span><span><span class="stars" id="st1"></span><span class="ml">👤 9 people <span class="diet">VG</span><span class="diet new">HALAL</span><span class="diet new">NF</span><span class="q">?</span></span></span></div>
+          <div class="rv"><div class="who"><span class="av" style="background:#F6D365">P</span>@priya · 2d</div><div class="prose">Punchy, sour, lots of herbs.</div></div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">Dish page<small>Diets and allergies show the same plain pills beside the people count, with no sentences. The "?" after them opens the counts.</small></div>
+    </div>
+
+    <div class="col">
+      <div class="scr">
+        <div class="dhero f2"></div>
+        <div class="island"></div><div class="sb" style="color:#fff"><span>9:41</span><span>●●●</span></div>
+        <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="dbody">
+          <h3>Tofu Larb</h3>
+          <div class="plink">Lucy Liu ›</div>
+          <div class="agg"><span class="num">4.3</span><span><span class="stars" id="st2"></span><span class="ml">👤 9 people <span class="diet">VG</span><span class="diet new">HALAL</span><span class="diet new">NF</span><span class="q hot">?</span></span></span></div>
+          <div class="rv"><div class="who"><span class="av" style="background:#F6D365">P</span>@priya · 2d</div><div class="prose">Punchy, sour, lots of herbs.</div></div>
+        </div>
+        <div class="scrim"></div>
+        <div class="pop" style="top:530px">
+          <div class="pr"><span class="diet">VG</span><span class="nmx">Vegan</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>5</span></div>
+          <div class="pr"><span class="diet">HALAL</span><span class="nmx">Halal</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>4</span></div>
+          <div class="pr"><span class="diet">NF</span><span class="nmx">Nut free</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>6</span></div>
+          <div class="pr"><span class="diet">GF</span><span class="nmx">Gluten free</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>2</span></div>
+          <div class="ft">Not a guarantee. Check allergies with staff.</div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">Tapping "?"<small>Each pill, its full name, and how many people with that diet logged the dish. Codes below 3 that have no pill yet still appear (GF here). Tap anywhere to close.</small></div>
+    </div>
+
+    <div class="col">
+      <div class="scr">
+        <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
+        <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="ph1">Lucy Liu</div>
+        <div class="chips"><span class="chip">★ 4.2</span><span class="chip">31</span><span class="chip">CBD</span></div>
+        <div class="card">
+          <div class="sec">The Top Ate</div>
+          <div class="prow"><span class="rn">1</span><span class="th t4"></span><span class="nm"><b>Tofu Larb</b><span class="meta"><span class="diet">PF</span></span></span><span class="tok">★ 4.3</span></div>
+          <div class="prow"><span class="rn">2</span><span class="th t3"></span><span class="nm"><b>Mushroom Bao</b><span class="meta"><span class="diet">PF</span></span></span><span class="tok">★ 4.5</span></div>
+          <div class="prow"><span class="rn">3</span><span class="th t1"></span><span class="nm"><b>Eggplant Curry</b><span class="meta"><span class="diet">PF</span></span></span><span class="tok">★ 4.0</span></div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">Place page, for a peanut-free viewer<small>No diet chip on the place itself, so a restaurant is never labelled. Only dishes carry pills. Nut-free eaters count toward PF too.</small></div>
+    </div>
+
+    <div class="col">
+      <div class="scr">
+        <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
+        <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="ph1">Lucy Liu</div>
+        <div class="chips"><span class="chip">★ 4.2</span><span class="chip">31</span><span class="chip">CBD</span></div>
+        <div class="card" style="z-index:12">
+          <div class="sec">The Top Ate</div>
+          <div class="prow"><span class="rn">1</span><span class="th t4"></span><span class="nm"><b>Tofu Larb</b><span class="meta"><span class="diet" style="box-shadow:0 0 0 3px var(--butter)">PF</span></span></span><span class="tok">★ 4.3</span></div>
+          <div class="prow"><span class="rn">2</span><span class="th t3"></span><span class="nm"><b>Mushroom Bao</b><span class="meta"><span class="diet">PF</span></span></span><span class="tok">★ 4.5</span></div>
+          <div class="prow"><span class="rn">3</span><span class="th t1"></span><span class="nm"><b>Eggplant Curry</b><span class="meta"><span class="diet">PF</span></span></span><span class="tok">★ 4.0</span></div>
+        </div>
+        <div class="scrim"></div>
+        <div class="pop" style="top:345px">
+          <div class="pr"><span class="nmx">Tofu Larb</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>6</span></div>
+          <div class="pr"><span class="nmx">Mushroom Bao</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>3</span></div>
+          <div class="pr"><span class="nmx">Eggplant Curry</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>1</span></div>
+          <div class="ft">Peanut-free eaters who logged each dish. Not a guarantee. Check allergies with staff.</div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">Tapping a pill on the place page<small>There's no "?" here: tapping any PF pill opens the popover, listing each dish with how many peanut-free eaters logged it.</small></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="rules">
+  <h2>The rules underneath</h2>
+  <table>
+    <tr><td>New codes</td><td>Pescatarian (PESC), Halal (HALAL), Egg free (EF), Peanut free (PF), Shellfish free (SF).</td></tr>
+    <tr><td>What covers what</td><td>Vegan covers Vegetarian, Pescatarian, Dairy free and Egg free. Vegetarian covers Pescatarian. Nut free covers Peanut free. A covered option is lit and faded in the picker, and counts toward that option on dishes.</td></tr>
+    <tr><td>Diets</td><td>Vegetarian, Vegan, Pescatarian, Halal, Dairy free. Labelled once 3 people mark the dish in 12 months with no veto, as today.</td></tr>
+    <tr><td>Allergies</td><td>Gluten free, Egg free, Nut free, Peanut free, Shellfish free. Same pill and same 3-person rule as diets. The "?" popover ends with "Not a guarantee. Check allergies with staff."</td></tr>
+    <tr><td>Below 3 people</td><td>No pill and no sentence anywhere. This removes today’s "Ordered by 2 vegan eaters" line from the dish page and the place page. The count still shows in the "?" popover, and the place page filter still includes the dish.</td></tr>
+    <tr><td>Dairy free</td><td>Stays a diet, because most people who pick it are lactose intolerant. It can move to Allergies if you'd rather.</td></tr>
+    <tr><td>Halal wording</td><td>The label means halal eaters order it, not that the restaurant is certified. Same as Gluten free today.</td></tr>
+    <tr><td>Place page</td><td>No diet chip or filter on the place. Today's "Vegan" filter chip goes, so a restaurant is never labelled. The Top Ate lists every dish as normal, and the pills on each dish carry the information.</td></tr>
+  </table>
+</div>
+
+<script>
+const STAR='<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 6.9 7.5.7-5.7 5 1.7 7.4L12 18l-6.5 4 1.7-7.4-5.7-5 7.5-.7z"/></svg>';
+document.getElementById('st1').innerHTML=STAR.repeat(4);document.getElementById('st2').innerHTML=STAR.repeat(4);
+const COVERS={vg:['v','pe','df','ef'],v:['pe'],nf:['pf']};
+function picker(root,opts){
+  const sel=new Set(opts.start||[]);
+  const items=[...root.querySelectorAll('[data-k]')];
+  const covered=()=>{const c=new Set();sel.forEach(k=>(COVERS[k]||[]).forEach(x=>{c.add(x);(COVERS[x]||[]).forEach(y=>c.add(y))}));return c};
+  function draw(){
+    const imp=covered();
+    items.forEach(el=>{const k=el.dataset.k,on=sel.has(k),i=!on&&imp.has(k);
+      el.classList.toggle('on',on);el.classList.toggle('implied',i);
+      const ck=el.querySelector('.ck');if(ck)ck.textContent=(on||i)?'✓':'';});
+    if(opts.onChange)opts.onChange(sel);
+  }
+  items.forEach(el=>el.addEventListener('click',()=>{
+    const k=el.dataset.k;if(covered().has(k))return;
+    if(sel.has(k))sel.delete(k);else{sel.add(k);covered().forEach(c=>sel.delete(c));}
+    draw();}));
+  draw();
+}
+picker(document.querySelector('[data-pick="ob"]'),{onChange:s=>document.getElementById('obnext').classList.toggle('off',s.size===0)});
+picker(document.querySelector('[data-pick="st"]'),{start:['vg','pf']});
+</script>
+</body>
+</html>

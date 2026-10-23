@@ -2,8 +2,9 @@ import AteKit
 import SwiftUI
 
 /// **"Set your dietary requirements"** (`design/rebuild/diet.html`, Eamon's title) — straight after
-/// the photo of you. The five codes as chips, any number on; Vegan lights Vegetarian and Dairy free
-/// as well, faded and locked, because it covers them. Next works once one is picked and saves them
+/// the photo of you. The ten codes as chips, the diets above the allergies (`diet-more.html`), any
+/// number on; a code lights what it covers as well (Vegan: Vegetarian, Pescatarian, Dairy free, Egg
+/// free), faded and locked. Next works once one is picked and saves them
 /// (`profiles.diet`); "None of these" moves on with nothing saved. No other words.
 struct OnboardingDietStep: View {
     let diet: DietStore
@@ -20,20 +21,10 @@ struct OnboardingDietStep: View {
             Spacer(minLength: AteMetrics.section)
             AteTitle(text: OnboardingCopy.diet, style: .handleTitle)
                 .padding(.horizontal, OnboardingMetrics.titleInset)
-            AteTogglePillFlow(spacing: AteTogglePillMetrics.largeGap, isCentred: true) {
-                ForEach(DietTag.allCases, id: \.self) { tag in
-                    AteTogglePill(
-                        title: tag.dietName,
-                        isOn: choice.isPicked(tag),
-                        isCovered: choice.isCovered(tag),
-                        size: .large,
-                        identifier: "onboarding.diet.\(tag.rawValue)"
-                    ) {
-                        guard let next = choice.toggling(tag) else { return }
-                        AteHaptics.key()
-                        withAnimation(AteMotion.fillIn) { choice = next }
-                    }
-                }
+            // The ways of eating, then the allergies below a small gap (`diet-more.html`): no headings.
+            VStack(spacing: OnboardingMetrics.dietGroupGap) {
+                chips(DietTag.diets)
+                chips(DietTag.allergies)
             }
             .padding(.horizontal, OnboardingMetrics.dietChipsInset)
             .padding(.top, OnboardingMetrics.dietTitleToChips)
@@ -43,6 +34,24 @@ struct OnboardingDietStep: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("v2.onboarding.diet")
         .ateFailureAlert($failure)
+    }
+
+    private func chips(_ tags: [DietTag]) -> some View {
+        AteTogglePillFlow(spacing: AteTogglePillMetrics.largeGap, isCentred: true) {
+            ForEach(tags, id: \.self) { tag in
+                AteTogglePill(
+                    title: tag.dietName,
+                    isOn: choice.isPicked(tag),
+                    isCovered: choice.isCovered(tag),
+                    size: .large,
+                    identifier: "onboarding.diet.\(tag.rawValue)"
+                ) {
+                    guard let next = choice.toggling(tag) else { return }
+                    AteHaptics.key()
+                    withAnimation(AteMotion.fillIn) { choice = next }
+                }
+            }
+        }
     }
 
     private var doors: some View {

@@ -4,17 +4,40 @@ import Testing
 
 @Suite("Diet — what a person always eats")
 struct DietChoiceTests {
-    @Test("the five names, and the eater each counts")
+    @Test("the ten names, and the eater each counts")
     func names() {
-        #expect(DietTag.allCases.map(\.dietName) == ["Gluten free", "Dairy free", "Vegetarian", "Vegan", "Nut free"])
-        #expect(DietTag.allCases.map(\.eaterWord) == ["gluten-free", "dairy-free", "vegetarian", "vegan", "nut-free"])
+        #expect(DietTag.allCases.map(\.dietName) == [
+            "Gluten free", "Dairy free", "Vegetarian", "Vegan", "Nut free",
+            "Pescatarian", "Halal", "Egg free", "Peanut free", "Shellfish free"
+        ])
+        #expect(DietTag.allCases.map(\.eaterWord) == [
+            "gluten-free", "dairy-free", "vegetarian", "vegan", "nut-free",
+            "pescatarian", "halal", "egg-free", "peanut-free", "shellfish-free"
+        ])
     }
 
-    @Test("Vegan covers Vegetarian and Dairy free: lit, locked, and never stored")
+    @Test("picking order: the diets, then the allergies — every code once")
+    func pickingOrder() {
+        #expect(DietTag.diets == [.v, .vg, .pe, .ha, .df])
+        #expect(DietTag.allergies == [.gf, .ef, .nf, .pf, .sf])
+        #expect(Set(DietTag.pickingOrder) == Set(DietTag.allCases) && DietTag.pickingOrder.count == 10)
+        #expect(DietTag.allergies.allSatisfy(\.isAllergy) && DietTag.diets.allSatisfy { $0.isAllergy == false })
+    }
+
+    @Test("Vegetarian covers Pescatarian; Nut free covers Peanut free")
+    func otherCovers() throws {
+        let vegetarian = try #require(DietChoice().toggling(.v))
+        #expect(vegetarian.isCovered(.pe) && vegetarian.isCovered(.df) == false)
+        let nuts = try #require(DietChoice([.pf]).toggling(.nf))
+        #expect(nuts.codes == [.nf] && nuts.isCovered(.pf))
+        #expect(nuts.isCovered(.sf) == false)
+    }
+
+    @Test("Vegan covers Vegetarian, Pescatarian, Dairy free and Egg free: lit, locked, never stored")
     func veganCovers() throws {
         let vegan = try #require(DietChoice().toggling(.vg))
         #expect(vegan.codes == [.vg])
-        #expect(vegan.isCovered(.v) && vegan.isCovered(.df))
+        #expect(vegan.isCovered(.v) && vegan.isCovered(.df) && vegan.isCovered(.pe) && vegan.isCovered(.ef))
         #expect(vegan.isCovered(.gf) == false)
         #expect(vegan.toggling(.v) == nil, "a covered code does nothing")
         // Picking Vegan over Vegetarian takes Vegetarian out of the picks.
@@ -32,6 +55,7 @@ struct DietChoiceTests {
         #expect(DietChoice([.vg]).summary == "Vegan")
         #expect(DietChoice([.nf, .gf]).summary == "Gluten free, Nut free")
         #expect(DietChoice().summary == "None")
+        #expect(DietChoice([.pf, .ha]).summary == "Halal, Peanut free", "diets first, as Settings lists them")
     }
 }
 
@@ -78,6 +102,22 @@ struct DietLabelTests {
         #expect(DietSignal.orderedBy(.gf, count: 1).line == "Ordered by 1 gluten-free eater")
         #expect(DietSignal.orderedBy(.nf, count: 2).line == "Ordered by 2 nut-free eaters")
         #expect(DietSignal.labelled(.vg).line == nil)
+    }
+
+    @Test("the \"?\" popover: the labels first, then every other counted code")
+    func popoverLines() {
+        let counts = DietCounts([.vg: 5, .ha: 4, .gf: 2, .nf: 6])
+        #expect(DietCountLine.dish(tags: [.vg, .nf, .ha], counts: counts) == [
+            DietCountLine(tag: .vg, people: 5), DietCountLine(tag: .nf, people: 6),
+            DietCountLine(tag: .ha, people: 4), DietCountLine(tag: .gf, people: 2)
+        ])
+        // An older server counts only below the label: the label still gets its line, at 3+.
+        #expect(DietCountLine.dish(tags: [.v], counts: DietCounts([.gf: 1])) == [
+            DietCountLine(tag: .v, people: nil), DietCountLine(tag: .gf, people: 1)
+        ])
+        #expect(DietCountLine(tag: .v, people: nil).peopleText == "3+")
+        #expect(DietCountLine(tag: .v, people: 4).peopleText == "4")
+        #expect(DietCountLine.dish(tags: [], counts: DietCounts()).isEmpty)
     }
 
     @Test("the dish page says nothing more about a labelled code")
@@ -155,6 +195,10 @@ struct DietEventsTests {
             name: "place_diet_filter_toggled",
             parameters: ["code": "vg", "on": "false", "restaurant_id": "b7e00000-0000-4000-8000-000000000001"]
         ))
+        #expect(DietEvents.countsOpened(surface: .dish)
+            == AnalyticsEvent(name: "diet_counts_opened", parameters: ["surface": "dish"]))
+        #expect(DietEvents.countsOpened(surface: .place, code: .pf)
+            == AnalyticsEvent(name: "diet_counts_opened", parameters: ["surface": "place", "code": "pf"]))
     }
 }
 

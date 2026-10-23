@@ -30,10 +30,14 @@ public struct DishTag: Sendable, Hashable, Codable, Identifiable {
 
     /// **What the chip and the tag's page print.** `DishExplore.dc.html` sets every chip in sentence
     /// case — "Pasta", "Handmade" — and 0053 sends a style lowercase, so its first letter is raised
-    /// here. Every other kind is printed exactly as sent ("Wine bar", "GF", "Fitzroy").
+    /// here; a diet code prints as its pill ("GF", "PESC"). Every other kind is printed exactly as sent
+    /// ("Wine bar", "Fitzroy").
     public var title: String { DishTag.title(label, kind: kind) }
 
     static func title(_ label: String, kind: Kind) -> String {
+        // A diet code prints as its pill does: the server upper-cases the code ("PE"), the pill
+        // spells Pescatarian and Halal so they read ("PESC", "HALAL").
+        if kind == .diet, let tag = DietTag(code: label) { return tag.label }
         guard kind == .style, let first = label.first else { return label }
         return first.uppercased() + label.dropFirst()
     }
