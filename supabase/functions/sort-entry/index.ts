@@ -307,10 +307,13 @@ async function knownDishesAt(
   restaurantId: string | null,
 ): Promise<string[]> {
   if (!restaurantId) return [];
+  // a chain location's dishes are its chain's menu (0085)
+  const { data: menu, error: menuError } = await admin.rpc('place_menu', { p_restaurant_id: restaurantId });
+  if (menuError) console.error('sort-entry: place_menu failed:', menuError.message);
   const { data, error } = await admin
     .from('dishes')
     .select('name')
-    .eq('restaurant_id', restaurantId)
+    .eq('restaurant_id', (menu as string | null) ?? restaurantId)
     .is('merged_into_dish_id', null)
     .limit(300);
   if (error) {

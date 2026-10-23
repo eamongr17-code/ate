@@ -10,21 +10,27 @@
 //   { action: 'list' }                  → every open proposal
 //   { action: 'merge', ids: [n, …] }    → merges those (merge_dish_proposals, 0071); ids: 'all' = every open one
 //   { action: 'reject', ids: [n, …] }   → marks those rejected; a later scan never proposes them again
+//   { action: 'chains' }                → links chain restaurants (0085): every unchained Google place whose
+//                                         name repeats gets its website checked (up to 200 a run, once
+//                                         per place), and same name + same website host become one chain
+//                                         whose locations share one menu (their dishes merge)
 //   401 not a service-role key · 405 not POST · 422 bad body
 //
 // A scan writes proposals only. Merging is a separate, named call a person makes after reading the
 // list. verify_jwt = false (config.toml): this checks its own bearer, which must be the service role.
 //
 // Secrets: ANTHROPIC_API_KEY (without it only the spelling-key tier runs), ATE_DEDUP_MODEL (optional),
-// SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (auto-injected).
+// GOOGLE_PLACES_API_KEY (chains only), SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (auto-injected).
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { DEFAULT_SCAN_MODEL, scanPlace, type Proposal, type ScanPlace } from './scan.ts';
+import { googleWebsite, linkChains } from '../places-search/chains.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
 const MODEL = (Deno.env.get('ATE_DEDUP_MODEL') ?? '').trim() || DEFAULT_SCAN_MODEL;
+const GOOGLE_KEY = (Deno.env.get('GOOGLE_PLACES_API_KEY') ?? '').trim();
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -133,8 +139,16 @@ Deno.serve(async (req) => {
         if (error) throw new Error(error.message);
         return json({ ok: true, rejected: (data ?? []).map((r) => r.id) });
       }
+      case 'chains': {
+        if (!GOOGLE_KEY) return json({ error: 'GOOGLE_PLACES_API_KEY is not set' }, 422);
+        const got = await linkChains(db, null, (placeId) => googleWebsite(GOOGLE_KEY, placeId), { maxFetches: 200, limit: 500 });
+        const { data: chains, error } = await db.from('chains')
+          .select('id, name, website_host, restaurants!restaurants_chain_id_fkey(count)').order('name');
+        if (error) throw new Error(error.message);
+        return json({ ok: true, ...got, all_chains: chains ?? [] });
+      }
       default:
-        return json({ error: 'action: scan, list, merge or reject' }, 422);
+        return json({ error: 'action: scan, list, merge, reject or chains' }, 422);
     }
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

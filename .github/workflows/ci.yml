@@ -192,5 +192,8 @@ jobs:
       - name: Places name cleaning (keywords padded onto a listing's name)
         run: node --test supabase/functions/places-search/name_test.ts
 
+      - name: Places chain detection (one chain = name + website host)
+        run: node --test supabase/functions/places-search/chains_test.ts
+
       - name: Feedback sync (reports into the private feedback repo)
         run: python3 .github/scripts/feedback_sync_test.py

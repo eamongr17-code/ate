@@ -105,6 +105,9 @@ exact by triggers: a place's own row on insert/update/delete plus every place sh
 **Any future change to `place_locality()`, `city_at()` or the city rule itself must call `place_city_rebuild()`** in the
 same migration — the triggers only notice writes to `restaurants` and `cities`, not a changed function.
 
+### `chains` (0085)
+A chain is one place for dishes. `restaurants.chain_id` → `chains` (name, `website_host`, `anchor_restaurant_id`). **A chain's dishes all live at its anchor**, so dish identity, `merge_dish` and `reviews.restaurant_id == dishes.restaurant_id` are unchanged; `entries.restaurant_id` keeps the exact location. **Every place read and dish write goes through `place_menu(place)`** (anchor, else itself); "entries here" / visits use `place_family(place)` (every location). A chain dish shows no suburb (`dish_locality`). Linked automatically: same `dish_key(name)` + same Google website host (a shared social/ordering host never links), via `chain_candidates` → `chain_record_and_link` (places-search in the background; the Prod apply's backfill). `chain_attach` merges a joining location's dishes onto the menu (`dish_merges.reason='chain'`); `chain_detach`/`chain_dissolve` undo it. Service role only.
+
 ### `dish_tag_links` (0053)
 A dish's chips. PK `(dish_id, kind, slug)` (TOTAL — the ON CONFLICT arbiter the writers use), `label`, `source`, `ord`; index `(kind, slug, dish_id)`.
 Catalogue data (authenticated SELECT, no client write). **Diet chips are NOT stored**: `dish_tags` reads `dish_consensus_tags()` live, so they always equal `dish_summary.tags`.
