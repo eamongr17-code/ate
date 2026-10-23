@@ -85,6 +85,8 @@ body{margin:0;background:var(--page);color:var(--fg);font-family:"Newsreader",Ge
 .pop{position:absolute;left:20px;right:20px;background:#fff;border-radius:22px;padding:16px 18px;box-shadow:0 0 0 .5px rgba(36,20,31,.1),0 18px 40px rgba(36,20,31,.22);z-index:12;display:grid;gap:10px}
 .pop .pr{display:flex;align-items:center;gap:10px;font:500 15px/1.25 "Bricolage Grotesque",sans-serif}
 .pop .pr .diet{min-width:52px;justify-content:center}
+.pop .nmx{flex:1}
+.pop .cnt{display:inline-flex;align-items:center;gap:4px;font:600 15px/1 "Bricolage Grotesque",sans-serif;font-variant-numeric:tabular-nums}
 .pop .ft{font:500 13px/1.35 "Bricolage Grotesque",sans-serif;color:#5E5560;border-top:1px solid rgba(36,20,31,.12);padding-top:10px}
 .scrim{position:absolute;inset:0;background:rgba(36,20,31,.18);z-index:11}
 .new-hl{box-shadow:inset 0 0 0 2px var(--butter)}
@@ -263,15 +265,15 @@ td:first-child{font:600 15px/1.4 "Bricolage Grotesque",sans-serif;white-space:no
         </div>
         <div class="scrim"></div>
         <div class="pop" style="top:530px">
-          <div class="pr"><span class="diet">VG</span>Marked by 5 vegan eaters</div>
-          <div class="pr"><span class="diet">HALAL</span>Marked by 4 halal eaters</div>
-          <div class="pr"><span class="diet">NF</span>Ordered by 6 nut-free eaters</div>
-          <div class="pr"><span class="diet">GF</span>Ordered by 2 gluten-free eaters</div>
-          <div class="ft">Based on what people ate. Not a guarantee, so check allergies with staff.</div>
+          <div class="pr"><span class="diet">VG</span><span class="nmx">Vegan</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>5</span></div>
+          <div class="pr"><span class="diet">HALAL</span><span class="nmx">Halal</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>4</span></div>
+          <div class="pr"><span class="diet">NF</span><span class="nmx">Nut free</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>6</span></div>
+          <div class="pr"><span class="diet">GF</span><span class="nmx">Gluten free</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>2</span></div>
+          <div class="ft">Not a guarantee. Check allergies with staff.</div>
         </div>
         <div class="home"></div>
       </div>
-      <div class="cap">Tapping "?"<small>A small popover lists every code with its count, including ones below 3 that have no pill yet (GF here). Tap anywhere to close.</small></div>
+      <div class="cap">Tapping "?"<small>Each pill, its full name, and how many people with that diet logged the dish. Codes below 3 that have no pill yet still appear (GF here). Tap anywhere to close.</small></div>
     </div>
 
     <div class="col">
@@ -279,16 +281,40 @@ td:first-child{font:600 15px/1.4 "Bricolage Grotesque",sans-serif;white-space:no
         <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
         <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
         <div class="ph1">Lucy Liu</div>
-        <div class="chips"><span class="chip">★ 4.2</span><span class="chip">31</span><span class="chip">CBD</span><span class="chip on">Peanut free</span></div>
+        <div class="chips"><span class="chip">★ 4.2</span><span class="chip">31</span><span class="chip">CBD</span><span class="chip on">Peanut free</span><span class="q" style="align-self:center">?</span></div>
         <div class="card">
-          <div class="sec" style="display:flex;align-items:center;justify-content:space-between">The Top Ate<span class="q">?</span></div>
+          <div class="sec">The Top Ate</div>
           <div class="prow"><span class="rn">1</span><span class="th t4"></span><span class="nm"><b>Tofu Larb</b><span class="meta"><span class="diet">PF</span></span></span><span class="tok">★ 4.3</span></div>
           <div class="prow"><span class="rn">2</span><span class="th t3"></span><span class="nm"><b>Mushroom Bao</b><span class="meta"><span class="diet">PF</span></span></span><span class="tok">★ 4.5</span></div>
           <div class="prow"><span class="rn">3</span><span class="th t1"></span><span class="nm"><b>Eggplant Curry</b><span class="meta"><span class="diet">PF</span></span></span><span class="tok">★ 4.0</span></div>
         </div>
         <div class="home"></div>
       </div>
-      <div class="cap">Place page, for a peanut-free viewer<small>Rows show the plain PF pill. The "?" by the heading opens the same popover with each dish’s count. Nut-free eaters count toward PF too.</small></div>
+      <div class="cap">Place page, for a peanut-free viewer<small>Rows show the plain PF pill. The "?" sits right after your diet filter chip, so it reads as part of that, not The Top Ate. Nut-free eaters count toward PF too.</small></div>
+    </div>
+
+    <div class="col">
+      <div class="scr">
+        <div class="island"></div><div class="sb"><span>9:41</span><span>●●●</span></div>
+        <div class="disc l glass"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="ph1">Lucy Liu</div>
+        <div class="chips"><span class="chip">★ 4.2</span><span class="chip">31</span><span class="chip">CBD</span><span class="chip on">Peanut free</span><span class="q hot" style="align-self:center">?</span></div>
+        <div class="card">
+          <div class="sec">The Top Ate</div>
+          <div class="prow"><span class="rn">1</span><span class="th t4"></span><span class="nm"><b>Tofu Larb</b><span class="meta"><span class="diet">PF</span></span></span><span class="tok">★ 4.3</span></div>
+          <div class="prow"><span class="rn">2</span><span class="th t3"></span><span class="nm"><b>Mushroom Bao</b><span class="meta"><span class="diet">PF</span></span></span><span class="tok">★ 4.5</span></div>
+          <div class="prow"><span class="rn">3</span><span class="th t1"></span><span class="nm"><b>Eggplant Curry</b><span class="meta"><span class="diet">PF</span></span></span><span class="tok">★ 4.0</span></div>
+        </div>
+        <div class="scrim"></div>
+        <div class="pop" style="top:214px">
+          <div class="pr"><span class="nmx">Tofu Larb</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>6</span></div>
+          <div class="pr"><span class="nmx">Mushroom Bao</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>3</span></div>
+          <div class="pr"><span class="nmx">Eggplant Curry</span><span class="cnt"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>1</span></div>
+          <div class="ft">Peanut-free eaters who logged each dish. Not a guarantee. Check allergies with staff.</div>
+        </div>
+        <div class="home"></div>
+      </div>
+      <div class="cap">Tapping "?" on the place page<small>Same popover, listing each dish on the page with how many peanut-free eaters logged it.</small></div>
     </div>
 
   </div>
@@ -300,7 +326,7 @@ td:first-child{font:600 15px/1.4 "Bricolage Grotesque",sans-serif;white-space:no
     <tr><td>New codes</td><td>Pescatarian (PESC), Halal (HALAL), Egg free (EF), Peanut free (PF), Shellfish free (SF).</td></tr>
     <tr><td>What covers what</td><td>Vegan covers Vegetarian, Pescatarian, Dairy free and Egg free. Vegetarian covers Pescatarian. Nut free covers Peanut free. A covered option is lit and faded in the picker, and counts toward that option on dishes.</td></tr>
     <tr><td>Diets</td><td>Vegetarian, Vegan, Pescatarian, Halal, Dairy free. Labelled once 3 people mark the dish in 12 months with no veto, as today.</td></tr>
-    <tr><td>Allergies</td><td>Gluten free, Egg free, Nut free, Peanut free, Shellfish free. Same pill and same 3-person rule as diets. The "?" popover says "Ordered by", not "Marked by", and ends with "Not a guarantee, so check allergies with staff."</td></tr>
+    <tr><td>Allergies</td><td>Gluten free, Egg free, Nut free, Peanut free, Shellfish free. Same pill and same 3-person rule as diets. The "?" popover ends with "Not a guarantee. Check allergies with staff."</td></tr>
     <tr><td>Below 3 people</td><td>No pill and no sentence anywhere. This removes today’s "Ordered by 2 vegan eaters" line from the dish page and the place page. The count still shows in the "?" popover, and the place page filter still includes the dish.</td></tr>
     <tr><td>Dairy free</td><td>Stays a diet, because most people who pick it are lactose intolerant. It can move to Allergies if you'd rather.</td></tr>
     <tr><td>Halal wording</td><td>The label means halal eaters order it, not that the restaurant is certified. Same as Gluten free today.</td></tr>
