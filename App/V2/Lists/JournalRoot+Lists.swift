@@ -15,18 +15,19 @@ enum JournalShelf: Hashable {
     }
 }
 
-/// **Journal | Lists** (`lists-notifications.html` §3): the pinned switch, the shelf under it, and
-/// on the Lists shelf the glass group's filter swapped for New list (Lucide list-plus).
+/// **Journal  Lists** (`journal-header.html` B, 24 Oct): the header's two titles are the switch, the
+/// shelf under them, and on the Lists shelf the glass group's filter swapped for New list (Lucide
+/// list-plus).
 extension JournalRoot {
-    var shelfSwitch: some View {
-        AteSegmentedControl(
+    var shelfTitles: some View {
+        AteTitleTabs(
             options: [AteSegment(JournalShelf.journal, JournalShelf.journal.title),
                       AteSegment(.lists, JournalShelf.lists.title)],
             selection: $shelf,
             identifier: "journal.shelf"
         )
         // The last first-run tip: Lists, once there is enough on the Journal to make one from. It
-        // points at the Lists half, not the middle of the switch: anchored on a clear twin of it.
+        // points at the Lists title, anchored on a clear twin of the row's trailing half.
         .overlay {
             HStack(spacing: 0) {
                 Color.clear
@@ -34,11 +35,10 @@ extension JournalRoot {
             }
             .allowsHitTesting(false)
         }
-        .padding(.horizontal, AteMetrics.listGutter)
-        // Clear of the glass group's foot above it.
-        .padding(.top, AteMetrics.snug)
         .onChange(of: shelf) { _, now in
-            if now == .lists { ListsTip().invalidate(reason: .actionPerformed) }
+            guard now == .lists else { return }
+            ListsTip().invalidate(reason: .actionPerformed)
+            app.services.analytics(ListEvents.shelfOpened())
         }
     }
 

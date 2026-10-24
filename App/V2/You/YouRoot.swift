@@ -2,8 +2,9 @@ import AteKit
 import SwiftUI
 
 /// **The You tab's root** — your own record, quietly: who you are, the three totals, the shape of
-/// your scoring and your top dishes. Settings is the one control, a glass disc in the bar. The
-/// monthly statement is out of V1.
+/// your scoring and your top dishes. Settings is the one control, a glass disc in the bar; testers
+/// also get the bug apart before it (`feedback.html` A, moved from the Journal by
+/// `journal-header.html` B). The monthly statement is out of V1.
 ///
 /// Nothing here is an invitation: a journal with nothing in it shows zeros, and the chart is absent
 /// until something has been scored — a heading about nothing is helper copy.
@@ -12,6 +13,9 @@ struct YouRoot: View {
     let app: AppModel
 
     @State private var isCollapsed = false
+    /// The bug's Feedback sheet (`feedback.html`), testers only.
+    @State private var isSendingFeedback = false
+    @State private var feedbackToast: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(router: TabRouter<YouStores>, app: AppModel) {
@@ -42,10 +46,17 @@ struct YouRoot: View {
         .ateRootToolbar(
             title: .text(V2Tab.you.title),
             inline: AteInlineTitle(title: V2Tab.you.title),
-            isCollapsed: isCollapsed
-        ) {
-            AteGlassItem(icon: .settings, label: "Settings") { router.open(.settings(.root)) }
+            isCollapsed: isCollapsed,
+            showsApart: showsBug,
+            apart: { bug },
+            controls: {
+                AteGlassItem(icon: .settings, label: "Settings") { router.open(.settings(.root)) }
+            }
+        )
+        .sheet(isPresented: $isSendingFeedback) {
+            FeedbackSheet(app: app) { feedbackToast = "Report sent. Thank you." }
         }
+        .ateToast($feedbackToast)
         .task {
             await store.loadIfNeeded()
             app.services.analytics(YouEvents.youViewed())
@@ -53,6 +64,26 @@ struct YouRoot: View {
         // A new handle from Settings, or a session that arrived late: the header reads it again.
         .onChange(of: app.handle) { _, _ in Task { await store.refresh() } }
         .onChange(of: app.hasSession) { _, _ in Task { await store.refresh() } }
+    }
+
+    // MARK: - The bar
+
+    /// The bug, apart from Settings (`feedback.html` A): TestFlight and Debug builds only, signed in,
+    /// never in an App Store build.
+    private var showsBug: Bool {
+        #if DEBUG || BETA
+        app.hasSession
+        #else
+        false
+        #endif
+    }
+
+    private var bug: some View {
+        Button { isSendingFeedback = true } label: {
+            AteIcon.bug.view(size: AteGlassDiscMetrics.glyph)
+        }
+        .accessibilityLabel("Send feedback")
+        .accessibilityIdentifier("you.feedback")
     }
 
     // MARK: - Bands

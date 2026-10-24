@@ -216,7 +216,7 @@ extension View {
     }
 
     /// The same header with one control **apart**: its own glass disc before the group, split off by
-    /// a fixed spacer — the Journal's bug (`feedback.html` A), which is not a Journal control.
+    /// a fixed spacer — the testers' bug on You (`feedback.html` A), which is not a You control.
     func ateRootToolbar<Apart: View, Controls: View>(
         title: AteRootHeaderTitle,
         subtitle: String? = nil,
