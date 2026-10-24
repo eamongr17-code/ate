@@ -198,7 +198,9 @@ struct AtePhotoViewer: View {
                     ZoomablePhoto(
                         photo: photo,
                         isZoomed: position == index ? $isZoomed : .constant(false),
-                        onDrag: { drag = $0 },
+                        // Down only: a drag up has nowhere to put the photo, and slid it up off the
+                        // black with the page showing through (build 200).
+                        onDrag: { drag = max(0, $0) },
                         onDragEnd: finishDrag,
                         onTap: { tapped(at: position) },
                         onImageSize: { size in if imageSizes[position] != size { imageSizes[position] = size } }
@@ -309,7 +311,7 @@ struct AtePhotoViewer: View {
     ) -> AtePhotoFlightPath? {
         guard let tile = origin?.tiles[position], PhotoFlight.canLand(on: tile.frame, screen: AteScreen.size),
               photos.indices.contains(position), let url = photos[position].url,
-              let image = AteImagePipeline.shared.bestCached(url, size: .full)?.image else { return nil }
+              let image = AteImagePipeline.shared.onHand(url, size: .full) else { return nil }
         let screen = CGRect(origin: .zero, size: AteScreen.size)
         guard let away = PhotoFlight.away(
             image: image.size, page: page ?? screen, anchor: CGPoint(x: screen.midX, y: screen.midY), drag: drag
@@ -337,7 +339,7 @@ struct AtePhotoViewer: View {
             .sorted { $0.value.layer > $1.value.layer }
             .compactMap { index, over in
                 guard photos.indices.contains(index), let url = photos[index].url,
-                      let image = AteImagePipeline.shared.bestCached(url, size: .full)?.image else { return nil }
+                      let image = AteImagePipeline.shared.onHand(url, size: .full) else { return nil }
                 return AtePhotoFlightPath.Cover(image: image, frame: home(over, image: image), ring: over.ring)
             }
     }
