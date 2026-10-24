@@ -60,75 +60,6 @@ struct AteRootTitle: View {
     }
 }
 
-enum AteHeaderGroundMetrics {
-    /// The ground is off at rest and on once the content has gone this far under the bar.
-    static let showAfter: CGFloat = 4
-    /// The switch is a short step, not a scroll-driven fade (Eamon, build 94).
-    static let switchDuration: Double = 0.15
-}
-
-/// ``SwiftUICore/View/ateHeaderGround()``: the frost over the bar, there once the page has
-/// scrolled under it and gone at rest.
-private struct AteHeaderGround: ViewModifier {
-    @State private var shown: CGFloat = 0
-
-    func body(content: Content) -> some View {
-        content
-            .onScrollGeometryChange(for: Bool.self) { geometry in
-                geometry.contentOffset.y + geometry.contentInsets.top > AteHeaderGroundMetrics.showAfter
-            } action: { _, scrolled in
-                // The same ground as always, there or not (Eamon, build 94: no faded header): it
-                // switches in a short step the moment content goes under the bar, never by degrees.
-                withAnimation(.easeOut(duration: AteHeaderGroundMetrics.switchDuration)) {
-                    shown = scrolled ? 1 : 0
-                }
-            }
-            // The ground is the bar's only edge: the system's scroll-edge effect drew a lighter band and a
-            // line over the page even at rest (build 92).
-            .scrollEdgeEffectHidden(true, for: .top)
-            .overlay(alignment: .top) {
-                GeometryReader { proxy in
-                    AteHeaderFrost(solid: proxy.safeAreaInsets.top)
-                }
-                .opacity(shown)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-            }
-    }
-}
-
-/// **The frost** — every bar over a scrolled page, a tab root's and a pushed page's alike
-/// (`scroll-headers.html`, 24 Oct): the page's own ground over a blur of the page, from the screen's
-/// top edge to `solid` (the bar's or the header's bottom), easing out over the page past it. The
-/// colour is the ground's, never the material's own grey (build 177), thin enough that the page
-/// moving under it reads as glass (Eamon, 24 Oct: "more obvious").
-struct AteHeaderFrost: View {
-    /// How far down from the screen's top edge the frost is whole.
-    let solid: CGFloat
-
-    @Environment(\.atePalette) private var palette
-
-    var body: some View {
-        let fade = AteGlassRootHeaderMetrics.fade
-        let total = solid + fade
-        ZStack {
-            Rectangle().fill(.ultraThinMaterial)
-            Rectangle().fill(palette.ground.opacity(AteGlassRootHeaderMetrics.groundOpacity))
-        }
-        .frame(height: total)
-        .mask {
-            // Eased, so neither the start nor the end of the fade shows as a line.
-            LinearGradient(
-                stops: AteGlassRootHeaderMetrics.fadeCurve.map {
-                    .init(color: .black.opacity($0.alpha), location: (solid + fade * $0.at) / total)
-                },
-                startPoint: .top, endPoint: .bottom
-            )
-        }
-        .ignoresSafeArea(edges: .top)
-    }
-}
-
 enum AteRootHeaderMetrics {
     /// `.wm{left:16px; height:32px}`; `.lt{left:20px}`; the group `right:16px`.
     static let wordmark: CGFloat = 32
@@ -278,7 +209,7 @@ extension View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .ateHeaderGround()
+        .ateHeaderEdge()
     }
 
     /// A pushed page's inline title, leading — beside the system's back — exactly where a collapsed
@@ -295,27 +226,22 @@ extension View {
                 }
                 .sharedBackgroundVisibility(.hidden)
             }
-            .ateHeaderGround()
+            .ateHeaderEdge()
     }
 
-    /// **The header's frost** (``AteHeaderFrost``, `scroll-headers.html` 24 Oct): the bar area —
-    /// from the screen's top edge to just under the title row's controls — is the page's ground over
-    /// a blur of the page, easing out past the bar's bottom: the tab roots' frost, on every pushed
-    /// page too (it replaced the hard-edged ground of builds 87–95). The system's soft scroll-edge
-    /// effect alone is too weak over white slips, and `.hard` cuts the content off with a sharp edge
-    /// and a blurred ghost above it.
-    ///
-    /// Only while something is under it (build 92, note 1): at rest the page is one surface — no
-    /// band, no edge — and the ground switches in, whole, once the content has gone
-    /// ``AteHeaderGroundMetrics/showAfter`` points under the bar, and out again at rest (build 94:
-    /// never a scroll-driven fade). It reads the first scroll view inside the page and changes only
-    /// its own opacity: the bar's layout never moves.
+    /// **The header's edge** (`header-rethink.html` A, 24 Oct): iOS 26's own soft scroll-edge
+    /// effect under every bar, a tab root's and a pushed page's alike — the page blurs more the
+    /// nearer it gets to the top and dissolves into the page's own colour. Nothing of ours is drawn:
+    /// no ground, no material. The frost it replaced (builds 177–196) was the system's thin material
+    /// under a share of the ground, and that material is a light grey wash: over the near-black
+    /// page it could only make the band brighter, over linen only whiter, whatever share of
+    /// ground lay on it. (Build 92's band and line at rest came from the roots' `.hard` style.)
     ///
     /// Every bar modifier in the kit applies it (``ateRootToolbar``, ``ateInlineTitle``,
-    /// ``ateCollapsingTitle``), so roots and pushed pages get it once. Drawn over the page and under
-    /// the navigation bar's own items, and never hit-tested.
-    func ateHeaderGround() -> some View {
-        modifier(AteHeaderGround())
+    /// ``ateCollapsingTitle``, ``atePushedBar()``) and the glass header has its own, so a screen never
+    /// sets an edge itself.
+    func ateHeaderEdge() -> some View {
+        scrollEdgeEffectStyle(.soft, for: .top)
     }
 
     /// Reports whether a tab root's scroll view has moved far enough for its header to collapse —

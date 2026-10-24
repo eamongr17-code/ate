@@ -100,14 +100,15 @@ one band in the paper's colour crossing the screen, 1.6s a pass, all placeholder
     dish, tag, person, notifications, following), left, 20 in: picture if it has one (list cover 160,
     dish photos, avatar 72), 18 above the name in Young Serif 34 (lines 1.05, up to 3), one DM Sans
     15 line 8 under it (names 600 in ink), buttons or chips 16 under that.
-  - **Top frost** (`scroll-headers.html`, 24 Oct) — ONE frost on every screen, tab roots and pushed
-    pages alike, from the screen's top edge to the bar's (or root header's) bottom, then easing out
-    over 31; ground at 15% over the blur, so the page reads moving under it. None at rest; it comes in
-    once the page has scrolled 4pt under the bar.
+  - **Top edge** (`header-rethink.html` A, 24 Oct) — every bar, tab roots and pushed pages alike,
+    sits on iOS 26's own soft scroll edge: the page blurs toward the top and dissolves into its own
+    colour. No frost, no material, no ground of ours (the material's grey brightened dark mode in
+    builds 177 and 196). A tab root's header steps away on scroll down; all away, the page colour
+    sits behind the clock only. Set once in the kit; a lint rule stops screens setting their own.
   - **Compact header** — mid-list, a scroll up brings back a compact header, not the big one: the
     tab's name (Young Serif, 20) leading — on the Journal the month you are in, its year muted —
     and its controls trailing (the Feed's location chip, Search's filter, the Journal's active
-    chips and calendar), in a 52 row under the status bar on the top frost. It comes out of a blur
+    chips and calendar), in a 52 row under the status bar on the top edge. It comes out of a blur
     into focus.
   - **Filter chips** (round 7, `Main`/`RatingChip`) — Journal and Saved: Newest · Rating · City ·
     Date under the header (Saved has no Newest); active = ink with its value and an ✕. Each opens a

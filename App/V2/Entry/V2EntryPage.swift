@@ -172,7 +172,6 @@ private struct V2EntryScreen: View {
             }
             .task(id: moreSubject) { await more.load(moreSubject) }
             .scrollIndicators(.hidden)
-            .scrollEdgeEffectStyle(.soft, for: .top)
             .accessibilityIdentifier("entry.page")
         }
     }

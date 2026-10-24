@@ -48,7 +48,6 @@ struct V2RatingsPage: View {
                 .padding(.top, AteMetrics.regular)
                 .padding(.bottom, AteMetrics.section)
             }
-            .scrollEdgeEffectStyle(.soft, for: .top)
             .refreshable { await store.refresh() }
             .task {
                 await store.loadIfNeeded()

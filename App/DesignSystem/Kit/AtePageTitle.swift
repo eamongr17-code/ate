@@ -103,8 +103,8 @@ enum AtePageHeaderMetrics {
 extension View {
     /// A pushed page with its own header (``AtePageHeader``): nothing in the bar at rest but the back
     /// and the page's trailing items; once the name has scrolled under the bar (``ateTitleCollapse(_:after:)``)
-    /// it takes the bar's leading slot. The bar lies on the header's frost (``ateHeaderGround()``),
-    /// as every pushed page's does.
+    /// it takes the bar's leading slot. The bar has the header's edge (``ateHeaderEdge()``),
+    /// as every bar does.
     func ateCollapsingTitle(_ title: String?, subtitle: String? = nil, isCollapsed: Bool) -> some View {
         navigationTitle(title ?? "")
             .navigationBarTitleDisplayMode(.inline)
@@ -119,7 +119,7 @@ extension View {
                 }
             }
             .animation(AteRootHeaderMetrics.collapse, value: isCollapsed)
-            .ateHeaderGround()
+            .ateHeaderEdge()
     }
 
     /// Reports whether the page has scrolled its header's name under the bar: past `titleBottom`
@@ -134,11 +134,11 @@ extension View {
     }
 
     /// A pushed page that lays out its own bar items (the entry page: its byline or place, Share,
-    /// •••): the inline bar, the system's title removed, on the header's frost like every other
+    /// •••): the inline bar, the system's title removed, with the header's edge like every other
     /// pushed page (``ateInlineTitle(_:subtitle:)``, ``ateCollapsingTitle(_:subtitle:isCollapsed:)``).
     func atePushedBar() -> some View {
         navigationBarTitleDisplayMode(.inline)
             .toolbar(removing: .title)
-            .ateHeaderGround()
+            .ateHeaderEdge()
     }
 }
