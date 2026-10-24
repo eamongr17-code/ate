@@ -64,5 +64,7 @@ public enum NotificationEvents {
     public enum PermissionTrigger: String, Sendable {
         case notifications
         case tag
+        /// A printed receipt, once the camera roll's ask is behind it.
+        case receipt
     }
 }

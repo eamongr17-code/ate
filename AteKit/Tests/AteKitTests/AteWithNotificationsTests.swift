@@ -312,3 +312,12 @@ struct AteWithRespondTests {
         #expect(card.avgScore == nil)
     }
 }
+
+struct PushPermissionEventTests {
+    @Test("the receipt's ask is counted under its own trigger")
+    func receiptTrigger() {
+        let event = NotificationEvents.pushPermissionResult(granted: true, trigger: .receipt)
+        #expect(event.name == "push_permission_result")
+        #expect(event.parameters == ["granted": "true", "trigger": "receipt"])
+    }
+}

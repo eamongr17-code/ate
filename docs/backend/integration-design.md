@@ -368,7 +368,7 @@ ones, only to the author and that companion); a response lists the original's au
 companions. `entry_id` = that person's entry for the visit (tap → `get_entry_card`), null while pending. Blocked
 and deactivated people are absent. Raw `entry_companions` rows (incl. `declined`) are readable by the two parties only.
 
-**Push delivery (0059 + `supabase/functions/send-push`; built, not deployed).** The app receives
+**Push delivery (0059 + `supabase/functions/send-push`; deployed, on once the APNS_* secrets are set: every Prod apply then runs `push_configure`, `.github/scripts/push_setup.sh`).** The app receives
 `{aps: {alert: {title: "@eamon ate with you at Tipo 00", body: "Tagliatelle al ragù, tiramisu, prawn spaghetti"},
 badge: <unread ate_with count>, sound: "default", "thread-id": "ate-with"}, type: "ate_with", companion_id,
 notification_id, entry_id}` (no `body` when the entry has no dishes; `apns-collapse-id` = `companion_id`). Tap →

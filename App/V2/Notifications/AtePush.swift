@@ -5,11 +5,11 @@ import UserNotifications
 
 /// **Push, the client half** ("Ate with", 0058). Three jobs and nothing else:
 ///
-/// - **The one ask.** The system's notification prompt, the first time the person tags someone or
-///   opens the notifications list — never at launch (``askOnce(trigger:services:)``).
+/// - **The one ask.** The system's notification prompt, the first time the person tags someone, opens
+///   the notifications list, or sees a receipt print once the camera roll's ask is behind them —
+///   never at launch (``askOnce(trigger:services:)``).
 /// - **The token.** With permission, every launch registers this phone's APNs token for whoever is
-///   signed in (`register_push_token`). It fails silently: no server key exists yet, and nothing
-///   about the app may wait on a push.
+///   signed in (`register_push_token`). It fails silently: nothing about the app may wait on a push.
 /// - **The tap.** A tapped push carries `companion_id`; the root opens that tag's scoring sheet
 ///   straight over whatever tab is up, skipping the list (``SwiftUICore/View/ateWithPushes(_:)``).
 ///   A list invite's push (0073) opens Notifications, where the invite waits on Accept or Decline.
