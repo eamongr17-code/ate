@@ -61,7 +61,7 @@ final class AtePhotoTileFrames {
 
 extension View {
     /// Marks a photo tile as something a preview grows from: its frame is measured into `frames`,
-    /// and it steps aside while the viewer has its photo.
+    /// and the photo lands back on it.
     func atePhotoSource(_ frames: AtePhotoTileFrames, index: Int, radius: CGFloat) -> some View {
         modifier(AtePhotoSourceModifier(frames: frames, index: index, radius: radius))
     }
@@ -71,13 +71,10 @@ private struct AtePhotoSourceModifier: ViewModifier {
     let frames: AtePhotoTileFrames
     let index: Int
     let radius: CGFloat
-    @Environment(\.atePhotoHiddenSource) private var hidden
-
     func body(content: Content) -> some View {
         content
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
                 frames.frames[index] = frame
             }
-            .opacity(hidden == frames.sourceID(index) ? 0 : 1)
     }
 }

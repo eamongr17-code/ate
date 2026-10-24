@@ -103,6 +103,7 @@ struct AtePhotoTile: View {
     var zoomSource: (frames: AtePhotoTileFrames, index: Int)?
 
     @Environment(\.atePalette) private var palette
+    @Environment(\.atePhotoHiddenSource) private var hiddenSource
 
     var body: some View {
         let radius = AteMetrics.photoRadius(side: side)
@@ -130,7 +131,16 @@ struct AtePhotoTile: View {
                     .padding(-AteMetrics.photoRing)
             }
         }
+        // Ring and all, while the viewer has this photo: the photo is in flight over it.
+        .opacity(isInViewer ? 0 : 1)
         .accessibilityHidden(true)
+    }
+}
+
+extension AtePhotoTile {
+    private var isInViewer: Bool {
+        guard let zoomSource, let hiddenSource else { return false }
+        return hiddenSource == zoomSource.frames.sourceID(zoomSource.index)
     }
 }
 
