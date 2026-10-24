@@ -70,6 +70,7 @@ struct AteTopDishTile: View {
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: AteMetrics.photoRadius(side: side), style: .continuous))
+            .ateTiltSmoothed()
             .accessibilityHidden(true)
     }
 }
