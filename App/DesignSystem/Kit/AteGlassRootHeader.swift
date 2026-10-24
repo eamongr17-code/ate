@@ -8,11 +8,12 @@ import SwiftUI
 /// glass and all, as fast as the page moves; scrolling up it comes back the same way, and it settles
 /// all there or all away when the scroll stops. One title, always (Eamon, build 180).
 ///
-/// The header is drawn over the page, never in the navigation bar, and the page keeps room for it at
-/// the top of its own content (``AteGlassHeaderRoom``), not in the safe area: so the page never moves
-/// while the header comes and goes (build 174: the inset leaving moved the page under the finger), and
-/// the system's soft scroll edge stays the status bar's alone. All away, that edge is all there is: a
-/// subtle blur under the clock, no colour (Eamon, 24 Oct, Instagram's).
+/// The header is a **safe-area bar** over the page, never the navigation bar, so iOS 26's soft scroll
+/// edge — the native blur, no colour (Eamon, 24 Oct, Instagram's) — runs under all of it, the glass on
+/// top: Liquid Glass alone lenses the page more than it blurs it, and build 204 read as no blur at all.
+/// The bar keeps its height while the header comes and goes (it moves by offset, never by layout), so
+/// the inset never changes and the page never moves under the finger (build 174). All away, the soft
+/// edge stays where the header was. ``AteGlassHeaderRoom`` is zero high now the safe area is the room.
 private struct AteGlassRootHeader<Title: View, Apart: View, Controls: View, Accessory: View>: ViewModifier {
     let title: Title
     /// The title's lead from the screen's edge: the wordmark's own, or the gutter.
@@ -24,7 +25,7 @@ private struct AteGlassRootHeader<Title: View, Apart: View, Controls: View, Acce
     let controls: Controls
     let accessory: Accessory
 
-    /// The header's height, title row and accessory: the room the page keeps under it.
+    /// The header's height, title row and accessory: how far it travels to step away.
     @State private var height: CGFloat = AteMetrics.hit
     @State private var isOverPage = false
 
@@ -37,9 +38,8 @@ private struct AteGlassRootHeader<Title: View, Apart: View, Controls: View, Acce
             } action: { _, isUnder in
                 withAnimation(.easeOut(duration: AteGlassBarMetrics.switchDuration)) { isOverPage = isUnder }
             }
-            .overlay(alignment: .top) { header }
+            .safeAreaBar(edge: .top, spacing: 0) { header }
             .environment(\.ateGlassHeaderTravel, travel)
-            .environment(\.ateGlassHeaderRoom, height)
     }
 
     /// How far the header moves from all there to all away: its height, and past the status bar.
@@ -145,8 +145,6 @@ extension EnvironmentValues {
     /// How far a glass header moves from all there to all away, for its page's
     /// ``SwiftUICore/View/ateRootBarHiding(_:)``.
     @Entry var ateGlassHeaderTravel: CGFloat = 160
-    /// How tall a glass header is: the room its page keeps for it (``AteGlassHeaderRoom``).
-    @Entry var ateGlassHeaderRoom: CGFloat = 0
 }
 
 enum AteGlassRootHeaderMetrics {
@@ -158,16 +156,12 @@ enum AteGlassRootHeaderMetrics {
     static let slide: Animation = .smooth(duration: 0.24)
 }
 
-/// **The room for a glass header** at the top of a root's scrolled content, where its zero-high top
-/// anchor was: as tall as the header, so the first row starts under it at rest and the page scrolls
-/// under it from there. In the content, not the safe area, so the system's scroll edge stays the
-/// status bar's (``AteGlassRootHeader``). Carry the root's top anchor on it.
+/// **The top of a glass-headed root's scrolled content**, which carries the root's top anchor. Zero
+/// high: the header is a safe-area bar (``AteGlassRootHeader``), so the page's inset is its room.
 struct AteGlassHeaderRoom: View {
-    @Environment(\.ateGlassHeaderRoom) private var room
-
     var body: some View {
         Color.clear
-            .frame(height: room)
+            .frame(height: 0)
             .accessibilityHidden(true)
     }
 }
