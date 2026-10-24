@@ -204,12 +204,8 @@ struct AtePhotoViewer: View {
                             dishNames(at: position)
                         }
                     }
-                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-                        // A page at rest: a drag or a swipe to the next photo moves the pager, not
-                        // where the photo lands.
-                        guard abs(frame.minX) < 1, drag == 0, isZoomed == false else { return }
-                        page = frame
-                        openIfReady()
+                    .onGeometryChange(for: CGRect.self) { proxy in proxy.frame(in: .global) } action: { frame in
+                        notePage(frame)
                     }
                     .tag(position)
                     .accessibilityLabel("Photo \(position + 1) of \(photos.count)")
@@ -261,6 +257,15 @@ struct AtePhotoViewer: View {
 
     private var showsDots: Bool {
         photos.count > 1 && isZoomed == false && isShowing && isFlying == false
+    }
+
+    /// Where a page at rest draws its photo: a drag or a swipe to the next photo moves the pager,
+    /// not where the photo lands.
+    private func notePage(_ frame: CGRect) {
+        let isAtRest: Bool = frame.minX.magnitude < 1 && drag == 0 && isZoomed == false
+        guard isAtRest else { return }
+        page = frame
+        openIfReady()
     }
 
     /// Out of the tile, or (with no tile to come from) a fade — once the viewer is up and the pager
