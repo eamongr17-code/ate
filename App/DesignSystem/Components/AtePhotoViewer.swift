@@ -31,7 +31,7 @@ extension EnvironmentValues {
 
 extension View {
     /// Hosts the photo viewer for everything beneath this view. A photo grows out of the tile that was
-    /// tapped and shrinks back into it on a swipe down or the close button (``AtePhotoFlight``).
+    /// tapped and shrinks back into it on a swipe down or the close button (``AtePhotoFlightImage``).
     func atePhotoViewerHost() -> some View {
         modifier(AtePhotoViewerHost())
     }
@@ -150,6 +150,11 @@ struct AtePhotoViewer: View {
     @State private var isShowing = false
     /// The photo sits on its tile: as it opens, and again as it closes.
     @State private var isHome: Bool
+    /// The flying picture is up instead of the pager: on the way out of the tile and back into it.
+    @State private var isFlying: Bool
+    /// Where the pager draws the photo now showing, in window coordinates: where the flight lands.
+    @State private var page: CGRect?
+    @State private var hasOpened = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// How far a drag has to travel, or how fast, before letting go puts the photo away.
@@ -170,11 +175,10 @@ struct AtePhotoViewer: View {
         self.origin = origin
         self.dishes = dishes
         _paired = State(initialValue: dishes?.paired ?? [:])
-        // The picture's size before its first frame, from what the tile already drew: the grow has
-        // to start on the tile.
-        let size = photos.indices.contains(index) ? Self.cachedSize(photos[index]) : nil
-        _imageSizes = State(initialValue: size.map { [index: $0] } ?? [:])
-        _isHome = State(initialValue: origin?.tiles[index] != nil)
+        // The picture the tile already drew, so the grow starts on the tile from its first frame.
+        let flies = Self.canFly(photos, at: index, origin: origin)
+        _isHome = State(initialValue: flies)
+        _isFlying = State(initialValue: flies)
         self.onIndex = onIndex
         self.onShown = onShown
         self.onClose = onClose
@@ -196,13 +200,13 @@ struct AtePhotoViewer: View {
                         onImageSize: { size in if imageSizes[position] != size { imageSizes[position] = size } }
                     )
                     .overlay {
-                        if position == index, isZoomed == false, drag == 0, isHome == false {
+                        if position == index, isZoomed == false, drag == 0, isFlying == false {
                             dishNames(at: position)
                         }
                     }
-                    .modifier(AtePhotoCrop(
-                        landing: landing(at: position), isHome: isHome, isZoomed: position == index && isZoomed
-                    ))
+                    .onGeometryChange(for: CGRect.self) { proxy in proxy.frame(in: .global) } action: { frame in
+                        notePage(frame)
+                    }
                     .tag(position)
                     .accessibilityLabel("Photo \(position + 1) of \(photos.count)")
                     .accessibilityAddTraits(.isImage)
@@ -210,17 +214,21 @@ struct AtePhotoViewer: View {
             }
             .tabViewStyle(.page(indexDisplayMode: showsDots ? .always : .never))
             .ignoresSafeArea()
-            .modifier(AtePhotoFlight(landing: landing(at: index), isHome: isHome, drag: drag))
-            .opacity(isShowing || landing(at: index) != nil ? 1 : 0)
+            .modifier(AtePhotoDragged(drag: drag))
+            .opacity(isShowing && isFlying == false ? 1 : 0)
+            if let flying = flight(at: index) {
+                AtePhotoFlightImage(image: flying.image, frame: isHome ? flying.home : flying.away)
+                    .opacity(isFlying ? 1 : 0)
+            }
         }
         .overlay(alignment: .topLeading) {
             AteIconButton(icon: .close, label: "Close", size: 24, tint: AteColor.overPhoto) { close() }
                 .padding(.leading, AteMetrics.snug)
-                .opacity(isShowing && drag == 0 && isHome == false ? 1 : 0)
+                .opacity(isShowing && drag == 0 && isFlying == false ? 1 : 0)
         }
         .overlay(alignment: .bottom) {
             dishName
-                .opacity(isShowing && drag == 0 && isZoomed == false && isHome == false ? 1 : 0)
+                .opacity(isShowing && drag == 0 && isZoomed == false && isFlying == false ? 1 : 0)
         }
         .statusBarHidden()
         .accessibilityIdentifier("entry.photoViewer")
@@ -238,12 +246,7 @@ struct AtePhotoViewer: View {
         .ateCoversThePage()
         .onAppear {
             onShown()
-            // Out of the tile, or (with no tile to come from) a fade.
-            let animation: Animation = isHome ? AtePhotoViewerMetrics.fly : .easeOut(duration: 0.2)
-            withAnimation(reduceMotion ? nil : animation) {
-                isShowing = true
-                isHome = false
-            }
+            openIfReady()
         }
         .onChange(of: index) { _, index in
             namesShown = false
@@ -253,21 +256,60 @@ struct AtePhotoViewer: View {
     }
 
     private var showsDots: Bool {
-        photos.count > 1 && isZoomed == false && isShowing && isHome == false
+        photos.count > 1 && isZoomed == false && isShowing && isFlying == false
     }
 
-    /// Where the photo at `position` lands on its tile, when the page has one and its size is known.
-    private func landing(at position: Int) -> AtePhotoLanding? {
-        guard let tile = origin?.tiles[position] else { return nil }
-        guard photos.indices.contains(position),
-              let size = imageSizes[position] ?? Self.cachedSize(photos[position]) else { return nil }
-        return AtePhotoLanding(tile: tile, image: size, screen: AteScreen.size)
+    /// Where a page at rest draws its photo: a drag or a swipe to the next photo moves the pager,
+    /// not where the photo lands.
+    private func notePage(_ frame: CGRect) {
+        let isAtRest: Bool = frame.minX.magnitude < 1 && drag == 0 && isZoomed == false
+        guard isAtRest else { return }
+        page = frame
+        openIfReady()
     }
 
-    /// The picture's size from the image cache (a stand-in has the photo's own shape).
-    private static func cachedSize(_ photo: AtePhoto) -> CGSize? {
-        guard let url = photo.url else { return nil }
-        return AteImagePipeline.shared.bestCached(url, size: .full)?.image.size
+    /// Out of the tile, or (with no tile to come from) a fade — once the viewer is up and the pager
+    /// has said where the photo lands, so the flight never retargets on the way.
+    private func openIfReady() {
+        guard hasOpened == false, isFlying == false || page != nil else { return }
+        hasOpened = true
+        guard isFlying else {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { isShowing = true }
+            return
+        }
+        withAnimation(reduceMotion ? nil : AtePhotoViewerMetrics.fly, completionCriteria: .removed) {
+            isShowing = true
+            isHome = false
+        } completion: {
+            isFlying = false
+        }
+    }
+
+    /// The picture the tile drew, whether its tile is on the screen to land on.
+    private static func flightImage(_ photos: [AtePhoto], at position: Int, origin: AtePhotoOrigin?)
+        -> (image: UIImage, tile: AtePhotoOrigin.Tile)? {
+        guard let tile = origin?.tiles[position], PhotoFlight.canLand(on: tile.frame, screen: AteScreen.size),
+              photos.indices.contains(position), let url = photos[position].url,
+              let image = AteImagePipeline.shared.bestCached(url, size: .full)?.image else { return nil }
+        return (image, tile)
+    }
+
+    private static func canFly(_ photos: [AtePhoto], at position: Int, origin: AtePhotoOrigin?) -> Bool {
+        flightImage(photos, at: position, origin: origin) != nil
+    }
+
+    /// The photo at `position` on its tile and on the page, when it can fly between them.
+    private func flight(at position: Int) -> AtePhotoFlightPath? {
+        guard let found = Self.flightImage(photos, at: position, origin: origin) else { return nil }
+        let screen = CGRect(origin: .zero, size: AteScreen.size)
+        guard let away = PhotoFlight.away(
+            image: found.image.size, page: page ?? screen, anchor: CGPoint(x: screen.midX, y: screen.midY), drag: drag
+        ) else { return nil }
+        let tile = found.tile
+        return AtePhotoFlightPath(
+            image: found.image, home: PhotoFlight.home(tile: tile.frame, radius: tile.radius, angle: tile.angle),
+            away: away
+        )
     }
 
     /// The pairs as the server has them, unless a fix was made here in the meantime.
@@ -378,7 +420,8 @@ struct AtePhotoViewer: View {
 
     private func close(flinging: Bool = false) {
         // Back into its tile, when the page has it and the photo is at rest.
-        if landing(at: index) != nil, isZoomed == false {
+        if isZoomed == false, flight(at: index) != nil {
+            isFlying = true
             withAnimation(reduceMotion ? nil : AtePhotoViewerMetrics.fly, completionCriteria: .removed) {
                 isHome = true
                 isShowing = false
