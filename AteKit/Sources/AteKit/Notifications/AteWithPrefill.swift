@@ -60,7 +60,7 @@ public struct AteWithPrefill: Sendable, Hashable, Decodable {
             dishName = try container.decode(String.self, forKey: .dishName)
             position = try container.decode(Int.self, forKey: .position)
             // A score the app can't read only loses the copy, never the tag.
-            score = (try? container.decodeIfPresent(Rating.self, forKey: .score)) ?? nil
+            score = try? container.decodeIfPresent(Rating.self, forKey: .score)
         }
     }
 

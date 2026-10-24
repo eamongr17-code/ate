@@ -155,9 +155,12 @@ public final class AteWithRespondModel {
     /// it stays theirs to change; the slide goes to the first row still empty, or folds away.
     public func copyTaggerReview() {
         guard canCopy, let prefill else { return }
-        let scores = Dictionary(prefill.dishes.map { ($0.dishID, $0.score) }, uniquingKeysWith: { first, _ in first })
+        let scores = Dictionary(
+            prefill.dishes.compactMap { dish in dish.score.map { (dish.dishID, $0) } },
+            uniquingKeysWith: { first, _ in first }
+        )
         for index in lines.indices {
-            lines[index].score = scores[lines[index].dishID] ?? nil
+            lines[index].score = scores[lines[index].dishID]
         }
         body = prefill.taggerWords
         hasCopied = true
