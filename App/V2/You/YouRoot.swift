@@ -48,10 +48,11 @@ struct YouRoot: View {
             inline: AteInlineTitle(title: V2Tab.you.title),
             isCollapsed: isCollapsed,
             showsApart: showsBug,
-            apart: { bug }
-        ) {
-            AteGlassItem(icon: .settings, label: "Settings") { router.open(.settings(.root)) }
-        }
+            apart: { bug },
+            controls: {
+                AteGlassItem(icon: .settings, label: "Settings") { router.open(.settings(.root)) }
+            }
+        )
         .sheet(isPresented: $isSendingFeedback) {
             FeedbackSheet(app: app) { feedbackToast = "Report sent. Thank you." }
         }
