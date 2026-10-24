@@ -314,11 +314,32 @@ struct AtePhotoViewer: View {
         guard let away = PhotoFlight.away(
             image: image.size, page: page ?? screen, anchor: CGPoint(x: screen.midX, y: screen.midY), drag: drag
         ) else { return nil }
-        let crop = tile.focus?.crop(imageSize: image.size, aspect: 1)
-        let home = PhotoFlight.home(
-            tile: tile.frame, radius: tile.radius, angle: tile.angle, image: image.size, crop: crop
+        return AtePhotoFlightPath(
+            image: image, home: home(tile, image: image), away: away, ring: tile.ring,
+            covers: covers(over: tile, photos: photos, origin: origin)
         )
-        return AtePhotoFlightPath(image: image, home: home, away: away, ring: tile.ring)
+    }
+
+    /// A tile, exactly as the page draws it.
+    private static func home(_ tile: AtePhotoOrigin.Tile, image: UIImage) -> PhotoFlight.Frame {
+        let crop = tile.focus?.crop(imageSize: image.size, aspect: 1)
+        return PhotoFlight.home(tile: tile.frame, radius: tile.radius, angle: tile.angle, image: image.size, crop: crop)
+    }
+
+    /// The cluster's photos stacked over `tile` that reach it (a tilt carries a corner a little past
+    /// the square), bottom first, so they are drawn over the flying photo as the page draws them.
+    private static func covers(
+        over tile: AtePhotoOrigin.Tile, photos: [AtePhoto], origin: AtePhotoOrigin?
+    ) -> [AtePhotoFlightPath.Cover] {
+        let reach = tile.frame.insetBy(dx: -tile.frame.width * 0.2, dy: -tile.frame.height * 0.2)
+        return (origin?.tiles ?? [:])
+            .filter { $0.value.layer < tile.layer && $0.value.frame.intersects(reach) }
+            .sorted { $0.value.layer > $1.value.layer }
+            .compactMap { index, over in
+                guard photos.indices.contains(index), let url = photos[index].url,
+                      let image = AteImagePipeline.shared.bestCached(url, size: .full)?.image else { return nil }
+                return AtePhotoFlightPath.Cover(image: image, frame: home(over, image: image), ring: over.ring)
+            }
     }
 
     /// The pairs as the server has them, unless a fix was made here in the meantime.

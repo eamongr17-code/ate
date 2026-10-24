@@ -292,7 +292,9 @@ struct PhotoCluster: View {
                     radius: { _ in AteMetrics.photoRadius(side: side) },
                     angle: { tapped in angle(at: shown.firstIndex { $0.index == tapped } ?? tapped) },
                     ring: count > 1 ? (surface ?? palette.ground) : nil,
-                    focus: { tapped in photos.indices.contains(tapped) ? photos[tapped].focus : nil }
+                    focus: { tapped in photos.indices.contains(tapped) ? photos[tapped].focus : nil },
+                    // The strip's first photo is on top (its zIndex), each next one under it.
+                    layer: { tapped in shown.firstIndex { $0.index == tapped } ?? tapped }
                 ))
                 onTap(index)
             } label: { drawn.contentShape(.rect) }

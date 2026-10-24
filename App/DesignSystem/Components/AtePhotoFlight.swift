@@ -19,33 +19,56 @@ struct AtePhotoFlightImage: View, Animatable {
 
     var body: some View {
         let frame = PhotoFlight.between(path.home, path.away, progress: progress)
+        // What sits on the page over the tile (its ring, the photos lapping it) is on it as it
+        // leaves and as it lands, and gone a third of the way out.
+        let onTile = max(0, 1 - Double(progress) * 3)
         GeometryReader { proxy in
             let window = proxy.frame(in: .global).origin
-            Image(uiImage: path.image)
-                .resizable()
-                .frame(width: frame.picture.width, height: frame.picture.height)
-                .offset(x: frame.picture.minX, y: frame.picture.minY)
-                .frame(width: frame.size.width, height: frame.size.height, alignment: .topLeading)
-                .clipShape(RoundedRectangle(cornerRadius: frame.radius, style: .continuous))
-                .background { ring(frame) }
-                .rotationEffect(.degrees(frame.angle))
-                .position(x: frame.center.x - window.x, y: frame.center.y - window.y)
+            ZStack {
+                AtePhotoFramed(image: path.image, frame: frame, ring: path.ring, ringOpacity: onTile, window: window)
+                // The photos that lap over its tile in the cluster, drawn over it again, so it
+                // leaves from under them and lands back under them (24 Oct: it flew over them and
+                // they jumped back on top as it landed).
+                ForEach(path.covers.indices, id: \.self) { position in
+                    let cover = path.covers[position]
+                    AtePhotoFramed(
+                        image: cover.image, frame: cover.frame, ring: cover.ring, ringOpacity: 1, window: window
+                    )
+                    .opacity(onTile)
+                }
+            }
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
+}
 
-    /// The tile's ring, on the tile: it leaves with the photo and is gone a third of the way out,
-    /// and is back round it as it lands, so the tile reappearing under it changes nothing.
-    @ViewBuilder
-    private func ring(_ frame: PhotoFlight.Frame) -> some View {
-        if let ring = path.ring {
-            RoundedRectangle(cornerRadius: frame.radius + AteMetrics.photoRing, style: .continuous)
-                .fill(ring)
-                .padding(-AteMetrics.photoRing)
-                .opacity(max(0, 1 - Double(progress) * 3))
-        }
+/// A picture in its frame, as ``PhotoFlight/Frame`` says: cropped, rounded, tilted, placed.
+private struct AtePhotoFramed: View {
+    let image: UIImage
+    let frame: PhotoFlight.Frame
+    let ring: Color?
+    let ringOpacity: Double
+    let window: CGPoint
+
+    var body: some View {
+        Image(uiImage: image)
+            .resizable()
+            .frame(width: frame.picture.width, height: frame.picture.height)
+            .offset(x: frame.picture.minX, y: frame.picture.minY)
+            .frame(width: frame.size.width, height: frame.size.height, alignment: .topLeading)
+            .clipShape(RoundedRectangle(cornerRadius: frame.radius, style: .continuous))
+            .background {
+                if let ring {
+                    RoundedRectangle(cornerRadius: frame.radius + AteMetrics.photoRing, style: .continuous)
+                        .fill(ring)
+                        .padding(-AteMetrics.photoRing)
+                        .opacity(ringOpacity)
+                }
+            }
+            .rotationEffect(.degrees(frame.angle))
+            .position(x: frame.center.x - window.x, y: frame.center.y - window.y)
     }
 }
 
@@ -57,6 +80,14 @@ struct AtePhotoFlightPath {
     let away: PhotoFlight.Frame
     /// The tile's ring colour, when it has one.
     var ring: Color?
+    /// The cluster's photos that lap over the tile, bottom first, each where it sits on the page.
+    var covers: [Cover] = []
+
+    struct Cover {
+        let image: UIImage
+        let frame: PhotoFlight.Frame
+        let ring: Color?
+    }
 }
 
 /// The pager follows a drag down, shrinking a little as Photos does.
