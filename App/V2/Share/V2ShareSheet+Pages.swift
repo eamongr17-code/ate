@@ -13,6 +13,9 @@ extension V2ShareSheet {
     /// A review of several dishes, printed: one receipt per dish, under the switch.
     var isSplit: Bool { isLive && receipt.items.count > 1 }
 
+    /// From an entry, before the photos are in: no cards yet, so none shows and is swapped.
+    var isWaiting: Bool { isLive == false && printsFirst == false }
+
     func page(_ id: UUID) -> ShareReceiptPage {
         pages.first { $0.id == id } ?? ShareReceiptPage(id: receipt.id, receipt: receipt, photos: [], isWhole: true)
     }
@@ -60,6 +63,7 @@ extension V2ShareSheet {
     var slots: [ShareSlot] {
         let pages = pages
         guard let whole = pages.last else { return [] }
+        guard isWaiting == false else { return [] }
         guard isLive else { return [ShareSlot(format: .sticker, page: whole.id)] }
         guard isSplit else { return formats(whole).map { ShareSlot(format: $0, page: whole.id) } }
         let dishes = pages.filter { $0.isWhole == false }

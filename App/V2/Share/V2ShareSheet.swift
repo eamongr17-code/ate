@@ -39,6 +39,9 @@ struct V2ShareSheet: View {
     let source: ReceiptShareSource
     /// The receipt has printed and the photos are in: the other cards and the row are live.
     var isLive = true
+    /// Until it is live, the sticker shows the receipt (after a review it prints there). From an
+    /// entry there is nothing to print, so the cards wait and come in together, on the right one.
+    var printsFirst = true
     var printing = Printing()
     /// In place of the row, when a receipt could not finish: "Try again".
     var reprint: V2PrintedFoot.Pill?
@@ -67,6 +70,8 @@ struct V2ShareSheet: View {
         VStack(spacing: 0) {
             if isSplit {
                 formatSwitch
+            } else if isWaiting, receipt.items.count > 1 {
+                Color.clear.frame(height: V2ShareSheetMetrics.switchHeight)
             }
             carousel
             controls
@@ -132,6 +137,7 @@ struct V2ShareSheet: View {
         .scrollIndicators(.hidden)
         .scrollDisabled(isAdjusting || slots.count < 2)
         .scrollClipDisabled()
+        .frame(height: V2ShareSheetMetrics.slot.height)
         .padding(.vertical, AteMetrics.section)
         .accessibilityIdentifier("share.receipt")
     }
@@ -325,6 +331,8 @@ enum V2ShareSheetMetrics {
     static let swatchGap: CGFloat = 6
     /// The receipt while its card's photo is adjusted.
     static let adjustingReceipt: Double = 0.35
+    /// How fast an entry's cards come in once its photos are.
+    static let cardsIn: Double = 0.2
     /// The sheet's height on the entry page: the cards, the dots, the row.
     static let sheetHeight: CGFloat = 660
 

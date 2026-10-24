@@ -201,13 +201,13 @@ struct V2ListPage: View {
                 AteInkPill(
                     title: ListsCopy.addDishes, isEnabled: store.remaining > 0, identifier: "list.addPill"
                 ) { pick() }
-                if store.items.isEmpty == false {
+                if store.hasDishes {
                     AteInkPill(title: ListsCopy.share, isQuiet: true, identifier: "list.sharePill") {
                         shareList()
                     }
                 }
             case .accepted:
-                if store.items.isEmpty == false {
+                if store.hasDishes {
                     AteInkPill(title: ListsCopy.share, identifier: "list.sharePill") { shareList() }
                 }
             case .invited:
@@ -300,7 +300,7 @@ struct V2ListPage: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        if store.items.isEmpty == false {
+        if store.hasDishes {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { shareList() } label: {
                     AteIcon.share.view(size: AteGlassDiscMetrics.glyph)
@@ -410,7 +410,9 @@ extension V2ListPage {
     private var share: ListShare {
         let covers = store.list?.coverURL.map { [$0] } ?? store.list?.covers ?? []
         let handle = store.isOwn ? context.app.handle : store.list?.owner?.username
-        return ListShare(id: route.id, name: store.name, count: store.count, covers: covers, handle: handle ?? "")
+        // Before the rows are read, the shelf's count.
+        let count = store.items.isEmpty ? store.list?.itemCount ?? 0 : store.count
+        return ListShare(id: route.id, name: store.name, count: count, covers: covers, handle: handle ?? "")
     }
 
     /// A sheet over the page says its own refusals.

@@ -35,6 +35,18 @@ struct ListStoreTests {
         #expect(store.name == "Burgers" && store.phase == .ready)
     }
 
+    @Test("Share is there from the first frame: the shelf's count until the rows are read")
+    func hasDishesBeforeRead() async throws {
+        let fixture = await fixture()
+        let summary = try #require(fixture.shelf.lists.first { $0.id == fixture.store.listID })
+        let opened = ListStore(listID: summary.id, list: summary, service: fixture.service)
+        #expect(opened.phase == .loading && opened.items.isEmpty && opened.hasDishes)
+        await opened.refresh()
+        #expect(opened.hasDishes)
+        let empty = await self.fixture(count: 0)
+        #expect(empty.store.hasDishes == false)
+    }
+
     @Test("a drag sends the FULL ordered id array; positions stay 1…n")
     func reorderIntegrity() async throws {
         let fixture = await fixture()
