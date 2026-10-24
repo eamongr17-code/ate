@@ -85,7 +85,7 @@ final class SystemPhotoLibrary: AtePhotoLibrary {
     }
 
     func recent() async -> [PhotoSuggestionItem] {
-        let items = windowItems()
+        let items = await windowItemsOffMain()
         #if targetEnvironment(simulator)
         return items
         #else
@@ -96,16 +96,20 @@ final class SystemPhotoLibrary: AtePhotoLibrary {
     }
 
     func recentProgressively() -> AsyncStream<[PhotoSuggestionItem]> {
-        let items = windowItems()
         #if targetEnvironment(simulator)
         return AsyncStream { continuation in
-            continuation.yield(items)
-            continuation.finish()
+            let read = Task { @MainActor in
+                continuation.yield(await self.windowItemsOffMain())
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in read.cancel() }
         }
         #else
-        let snapshots = food.progressively(items)
+        let food = food
         return AsyncStream { continuation in
             let relay = Task { @MainActor in
+                let items = await self.windowItemsOffMain()
+                let snapshots = food.progressively(items)
                 var last: FoodPhotoResult?
                 // Cancelling this loop (the screen went away) ends the inner stream, which
                 // cancels the classifying behind it between photos.
@@ -125,8 +129,17 @@ final class SystemPhotoLibrary: AtePhotoLibrary {
     /// classifier does not run on the simulator (no Neural Engine: "Failed to create espresso
     /// context", and the CPU fallback labels every image the same), so a simulator offers all of
     /// them rather than none. The rule itself is tested in AteKit.
-    private func windowItems() -> [PhotoSuggestionItem] {
+    ///
+    /// **Read off the main thread.** It runs every time the Journal comes back on screen (its photo
+    /// count), and a Photos fetch — each asset's date and location read through photolibraryd — is
+    /// a database round trip per batch that a big or busy library makes slow. On the main thread
+    /// that was a frozen Back.
+    private func windowItemsOffMain() async -> [PhotoSuggestionItem] {
         guard isAuthorized else { return [] }
+        return await Task.detached(priority: .userInitiated) { Self.windowItems() }.value
+    }
+
+    nonisolated private static func windowItems() -> [PhotoSuggestionItem] {
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         options.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)

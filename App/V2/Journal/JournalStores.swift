@@ -28,16 +28,23 @@ final class JournalPhotoCount {
     private(set) var count = 0
 
     @ObservationIgnored private let services: AteServices
+    /// When the camera roll was last read — every return to the Journal asks, and a Back within
+    /// ``freshFor`` of the last read is not worth another pass through Photos.
+    @ObservationIgnored private var readAt: Date?
+    private static let freshFor: TimeInterval = 30
 
     init(services: AteServices) {
         self.services = services
     }
 
-    func load() async {
+    /// `force`: something changed what the count is (access granted, photos written up) — read now.
+    func load(force: Bool = false) async {
         guard services.photos.isAuthorized else {
             count = 0
             return
         }
+        if force == false, let readAt, Date().timeIntervalSince(readAt) < Self.freshFor { return }
+        readAt = Date()
         let dismissals = PhotoSuggestionDismissals(store: UserDefaultsStore(), owner: services.photoOwner)
         count = dismissals.count(await services.photos.recent())
     }

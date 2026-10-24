@@ -77,11 +77,11 @@ struct JournalRoot: View {
         }
         // The Summary's one ask for photos was answered yes: the count can appear now.
         .onReceive(NotificationCenter.default.publisher(for: .atePhotoAccessGranted)) { _ in
-            Task { await stores.photos.load() }
+            Task { await stores.photos.load(force: true) }
         }
         // Photos just posted with an entry: their sittings leave the count.
         .onReceive(NotificationCenter.default.publisher(for: .ateSuggestionPhotosWrittenUp)) { _ in
-            Task { await stores.photos.load() }
+            Task { await stores.photos.load(force: true) }
         }
         // An entry changed after the composer closed — an edit's re-sort printing its new dishes, a
         // correction on its page: put that one entry in place.
@@ -102,18 +102,6 @@ struct JournalRoot: View {
         .onChange(of: journal.entries.isEmpty, initial: true) { _, isEmpty in
             if isEmpty == false { AteTips.firstPostWritten() }
         }
-    }
-
-    /// The journal's read — and, the first time this launch, how long it took (`list_first_read`).
-    private func loadJournal() async {
-        let isFirst = journal.hasLoaded == false
-        let started = ContinuousClock.now
-        await journal.loadIfNeeded()
-        guard isFirst, journal.hasLoaded, journal.phase != .signedOut else { return }
-        let milliseconds = Int((ContinuousClock.now - started) / .milliseconds(1))
-        app.services.analytics(ShellEvents.listFirstRead(
-            "journal", durationMilliseconds: milliseconds, fromCache: journal.drewFromCache
-        ))
     }
 
     /// The journal's read — and, the first time this launch, how long it took (`list_first_read`).
