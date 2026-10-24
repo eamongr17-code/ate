@@ -212,6 +212,10 @@ public protocol EntryService: Sendable {
     /// its dishes. Photos no dish holds are absent.
     func photoDishTags(entryID: UUID) async throws -> [String: [PhotoDishTag]]
 
+    /// ``photoDishTags(entryID:)`` for a screenful of entries in one read, so a photo opened from a
+    /// list is named as it lands (24 Oct): entry → its pairs. Entries with none are absent.
+    func photoDishTags(entryIDs: [UUID]) async throws -> [UUID: [String: [PhotoDishTag]]]
+
     /// The author's own pairing of one photo with several dishes (`set_photo_dishes`, 0083): exactly
     /// these lines, or none (No dish). Matching never overrides it, and it outlives a re-sort.
     func setPhotoDishes(entryID: UUID, photoURL: String, reviewIDs: [UUID]) async throws
@@ -278,6 +282,16 @@ public extension EntryService {
     /// One dish per photo, nowhere placed: a service that only knows the pairs.
     func photoDishTags(entryID: UUID) async throws -> [String: [PhotoDishTag]] {
         try await photoDishes(entryID: entryID).mapValues { [PhotoDishTag(reviewID: $0)] }
+    }
+
+    /// One read per entry: a service without a batched read.
+    func photoDishTags(entryIDs: [UUID]) async throws -> [UUID: [String: [PhotoDishTag]]] {
+        var out: [UUID: [String: [PhotoDishTag]]] = [:]
+        for entryID in entryIDs {
+            let tags = try await photoDishTags(entryID: entryID)
+            if tags.isEmpty == false { out[entryID] = tags }
+        }
+        return out
     }
 
     /// One dish or none goes through the single pick; several need a service that holds them.

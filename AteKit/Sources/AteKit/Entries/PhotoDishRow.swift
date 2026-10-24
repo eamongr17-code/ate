@@ -43,6 +43,8 @@ public struct PhotoDishTag: Sendable, Hashable {
 /// One photo's dish (`photo_dishes.photo_url, review_id, box_*`, 0081/0083): what the photo viewer
 /// names. A dish may hold several photos, and a photo several dishes.
 struct PhotoDishRow: Decodable, Sendable, Hashable {
+    /// Only in a read of several entries at once.
+    var entryID: UUID?
     let photoURL: String
     let reviewID: UUID
     var boxLeft: Double?
@@ -51,6 +53,7 @@ struct PhotoDishRow: Decodable, Sendable, Hashable {
     var boxBottom: Double?
 
     enum CodingKeys: String, CodingKey {
+        case entryID = "entry_id"
         case photoURL = "photo_url"
         case reviewID = "review_id"
         case boxLeft = "box_left"
@@ -71,7 +74,20 @@ struct PhotoDishRow: Decodable, Sendable, Hashable {
 
     /// Photo URL → every dish in it, in the order read, each once. Photos no dish holds are absent.
     static func tags(from data: Data) throws -> [String: [PhotoDishTag]] {
+        tags(of: try JSONDecoder().decode([PhotoDishRow].self, from: data))
+    }
+
+    /// Entry → its photos' dishes, for a read of several entries. Entries with no row are absent.
+    static func tagsByEntry(from data: Data) throws -> [UUID: [String: [PhotoDishTag]]] {
         let rows = try JSONDecoder().decode([PhotoDishRow].self, from: data)
+        var byEntry: [UUID: [PhotoDishRow]] = [:]
+        for row in rows {
+            if let entryID = row.entryID { byEntry[entryID, default: []].append(row) }
+        }
+        return byEntry.mapValues(tags(of:)).filter { $0.value.isEmpty == false }
+    }
+
+    private static func tags(of rows: [PhotoDishRow]) -> [String: [PhotoDishTag]] {
         var out: [String: [PhotoDishTag]] = [:]
         for row in rows where row.photoURL.isEmpty == false {
             var tags = out[row.photoURL] ?? []

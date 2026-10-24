@@ -221,6 +221,21 @@ struct DatesAndPhotosTests {
         #expect(try PhotoDishRow.map(from: Data(json.utf8)) == ["https://x/1.jpg": soup])
     }
 
+    @Test("a screenful of entries in one read: each entry's photos, apart; rows without an entry skipped")
+    func photoDishTagsByEntry() throws {
+        let first = UUID(), second = UUID(), soup = UUID(), rice = UUID()
+        let json = """
+        [{"entry_id":"\(first.uuidString)","photo_url":"https://x/1.jpg","review_id":"\(soup.uuidString)"},
+         {"entry_id":"\(second.uuidString)","photo_url":"https://x/2.jpg","review_id":"\(rice.uuidString)"},
+         {"entry_id":"\(first.uuidString)","photo_url":"https://x/1.jpg","review_id":"\(soup.uuidString)"},
+         {"photo_url":"https://x/3.jpg","review_id":"\(rice.uuidString)"}]
+        """
+        let read = try PhotoDishRow.tagsByEntry(from: Data(json.utf8))
+        #expect(read.count == 2)
+        #expect(read[first]?["https://x/1.jpg"]?.map(\.reviewID) == [soup])
+        #expect(read[second]?["https://x/2.jpg"]?.map(\.reviewID) == [rice])
+    }
+
     @Test("worth one more match: no pairs, or several dishes and none placed")
     func wantsMatch() {
         let a = UUID(), b = UUID()

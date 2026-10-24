@@ -224,11 +224,11 @@ struct AtePhotoViewer: View {
         .overlay(alignment: .topLeading) {
             AteIconButton(icon: .close, label: "Close", size: 24, tint: AteColor.overPhoto) { close() }
                 .padding(.leading, AteMetrics.snug)
-                .opacity(isShowing && drag == 0 && isFlying == false ? 1 : 0)
+                .opacity(isShowing && drag == 0 && isHome == false ? 1 : 0)
         }
         .overlay(alignment: .bottom) {
             dishName
-                .opacity(isShowing && drag == 0 && isZoomed == false && isFlying == false ? 1 : 0)
+                .opacity(isShowing && drag == 0 && isZoomed == false && isHome == false ? 1 : 0)
         }
         .statusBarHidden()
         .accessibilityIdentifier("entry.photoViewer")
@@ -256,7 +256,7 @@ struct AtePhotoViewer: View {
     }
 
     private var showsDots: Bool {
-        photos.count > 1 && isZoomed == false && isShowing && isFlying == false
+        photos.count > 1 && isZoomed == false && isShowing && isHome == false
     }
 
     /// Where a page at rest draws its photo: a drag or a swipe to the next photo moves the pager,
@@ -277,7 +277,7 @@ struct AtePhotoViewer: View {
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { isShowing = true }
             return
         }
-        withAnimation(reduceMotion ? nil : AtePhotoViewerMetrics.fly, completionCriteria: .removed) {
+        withAnimation(reduceMotion ? nil : AtePhotoViewerMetrics.fly, completionCriteria: .logicallyComplete) {
             isShowing = true
             isHome = false
         } completion: {
@@ -317,8 +317,9 @@ struct AtePhotoViewer: View {
         guard let load = dishes?.load else { return }
         let before = paired
         let read = await load()
-        guard paired == before, read.isEmpty == false else { return }
-        paired = read
+        guard paired == before, read.isEmpty == false, read != paired else { return }
+        // Fresh pairs fade in under the photo rather than popping in.
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { paired = read }
     }
 
     /// The dishes the photo at `position` shows, in receipt order.
@@ -422,7 +423,7 @@ struct AtePhotoViewer: View {
         // Back into its tile, when the page has it and the photo is at rest.
         if isZoomed == false, flight(at: index) != nil {
             isFlying = true
-            withAnimation(reduceMotion ? nil : AtePhotoViewerMetrics.fly, completionCriteria: .removed) {
+            withAnimation(reduceMotion ? nil : AtePhotoViewerMetrics.fly, completionCriteria: .logicallyComplete) {
                 isHome = true
                 isShowing = false
             } completion: {

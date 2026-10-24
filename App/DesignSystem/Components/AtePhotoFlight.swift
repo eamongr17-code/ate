@@ -47,6 +47,8 @@ struct AtePhotoDragged: ViewModifier {
 
 enum AtePhotoViewerMetrics {
     /// The photo's flight out of its tile and back.
-    /// No bounce: an overshoot of a small tile spills over the text round it.
-    static let fly: Animation = .smooth(duration: 0.4)
+    /// No bounce: an overshoot of a small tile spills over the text round it. The caption and close
+    /// button fade with it, and the viewer comes down as it lands, not after the spring's tail
+    /// (build 197 waited ~0.5s for both).
+    static let fly: Animation = .smooth(duration: 0.35)
 }
