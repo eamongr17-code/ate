@@ -15,20 +15,10 @@ extension AteTextStyle {
     static let screenTitle = AteTextStyle(
         voice: .heading, size: 34, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .largeTitle
     )
-    /// The place at the head of its own page — the biggest type in the app, because on the place
-    /// page the place is the whole subject. 36pt (44 on `Restaurant.dc.html`, stepped down 6 Oct).
-    static let placeTitle = AteTextStyle(
-        voice: .heading, size: 36, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .largeTitle
-    )
     /// A dish's aggregate, printed like a price on its own page. 64pt — the one number big enough
     /// to be read across a table (`Dish.dc.html`).
     static let dishScore = AteTextStyle(
         voice: .display, size: 64, weight: 700, trackingEm: -0.03, lineHeight: 1.0, textStyle: .largeTitle
-    )
-    /// The place at the head of the entry page — the biggest type in the app after a screen's own
-    /// name, because on an entry the place IS the title. 32pt (38 before 6 Oct).
-    static let entryPlace = AteTextStyle(
-        voice: .heading, size: 32, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .largeTitle
     )
     /// A sheet's title. 26pt (30 before 6 Oct).
     static let sheetTitle = AteTextStyle(
@@ -51,8 +41,10 @@ extension AteTextStyle {
     static let pageTitle = AteTextStyle(
         voice: .heading, size: 24, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title2
     )
-    /// "Pick a handle." — first run's one question, at the size of a place heading its own page.
-    static var handleTitle: AteTextStyle { placeTitle }
+    /// "Pick a handle." — first run's one question. 36pt.
+    static let handleTitle = AteTextStyle(
+        voice: .heading, size: 36, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .largeTitle
+    )
     /// "Write about what you [ate.]" on the first onboarding card: the handle title's size, set a
     /// little closer than `.h`'s 1.0 where the words wrap. The gap down to the logo's line is set
     /// by ``AteTitle``'s wordmark layout, not by this.

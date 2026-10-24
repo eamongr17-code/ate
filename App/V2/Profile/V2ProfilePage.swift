@@ -1,8 +1,9 @@
 import AteKit
 import SwiftUI
 
-/// **Somebody else's page** — pushed from a byline. Their name is in the bar (avatar, handle, city as
-/// the subtitle); under it their three totals and their slips, a bookmark on every dish, because a
+/// **Somebody else's page** — pushed from a byline. The page header (`page-headers.html`): their
+/// avatar, their handle as the page's name, their city under it, the handle taking the bar once it has
+/// scrolled under it; then their three totals and their slips, a bookmark on every dish, because a
 /// profile is somewhere you come to for what to order next. ••• opens the one actions sheet: Share,
 /// Report, Block, each write asking once. No follow, no follower counts (no social in V1).
 struct V2ProfilePage: View {
@@ -12,6 +13,9 @@ struct V2ProfilePage: View {
     /// Held here, not made in the destination's builder, which runs again on every redraw.
     @State private var store: ProfileStore
     @State private var isShowingActions = false
+    @State private var isCollapsed = false
+    /// Where the header's name ends: the bar takes it once the page has scrolled past.
+    @State private var titleBottom: CGFloat = 0
     /// A report or block that did not happen, said once.
     @State private var failure: ActionFailure?
     @Environment(\.dismiss) private var dismiss
@@ -36,6 +40,7 @@ struct V2ProfilePage: View {
                 if isSettled {
                     content
                 } else {
+                    headerSkeleton
                     AteProfileStats(summary: nil)
                         .ateCardWidth()
                     AteSkeleton(kind: .entrySlip)
@@ -46,11 +51,11 @@ struct V2ProfilePage: View {
             .padding(.top, AteMetrics.tight)
             .padding(.bottom, AteMetrics.section)
         }
-        .scrollEdgeEffectStyle(.soft, for: .top)
+        .ateTitleCollapse($isCollapsed, after: titleBottom)
         .refreshable { await store.refresh() }
         .accessibilityIdentifier("v2.profile")
         .ateGround()
-        .ateInlineByline(byline, fallback: "")
+        .ateCollapsingTitle(handle, isCollapsed: isCollapsed)
         .toolbar {
             // Only for somebody else: there is no reporting or blocking yourself.
             if store.isSomebodyElse {
@@ -78,10 +83,45 @@ struct V2ProfilePage: View {
         store.header != .loading && store.entries.phase != .loading
     }
 
-    private var byline: AteInlineByline? {
+    private var handle: String? {
         guard case .ready(let summary) = store.header else { return nil }
-        return AteInlineByline(userID: summary.userID, handle: summary.username, subtitle: summary.city,
-                               avatarURL: summary.avatarURL.flatMap(URL.init(string:)))
+        return "@\(summary.username)"
+    }
+
+    /// Their avatar, the handle as the page's name, their city under it (`page-headers.html`).
+    private func header(_ summary: ProfileSummary) -> some View {
+        AtePageHeader("@\(summary.username)", titleBottom: $titleBottom) {
+            AteAvatar(
+                userID: summary.userID, handle: summary.username, side: AtePageHeaderMetrics.avatar,
+                textStyle: .avatarMonogram, url: summary.avatarURL.flatMap(URL.init(string:))
+            )
+        } line: {
+            if let city = summary.city, city.isEmpty == false {
+                Text(city)
+                    .ateText(.pageHeaderLine)
+                    .foregroundStyle(AtePalette.automatic.muted)
+                    .lineLimit(1)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// The header before it has arrived: the avatar's disc and the shape of a name, breathing.
+    private var headerSkeleton: some View {
+        VStack(alignment: .leading, spacing: AtePageHeaderMetrics.artGap) {
+            Circle()
+                .fill(AtePalette.automatic.hairline)
+                .frame(width: AtePageHeaderMetrics.avatar, height: AtePageHeaderMetrics.avatar)
+            AteSkeletonBar(
+                width: AteProfileHeaderMetrics.nameBar, height: AteProfileHeaderMetrics.nameBarHeight,
+                palette: .automatic
+            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, AteMetrics.gutter)
+        .padding(.top, AtePageHeaderMetrics.top)
+        .ateSkeletonSweep()
+        .accessibilityHidden(true)
     }
 
     // MARK: - Bands
@@ -96,6 +136,7 @@ struct V2ProfilePage: View {
             AteEmptyState(line: "This person\nisn't here.", art: .torn)
                 .containerRelativeFrame(.vertical)
         case .ready(let summary):
+            header(summary)
             AteProfileStats(summary: summary)
                 .ateCardWidth()
             entries

@@ -67,7 +67,7 @@ enum AteHeaderGroundMetrics {
     static let switchDuration: Double = 0.15
 }
 
-/// ``SwiftUICore/View/ateHeaderGround()``: the ground over the bar, there once the page has
+/// ``SwiftUICore/View/ateHeaderGround()``: the frost over the bar, there once the page has
 /// scrolled under it and gone at rest.
 private struct AteHeaderGround: ViewModifier {
     @State private var shown: CGFloat = 0
@@ -88,18 +88,44 @@ private struct AteHeaderGround: ViewModifier {
             .scrollEdgeEffectHidden(true, for: .top)
             .overlay(alignment: .top) {
                 GeometryReader { proxy in
-                    let bar = proxy.safeAreaInsets.top
-                    let ground = AtePalette.automatic.ground
-                    // A hard edge at the bar's bottom, no gradient (Eamon, build 95: "faded" meant the
-                    // soft edge).
-                    ground
-                        .frame(height: bar)
-                        .ignoresSafeArea(edges: .top)
+                    AteHeaderFrost(solid: proxy.safeAreaInsets.top)
                 }
                 .opacity(shown)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
             }
+    }
+}
+
+/// **The frost** — every bar over a scrolled page, a tab root's and a pushed page's alike
+/// (`scroll-headers.html`, 24 Oct): the page's own ground over a blur of the page, from the screen's
+/// top edge to `solid` (the bar's or the header's bottom), easing out over the page past it. The
+/// colour is the ground's, never the material's own grey (build 177), thin enough that the page
+/// moving under it reads as glass (Eamon, 24 Oct: "more obvious").
+struct AteHeaderFrost: View {
+    /// How far down from the screen's top edge the frost is whole.
+    let solid: CGFloat
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        let fade = AteGlassRootHeaderMetrics.fade
+        let total = solid + fade
+        ZStack {
+            Rectangle().fill(.ultraThinMaterial)
+            Rectangle().fill(palette.ground.opacity(AteGlassRootHeaderMetrics.groundOpacity))
+        }
+        .frame(height: total)
+        .mask {
+            // Eased, so neither the start nor the end of the fade shows as a line.
+            LinearGradient(
+                stops: AteGlassRootHeaderMetrics.fadeCurve.map {
+                    .init(color: .black.opacity($0.alpha), location: (solid + fade * $0.at) / total)
+                },
+                startPoint: .top, endPoint: .bottom
+            )
+        }
+        .ignoresSafeArea(edges: .top)
     }
 }
 
@@ -128,7 +154,8 @@ enum AteRootHeaderMetrics {
 }
 
 /// **An inline bar title** — a pushed page's name (or byline), and a tab root's title once it has
-/// collapsed into the bar, leading-aligned on every screen: the name at 17, and an optional muted
+/// collapsed into the bar, leading-aligned on every screen: the name in Young Serif at 18, the face of
+/// the title it stands for (`scroll-headers.html`, 24 Oct), and an optional muted
 /// subtitle under it (the Feed's city). A leading item in the native bar; the bar, its glass and
 /// its scroll-edge effect are the system's.
 struct AteInlineTitle: View {
@@ -151,7 +178,7 @@ struct AteInlineTitle: View {
     private var lines: some View {
         VStack(alignment: .leading, spacing: AteRootHeaderMetrics.inlineGap) {
             Text(title)
-                .ateText(.kitInlineTitle)
+                .ateText(.kitInlinePageTitle)
                 .foregroundStyle(palette.fg)
                 .lineLimit(1)
             if let subtitle {
@@ -271,11 +298,12 @@ extension View {
             .ateHeaderGround()
     }
 
-    /// **The header's ground** (build 87, note 1): the bar area — from the screen's top edge to just
-    /// under the title row's controls — is the page's ground, ending in a hard edge at the bar's bottom (build 95), so
-    /// scrolled content is never legible behind the title or the glass. The system's soft
-    /// scroll-edge effect alone is too weak over white slips, and `.hard` cuts the content off with
-    /// a sharp edge and a blurred ghost above it.
+    /// **The header's frost** (``AteHeaderFrost``, `scroll-headers.html` 24 Oct): the bar area —
+    /// from the screen's top edge to just under the title row's controls — is the page's ground over
+    /// a blur of the page, easing out past the bar's bottom: the tab roots' frost, on every pushed
+    /// page too (it replaced the hard-edged ground of builds 87–95). The system's soft scroll-edge
+    /// effect alone is too weak over white slips, and `.hard` cuts the content off with a sharp edge
+    /// and a blurred ghost above it.
     ///
     /// Only while something is under it (build 92, note 1): at rest the page is one surface — no
     /// band, no edge — and the ground switches in, whole, once the content has gone
@@ -284,7 +312,7 @@ extension View {
     /// its own opacity: the bar's layout never moves.
     ///
     /// Every bar modifier in the kit applies it (``ateRootToolbar``, ``ateInlineTitle``,
-    /// ``ateInlineByline``), so roots and pushed pages get it once. Drawn over the page and under
+    /// ``ateCollapsingTitle``), so roots and pushed pages get it once. Drawn over the page and under
     /// the navigation bar's own items, and never hit-tested.
     func ateHeaderGround() -> some View {
         modifier(AteHeaderGround())

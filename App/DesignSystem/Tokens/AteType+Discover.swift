@@ -4,14 +4,19 @@ import SwiftUI
 // that no older style names. A kit view asks for a role here; it never writes a number into `.ateText`.
 
 extension AteTextStyle {
-    /// A pushed page's own large title — `.ptitle b`: Young Serif at 36 (44 before 6 Oct),
-    /// `letter-spacing:-.035em`, `line-height:1` (a category's name)…
-    static let kitPageTitle = AteTextStyle(
-        voice: .heading, size: 36, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .largeTitle
+    /// **A pushed page's header** (`page-headers.html`, 24 Oct): the name of the thing the page is
+    /// about — a list, a place, a dish, a tag, a person — in Young Serif at 34, lines 1.05 apart, on
+    /// up to three lines…
+    static let pageHeaderTitle = AteTextStyle(
+        voice: .heading, size: 34, weight: 800, trackingEm: -0.02, lineHeight: 1.05, textStyle: .largeTitle
     )
-    /// …and set at 30 (36 before 6 Oct) when the title is a phrase ("What you follow").
-    static let kitPageTitleLong = AteTextStyle(
-        voice: .heading, size: 30, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .largeTitle
+    /// …the one line under it in DM Sans at 15, muted…
+    static let pageHeaderLine = AteTextStyle(
+        voice: .display, size: 15, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .subheadline
+    )
+    /// …and the names on that line at 600, in ink (a list's people, a dish's place).
+    static let pageHeaderStrong = AteTextStyle(
+        voice: .display, size: 15, weight: 600, trackingEm: 0, lineHeight: 1.3, textStyle: .subheadline
     )
     /// The ask card's question — `.h` at 26: Young Serif, `letter-spacing:-.035em`, `line-height:1`.
     static let kitAskTitle = AteTextStyle(

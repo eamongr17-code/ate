@@ -21,6 +21,8 @@ struct V2NotificationsPage: View {
     let context: V2PageContext
 
     @State private var isCollapsed = false
+    /// Where the header's name ends: the bar takes it once the page has scrolled past.
+    @State private var titleBottom: CGFloat = 0
     @State private var declining: AteNotification?
     @State private var photos: PhotoSuggestionsModel
     @State private var pickedChip: String?
@@ -58,7 +60,7 @@ struct V2NotificationsPage: View {
 
     var body: some View {
         List {
-            AtePageTitle(title: NotificationsCopy.title)
+            AtePageTitle(title: NotificationsCopy.title, titleBottom: $titleBottom)
                 .plainRow()
             content
         }
@@ -67,7 +69,7 @@ struct V2NotificationsPage: View {
         .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
         .contentMargins(.bottom, AteMetrics.tabBarScrollInset, for: .scrollContent)
-        .atePageCollapse($isCollapsed)
+        .ateTitleCollapse($isCollapsed, after: titleBottom)
         .ateGround()
         .ateCollapsingTitle(NotificationsCopy.title, isCollapsed: isCollapsed)
         .ateAnimation(AteMotion.fillIn, value: store.rows.map(\.id))
