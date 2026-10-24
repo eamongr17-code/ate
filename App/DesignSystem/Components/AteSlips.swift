@@ -125,6 +125,9 @@ struct EntrySlip: View {
                         )
                     } : nil
                 )
+                .onAppear {
+                    if interactive, slip.dishes.isEmpty == false { dishSource?.readAhead(slip.id) }
+                }
             }
             // The foot line is its own band: the place goes to the place, everything above it goes
             // to the entry. (A sibling rather than a child of the body's button — a tap inside a

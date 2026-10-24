@@ -72,6 +72,9 @@ struct AtePhotoDishSource: Sendable {
     /// The pairs last read for an entry, so a photo opened again is named as it lands rather than
     /// a round trip later (24 Oct). The viewer still reads them afresh behind it.
     var known: @MainActor @Sendable (_ entryID: UUID) -> [String: [PhotoDishTag]]? = { _ in nil }
+    /// A slip with photos is on the screen: its pairs are read ahead, a screenful in one read, so
+    /// even the first open names the photo as it lands.
+    var readAhead: @MainActor @Sendable (_ entryID: UUID) -> Void = { _ in }
 
     /// The photos of a slip, with its dishes, for the viewer. `nil` with no dishes to name.
     @MainActor
