@@ -410,9 +410,7 @@ extension V2ListPage {
     private var share: ListShare {
         let covers = store.list?.coverURL.map { [$0] } ?? store.list?.covers ?? []
         let handle = store.isOwn ? context.app.handle : store.list?.owner?.username
-        // Before the rows are read, the shelf's count.
-        let count = store.items.isEmpty ? store.list?.itemCount ?? 0 : store.count
-        return ListShare(id: route.id, name: store.name, count: count, covers: covers, handle: handle ?? "")
+        return ListShare(id: route.id, name: store.name, count: store.shownCount, covers: covers, handle: handle ?? "")
     }
 
     /// A sheet over the page says its own refusals.

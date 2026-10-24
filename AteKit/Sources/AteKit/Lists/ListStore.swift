@@ -68,16 +68,6 @@ public final class ListStore {
         return items.filter { item in item.photoURL.map { seen.insert($0).inserted } ?? false }
     }
     public var count: Int { items.count }
-    /// Something on it: the rows once read, the shelf's count before, so Share is there from the
-    /// first frame rather than arriving with the rows.
-    public var hasDishes: Bool {
-        items.isEmpty == false || (phase == .loading && (list?.itemCount ?? 0) > 0)
-    }
-    /// Something on it: the rows once read, the shelf's count before, so Share is there from the
-    /// first frame rather than arriving with the rows.
-    public var hasDishes: Bool {
-        items.isEmpty == false || (phase == .loading && (list?.itemCount ?? 0) > 0)
-    }
     /// Room for this many more dishes before the 100 cap.
     public var remaining: Int { max(0, ListRules.itemCap - items.count) }
     /// Every line on the list — what the picker leaves out.
@@ -437,5 +427,18 @@ public final class ListStore {
         list = summary
         // An invitation previewed here is not on the shelf; only a list there is told.
         if role != .invited { shelf?.updated(summary) }
+    }
+}
+
+extension ListStore {
+    /// Something on it: the rows once read, the shelf's count before, so Share is there from the
+    /// first frame rather than arriving with the rows.
+    public var hasDishes: Bool {
+        items.isEmpty == false || (phase == .loading && (list?.itemCount ?? 0) > 0)
+    }
+
+    /// How many dishes a share says: the rows once read, the shelf's count before.
+    public var shownCount: Int {
+        items.isEmpty ? list?.itemCount ?? 0 : count
     }
 }
