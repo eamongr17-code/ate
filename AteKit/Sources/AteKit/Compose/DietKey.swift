@@ -129,7 +129,7 @@ public extension EntryComposition {
             let word = String(decoding: units[index..<end], as: UTF16.self).lowercased()
             if covered.contains(where: { $0.intersects(span) }) == false,
                DietTagLiteral.disqualifying.contains(word) == false,
-               DietTag(code: word) == nil {
+               DietTag(typed: word) == nil {
                 return true
             }
             index = end

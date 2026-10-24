@@ -19,6 +19,12 @@ public enum ListEvents {
         case glass
     }
 
+    /// The Lists title was tapped on the Journal's header (`journal-header.html` B): how often Lists
+    /// are found now the pill is gone.
+    public static func shelfOpened() -> AnalyticsEvent {
+        AnalyticsEvent(name: "lists_shelf_opened")
+    }
+
     public static func renamed() -> AnalyticsEvent {
         AnalyticsEvent(name: "list_renamed")
     }

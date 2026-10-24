@@ -1,0 +1,197 @@
+<title>Ate Page Headers</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Young+Serif&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a Now/New switch over five real-scale iPhones (393×852pt), the rule card above them */
+:root{
+  --page:#F4F1EC; --page-fg:#24141F; --page-mut:#6E6470; --page-line:#DDD6CC; --accent:#F0623F; --butter:#F6D365;
+  --f-dish:"Young Serif",Georgia,serif; --f-ui:"DM Sans",system-ui,sans-serif; --f-mono:"DM Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#151416;--page-fg:#EEEAE4;--page-mut:#9C94A0;--page-line:#2C2A2E;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#151416;--page-fg:#EEEAE4;--page-mut:#9C94A0;--page-line:#2C2A2E;color-scheme:dark}
+body{background:var(--page);color:var(--page-fg);font-family:var(--f-ui);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:36px}
+section{display:flex;flex-direction:column;gap:14px}
+h1{font:400 40px/1.02 var(--f-dish);letter-spacing:-.02em;margin:0;text-wrap:balance}
+h2{font:400 26px/1.05 var(--f-dish);letter-spacing:-.02em;margin:0}
+p.s{margin:0;color:var(--page-mut);font-size:15px;line-height:1.5;max-width:70ch}
+p.s b{color:var(--page-fg);font-weight:600}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--page);padding-block:10px;display:flex;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--page-line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:21;background:var(--page)}
+.seg2{display:flex;gap:6px;align-items:center}
+.seg2 > span{font:500 12px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--page-mut);margin-right:4px}
+.seg2 button{font:600 14px/1 var(--f-ui);padding:9px 13px;border-radius:999px;border:1px solid var(--page-line);background:transparent;color:var(--page-fg);cursor:pointer}
+.seg2 button[aria-pressed="true"]{background:var(--page-fg);color:var(--page);border-color:var(--page-fg)}
+.seg2 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rule{border:1px solid var(--page-line);border-radius:18px;padding:18px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px 28px}
+.rule div{min-width:0}
+.rule .k{font:500 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--page-mut);margin-bottom:6px}
+.rule p{margin:0;font-size:15px;line-height:1.45}
+.rule p span{color:var(--page-mut)}
+.table{overflow-x:auto}
+table{border-collapse:collapse;font-size:14px;min-width:520px;width:100%}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--page-line)}
+th{font:500 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--page-mut)}
+td.n{font-variant-numeric:tabular-nums}
+
+.phones{display:flex;flex-wrap:wrap;gap:24px 20px;justify-content:center}
+.ph-wrap{display:flex;flex-direction:column;gap:10px;align-items:center;width:calc(415px*var(--z,1))}
+.ph-wrap .cap{font:600 15px/1.2 var(--f-ui)}
+.phone{zoom:var(--z,1);width:393px;height:852px;border-radius:55px;position:relative;overflow:hidden;flex:none;
+  box-shadow:0 0 0 10px #1a1a1c,0 0 0 11px #3a3a3e,0 24px 60px rgba(0,0,0,.22);margin:11px;
+  --ground:#EFEAE2;--slip:#fff;--fg:#24141F;--mut:#5E5560;--glass:rgba(255,255,255,.62);--glass-line:rgba(255,255,255,.9);
+  --glass-shadow:0 2px 10px rgba(36,20,31,.10);--pill:#F6D365;--hair:rgba(36,20,31,.12);--ink:#24141F;--ink-fg:#fff;--field:#E4DED4}
+body.dark .phone{--ground:#0C0C0D;--slip:#1C1C1E;--fg:#F5F4F1;--mut:#A5A4A8;--glass:rgba(44,44,48,.6);--glass-line:rgba(255,255,255,.14);
+  --glass-shadow:0 2px 12px rgba(0,0,0,.4);--pill:#E6C65F;--hair:rgba(255,255,255,.12);--ink:#F5F4F1;--ink-fg:#0C0C0D;--field:#2C2C2E}
+.screen{position:absolute;inset:0;background:var(--ground);color:var(--fg);font-family:var(--f-ui);overflow:hidden}
+.status{position:absolute;top:0;left:0;right:0;height:54px;display:flex;justify-content:space-between;align-items:center;padding:6px 34px 0 46px;font:600 17px/1 -apple-system,system-ui,sans-serif;z-index:6}
+.status i{width:58px;height:13px;background:linear-gradient(90deg,var(--fg) 0 62%,transparent 62% 70%,var(--fg) 70%);border-radius:3px}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;background:#000;border-radius:20px;z-index:7}
+.body{position:absolute;inset:54px 0 0;overflow:hidden}
+.hrow{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px}
+.g{height:44px;min-width:44px;border-radius:22px;background:var(--glass);box-shadow:inset 0 0 0 .7px var(--glass-line),var(--glass-shadow);display:inline-flex;align-items:center;justify-content:center;padding:0 4px}
+svg.i{width:22px;height:22px;stroke:var(--fg);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;margin:0 7px}
+
+/* the new header */
+.ph{padding:8px 20px 0;display:flex;flex-direction:column;align-items:flex-start}
+.ph .art{margin-bottom:18px}
+.ph h3{font:400 34px/1.05 var(--f-dish);letter-spacing:-.02em;margin:0;text-wrap:balance}
+.ph .line{display:flex;align-items:center;gap:6px;margin-top:8px;font:500 15px/1.3 var(--f-ui);color:var(--mut);flex-wrap:wrap}
+.ph .line b{font-weight:600;color:var(--fg)}
+.ph .line .chev{font-weight:600}
+.ph .acts{display:flex;gap:10px;margin-top:16px;width:100%}
+.av{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:700 11px/1 var(--f-ui);color:#24141F;background:#7EC4EA;flex:none}
+.btn{flex:1;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;font:600 16px/1 var(--f-ui);letter-spacing:-.01em}
+.btn.ink{background:var(--ink);color:var(--ink-fg)}
+.btn.soft{background:var(--field);color:var(--fg)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.chip{height:34px;padding:0 13px;border-radius:17px;background:var(--slip);display:inline-flex;align-items:center;font:600 15px/1 var(--f-ui)}
+
+/* now-only variants */
+.now-list{display:flex;flex-direction:column;align-items:center;padding:0 20px}
+.now-list h3{font:400 28px/1.05 var(--f-dish);letter-spacing:-.02em;margin:18px 0 0;text-align:center}
+
+/* art */
+.cover{width:160px;height:160px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.cover.big{width:224px;height:224px}
+.pa{background:radial-gradient(circle at 50% 55%,#e9d6c0 0 28%,#26344a 29% 62%,#5a4535 63%)}
+.pb{background:radial-gradient(circle at 40% 40%,#e9a46a,#a65a2a)}
+.pc{background:radial-gradient(circle at 45% 45%,#f07a5a,#b8382a)}
+.pd{background:radial-gradient(circle at 40% 40%,#c9d3b0,#8c9a6c)}
+.pair{display:flex}
+.pair span{width:120px;height:120px;border-radius:26px;box-shadow:0 0 0 3px var(--ground)}
+.pair span:first-child{transform:rotate(-5deg)}
+.pair span:last-child{transform:rotate(5deg);margin-left:-18px;margin-top:10px}
+.avbig{width:72px;height:72px;border-radius:50%;background:#7EC4EA;display:flex;align-items:center;justify-content:center;font:700 32px/1 var(--f-ui);color:#24141F}
+
+/* rows under */
+.rows{margin:22px 12px 0;background:var(--slip);border-radius:22px;padding:4px 16px}
+.r{display:flex;align-items:center;gap:12px;padding:11px 0}
+.r + .r{border-top:1px solid var(--hair)}
+.r .n{font:500 15px/1 var(--f-ui);color:var(--mut);width:14px}
+.r .th{width:48px;height:48px;border-radius:14px;flex:none}
+.r h4{flex:1;margin:0;font:400 18px/1.1 var(--f-dish);letter-spacing:-.01em;min-width:0}
+.r h4 small{display:block;font:500 13px/1.3 var(--f-ui);color:var(--mut);letter-spacing:0;margin-top:3px}
+.tok{background:var(--pill);color:#24141F;border-radius:999px;font:500 13px/1 var(--f-mono);padding:5px 8px;white-space:nowrap}
+.sec{font:400 24px/1.02 var(--f-dish);letter-spacing:-.02em;padding:26px 20px 10px;margin:0}
+.slip{background:var(--slip);margin:16px 12px 0;border-radius:22px;padding:16px 18px}
+.slip .d{display:flex;justify-content:space-between;font:400 20px/1.05 var(--f-dish);padding:6px 0}
+.slip .d b{font:700 22px/1 var(--f-ui);letter-spacing:-.02em}
+.slip .w{font:400 16px/1.5 Georgia,serif;margin:8px 0 0;color:var(--fg)}
+.tabs{position:absolute;left:16px;right:16px;bottom:24px;height:62px;display:flex;gap:10px;z-index:5}
+.tabbar{flex:1;border-radius:31px;background:var(--glass);box-shadow:inset 0 0 0 .7px var(--glass-line),var(--glass-shadow)}
+.plus{width:62px;border-radius:31px;background:var(--glass);box-shadow:inset 0 0 0 .7px var(--glass-line),var(--glass-shadow)}
+.fade{position:absolute;left:0;right:0;bottom:0;height:120px;background:linear-gradient(transparent,var(--ground) 70%);z-index:4}
+</style>
+
+<div class="wrap">
+  <header style="display:flex;flex-direction:column;gap:10px">
+    <h1>One page header</h1>
+    <p class="s">Every pushed page about a thing (a list, a place, a dish, a tag, a person) gets the same header. Today each one has its own size, alignment and line underneath. The tab roots (Journal, Feed, Saved, You) don't change.</p>
+  </header>
+
+  <div class="bar">
+    <div class="seg2" id="verCtl"><span>Show</span>
+      <button type="button" data-v="now" aria-pressed="false">Now</button>
+      <button type="button" data-v="new" aria-pressed="true">New</button>
+    </div>
+    <div class="seg2" id="modeCtl"><span>Mode</span>
+      <button type="button" data-m="light" aria-pressed="true">Light</button>
+      <button type="button" data-m="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+
+  <section>
+    <h2>The header, top to bottom</h2>
+    <div class="rule">
+      <div><div class="k">1 · Picture (if it has one)</div><p>List cover 160, dish photos, a person's avatar 72. <span>Always left, 18 above the title.</span></p></div>
+      <div><div class="k">2 · Title</div><p>Young Serif 34, lines 1.05 apart, left-aligned, up to 3 lines. <span>The place, dish, list, tag or @handle.</span></p></div>
+      <div><div class="k">3 · One line under</div><p>DM Sans 15, muted, names in ink. <span>Who and how many, the place it's at, or the city.</span></p></div>
+      <div><div class="k">4 · Buttons or chips</div><p>16 under the line, full width. <span>Add dishes · Share, or the place's facts.</span></p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What changes per page</h2>
+    <div class="table"><table>
+      <thead><tr><th>Page</th><th>Title now</th><th>Title new</th><th>Other change</th></tr></thead>
+      <tbody>
+        <tr><td>List</td><td class="n">28, centred</td><td class="n">34, left</td><td>Cover 224 centred → 160 left; byline left</td></tr>
+        <tr><td>Place</td><td class="n">36</td><td class="n">34</td><td>Chips unchanged</td></tr>
+        <tr><td>Dish</td><td class="n">32</td><td class="n">34</td><td>Place link 17 → 15, same as every line under a title</td></tr>
+        <tr><td>Tag (a suburb, a craving)</td><td class="n">36, city beside it</td><td class="n">34</td><td>City moves to the line under</td></tr>
+        <tr><td>Person</td><td class="n">26, beside a 56 avatar</td><td class="n">34</td><td>Avatar 72 above, city on the line under</td></tr>
+        <tr><td>Notifications, Following</td><td class="n">36 / 30</td><td class="n">34</td><td>Title only</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>The pages</h2>
+    <div class="phones" id="phones"></div>
+  </section>
+</div>
+
+<script>
+(function(){
+  var I={back:'<svg class="i" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+    share:'<svg class="i" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 13v6h14v-6"/></svg>',
+    more:'<svg class="i" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>'};
+  function frame(inner,more){return '<div class="phone"><div class="screen"><div class="status"><span>9:03</span><i></i></div><div class="island"></div><div class="body">'+
+    '<div class="hrow"><span class="g">'+I.back+'</span><span class="g">'+(more===false?'':I.share)+I.more+'</span></div>'+inner+'</div><div class="fade"></div><div class="tabs"><div class="tabbar"></div><div class="plus"></div></div></div></div>'}
+  function row(n,name,place,cls,score){return '<div class="r">'+(n?'<span class="n">'+n+'</span>':'')+'<span class="th '+cls+'"></span><h4>'+name+'<small>'+place+'</small></h4><span class="tok">★ '+score+'</span></div>'}
+  var listRows='<div class="rows">'+row(1,'Crab Meat Fried Rice','Oriental Spoon','pa','4.0')+row(2,'Grilled Chicken with BBQ Rice','Anan’s Kitchen','pc','4.0')+row(3,'Pad Thai with Chicken','Pad Thai Aree','pb','4.0')+'</div>';
+  var byline='<span class="av">W</span><b>wamon</b>·<span>3 dishes</span>';
+  var acts='<div class="acts"><span class="btn ink">Add dishes</span><span class="btn soft">Share</span></div>';
+  function hdr(art,title,line,extra){return '<div class="ph">'+(art?'<div class="art">'+art+'</div>':'')+'<h3>'+title+'</h3>'+(line?'<div class="line">'+line+'</div>':'')+(extra||'')+'</div>'}
+
+  var pages={
+    list:{cap:'List',
+      now:frame('<div class="now-list"><span class="cover big pa"></span><h3>Thailand Hits</h3><div class="ph" style="padding:0;align-items:center;width:100%"><div class="line" style="justify-content:center">'+byline+'</div>'+acts+'</div></div>'+listRows),
+      nu:frame(hdr('<span class="cover pa"></span>','Thailand Hits',byline,acts)+listRows)},
+    place:{cap:'Place',
+      now:frame('<div class="ph" style="padding-left:12px"><h3 style="font-size:36px">Small Wins</h3><div class="chips"><span class="chip">★ 3.6</span><span class="chip">2 people</span><span class="chip">Armadale</span></div></div><div class="sec">The Top Ate</div><div class="rows" style="margin-top:0">'+row(1,'Caramelised Banana Iced Latte','2 people','pb','4.0')+row(2,'Fried Chicken Pancake','1 person','pc','4.0')+'</div>'),
+      nu:frame(hdr('','Small Wins','',
+        '<div class="chips"><span class="chip">★ 3.6</span><span class="chip">2 people</span><span class="chip">Armadale</span></div>')+'<div class="sec">The Top Ate</div><div class="rows" style="margin-top:0">'+row(1,'Caramelised Banana Iced Latte','2 people','pb','4.0')+row(2,'Fried Chicken Pancake','1 person','pc','4.0')+'</div>')},
+    dish:{cap:'Dish',
+      now:frame('<div class="ph" style="padding-left:12px"><div class="art"><div class="pair"><span class="pb"></span><span class="pc"></span></div></div><h3 style="font-size:32px">Fried Chicken Pancake</h3><div class="line" style="font-size:17px;font-weight:600">Small Wins <span class="chev">›</span></div></div>'),
+      nu:frame(hdr('<div class="pair"><span class="pb"></span><span class="pc"></span></div>','Fried Chicken Pancake','<b>Small Wins</b><span class="chev">›</span>'))},
+    tag:{cap:'Tag',
+      now:frame('<div class="ph"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><h3 style="font-size:36px">Fried Chicken</h3><span style="font:500 16px/1 var(--f-ui);color:var(--mut)">Melbourne</span></div></div><div class="rows">'+row(0,'Fried Chicken Pancake','Small Wins','pc','4.0')+row(0,'Karaage','Hakata Gensuke','pb','3.5')+'</div>',false),
+      nu:frame(hdr('','Fried Chicken','<span>Melbourne</span>')+'<div class="rows">'+row(0,'Fried Chicken Pancake','Small Wins','pc','4.0')+row(0,'Karaage','Hakata Gensuke','pb','3.5')+'</div>',false)},
+    person:{cap:'Person',
+      now:frame('<div class="ph"><div style="display:flex;align-items:center;gap:12px"><span class="avbig" style="width:56px;height:56px;font-size:25px">W</span><div><h3 style="font-size:26px">@wamon</h3><div class="line" style="margin-top:2px;font-size:13px">Melbourne</div></div></div></div><div class="slip"><div class="d">Club Sandwich<b>★ 4.0</b></div><p class="w">Crisp, stacked high, worth the wait.</p></div>',false),
+      nu:frame(hdr('<span class="avbig">W</span>','@wamon','<span>Melbourne</span>')+'<div class="slip"><div class="d">Club Sandwich<b>★ 4.0</b></div><p class="w">Crisp, stacked high, worth the wait.</p></div>',false)}
+  };
+  var order=['list','place','dish','tag','person'];
+  function render(v){document.getElementById('phones').innerHTML=order.map(function(k){return '<div class="ph-wrap"><span class="cap">'+pages[k].cap+'</span>'+(v==='now'?pages[k].now:pages[k].nu)+'</div>'}).join('')}
+  function press(id,attr,val){Array.prototype.forEach.call(document.querySelectorAll('#'+id+' button'),function(b){b.setAttribute('aria-pressed',String(b.dataset[attr]===val))})}
+  document.getElementById('verCtl').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;press('verCtl','v',b.dataset.v);render(b.dataset.v)});
+  document.getElementById('modeCtl').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;press('modeCtl','m',b.dataset.m);document.body.classList.toggle('dark',b.dataset.m==='dark')});
+  render('new');
+  if(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){press('modeCtl','m','dark');document.body.classList.add('dark')}
+  function fit(){var w=Math.min(document.documentElement.clientWidth-32,1320);document.documentElement.style.setProperty('--z',Math.min(1,w/415).toFixed(3))}
+  fit();addEventListener('resize',fit);
+})();
+</script>

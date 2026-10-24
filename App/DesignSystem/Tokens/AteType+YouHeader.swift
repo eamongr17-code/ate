@@ -9,7 +9,7 @@ extension AteTextStyle {
     )
     /// …and its 56pt avatar's letter.
     static let avatarMonogramCompact = AteTextStyle(
-        voice: .display, size: 25, weight: 800, trackingEm: 0, lineHeight: 1.0,
+        voice: .display, size: 25, weight: 700, trackingEm: 0, lineHeight: 1.0,
         textStyle: .title2, maximumSize: 32
     )
 }

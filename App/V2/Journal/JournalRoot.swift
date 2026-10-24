@@ -2,14 +2,14 @@ import AteKit
 import SwiftUI
 import TipKit
 
-/// **The Journal tab's root** — your record, under the wordmark.
+/// **The Journal tab's root** — your record, and your lists.
 ///
-/// One native bar row: the wordmark leading and one glass group trailing (the bell with its count,
-/// search, the filter). Under it the slips, a month's name scrolling with them over its first slip. Scrolled,
-/// the wordmark gives way to the month you are in. The filter is one sheet; while a filter is on its
-/// chips sit under the bar, each with ✕. (Saved is its own tab; the calendar was cut for launch.)
-/// The header is glass (`lighter-header.html`, B): the bar, the switch and the chips step away
-/// together while you scroll down and come back on any scroll up.
+/// One header row (`journal-header.html` B, 24 Oct): "Journal  Lists" leading, two titles that are
+/// the switch, and one glass group trailing (the bell with its count, search, the filter). Under it
+/// the slips, a month's name scrolling with them over its first slip. The filter is one sheet; while a
+/// filter is on its chips sit under the row, each with ✕. (Saved is its own tab; the calendar was cut
+/// for launch; the testers' bug lives on the You tab.) The header is glass (`glass-header.html` 1):
+/// the row and the chips step away together while you scroll down and come back on any scroll up.
 struct JournalRoot: View {
     let router: TabRouter<JournalStores>
     let app: AppModel
@@ -19,12 +19,9 @@ struct JournalRoot: View {
         self.app = app
     }
 
-    @State var isCollapsed = false
-    /// The glass header has stepped away (``SwiftUICore/View/ateRootBarHiding(_:)``).
-    @State var isBarHidden = false
+    /// How far the glass header has stepped away, 0 to 1 (``SwiftUICore/View/ateRootBarHiding(_:)``).
+    @State var barHidden: CGFloat = 0
     @State var isFiltering = false
-    /// The month of the slip at the top of the screen — the inline title, once scrolled.
-    @State var topMonth: AteMonth?
     /// Bumped by every change to what the list is — a filter, a chip cleared — so
     /// the new list starts at its top: a lazy list keeps its offset while its rows are replaced.
     @State var listChanged = 0
@@ -36,9 +33,6 @@ struct JournalRoot: View {
     @State var isSearching = false
     @State var search: JournalSearchStore?
     @State var searchText = ""
-    /// The bug's Feedback sheet (`feedback.html`), testers only.
-    @State var isSendingFeedback = false
-    @State var feedbackToast: String?
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     static let top = "journal.top"
@@ -56,35 +50,20 @@ struct JournalRoot: View {
         }
         .accessibilityIdentifier("v2.root.journal")
         .ateGround()
-        .ateRootToolbar(
-            title: .wordmark,
-            inline: inlineTitle,
-            isCollapsed: isCollapsed,
-            // Searching: the bar steps away and the search screen covers the switch and the shelf.
-            isBarHidden: isSearching || isBarHidden,
-            showsApart: showsBug,
-            apart: { bug },
-            controls: { controls }
-        )
-        // The switch, pinned under the bar as part of the header (22 Oct), never half under it
-        // (build 88), with the filter's chips beneath it on the Journal; the shelf scrolls under
-        // both, behind the scroll-edge effect a safe-area bar extends. It leaves with the bar.
-        .safeAreaBar(edge: .top, spacing: 0) {
-            if isBarHidden == false {
-                VStack(spacing: 0) {
-                    shelfSwitch
-                    if shelf == .journal { activeChips }
-                }
-                .transition(.move(edge: .top).combined(with: .opacity))
+        // One row (`journal-header.html` B, 24 Oct): "Journal  Lists" as the title, the glass group
+        // trailing, and on the Journal the filter's chips beneath; the shelf scrolls under all of it.
+        // Searching, the header steps away and the search screen covers the shelf.
+        .ateGlassRootHeader(
+            hidden: isSearching ? 1 : barHidden,
+            title: { shelfTitles },
+            controls: { controls },
+            accessory: {
+                if shelf == .journal { activeChips }
             }
-        }
+        )
         // Another shelf starts with its header showing.
-        .onChange(of: shelf) { _, _ in isBarHidden = false }
+        .onChange(of: shelf) { _, _ in barHidden = 0 }
         .sheet(isPresented: $isFiltering) { filterSheet }
-        .sheet(isPresented: $isSendingFeedback) {
-            FeedbackSheet(app: app) { feedbackToast = "Report sent. Thank you." }
-        }
-        .ateToast($feedbackToast)
         .overlay { searchOverlay }
         .task { await loadJournal() }
         // Read ahead, so the filter sheet rises with its cities in it.
@@ -119,6 +98,22 @@ struct JournalRoot: View {
             guard isComposing == false else { return }
             Task { await journal.refresh() }
         }
+        // Somebody with an entry is past their first: the composer's Score and Place tips retire.
+        .onChange(of: journal.entries.isEmpty, initial: true) { _, isEmpty in
+            if isEmpty == false { AteTips.firstPostWritten() }
+        }
+    }
+
+    /// The journal's read — and, the first time this launch, how long it took (`list_first_read`).
+    private func loadJournal() async {
+        let isFirst = journal.hasLoaded == false
+        let started = ContinuousClock.now
+        await journal.loadIfNeeded()
+        guard isFirst, journal.hasLoaded, journal.phase != .signedOut else { return }
+        let milliseconds = Int((ContinuousClock.now - started) / .milliseconds(1))
+        app.services.analytics(ShellEvents.listFirstRead(
+            "journal", durationMilliseconds: milliseconds, fromCache: journal.drewFromCache
+        ))
     }
 
     /// The journal's read — and, the first time this launch, how long it took (`list_first_read`).
@@ -134,36 +129,6 @@ struct JournalRoot: View {
     }
 
     // MARK: - The bar
-
-    /// The month you are in, once the wordmark has scrolled away — or, where the list does not run
-    /// through time, "Journal". The year joins a month only when it is not this one.
-    private var inlineTitle: AteInlineTitle {
-        if shelf == .lists { return AteInlineTitle(title: JournalShelf.lists.title) }
-        let runsThroughTime = journal.query.sort.isChronological && journal.phase == .ready
-        if runsThroughTime, let topMonth {
-            let isThisYear = topMonth.year == AteMonth.containing(Date()).year
-            return AteInlineTitle(title: topMonth.name(), subtitle: isThisYear ? nil : String(topMonth.year))
-        }
-        return AteInlineTitle(title: V2Tab.journal.title)
-    }
-
-    /// The bug, apart from the group (`feedback.html` A): TestFlight and Debug builds only, signed in,
-    /// never in an App Store build.
-    private var showsBug: Bool {
-        #if DEBUG || BETA
-        app.hasSession
-        #else
-        false
-        #endif
-    }
-
-    private var bug: some View {
-        Button { isSendingFeedback = true } label: {
-            AteIcon.bug.view(size: AteGlassDiscMetrics.glyph)
-        }
-        .accessibilityLabel("Send feedback")
-        .accessibilityIdentifier("journal.feedback")
-    }
 
     /// Bell, search and filter, in one glass group (`lists-notifications.html` A1). The bell wears one
     /// coral count — unread "Ate with" tags plus photo sittings — and stays on an empty Journal, so a

@@ -7,27 +7,18 @@ import SwiftUI
 extension AteTextStyle {
 
     // Titles — Young Serif (10 Oct: Eamon swapped the headings off Bricolage). Tracking −2% at 24pt
-    // and up, −1% at slip sizes, none below 18. Scores and avatar letters stay Bricolage 800.
+    // and up, −1% at slip sizes, none below 18. Scores and avatar letters are DM Sans 700
+    // (23 Oct: Eamon replaced Bricolage with DM Sans app-wide).
 
     /// A screen's own name: "Feed", "You", "Search". 34pt (40 until Eamon's 6 Oct "some headings are too big"; every
     /// heading stepped down one notch here, never per screen).
     static let screenTitle = AteTextStyle(
         voice: .heading, size: 34, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .largeTitle
     )
-    /// The place at the head of its own page — the biggest type in the app, because on the place
-    /// page the place is the whole subject. 36pt (44 on `Restaurant.dc.html`, stepped down 6 Oct).
-    static let placeTitle = AteTextStyle(
-        voice: .heading, size: 36, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .largeTitle
-    )
     /// A dish's aggregate, printed like a price on its own page. 64pt — the one number big enough
     /// to be read across a table (`Dish.dc.html`).
     static let dishScore = AteTextStyle(
-        voice: .display, size: 64, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .largeTitle
-    )
-    /// The place at the head of the entry page — the biggest type in the app after a screen's own
-    /// name, because on an entry the place IS the title. 32pt (38 before 6 Oct).
-    static let entryPlace = AteTextStyle(
-        voice: .heading, size: 32, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .largeTitle
+        voice: .display, size: 64, weight: 700, trackingEm: -0.03, lineHeight: 1.0, textStyle: .largeTitle
     )
     /// A sheet's title. 26pt (30 before 6 Oct).
     static let sheetTitle = AteTextStyle(
@@ -38,20 +29,22 @@ extension AteTextStyle {
     static let emptyTitle = AteTextStyle(
         voice: .heading, size: 26, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title
     )
-    /// The score a `Ratings` page is about, beside its stars. `.h` at 30.
+    /// The score a `Ratings` page is about, beside its stars. 28pt, the number size.
     static let ratingsScore = AteTextStyle(
-        voice: .display, size: 30, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title
+        voice: .display, size: 28, weight: 700, trackingEm: -0.03, lineHeight: 1.0, textStyle: .title
     )
     /// A number in a statement's cell: "142". 28pt.
     static let statValue = AteTextStyle(
-        voice: .display, size: 28, weight: 800, trackingEm: -0.03, lineHeight: 1.0, textStyle: .title2
+        voice: .display, size: 28, weight: 700, trackingEm: -0.03, lineHeight: 1.0, textStyle: .title2
     )
     /// A pushed page's own name, beside a back arrow: "From your photos". 24pt.
     static let pageTitle = AteTextStyle(
         voice: .heading, size: 24, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title2
     )
-    /// "Pick a handle." — first run's one question, at the size of a place heading its own page.
-    static var handleTitle: AteTextStyle { placeTitle }
+    /// "Pick a handle." — first run's one question. 36pt.
+    static let handleTitle = AteTextStyle(
+        voice: .heading, size: 36, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .largeTitle
+    )
     /// "Write about what you [ate.]" on the first onboarding card: the handle title's size, set a
     /// little closer than `.h`'s 1.0 where the words wrap. The gap down to the logo's line is set
     /// by ``AteTitle``'s wordmark layout, not by this.
@@ -73,16 +66,16 @@ extension AteTextStyle {
     static let slipDish = AteTextStyle(
         voice: .heading, size: 20, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .title3
     )
-    /// …and the score beside it, printed like a price. 26pt at `.h`'s own line height of 1.
+    /// …and the score beside it, printed like a price. 22pt at a line height of 1.
     static let slipScore = AteTextStyle(
-        voice: .display, size: 26, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title2
+        voice: .display, size: 22, weight: 700, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title2
     )
 
-    // Controls — Bricolage 600/700.
+    // Controls — DM Sans 600.
 
     /// The default control label: segment, chip, row. 15pt.
     static let control = AteTextStyle(
-        voice: .display, size: 15, weight: 600, trackingEm: -0.01, lineHeight: 1.2, textStyle: .body
+        voice: .display, size: 15, weight: 600, trackingEm: 0, lineHeight: 1.2, textStyle: .body
     )
     /// A row's own name in a list, and what is typed into a sheet's search field. `.ui` at 17.
     static let rowTitle = AteTextStyle(
@@ -92,9 +85,9 @@ extension AteTextStyle {
     static let controlSmall = AteTextStyle(
         voice: .display, size: 14, weight: 600, trackingEm: -0.01, lineHeight: 1.2, textStyle: .subheadline
     )
-    /// The one ink pill per sheet, and the Share button. 16pt/700.
+    /// The one ink pill per sheet, and the Share button. 16pt/600.
     static let button = AteTextStyle(
-        voice: .display, size: 16, weight: 700, trackingEm: -0.01, lineHeight: 1.2, textStyle: .body
+        voice: .display, size: 16, weight: 600, trackingEm: -0.01, lineHeight: 1.2, textStyle: .body
     )
     /// The count in the journal header's coral badge. 11pt, capped — it lives in an 18pt disc.
     static let badge = AteTextStyle(
@@ -129,7 +122,7 @@ extension AteTextStyle {
     )
     /// …and the live numeral beside it: `.h` at 28, `-.02em`, tabular.
     static let sliderScore = AteTextStyle(
-        voice: .display, size: 28, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title2
+        voice: .display, size: 28, weight: 700, trackingEm: -0.03, lineHeight: 1.0, textStyle: .title2
     )
     /// The letter on a photo-less dish's tile (`NoPhotoA`): `.h` 800 at 26 on a 56 tile, `-.02em`,
     /// scaled with the tile and never with Dynamic Type — it is a picture of the dish, not a label.
@@ -141,17 +134,17 @@ extension AteTextStyle {
     }
     /// A letter in a byline's avatar circle. No tracking — a monogram is centred, not set.
     static let avatarInitial = AteTextStyle(
-        voice: .display, size: 12, weight: 800, trackingEm: 0, lineHeight: 1.0,
+        voice: .display, size: 12, weight: 700, trackingEm: 0, lineHeight: 1.0,
         textStyle: .caption, maximumSize: 16
     )
     /// …and in the 36pt disc beside a dish review. 16pt, capped for the same reason.
     static let avatarInitialMedium = AteTextStyle(
-        voice: .display, size: 16, weight: 800, trackingEm: 0, lineHeight: 1.0,
+        voice: .display, size: 16, weight: 700, trackingEm: 0, lineHeight: 1.0,
         textStyle: .body, maximumSize: 20
     )
     /// …and in the 76pt disc at the head of a profile. 34pt, capped for the same reason.
     static let avatarMonogram = AteTextStyle(
-        voice: .display, size: 34, weight: 800, trackingEm: 0, lineHeight: 1.0,
+        voice: .display, size: 34, weight: 700, trackingEm: 0, lineHeight: 1.0,
         textStyle: .title, maximumSize: 44
     )
 

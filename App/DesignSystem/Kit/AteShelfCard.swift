@@ -39,7 +39,7 @@ struct AteShelfCard: View {
             Button { onOpen?() } label: {
                 VStack(alignment: .leading, spacing: AteShelfCardMetrics.lineGap) {
                     Text(name)
-                        .ateText(.kitShelfDish)
+                        .ateTextExactLifted(.kitShelfDish)
                         .foregroundStyle(palette.fg)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)

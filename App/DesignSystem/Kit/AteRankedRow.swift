@@ -30,8 +30,9 @@ struct AteRankedRow: View {
                         .frame(width: isTrack ? AteRankedRowMetrics.trackRankWidth : AteRankedRowMetrics.rankWidth)
                     AteThumb(photo: photo, size: isTrack ? .menu : .row)
                     VStack(alignment: .leading, spacing: AteRankedRowMetrics.lineGap) {
+                        // Its exact line box, tighter than the face's own (build 181: too airy).
                         Text(name)
-                            .ateText(.kitRankedDish)
+                            .ateTextExactLifted(.kitRankedDish)
                             .foregroundStyle(palette.fg)
                             .lineLimit(2)
                         if let place {

@@ -23,7 +23,8 @@ struct V2EntryPage: View {
     }
 
     var body: some View {
-        // The viewer is hosted here: a photo on the page opens full screen with the native zoom.
+        // The viewer is hosted here too (the same one the shell hosts): a photo on the page flies out
+        // of its tile, full screen.
         V2EntryScreen(entry: entry, context: context)
             .atePhotoViewerHost()
     }
@@ -109,7 +110,12 @@ private struct V2EntryScreen: View {
                 if let receipt = model.receipt, let card = model.card {
                     V2ReceiptShareSheet(
                         receipt: receipt,
-                        photoURLs: card.photos.sorted { $0.position < $1.position }.compactMap { URL(string: $0.url) },
+                        photos: card.photos,
+                        loadPairs: { [model] in
+                            await model.pairPhotosIfNeverPaired()
+                            await model.refreshPhotoDishes()
+                            return model.photoDishes
+                        },
                         source: .entry,
                         analytics: services.analytics
                     )
@@ -166,7 +172,6 @@ private struct V2EntryScreen: View {
             }
             .task(id: moreSubject) { await more.load(moreSubject) }
             .scrollIndicators(.hidden)
-            .scrollEdgeEffectStyle(.soft, for: .top)
             .accessibilityIdentifier("entry.page")
         }
     }

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// **A month's name between slips** — the Journal's divider (`.mdiv`): the month alone, Bricolage
+/// **A month's name between slips** — the Journal's divider (`.mdiv`): the month alone, Young Serif
 /// 800 at 22, scrolling with the list (it never pins). The year joins it, muted, only when it is not
 /// this year's. No count: the inline title already says where you are.
 struct AteMonthHeading: View {
@@ -39,7 +39,7 @@ enum AteMonthHeadingMetrics {
 }
 
 extension AteTextStyle {
-    /// `.mdiv`: Bricolage 800 at 22, `letter-spacing:-.025em`, `line-height:1`.
+    /// `.mdiv`: Young Serif 800 at 22, `letter-spacing:-.025em`, `line-height:1`.
     static let kitMonthHeading = AteTextStyle(
         voice: .heading, size: 22, weight: 800, trackingEm: -0.01, lineHeight: 1.0, textStyle: .title2
     )

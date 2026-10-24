@@ -49,6 +49,16 @@ opt_in_rules:
   - unneeded_parentheses_in_closure_argument
 
 custom_rules:
+  # One header (glass-header.html 1, 24 Oct): every header lies on the kit's glass bar, and the
+  # system's scroll edge is set only by the kit. No screen sets its own edge or bar background.
+  one_header_edge:
+    name: "One header edge"
+    included: "/App/.*\\.swift$"
+    excluded: "/App/DesignSystem/Kit/(AteRootHeader|AteGlassRootHeader)\\.swift$"
+    regex: '\.(scrollEdgeEffectStyle|scrollEdgeEffectHidden|toolbarBackground|toolbarBackgroundVisibility)\s*\('
+    excluded_match_kinds: [comment, doccomment, string]
+    message: "Headers come from the kit (ateGlassRootHeader, ateRootToolbar, ateInlineTitle, ateCollapsingTitle, atePushedBar), which set the one glass bar and edge."
+    severity: error
   # Lucide is the one icon set (round 5): every icon is an `AteIcon` case, never an SF Symbol.
   no_sf_symbols:
     name: "No SF Symbols"

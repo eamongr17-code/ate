@@ -1,41 +1,10 @@
 import AteKit
 import SwiftUI
 
-/// **How a Browse page sits in the native bar** (place, dish, tag): the system's inline bar and back,
-/// the page's name in the content at rest and in the bar once it has scrolled under it, the system's
-/// scroll-edge effect, and the tab bar staying put. Shared by the place and dish pages, which are one
-/// lane's.
+/// **How a Browse page sits in the native bar** (place, dish): the page's name in the content at rest
+/// and in the bar once it has scrolled under it (``SwiftUICore/View/ateTitleCollapse(_:after:)``), and
+/// the tab bar staying put. Shared by the place and dish pages, which are one lane's.
 extension View {
-    /// The page's name as the bar's leading title — shown only while `isShown` (its in-content title
-    /// has scrolled away). The system's own title slot is removed, as on every inline title.
-    func browseBarTitle(_ title: String?, isShown: Bool) -> some View {
-        navigationTitle(title ?? "")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar(removing: .title)
-            .toolbar {
-                if isShown, let title {
-                    ToolbarItem(placement: .topBarLeading) {
-                        AteInlineTitle(title: title)
-                            .accessibilityIdentifier("page.inlineTitle")
-                    }
-                    .sharedBackgroundVisibility(.hidden)
-                }
-            }
-            .animation(AteRootHeaderMetrics.collapse, value: isShown)
-            .ateHeaderGround()
-    }
-
-    /// Reports whether the page has scrolled past `threshold` — the bottom of its in-content title,
-    /// measured in the scrolled content.
-    func browseCollapse(_ isCollapsed: Binding<Bool>, after threshold: CGFloat) -> some View {
-        onScrollGeometryChange(for: Bool.self) { geometry in
-            threshold > 0 && geometry.contentOffset.y + geometry.contentInsets.top > threshold
-        } action: { _, collapsed in
-            isCollapsed.wrappedValue = collapsed
-        }
-        .scrollEdgeEffectStyle(.soft, for: .top)
-    }
-
     /// Measures where this view ends in the page's scrolled content (``BrowsePage/content``).
     func browseTitleBottom(_ bottom: Binding<CGFloat>) -> some View {
         onGeometryChange(for: CGFloat.self) {

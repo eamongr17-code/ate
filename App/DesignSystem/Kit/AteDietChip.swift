@@ -48,7 +48,7 @@ struct AteDietChips: View {
 
 /// **A diet code as a button** — where a code is chosen rather than shown: the filter sheet's Diet
 /// group and the composer's Diet unfold, so the two match. Key size (40 high, a 44 target),
-/// Bricolage 600 at 14; the field colour when off, ink with light lettering when on. The display
+/// DM Sans 600 at 14; the field colour when off, ink with light lettering when on. The display
 /// chip (``AteDietChip``) stays the small tag a dish wears.
 struct AteDietPill: View {
     let tag: DietTag
@@ -87,56 +87,111 @@ enum AteDietPillMetrics {
     static let hitOutset: CGFloat = (AteMetrics.hit - AteMetrics.keyHeight) / 2
 }
 
-/// **A code below the label, said literally** — the dish page's `.signal` (`diet.html`): the code's
-/// chip, then "Ordered by 2 vegan eaters", muted, 8 apart.
-struct AteDietSignalLine: View {
-    let tag: DietTag
-    let line: String
+// MARK: - The counts behind the pills
+
+/// **The "?" after a dish's diet pills** (`diet-more.html`): the pills say nothing about numbers, so
+/// this opens them — a small popover listing each code, its name and how many people of that diet
+/// logged the dish. A plain circled "?", 22 across, with a full finger's target.
+struct AteDietCountsButton<Popover: View>: View {
+    @Binding var isPresented: Bool
+    var onOpen: (() -> Void)?
+    @ViewBuilder var popover: Popover
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        HStack(spacing: AteDietSignalMetrics.gap) {
-            AteDietChip(tag: tag, onGround: true)
-            Text(line)
-                .ateText(.kitDietSignal)
+        Button {
+            onOpen?()
+            isPresented = true
+        } label: {
+            Text(verbatim: "?")
+                .ateText(.controlSmall)
                 .foregroundStyle(palette.muted)
+                .frame(width: AteDietCountsMetrics.disc, height: AteDietCountsMetrics.disc)
+                .overlay(Circle().strokeBorder(palette.muted, lineWidth: AteDietCountsMetrics.ring))
+                .frame(width: AteMetrics.hit, height: AteMetrics.hit)
+                .contentShape(.rect)
+                .padding(-AteDietCountsMetrics.hitBleed)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("dish.diet.\(tag.rawValue)")
+        .buttonStyle(.plain)
+        .accessibilityLabel("Diet counts")
+        .accessibilityIdentifier("diet.counts")
+        .ateDietCountsPopover(isPresented: $isPresented) { popover }
     }
 }
 
-/// **What a place's dish row says about the diet chips that are on** (`diet.html`, the place page):
-/// the code's chip where the dish is labelled, the line "Ordered by N … eaters" where it is counted,
-/// 6 apart, under the dish's name.
-struct AteDietSignalRow: View {
-    let signals: [DietSignal]
+/// **The popover itself** — one line per row: the code's pill (on the dish page), what it is, and
+/// the person glyph with the count. Under a hairline, the one reminder: what people ate is not a
+/// promise about allergens.
+struct AteDietCountsList: View {
+    struct Row: Identifiable, Hashable {
+        let id: String
+        /// The code's pill, where the rows are codes; a place's rows are dishes and carry none.
+        var tag: DietTag?
+        let title: String
+        let people: String
+    }
+
+    let rows: [Row]
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        HStack(spacing: AteDietSignalMetrics.rowGap) {
-            ForEach(signals) { signal in
-                if let line = signal.line {
-                    Text(line)
-                        .ateText(.meta)
-                        .foregroundStyle(palette.muted)
+        VStack(alignment: .leading, spacing: AteDietCountsMetrics.rowGap) {
+            ForEach(rows) { row in
+                HStack(spacing: AteDietCountsMetrics.gap) {
+                    if let tag = row.tag {
+                        AteDietChip(tag: tag)
+                            .frame(minWidth: AteDietCountsMetrics.pillColumn, alignment: .leading)
+                    }
+                    Text(row.title)
+                        .ateText(.kitDietSignal)
+                        .foregroundStyle(palette.fg)
                         .lineLimit(1)
-                } else {
-                    AteDietChip(tag: signal.tag)
+                    Spacer(minLength: AteDietCountsMetrics.gap)
+                    HStack(spacing: AteMetrics.tight) {
+                        AteIcon.feed.view(size: AteDishAggregateMetrics.peopleIcon)
+                        Text(row.people).ateText(.controlSmall).monospacedDigit()
+                    }
+                    .foregroundStyle(palette.fg)
                 }
+                .accessibilityElement(children: .combine)
             }
+            AteHairline()
+            Text(AteDietCountsCopy.caveat)
+                .ateText(.meta)
+                .foregroundStyle(palette.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .accessibilityElement(children: .combine)
+        .padding(AteDietCountsMetrics.padding)
+        .frame(width: AteDietCountsMetrics.width)
     }
 }
 
-enum AteDietSignalMetrics {
-    /// `.signal{gap:8px}`; under the aggregate `margin-top:10px`.
-    static let gap: CGFloat = 8
-    static let top: CGFloat = 10
-    /// `.nm .meta{gap:6px; margin-top:3px}`.
-    static let rowGap: CGFloat = 6
-    static let rowTop: CGFloat = 3
+extension View {
+    /// A real popover on the phone too, pointing at what opened it, rather than a sheet.
+    func ateDietCountsPopover<Content: View>(
+        isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Content
+    ) -> some View {
+        popover(isPresented: isPresented, arrowEdge: .top) {
+            content().presentationCompactAdaptation(.popover)
+        }
+    }
+}
+
+enum AteDietCountsCopy {
+    static let caveat = "Not a guarantee. Check allergies with staff."
+}
+
+enum AteDietCountsMetrics {
+    static let disc: CGFloat = 22
+    static let ring: CGFloat = 1.5
+    /// The 44 target spills past the 22 disc without pushing its neighbours away.
+    static let hitBleed: CGFloat = (AteMetrics.hit - disc) / 2
+    static let width: CGFloat = 300
+    static let padding: CGFloat = 16
+    static let rowGap: CGFloat = 10
+    static let gap: CGFloat = 10
+    /// The pills line up in a column wide enough for HALAL.
+    static let pillColumn: CGFloat = 52
 }

@@ -331,6 +331,8 @@ struct FeedNewRows: View {
 struct FeedSlip: View {
     let entry: EntryCard
     let actions: FeedEditionActions
+    /// The Save tip, on this slip's first bookmark (the beta Feed's first saveable slip).
+    var saveTip: SaveTip?
 
     var body: some View {
         AteEntrySlip(
@@ -338,10 +340,14 @@ struct FeedSlip: View {
             surface: .feed,
             onOpen: { actions.push(.entry(EntryRoute(entry))) },
             onProfile: { actions.push(.profile(entry.authorID)) },
-            onSave: { actions.saveFromSlip(entry, $0) },
+            onSave: {
+                SaveTip().invalidate(reason: .actionPerformed)
+                actions.saveFromSlip(entry, $0)
+            },
             onPlace: { actions.push(.place($0)) },
             onDish: { actions.push(.dish($0.dishID)) },
-            identifier: "feed.slip"
+            identifier: "feed.slip",
+            saveTip: saveTip
         )
         .ateCardWidth()
         .simultaneousGesture(LongPressGesture().onEnded { _ in

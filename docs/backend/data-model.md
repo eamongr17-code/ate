@@ -66,7 +66,7 @@ line — `correct_entry_dish`, or any author UPDATE of `dish_id`/`score`/`note`;
 unscored is the normal case; `reviews_score_halfstep` passes NULL, 0.5–5.0 in half steps, or **exactly 6** (0041; 5.5 is `23514`). A sorter-written
 line inherits the entry's `created_at`, so `reviews.created_at` IS the visit's date.
 **Multiple reviews per (user, dish) remain allowed by design** (sittings). No constraint, ever.
-**`tags` text[] NOT NULL `{}` (0036)**: dietary codes, CHECK `reviews_tags_closed_set` (`<@ {gf,df,v,vg,nf}`,
+**`tags` text[] NOT NULL `{}` (0036, 0084)**: dietary codes, CHECK `reviews_tags_closed_set` (`<@ {gf,df,v,vg,nf,pe,ha,ef,pf,sf}`,
 else `23514`), trigger-canonicalised (lower, deduped, list order, NULL → `{}`). The USER'S, never inferred:
 the author's PATCH (owner-only RLS; not a correction) or client-marked tag tokens via the sorter. **A re-sort
 never removes a tag** — a rebuilt line inherits its predecessor's (R3 matching). Not `review_tags` (people).
@@ -104,6 +104,9 @@ exact by triggers: a place's own row on insert/update/delete plus every place sh
 `cities` rebuilds it. `place_cities` reads it. Catalogue data only — nothing viewer-relative is cached.
 **Any future change to `place_locality()`, `city_at()` or the city rule itself must call `place_city_rebuild()`** in the
 same migration — the triggers only notice writes to `restaurants` and `cities`, not a changed function.
+
+### `chains` (0085)
+A chain is one place for dishes. `restaurants.chain_id` → `chains` (name, `website_host`, `anchor_restaurant_id`). **A chain's dishes all live at its anchor**, so dish identity, `merge_dish` and `reviews.restaurant_id == dishes.restaurant_id` are unchanged; `entries.restaurant_id` keeps the exact location. **Every place read and dish write goes through `place_menu(place)`** (anchor, else itself); "entries here" / visits use `place_family(place)` (every location). A chain dish shows no suburb (`dish_locality`). Linked automatically: same `dish_key(name)` + same Google website host (a shared social/ordering host never links), via `chain_candidates` → `chain_record_and_link` (places-search in the background; the Prod apply's backfill). `chain_attach` merges a joining location's dishes onto the menu (`dish_merges.reason='chain'`); `chain_detach`/`chain_dissolve` undo it. Service role only.
 
 ### `dish_tag_links` (0053)
 A dish's chips. PK `(dish_id, kind, slug)` (TOTAL — the ON CONFLICT arbiter the writers use), `label`, `source`, `ord`; index `(kind, slug, dish_id)`.
@@ -276,3 +279,5 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0073 | `list_covers_and_people` | `user_lists.cover_item_id`/`cover_url`; `user_list_members` (invited → accepted, ≤ 20, owner writes via RPC); notifications `list_id` + `list_invite` type; `set_list_cover`, `set_list_people`, `list_people`, `my_list_invites`, `respond_list_invite`, `leave_list`; `my_lists`/`get_list` rebuilt as definer with shared lists; `push_claim_list_invites` + send-push sends invites |
 | 0074 | `diet` | `profiles.diet` (+ column grant); `reviews.diet_tags`/`diet_off` + trigger `reviews_tags_diet`; `apply_entry_sort` stamps new lines, `correct_entry_place` prints the plan's stamp (create or replace); `entry_cards.items[].diet_tags`; `dish_consensus_tags` = the label rule (constants `dish_label_min_people`, `dish_label_window`), `dish_diet_counts`; `dish_summary`/`place_dishes` + `diet_counts` (drop+create, browse twins too); vg-aware pre-filters in `place_has_tagged_dish`, `tag_dish_ids`, `dishes_by_tag` |
 | 0080 | `suggestions_nearby` | `suggestion_area`/`in_suggestion_area`/`suggestion_radius_m` (25 km); `similar_dishes` + `p_lat`/`p_lng` and `dishes_by_tag` + `p_lat`/`p_lng` (drop+create): suggestions only from places near the phone, else the dish's place, else your last located entry; `p_city` and suburb/city chips keep their own area |
+| 0084 | `more_diet_options` | five codes (`pe` pescatarian, `ha` halal, `ef`, `pf`, `sf`) in every closed set; `diet_tags_implied`: vg ⇒ v, df, ef, pe; v ⇒ pe; nf ⇒ pf; `dish_diet_counts` holds every counted, unvetoed code (the app's "?" popover) |
+| 0086 | `ate_with_copy` | `ate_with_prefill` + `body` and `dishes[].score` (the tagger's words and first-line scores) for "Copy their review"; additive |

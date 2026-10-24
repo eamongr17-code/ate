@@ -21,7 +21,8 @@ private enum Fixture {
     /// A tag `minutesAgo` old, at Tipo 00 with three dishes.
     static func tag(
         minutesAgo: Double, createdAt: Date? = nil, id: UUID = UUID(), read: Bool = false,
-        sortStatus: EntrySortStatus = .sorted, dishes: [AteWithPrefill.Dish] = [ragu, tiramisu, prawns]
+        sortStatus: EntrySortStatus = .sorted, dishes: [AteWithPrefill.Dish] = [ragu, tiramisu, prawns],
+        body: String? = nil
     ) -> InMemoryNotifications.Tag {
         let companionID = UUID()
         let entryID = UUID()
@@ -34,7 +35,7 @@ private enum Fixture {
             ),
             prefill: AteWithPrefill(
                 companionID: companionID, entryID: entryID, visitedAt: visited, sortStatus: sortStatus,
-                tagger: tagger, place: place, dishes: dishes
+                tagger: tagger, place: place, dishes: dishes, body: body
             )
         )
     }
@@ -93,6 +94,23 @@ struct AteWithDecodingTests {
         #expect(prefill.place?.address == "361 Little Bourke St")
         #expect(prefill.dishes.count == 2)
         #expect(prefill.isStillSorting == false)
+    }
+
+    @Test func prefillDecodesTheReviewToCopy() throws {
+        let json = Data("""
+        {"companion_id":"6f1c4b2a-0000-4000-8000-0000000000c1","status":"pending","response_entry_id":null,
+         "entry_id":"6f1c4b2a-0000-4000-8000-0000000000e1","visited_at":"2026-09-19T09:30:00+00:00",
+         "sort_status":"sorted","body":"Ragù was the best I've had this year.",
+         "tagger":{"id":"6f1c4b2a-0000-4000-8000-0000000000aa","username":"eamon","name":null,"avatar_url":null},
+         "place":null,
+         "dishes":[{"dish_id":"6f1c4b2a-0000-4000-8000-0000000000d1","dish_name":"Ragù","position":1,"score":4.5},
+                   {"dish_id":"6f1c4b2a-0000-4000-8000-0000000000d2","dish_name":"Tiramisu","position":2,"score":null},
+                   {"dish_id":"6f1c4b2a-0000-4000-8000-0000000000d3","dish_name":"Odd","position":3,"score":4.3}]}
+        """.utf8)
+        let prefill = try PostgRESTDate.decoder.decode(AteWithPrefill.self, from: json)
+        #expect(prefill.dishes.map { $0.score?.value } == [4.5, nil, nil], "an unreadable score loses only the copy")
+        #expect(prefill.taggerWords == "Ragù was the best I've had this year.")
+        #expect(prefill.hasReviewToCopy)
     }
 
     @Test func itemsEncodeScoreOnlyWhenScored() throws {
@@ -194,6 +212,65 @@ struct NotificationsStoreTests {
 @Suite("Ate with: answering a tag")
 struct AteWithRespondTests {
 
+    /// Eamon's review of the visit: two of three dishes scored, and words.
+    private static func reviewed() throws -> InMemoryNotifications.Tag {
+        let ragu = AteWithPrefill.Dish(dishID: Fixture.ragu.dishID, dishName: Fixture.ragu.dishName, position: 1,
+                                       score: try #require(Rating(exactly: 4)))
+        let prawns = AteWithPrefill.Dish(dishID: Fixture.prawns.dishID, dishName: Fixture.prawns.dishName,
+                                         position: 3, score: try #require(Rating(exactly: 4.5)))
+        return Fixture.tag(minutesAgo: 1, dishes: [ragu, Fixture.tiramisu, prawns],
+                           body: "  Ragù was the best I've had this year. ")
+    }
+
+    @Test func copyTheirReviewFillsScoresAndWordsAndStaysEditable() async throws {
+        let tag = try Self.reviewed()
+        let companionID = try #require(tag.notification.companionID)
+        let service = InMemoryNotifications(tags: [tag], viewer: Fixture.viewer, firstOrderNumber: 39)
+        let recorded = Recorded()
+        let model = AteWithRespondModel(companionID: companionID, service: service, analytics: recorded.recorder)
+        await model.load()
+        #expect(model.canCopy)
+
+        model.copyTaggerReview()
+        #expect(model.lines.map { $0.score?.value } == [4, nil, 4.5], "his unscored dish stays unscored")
+        #expect(model.body == "Ragù was the best I've had this year.")
+        #expect(model.current == Fixture.tiramisu.dishID, "the slide waits on the row still empty")
+        #expect(model.canCopy == false, "the pill goes once used")
+        #expect(recorded.events.last?.parameters == ["scores": "2", "has_words": "true"])
+
+        // Still hers: re-score one, then post.
+        model.finish(at: try #require(Rating(exactly: 3)))
+        #expect(model.lines.map { $0.score?.value } == [4, 3, 4.5])
+        let card = try await model.post()
+        #expect(card.authorID == Fixture.viewer.id)
+        #expect(recorded.events.last?.parameters["copied"] == "true")
+    }
+
+    @Test func copyOnlyBeforeAnythingOfHerOwn() async throws {
+        let tag = try Self.reviewed()
+        let companionID = try #require(tag.notification.companionID)
+        let model = AteWithRespondModel(
+            companionID: companionID,
+            service: InMemoryNotifications(tags: [tag], viewer: Fixture.viewer, firstOrderNumber: 1)
+        )
+        await model.load()
+        model.finish(at: try #require(Rating(exactly: 2)))
+        #expect(model.canCopy == false, "a score of her own hides it")
+        model.copyTaggerReview()
+        #expect(model.lines.first?.score?.value == 2, "and a stray call changes nothing")
+    }
+
+    @Test func nothingToCopyWithoutScoresOrWords() async throws {
+        let tag = Fixture.tag(minutesAgo: 1)
+        let companionID = try #require(tag.notification.companionID)
+        let model = AteWithRespondModel(
+            companionID: companionID,
+            service: InMemoryNotifications(tags: [tag], viewer: Fixture.viewer, firstOrderNumber: 1)
+        )
+        await model.load()
+        #expect(model.canCopy == false)
+    }
+
     @Test func prefillThenPostCreatesTheirOwnEntryAndTheRowGoes() async throws {
         let tag = Fixture.tag(minutesAgo: 1)
         let companionID = try #require(tag.notification.companionID)
@@ -229,7 +306,7 @@ struct AteWithRespondTests {
         #expect(card.orderNumber == 39)
         #expect(recorded.events.last?.name == "ate_with_posted")
         #expect(recorded.events.last?.parameters
-            == ["scored": "2", "removed": "1", "unscored": "0", "has_words": "false"])
+            == ["scored": "2", "removed": "1", "unscored": "0", "has_words": "false", "copied": "false"])
 
         // A retry with the same minted id is the same card, not a second entry.
         let again = try await service.respond(companionID: companionID, entryID: model.entryID, items: [], body: "")
@@ -310,5 +387,14 @@ struct AteWithRespondTests {
         #expect(card.body == "Stole half his pasta.")
         #expect(card.items.allSatisfy { $0.score == nil }, "never inferred")
         #expect(card.avgScore == nil)
+    }
+}
+
+struct PushPermissionEventTests {
+    @Test("the receipt's ask is counted under its own trigger")
+    func receiptTrigger() {
+        let event = NotificationEvents.pushPermissionResult(granted: true, trigger: .receipt)
+        #expect(event.name == "push_permission_result")
+        #expect(event.parameters == ["granted": "true", "trigger": "receipt"])
     }
 }

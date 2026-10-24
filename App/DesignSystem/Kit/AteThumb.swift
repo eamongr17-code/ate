@@ -47,7 +47,7 @@ struct AteThumb: View {
 }
 
 /// **The letter tile**: the slot filled with the dish's own accent (never butter, which means a
-/// score), its first letter in Bricolage 800, ink. Neighbours in a list never share an accent
+/// score), its first letter in Young Serif, ink. Neighbours in a list never share an accent
 /// (``DishLetter/neighbourly(_:)``).
 struct AteLetterTile: View {
     let dish: DishLetter

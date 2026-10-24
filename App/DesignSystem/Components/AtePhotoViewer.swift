@@ -30,16 +30,15 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// Hosts the photo viewer for everything beneath this view. A photo opens with the system's own
-    /// `.zoom` transition, growing out of the tile that was tapped and shrinking back into it on a
-    /// swipe down (round 4, Eamon picked B).
+    /// Hosts the photo viewer for everything beneath this view. A photo grows out of the tile that was
+    /// tapped and lands back in it on a swipe down or the close button (``AtePhotoFlightImage``).
     func atePhotoViewerHost() -> some View {
         modifier(AtePhotoViewerHost())
     }
 }
 
 /// What the viewer is showing: every photo of one entry (or one dish), where it opened, and — when a
-/// tile opened it — where each photo sits on the page, so the zoom can grow out of it and shrink
+/// tile opened it — where each photo sits on the page, so the photo can grow out of it and shrink
 /// back into it.
 private struct AtePhotoViewing: Identifiable {
     let id = UUID()
@@ -51,10 +50,12 @@ private struct AtePhotoViewing: Identifiable {
 
 private struct AtePhotoViewerHost: ViewModifier {
     @State private var viewing: AtePhotoViewing?
-    /// The photo showing now, so the zoom shrinks back into the tile the reader swiped to.
+    /// The photo showing now, so it lands back in the tile the reader swiped to.
     @State private var zoomIndex = 0
     @State private var relay = AtePhotoOriginRelay()
-    @Namespace private var zoomSpace
+    /// The flying photo is on the screen over its tile: until it lands back, the tile itself is
+    /// hidden, so the photo is never on the page twice.
+    @State private var isUp = false
 
     func body(content: Content) -> some View {
         let viewingBinding = $viewing
@@ -62,42 +63,55 @@ private struct AtePhotoViewerHost: ViewModifier {
         let relay = relay
         content
             .environment(\.atePhotoOriginRelay, relay)
-            .environment(\.atePhotoZoomNamespace, zoomSpace)
+            .environment(\.atePhotoHiddenSource, isUp ? viewing.map(hiddenSource) : nil)
             .environment(\.atePhotoViewer, AtePhotoViewerAction { photos, index, dishes in
                 guard photos.isEmpty == false else { return }
                 AteTelemetry.record(BrowseEvents.photoPreviewOpened(photoCount: photos.count))
                 let index = min(max(0, index), photos.count - 1)
-                // Before the cover goes up: the zoom reads its source as it presents, and a stale
-                // index grew every photo out of the first tile (15 Oct).
-                zoomBinding.wrappedValue = index
-                viewingBinding.wrappedValue = AtePhotoViewing(
-                    photos: photos,
-                    index: index,
-                    origin: relay.take(),
-                    dishes: dishes
-                )
+                // The viewer draws its own flight out of the tile, so the cover itself goes up and
+                // comes down without the system's slide or zoom.
+                withTransaction(AtePhotoViewerHost.instant) {
+                    zoomBinding.wrappedValue = index
+                    viewingBinding.wrappedValue = AtePhotoViewing(
+                        photos: photos,
+                        index: index,
+                        origin: relay.take(),
+                        dishes: dishes
+                    )
+                }
             })
             .fullScreenCover(item: $viewing) { viewing in
                 AtePhotoViewer(
                     photos: viewing.photos,
                     index: viewing.index,
-                    dragsToDismiss: false,
+                    origin: viewing.origin,
                     dishes: viewing.dishes,
                     onIndex: { zoomIndex = $0 },
-                    onClose: { viewingBinding.wrappedValue = nil }
+                    onLeftTile: { isUp = true },
+                    onLanded: { isUp = false },
+                    onClose: {
+                        withTransaction(AtePhotoViewerHost.instant) {
+                            isUp = false
+                            viewingBinding.wrappedValue = nil
+                        }
+                    }
                 )
-                .navigationTransition(.zoom(sourceID: zoomSource(viewing), in: zoomSpace))
-                // Black under the zoom: the cover's own ground is the system's white, which showed
-                // round the edges while the viewer's black faded in (feedback #1, 22 Oct).
-                .presentationBackground(AteColor.viewerGround)
+                // The page stays underneath: the viewer's own black fades over it, and the photo
+                // flies between it and its tile (24 Oct: the system zoom shrank the whole screen,
+                // black and all, into the tile).
+                .presentationBackground(.clear)
             }
     }
 
-    /// The tile the zoom grows from and returns to: the one now showing, when the page has it (a
-    /// slip's cluster shows three of an entry's photos), else the one that was tapped.
-    private func zoomSource(_ viewing: AtePhotoViewing) -> String {
-        let tiles = viewing.origin?.tiles ?? [:]
-        return tiles[zoomIndex]?.sourceID ?? tiles[viewing.index]?.sourceID ?? "photo.none"
+    private static var instant: Transaction {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        return transaction
+    }
+
+    /// The tile the photo showing now lands in: the one now showing, when the page has it, else none.
+    private func hiddenSource(_ viewing: AtePhotoViewing) -> String {
+        viewing.origin?.tiles[zoomIndex]?.sourceID ?? "photo.none"
     }
 }
 
@@ -109,16 +123,21 @@ private struct AtePhotoViewerHost: ViewModifier {
 /// Deliberately the system's own shape rather than the app's — this is the one place in Ate that is
 /// not paper. There is no chrome beyond the close button (design rule 1), no counter beyond the page
 /// dots a multi-photo entry already earns, and no editing of the photo itself. The one caption is
-/// an entry photo's dish (``AtePhotoDishPill``), which is the only place a photo is named; a photo
+/// an entry photo's dish (``AtePhotoDishCaption``), which is the only place a photo is named; a photo
 /// of several dishes names each over it on a tap (``AtePhotoDishNames``).
 struct AtePhotoViewer: View {
     let photos: [AtePhoto]
     /// Which one was tapped.
     @State var index: Int
-    /// Off under the native zoom (B), whose own drag-down owns the dismissal.
-    var dragsToDismiss = true
+    /// Where each photo sits on the page, when a tile opened it: the photo flies out of its tile and
+    /// lands back in it. Without one it fades.
+    var origin: AtePhotoOrigin?
     var dishes: AtePhotoDishes?
     var onIndex: (Int) -> Void = { _ in }
+    /// The flying photo is on the screen over its tile: the tile can step aside.
+    var onLeftTile: () -> Void = {}
+    /// The photo is back on its tile, exactly: the tile can come back under it.
+    var onLanded: () -> Void = {}
     var onClose: () -> Void
 
     /// The pairs as they stand here: a fix shows at once, and goes back if the server refuses it.
@@ -131,7 +150,15 @@ struct AtePhotoViewer: View {
     @State private var imageSizes: [Int: CGSize] = [:]
     @State private var isZoomed = false
     @State private var drag: CGFloat = 0
-    @State private var isShowing = false
+    /// **The one number the open and the close run on**: 0 on the tile (or unseen), 1 open. The
+    /// flying photo's place and shape, the black, the caption and the close button all follow it.
+    @State private var openness: CGFloat = 0
+    /// The photo flying instead of the pager, its way fixed before it sets off; `nil` at rest, and
+    /// for a photo that fades.
+    @State private var flight: AtePhotoFlightPath?
+    @State private var isClosing = false
+    /// Where the pager draws the photo now showing, in window coordinates: where the flight lands.
+    @State private var page: CGRect?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// How far a drag has to travel, or how fast, before letting go puts the photo away.
@@ -141,60 +168,76 @@ struct AtePhotoViewer: View {
     init(
         photos: [AtePhoto],
         index: Int,
-        dragsToDismiss: Bool = true,
+        origin: AtePhotoOrigin? = nil,
         dishes: AtePhotoDishes? = nil,
         onIndex: @escaping (Int) -> Void = { _ in },
+        onLeftTile: @escaping () -> Void = {},
+        onLanded: @escaping () -> Void = {},
         onClose: @escaping () -> Void
     ) {
         self.photos = photos
         _index = State(initialValue: index)
-        self.dragsToDismiss = dragsToDismiss
+        self.origin = origin
         self.dishes = dishes
         _paired = State(initialValue: dishes?.paired ?? [:])
+        // On its tile from the viewer's very first frame, over the tile it came from.
+        _flight = State(initialValue: Self.path(photos, at: index, origin: origin, page: nil, drag: 0))
         self.onIndex = onIndex
+        self.onLeftTile = onLeftTile
+        self.onLanded = onLanded
         self.onClose = onClose
     }
 
     var body: some View {
         ZStack {
             AteColor.viewerGround
-                .opacity(isShowing ? backdrop : 0)
+                .opacity(Double(openness) * backdrop)
                 .ignoresSafeArea()
             TabView(selection: $index) {
                 ForEach(Array(photos.enumerated()), id: \.offset) { position, photo in
                     ZoomablePhoto(
                         photo: photo,
                         isZoomed: position == index ? $isZoomed : .constant(false),
-                        dragsToDismiss: dragsToDismiss,
-                        onDrag: { drag = $0 },
+                        // Down only: a drag up has nowhere to put the photo, and slid it up off the
+                        // black with the page showing through (build 200).
+                        onDrag: { drag = max(0, $0) },
                         onDragEnd: finishDrag,
                         onTap: { tapped(at: position) },
                         onImageSize: { size in if imageSizes[position] != size { imageSizes[position] = size } }
                     )
                     .overlay {
-                        if position == index, isZoomed == false, drag == 0 {
+                        if position == index, isZoomed == false, drag == 0, flight == nil {
                             dishNames(at: position)
                         }
+                    }
+                    .onGeometryChange(for: CGRect.self) { proxy in proxy.frame(in: .global) } action: { frame in
+                        notePage(frame)
                     }
                     .tag(position)
                     .accessibilityLabel("Photo \(position + 1) of \(photos.count)")
                     .accessibilityAddTraits(.isImage)
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: photos.count > 1 && isZoomed == false ? .always : .never))
+            .tabViewStyle(.page(indexDisplayMode: showsDots ? .always : .never))
             .ignoresSafeArea()
-            .offset(y: drag)
-            .opacity(isShowing ? 1 : 0)
+            .modifier(AtePhotoDragged(drag: drag))
+            // Hidden, not removed, while the photo flies: laid out and holding its picture, so it
+            // is ready the moment the photo lands on it.
+            .opacity(flight == nil ? Double(openness) : 0)
+            if let flight {
+                AtePhotoFlightImage(path: flight, progress: openness)
+            }
         }
         .overlay(alignment: .topLeading) {
             AteIconButton(icon: .close, label: "Close", size: 24, tint: AteColor.overPhoto) { close() }
                 .padding(.leading, AteMetrics.snug)
-                .opacity(isShowing && drag == 0 ? 1 : 0)
+                .opacity(drag == 0 ? Double(openness) : 0)
         }
         .overlay(alignment: .bottom) {
             dishName
-                .opacity(isShowing && drag == 0 && isZoomed == false ? 1 : 0)
+                .opacity(drag == 0 && isZoomed == false ? Double(openness) : 0)
         }
+        .background { AteOnWindow { open() } }
         .statusBarHidden()
         .accessibilityIdentifier("entry.photoViewer")
         .accessibilityAction(.escape) { close() }
@@ -209,15 +252,6 @@ struct AtePhotoViewer: View {
         }
         // A link that arrives while a photo is up waits for it to close.
         .ateCoversThePage()
-        .onAppear {
-            // Under the zoom the transition itself brings the photo in; a fade on top of it would
-            // start the grow from black.
-            guard dragsToDismiss else {
-                isShowing = true
-                return
-            }
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { isShowing = true }
-        }
         .onChange(of: index) { _, index in
             namesShown = false
             onIndex(index)
@@ -225,13 +259,99 @@ struct AtePhotoViewer: View {
         .task { await loadPairs() }
     }
 
+    private var showsDots: Bool {
+        photos.count > 1 && isZoomed == false && flight == nil && isClosing == false
+    }
+
+    /// Where a page at rest draws its photo: a drag or a swipe to the next photo moves the pager,
+    /// not where the photo lands.
+    private func notePage(_ frame: CGRect) {
+        let isAtRest: Bool = frame.minX.magnitude < 1 && drag == 0 && isZoomed == false
+        guard isAtRest, frame != page else { return }
+        page = frame
+    }
+
+    /// The viewer is in the window. One refresh later its first frame (the photo over its tile) is
+    /// on the screen, so the tile steps aside; one more and the photo sets off, from a frame that
+    /// is really there — not from one still being built, which skipped the whole flight the first
+    /// time a launch opened a photo.
+    private func open() {
+        AteNextFrame.run {
+            onLeftTile()
+            AteNextFrame.run { fly() }
+        }
+    }
+
+    private func fly() {
+        guard isClosing == false else { return }
+        guard flight != nil else {
+            withAnimation(reduceMotion ? nil : AtePhotoViewerMetrics.fade) { openness = 1 }
+            return
+        }
+        // Where the pager really is, now it has laid out: fixed for the whole way.
+        flight = Self.path(photos, at: index, origin: origin, page: page, drag: 0)
+        guard reduceMotion == false else {
+            openness = 1
+            flight = nil
+            return
+        }
+        withAnimation(AtePhotoViewerMetrics.fly, completionCriteria: .removed) {
+            openness = 1
+        } completion: {
+            // Exactly where the pager draws it: the pager takes over with nothing to move.
+            guard isClosing == false else { return }
+            flight = nil
+        }
+    }
+
+    /// The photo at `position` on its tile and on the page, when it can fly between them: its tile
+    /// is on the screen, and the picture the tile drew is on hand.
+    private static func path(
+        _ photos: [AtePhoto], at position: Int, origin: AtePhotoOrigin?, page: CGRect?, drag: CGFloat
+    ) -> AtePhotoFlightPath? {
+        guard let tile = origin?.tiles[position], PhotoFlight.canLand(on: tile.frame, screen: AteScreen.size),
+              photos.indices.contains(position), let url = photos[position].url,
+              let image = AteImagePipeline.shared.onHand(url, size: .full) else { return nil }
+        let screen = CGRect(origin: .zero, size: AteScreen.size)
+        guard let away = PhotoFlight.away(
+            image: image.size, page: page ?? screen, anchor: CGPoint(x: screen.midX, y: screen.midY), drag: drag
+        ) else { return nil }
+        return AtePhotoFlightPath(
+            image: image, home: home(tile, image: image), away: away, ring: tile.ring,
+            covers: covers(over: tile, photos: photos, origin: origin)
+        )
+    }
+
+    /// A tile, exactly as the page draws it.
+    private static func home(_ tile: AtePhotoOrigin.Tile, image: UIImage) -> PhotoFlight.Frame {
+        let crop = tile.focus?.crop(imageSize: image.size, aspect: 1)
+        return PhotoFlight.home(tile: tile.frame, radius: tile.radius, angle: tile.angle, image: image.size, crop: crop)
+    }
+
+    /// The cluster's photos stacked over `tile` that reach it (a tilt carries a corner a little past
+    /// the square), bottom first, so they are drawn over the flying photo as the page draws them.
+    private static func covers(
+        over tile: AtePhotoOrigin.Tile, photos: [AtePhoto], origin: AtePhotoOrigin?
+    ) -> [AtePhotoFlightPath.Cover] {
+        let reach = tile.frame.insetBy(dx: -tile.frame.width * 0.2, dy: -tile.frame.height * 0.2)
+        return (origin?.tiles ?? [:])
+            .filter { $0.value.layer < tile.layer && $0.value.frame.intersects(reach) }
+            .sorted { $0.value.layer > $1.value.layer }
+            .compactMap { index, over in
+                guard photos.indices.contains(index), let url = photos[index].url,
+                      let image = AteImagePipeline.shared.onHand(url, size: .full) else { return nil }
+                return AtePhotoFlightPath.Cover(image: image, frame: home(over, image: image), ring: over.ring)
+            }
+    }
+
     /// The pairs as the server has them, unless a fix was made here in the meantime.
     private func loadPairs() async {
         guard let load = dishes?.load else { return }
         let before = paired
         let read = await load()
-        guard paired == before, read.isEmpty == false else { return }
-        paired = read
+        guard paired == before, read.isEmpty == false, read != paired else { return }
+        // Fresh pairs fade in under the photo rather than popping in.
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { paired = read }
     }
 
     /// The dishes the photo at `position` shows, in receipt order.
@@ -281,26 +401,22 @@ struct AtePhotoViewer: View {
         }
     }
 
-    /// The dishes the photo now showing is. On your own entry a pill that is a menu to fix them; on
-    /// anybody else's a caption, with who and where, so it never reads as a button (15 Oct, B). A
-    /// photo of several names them all, or the one a dish page opened it on (0083).
+    /// The dishes the photo now showing is, as a caption with who and where (15 Oct, B). On your own
+    /// entry the same caption, with a faint pencil to fix them (24 Oct, A). A photo of several names
+    /// them all, or the one a dish page opened it on (0083).
     @ViewBuilder private var dishName: some View {
         if let dishes, photos.indices.contains(index), let url = photos[index].url?.absoluteString {
             let here = dishesHere(index)
-            if dishes.onPick == nil {
-                let focused = here.filter { $0.id == dishes.focus }
-                let named = focused.isEmpty ? here : focused
-                if named.isEmpty == false {
-                    AtePhotoDishCaption(
-                        dish: named.map(\.name).joined(separator: " · "), byline: dishes.bylines[url] ?? dishes.byline
-                    )
-                }
-            } else {
-                AtePhotoDishPill(dishes: here, choices: dishes.choices, onPick: dishes.onPick.map { pick in
-                    { (ticked: [AtePhotoDishPill.Dish]) in choose(ticked, for: url, with: pick) }
+            let focused = here.filter { $0.id == dishes.focus }
+            let named = focused.isEmpty ? here : focused
+            let byline = dishes.bylines[url] ?? dishes.byline
+            let edit = dishes.onPick.map { pick in
+                AtePhotoDishPill(dishes: here, choices: dishes.choices, onPick: { ticked in
+                    choose(ticked, for: url, with: pick)
                 })
-                .padding(.horizontal, AteMetrics.gutter)
-                .padding(.bottom, AtePhotoDishPillMetrics.bottom)
+            }
+            if named.isEmpty == false || edit != nil {
+                AtePhotoDishCaption(dish: named.map(\.name).joined(separator: " · "), byline: byline, edit: edit)
             }
         }
     }
@@ -336,17 +452,37 @@ struct AtePhotoViewer: View {
     }
 
     private func close(flinging: Bool = false) {
-        guard dragsToDismiss else {
-            onClose()
+        guard isClosing == false else { return }
+        isClosing = true
+        // Back into its tile, from exactly where the pager has it (drag and all), when the page has
+        // the tile and the photo is not zoomed.
+        if isZoomed == false, let path = Self.path(photos, at: index, origin: origin, page: page, drag: drag) {
+            flight = path
+            guard reduceMotion == false else { return land() }
+            // The photo takes the pager's place this frame and sets off the next: a view that
+            // appears in the same update as the animation would start at its end, on the tile.
+            AteNextFrame.run {
+                withAnimation(AtePhotoViewerMetrics.fly, completionCriteria: .removed) {
+                    openness = 0
+                } completion: {
+                    land()
+                }
+            }
             return
         }
-        let animation: Animation? = reduceMotion ? nil : .easeIn(duration: 0.18)
-        withAnimation(animation) {
+        withAnimation(reduceMotion ? nil : AtePhotoViewerMetrics.fade) {
             if flinging { drag = AteScreen.height }
-            isShowing = false
+            openness = 0
         } completion: {
             onClose()
         }
+    }
+
+    /// On its tile, exactly: the tile comes back under the photo, and once that is on the screen the
+    /// viewer goes, so the photo is never missing from the page for a frame.
+    private func land() {
+        onLanded()
+        AteNextFrame.run { onClose() }
     }
 }
 

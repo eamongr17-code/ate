@@ -285,6 +285,21 @@ public struct SupabaseEntryService: EntryService {
         return try PhotoDishRow.tags(from: data)
     }
 
+    /// One read for a screenful of entries (the PK leads with entry_id): at most five photos × its
+    /// lines each.
+    public func photoDishTags(entryIDs: [UUID]) async throws -> [UUID: [String: [PhotoDishTag]]] {
+        guard entryIDs.isEmpty == false else { return [:] }
+        let data = try await api.supabase
+            .from("photo_dishes")
+            .select("entry_id, photo_url, review_id, box_left, box_top, box_right, box_bottom")
+            .in("entry_id", values: entryIDs.map { $0.uuidString.lowercased() })
+            .order("created_at")
+            .order("review_id")
+            .execute()
+            .data
+        return try PhotoDishRow.tagsByEntry(from: data)
+    }
+
     public func setPhotoDishes(entryID: UUID, photoURL: String, reviewIDs: [UUID]) async throws {
         let parameters: [String: AnyJSON] = [
             "p_entry_id": .string(entryID.uuidString.lowercased()),

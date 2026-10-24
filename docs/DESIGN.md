@@ -71,8 +71,8 @@ Accents (same in both modes, always carry `#24141F` text): coral `#F0623F` · bu
 Destructive `#B3261E`.
 
 Type — four voices, bundled fonts (all OFL):
-- **Young Serif** — headings: screen/page titles, places, dishes, list names (tracking −2% at 24+, −1% at 18–23, line-height 1.0). Chosen by Eamon 10 Oct to replace Bricolage titles.
-- **Bricolage Grotesque** — controls/labels (600, 15; meta 500, 13), scores and avatar letters (800).
+- **Young Serif** — every title and every name of a thing: screen/page/sheet titles, sections, places, dishes, list names, wherever they appear (tracking −2% at 24+, −1% at 18–23, line-height 1.0). Chosen by Eamon 10 Oct.
+- **DM Sans** — everything you tap, scan or count: controls, labels, meta, scores, avatar letters. Replaced Bricolage Grotesque 23 Oct (`design/rebuild/typography.html`). Sizes: 64 hero score · 28 numbers · 22 slip score · 17 rows · 16 buttons · 15 controls · 14 small controls · 13 meta · 12 captions · 11 badges/tabs. 600 for controls, 500 for meta, 700 for numbers. iOS's own menus, alerts, swipe actions and date picker stay SF Pro (apps can't change them).
 - **Newsreader** — the user's words, everywhere they appear (16–19, line-height 1.45–1.5; italic for quoted dish notes).
 - **DM Mono** — only inside receipts (line items 13; labels 11 uppercase, tracking 8%).
 
@@ -87,22 +87,29 @@ one band in the paper's colour crossing the screen, 1.6s a pass, all placeholder
 - **Chrome** (round 5) — all the app's own, no system bars or Liquid Glass. One **glass**
   (`AteGlass`): backdrop blur under a warm tint, a hairline rim, a light shadow cast only outside it.
   - **Tab bar** — keeps build 80's native look: a 62 glass capsule, 21 in and 21 up, of Journal ·
-    Feed · Search · You (line icon 24 over Bricolage 10.5; bold on a 76×54 pill when current; Feed is
+    Feed · Search · You (line icon 24 over DM Sans 11; bold on a 76×54 pill when current; Feed is
     Lucide utensils-crossed), and
     **+** as a separate 62 glass circle 8 beside it that presents the composer and is never a tab.
     Scroll down minimises it to the current tab alone in a 48 disc (+ shrinks to 48), a spring
     morph; scroll up or a tap on the disc brings it back. Re-tap scrolls to top. Every pushed page
     hides it, and it rides the pop back in with its tab's root.
-  - **Top bar** on pushed pages — a 44 glass back disc 16 in, the page's name or byline after it,
-    its controls as one glass pill 16 in from the right; tab roots' corner buttons are 44 glass discs.
-  - **Top frost** (round 7, `JournalScrolled`) — ONE continuous frost from the screen's top edge
-    down through whatever chrome is there (status bar, compact header, a pushed page's top bar),
-    solid to 7 below its controls, then fading out over 45; ground at 82% over the blur. None at
-    rest: the header sits on the ground; it comes in over the first 12pt of scroll.
+  - **Top bar** on pushed pages — a 44 glass back disc 16 in, the page's name (Young Serif 18) after
+    it once the page's own title has scrolled under the bar, its controls as one glass pill 16 in from
+    the right; the entry page keeps its author in the bar. Tab roots' corner buttons are 44 glass discs.
+  - **Page header** (`page-headers.html`, 24 Oct) — every pushed page about one thing (list, place,
+    dish, tag, person, notifications, following), left, 20 in: picture if it has one (list cover 160,
+    dish photos, avatar 72), 18 above the name in Young Serif 34 (lines 1.05, up to 3), one DM Sans
+    15 line 8 under it (names 600 in ink), buttons or chips 16 under that.
+  - **Glass bar** (`glass-header.html` 1, 24 Oct) — every header, tab roots and pushed pages alike,
+    lies on one full-width sheet of Liquid Glass (`AteGlassBar`) from the screen's top edge to the
+    header's foot, once the page is under it; none at rest. No frost or material (its grey brightened
+    dark mode in builds 177 and 196). A tab root's header steps away on scroll down, glass and all,
+    leaving only iOS's subtle soft edge under the clock, no colour. Set once in the kit; a lint rule
+    stops screens setting their own.
   - **Compact header** — mid-list, a scroll up brings back a compact header, not the big one: the
-    tab's name (Bricolage 800, 20) leading — on the Journal the month you are in, its year muted —
+    tab's name (Young Serif, 20) leading — on the Journal the month you are in, its year muted —
     and its controls trailing (the Feed's location chip, Search's filter, the Journal's active
-    chips and calendar), in a 52 row under the status bar on the top frost. It comes out of a blur
+    chips and calendar), in a 52 row under the status bar on the glass bar. It comes out of a blur
     into focus.
   - **Filter chips** (round 7, `Main`/`RatingChip`) — Journal and Saved: Newest · Rating · City ·
     Date under the header (Saved has no Newest); active = ink with its value and an ✕. Each opens a
@@ -111,12 +118,12 @@ one band in the paper's colour crossing the screen, 1.6s a pass, all placeholder
   the coral wordmark on ink; tinted is the white glyph on transparent.
 - **Score token** — butter pill, filled star + one-decimal number, DM Mono 500, inline in prose.
 - **Tag chip** (`DietTags`) — GF · DF · V · VG · NF: linen (ground-colour) pill, 18 high, 6 side
-  padding, Bricolage 600 10.5 caps +6%, muted, no stroke. 6 after a dish's name on its row (4 apart,
+  padding, DM Mono 500 caps +4%, muted, no stroke. 6 after a dish's name on its row (4 apart,
   lifted 3); inline in the words (lifted 2). Typing a code straight after a dish promotes it, as a
   number becomes a score; never on receipts.
 - **Letter tile** (`Saved`, `NoPhotoA`) — a dish with no photo, wherever a dish thumbnail appears:
   the slot's squircle in one accent picked from the dish id (never butter), its first letter in
-  Bricolage 800 (26 on 56), ink. Never an empty grey square.
+  Young Serif (26 on 56), ink. Never an empty grey square.
 - **Receipt** — place (title 32) + address (mono label) / dashed rule / numbered line items with dot
   leaders and right-aligned score — nothing under a line / dashed rule / `Order #` left, date right;
   `n dishes` left, `Avg` right / barcode / handle left, logo right / edge B. Printing: skeleton lines.

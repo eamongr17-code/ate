@@ -99,7 +99,7 @@
 				DesignSystem/Tokens/AteType.swift,
 				DesignSystem/Tokens/AteVector.swift,
 				DesignSystem/Tokens/ScoreStyle.swift,
-				Resources/Fonts/BricolageGrotesque-Variable.ttf,
+				Resources/Fonts/DMSans-Variable.ttf,
 				Resources/Fonts/YoungSerif-Regular.ttf,
 				Root/AteFailureAlert.swift,
 				Root/AteLocation.swift,

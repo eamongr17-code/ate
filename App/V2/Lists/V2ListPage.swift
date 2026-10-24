@@ -21,6 +21,8 @@ struct V2ListPage: View {
 
     @State private var store: ListStore
     @State private var isCollapsed = false
+    /// Where the header's name ends: the bar takes it once the page has scrolled past.
+    @State private var titleBottom: CGFloat = 0
     @State private var isRenaming = false
     @State private var isPicking = false
     /// A list just made raises its picker once, the first time the page shows.
@@ -57,11 +59,7 @@ struct V2ListPage: View {
         .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
         .contentMargins(.bottom, AteMetrics.tabBarScrollInset, for: .scrollContent)
-        .onScrollGeometryChange(for: Bool.self) { geometry in
-            geometry.contentOffset.y + geometry.contentInsets.top > V2ListPageMetrics.collapseAfter
-        } action: { _, collapsed in
-            isCollapsed = collapsed
-        }
+        .ateTitleCollapse($isCollapsed, after: titleBottom)
         .ateGround()
         .ateCollapsingTitle(store.name, isCollapsed: isCollapsed)
         .toolbar { toolbar }
@@ -117,27 +115,17 @@ struct V2ListPage: View {
     // MARK: - The head
 
     private var hero: some View {
-        VStack(spacing: 0) {
+        AtePageHeader(store.name, titleBottom: $titleBottom) {
             cover
-            Text(store.name)
-                .ateText(.kitListHeroName)
-                .foregroundStyle(AtePalette.automatic.fg)
-                .multilineTextAlignment(.center)
-                .lineLimit(3)
-                .padding(.top, V2ListPageMetrics.nameTop)
-                .accessibilityAddTraits(.isHeader)
+        } line: {
             byline
-                .padding(.top, V2ListPageMetrics.bylineTop)
+        } below: {
             // Whose it is decides the actions: none until the list has been read.
             if store.list != nil {
                 actions
-                    .padding(.top, V2ListPageMetrics.actionsTop)
             }
         }
-        .padding(.horizontal, AteMetrics.gutter)
-        .padding(.top, AteMetrics.regular)
         .padding(.bottom, V2ListPageMetrics.heroBottom)
-        .frame(maxWidth: .infinity)
     }
 
     /// The cover, big and lifted: the picked one, or the mosaic. The owner's opens the cover sheet.
@@ -170,15 +158,15 @@ struct V2ListPage: View {
                     AteAvatarStack(people: people)
                 }
                 Text(ListsCopy.byline(people.map(\.username)))
-                    .ateText(.kitListByline)
+                    .ateText(.pageHeaderStrong)
                     .foregroundStyle(AtePalette.automatic.fg)
                     .lineLimit(1)
                 Text(verbatim: "·")
-                    .ateText(.meta)
+                    .ateText(.pageHeaderLine)
                     .foregroundStyle(AtePalette.automatic.muted)
             }
             Text(ListsCopy.dishes(store.list?.itemCount ?? store.count))
-                .ateText(.meta)
+                .ateText(.pageHeaderLine)
                 .foregroundStyle(AtePalette.automatic.muted)
                 .accessibilityIdentifier("list.count")
         }
@@ -201,13 +189,13 @@ struct V2ListPage: View {
                 AteInkPill(
                     title: ListsCopy.addDishes, isEnabled: store.remaining > 0, identifier: "list.addPill"
                 ) { pick() }
-                if store.items.isEmpty == false {
+                if store.hasDishes {
                     AteInkPill(title: ListsCopy.share, isQuiet: true, identifier: "list.sharePill") {
                         shareList()
                     }
                 }
             case .accepted:
-                if store.items.isEmpty == false {
+                if store.hasDishes {
                     AteInkPill(title: ListsCopy.share, identifier: "list.sharePill") { shareList() }
                 }
             case .invited:
@@ -300,7 +288,7 @@ struct V2ListPage: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        if store.items.isEmpty == false {
+        if store.hasDishes {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { shareList() } label: {
                     AteIcon.share.view(size: AteGlassDiscMetrics.glyph)
@@ -410,7 +398,7 @@ extension V2ListPage {
     private var share: ListShare {
         let covers = store.list?.coverURL.map { [$0] } ?? store.list?.covers ?? []
         let handle = store.isOwn ? context.app.handle : store.list?.owner?.username
-        return ListShare(id: route.id, name: store.name, count: store.count, covers: covers, handle: handle ?? "")
+        return ListShare(id: route.id, name: store.name, count: store.shownCount, covers: covers, handle: handle ?? "")
     }
 
     /// A sheet over the page says its own refusals.
@@ -486,15 +474,10 @@ extension View {
 }
 
 enum V2ListPageMetrics {
-    /// `.hero .nm{margin-top:18px}`, `.by{margin-top:6px; gap:6px}`, `.acts{margin-top:16px; gap:10px}`.
-    static let nameTop: CGFloat = 18
-    static let bylineTop: CGFloat = 6
+    /// The header's byline `gap:6px`, its actions `gap:10px`, and 16 before the rows.
     static let bylineGap: CGFloat = 6
-    static let actionsTop: CGFloat = 16
     static let actionGap: CGFloat = 10
     static let heroBottom: CGFloat = 16
-    /// The name takes the bar once the cover and the name under it have scrolled away.
-    static let collapseAfter: CGFloat = AteListCoverMetrics.hero + 60
     /// A ••• Menu item's Lucide glyph.
     static let menuGlyph: CGFloat = 18
 }

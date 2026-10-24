@@ -95,6 +95,7 @@ extension V2ComposerWrite {
             return
         }
         AteHaptics.success()
+        AteTips.firstPostWritten()
         if let source = model.date.source, model.date.daysAgo() > 0 {
             analytics(EntryEvents.dated(source: source, daysAgo: model.date.daysAgo()))
         }

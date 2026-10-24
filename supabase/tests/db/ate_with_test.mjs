@@ -104,6 +104,8 @@ test('prefill follows the live entry; respond makes the companion\'s OWN linked 
   assert.equal(pf.tagger.username, 'alice');
   assert.equal(pf.place.id, P.tipo);
   assert.equal(pf.sort_status, 'sorted');
+  assert.equal(pf.body, 'Gnocchi 4.5. Tiramisu was lovely', 'the words a copy takes (0086)');
+  assert.deepEqual(pf.dishes.map((d) => d.score), [4.5, null], 'each dish\'s score; unscored stays null');
   assert.deepEqual(pf.dishes.map((d) => d.dish_name), ['Gnocchi', 'Tiramisu']);
   assert.equal(await code(U.cleo, `select public.ate_with_prefill($1)`, [t.companion_id]), 'P0002', 'not theirs');
   const n = (await inbox(U.bob)).find((x) => x.companion_id === t.companion_id);

@@ -376,12 +376,12 @@ test('0045: place_dishes.tags = dish_summary.tags, signed in and out; the keyset
     const got = await as(who, () => rows(`select dish_id, dish_name, tags from public.place_dishes($1)`, [R2]));
     const pasta = got.find((r) => r.dish_name === 'Tipo Pasta');
     const summary = (await as(who, () => rows(`select tags from public.dish_summary($1)`, [pasta.dish_id])))[0];
-    assert.deepEqual(pasta.tags, ['gf', 'v'], who ? 'signed in' : 'signed out');
+    assert.deepEqual(pasta.tags, ['gf', 'v', 'pe'], who ? 'signed in' : 'signed out');
     assert.deepEqual(pasta.tags, summary.tags, 'the same rule as dish_summary');
   }
   // R3: curry (2 lines, GF, avg 4.5) leads salad (2 lines, one V → kept)
   const whole = await as(A, () => rows(`select * from public.place_dishes($1)`, [R3]));
-  assert.deepEqual(whole.map((r) => [r.dish_name, r.tags]), [['Tipo Curry', ['gf']], ['Salad', ['v']]]);
+  assert.deepEqual(whole.map((r) => [r.dish_name, r.tags]), [['Tipo Curry', ['gf']], ['Salad', ['v', 'pe']]]);
   const p1 = await as(A, () => rows(`select * from public.place_dishes($1, 1)`, [R3]));
   const l = p1[0];
   const p2 = await as(A, () => rows(`select * from public.place_dishes($1, 1, $2, $3, $4, $5)`, [R3, l.review_count, l.score, l.dish_name, l.dish_id]));
@@ -391,9 +391,9 @@ test('0045: place_dishes.tags = dish_summary.tags, signed in and out; the keyset
 
 test('0042: search_dishes.tags — the chips of each row, filtered or not; paging unchanged', async () => {
   const got = await as(A, () => rows(`select dish_name, tags from public.search_dishes(p_query => 'tipo')`));
-  assert.deepEqual(got.map((r) => [r.dish_name, r.tags]).sort(), [['Tipo Curry', ['gf']], ['Tipo Pasta', ['gf', 'v']], ['Tipo Soup', ['gf', 'v']]]);
+  assert.deepEqual(got.map((r) => [r.dish_name, r.tags]).sort(), [['Tipo Curry', ['gf']], ['Tipo Pasta', ['gf', 'v', 'pe']], ['Tipo Soup', ['gf', 'v', 'pe']]]);
   const f = await as(A, () => rows(`select dish_name, tags from public.search_dishes(p_query => 'tipo', p_tags => '{v}')`));
-  assert.deepEqual(f.map((r) => [r.dish_name, r.tags]).sort(), [['Tipo Pasta', ['gf', 'v']], ['Tipo Soup', ['gf', 'v']]]);
+  assert.deepEqual(f.map((r) => [r.dish_name, r.tags]).sort(), [['Tipo Pasta', ['gf', 'v', 'pe']], ['Tipo Soup', ['gf', 'v', 'pe']]]);
   const whole = await as(A, () => rows(`select * from public.search_dishes(p_query => 'tipo')`));
   const p1 = await as(A, () => rows(`select * from public.search_dishes(p_query => 'tipo', p_limit => 1)`));
   const l = p1[0];

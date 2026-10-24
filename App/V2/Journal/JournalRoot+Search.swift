@@ -77,7 +77,14 @@ private struct JournalSearchScreen: View {
             .scrollIndicators(.hidden)
             .scrollDismissesKeyboard(.immediately)
         }
-        .ateGround()
+        // The whole screen, whatever the keyboard is doing (24 Oct): sized by the Journal, the
+        // screen stopped at the keyboard's top and the shelf showed under the keyboard, and still
+        // showed there once it went down. Its frame now ignores the keyboard, and the ground runs
+        // under every edge.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .environment(\.atePalette, .automatic)
+        .background { AtePalette.automatic.ground.ignoresSafeArea() }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .onChange(of: text) { _, now in store.setQuery(now) }
         .accessibilityIdentifier("journal.search")
     }

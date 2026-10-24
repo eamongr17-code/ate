@@ -51,6 +51,7 @@ struct AteWithRespondFace: View {
         .background { AtePalette.surface.ground.ignoresSafeArea() }
         .interactiveDismissDisabled(isCovered == false && (hasWork || model.isPosting))
         .ateAnimation(V2ComposerMotion.slider, value: model.current)
+        .ateAnimation(AteMotion.fillIn, value: model.canCopy)
         .confirmationDialog("Discard entry?", isPresented: $isConfirmingClose, titleVisibility: .visible) {
             Button("Discard", role: .destructive) { dismiss() }
         }
@@ -114,6 +115,18 @@ struct AteWithRespondFace: View {
                     }
                     .accessibilityAction(named: AteWithCopy.remove) { model.remove(line.id) }
                 }
+                if model.canCopy, let tagger = model.prefill?.tagger {
+                    AteCopyReviewPill(userID: tagger.id, handle: tagger.username) {
+                        isWriting = false
+                        AteHaptics.key()
+                        model.copyTaggerReview()
+                    }
+                    .padding(.horizontal, AteMetrics.gutter)
+                    .padding(.top, AteMetrics.regular)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .transition(.opacity)
+                    .plainRow()
+                }
                 words.plainRow()
             }
             .listStyle(.plain)
@@ -134,13 +147,15 @@ struct AteWithRespondFace: View {
             }
             HStack(spacing: AteMetrics.snug) {
                 AteAvatar(userID: prefill.tagger.id, handle: prefill.tagger.username, size: .byline)
-                let handle = Text(verbatim: "@\(prefill.tagger.username)")
-                    .fontWeight(.semibold)
-                    .foregroundStyle(AtePalette.surface.fg)
-                Text("with \(handle)")
-                    .ateText(.meta)
-                    .foregroundStyle(AtePalette.surface.muted)
-                    .lineLimit(1)
+                HStack(spacing: AteWithKitMetrics.wordSpace) {
+                    Text("with")
+                        .ateText(.meta)
+                        .foregroundStyle(AtePalette.surface.muted)
+                    Text(verbatim: "@\(prefill.tagger.username)")
+                        .ateText(.metaStrong)
+                        .foregroundStyle(AtePalette.surface.fg)
+                }
+                .lineLimit(1)
                 Spacer(minLength: AteMetrics.snug)
                 Text(RelativeAge.day(prefill.visitedAt))
                     .ateText(.meta)

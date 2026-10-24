@@ -4,7 +4,7 @@ import SwiftUI
 /// **A list's cover** (`lists-playlists.html`, approved 9 Oct) — a list drawn as a playlist of
 /// dishes. Square, at the kit's 16 radius, straight (a cover is a picture of the list, not a mess):
 /// four or more photos make a 2×2 mosaic of the first four, fewer show the first one whole, and none
-/// is the list's own accent with its name set on it in Bricolage 800, ink in both modes.
+/// is the list's own accent with its name set on it in Young Serif, ink in both modes.
 ///
 /// A cover the owner picked (`list-cover-edit.html`) shows whole instead of the mosaic. A list someone
 /// shared with you carries their photo in its top corner (screen 8); the name and count under it stay
@@ -15,8 +15,9 @@ struct AteListCover: View {
         case tile
         /// The head of the list's own page: 224, lifted.
         case hero
-        /// The cover sheet's preview (`list-cover-edit.html` 2): 176, flat.
-        case preview
+        /// A choice on the Change cover sheet (`list-cover-sheet.html` A): the dish row's 56, flat; with
+        /// no photos, only its colour (the name has no room).
+        case row
     }
 
     let id: UUID
@@ -61,7 +62,7 @@ struct AteListCover: View {
         switch style {
         case .tile: nil
         case .hero: AteListCoverMetrics.hero
-        case .preview: AteListCoverMetrics.preview
+        case .row: AteListCoverMetrics.row
         }
     }
 
@@ -73,7 +74,7 @@ struct AteListCover: View {
                 .resizable()
                 .scaledToFill()
         } else if let cover {
-            AtePhotoContent(photo: .remote(cover), size: .large)
+            AtePhotoContent(photo: .remote(cover), size: style == .row ? .thumbnail : .large)
         } else if photos.count >= AteListCoverMetrics.mosaic {
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
@@ -86,7 +87,9 @@ struct AteListCover: View {
                 }
             }
         } else if let first = photos.first {
-            AtePhotoContent(photo: first, size: .large)
+            AtePhotoContent(photo: first, size: style == .row ? .thumbnail : .large)
+        } else if style == .row {
+            accent
         } else {
             named
         }
@@ -94,7 +97,7 @@ struct AteListCover: View {
 
     private func quarter(_ photo: AtePhoto) -> some View {
         Color.clear
-            .overlay { AtePhotoContent(photo: photo, size: style == .tile ? .thumbnail : .large) }
+            .overlay { AtePhotoContent(photo: photo, size: style == .hero ? .large : .thumbnail) }
             .clipped()
     }
 
@@ -144,7 +147,7 @@ struct AteListTile: View {
             VStack(alignment: .leading, spacing: AteListCoverMetrics.captionGap) {
                 AteListCover(id: id, name: name, covers: covers, cover: cover, owner: owner, accentIndex: accentIndex)
                 Text(name)
-                    .ateText(.kitListTileName)
+                    .ateTextExactLifted(.kitListTileName)
                     .foregroundStyle(palette.fg)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -184,7 +187,7 @@ struct AteNewListTile: View {
                     .aspectRatio(1, contentMode: .fit)
                     .overlay { AteIcon.compose.view(size: AteListCoverMetrics.plus).foregroundStyle(palette.muted) }
                 Text(title)
-                    .ateText(.kitListTileName)
+                    .ateTextExactLifted(.kitListTileName)
                     .foregroundStyle(palette.fg)
                     .padding(.top, AteListCoverMetrics.nameTop)
             }
@@ -219,16 +222,16 @@ private enum ListTileCopy {
 }
 
 enum AteListCoverMetrics {
-    /// `.cov{border-radius:16px}`; the hero `width:224px`.
+    /// `.cov{border-radius:16px}`; the hero is the page header's 160, left (`page-headers.html`).
     static let radius: CGFloat = 16
-    static let hero: CGFloat = 224
-    /// The cover sheet's preview, `.prev{width:176px}`.
-    static let preview: CGFloat = 176
+    static let hero: CGFloat = AtePageHeaderMetrics.cover
+    /// A cover choice's picture: the dish row's 56.
+    static let row: CGFloat = 56
     /// Four photos or more make the mosaic.
     static let mosaic = 4
-    /// `.cov.gen{padding:12px}`, and 18 on the hero.
+    /// `.cov.gen{padding:12px}`, and 14 on the hero.
     static let inset: CGFloat = 12
-    static let heroInset: CGFloat = 18
+    static let heroInset: CGFloat = 14
     /// A long name shrinks to fit before it truncates.
     static let nameScale: CGFloat = 0.7
     /// `.tile{gap:7px}`, `.tile .mt{margin-top:-4px}` — the name sits 7 under the cover, the count 3

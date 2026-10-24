@@ -15,7 +15,7 @@ extension Route {
 }
 
 /// **Report a bug** (`design/rebuild/feedback.html` C–E; retitled, a how-to line added and today's
-/// screenshots dropped on Eamon's ask, 22 Oct) — the Journal's bug, for testers. Close top left,
+/// screenshots dropped on Eamon's ask, 22 Oct) — the bug on You, for testers. Close top left,
 /// the send arrow top right, the title, the words. Under them the photos the tester added (tap one to
 /// take it off) and the + that opens the picker. Three at most. The build and device go with it, in
 /// fine print so the tester can see them. Sent, the sheet drops with a success haptic; offline, the
@@ -23,7 +23,7 @@ extension Route {
 /// sheet and never pushes the corner row off the top.
 struct FeedbackSheet: View {
     let app: AppModel
-    /// Called as the sheet goes: the Journal shows "Report sent" while it sends.
+    /// Called as the sheet goes: the You tab shows "Report sent" while it sends.
     var onSent: () -> Void = {}
 
     @State private var words = ""

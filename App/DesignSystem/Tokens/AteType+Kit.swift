@@ -5,7 +5,7 @@ import SwiftUI
 // never writes a number into `.ateText`.
 
 extension AteTextStyle {
-    /// The ink pill in a sheet — `.pill`: Bricolage 600 at 16, `line-height:1`.
+    /// The ink pill in a sheet — `.pill`: DM Sans 600 at 16, `line-height:1`.
     static let kitInkPill = AteTextStyle(
         voice: .display, size: 16, weight: 600, trackingEm: 0, lineHeight: 1.0, textStyle: .body
     )
@@ -26,15 +26,15 @@ extension AteTextStyle {
     static let kitReceiptFallbackPage = AteTextStyle(
         voice: .display, size: 15, weight: 500, trackingEm: 0, lineHeight: 1.4, textStyle: .subheadline
     )
-    /// A photo's caption on somebody else's entry — `.capL b`: 600 at 17
+    /// A photo's caption on somebody else's entry — `.capL b`: Young Serif at 16 (the dish is a name)
     /// (design/rebuild/photo-dish-caption.html, B).
     static let kitPhotoCaptionDish = AteTextStyle(
-        voice: .display, size: 17, weight: 600, trackingEm: 0, lineHeight: 1.2, textStyle: .body
+        voice: .heading, size: 16, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .body
     )
-    /// A dish's name floating over it in a photo of several — `.tag`: 600 at 16
+    /// A dish's name floating over it in a photo of several — `.tag`: Young Serif at 16
     /// (design/rebuild/photo-dish-tags.html).
     static let kitPhotoDishName = AteTextStyle(
-        voice: .display, size: 16, weight: 600, trackingEm: -0.01, lineHeight: 1.0, textStyle: .body
+        voice: .heading, size: 16, weight: 800, trackingEm: -0.01, lineHeight: 1.0, textStyle: .body
     )
     /// …and who and where under it — `.capL span`: 500 at 13.
     static let kitPhotoCaptionByline = AteTextStyle(
@@ -45,9 +45,10 @@ extension AteTextStyle {
     static func kitScoreToken(_ size: CGFloat) -> AteTextStyle {
         AteTextStyle(voice: .mono, size: size, weight: 500, lineHeight: 1.0, textStyle: .footnote)
     }
-    /// A shelf card's dish — `.card .t b`: 700 at 17, `line-height:1.15`, `-.02em`, two lines.
+    /// A shelf card's dish — `.card .t b`: Young Serif at 16 (17 in the old sans; the serif
+    /// runs wider), lines 1.05 apart like every serif title, two lines.
     static let kitShelfDish = AteTextStyle(
-        voice: .display, size: 17, weight: 700, trackingEm: -0.02, lineHeight: 1.15, textStyle: .body
+        voice: .heading, size: 16, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .body
     )
     /// The hero's dish — `.hero .nm b`: 800 at 30 (34 before 6 Oct), `line-height:1.02`, `-.035em`.
     static let kitHeroDish = AteTextStyle(
@@ -57,9 +58,9 @@ extension AteTextStyle {
     static let kitHeroPlace = AteTextStyle(
         voice: .display, size: 15, weight: 500, trackingEm: 0, lineHeight: 1.2, textStyle: .subheadline
     )
-    /// A ranked row's numeral — `.rk .n`: 800 at 30, `-.05em`.
+    /// A ranked row's numeral — `.rk .n`: 700 at 28, `-.03em`.
     static let kitRankNumeral = AteTextStyle(
-        voice: .display, size: 30, weight: 800, trackingEm: -0.05, lineHeight: 1.0, textStyle: .title2,
+        voice: .display, size: 28, weight: 700, trackingEm: -0.03, lineHeight: 1.0, textStyle: .title2,
         maximumSize: 40
     )
     /// A ranked row's dish — `.rk .d b`: 800 at 18, `line-height:1.1`, `-.03em`.
@@ -80,6 +81,12 @@ extension AteTextStyle {
     static let kitRootSubtitle = AteTextStyle(
         voice: .display, size: 16, weight: 500, trackingEm: 0, lineHeight: 1.0, textStyle: .body
     )
+    /// A page's name in the bar once its own title has scrolled under it (`scroll-headers.html`, 24
+    /// Oct): the same Young Serif as the title it stands for, at 18.
+    static let kitInlinePageTitle = AteTextStyle(
+        voice: .heading, size: 18, weight: 800, trackingEm: -0.01, lineHeight: 1.1, textStyle: .headline,
+        maximumSize: 22
+    )
     /// An inline bar title — a pushed page's name, and a tab root's title once it has collapsed into
     /// the centre of the bar — `.ntitle`/`.navt`/`.it b`: 600 at 17, `line-height:1.15`, `-.01em`.
     static let kitInlineTitle = AteTextStyle(
@@ -92,23 +99,23 @@ extension AteTextStyle {
         voice: .display, size: 12, weight: 500, trackingEm: 0, lineHeight: 1.2, textStyle: .caption,
         maximumSize: 16
     )
-    /// A native tab bar item's label, at rest and selected — the old bar's 10.5 in Bricolage, bold
+    /// A native tab bar item's label, at rest and selected — 11 in DM Sans, bold
     /// when current. Set on the system bar's items through ``AteNativeChrome``.
     static let kitTabLabel = AteTextStyle(
-        voice: .display, size: 10.5, weight: 500, trackingEm: 0, lineHeight: 1.2,
+        voice: .display, size: 11, weight: 500, trackingEm: 0, lineHeight: 1.2,
         textStyle: .caption2, maximumSize: 14
     )
     static let kitTabLabelSelected = AteTextStyle(
-        voice: .display, size: 10.5, weight: 700, trackingEm: 0, lineHeight: 1.2,
+        voice: .display, size: 11, weight: 700, trackingEm: 0, lineHeight: 1.2,
         textStyle: .caption2, maximumSize: 14
     )
     /// A row in a native grouped list (Settings): `.it .tx`, 500 at 17.
     static let kitListRow = AteTextStyle(
         voice: .display, size: 17, weight: 500, trackingEm: 0, lineHeight: 1.0, textStyle: .body
     )
-    /// The count on a glass control's badge — `.badge`: 600 at 10.5, capped (a 17pt disc).
+    /// The count on a glass control's badge — `.badge`: 600 at 11, capped (a 17pt disc).
     static let kitBadge = AteTextStyle(
-        voice: .display, size: 10.5, weight: 600, trackingEm: 0, lineHeight: 1.0,
+        voice: .display, size: 11, weight: 600, trackingEm: 0, lineHeight: 1.0,
         textStyle: .caption2, maximumSize: 12
     )
     /// The letter on a photo-less dish's tile, at the size its slot draws it (26 on a row's 56, 22 on
@@ -133,7 +140,7 @@ extension AteTextStyle {
         voice: .heading, size: 20, weight: 800, trackingEm: 0, lineHeight: 1.0, textStyle: .title3,
         maximumSize: 26
     )
-    /// Where a shared post came from — `.linkcard .ui`: Bricolage 600 at 15.
+    /// Where a shared post came from — `.linkcard .ui`: DM Sans 600 at 15.
     static let kitLinkTitle = AteTextStyle(
         voice: .display, size: 15, weight: 600, trackingEm: 0, lineHeight: 1.5, textStyle: .subheadline
     )
@@ -145,9 +152,9 @@ extension AteTextStyle {
     static let kitTogglePillLarge = AteTextStyle(
         voice: .display, size: 17, weight: 600, trackingEm: 0, lineHeight: 1.0, textStyle: .body
     )
-    /// The dish page's line for a code below the label — `.signal`: 500 at 14, `line-height:1.2`,
+    /// The dish page's line for a code below the label — `.signal`: 500 at 13, `line-height:1.2`,
     /// muted ("Ordered by 2 vegan eaters").
     static let kitDietSignal = AteTextStyle(
-        voice: .display, size: 14, weight: 500, trackingEm: 0, lineHeight: 1.2, textStyle: .subheadline
+        voice: .display, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.2, textStyle: .footnote
     )
 }

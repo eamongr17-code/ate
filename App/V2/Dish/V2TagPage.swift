@@ -29,6 +29,8 @@ struct V2TagEditionPage: View {
     /// changes, and a store built in that expression would reset the page every time.
     @State private var store: TagEditionStore
     @State private var isCollapsed = false
+    /// Where the header's name ends: the bar takes it once the page has scrolled past.
+    @State private var titleBottom: CGFloat = 0
     @State private var hasRecordedView = false
 
     init(tag: DishTagRoute, context: V2PageContext) {
@@ -47,7 +49,7 @@ struct V2TagEditionPage: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                AtePageTitle(title: tag.label, subtitle: store.cityTitle)
+                AtePageTitle(title: tag.label, subtitle: store.cityTitle, titleBottom: $titleBottom)
                 switch store.phase {
                 case .loading:
                     loading
@@ -67,7 +69,7 @@ struct V2TagEditionPage: View {
             .padding(.bottom, AteMetrics.tabBarScrollInset)
         }
         .scrollIndicators(.hidden)
-        .atePageCollapse($isCollapsed)
+        .ateTitleCollapse($isCollapsed, after: titleBottom)
         .ateGround()
         .ateCollapsingTitle(tag.label, subtitle: store.cityTitle, isCollapsed: isCollapsed)
         .toolbar {

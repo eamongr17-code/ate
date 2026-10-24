@@ -55,8 +55,10 @@ struct V2ComposerPrinted: View {
     @State private var fixing: EntryModel.Correcting?
     @State private var appearedAt = ContinuousClock.now
     @State private var hasCountedEntrance = false
-    /// The first photo as pixels, for the share cards.
-    @State private var photo: UIImage?
+    /// The photos as pixels, by position, for the share cards.
+    @State private var photos: [Int: UIImage] = [:]
+    /// Each dish's own photos, once the match has answered (several dishes only).
+    @State private var dishPhotos: [UUID: [Int]] = [:]
     @State private var photoLoaded = false
     /// The wait has run past ``ReceiptFallback/slowAfter``.
     @State private var isSlow = false
@@ -87,7 +89,9 @@ struct V2ComposerPrinted: View {
             Spacer(minLength: AteMetrics.section)
             V2ShareSheet(
                 receipt: receipt,
-                photo: photo,
+                photos: photos,
+                dishPhotos: dishPhotos,
+                opensOn: .sticker,
                 source: .summary,
                 isLive: store.phase == .printed && photoLoaded,
                 printing: V2ShareSheet.Printing(
@@ -116,16 +120,19 @@ struct V2ComposerPrinted: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .background(AteColor.ink)
         .task {
-            photo = await SharePhotos.image(handoff.photos.first)
+            photos = await SharePhotos.images(
+                handoff.photos.enumerated().map { (position: $0.offset, photo: $0.element) }
+            )
             photoLoaded = true
         }
+        .task(id: store.phase == .printed) { await readDishPhotos() }
         // The sort's own reply first (it carries the card); the store's re-reads only if it never
         // comes — nothing polls while the reply is on its way.
         .task {
             await hear()
             await store.watch()
         }
-        .task(id: store.phase == .printed) { await askForPhotosOnce() }
+        .task(id: store.phase == .printed) { await askOnce() }
         .task {
             try? await Task.sleep(for: ReceiptFallback.slowAfter)
             withAnimation(AteMotion.fillIn) { isSlow = true }
@@ -175,6 +182,27 @@ struct V2ComposerPrinted: View {
         return receipt
     }
 
+    /// **Which photo is which dish**, for a review of several. The match runs once the photos are up,
+    /// seconds after the receipt prints, so it is read a few times, further apart each time, and not
+    /// again once it has answered. Until then every dish offers every photo.
+    private func readDishPhotos() async {
+        guard store.phase == .printed, store.isQueued == false, handoff.photos.isEmpty == false,
+              store.card.items.count > 1 else { return }
+        let entries = services.entries
+        let entryID = store.card.id
+        for wait in V2PrintedTiming.dishPhotoReads {
+            try? await Task.sleep(for: wait)
+            guard Task.isCancelled == false else { return }
+            guard let card = try? await entries.entry(id: entryID), card.photos.isEmpty == false,
+                  let tags = try? await entries.photoDishTags(entryID: entryID), tags.isEmpty == false
+            else { continue }
+            dishPhotos = SharePhotoPairs.positions(
+                reviewIDs: card.items.map(\.reviewID), photos: card.photos, tags: tags
+            )
+            return
+        }
+    }
+
     /// The sort's answer from the composer's latch — the one the tick's dots waited on.
     private func hear() async {
         guard let sorted = handoff.sorted, store.phase == .sorting else { return }
@@ -222,21 +250,27 @@ struct V2ComposerPrinted: View {
         ))
     }
 
-    /// **The one ask for the camera roll**: once a receipt has printed and settled, the system's own
-    /// prompt, once — never over the share sheet or the place sheet.
-    private func askForPhotosOnce() async {
+    /// **One system prompt per receipt**: once a receipt has printed and settled, the camera roll's,
+    /// once; on a later receipt, notifications', once, so a friend's "ate with" can reach this phone
+    /// (someone tagged who never tagged anyone or opened Notifications was otherwise never asked).
+    /// Never over the share sheet or the place sheet.
+    private func askOnce() async {
         let library = services.photos
-        guard shouldAsk(library) else { return }
+        guard shouldAsk(canAsk: true) else { return }
         try? await Task.sleep(for: PhotoAccessAsk.delay)
-        guard Task.isCancelled == false, shouldAsk(library) else { return }
-        let granted = await library.requestAuthorization()
-        services.analytics(SuggestionEvents.photoAccessAsked(granted: granted))
-        if granted { NotificationCenter.default.post(name: .atePhotoAccessGranted, object: nil) }
+        guard Task.isCancelled == false else { return }
+        if shouldAsk(canAsk: library.canAsk) {
+            let granted = await library.requestAuthorization()
+            services.analytics(SuggestionEvents.photoAccessAsked(granted: granted))
+            if granted { NotificationCenter.default.post(name: .atePhotoAccessGranted, object: nil) }
+        } else if app.hasSession, shouldAsk(canAsk: true) {
+            await AtePush.shared.askOnce(trigger: .receipt, services: services)
+        }
     }
 
-    private func shouldAsk(_ library: any AtePhotoLibrary) -> Bool {
+    private func shouldAsk(canAsk: Bool) -> Bool {
         PhotoAccessAsk.shouldAsk(
-            canAsk: library.canAsk,
+            canAsk: canAsk,
             isPrinted: store.phase == .printed,
             isPresentingOther: isSharing || isPickingPlace
         )
@@ -268,4 +302,6 @@ enum V2PrintedTiming {
     /// How long the sort's own reply is waited on before the store's re-reads take over: past the
     /// server's 5s model timeout, its ≤3s wait on a running preview, and a slow network.
     static let patience: Duration = .seconds(12)
+    /// When which photo is which dish is read after the receipt prints: at most four reads, one row each.
+    static let dishPhotoReads: [Duration] = [.seconds(2), .seconds(4), .seconds(8), .seconds(16)]
 }

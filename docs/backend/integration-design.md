@@ -286,6 +286,8 @@ PR, same rule as `place_locality()`); rows written before keep the mangle — re
 
 **Diet — 0074 + sort-entry.** Additive: `profiles.diet` (owner PATCH); `entry_cards.items[].diet_tags`; `diet_counts` on `dish_summary` and `place_dishes` (+ browse; drop+create); sort-entry `diet_off_tokens` and `items[].diet_off`. **Behavioural:** every dish-level diet `tags` (dish_summary, place_dishes, search_dishes, dish_tags, the diet filters and tag pages) follows the label rule (3 people / 12 months / vg ⇒ v, df / any turn-off vetoes) instead of half-of-lines; new lines carry the author's diet in `tags`.
 
+**More diet options — 0084.** Additive: codes `pe`, `ha`, `ef`, `pf`, `sf` everywhere a diet code is accepted (sort-entry reads PESC/HALAL/EF/PF/SF chips). **Behavioural:** `diet_counts` holds every counted code nobody turned off (was: only codes below the label); vg also counts as ef and pe, v as pe, nf as pf.
+
 **Tag page — 0057.** Additive: trailing optional `p_kind`, `p_slug` on `get_entry_feed` and `new_to_record` (+ browse twins; drop+create, old calls bind unchanged and return the same rows); new `my_taste_tags`. Nothing existing changes meaning.
 
 **Faster logging — 0056 + sort-entry.** Additive: the sort reply (and its `skipped` reply) carries `entry_card`
@@ -355,7 +357,7 @@ theirs. The original deleted before a response withdraws the tag (prefill → `P
 | `my_notifications(p_limit, p_cursor_created_at, p_cursor_id)` | `{id, type, created_at, read_at, actor{id,username,name,avatar_url}, companion_id, companion_status, entry_id, place{id,name,locality}, visited_at}[]`, newest first, keyset `(created_at, id)` — pass BOTH from the last row or neither (one alone → `22023`); default 30, max 100. `type` is `ate_with` (render nothing else). Blocked/deactivated actors absent |
 | `unread_notification_count()` | int — the badge; counts exactly the unread rows `my_notifications` can show |
 | `dismiss_notification(p_id)` · `mark_notifications_read()` | void · int (0011, unchanged). Answering a tag dismisses its row itself |
-| `ate_with_prefill(p_companion_id)` | jsonb `{companion_id, status, response_entry_id, entry_id, visited_at, sort_status, tagger{…}, place{id,name,address,locality}, dishes:[{dish_id, dish_name, position}]}` — one row per dish. `sort_status: pending` = dishes still on their way (retry), not "none". `status: accepted` → open `response_entry_id` instead. Marks the notification read. `P0002` not yours / withdrawn / blocked |
+| `ate_with_prefill(p_companion_id)` | jsonb `{companion_id, status, response_entry_id, entry_id, visited_at, sort_status, body, tagger{…}, place{id,name,address,locality}, dishes:[{dish_id, dish_name, position, score}]}` — one row per dish. `body` + `score` (0086, additive) = the tagger's words and each dish's first-line score, for "Copy their review" (copied only on the person's tap; posted through `respond_ate_with` as theirs). `sort_status: pending` = dishes still on their way (retry), not "none". `status: accepted` → open `response_entry_id` instead. Marks the notification read. `P0002` not yours / withdrawn / blocked |
 | `respond_ate_with(p_companion_id, p_entry_id, p_items, p_body)` | `entry_cards[]` (one row: YOUR new entry — render it). `p_entry_id` client-minted (a retry with it returns the same card); `p_items` = `[{dish_id, score?, tags?}]` in receipt order, dishes at that place (omit = didn't have it; duplicates collapse); `p_body` optional words, default `''`. Same place + visit time as the original; `sort_status: sorted`; lines are `corrected` (a later `sort-entry` with `force` keeps them and adds what the words name). `22023` bad items / `dish_not_at_place` / `nothing_to_post` / declined · `23514` bad score · `23505` already answered with another id · `P0002` |
 | `decline_ate_with(p_companion_id)` | `'declined'`. Pending or accepted; an accepted entry stays theirs, unlinked. `P0002` not yours |
 | `register_push_token(p_token, p_apns_env)` · `unregister_push_token(p_token)` | void. Hex APNs token; `p_apns_env` `sandbox` (Xcode-installed builds) \| `production` (TestFlight + App Store; the default when omitted or null, 0059) — from the build's `aps-environment`, not from Debug/Release: a Beta build on staging is `production`. Register on every launch with permission (moves the token to whoever is signed in); unregister on sign-out. `22023` bad token/env |
@@ -366,7 +368,7 @@ ones, only to the author and that companion); a response lists the original's au
 companions. `entry_id` = that person's entry for the visit (tap → `get_entry_card`), null while pending. Blocked
 and deactivated people are absent. Raw `entry_companions` rows (incl. `declined`) are readable by the two parties only.
 
-**Push delivery (0059 + `supabase/functions/send-push`; built, not deployed).** The app receives
+**Push delivery (0059 + `supabase/functions/send-push`; deployed, on once the APNS_* secrets are set: every Prod apply then runs `push_configure`, `.github/scripts/push_setup.sh`).** The app receives
 `{aps: {alert: {title: "@eamon ate with you at Tipo 00", body: "Tagliatelle al ragù, tiramisu, prawn spaghetti"},
 badge: <unread ate_with count>, sound: "default", "thread-id": "ate-with"}, type: "ate_with", companion_id,
 notification_id, entry_id}` (no `body` when the entry has no dishes; `apns-collapse-id` = `companion_id`). Tap →

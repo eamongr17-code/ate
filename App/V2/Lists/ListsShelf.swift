@@ -9,8 +9,7 @@ import SwiftUI
 struct ListsShelf: View {
     let app: AppModel
     let router: TabRouter<JournalStores>
-    @Binding var isCollapsed: Bool
-    @Binding var isBarHidden: Bool
+    @Binding var barHidden: CGFloat
     @Binding var isNaming: Bool
 
     /// The new list, once named: its page opens as the name sheet goes.
@@ -20,6 +19,7 @@ struct ListsShelf: View {
 
     var body: some View {
         ScrollView {
+            AteGlassHeaderRoom()
             LazyVGrid(columns: columns, alignment: .leading, spacing: AteListCoverMetrics.rowGap) {
                 tiles
             }
@@ -30,8 +30,7 @@ struct ListsShelf: View {
             band
         }
         .scrollIndicators(.hidden)
-        .ateRootCollapse($isCollapsed)
-        .ateRootBarHiding($isBarHidden)
+        .ateRootBarHiding($barHidden)
         .refreshable { await lists.refresh() }
         .task { await lists.loadIfNeeded() }
         .accessibilityIdentifier("lists.shelf")

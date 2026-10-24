@@ -1,5 +1,6 @@
 import AteKit
 import SwiftUI
+import TipKit
 
 /// **The slip.** One component, three surfaces.
 ///
@@ -24,6 +25,8 @@ struct EntrySlip: View {
     var onDish: ((AteSlip.Dish) -> Void)?
     /// The identifier a drive reaches for. The journal's slips have always been `journal.slip`.
     var identifier = "journal.slip"
+    /// A tip on the first dish's bookmark (the beta Feed's Save tip). Only where there is `onSave`.
+    var saveTip: (any Tip)?
 
     @Environment(\.atePhotoViewer) private var showPhotos
     @Environment(\.atePhotoDishSource) private var dishSource
@@ -122,6 +125,9 @@ struct EntrySlip: View {
                         )
                     } : nil
                 )
+                .onAppear {
+                    if interactive, slip.dishes.isEmpty == false { dishSource?.readAhead(slip.id) }
+                }
             }
             // The foot line is its own band: the place goes to the place, everything above it goes
             // to the entry. (A sibling rather than a child of the body's button — a tap inside a
@@ -173,7 +179,8 @@ struct EntrySlip: View {
                         dish: dish,
                         action: dishAction(dish, interactive: interactive),
                         onSave: onSave.map { save in { save(dish) } },
-                        identifier: identifier
+                        identifier: identifier,
+                        saveTip: index == 0 ? saveTip : nil
                     )
                 }
             }

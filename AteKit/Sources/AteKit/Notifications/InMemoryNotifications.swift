@@ -97,7 +97,8 @@ public final class InMemoryNotifications: NotificationsReading, AteWithRespondin
             return AteWithPrefill(
                 companionID: companionID, status: tag.status, responseEntryID: tag.responseEntryID,
                 entryID: tag.prefill.entryID, visitedAt: tag.prefill.visitedAt, sortStatus: tag.prefill.sortStatus,
-                tagger: tag.prefill.tagger, place: tag.prefill.place, dishes: tag.prefill.dishes
+                tagger: tag.prefill.tagger, place: tag.prefill.place, dishes: tag.prefill.dishes,
+                body: tag.prefill.body
             )
         }
     }

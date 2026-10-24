@@ -116,6 +116,9 @@ enum AteShareFormat: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Its name on the switch over the cards.
+    var title: String { rawValue.capitalized }
+
     /// The card, for the share count.
     var counted: ShareSticker {
         switch self {

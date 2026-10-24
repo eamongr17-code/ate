@@ -36,12 +36,19 @@ struct AteDishRow: View {
     var onPhoto: (() -> Void)?
     /// Under the dish on the full-screen cover: where it was eaten.
     var photoByline: String?
-    /// Under the name while a place's diet chips are on: per code, its chip or "Ordered by N …
-    /// eaters" (``AteDietSignalRow``).
-    var dietSignals: [DietSignal] = []
+    /// A place's Top Ate: the diet pills open how many people of each diet logged the dishes wearing
+    /// them (`diet-more.html`). `nil`, the pills are only pills.
+    var tagCounts: (() -> [AteDietCountsList.Row])?
+    /// The pills were tapped.
+    var onTagCounts: (() -> Void)?
 
+    @State private var isShowingTagCounts = false
+    /// Where a menu row's thumbnail sits, for its photo to fly out of and back into.
+    @State private var thumbFrames = AtePhotoTileFrames()
     @Environment(\.atePalette) private var palette
     @Environment(\.atePhotoViewer) private var showPhotos
+    @Environment(\.atePhotoOriginRelay) private var originRelay
+    @Environment(\.atePhotoHiddenSource) private var hiddenSource
 
     var body: some View {
         HStack(spacing: AteDishRowMetrics.gap) {
@@ -54,6 +61,9 @@ struct AteDishRow: View {
                             .frame(width: AteDishRowMetrics.rankWidth)
                     }
                     AteThumb(photo: photo, size: isMenu ? .menu : .row)
+                        .atePhotoSource(thumbFrames, index: 0, radius: AteThumbMetrics(.menu).radius)
+                        // While the viewer has its photo: the photo is in flight over it.
+                        .opacity(isMenu && hiddenSource == thumbFrames.sourceID(0) ? 0 : 1)
                         .overlay(alignment: .bottomTrailing) {
                             if let mark { AteSourceMark(icon: mark) }
                         }
@@ -64,17 +74,13 @@ struct AteDishRow: View {
                                 .ateText(.rowTitle)
                                 .foregroundStyle(palette.fg)
                                 .lineLimit(2)
-                            AteDietChips(tags: tags, onGround: isMenu == false)
+                            chips
                         }
                         if let subtitle {
                             Text(subtitle)
                                 .ateText(.meta)
                                 .lineLimit(1)
                                 .foregroundStyle(palette.muted)
-                        }
-                        if dietSignals.isEmpty == false {
-                            AteDietSignalRow(signals: dietSignals)
-                                .padding(.top, max(0, AteDietSignalMetrics.rowTop - lineGap))
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -84,6 +90,11 @@ struct AteDishRow: View {
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
+            .accessibilityActions {
+                if tagCounts != nil, tags.isEmpty == false {
+                    Button("Diet counts") { showTagCounts() }
+                }
+            }
             if let onSave {
                 AteSaveButton(dishName: name, isSaved: isSaved, identifier: "row.save", action: onSave)
                     .padding(.vertical, -AteDishRowMetrics.saveBleed)
@@ -97,6 +108,11 @@ struct AteDishRow: View {
                 // never heard.
                 Button {
                     onPhoto?()
+                    let thumb = AteThumbMetrics(.menu)
+                    originRelay?.note(thumbFrames.origin(
+                        side: thumb.height, radius: { _ in thumb.radius }, angle: { _ in 0 }, ring: nil,
+                        focus: { _ in photo.focus }, layer: { _ in 0 }
+                    ))
                     let dishes = AtePhotoDishes.one(name, photos: [photo], byline: photoByline)
                     showPhotos([photo], at: 0, dishes: dishes)
                 } label: {
@@ -119,6 +135,29 @@ struct AteDishRow: View {
                 }
             }
         }
+    }
+
+    /// The dish's pills; where they open counts, a tap on them is theirs, not the row's.
+    @ViewBuilder
+    private var chips: some View {
+        let pills = AteDietChips(tags: tags, onGround: isMenu == false)
+        if let tagCounts, tags.isEmpty == false {
+            pills
+                .padding(.vertical, AteDishRowMetrics.pillBleed)
+                .contentShape(.rect)
+                .padding(.vertical, -AteDishRowMetrics.pillBleed)
+                .highPriorityGesture(TapGesture().onEnded { showTagCounts() })
+                .ateDietCountsPopover(isPresented: $isShowingTagCounts) {
+                    AteDietCountsList(rows: tagCounts())
+                }
+        } else {
+            pills
+        }
+    }
+
+    private func showTagCounts() {
+        onTagCounts?()
+        isShowingTagCounts = true
     }
 
     private var isMenu: Bool {
@@ -163,6 +202,8 @@ enum AteDishRowMetrics {
     static let gap: CGFloat = 12
     static let height: CGFloat = 76
     static let menuHeight: CGFloat = 66
+    /// A row's diet pills are 20 high; a tap on them gets 12 more each way before it is the row's.
+    static let pillBleed: CGFloat = 12
     /// The name over its place: `gap:3px` (the menu's `2px`).
     static let lineGap: CGFloat = 3
     static let menuLineGap: CGFloat = 2

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# .github/scripts/dish_dedup.sh <project-ref> <scan|scan-merge-names|merge|reject> [ids]
+# .github/scripts/dish_dedup.sh <project-ref> <scan|scan-merge-names|merge|reject|chains> [ids]
 #
 # Same dish, different names (0071): calls the dish-dedup function on one project with its service-role
 # key, read here through SUPABASE_ACCESS_TOKEN and never printed, and writes the open proposals as a
@@ -25,6 +25,7 @@ case "$key" in sb_secret_*) echo "Using the project's secret key" ;; *) echo "Us
 case "$action" in
   scan) body='{"action":"scan"}' ;;
   scan-merge-names) body='{"action":"scan","merge":"same_name"}' ;;
+  chains) body='{"action":"chains"}' ;;   # chain restaurants (0085): check repeated names' websites, link
   merge|reject)
     if [ "$action" = merge ] && [ "$raw_ids" = all ]; then
       body='{"action":"merge","ids":"all"}'
@@ -41,6 +42,17 @@ code=$(curl -s -o out.json -w '%{http_code}' --max-time 400 \
   -H "Authorization: Bearer $key" -H 'Content-Type: application/json' -d "$body")
 echo "dish-dedup $action: HTTP $code"
 [ "$code" = 200 ] || { cat out.json; exit 1; }
+
+if [ "$action" = chains ]; then
+  {
+    echo "### Chain restaurants"
+    jq -r '"Places with a repeated name: \(.candidates). Websites checked this run: \(.fetched). Chains linked this run: \(.chains | length).",
+           "",
+           "| Chain | Website | Locations |", "|---|---|---|",
+           (.all_chains[] | "| \(.name) | \(.website_host // "") | \(.restaurants[0].count // 0) |")' out.json
+  } | tee -a "$GITHUB_STEP_SUMMARY"
+  exit 0
+fi
 
 {
   echo "### Duplicate dishes: $action"

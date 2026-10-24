@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// **What Ate puts into iOS 26's own chrome** — and nothing more: the tab items' labels in
-/// Bricolage, the icons as Lucide templates the system tints, and the ink the selected tab is drawn
+/// DM Sans, the icons as Lucide templates the system tints, and the ink the selected tab is drawn
 /// in. The bar, its glass, its selection highlight, its minimise and the navigation bars stay the
 /// system's (`design/rebuild/pattern-contract.html`, "One rule above all").
 @MainActor

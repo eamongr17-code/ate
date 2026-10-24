@@ -107,6 +107,22 @@ final class AteImagePipeline: @unchecked Sendable {
         return nil
     }
 
+    /// The best picture on hand without the network: memory, else the small copy on disk, read and
+    /// decoded now and put back in memory. For a tap that needs the picture its tile is showing in
+    /// this frame: the memory cache can have been emptied under it (the system clears it when the
+    /// app goes to the background) while the tile still holds its own copy, and the photo viewer
+    /// then had nothing to fly out of the tile with, so it just appeared (build 200).
+    func onHand(_ url: URL, size: AtePhotoSize) -> UIImage? {
+        if let image = bestCached(url, size: size)?.image { return image }
+        let maxPixel = AtePhotoSize.thumbnail.maxPixel
+        let thumb = diskFile(url.absoluteString, kind: "thumb")
+        let original = diskFile(url.absoluteString, kind: "original")
+        guard let data = readDisk(thumb) ?? readDisk(original),
+              let image = Self.decode(data, maxPixel: maxPixel) else { return nil }
+        memory.setObject(image, forKey: Self.memoryKey(url, .thumbnail) as NSString, cost: Self.cost(of: image))
+        return image
+    }
+
     /// The picture, from memory, disk or the network — one request however many callers ask.
     /// `nil` only when there is no picture to be had (a dead URL, no connection and no copy).
     func image(_ url: URL, size: AtePhotoSize, priority: TaskPriority = .userInitiated) async -> UIImage? {

@@ -1,0 +1,273 @@
+<title>Ate Header Rethink</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Young+Serif&family=DM+Mono:wght@400;500&family=Newsreader:opsz@6..72&display=swap">
+<style>
+/* Layout: the history, then one row per option — the same screen in light and dark, live and scrollable, at iPhone 17 scale (393×852pt) */
+:root{
+  --page:#F4F1EC; --page-fg:#24141F; --page-mut:#6E6470; --page-line:#DDD6CC; --accent:#F0623F; --bad:#B3261E; --good:#2E7D4F;
+  --f-dish:"Young Serif",Georgia,serif; --f-ui:"DM Sans",system-ui,sans-serif; --f-mono:"DM Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#151416;--page-fg:#EEEAE4;--page-mut:#9C94A0;--page-line:#2C2A2E;--bad:#FF8A80;--good:#7FD49B;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#151416;--page-fg:#EEEAE4;--page-mut:#9C94A0;--page-line:#2C2A2E;--bad:#FF8A80;--good:#7FD49B;color-scheme:dark}
+body{background:var(--page);color:var(--page-fg);font-family:var(--f-ui);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+.wrap{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:40px}
+section{display:flex;flex-direction:column;gap:14px}
+h1{font:400 40px/1.02 var(--f-dish);letter-spacing:-.02em;margin:0;text-wrap:balance}
+h2{font:400 26px/1.08 var(--f-dish);letter-spacing:-.02em;margin:0;text-wrap:balance}
+p.s{margin:0;color:var(--page-mut);font-size:15px;line-height:1.5;max-width:68ch}
+p.s b{color:var(--page-fg);font-weight:600}
+.rec{display:inline-block;font:500 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--accent);padding:5px 8px;border-radius:6px;vertical-align:middle;margin-left:8px}
+.ctl{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--page);padding-block:10px;display:flex;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--page-line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:21;background:var(--page)}
+.seg2{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.seg2>span{font:500 12px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--page-mut);margin-right:4px}
+.seg2 button{font:600 14px/1 var(--f-ui);padding:9px 13px;border-radius:999px;border:1px solid var(--page-line);background:transparent;color:var(--page-fg);cursor:pointer}
+.seg2 button[aria-pressed="true"]{background:var(--page-fg);color:var(--page);border-color:var(--page-fg)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+table.hist{border-collapse:collapse;width:100%;font-size:14px;line-height:1.4}
+.tw{overflow-x:auto}
+.hist th{text-align:left;font:500 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--page-mut);padding:8px 10px;border-bottom:1px solid var(--page-line)}
+.hist td{padding:9px 10px;border-bottom:1px solid var(--page-line);vertical-align:top}
+.hist td:first-child{font:500 13px/1.4 var(--f-mono);white-space:nowrap;color:var(--page-mut)}
+.hist td.why{color:var(--bad)}
+.hist tr.ok td.why{color:var(--good)}
+.cause{border:1px solid var(--page-line);border-radius:16px;padding:16px 18px;font-size:15px;line-height:1.5;max-width:76ch}
+.cause b{font-weight:600}
+
+.pair{display:flex;flex-wrap:wrap;gap:20px 28px;justify-content:center}
+.ph-wrap{display:flex;flex-direction:column;gap:8px;align-items:center;width:calc(415px*var(--z,1))}
+.ph-wrap .cap{font:600 14px/1.2 var(--f-ui);color:var(--page-mut)}
+.pros{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 28px;font-size:14px;line-height:1.45}
+.pros div{min-width:0}
+.pros .k{font:500 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--page-mut);margin-bottom:6px}
+.pros ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+
+/* the phone */
+.phone{zoom:var(--z,1);width:393px;height:852px;border-radius:55px;position:relative;overflow:hidden;flex:none;
+  box-shadow:0 0 0 10px #1a1a1c,0 0 0 11px #3a3a3e,0 24px 60px rgba(0,0,0,.22);margin:11px;
+  --ground:#EFEAE2;--g0:239,234,226;--slip:#fff;--fg:#24141F;--mut:#5E5560;--glass:rgba(255,255,255,.62);--glass-line:rgba(255,255,255,.9);
+  --glass-shadow:0 2px 10px rgba(36,20,31,.10);--pill:#F6D365;--hair:rgba(36,20,31,.10);--mat:rgba(255,255,255,.5)}
+.phone.dk{--ground:#0C0C0D;--g0:12,12,13;--slip:#1C1C1E;--fg:#F5F4F1;--mut:#A5A4A8;--glass:rgba(44,44,48,.6);--glass-line:rgba(255,255,255,.14);
+  --glass-shadow:0 2px 12px rgba(0,0,0,.4);--pill:#E6C65F;--hair:rgba(255,255,255,.12);--mat:rgba(62,62,66,.5)}
+.screen{position:absolute;inset:0;background:var(--ground);color:var(--fg);font-family:var(--f-ui);overflow:hidden}
+.scroll{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain}
+.scroll::-webkit-scrollbar{display:none}
+.pad{padding:106px 0 150px}
+.c .pad{padding-top:54px}
+.status{position:absolute;top:0;left:0;right:0;height:54px;display:flex;justify-content:space-between;align-items:center;padding:6px 34px 0 46px;font:600 17px/1 -apple-system,system-ui,sans-serif;z-index:9;pointer-events:none;color:var(--fg)}
+.status i{width:58px;height:13px;background:linear-gradient(90deg,var(--fg) 0 62%,transparent 62% 70%,var(--fg) 70%);border-radius:3px}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;background:#000;border-radius:20px;z-index:10}
+
+/* the edge treatments */
+.edge{position:absolute;left:0;right:0;top:0;z-index:6;pointer-events:none;opacity:0;transition:opacity .15s ease-out}
+.edge.on{opacity:1}
+/* Now (build 196): system thin material + 15% page colour, eased out */
+.now .edge{height:137px;background:linear-gradient(rgba(var(--g0),.15),rgba(var(--g0),.15)),var(--mat);
+  backdrop-filter:blur(18px) saturate(1.6);-webkit-backdrop-filter:blur(18px) saturate(1.6);
+  -webkit-mask-image:linear-gradient(#000 0,#000 106px,rgba(0,0,0,.85) 112px,rgba(0,0,0,.5) 121px,rgba(0,0,0,.15) 130px,transparent 137px);
+          mask-image:linear-gradient(#000 0,#000 106px,rgba(0,0,0,.85) 112px,rgba(0,0,0,.5) 121px,rgba(0,0,0,.15) 130px,transparent 137px)}
+/* A: iOS 26's own soft scroll edge — a blur that deepens toward the top, fading into the page colour, no tint */
+.a .edge{height:150px}
+.a .edge b{position:absolute;inset:0;display:block}
+.a .edge b:nth-child(1){backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);-webkit-mask-image:linear-gradient(#000 60%,transparent);mask-image:linear-gradient(#000 60%,transparent)}
+.a .edge b:nth-child(2){backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);-webkit-mask-image:linear-gradient(#000 45%,transparent 80%);mask-image:linear-gradient(#000 45%,transparent 80%)}
+.a .edge b:nth-child(3){backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);-webkit-mask-image:linear-gradient(#000 30%,transparent 65%);mask-image:linear-gradient(#000 30%,transparent 65%)}
+.a .edge b:nth-child(4){background:linear-gradient(rgba(var(--g0),.96) 0,rgba(var(--g0),.9) 50%,rgba(var(--g0),.5) 76%,rgba(var(--g0),0) 100%)}
+/* B: the page colour itself, solid to the header's foot, eased out — no blur */
+.b .edge{height:137px;background:linear-gradient(rgb(var(--g0)) 0,rgb(var(--g0)) 106px,rgba(var(--g0),.84) 112px,rgba(var(--g0),.5) 121px,rgba(var(--g0),.16) 130px,rgba(var(--g0),0) 137px)}
+/* C: no bar — the page colour behind the clock only, eased out */
+.c .edge{height:72px;opacity:1;background:linear-gradient(rgb(var(--g0)) 0,rgb(var(--g0)) 44px,rgba(var(--g0),.7) 54px,rgba(var(--g0),.25) 64px,rgba(var(--g0),0) 72px)}
+
+.nav{position:absolute;top:54px;left:0;right:0;height:52px;display:flex;align-items:center;gap:8px;padding:0 16px;z-index:8}
+.nav .sp{flex:1}
+.g{height:44px;min-width:44px;border-radius:22px;background:var(--glass);box-shadow:inset 0 0 0 .7px var(--glass-line),var(--glass-shadow);display:inline-flex;align-items:center;justify-content:center;padding:0 4px;flex:none;backdrop-filter:blur(10px) saturate(1.4);-webkit-backdrop-filter:blur(10px) saturate(1.4)}
+svg.i{width:22px;height:22px;stroke:var(--fg);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;margin:0 7px}
+.rt{font:400 34px/1 var(--f-dish);letter-spacing:-.02em;padding-left:4px}
+.it{font:400 18px/1.1 var(--f-dish);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;opacity:0;transition:opacity .2s}
+.it.on{opacity:1}
+.fab{position:absolute;bottom:34px;z-index:8;width:56px;height:56px;border-radius:28px}
+.fab.l{left:24px}.fab.r{right:24px}
+
+/* content */
+.ftitle{font:400 34px/1 var(--f-dish);letter-spacing:-.02em;padding:6px 20px 14px}
+.slip{background:var(--slip);margin:0 12px 14px;border-radius:22px 22px 4px 4px;padding:16px 18px 18px;position:relative}
+.slip:after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:6px;
+  background:radial-gradient(circle at 5px -1px,transparent 4px,var(--slip) 4.5px) 0 0/10px 6px repeat-x}
+.by{display:flex;align-items:center;gap:10px;font:500 15px/1 var(--f-ui)}
+.by .av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#F490D4,#F0623F)}
+.by .t{margin-left:auto;color:var(--mut);font-size:13px}
+.dish{display:flex;align-items:center;gap:12px;margin-top:14px}
+.dish b{font:400 24px/1.05 var(--f-dish);letter-spacing:-.01em;flex:1}
+.dish .sc{font:600 20px/1 var(--f-ui)}
+.words{font:400 17px/1.45 "Newsreader",Georgia,serif;margin:12px 0 0}
+.pills{display:flex;gap:4px;margin-top:14px}
+.pills i{width:96px;height:96px;border-radius:22px;display:block}
+.pl{margin-top:14px;font:600 15px/1 var(--f-ui)}
+.pl span{color:var(--mut);font-weight:400;margin-left:6px}
+.cover{width:160px;height:160px;border-radius:24px;margin:8px 20px 14px;background:linear-gradient(135deg,#F6D365,#F0623F 55%,#B23A1E)}
+.ptitle{font:400 34px/1.05 var(--f-dish);letter-spacing:-.02em;padding:0 20px;text-wrap:balance}
+.pmeta{font:400 15px/1.3 var(--f-ui);color:var(--mut);padding:8px 20px 16px}
+.row{display:flex;align-items:center;gap:12px;padding:12px 20px;border-top:1px solid var(--hair)}
+.row i{width:56px;height:56px;border-radius:16px;flex:none;display:block}
+.row b{font:400 19px/1.1 var(--f-dish);flex:1;min-width:0}
+.row b small{display:block;font:400 13px/1.3 var(--f-ui);color:var(--mut);margin-top:4px}
+.row .sc{font:600 15px/1;font-family:var(--f-ui);background:var(--pill);color:#24141F;border-radius:999px;padding:5px 9px}
+@media (prefers-reduced-motion: reduce){.edge,.it{transition:none}}
+</style>
+
+<div class="wrap">
+  <section>
+    <h1>Page headers, from scratch</h1>
+    <p class="s">Every phone below is live: scroll inside it. Each option is shown on the same screen in light and dark. The switch under the history picks the screen. Phones open part-scrolled so content is already under the header.</p>
+  </section>
+
+  <section>
+    <h2>Every past attempt, and why it failed</h2>
+    <div class="tw"><table class="hist">
+      <thead><tr><th>Build</th><th>What the header did</th><th>What went wrong</th></tr></thead>
+      <tbody>
+        <tr><td>87–88</td><td>Solid page colour behind the bar, always on</td><td class="why">A heavy block at rest; the title swap re-measured the bar and made it jump</td></tr>
+        <tr><td>92</td><td>iOS's own scroll-edge effect</td><td class="why">Light: a lighter band and a line over the page, even at rest, over white slips</td></tr>
+        <tr><td>94</td><td>Solid page colour, faded in as you scroll</td><td class="why">The fade read as a half-there header; you asked for on/off</td></tr>
+        <tr><td>95</td><td>Solid page colour, hard edge, switches on once scrolled</td><td class="why">Worked, but you found it intrusive in both modes (22 Oct)</td></tr>
+        <tr><td>174</td><td>Liquid Glass header that hides on scroll</td><td class="why">No blur behind it at all; it flickered and the page jumped</td></tr>
+        <tr><td>177–179</td><td>System frosted material behind the header</td><td class="why">Dark: a brighter grey band with a visible edge. The material's own grey, not the page colour</td></tr>
+        <tr class="ok"><td>180</td><td>Page colour, eased fade, no blur</td><td class="why">You said it looks great, then asked for "a small degree of glass"</td></tr>
+        <tr class="ok"><td>181</td><td>Page colour at 82% over the material, shorter fade</td><td class="why">Fine in both modes; the material was mostly hidden</td></tr>
+        <tr><td>192</td><td>Same, page colour 60%, on every screen</td><td class="why">"Not glass-like enough"</td></tr>
+        <tr><td>194</td><td>Page colour 35%</td><td class="why">Still not enough glass</td></tr>
+        <tr><td>196</td><td>Page colour 15%</td><td class="why">Dark: the 177 band is back. Light: a whiter band over the linen</td></tr>
+      </tbody>
+    </table></div>
+    <div class="cause"><b>The root cause.</b> We've been tuning one number between two settings that fight each other. The blur we use is Apple's frosted material, and that material is a light grey wash. Over Ate's near-black page it can only make the band brighter, and over the linen page it makes it whiter. The more page colour we lay on top, the less you see the glass. The less we lay on, the more you see the grey. No value of that number gives both glass and a band that matches the page. So the fix has to be a different kind of header, not another opacity.</div>
+  </section>
+
+  <div class="ctl" role="toolbar" aria-label="Mockup controls">
+    <div class="seg2"><span>Screen</span>
+      <button id="s-feed" aria-pressed="true" data-screen="feed">Feed</button>
+      <button id="s-list" aria-pressed="false" data-screen="list">List page</button>
+    </div>
+  </div>
+
+  <section>
+    <h2>Now: build 196</h2>
+    <p class="s">For reference. Frosted material with 15% page colour on top. In dark, the band is lighter than the page under it.</p>
+    <div class="pair" data-opt="now"></div>
+  </section>
+
+  <section>
+    <h2>A. iOS 26's own edge blur<span class="rec">Recommended</span></h2>
+    <p class="s">We delete our frost and use the system's soft scroll edge, which every iOS 26 app uses. Content blurs more the closer it gets to the top and dissolves into the page colour. There's no grey wash, so it can't get brighter than the page. Buttons stay Liquid Glass. Headers keep today's behaviour: the root header slides away as you scroll down, and the page name moves into the bar on pushed pages.</p>
+    <div class="pair" data-opt="a"></div>
+    <div class="pros">
+      <div><div class="k">Good</div><ul><li>Glass you can see through, and it never changes the page's colour</li><li>Apple's own effect, so it matches the tab bar and the glass buttons</li><li>Least code: our frost is deleted, not tuned</li></ul></div>
+      <div><div class="k">Risk</div><ul><li>Build 92 showed a lighter band with this effect over white slips in light mode. I'll check whether that came from the old bar background we had then, and set the scroll view to the page colour so the system fades into linen, not white</li><li>Apple sets how strong it is; we can't tune it</li></ul></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>B. Page colour, no blur</h2>
+    <p class="s">The header is the page colour itself, solid behind the title and easing out below it. This is build 180, which you liked, on every screen. It can never be brighter or darker than the page, in either mode, because it is the page's colour.</p>
+    <div class="pair" data-opt="b"></div>
+    <div class="pros">
+      <div><div class="k">Good</div><ul><li>Zero risk of a band in either mode</li><li>Calm and editorial, fits the journal</li></ul></div>
+      <div><div class="k">Trade-off</div><ul><li>No glass: content disappears under the header rather than showing through</li></ul></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>C. No header bar, floating buttons only</h2>
+    <p class="s">The title scrolls away with the page. Only the Liquid Glass buttons stay, floating over content, as on Apple Music's album pages. The page colour sits behind the clock only, so the time stays readable.</p>
+    <div class="pair" data-opt="c"></div>
+    <div class="pros">
+      <div><div class="k">Good</div><ul><li>Most room for content; nothing to mismatch</li><li>Glass only where Apple uses it: on the buttons</li></ul></div>
+      <div><div class="k">Trade-off</div><ul><li>No page name in the bar once you've scrolled (pushed pages lose the serif name you approved this morning)</li><li>Journal/Lists switch is only reachable at the top (tap the clock to jump there)</li></ul></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  const icons = {
+    back:'<path d="M15 5l-7 7 7 7"/>',
+    share:'<path d="M12 3v12M7 8l5-5 5 5M5 13v7h14v-7"/>',
+    more:'<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
+    plus:'<path d="M12 5v14M5 12h14"/>',
+    fork:'<path d="M5 3v7a3 3 0 0 0 6 0V3M8 3v18M19 21L13 3c3 0 5 4 5 9v3"/>'
+  };
+  const ic = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${icons[n]}</svg>`;
+  const photos = ['linear-gradient(135deg,#3a2a8a,#6b4fd8 60%,#d3c4ff)','linear-gradient(160deg,#2b1f5c,#4d3bb0 50%,#e8a25a)','linear-gradient(120deg,#1d2a6b,#5a6ee0 60%,#b9f0d2)',
+                  'linear-gradient(150deg,#f7b267,#f25c54)','linear-gradient(135deg,#8ac926,#ffca3a)','linear-gradient(135deg,#6a4c93,#1982c4)','linear-gradient(135deg,#c06c84,#f8b195)'];
+  const feedSlips = [
+    {h:'@paris',t:'2d',d:'Fried Chicken Pancake',s:'4.5',w:'Crunch held up under the syrup, which I did not expect.',p:[3,4],pl:'Small Wins',sub:'Fitzroy'},
+    {h:'@wamon',t:'5d',d:'Prawns Stir Fry',s:'4.0',p:[0,1,2],pl:'Bali Hai',sub:'Melbourne'},
+    {h:'@wamon',t:'1w',d:'Immunity C Booster',s:'3.5',w:'Just what I needed after a big weekend tbh. Not too sweet.',p:[3],pl:'Fitness Smoothies',sub:'Windsor'},
+    {h:'@jess',t:'1w',d:'Cacio e Pepe',s:'5.0',w:'Peppery, glossy, gone in four minutes.',p:[5,6],pl:'Tipo 00',sub:'Melbourne'},
+    {h:'@paris',t:'2w',d:'Lamb Shoulder',s:'4.0',p:[6,0],pl:'Rumi',sub:'Brunswick East'}
+  ];
+  const listRows = [['Fried Chicken Pancake','Small Wins · Fitzroy','4.5'],['Korean Fried Wings','Hochi Mama · Melbourne','4.0'],['Chicken Katsu Sando','Hareruya Pantry · Fitzroy','4.5'],
+    ['Nashville Hot Tenders','Belles · Collingwood','4.0'],['Karaage','Shujinko · Melbourne','3.5'],['Fried Chicken Bao','Wonderbao · Melbourne','4.0'],['Popcorn Chicken','Formosa · Box Hill','3.5'],['Schnitzel','Hotel Esplanade · St Kilda','3.0']];
+
+  function feedBody(opt){
+    const slips = feedSlips.map(f => `<div class="slip"><div class="by"><span class="av"></span>${f.h}<span class="t">${f.t}</span></div>
+      <div class="dish"><b>${f.d}</b><span class="sc">★ ${f.s}</span></div>${f.w?`<p class="words">${f.w}</p>`:''}
+      <div class="pills">${f.p.map(i=>`<i style="background:${photos[i]}"></i>`).join('')}</div>
+      <div class="pl">${f.pl}<span>${f.sub}</span></div></div>`).join('');
+    return (opt==='c' ? '<div class="ftitle" style="padding-top:12px">Feed</div>' : '') + slips;
+  }
+  function listBody(){
+    return `<div class="cover"></div><div class="ptitle">Fried Chicken of Melbourne</div><div class="pmeta">@eamon · 8 dishes</div>` +
+      listRows.map((r,i)=>`<div class="row"><i style="background:${photos[(i+3)%photos.length]}"></i><b>${r[0]}<small>${r[1]}</small></b><span class="sc">${r[2]}</span></div>`).join('');
+  }
+  function nav(opt, screen){
+    if(screen==='feed'){
+      return opt==='c' ? '' : `<div class="nav"><span class="rt">Feed</span><span class="sp"></span></div>`;
+    }
+    const name = opt==='c' ? '' : `<span class="it">Fried Chicken of Melbourne</span>`;
+    return `<div class="nav"><span class="g">${ic('back')}</span>${name}<span class="sp"></span><span class="g">${ic('share')}${ic('more')}</span></div>`;
+  }
+  function phone(opt, dark, screen){
+    const edge = opt==='a' ? '<div class="edge"><b></b><b></b><b></b><b></b></div>' : '<div class="edge"></div>';
+    const body = screen==='feed' ? feedBody(opt) : listBody();
+    const fabs = screen==='feed' ? `<span class="g fab l">${ic('fork')}</span><span class="g fab r">${ic('plus')}</span>` : '';
+    return `<div class="ph-wrap"><div class="phone ${dark?'dk':''}"><div class="screen ${opt}">
+      <div class="scroll"><div class="pad">${body}</div></div>${edge}${nav(opt,screen)}${fabs}
+      <div class="status"><span>4:49</span><i></i></div><div class="island"></div></div></div>
+      <div class="cap">${dark?'Dark':'Light'}</div></div>`;
+  }
+  function wire(ph, opt, screen){
+    const sc = ph.querySelector('.scroll'), edge = ph.querySelector('.edge'), it = ph.querySelector('.it');
+    const upd = () => {
+      const y = sc.scrollTop;
+      if(opt!=='c') edge.classList.toggle('on', y > 4);
+      if(it) it.classList.toggle('on', y > 230);
+    };
+    sc.addEventListener('scroll', upd, {passive:true});
+    sc.scrollTop = screen==='feed' ? (opt==='c' ? 150 : 110) : 260;
+    upd();
+  }
+  let screen = 'feed';
+  function render(){
+    document.querySelectorAll('.pair').forEach(p => {
+      const opt = p.dataset.opt;
+      p.innerHTML = phone(opt,false,screen) + phone(opt,true,screen);
+      p.querySelectorAll('.phone').forEach(ph => wire(ph, opt, screen));
+    });
+    fit();
+  }
+  function fit(){
+    const w = document.querySelector('.wrap').clientWidth;
+    const z = Math.min(1, w >= 900 ? (w-28)/2/415 : w/415);
+    document.documentElement.style.setProperty('--z', z.toFixed(3));
+  }
+  document.querySelectorAll('[data-screen]').forEach(b => b.addEventListener('click', () => {
+    screen = b.dataset.screen;
+    document.querySelectorAll('[data-screen]').forEach(x => x.setAttribute('aria-pressed', String(x===b)));
+    render();
+  }));
+  addEventListener('resize', fit);
+  render();
+})();
+</script>

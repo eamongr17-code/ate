@@ -51,9 +51,9 @@ struct V2DishPage: View {
             .coordinateSpace(.named(BrowsePage.content))
         }
         .scrollIndicators(.hidden)
-        .browseCollapse($isCollapsed, after: titleBottom)
+        .ateTitleCollapse($isCollapsed, after: titleBottom)
         .ateGround()
-        .browseBarTitle(store.summary?.name ?? store.preview?.name, isShown: isCollapsed)
+        .ateCollapsingTitle(store.summary?.name ?? store.preview?.name, isCollapsed: isCollapsed)
         .toolbar {
             if let summary = store.summary {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -99,7 +99,7 @@ struct V2DishPage: View {
                     AteSkeletonBar(width: V2DishMetrics.nameBar, height: V2DishMetrics.nameBarHeight,
                                    palette: .automatic)
                         .ateSkeletonSweep()
-                        .padding(.horizontal, AteMetrics.listGutter)
+                        .padding(.horizontal, AteMetrics.gutter)
                     AteReviewRowSkeleton()
                         .padding(.horizontal, AteMetrics.listGutter)
                 }
@@ -147,12 +147,12 @@ struct V2DishPage: View {
                 aggregate(summary)
             } else if let score = preview.score {
                 AteDishAggregate(score: score, peopleCount: 0)
-                    .padding(.horizontal, AteMetrics.listGutter)
+                    .padding(.horizontal, AteMetrics.gutter)
             } else {
                 AteSkeletonBar(width: V2DishMetrics.aggregateBar, height: V2DishMetrics.aggregateBarHeight,
                                palette: .automatic)
                     .ateSkeletonSweep()
-                    .padding(.horizontal, AteMetrics.listGutter)
+                    .padding(.horizontal, AteMetrics.gutter)
             }
         }
         if summary != nil {
@@ -177,11 +177,12 @@ struct V2DishPage: View {
     /// The dish, and the place under it as the door back to the menu it came off. Before the read, a
     /// place the opening row did not know is a still bar at the line's height.
     private func title(name: String, place: String?, placeID: UUID?) -> some View {
-        VStack(alignment: .leading, spacing: AteMetrics.tight) {
-            AteExactText(text: name, style: .entryPlace, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityAddTraits(.isHeader)
-                .browseTitleBottom($titleBottom)
+        VStack(alignment: .leading, spacing: 0) {
+            AteExactText(
+                text: name, style: .pageHeaderTitle, alignment: .leading, lineLimit: AtePageHeaderMetrics.lines
+            )
+            .accessibilityAddTraits(.isHeader)
+            .browseTitleBottom($titleBottom)
             if let place {
                 Button {
                     guard let placeID else { return }
@@ -189,11 +190,15 @@ struct V2DishPage: View {
                     context.open(.place(placeID), from: .dish)
                 } label: {
                     HStack(spacing: AteMetrics.hairspace) {
-                        Text(place).ateText(.rowTitle)
+                        Text(place)
+                            .ateText(.pageHeaderStrong)
+                            .foregroundStyle(AtePalette.automatic.fg)
                         AteIcon.chevron.view(size: V2DishMetrics.chevron)
+                            .foregroundStyle(AtePalette.automatic.muted)
                     }
-                    .foregroundStyle(AtePalette.automatic.muted)
-                    .frame(minHeight: AteMetrics.hit)
+                    // The line sits 8 under the name; the rest of the 44 hit falls below it.
+                    .padding(.top, AtePageHeaderMetrics.lineGap)
+                    .frame(minHeight: AteMetrics.hit, alignment: .top)
                     .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
@@ -204,24 +209,22 @@ struct V2DishPage: View {
                 AteSkeletonBar(width: V2DishMetrics.placeBar, height: V2DishMetrics.placeBarHeight,
                                palette: .automatic)
                     .ateSkeletonSweep()
-                    .frame(height: AteMetrics.hit)
+                    .padding(.top, AtePageHeaderMetrics.lineGap)
+                    .frame(height: AteMetrics.hit, alignment: .top)
             }
         }
-        .padding(.horizontal, AteMetrics.listGutter)
+        .padding(.horizontal, AteMetrics.gutter)
     }
 
-    /// The aggregate, its labels beside the people count; under it, per code below the label, the
-    /// literal line — "Ordered by 2 vegan eaters" (`diet.html`).
+    /// The aggregate, its diet pills beside the people count and the "?" that opens how many people of
+    /// each diet logged it (`diet-more.html`): no sentences under it.
     private func aggregate(_ summary: DishSummary) -> some View {
-        VStack(alignment: .leading, spacing: AteDietSignalMetrics.top) {
-            AteDishAggregate(score: summary.score, peopleCount: summary.peopleCount, tags: summary.tags)
-            ForEach(summary.dietSignals) { signal in
-                if let line = signal.line {
-                    AteDietSignalLine(tag: signal.tag, line: line)
-                }
-            }
-        }
-        .padding(.horizontal, AteMetrics.listGutter)
+        AteDishAggregate(
+            score: summary.score, peopleCount: summary.peopleCount, tags: summary.tags,
+            counts: DietCountLine.dish(tags: summary.tags, counts: summary.dietCounts),
+            onCounts: { context.services.analytics(DietEvents.countsOpened(surface: .dish)) }
+        )
+        .padding(.horizontal, AteMetrics.gutter)
     }
 
     // MARK: - The reviews
@@ -366,7 +369,7 @@ struct V2DishPage: View {
 
 enum V2DishMetrics {
     /// The hero sits 2 past the gutter (the cluster insets its own 6 for the tilt).
-    static let heroInset: CGFloat = AteMetrics.listGutter - AteDishHeroMetrics.inset + AteMetrics.hairspace
+    static let heroInset: CGFloat = AteMetrics.gutter - AteDishHeroMetrics.inset + AteMetrics.hairspace
     static let chevron: CGFloat = 15
     static let nameBar: CGFloat = 240
     static let nameBarHeight: CGFloat = 36

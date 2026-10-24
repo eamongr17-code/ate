@@ -429,3 +429,16 @@ public final class ListStore {
         if role != .invited { shelf?.updated(summary) }
     }
 }
+
+extension ListStore {
+    /// Something on it: the rows once read, the shelf's count before, so Share is there from the
+    /// first frame rather than arriving with the rows.
+    public var hasDishes: Bool {
+        items.isEmpty == false || (phase == .loading && (list?.itemCount ?? 0) > 0)
+    }
+
+    /// How many dishes a share says: the rows once read, the shelf's count before.
+    public var shownCount: Int {
+        items.isEmpty ? list?.itemCount ?? 0 : count
+    }
+}

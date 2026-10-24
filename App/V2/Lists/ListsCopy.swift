@@ -22,9 +22,18 @@ enum ListsCopy {
     static let done = "Done"
     // Covers and people (`list-cover-edit.html`).
     static let changeCover = "Change cover"
-    static let cover = "Cover"
+    static let automatic = "Automatic"
     static let uploadFromPhotos = "Upload from Photos"
-    static let photosInThisList = "Photos in this list"
+    static let uploadedPhoto = "Uploaded photo"
+    static let dishPhotos = "Dish photos"
+    /// What Automatic draws: the mosaic of the first four, else the first photo whole.
+    static func automaticFrom(photos: Int) -> String? {
+        switch photos {
+        case 0: nil
+        case 1..<4: "First dish photo"
+        default: "First 4 dish photos"
+        }
+    }
     static let addPeople = "Add people"
     static let peopleOnThisList = "People on this list"
     static let peopleYouAteWith = "People you've eaten with"

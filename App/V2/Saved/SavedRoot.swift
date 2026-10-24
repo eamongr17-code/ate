@@ -14,9 +14,8 @@ struct SavedRoot: View {
         self.app = app
     }
 
-    @State private var isCollapsed = false
-    /// The glass header has stepped away (``SwiftUICore/View/ateRootBarHiding(_:)``).
-    @State private var isBarHidden = false
+    /// How far the glass header has stepped away, 0 to 1 (``SwiftUICore/View/ateRootBarHiding(_:)``).
+    @State private var barHidden: CGFloat = 0
     @State private var isFiltering = false
     /// The beta's + (``AteBeta``): a dish of your own.
     @State private var isAdding = false
@@ -52,22 +51,14 @@ struct SavedRoot: View {
         }
         .accessibilityIdentifier("v2.root.saved")
         .ateGround()
-        .ateRootToolbar(
-            title: .text(V2Tab.saved.title),
-            inline: AteInlineTitle(title: V2Tab.saved.title),
-            isCollapsed: isCollapsed,
-            isBarHidden: isBarHidden
-        ) {
-            controls
-        }
         // The filter's chips are part of the glass header (`lighter-header.html`, B): the list
-        // scrolls under them, and they leave with the bar.
-        .safeAreaBar(edge: .top, spacing: 0) {
-            if isBarHidden == false {
-                activeChips
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
-        }
+        // scrolls under them, and they leave with it.
+        .ateGlassRootHeader(
+            title: .text(V2Tab.saved.title),
+            hidden: barHidden,
+            controls: { controls },
+            accessory: { activeChips }
+        )
         .overlay(alignment: .bottom) { undo }
         .sheet(isPresented: $isFiltering) { filterSheet }
         .sheet(isPresented: $isAdding) { SavedAddSheet(app: app) }
@@ -92,8 +83,7 @@ struct SavedRoot: View {
     /// one a list's own rows take (``V2ListPage``) — beside its bookmark.
     private var list: some View {
         List {
-            Color.clear
-                .frame(height: 0)
+            AteGlassHeaderRoom()
                 .listPlainRow()
                 .id(Self.top)
             rows
@@ -105,8 +95,7 @@ struct SavedRoot: View {
         .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
         .contentMargins(.bottom, AteMetrics.section, for: .scrollContent)
-        .ateRootCollapse($isCollapsed)
-        .ateRootBarHiding($isBarHidden)
+        .ateRootBarHiding($barHidden)
         .refreshable {
             Task { await saved.loadCities() }
             if AteBeta.isOn { Task { await own.refresh() } }
@@ -337,7 +326,8 @@ struct SavedRoot: View {
                     apply(filters.clearing(chip))
                 }
             )
-            .padding(.vertical, AteMetrics.snug)
+            // The header's foot is the room under them.
+            .padding(.top, AteMetrics.snug)
         }
     }
 

@@ -5,7 +5,7 @@ import TipKit
 
 /// **The tips** (`design/rebuild/first-run.html`, steps 8, 9): native TipKit popovers, each
 /// on the control it explains, each gone for good once that control is used or its ✕ is tapped. Plus
-/// Save on the Feed. Scoring is taught by the first-run cards (`onboarding-v2.html`), so it has no tip.
+/// Save on the Feed, and Score and Place on a first entry (`first-post-tips.html`, Eamon 22 Oct).
 ///
 /// Replay first run (Settings, Debug and Beta) bumps an epoch that every tip's `id` carries, so each
 /// comes back as a tip TipKit has never seen — its datastore can only be reset before it is configured.
@@ -43,6 +43,30 @@ struct ListsTip: Tip {
     var id: String { "tip.lists.\(AteTips.epoch)" }
     var title: Text { Text("Make a list") }
     var message: Text? { Text("Your best burgers, a place to take Mum.") }
+}
+
+/// On the Score key, in the composer of a person's first entry (`first-post-tips.html` 1).
+struct ScoreTip: Tip {
+    var id: String { "tip.score.\(AteTips.epoch)" }
+    var title: Text { Text("Score a dish") }
+    var message: Text? { Text("Add a rating as you go.") }
+}
+
+/// On the Place pill, in a first entry with words and no place, while the tick waits on one
+/// (`first-post-tips.html` 2).
+struct PlaceTip: Tip {
+    var id: String { "tip.place.\(AteTips.epoch)" }
+    var title: Text { Text("Add the place") }
+    var message: Text? { Text("Where did you go?") }
+}
+
+extension AteTips {
+    /// Somebody with an entry has written one: neither first-post tip is theirs to see. The Journal
+    /// calls this once it holds an entry, and the composer once one posts.
+    static func firstPostWritten() {
+        ScoreTip().invalidate(reason: .actionPerformed)
+        PlaceTip().invalidate(reason: .actionPerformed)
+    }
 }
 
 /// On the Feed's first dish: the bookmark keeps it on Saved.

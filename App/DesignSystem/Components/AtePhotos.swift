@@ -45,7 +45,7 @@ struct AtePhoto: Identifiable, Equatable {
 
 /// **The letter tile** (`NoPhotoA.dc.html`, 2026-09-26): what a dish with no photo shows wherever a
 /// dish thumbnail appears — the slot keeps its shape, filled with one accent and the dish's first
-/// letter in Bricolage 800 (26 on a 56 tile), ink on it like every accent. The accent is the dish's:
+/// letter in Young Serif (26 on a 56 tile), ink on it like every accent. The accent is the dish's:
 /// picked from its id (``DishTileIdentity/paletteIndex(for:count:)``, stable across launches), and
 /// **never butter**, which means a score.
 struct DishLetter: Equatable, Sendable {
@@ -98,11 +98,12 @@ struct AtePhotoTile: View {
     /// The photo will not load and has no letter tile to fall back on (``AtePhotoContent``).
     var onFailure: (() -> Void)?
     /// Set where the tile opens the viewer: the photo itself, clipped and inside the cluster's tilt,
-    /// is what the `.zoom` grows from and lands back in — not the square box around it, which cut
+    /// is what the viewer's photo grows from and lands back in — not the square box around it, which cut
     /// the ring and the tilted corners off as a photo closed (15 Oct).
     var zoomSource: (frames: AtePhotoTileFrames, index: Int)?
 
     @Environment(\.atePalette) private var palette
+    @Environment(\.atePhotoHiddenSource) private var hiddenSource
 
     var body: some View {
         let radius = AteMetrics.photoRadius(side: side)
@@ -110,6 +111,7 @@ struct AtePhotoTile: View {
         let clipped = AtePhotoContent(photo: photo, size: .forSide(side), onFailure: onFailure)
             .frame(width: side, height: side)
             .clipShape(shape)
+            .ateTiltSmoothed()
         return Group {
             if let zoomSource {
                 clipped.atePhotoSource(zoomSource.frames, index: zoomSource.index, radius: radius)
@@ -129,7 +131,26 @@ struct AtePhotoTile: View {
                     .padding(-AteMetrics.photoRing)
             }
         }
+        // Ring and all, while the viewer has this photo: the photo is in flight over it.
+        .opacity(isInViewer ? 0 : 1)
         .accessibilityHidden(true)
+    }
+}
+
+extension AtePhotoTile {
+    private var isInViewer: Bool {
+        guard let zoomSource, let hiddenSource else { return false }
+        return hiddenSource == zoomSource.frames.sourceID(zoomSource.index)
+    }
+}
+
+extension View {
+    /// Smooth edges for a photo that is about to be tilted (24 Oct). Rotated as a plain layer, a
+    /// clipped photo's edges stair-step, because the system does not anti-alias a layer's own edges.
+    /// Drawn offscreen first, with a clear point all round, the rounded edge is anti-aliased into the
+    /// picture and the layer's real edge is transparent, so the tilt has nothing hard to step.
+    func ateTiltSmoothed() -> some View {
+        padding(1).drawingGroup().padding(-1)
     }
 }
 
@@ -267,8 +288,13 @@ struct PhotoCluster: View {
         if let onTap {
             Button {
                 originRelay?.note(frames.origin(
+                    side: side,
                     radius: { _ in AteMetrics.photoRadius(side: side) },
-                    angle: { tapped in angle(at: shown.firstIndex { $0.index == tapped } ?? tapped) }
+                    angle: { tapped in angle(at: shown.firstIndex { $0.index == tapped } ?? tapped) },
+                    ring: count > 1 ? (surface ?? palette.ground) : nil,
+                    focus: { tapped in photos.indices.contains(tapped) ? photos[tapped].focus : nil },
+                    // The strip's first photo is on top (its zIndex), each next one under it.
+                    layer: { tapped in shown.firstIndex { $0.index == tapped } ?? tapped }
                 ))
                 onTap(index)
             } label: { drawn.contentShape(.rect) }

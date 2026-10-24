@@ -21,6 +21,13 @@ extension View {
     func ateTextExact(_ style: AteTextStyle) -> some View {
         modifier(AteExactLineModifier(style: style))
     }
+
+    /// ``ateTextExact(_:)`` with its glyphs lifted back to where CSS draws them
+    /// (``AteFont/exactBaselineDrop(for:dynamicTypeSize:)``): a wrapping title tighter than its face,
+    /// standing on its own rather than baseline-aligned in a row.
+    func ateTextExactLifted(_ style: AteTextStyle) -> some View {
+        modifier(AteExactLiftedModifier(style: style))
+    }
 }
 
 private struct AteLineBoxModifier: ViewModifier {
@@ -52,6 +59,17 @@ private struct AteExactLineModifier: ViewModifier {
     }
 }
 
+private struct AteExactLiftedModifier: ViewModifier {
+    let style: AteTextStyle
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    func body(content: Content) -> some View {
+        content
+            .ateTextExact(style)
+            .offset(y: -AteFont.exactBaselineDrop(for: style, dynamicTypeSize: dynamicTypeSize))
+    }
+}
+
 extension AteFont {
     /// **Where CSS puts the first baseline in a line box**, measured from the box's top: half the
     /// leading above the ascender (`line-height` centres the glyphs, and a box tighter than the face
@@ -74,14 +92,22 @@ extension AteFont {
         let font = uiFont(for: style, dynamicTypeSize: dynamicTypeSize)
         let natural = font.ascender - font.descender
         let drop = max(0, natural - style.lineBox(dynamicTypeSize))
-        guard style.voice == .heading else { return drop }
-        return max(0, drop - font.pointSize * headingDropOvershoot)
+        let overshoot: CGFloat = switch style.voice {
+        case .heading: headingDropOvershoot
+        case .display: displayDropOvershoot
+        case .prose, .mono: 0
+        }
+        return max(0, drop - font.pointSize * overshoot)
     }
 
     /// Young Serif's tall ascender (1046 against a 750 cap) makes the overflow rule above lift it too
     /// far: on build 108 a slip's 20pt dish name sat 5.7pt above its score's baseline, tight to the
     /// paper's top and loose over the words below. Measured off the device, as a fraction of the em.
     private static let headingDropOvershoot: CGFloat = 0.285
+
+    /// DM Sans has the same problem in a smaller dose (992/310 against a 700 cap). On build 185 a slip's
+    /// 22pt score sat 3.3pt above its dish name's baseline, so its lift is cut by 0.15 em.
+    private static let displayDropOvershoot: CGFloat = 0.15
 
     /// The style's cap height, in points — what a glyph set beside a numeral centres on.
     static func capHeight(for style: AteTextStyle, dynamicTypeSize: DynamicTypeSize = .large) -> CGFloat {

@@ -1,4 +1,5 @@
 import SwiftUI
+import TipKit
 
 /// **Where and who** — the composer's byline, under close and the tick (`compose-toolbar` direction
 /// C, Eamon 2026-10-12). The place and the people are facts about the meal, not words in the review,
@@ -20,6 +21,8 @@ struct AteComposerByline: View {
     /// The day, as the pill prints it; `nil` is today. Shown only when there is `onDay` to open.
     var day: String?
     var onDay: (() -> Void)?
+    /// A tip on the Place pill: a first entry's Place tip.
+    var placeTip: (any Tip)?
 
     var body: some View {
         AteFlow(spacing: AteComposerBylineMetrics.gap) {
@@ -31,6 +34,7 @@ struct AteComposerByline: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
+            .popoverTip(placeTip, arrowEdge: .top)
             pill(identifier: "composer.key.with", label: peopleLabel,
                  isHeld: people.isEmpty == false, action: onPeople) {
                 if people.isEmpty {

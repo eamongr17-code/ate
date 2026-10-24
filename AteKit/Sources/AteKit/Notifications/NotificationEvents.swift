@@ -21,11 +21,22 @@ public enum NotificationEvents {
 
     /// The person posted their own entry from a tag: how many of the tagger's dishes they scored,
     /// dropped, or kept unscored, and whether they wrote anything.
-    public static func ateWithPosted(scored: Int, removed: Int, unscored: Int, hasWords: Bool) -> AnalyticsEvent {
+    public static func ateWithPosted(
+        scored: Int, removed: Int, unscored: Int, hasWords: Bool, copied: Bool = false
+    ) -> AnalyticsEvent {
         AnalyticsEvent(name: "ate_with_posted", parameters: [
             "scored": String(scored),
             "removed": String(removed),
             "unscored": String(unscored),
+            "has_words": hasWords ? "true" : "false",
+            "copied": copied ? "true" : "false"
+        ])
+    }
+
+    /// "Copy their review" was tapped on a tag: how many scores it filled, and whether words came too.
+    public static func ateWithReviewCopied(scores: Int, hasWords: Bool) -> AnalyticsEvent {
+        AnalyticsEvent(name: "ate_with_review_copied", parameters: [
+            "scores": String(scores),
             "has_words": hasWords ? "true" : "false"
         ])
     }
@@ -64,5 +75,7 @@ public enum NotificationEvents {
     public enum PermissionTrigger: String, Sendable {
         case notifications
         case tag
+        /// A printed receipt, once the camera roll's ask is behind it.
+        case receipt
     }
 }
