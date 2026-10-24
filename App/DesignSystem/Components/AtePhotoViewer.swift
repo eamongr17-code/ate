@@ -54,11 +54,14 @@ private struct AtePhotoViewerHost: ViewModifier {
     /// The photo showing now, so the zoom shrinks back into the tile the reader swiped to.
     @State private var zoomIndex = 0
     @State private var relay = AtePhotoOriginRelay()
+    /// The swipe down has started: the black behind goes, so only the photo shrinks into its tile.
+    @State private var isLeaving = false
     @Namespace private var zoomSpace
 
     func body(content: Content) -> some View {
         let viewingBinding = $viewing
         let zoomBinding = $zoomIndex
+        let leavingBinding = $isLeaving
         let relay = relay
         content
             .environment(\.atePhotoOriginRelay, relay)
@@ -70,6 +73,7 @@ private struct AtePhotoViewerHost: ViewModifier {
                 // Before the cover goes up: the zoom reads its source as it presents, and a stale
                 // index grew every photo out of the first tile (15 Oct).
                 zoomBinding.wrappedValue = index
+                leavingBinding.wrappedValue = false
                 viewingBinding.wrappedValue = AtePhotoViewing(
                     photos: photos,
                     index: index,
@@ -84,9 +88,13 @@ private struct AtePhotoViewerHost: ViewModifier {
                     dragsToDismiss: false,
                     dishes: viewing.dishes,
                     onIndex: { zoomIndex = $0 },
+                    onLeaving: { isLeaving = $0 },
                     onClose: { viewingBinding.wrappedValue = nil }
                 )
                 .navigationTransition(.zoom(sourceID: zoomSource(viewing), in: zoomSpace))
+                // The viewer's own black is the ground; the cover's would shrink with the photo as a
+                // slab round it (24 Oct).
+                .presentationBackground(.clear)
             }
             // Black behind the viewer while it is up: the zoom draws the photo inside the screen's
             // rounded corners, and the page showed round its edges (feedback #1 and #2, 22 Oct;
@@ -94,12 +102,14 @@ private struct AtePhotoViewerHost: ViewModifier {
             .overlay {
                 AteColor.viewerGround
                     .ignoresSafeArea()
-                    .opacity(viewing == nil ? 0 : 1)
-                    .animation(.easeOut(duration: AtePhotoViewerHostMetrics.behind), value: viewing == nil)
+                    .opacity(isBlack ? 1 : 0)
+                    .animation(.easeOut(duration: AtePhotoViewerHostMetrics.behind), value: isBlack)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
     }
+
+    private var isBlack: Bool { viewing != nil && isLeaving == false }
 
     /// The tile the zoom grows from and returns to: the one now showing, when the page has it (a
     /// slip's cluster shows three of an entry's photos), else the one that was tapped.
@@ -112,6 +122,51 @@ private struct AtePhotoViewerHost: ViewModifier {
 enum AtePhotoViewerHostMetrics {
     /// How fast the page goes black behind the viewer, and comes back.
     static let behind: Double = 0.2
+    /// How fast the black, the close button and the caption go once the swipe down starts.
+    static let leaving: Double = 0.12
+}
+
+/// Tells its view when the screen it is on starts to appear or go: UIKit's `viewWillAppear` and
+/// `viewWillDisappear`, which a system transition (the zoom's swipe down) calls the moment it begins,
+/// and calls again if it is let go short.
+struct AteAppearanceProbe: UIViewControllerRepresentable {
+    let onChange: (Bool) -> Void
+
+    func makeUIViewController(context: Context) -> Probe {
+        Probe(onChange: onChange)
+    }
+
+    func updateUIViewController(_ probe: Probe, context: Context) {
+        probe.onChange = onChange
+    }
+
+    final class Probe: UIViewController {
+        var onChange: (Bool) -> Void
+
+        init(onChange: @escaping (Bool) -> Void) {
+            self.onChange = onChange
+            super.init(nibName: nil, bundle: nil)
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+        override func loadView() {
+            view = UIView()
+            view.isUserInteractionEnabled = false
+            view.backgroundColor = .clear
+        }
+
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            onChange(true)
+        }
+
+        override func viewWillDisappear(_ animated: Bool) {
+            super.viewWillDisappear(animated)
+            onChange(false)
+        }
+    }
 }
 
 // MARK: - The viewer
@@ -132,6 +187,8 @@ struct AtePhotoViewer: View {
     var dragsToDismiss = true
     var dishes: AtePhotoDishes?
     var onIndex: (Int) -> Void = { _ in }
+    /// The zoom has started taking it away (`true`), or the swipe was let go short of it (`false`).
+    var onLeaving: (Bool) -> Void = { _ in }
     var onClose: () -> Void
 
     /// The pairs as they stand here: a fix shows at once, and goes back if the server refuses it.
@@ -145,6 +202,9 @@ struct AtePhotoViewer: View {
     @State private var isZoomed = false
     @State private var drag: CGFloat = 0
     @State private var isShowing = false
+    /// Under the zoom, from the moment the swipe down starts: the photo alone goes back to its tile,
+    /// without the black, the close button, the caption or the dots.
+    @State private var isLeaving = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// How far a drag has to travel, or how fast, before letting go puts the photo away.
@@ -157,6 +217,7 @@ struct AtePhotoViewer: View {
         dragsToDismiss: Bool = true,
         dishes: AtePhotoDishes? = nil,
         onIndex: @escaping (Int) -> Void = { _ in },
+        onLeaving: @escaping (Bool) -> Void = { _ in },
         onClose: @escaping () -> Void
     ) {
         self.photos = photos
@@ -165,13 +226,14 @@ struct AtePhotoViewer: View {
         self.dishes = dishes
         _paired = State(initialValue: dishes?.paired ?? [:])
         self.onIndex = onIndex
+        self.onLeaving = onLeaving
         self.onClose = onClose
     }
 
     var body: some View {
         ZStack {
             AteColor.viewerGround
-                .opacity(isShowing ? backdrop : 0)
+                .opacity(isShowing && isLeaving == false ? backdrop : 0)
                 .ignoresSafeArea()
             TabView(selection: $index) {
                 ForEach(Array(photos.enumerated()), id: \.offset) { position, photo in
@@ -185,7 +247,7 @@ struct AtePhotoViewer: View {
                         onImageSize: { size in if imageSizes[position] != size { imageSizes[position] = size } }
                     )
                     .overlay {
-                        if position == index, isZoomed == false, drag == 0 {
+                        if position == index, isZoomed == false, drag == 0, isLeaving == false {
                             dishNames(at: position)
                         }
                     }
@@ -194,7 +256,7 @@ struct AtePhotoViewer: View {
                     .accessibilityAddTraits(.isImage)
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: photos.count > 1 && isZoomed == false ? .always : .never))
+            .tabViewStyle(.page(indexDisplayMode: showsDots ? .always : .never))
             .ignoresSafeArea()
             .offset(y: drag)
             .opacity(isShowing ? 1 : 0)
@@ -202,13 +264,20 @@ struct AtePhotoViewer: View {
         .overlay(alignment: .topLeading) {
             AteIconButton(icon: .close, label: "Close", size: 24, tint: AteColor.overPhoto) { close() }
                 .padding(.leading, AteMetrics.snug)
-                .opacity(isShowing && drag == 0 ? 1 : 0)
+                .opacity(isShowing && drag == 0 && isLeaving == false ? 1 : 0)
         }
         .overlay(alignment: .bottom) {
             dishName
-                .opacity(isShowing && drag == 0 && isZoomed == false ? 1 : 0)
+                .opacity(isShowing && drag == 0 && isZoomed == false && isLeaving == false ? 1 : 0)
         }
         .statusBarHidden()
+        .background {
+            if dragsToDismiss == false {
+                AteAppearanceProbe { appearing in leaving(appearing == false) }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
         .accessibilityIdentifier("entry.photoViewer")
         .accessibilityAction(.escape) { close() }
         .accessibilityAction(named: Text("Close")) { close() }
@@ -236,6 +305,20 @@ struct AtePhotoViewer: View {
             onIndex(index)
         }
         .task { await loadPairs() }
+    }
+
+    private var showsDots: Bool {
+        photos.count > 1 && isZoomed == false && isLeaving == false
+    }
+
+    /// The zoom's own swipe down began (or was let go short): everything but the photo goes quickly,
+    /// so what shrinks into the tile is the picture alone.
+    private func leaving(_ leaving: Bool) {
+        guard leaving != isLeaving else { return }
+        withAnimation(reduceMotion ? nil : .easeOut(duration: AtePhotoViewerHostMetrics.leaving)) {
+            isLeaving = leaving
+        }
+        onLeaving(leaving)
     }
 
     /// The pairs as the server has them, unless a fix was made here in the meantime.

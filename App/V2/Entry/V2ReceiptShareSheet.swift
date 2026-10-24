@@ -20,11 +20,12 @@ struct V2ReceiptShareSheet: View {
     @State private var images: [Int: UIImage] = [:]
     @State private var dishPhotos: [UUID: [Int]] = [:]
     @State private var photoLoaded = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         V2ShareSheet(
             receipt: receipt, photos: images, dishPhotos: dishPhotos, source: source, isLive: photoLoaded,
-            analytics: analytics
+            printsFirst: false, analytics: analytics
         )
         .padding(.top, AteMetrics.section)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -43,7 +44,7 @@ struct V2ReceiptShareSheet: View {
             images = await SharePhotos.images(photos.compactMap { photo in
                 URL(string: photo.url).map { (position: photo.position, photo: AtePhoto(url: $0)) }
             })
-            photoLoaded = true
+            withAnimation(reduceMotion ? nil : .easeOut(duration: V2ShareSheetMetrics.cardsIn)) { photoLoaded = true }
         }
     }
 }
