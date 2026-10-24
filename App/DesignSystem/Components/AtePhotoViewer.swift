@@ -200,6 +200,9 @@ struct AtePhotoViewer: View {
                             dishNames(at: position)
                         }
                     }
+                    .modifier(AtePhotoCrop(
+                        landing: landing(at: position), isHome: isHome, isZoomed: position == index && isZoomed
+                    ))
                     .tag(position)
                     .accessibilityLabel("Photo \(position + 1) of \(photos.count)")
                     .accessibilityAddTraits(.isImage)
