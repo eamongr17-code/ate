@@ -9,8 +9,7 @@ extension JournalRoot {
     var list: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                Color.clear
-                    .frame(height: 0)
+                AteGlassHeaderRoom()
                     .id(Self.top)
                 journalRows
             }

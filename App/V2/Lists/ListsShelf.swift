@@ -19,6 +19,7 @@ struct ListsShelf: View {
 
     var body: some View {
         ScrollView {
+            AteGlassHeaderRoom()
             LazyVGrid(columns: columns, alignment: .leading, spacing: AteListCoverMetrics.rowGap) {
                 tiles
             }

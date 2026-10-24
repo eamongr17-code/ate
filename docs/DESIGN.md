@@ -100,15 +100,16 @@ one band in the paper's colour crossing the screen, 1.6s a pass, all placeholder
     dish, tag, person, notifications, following), left, 20 in: picture if it has one (list cover 160,
     dish photos, avatar 72), 18 above the name in Young Serif 34 (lines 1.05, up to 3), one DM Sans
     15 line 8 under it (names 600 in ink), buttons or chips 16 under that.
-  - **Top edge** (`header-rethink.html` A, 24 Oct) — every bar, tab roots and pushed pages alike,
-    sits on iOS 26's own soft scroll edge: the page blurs toward the top and dissolves into its own
-    colour. No frost, no material, no ground of ours (the material's grey brightened dark mode in
-    builds 177 and 196). A tab root's header steps away on scroll down; all away, the page colour
-    sits behind the clock only. Set once in the kit; a lint rule stops screens setting their own.
+  - **Glass bar** (`glass-header.html` 1, 24 Oct) — every header, tab roots and pushed pages alike,
+    lies on one full-width sheet of Liquid Glass (`AteGlassBar`) from the screen's top edge to the
+    header's foot, once the page is under it; none at rest. No frost or material (its grey brightened
+    dark mode in builds 177 and 196). A tab root's header steps away on scroll down, glass and all,
+    leaving only iOS's subtle soft edge under the clock, no colour. Set once in the kit; a lint rule
+    stops screens setting their own.
   - **Compact header** — mid-list, a scroll up brings back a compact header, not the big one: the
     tab's name (Young Serif, 20) leading — on the Journal the month you are in, its year muted —
     and its controls trailing (the Feed's location chip, Search's filter, the Journal's active
-    chips and calendar), in a 52 row under the status bar on the top edge. It comes out of a blur
+    chips and calendar), in a 52 row under the status bar on the glass bar. It comes out of a blur
     into focus.
   - **Filter chips** (round 7, `Main`/`RatingChip`) — Journal and Saved: Newest · Rating · City ·
     Date under the header (Saved has no Newest); active = ink with its value and an ✕. Each opens a
