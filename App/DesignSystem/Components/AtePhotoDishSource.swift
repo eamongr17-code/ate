@@ -69,6 +69,9 @@ struct AtePhotoDishSource: Sendable {
     var pairs: @MainActor @Sendable (_ entryID: UUID, _ isMine: Bool) async -> [String: [PhotoDishTag]]
     /// Your own fix: this photo is these dishes, or none. Answers whether it held.
     var pick: @MainActor @Sendable (_ entryID: UUID, _ url: String, _ reviewIDs: [UUID]) async -> Bool
+    /// The pairs last read for an entry, so a photo opened again is named as it lands rather than
+    /// a round trip later (24 Oct). The viewer still reads them afresh behind it.
+    var known: @MainActor @Sendable (_ entryID: UUID) -> [String: [PhotoDishTag]]? = { _ in nil }
 
     /// The photos of a slip, with its dishes, for the viewer. `nil` with no dishes to name.
     @MainActor
@@ -84,7 +87,7 @@ struct AtePhotoDishSource: Sendable {
         }
         return AtePhotoDishes(
             choices: slip.dishes.map { AtePhotoDishPill.Dish(id: $0.id, name: $0.name) },
-            paired: [:],
+            paired: known(entryID) ?? [:],
             onPick: onPick,
             load: { await pairs(entryID, isMine) },
             byline: AtePhotoDishByline.line(who: slip.byline?.name, place: slip.place)
