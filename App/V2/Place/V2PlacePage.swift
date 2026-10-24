@@ -58,9 +58,9 @@ struct V2PlacePage: View {
             .coordinateSpace(.named(BrowsePage.content))
         }
         .scrollIndicators(.hidden)
-        .browseCollapse($isCollapsed, after: titleBottom)
+        .ateTitleCollapse($isCollapsed, after: titleBottom)
         .ateGround()
-        .browseBarTitle(store.name ?? store.previewName, isShown: isCollapsed)
+        .ateCollapsingTitle(store.name ?? store.previewName, isCollapsed: isCollapsed)
         .refreshable { await store.refresh() }
         .task { await store.load() }
         .accessibilityIdentifier("place.page")
@@ -92,17 +92,16 @@ struct V2PlacePage: View {
     }
 
     private func header(_ name: String, reader: ScrollViewProxy) -> some View {
-        VStack(alignment: .leading, spacing: V2PlaceMetrics.titleGap) {
-            AteExactText(text: name, style: .placeTitle, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityAddTraits(.isHeader)
-                .browseTitleBottom($titleBottom)
+        AtePageHeader(name, titleBottom: $titleBottom) {
+            EmptyView()
+        } line: {
+            EmptyView()
+        } below: {
             // No diet chip here: a restaurant is never labelled, only its dishes (Eamon, 23 Oct).
             if store.facts.isEmpty == false {
                 AteChipFlow(chips: store.facts.map { chip($0, reader: reader) })
             }
         }
-        .padding(.horizontal, AteMetrics.listGutter)
     }
 
     /// A fact as its chip: the average with the star, how many people with their mark, a word. Each
@@ -348,12 +347,13 @@ private struct V2PlaceSkeleton: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.loose) {
-            VStack(alignment: .leading, spacing: V2PlaceMetrics.titleGap) {
+            VStack(alignment: .leading, spacing: AtePageHeaderMetrics.belowGap) {
                 if let name {
-                    AteExactText(text: name, style: .placeTitle, alignment: .leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .accessibilityAddTraits(.isHeader)
-                        .browseTitleBottom($titleBottom)
+                    AteExactText(
+                        text: name, style: .pageHeaderTitle, alignment: .leading, lineLimit: AtePageHeaderMetrics.lines
+                    )
+                    .accessibilityAddTraits(.isHeader)
+                    .browseTitleBottom($titleBottom)
                 } else {
                     AteSkeletonBar(width: V2PlaceMetrics.nameBar, height: V2PlaceMetrics.nameBarHeight,
                                    palette: .automatic)
@@ -361,7 +361,8 @@ private struct V2PlaceSkeleton: View {
                 }
                 AteChipFlowSkeleton()
             }
-            .padding(.horizontal, AteMetrics.listGutter)
+            .padding(.horizontal, AteMetrics.gutter)
+            .padding(.top, AtePageHeaderMetrics.top)
             V2MenuPaper { V2MenuSkeletonRows() }
             AteSkeleton(kind: .entrySlip)
                 .padding(.horizontal, AteMetrics.listGutter)
@@ -370,8 +371,6 @@ private struct V2PlaceSkeleton: View {
 }
 
 enum V2PlaceMetrics {
-    /// The name over its chips: `gap:10px`.
-    static let titleGap: CGFloat = 10
     static let skeletonRows = 3
     static let nameBar: CGFloat = 220
     static let nameBarHeight: CGFloat = 40

@@ -11,6 +11,8 @@ struct FeedFollowingPage: View {
 
     @State private var store: FollowingStore
     @State private var isCollapsed = false
+    /// Where the header's name ends: the bar takes it once the page has scrolled past.
+    @State private var titleBottom: CGFloat = 0
 
     init(city: String?, context: V2PageContext) {
         self.city = city
@@ -22,7 +24,7 @@ struct FeedFollowingPage: View {
 
     var body: some View {
         List {
-            AtePageTitle(title: FeedEditionCopy.following, isLong: true)
+            AtePageTitle(title: FeedEditionCopy.following, titleBottom: $titleBottom)
                 .plainRow()
             switch store.phase {
             case .loading:
@@ -49,7 +51,7 @@ struct FeedFollowingPage: View {
         .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
         .contentMargins(.bottom, AteMetrics.tabBarScrollInset, for: .scrollContent)
-        .atePageCollapse($isCollapsed)
+        .ateTitleCollapse($isCollapsed, after: titleBottom)
         .ateGround()
         .ateCollapsingTitle(FeedEditionCopy.following, isCollapsed: isCollapsed)
         .refreshable { await store.refresh() }

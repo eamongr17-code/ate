@@ -24,7 +24,6 @@ private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>:
     /// The header's height, title row and accessory: the room the page keeps under it.
     @State private var height: CGFloat = AteMetrics.hit
     @State private var isOverPage = false
-    @Environment(\.atePalette) private var palette
 
     func body(content: Content) -> some View {
         content
@@ -57,25 +56,7 @@ private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>:
     /// most of all). Off at rest (build 92: at rest the page is one surface).
     private var frost: some View {
         GeometryReader { proxy in
-            let top = proxy.safeAreaInsets.top
-            let solid = top + max(0, height - hidden * travel)
-            let fade = AteGlassRootHeaderMetrics.fade
-            let total = solid + fade
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                Rectangle().fill(palette.ground.opacity(AteGlassRootHeaderMetrics.groundOpacity))
-            }
-            .frame(height: total)
-            .mask {
-                // Eased, so neither the start nor the end of the fade shows as a line.
-                LinearGradient(
-                    stops: AteGlassRootHeaderMetrics.fadeCurve.map {
-                        .init(color: .black.opacity($0.alpha), location: (solid + fade * $0.at) / total)
-                    },
-                    startPoint: .top, endPoint: .bottom
-                )
-            }
-            .ignoresSafeArea(edges: .top)
+            AteHeaderFrost(solid: proxy.safeAreaInsets.top + max(0, height - hidden * travel))
         }
         .opacity(isOverPage ? 1 : 0)
         .allowsHitTesting(false)
@@ -182,9 +163,9 @@ enum AteGlassRootHeaderMetrics {
     static let fade: CGFloat = 31
     /// The room under the header's last row, title or accessory, before the page starts.
     static let foot: CGFloat = AteMetrics.snug
-    /// The ground over the blur: near enough the page's own that the frost reads as the ground,
-    /// with the page faintly through it (Eamon, build 180: a little glass, not a new colour).
-    static let groundOpacity: Double = 0.82
+    /// The ground over the blur: the page's own colour, with the page moving under it plainly
+    /// through it (Eamon, build 180: a little glass, not a new colour; 24 Oct: more of it, 0.82 → 0.6).
+    static let groundOpacity: Double = 0.6
     /// The fade's ease (smoothstep): from the header's bottom (`at` 0) to the frost's end (`at` 1).
     static let fadeCurve: [(at: CGFloat, alpha: Double)] = stride(from: 0, through: 8, by: 1).map {
         let step = Double($0) / 8

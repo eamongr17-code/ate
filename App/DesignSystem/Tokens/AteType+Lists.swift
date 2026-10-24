@@ -9,22 +9,14 @@ extension AteTextStyle {
         voice: .heading, size: 22, weight: 800, trackingEm: -0.01, lineHeight: 1.0, textStyle: .title3,
         maximumSize: 22
     )
-    /// …and at 34 on the list's own page.
+    /// …and at 24 on the list's own page, its 160 cover (34 on the 224 cover before 24 Oct).
     static let kitListCoverNameHero = AteTextStyle(
-        voice: .heading, size: 34, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title,
-        maximumSize: 34
+        voice: .heading, size: 24, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title,
+        maximumSize: 24
     )
     /// A shelf tile's name — `.tile b`: Young Serif at 15 (16 in the sans; the serif runs wider).
     static let kitListTileName = AteTextStyle(
         voice: .heading, size: 15, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .callout
-    )
-    /// The list page's name under its cover — `.hero .nm`: Young Serif at 28, `line-height:1.05`.
-    static let kitListHeroName = AteTextStyle(
-        voice: .heading, size: 28, weight: 800, trackingEm: -0.02, lineHeight: 1.05, textStyle: .title
-    )
-    /// The handle under it — `.hero .by`: DM Sans 600 at 15.
-    static let kitListByline = AteTextStyle(
-        voice: .display, size: 15, weight: 600, trackingEm: 0, lineHeight: 1.3, textStyle: .subheadline
     )
     /// A row's place in the list — `.tr .tn`: DM Mono 500 at 13, muted.
     static let kitListTrackRank = AteTextStyle(

@@ -222,16 +222,16 @@ private enum ListTileCopy {
 }
 
 enum AteListCoverMetrics {
-    /// `.cov{border-radius:16px}`; the hero `width:224px`.
+    /// `.cov{border-radius:16px}`; the hero is the page header's 160, left (`page-headers.html`).
     static let radius: CGFloat = 16
-    static let hero: CGFloat = 224
+    static let hero: CGFloat = AtePageHeaderMetrics.cover
     /// A cover choice's picture: the dish row's 56.
     static let row: CGFloat = 56
     /// Four photos or more make the mosaic.
     static let mosaic = 4
-    /// `.cov.gen{padding:12px}`, and 18 on the hero.
+    /// `.cov.gen{padding:12px}`, and 14 on the hero.
     static let inset: CGFloat = 12
-    static let heroInset: CGFloat = 18
+    static let heroInset: CGFloat = 14
     /// A long name shrinks to fit before it truncates.
     static let nameScale: CGFloat = 0.7
     /// `.tile{gap:7px}`, `.tile .mt{margin-top:-4px}` — the name sits 7 under the cover, the count 3

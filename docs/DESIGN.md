@@ -93,12 +93,17 @@ one band in the paper's colour crossing the screen, 1.6s a pass, all placeholder
     Scroll down minimises it to the current tab alone in a 48 disc (+ shrinks to 48), a spring
     morph; scroll up or a tap on the disc brings it back. Re-tap scrolls to top. Every pushed page
     hides it, and it rides the pop back in with its tab's root.
-  - **Top bar** on pushed pages — a 44 glass back disc 16 in, the page's name or byline after it,
-    its controls as one glass pill 16 in from the right; tab roots' corner buttons are 44 glass discs.
-  - **Top frost** (round 7, `JournalScrolled`) — ONE continuous frost from the screen's top edge
-    down through whatever chrome is there (status bar, compact header, a pushed page's top bar),
-    solid to 7 below its controls, then fading out over 45; ground at 82% over the blur. None at
-    rest: the header sits on the ground; it comes in over the first 12pt of scroll.
+  - **Top bar** on pushed pages — a 44 glass back disc 16 in, the page's name (Young Serif 18) after
+    it once the page's own title has scrolled under the bar, its controls as one glass pill 16 in from
+    the right; the entry page keeps its author in the bar. Tab roots' corner buttons are 44 glass discs.
+  - **Page header** (`page-headers.html`, 24 Oct) — every pushed page about one thing (list, place,
+    dish, tag, person, notifications, following), left, 20 in: picture if it has one (list cover 160,
+    dish photos, avatar 72), 18 above the name in Young Serif 34 (lines 1.05, up to 3), one DM Sans
+    15 line 8 under it (names 600 in ink), buttons or chips 16 under that.
+  - **Top frost** (`scroll-headers.html`, 24 Oct) — ONE frost on every screen, tab roots and pushed
+    pages alike, from the screen's top edge to the bar's (or root header's) bottom, then easing out
+    over 31; ground at 60% over the blur, so the page reads moving under it. None at rest; it comes in
+    once the page has scrolled 4pt under the bar.
   - **Compact header** — mid-list, a scroll up brings back a compact header, not the big one: the
     tab's name (Young Serif, 20) leading — on the Journal the month you are in, its year muted —
     and its controls trailing (the Feed's location chip, Search's filter, the Journal's active

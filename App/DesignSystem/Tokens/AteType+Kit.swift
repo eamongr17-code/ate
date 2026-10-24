@@ -81,6 +81,12 @@ extension AteTextStyle {
     static let kitRootSubtitle = AteTextStyle(
         voice: .display, size: 16, weight: 500, trackingEm: 0, lineHeight: 1.0, textStyle: .body
     )
+    /// A page's name in the bar once its own title has scrolled under it (`scroll-headers.html`, 24
+    /// Oct): the same Young Serif as the title it stands for, at 18.
+    static let kitInlinePageTitle = AteTextStyle(
+        voice: .heading, size: 18, weight: 800, trackingEm: -0.01, lineHeight: 1.1, textStyle: .headline,
+        maximumSize: 22
+    )
     /// An inline bar title — a pushed page's name, and a tab root's title once it has collapsed into
     /// the centre of the bar — `.ntitle`/`.navt`/`.it b`: 600 at 17, `line-height:1.15`, `-.01em`.
     static let kitInlineTitle = AteTextStyle(
