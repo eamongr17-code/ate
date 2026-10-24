@@ -178,9 +178,11 @@ struct V2DishPage: View {
     /// place the opening row did not know is a still bar at the line's height.
     private func title(name: String, place: String?, placeID: UUID?) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            AteExactText(text: name, style: .pageHeaderTitle, alignment: .leading, lineLimit: AtePageHeaderMetrics.lines)
-                .accessibilityAddTraits(.isHeader)
-                .browseTitleBottom($titleBottom)
+            AteExactText(
+                text: name, style: .pageHeaderTitle, alignment: .leading, lineLimit: AtePageHeaderMetrics.lines
+            )
+            .accessibilityAddTraits(.isHeader)
+            .browseTitleBottom($titleBottom)
             if let place {
                 Button {
                     guard let placeID else { return }
