@@ -54,9 +54,9 @@ final class AtePhotoTileFrames {
 
     func sourceID(_ index: Int) -> String { "\(key).\(index)" }
 
+    // swiftlint:disable function_parameter_count
     /// `side`: the tiles' own size, laid out — a tilted tile measures as its bounding box, which
     /// would land the photo a size too big.
-    // swiftlint:disable:next function_parameter_count
     func origin(
         side: CGFloat, radius: (Int) -> CGFloat, angle: (Int) -> Double, ring: Color?,
         focus: (Int) -> PhotoDishBox?, layer: (Int) -> Int
@@ -68,6 +68,7 @@ final class AtePhotoTileFrames {
                                                sourceID: sourceID(index)))
         }))
     }
+    // swiftlint:enable function_parameter_count
 }
 
 extension View {
