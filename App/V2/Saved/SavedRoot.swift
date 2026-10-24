@@ -83,8 +83,7 @@ struct SavedRoot: View {
     /// one a list's own rows take (``V2ListPage``) — beside its bookmark.
     private var list: some View {
         List {
-            Color.clear
-                .frame(height: 0)
+            AteGlassHeaderRoom()
                 .listPlainRow()
                 .id(Self.top)
             rows

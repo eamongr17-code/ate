@@ -40,7 +40,7 @@ struct FeedRoot: View {
                 // The scroll view's content IS the lazy stack, and every section is one of its own
                 // rows — never a lazy stack inside a `VStack` (the round-5 main-thread lock).
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    Color.clear.frame(height: 0).id(FeedRootAnchor.top)
+                    AteGlassHeaderRoom().id(FeedRootAnchor.top)
                     if AteBeta.isOn {
                         FeedBetaList(store: stores.everything, actions: actions)
                     } else {

@@ -60,6 +60,57 @@ struct AteRootTitle: View {
     }
 }
 
+/// **The glass bar** — every header in the app, once the page is under it (`glass-header.html` 1,
+/// 24 Oct): one sheet of Liquid Glass from the screen's top edge to the header's foot, edge to edge.
+/// It replaced the frost (builds 177–196), the system's thin material under a share of the page's
+/// colour, which is a light grey wash: over the near-black page it could only brighten the band.
+/// Liquid Glass takes its tone from what is under it. `height` tall from the top safe area's edge,
+/// or the space it is given, and up past the top safe area to the screen's edge.
+struct AteGlassBar: View {
+    var height: CGFloat?
+
+    var body: some View {
+        Rectangle()
+            .fill(.clear)
+            .frame(height: height)
+            .glassEffect(.regular, in: .rect)
+            .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+enum AteGlassBarMetrics {
+    /// The glass is off at rest and on once the content has gone this far under the header.
+    static let showAfter: CGFloat = 4
+    /// The switch is a short step, not a scroll-driven fade (Eamon, build 94).
+    static let switchDuration: Double = 0.15
+}
+
+/// ``SwiftUICore/View/ateHeaderGlass()``: the glass bar under a navigation bar, from the screen's top
+/// edge to the bar's bottom, there once the page has scrolled under it. It reads the first scroll view
+/// inside the page and changes only its own opacity: the bar's layout never moves. The system's own
+/// scroll edge is off under it, the glass being the bar's one edge.
+private struct AteHeaderGlass: ViewModifier {
+    @State private var isOverPage = false
+
+    func body(content: Content) -> some View {
+        content
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top > AteGlassBarMetrics.showAfter
+            } action: { _, isUnder in
+                withAnimation(.easeOut(duration: AteGlassBarMetrics.switchDuration)) { isOverPage = isUnder }
+            }
+            .scrollEdgeEffectHidden(true, for: .top)
+            .overlay(alignment: .top) {
+                GeometryReader { proxy in
+                    AteGlassBar(height: proxy.safeAreaInsets.top)
+                }
+                .opacity(isOverPage ? 1 : 0)
+            }
+    }
+}
+
 enum AteRootHeaderMetrics {
     /// `.wm{left:16px; height:32px}`; `.lt{left:20px}`; the group `right:16px`.
     static let wordmark: CGFloat = 32
@@ -209,7 +260,7 @@ extension View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .ateHeaderEdge()
+        .ateHeaderGlass()
     }
 
     /// A pushed page's inline title, leading — beside the system's back — exactly where a collapsed
@@ -226,22 +277,18 @@ extension View {
                 }
                 .sharedBackgroundVisibility(.hidden)
             }
-            .ateHeaderEdge()
+            .ateHeaderGlass()
     }
 
-    /// **The header's edge** (`header-rethink.html` A, 24 Oct): iOS 26's own soft scroll-edge
-    /// effect under every bar, a tab root's and a pushed page's alike — the page blurs more the
-    /// nearer it gets to the top and dissolves into the page's own colour. Nothing of ours is drawn:
-    /// no ground, no material. The frost it replaced (builds 177–196) was the system's thin material
-    /// under a share of the ground, and that material is a light grey wash: over the near-black
-    /// page it could only make the band brighter, over linen only whiter, whatever share of
-    /// ground lay on it. (Build 92's band and line at rest came from the roots' `.hard` style.)
+    /// **The glass bar** (``AteGlassBar``, `glass-header.html` 1, 24 Oct) under a navigation bar —
+    /// every pushed page's and You's — once the page has gone under it, and nothing at rest: the
+    /// same bar the tab roots' glass header lies on, so every header in the app is one glass.
     ///
     /// Every bar modifier in the kit applies it (``ateRootToolbar``, ``ateInlineTitle``,
-    /// ``ateCollapsingTitle``, ``atePushedBar()``) and the glass header has its own, so a screen never
-    /// sets an edge itself.
-    func ateHeaderEdge() -> some View {
-        scrollEdgeEffectStyle(.soft, for: .top)
+    /// ``ateCollapsingTitle``, ``atePushedBar()``) and the glass header draws its own, so a screen never
+    /// sets a bar background or an edge itself (lint: `one_header_edge`).
+    func ateHeaderGlass() -> some View {
+        modifier(AteHeaderGlass())
     }
 
     /// Reports whether a tab root's scroll view has moved far enough for its header to collapse —
