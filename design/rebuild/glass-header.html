@@ -1,0 +1,193 @@
+<title>Ate Glass Header</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Young+Serif&family=Newsreader:opsz@6..72&display=swap">
+<style>
+/* Layout: two header options, each as live Journal and list-page iPhones (393×852pt) in light and dark; they open mid-scroll with the header back over content */
+:root{
+  --page:#F4F1EC; --page-fg:#24141F; --page-mut:#6E6470; --page-line:#DDD6CC; --accent:#F0623F;
+  --f-dish:"Young Serif",Georgia,serif; --f-ui:"DM Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#151416;--page-fg:#EEEAE4;--page-mut:#9C94A0;--page-line:#2C2A2E;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#151416;--page-fg:#EEEAE4;--page-mut:#9C94A0;--page-line:#2C2A2E;color-scheme:dark}
+body{background:var(--page);color:var(--page-fg);font-family:var(--f-ui);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+.wrap{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:40px}
+section{display:flex;flex-direction:column;gap:14px}
+h1{font:400 40px/1.02 var(--f-dish);letter-spacing:-.02em;margin:0;text-wrap:balance}
+h2{font:400 26px/1.08 var(--f-dish);letter-spacing:-.02em;margin:0;text-wrap:balance}
+p.s{margin:0;color:var(--page-mut);font-size:15px;line-height:1.5;max-width:68ch}
+p.s b{color:var(--page-fg);font-weight:600}
+.rec{display:inline-block;font:500 11px/1 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--accent);padding:5px 8px;border-radius:6px;vertical-align:middle;margin-left:8px}
+.ctl{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--page);padding-block:10px;display:flex;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--page-line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:21;background:var(--page)}
+.seg2{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.seg2>span{font:600 12px/1 var(--f-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--page-mut);margin-right:4px}
+.seg2 button{font:600 14px/1 var(--f-ui);padding:9px 13px;border-radius:999px;border:1px solid var(--page-line);background:transparent;color:var(--page-fg);cursor:pointer}
+.seg2 button[aria-pressed="true"]{background:var(--page-fg);color:var(--page);border-color:var(--page-fg)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pair{display:flex;flex-wrap:wrap;gap:20px 28px;justify-content:center}
+.ph-wrap{display:flex;flex-direction:column;gap:8px;align-items:center;width:calc(415px*var(--z,1))}
+.ph-wrap .cap{font:600 14px/1.2 var(--f-ui);color:var(--page-mut)}
+
+.phone{zoom:var(--z,1);width:393px;height:852px;border-radius:55px;position:relative;overflow:hidden;flex:none;
+  box-shadow:0 0 0 10px #1a1a1c,0 0 0 11px #3a3a3e,0 24px 60px rgba(0,0,0,.22);margin:11px;
+  --ground:#EFEAE2;--g0:239,234,226;--slip:#fff;--fg:#24141F;--mut:#5E5560;--hair:rgba(36,20,31,.10);--pill:#F6D365;
+  --lg-tint:rgba(255,255,255,.42);--lg-rim:rgba(255,255,255,.95);--lg-shade:rgba(36,20,31,.10);--seg:rgba(36,20,31,.07);--seg-sel:#fff}
+.phone.dk{--ground:#0C0C0D;--g0:12,12,13;--slip:#1C1C1E;--fg:#F5F4F1;--mut:#A5A4A8;--hair:rgba(255,255,255,.12);--pill:#E6C65F;
+  --lg-tint:rgba(18,18,20,.5);--lg-rim:rgba(255,255,255,.16);--lg-shade:rgba(0,0,0,.45);--seg:rgba(255,255,255,.08);--seg-sel:#3A3A3C}
+.screen{position:absolute;inset:0;background:var(--ground);color:var(--fg);font-family:var(--f-ui);overflow:hidden}
+.scroll{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain}
+.scroll::-webkit-scrollbar{display:none}
+.status{position:absolute;top:0;left:0;right:0;height:54px;display:flex;justify-content:space-between;align-items:center;padding:6px 34px 0 46px;font:600 17px/1 -apple-system,system-ui,sans-serif;z-index:9;pointer-events:none;color:var(--fg)}
+.status i{width:58px;height:13px;background:linear-gradient(90deg,var(--fg) 0 62%,transparent 62% 70%,var(--fg) 70%);border-radius:3px}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;background:#000;border-radius:20px;z-index:10}
+/* page colour behind the clock while the header is away */
+.clock{position:absolute;top:0;left:0;right:0;height:66px;z-index:6;pointer-events:none;background:linear-gradient(rgb(var(--g0)) 0,rgb(var(--g0)) 54px,rgba(var(--g0),0) 66px);opacity:0;transition:opacity .15s}
+.clock.on{opacity:1}
+
+/* the header and its Liquid Glass */
+.hdr{position:absolute;left:0;right:0;top:0;z-index:7;transition:transform .26s cubic-bezier(.2,.8,.2,1)}
+.hdr.away{transform:translateY(-110%)}
+.lg{position:absolute;pointer-events:none;opacity:0;transition:opacity .15s ease-out;
+  background:var(--lg-tint);backdrop-filter:blur(22px) saturate(1.8);-webkit-backdrop-filter:blur(22px) saturate(1.8)}
+.lg.on{opacity:1}
+/* 1: full-width bar from the top edge to the header's foot */
+.full .lg{inset:0;box-shadow:inset 0 -.7px 0 var(--lg-rim),0 6px 18px -10px var(--lg-shade)}
+/* 2: a floating panel under the clock */
+.float .lg{left:8px;right:8px;top:50px;bottom:0;border-radius:30px;box-shadow:inset 0 0 0 .7px var(--lg-rim),0 8px 24px -8px var(--lg-shade)}
+.float .hdr-in{padding-top:52px}
+.hdr-in{position:relative;padding:54px 0 8px}
+.float .hdr-in{padding-bottom:10px}
+.row{height:44px;display:flex;align-items:center;gap:6px;padding:0 16px 0 20px}
+.wm{font:400 32px/1 var(--f-dish);letter-spacing:-.04em;margin-right:auto}
+.it{font:400 18px/1.1 var(--f-dish);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;margin-right:auto}
+.btn{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+svg.i{width:22px;height:22px;stroke:var(--fg);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.seg{display:flex;padding:3px;border-radius:999px;background:var(--seg);height:34px;margin:6px 16px 0}
+.seg span{flex:1;display:flex;align-items:center;justify-content:center;border-radius:999px;font:600 15px/1 var(--f-ui);color:var(--mut)}
+.seg span.sel{background:var(--seg-sel);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+
+/* content */
+.pad{padding:150px 0 150px}
+.list .pad{padding-top:104px}
+.month{font:400 24px/1 var(--f-dish);padding:6px 20px 14px}
+.slip{background:var(--slip);margin:0 12px 14px;border-radius:20px;padding:14px 18px 16px}
+.dl{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--hair);font:400 20px/1.1 var(--f-dish)}
+.dl:last-of-type{border-bottom:0}
+.dl span{font:600 17px/1 var(--f-ui)}
+.words{font:400 16px/1.45 "Newsreader",Georgia,serif;margin:8px 0 0}
+.words em{font:600 12px/1 var(--f-ui);font-style:normal;background:var(--pill);color:#24141F;border-radius:999px;padding:2px 6px}
+.pics{display:flex;gap:4px;margin-top:12px}
+.pics i{width:86px;height:86px;border-radius:20px;display:block}
+.pl{margin-top:12px;font:600 13px/1 var(--f-ui)}
+.pl span{color:var(--mut);font-weight:400;margin-left:6px}
+.cover{width:160px;height:160px;border-radius:24px;margin:8px 20px 14px;background:linear-gradient(135deg,#F6D365,#F0623F 55%,#B23A1E)}
+.ptitle{font:400 34px/1.05 var(--f-dish);letter-spacing:-.02em;padding:0 20px;text-wrap:balance}
+.pmeta{font:400 15px/1.3 var(--f-ui);color:var(--mut);padding:8px 20px 16px}
+.lrow{display:flex;align-items:center;gap:12px;padding:12px 20px;border-top:1px solid var(--hair)}
+.lrow i{width:56px;height:56px;border-radius:16px;flex:none;display:block}
+.lrow b{font:400 19px/1.1 var(--f-dish);flex:1;min-width:0}
+.lrow b small{display:block;font:400 13px/1.3 var(--f-ui);color:var(--mut);margin-top:4px}
+.lrow .sc{font:600 15px/1 var(--f-ui);background:var(--pill);color:#24141F;border-radius:999px;padding:5px 9px}
+@media (prefers-reduced-motion: reduce){.hdr,.lg,.clock{transition:none}}
+</style>
+
+<div class="wrap">
+  <section>
+    <h1>A Liquid Glass header</h1>
+    <p class="s">Every phone below is live, so you can scroll inside it. Each one opens mid-scroll, with the header back over the content, which is the case that broke in your recording. Scroll down to send the header away, and scroll up to bring it back. At the very top of a page there's no glass: the page is one surface, as it is today.</p>
+    <p class="s"><b>About the "old frost" in your recording:</b> no frost code is left in the app. I checked the shipped code, and there's no frost or material anywhere. The grey band you saw is iOS's own edge blur, which is lighter than it looked in my mockup, and it disappeared when the header came back mid-scroll. Both options below replace it with real Liquid Glass.</p>
+    <p class="s">One note: iOS 26 doesn't put glass behind a whole header by default. Apple's own apps only put glass on the buttons. So this is Apple's glass material (`glassEffect`), set behind our header. In dark mode it darkens what's under it rather than lightening it, which is the opposite of the old frost.</p>
+  </section>
+
+  <div class="ctl" role="toolbar" aria-label="Mockup controls">
+    <div class="seg2"><span>Screen</span>
+      <button id="s-journal" aria-pressed="true" data-screen="journal">Journal</button>
+      <button id="s-list" aria-pressed="false" data-screen="list">List page</button>
+    </div>
+  </div>
+
+  <section>
+    <h2>1. Full-width glass bar<span class="rec">Recommended</span></h2>
+    <p class="s">One sheet of glass from the top of the screen to just under the header, edge to edge, with a thin bright rim along its bottom. The buttons sit on it as plain icons, because glass on glass looks muddy. It's the same on every screen: Journal, Feed, Saved, You and every pushed page.</p>
+    <div class="pair" data-opt="full"></div>
+  </section>
+
+  <section>
+    <h2>2. Floating glass panel</h2>
+    <p class="s">The same glass as a rounded panel inset 8pt from the edges, under the clock, like Safari's compact bar. It feels lighter, but it frames less of the screen, leaves a sliver of content showing at each side, and needs the page colour behind the clock whenever content is under it.</p>
+    <div class="pair" data-opt="float"></div>
+  </section>
+</div>
+
+<script>
+(function(){
+  const icons = {
+    back:'<path d="M15 5l-7 7 7 7"/>', share:'<path d="M12 3v12M7 8l5-5 5 5M5 13v7h14v-7"/>',
+    more:'<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
+    bug:'<path d="M8 8a4 4 0 0 1 8 0v7a4 4 0 0 1-8 0zM12 11v8M4 12h4M16 12h4M5 7l3 2M19 7l-3 2M5 18l3-2M19 18l-3-2"/>',
+    bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"/>',
+    search:'<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>', filter:'<path d="M4 7h16M7 12h10M10 17h4"/>'
+  };
+  const ic = n => `<span class="btn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true">${icons[n]}</svg></span>`;
+  const ph = ['linear-gradient(135deg,#3b3a36,#8a5a3a 45%,#d9a066)','linear-gradient(150deg,#2c2c2c,#7a4b32 50%,#c9a47a)','linear-gradient(135deg,#f6b93b,#e58e26)',
+              'linear-gradient(135deg,#c06c84,#f8b195)','linear-gradient(135deg,#8ac926,#ffca3a)','linear-gradient(135deg,#6a4c93,#1982c4)'];
+  const slips = [
+    {d:[['Tuna Tartar','3.5'],['Crab Meat Fried Rice','4.0']],w:'Started with tuna tartar which was light and refreshing, good serving size for a starter as well <em>★ 3.5</em> for mains I had a crab meat fried rice <em>★ 4.0</em> which was way better than I expected',p:[0,1],pl:'Oriental Spoon',sub:'Tambon Choeng Thale · Fri 23 Oct'},
+    {d:[['Mango Sticky Rice','2.5']],w:'Mango sticky rice <em>★ 2.5</em> I see the vision, but I’m not sure it got fully executed on this one.',p:[2],pl:'White House Tea & Dining',sub:'Khet Bang Na · Thu 22 Oct'},
+    {d:[['Club Sandwich','4.0']],w:'Club sandwich sitting by the pool. Honestly it was delicious. Very simple but that’s what I wanted <em>★ 4.0</em>',p:[3],pl:'City Beach',sub:'Khet Khlong Toei · Thu 22 Oct'},
+    {d:[['Grilled Chicken with BBQ Rice','4.0'],['Chicken Soup','5.0']],w:'Top floor of a massive thrift market. Only $3 and some of the best chicken soup I’ve had.',p:[4,5],pl:'Chatuchak Food Court',sub:'Khet Chatuchak · Wed 21 Oct'},
+    {d:[['Pad Kra Pao','4.5']],w:'Fried egg on top, properly crispy edges.',p:[1,2],pl:'Krua Apsorn',sub:'Phra Nakhon · Tue 20 Oct'}
+  ];
+  const rows = [['Fried Chicken Pancake','Small Wins · Fitzroy','4.5'],['Korean Fried Wings','Hochi Mama · Melbourne','4.0'],['Chicken Katsu Sando','Hareruya Pantry · Fitzroy','4.5'],
+    ['Nashville Hot Tenders','Belles · Collingwood','4.0'],['Karaage','Shujinko · Melbourne','3.5'],['Fried Chicken Bao','Wonderbao · Melbourne','4.0'],['Popcorn Chicken','Formosa · Box Hill','3.5'],['Schnitzel','Hotel Esplanade · St Kilda','3.0']];
+  const journalBody = () => '<div class="month">October</div>' + slips.map(s => `<div class="slip">${s.d.map(d=>`<div class="dl">${d[0]}<span>★ ${d[1]}</span></div>`).join('')}
+    <p class="words">${s.w}</p><div class="pics">${s.p.map(i=>`<i style="background:${ph[i]}"></i>`).join('')}</div><div class="pl">${s.pl}<span>${s.sub}</span></div></div>`).join('');
+  const listBody = () => `<div class="cover"></div><div class="ptitle">Fried Chicken of Melbourne</div><div class="pmeta">@eamon · 8 dishes</div>` +
+    rows.map((r,i)=>`<div class="lrow"><i style="background:${ph[(i+2)%ph.length]}"></i><b>${r[0]}<small>${r[1]}</small></b><span class="sc">${r[2]}</span></div>`).join('');
+  const header = screen => screen==='journal'
+    ? `<div class="row"><span class="wm">ate.</span>${ic('bug')}${ic('bell')}${ic('search')}${ic('filter')}</div><div class="seg"><span class="sel">Journal</span><span>Lists</span></div>`
+    : `<div class="row" style="padding-left:12px">${ic('back')}<span class="it">Fried Chicken of Melbourne</span>${ic('share')}${ic('more')}</div>`;
+  function phone(opt, dark, screen){
+    return `<div class="ph-wrap"><div class="phone ${dark?'dk':''}"><div class="screen ${opt} ${screen}">
+      <div class="scroll"><div class="pad">${screen==='journal'?journalBody():listBody()}</div></div>
+      <div class="clock"></div>
+      <div class="hdr"><div class="lg"></div><div class="hdr-in">${header(screen)}</div></div>
+      <div class="status"><span>5:26</span><i></i></div><div class="island"></div></div></div>
+      <div class="cap">${dark?'Dark':'Light'}</div></div>`;
+  }
+  function wire(p, screen){
+    const sc = p.querySelector('.scroll'), hdr = p.querySelector('.hdr'), lg = p.querySelector('.lg'), clock = p.querySelector('.clock'), it = p.querySelector('.it');
+    let last = 0, away = false;
+    const upd = () => {
+      const y = sc.scrollTop, dy = y - last; last = y;
+      if (y < 60) away = false; else if (dy > 6) away = true; else if (dy < -6) away = false;
+      hdr.classList.toggle('away', away);
+      clock.classList.toggle('on', away || (p.querySelector('.float') && y > 4));
+      lg.classList.toggle('on', y > 4);
+      if (it) it.style.opacity = y > 250 ? 1 : 0;
+    };
+    sc.addEventListener('scroll', upd, {passive:true});
+    sc.scrollTop = screen==='journal' ? 330 : 320; last = sc.scrollTop; upd();
+  }
+  let screen = 'journal';
+  function render(){
+    document.querySelectorAll('.pair').forEach(p => {
+      p.innerHTML = phone(p.dataset.opt,false,screen) + phone(p.dataset.opt,true,screen);
+      p.querySelectorAll('.phone').forEach(x => wire(x, screen));
+    });
+    fit();
+  }
+  function fit(){
+    const w = document.querySelector('.wrap').clientWidth;
+    document.documentElement.style.setProperty('--z', Math.min(1, w >= 900 ? (w-28)/2/415 : w/415).toFixed(3));
+  }
+  document.querySelectorAll('[data-screen]').forEach(b => b.addEventListener('click', () => {
+    screen = b.dataset.screen;
+    document.querySelectorAll('[data-screen]').forEach(x => x.setAttribute('aria-pressed', String(x===b)));
+    render();
+  }));
+  addEventListener('resize', fit);
+  render();
+})();
+</script>
