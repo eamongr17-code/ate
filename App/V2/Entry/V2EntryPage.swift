@@ -23,7 +23,8 @@ struct V2EntryPage: View {
     }
 
     var body: some View {
-        // The viewer is hosted here: a photo on the page opens full screen with the native zoom.
+        // The viewer is hosted here too (the same one the shell hosts): a photo on the page flies out
+        // of its tile, full screen.
         V2EntryScreen(entry: entry, context: context)
             .atePhotoViewerHost()
     }

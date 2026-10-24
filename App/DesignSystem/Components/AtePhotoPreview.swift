@@ -11,6 +11,10 @@ struct AtePhotoOrigin: Sendable {
         var frame: CGRect
         var radius: CGFloat
         var angle: Double
+        /// The ring round it, in its surface's colour, when its cluster laps photos.
+        var ring: Color?
+        /// The part of the picture the tile crops onto (a dish page's focus), else its middle.
+        var focus: PhotoDishBox?
         /// Names the tile, so it can step aside while its photo is up.
         var sourceID: String
     }
@@ -50,11 +54,13 @@ final class AtePhotoTileFrames {
 
     /// `side`: the tiles' own size, laid out — a tilted tile measures as its bounding box, which
     /// would land the photo a size too big.
-    func origin(side: CGFloat, radius: (Int) -> CGFloat, angle: (Int) -> Double) -> AtePhotoOrigin {
+    func origin(
+        side: CGFloat, radius: (Int) -> CGFloat, angle: (Int) -> Double, ring: Color?, focus: (Int) -> PhotoDishBox?
+    ) -> AtePhotoOrigin {
         AtePhotoOrigin(tiles: Dictionary(uniqueKeysWithValues: frames.map { index, frame in
             let square = CGRect(x: frame.midX - side / 2, y: frame.midY - side / 2, width: side, height: side)
             return (index, AtePhotoOrigin.Tile(frame: square, radius: radius(index), angle: angle(index),
-                                               sourceID: sourceID(index)))
+                                               ring: ring, focus: focus(index), sourceID: sourceID(index)))
         }))
     }
 }

@@ -290,7 +290,9 @@ struct PhotoCluster: View {
                 originRelay?.note(frames.origin(
                     side: side,
                     radius: { _ in AteMetrics.photoRadius(side: side) },
-                    angle: { tapped in angle(at: shown.firstIndex { $0.index == tapped } ?? tapped) }
+                    angle: { tapped in angle(at: shown.firstIndex { $0.index == tapped } ?? tapped) },
+                    ring: count > 1 ? (surface ?? palette.ground) : nil,
+                    focus: { tapped in photos.indices.contains(tapped) ? photos[tapped].focus : nil }
                 ))
                 onTap(index)
             } label: { drawn.contentShape(.rect) }
