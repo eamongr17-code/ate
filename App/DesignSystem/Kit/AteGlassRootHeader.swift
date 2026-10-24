@@ -2,15 +2,17 @@ import SwiftUI
 
 /// **The glass header** (`lighter-header.html` B, 22 Oct) — Journal, Feed and Saved. The root's
 /// title row (title leading, the glass group trailing, a control apart before it), and under it an
-/// accessory (the Journal's switch, the filter's chips), as one header over the page: no ground, the
-/// page scrolling under it behind a frost of its own ground once it is under it. The header follows
-/// the finger: scrolling down it steps away up to the status bar as fast as the page moves, scrolling
-/// up it comes back the same way, and it settles all there or all away when the scroll stops. One
-/// title, always: the header no longer folds its title inline (Eamon, build 180).
+/// accessory (the Journal's switch, the filter's chips), as one bar over the page: no ground of its
+/// own, the page scrolling under it behind iOS 26's soft scroll edge (``SwiftUICore/View/ateHeaderEdge()``,
+/// `header-rethink.html` A, 24 Oct). The header follows the finger: scrolling down it steps away up to
+/// the status bar as fast as the page moves, scrolling up it comes back the same way, and it settles
+/// all there or all away when the scroll stops. One title, always (Eamon, build 180).
 ///
-/// The header is drawn over the page, never in the navigation bar, and the room kept for it never
-/// changes while it comes and goes: build 174 hid the native bar, and the inset leaving with it
-/// moved the page under the finger and read as a scroll that brought the bar straight back.
+/// The header is the page's top bar (`safeAreaBar`), never the navigation bar, and the room kept for
+/// it never changes while it comes and goes: build 174 hid the native bar, and the inset leaving with
+/// it moved the page under the finger and read as a scroll that brought the bar straight back. It
+/// moves by its offset alone. All away, the edge leaves with it (a blurred strip with nothing in it
+/// would only hide the page) and the page's own colour sits behind the clock.
 private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>: ViewModifier {
     let title: AteRootHeaderTitle
     let subtitle: String?
@@ -23,22 +25,16 @@ private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>:
 
     /// The header's height, title row and accessory: the room the page keeps under it.
     @State private var height: CGFloat = AteMetrics.hit
-    @State private var isOverPage = false
 
     func body(content: Content) -> some View {
         content
-            .safeAreaInset(edge: .top, spacing: 0) {
-                Color.clear.frame(height: height)
-            }
+            .safeAreaBar(edge: .top, spacing: 0) { header }
             .toolbarVisibility(.hidden, for: .navigationBar)
-            .scrollEdgeEffectHidden(true, for: .top)
-            .onScrollGeometryChange(for: Bool.self) { geometry in
-                geometry.contentOffset.y + geometry.contentInsets.top > AteHeaderGroundMetrics.showAfter
-            } action: { _, isUnder in
-                withAnimation(.easeOut(duration: AteHeaderGroundMetrics.switchDuration)) { isOverPage = isUnder }
+            .ateHeaderEdge()
+            .scrollEdgeEffectHidden(isAway, for: .top)
+            .overlay(alignment: .top) {
+                if isAway { AteClockGround() }
             }
-            .overlay(alignment: .top) { frost }
-            .overlay(alignment: .top) { header }
             .environment(\.ateGlassHeaderTravel, travel)
     }
 
@@ -46,22 +42,6 @@ private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>:
     private var travel: CGFloat { height + AteGlassRootHeaderMetrics.clearance }
 
     private var isAway: Bool { hidden >= 1 }
-
-    // MARK: - The frost
-
-    /// The page's own ground from the screen's top edge to the header's bottom, easing out over the
-    /// page past it, following the header as it moves; the status bar's height alone while it is
-    /// away. A blur under the ground shows the page faintly through it, but the colour is the
-    /// ground's, never the material's own grey (build 177: a lighter band with an edge, in dark mode
-    /// most of all). Off at rest (build 92: at rest the page is one surface).
-    private var frost: some View {
-        GeometryReader { proxy in
-            AteHeaderFrost(solid: proxy.safeAreaInsets.top + max(0, height - hidden * travel))
-        }
-        .opacity(isOverPage ? 1 : 0)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
 
     // MARK: - The header
 
@@ -159,24 +139,40 @@ extension EnvironmentValues {
 }
 
 enum AteGlassRootHeaderMetrics {
-    /// The frost runs this far past the header's bottom, fading out, so the page meets it softly.
-    static let fade: CGFloat = 31
     /// The room under the header's last row, title or accessory, before the page starts.
     static let foot: CGFloat = AteMetrics.snug
-    /// The ground over the blur: the page's own colour, with the page moving under it plainly
-    /// through it (Eamon, build 180: a little glass, not a new colour; 24 Oct: more glass, 0.82 → 0.6;
-    /// build 192: "still not very glass-like", 0.6 → 0.35; build 194: further, 0.35 → 0.15 — the blur
-    /// alone keeps the titles and buttons legible).
-    static let groundOpacity: Double = 0.15
-    /// The fade's ease (smoothstep): from the header's bottom (`at` 0) to the frost's end (`at` 1).
-    static let fadeCurve: [(at: CGFloat, alpha: Double)] = stride(from: 0, through: 8, by: 1).map {
-        let step = Double($0) / 8
-        return (CGFloat(step), 1 - step * step * (3 - 2 * step))
-    }
     /// How far past the header's own height it travels to clear the status bar.
     static let clearance: CGFloat = 80
     /// The header settling all there or all away once a scroll stops.
     static let slide: Animation = .smooth(duration: 0.24)
+    /// The page's colour behind the clock while the header is away eases out over this much.
+    static let clockFade: CGFloat = 12
+}
+
+/// **The ground behind the clock** while a glass header is all away: the page's own colour over the
+/// status bar, easing out just below it, so the time never sits on a slip. Its colour is the page's,
+/// so it can never read as a band.
+private struct AteClockGround: View {
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        GeometryReader { proxy in
+            let solid = proxy.safeAreaInsets.top
+            let fade = AteGlassRootHeaderMetrics.clockFade
+            LinearGradient(
+                stops: [
+                    .init(color: palette.ground, location: 0),
+                    .init(color: palette.ground, location: solid / (solid + fade)),
+                    .init(color: palette.ground.opacity(0), location: 1)
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+            .frame(height: solid + fade)
+            .ignoresSafeArea(edges: .top)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
 }
 
 extension View {

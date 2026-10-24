@@ -45,7 +45,6 @@ struct V2TagRankedPage: View {
             .padding(.bottom, AteMetrics.section)
         }
         .scrollIndicators(.hidden)
-        .scrollEdgeEffectStyle(.soft, for: .top)
         .ateGround()
         .ateInlineTitle(store.tag.label, subtitle: tag.city.map { AteCity.displayName(for: $0) })
         .refreshable { await store.refresh() }

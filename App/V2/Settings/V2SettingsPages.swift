@@ -117,7 +117,6 @@ struct V2LegalPage: View {
             .padding(.top, AteMetrics.regular)
             .padding(.bottom, AteMetrics.section)
         }
-        .scrollEdgeEffectStyle(.soft, for: .top)
         .ateGround()
         .ateInlineTitle(document.title)
     }
