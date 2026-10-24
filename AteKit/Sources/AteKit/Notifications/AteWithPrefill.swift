@@ -15,6 +15,8 @@ public struct AteWithPrefill: Sendable, Hashable, Decodable {
     public let tagger: AteNotification.Person
     public let place: Place?
     public let dishes: [Dish]
+    /// The tagger's words for the visit, for "Copy their review" (0086). `nil` from an older server.
+    public let body: String?
 
     public struct Place: Sendable, Hashable, Decodable {
         public let id: UUID
@@ -34,19 +36,31 @@ public struct AteWithPrefill: Sendable, Hashable, Decodable {
         public let dishID: UUID
         public let dishName: String
         public let position: Int
+        /// The tagger's score on it (0086), copied only when the person asks. Never inferred.
+        public let score: Rating?
 
         public var id: UUID { dishID }
 
-        public init(dishID: UUID, dishName: String, position: Int) {
+        public init(dishID: UUID, dishName: String, position: Int, score: Rating? = nil) {
             self.dishID = dishID
             self.dishName = dishName
             self.position = position
+            self.score = score
         }
 
         enum CodingKeys: String, CodingKey {
-            case position
+            case position, score
             case dishID = "dish_id"
             case dishName = "dish_name"
+        }
+
+        public init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            dishID = try container.decode(UUID.self, forKey: .dishID)
+            dishName = try container.decode(String.self, forKey: .dishName)
+            position = try container.decode(Int.self, forKey: .position)
+            // A score the app can't read only loses the copy, never the tag.
+            score = (try? container.decodeIfPresent(Rating.self, forKey: .score)) ?? nil
         }
     }
 
@@ -60,7 +74,8 @@ public struct AteWithPrefill: Sendable, Hashable, Decodable {
         sortStatus: EntrySortStatus = .sorted,
         tagger: AteNotification.Person,
         place: Place?,
-        dishes: [Dish]
+        dishes: [Dish],
+        body: String? = nil
     ) {
         self.companionID = companionID
         self.status = status
@@ -71,10 +86,11 @@ public struct AteWithPrefill: Sendable, Hashable, Decodable {
         self.tagger = tagger
         self.place = place
         self.dishes = dishes
+        self.body = body
     }
 
     enum CodingKeys: String, CodingKey {
-        case status, tagger, place, dishes
+        case status, tagger, place, dishes, body
         case companionID = "companion_id"
         case responseEntryID = "response_entry_id"
         case entryID = "entry_id"
@@ -84,6 +100,12 @@ public struct AteWithPrefill: Sendable, Hashable, Decodable {
 
     /// The tagger's dishes are not printed yet: ask again shortly.
     public var isStillSorting: Bool { sortStatus == .pending && dishes.isEmpty }
+
+    /// The tagger's words, trimmed; empty when there are none.
+    public var taggerWords: String { (body ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    /// Something to copy: a score on a dish, or words.
+    public var hasReviewToCopy: Bool { dishes.contains { $0.score != nil } || taggerWords.isEmpty == false }
 }
 
 /// One line of the person's own entry, as `respond_ate_with` takes it: a dish at that place, and

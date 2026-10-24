@@ -39,6 +39,8 @@ public final class AteWithRespondModel {
     public var current: UUID?
     public var body = ""
     public private(set) var isPosting = false
+    /// "Copy their review" was used.
+    public private(set) var hasCopied = false
 
     @ObservationIgnored private let service: any AteWithResponding
     @ObservationIgnored private let analytics: AnalyticsRecorder
@@ -138,6 +140,33 @@ public final class AteWithRespondModel {
         }
     }
 
+    // MARK: - Copying their review
+
+    /// "Copy @them's review" shows while there is something of theirs to copy and nothing of the
+    /// person's own yet: no score given, no words, no dish removed (`copy-their-review.html`, A).
+    public var canCopy: Bool {
+        guard phase == .ready, isPosting == false, hasCopied == false, let prefill, prefill.hasReviewToCopy else {
+            return false
+        }
+        return lines.allSatisfy { $0.score == nil } && removedCount == 0 && hasWords == false
+    }
+
+    /// One tap: the tagger's scores fill the matching rows and their words become the person's. All of
+    /// it stays theirs to change; the slide goes to the first row still empty, or folds away.
+    public func copyTaggerReview() {
+        guard canCopy, let prefill else { return }
+        let scores = Dictionary(prefill.dishes.map { ($0.dishID, $0.score) }, uniquingKeysWith: { first, _ in first })
+        for index in lines.indices {
+            lines[index].score = scores[lines[index].dishID] ?? nil
+        }
+        body = prefill.taggerWords
+        hasCopied = true
+        current = lines.first { $0.score == nil }?.id
+        analytics(NotificationEvents.ateWithReviewCopied(
+            scores: lines.filter { $0.score != nil }.count, hasWords: hasWords
+        ))
+    }
+
     // MARK: - Posting
 
     private var hasWords: Bool { body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
@@ -159,7 +188,8 @@ public final class AteWithRespondModel {
             )
             let scored = lines.filter { $0.score != nil }.count
             analytics(NotificationEvents.ateWithPosted(
-                scored: scored, removed: removedCount, unscored: lines.count - scored, hasWords: hasWords
+                scored: scored, removed: removedCount, unscored: lines.count - scored, hasWords: hasWords,
+                copied: hasCopied
             ))
             return card
         } catch let error as AteWithError {
