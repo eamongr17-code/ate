@@ -13,9 +13,10 @@ import SwiftUI
 /// while the header comes and goes (build 174: the inset leaving moved the page under the finger), and
 /// the system's soft scroll edge stays the status bar's alone. All away, that edge is all there is: a
 /// subtle blur under the clock, no colour (Eamon, 24 Oct, Instagram's).
-private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>: ViewModifier {
-    let title: AteRootHeaderTitle
-    let subtitle: String?
+private struct AteGlassRootHeader<Title: View, Apart: View, Controls: View, Accessory: View>: ViewModifier {
+    let title: Title
+    /// The title's lead from the screen's edge: the wordmark's own, or the gutter.
+    let leading: CGFloat
     /// How far it has stepped away: 0 all there, 1 all away.
     let hidden: CGFloat
     let showsApart: Bool
@@ -71,8 +72,7 @@ private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>:
 
     private var titleRow: some View {
         HStack(spacing: AteMetrics.snug) {
-            AteRootTitle(title: title, subtitle: subtitle)
-                .accessibilityIdentifier("root.title")
+            title
                 .fixedSize()
             Spacer(minLength: 0)
             if showsApart {
@@ -82,7 +82,7 @@ private struct AteGlassRootHeader<Apart: View, Controls: View, Accessory: View>:
             }
             AteGlassGroup { controls }
         }
-        .padding(.leading, title == .wordmark ? AteRootHeaderMetrics.wordmarkLeading : AteMetrics.gutter)
+        .padding(.leading, leading)
         .padding(.trailing, AteRootHeaderMetrics.trailing)
         .frame(height: AteMetrics.hit)
     }
@@ -187,8 +187,24 @@ extension View {
         @ViewBuilder accessory: () -> Accessory = { EmptyView() }
     ) -> some View {
         modifier(AteGlassRootHeader(
-            title: title, subtitle: subtitle, hidden: hidden,
-            showsApart: showsApart, apart: apart(), controls: controls(), accessory: accessory()
+            title: AteRootTitle(title: title, subtitle: subtitle).accessibilityIdentifier("root.title"),
+            leading: title == .wordmark ? AteRootHeaderMetrics.wordmarkLeading : AteMetrics.gutter,
+            hidden: hidden, showsApart: showsApart,
+            apart: apart(), controls: controls(), accessory: accessory()
+        ))
+    }
+
+    /// The same glass header titled by a view of the root's own: the Journal's titles as tabs
+    /// (``AteTitleTabs``), on the gutter.
+    func ateGlassRootHeader<Title: View, Controls: View, Accessory: View>(
+        hidden: CGFloat,
+        @ViewBuilder title: () -> Title,
+        @ViewBuilder controls: () -> Controls,
+        @ViewBuilder accessory: () -> Accessory = { EmptyView() }
+    ) -> some View {
+        modifier(AteGlassRootHeader(
+            title: title(), leading: AteMetrics.gutter, hidden: hidden, showsApart: false,
+            apart: EmptyView(), controls: controls(), accessory: accessory()
         ))
     }
 

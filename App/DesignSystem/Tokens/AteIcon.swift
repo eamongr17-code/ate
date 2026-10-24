@@ -75,7 +75,7 @@ enum AteIcon: String, CaseIterable {
     case crop
     /// A shared video, over its thumbnail on the share-to-Ate card — Lucide's play, filled.
     case play
-    /// The Journal's bug, for testers (`feedback.html`) — Lucide's bug.
+    /// The testers' bug, on the You tab (`feedback.html`) — Lucide's bug.
     case bug
     /// Send, on the feedback sheet — Lucide's arrow-up.
     case arrowUp

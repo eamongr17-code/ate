@@ -71,7 +71,7 @@ struct AteServices {
     let lists: any ListsServing
     /// Searching your own journal (`search_my_entries`, 0060).
     let journalSearch: any JournalSearching
-    /// Tester reports from the Journal's bug (`feedback.html`, 0082), kept on disk through a dropped
+    /// Tester reports from the bug on You (`feedback.html`, 0082), kept on disk through a dropped
     /// connection and worked with the outbox. A preview drive sends nowhere.
     let feedback: FeedbackOutbox
     /// The phone's own preferences — the appearance, and who still owes a handle. One object for

@@ -2,14 +2,14 @@ import AteKit
 import SwiftUI
 import TipKit
 
-/// **The Journal tab's root** — your record, under the wordmark.
+/// **The Journal tab's root** — your record, and your lists.
 ///
-/// One native bar row: the wordmark leading and one glass group trailing (the bell with its count,
-/// search, the filter). Under it the slips, a month's name scrolling with them over its first slip. Scrolled,
-/// the wordmark gives way to the month you are in. The filter is one sheet; while a filter is on its
-/// chips sit under the bar, each with ✕. (Saved is its own tab; the calendar was cut for launch.)
-/// The header is glass (`lighter-header.html`, B): the bar, the switch and the chips step away
-/// together while you scroll down and come back on any scroll up.
+/// One header row (`journal-header.html` B, 24 Oct): "Journal  Lists" leading, two titles that are
+/// the switch, and one glass group trailing (the bell with its count, search, the filter). Under it
+/// the slips, a month's name scrolling with them over its first slip. The filter is one sheet; while a
+/// filter is on its chips sit under the row, each with ✕. (Saved is its own tab; the calendar was cut
+/// for launch; the testers' bug lives on the You tab.) The header is glass (`glass-header.html` 1):
+/// the row and the chips step away together while you scroll down and come back on any scroll up.
 struct JournalRoot: View {
     let router: TabRouter<JournalStores>
     let app: AppModel
@@ -33,9 +33,6 @@ struct JournalRoot: View {
     @State var isSearching = false
     @State var search: JournalSearchStore?
     @State var searchText = ""
-    /// The bug's Feedback sheet (`feedback.html`), testers only.
-    @State var isSendingFeedback = false
-    @State var feedbackToast: String?
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     static let top = "journal.top"
@@ -53,29 +50,20 @@ struct JournalRoot: View {
         }
         .accessibilityIdentifier("v2.root.journal")
         .ateGround()
-        // The switch is part of the header (22 Oct), pinned under its row, never half under it
-        // (build 88), with the filter's chips beneath it on the Journal; the shelf scrolls under
-        // all of it. Searching, the header steps away and the search screen covers the shelf.
+        // One row (`journal-header.html` B, 24 Oct): "Journal  Lists" as the title, the glass group
+        // trailing, and on the Journal the filter's chips beneath; the shelf scrolls under all of it.
+        // Searching, the header steps away and the search screen covers the shelf.
         .ateGlassRootHeader(
-            title: .wordmark,
             hidden: isSearching ? 1 : barHidden,
-            showsApart: showsBug,
-            apart: { bug },
+            title: { shelfTitles },
             controls: { controls },
             accessory: {
-                VStack(spacing: 0) {
-                    shelfSwitch
-                    if shelf == .journal { activeChips }
-                }
+                if shelf == .journal { activeChips }
             }
         )
         // Another shelf starts with its header showing.
         .onChange(of: shelf) { _, _ in barHidden = 0 }
         .sheet(isPresented: $isFiltering) { filterSheet }
-        .sheet(isPresented: $isSendingFeedback) {
-            FeedbackSheet(app: app) { feedbackToast = "Report sent. Thank you." }
-        }
-        .ateToast($feedbackToast)
         .overlay { searchOverlay }
         .task { await loadJournal() }
         // Read ahead, so the filter sheet rises with its cities in it.
@@ -129,24 +117,6 @@ struct JournalRoot: View {
     }
 
     // MARK: - The bar
-
-    /// The bug, apart from the group (`feedback.html` A): TestFlight and Debug builds only, signed in,
-    /// never in an App Store build.
-    private var showsBug: Bool {
-        #if DEBUG || BETA
-        app.hasSession
-        #else
-        false
-        #endif
-    }
-
-    private var bug: some View {
-        Button { isSendingFeedback = true } label: {
-            AteIcon.bug.view(size: AteGlassDiscMetrics.glyph)
-        }
-        .accessibilityLabel("Send feedback")
-        .accessibilityIdentifier("journal.feedback")
-    }
 
     /// Bell, search and filter, in one glass group (`lists-notifications.html` A1). The bell wears one
     /// coral count — unread "Ate with" tags plus photo sittings — and stays on an empty Journal, so a
