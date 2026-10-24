@@ -16,7 +16,7 @@ extension AteTextStyle {
     )
     /// A shelf tile's name — `.tile b`: Young Serif at 15 (16 in the sans; the serif runs wider).
     static let kitListTileName = AteTextStyle(
-        voice: .heading, size: 15, weight: 800, trackingEm: -0.01, lineHeight: 1.2, textStyle: .callout
+        voice: .heading, size: 15, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .callout
     )
     /// The list page's name under its cover — `.hero .nm`: Young Serif at 28, `line-height:1.05`.
     static let kitListHeroName = AteTextStyle(

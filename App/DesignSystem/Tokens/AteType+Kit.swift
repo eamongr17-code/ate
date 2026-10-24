@@ -29,7 +29,7 @@ extension AteTextStyle {
     /// A photo's caption on somebody else's entry — `.capL b`: Young Serif at 16 (the dish is a name)
     /// (design/rebuild/photo-dish-caption.html, B).
     static let kitPhotoCaptionDish = AteTextStyle(
-        voice: .heading, size: 16, weight: 800, trackingEm: -0.01, lineHeight: 1.2, textStyle: .body
+        voice: .heading, size: 16, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .body
     )
     /// A dish's name floating over it in a photo of several — `.tag`: Young Serif at 16
     /// (design/rebuild/photo-dish-tags.html).
@@ -46,9 +46,9 @@ extension AteTextStyle {
         AteTextStyle(voice: .mono, size: size, weight: 500, lineHeight: 1.0, textStyle: .footnote)
     }
     /// A shelf card's dish — `.card .t b`: Young Serif at 16 (17 in the old sans; the serif
-    /// runs wider), `line-height:1.15`, two lines.
+    /// runs wider), lines 1.05 apart like every serif title, two lines.
     static let kitShelfDish = AteTextStyle(
-        voice: .heading, size: 16, weight: 800, trackingEm: -0.01, lineHeight: 1.15, textStyle: .body
+        voice: .heading, size: 16, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .body
     )
     /// The hero's dish — `.hero .nm b`: 800 at 30 (34 before 6 Oct), `line-height:1.02`, `-.035em`.
     static let kitHeroDish = AteTextStyle(
