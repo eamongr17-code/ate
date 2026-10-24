@@ -165,8 +165,9 @@ enum AteGlassRootHeaderMetrics {
     static let foot: CGFloat = AteMetrics.snug
     /// The ground over the blur: the page's own colour, with the page moving under it plainly
     /// through it (Eamon, build 180: a little glass, not a new colour; 24 Oct: more glass, 0.82 → 0.6;
-    /// build 192: "still not very glass-like", 0.6 → 0.35, the blur doing the work under the titles).
-    static let groundOpacity: Double = 0.35
+    /// build 192: "still not very glass-like", 0.6 → 0.35; build 194: further, 0.35 → 0.15 — the blur
+    /// alone keeps the titles and buttons legible).
+    static let groundOpacity: Double = 0.15
     /// The fade's ease (smoothstep): from the header's bottom (`at` 0) to the frost's end (`at` 1).
     static let fadeCurve: [(at: CGFloat, alpha: Double)] = stride(from: 0, through: 8, by: 1).map {
         let step = Double($0) / 8

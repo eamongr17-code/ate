@@ -102,7 +102,7 @@ one band in the paper's colour crossing the screen, 1.6s a pass, all placeholder
     15 line 8 under it (names 600 in ink), buttons or chips 16 under that.
   - **Top frost** (`scroll-headers.html`, 24 Oct) — ONE frost on every screen, tab roots and pushed
     pages alike, from the screen's top edge to the bar's (or root header's) bottom, then easing out
-    over 31; ground at 35% over the blur, so the page reads moving under it. None at rest; it comes in
+    over 31; ground at 15% over the blur, so the page reads moving under it. None at rest; it comes in
     once the page has scrolled 4pt under the bar.
   - **Compact header** — mid-list, a scroll up brings back a compact header, not the big one: the
     tab's name (Young Serif, 20) leading — on the Journal the month you are in, its year muted —
