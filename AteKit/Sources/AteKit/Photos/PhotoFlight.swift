@@ -1,11 +1,12 @@
 import CoreGraphics
 
-/// **Where a full-screen photo is, on its way between its tile and the screen** (24 Oct, round 4).
-/// The viewer flies one picture, filled into a rounded frame: at home that frame *is* the tile
-/// (its square, its corners, its tilt), so the picture is cropped exactly as the tile crops it;
-/// at rest it is the whole picture fitted to the page. Animating between the two frames is the
-/// whole flight. The frame is the crop, so there is no mask that can fail to apply (builds 194–196:
-/// a SwiftUI mask over the UIKit pager did nothing on a phone).
+/// **Where a full-screen photo is, on its way between its tile and the screen** (24 Oct, rebuild).
+/// The viewer flies one picture inside one rounded frame. At home the frame *is* the tile (its
+/// square, its corners, its tilt) and the picture sits in it exactly as the tile crops it; at rest
+/// the frame is the whole picture fitted to the page, exactly where the pager draws it. The whole
+/// flight is ``between(_:_:progress:)`` of those two, for one number running 0 → 1 (open) or
+/// 1 → 0 (close), so the first and last frames are the tile and the page to the point, and nothing
+/// is corrected after it lands.
 public enum PhotoFlight {
     public struct Frame: Equatable, Sendable {
         /// In window coordinates.
@@ -14,12 +15,16 @@ public enum PhotoFlight {
         public var radius: CGFloat
         /// Degrees.
         public var angle: Double
+        /// The whole picture, in the frame's own untilted space (origin at its top-left): larger
+        /// than the frame where the frame crops it, the frame itself at rest.
+        public var picture: CGRect
 
-        public init(center: CGPoint, size: CGSize, radius: CGFloat, angle: Double) {
+        public init(center: CGPoint, size: CGSize, radius: CGFloat, angle: Double, picture: CGRect? = nil) {
             self.center = center
             self.size = size
             self.radius = radius
             self.angle = angle
+            self.picture = picture ?? CGRect(origin: .zero, size: size)
         }
 
         public var rect: CGRect {
@@ -32,9 +37,30 @@ public enum PhotoFlight {
     public static let dragShrink: CGFloat = 0.2
     public static let dragShrinkDistance: CGFloat = 400
 
-    /// On the tile: its own frame, corners and tilt.
-    public static func home(tile: CGRect, radius: CGFloat, angle: Double) -> Frame {
-        Frame(center: CGPoint(x: tile.midX, y: tile.midY), size: tile.size, radius: radius, angle: angle)
+    /// On the tile: its own frame, corners and tilt, with the picture of `image`'s shape cropped as
+    /// the tile crops it: `crop` (the part of the picture that fills the tile, in the picture's
+    /// units: a dish page's focus), else the middle, as a fill does.
+    public static func home(tile: CGRect, radius: CGFloat, angle: Double, image: CGSize, crop: CGRect? = nil) -> Frame {
+        let shown = crop ?? fill(image: image, aspect: tile.height > 0 ? tile.width / tile.height : 1)
+        let scale = shown.width > 0 ? tile.width / shown.width : 1
+        let picture = image.width > 0 && image.height > 0
+            ? CGRect(x: -shown.minX * scale, y: -shown.minY * scale,
+                     width: image.width * scale, height: image.height * scale)
+            : CGRect(origin: .zero, size: tile.size)
+        return Frame(center: CGPoint(x: tile.midX, y: tile.midY), size: tile.size, radius: radius, angle: angle,
+                     picture: picture)
+    }
+
+    /// The middle of a picture of `image`'s shape that a frame of `aspect` (width over height) shows
+    /// when the picture fills it.
+    public static func fill(image: CGSize, aspect: CGFloat) -> CGRect {
+        guard image.width > 0, image.height > 0, aspect > 0 else { return CGRect(origin: .zero, size: image) }
+        if image.width / image.height > aspect {
+            let width = image.height * aspect
+            return CGRect(x: (image.width - width) / 2, y: 0, width: width, height: image.height)
+        }
+        let height = image.width / aspect
+        return CGRect(x: 0, y: (image.height - height) / 2, width: image.width, height: height)
     }
 
     /// How much a drag of `drag` points has shrunk the photo.
@@ -60,15 +86,20 @@ public enum PhotoFlight {
         )
     }
 
-    /// The flight a fraction `progress` of the way from `from` to `to` — what an animation of the
-    /// frame draws along the way (the timing curve only changes how fast `progress` moves).
+    /// The flight a fraction `progress` of the way from `from` to `to`: the one thing the flying
+    /// picture draws, every frame (the timing curve only changes how fast `progress` moves).
     public static func between(_ from: Frame, _ to: Frame, progress: CGFloat) -> Frame {
-        func mix(_ a: CGFloat, _ b: CGFloat) -> CGFloat { a + (b - a) * progress }
+        // Weighted, so 0 and 1 are the two ends exactly, not a sum that rounds off them.
+        func mix(_ a: CGFloat, _ b: CGFloat) -> CGFloat { a * (1 - progress) + b * progress }
         return Frame(
             center: CGPoint(x: mix(from.center.x, to.center.x), y: mix(from.center.y, to.center.y)),
             size: CGSize(width: mix(from.size.width, to.size.width), height: mix(from.size.height, to.size.height)),
             radius: mix(from.radius, to.radius),
-            angle: from.angle + (to.angle - from.angle) * Double(progress)
+            angle: from.angle * Double(1 - progress) + to.angle * Double(progress),
+            picture: CGRect(
+                x: mix(from.picture.minX, to.picture.minX), y: mix(from.picture.minY, to.picture.minY),
+                width: mix(from.picture.width, to.picture.width), height: mix(from.picture.height, to.picture.height)
+            )
         )
     }
 

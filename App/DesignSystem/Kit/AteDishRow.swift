@@ -43,8 +43,12 @@ struct AteDishRow: View {
     var onTagCounts: (() -> Void)?
 
     @State private var isShowingTagCounts = false
+    /// Where a menu row's thumbnail sits, for its photo to fly out of and back into.
+    @State private var thumbFrames = AtePhotoTileFrames()
     @Environment(\.atePalette) private var palette
     @Environment(\.atePhotoViewer) private var showPhotos
+    @Environment(\.atePhotoOriginRelay) private var originRelay
+    @Environment(\.atePhotoHiddenSource) private var hiddenSource
 
     var body: some View {
         HStack(spacing: AteDishRowMetrics.gap) {
@@ -57,6 +61,9 @@ struct AteDishRow: View {
                             .frame(width: AteDishRowMetrics.rankWidth)
                     }
                     AteThumb(photo: photo, size: isMenu ? .menu : .row)
+                        .atePhotoSource(thumbFrames, index: 0, radius: AteThumbMetrics(.menu).radius)
+                        // While the viewer has its photo: the photo is in flight over it.
+                        .opacity(isMenu && hiddenSource == thumbFrames.sourceID(0) ? 0 : 1)
                         .overlay(alignment: .bottomTrailing) {
                             if let mark { AteSourceMark(icon: mark) }
                         }
@@ -101,6 +108,11 @@ struct AteDishRow: View {
                 // never heard.
                 Button {
                     onPhoto?()
+                    let thumb = AteThumbMetrics(.menu)
+                    originRelay?.note(thumbFrames.origin(
+                        side: thumb.height, radius: { _ in thumb.radius }, angle: { _ in 0 }, ring: nil,
+                        focus: { _ in photo.focus }
+                    ))
                     let dishes = AtePhotoDishes.one(name, photos: [photo], byline: photoByline)
                     showPhotos([photo], at: 0, dishes: dishes)
                 } label: {
