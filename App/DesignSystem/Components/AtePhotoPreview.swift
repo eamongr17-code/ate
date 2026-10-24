@@ -56,6 +56,7 @@ final class AtePhotoTileFrames {
 
     /// `side`: the tiles' own size, laid out — a tilted tile measures as its bounding box, which
     /// would land the photo a size too big.
+    // swiftlint:disable:next function_parameter_count
     func origin(
         side: CGFloat, radius: (Int) -> CGFloat, angle: (Int) -> Double, ring: Color?,
         focus: (Int) -> PhotoDishBox?, layer: (Int) -> Int
