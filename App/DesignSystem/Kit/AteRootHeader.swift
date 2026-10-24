@@ -66,21 +66,32 @@ struct AteRootTitle: View {
 /// colour, which is a light grey wash: over the near-black page it could only brighten the band.
 /// Liquid Glass takes its tone from what is under it. `height` tall from the top safe area's edge,
 /// or the space it is given, and up past the top safe area to the screen's edge.
+///
+/// In dark mode the glass is tinted with the page's ground, so it sits close to the surface instead
+/// of reading as a lighter grey band (Eamon, build 207). Light mode is untinted.
 struct AteGlassBar: View {
     var height: CGFloat?
+
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Rectangle()
             .fill(.clear)
             .frame(height: height)
-            .glassEffect(.regular, in: .rect)
+            .glassEffect(glass, in: .rect)
             .ignoresSafeArea(edges: .top)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }
+
+    private var glass: Glass {
+        colorScheme == .dark ? .regular.tint(AteColor.ground.opacity(AteGlassBarMetrics.darkTint)) : .regular
+    }
 }
 
 enum AteGlassBarMetrics {
+    /// How much of the page's ground the glass takes in dark mode: near the surface, still glass.
+    static let darkTint: Double = 0.7
     /// The glass is off at rest and on once the content has gone this far under the header.
     static let showAfter: CGFloat = 4
     /// The switch is a short step, not a scroll-driven fade (Eamon, build 94).
