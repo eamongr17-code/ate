@@ -89,9 +89,8 @@ enum AteGlassBarMetrics {
 
 /// ``SwiftUICore/View/ateHeaderGlass()``: the glass bar under a navigation bar, from the screen's top
 /// edge to the bar's bottom, there once the page has scrolled under it. It reads the first scroll view
-/// inside the page and changes only its own opacity: the bar's layout never moves. Under it the
-/// system's soft scroll edge blurs the page (Eamon, 24 Oct: build 204 had no blur under the chrome;
-/// Liquid Glass alone lenses rather than blurs).
+/// inside the page and changes only its own opacity: the bar's layout never moves. The system's own
+/// scroll edge is off under it, the glass being the bar's one edge.
 private struct AteHeaderGlass: ViewModifier {
     @State private var isOverPage = false
 
@@ -102,7 +101,7 @@ private struct AteHeaderGlass: ViewModifier {
             } action: { _, isUnder in
                 withAnimation(.easeOut(duration: AteGlassBarMetrics.switchDuration)) { isOverPage = isUnder }
             }
-            .scrollEdgeEffectStyle(.soft, for: .top)
+            .scrollEdgeEffectHidden(true, for: .top)
             .overlay(alignment: .top) {
                 GeometryReader { proxy in
                     AteGlassBar(height: proxy.safeAreaInsets.top)
