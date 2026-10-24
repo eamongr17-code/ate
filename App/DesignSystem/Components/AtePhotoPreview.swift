@@ -15,6 +15,8 @@ struct AtePhotoOrigin: Sendable {
         var ring: Color?
         /// The part of the picture the tile crops onto (a dish page's focus), else its middle.
         var focus: PhotoDishBox?
+        /// Its place in the cluster's stack: 0 on top, each next one under the one before.
+        var layer: Int
         /// Names the tile, so it can step aside while its photo is up.
         var sourceID: String
     }
@@ -52,17 +54,21 @@ final class AtePhotoTileFrames {
 
     func sourceID(_ index: Int) -> String { "\(key).\(index)" }
 
+    // swiftlint:disable function_parameter_count
     /// `side`: the tiles' own size, laid out — a tilted tile measures as its bounding box, which
     /// would land the photo a size too big.
     func origin(
-        side: CGFloat, radius: (Int) -> CGFloat, angle: (Int) -> Double, ring: Color?, focus: (Int) -> PhotoDishBox?
+        side: CGFloat, radius: (Int) -> CGFloat, angle: (Int) -> Double, ring: Color?,
+        focus: (Int) -> PhotoDishBox?, layer: (Int) -> Int
     ) -> AtePhotoOrigin {
         AtePhotoOrigin(tiles: Dictionary(uniqueKeysWithValues: frames.map { index, frame in
             let square = CGRect(x: frame.midX - side / 2, y: frame.midY - side / 2, width: side, height: side)
             return (index, AtePhotoOrigin.Tile(frame: square, radius: radius(index), angle: angle(index),
-                                               ring: ring, focus: focus(index), sourceID: sourceID(index)))
+                                               ring: ring, focus: focus(index), layer: layer(index),
+                                               sourceID: sourceID(index)))
         }))
     }
+    // swiftlint:enable function_parameter_count
 }
 
 extension View {

@@ -111,7 +111,7 @@ struct AteDishRow: View {
                     let thumb = AteThumbMetrics(.menu)
                     originRelay?.note(thumbFrames.origin(
                         side: thumb.height, radius: { _ in thumb.radius }, angle: { _ in 0 }, ring: nil,
-                        focus: { _ in photo.focus }
+                        focus: { _ in photo.focus }, layer: { _ in 0 }
                     ))
                     let dishes = AtePhotoDishes.one(name, photos: [photo], byline: photoByline)
                     showPhotos([photo], at: 0, dishes: dishes)
