@@ -77,11 +77,11 @@ struct JournalRoot: View {
         }
         // The Summary's one ask for photos was answered yes: the count can appear now.
         .onReceive(NotificationCenter.default.publisher(for: .atePhotoAccessGranted)) { _ in
-            Task { await stores.photos.load() }
+            Task { await stores.photos.load(force: true) }
         }
         // Photos just posted with an entry: their sittings leave the count.
         .onReceive(NotificationCenter.default.publisher(for: .ateSuggestionPhotosWrittenUp)) { _ in
-            Task { await stores.photos.load() }
+            Task { await stores.photos.load(force: true) }
         }
         // An entry changed after the composer closed — an edit's re-sort printing its new dishes, a
         // correction on its page: put that one entry in place.
