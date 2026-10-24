@@ -147,7 +147,7 @@ struct AteListTile: View {
             VStack(alignment: .leading, spacing: AteListCoverMetrics.captionGap) {
                 AteListCover(id: id, name: name, covers: covers, cover: cover, owner: owner, accentIndex: accentIndex)
                 Text(name)
-                    .ateText(.kitListTileName)
+                    .ateTextExactLifted(.kitListTileName)
                     .foregroundStyle(palette.fg)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -187,7 +187,7 @@ struct AteNewListTile: View {
                     .aspectRatio(1, contentMode: .fit)
                     .overlay { AteIcon.compose.view(size: AteListCoverMetrics.plus).foregroundStyle(palette.muted) }
                 Text(title)
-                    .ateText(.kitListTileName)
+                    .ateTextExactLifted(.kitListTileName)
                     .foregroundStyle(palette.fg)
                     .padding(.top, AteListCoverMetrics.nameTop)
             }

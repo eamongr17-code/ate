@@ -12,7 +12,7 @@ struct AtePhotoDishCaption: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AtePhotoDishCaptionMetrics.gap) {
             Text(dish)
-                .ateText(.kitPhotoCaptionDish)
+                .ateTextExactLifted(.kitPhotoCaptionDish)
                 .lineLimit(2)
             if let byline, byline.isEmpty == false {
                 Text(byline)
