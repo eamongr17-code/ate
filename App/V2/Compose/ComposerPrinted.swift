@@ -132,7 +132,7 @@ struct V2ComposerPrinted: View {
             await hear()
             await store.watch()
         }
-        .task(id: store.phase == .printed) { await askForPhotosOnce() }
+        .task(id: store.phase == .printed) { await askOnce() }
         .task {
             try? await Task.sleep(for: ReceiptFallback.slowAfter)
             withAnimation(AteMotion.fillIn) { isSlow = true }
@@ -250,21 +250,27 @@ struct V2ComposerPrinted: View {
         ))
     }
 
-    /// **The one ask for the camera roll**: once a receipt has printed and settled, the system's own
-    /// prompt, once — never over the share sheet or the place sheet.
-    private func askForPhotosOnce() async {
+    /// **One system prompt per receipt**: once a receipt has printed and settled, the camera roll's,
+    /// once; on a later receipt, notifications', once, so a friend's "ate with" can reach this phone
+    /// (someone tagged who never tagged anyone or opened Notifications was otherwise never asked).
+    /// Never over the share sheet or the place sheet.
+    private func askOnce() async {
         let library = services.photos
-        guard shouldAsk(library) else { return }
+        guard shouldAsk(canAsk: true) else { return }
         try? await Task.sleep(for: PhotoAccessAsk.delay)
-        guard Task.isCancelled == false, shouldAsk(library) else { return }
-        let granted = await library.requestAuthorization()
-        services.analytics(SuggestionEvents.photoAccessAsked(granted: granted))
-        if granted { NotificationCenter.default.post(name: .atePhotoAccessGranted, object: nil) }
+        guard Task.isCancelled == false else { return }
+        if shouldAsk(canAsk: library.canAsk) {
+            let granted = await library.requestAuthorization()
+            services.analytics(SuggestionEvents.photoAccessAsked(granted: granted))
+            if granted { NotificationCenter.default.post(name: .atePhotoAccessGranted, object: nil) }
+        } else if app.hasSession, shouldAsk(canAsk: true) {
+            await AtePush.shared.askOnce(trigger: .receipt, services: services)
+        }
     }
 
-    private func shouldAsk(_ library: any AtePhotoLibrary) -> Bool {
+    private func shouldAsk(canAsk: Bool) -> Bool {
         PhotoAccessAsk.shouldAsk(
-            canAsk: library.canAsk,
+            canAsk: canAsk,
             isPrinted: store.phase == .printed,
             isPresentingOther: isSharing || isPickingPlace
         )
