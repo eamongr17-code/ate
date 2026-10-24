@@ -177,7 +177,7 @@ struct AteAppearanceProbe: UIViewControllerRepresentable {
 /// Deliberately the system's own shape rather than the app's — this is the one place in Ate that is
 /// not paper. There is no chrome beyond the close button (design rule 1), no counter beyond the page
 /// dots a multi-photo entry already earns, and no editing of the photo itself. The one caption is
-/// an entry photo's dish (``AtePhotoDishPill``), which is the only place a photo is named; a photo
+/// an entry photo's dish (``AtePhotoDishCaption``), which is the only place a photo is named; a photo
 /// of several dishes names each over it on a tap (``AtePhotoDishNames``).
 struct AtePhotoViewer: View {
     let photos: [AtePhoto]
@@ -377,26 +377,22 @@ struct AtePhotoViewer: View {
         }
     }
 
-    /// The dishes the photo now showing is. On your own entry a pill that is a menu to fix them; on
-    /// anybody else's a caption, with who and where, so it never reads as a button (15 Oct, B). A
-    /// photo of several names them all, or the one a dish page opened it on (0083).
+    /// The dishes the photo now showing is, as a caption with who and where (15 Oct, B). On your own
+    /// entry the same caption, with a faint pencil to fix them (24 Oct, A). A photo of several names
+    /// them all, or the one a dish page opened it on (0083).
     @ViewBuilder private var dishName: some View {
         if let dishes, photos.indices.contains(index), let url = photos[index].url?.absoluteString {
             let here = dishesHere(index)
-            if dishes.onPick == nil {
-                let focused = here.filter { $0.id == dishes.focus }
-                let named = focused.isEmpty ? here : focused
-                if named.isEmpty == false {
-                    AtePhotoDishCaption(
-                        dish: named.map(\.name).joined(separator: " · "), byline: dishes.bylines[url] ?? dishes.byline
-                    )
-                }
-            } else {
-                AtePhotoDishPill(dishes: here, choices: dishes.choices, onPick: dishes.onPick.map { pick in
-                    { (ticked: [AtePhotoDishPill.Dish]) in choose(ticked, for: url, with: pick) }
+            let focused = here.filter { $0.id == dishes.focus }
+            let named = focused.isEmpty ? here : focused
+            let byline = dishes.bylines[url] ?? dishes.byline
+            let edit = dishes.onPick.map { pick in
+                AtePhotoDishPill(dishes: here, choices: dishes.choices, onPick: { ticked in
+                    choose(ticked, for: url, with: pick)
                 })
-                .padding(.horizontal, AteMetrics.gutter)
-                .padding(.bottom, AtePhotoDishPillMetrics.bottom)
+            }
+            if named.isEmpty == false || edit != nil {
+                AtePhotoDishCaption(dish: named.map(\.name).joined(separator: " · "), byline: byline, edit: edit)
             }
         }
     }
