@@ -110,6 +110,7 @@ struct AtePhotoTile: View {
         let clipped = AtePhotoContent(photo: photo, size: .forSide(side), onFailure: onFailure)
             .frame(width: side, height: side)
             .clipShape(shape)
+            .ateTiltSmoothed()
         return Group {
             if let zoomSource {
                 clipped.atePhotoSource(zoomSource.frames, index: zoomSource.index, radius: radius)
@@ -130,6 +131,16 @@ struct AtePhotoTile: View {
             }
         }
         .accessibilityHidden(true)
+    }
+}
+
+extension View {
+    /// Smooth edges for a photo that is about to be tilted (24 Oct). Rotated as a plain layer, a
+    /// clipped photo's edges stair-step, because the system does not anti-alias a layer's own edges.
+    /// Drawn offscreen first, with a clear point all round, the rounded edge is anti-aliased into the
+    /// picture and the layer's real edge is transparent, so the tilt has nothing hard to step.
+    func ateTiltSmoothed() -> some View {
+        padding(1).drawingGroup().padding(-1)
     }
 }
 
