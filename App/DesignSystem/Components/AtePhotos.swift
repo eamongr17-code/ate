@@ -98,7 +98,7 @@ struct AtePhotoTile: View {
     /// The photo will not load and has no letter tile to fall back on (``AtePhotoContent``).
     var onFailure: (() -> Void)?
     /// Set where the tile opens the viewer: the photo itself, clipped and inside the cluster's tilt,
-    /// is what the `.zoom` grows from and lands back in — not the square box around it, which cut
+    /// is what the viewer's photo grows from and lands back in — not the square box around it, which cut
     /// the ring and the tilted corners off as a photo closed (15 Oct).
     var zoomSource: (frames: AtePhotoTileFrames, index: Int)?
 
@@ -278,6 +278,7 @@ struct PhotoCluster: View {
         if let onTap {
             Button {
                 originRelay?.note(frames.origin(
+                    side: side,
                     radius: { _ in AteMetrics.photoRadius(side: side) },
                     angle: { tapped in angle(at: shown.firstIndex { $0.index == tapped } ?? tapped) }
                 ))
