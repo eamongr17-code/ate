@@ -81,8 +81,10 @@ struct AteHeroCard: View {
 
     private func caption(ink: Color, muted: Color) -> some View {
         VStack(alignment: .leading, spacing: AteHeroCardMetrics.lineGap) {
+            // Its exact 1.02 line box, like the ranked rows under it: `ateText` alone leaves the
+            // face's own looser lines, so a two-line name sat far apart (Eamon, 25 Oct).
             Text(name)
-                .ateText(.kitHeroDish)
+                .ateTextExactLifted(.kitHeroDish)
                 .foregroundStyle(ink)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
