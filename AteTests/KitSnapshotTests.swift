@@ -8,6 +8,10 @@ import XCTest
 /// band, a tint, a line height or a contrast change fails here, before a TestFlight build. Motion is
 /// not covered: nothing automated sees a frame in flight.
 ///
+/// Drawn with `ImageRenderer`, not a hosting controller: a page is far taller than the screen, and a
+/// hosting view that tall drew only its last screenful (the first recording, 25 Oct). The renderer
+/// lays the page out at its own height and knows nothing about windows.
+///
 /// Re-record on purpose only: push a commit whose message contains `[record-snapshots]` and
 /// `.github/workflows/snapshots.yml` commits the new pictures back to the branch. The diff of the
 /// pictures is then part of the PR, for the reviewer to judge against `design/v1`.
@@ -27,18 +31,20 @@ final class KitSnapshotTests: XCTestCase {
         _ section: KitGalleryScreen.Section,
         file: StaticString = #filePath, testName: String = #function, line: UInt = #line
     ) {
-        for (name, style, scheme) in [("light", UIUserInterfaceStyle.light, ColorScheme.light),
-                                      ("dark", .dark, .dark)] {
+        for (name, scheme) in [("light", ColorScheme.light), ("dark", .dark)] {
             let page = KitGalleryScreen(only: section)
                 .frame(width: Self.width)
                 .environment(\.colorScheme, scheme)
-            let traits = UITraitCollection { traits in
-                traits.userInterfaceStyle = style
-                traits.displayScale = Self.scale
+            let renderer = ImageRenderer(content: page)
+            renderer.scale = Self.scale
+            renderer.proposedSize = ProposedViewSize(width: Self.width, height: nil)
+            guard let image = renderer.uiImage else {
+                XCTFail("\(section) (\(name)) did not render", file: file, line: line)
+                continue
             }
             assertSnapshot(
-                of: page,
-                as: .image(precision: 0.99, perceptualPrecision: 0.98, layout: .sizeThatFits, traits: traits),
+                of: image,
+                as: .image(precision: 0.99, perceptualPrecision: 0.98, scale: Self.scale),
                 named: name, file: file, testName: testName, line: line
             )
         }
