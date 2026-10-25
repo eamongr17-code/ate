@@ -13,6 +13,7 @@
 		AE0000000000000000001E /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = AE0000000000000000001A /* TelemetryDeck */; };
 		AE0000000000000000005B /* AteKit in Frameworks */ = {isa = PBXBuildFile; productRef = AE0000000000000000005A /* AteKit */; };
 		AE00000000000000000052 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AE00000000000000000051 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AE00000000000000000062 /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = AE00000000000000000063 /* SnapshotTesting */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -29,6 +30,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = AE00000000000000000054;
 			remoteInfo = ShareExtension;
+		};
+		AE0000000000000000006B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AE00000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AE00000000000000000002;
+			remoteInfo = Ate;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -55,6 +63,7 @@
 		AE00000000000000000030 /* Beta.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Beta.xcconfig; sourceTree = "<group>"; };
 		AE00000000000000000041 /* AteUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AteUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AE00000000000000000051 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AE00000000000000000065 /* AteTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AteTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -129,6 +138,11 @@
 			path = ShareExtension;
 			sourceTree = "<group>";
 		};
+		AE00000000000000000066 /* AteTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AteTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -158,6 +172,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AE00000000000000000069 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AE00000000000000000062 /* SnapshotTesting in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -166,6 +188,7 @@
 			children = (
 				AE00000000000000000012 /* App */,
 				AE00000000000000000059 /* ShareExtension */,
+				AE00000000000000000066 /* AteTests */,
 				AE00000000000000000042 /* AteUITests */,
 				AE00000000000000000005 /* Config */,
 				AE00000000000000000004 /* Products */,
@@ -176,6 +199,7 @@
 			isa = PBXGroup;
 			children = (
 				AE00000000000000000006 /* Ate.app */,
+				AE00000000000000000065 /* AteTests.xctest */,
 				AE00000000000000000041 /* AteUITests.xctest */,
 				AE00000000000000000051 /* ShareExtension.appex */,
 			);
@@ -271,6 +295,30 @@
 			productReference = AE00000000000000000051 /* ShareExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		AE00000000000000000067 /* AteTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AE0000000000000000006D /* Build configuration list for PBXNativeTarget "AteTests" */;
+			buildPhases = (
+				AE00000000000000000068 /* Sources */,
+				AE00000000000000000069 /* Frameworks */,
+				AE0000000000000000006A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AE0000000000000000006C /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AE00000000000000000066 /* AteTests */,
+			);
+			name = AteTests;
+			packageProductDependencies = (
+				AE00000000000000000063 /* SnapshotTesting */,
+			);
+			productName = AteTests;
+			productReference = AE00000000000000000065 /* AteTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -291,6 +339,10 @@
 					AE00000000000000000054 = {
 						CreatedOnToolsVersion = 26.5;
 					};
+					AE00000000000000000067 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = AE00000000000000000002;
+					};
 				};
 			};
 			buildConfigurationList = AE0000000000000000000C /* Build configuration list for PBXProject "Ate" */;
@@ -307,6 +359,7 @@
 				AE00000000000000000014 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				AE00000000000000000015 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 				AE00000000000000000016 /* XCRemoteSwiftPackageReference "SwiftSDK" */,
+				AE00000000000000000064 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AE00000000000000000004 /* Products */;
@@ -314,6 +367,7 @@
 			projectRoot = "";
 			targets = (
 				AE00000000000000000002 /* Ate */,
+				AE00000000000000000067 /* AteTests */,
 				AE00000000000000000040 /* AteUITests */,
 				AE00000000000000000054 /* ShareExtension */,
 			);
@@ -336,6 +390,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AE00000000000000000058 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AE0000000000000000006A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -366,6 +427,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AE00000000000000000068 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -378,6 +446,11 @@
 			isa = PBXTargetDependency;
 			target = AE00000000000000000054 /* ShareExtension */;
 			targetProxy = AE0000000000000000005D /* PBXContainerItemProxy */;
+		};
+		AE0000000000000000006C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AE00000000000000000002 /* Ate */;
+			targetProxy = AE0000000000000000006B /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -673,6 +746,57 @@
 			};
 			name = Beta;
 		};
+		AE0000000000000000006E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9M6K835247;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eamongracias.ate.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Ate.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Ate";
+			};
+			name = Debug;
+		};
+		AE0000000000000000006F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9M6K835247;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eamongracias.ate.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Ate.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Ate";
+			};
+			name = Release;
+		};
+		AE00000000000000000070 /* Beta */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9M6K835247;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eamongracias.ate.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Ate.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Ate";
+			};
+			name = Beta;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -716,6 +840,16 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		AE0000000000000000006D /* Build configuration list for PBXNativeTarget "AteTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AE0000000000000000006E /* Debug */,
+				AE0000000000000000006F /* Release */,
+				AE00000000000000000070 /* Beta */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -750,6 +884,14 @@
 				minimumVersion = 2.14.0;
 			};
 		};
+		AE00000000000000000064 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-snapshot-testing";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.18.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -775,6 +917,11 @@
 		AE0000000000000000005A /* AteKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AteKit;
+		};
+		AE00000000000000000063 /* SnapshotTesting */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AE00000000000000000064 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */;
+			productName = SnapshotTesting;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

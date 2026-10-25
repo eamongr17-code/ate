@@ -8,6 +8,16 @@ import SwiftUI
 /// and no longer a row in Settings (Eamon, 18 Oct). This is where the kit is judged before a screen
 /// is built from it.
 struct KitGalleryScreen: View {
+    /// The gallery's six pages. `AteTests` renders each on its own, light and dark, and compares it
+    /// with the approved picture in `AteTests/__Snapshots__` — the kit's visual contract.
+    enum Section: String, CaseIterable {
+        case atoms, composites, paper, lists, share, chrome
+    }
+
+    /// One section without the scroll view or the stamp line: what a snapshot draws. `nil` is the
+    /// whole gallery.
+    var only: Section?
+
     @State var saved: Set<String> = ["hero", "card.2", "row.3", "ranked.3"]
     @State var chips: [AteFilterChipRow.Chip] = [
         .init(id: "rating", title: "4.0 and up"), .init(id: "diet", title: "GF")
@@ -22,12 +32,35 @@ struct KitGalleryScreen: View {
     @State var isShowingPick = false
 
     var body: some View {
+        if let only {
+            page(only)
+                .padding(.vertical, KitGalleryMetrics.top)
+                .ateGround()
+        } else {
+            gallery
+        }
+    }
+
+    @ViewBuilder
+    private func page(_ section: Section) -> some View {
+        switch section {
+        case .atoms: atoms
+        case .composites: composites
+        case .paper: paper
+        case .lists: lists
+        case .share: share
+        case .chrome: chrome
+        }
+    }
+
+    private var gallery: some View {
         ScrollViewReader { reader in
             ScrollView {
                 VStack(alignment: .leading, spacing: KitGalleryMetrics.sectionGap) {
                     KitBuildStampLine()
                     atoms
                     composites
+                    paper
                     lists
                     share
                     chrome
@@ -76,7 +109,7 @@ struct KitGalleryScreen: View {
     // MARK: - Atoms
 
     @ViewBuilder
-    private var atoms: some View {
+    var atoms: some View {
         section("Score token") {
             row("Row: 4.5 · aggregate 4.3 · perfect 5.0 · secret 6") {
                 AteScoreToken(KitFixtures.four)

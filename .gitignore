@@ -25,6 +25,8 @@ supabase/.env
 
 # Binary artifacts stay out of git (legacy lesson)
 *.png
+# The design-system pictures AteTests compares against are the one PNG set that is source.
+!AteTests/__Snapshots__/**/*.png
 *.jpg
 *.jpeg
 *.gif

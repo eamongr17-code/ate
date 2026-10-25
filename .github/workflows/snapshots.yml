@@ -1,0 +1,100 @@
+name: Record snapshots
+
+# Re-records the design-system pictures that `AteTests` compares against (AteTests/__Snapshots__)
+# and commits them back to the branch, so a visual change is approved by its diff in the PR.
+# Runs only for a push whose commit message contains [record-snapshots]. CI (ci.yml) never records:
+# a missing or changed picture fails there.
+on:
+  push:
+    paths: [AteTests/**, App/DesignSystem/**, .github/workflows/snapshots.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: snapshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  record:
+    if: contains(github.event.head_commit.message, '[record-snapshots]')
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      SPM_CLONES: /Users/runner/ate-spm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Select Xcode 26
+        run: sudo xcode-select -s /Applications/Xcode_26.5.app || sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+
+      - name: Write Secrets.xcconfig
+        run: cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
+
+      - name: Restore SPM cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            ${{ env.SPM_CLONES }}
+          key: spm-${{ runner.os }}-${{ hashFiles('AteKit/Package.resolved', 'Ate.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ github.sha }}
+          restore-keys: |
+            spm-${{ runner.os }}-
+
+      - name: Boot simulator
+        id: sim
+        run: |
+          udid=$(xcrun simctl create snap-sim "iPhone 17 Pro")
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          # Reduce Motion stills every clock in the kit (receipt breath, page loader, posting dots),
+          # so the pictures are the same from one run to the next. The preference is read at boot,
+          # so the simulator is booted once to take it and again to honour it.
+          xcrun simctl spawn "$udid" defaults write com.apple.Accessibility ReduceMotionEnabled -bool true
+          xcrun simctl shutdown "$udid"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
+      - name: Record every picture
+        env:
+          # TEST_RUNNER_ variables reach the test host; SnapshotTesting reads SNAPSHOT_TESTING_RECORD.
+          TEST_RUNNER_SNAPSHOT_TESTING_RECORD: all
+        run: |
+          set -o pipefail
+          rm -rf AteTests/__Snapshots__
+          # Recording reports every assertion as a failure by design, so the exit code is ignored
+          # here; the pictures on disk are the result.
+          xcodebuild test -project Ate.xcodeproj -scheme Ate \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -only-testing:AteTests \
+            -clonedSourcePackagesDirPath "$SPM_CLONES" \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
+            -resultBundlePath record.xcresult > record.log 2>&1 || true
+          grep -E "error:|Test Case .*(passed|failed)|\*\* TEST" record.log | head -60
+          count=$(find AteTests/__Snapshots__ -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
+          echo "recorded $count pictures"
+          [ "$count" -gt 0 ] || { echo "::error title=Nothing recorded::No pictures were written; the tests did not run. See record.log."; tail -80 record.log; exit 1; }
+
+      - name: Commit the pictures to the branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # -f: *.png is gitignored repo-wide; .gitignore un-ignores this folder, and -f is the belt to that brace.
+          git add -f AteTests/__Snapshots__
+          git diff --cached --quiet && { echo "pictures unchanged"; exit 0; }
+          git commit -m "Snapshots: re-recorded design-system pictures ($(find AteTests/__Snapshots__ -name '*.png' | wc -l | tr -d ' ') files)"
+          git push origin "HEAD:${{ github.ref_name }}"
+
+      - name: Keep the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshots-record-${{ github.run_number }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            record.log
+            record.xcresult

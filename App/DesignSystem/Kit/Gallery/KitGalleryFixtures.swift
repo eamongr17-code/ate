@@ -3,7 +3,7 @@ import AteKit
 import SwiftUI
 
 /// The gallery's dishes, photos and slips — the mockups' own names and scores, the bundled food
-/// photos, and fixed tile accents so the gallery paints the same way every launch.
+/// photos, fixed tile accents and stable ids (`UUID.fixture`) so the gallery paints the same way every launch.
 @MainActor
 enum KitFixtures {
     static let longName = "Hand-cut pappardelle with slow-braised duck ragù and aged pecorino"
@@ -15,7 +15,7 @@ enum KitFixtures {
     ]
 
     static func dish(_ name: String, _ image: Image? = nil, accent: Int = 0) -> AtePhoto {
-        AtePhoto(image: image, dish: DishLetter(dishID: UUID(), name: name, paletteIndex: accent))
+        AtePhoto(image: image, dish: DishLetter(dishID: .fixture(name), name: name, paletteIndex: accent))
     }
 
     static var ragu: AtePhoto { dish("Tagliatelle al ragù", Image(.Photos.ragu)) }
@@ -42,8 +42,8 @@ enum KitFixtures {
 
     static func slipDish(_ name: String, _ score: Double?, saved: Bool = false, tags: [DietTag] = []) -> AteSlip.Dish {
         AteSlip.Dish(
-            id: UUID(), dishID: UUID(), name: name, score: score.map { Rating(exactly: $0) ?? Rating(rounding: $0) },
-            isSaved: saved, tags: tags
+            id: .fixture("slip.\(name)"), dishID: .fixture(name), name: name,
+            score: score.map { Rating(exactly: $0) ?? Rating(rounding: $0) }, isSaved: saved, tags: tags
         )
     }
 

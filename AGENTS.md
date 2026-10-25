@@ -46,6 +46,30 @@ feedback, and brand direction when he defines it. Everything else is the team's 
 5. **Environments are law.** Debug builds and all test drives point at STAGING. Prod is touched only
    by Release builds and CI-applied migrations. Synthetic data in prod is a sev-1 process failure.
 
+## What ships alone (the tiers, ratified 2026-10-25)
+
+- **Tier A — ships alone, CI green is the only gate.** A crash or hang fix with a test and no visual
+  change; patch-version dependency bumps; dead code, lint and file splits that change no behaviour;
+  a performance fix with a measured before/after and no screen change; Sentry and feedback housekeeping.
+- **Tier B — proposes, Eamon says yes/no.** Anything visual or any new screen or flow (mockup as a
+  claude.ai Artifact first, build after his OK); new features; minor/major dependency or toolchain
+  moves. Prod migrations are built and merged alone, but Eamon presses the Prod button.
+- **Tier C — never without him.** Rule 4's four escalations.
+- **Loops run between his messages:** a daily ops sweep (Sentry, CI, feedback, max 3 Tier A fixes),
+  a weekly code-health PR (Sunday), a weekly backlog batch he approves with numbers (Monday), a nightly
+  simulator drive and a monthly staging load test — plain GitHub Actions; Claude reads only the result.
+
+## Lessons that are now rules
+
+- **CI green proves nothing about pixels.** Say "shipped, untested on a phone"; never "fixed". Before
+  shipping a visual fix, prove the changed code is on the path Eamon actually uses (look for old or
+  duplicate code paths; a SwiftUI modifier over a UIKit view may silently do nothing). After a failed
+  round, first explain why the last fix didn't land.
+- **One recording, one PR, one build.** Every issue in one round of Eamon's feedback goes into one PR.
+- **A red PR never holds green ones** past about an hour. Ship the green ones; chase the red one.
+- **Headings say literally what they show.** No invented category names, anywhere.
+- **Built for volume.** Every query paginated and indexed, every external call's cost checked. Beta is ~50 users.
+
 ## How work moves
 
 - **PM decides, lead dispatches, one integrator merges.** Agents never commit to main; the lead
