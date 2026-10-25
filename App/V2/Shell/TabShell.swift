@@ -18,6 +18,8 @@ struct TabShell: View {
     @State private var feed: TabRouter<V2FeedStores>
     @State private var saved: TabRouter<SavedStores>
     @State private var you: TabRouter<YouStores>
+    /// "You found the 6" is up.
+    @State private var isTellingOfTheSix = false
 
     init(app: AppModel, start: V2Launch.Start) {
         self.app = app
@@ -64,10 +66,13 @@ struct TabShell: View {
         // hero, the menu. Kit photo surfaces open it themselves.
         .atePhotoViewerHost()
         .environment(\.atePhotoDishSource, AtePhotoDishSource.live(app.services))
-        .sheet(isPresented: Bindable(app).isComposing) {
+        .sheet(isPresented: Bindable(app).isComposing, onDismiss: tellOfTheSix) {
             ComposerSheet(app: app)
                 .ateCoversThePage()
                 .tipViewStyle(AteTipStyle())
+        }
+        .fullScreenCover(isPresented: $isTellingOfTheSix) {
+            SixFoundScreen { isTellingOfTheSix = false }
         }
         .ateLinkShell() // a waiting link is pushed once the tabs are up
         .onChange(of: app.linkedEntry, initial: true) { _, entryID in
@@ -85,6 +90,17 @@ struct TabShell: View {
             ScreenTrail.app.visit(tab.rawValue)
         }
         .task { await warmTheOtherTabs() }
+    }
+
+    // MARK: - The 6
+
+    /// The composer is down, the receipt and its share sheet with it: the first 6 is explained, once.
+    private func tellOfTheSix() {
+        guard app.owesSixFound else { return }
+        app.owesSixFound = false
+        app.services.preferences.toldSixFound(app.services.api.currentUserID)
+        app.services.analytics(EntryEvents.sixExplained())
+        isTellingOfTheSix = true
     }
 
     // MARK: - Reading ahead

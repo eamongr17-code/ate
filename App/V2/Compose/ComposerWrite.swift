@@ -35,6 +35,9 @@ struct V2ComposerWrite: View {
     @State var keyboard = KeyboardPresence()
     @State var isChoosingDiet = false
     @State var isConfirmingClose = false
+    /// How many 6s are left (two in any two months), read once as the composer opens. `nil` until it
+    /// answers, or if it cannot: no limit is drawn, and the server still holds it.
+    @State var sixAllowance: SixAllowance?
     @Environment(\.openURL) var openURL
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.dismiss) var dismiss
@@ -138,6 +141,7 @@ struct V2ComposerWrite: View {
         .task { await stageSuggestedPhotos() }
         .task { startEarlySort() }
         .task { warmUpSorter() }
+        .task { await readSixAllowance() }
         .task { await sweepStagedPhotos() }
     }
 
@@ -263,7 +267,9 @@ struct V2ComposerWrite: View {
                         get: { model.scoring?.rating },
                         set: { if let rating = $0 { model.slideScore(to: rating) } }
                     ),
-                    allowsSix: true
+                    allowsSix: true,
+                    sixLock: sixAllowance?.lock(for: model.composition, scoring: scoring.id),
+                    onSixLocked: { services.analytics(EntryEvents.scoreSixLocked()) }
                 ) { rating in
                     model.finishScore(at: rating).map(services.analytics)
                 }

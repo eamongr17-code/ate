@@ -36,6 +36,11 @@ enum AteHaptics {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
+    /// …and the sixth star coming out locked: none left to give. One soft tap, no celebration.
+    static func sixLocked() {
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+    }
+
     /// A key that had nothing to act on — the Diet key with no dish before the caret. The system's
     /// own error pattern, the lightest thing that says "not here" without a word of copy.
     static func refused() {

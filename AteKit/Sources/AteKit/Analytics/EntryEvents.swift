@@ -105,6 +105,16 @@ public enum EntryEvents {
         AnalyticsEvent(name: "entry_score_six")
     }
 
+    /// Past 5.0 with no 6 left to give (two in any two months, 0091): the sixth star came out locked.
+    public static func scoreSixLocked() -> AnalyticsEvent {
+        AnalyticsEvent(name: "entry_score_six_locked")
+    }
+
+    /// "You found the 6" was shown — once per person, after their first entry holding a 6.
+    public static func sixExplained() -> AnalyticsEvent {
+        AnalyticsEvent(name: "entry_six_explained")
+    }
+
     public static func placeAttached(source: PlaceAttachSource) -> AnalyticsEvent {
         AnalyticsEvent(name: "entry_place_attached", parameters: ["source": source.rawValue])
     }

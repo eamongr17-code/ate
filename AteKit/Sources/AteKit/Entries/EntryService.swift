@@ -158,6 +158,10 @@ public protocol EntryService: Sendable {
     /// One entry, freshly read — what the receipt is drawn from.
     func entry(id: UUID) async throws -> EntryCard
 
+    /// How many 6s are left (`six_allowance`, 0091) — on an edit, `editing`'s own counted back in.
+    /// `nil` when the service cannot say (a fake, the preview): no limit is drawn.
+    func sixAllowance(editing entryID: UUID?) async throws -> SixAllowance?
+
     /// The journal: your own entries, newest first, keyset-paginated.
     func journal(after cursor: PageCursor?, pageSize: Int) async throws -> Page<EntryCard>
 
@@ -224,6 +228,9 @@ public protocol EntryService: Sendable {
 public extension EntryService {
     /// A service with no server-side cache has nothing to warm.
     func previewSort(_ input: EarlySortInput) async throws {}
+
+    /// A service with no limit to read draws none; the server still holds the rule.
+    func sixAllowance(editing entryID: UUID?) async throws -> SixAllowance? { nil }
 
     func insert(_ entry: NewEntry) async throws {
         _ = try await create(entry)
