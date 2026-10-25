@@ -21,6 +21,7 @@ struct V2Destinations: View {
         case .following(let city): FeedFollowingPage(city: city, context: context)
         case .notifications: V2NotificationsPage(context: context)
         case .list(let list): V2ListPage(list, context: context)
+        case .map: FeedMapPage(context: context)
         }
     }
 }

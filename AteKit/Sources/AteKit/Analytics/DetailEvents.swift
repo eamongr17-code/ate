@@ -49,6 +49,8 @@ public enum DetailSource: String, Sendable, CaseIterable, Codable {
     case entryMore = "entry_more"
     /// The You tab — "Your top dishes" and the Ratings page's rows, which open your own entry.
     case you
+    /// The dish map (0088) — a row of its sheet, or a tapped place's Open place.
+    case map
 }
 
 /// Which affordance a "log" call to action was tapped on.

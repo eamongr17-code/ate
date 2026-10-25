@@ -44,6 +44,10 @@ struct AteServices {
     let dishExplore: any DishExploreReading
     /// The Search tab's four scopes and its Nearby list — the keyset-paged scope RPCs (0031).
     let search: any SearchReading
+    /// The dish map's pins and sheet (0088), opened from the Feed.
+    let dishMap: any DishMapReading
+    /// Where the phone is, asking the first time — the dish map's opening and Show my location.
+    let locate: NearbyPlaces.Locate
     /// The one place a bookmark's new state is announced. Everything that draws one listens, so a
     /// save made on an entry page is already true on the feed and the profile underneath it.
     let savedDishes = SavedDishBroadcast()
@@ -119,6 +123,11 @@ struct AteServices {
         self.dishPages = preview?.dishPages ?? DishPageClient(api: api)
         self.dishExplore = preview?.dishExplore ?? DishExploreClient(api: api) { await AteLastFix.point() }
         self.search = preview?.search ?? SearchClient(api: api)
+        self.dishMap = preview == nil ? DishMapClient(api: api) : EmptyDishMap()
+        let location = AteLocation()
+        self.locate = { mayAsk in
+            await location.current(mayAsk: mayAsk).map { SearchOrigin(latitude: $0.latitude, longitude: $0.longitude) }
+        }
         self.account = preview?.account ?? AccountClient(api: api)
         let companions = preview?.companions ?? SupabaseCompanionTagging(api: api)
         self.companions = companions
@@ -225,6 +234,17 @@ struct AteServices {
         #else
         nil
         #endif
+    }
+}
+
+/// The preview drive's map: nothing on it. The map is a live read of the record; the in-memory
+/// fixtures have no coordinates to draw.
+private struct EmptyDishMap: DishMapReading {
+    func places(in box: MapBox, origin: SearchOrigin?, limit: Int) async throws -> [MapPlace] { [] }
+    func nearest(to origin: SearchOrigin?, limit: Int) async throws -> [MapPlace] { [] }
+    func dishes(in box: MapBox, origin: SearchOrigin?, after cursor: MapDishCursor?, pageSize: Int) async throws
+        -> MapDishPage {
+        MapDishPage(items: [], requestedLimit: pageSize)
     }
 }
 
