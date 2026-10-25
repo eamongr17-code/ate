@@ -8,10 +8,10 @@ import SwiftUI
 /// and no longer a row in Settings (Eamon, 18 Oct). This is where the kit is judged before a screen
 /// is built from it.
 struct KitGalleryScreen: View {
-    /// The gallery's five pages. `AteTests` renders each on its own, light and dark, and compares it
+    /// The gallery's six pages. `AteTests` renders each on its own, light and dark, and compares it
     /// with the approved picture in `AteTests/__Snapshots__` — the kit's visual contract.
     enum Section: String, CaseIterable {
-        case atoms, composites, lists, share, chrome
+        case atoms, composites, paper, lists, share, chrome
     }
 
     /// One section without the scroll view or the stamp line: what a snapshot draws. `nil` is the
@@ -46,6 +46,7 @@ struct KitGalleryScreen: View {
         switch section {
         case .atoms: atoms
         case .composites: composites
+        case .paper: paper
         case .lists: lists
         case .share: share
         case .chrome: chrome
@@ -59,6 +60,7 @@ struct KitGalleryScreen: View {
                     KitBuildStampLine()
                     atoms
                     composites
+                    paper
                     lists
                     share
                     chrome

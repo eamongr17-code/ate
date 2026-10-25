@@ -10,7 +10,10 @@ import XCTest
 ///
 /// Drawn with `ImageRenderer`, not a hosting controller: a page is far taller than the screen, and a
 /// hosting view that tall drew only its last screenful (the first recording, 25 Oct). The renderer
-/// lays the page out at its own height and knows nothing about windows.
+/// lays the page out at its own height and knows nothing about windows. Two of its quirks are
+/// accepted, since the pictures are compared with each other, not with the phone: a page over about
+/// 8,000 px comes back blank (so the composites are two pages), and a few 8 pt bands between
+/// sections are left transparent, which viewers show as black.
 ///
 /// Re-record on purpose only: push a commit whose message contains `[record-snapshots]` and
 /// `.github/workflows/snapshots.yml` commits the new pictures back to the branch. The diff of the
@@ -19,6 +22,7 @@ import XCTest
 final class KitSnapshotTests: XCTestCase {
     func testAtoms() { snapshot(.atoms) }
     func testComposites() { snapshot(.composites) }
+    func testPaper() { snapshot(.paper) }
     func testLists() { snapshot(.lists) }
     func testShare() { snapshot(.share) }
     func testChrome() { snapshot(.chrome) }

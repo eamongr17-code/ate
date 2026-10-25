@@ -86,6 +86,14 @@ extension KitGalleryScreen {
             }
             .padding(.horizontal, AteMetrics.gutter)
         }
+    }
+
+    // MARK: - Composites, on paper and empty
+
+    /// The second half of the composites: receipts, empty states, skeletons and the page loader.
+    /// Its own page so a snapshot of either half stays under the renderer's height limit.
+    @ViewBuilder
+    var paper: some View {
         section("Receipt") {
             VStack(alignment: .leading, spacing: AteMetrics.section) {
                 caption("One dash on paper: the leader is the rule")
