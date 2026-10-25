@@ -87,12 +87,48 @@ public final class DishMapStore {
         reads: any DishMapReading,
         menus: any PlacePageReading,
         locate: @escaping NearbyPlaces.Locate,
-        analytics: @escaping AnalyticsRecorder = { _ in }
+        analytics: @escaping AnalyticsRecorder = { _ in },
+        locateTimeout: Double = 12,
+        readTimeout: Double = 15
     ) {
         self.reads = reads
         self.menus = menus
         self.locate = locate
         self.analytics = analytics
+        self.locateTimeout = locateTimeout
+        self.readTimeout = readTimeout
+    }
+
+    /// A fix that has not come in this long is no fix: the map opens without it rather than wait.
+    /// (Build 217: a fix that never came left the sheet on placeholders and the map unframed.)
+    private let locateTimeout: Double
+    /// A list read that has not come back in this long has failed: the sheet offers Try again.
+    private let readTimeout: Double
+
+    /// The phone, or `nil` once ``locateTimeout`` passes without a fix. A late fix is dropped.
+    private func located(mayAsk: Bool) async -> SearchOrigin? {
+        let first = FirstAnswer<SearchOrigin>()
+        Task { first.give(await self.locate(mayAsk)) }
+        Task {
+            try? await Task.sleep(for: .seconds(self.locateTimeout))
+            first.give(nil)
+        }
+        return await first.value
+    }
+
+    /// `work`, or ``DishMapTimeout`` once ``readTimeout`` passes without an answer.
+    private func timed<Value: Sendable>(_ work: @escaping @MainActor () async throws -> Value) async throws
+        -> Value {
+        let first = FirstAnswer<Result<Value, any Error>>()
+        Task {
+            do { first.give(.success(try await work())) } catch { first.give(.failure(error)) }
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(self.readTimeout))
+            first.give(.failure(DishMapTimeout()))
+        }
+        guard let answer = await first.value else { throw DishMapTimeout() }
+        return try answer.get()
     }
 
     public var title: DishMapTitle {
@@ -116,7 +152,7 @@ public final class DishMapStore {
         guard frame == nil else { return }
         analytics(MapEvents.opened())
         phase = .opening
-        let phone = await locate(true)
+        let phone = await located(mayAsk: true)
         self.phone = phone
         if let phone {
             frame = MapBox.around(phone, radiusMeters: Self.nearRadius)
@@ -124,7 +160,7 @@ public final class DishMapStore {
             return
         }
         do {
-            guard let busiest = try await reads.nearest(to: nil, limit: 1).first else {
+            guard let busiest = try await timed({ try await self.reads.nearest(to: nil, limit: 1) }).first else {
                 // Nothing anywhere has a place on the map: an empty, settled sheet, not a spinner.
                 phase = .ready
                 return
@@ -171,7 +207,7 @@ public final class DishMapStore {
 
     /// A fresh fix for the location button. `nil` without the permission.
     public func locateAgain() async -> SearchOrigin? {
-        guard let fix = await locate(true) else { return nil }
+        guard let fix = await located(mayAsk: true) else { return nil }
         analytics(MapEvents.recentred())
         return fix
     }
@@ -285,9 +321,12 @@ public final class DishMapStore {
         -> (items: [MapDish], next: MapDishCursor?) {
         var cursor = cursor
         for _ in 0..<Self.pagesPerFill {
-            let page = try await reads.dishes(
-                in: listing.box, origin: phone, after: cursor, pageSize: Self.dishesPerPage
-            )
+            let after = cursor
+            let page = try await timed {
+                try await self.reads.dishes(
+                    in: listing.box, origin: self.phone, after: after, pageSize: Self.dishesPerPage
+                )
+            }
             let kept = page.items.filter { Self.isListed($0, in: listing) }
             cursor = page.nextCursor
             if kept.isEmpty == false || cursor == nil { return (kept, cursor) }
@@ -299,5 +338,31 @@ public final class DishMapStore {
         guard case .nearMe = listing else { return true }
         guard let meters = dish.distanceMeters else { return false }
         return Double(meters) <= nearRadius
+    }
+}
+
+/// A map read that never came back.
+struct DishMapTimeout: Error {}
+
+/// The first of several answers to arrive; the rest are dropped.
+@MainActor
+private final class FirstAnswer<Value: Sendable> {
+    private var isSettled = false
+    private var answer: Value?
+    private var waiting: [CheckedContinuation<Value?, Never>] = []
+
+    func give(_ value: Value?) {
+        guard isSettled == false else { return }
+        isSettled = true
+        answer = value
+        waiting.forEach { $0.resume(returning: value) }
+        waiting = []
+    }
+
+    var value: Value? {
+        get async {
+            if isSettled { return answer }
+            return await withCheckedContinuation { waiting.append($0) }
+        }
     }
 }
