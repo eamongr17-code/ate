@@ -2,13 +2,15 @@ import AteKit
 import SwiftUI
 
 /// **What each card shows** (`design/rebuild/onboarding-calm.html`, approved 17 Oct). One real entry
-/// made the way people actually make one, with no photos anywhere (Eamon: no AI photography, less
-/// frantic). Each card shows one thing happening to it, then holds still:
+/// made the way people actually make one (Eamon: no AI photography, less frantic). The only photos
+/// are the details card's two real ones. Each card shows one thing happening to it, then holds still:
 ///
 /// - **Write** — the composer's paper: the place in its pill, the review typing itself out, and a
 ///   score dropping in after each dish while the Score key lights.
-/// - **Details** — the same paper. Who you ate with drops into the top line, then the Diet key
-///   lights and a V lands on the margherita.
+/// - **Details** — the same paper. Who you ate with drops into the top line, the photos key lights
+///   and the pizza and tiramisu land, then the Diet key opens into every code, V lights and lands on
+///   the margherita. It holds with the codes open, so the card shows what the key holds
+///   (`design/rebuild/onboarding-diet-details.html`, Eamon 25 Oct: show the options, add photos).
 /// - **Share** — the entry as the Feed shows it, rising into place; then someone saves the
 ///   margherita.
 ///
@@ -58,6 +60,13 @@ private struct OnboardingPaper: View {
     var people: [AteWithPerson] = []
     var isScoring = false
     var isTagging = false
+    /// The details card: its photos so far, the photos key lit as they land, and the Diet key's codes
+    /// open with the one it picks on. Their room is held whenever `holdsPhotos`, so nothing jumps.
+    var holdsPhotos = false
+    var photos: [AtePhoto] = []
+    var isAddingPhotos = false
+    var isChoosingDiet = false
+    var picked: DietTag?
 
     @Environment(\.atePalette) private var palette
 
@@ -69,8 +78,17 @@ private struct OnboardingPaper: View {
                 InlineTokenText(composition: words, style: .onboardingWords)
             }
             .padding(.horizontal, AteMetrics.gutter)
-            keys
-                .padding(.horizontal, AteMetrics.slipPadding)
+            if holdsPhotos {
+                ZStack(alignment: .topLeading) {
+                    cluster(OnboardingSample.photos).hidden()
+                    cluster(photos)
+                }
+                .padding(.horizontal, AteMetrics.gutter)
+            }
+            ComposerDietUnfold(isChoosingDiet: isChoosingDiet, keys: keys, back: back) { tag in
+                AteKey(kind: .code(tag), isActive: tag == picked) {}
+            }
+            .padding(.horizontal, AteMetrics.slipPadding)
         }
         .padding(.top, AteMetrics.slipPadding)
         .padding(.bottom, AteMetrics.slipPadding + AteMetrics.tornEdgeHeight)
@@ -79,11 +97,24 @@ private struct OnboardingPaper: View {
         .ateShadow(.lift)
     }
 
+    private func cluster(_ photos: [AtePhoto]) -> some View {
+        AtePhotoCluster(photos: photos, surface: AtePaperTone.slip.fill, onTap: { _ in })
+    }
+
+    private var back: some View {
+        AteIcon.back.view(size: OnboardingArtMetrics.photosIcon)
+            .foregroundStyle(palette.fg)
+            .frame(width: AteMetrics.hit, height: AteMetrics.hit)
+    }
+
     /// The composer's own keys: the photos, Score, and Diet, each lighting as the card uses it.
     private var keys: some View {
         HStack(spacing: AteMetrics.snug) {
             AteIcon.library.view(size: OnboardingArtMetrics.photosIcon)
-                .foregroundStyle(palette.fg)
+                .foregroundStyle(isAddingPhotos ? palette.inverted : palette.fg)
+                .frame(width: OnboardingArtMetrics.photosKey, height: OnboardingArtMetrics.photosKey)
+                .background(isAddingPhotos ? palette.solid : .clear, in: .circle)
+                .padding(.leading, -OnboardingArtMetrics.photosKeyOutset)
             Spacer(minLength: 0)
             ComposerKey(
                 title: "Score", icon: .starFilled, background: AteColor.scoreFill, foreground: AteColor.scoreInk,
@@ -145,12 +176,17 @@ private struct OnboardingWriteArt: View {
 
 // MARK: - Details
 
-/// The same paper: who you ate with drops into the byline, then a V lands on the margherita.
+/// The same paper: who you ate with drops into the byline, the two photos land, then the Diet key
+/// opens into its codes, V lights, and a V lands on the margherita. It holds there, codes open.
 private struct OnboardingDetailsArt: View {
     let isShowing: Bool
 
     @State private var hasPeople = true
+    @State private var photoCount = OnboardingSample.photos.count
+    @State private var isAddingPhotos = false
     @State private var isTagging = false
+    @State private var isChoosingDiet = true
+    @State private var isPicked = true
     @State private var isTagged = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -159,31 +195,60 @@ private struct OnboardingDetailsArt: View {
             words: OnboardingSample.words(tagged: isTagged),
             finished: OnboardingSample.words(tagged: true),
             people: hasPeople ? [OnboardingSample.friend] : [],
-            isTagging: isTagging
+            isTagging: isTagging,
+            holdsPhotos: true,
+            photos: Array(OnboardingSample.photos.prefix(photoCount)),
+            isAddingPhotos: isAddingPhotos,
+            isChoosingDiet: isChoosingDiet,
+            picked: isPicked ? .v : nil
         )
         .task(id: isShowing) { await play() }
     }
 
     private func play() async {
         isTagging = false
+        isAddingPhotos = false
         guard isShowing, reduceMotion == false else {
             hasPeople = true
+            photoCount = OnboardingSample.photos.count
+            isChoosingDiet = true
+            isPicked = true
             isTagged = true
             return
         }
         hasPeople = false
+        photoCount = 0
+        isChoosingDiet = false
+        isPicked = false
         isTagged = false
         try? await Task.sleep(for: OnboardingArtMetrics.detailsStart)
         guard Task.isCancelled == false else { return }
         withAnimation(OnboardingArtMetrics.drop) { hasPeople = true }
         try? await Task.sleep(for: OnboardingArtMetrics.detailsBeat)
+        // The photos: the key goes down, the two land one after the other.
+        guard Task.isCancelled == false else { return }
+        withAnimation(OnboardingArtMetrics.press) { isAddingPhotos = true }
+        for _ in OnboardingSample.photos {
+            try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
+            guard Task.isCancelled == false else { return }
+            withAnimation(OnboardingArtMetrics.drop) { photoCount += 1 }
+        }
+        try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
+        withAnimation(OnboardingArtMetrics.press) { isAddingPhotos = false }
+        try? await Task.sleep(for: OnboardingArtMetrics.detailsBeat)
+        // The Diet key goes down and unfolds into every code; V lights, then lands in the words.
         guard Task.isCancelled == false else { return }
         withAnimation(OnboardingArtMetrics.press) { isTagging = true }
         try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
         guard Task.isCancelled == false else { return }
-        withAnimation(OnboardingArtMetrics.drop) { isTagged = true }
+        isTagging = false
+        isChoosingDiet = true
+        try? await Task.sleep(for: OnboardingArtMetrics.codesBeat)
+        guard Task.isCancelled == false else { return }
+        withAnimation(OnboardingArtMetrics.press) { isPicked = true }
         try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
-        withAnimation(OnboardingArtMetrics.press) { isTagging = false }
+        guard Task.isCancelled == false else { return }
+        withAnimation(OnboardingArtMetrics.drop) { isTagged = true }
     }
 }
 
@@ -234,10 +299,13 @@ private struct OnboardingShareArt: View {
 enum OnboardingArtMetrics {
     /// Every card's picture is drawn on this (`.art`: 24 in from each side of a 402 phone), then
     /// scaled down where the card has less room. Never up.
-    static let canvas = CGSize(width: 354, height: 400)
+    static let canvas = CGSize(width: 354, height: 440)
     static let inset: CGFloat = 24
     static let maximumScale: CGFloat = 1
     static let photosIcon: CGFloat = 22
+    /// The photos key's lit disc: a composer key's 40, its glyph where the bare icon sat.
+    static let photosKey: CGFloat = AteMetrics.keyHeight
+    static let photosKeyOutset: CGFloat = (AteMetrics.keyHeight - 22) / 2
 
     // Write
     static let typingStart: Duration = .milliseconds(450)
@@ -247,6 +315,8 @@ enum OnboardingArtMetrics {
     // Details
     static let detailsStart: Duration = .milliseconds(900)
     static let detailsBeat: Duration = .milliseconds(1000)
+    /// The codes unfold before V lights.
+    static let codesBeat: Duration = .milliseconds(900)
 
     // Share
     static let rise: CGFloat = 24

@@ -313,6 +313,4 @@ enum OnboardingMetrics {
     /// under it — `left/right:24`. The doors sit where the photo step's do, so they don't jump.
     static let dietTitleToChips: CGFloat = 38
     static let dietChipsInset: CGFloat = 24
-    /// The gap between the diets and the allergies (`diet-more.html`: one row's gap plus 16).
-    static let dietGroupGap: CGFloat = 26
 }

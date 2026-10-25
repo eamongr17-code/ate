@@ -139,6 +139,8 @@ enum OnboardingSample {
     static let place = "400 Gradi"
     static let suburb = "Brunswick East"
     static let friend = AteWithPerson(id: UUID(), handle: "jess")
+    /// The details card's photos: the app's own pizza and tiramisu, the two dishes in the words.
+    static let photos = ["pizza", "tiramisu"].map { AtePhoto(id: UUID(), image: Image("Photos/\($0)")) }
 
     private static let firstScore = EntryToken(kind: .score(first))
     private static let secondScore = EntryToken(kind: .score(second))
