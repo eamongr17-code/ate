@@ -75,7 +75,13 @@ public final class DishMapStore {
     private var nextCursor: MapDishCursor?
     private var isLoadingMore = false
     /// Near me's first page, as last read: the location button brings it back without a read.
-    private var lastNearMe: (phone: SearchOrigin, dishes: [MapDish], next: MapDishCursor?)?
+    private var lastNearMe: KeptNearMe?
+
+    private struct KeptNearMe {
+        let phone: SearchOrigin
+        let dishes: [MapDish]
+        let next: MapDishCursor?
+    }
 
     public init(
         reads: any DishMapReading,
@@ -264,7 +270,7 @@ public final class DishMapStore {
             nextCursor = fill.next
             hasMoreDishes = fill.next != nil
             phase = .ready
-            if case .nearMe(let fix) = listing { lastNearMe = (fix, fill.items, fill.next) }
+            if case .nearMe(let fix) = listing { lastNearMe = KeptNearMe(phone: fix, dishes: fill.items, next: fill.next) }
         } catch {
             guard mine == listGeneration else { return }
             phase = .failed
