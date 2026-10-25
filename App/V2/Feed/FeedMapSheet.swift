@@ -1,7 +1,7 @@
 import AteKit
 import SwiftUI
 
-/// **The sheet over the dish map** (`nearby-map-2.html`): **Near me** — every dish within 10 km, best
+/// **The sheet over the dish map** (`nearby-map-2.html`): **Near me** — every dish within 2 km, best
 /// first, paged as you scroll — or the suburb after Search here, or, with a pin tapped, that place:
 /// its name, where it is, Open place, and its dishes best first. The title says the place only.
 ///
@@ -20,6 +20,8 @@ struct FeedMapSheet: View {
     /// How far the finger has pulled the sheet up (down is negative) since the drag began. State, not
     /// gesture state, so it settles back to 0 in the same animation as the new height.
     @State private var pull: CGFloat = 0
+    /// The grabber and the title, measured: minimised, the sheet is exactly this over the home bar.
+    @State private var headHeight = FeedMapSheetMetrics.headEstimate
 
     var body: some View {
         let isTall = detent == .high
@@ -27,6 +29,7 @@ struct FeedMapSheet: View {
             head
                 .contentShape(.rect)
                 .gesture(drag)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headHeight = $0 }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     if let place = store.selected {
@@ -39,6 +42,9 @@ struct FeedMapSheet: View {
                 .padding(.bottom, room.bottomInset + AteMetrics.section)
             }
             .scrollIndicators(.hidden)
+            // Minimised is the title alone: no row peeking under it (build 215). It comes back as
+            // soon as the sheet is pulled up.
+            .opacity(detent == .minimised && pull <= 0 ? 0 : 1)
             .scrollDisabled(isTall == false)
             .gesture(drag, including: isTall ? .subviews : .all)
         }
@@ -48,7 +54,6 @@ struct FeedMapSheet: View {
         .glassEffect(.regular, in: .rect(cornerRadius: FeedMapSheetMetrics.radius))
         .padding(.horizontal, FeedMapSheetMetrics.inset)
         .padding(.bottom, FeedMapSheetMetrics.inset)
-        .ignoresSafeArea(edges: .bottom)
         .ateAnimation(AteMotion.fillIn, value: store.selected?.id)
         .accessibilityIdentifier("map.sheet")
     }
@@ -56,17 +61,21 @@ struct FeedMapSheet: View {
     // MARK: - Height
 
     private var height: CGFloat {
-        let resting = room.height(detent)
-        return min(max(resting + pull, room.height(.minimised)), room.height(.high))
+        let resting = height(detent)
+        return min(max(resting + pull, height(.minimised)), height(.high))
+    }
+
+    private func height(_ detent: FeedMapDetent) -> CGFloat {
+        room.height(detent, head: headHeight)
     }
 
     private var drag: some Gesture {
         DragGesture(minimumDistance: FeedMapSheetMetrics.dragStart, coordinateSpace: .global)
             .onChanged { value in pull = -value.translation.height }
             .onEnded { value in
-                let landing = room.height(detent) - value.predictedEndTranslation.height
+                let landing = height(detent) - value.predictedEndTranslation.height
                 let nearest = FeedMapDetent.allCases.min {
-                    abs(room.height($0) - landing) < abs(room.height($1) - landing)
+                    abs(height($0) - landing) < abs(height($1) - landing)
                 }
                 withAnimation(AteMotion.panelSettle) {
                     detent = nearest ?? detent
@@ -206,25 +215,38 @@ enum FeedMapDetent: CaseIterable {
     case high
 }
 
-/// The page the sheet lies in: how tall it is, and what the system keeps at the top and bottom.
+/// The screen the sheet lies in: how tall it is, and what the system keeps at the top and bottom.
+/// Everything is measured from the screen's own edges (the page draws under the bars).
 struct FeedMapRoom {
-    /// The whole screen's height, top safe area and home indicator included.
+    /// The whole screen's height, top bar and home indicator included.
     let screen: CGFloat
+    /// The status bar and the top bar (Back, Show my location).
     let topInset: CGFloat
+    /// The home indicator.
     let bottomInset: CGFloat
+    /// Down from the screen's top to the middle of the top bar's row.
+    let barMiddle: CGFloat
 
+    /// The screen and the home indicator come from the window (``AteScreen``): inside a navigation
+    /// stack a `GeometryReader`'s bottom inset is not the screen's, and build 215's sheet floated
+    /// above it. The top bar's height only the page knows.
+    @MainActor
     init(page: GeometryProxy) {
-        topInset = page.safeAreaInsets.top
-        bottomInset = page.safeAreaInsets.bottom
-        screen = page.size.height + topInset + bottomInset
+        let statusBar = AteScreen.safeArea.top
+        screen = AteScreen.height
+        bottomInset = AteScreen.safeArea.bottom
+        topInset = max(page.safeAreaInsets.top, statusBar + AteMetrics.hit)
+        barMiddle = (statusBar + topInset) / 2
     }
 
-    /// From the screen's bottom edge to the sheet's top.
-    func height(_ detent: FeedMapDetent) -> CGFloat {
+    /// From the sheet's bottom (``FeedMapSheetMetrics/inset`` above the screen's) to its top. `head` is
+    /// the grabber and title's measured height: minimised shows that and nothing under it.
+    func height(_ detent: FeedMapDetent, head: CGFloat) -> CGFloat {
+        let inset = FeedMapSheetMetrics.inset
         switch detent {
-        case .minimised: FeedMapSheetMetrics.minimised + bottomInset
-        case .low: FeedMapMetrics.lowHeight
-        case .high: screen - topInset - FeedMapSheetMetrics.inset
+        case .minimised: return head + max(bottomInset - inset, 0)
+        case .low: return FeedMapMetrics.lowHeight
+        case .high: return screen - topInset - 2 * inset
         }
     }
 }
@@ -240,8 +262,8 @@ enum FeedMapSheetMetrics {
     /// Grabber to title: clear of the sheet's top (Eamon, build 214: the title sat too close to it).
     static let titleTop: CGFloat = 20
     static let titleGap: CGFloat = 12
-    /// Minimised: the grabber, the title and its gaps, above the home indicator.
-    static let minimised: CGFloat = 76
+    /// The grabber and the title, until measured.
+    static let headEstimate: CGFloat = 76
     static let dragStart: CGFloat = 6
     static let headGap: CGFloat = 12
     static let lineGap: CGFloat = 4

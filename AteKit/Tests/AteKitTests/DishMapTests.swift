@@ -98,7 +98,7 @@ struct DishMapTests {
         #expect(DishMapTitle.nearMe.text == "Near me")
         #expect(DishMapTitle.area("Carlton").text == "Carlton")
         #expect(DishMapTitle.area(nil).text == "This area")
-        #expect(DishMapTitle.nearMe.emptyLine == "No dishes within 10 km")
+        #expect(DishMapTitle.nearMe.emptyLine == "No dishes within 2 km")
         #expect(DishMapTitle.area("Carlton").emptyLine == "No dishes here")
     }
 
@@ -206,15 +206,15 @@ struct DishMapTests {
         MapDish(dishID: UUID(), name: name, restaurantID: UUID(), placeName: "Small Wins", distanceMeters: meters)
     }
 
-    @Test("opens on 10 km around the phone, listing Near me without anything past 10 km")
+    @Test("opens on 2 km around the phone, listing Near me without anything past 2 km")
     func opensNearMe() async throws {
         let events = Mutex<[String]>([])
-        let reads = Reads(nearest: [geelong], dishes: [dish("Near", meters: 350), dish("Corner", meters: 13_000)])
+        let reads = Reads(nearest: [geelong], dishes: [dish("Near", meters: 350), dish("Corner", meters: 2_600)])
         let store = DishMapStore(reads: reads, menus: Menus(), locate: { _ in self.fitzroy },
                                  analytics: { event in events.withLock { $0.append(event.name) } })
         await store.open()
         let frame = try #require(store.frame)
-        #expect(frame == MapBox.around(fitzroy, radiusMeters: 10_000))
+        #expect(frame == MapBox.around(fitzroy, radiusMeters: DishMapStore.nearRadius))
         #expect(frame.contains(latitude: geelong.latitude, longitude: geelong.longitude) == false,
                 "a place 60 km away no longer drags the map out to a country")
         #expect(store.listing == .nearMe(fitzroy))
@@ -224,7 +224,7 @@ struct DishMapTests {
         #expect(events.withLock { $0 } == ["map_opened"])
     }
 
-    @Test("location off opens on 10 km around the busiest place, listing that area")
+    @Test("location off opens on 2 km around the busiest place, listing that area")
     func opensWithoutLocation() async throws {
         let store = DishMapStore(reads: Reads(nearest: [geelong]), menus: Menus(), locate: { _ in nil })
         await store.open()

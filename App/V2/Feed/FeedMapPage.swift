@@ -5,7 +5,7 @@ import SwiftUI
 /// **The dish map** (`nearby-map.html` option A, round 2 `nearby-map-2.html`) — pushed from the
 /// Feed's map button.
 ///
-/// Apple's map, full screen, opening on 10 km around you. A place is a pin, its best dish's photo with
+/// Apple's map, full screen, opening on 2 km around you. A place is a pin, its best dish's photo with
 /// the score as its one badge and one more photo stacked behind when it has more dishes, or a dot:
 /// far out every place is a dot, and closer in the best-rated that fit keep their photos and the rest
 /// are dots (``DishMapLayout``). A dot holding several places zooms in when tapped.
@@ -37,27 +37,40 @@ struct FeedMapPage: View {
 
     var body: some View {
         GeometryReader { page in
+            let room = FeedMapRoom(page: page)
             ZStack(alignment: .bottom) {
                 map
-                    // The camera frames what is above the sheet's resting height.
-                    .safeAreaPadding(.bottom, FeedMapMetrics.lowHeight)
+                    // The map's own bottom is the sheet's top: the camera frames what is above it,
+                    // and the Apple Maps mark and Legal sit just over it, following it as it settles
+                    // (build 215: the mark floated mid-screen over a minimised sheet). Never higher
+                    // than the resting height: tall, the sheet covers the map as the system's does.
+                    .safeAreaPadding(.bottom, mapBottom(room))
                     .ignoresSafeArea()
+                    .ateAnimation(AteMotion.panelSettle, value: detent)
                 FeedMapSheet(
                     store: store,
                     detent: $detent,
-                    room: FeedMapRoom(page: page),
+                    room: room,
                     onDish: { context.open(.dish($0), from: .map) },
                     onPlace: { context.open(.place($0), from: .map) }
                 )
+                // Measured from the screen's bottom edge, not the safe area's (build 215).
+                .ignoresSafeArea()
             }
             .overlay(alignment: .top) {
+                // In the top bar's row, between Back and Show my location.
                 if store.canSearchHere, store.selected == nil {
                     FeedMapSearchHere(action: searchHere)
-                        .padding(.top, AteMetrics.snug)
+                        .padding(.top, room.barMiddle - AteMetrics.hit / 2)
+                        // Measured from the screen's top, so it sits in the bar's row, not under it.
+                        .ignoresSafeArea()
                         .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
             }
             .ateAnimation(AteMotion.fillIn, value: store.canSearchHere)
+            // The whole screen: the map under the bars, the sheet down to the screen's edge.
+            .frame(width: AteScreen.width, height: room.screen)
+            .ignoresSafeArea()
         }
         .toolbarVisibility(.hidden, for: .tabBar)
         .navigationBarTitleDisplayMode(.inline)
@@ -152,6 +165,13 @@ struct FeedMapPage: View {
         marks = photos + dots.compactMap { $0 }
     }
 
+    private func mapBottom(_ room: FeedMapRoom) -> CGFloat {
+        let resting = detent == .minimised
+            ? room.height(.minimised, head: FeedMapSheetMetrics.headEstimate)
+            : FeedMapMetrics.lowHeight
+        return resting + FeedMapSheetMetrics.inset
+    }
+
     private func select(_ place: MapPlace) async {
         if detent == .minimised { withAnimation(AteMotion.panelSettle) { detent = .low } }
         await store.select(place)
@@ -173,7 +193,7 @@ struct FeedMapPage: View {
         Task { await store.searchHere() }
     }
 
-    /// Show my location: glide to the phone at the opening view's 10 km, the sheet back on Near me.
+    /// Show my location: glide to the phone at the opening view's 2 km, the sheet back on Near me.
     private func backToNearMe() async {
         guard let fix = await store.backToNearMe() else { return }
         let box = MapBox.around(fix, radiusMeters: DishMapStore.nearRadius)
