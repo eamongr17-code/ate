@@ -1,0 +1,46 @@
+import SnapshotTesting
+import SwiftUI
+import XCTest
+@testable import Ate
+
+/// **The kit's visual contract.** Each page of the component gallery (`KitGalleryScreen`) is drawn at
+/// phone width in light and dark and compared with the approved picture in `__Snapshots__`. A frost
+/// band, a tint, a line height or a contrast change fails here, before a TestFlight build. Motion is
+/// not covered: nothing automated sees a frame in flight.
+///
+/// Re-record on purpose only: push a commit whose message contains `[record-snapshots]` and
+/// `.github/workflows/snapshots.yml` commits the new pictures back to the branch. The diff of the
+/// pictures is then part of the PR, for the reviewer to judge against `design/v1`.
+@MainActor
+final class KitSnapshotTests: XCTestCase {
+    func testAtoms() { snapshot(.atoms) }
+    func testComposites() { snapshot(.composites) }
+    func testLists() { snapshot(.lists) }
+    func testShare() { snapshot(.share) }
+    func testChrome() { snapshot(.chrome) }
+
+    /// iPhone 17 Pro's point width; 2x keeps the pictures legible in a diff without a 3x file size.
+    private static let width: CGFloat = 393
+    private static let scale: CGFloat = 2
+
+    private func snapshot(
+        _ section: KitGalleryScreen.Section,
+        file: StaticString = #filePath, testName: String = #function, line: UInt = #line
+    ) {
+        for (name, style, scheme) in [("light", UIUserInterfaceStyle.light, ColorScheme.light),
+                                      ("dark", .dark, .dark)] {
+            let page = KitGalleryScreen(only: section)
+                .frame(width: Self.width)
+                .environment(\.colorScheme, scheme)
+            let traits = UITraitCollection { traits in
+                traits.userInterfaceStyle = style
+                traits.displayScale = Self.scale
+            }
+            assertSnapshot(
+                of: page,
+                as: .image(precision: 0.99, perceptualPrecision: 0.98, layout: .sizeThatFits, traits: traits),
+                named: name, file: file, testName: testName, line: line
+            )
+        }
+    }
+}
