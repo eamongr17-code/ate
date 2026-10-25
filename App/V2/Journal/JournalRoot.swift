@@ -100,7 +100,7 @@ struct JournalRoot: View {
         }
         // Somebody with an entry is past their first: the composer's Score and Place tips retire.
         .onChange(of: journal.entries.isEmpty, initial: true) { _, isEmpty in
-            if isEmpty == false { AteTips.firstPostWritten() }
+            if isEmpty == false { AteTips.journalHasEntries() }
         }
     }
 

@@ -411,6 +411,31 @@ struct AtePreferencesTests {
         #expect(relaunched.owesHandle(signedInAs: id) == false)
     }
 
+    @Test("replaying onboarding from Settings sends the person signed in through Handle, then the onboarding, once")
+    func replayOnboarding() {
+        let store = InMemoryKeyValueStore()
+        let id = UUID()
+        let preferences = AtePreferences(store: store)
+        preferences.noteOwesHandle(id)
+        preferences.handleChosen(by: id)
+        preferences.onboardingFinished()
+        preferences.answeredCravingsAsk(id)
+        preferences.replayOnboarding(id)
+        // No sign-out: owed at once, and still owed after a relaunch half way.
+        #expect(preferences.owesHandle(signedInAs: id))
+        #expect(preferences.owesHandle(signedInAs: UUID()) == false)
+        #expect(preferences.hasAnsweredCravingsAsk(id) == false)
+        let relaunched = AtePreferences(store: store)
+        #expect(relaunched.owesHandle(signedInAs: id))
+        relaunched.handleChosen(by: id)
+        #expect(relaunched.owesHandle(signedInAs: id) == false)
+        #expect(relaunched.owesOnboarding(signedInAs: id))
+        relaunched.onboardingFinished()
+        relaunched.signedIn(id)
+        #expect(relaunched.owesHandle(signedInAs: id) == false)
+        #expect(relaunched.owesOnboarding(signedInAs: id) == false)
+    }
+
     @Test("a pending handle is bound to who is signed in, never to the next person")
     func owesHandleIsPerUser() {
         let preferences = AtePreferences(store: InMemoryKeyValueStore())

@@ -163,6 +163,17 @@ public final class AtePreferences {
         replayingUserID = userID
     }
 
+    /// **Replay onboarding** (Settings): the person signed in now goes straight back through Handle
+    /// and the onboarding after it, as a new account does, without signing out. Their handle is
+    /// offered as it is, so Continue keeps it.
+    public func replayOnboarding(_ userID: UUID) {
+        handleChosenUserIDs.remove(userID)
+        cravingsAskedUserIDs.remove(userID)
+        pendingOnboardingUserID = nil
+        replayingUserID = nil
+        pendingHandleUserID = userID
+    }
+
     /// Who asked to replay first run, waiting for their next sign-in.
     public private(set) var replayingUserID: UUID? {
         didSet {
