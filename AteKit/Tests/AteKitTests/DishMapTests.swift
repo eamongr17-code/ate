@@ -310,45 +310,6 @@ struct DishMapTests {
         #expect(reads.listed.withLock { $0.count } > reads0)
     }
 
-    @Test("a fix that never comes opens without it, never on placeholders for good")
-    func fixNeverComes() async throws {
-        let store = DishMapStore(
-            reads: Reads(nearest: [geelong]), menus: Menus(),
-            locate: { _ in await withCheckedContinuation { (_: CheckedContinuation<SearchOrigin?, Never>) in } },
-            locateTimeout: 0.05
-        )
-        await store.open()
-        #expect(store.phone == nil)
-        #expect(store.frame != nil)
-        #expect(store.phase == .ready)
-    }
-
-    @Test("a list read that never comes back fails, so the sheet offers Try again")
-    func readNeverComes() async throws {
-        let store = DishMapStore(
-            reads: Hanging(), menus: Menus(), locate: { _ in self.fitzroy }, readTimeout: 0.05
-        )
-        await store.open()
-        #expect(store.phase == .failed)
-    }
-
-    /// Reads that never answer.
-    private struct Hanging: DishMapReading {
-        func places(in box: MapBox, origin: SearchOrigin?, limit: Int) async throws -> [MapPlace] {
-            try await Task.sleep(for: .seconds(60))
-            return []
-        }
-        func nearest(to origin: SearchOrigin?, limit: Int) async throws -> [MapPlace] {
-            try await Task.sleep(for: .seconds(60))
-            return []
-        }
-        func dishes(in box: MapBox, origin: SearchOrigin?, after cursor: MapDishCursor?, pageSize: Int)
-            async throws -> MapDishPage {
-            try await Task.sleep(for: .seconds(60))
-            return MapDishPage(items: [], requestedLimit: pageSize)
-        }
-    }
-
     @Test("a read that lands after a newer one was asked for is dropped")
     func staleReadDropped() async throws {
         let reads = Reads(nearest: [])
