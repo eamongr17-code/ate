@@ -7,8 +7,8 @@ import TipKit
 /// on the control it explains, each gone for good once that control is used or its ✕ is tapped. Plus
 /// Save on the Feed, and Score and Place on a first entry (`first-post-tips.html`, Eamon 22 Oct).
 ///
-/// Replay first run (Settings, Debug and Beta) bumps an epoch that every tip's `id` carries, so each
-/// comes back as a tip TipKit has never seen — its datastore can only be reset before it is configured.
+/// Replay onboarding (Settings) bumps an epoch that every tip's `id` carries, so each comes back as
+/// a tip TipKit has never seen — its datastore can only be reset before it is configured.
 enum AteTips {
     /// At launch. Never under a UI test: a popover over a control would eat the drive's taps.
     static func configure() {
@@ -18,15 +18,18 @@ enum AteTips {
 
     static var epoch: Int { UserDefaults.standard.integer(forKey: epochKey) }
 
-    /// Every tip, new again.
+    /// Every tip, new again — the first-post ones too, until the next entry posts, though the
+    /// Journal already holds some.
     static func replay() {
         UserDefaults.standard.set(epoch + 1, forKey: epochKey)
+        UserDefaults.standard.set(true, forKey: replaysFirstPostKey)
     }
 
     /// Entries on the Journal before Lists is worth pointing at: a list needs something to hold.
     static let listsAfterEntries = 5
 
     private static let epochKey = "ate.tips.epoch"
+    private static let replaysFirstPostKey = "ate.tips.replaysFirstPost"
 }
 
 /// On the Journal's bell, once there is an entry and the roll holds more meals.
@@ -66,6 +69,19 @@ extension AteTips {
     static func firstPostWritten() {
         ScoreTip().invalidate(reason: .actionPerformed)
         PlaceTip().invalidate(reason: .actionPerformed)
+    }
+
+    /// The Journal holds an entry: the first-post tips retire, unless a replay is waiting on the
+    /// next entry to post (``firstPostWritten()`` from the composer ends it).
+    static func journalHasEntries() {
+        guard UserDefaults.standard.bool(forKey: replaysFirstPostKey) == false else { return }
+        firstPostWritten()
+    }
+
+    /// An entry posted: whatever a replay held back is over.
+    static func entryPosted() {
+        UserDefaults.standard.removeObject(forKey: replaysFirstPostKey)
+        firstPostWritten()
     }
 }
 

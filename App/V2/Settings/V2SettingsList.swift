@@ -2,9 +2,9 @@ import AteKit
 import SwiftUI
 
 /// **Settings** — the system's inset grouped list on the linen ground, the build's rows in its order:
-/// Handle, Photo, Diet, Appearance · Blocked people, Tutorial · Privacy, Terms · Sign out · Delete account,
-/// red, last, on its own, confirmed once. Every row either shows what is true on the right
-/// or goes somewhere; nothing explains itself.
+/// Handle, Photo, Diet, Appearance · Blocked people, Tutorial, Replay onboarding · Privacy, Terms ·
+/// Sign out · Delete account, red, last, on its own, confirmed once. Every row either shows what is
+/// true on the right or goes somewhere; nothing explains itself.
 struct V2SettingsList: View {
     let model: SettingsModel
     let context: V2PageContext
@@ -47,6 +47,10 @@ struct V2SettingsList: View {
             Section {
                 AteGroupedRow(title: "Blocked people") { context.open(.settings(.blocked)) }
                 AteGroupedRow(title: "Tutorial", identifier: "settings.tutorial") { isShowingTutorial = true }
+                // The whole first run again, from Handle, and every tip after it.
+                AteGroupedRow(title: "Replay onboarding", identifier: "settings.replayOnboarding") {
+                    context.app.replayOnboarding()
+                }
             }
             Section {
                 AteGroupedRow(title: "Privacy", identifier: "settings.privacy") { context.open(.settings(.privacy)) }

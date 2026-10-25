@@ -55,6 +55,11 @@ public enum OnboardingEvents {
         AnalyticsEvent(name: "settings_tutorial", parameters: ["card": String(card), "skipped": String(skipped)])
     }
 
+    /// Settings' Replay onboarding: the whole first run again, from Handle.
+    public static func replayed() -> AnalyticsEvent {
+        AnalyticsEvent(name: "settings_replay_onboarding", parameters: [:])
+    }
+
     public static func started(_ start: Start) -> AnalyticsEvent {
         AnalyticsEvent(name: "onboarding_start", parameters: ["start": start.rawValue])
     }

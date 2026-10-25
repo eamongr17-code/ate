@@ -238,6 +238,16 @@ final class AppModel {
 
     // MARK: - The onboarding
 
+    /// **Replay onboarding** (Settings): Handle, the photo ask, diet, the three cards and the start
+    /// screen, then every tip — as a new account sees them, without signing out. The handle is
+    /// offered as it is; nothing changes unless the person changes it.
+    func replayOnboarding() {
+        guard let userID = services.api.currentUserID else { return }
+        services.analytics(OnboardingEvents.replayed())
+        AteTips.replay()
+        services.preferences.replayOnboarding(userID)
+    }
+
     /// The onboarding ended, however it ended: never again for this person. A meal picked opens the
     /// composer on it, over the Journal the shell comes up on.
     func finishOnboarding(_ exit: OnboardingEvents.Exit, writing presentation: ComposerPresentation? = nil) {
