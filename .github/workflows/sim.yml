@@ -3,12 +3,20 @@ name: Simulator run
 # On-demand simulator work while a local toolchain is unavailable: UI tests, stills, recordings.
 # Runs `scripts/ci-sim.sh` from the chosen ref if it exists, else `xcodebuild test` with the given filter.
 # Everything written to ci-out/ (plus the result bundle) comes back as an artifact.
+#
+# Nightly (Eamon approved 2026-10-25): the whole UI suite runs against the work branch at 03:15
+# Melbourne with screenshots kept 14 days, so a visual regression can be dated to a PR. This is a
+# plain GitHub Actions job on a free public-repo Mac runner; no Claude session waits on it. The daily
+# ops sweep reads only its pass/fail and failing test names.
 on:
+  schedule:
+    - cron: "15 16 * * *"
   workflow_dispatch:
     inputs:
       ref:
         description: Branch or SHA to run
-        required: true
+        required: false
+        default: claude/project-thread-2f9ty8
       only_testing:
         description: "xcodebuild -only-testing value, e.g. AteUITests/TabChromeUITests (blank = whole suite)"
         required: false
@@ -20,13 +28,13 @@ on:
 
 jobs:
   sim:
-    name: Simulator run (${{ inputs.ref }})
+    name: Simulator run (${{ inputs.ref || 'claude/project-thread-2f9ty8' }})
     runs-on: macos-26
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || 'claude/project-thread-2f9ty8' }}
 
       - name: Select Xcode 26
         run: sudo xcode-select -s /Applications/Xcode_26.5.app || sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
@@ -37,7 +45,7 @@ jobs:
       - name: Boot simulator
         id: sim
         run: |
-          udid=$(xcrun simctl create ci-sim "${{ inputs.device }}")
+          udid=$(xcrun simctl create ci-sim "${{ inputs.device || 'iPhone 17 Pro' }}")
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
@@ -65,4 +73,4 @@ jobs:
         with:
           name: sim-${{ github.run_id }}
           path: ci-out/
-          retention-days: 7
+          retention-days: 14
