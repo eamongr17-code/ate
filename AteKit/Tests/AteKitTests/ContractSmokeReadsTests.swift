@@ -427,7 +427,7 @@ private enum Wire {
         let coverURL: String?
         let saved: Bool
         let at: String
-        /// 0089: the dish's average. Optional while staging may still be on 0088.
+        /// 0090: the dish's average. Optional while staging may still be on 0089.
         let score: Double?
 
         enum CodingKeys: String, CodingKey {

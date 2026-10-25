@@ -1,4 +1,4 @@
--- 0089_new_to_record_score.sql
+-- 0090_new_to_record_score.sql
 -- Ate backend — "New in …" rows print the dish's rating, never a "New" pill (Eamon, 25 Oct).
 --
 --   new_to_record(…) gains a trailing `score` column: the dish's average, dish_stats' own (1 dp over
@@ -85,7 +85,7 @@ end;
 $function$;
 
 comment on function public.new_to_record(text, timestamptz, int, text, text) is
-  'Round 8 (0055), tag 0057, chains 0085, score 0089: what landed after p_since (NULL → 7 days ago; clamped to 90 days back), others'' lines only: a dish scored 6 (kind six), else 5.0 (five), else whose first line is after p_since (new). One row per dish, strongest kind; at = that line''s time; score = the dish''s average (dish_stats), NULL if unscored. Order six, five, new, then at desc. p_limit default 6, max 20. p_kind + p_slug: only dishes carrying that tag; both NULL = no filter. anon → browse twin.';
+  'Round 8 (0055), tag 0057, chains 0085, score 0090: what landed after p_since (NULL → 7 days ago; clamped to 90 days back), others'' lines only: a dish scored 6 (kind six), else 5.0 (five), else whose first line is after p_since (new). One row per dish, strongest kind; at = that line''s time; score = the dish''s average (dish_stats), NULL if unscored. Order six, five, new, then at desc. p_limit default 6, max 20. p_kind + p_slug: only dishes carrying that tag; both NULL = no filter. anon → browse twin.';
 
 create function browse.new_to_record(p_city text, p_since timestamptz, p_limit int, p_kind text, p_slug text)
 returns table (

@@ -315,7 +315,7 @@ struct FeedNewRows: View {
         .padding(.horizontal, AteMetrics.gutter)
     }
 
-    /// The dish's own average, as its ranked row prints it. A server older than 0089 sends none:
+    /// The dish's own average, as its ranked row prints it. A server older than 0090 sends none:
     /// then a secret 6 or a 5.0 still shows its token, and anything else shows nothing.
     static func score(_ row: NewDish) -> AteScore? {
         if let average = row.dish.score { return .average(average) }
