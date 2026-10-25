@@ -107,9 +107,13 @@ jobs:
           udid=$(xcrun simctl create snap-sim "iPhone 17 Pro")
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
-          # Reduce Motion stills every clock in the kit (score shimmer, page loader, posting dots),
-          # so the pictures are the same from one run to the next. Set before the app launches.
+          # Reduce Motion stills every clock in the kit (receipt breath, page loader, posting dots),
+          # so the pictures are the same from one run to the next. The preference is read at boot,
+          # so the simulator is booted once to take it and again to honour it.
           xcrun simctl spawn "$udid" defaults write com.apple.Accessibility ReduceMotionEnabled -bool true
+          xcrun simctl shutdown "$udid"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
 
       - name: Design-system snapshots (light + dark)
