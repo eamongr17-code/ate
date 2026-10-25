@@ -35,8 +35,8 @@ public final class DishMapStore {
         }
     }
 
-    /// Near me, and the map's opening view: 10 km around the phone (Eamon, 25 Oct).
-    public nonisolated static let nearRadius: Double = 10_000
+    /// Near me, and the map's opening view: 2 km around the phone (Eamon, 25 Oct, after build 215).
+    public nonisolated static let nearRadius: Double = 2_000
     /// Pins per read: plenty for a city screen, and the server's own cap is 200.
     public static let placesPerRead = 150
     public static let dishesPerPage = 20
@@ -102,7 +102,7 @@ public final class DishMapStore {
         return across > 0.25 || down > 0.25 || zoom > 1.8 || zoom < 0.4
     }
 
-    /// Finds the phone (asking for the permission the first time), frames the map on 10 km around it
+    /// Finds the phone (asking for the permission the first time), frames the map on 2 km around it
     /// and lists Near me. With no permission, around the place most written about, listing that area.
     public func open() async {
         guard frame == nil else { return }
