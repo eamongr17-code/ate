@@ -206,17 +206,24 @@ struct V2ComposerWrite: View {
     // MARK: - First-post tips
 
     /// Score, on a new entry's Score key until the person has scored or written an entry
-    /// (`first-post-tips.html` 1). The Journal retires it for anyone who already has one.
+    /// (`first-post-tips.html` 1). The Journal retires it for anyone who already has one. It steps
+    /// aside while the Place tip is up: one tip at a time, and the place is what the tick waits on.
     private var scoreTip: ScoreTip? {
-        model.editing == nil ? ScoreTip() : nil
+        guard model.editing == nil, waitsOnPlace == false || PlaceTip().shouldDisplay == false else { return nil }
+        return ScoreTip()
     }
 
-    /// Place, once there are words, no place, and the Score tip is done: one tip at a time, and only
-    /// while the tick is waiting on a place (`first-post-tips.html` 2).
+    /// Place, once there are words and no place, while the tick is waiting on one
+    /// (`first-post-tips.html` 2) — whether or not the Score tip was used, so somebody who writes
+    /// without scoring still learns why the tick is grey.
     private var placeTip: PlaceTip? {
-        guard model.editing == nil, model.place == nil, model.composition.isEmpty == false,
-              ScoreTip().shouldDisplay == false else { return nil }
+        guard model.editing == nil, waitsOnPlace else { return nil }
         return PlaceTip()
+    }
+
+    /// Words written, no place: the tick is muted for want of one.
+    private var waitsOnPlace: Bool {
+        model.place == nil && model.composition.isEmpty == false
     }
 
     // MARK: - The words

@@ -39,6 +39,11 @@ public enum SocialEvents {
         AnalyticsEvent(name: "saved_viewed")
     }
 
+    /// The empty Saved tab's "Go to the Feed" — the way to a first save.
+    public static func savedEmptyFeedTapped() -> AnalyticsEvent {
+        AnalyticsEvent(name: "saved_empty_feed_tapped")
+    }
+
     /// A page landed. `page` is 1-based and resets on refresh, so page 1 counts sessions and
     /// anything above it counts depth.
     public static func feedPageLoaded(page: Int, itemCount: Int) -> AnalyticsEvent {

@@ -128,7 +128,7 @@ struct JournalRoot: View {
             router.open(.notifications, from: .journal)
         }
         .accessibilityIdentifier("journal.notifications")
-        // First run's second tip: the rest of the roll waits here, once there is an entry to show for it.
+        // First run's bell tip: the meals in the roll wait here.
         .popoverTip(bellTip, arrowEdge: .top)
         if let openJournalSearch, hasSomethingToSort {
             AteGlassItem(icon: .search, label: "Search your journal", action: openJournalSearch)
@@ -151,11 +151,12 @@ struct JournalRoot: View {
     /// The magnifier's action (`JournalRoot+Search`). `nil` would hide it — never a dead button.
     var openJournalSearch: (() -> Void)? { openSearch }
 
-    /// The bell's tip, while there is an entry and the roll holds more meals waiting.
-    private var bellTip: BellTip? {
+    /// The bell's tip, while the roll holds meals waiting — on an empty Journal too, where the count
+    /// is otherwise the only thing on the bell. Not while the Journal is still loading.
+    var bellTip: BellTip? {
         let waiting = stores.photos.count
-        guard waiting >= 1, journal.entries.isEmpty == false else { return nil }
-        return BellTip(meals: waiting)
+        guard waiting >= 1, journal.phase == .ready || journal.phase == .empty else { return nil }
+        return BellTip(meals: waiting, hasEntries: journal.entries.isEmpty == false)
     }
 
     /// The bell's one number: unread tags plus photo sittings.
