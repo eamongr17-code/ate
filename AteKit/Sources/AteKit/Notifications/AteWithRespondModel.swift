@@ -3,7 +3,8 @@ import Foundation
 /// **Answering a tag** — the composer's prefilled face, as logic. The tagger's place and dishes are
 /// read live (``AteWithResponding/prefill(companionID:)``); the person scores what they had, drops
 /// what they did not, may add words, and posts THEIR OWN entry. One score slide steps through the
-/// rows: letting go fills the row and moves to the next unscored one; it folds away once every row is
+/// rows: letting go fills the row, holds the score on the slide for ``ScoreSlider/settleDelay`` as the
+/// composer's own slide does, then moves to the next unscored one; it folds away once every row is
 /// done. The tick is live from the start (the place is already attached).
 @MainActor
 @Observable
@@ -46,19 +47,24 @@ public final class AteWithRespondModel {
     @ObservationIgnored private let analytics: AnalyticsRecorder
     @ObservationIgnored private let pollInterval: Duration
     @ObservationIgnored private let maxPolls: Int
+    @ObservationIgnored private let settleDelay: Duration
+    /// Bumped by every lift and every slide. Only the latest lift may move the slide on.
+    @ObservationIgnored private var settleTicket = 0
 
     public init(
         companionID: UUID,
         service: any AteWithResponding,
         analytics: @escaping AnalyticsRecorder = { _ in },
         pollInterval: Duration = .seconds(2),
-        maxPolls: Int = 15
+        maxPolls: Int = 15,
+        settleDelay: Duration = ScoreSlider.settleDelay
     ) {
         self.companionID = companionID
         self.service = service
         self.analytics = analytics
         self.pollInterval = pollInterval
         self.maxPolls = maxPolls
+        self.settleDelay = settleDelay
     }
 
     // MARK: - Reading the tag
@@ -112,17 +118,25 @@ public final class AteWithRespondModel {
     /// The slide, mid-drag: the row's score follows the finger.
     public func slide(to rating: Rating) {
         guard let current, let index = lines.firstIndex(where: { $0.id == current }) else { return }
+        settleTicket += 1
         lines[index].score = rating
     }
 
-    /// Letting go: the row is filled and the slide moves to the next row still empty — after this one
-    /// first, then from the top — or folds away when every row is done.
-    public func finish(at rating: Rating) {
-        guard let current, let index = lines.firstIndex(where: { $0.id == current }) else { return }
+    /// Letting go: the row is filled and the slide holds it for ``ScoreSlider/settleDelay`` (25 Oct,
+    /// Eamon: it vanished the instant the finger lifted; the composer's own slide holds), then moves to
+    /// the next row still empty — after this one first, then from the top — or folds away when every
+    /// row is done. A touch, a tap on another row or a removal in the meantime keeps it where it is.
+    public func finish(at rating: Rating) async {
+        guard let scored = current, let index = lines.firstIndex(where: { $0.id == scored }) else { return }
         lines[index].score = rating
+        settleTicket += 1
+        let ticket = settleTicket
+        try? await Task.sleep(for: settleDelay)
+        guard ticket == settleTicket, current == scored,
+              let index = lines.firstIndex(where: { $0.id == scored }) else { return }
         let after = lines[(index + 1)...].first { $0.score == nil }
         let before = lines[..<index].first { $0.score == nil }
-        self.current = (after ?? before)?.id
+        current = (after ?? before)?.id
     }
 
     /// The slide put away without a score.

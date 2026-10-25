@@ -242,7 +242,9 @@ struct AteWithRespondTests {
         let companionID = try #require(tag.notification.companionID)
         let service = InMemoryNotifications(tags: [tag], viewer: Fixture.viewer, firstOrderNumber: 39)
         let recorded = Recorded()
-        let model = AteWithRespondModel(companionID: companionID, service: service, analytics: recorded.recorder)
+        let model = AteWithRespondModel(
+            companionID: companionID, service: service, analytics: recorded.recorder, settleDelay: .zero
+        )
         await model.load()
         #expect(model.canCopy)
 
@@ -254,7 +256,7 @@ struct AteWithRespondTests {
         #expect(recorded.events.last?.parameters == ["scores": "2", "has_words": "true"])
 
         // Still hers: re-score one, then post.
-        model.finish(at: try #require(Rating(exactly: 3)))
+        await model.finish(at: try #require(Rating(exactly: 3)))
         #expect(model.lines.map { $0.score?.value } == [4, 3, 4.5])
         let card = try await model.post()
         #expect(card.authorID == Fixture.viewer.id)
@@ -266,13 +268,42 @@ struct AteWithRespondTests {
         let companionID = try #require(tag.notification.companionID)
         let model = AteWithRespondModel(
             companionID: companionID,
-            service: InMemoryNotifications(tags: [tag], viewer: Fixture.viewer, firstOrderNumber: 1)
+            service: InMemoryNotifications(tags: [tag], viewer: Fixture.viewer, firstOrderNumber: 1),
+            settleDelay: .zero
         )
         await model.load()
-        model.finish(at: try #require(Rating(exactly: 2)))
+        await model.finish(at: try #require(Rating(exactly: 2)))
         #expect(model.canCopy == false, "a score of her own hides it")
         model.copyTaggerReview()
         #expect(model.lines.first?.score?.value == 2, "and a stray call changes nothing")
+    }
+
+    @Test func lettingGoHoldsTheScoreOnTheSlideBeforeMovingOn() async throws {
+        let tag = Fixture.tag(minutesAgo: 1)
+        let companionID = try #require(tag.notification.companionID)
+        let model = AteWithRespondModel(
+            companionID: companionID,
+            service: InMemoryNotifications(tags: [tag], viewer: Fixture.viewer, firstOrderNumber: 1),
+            settleDelay: .milliseconds(80)
+        )
+        await model.load()
+        let four = try #require(Rating(exactly: 4))
+
+        let lift = Task { await model.finish(at: four) }
+        while model.lines.first?.score == nil { await Task.yield() }
+        #expect(model.current == Fixture.ragu.dishID, "held on the row just scored, like the composer's slide")
+        await lift.value
+        #expect(model.lines.first?.score == four, "and the score stays on the row")
+        #expect(model.current == Fixture.tiramisu.dishID, "then on to the next row")
+
+        // Touched again during the hold: the slide stays on its row with the new score.
+        let again = Task { await model.finish(at: four) }
+        while model.lines[1].score == nil { await Task.yield() }
+        let two = try #require(Rating(exactly: 2))
+        model.slide(to: two)
+        await again.value
+        #expect(model.current == Fixture.tiramisu.dishID)
+        #expect(model.lines[1].score == two)
     }
 
     @Test func nothingToCopyWithoutScoresOrWords() async throws {
@@ -295,7 +326,9 @@ struct AteWithRespondTests {
         await store.refresh()
         #expect(store.rows.count == 1)
 
-        let model = AteWithRespondModel(companionID: companionID, service: service, analytics: recorded.recorder)
+        let model = AteWithRespondModel(
+            companionID: companionID, service: service, analytics: recorded.recorder, settleDelay: .zero
+        )
         await model.load()
         #expect(model.phase == .ready)
         #expect(model.prefill?.place?.name == "Tipo 00")
@@ -303,11 +336,11 @@ struct AteWithRespondTests {
         #expect(model.current == Fixture.ragu.dishID)
 
         // Three drags would be three dishes; she had two: score, skip one, score.
-        model.finish(at: try #require(Rating(exactly: 4)))
+        await model.finish(at: try #require(Rating(exactly: 4)))
         #expect(model.current == Fixture.tiramisu.dishID, "letting go moves to the next row")
         model.remove(Fixture.tiramisu.dishID)
         #expect(model.current == Fixture.prawns.dishID)
-        model.finish(at: try #require(Rating(exactly: 4.5)))
+        await model.finish(at: try #require(Rating(exactly: 4.5)))
         #expect(model.current == nil, "every row done: the slide folds away")
         #expect(model.canPost)
 
