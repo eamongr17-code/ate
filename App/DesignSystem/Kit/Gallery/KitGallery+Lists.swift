@@ -6,6 +6,19 @@ import SwiftUI
 extension KitGalleryScreen {
     @ViewBuilder
     var lists: some View {
+        section("Ranked row") {
+            VStack(spacing: 0) {
+                AteRankedRow(rank: 2, photo: KitFixtures.prawn, name: "Prawn dumplings", place: "Shandong Mama",
+                             score: .average(4.7), isSaved: saved.contains("ranked.2"), onSave: { toggle("ranked.2") })
+                AteRankedRow(rank: 3, photo: KitFixtures.pho, name: "Pho tai", place: "Co Thao",
+                             score: .average(4.6), isSaved: saved.contains("ranked.3"), onSave: { toggle("ranked.3") })
+                AteRankedRow(rank: 4, photo: KitFixtures.cake, name: KitFixtures.longName, place: KitFixtures.longPlace,
+                             score: .average(5), onSave: { toggle("ranked.4") })
+                AteRankedRow(rank: 5, photo: KitFixtures.croissant, name: "Pistachio croissant", place: "Lune",
+                             isLast: true, onSave: { toggle("ranked.5") })
+            }
+            .padding(.horizontal, AteMetrics.gutter)
+        }
         section("List cover") {
             VStack(spacing: AteMetrics.section) {
                 LazyVGrid(

@@ -46,6 +46,12 @@ final class KitSnapshotTests: XCTestCase {
                 XCTFail("\(section) (\(name)) did not render", file: file, line: line)
                 continue
             }
+            if image.size.height * Self.scale > 8_000 {
+                let px = Int(image.size.height * Self.scale)
+                XCTFail("\(section) (\(name)) is \(px) px tall; ImageRenderer goes blank near 8,192 px. "
+                        + "Split the page in KitGalleryScreen.Section.", file: file, line: line)
+                continue
+            }
             assertSnapshot(
                 of: image,
                 as: .image(precision: 0.99, perceptualPrecision: 0.98, scale: Self.scale),
