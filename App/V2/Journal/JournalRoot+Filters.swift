@@ -56,6 +56,7 @@ extension JournalRoot {
             shelf: .journal,
             initial: filters,
             cities: journal.cities,
+            includesSix: app.services.preferences.hasGivenSix(app.services.api.currentUserID),
             count: { draft in try await journal.count(draft.journalQuery) },
             onShow: { apply($0) }
         )

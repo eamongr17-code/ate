@@ -91,4 +91,22 @@ struct ScoreBandTests {
         let cleared = query.removing(.band(query.band)).removing(.city("melbourne"))
         #expect(cleared.hasFilters == false)
     }
+
+    @Test("before a 6 is given the track stops at 5.0, and its top stop is the open top end")
+    func trackWithoutSix() {
+        #expect(ScoreBand.values(includingSix: true).count == 11)
+        let short = ScoreBand.values(includingSix: false)
+        #expect(short.count == 10)
+        #expect(short.last == 5)
+        // The top end on the short track's last stop is open — no ceiling, nothing lost.
+        let top = ScoreBand.value(atStop: 9, for: .upper, includingSix: false)
+        #expect(ScoreBand(lower: 4, upper: top).maxScore == nil)
+        #expect(ScoreBand.value(atStop: 9, for: .lower, includingSix: false) == 5)
+        // The whole short track is still no filter at all.
+        #expect(ScoreBand(lower: ScoreBand.floor, upper: top).isAll)
+        // An open top end (6) sits on the short track's last stop.
+        #expect(ScoreBand.stop(of: ScoreBand.ceiling, includingSix: false) == 9)
+        #expect(ScoreBand.stop(of: ScoreBand.ceiling, includingSix: true) == 10)
+        #expect(ScoreBand.value(atStop: 10, for: .upper, includingSix: true) == 6)
+    }
 }

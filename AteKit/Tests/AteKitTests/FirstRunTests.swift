@@ -91,4 +91,18 @@ struct AccountWireTests {
         #expect(half.ok)
         #expect(half.isComplete == false)
     }
+
+    @Test("the 6 is offered only to whoever has given one, for good, and survives a relaunch")
+    @MainActor
+    func sixIsEarned() {
+        let store = InMemoryKeyValueStore()
+        let me = UUID()
+        let preferences = AtePreferences(store: store)
+        #expect(preferences.hasGivenSix(me) == false)
+        #expect(preferences.hasGivenSix(nil) == false)
+        preferences.gaveSix(me)
+        #expect(preferences.hasGivenSix(me))
+        #expect(preferences.hasGivenSix(UUID()) == false)
+        #expect(AtePreferences(store: store).hasGivenSix(me))
+    }
 }

@@ -342,6 +342,7 @@ struct SavedRoot: View {
             shelf: .saved,
             initial: filters,
             cities: saved.cities,
+            includesSix: app.services.preferences.hasGivenSix(app.services.api.currentUserID),
             count: { draft in try await saved.count(draft.savedFilter) },
             onShow: { apply($0) }
         )

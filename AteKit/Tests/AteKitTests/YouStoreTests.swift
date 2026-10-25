@@ -82,6 +82,21 @@ struct YouStoreTests {
         #expect(store.month == StatementMonth(year: 2026, month: 9))
     }
 
+    @Test("A chart that holds a 6 says so — the filters learn the 6 from it; a failed chart says nothing")
+    func chartTellsOfSix() async throws {
+        var found: [UUID] = []
+        let store = YouStore(stats: Flaky()) { found.append($0) }
+        await store.loadIfNeeded()
+        let viewer = try await InMemoryStatsService().viewerID()
+        #expect(found == [viewer])
+
+        let failing = Flaky()
+        failing.failHistogram = true
+        var none: [UUID] = []
+        await YouStore(stats: failing) { none.append($0) }.loadIfNeeded()
+        #expect(none.isEmpty)
+    }
+
     @Test("Loading twice reads once; a pull-to-refresh is the only thing that re-reads")
     func loadsOnce() async {
         let stats = Flaky()
