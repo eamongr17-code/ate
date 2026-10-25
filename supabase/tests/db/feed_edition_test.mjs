@@ -158,7 +158,10 @@ test('new_to_record: new 6s, new 5.0s, then first lines — others\' lines only,
   const dan = await news(U.dan, null, since);
   assert.deepEqual(dan.map((r) => [K(r.dish_id), r.kind]), [['B', 'six'], ['A', 'five'], ['F', 'five'], ['R', 'new']],
     'Margherita\'s 5.0 (2 days) is newer than Pad thai\'s (2.5); Eve\'s 4.5 on Margherita is not news');
-  assert.deepEqual(Object.keys(dan[0]), ['dish_id', 'name', 'restaurant_name', 'suburb', 'kind', 'cover_url', 'saved', 'at']);
+  assert.deepEqual(Object.keys(dan[0]), ['dish_id', 'name', 'restaurant_name', 'suburb', 'kind', 'cover_url', 'saved', 'at', 'score']);
+  // 0089: each row carries the dish's average — what its ranked row prints — not the line that made it news.
+  assert.deepEqual(dan.map((r) => [K(r.dish_id), r.score === null ? null : Number(r.score)]),
+    [['B', 6], ['A', 4.8], ['F', 4.5], ['R', 4]], 'Margherita: two 5s and Eve\'s 4.5');
   assert.ok(Math.abs(new Date(dan[1].at) - new Date(ago(2))) < 60_000, 'at = the newest 5.0\'s time');
   assert.equal(dan[0].restaurant_name, 'Tipo 00');
   assert.equal(dan[0].suburb, 'Melbourne');
