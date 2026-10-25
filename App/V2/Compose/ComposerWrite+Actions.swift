@@ -363,20 +363,6 @@ extension V2ComposerWrite {
 
     /// `sort-entry` `{health: true}` as the composer opens, so Done does not pay a cold start. Fire
     /// and forget: never waited on, never an error.
-    /// A 6 in these words: the filters offer the 6 from now on, and someone never told about it is
-    /// told once the composer is down (``SixFoundScreen``).
-    private func noteTheSix() {
-        guard model.composition.sixTokens.isEmpty == false else { return }
-        let me = services.api.currentUserID
-        services.preferences.gaveSix(me)
-        if services.preferences.owesSixFound(me) { app.owesSixFound = true }
-    }
-
-    /// The 6s left, for the slider's lock — once, as the composer opens; an edit counts its own back.
-    func readSixAllowance() async {
-        sixAllowance = try? await services.entries.sixAllowance(editing: model.editing?.id)
-    }
-
     func warmUpSorter() {
         let entries = services.entries
         Task.detached(priority: .utility) { await entries.warmUp() }
