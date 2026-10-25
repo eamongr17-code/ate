@@ -1,13 +1,15 @@
 import Foundation
 import Observation
 
-/// **The dish map** (`nearby-map.html`, option A, approved 25 Oct): the pins in view and the sheet
-/// under them — "Dishes near you", best first — or, with a pin tapped, that place.
+/// **The dish map** (`nearby-map-2.html`, round 2 after build 214): the pins in view and the sheet
+/// under them.
 ///
-/// The map opens framed on the phone and the nearest ``openingPlaces`` places with dishes, however
-/// far, so it is never empty with a beta's coverage (``open()`` sets ``frame``). After that it reads
-/// only what is on screen, once the map stops moving (``show(_:)``); a read that comes back after a
-/// newer one was asked for is dropped, so a fast pan never paints an old area.
+/// The map opens on ``nearRadius`` around the phone (``open()`` sets ``frame``), and the sheet lists
+/// **Near me**: every dish within that radius, best first. The sheet holds still while the map
+/// moves; only the pins follow the camera (``show(_:)``). Once the map is somewhere else, Search here
+/// (``canSearchHere``, ``searchHere()``) lists what is on screen, titled with its suburb, and the
+/// location button comes back to Near me (``backToNearMe()``). A read that lands after a newer one
+/// was asked for is dropped, so a fast pan never paints an old area.
 @MainActor
 @Observable
 public final class DishMapStore {
@@ -18,29 +20,49 @@ public final class DishMapStore {
         case failed
     }
 
-    /// How many places the map opens framed on.
-    public static let openingPlaces = 10
+    /// What the sheet lists.
+    public enum Listing: Sendable, Equatable {
+        /// Every dish within ``nearRadius`` of the phone.
+        case nearMe(SearchOrigin)
+        /// Every dish at the places in a box: Search here, or the opening view with location off.
+        case area(MapBox)
+
+        public var box: MapBox {
+            switch self {
+            case .nearMe(let phone): MapBox.around(phone, radiusMeters: DishMapStore.nearRadius)
+            case .area(let box): box
+            }
+        }
+    }
+
+    /// Near me, and the map's opening view: 10 km around the phone (Eamon, 25 Oct).
+    public nonisolated static let nearRadius: Double = 10_000
     /// Pins per read: plenty for a city screen, and the server's own cap is 200.
     public static let placesPerRead = 150
     public static let dishesPerPage = 20
+    /// A Near me page can come back with every row past the radius (the box's corners); this many
+    /// pages are read on before the list settles for what it has.
+    static let pagesPerFill = 5
 
+    /// The sheet's list.
     public private(set) var phase: Phase = .opening
-    /// Where the map should look. Set once by ``open()``; the view moves the camera to it.
+    /// Where the camera should go. Set by ``open()``; the view moves the camera to it.
     public private(set) var frame: MapBox?
     /// The phone, when the permission is given.
     public private(set) var phone: SearchOrigin?
     /// The pins in view, nearest the middle first.
     public private(set) var places: [MapPlace] = []
-    /// "Dishes near you": every dish at those places, best first, paged.
+    /// What the sheet lists, and the dishes in it, best first, paged.
+    public private(set) var listing: Listing?
     public private(set) var dishes: [MapDish] = []
     public private(set) var hasMoreDishes = false
+    /// The suburb of a Search here (or of the opening view with location off), once looked up.
+    public private(set) var listedArea: String?
     /// The tapped pin.
     public private(set) var selected: MapPlace?
     /// The tapped place's dishes, best first — the place page's own menu read (`place_dishes`), its
     /// first page. Empty while it loads.
     public private(set) var selectedMenu: [MenuDish] = []
-    /// The suburb under the map's centre, for the title once the map is off you.
-    public var area: String?
     /// What the map shows now.
     public private(set) var box: MapBox?
 
@@ -48,7 +70,8 @@ public final class DishMapStore {
     private let menus: any PlacePageReading
     private let locate: NearbyPlaces.Locate
     private let analytics: AnalyticsRecorder
-    private var generation = 0
+    private var pinGeneration = 0
+    private var listGeneration = 0
     private var nextCursor: MapDishCursor?
     private var isLoadingMore = false
 
@@ -65,79 +88,104 @@ public final class DishMapStore {
     }
 
     public var title: DishMapTitle {
-        guard let box else { return .nearYou }
-        return DishMapTitle.resolve(box: box, phone: phone, area: area)
+        if case .some(.area) = listing { return .area(listedArea) }
+        return .nearMe
     }
 
-    /// Finds the phone (asking for the permission the first time) and frames the map on it and the
-    /// nearest places with dishes. With no permission, around the place most written about.
+    /// The map has moved far enough from what the sheet lists that Search here is worth offering:
+    /// its middle has left the listed area's middle half, or it has zoomed well in or out.
+    public var canSearchHere: Bool {
+        guard let box, let listed = listing?.box else { return false }
+        let across = abs(box.centerLongitude - listed.centerLongitude) / listed.longitudeDelta
+        let down = abs(box.centerLatitude - listed.centerLatitude) / listed.latitudeDelta
+        let zoom = box.latitudeDelta / listed.latitudeDelta
+        return across > 0.25 || down > 0.25 || zoom > 1.8 || zoom < 0.4
+    }
+
+    /// Finds the phone (asking for the permission the first time), frames the map on 10 km around it
+    /// and lists Near me. With no permission, around the place most written about, listing that area.
     public func open() async {
         guard frame == nil else { return }
         analytics(MapEvents.opened())
         phase = .opening
         let phone = await locate(true)
         self.phone = phone
+        if let phone {
+            frame = MapBox.around(phone, radiusMeters: Self.nearRadius)
+            await list(.nearMe(phone))
+            return
+        }
         do {
-            let nearest = try await reads.nearest(to: phone, limit: Self.openingPlaces)
-            let points = nearest.map(\.origin) + (phone.map { [$0] } ?? [])
-            frame = MapBox.fitting(points) ?? phone.map {
-                MapBox(centerLatitude: $0.latitude, centerLongitude: $0.longitude,
-                       latitudeDelta: 0.03, longitudeDelta: 0.03)
+            guard let busiest = try await reads.nearest(to: nil, limit: 1).first else {
+                // Nothing anywhere has a place on the map: an empty, settled sheet, not a spinner.
+                phase = .ready
+                return
             }
-            // The framing read already has the pins; the first `show` after the camera lands replaces them.
-            places = nearest
-            // Nothing anywhere has a place on the map: an empty, settled sheet, not a spinner.
-            if frame == nil { phase = .ready }
+            let around = MapBox.around(busiest.origin, radiusMeters: Self.nearRadius)
+            frame = around
+            await list(.area(around))
         } catch {
             phase = .failed
         }
     }
 
-    /// The map stopped moving on `box`: read its pins and the first page of its dishes.
+    /// The map stopped moving on `box`: read its pins. The sheet stays as it is.
     public func show(_ box: MapBox) async {
         self.box = box
-        generation += 1
-        let mine = generation
-        do {
-            async let pins = reads.places(in: box, origin: phone, limit: Self.placesPerRead)
-            async let first = reads.dishes(in: box, origin: phone, after: nil, pageSize: Self.dishesPerPage)
-            let (newPlaces, page) = try await (pins, first)
-            guard mine == generation else { return }
-            places = newPlaces
-            dishes = page.items
-            nextCursor = page.nextCursor
-            hasMoreDishes = page.nextCursor != nil
-            if let selected, newPlaces.contains(where: { $0.id == selected.id }) == false {
-                self.selected = nil
-                selectedMenu = []
-            }
-            phase = .ready
-        } catch {
-            guard mine == generation else { return }
-            phase = .failed
+        pinGeneration += 1
+        let mine = pinGeneration
+        guard let newPlaces = try? await reads.places(in: box, origin: phone, limit: Self.placesPerRead),
+              mine == pinGeneration else { return }
+        places = newPlaces
+        if let selected, newPlaces.contains(where: { $0.id == selected.id }) == false {
+            self.selected = nil
+            selectedMenu = []
         }
+    }
+
+    /// Search here: the sheet becomes every dish on screen.
+    public func searchHere() async {
+        guard let box else { return }
+        analytics(MapEvents.searchedHere())
+        await list(.area(box))
+    }
+
+    /// The location button: the phone again, and the sheet back on Near me. Returns the fix, for the
+    /// view to glide the camera to.
+    public func backToNearMe() async -> SearchOrigin? {
+        guard let fix = await locate(true) else { return nil }
+        phone = fix
+        analytics(MapEvents.recentred())
+        if listing != .nearMe(fix) { await list(.nearMe(fix)) }
+        return fix
+    }
+
+    /// The suburb of an area listing, looked up by the view. Kept only while that is still the list.
+    public func name(area: String?, for box: MapBox) {
+        guard listing == .area(box) else { return }
+        listedArea = area?.isEmpty == false ? area : nil
     }
 
     /// The next page of the sheet, when the list reaches its end.
     public func loadMoreDishes() async {
-        guard let box, let cursor = nextCursor, isLoadingMore == false else { return }
+        guard let listing, let cursor = nextCursor, isLoadingMore == false else { return }
         isLoadingMore = true
         defer { isLoadingMore = false }
-        let mine = generation
-        guard let page = try? await reads.dishes(in: box, origin: phone, after: cursor, pageSize: Self.dishesPerPage),
-              mine == generation else { return }
+        let mine = listGeneration
+        guard let fill = try? await fill(listing, after: cursor), mine == listGeneration else { return }
         let seen = Set(dishes.map(\.id))
-        dishes += page.items.filter { seen.contains($0.id) == false }
-        nextCursor = page.nextCursor
-        hasMoreDishes = page.nextCursor != nil
+        dishes += fill.items.filter { seen.contains($0.id) == false }
+        nextCursor = fill.next
+        hasMoreDishes = fill.next != nil
     }
 
     /// Another go after a failed read.
     public func retry() async {
-        if frame == nil {
+        if let listing {
+            await list(listing)
+        } else {
+            frame = nil
             await open()
-        } else if let box {
-            await show(box)
         }
     }
 
@@ -159,11 +207,49 @@ public final class DishMapStore {
         selectedMenu = menu?.items ?? []
     }
 
-    /// The Show my location button: the phone back in the middle (the view moves the camera).
-    public func recentre() async -> SearchOrigin? {
-        guard let fix = await locate(true) else { return nil }
-        phone = fix
-        analytics(MapEvents.recentred())
-        return fix
+    // MARK: - The list
+
+    private func list(_ listing: Listing) async {
+        self.listing = listing
+        listedArea = nil
+        listGeneration += 1
+        let mine = listGeneration
+        phase = .opening
+        dishes = []
+        hasMoreDishes = false
+        nextCursor = nil
+        do {
+            let fill = try await fill(listing, after: nil)
+            guard mine == listGeneration else { return }
+            dishes = fill.items
+            nextCursor = fill.next
+            hasMoreDishes = fill.next != nil
+            phase = .ready
+        } catch {
+            guard mine == listGeneration else { return }
+            phase = .failed
+        }
+    }
+
+    /// One page of the list. Near me reads the box round the radius and keeps the rows inside it,
+    /// reading on (a few pages at most) while a page keeps nothing.
+    private func fill(_ listing: Listing, after cursor: MapDishCursor?) async throws
+        -> (items: [MapDish], next: MapDishCursor?) {
+        var cursor = cursor
+        for _ in 0..<Self.pagesPerFill {
+            let page = try await reads.dishes(
+                in: listing.box, origin: phone, after: cursor, pageSize: Self.dishesPerPage
+            )
+            let kept = page.items.filter { Self.isListed($0, in: listing) }
+            cursor = page.nextCursor
+            if kept.isEmpty == false || cursor == nil { return (kept, cursor) }
+        }
+        return ([], cursor)
+    }
+
+    static func isListed(_ dish: MapDish, in listing: Listing) -> Bool {
+        guard case .nearMe = listing else { return true }
+        guard let meters = dish.distanceMeters else { return false }
+        return Double(meters) <= nearRadius
     }
 }

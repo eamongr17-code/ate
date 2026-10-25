@@ -37,6 +37,8 @@ struct AteShadow: Equatable, Sendable {
     /// A dish photo standing on the map (`nearby-map.html` `.pin>i`): `0 6px 14px rgba(0,0,0,.28)` in
     /// the ink, so it reads on Apple's light and dark map alike.
     static let mapPin = AteShadow(colour: AteColor.ink.opacity(0.28), offsetY: 6, blur: 14, spread: 0)
+    /// The score on a map pin, with no ring (`nearby-map-2.html`, B): `0 3px 8px rgba(0,0,0,.28)`.
+    static let mapScore = AteShadow(colour: AteColor.ink.opacity(0.28), offsetY: 3, blur: 8, spread: 0)
     /// A place's dot on the map (`.dot`): `0 2px 5px rgba(0,0,0,.3)`.
     static let mapDot = AteShadow(colour: AteColor.ink.opacity(0.3), offsetY: 2, blur: 5, spread: 0)
     /// No shadow: the same background, casting nothing.

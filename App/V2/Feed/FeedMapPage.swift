@@ -2,26 +2,27 @@ import AteKit
 import MapKit
 import SwiftUI
 
-/// **The dish map** (`nearby-map.html`, option A, approved 25 Oct) — pushed from the Feed's map button.
+/// **The dish map** (`nearby-map.html` option A, round 2 `nearby-map-2.html`) — pushed from the
+/// Feed's map button.
 ///
-/// Apple's map, full screen, with a pin per place that has dishes: its best dish's photo with the
-/// score as its one badge, and one more photo stacked behind when it has more dishes. Where places
-/// crowd, the best-rated that fit without touching keep their photos and the rest are dots
-/// (``DishMapLayout``); zooming in turns dots into photos. A native sheet lies over the bottom:
-/// "Dishes near you", best first, or a tapped place's own dishes.
+/// Apple's map, full screen, opening on 10 km around you. A place is a pin, its best dish's photo with
+/// the score as its one badge and one more photo stacked behind when it has more dishes, or a dot:
+/// far out every place is a dot, and closer in the best-rated that fit keep their photos and the rest
+/// are dots (``DishMapLayout``). A dot holding several places zooms in when tapped.
 ///
-/// It opens framed on you and the nearest places with dishes, however far, so it is never empty.
+/// The sheet lies over the bottom (``FeedMapSheet``) and is part of the page, not a presented sheet:
+/// it goes with the page on Back, never lingers over the Feed, and never stands between the map and
+/// your finger. It lists Near me and holds still while you pan; Search here lists what is on screen.
 /// It reads only what is on screen, once the map stops moving (0088).
 struct FeedMapPage: View {
     let context: V2PageContext
 
     @State private var store: DishMapStore
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
-    /// The places drawn as photos; every other place is a dot.
-    @State private var photoIDs: Set<UUID> = []
+    /// What the map draws, laid out where the map last came to rest.
+    @State private var marks: [FeedMapMark] = []
     @State private var region: MKCoordinateRegion?
-    @State private var isSheetUp = false
-    @State private var detent = FeedMapMetrics.lowDetent
+    @State private var detent = FeedMapDetent.low
     @State private var areaLookup: Task<Void, Never>?
 
     init(context: V2PageContext) {
@@ -35,32 +36,35 @@ struct FeedMapPage: View {
     }
 
     var body: some View {
-        MapReader { proxy in
-            Map(position: $position) {
-                UserAnnotation()
-                ForEach(store.places) { place in
-                    Annotation(place.name, coordinate: place.coordinate, anchor: .center) {
-                        marker(place)
-                    }
-                    .annotationTitles(.hidden)
+        GeometryReader { page in
+            ZStack(alignment: .bottom) {
+                map
+                    // The camera frames what is above the sheet's resting height.
+                    .safeAreaPadding(.bottom, FeedMapMetrics.lowHeight)
+                    .ignoresSafeArea()
+                FeedMapSheet(
+                    store: store,
+                    detent: $detent,
+                    room: FeedMapRoom(page: page),
+                    onDish: { context.open(.dish($0), from: .map) },
+                    onPlace: { context.open(.place($0), from: .map) }
+                )
+            }
+            .overlay(alignment: .top) {
+                if store.canSearchHere, store.selected == nil {
+                    FeedMapSearchHere(action: searchHere)
+                        .padding(.top, AteMetrics.snug)
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
             }
-            .mapStyle(.standard(pointsOfInterest: .excludingAll))
-            .onMapCameraChange(frequency: .onEnd) { camera in
-                region = camera.region
-                relayout(proxy)
-                lookUpArea(camera.region.center)
-                Task { await store.show(MapBox(camera.region)) }
-            }
-            .onChange(of: store.places) { relayout(proxy) }
-            .onChange(of: store.selected) { relayout(proxy) }
+            .ateAnimation(AteMotion.fillIn, value: store.canSearchHere)
         }
         .toolbarVisibility(.hidden, for: .tabBar)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(removing: .title)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { Task { await recentre() } } label: {
+                Button { Task { await backToNearMe() } } label: {
                     AteIcon.navigation.view(size: AteGlassDiscMetrics.glyph)
                 }
                 .accessibilityLabel(FeedMapCopy.recentre)
@@ -71,104 +75,197 @@ struct FeedMapPage: View {
         .onChange(of: store.frame) { _, frame in
             if let frame { position = .region(MKCoordinateRegion(frame)) }
         }
-        // The sheet goes with the page: down for a pushed page, back up on the way back.
-        .onAppear { isSheetUp = true }
-        .onDisappear { isSheetUp = false }
-        .sheet(isPresented: $isSheetUp) {
-            FeedMapSheet(store: store, onDish: { open(.dish($0)) }, onPlace: { open(.place($0)) })
-                .presentationDetents([FeedMapMetrics.lowDetent, .medium, .large], selection: $detent)
-                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-                .presentationDragIndicator(.visible)
-                .interactiveDismissDisabled()
+        // An area list is titled with its suburb.
+        .task(id: store.listing) {
+            guard case .some(.area(let box)) = store.listing else { return }
+            let name = await Self.suburb(latitude: box.centerLatitude, longitude: box.centerLongitude)
+            store.name(area: name, for: box)
         }
         .accessibilityIdentifier("map.page")
     }
 
+    private var map: some View {
+        MapReader { proxy in
+            Map(position: $position) {
+                UserAnnotation()
+                ForEach(marks) { mark in
+                    Annotation(mark.label, coordinate: mark.coordinate, anchor: .center) {
+                        marker(mark)
+                    }
+                    .annotationTitles(.hidden)
+                }
+            }
+            .mapStyle(.standard(pointsOfInterest: .excludingAll))
+            .onMapCameraChange(frequency: .onEnd) { camera in
+                region = camera.region
+                relayout(proxy)
+                Task { await store.show(MapBox(camera.region)) }
+            }
+            .onChange(of: store.places) { relayout(proxy) }
+            .onChange(of: store.selected) { relayout(proxy) }
+        }
+    }
+
     @ViewBuilder
-    private func marker(_ place: MapPlace) -> some View {
-        let isSelected = store.selected?.id == place.id
-        Button {
-            Task { await store.select(place) }
-        } label: {
-            if photoIDs.contains(place.id) || isSelected {
+    private func marker(_ mark: FeedMapMark) -> some View {
+        switch mark.kind {
+        case .photo(let place):
+            let isSelected = store.selected?.id == place.id
+            Button {
+                Task { await select(place) }
+            } label: {
                 AteMapPin(
                     front: .dish(place.topDishID, name: place.topDishName, cover: place.topCoverURLString),
                     behind: place.secondCoverURLString.map(AtePhoto.remote),
                     score: place.topScore,
                     isSelected: isSelected
                 )
-            } else {
-                AteMapDot(isScored: place.topScore != nil)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(FeedMapCopy.pinLabel(place))
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
+        case .dot(let members):
+            Button {
+                Task { await tapDot(members) }
+            } label: {
+                AteMapDot(isScored: members.contains { $0.topScore != nil }, count: members.count)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(FeedMapCopy.dotLabel(members))
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(FeedMapCopy.pinLabel(place))
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    /// Which places are photos: projected where the map draws them now, best first while they fit.
+    /// What the map draws, projected where it is now: photos while they fit, dots for the rest.
     private func relayout(_ proxy: MapProxy) {
+        let width = region.map { MapBox($0).widthMeters } ?? 0
+        var located: [UUID: MapPlace] = [:]
         let candidates = store.places.compactMap { place -> DishMapLayout.Candidate? in
             guard let point = proxy.convert(place.coordinate, to: .local) else { return nil }
+            located[place.id] = place
             return DishMapLayout.Candidate(
                 id: place.id, across: point.x, down: point.y, score: place.topScore, dishCount: place.dishCount
             )
         }
-        photoIDs = DishMapLayout.photoPins(candidates, selected: store.selected?.id)
+        let arrangement = DishMapLayout.arrange(candidates, selected: store.selected?.id, widthMeters: width)
+        let photos = store.places.filter { arrangement.photos.contains($0.id) }.map(FeedMapMark.photo)
+        let dots = arrangement.dots.map { dot in FeedMapMark.dot(dot.members.compactMap { located[$0] }) }
+        marks = photos + dots.compactMap { $0 }
     }
 
-    /// The suburb in the middle of the map, for "Dishes in Carlton" once the map is off you. One
-    /// lookup per resting place, the last one winning.
-    private func lookUpArea(_ centre: CLLocationCoordinate2D) {
-        areaLookup?.cancel()
-        areaLookup = Task {
-            let area = await Self.suburb(latitude: centre.latitude, longitude: centre.longitude)
-            guard Task.isCancelled == false else { return }
-            store.area = area
+    private func select(_ place: MapPlace) async {
+        if detent == .minimised { withAnimation(AteMotion.panelSettle) { detent = .low } }
+        await store.select(place)
+    }
+
+    /// One place grows into its photos; several zoom the map in on them, and they split apart.
+    private func tapDot(_ members: [MapPlace]) async {
+        guard members.count > 1 else {
+            if let only = members.first { await select(only) }
+            return
         }
+        guard let box = MapBox.fitting(members.map(\.origin), padding: 0.4, minimumSpan: FeedMapMetrics.dotZoomSpan)
+        else { return }
+        withAnimation(AteMotion.mapGlide) { position = .region(MKCoordinateRegion(box)) }
     }
 
+    private func searchHere() {
+        if detent == .minimised { withAnimation(AteMotion.panelSettle) { detent = .low } }
+        Task { await store.searchHere() }
+    }
+
+    /// Show my location: glide to the phone at the opening view's 10 km, the sheet back on Near me.
+    private func backToNearMe() async {
+        guard let fix = await store.backToNearMe() else { return }
+        let box = MapBox.around(fix, radiusMeters: DishMapStore.nearRadius)
+        withAnimation(AteMotion.mapGlide) { position = .region(MKCoordinateRegion(box)) }
+    }
+
+    /// The suburb in the middle of an area, for its title ("Carlton").
     private nonisolated static func suburb(latitude: Double, longitude: Double) async -> String? {
         guard let request = MKReverseGeocodingRequest(location: CLLocation(latitude: latitude, longitude: longitude))
         else { return nil }
         return try? await request.mapItems.first?.addressRepresentations?.cityName
     }
+}
 
-    private func recentre() async {
-        guard let fix = await store.recentre() else { return }
-        let span = region?.span ?? MKCoordinateSpan(
-            latitudeDelta: FeedMapMetrics.recentreSpan, longitudeDelta: FeedMapMetrics.recentreSpan
-        )
-        position = .region(MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: fix.latitude, longitude: fix.longitude), span: span
-        ))
+/// One thing the map draws: a place as a photo pin, or a dot holding one place or several.
+struct FeedMapMark: Identifiable {
+    enum Kind {
+        case photo(MapPlace)
+        case dot([MapPlace])
     }
 
-    private func open(_ route: Route) {
-        isSheetUp = false
-        context.open(route, from: .map)
+    let id: String
+    let kind: Kind
+    let coordinate: CLLocationCoordinate2D
+    let label: String
+
+    static func photo(_ place: MapPlace) -> FeedMapMark {
+        FeedMapMark(id: "photo-\(place.id)", kind: .photo(place), coordinate: place.coordinate, label: place.name)
+    }
+
+    /// A dot sits at the middle of its places. `nil` for no places.
+    static func dot(_ members: [MapPlace]) -> FeedMapMark? {
+        guard let first = members.first else { return nil }
+        let count = Double(members.count)
+        let coordinate = CLLocationCoordinate2D(
+            latitude: members.map(\.latitude).reduce(0, +) / count,
+            longitude: members.map(\.longitude).reduce(0, +) / count
+        )
+        return FeedMapMark(id: "dot-\(first.id)", kind: .dot(members), coordinate: coordinate, label: first.name)
+    }
+}
+
+/// **Search here** (`nearby-map-2.html`): a glass capsule at the top of the map once it has moved
+/// off what the sheet lists.
+struct FeedMapSearchHere: View {
+    let action: () -> Void
+
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: AteMetrics.tight) {
+                AteIcon.search.view(size: FeedMapMetrics.searchGlyph)
+                Text(FeedMapCopy.searchHere).ateText(.control)
+            }
+            .foregroundStyle(palette.fg)
+            .padding(.horizontal, AteMetrics.loose)
+            .frame(height: AteMetrics.hit)
+            .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .capsule)
+        .accessibilityIdentifier("map.searchHere")
     }
 }
 
 enum FeedMapMetrics {
     /// The sheet's resting height: the title and two and a half rows (`nearby-map.html` `.sheet`).
-    static var lowDetent: PresentationDetent { .height(300) }
-    /// Show my location before the map has a span of its own: a few blocks.
-    static let recentreSpan: CLLocationDegrees = 0.02
+    static let lowHeight: CGFloat = 320
+    /// A tapped dot zooms to at least this span (degrees, a few blocks), so its places split apart.
+    static let dotZoomSpan: Double = 0.004
+    static let searchGlyph: CGFloat = 17
 }
 
 enum FeedMapCopy {
     static let open = "Map"
     static let recentre = "Show my location"
+    static let searchHere = "Search here"
     static let openPlace = "Open place"
     static let close = "Close"
-    static let empty = "No dishes in view"
     static let unreachable = "The map couldn't load"
     static let tryAgain = "Try again"
 
     static func pinLabel(_ place: MapPlace) -> String {
         let score = place.topScore.map { ", \(ScoreFormat.average($0))" } ?? ""
         return "\(place.name): \(place.topDishName)\(score)"
+    }
+
+    /// A dot: its place, or how many places it holds.
+    static func dotLabel(_ members: [MapPlace]) -> String {
+        guard members.count > 1 else { return members.first.map(pinLabel) ?? "" }
+        return "\(members.count) places"
     }
 
     /// Under a tapped place's dish: how many people ate it.

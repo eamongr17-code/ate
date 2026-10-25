@@ -44,6 +44,23 @@ public struct MapBox: Sendable, Hashable {
     public var latitudeDelta: Double { maxLatitude - minLatitude }
     public var longitudeDelta: Double { maxLongitude - minLongitude }
 
+    /// The square round a point, `radiusMeters` from its middle to each edge: Near me, and the map's
+    /// opening view.
+    public static func around(_ point: SearchOrigin, radiusMeters: Double) -> MapBox {
+        let metersPerDegree = 111_320.0
+        let latitudeDelta = 2 * radiusMeters / metersPerDegree
+        let shrink = max(cos(point.latitude * .pi / 180), 0.01)
+        return MapBox(
+            centerLatitude: point.latitude, centerLongitude: point.longitude,
+            latitudeDelta: latitudeDelta, longitudeDelta: latitudeDelta / shrink
+        )
+    }
+
+    /// How many metres the box is across, east to west through its middle.
+    public var widthMeters: Double {
+        longitudeDelta * 111_320 * max(cos(centerLatitude * .pi / 180), 0)
+    }
+
     public func contains(latitude: Double, longitude: Double) -> Bool {
         (minLatitude...maxLatitude).contains(latitude) && (minLongitude...maxLongitude).contains(longitude)
     }
