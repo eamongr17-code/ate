@@ -12,7 +12,9 @@ import TipKit
 /// right — muted until a place is attached, then stepping three dots while the entry posts. Under
 /// them, where and who (``AteComposerByline``). The keys float in one glass capsule above the
 /// keyboard (``AteKeyCapsule``): photos, and the two keys that put pills in the words. The score
-/// slide opens above them, so the keyboard never goes down; staged photos sit just above the keys.
+/// slide opens above them, so the keyboard never goes down. The byline, the words and the staged
+/// photos are one page that scrolls: the photos sit just above the keys while the words are short,
+/// and under the last line once the words are long — never squeezing the words into a slot.
 struct V2ComposerWrite: View {
     let app: AppModel
     let presentation: ComposerPresentation
@@ -38,6 +40,8 @@ struct V2ComposerWrite: View {
     /// How many 6s are left (two in any two months), read once as the composer opens. `nil` until it
     /// answers, or if it cannot: no limit is drawn, and the server still holds it.
     @State var sixAllowance: SixAllowance?
+    /// The visible height of the page above the keys — the photos' floor, and the caret's frame.
+    @State var pageHeight: CGFloat = 0
     @Environment(\.openURL) var openURL
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.dismiss) var dismiss
@@ -74,8 +78,7 @@ struct V2ComposerWrite: View {
             // Frozen from the tick to the hand-off: what is posted is exactly what was on screen at
             // the tap. Nothing dims; the controls just stop answering, to a finger and to VoiceOver.
             VStack(spacing: 0) {
-                byline.ateAccessibilityHidden(isFrozen)
-                editor.ateAccessibilityHidden(isFrozen)
+                page
                 keyBand.ateAccessibilityHidden(isFrozen)
             }
             .allowsHitTesting(isFrozen == false)
@@ -240,13 +243,15 @@ struct V2ComposerWrite: View {
             selectedTokenID: model.scoring?.id,
             // While the slide is open the focus is the pill, so the words show no caret.
             hidesCaret: model.scoring != nil,
+            growsWithText: true,
+            pageHeight: pageHeight,
             onTokenTap: { _ = model.reopen($0) },
             onCaretChange: { model.caret = $0 },
             onTokenPromoted: { token, wasDictated, isPhrase in
                 model.literalPromoted(token, wasDictated: wasDictated, isPhrase: isPhrase).map(services.analytics)
             }
         )
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
         .overlay {
             if model.scoring != nil {
                 // A tap anywhere in the words closes the slide — and only closes it.
@@ -264,7 +269,7 @@ struct V2ComposerWrite: View {
 
     // MARK: - Above the keyboard
 
-    /// From the top: the staged photos (or, while it is open, the score slide), then the keys.
+    /// From the top: the score slide while it is open, then the keys.
     private var keyBand: some View {
         VStack(spacing: 0) {
             if let scoring = model.scoring {
@@ -284,19 +289,6 @@ struct V2ComposerWrite: View {
                 .padding(.horizontal, AteMetrics.cardGutter)
                 .padding(.bottom, AteMetrics.snug)
                 .transition(reduceMotion ? AnyTransition.opacity : V2ComposerMotion.sliderRising)
-            } else if model.photos.isEmpty == false {
-                AtePhotoCluster(
-                    photos: model.photos.map(\.photo),
-                    size: .composer,
-                    surface: AtePalette.surface.ground,
-                    onRemove: removePhoto
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, AteMetrics.gutter)
-                // Clear of the keys, tilt and all (Eamon, 7 Oct: it sat on the toolbar).
-                .padding(.bottom, AteMetrics.snug)
-                .accessibilityIdentifier("composer.photos")
-                .transition(.opacity)
             }
             AteKeyCapsule(
                 isScoring: model.scoring != nil,
@@ -404,5 +396,50 @@ struct V2ComposerWrite: View {
     private func discard() {
         if model.editing == nil { model.clearDraft() }
         close()
+    }
+}
+
+// MARK: - The page
+
+extension V2ComposerWrite {
+    /// Where and who, the words, then the photos: one scroll. The words grow line by line (they never
+    /// scroll inside a slot — Eamon, 25 Oct: a long review with a photo was cut to a sliver), and the
+    /// room under them pins the photos to the page's foot until the words reach them.
+    var page: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                byline.ateAccessibilityHidden(isFrozen)
+                editor.ateAccessibilityHidden(isFrozen)
+                Color.clear
+                    .frame(maxWidth: .infinity, minHeight: AteMetrics.snug, maxHeight: .infinity)
+                    .contentShape(.rect)
+                    // The room under the words is the words': a tap there writes, or closes the slide.
+                    .onTapGesture {
+                        if model.scoring != nil { model.dismissScoring() } else { model.focusEditor() }
+                    }
+                    .accessibilityHidden(true)
+                photos.ateAccessibilityHidden(isFrozen)
+            }
+            .frame(minHeight: pageHeight, alignment: .top)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { pageHeight = $0 }
+    }
+
+    @ViewBuilder private var photos: some View {
+        if model.photos.isEmpty == false {
+            AtePhotoCluster(
+                photos: model.photos.map(\.photo),
+                size: .composer,
+                surface: AtePalette.surface.ground,
+                onRemove: removePhoto
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, AteMetrics.gutter)
+            // Clear of the keys, tilt and all (Eamon, 7 Oct: it sat on the toolbar).
+            .padding(.bottom, AteMetrics.snug)
+            .accessibilityIdentifier("composer.photos")
+            .transition(.opacity)
+        }
     }
 }

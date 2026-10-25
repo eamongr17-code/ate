@@ -135,6 +135,8 @@ extension InlineTokenEditor {
             // hear where the caret landed — and the NEXT token would be inserted at the stale offset
             // (the caret readout stuck at 0 after inserting one). Report it explicitly.
             callbacks.onCaretChange(view.selectedRange.location)
+            view.invalidateIntrinsicContentSize()
+            view.revealCaretSoon()
         }
 
         /// Binds each placeholder character to the token it stands for. **Attributes only**: the
@@ -209,6 +211,9 @@ extension InlineTokenEditor {
         /// Pulls focus back when the host asks — after the slider or a sheet closes. Retries for the
         /// length of a dismissal, for the same reason the first focus does: UIKit refuses first
         /// responder while a presentation transition is in flight.
+        /// The page height the caret was last revealed for (``InlineTokenEditor/pageHeight``).
+        var servedPageHeight: CGFloat = 0
+
         func focusIfRequested(_ request: Int, in view: InlineTokenTextView) {
             guard request != servedFocusRequest else { return }
             servedFocusRequest = request
@@ -256,6 +261,9 @@ extension InlineTokenEditor {
             normaliseTokens(in: view)
             regroupTags(in: view)
             binding.wrappedValue = composition(from: view)
+            // Grown to its words, the editor is a line taller before the page knows it.
+            view.invalidateIntrinsicContentSize()
+            view.revealCaretSoon()
             // Noticed now, applied a turn later — see `scheduleScorePromotion`.
             if let promotion = promotableTag(in: view) { noticedPromotion = promotion }
             scheduleScorePromotion(in: view)
@@ -299,6 +307,7 @@ extension InlineTokenEditor {
             textView.typingAttributes = baseAttributes()
             guard isRendering == false else { return }
             callbacks.onCaretChange(textView.selectedRange.location)
+            (textView as? InlineTokenTextView)?.revealCaretSoon()
         }
 
         /// Two invariants, restored after every change the person makes.
