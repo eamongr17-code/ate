@@ -58,9 +58,9 @@ public extension DietTag {
 
     /// **The order a person picks in** (`diet-more.html`): the ways of eating, then the allergies.
     static let pickingOrder: [DietTag] = diets + allergies
-    /// Settings' "Diets" group, and the first run's top rows.
+    /// Settings' "Diets" group.
     static let diets: [DietTag] = [.v, .vg, .pe, .ha, .df]
-    /// Settings' "Allergies" group, and the first run's rows below the gap.
+    /// Settings' "Allergies" group.
     static let allergies: [DietTag] = [.gf, .ef, .nf, .pf, .sf]
 }
 
