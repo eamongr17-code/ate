@@ -91,6 +91,7 @@ svg.i{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9;stro
 .pin.on>i{transform:rotate(-5deg);box-shadow:0 0 0 3px var(--ring),0 10px 22px rgba(0,0,0,.35)}
 .pin.on .bk.b1{transform:translate(17px,-3px) rotate(11deg)}
 .pin.dim{opacity:.55}
+.dot{position:absolute;width:13px;height:13px;border-radius:999px;background:var(--pill);box-shadow:0 0 0 2px var(--ring),0 2px 5px rgba(0,0,0,.3);transform:translate(-50%,-50%);z-index:4;border:0;padding:0;cursor:pointer}
 .me{position:absolute;width:18px;height:18px;border-radius:99px;background:#0A84FF;box-shadow:0 0 0 3px #fff,0 0 0 26px rgba(10,132,255,.15);transform:translate(-50%,-50%);z-index:4}
 /* option B pins */
 .bpin{position:absolute;transform:translate(-50%,-100%);z-index:5;display:flex;flex-direction:column;align-items:center;border:0;background:none;padding:0;cursor:pointer}
@@ -159,6 +160,13 @@ svg.i{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9;stro
     <p class="s">Each pin is the best-rated dish photo at that place with its average score, the only badge on it. A place with more dishes shows a second photo stacked behind it (two photos at most); pins that overlap merge the same way. The sheet is titled Dishes near you, lists what's on screen best first, and updates when you pan; once you drag away from yourself it says the suburb instead (Dishes in Carlton). Tapping a pin turns the sheet into that place's dishes. It's the native iOS 26 pattern (Apple Maps, Find My), so the sheet and buttons are system glass.</p>
     <div class="row-lab">Light</div><div class="pair" id="a-light"></div>
     <div class="row-lab">Dark</div><div class="pair" id="a-dark"></div>
+  </section>
+
+  <section>
+    <h2>Busy streets</h2>
+    <p class="s">Restaurants sit shoulder to shoulder, so photo pins can't all fit. The map shows the <b>best-rated places as photo pins, only as many as fit without touching</b>; every other place is a small butter dot. Zoom in and dots turn into photos as room opens up. A dot is still tappable: it grows into its photos and the sheet shows that place. The sheet always lists every dish in view, so nothing is hidden from the list. This is how Apple Maps ranks its own place labels, built into MapKit.</p>
+    <div class="row-lab">Light</div><div class="pair" id="d-light"></div>
+    <div class="row-lab">Dark</div><div class="pair" id="d-dark"></div>
   </section>
 
   <section>
@@ -314,6 +322,33 @@ function phoneB(dk){
   </div></div>`;
 }
 
+/* A packed CBD: 46 places in a few blocks. Best scores take photo pins while they fit; the rest are dots. */
+const DENSE = (()=>{ let seed=7; const r=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  const fs=['f1','f2','f3','f4','f5','f6','f7','f8'], out=[];
+  for(let i=0;i<46;i++) out.push({x:60+r()*270, y:150+r()*420, s:(3.4+r()*1.5).toFixed(1), f:fs[i%8], g:fs[(i+3)%8], multi:r()>.25});
+  return out; })();
+function denseLayer(zoom, selIdx){
+  const cx=196, cy=360;
+  const pts = DENSE.map((p,i)=>({...p,i,x:cx+(p.x-cx)*zoom, y:cy+(p.y-cy)*zoom}))
+    .filter(p=>p.x>34&&p.x<359&&p.y>110&&p.y<600);
+  const order=[...pts].sort((a,b)=>b.s-a.s), photos=[];
+  if (selIdx!=null){ const s0=pts.find(p=>p.i===selIdx); if(s0) photos.push(s0); }
+  order.forEach(p=>{ if(photos.includes(p)) return; if(photos.length<(zoom<1.5?7:10) && photos.every(q=>Math.hypot(p.x-q.x,p.y-q.y)>(zoom<1.5?84:70))) photos.push(p); });
+  const dots = pts.filter(p=>!photos.includes(p));
+  return dots.map(p=>`<button class="dot" data-i="${p.i}" style="left:${p.x}px;top:${p.y}px" aria-label="Place, ${p.s}"></button>`).join('')
+    + photos.map(p=>`<button class="pin${p.i===selIdx?' on':''}" data-i="${p.i}" style="left:${p.x}px;top:${p.y}px">${p.multi?`<i class="bk b1 ${p.g}"></i>`:''}<i class="${p.f}"></i>${sc(p.s)}</button>`).join('');
+}
+function phoneDense(dk, zoom, cap){
+  const rows=[...DENSE].sort((a,b)=>b.s-a.s).slice(0,3);
+  const names=['Shujinko','Chin Chin','Supernormal','Tipo 00','Gimlet','Hochi Mama'];
+  const dishes=['Tonkotsu Ramen','Kingfish Sashimi','Lobster Roll','Squid Ink Tagliolini','Steak Tartare','Pho'];
+  return `<div class="phone${dk?' dk':''}" data-dense="${zoom}"><div class="screen">${chrome}
+    <div class="map" data-map>${mapSVG(zoom<1.5).replace('FITZROY','MELBOURNE').replace('CARLTON','CARLTON').replace('RICHMOND','EAST MELBOURNE')}<span class="me" style="left:205px;top:400px"></span><div data-layer>${denseLayer(zoom,null)}</div></div>
+    ${mapChrome()}
+    <div class="sheet glass"><div class="grab"></div><div class="sh-h"><div><h4>Dishes near you</h4></div></div>
+      ${rows.map((p,k)=>drow([p.f,dishes[k],names[k]+' · '+(120+k*90)+' m',p.s])).join('')}</div>
+  </div></div>`;
+}
 const wrapPh = (html, cap, sub) => `<div class="ph-wrap">${html}<div class="cap">${cap}<small>${sub}</small></div></div>`;
 function rowA(dk){
   return wrapPh(phoneFeed(dk),'1. Feed','New map button in the header glass (ringed here only to point it out).')
@@ -324,6 +359,12 @@ function rowA(dk){
 }
 document.getElementById('a-light').innerHTML = rowA(false);
 document.getElementById('a-dark').innerHTML = rowA(true);
+['d-light','d-dark'].forEach((id,k)=>{ const dk=!!k;
+  document.getElementById(id).innerHTML = wrapPh(phoneDense(dk,1),'Zoomed out','46 places. The best that fit get photos; the rest are dots. Tap a dot.')
+    + wrapPh(phoneDense(dk,2.2),'Zoomed in','Same blocks, closer: more room, so more photos.'); });
+document.querySelectorAll('[data-dense]').forEach(ph=>{ let sel=null; const z=+ph.dataset.dense;
+  ph.addEventListener('click',e=>{ const t=e.target.closest('.dot,.pin'); const i=t?+t.dataset.i:null;
+    sel = (t && i!==sel) ? i : null; ph.querySelector('[data-layer]').innerHTML = denseLayer(z,sel); }); });
 document.getElementById('b').innerHTML = wrapPh(phoneB(false),'Map, light','First card selected; swipe to move along.') + wrapPh(phoneB(true),'Map, dark','');
 
 /* Live: tap a pin to open its place in the sheet, tap the map or ✕ to go back. */
