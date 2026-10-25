@@ -16,6 +16,9 @@ import XCTest
 /// the run loop turns for a moment, and the layer tree is drawn. Materials draw flat this way, which
 /// is fine: the pictures are compared with each other, not with the phone.
 ///
+/// The verdict is this file's own pixel comparison (`whereItDiffers`), which names the rows that
+/// changed; SnapshotTesting only writes the pictures when recording.
+///
 /// Re-record on purpose only: push a commit whose message contains `[record-snapshots]` and
 /// `.github/workflows/snapshots.yml` commits the new pictures back to the branch. The diff of the
 /// pictures is then part of the PR, for the reviewer to judge against `design/v1`. CI tests the PR
@@ -60,17 +63,35 @@ final class KitSnapshotTests: XCTestCase {
                 XCTFail("\(section) (\(name)) drew a single colour; the window did not render", file: file, line: line)
                 continue
             }
-            let picture = Self.reference(file: file, testName: testName, name: name)
-            if let place = Self.whereItDiffers(image, from: picture) {
-                XCTFail("\(section) (\(name)) differs from its picture: \(place)", file: file, line: line)
-                Self.printThumbnail(of: image, as: "\(section).\(name)")
+            if Self.isRecording {
+                assertSnapshot(
+                    of: image, as: .image(scale: Self.scale),
+                    named: name, file: file, testName: testName, line: line
+                )
+                continue
             }
-            assertSnapshot(
-                of: image,
-                as: .image(precision: 0.99, perceptualPrecision: 0.98, scale: Self.scale),
-                named: name, file: file, testName: testName, line: line
-            )
+            let picture = Self.reference(file: file, testName: testName, name: name)
+            guard FileManager.default.fileExists(atPath: picture.path) else {
+                XCTFail("\(section) (\(name)) has no picture yet; push a [record-snapshots] commit",
+                        file: file, line: line)
+                continue
+            }
+            if let difference = Self.whereItDiffers(image, from: picture) {
+                if difference.isBeyondTolerance {
+                    XCTFail("\(section) (\(name)) differs from its picture: \(difference.where)",
+                            file: file, line: line)
+                    Self.printThumbnail(of: image, as: "\(section).\(name)")
+                } else {
+                    print("snapshot \(section) (\(name)) within tolerance: \(difference.where)")
+                }
+            }
         }
+    }
+
+    /// `snapshots.yml` sets `TEST_RUNNER_SNAPSHOT_TESTING_RECORD=all`, which reaches the test host
+    /// without the prefix; SnapshotTesting then writes every picture instead of comparing.
+    private static var isRecording: Bool {
+        ProcessInfo.processInfo.environment["SNAPSHOT_TESTING_RECORD"] != nil
     }
 
     // MARK: - Drawing a page
@@ -119,21 +140,36 @@ final class KitSnapshotTests: XCTestCase {
 
     // MARK: - Where a picture differs
 
-    /// The approved picture `assertSnapshot` will compare with.
+    /// The approved picture, where SnapshotTesting wrote it when recording.
     private static func reference(file: StaticString, testName: String, name: String) -> URL {
         let test = testName.replacingOccurrences(of: "()", with: "")
         return URL(fileURLWithPath: "\(file)").deletingLastPathComponent()
             .appendingPathComponent("__Snapshots__/KitSnapshotTests/\(test).\(name).png")
     }
 
+    /// The comparison: a pixel differs when a channel moves by more than 8 of 255, and the page
+    /// differs when more than this share of its pixels do. Two settled draws of the same page still
+    /// disagree on a few photo edges and glyph fringes (about 0.1–0.4%); a tint, a frost band, a line
+    /// height or a missing element moves far more.
+    private static let tolerance = 0.5
+
+    private struct Difference {
+        let `where`: String
+        let isBeyondTolerance: Bool
+    }
+
     /// Which rows of the page changed, in pixels, so a failure in CI says where to look without the
-    /// result bundle: `assertSnapshot` only says that the picture does not match. Nil when there is no
-    /// picture yet (recording) or nothing differs.
-    private static func whereItDiffers(_ image: UIImage, from reference: URL) -> String? {
-        guard let old = UIImage(contentsOfFile: reference.path) else { return nil }
-        guard let new = pixels(image), let was = pixels(old) else { return "could not read the pixels" }
+    /// result bundle. Nil when nothing differs.
+    private static func whereItDiffers(_ image: UIImage, from reference: URL) -> Difference? {
+        guard let old = UIImage(contentsOfFile: reference.path) else {
+            return Difference(where: "the picture could not be read", isBeyondTolerance: true)
+        }
+        guard let new = pixels(image), let was = pixels(old) else {
+            return Difference(where: "could not read the pixels", isBeyondTolerance: true)
+        }
         guard new.width == was.width, new.height == was.height else {
-            return "size \(new.width)x\(new.height) px, picture \(was.width)x\(was.height) px"
+            return Difference(where: "size \(new.width)x\(new.height) px, picture \(was.width)x\(was.height) px",
+                              isBeyondTolerance: true)
         }
         var rows: [Int] = []
         var total = 0
@@ -161,8 +197,9 @@ final class KitSnapshotTests: XCTestCase {
         }
         let share = Double(total) / Double(new.width * new.height) * 100
         let list = bands.prefix(12).map { "\($0.from)-\($0.to)" }.joined(separator: ", ")
-        return String(format: "%.2f%% of pixels, in %d band(s) of rows: %@%@",
-                      share, bands.count, list, bands.count > 12 ? ", …" : "")
+        let text = String(format: "%.2f%% of pixels, in %d band(s) of rows: %@%@",
+                          share, bands.count, list, bands.count > 12 ? ", …" : "")
+        return Difference(where: text, isBeyondTolerance: share > tolerance)
     }
 
     /// The new picture at quarter size, as JPEG base64 in 4,000-character lines tagged `SNAPSHOT_B64`,
