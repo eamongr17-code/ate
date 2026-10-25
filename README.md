@@ -19,7 +19,7 @@ cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig   # REQUIRED — see 
 supabase start                      # local backend (Docker)
 open Ate.xcodeproj                  # build the Ate scheme — Debug points at staging
 swift test --package-path AteKit    # unit tests
-xcodebuild test -scheme Ate -only-testing:AteTests -destination "platform=iOS Simulator,name=iPhone 17 Pro"   # design-system snapshots; re-record with [record-snapshots] in a commit message
+xcodebuild test -scheme Ate -only-testing:AteTests -destination "platform=iOS Simulator,name=iPhone 17 Pro"   # design-system pictures (Reduce Motion on); re-record with [record-snapshots] in a commit message
 ```
 
 **`Config/Secrets.xcconfig` is required to build at all**, including for the UI tests: it is
