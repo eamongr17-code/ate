@@ -32,12 +32,17 @@ enum AteTips {
     private static let replaysFirstPostKey = "ate.tips.replaysFirstPost"
 }
 
-/// On the Journal's bell, once there is an entry and the roll holds more meals.
+/// On the Journal's bell, while the roll holds meals not written up — an empty Journal included, so
+/// the bell's count is never unexplained. "More" only once there is an entry for them to be more than.
 struct BellTip: Tip {
     var meals: Int
+    var hasEntries = true
 
     var id: String { "tip.bell.\(AteTips.epoch)" }
-    var title: Text { Text(meals == 1 ? "1 more meal" : "\(meals) more meals") }
+    var title: Text {
+        let more = hasEntries ? " more" : ""
+        return Text(meals == 1 ? "1\(more) meal" : "\(meals)\(more) meals")
+    }
     var message: Text? { Text("Write them up when you have a minute.") }
 }
 

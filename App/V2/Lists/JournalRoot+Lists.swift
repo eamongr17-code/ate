@@ -42,9 +42,12 @@ extension JournalRoot {
         }
     }
 
-    /// The Lists tip, from the fifth entry, while the Journal shelf is the one showing.
+    /// The Lists tip, from the fifth entry, while the Journal shelf is the one showing — and only once
+    /// the bell's tip is done, so two popovers never sit over the header at once.
     private var listsTip: ListsTip? {
-        shelf == .journal && journal.entries.count >= AteTips.listsAfterEntries ? ListsTip() : nil
+        guard shelf == .journal, journal.entries.count >= AteTips.listsAfterEntries else { return nil }
+        if let bellTip, bellTip.shouldDisplay { return nil }
+        return ListsTip()
     }
 
     @ViewBuilder

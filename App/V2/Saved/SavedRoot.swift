@@ -119,7 +119,11 @@ struct SavedRoot: View {
             emptyBand(AteEmptyState(line: "Nothing\nlike that.", art: .search,
                 pill: ("Clear", { apply(BrowseFilters()) })))
         case .empty:
-            emptyBand(AteEmptyState(line: "Nothing saved\nyet.", art: .saved))
+            // The way to a first save is the Feed's bookmark, a tab away: the pill goes there.
+            emptyBand(AteEmptyState(line: "Nothing saved\nyet.", art: .saved, pill: ("Go to the Feed", {
+                app.services.analytics(SocialEvents.savedEmptyFeedTapped())
+                app.requestedTab = .feed
+            })))
         case .signedOut:
             emptyBand(AteEmptyState(line: "Nobody's\nsigned in.", art: .printer))
         case .failed where showsOwn && own.saves.isEmpty == false:

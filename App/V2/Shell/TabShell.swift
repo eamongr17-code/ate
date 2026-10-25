@@ -85,6 +85,11 @@ struct TabShell: View {
             app.linkedInvites = false
             openNotifications()
         }
+        .onChange(of: app.requestedTab) { _, tab in
+            guard let tab else { return }
+            app.requestedTab = nil
+            if tab != selection, mayOpen(tab) { selection = tab }
+        }
         .onChange(of: selection, initial: true) { _, tab in
             router(for: tab)?.shown()
             ScreenTrail.app.visit(tab.rawValue)

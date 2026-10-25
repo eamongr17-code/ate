@@ -34,6 +34,8 @@ final class AppModel {
     let diet: DietStore
     /// A tapped list-invite push, waiting for the shell to open Notifications.
     var linkedInvites = false
+    /// A tab a page asked to go to (Saved's empty "Go to the Feed"), waiting for the shell.
+    var requestedTab: V2Tab?
     private(set) var hasSession: Bool
     private(set) var isSigningIn = false
     /// Apple's display name, first sign-in only: the handle screen's suggestion.
