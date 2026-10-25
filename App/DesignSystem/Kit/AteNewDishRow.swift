@@ -2,19 +2,14 @@ import AteKit
 import SwiftUI
 
 /// **A New to the record row** — the Feed's `.nr`: the dish's thumbnail, the dish over its place, its
-/// badge and the bookmark, with a field-coloured rule under every row but the last. The badge says
-/// why it is new: a secret 6 and a 5.0 are their score tokens (brick and butter), anything else is
-/// "New" on the field colour.
+/// score and the bookmark, with a field-coloured rule under every row but the last. Only a rating
+/// is ever printed there: no "New" pill (Eamon, 25 Oct), and nothing at all when there's no score.
+/// The name is a ranked row's, line box and all, so the same dish reads the same in both sections.
 struct AteNewDishRow: View {
-    enum Badge: Equatable {
-        case score(AteScore)
-        case new
-    }
-
     let photo: AtePhoto
     let name: String
     var place: String?
-    let badge: Badge
+    let score: AteScore?
     var isSaved = false
     var isLast = false
     var onOpen: (() -> Void)?
@@ -29,7 +24,7 @@ struct AteNewDishRow: View {
                     AteThumb(photo: photo, size: .row)
                     VStack(alignment: .leading, spacing: AteNewDishRowMetrics.lineGap) {
                         Text(name)
-                            .ateText(.feedNewDish)
+                            .ateTextExactLifted(.kitRankedDish)
                             .foregroundStyle(palette.fg)
                             .lineLimit(2)
                         if let place {
@@ -40,7 +35,7 @@ struct AteNewDishRow: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    badgeView
+                    AteScoreToken(score)
                 }
                 .contentShape(.rect)
             }
@@ -59,22 +54,6 @@ struct AteNewDishRow: View {
             }
         }
     }
-
-    @ViewBuilder
-    private var badgeView: some View {
-        switch badge {
-        case .score(let score):
-            AteScoreToken(score)
-        case .new:
-            Text("New")
-                .ateText(.feedBadge)
-                .padding(.horizontal, AteNewDishRowMetrics.badgePadding)
-                .padding(.vertical, AteNewDishRowMetrics.badgeVertical)
-                .foregroundStyle(palette.fg)
-                .background(palette.field, in: .capsule)
-                .fixedSize()
-        }
-    }
 }
 
 enum AteNewDishRowMetrics {
@@ -82,9 +61,6 @@ enum AteNewDishRowMetrics {
     static let gap: CGFloat = 12
     static let padding: CGFloat = 10
     static let lineGap: CGFloat = 2
-    /// `.badge{padding:3px 10px}`.
-    static let badgePadding: CGFloat = 10
-    static let badgeVertical: CGFloat = 3
     /// The bookmark's 44 target sits on the column's edge.
     static let saveTrailing: CGFloat = 12
 }
