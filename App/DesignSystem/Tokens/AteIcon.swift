@@ -30,8 +30,10 @@ enum AteIcon: String, CaseIterable {
     case dish
     /// Clear a field or dismiss a cover — Lucide's circle-x, filled, with the cross knocked out.
     case clear
-    /// The Feed's Near me — Lucide's navigation.
+    /// The Feed's Near me, and the dish map's Show my location — Lucide's navigation.
     case navigation
+    /// The Feed's dish map (0088) — Lucide's map.
+    case map
     /// The journal's calendar (round 7) — Lucide's calendar.
     case calendar
     /// A filter chip's "opens a sheet" mark (round 7) — Lucide's chevron-down.
@@ -173,6 +175,12 @@ M11 20a10 10 0 0010-10 25.9 25.9 0 00-1.04-7.281 1 1 0 00-1.755-.325C15.833 5.5 
             [AteVector.circle(12, 12, 10)]
         case .navigation: // navigation
             [Self.path("M3 11L22 2L13 21L11 13Z")]
+        case .map: // map
+            [Self.path("""
+M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1\
+-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 \
+0 0 1 1.788 0z
+"""), Self.path("M15 5.764v15"), Self.path("M9 3.236v15")]
         case .calendar: // calendar
             [Self.path("M8 2v4"), Self.path("M16 2v4"), AteVector.rectangle(3, 4, 18, 18, 2), Self.path("M3 10h18")]
         case .chevronDown: // chevron-down

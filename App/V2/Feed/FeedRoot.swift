@@ -7,7 +7,7 @@ import SwiftUI
 ///
 /// The chrome is the glass header: "Feed" with its city as the subtitle, stepping away with your
 /// scroll down and back with your scroll up (`lighter-header.html`, B), and one trailing
-/// glass group holding only the area pin, which opens the area sheet
+/// glass group holding the map (the dish map, ``FeedMapPage``) and the area pin, which opens the area sheet
 /// (Near me, Everywhere, the cities — ``FeedAreaSheet``). Following lives on each category's own
 /// page (4 Oct). It opens on your Journal's city; location is asked for only when Near me is picked
 /// (``V2FeedStores``). Signed out, The Top Ate and the latest receipts are the page.
@@ -70,6 +70,11 @@ struct FeedRoot: View {
             subtitle: subtitle,
             hidden: barHidden,
             controls: {
+                // The dish map (0088): what people have eaten around you. Signed in, as its reads are.
+                if app.hasSession {
+                    AteGlassItem(icon: .map, label: FeedMapCopy.open) { router.open(.map, from: .feed) }
+                        .accessibilityIdentifier("feed.map")
+                }
                 if AteBeta.isOn == false {
                     AteGlassItem(icon: .place, label: "Area") { isChoosingArea = true }
                         .accessibilityIdentifier("feed.area")

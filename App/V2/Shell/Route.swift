@@ -31,12 +31,14 @@ enum Route: Hashable {
     case notifications
     /// One of your lists (0060), pushed from the Journal's Lists shelf.
     case list(ListRoute)
+    /// The dish map (0088), pushed from the Feed's map button.
+    case map
 
     /// Whether this destination exists yet.
     var isBuilt: Bool {
         switch self {
         case .entry, .suggestions, .profile, .place, .dish, .tag, .ratings, .settings, .following, .notifications,
-             .list:
+             .list, .map:
             true
         }
     }

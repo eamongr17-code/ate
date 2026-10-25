@@ -35,6 +35,8 @@ enum AteMotion {
     /// movement, for the one card that cannot be a system sheet (`share-to-ate.html`). With Reduce
     /// Motion it is simply there.
     static let cardRise = Animation.spring(duration: 0.4, bounce: 0)
+    /// A map pin tapped: it grows and its two photos fan apart (`nearby-map.html`), with a little give.
+    static let pinFan = Animation.spring(duration: 0.3, bounce: 0.3)
 }
 
 extension View {

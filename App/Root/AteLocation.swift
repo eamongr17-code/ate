@@ -4,8 +4,9 @@ import Foundation
 
 /// **Where the phone is — asked for once, on one screen.**
 ///
-/// The permission is requested when `PlaceSheet` opens and nowhere else, because that is the only
-/// moment the app has a use for it: listing the rooms around you so you can tap one. The composer's
+/// The permission is requested when `PlaceSheet` opens, and when the dish map opens from the Feed
+/// (0088), because those are the moments the app has a use for it: listing the rooms around you so
+/// you can tap one, and putting you on the map. The composer's
 /// + reads it early without asking (``current(mayAsk:)``), so that list is ready when the sheet is. Design rule 8
 /// still holds with no asterisk — **nothing is ever attached from a location**. A place gets onto an
 /// entry because it was named or tapped, and a refused permission costs exactly one section.
