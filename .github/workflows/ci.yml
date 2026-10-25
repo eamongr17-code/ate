@@ -123,6 +123,7 @@ jobs:
             ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
             -resultBundlePath snapshots.xcresult > snapshots.log 2>&1 || {
               grep -E "error:|Test Case .*failed|\*\* TEST" snapshots.log | sort -u | head -40
+              grep "SNAPSHOT_B64" snapshots.log || true
               echo "::error title=Design-system pictures changed::A gallery page no longer matches AteTests/__Snapshots__. Open the snapshots.xcresult artifact for the diff. If the change is intended, push a commit whose message contains [record-snapshots]."
               exit 1
             }

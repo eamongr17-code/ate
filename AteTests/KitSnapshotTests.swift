@@ -60,6 +60,7 @@ final class KitSnapshotTests: XCTestCase {
             let picture = Self.reference(file: file, testName: testName, name: name)
             if let place = Self.whereItDiffers(image, from: picture) {
                 XCTFail("\(section) (\(name)) differs from its picture: \(place)", file: file, line: line)
+                Self.printThumbnail(of: image, as: "\(section).\(name)")
             }
             assertSnapshot(
                 of: image,
@@ -115,6 +116,29 @@ final class KitSnapshotTests: XCTestCase {
         let list = bands.prefix(12).map { "\($0.from)-\($0.to)" }.joined(separator: ", ")
         return String(format: "%.2f%% of pixels, in %d band(s) of rows: %@%@",
                       share, bands.count, list, bands.count > 12 ? ", …" : "")
+    }
+
+    /// The new picture at quarter size, as JPEG base64 in 4,000-character lines tagged `SNAPSHOT_B64`,
+    /// so a reader with only the CI log can see what was drawn (the result bundle is a download CI's
+    /// reader cannot fetch). Reassemble: join the lines of one name in order, base64-decode.
+    private static func printThumbnail(of image: UIImage, as name: String) {
+        let size = CGSize(width: image.size.width / 2, height: image.size.height / 2)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let small = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
+        guard let data = small.jpegData(compressionQuality: 0.5) else { return }
+        let text = data.base64EncodedString()
+        let step = 4_000
+        let parts = stride(from: 0, to: text.count, by: step).map { start -> Substring in
+            let from = text.index(text.startIndex, offsetBy: start)
+            let to = text.index(from, offsetBy: min(step, text.count - start))
+            return text[from..<to]
+        }
+        for (index, part) in parts.enumerated() {
+            print("SNAPSHOT_B64 \(name) \(index + 1)/\(parts.count) \(part)")
+        }
     }
 
     private struct Pixels {
