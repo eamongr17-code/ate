@@ -57,7 +57,7 @@ struct AteShareCard: View {
 
     private var page: some View {
         let size = format.pageSize
-        let scale = format.receiptScale(on: look.ground)
+        let scale = format.receiptScale(on: look.ground, mini: look.isMini)
         return ZStack(alignment: .topLeading) {
             if layer != .receipt {
                 ground(size: size)
@@ -76,7 +76,7 @@ struct AteShareCard: View {
         let drag = DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { onDragReceipt?($0.translation) }
             .onEnded { _ in onDragReceipt?(nil) }
-        return AteShareSlip(receipt: receipt)
+        return AteShareSlip(receipt: receipt, isMini: look.isMini)
             .onGeometryChange(for: CGSize.self) { $0.size } action: { onReceiptSize?($0) }
             .scaleEffect(scale * (isReceiptHeld ? AteShareCardMetrics.heldLift : 1), anchor: .topLeading)
             .animation(.snappy(duration: 0.15), value: isReceiptHeld)
@@ -139,21 +139,22 @@ enum AteShareFormat: String, CaseIterable, Identifiable {
 
     /// The receipt's scale on the page. On a photo, about half the page's width, so it covers as
     /// little of the dish as it can (22 Oct); on an accent story, about three quarters, under the print.
-    func receiptScale(on ground: AteShareGround) -> CGFloat {
-        switch self {
+    /// The mini receipt is smaller again (25 Oct).
+    func receiptScale(on ground: AteShareGround, mini: Bool = false) -> CGFloat {
+        let scale: CGFloat = switch self {
         case .sticker: 1
         case .story: ground == .photo ? 0.95 : 1.3
         case .post: 0.85
         }
+        return self == .sticker || mini == false ? scale : scale * AteShareCardMetrics.miniScale
     }
 
-    /// The edges the receipt keeps clear of: on a story, Instagram's name bar at the top and its reply
-    /// bar at the foot.
+    /// The edges the receipt keeps clear of: a hair from every edge of the page. (25 Oct, Eamon: a
+    /// story no longer keeps Instagram's bars clear; the receipt goes anywhere it is put.)
     var receiptClear: EdgeInsets {
         switch self {
         case .sticker: EdgeInsets()
-        case .story: EdgeInsets(top: 72, leading: 16, bottom: 56, trailing: 16)
-        case .post: EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16)
+        case .story, .post: EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16)
         }
     }
 }
@@ -198,6 +199,8 @@ struct AteShareLook: Equatable {
     /// it starts.
     var storyReceipt: UnitPoint?
     var postReceipt: UnitPoint?
+    /// The mini receipt on the story and the post.
+    var isMini = false
 
     func framing(for format: AteShareFormat) -> PhotoFraming {
         format == .post ? postFraming : storyFraming
@@ -298,6 +301,8 @@ enum AteShareCardMetrics {
     /// The blur on the photo filling the room a zoomed-out photo leaves.
     static let fillBlur: CGFloat = 28
     static let previewRadius: CGFloat = 16
+    /// The mini receipt, against the regular one on the same card.
+    static let miniScale: CGFloat = 0.6
     /// How much the receipt grows while it is held.
     static let heldLift: CGFloat = 1.04
 }
