@@ -61,6 +61,15 @@ public struct MapBox: Sendable, Hashable {
         longitudeDelta * 111_320 * max(cos(centerLatitude * .pi / 180), 0)
     }
 
+    /// The same box with `fraction` of its span added on every side: the pins are read this far past
+    /// the screen, so a place panned back into view is already on the map, not drawn after the stop.
+    public func grown(by fraction: Double) -> MapBox {
+        MapBox(
+            centerLatitude: centerLatitude, centerLongitude: centerLongitude,
+            latitudeDelta: latitudeDelta * (1 + 2 * fraction), longitudeDelta: longitudeDelta * (1 + 2 * fraction)
+        )
+    }
+
     public func contains(latitude: Double, longitude: Double) -> Bool {
         (minLatitude...maxLatitude).contains(latitude) && (minLongitude...maxLongitude).contains(longitude)
     }

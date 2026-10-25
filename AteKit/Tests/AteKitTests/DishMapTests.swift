@@ -78,6 +78,27 @@ struct DishMapTests {
 
     // MARK: - Framing, title, distance
 
+    @Test("places read past the screen are dots, and never take a photo from one on screen")
+    func pastTheScreen() {
+        let onScreen = DishMapLayout.Candidate(id: UUID(), across: 380, down: 100, score: 3, dishCount: 1)
+        let beyond = DishMapLayout.Candidate(id: UUID(), across: 600, down: 100, score: 5, dishCount: 1)
+        let edge = DishMapLayout.Candidate(id: UUID(), across: 410, down: 100, score: 4, dishCount: 1)
+        let arrangement = DishMapLayout.arrange(
+            [onScreen, beyond, edge], widthMeters: 2_000, screenWidth: 393, screenHeight: 852
+        )
+        #expect(arrangement.photos == [onScreen.id])
+        #expect(arrangement.dots.map(\.members) == [[beyond.id]], "a dot past the edge never sits on a photo")
+    }
+
+    @Test("pins are read half a screen past each edge; the box shown stays the screen")
+    func readsAhead() {
+        let box = MapBox(centerLatitude: -37.8, centerLongitude: 144.98, latitudeDelta: 0.02, longitudeDelta: 0.03)
+        let grown = box.grown(by: 0.5)
+        #expect(abs(grown.latitudeDelta - 0.04) < 1e-9)
+        #expect(abs(grown.longitudeDelta - 0.06) < 1e-9)
+        #expect(abs(grown.centerLatitude - box.centerLatitude) < 1e-9)
+    }
+
     @Test("the opening frame holds the phone and every place, with room at the edges")
     func framing() throws {
         let points = [
@@ -263,10 +284,30 @@ struct DishMapTests {
         store.name(area: "Carlton", for: carlton)
         #expect(store.title == .area("Carlton"))
 
+        let listedBeforeReturn = reads.listed.withLock { $0.count }
         let fix = await store.backToNearMe()
         #expect(fix == fitzroy)
         #expect(store.listing == .nearMe(fitzroy))
         #expect(store.title == .nearMe)
+        #expect(store.dishes.map(\.name) == ["Near"])
+        #expect(reads.listed.withLock { $0.count } == listedBeforeReturn, "Near me came back without a read")
+    }
+
+    @Test("my location a few metres off the last fix keeps the list; far off reads it again")
+    func nearMeHoldsStill() async throws {
+        let reads = Reads(nearest: [], dishes: [dish("Near", meters: 350)])
+        let store = DishMapStore(reads: reads, menus: Menus(), locate: { _ in self.fitzroy })
+        await store.open()
+        let reads0 = reads.listed.withLock { $0.count }
+        let wandered = SearchOrigin(latitude: fitzroy.latitude + 0.0003, longitude: fitzroy.longitude)
+        await store.listNearMe(wandered)
+        #expect(store.listing == .nearMe(fitzroy))
+        #expect(store.phase == .ready)
+        #expect(reads.listed.withLock { $0.count } == reads0)
+        let moved = SearchOrigin(latitude: fitzroy.latitude + 0.01, longitude: fitzroy.longitude)
+        await store.listNearMe(moved)
+        #expect(store.listing == .nearMe(moved))
+        #expect(reads.listed.withLock { $0.count } > reads0)
     }
 
     @Test("a read that lands after a newer one was asked for is dropped")

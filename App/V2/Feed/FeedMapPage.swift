@@ -13,7 +13,13 @@ import SwiftUI
 /// The sheet lies over the bottom (``FeedMapSheet``) and is part of the page, not a presented sheet:
 /// it goes with the page on Back, never lingers over the Feed, and never stands between the map and
 /// your finger. It lists Near me and holds still while you pan; Search here lists what is on screen.
-/// It reads only what is on screen, once the map stops moving (0088).
+/// It reads once the map stops moving (0088), half a screen past each edge, so a place panned back
+/// into view is already there.
+///
+/// The map never changes size or insets as the sheet moves (build 216: it was laid out above the
+/// sheet, so every drag resized it, the camera re-fitted mid-animation and the page showed through
+/// behind the glass). The sheet slides over a still map; the camera frames its views clear of the
+/// resting sheet itself (``FeedMapFraming``).
 struct FeedMapPage: View {
     let context: V2PageContext
 
@@ -23,7 +29,8 @@ struct FeedMapPage: View {
     @State private var marks: [FeedMapMark] = []
     @State private var region: MKCoordinateRegion?
     @State private var detent = FeedMapDetent.low
-    @State private var areaLookup: Task<Void, Never>?
+    @State private var framing: FeedMapFraming?
+    @State private var showsSearchHere = false
 
     init(context: V2PageContext) {
         self.context = context
@@ -40,13 +47,11 @@ struct FeedMapPage: View {
             let room = FeedMapRoom(page: page)
             ZStack(alignment: .bottom) {
                 map
-                    // The map's own bottom is the sheet's top: the camera frames what is above it,
-                    // and the Apple Maps mark and Legal sit just over it, following it as it settles
-                    // (build 215: the mark floated mid-screen over a minimised sheet). Never higher
-                    // than the resting height: tall, the sheet covers the map as the system's does.
-                    .safeAreaPadding(.bottom, mapBottom(room))
+                    // The Apple Maps mark and Legal sit just over the minimised sheet (build 215: it
+                    // floated mid-screen), and the sheet covers them when it rises, as when tall.
+                    // Fixed: never animated with the sheet (build 216).
+                    .safeAreaPadding(.bottom, FeedMapFraming(room: room).minimisedBottom)
                     .ignoresSafeArea()
-                    .ateAnimation(AteMotion.panelSettle, value: detent)
                 FeedMapSheet(
                     store: store,
                     detent: $detent,
@@ -57,17 +62,7 @@ struct FeedMapPage: View {
                 // Measured from the screen's bottom edge, not the safe area's (build 215).
                 .ignoresSafeArea()
             }
-            .overlay(alignment: .top) {
-                // In the top bar's row, between Back and Show my location.
-                if store.canSearchHere, store.selected == nil {
-                    FeedMapSearchHere(action: searchHere)
-                        .padding(.top, room.barMiddle - AteMetrics.hit / 2)
-                        // Measured from the screen's top, so it sits in the bar's row, not under it.
-                        .ignoresSafeArea()
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                }
-            }
-            .ateAnimation(AteMotion.fillIn, value: store.canSearchHere)
+            .onChange(of: FeedMapFraming(room: room), initial: true) { _, measured in framing = measured }
             // The whole screen: the map under the bars, the sheet down to the screen's edge.
             .frame(width: AteScreen.width, height: room.screen)
             .ignoresSafeArea()
@@ -76,6 +71,14 @@ struct FeedMapPage: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(removing: .title)
         .toolbar {
+            // In the top bar's row, between Back and Show my location, and in the bar itself: drawn
+            // in the page under the bar, the bar took its taps (build 216, it did nothing).
+            if showsSearchHere, store.selected == nil {
+                ToolbarItem(placement: .principal) {
+                    FeedMapSearchHere(action: searchHere)
+                }
+                .sharedBackgroundVisibility(.hidden)
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { Task { await backToNearMe() } } label: {
                     AteIcon.navigation.view(size: AteGlassDiscMetrics.glyph)
@@ -86,7 +89,11 @@ struct FeedMapPage: View {
         }
         .task { await store.open() }
         .onChange(of: store.frame) { _, frame in
-            if let frame { position = .region(MKCoordinateRegion(frame)) }
+            if let frame { position = .region(framing?.region(frame, detent: detent) ?? MKCoordinateRegion(frame)) }
+        }
+        // The bar's items take no implicit animation; Search here fades in and out by hand.
+        .onChange(of: store.canSearchHere) { _, can in
+            withAnimation(AteMotion.fillIn) { showsSearchHere = can }
         }
         // An area list is titled with its suburb.
         .task(id: store.listing) {
@@ -112,7 +119,9 @@ struct FeedMapPage: View {
             .onMapCameraChange(frequency: .onEnd) { camera in
                 region = camera.region
                 relayout(proxy)
-                Task { await store.show(MapBox(camera.region)) }
+                let shown = visibleBox(proxy) ?? MapBox(camera.region)
+                let reading = MapBox(camera.region).grown(by: FeedMapMetrics.readAhead)
+                Task { await store.show(shown, reading: reading) }
             }
             .onChange(of: store.places) { relayout(proxy) }
             .onChange(of: store.selected) { relayout(proxy) }
@@ -137,6 +146,7 @@ struct FeedMapPage: View {
             .buttonStyle(.plain)
             .accessibilityLabel(FeedMapCopy.pinLabel(place))
             .accessibilityAddTraits(isSelected ? .isSelected : [])
+            .modifier(FeedMapPinEntrance())
         case .dot(let members):
             Button {
                 Task { await tapDot(members) }
@@ -145,6 +155,7 @@ struct FeedMapPage: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(FeedMapCopy.dotLabel(members))
+            .modifier(FeedMapPinEntrance())
         }
     }
 
@@ -159,17 +170,28 @@ struct FeedMapPage: View {
                 id: place.id, across: point.x, down: point.y, score: place.topScore, dishCount: place.dishCount
             )
         }
-        let arrangement = DishMapLayout.arrange(candidates, selected: store.selected?.id, widthMeters: width)
+        let arrangement = DishMapLayout.arrange(
+            candidates, selected: store.selected?.id, widthMeters: width,
+            screenWidth: AteScreen.width, screenHeight: AteScreen.height
+        )
         let photos = store.places.filter { arrangement.photos.contains($0.id) }.map(FeedMapMark.photo)
         let dots = arrangement.dots.map { dot in FeedMapMark.dot(dot.members.compactMap { located[$0] }) }
         marks = photos + dots.compactMap { $0 }
     }
 
-    private func mapBottom(_ room: FeedMapRoom) -> CGFloat {
-        let resting = detent == .minimised
-            ? room.height(.minimised, head: FeedMapSheetMetrics.headEstimate)
-            : FeedMapMetrics.lowHeight
-        return resting + FeedMapSheetMetrics.inset
+    /// What is on screen and not under the sheet at rest: what Search here lists, and what it
+    /// measures the map's moves against.
+    private func visibleBox(_ proxy: MapProxy) -> MapBox? {
+        guard let framing,
+              let topLeft = proxy.convert(CGPoint(x: 0, y: framing.top), from: .local),
+              let bottomRight = proxy.convert(
+                CGPoint(x: AteScreen.width, y: framing.clearBottom(detent)), from: .local
+              )
+        else { return nil }
+        return MapBox(
+            minLatitude: bottomRight.latitude, minLongitude: topLeft.longitude,
+            maxLatitude: topLeft.latitude, maxLongitude: bottomRight.longitude
+        )
     }
 
     private func select(_ place: MapPlace) async {
@@ -185,7 +207,12 @@ struct FeedMapPage: View {
         }
         guard let box = MapBox.fitting(members.map(\.origin), padding: 0.4, minimumSpan: FeedMapMetrics.dotZoomSpan)
         else { return }
-        withAnimation(AteMotion.mapGlide) { position = .region(MKCoordinateRegion(box)) }
+        glide(to: box)
+    }
+
+    private func glide(to box: MapBox) {
+        let target = framing?.region(box, detent: detent) ?? MKCoordinateRegion(box)
+        withAnimation(AteMotion.mapGlide) { position = .region(target) }
     }
 
     private func searchHere() {
@@ -194,10 +221,17 @@ struct FeedMapPage: View {
     }
 
     /// Show my location: glide to the phone at the opening view's 2 km, the sheet back on Near me.
+    /// The glide starts on the tap, from the last fix, before any read: build 216 waited for the fix
+    /// and the whole list first, then set the camera in the same update as the rows landing, and the
+    /// map took the jump without the glide. A fresh fix far from the last one glides on to it.
     private func backToNearMe() async {
-        guard let fix = await store.backToNearMe() else { return }
-        let box = MapBox.around(fix, radiusMeters: DishMapStore.nearRadius)
-        withAnimation(AteMotion.mapGlide) { position = .region(MKCoordinateRegion(box)) }
+        let last = store.phone
+        if let last { glide(to: MapBox.around(last, radiusMeters: DishMapStore.nearRadius)) }
+        guard let fix = await store.locateAgain() else { return }
+        if last.map({ DishMapStore.isSameSpot($0, fix) }) != true {
+            glide(to: MapBox.around(fix, radiusMeters: DishMapStore.nearRadius))
+        }
+        await store.listNearMe(fix)
     }
 
     /// The suburb in the middle of an area, for its title ("Carlton").
@@ -205,6 +239,74 @@ struct FeedMapPage: View {
         guard let request = MKReverseGeocodingRequest(location: CLLocation(latitude: latitude, longitude: longitude))
         else { return nil }
         return try? await request.mapItems.first?.addressRepresentations?.cityName
+    }
+}
+
+/// **Where the camera puts a view**: the map's insets never move (the sheet slides over it), so a
+/// box is framed into what the resting sheet leaves clear: centred there and fitting there, the way
+/// the map's own safe area used to frame it.
+struct FeedMapFraming: Equatable {
+    /// Down from the screen's top to the top bar's bottom.
+    let top: CGFloat
+    let screen: CGFloat
+    let width: CGFloat
+    /// The minimised sheet's top, up from the screen's bottom: the map's bottom inset.
+    let minimisedBottom: CGFloat
+    /// The resting sheet's top, up from the screen's bottom.
+    let lowBottom: CGFloat
+
+    @MainActor
+    init(room: FeedMapRoom) {
+        top = room.topInset
+        screen = room.screen
+        width = AteScreen.width
+        minimisedBottom = room.height(.minimised, head: FeedMapSheetMetrics.headEstimate) + FeedMapSheetMetrics.inset
+        lowBottom = FeedMapMetrics.lowHeight + FeedMapSheetMetrics.inset
+    }
+
+    /// Down from the screen's top to the sheet's top as it rests (tall frames as resting does).
+    func clearBottom(_ detent: FeedMapDetent) -> CGFloat {
+        screen - (detent == .minimised ? minimisedBottom : lowBottom)
+    }
+
+    /// The region that shows `box` whole and centred in what the sheet leaves clear.
+    func region(_ box: MapBox, detent: FeedMapDetent) -> MKCoordinateRegion {
+        let metersPerDegree = 111_320.0
+        let shrink = max(cos(box.centerLatitude * .pi / 180), 0.01)
+        // The map's own frame: under the top bar, down to the minimised sheet.
+        let framed = Double(max(screen - top - minimisedBottom, 1))
+        let clear = Double(max(clearBottom(detent) - top, 1))
+        let across = Double(max(width, 1))
+        let metersPerPoint = max(box.widthMeters / across, box.latitudeDelta * metersPerDegree / clear)
+        // The clear part's middle sits this far above the framed part's middle.
+        let lift = (framed - clear) / 2
+        return MKCoordinateRegion(
+            center: CLLocationCoordinate2D(
+                latitude: box.centerLatitude - lift * metersPerPoint / metersPerDegree,
+                longitude: box.centerLongitude
+            ),
+            span: MKCoordinateSpan(
+                latitudeDelta: framed * metersPerPoint / metersPerDegree,
+                longitudeDelta: across * metersPerPoint / metersPerDegree / shrink
+            )
+        )
+    }
+}
+
+/// A pin or a dot coming into view (built, or panned back on screen) grows in from a little smaller,
+/// fading up, rather than flashing on (build 216). With Reduce Motion it is simply there.
+private struct FeedMapPinEntrance: ViewModifier {
+    @State private var isIn = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isIn || reduceMotion ? 1 : AteMotion.pinInScale)
+            .opacity(isIn || reduceMotion ? 1 : 0)
+            .onAppear {
+                guard isIn == false else { return }
+                withAnimation(AteMotion.pinIn) { isIn = true }
+            }
     }
 }
 
@@ -265,6 +367,8 @@ enum FeedMapMetrics {
     static let lowHeight: CGFloat = 320
     /// A tapped dot zooms to at least this span (degrees, a few blocks), so its places split apart.
     static let dotZoomSpan: Double = 0.004
+    /// Pins are read this much of the screen past each edge.
+    static let readAhead: Double = 0.5
     static let searchGlyph: CGFloat = 17
 }
 

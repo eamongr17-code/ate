@@ -74,6 +74,8 @@ public final class DishMapStore {
     private var listGeneration = 0
     private var nextCursor: MapDishCursor?
     private var isLoadingMore = false
+    /// Near me's first page, as last read: the location button brings it back without a read.
+    private var lastNearMe: (phone: SearchOrigin, dishes: [MapDish], next: MapDishCursor?)?
 
     public init(
         reads: any DishMapReading,
@@ -129,12 +131,14 @@ public final class DishMapStore {
         }
     }
 
-    /// The map stopped moving on `box`: read its pins. The sheet stays as it is.
-    public func show(_ box: MapBox) async {
+    /// The map stopped moving on `box` (what is on screen, clear of the sheet): read its pins, from
+    /// `reading` when the view reads past the screen's edges. The sheet stays as it is.
+    public func show(_ box: MapBox, reading: MapBox? = nil) async {
         self.box = box
         pinGeneration += 1
         let mine = pinGeneration
-        guard let newPlaces = try? await reads.places(in: box, origin: phone, limit: Self.placesPerRead),
+        let read = reading ?? box
+        guard let newPlaces = try? await reads.places(in: read, origin: phone, limit: Self.placesPerRead),
               mine == pinGeneration else { return }
         places = newPlaces
         if let selected, newPlaces.contains(where: { $0.id == selected.id }) == false {
@@ -151,13 +155,48 @@ public final class DishMapStore {
     }
 
     /// The location button: the phone again, and the sheet back on Near me. Returns the fix, for the
-    /// view to glide the camera to.
+    /// view to glide the camera to. The view glides first (``locateAgain()``, then ``listNearMe(_:)``),
+    /// so the camera never waits on a read.
     public func backToNearMe() async -> SearchOrigin? {
-        guard let fix = await locate(true) else { return nil }
-        phone = fix
-        analytics(MapEvents.recentred())
-        if listing != .nearMe(fix) { await list(.nearMe(fix)) }
+        guard let fix = await locateAgain() else { return nil }
+        await listNearMe(fix)
         return fix
+    }
+
+    /// A fresh fix for the location button. `nil` without the permission.
+    public func locateAgain() async -> SearchOrigin? {
+        guard let fix = await locate(true) else { return nil }
+        analytics(MapEvents.recentred())
+        return fix
+    }
+
+    /// The sheet back on Near me around `fix`. The same spot (GPS wanders a few metres between fixes)
+    /// keeps the list it has, or gets back the Near me it last read, instantly: no rows blanking to
+    /// placeholders and filling again (build 216).
+    public func listNearMe(_ fix: SearchOrigin) async {
+        if case .some(.nearMe(let listed)) = listing, Self.isSameSpot(listed, fix) { return }
+        if let kept = lastNearMe, Self.isSameSpot(kept.phone, fix) {
+            phone = kept.phone
+            listGeneration += 1
+            listing = .nearMe(kept.phone)
+            listedArea = nil
+            dishes = kept.dishes
+            nextCursor = kept.next
+            hasMoreDishes = kept.next != nil
+            phase = .ready
+            return
+        }
+        phone = fix
+        await list(.nearMe(fix))
+    }
+
+    /// Two fixes this close are the same Near me.
+    public nonisolated static let sameSpotMeters: Double = 100
+
+    public nonisolated static func isSameSpot(_ a: SearchOrigin, _ b: SearchOrigin) -> Bool {
+        let down = (a.latitude - b.latitude) * 111_320
+        let across = (a.longitude - b.longitude) * 111_320 * cos(a.latitude * .pi / 180)
+        return (down * down + across * across).squareRoot() <= sameSpotMeters
     }
 
     /// The suburb of an area listing, looked up by the view. Kept only while that is still the list.
@@ -225,6 +264,7 @@ public final class DishMapStore {
             nextCursor = fill.next
             hasMoreDishes = fill.next != nil
             phase = .ready
+            if case .nearMe(let fix) = listing { lastNearMe = (fix, fill.items, fill.next) }
         } catch {
             guard mine == listGeneration else { return }
             phase = .failed
