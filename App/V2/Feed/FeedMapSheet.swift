@@ -188,6 +188,9 @@ struct FeedMapSheet: View {
         case .failed:
             AteEmptyState(line: FeedMapCopy.unreachable, art: .torn, pill: (FeedMapCopy.tryAgain, retry))
                 .accessibilityIdentifier("map.unreachable")
+        case .offline:
+            AteEmptyState(line: FeedMapCopy.noConnection, art: .torn, pill: (FeedMapCopy.tryAgain, retry))
+                .accessibilityIdentifier("map.offline")
         case .ready:
             Text(store.title.emptyLine)
                 .ateText(.meta)
