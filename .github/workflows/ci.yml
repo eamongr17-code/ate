@@ -95,6 +95,47 @@ jobs:
             -configuration Debug ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build > build.log 2>&1 || { grep -E "(error|fatal error):" build.log | sort -u | head -40; tail -50 build.log; exit 1; }
           tail -2 build.log
 
+      # The kit's visual contract: AteTests draws every page of the component gallery, light and dark,
+      # and compares it with the approved pictures in AteTests/__Snapshots__. A frost band, a tint or a
+      # line height fails here, before a build. Re-record on purpose with a [record-snapshots] commit
+      # (snapshots.yml); this step never records. On failure the result bundle (with the diff images
+      # as attachments) is uploaded below.
+      - name: Boot simulator for snapshots
+        id: snapsim
+        if: needs.changes.outputs.app == 'true'
+        run: |
+          udid=$(xcrun simctl create snap-sim "iPhone 17 Pro")
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
+      - name: Design-system snapshots (light + dark)
+        if: needs.changes.outputs.app == 'true'
+        run: |
+          set -o pipefail
+          xcodebuild test -project Ate.xcodeproj -scheme Ate \
+            -destination "id=${{ steps.snapsim.outputs.udid }}" \
+            -only-testing:AteTests \
+            -clonedSourcePackagesDirPath "$SPM_CLONES" \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
+            -resultBundlePath snapshots.xcresult > snapshots.log 2>&1 || {
+              grep -E "error:|Test Case .*failed|\*\* TEST" snapshots.log | sort -u | head -40
+              echo "::error title=Design-system pictures changed::A gallery page no longer matches AteTests/__Snapshots__. Open the snapshots.xcresult artifact for the diff. If the change is intended, push a commit whose message contains [record-snapshots]."
+              exit 1
+            }
+          grep -E "Test Case .*passed|\*\* TEST" snapshots.log | tail -6
+
+      - name: Upload snapshot result bundle
+        if: failure() && needs.changes.outputs.app == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshots-${{ github.run_number }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            snapshots.log
+            snapshots.xcresult
+
       # Beta is the config the TestFlight lane archives, and it is NOT a DEBUG build — a #Preview
       # referencing a #if DEBUG helper compiles fine above but breaks the release lane. Unsigned
       # compile only; signing/upload stay in beta.yml. On main only: a PR that breaks it is caught

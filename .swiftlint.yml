@@ -6,6 +6,7 @@ included:
   - ShareExtension
   - AteKit/Sources
   - AteKit/Tests
+  - AteTests
 
 excluded:
   - AteKit/.build
