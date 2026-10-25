@@ -151,25 +151,34 @@ enum AteRangeSliderMetrics {
     static let thumbShadow = AteColor.ink.opacity(0.22)
 }
 
-/// **The rating's range**: 0.5 … 5.0 in halves, then the secret 6; the whole numbers labelled.
+/// **The rating's range**: 0.5 … 5.0 in halves, then the secret 6; the whole numbers labelled. The 6
+/// is drawn only for someone who has given one (``ScoreBand/values(includingSix:)``).
 struct AteScoreRangeSlider: View {
     @Binding var band: ScoreBand
+    var includesSix = true
 
     var body: some View {
+        let track = ScoreBand.values(includingSix: includesSix)
         AteRangeSlider(
-            stops: ScoreBand.stops,
+            stops: track.count,
             lower: Binding(
-                get: { ScoreBand.index(of: band.lower) },
-                set: { band = ScoreBand(lower: ScoreBand.values[$0], upper: band.upper) }
+                get: { ScoreBand.stop(of: band.lower, includingSix: includesSix) },
+                set: {
+                    let value = ScoreBand.value(atStop: $0, for: .lower, includingSix: includesSix)
+                    band = ScoreBand(lower: value, upper: band.upper)
+                }
             ),
             upper: Binding(
-                get: { ScoreBand.index(of: band.upper) },
-                set: { band = ScoreBand(lower: band.lower, upper: ScoreBand.values[$0]) }
+                get: { ScoreBand.stop(of: band.upper, includingSix: includesSix) },
+                set: {
+                    let value = ScoreBand.value(atStop: $0, for: .upper, includingSix: includesSix)
+                    band = ScoreBand(lower: band.lower, upper: value)
+                }
             ),
-            labels: ScoreBand.values.enumerated()
+            labels: track.enumerated()
                 .filter { $0.element == $0.element.rounded() }
                 .map { (stop: $0.offset, text: String(Int($0.element))) },
-            valueText: { ScoreFormat.halfStep(ScoreBand.values[$0]) },
+            valueText: { ScoreFormat.halfStep(track[$0]) },
             lowerName: "Lowest score",
             upperName: "Highest score",
             identifier: "filter.score"

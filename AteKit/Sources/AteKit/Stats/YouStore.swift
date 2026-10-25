@@ -29,11 +29,14 @@ public final class YouStore {
 
     private let stats: any StatsReading
     private let timeZone: TimeZone
+    /// Told who you are when your chart holds a 6 — how the filters learn the 6 has been found.
+    private let foundSix: (@MainActor (UUID) -> Void)?
     private var hasLoaded = false
 
-    public init(stats: any StatsReading, timeZone: TimeZone = .current) {
+    public init(stats: any StatsReading, timeZone: TimeZone = .current, foundSix: (@MainActor (UUID) -> Void)? = nil) {
         self.stats = stats
         self.timeZone = timeZone
+        self.foundSix = foundSix
     }
 
     /// The summary, once it is known.
@@ -70,6 +73,7 @@ public final class YouStore {
         hasLoaded = true
         phase = summary.map(Phase.ready) ?? .unavailable
         if let buckets { histogram = buckets }
+        if let buckets, buckets.dishCount(at: ScoreHistogram.six) > 0 { foundSix?(viewer) }
         if let months { month = StatementMonths(summaries: months).newest }
         // The chart says which scores hold a top dish, so only those are read, best first.
         let stats = stats

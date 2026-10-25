@@ -8,6 +8,8 @@ import SwiftUI
 struct JournalFilterSheet: View {
     let shelf: BrowseChip.Shelf
     let cities: [AteCity]
+    /// Whether the Rating range offers the 6 — only once you have given one.
+    let includesSix: Bool
     let onShow: (BrowseFilters) -> Void
 
     @State private var draft: BrowseFilters
@@ -18,11 +20,13 @@ struct JournalFilterSheet: View {
         shelf: BrowseChip.Shelf,
         initial: BrowseFilters,
         cities: [AteCity],
+        includesSix: Bool,
         count: @escaping @Sendable (BrowseFilters) async throws -> Int,
         onShow: @escaping (BrowseFilters) -> Void
     ) {
         self.shelf = shelf
         self.cities = cities
+        self.includesSix = includesSix
         self.onShow = onShow
         _draft = State(initialValue: initial)
         _live = State(initialValue: LiveCount(read: count))
@@ -47,7 +51,7 @@ struct JournalFilterSheet: View {
                     }
                 }
                 AteFilterGroup(icon: .star, title: "Rating", readout: draft.band.summary) {
-                    AteScoreRangeSlider(band: $draft.band)
+                    AteScoreRangeSlider(band: $draft.band, includesSix: includesSix)
                 }
                 AteFilterMenuRow(icon: .place, title: "City", value: cityTitle) {
                     ForEach(AteCityOption.cities(cities, keeping: draft.city)) { option in

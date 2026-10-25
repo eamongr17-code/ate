@@ -8,6 +8,7 @@ struct YouStores {
     let you: YouStore
 
     init(services: AteServices) {
-        you = YouStore(stats: services.stats)
+        let preferences = services.preferences
+        you = YouStore(stats: services.stats) { preferences.gaveSix($0) }
     }
 }

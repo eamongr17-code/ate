@@ -135,6 +135,27 @@ public struct ScoreBand: Hashable, Sendable {
         Double(index(of: value)) / Double(stops - 1)
     }
 
+    /// The stops a filter draws: all eleven once you have given a 6, the ten to 5.0 before (25 Oct,
+    /// Eamon: the 6 is an Easter egg, never offered until found). On the short track the top stop
+    /// is the open top end, so nothing a 6-less person could filter for is lost.
+    public static func values(includingSix: Bool) -> [Double] {
+        includingSix ? values : Array(values.dropLast())
+    }
+
+    /// Where a value sits on that track — a 6 on the short track sits on its top stop.
+    public static func stop(of value: Double, includingSix: Bool) -> Int {
+        Swift.min(index(of: value), values(includingSix: includingSix).count - 1)
+    }
+
+    /// What a stop on that track writes for one end: the short track's top stop is the open top
+    /// end (the ceiling) for the upper thumb, and 5.0 for the lower.
+    public static func value(atStop stop: Int, for end: End, includingSix: Bool) -> Double {
+        let track = values(includingSix: includingSix)
+        let clamped = Swift.min(Swift.max(stop, 0), track.count - 1)
+        if includingSix == false, end == .upper, clamped == track.count - 1 { return ceiling }
+        return track[clamped]
+    }
+
     /// The band with one end moved to `value`; an end dragged past the other stops on it.
     public func moving(_ end: End, to value: Double) -> ScoreBand {
         switch end {

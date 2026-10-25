@@ -46,6 +46,33 @@ public final class AtePreferences {
         self.replayingUserID = store.value(forKey: Key.replayingUserID).flatMap(UUID.init(uuidString:))
         let asked = (store.value(forKey: Key.cravingsAsked) ?? "").split(separator: ",")
         self.cravingsAskedUserIDs = Set(asked.compactMap { UUID(uuidString: String($0)) })
+        let sixes = (store.value(forKey: Key.sixGivers) ?? "").split(separator: ",")
+        self.sixGiverUserIDs = Set(sixes.compactMap { UUID(uuidString: String($0)) })
+    }
+
+    /// Everyone on this phone who has given a 6 (25 Oct, Eamon: an Easter egg). Until then no filter
+    /// offers a 6 — the Rating range stops at 5.0. Latched for good: learnt from your own chart on
+    /// You (read at launch) or from posting one, so no screen asks the server.
+    public private(set) var sixGiverUserIDs: Set<UUID> {
+        didSet {
+            guard sixGiverUserIDs != oldValue else { return }
+            store.setValue(
+                sixGiverUserIDs.map(\.uuidString).sorted().joined(separator: ","),
+                forKey: Key.sixGivers
+            )
+        }
+    }
+
+    /// Whether this person has found the 6. Signed out has not.
+    public func hasGivenSix(_ userID: UUID?) -> Bool {
+        guard let userID else { return false }
+        return sixGiverUserIDs.contains(userID)
+    }
+
+    /// This person has given a 6: the filters offer it from now on.
+    public func gaveSix(_ userID: UUID?) {
+        guard let userID else { return }
+        sixGiverUserIDs.insert(userID)
     }
 
     /// Everyone on this phone who has answered the Feed's "What do you crave?" — a pick or its close
@@ -195,6 +222,7 @@ public final class AtePreferences {
         static let pendingHandleUserID = "ate.pendingHandleUserID"
         static let handleChosenUserIDs = "ate.handleChosenUserIDs"
         static let cravingsAsked = "ate.cravingsAskAnswered"
+        static let sixGivers = "ate.sixGiverUserIDs"
         static let pendingOnboardingUserID = "ate.pendingOnboardingUserID"
         static let replayingUserID = "ate.replayingFirstRunUserID"
     }
