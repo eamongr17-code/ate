@@ -13,4 +13,12 @@ extension AteTextStyle {
     static let metaStrong = AteTextStyle(
         voice: .display, size: 13, weight: 600, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote
     )
+    /// A notification's sentence (`notifications-refined.html`, `.tx`): DM Sans 500 at 16.
+    static let notificationLine = AteTextStyle(
+        voice: .display, size: 16, weight: 500, trackingEm: -0.005, lineHeight: 1.3, textStyle: .callout
+    )
+    /// …and the names in it, `.tx b`: 700.
+    static let notificationStrong = AteTextStyle(
+        voice: .display, size: 16, weight: 700, trackingEm: -0.005, lineHeight: 1.3, textStyle: .callout
+    )
 }

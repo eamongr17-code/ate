@@ -304,7 +304,7 @@ struct FeedNewRows: View {
                     photo: .dish(letters[index], cover: dish.coverURLString),
                     name: dish.name,
                     place: dish.restaurantName,
-                    badge: Self.badge(row.kind),
+                    score: Self.score(row),
                     isSaved: dish.isSaved,
                     isLast: index == rows.count - 1,
                     onOpen: { actions.open(dish) },
@@ -315,12 +315,14 @@ struct FeedNewRows: View {
         .padding(.horizontal, AteMetrics.gutter)
     }
 
-    /// A secret 6 and a 5.0 are their tokens; anything else is new.
-    static func badge(_ kind: NewDish.Kind) -> AteNewDishRow.Badge {
-        switch kind {
-        case .six: .score(.personal(.blownAway))
-        case .five: .score(.personal(.perfect))
-        case .new: .new
+    /// The dish's own average, as its ranked row prints it. A server older than 0090 sends none:
+    /// then a secret 6 or a 5.0 still shows its token, and anything else shows nothing.
+    static func score(_ row: NewDish) -> AteScore? {
+        if let average = row.dish.score { return .average(average) }
+        switch row.kind {
+        case .six: return .personal(.blownAway)
+        case .five: return .personal(.perfect)
+        case .new: return nil
         }
     }
 }

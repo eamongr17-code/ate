@@ -188,7 +188,7 @@ extension AteNotification {
         AteNotification(
             id: id, type: type, createdAt: createdAt, readAt: readAt ?? date, actor: actor,
             companionID: companionID, companionStatus: companionStatus, entryID: entryID, place: place,
-            visitedAt: visitedAt
+            visitedAt: visitedAt, photoURL: photoURL
         )
     }
 }

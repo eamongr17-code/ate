@@ -16,7 +16,10 @@ struct ShareReceiptPage: Identifiable, Equatable {
     /// A page per dish, then the whole receipt; for one dish, the whole receipt alone. `available` is
     /// the photos in hand; `dishPhotos` each dish's own (``SharePhotoPairs``), every photo until known.
     static func pages(for receipt: AteReceipt, available: [Int], dishPhotos: [UUID: [Int]]) -> [ShareReceiptPage] {
-        let whole = ShareReceiptPage(id: receipt.id, receipt: receipt, photos: available, isWhole: true)
+        let whole = ShareReceiptPage(
+            id: receipt.id, receipt: receipt,
+            photos: wholePhotos(receipt, available: available, dishPhotos: dishPhotos), isWhole: true
+        )
         guard receipt.items.count > 1 else { return [whole] }
         let dishes = receipt.items.map { item in
             var one = receipt
@@ -25,6 +28,24 @@ struct ShareReceiptPage: Identifiable, Equatable {
             return ShareReceiptPage(id: item.id, receipt: one, photos: photos, isWhole: false)
         }
         return dishes + [whole]
+    }
+
+    /// The whole receipt goes on any of the entry's photos, the best dish's first (25 Oct, Eamon:
+    /// "default to showing the highest rated dish as the photo"): dishes by score, a tie in the
+    /// receipt's order, unscored last; then any photo no dish has.
+    static func wholePhotos(_ receipt: AteReceipt, available: [Int], dishPhotos: [UUID: [Int]]) -> [Int] {
+        guard receipt.items.count > 1 else { return available }
+        let ranked = receipt.items.enumerated().sorted { lhs, rhs in
+            let left = lhs.element.score?.halfSteps ?? 0
+            let right = rhs.element.score?.halfSteps ?? 0
+            return left != right ? left > right : lhs.offset < rhs.offset
+        }
+        var order: [Int] = []
+        for (_, item) in ranked {
+            let own = (dishPhotos[item.id] ?? []).filter { available.contains($0) }
+            order += own.filter { order.contains($0) == false }
+        }
+        return order + available.filter { order.contains($0) == false }
     }
 }
 

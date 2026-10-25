@@ -73,16 +73,20 @@ struct V2TagEditionPage: View {
         .ateGround()
         .ateCollapsingTitle(tag.label, subtitle: store.cityTitle, isCollapsed: isCollapsed)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                AteGlassLabelToggle(
-                    offTitle: V2TagCopy.follow,
-                    onTitle: V2TagCopy.following,
-                    offIcon: .compose,
-                    onIcon: .check,
-                    isOn: store.isFollowing,
-                    identifier: "tag.follow",
-                    action: toggleFollow
-                )
+            // Following feeds the full edition's What you follow, which beta doesn't show: until the
+            // edition is live the button would do nothing, so it isn't there (Eamon, 25 Oct).
+            if AteBeta.isOn == false {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AteGlassLabelToggle(
+                        offTitle: V2TagCopy.follow,
+                        onTitle: V2TagCopy.following,
+                        offIcon: .compose,
+                        onIcon: .check,
+                        isOn: store.isFollowing,
+                        identifier: "tag.follow",
+                        action: toggleFollow
+                    )
+                }
             }
         }
         .refreshable { await store.refresh() }

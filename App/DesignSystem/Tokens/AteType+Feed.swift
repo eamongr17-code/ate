@@ -14,16 +14,4 @@ extension AteTextStyle {
     static let feedControl = AteTextStyle(
         voice: .display, size: 15, weight: 600, trackingEm: 0, lineHeight: 1.2, textStyle: .subheadline
     )
-
-    // The cards and rows.
-
-    /// A New to the record row's dish: 800 at 17, `-0.3px`.
-    static let feedNewDish = AteTextStyle(
-        voice: .heading, size: 17, weight: 800, trackingEm: 0, lineHeight: 1.2, textStyle: .body
-    )
-    /// Its badge — `★6`, `★5`, `New`: mono 12, `0.3px`.
-    static let feedBadge = AteTextStyle(
-        voice: .mono, size: 12, weight: 400, trackingEm: 0.3 / 12, lineHeight: 1.3, textStyle: .caption,
-        maximumSize: 16
-    )
 }

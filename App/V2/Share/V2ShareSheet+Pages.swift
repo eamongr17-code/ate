@@ -48,9 +48,9 @@ extension V2ShareSheet {
         image(page) == nil ? [.sticker, .story] : AteShareFormat.allCases
     }
 
-    /// The switch's cards: the post only when a dish has a photo to put it on.
+    /// The switch's cards: the post only when there is a photo to put it on.
     var switchFormats: [AteShareFormat] {
-        pages.contains { $0.isWhole == false && image($0) != nil } ? AteShareFormat.allCases : [.sticker, .story]
+        pages.contains { image($0) != nil } ? AteShareFormat.allCases : [.sticker, .story]
     }
 
     var format: AteShareFormat {
@@ -58,8 +58,8 @@ extension V2ShareSheet {
         return switchFormats.contains(format) ? format : .story
     }
 
-    /// What swipes: the formats of the one receipt; or, split, every dish in the chosen format (the
-    /// whole receipt first among the stickers: it is what printed).
+    /// What swipes: the formats of the one receipt; or, split, every dish in the chosen format, the
+    /// whole receipt first (it is what printed; 25 Oct, Eamon: on a story or post too, on one photo).
     var slots: [ShareSlot] {
         let pages = pages
         guard let whole = pages.last else { return [] }
@@ -68,9 +68,8 @@ extension V2ShareSheet {
         guard isSplit else { return formats(whole).map { ShareSlot(format: $0, page: whole.id) } }
         let dishes = pages.filter { $0.isWhole == false }
         let shown: [ShareReceiptPage] = switch format {
-        case .sticker: [whole] + dishes
-        case .story: dishes
-        case .post: dishes.filter { image($0) != nil }
+        case .sticker, .story: [whole] + dishes
+        case .post: ([whole] + dishes).filter { image($0) != nil }
         }
         return shown.map { ShareSlot(format: format, page: $0.id) }
     }

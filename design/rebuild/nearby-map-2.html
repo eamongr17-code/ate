@@ -1,0 +1,287 @@
+<title>Ate Dish Map 2</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Young+Serif&display=swap">
+<style>
+/* Layout: research first, then live iPhones (393×852pt) for each option, every phone drawn twice (light row, dark row) with the iOS 26 glass chrome */
+:root{
+  --page:#F4F1EC; --page-fg:#24141F; --page-mut:#6E6470; --page-line:#DDD6CC; --accent:#F0623F;
+  --f-dish:"Young Serif",Georgia,serif; --f-ui:"DM Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#151416;--page-fg:#EEEAE4;--page-mut:#9C94A0;--page-line:#2C2A2E;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#151416;--page-fg:#EEEAE4;--page-mut:#9C94A0;--page-line:#2C2A2E;color-scheme:dark}
+body{background:var(--page);color:var(--page-fg);font-family:var(--f-ui);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:48px}
+section{display:flex;flex-direction:column;gap:14px;min-width:0}
+h1{font:400 40px/1.02 var(--f-dish);letter-spacing:-.02em;margin:0;text-wrap:balance}
+h2{font:400 26px/1.08 var(--f-dish);letter-spacing:-.02em;margin:0;text-wrap:balance}
+p.s{margin:0;color:var(--page-mut);font-size:15px;line-height:1.5;max-width:72ch}
+p.s b,ul.s b{color:var(--page-fg);font-weight:600}
+ul.s{margin:0;padding-left:18px;color:var(--page-mut);font-size:15px;line-height:1.55;max-width:72ch}
+a{color:var(--accent)}
+.rec{display:inline-block;font:500 11px/1 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--accent);padding:5px 8px;border-radius:6px;vertical-align:middle;margin-left:8px}
+.refs{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px 18px;max-width:1000px}
+.refs div{font-size:14.5px;line-height:1.45;color:var(--page-mut);border-top:1px solid var(--page-line);padding-top:10px}
+.refs b{color:var(--page-fg);font-weight:600}
+.row-lab{font:600 12px/1 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--page-mut)}
+.pair{display:flex;flex-wrap:wrap;gap:22px 18px}
+.ph-wrap{display:flex;flex-direction:column;gap:8px;width:calc(415px*var(--z,.72));max-width:100%}
+.ph-wrap .cap{font:600 14px/1.25 var(--f-ui);color:var(--page-fg)}
+.ph-wrap .cap small{display:block;font-weight:400;color:var(--page-mut);margin-top:3px;font-size:13px}
+@media (max-width:700px){.ph-wrap{--z:.85}}
+@media (max-width:420px){.ph-wrap{--z:.84}}
+
+/* ---------- the phone ---------- */
+.phone{zoom:var(--z,.72);width:393px;height:852px;border-radius:55px;position:relative;overflow:hidden;flex:none;
+  box-shadow:0 0 0 10px #1a1a1c,0 0 0 11px #3a3a3e,0 24px 60px rgba(0,0,0,.22);margin:11px;
+  --ground:#EFEAE2;--slip:#fff;--fg:#24141F;--mut:#5E5560;--hair:rgba(36,20,31,.10);--pill:#F6D365;--ink:#24141F;--ink-fg:#fff;
+  --lg-tint:rgba(255,255,255,.55);--lg-rim:rgba(255,255,255,.95);--lg-shade:rgba(36,20,31,.16);--lg-sel:rgba(36,20,31,.08);
+  --m-land:#F3EFE8;--m-road:#FFFFFF;--m-major:#FBE6B4;--m-edge:#E2DCD2;--m-park:#D5E8C8;--m-water:#AFD6EE;--m-label:#8A8290;--ring:#fff}
+.phone.dk{--ground:#0C0C0D;--slip:#1C1C1E;--fg:#F5F4F1;--mut:#A5A4A8;--hair:rgba(255,255,255,.12);--pill:#E6C65F;--ink:#F5F4F1;--ink-fg:#0C0C0D;
+  --lg-tint:rgba(40,40,44,.6);--lg-rim:rgba(255,255,255,.16);--lg-shade:rgba(0,0,0,.55);--lg-sel:rgba(255,255,255,.12);
+  --m-land:#1D1E21;--m-road:#34353A;--m-major:#4A4536;--m-edge:#26272B;--m-park:#1E2A21;--m-water:#14233A;--m-label:#8E8C94;--ring:#2A2A2D}
+.screen{position:absolute;inset:0;background:var(--ground);color:var(--fg);font-family:var(--f-ui);overflow:hidden}
+.status{position:absolute;top:0;left:0;right:0;height:54px;display:flex;justify-content:space-between;align-items:center;padding:6px 34px 0 46px;font:600 17px/1 -apple-system,system-ui,sans-serif;z-index:20;pointer-events:none;color:var(--fg)}
+.status i{width:58px;height:13px;background:linear-gradient(90deg,var(--fg) 0 62%,transparent 62% 70%,var(--fg) 70%);border-radius:3px}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;background:#000;border-radius:20px;z-index:21}
+.glass{background:var(--lg-tint);backdrop-filter:blur(22px) saturate(1.8);-webkit-backdrop-filter:blur(22px) saturate(1.8);
+  box-shadow:inset 0 0 0 .7px var(--lg-rim),0 8px 22px -8px var(--lg-shade)}
+.disc{width:44px;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex:none;position:absolute;z-index:12;border:0;color:var(--fg);cursor:pointer}
+svg.i{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:9px;background:var(--fg);z-index:22;opacity:.9}
+
+/* feed */
+.fhdr{position:absolute;left:0;right:0;top:54px;height:48px;display:flex;align-items:center;padding:0 16px 0 20px;z-index:8}
+.fhdr h3{font:400 30px/1 var(--f-dish);letter-spacing:-.02em;margin:0 auto 0 0;font-weight:400}
+.fgrp{height:44px;display:flex;align-items:center;padding:0 4px;border-radius:999px;position:relative}
+.fgrp span{width:40px;height:44px;display:flex;align-items:center;justify-content:center}
+.fgrp .new{position:absolute;inset:-5px;border-radius:999px;box-shadow:0 0 0 2px var(--accent);pointer-events:none}
+.fpad{position:absolute;top:116px;left:0;right:0;bottom:0}
+.slip{background:var(--slip);margin:0 12px 12px;border-radius:20px;padding:14px 18px 16px}
+.by{display:flex;align-items:center;gap:8px;font:600 13px/1 var(--f-ui)}
+.by i{width:24px;height:24px;border-radius:99px;display:block}
+.by span{color:var(--mut);font-weight:400}
+.dl{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--hair);font:400 20px/1.1 var(--f-dish)}
+.dl:last-of-type{border-bottom:0}
+.pics{display:flex;gap:4px;margin-top:10px}
+.pics i{width:86px;height:86px;border-radius:18px;display:block}
+.tabs{position:absolute;left:16px;right:16px;bottom:24px;height:62px;display:flex;gap:10px;z-index:9}
+.tabs .tb{flex:1;border-radius:999px;display:flex;align-items:center;padding:0 4px}
+.tabs .tb span{flex:1;height:54px;border-radius:999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font:600 10px/1 -apple-system,system-ui,sans-serif;color:var(--fg)}
+.tabs .tb span.sel{background:var(--lg-sel);color:var(--accent)}
+.tabs .tb svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tabs .plus{width:62px;height:62px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex:none}
+.tabs .plus svg{width:26px;height:26px;stroke:var(--fg);fill:none;stroke-width:2;stroke-linecap:round}
+
+/* score pill */
+.sc{display:inline-flex;align-items:center;gap:3px;height:24px;padding:0 8px 0 6px;border-radius:999px;background:var(--pill);color:#24141F;font:700 13px/1 var(--f-ui);font-variant-numeric:tabular-nums;flex:none}
+.sc svg{width:11px;height:11px;fill:#24141F}
+
+/* map */
+.map{position:absolute;inset:0;cursor:grab}
+.map svg.m{position:absolute;inset:0;width:100%;height:100%}
+.pin{position:absolute;transform:translate(-50%,-50%);z-index:5;border:0;padding:0;background:none;cursor:pointer;transition:transform .18s cubic-bezier(.2,.9,.3,1.3)}
+.pin>i{display:block;width:48px;height:48px;border-radius:13px;box-shadow:0 0 0 3px var(--ring),0 6px 14px rgba(0,0,0,.28)}
+.pin .sc{position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);z-index:3;height:21px;font-size:12px;padding:0 7px 0 5px;box-shadow:0 0 0 2px var(--ring),0 3px 8px rgba(0,0,0,.2)}
+.pin>i{position:relative;z-index:2}
+.pin .bk{position:absolute;left:0;top:0;width:48px;height:48px;border-radius:13px;box-shadow:0 0 0 3px var(--ring),0 4px 10px rgba(0,0,0,.22);z-index:1}
+.pin .bk.b1{transform:translate(7px,-7px) rotate(6deg)}
+.pin.on{transform:translate(-50%,-50%) scale(1.3);z-index:6}
+.pin>i,.pin .bk{transition:transform .22s cubic-bezier(.2,.9,.3,1.3)}
+.pin.on>i{transform:rotate(-5deg);box-shadow:0 0 0 3px var(--ring),0 10px 22px rgba(0,0,0,.35)}
+.pin.on .bk.b1{transform:translate(17px,-3px) rotate(11deg)}
+.pin.dim{opacity:.55}
+.dot{position:absolute;width:13px;height:13px;border-radius:999px;background:var(--pill);box-shadow:0 0 0 2px var(--ring),0 2px 5px rgba(0,0,0,.3);transform:translate(-50%,-50%);z-index:4;border:0;padding:0;cursor:pointer}
+.me{position:absolute;width:18px;height:18px;border-radius:99px;background:#0A84FF;box-shadow:0 0 0 3px #fff,0 0 0 26px rgba(10,132,255,.15);transform:translate(-50%,-50%);z-index:4}
+/* option B pins */
+.bpin{position:absolute;transform:translate(-50%,-100%);z-index:5;display:flex;flex-direction:column;align-items:center;border:0;background:none;padding:0;cursor:pointer}
+.bpin .sc{height:30px;font-size:15px;padding:0 10px 0 8px;box-shadow:0 0 0 2px var(--ring),0 5px 12px rgba(0,0,0,.25)}
+.bpin::after{content:"";width:10px;height:10px;background:var(--pill);transform:rotate(45deg) translateY(-6px);margin-top:-2px;box-shadow:2px 2px 0 0 var(--ring)}
+.bpin.on .sc{background:var(--ink);color:var(--ink-fg)}
+.bpin.on .sc svg{fill:var(--ink-fg)}
+.bpin.on::after{background:var(--ink)}
+
+/* the sheet (iOS 26: floating glass at the low detent) */
+.sheet{position:absolute;left:8px;right:8px;bottom:8px;border-radius:38px;z-index:11;padding:8px 0 26px;overflow:hidden}
+.grab{width:36px;height:5px;border-radius:9px;background:var(--mut);opacity:.45;margin:0 auto 10px}
+.sh-h{display:flex;align-items:flex-start;gap:10px;padding:0 18px 6px 22px}
+.sh-h div{flex:1;min-width:0}
+.sh-h h4{font:400 24px/1.1 var(--f-dish);letter-spacing:-.01em;margin:0;font-weight:400}
+.sh-h p{margin:5px 0 0;font:400 14px/1.3 var(--f-ui);color:var(--mut)}
+.sh-h .x{position:static;width:34px;height:34px;background:var(--lg-sel)}
+.sh-h .x svg{width:15px;height:15px;stroke-width:2.4}
+.open{display:inline-flex;align-items:center;height:36px;padding:0 16px;border-radius:999px;background:var(--ink);color:var(--ink-fg);font:600 14px/1 var(--f-ui);margin:4px 0 0 22px;border:0}
+.dr{display:flex;align-items:center;gap:12px;padding:9px 18px 9px 22px}
+.dr+.dr{border-top:1px solid var(--hair);margin-left:86px;padding-left:0}
+.dr+.dr>i{margin-left:-64px}
+.dr>i{width:52px;height:52px;border-radius:14px;display:block;flex:none}
+.dr div{flex:1;min-width:0}
+.dr b{display:block;font:400 18px/1.15 var(--f-dish);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr small{display:block;font:400 13.5px/1.3 var(--f-ui);color:var(--mut);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* option B cards */
+.cards{position:absolute;left:0;right:0;bottom:30px;display:flex;gap:10px;padding:0 0 0 16px;z-index:11;overflow:hidden}
+.card{flex:none;width:318px;border-radius:28px;padding:10px;display:flex;gap:12px;align-items:center}
+.card>i{width:86px;height:86px;border-radius:20px;display:block;flex:none}
+.card div{flex:1;min-width:0}
+.card b{display:block;font:400 20px/1.1 var(--f-dish);font-weight:400}
+.card small{display:block;font:400 13.5px/1.3 var(--f-ui);color:var(--mut);margin:4px 0 8px}
+
+/* food stand-ins */
+.f1{background:radial-gradient(circle at 40% 40%,#E6A257,#9A4A1F 70%,#5C2A12)}
+.f2{background:radial-gradient(circle at 55% 45%,#F2946A,#C2452C 65%,#6E2316)}
+.f3{background:radial-gradient(circle at 50% 50%,#F4E3B5 0 30%,#D9A441 31% 55%,#7A4B1C 70%)}
+.f4{background:radial-gradient(circle at 45% 55%,#9BCB6B,#4F8A35 55%,#24451C)}
+.f5{background:radial-gradient(circle at 50% 45%,#FFF1D6 0 22%,#E8B04A 24% 48%,#8E5B26 72%)}
+.f6{background:radial-gradient(circle at 40% 40%,#F7C9A8,#D9775A 55%,#7D3326)}
+.f7{background:radial-gradient(circle at 55% 50%,#3B2A24 0 20%,#C8A27A 22% 50%,#5A3E2B 75%)}
+.f8{background:radial-gradient(circle at 50% 50%,#FBEFD2 0 35%,#E3C07E 37% 60%,#B07A3A 80%)}
+.a1{background:#F0623F}.a2{background:#B9A5EA}.a3{background:#3ECF64}
+@media (prefers-reduced-motion:reduce){.pin,.pin>i,.pin .bk{transition:none}}
+/* round 2 */
+.sheet{padding-top:8px}
+.sh-h{padding-top:14px}
+.sheet.min{padding-bottom:30px}
+.sheet .none{margin:6px 22px 4px;font:400 15px/1.35 var(--f-ui);color:var(--mut)}
+.here{position:absolute;left:50%;top:58px;transform:translateX(-50%);height:44px;padding:0 18px 0 14px;border-radius:999px;display:flex;align-items:center;gap:7px;z-index:12;border:0;color:var(--fg);font:600 15px/1 var(--f-ui);cursor:pointer;white-space:nowrap}
+.here svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round}
+.pin .sc{box-shadow:0 0 0 3px var(--ring),0 3px 8px rgba(0,0,0,.2)}
+.pin.r2 .sc{box-shadow:0 0 0 2px var(--ring),0 3px 8px rgba(0,0,0,.2)}
+.pin.r0 .sc{box-shadow:0 3px 8px rgba(0,0,0,.28)}
+.cl{position:absolute;border-radius:999px;background:var(--pill);box-shadow:0 0 0 2px var(--ring),0 2px 6px rgba(0,0,0,.3);transform:translate(-50%,-50%);z-index:4;border:0;padding:0}
+.zoomtile{width:300px;max-width:100%;height:200px;border-radius:22px;position:relative;overflow:hidden;flex:none}
+.zoomtile .pin{transform:translate(-50%,-50%) scale(1.7)}
+.zt-wrap{display:flex;flex-direction:column;gap:8px}
+.zt-wrap .cap{font:600 14px/1.25 var(--f-ui)}
+.zt-wrap .cap small{display:block;font-weight:400;color:var(--page-mut);margin-top:3px;font-size:13px}
+</style>
+<div class="wrap">
+  <section>
+    <h1>Dish map, round 2</h1>
+    <p class="s">Your notes from build 214, drawn. Already going straight into the build: titles sit further from the top of every sheet, the map opens on a 10 km radius around you, the location button glides you back, and the sheet leaves with the map. <b>These below need your OK.</b> On the second phone, tap <b>Search here</b>.</p>
+  </section>
+
+  <section>
+    <h2>The sheet holds still until you ask</h2>
+    <ul class="s">
+      <li><b>Near me</b> is every dish within 10 km of you, best first. Panning doesn't change it.</li>
+      <li>Move the map and a <b>Search here</b> button appears at the top. Tap it and the sheet becomes what's on screen, titled with the suburb (<b>Carlton</b>). The location button takes you back to Near me.</li>
+      <li>Titles say the place only: <b>Near me</b>, <b>Carlton</b>, or the restaurant you tapped. No "dishes".</li>
+      <li>Drag the sheet down and it <b>minimises</b> to its title, so the map is nearly full screen. It doesn't close completely, the same as Apple Maps, so the list is always one drag away.</li>
+      <li><b>Nothing nearby</b>: one line, "No dishes within 10 km" (or "No dishes here" after Search here).</li>
+    </ul>
+    <div class="row-lab">Light</div><div class="pair" id="s-light"></div>
+    <div class="row-lab">Dark</div><div class="pair" id="s-dark"></div>
+  </section>
+
+  <section>
+    <h2>Zooming: dots far out, photos up close</h2>
+    <ul class="s">
+      <li><b>Wider than about 25 km across</b> (a whole city or more): <b>dots only</b>. Places close together share one dot, a little bigger the more it holds. Tap a dot to zoom into it.</li>
+      <li><b>Closer in</b>: the best-rated places get photos while they fit; the rest stay dots. A dot that would touch a photo joins that photo instead, so a dot never sits on a picture.</li>
+      <li>As you zoom, one dot splits into several dots, then into photos.</li>
+    </ul>
+    <div class="row-lab">Light</div><div class="pair" id="z-light"></div>
+    <div class="row-lab">Dark</div><div class="pair" id="z-dark"></div>
+  </section>
+
+  <section>
+    <h2>The score pill's edge</h2>
+    <p class="s">The pill had a 2pt ring and the photo a 3pt one. Two ways to fix it: <b>A.</b> one 3pt ring round photo and pill alike, so the pin reads as one sticker; <b>B.</b> no ring on the pill, just a soft shadow. <b>Recommended: A</b>, because with B the butter pill blends into some photos (pastry, egg, curry).</p>
+    <div class="pair" id="p"></div>
+  </section>
+</div>
+<script>
+const ICON = {
+  back:'<svg class="i" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+  loc:'<svg class="i" viewBox="0 0 24 24"><path d="M20 4L4 11l7 2 2 7z"/></svg>',
+  map:'<svg class="i" viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>',
+  x:'<svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  star:'<svg viewBox="0 0 24 24"><path d="M12 2l3 7 7 .6-5.3 4.7 1.6 7.2L12 17.8 5.7 21.5l1.6-7.2L2 9.6 9 9z"/></svg>'
+};
+function mapSVG(wide){
+  const step = wide ? 24 : 46, out=[];
+  out.push('<rect width="393" height="852" fill="var(--m-land)"/>');
+  if (wide){
+    out.push('<path d="M-20 700 C 60 640 120 690 160 760 S 230 852 260 900 L -20 900Z" fill="var(--m-water)"/>');
+    out.push('<rect x="250" y="250" width="70" height="90" rx="10" fill="var(--m-park)" transform="rotate(-12 285 295)"/>');
+    out.push('<rect x="40" y="420" width="90" height="60" rx="10" fill="var(--m-park)" transform="rotate(-12 85 450)"/>');
+  } else {
+    out.push('<rect x="215" y="150" width="120" height="150" rx="12" fill="var(--m-park)" transform="rotate(-12 275 225)"/>');
+    out.push('<rect x="30" y="560" width="110" height="90" rx="12" fill="var(--m-park)" transform="rotate(-12 85 605)"/>');
+  }
+  out.push('<g transform="rotate(-12 196 426)">');
+  for (let x=-400; x<800; x+=step) out.push(`<line x1="${x}" y1="-300" x2="${x}" y2="1150" stroke="var(--m-road)" stroke-width="${wide?3:7}"/>`);
+  for (let y=-300; y<1150; y+=step) out.push(`<line x1="-400" y1="${y}" x2="800" y2="${y}" stroke="var(--m-road)" stroke-width="${wide?3:7}"/>`);
+  const majors = wide ? [[60,'v'],[230,'v'],[340,'h'],[560,'h']] : [[120,'v'],[310,'v'],[380,'h']];
+  majors.forEach(([p,d])=>{
+    const a = d==='v' ? `x1="${p}" y1="-300" x2="${p}" y2="1150"` : `x1="-400" y1="${p}" x2="800" y2="${p}"`;
+    out.push(`<line ${a} stroke="var(--m-edge)" stroke-width="${wide?7:14}"/><line ${a} stroke="var(--m-major)" stroke-width="${wide?5:11}"/>`);
+  });
+  out.push('</g>');
+  if (!wide) out.push('<path d="M-20 760 C 90 720 160 800 260 770 S 380 700 420 730 L 420 900 L -20 900Z" fill="var(--m-water)"/>');
+  const labs = wide
+    ? [[150,250,'FITZROY'],[300,420,'RICHMOND'],[70,380,'CARLTON'],[120,560,'MELBOURNE'],[230,660,'SOUTH YARRA']]
+    : [[70,250,'FITZROY'],[230,470,'COLLINGWOOD'],[300,140,'CLIFTON HILL']];
+  labs.forEach(([x,y,t])=>out.push(`<text x="${x}" y="${y}" fill="var(--m-label)" font-family="DM Sans,system-ui,sans-serif" font-size="11" font-weight="600" letter-spacing="1.2">${t}</text>`));
+  return `<svg class="m" viewBox="0 0 393 852" preserveAspectRatio="xMidYMid slice">${out.join('')}</svg>`;
+}
+const sc = s => `<span class="sc">${ICON.star}${s}</span>`;
+const SEARCH = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg>';
+const chrome = '<div class="island"></div><div class="status"><span>9:41</span><i></i></div><div class="home"></div>';
+const mapChrome = () => `<button class="disc glass" style="left:16px;top:58px" aria-label="Back">${ICON.back}</button>
+  <button class="disc glass" style="right:16px;top:58px" aria-label="Show my location">${ICON.loc}</button>`;
+const pin = (x,y,f,s,b,cls='') => `<button class="pin ${cls}" style="left:${x}px;top:${y}px">${b?`<i class="bk b1 ${b}"></i>`:''}<i class="${f}"></i>${s?sc(s):''}</button>`;
+const dot = (x,y,d=13) => `<span class="cl" style="left:${x}px;top:${y}px;width:${d}px;height:${d}px"></span>`;
+const drow = d => `<div class="dr"><i class="${d[0]}"></i><div><b>${d[1]}</b><small>${d[2]}</small></div>${sc(d[3])}</div>`;
+const sheet = (title, rows, extra='') => `<div class="sheet glass"><div class="grab"></div><div class="sh-h"><div><h4>${title}</h4></div></div>${extra}${rows.map(drow).join('')}</div>`;
+const NEAR = [['f2','Cacio e Pepe','Small Wins · 350 m','4.8'],['f5','Burrata','Small Wins · 350 m','4.5'],['f1','Fried Chicken Sandwich','Astrid · 600 m','4.4']];
+const CARLTON = [['f7','Affogato','Brunetti · 2.4 km','4.7'],['f3','Lasagne','Tiamo · 2.6 km','4.3'],['f8','Cannoli','Brunetti · 2.4 km','4.2']];
+/* Opening view: 10 km around you; photos where they fit, dots that never touch them. */
+const nearPins = () => pin(200,330,'f2','4.6','f5') + pin(105,215,'f1','4.4','f6') + pin(300,250,'f4','4.2','f3') + pin(95,470,'f3','4.5')
+  + dot(250,420) + dot(320,470) + dot(160,560) + dot(60,330);
+const ph = (dk, inner) => `<div class="phone${dk?' dk':''}"><div class="screen">${chrome}${inner}</div></div>`;
+const cityMap = (swap) => { let m = mapSVG(true); if (swap) m = m.replace('FITZROY','PRINCES HILL').replace('CARLTON','PARKVILLE').replace('MELBOURNE','CARLTON'); return m; };
+
+function pOpen(dk){ return ph(dk, `<div class="map">${cityMap()}<span class="me" style="left:180px;top:400px"></span>${nearPins()}</div>${mapChrome()}${sheet('Near me', NEAR)}`); }
+function pPanned(dk, searched){
+  const pins = pin(130,300,'f7','4.7','f6') + pin(260,370,'f3','4.3') + pin(90,520,'f8','4.1','f2') + dot(300,520) + dot(200,250);
+  return `<div class="phone${dk?' dk':''}" data-live><div class="screen">${chrome}<div class="map">${cityMap(true)}${pins}</div>${mapChrome()}
+    <div data-st>${searched ? sheet('Carlton', CARLTON) : `<button class="here glass" data-here>${SEARCH}Search here</button>` + sheet('Near me', NEAR)}</div></div></div>`;
+}
+function pMin(dk){ return ph(dk, `<div class="map">${cityMap()}<span class="me" style="left:180px;top:400px"></span>${nearPins()}${pin(170,650,'f6','4.0')}${dot(290,700)}</div>${mapChrome()}
+  <div class="sheet glass min"><div class="grab"></div><div class="sh-h"><div><h4>Near me</h4></div></div></div>`); }
+function pEmpty(dk){ return ph(dk, `<div class="map">${mapSVG(true).replace(/FITZROY|RICHMOND|CARLTON|MELBOURNE|SOUTH YARRA/g,'')}<span class="me" style="left:196px;top:380px"></span></div>${mapChrome()}
+  ${sheet('Near me', [], '<p class="none">No dishes within 10 km</p>')}`); }
+
+/* A whole region, zoomed far out. */
+function regionSVG(){
+  return `<svg class="m" viewBox="0 0 393 852" preserveAspectRatio="xMidYMid slice"><rect width="393" height="852" fill="var(--m-water)"/>
+  <path d="M-20 -20 L420 -20 L420 600 C 360 610 330 560 290 585 C 250 610 240 660 196 640 C 150 620 160 560 110 570 C 70 580 40 640 -20 630 Z" fill="var(--m-land)"/>
+  <path d="M150 300 L330 260 M60 200 L196 410 M196 410 L360 420 M196 410 L120 560" stroke="var(--m-major)" stroke-width="3" fill="none"/>
+  ${[[170,402,'MELBOURNE'],[95,560,'GEELONG'],[70,190,'BALLARAT'],[250,140,'BENDIGO'],[300,470,'DANDENONG']].map(([x,y,t])=>`<text x="${x}" y="${y}" fill="var(--m-label)" font-family="DM Sans,system-ui,sans-serif" font-size="11" font-weight="600" letter-spacing="1.2">${t}</text>`).join('')}</svg>`;
+}
+function pFar(dk){ return ph(dk, `<div class="map">${regionSVG()}${dot(196,425,25)}${dot(222,440,17)}${dot(178,448,13)}${dot(120,545,17)}${dot(85,205,13)}${dot(265,160,13)}${dot(310,455,13)}</div>${mapChrome()}${sheet('Near me', NEAR)}`); }
+function pMid(dk){ return ph(dk, `<div class="map">${mapSVG(true)}<span class="me" style="left:180px;top:400px"></span>
+  ${pin(200,330,'f2','4.6','f5')}${pin(105,215,'f1','4.4','f6')}${pin(300,250,'f4','4.2','f3')}${dot(250,430,17)}${dot(320,480)}${dot(140,500,17)}${dot(70,360)}${dot(230,600)}</div>${mapChrome()}${sheet('Near me', NEAR)}`); }
+function pClose(dk){ return ph(dk, `<div class="map">${mapSVG(false)}<span class="me" style="left:180px;top:420px"></span>
+  ${pin(200,330,'f2','4.6','f5')}${pin(105,205,'f1','4.4','f6')}${pin(300,250,'f4','4.2','f3')}${pin(70,440,'f6','3.9')}${pin(325,175,'f3','4.5')}${pin(270,480,'f8','4.1','f7')}${pin(130,560,'f5','4.0')}</div>${mapChrome()}${sheet('Near me', NEAR)}`); }
+
+const wrap = (html, cap, sub) => `<div class="ph-wrap">${html}<div class="cap">${cap}<small>${sub}</small></div></div>`;
+const rowS = dk => wrap(pOpen(dk),'1. Opens on Near me','10 km around you. The title is just Near me.')
+  + wrap(pPanned(dk,false),'2. Moved the map','The list stays put. Search here appears. Tap it.')
+  + wrap(pPanned(dk,true),'3. Searched here','The sheet is now what\'s on screen, titled with the suburb.')
+  + wrap(pMin(dk),'4. Minimised','Dragged down to its title.')
+  + wrap(pEmpty(dk),'5. Nothing nearby','One line. The map stays on you.');
+const rowZ = dk => wrap(pFar(dk),'Far out','Dots only. A bigger dot holds more places. Tap one to zoom in.')
+  + wrap(pMid(dk),'City','Photos where they fit; dots keep clear of them.')
+  + wrap(pClose(dk),'Up close','Every place is a photo.');
+document.getElementById('s-light').innerHTML = rowS(false);
+document.getElementById('s-dark').innerHTML = rowS(true);
+document.getElementById('z-light').innerHTML = rowZ(false);
+document.getElementById('z-dark').innerHTML = rowZ(true);
+const tile = (dk, cls) => `<div class="phone${dk?' dk':''} zoomtile" style="margin:0;box-shadow:none;zoom:1"><div class="screen"><div class="map">${mapSVG(false)}${pin(150,105,'f8','4.5','f2',cls)}</div></div></div>`;
+document.getElementById('p').innerHTML = [['r2','Now','2pt ring on the pill, 3pt on the photo.'],['','A. One 3pt ring (recommended)','Photo and pill share one edge.'],['r0','B. No ring on the pill','Shadow only.']]
+  .map(([c,t,s])=>`<div class="zt-wrap">${tile(false,c)}${tile(true,c)}<div class="cap">${t}<small>${s}</small></div></div>`).join('');
+document.querySelectorAll('[data-live]').forEach(p=>p.addEventListener('click',e=>{
+  if (e.target.closest('[data-here]')) p.querySelector('[data-st]').innerHTML = sheet('Carlton', CARLTON); }));
+</script>

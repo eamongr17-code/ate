@@ -35,6 +35,16 @@ enum AteMotion {
     /// movement, for the one card that cannot be a system sheet (`share-to-ate.html`). With Reduce
     /// Motion it is simply there.
     static let cardRise = Animation.spring(duration: 0.4, bounce: 0)
+    /// A map pin tapped: it grows and its two photos fan apart (`nearby-map.html`), with a little give.
+    static let pinFan = Animation.spring(duration: 0.3, bounce: 0.3)
+    /// A map pin or dot coming into view: it grows in from a little smaller, fading up.
+    static let pinIn = Animation.spring(duration: 0.35, bounce: 0.15)
+    static let pinInScale: CGFloat = 0.6
+    /// The map's camera gliding somewhere (Show my location, a tapped dot): a pan you can follow,
+    /// never a jump (Eamon, 25 Oct).
+    static let mapGlide = Animation.smooth(duration: 0.8)
+    /// The map's sheet settling on a height after a drag: the system sheet's own movement.
+    static let panelSettle = Animation.spring(duration: 0.35, bounce: 0)
 }
 
 extension View {

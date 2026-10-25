@@ -427,9 +427,11 @@ private enum Wire {
         let coverURL: String?
         let saved: Bool
         let at: String
+        /// 0090: the dish's average. Optional while staging may still be on 0089.
+        let score: Double?
 
         enum CodingKeys: String, CodingKey {
-            case name, suburb, kind, saved, at
+            case name, suburb, kind, saved, at, score
             case dishID = "dish_id"
             case restaurantName = "restaurant_name"
             case coverURL = "cover_url"

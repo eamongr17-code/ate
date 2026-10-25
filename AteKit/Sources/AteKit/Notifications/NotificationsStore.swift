@@ -94,14 +94,14 @@ public final class NotificationsStore {
 
     // MARK: - Actions
 
-    /// The X: the row goes now, the tag stays. Back on a refusal.
+    /// Clear (the row's swipe): the row goes now, the tag stays. Back on a refusal.
     public func dismiss(_ row: AteNotification) async {
         guard inFlight.insert(row.id).inserted else { return }
         defer { inFlight.remove(row.id) }
         guard let index = rows.firstIndex(where: { $0.id == row.id }) else { return }
         rows.remove(at: index)
         if row.isUnread { unreadCount = max(0, unreadCount - 1) }
-        analytics(NotificationEvents.notificationDismissed(how: .close))
+        analytics(NotificationEvents.notificationDismissed(how: .clear))
         do {
             try await reads.dismiss(notificationID: row.id)
         } catch {
