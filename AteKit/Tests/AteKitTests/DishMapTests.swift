@@ -53,6 +53,29 @@ struct DishMapTests {
         #expect(DishMapLayout.photoPins(tie.reversed()) == [id(2)], "the order handed in does not matter")
     }
 
+    @Test("far out, every place is a dot; close places share one, and a tapped place still grows")
+    func dotsFarOut() {
+        let places = [candidate(1, 100, 100, 4.9), candidate(2, 110, 105, 4.0), candidate(3, 300, 300, 3.0)]
+        let far = DishMapLayout.arrange(places, widthMeters: 80_000)
+        #expect(far.photos.isEmpty)
+        #expect(far.dots.map(\.members) == [[id(1), id(2)], [id(3)]])
+        #expect(far.dots[0].across == 105 && far.dots[0].down == 102.5, "a shared dot sits between its places")
+        #expect(DishMapLayout.arrange(places, selected: id(3), widthMeters: 80_000).photos == [id(3)])
+    }
+
+    @Test("closer in, photos where they fit, and a dot that would sit on a photo joins it")
+    func dotsClearOfPhotos() {
+        let places = [
+            candidate(1, 100, 100, 4.9),
+            candidate(2, 120, 100, 4.0),   // on the photo: joins it
+            candidate(3, 150, 100, 3.9),   // too close for a photo, clear for a dot
+            candidate(4, 400, 400, 3.0)
+        ]
+        let close = DishMapLayout.arrange(places, widthMeters: 3_000)
+        #expect(close.photos == [id(1), id(4)])
+        #expect(close.dots.map(\.members) == [[id(3)]])
+    }
+
     // MARK: - Framing, title, distance
 
     @Test("the opening frame holds the phone and every place, with room at the edges")
@@ -70,18 +93,21 @@ struct DishMapTests {
         #expect(MapBox.fitting([]) == nil)
     }
 
-    @Test("Dishes near you while you are on the map; the suburb once it is dragged away")
+    @Test("titles say the place only: Near me, the suburb, or This area until it is known")
     func title() {
-        let fitzroy = MapBox(
-            centerLatitude: -37.80, centerLongitude: 144.98, latitudeDelta: 0.02, longitudeDelta: 0.02
-        )
-        let phone = SearchOrigin(latitude: -37.80, longitude: 144.98)
-        let elsewhere = SearchOrigin(latitude: -37.90, longitude: 145.10)
-        #expect(DishMapTitle.resolve(box: fitzroy, phone: phone, area: "Fitzroy") == .nearYou)
-        #expect(DishMapTitle.resolve(box: fitzroy, phone: elsewhere, area: "Fitzroy") == .inArea("Fitzroy"))
-        #expect(DishMapTitle.resolve(box: fitzroy, phone: elsewhere, area: nil) == .nearYou)
-        #expect(DishMapTitle.resolve(box: fitzroy, phone: nil, area: "Fitzroy").text == "Dishes in Fitzroy")
-        #expect(DishMapTitle.nearYou.text == "Dishes near you")
+        #expect(DishMapTitle.nearMe.text == "Near me")
+        #expect(DishMapTitle.area("Carlton").text == "Carlton")
+        #expect(DishMapTitle.area(nil).text == "This area")
+        #expect(DishMapTitle.nearMe.emptyLine == "No dishes within 10 km")
+        #expect(DishMapTitle.area("Carlton").emptyLine == "No dishes here")
+    }
+
+    @Test("10 km around a point is 20 km across, wherever it is")
+    func around() {
+        let box = MapBox.around(fitzroy, radiusMeters: 10_000)
+        #expect(box.contains(latitude: fitzroy.latitude, longitude: fitzroy.longitude))
+        #expect(abs(box.widthMeters - 20_000) < 50)
+        #expect(abs(box.latitudeDelta * 111_320 - 20_000) < 50)
     }
 
     @Test("distances read the way the sheet prints them")
@@ -124,11 +150,16 @@ struct DishMapTests {
 
     private final class Reads: DishMapReading {
         let nearestPlaces: [MapPlace]
+        let rows: [MapDish]
         let gate = Mutex<[CheckedContinuation<Void, Never>]>([])
         let holdNextShow = Mutex(false)
         let boxes = Mutex<[MapBox]>([])
+        let listed = Mutex<[MapBox]>([])
 
-        init(nearest: [MapPlace]) { self.nearestPlaces = nearest }
+        init(nearest: [MapPlace], dishes: [MapDish] = []) {
+            self.nearestPlaces = nearest
+            self.rows = dishes
+        }
 
         func places(in box: MapBox, origin: SearchOrigin?, limit: Int) async throws -> [MapPlace] {
             boxes.withLock { $0.append(box) }
@@ -139,11 +170,14 @@ struct DishMapTests {
                              latitude: box.centerLatitude, longitude: box.centerLongitude)]
         }
 
-        func nearest(to origin: SearchOrigin?, limit: Int) async throws -> [MapPlace] { nearestPlaces }
+        func nearest(to origin: SearchOrigin?, limit: Int) async throws -> [MapPlace] {
+            Array(nearestPlaces.prefix(limit))
+        }
 
         func dishes(in box: MapBox, origin: SearchOrigin?, after cursor: MapDishCursor?, pageSize: Int)
             async throws -> MapDishPage {
-            MapDishPage(items: [], requestedLimit: pageSize)
+            listed.withLock { $0.append(box) }
+            return MapDishPage(items: cursor == nil ? rows : [], requestedLimit: pageSize)
         }
 
         func release() { gate.withLock { $0.forEach { $0.resume() }; $0.removeAll() } }
@@ -168,26 +202,71 @@ struct DishMapTests {
     private let fitzroy = SearchOrigin(latitude: -37.80, longitude: 144.98)
     private let geelong = MapPlace(restaurantID: UUID(), name: "Tipo Far", latitude: -38.149, longitude: 144.36)
 
-    @Test("opens framed on the phone and the nearest places, however far, and says so")
-    func opensFramed() async throws {
+    private func dish(_ name: String, meters: Int?) -> MapDish {
+        MapDish(dishID: UUID(), name: name, restaurantID: UUID(), placeName: "Small Wins", distanceMeters: meters)
+    }
+
+    @Test("opens on 10 km around the phone, listing Near me without anything past 10 km")
+    func opensNearMe() async throws {
         let events = Mutex<[String]>([])
-        let store = DishMapStore(reads: Reads(nearest: [geelong]), menus: Menus(), locate: { _ in self.fitzroy },
+        let reads = Reads(nearest: [geelong], dishes: [dish("Near", meters: 350), dish("Corner", meters: 13_000)])
+        let store = DishMapStore(reads: reads, menus: Menus(), locate: { _ in self.fitzroy },
                                  analytics: { event in events.withLock { $0.append(event.name) } })
         await store.open()
         let frame = try #require(store.frame)
-        #expect(frame.contains(latitude: fitzroy.latitude, longitude: fitzroy.longitude))
-        #expect(frame.contains(latitude: geelong.latitude, longitude: geelong.longitude))
-        #expect(store.places == [geelong])
+        #expect(frame == MapBox.around(fitzroy, radiusMeters: 10_000))
+        #expect(frame.contains(latitude: geelong.latitude, longitude: geelong.longitude) == false,
+                "a place 60 km away no longer drags the map out to a country")
+        #expect(store.listing == .nearMe(fitzroy))
+        #expect(store.title == .nearMe)
+        #expect(store.dishes.map(\.name) == ["Near"])
+        #expect(store.phase == .ready)
         #expect(events.withLock { $0 } == ["map_opened"])
     }
 
-    @Test("location off still opens on the record's busiest place")
+    @Test("location off opens on 10 km around the busiest place, listing that area")
     func opensWithoutLocation() async throws {
         let store = DishMapStore(reads: Reads(nearest: [geelong]), menus: Menus(), locate: { _ in nil })
         await store.open()
         let frame = try #require(store.frame)
         #expect(frame.contains(latitude: geelong.latitude, longitude: geelong.longitude))
+        #expect(store.listing == .area(frame))
+        store.name(area: "Geelong", for: frame)
+        #expect(store.title == .area("Geelong"))
         #expect(store.phone == nil)
+    }
+
+    @Test("panning moves the pins, not the list; Search here lists the screen; my location goes back")
+    func searchHere() async throws {
+        let reads = Reads(nearest: [], dishes: [dish("Near", meters: 350)])
+        let store = DishMapStore(reads: reads, menus: Menus(), locate: { _ in self.fitzroy })
+        await store.open()
+        let home = try #require(store.frame)
+        await store.show(home)
+        #expect(store.canSearchHere == false)
+
+        let carlton = MapBox(
+            centerLatitude: -37.70, centerLongitude: 144.98, latitudeDelta: 0.18, longitudeDelta: 0.22
+        )
+        let listedBefore = reads.listed.withLock { $0.count }
+        await store.show(carlton)
+        #expect(store.places.map(\.name) == ["Seen at \(carlton.centerLatitude)"])
+        #expect(reads.listed.withLock { $0.count } == listedBefore, "the sheet held still")
+        #expect(store.canSearchHere)
+
+        await store.searchHere()
+        #expect(store.listing == .area(carlton))
+        #expect(store.canSearchHere == false)
+        #expect(store.title == .area(nil))
+        store.name(area: "Fitzroy", for: home)
+        #expect(store.title == .area(nil), "a name for an area no longer listed is dropped")
+        store.name(area: "Carlton", for: carlton)
+        #expect(store.title == .area("Carlton"))
+
+        let fix = await store.backToNearMe()
+        #expect(fix == fitzroy)
+        #expect(store.listing == .nearMe(fitzroy))
+        #expect(store.title == .nearMe)
     }
 
     @Test("a read that lands after a newer one was asked for is dropped")
@@ -204,7 +283,6 @@ struct DishMapTests {
         await slow.value
         #expect(store.places.map(\.name) == ["Seen at \(new.centerLatitude)"])
         #expect(store.box == new)
-        #expect(store.phase == .ready)
     }
 
     @Test("tapping a place selects it with its dishes, tapping it again lets it go")

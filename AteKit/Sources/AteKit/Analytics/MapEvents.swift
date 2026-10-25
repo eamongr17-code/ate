@@ -1,6 +1,7 @@
 import Foundation
 
-/// **The dish map's events** (0088): opened from the Feed, a place tapped, the phone found again.
+/// **The dish map's events** (0088): opened from the Feed, a place tapped, Search here, the phone found
+/// again.
 /// Opening a dish or a place from it is the detail events' own `*_viewed`, with `source: map`.
 public enum MapEvents {
     /// The map button on the Feed.
@@ -18,7 +19,12 @@ public enum MapEvents {
         return AnalyticsEvent(name: "map_place_selected", parameters: ["dishes": bucket])
     }
 
-    /// Show my location.
+    /// Search here: the sheet re-listed for the area on screen.
+    public static func searchedHere() -> AnalyticsEvent {
+        AnalyticsEvent(name: "map_searched_here")
+    }
+
+    /// Show my location: the phone again, and the sheet back on Near me.
     public static func recentred() -> AnalyticsEvent {
         AnalyticsEvent(name: "map_recentred")
     }

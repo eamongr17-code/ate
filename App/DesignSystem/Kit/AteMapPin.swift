@@ -2,9 +2,9 @@ import AteKit
 import SwiftUI
 
 /// **A place on the dish map** (`nearby-map.html`, option A, approved 25 Oct): its best dish's photo
-/// in the photo squircle, with **one badge, the score**, on top and centred under the photo. A place
-/// with more dishes shows one more photo stacked behind, up and to the right — two photos at most,
-/// and never over the score. Selected, the pin grows and the two photos fan apart; no outline.
+/// in the photo squircle, with **one badge, the score**, on top and centred under the photo and ringed
+/// like it. A place with more dishes shows one more photo stacked behind, up and to the right — two
+/// photos at most, and never over the score. Selected, the pin grows and the two photos fan apart; no outline.
 struct AteMapPin: View {
     let front: AtePhoto
     /// The next dish's photo, stacked behind. `nil` for a place with one dish (or one photo).
@@ -39,18 +39,21 @@ struct AteMapPin: View {
     }
 }
 
-/// **A place the photos had no room for** (`nearby-map.html` "Busy streets"): a small dot, butter
-/// when the place has a score and the field when it has none (butter means a score). Tappable; a
-/// tapped dot grows into its photos.
+/// **Places the photos had no room for** (`nearby-map-2.html` "Zooming"): a small dot, butter when
+/// a place in it has a score and the field when none has (butter means a score). One dot can hold
+/// several places close together, and is a little bigger the more it holds (1, 2–4, 5+). Tappable:
+/// one place grows into its photos; several zoom the map in.
 struct AteMapDot: View {
     let isScored: Bool
+    var count = 1
 
     @Environment(\.atePalette) private var palette
 
     var body: some View {
+        let side = AteMapPinMetrics.dot(holding: count)
         Circle()
             .fill(isScored ? AteColor.scoreFill : palette.field)
-            .frame(width: AteMapPinMetrics.dot, height: AteMapPinMetrics.dot)
+            .frame(width: side, height: side)
             .background(Circle().fill(AteColor.slip).padding(-AteMapPinMetrics.dotRing))
             .ateShadow(.mapDot)
             // The dot is small; the finger is not.
@@ -70,8 +73,16 @@ enum AteMapPinMetrics {
     static let fannedTilt: Double = 11
     static let frontFannedTilt: Double = -5
     static let selectedScale: CGFloat = 1.3
-    /// The surface ring round the score, parting it from the photo it overlaps.
-    static let scoreRing: CGFloat = 2
-    static let dot: CGFloat = 13
+    /// The ring round the score, parting it from the photo it overlaps: the photo's own ring, so the
+    /// pin reads as one sticker (`nearby-map-2.html`, A).
+    static let scoreRing: CGFloat = AteMetrics.photoRing
+    /// A dot's side: one place, two to four, five or more.
+    static func dot(holding count: Int) -> CGFloat {
+        switch count {
+        case ...1: 13
+        case 2...4: 17
+        default: 21
+        }
+    }
     static let dotRing: CGFloat = 2
 }
