@@ -5,10 +5,12 @@ import SwiftUI
 /// shown by ``ComposerSheet`` when it is opened with `respondingTo`. The tagger's place and dishes,
 /// read live: the place as the title, "with @them" and the visit's day under it, then the dishes as
 /// the entry's rows, each with an empty slot. The composer's own score slide sits at the foot on the
-/// highlighted row; letting go fills it and moves on, so three dishes are three drags. Swipe a row
+/// highlighted row; letting go fills it, holds the score on the slide a moment (as the composer's own
+/// slide does) and moves on, so three dishes are three drags. Swipe a row
 /// for Remove (a dish they did not have). Words are optional and the keyboard stays down until they
-/// are tapped. The tick is live from the start and posts THEIR OWN entry; the sheet then turns to the
-/// printed receipt, exactly as any entry does.
+/// are tapped. The tick is live from the start and posts THEIR OWN entry, which takes the tagger's
+/// photos of the dishes kept (0089); the sheet then turns to the printed receipt, exactly as any
+/// entry does.
 struct AteWithRespondFace: View {
     let app: AppModel
     let companionID: UUID
@@ -212,7 +214,7 @@ struct AteWithRespondFace: View {
                     ),
                     allowsSix: true
                 ) { rating in
-                    model.finish(at: rating)
+                    Task { await model.finish(at: rating) }
                 }
                 .id(current)
                 .padding(.top, AteMetrics.regular)
@@ -234,8 +236,10 @@ struct AteWithRespondFace: View {
                 let card = try await model.post()
                 app.notifications.finished(companionID: companionID)
                 NotificationCenter.ateEntryChanged(card)
+                // The tagger's photos came with the entry (0089): the share cards are made from them.
+                let photos = card.photos.sorted { $0.position < $1.position }.map { AtePhoto.remote($0.url) }
                 onPrinted(V2ComposerPrinted.Handoff(
-                    card: card, photos: [], sorted: nil, tagTokens: [], scoreTokens: nil
+                    card: card, photos: photos, sorted: nil, tagTokens: [], scoreTokens: nil
                 ))
             } catch AteWithError.unreachable {
                 saveFailed = true
