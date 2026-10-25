@@ -2,9 +2,10 @@ import AteKit
 import SwiftUI
 
 /// **A place on the dish map** (`nearby-map.html`, option A, approved 25 Oct): its best dish's photo
-/// in the photo squircle, with **one badge, the score**, on top and centred under the photo and ringed
-/// like it. A place with more dishes shows one more photo stacked behind, up and to the right — two
-/// photos at most, and never over the score. Selected, the pin grows and the two photos fan apart; no outline.
+/// in the photo squircle, with **one badge, the score**, on top and centred under the photo, with no
+/// ring, only a soft shadow (`nearby-map-2.html`, B). A place with more dishes shows one more photo
+/// stacked behind, up and to the right — two photos at most, and never over the score. Selected, the
+/// pin grows and the two photos fan apart; no outline.
 struct AteMapPin: View {
     let front: AtePhoto
     /// The next dish's photo, stacked behind. `nil` for a place with one dish (or one photo).
@@ -25,7 +26,7 @@ struct AteMapPin: View {
                 .rotationEffect(.degrees(isSelected ? AteMapPinMetrics.frontFannedTilt : 0))
             if let score {
                 AteScoreToken(average: score)
-                    .background(Capsule().fill(ring).padding(-AteMapPinMetrics.scoreRing))
+                    .ateShadow(.mapScore)
                     .offset(y: AteMapPinMetrics.side / 2)
             }
         }
@@ -73,9 +74,6 @@ enum AteMapPinMetrics {
     static let fannedTilt: Double = 11
     static let frontFannedTilt: Double = -5
     static let selectedScale: CGFloat = 1.3
-    /// The ring round the score, parting it from the photo it overlaps: the photo's own ring, so the
-    /// pin reads as one sticker (`nearby-map-2.html`, A).
-    static let scoreRing: CGFloat = AteMetrics.photoRing
     /// A dot's side: one place, two to four, five or more.
     static func dot(holding count: Int) -> CGFloat {
         switch count {
