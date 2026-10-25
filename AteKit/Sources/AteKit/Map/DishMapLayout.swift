@@ -81,6 +81,28 @@ public enum DishMapLayout {
         return Arrangement(photos: photos, dots: cluster(loose))
     }
 
+    /// The same, for places read past the screen's edges (``MapBox/grown(by:)``) as well: those on
+    /// screen are arranged as above, and those off it are dots only, so a photo is never spent off
+    /// screen and a dot never sits on a photo at the edge. Panned into view, a place is already there
+    /// and moves with the map; once the map stops, it grows into its photo if it has room.
+    public static func arrange(
+        _ candidates: [Candidate], selected: UUID? = nil, widthMeters: Double, screenWidth: Double, screenHeight: Double
+    ) -> Arrangement {
+        let isOnScreen = { (candidate: Candidate) in
+            (0...screenWidth).contains(candidate.across) && (0...screenHeight).contains(candidate.down)
+        }
+        var arrangement = arrange(
+            candidates.filter { isOnScreen($0) || $0.id == selected }, selected: selected, widthMeters: widthMeters
+        )
+        let placed = candidates.filter { arrangement.photos.contains($0.id) }
+        let beyond = candidates.sorted(by: isRankedBefore).filter { candidate in
+            isOnScreen(candidate) == false && candidate.id != selected
+                && placed.allSatisfy { distance($0, candidate) >= photoClearance }
+        }
+        arrangement.dots += cluster(beyond)
+        return arrangement
+    }
+
     /// The ids that get a photo pin. The selected place always does (it was tapped, so it grows into
     /// its photos), then the rest best first while they stay `spacing` apart from every photo
     /// already placed. Ties go to the place with more dishes, then the id, so a redraw never swaps.
