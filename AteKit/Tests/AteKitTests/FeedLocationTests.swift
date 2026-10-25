@@ -117,16 +117,17 @@ struct NearMeTests {
         let model = FeedAreaModel(reader: reader, store: Memory(), owner: { nil })
         var reloads = 0
         model.onNearMeChanged = { reloads += 1 }
+        // The location answers well after the first page's wait: a busy CI runner can overrun a
+        // 100ms wait by a few hundred ms, and an answer inside it is not "late" (PR #272's red run).
         model.locate = {
-            try? await Task.sleep(for: .milliseconds(400))
+            try? await Task.sleep(for: .milliseconds(1500))
             return (latitude: -38.1, longitude: 144.3)
         }
         let first = await model.cityForFirstPage(wait: .milliseconds(100))
         #expect(first == "melbourne", "the busiest city, not Everywhere")
         #expect(model.hasResolvedNearMe == false)
-        // The late answer lands on its own; a busy CI runner can deliver it well after 400ms, so wait
-        // for it (up to 5s) rather than for a fixed time.
-        for _ in 0..<100 where reloads == 0 { try? await Task.sleep(for: .milliseconds(50)) }
+        // The late answer lands on its own; wait for it (up to 10s) rather than for a fixed time.
+        for _ in 0..<200 where reloads == 0 { try? await Task.sleep(for: .milliseconds(50)) }
         #expect(model.city == "geelong" && model.isNearMe)
         #expect(reloads == 1, "the late answer reloads the feed it moved")
         #expect(model.cityForNextPage == "melbourne", "until then, pages keep the city they started with")
