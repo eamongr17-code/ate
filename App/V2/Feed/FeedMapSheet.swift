@@ -248,7 +248,7 @@ struct FeedMapSheetRow: Identifiable {
 enum FeedMapSheetMotion {
     /// What changes when a pin is tapped or let go fades in, and what goes leaves at once, so the
     /// old and the new never show through each other.
-    static let swap = AnyTransition.asymmetric(insertion: .opacity, removal: .identity)
+    static var swap: AnyTransition { .asymmetric(insertion: .opacity, removal: .identity) }
 }
 
 /// The sheet's three heights.
