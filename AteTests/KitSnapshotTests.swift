@@ -18,7 +18,9 @@ import XCTest
 ///
 /// Re-record on purpose only: push a commit whose message contains `[record-snapshots]` and
 /// `.github/workflows/snapshots.yml` commits the new pictures back to the branch. The diff of the
-/// pictures is then part of the PR, for the reviewer to judge against `design/v1`.
+/// pictures is then part of the PR, for the reviewer to judge against `design/v1`. CI tests the PR
+/// merged into its base while the recording draws the branch as pushed, so merge the base in first:
+/// a kit change that landed on the base since the branch was cut shows up here as a mismatch.
 ///
 /// Reduce Motion is on in the simulator that draws these (both workflows write the preference and
 /// reboot the simulator; the environment key is read-only): the printing receipt's breath, the page
