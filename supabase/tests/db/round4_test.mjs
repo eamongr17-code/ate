@@ -24,6 +24,9 @@ before(async () => {
   // These suites test the diet FILTERS, chips and keysets on a two-person world, so the label threshold
   // is dropped to 1 person here (local PGlite only). 0074's label rule itself is diet_test.mjs.
   await db.exec(`create or replace function public.dish_label_min_people() returns int language sql immutable as $$ select 1 $$;`);
+  // These suites give one person many 6s to test the 6's carry rules; the two-in-two-months limit
+  // (0091) is two_sixes_test.mjs's, so it is off here.
+  await db.exec(`alter table public.reviews disable trigger reviews_two_sixes;`);
   await db.exec(`
     insert into auth.users (id, email) values ('${A}', 'alice@ate.test'), ('${B}', 'bob@ate.test');
     insert into public.restaurants (id, name, address, city, cuisine, source, location) values
