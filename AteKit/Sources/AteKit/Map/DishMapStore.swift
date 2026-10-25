@@ -270,7 +270,9 @@ public final class DishMapStore {
             nextCursor = fill.next
             hasMoreDishes = fill.next != nil
             phase = .ready
-            if case .nearMe(let fix) = listing { lastNearMe = KeptNearMe(phone: fix, dishes: fill.items, next: fill.next) }
+            if case .nearMe(let fix) = listing {
+                lastNearMe = KeptNearMe(phone: fix, dishes: fill.items, next: fill.next)
+            }
         } catch {
             guard mine == listGeneration else { return }
             phase = .failed
