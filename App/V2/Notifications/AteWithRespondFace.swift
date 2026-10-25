@@ -212,10 +212,11 @@ struct AteWithRespondFace: View {
                         get: { model.lines.first { $0.id == current }?.score },
                         set: { if let rating = $0 { model.slide(to: rating) } }
                     ),
-                    allowsSix: true
-                ) { rating in
-                    Task { await model.finish(at: rating) }
-                }
+                    allowsSix: true,
+                    onFinish: { rating in
+                        Task { await model.finish(at: rating) }
+                    }
+                )
                 .id(current)
                 .padding(.top, AteMetrics.regular)
             }

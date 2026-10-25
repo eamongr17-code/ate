@@ -188,6 +188,16 @@ public struct SupabaseEntryService: EntryService {
         return Page(items: rows, requestedLimit: pageSize)
     }
 
+    // MARK: - The 6s left
+
+    public func sixAllowance(editing entryID: UUID?) async throws -> SixAllowance? {
+        let parameters: [String: AnyJSON] = [
+            "p_entry_id": entryID.map { AnyJSON.string($0.uuidString.lowercased()) } ?? .null
+        ]
+        let data = try await api.supabase.rpc("six_allowance", params: parameters).execute().data
+        return try PostgRESTDate.decoder.decode([SixAllowance].self, from: data).first
+    }
+
     // MARK: - Corrections
 
     public func correctPlace(entryID: UUID, restaurantID: UUID) async throws -> EntryCard {

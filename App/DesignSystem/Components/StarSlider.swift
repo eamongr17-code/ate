@@ -16,6 +16,10 @@ import SwiftUI
 /// stars follow it on a rubber band — and held out there for a second the haptic builds until a
 /// sixth star comes out in the special colour with a small burst. No label. With Reduce Motion the
 /// star simply appears in its colour. The distance-and-time rules are `AteKit.SecretSix`.
+///
+/// **None left** (``sixLock``, 25 Oct: two 6s in any two months): the same reach and hold, but the
+/// sixth star comes out as a dashed outline with one soft tap and no burst, the word line says when
+/// the next comes back, and the score stays 5.0.
 struct StarSlider: View {
     /// What is being scored — the dish, named in the person's own words. Heard by VoiceOver only;
     /// the panel shows the score's word.
@@ -23,6 +27,10 @@ struct StarSlider: View {
     @Binding var rating: Rating?
     /// The composer's slider can reach the secret 6; nothing else offers it.
     var allowsSix = false
+    /// Set when no 6 is left to give: past 5.0 is a locked outline, and the score stays 5.0.
+    var sixLock: SixLock?
+    /// The sixth star came out locked.
+    var onSixLocked: (() -> Void)?
     /// Fired when the finger lifts, so a caller can close the panel or write the token.
     var onFinish: ((Rating) -> Void)?
 
@@ -57,7 +65,10 @@ struct StarSlider: View {
     /// person's own words, which the last-words guess often got wrong (Eamon, 18 Oct,
     /// `design/rebuild/rating-words.html` option A). Unscored it is empty like the numeral, but a
     /// space holds the line so the panel doesn't jump on the first touch.
-    private var word: String { rating?.word ?? " " }
+    private var word: String {
+        if isLockedOut, let sixLock { return sixLock.word() }
+        return rating?.word ?? " "
+    }
 
     /// `RaterSize.dc.html` (2026-09-26), rebalanced for the word (18 Oct): the word in the dish
     /// voice a step down at 20 on one line, the numeral at 28, baselines shared, `gap:14px`; the
@@ -107,6 +118,18 @@ struct StarSlider: View {
 
     /// Five stars — six once the secret is out, the sixth in the special colour.
     private var showsSix: Bool { rating == .blownAway }
+    /// Held out past 5.0 with no 6 left to give.
+    private var isLockedOut: Bool { sixLock != nil && six.isUnlocked }
+
+    /// What a reach past the end may score: a 6, unless none is left.
+    private func allowed(_ next: Rating) -> Rating {
+        sixLock != nil && next == .blownAway ? .perfect : next
+    }
+
+    /// The score under a finger at `fingerX` — a 6 once unlocked, unless none is left.
+    private func trackRating(atX fingerX: Double) -> Rating {
+        allowed(six.rating(onTrack: RatingTrack.rating(atX: fingerX, trackWidth: Double(trackWidth))))
+    }
 
     private var track: some View {
         // The stars are drawn in their own row, which the rubber band moves; the gesture is read off
@@ -120,10 +143,15 @@ struct StarSlider: View {
                 SixthStar(bursts: bursts)
                     .frame(maxWidth: .infinity)
                     .transition(reduceMotion ? .identity : .scale(scale: 0.4).combined(with: .opacity))
+            } else if isLockedOut {
+                LockedSixthStar()
+                    .frame(maxWidth: .infinity)
+                    .transition(reduceMotion ? .identity : .scale(scale: 0.4).combined(with: .opacity))
             }
         }
         .offset(x: stretch)
         .ateAnimation(.spring(duration: 0.35, bounce: 0.35), value: showsSix)
+        .ateAnimation(.spring(duration: 0.35, bounce: 0.2), value: isLockedOut)
         .frame(height: AteMetrics.starTrack)
         .contentShape(.rect)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { trackWidth = $0 }
@@ -163,14 +191,14 @@ struct StarSlider: View {
             .onChanged { value in
                 let fingerX = Double(value.location.x)
                 if allowsSix { follow(x: fingerX) }
-                let next = six.rating(onTrack: RatingTrack.rating(atX: fingerX, trackWidth: Double(trackWidth)))
+                let next = trackRating(atX: fingerX)
                 guard next != rating else { return }
                 rating = next
                 AteHaptics.tick()
             }
             .onEnded { value in
                 let fingerX = Double(value.location.x)
-                let next = six.rating(onTrack: RatingTrack.rating(atX: fingerX, trackWidth: Double(trackWidth)))
+                let next = trackRating(atX: fingerX)
                 rating = next
                 letGo()
                 onFinish?(next)
@@ -205,6 +233,12 @@ struct StarSlider: View {
             while Task.isCancelled == false {
                 try? await Task.sleep(for: .milliseconds(90))
                 guard Task.isCancelled == false, let progress = six.tick(at: Self.now) else { return }
+                if six.isUnlocked, sixLock != nil {
+                    AteHaptics.sixLocked()
+                    rating = .perfect
+                    onSixLocked?()
+                    return
+                }
                 if six.isUnlocked {
                     AteHaptics.blownAway()
                     rating = .blownAway
@@ -224,6 +258,22 @@ struct StarSlider: View {
     }
 
     private static var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
+}
+
+/// The sixth star when none is left: an outline, dashed and quiet, with nothing in it.
+private struct LockedSixthStar: View {
+    @Environment(\.atePalette) private var palette
+
+    var body: some View {
+        AteIconShape(paths: AteIcon.star.strokes)
+            .stroke(style: StrokeStyle(
+                lineWidth: 1.3 * AteMetrics.star / AteVector.viewBox,
+                lineCap: .round, lineJoin: .round, dash: [2.4, 2.2]
+            ))
+            .foregroundStyle(palette.muted)
+            .frame(width: AteMetrics.star, height: AteMetrics.star)
+            .accessibilityHidden(true)
+    }
 }
 
 /// The sixth star: filled in the special colour (`ScoreStyle.sixthStar`), and — each time it comes

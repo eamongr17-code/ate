@@ -48,6 +48,8 @@ public final class AtePreferences {
         self.cravingsAskedUserIDs = Set(asked.compactMap { UUID(uuidString: String($0)) })
         let sixes = (store.value(forKey: Key.sixGivers) ?? "").split(separator: ",")
         self.sixGiverUserIDs = Set(sixes.compactMap { UUID(uuidString: String($0)) })
+        let told = (store.value(forKey: Key.sixToldUserIDs) ?? "").split(separator: ",")
+        self.sixToldUserIDs = Set(told.compactMap { UUID(uuidString: String($0)) })
     }
 
     /// Everyone on this phone who has given a 6 (25 Oct, Eamon: an Easter egg). Until then no filter
@@ -73,6 +75,26 @@ public final class AtePreferences {
     public func gaveSix(_ userID: UUID?) {
         guard let userID else { return }
         sixGiverUserIDs.insert(userID)
+    }
+
+    /// Everyone on this phone who has been shown "You found the 6" — once each, ever.
+    public private(set) var sixToldUserIDs: Set<UUID> {
+        didSet {
+            guard sixToldUserIDs != oldValue else { return }
+            store.setValue(sixToldUserIDs.map(\.uuidString).sorted().joined(separator: ","), forKey: Key.sixToldUserIDs)
+        }
+    }
+
+    /// Whether this person is still owed "You found the 6". Signed out never is.
+    public func owesSixFound(_ userID: UUID?) -> Bool {
+        guard let userID else { return false }
+        return sixToldUserIDs.contains(userID) == false
+    }
+
+    /// "You found the 6" has been shown: never again for this person.
+    public func toldSixFound(_ userID: UUID?) {
+        guard let userID else { return }
+        sixToldUserIDs.insert(userID)
     }
 
     /// Everyone on this phone who has answered the Feed's "What do you crave?" — a pick or its close
@@ -223,6 +245,7 @@ public final class AtePreferences {
         static let handleChosenUserIDs = "ate.handleChosenUserIDs"
         static let cravingsAsked = "ate.cravingsAskAnswered"
         static let sixGivers = "ate.sixGiverUserIDs"
+        static let sixToldUserIDs = "ate.sixToldUserIDs"
         static let pendingOnboardingUserID = "ate.pendingOnboardingUserID"
         static let replayingUserID = "ate.replayingFirstRunUserID"
     }

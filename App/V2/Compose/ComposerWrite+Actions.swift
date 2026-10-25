@@ -26,8 +26,7 @@ extension V2ComposerWrite {
         isHandingOver = true
         model.dismissScoring(refocus: false)
         model.promotePendingTagLiteral().map(services.analytics)
-        // A 6 in these words: the filters offer the 6 from now on.
-        if model.composition.sixTokens.isEmpty == false { services.preferences.gaveSix(services.api.currentUserID) }
+        noteTheSix()
         // Done's last word to the early sort: the words exactly as they will be inserted. A preview
         // of them already out is left to land; a stale one gets one more, which the sort waits on.
         // Then nothing further goes.

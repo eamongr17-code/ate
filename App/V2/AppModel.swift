@@ -49,6 +49,9 @@ final class AppModel {
     /// What the composer was opened with — its origin (the funnel's first step), any photos it
     /// opens holding, and the entry it is editing. `nil` while the composer is down.
     private(set) var composing: ComposerPresentation?
+    /// Words holding a 6 were just saved by someone never told about it: "You found the 6" comes up
+    /// once the composer is down (``SixFoundScreen``).
+    var owesSixFound = false
     /// An entry a link asked for, waiting for the shell to push it on the current tab.
     var linkedEntry: UUID?
     /// Bumped whenever the outbox lands something, so the Journal can refresh under it.
