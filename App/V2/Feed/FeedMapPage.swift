@@ -88,6 +88,10 @@ struct FeedMapPage: View {
             }
         }
         .task { await store.open() }
+        // No connection on the sheet, and the sheet and pins read again when it comes back.
+        .task {
+            for await isOnline in ConnectivityWatch.states() { await store.connectionChanged(isOnline: isOnline) }
+        }
         .onChange(of: store.frame) { _, frame in
             if let frame { position = .region(framing?.region(frame, detent: detent) ?? MKCoordinateRegion(frame)) }
         }
@@ -379,6 +383,7 @@ enum FeedMapCopy {
     static let openPlace = "Open place"
     static let close = "Close"
     static let unreachable = "The map couldn't load"
+    static let noConnection = "No connection"
     static let tryAgain = "Try again"
 
     static func pinLabel(_ place: MapPlace) -> String {

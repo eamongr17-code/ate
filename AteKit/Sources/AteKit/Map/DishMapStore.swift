@@ -18,6 +18,9 @@ public final class DishMapStore {
         case ready
         /// The read never came back. The map stays; the sheet offers another try.
         case failed
+        /// No connection: the phone is offline, or the read has had no answer for ``stallSeconds``.
+        /// The read carries on, and the sheet fills by itself if it lands or the connection returns.
+        case offline
     }
 
     /// What the sheet lists.
@@ -74,6 +77,12 @@ public final class DishMapStore {
     private var listGeneration = 0
     private var nextCursor: MapDishCursor?
     private var isLoadingMore = false
+    /// A list read with no answer after this long says No connection (build 217: a ~17 s dropout
+    /// sat on placeholders with nothing said).
+    private let stallSeconds: Double
+    private var isOnline = true
+    /// What the last pins read asked for, to ask again when the connection returns.
+    private var lastShown: (box: MapBox, reading: MapBox?)?
     /// Near me's first page, as last read: the location button brings it back without a read.
     private var lastNearMe: KeptNearMe?
 
@@ -87,8 +96,10 @@ public final class DishMapStore {
         reads: any DishMapReading,
         menus: any PlacePageReading,
         locate: @escaping NearbyPlaces.Locate,
-        analytics: @escaping AnalyticsRecorder = { _ in }
+        analytics: @escaping AnalyticsRecorder = { _ in },
+        stallSeconds: Double = 8
     ) {
+        self.stallSeconds = stallSeconds
         self.reads = reads
         self.menus = menus
         self.locate = locate
@@ -141,6 +152,7 @@ public final class DishMapStore {
     /// `reading` when the view reads past the screen's edges. The sheet stays as it is.
     public func show(_ box: MapBox, reading: MapBox? = nil) async {
         self.box = box
+        lastShown = (box, reading)
         pinGeneration += 1
         let mine = pinGeneration
         let read = reading ?? box
@@ -259,10 +271,16 @@ public final class DishMapStore {
         listedArea = nil
         listGeneration += 1
         let mine = listGeneration
-        phase = .opening
+        phase = isOnline ? .opening : .offline
         dishes = []
         hasMoreDishes = false
         nextCursor = nil
+        let stall = stallSeconds
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(stall))
+            guard let self, mine == self.listGeneration, self.phase == .opening else { return }
+            self.phase = .offline
+        }
         do {
             let fill = try await fill(listing, after: nil)
             guard mine == listGeneration else { return }
@@ -275,8 +293,31 @@ public final class DishMapStore {
             }
         } catch {
             guard mine == listGeneration else { return }
-            phase = .failed
+            phase = Self.isConnectionLost(error) || isOnline == false ? .offline : .failed
         }
+    }
+
+    /// The phone's connection changed. Gone: a list still loading says No connection. Back: a list
+    /// that said No connection (or failed) is read again, and so are the pins.
+    public func connectionChanged(isOnline: Bool) async {
+        let wasOnline = self.isOnline
+        self.isOnline = isOnline
+        guard isOnline else {
+            if phase == .opening { phase = .offline }
+            return
+        }
+        guard wasOnline == false || phase == .offline else { return }
+        if let lastShown { Task { await self.show(lastShown.box, reading: lastShown.reading) } }
+        if phase == .offline || phase == .failed { await retry() }
+    }
+
+    static func isConnectionLost(_ error: any Error) -> Bool {
+        guard let error = error as? URLError else { return false }
+        let lost: Set<URLError.Code> = [
+            .notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotConnectToHost,
+            .cannotFindHost, .dnsLookupFailed, .dataNotAllowed, .internationalRoamingOff
+        ]
+        return lost.contains(error.code)
     }
 
     /// One page of the list. Near me reads the box round the radius and keeps the rows inside it,

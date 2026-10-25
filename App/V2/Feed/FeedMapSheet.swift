@@ -29,14 +29,13 @@ struct FeedMapSheet: View {
             head
                 .contentShape(.rect)
                 .gesture(drag)
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headHeight = $0 }
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured in
+                    // Minimised, the sheet is the head: it grows and shrinks with it, never jumps.
+                    withAnimation(detent == .minimised ? AteMotion.panelSettle : nil) { headHeight = measured }
+                }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    if let place = store.selected {
-                        placeDishes(place)
-                    } else {
-                        nearby
-                    }
+                    list
                 }
                 .padding(.horizontal, AteMetrics.gutter)
                 .padding(.bottom, room.bottomInset + AteMetrics.section)
@@ -55,6 +54,7 @@ struct FeedMapSheet: View {
         .padding(.horizontal, FeedMapSheetMetrics.inset)
         .padding(.bottom, FeedMapSheetMetrics.inset)
         .ateAnimation(AteMotion.fillIn, value: store.selected?.id)
+        .ateAnimation(AteMotion.fillIn, value: store.selectedMenu.map(\.dishID))
         .accessibilityIdentifier("map.sheet")
     }
 
@@ -97,6 +97,7 @@ struct FeedMapSheet: View {
             Group {
                 if let place = store.selected {
                     placeHead(place)
+                        .transition(FeedMapSheetMotion.swap)
                 } else {
                     Text(store.title.text)
                         .ateText(.sheetTitle)
@@ -104,6 +105,7 @@ struct FeedMapSheet: View {
                         .lineLimit(1)
                         .accessibilityAddTraits(.isHeader)
                         .accessibilityIdentifier("map.title")
+                        .transition(FeedMapSheetMotion.swap)
                 }
             }
             .padding(.top, FeedMapSheetMetrics.titleTop)
@@ -112,10 +114,72 @@ struct FeedMapSheet: View {
         }
     }
 
-    // MARK: - Near me, or Search here
+    // MARK: - The list
+
+    /// Near me (or Search here), or the tapped place's dishes: one list, its rows known by their
+    /// dish, so a dish in both stays put when a pin is tapped or let go, and only what differs comes
+    /// and goes (build 217: the two lists cross-faded through each other, and so did the titles).
+    @ViewBuilder
+    private var list: some View {
+        if let shown {
+            rows(shown)
+        } else {
+            nearbyState
+        }
+    }
+
+    /// The rows on show, or `nil` while Near me has none to show (loading, failed or empty).
+    private var shown: [FeedMapSheetRow]? {
+        if let place = store.selected { return placeRows(place) }
+        guard store.phase == .ready, store.dishes.isEmpty == false else { return nil }
+        return nearbyRows
+    }
+
+    private func rows(_ rows: [FeedMapSheetRow]) -> some View {
+        let letters = DishLetter.neighbourly(rows.map { ($0.id, $0.name) })
+        return ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+            AteDishRow(
+                photo: .dish(letters[index], cover: row.cover),
+                name: row.name,
+                tags: row.tags,
+                subtitle: row.subtitle,
+                score: row.score.map(AteScore.average),
+                isFirst: index == 0,
+                onOpen: { onDish(row.id) }
+            )
+            .onAppear {
+                if store.selected == nil, index == rows.count - 1 { Task { await store.loadMoreDishes() } }
+            }
+            .transition(FeedMapSheetMotion.swap)
+        }
+    }
+
+    /// The place's menu, or until it is read, its dishes already in the list (no empty sheet).
+    private func placeRows(_ place: MapPlace) -> [FeedMapSheetRow] {
+        guard store.selectedMenu.isEmpty else {
+            return store.selectedMenu.map { dish in
+                FeedMapSheetRow(
+                    id: dish.dishID, name: dish.name, cover: dish.coverURLString, tags: dish.tags,
+                    subtitle: FeedMapCopy.people(dish.peopleCount), score: dish.score
+                )
+            }
+        }
+        let theirs = Set(store.dishes.filter { $0.restaurantID == place.restaurantID }.map(\.dishID))
+        return nearbyRows.filter { theirs.contains($0.id) }
+    }
+
+    private var nearbyRows: [FeedMapSheetRow] {
+        store.dishes.map { dish in
+            FeedMapSheetRow(
+                id: dish.dishID, name: dish.name, cover: dish.coverURLString, tags: [],
+                subtitle: FeedMapCopy.whereAndHowFar(dish.placeName, meters: dish.distanceMeters),
+                score: dish.score
+            )
+        }
+    }
 
     @ViewBuilder
-    private var nearby: some View {
+    private var nearbyState: some View {
         switch store.phase {
         case .opening:
             ForEach(0..<FeedMapSheetMetrics.skeletonRows, id: \.self) { _ in
@@ -124,28 +188,14 @@ struct FeedMapSheet: View {
         case .failed:
             AteEmptyState(line: FeedMapCopy.unreachable, art: .torn, pill: (FeedMapCopy.tryAgain, retry))
                 .accessibilityIdentifier("map.unreachable")
+        case .offline:
+            AteEmptyState(line: FeedMapCopy.noConnection, art: .torn, pill: (FeedMapCopy.tryAgain, retry))
+                .accessibilityIdentifier("map.offline")
         case .ready:
-            if store.dishes.isEmpty {
-                Text(store.title.emptyLine)
-                    .ateText(.meta)
-                    .foregroundStyle(palette.muted)
-                    .accessibilityIdentifier("map.empty")
-            } else {
-                let letters = DishLetter.neighbourly(store.dishes.map { ($0.dishID, $0.name) })
-                ForEach(Array(store.dishes.enumerated()), id: \.element.id) { index, dish in
-                    AteDishRow(
-                        photo: .dish(letters[index], cover: dish.coverURLString),
-                        name: dish.name,
-                        subtitle: FeedMapCopy.whereAndHowFar(dish.placeName, meters: dish.distanceMeters),
-                        score: dish.score.map(AteScore.average),
-                        isFirst: index == 0,
-                        onOpen: { onDish(dish.dishID) }
-                    )
-                    .onAppear {
-                        if index == store.dishes.count - 1 { Task { await store.loadMoreDishes() } }
-                    }
-                }
-            }
+            Text(store.title.emptyLine)
+                .ateText(.meta)
+                .foregroundStyle(palette.muted)
+                .accessibilityIdentifier("map.empty")
         }
     }
 
@@ -183,26 +233,25 @@ struct FeedMapSheet: View {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    @ViewBuilder
-    private func placeDishes(_ place: MapPlace) -> some View {
-        let menu = store.selectedMenu
-        let letters = DishLetter.neighbourly(menu.map { ($0.dishID, $0.name) })
-        ForEach(Array(menu.enumerated()), id: \.element.id) { index, dish in
-            AteDishRow(
-                photo: .dish(letters[index], cover: dish.coverURLString),
-                name: dish.name,
-                tags: dish.tags,
-                subtitle: FeedMapCopy.people(dish.peopleCount),
-                score: dish.score.map(AteScore.average),
-                isFirst: index == 0,
-                onOpen: { onDish(dish.dishID) }
-            )
-        }
-    }
-
     private func retry() {
         Task { await store.retry() }
     }
+}
+
+/// One dish in the sheet's list, from Near me or from a tapped place's menu.
+struct FeedMapSheetRow: Identifiable {
+    let id: UUID
+    let name: String
+    let cover: String?
+    let tags: [DietTag]
+    let subtitle: String
+    let score: Double?
+}
+
+enum FeedMapSheetMotion {
+    /// What changes when a pin is tapped or let go fades in, and what goes leaves at once, so the
+    /// old and the new never show through each other.
+    static var swap: AnyTransition { .asymmetric(insertion: .opacity, removal: .identity) }
 }
 
 /// The sheet's three heights.

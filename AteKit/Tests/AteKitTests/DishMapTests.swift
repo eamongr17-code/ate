@@ -174,6 +174,8 @@ struct DishMapTests {
         let rows: [MapDish]
         let gate = Mutex<[CheckedContinuation<Void, Never>]>([])
         let holdNextShow = Mutex(false)
+        let holdNextList = Mutex(false)
+        let failLists = Mutex(false)
         let boxes = Mutex<[MapBox]>([])
         let listed = Mutex<[MapBox]>([])
 
@@ -198,6 +200,10 @@ struct DishMapTests {
         func dishes(in box: MapBox, origin: SearchOrigin?, after cursor: MapDishCursor?, pageSize: Int)
             async throws -> MapDishPage {
             listed.withLock { $0.append(box) }
+            if failLists.withLock({ $0 }) { throw URLError(.notConnectedToInternet) }
+            if holdNextList.withLock({ held in defer { held = false }; return held }) {
+                await withCheckedContinuation { continuation in gate.withLock { $0.append(continuation) } }
+            }
             return MapDishPage(items: cursor == nil ? rows : [], requestedLimit: pageSize)
         }
 
@@ -308,6 +314,33 @@ struct DishMapTests {
         await store.listNearMe(moved)
         #expect(store.listing == .nearMe(moved))
         #expect(reads.listed.withLock { $0.count } > reads0)
+    }
+
+    @Test("a list with no answer says No connection, and fills by itself when the answer lands")
+    func stalledList() async throws {
+        let reads = Reads(nearest: [], dishes: [dish("Near", meters: 350)])
+        reads.holdNextList.withLock { $0 = true }
+        let store = DishMapStore(reads: reads, menus: Menus(), locate: { _ in self.fitzroy }, stallSeconds: 0.05)
+        let opening = Task { await store.open() }
+        while store.phase != .offline { await Task.yield() }
+        reads.release()
+        await opening.value
+        #expect(store.phase == .ready)
+        #expect(store.dishes.map(\.name) == ["Near"])
+    }
+
+    @Test("offline says No connection; the connection back reads the list again")
+    func offlineAndBack() async throws {
+        let reads = Reads(nearest: [], dishes: [dish("Near", meters: 350)])
+        let store = DishMapStore(reads: reads, menus: Menus(), locate: { _ in self.fitzroy })
+        await store.connectionChanged(isOnline: false)
+        reads.failLists.withLock { $0 = true }
+        await store.open()
+        #expect(store.phase == .offline)
+        reads.failLists.withLock { $0 = false }
+        await store.connectionChanged(isOnline: true)
+        #expect(store.phase == .ready)
+        #expect(store.dishes.map(\.name) == ["Near"])
     }
 
     @Test("a read that lands after a newer one was asked for is dropped")
