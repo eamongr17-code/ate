@@ -18,6 +18,10 @@ import XCTest
 /// Re-record on purpose only: push a commit whose message contains `[record-snapshots]` and
 /// `.github/workflows/snapshots.yml` commits the new pictures back to the branch. The diff of the
 /// pictures is then part of the PR, for the reviewer to judge against `design/v1`.
+///
+/// Reduce Motion is on for every picture: the one-shot score shimmer, the page loader's tally and the
+/// posting dots are all clocks, and every one of them goes still under it. Without it the same page
+/// recorded and compared minutes apart on the same runner disagreed.
 @MainActor
 final class KitSnapshotTests: XCTestCase {
     func testAtoms() { snapshot(.atoms) }
@@ -39,6 +43,7 @@ final class KitSnapshotTests: XCTestCase {
             let page = KitGalleryScreen(only: section)
                 .frame(width: Self.width)
                 .environment(\.colorScheme, scheme)
+                .environment(\.accessibilityReduceMotion, true)
             let renderer = ImageRenderer(content: page)
             renderer.scale = Self.scale
             renderer.proposedSize = ProposedViewSize(width: Self.width, height: nil)
