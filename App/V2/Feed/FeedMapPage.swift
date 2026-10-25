@@ -40,8 +40,13 @@ struct FeedMapPage: View {
             let room = FeedMapRoom(page: page)
             ZStack(alignment: .bottom) {
                 map
-                    // The camera frames what is above the sheet's resting height.
-                    .safeAreaPadding(.bottom, FeedMapMetrics.lowHeight)
+                    // The map's own bottom is the sheet's top: the camera frames what is above it,
+                    // and the Apple Maps mark and Legal sit just over it, following it as it settles
+                    // (build 215: the mark floated mid-screen over a minimised sheet). Never higher
+                    // than the resting height: tall, the sheet covers the map as the system's does.
+                    .safeAreaPadding(.bottom, mapBottom(room))
+                    .ignoresSafeArea()
+                    .ateAnimation(AteMotion.panelSettle, value: detent)
                 FeedMapSheet(
                     store: store,
                     detent: $detent,
@@ -158,6 +163,13 @@ struct FeedMapPage: View {
         let photos = store.places.filter { arrangement.photos.contains($0.id) }.map(FeedMapMark.photo)
         let dots = arrangement.dots.map { dot in FeedMapMark.dot(dot.members.compactMap { located[$0] }) }
         marks = photos + dots.compactMap { $0 }
+    }
+
+    private func mapBottom(_ room: FeedMapRoom) -> CGFloat {
+        let resting = detent == .minimised
+            ? room.height(.minimised, head: FeedMapSheetMetrics.headEstimate)
+            : FeedMapMetrics.lowHeight
+        return resting + FeedMapSheetMetrics.inset
     }
 
     private func select(_ place: MapPlace) async {
