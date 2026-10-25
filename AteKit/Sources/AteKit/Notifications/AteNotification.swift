@@ -16,6 +16,8 @@ public struct AteNotification: Sendable, Hashable, Identifiable, Decodable {
     public let place: Place?
     /// The visit: the tagger's entry's own time, not the moment of the tag.
     public let visitedAt: Date?
+    /// The tagger's first photo of the visit (0087); `nil` when the entry has none.
+    public let photoURL: String?
 
     public struct Person: Sendable, Hashable, Decodable {
         public let id: UUID
@@ -60,7 +62,8 @@ public struct AteNotification: Sendable, Hashable, Identifiable, Decodable {
         companionStatus: AteWithStatus? = .pending,
         entryID: UUID?,
         place: Place?,
-        visitedAt: Date?
+        visitedAt: Date?,
+        photoURL: String? = nil
     ) {
         self.id = id
         self.type = type
@@ -72,6 +75,7 @@ public struct AteNotification: Sendable, Hashable, Identifiable, Decodable {
         self.entryID = entryID
         self.place = place
         self.visitedAt = visitedAt
+        self.photoURL = photoURL
     }
 
     enum CodingKeys: String, CodingKey {
@@ -82,6 +86,7 @@ public struct AteNotification: Sendable, Hashable, Identifiable, Decodable {
         case companionStatus = "companion_status"
         case entryID = "entry_id"
         case visitedAt = "visited_at"
+        case photoURL = "photo_url"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -98,6 +103,7 @@ public struct AteNotification: Sendable, Hashable, Identifiable, Decodable {
         entryID = try container.decodeIfPresent(UUID.self, forKey: .entryID)
         place = try container.decodeIfPresent(Place.self, forKey: .place)
         visitedAt = try container.decodeIfPresent(Date.self, forKey: .visitedAt)
+        photoURL = try container.decodeIfPresent(String.self, forKey: .photoURL)
     }
 
     /// The one type V1 draws.

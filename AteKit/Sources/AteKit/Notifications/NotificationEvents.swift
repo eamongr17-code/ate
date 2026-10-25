@@ -4,9 +4,9 @@ import Foundation
 /// parameters are asserted by tests: `notifications_opened → ate_with_opened → ate_with_posted`, with
 /// the X (`notification_dismissed`) and the one system ask (`push_permission_result`) beside it.
 public enum NotificationEvents {
-    /// Where a tag was opened from.
+    /// Where a tag was opened from: a push, a tap on its row, or the row's "Add yours" pill.
     public enum Source: String, Sendable, CaseIterable {
-        case push, list
+        case push, list, pill
     }
 
     /// The list was shown. `unread` is the bell's number at the moment it was opened.
@@ -41,13 +41,13 @@ public enum NotificationEvents {
         ])
     }
 
-    /// A row left the list without an answer: the X (`x`), or a swipe's Decline (`decline`).
+    /// A row left the list without an answer: a swipe's Clear (`clear`), or Decline (`decline`).
     public static func notificationDismissed(how: Dismissal) -> AnalyticsEvent {
         AnalyticsEvent(name: "notification_dismissed", parameters: ["how": how.rawValue])
     }
 
     public enum Dismissal: String, Sendable {
-        case close = "x"
+        case clear
         case decline
     }
 
@@ -65,6 +65,11 @@ public enum NotificationEvents {
             "tags": String(max(0, tags)),
             "photos": String(max(0, photos))
         ])
+    }
+
+    /// The photos group's heading was tapped for every sitting: how many there were.
+    public static func photoSuggestionsAllOpened(count: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "photo_suggestions_all_opened", parameters: ["count": String(max(0, count))])
     }
 
     /// A nearby-place chip on a photo sitting was tapped. `rank` is its position, from 1.

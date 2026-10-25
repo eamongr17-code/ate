@@ -1,24 +1,30 @@
 import AteKit
 import SwiftUI
 
-/// **Notifications** (`lists-notifications.html` E1–E3) — pushed from the Journal's bell, the tab
-/// bar staying. Three groups on one page: **List invites** (`list-cover-edit.html` 7), then **Ate
-/// with** (somebody is waiting on you), then **From your photos**. A group with nothing in it is not
-/// shown; all empty is the one empty line.
+/// **Notifications** (`lists-notifications.html` E1–E3, rows refined in `notifications-refined.html`,
+/// 25 Oct, groups by kind) — pushed from the Journal's bell, the tab bar staying. Three groups on one
+/// page: **List invites** (`list-cover-edit.html` 7), then **Ate with** (somebody is waiting on you),
+/// then **From your photos**. A group with nothing in it is not shown; all empty is the one empty line.
 ///
-/// List invites: the owner, "@eamon invited you to Date night", the count, Decline and Accept. A tap
-/// on the row previews the list; Accept puts it on your Lists shelf; Decline clears it, untold.
-///
-/// Ate with: one row type (``AteNotificationRow``), newest first — a tap opens the tag's scoring
-/// sheet, the X clears the row (the tag stays), a swipe declines (asked once).
-/// From your photos: each sitting a ``PhotoSuggestionRow``; nearby places as chips where the photos
-/// carry a location (``PhotoPlaceChips``), attached only on a tap.
+/// Invites and tags are one row (``AteNotificationRow``): a sentence, Decline and the answer as pills
+/// under it, the picture at the right, a coral dot while it is new.
+/// List invites: "@eamon invited you to Date night", the count, the list's cover. A tap on the row
+/// previews the list; Accept puts it on your Lists shelf; Decline clears it, untold.
+/// Ate with: "@jess ate with you at Tipo 00", the day, the tagger's photo; newest first. A tap or
+/// "Add yours" opens the tag's scoring sheet; Decline asks once; a swipe's Clear takes the row (the
+/// tag stays).
+/// From your photos: the newest two sittings, each a ``PhotoSuggestionRow``; with more, the heading
+/// carries the count and opens them all (``Route/suggestions``, this page with only that group).
+/// Nearby places show as chips where the photos carry a location (``PhotoPlaceChips``), attached
+/// only on a tap.
 ///
 /// Opening the page asks for push (once ever), and only if that prompt did not appear, for the camera
 /// roll (once ever): never two system prompts in one visit. Without photo access the photos group is
 /// simply absent.
 struct V2NotificationsPage: View {
     let context: V2PageContext
+    /// Every photo sitting and nothing else: the photos group's heading, opened.
+    var photosOnly = false
 
     @State private var isCollapsed = false
     /// Where the header's name ends: the bar takes it once the page has scrolled past.
@@ -30,20 +36,28 @@ struct V2NotificationsPage: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(context: V2PageContext) {
+    init(context: V2PageContext, photosOnly: Bool = false) {
         self.context = context
+        self.photosOnly = photosOnly
         _photos = State(initialValue: PhotoSuggestionsModel(services: context.services))
     }
 
     private var store: NotificationsStore { context.app.notifications }
     private var places: PhotoPlaceChips { PhotoPlaceChipsSession.shared(context.services) }
 
-    private var tagsLoading: Bool { context.app.hasSession && store.phase == .loading }
+    private var title: String { photosOnly ? NotificationsCopy.fromPhotos : NotificationsCopy.title }
+    private var hasPeople: Bool { context.app.hasSession && photosOnly == false }
+    private var tagsLoading: Bool { hasPeople && store.phase == .loading }
     private var tagRows: [AteNotification] {
-        context.app.hasSession && store.phase == .ready ? store.rows : []
+        hasPeople && store.phase == .ready ? store.rows : []
     }
-    private var tagsFailed: Bool { context.app.hasSession && store.phase == .failed }
-    private var invites: [ListInvite] { context.app.hasSession ? context.app.listInvites.invites : [] }
+    private var tagsFailed: Bool { hasPeople && store.phase == .failed }
+    private var invites: [ListInvite] { hasPeople ? context.app.listInvites.invites : [] }
+    /// The sittings this page lists: all of them on the photos page, the newest two here.
+    private var shownClusters: [PhotoSuggestionCluster] {
+        photosOnly ? photos.clusters : Array(photos.clusters.prefix(NotificationsMetrics.photosShown))
+    }
+    private var morePhotos: Bool { photosOnly == false && photos.clusters.count > NotificationsMetrics.photosShown }
     private var showsPhotos: Bool { photos.phase == .ready && photos.clusters.isEmpty == false }
     private var photosLoading: Bool { photos.phase == .loading }
 
@@ -60,7 +74,7 @@ struct V2NotificationsPage: View {
 
     var body: some View {
         List {
-            AtePageTitle(title: NotificationsCopy.title, titleBottom: $titleBottom)
+            AtePageTitle(title: title, titleBottom: $titleBottom)
                 .plainRow()
             content
         }
@@ -71,16 +85,19 @@ struct V2NotificationsPage: View {
         .contentMargins(.bottom, AteMetrics.tabBarScrollInset, for: .scrollContent)
         .ateTitleCollapse($isCollapsed, after: titleBottom)
         .ateGround()
-        .ateCollapsingTitle(NotificationsCopy.title, isCollapsed: isCollapsed)
+        .ateCollapsingTitle(title, isCollapsed: isCollapsed)
         .ateAnimation(AteMotion.fillIn, value: store.rows.map(\.id))
         .ateAnimation(AteMotion.fillIn, value: invites.map(\.id))
         .ateAnimation(AteMotion.fillIn, value: photos.clusters.map(\.id))
         .refreshable {
+            guard hasPeople else { return }
             async let waiting: Void = context.app.listInvites.refresh()
             await store.refresh()
             await waiting
         }
         .task { await open() }
+        // Back from the photos page: what was written up or dismissed there leaves here too.
+        .onAppear { if photos.phase == .ready { photos.photosWrittenUp() } }
         .onDisappear { logOpened() }
         // Photos allowed elsewhere (Settings, or the Summary's ask) while the page was up: read the roll.
         .onChange(of: scenePhase) { _, now in
@@ -122,10 +139,14 @@ struct V2NotificationsPage: View {
                 tags
             }
             if showsPhotos {
-                band(NotificationsCopy.fromPhotos, isFirst: tagRows.isEmpty && invites.isEmpty)
+                if photosOnly {
+                    Color.clear.frame(height: NotificationsMetrics.firstBandTop).plainRow()
+                } else {
+                    photosBand(isFirst: tagRows.isEmpty && invites.isEmpty)
+                }
                 suggestions
             } else if photosLoading && tagRows.isEmpty {
-                band(NotificationsCopy.fromPhotos, isFirst: invites.isEmpty)
+                if photosOnly == false { band(NotificationsCopy.fromPhotos, isFirst: invites.isEmpty) }
                 ForEach(0..<SuggestionMetrics.skeletons, id: \.self) { index in
                     SuggestionSkeletonRow(photos: index == 0 ? 2 : 1).plainRow()
                 }
@@ -159,23 +180,52 @@ struct V2NotificationsPage: View {
             .plainRow()
     }
 
+    /// "From your photos", and with more sittings than are shown, the count and the way to them all.
+    @ViewBuilder
+    private func photosBand(isFirst: Bool) -> some View {
+        if morePhotos {
+            AteBandHeading(
+                title: NotificationsCopy.fromPhotos, count: photos.clusters.count,
+                identifier: "notifications.photos.all"
+            ) {
+                context.services.analytics(NotificationEvents.photoSuggestionsAllOpened(count: photos.clusters.count))
+                context.open(.suggestions, from: .journal)
+            }
+            .frame(minHeight: AteMetrics.hit)
+            .padding(.horizontal, AteMetrics.gutter)
+            .padding(.top, isFirst ? NotificationsMetrics.firstBandTop : NotificationsMetrics.bandTop)
+            .plainRow()
+        } else {
+            band(NotificationsCopy.fromPhotos, isFirst: isFirst)
+        }
+    }
+
     private var tags: some View {
         ForEach(Array(tagRows.enumerated()), id: \.element.id) { index, row in
             AteNotificationRow(
                 userID: row.actor.id,
                 handle: row.actor.username,
-                line: NotificationsCopy.line(handle: row.actor.username),
-                meta: NotificationsCopy.meta(row),
+                avatarURL: row.actor.avatarURL.flatMap(URL.init(string:)),
+                sentence: NotificationsCopy.sentence(row),
+                detail: NotificationsCopy.day(row),
+                isUnread: row.isUnread,
+                decline: NotificationsCopy.decline,
+                primary: NotificationsCopy.addYours,
                 isFirst: index == 0,
-                onOpen: { open(row) },
-                onClear: { Task { await store.dismiss(row) } }
+                onOpen: { open(row, from: .list) },
+                onDecline: { declining = row },
+                onPrimary: { open(row, from: .pill) },
+                trailing: {
+                    if let photo = row.photoURL {
+                        AteThumb(photo: .remote(photo))
+                    }
+                }
             )
             .plainRow()
-            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                Button(NotificationsCopy.decline, role: .destructive) { declining = row }
-                    .tint(AteColor.destructive)
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button(NotificationsCopy.clear) { Task { await store.dismiss(row) } }
             }
-            .accessibilityAction(named: NotificationsCopy.decline) { declining = row }
+            .accessibilityAction(named: NotificationsCopy.clear) { Task { await store.dismiss(row) } }
             .onAppear {
                 if row.id == store.rows.last?.id { Task { await store.loadMore() } }
             }
@@ -184,23 +234,34 @@ struct V2NotificationsPage: View {
 
     private var inviteRows: some View {
         ForEach(Array(invites.enumerated()), id: \.element.id) { index, invite in
-            AteListInviteRow(
-                owner: invite.owner,
-                line: ListsCopy.invited(by: invite.owner.username, to: invite.name),
-                meta: ListsCopy.dishes(invite.itemCount),
+            AteNotificationRow(
+                userID: invite.owner.id,
+                handle: invite.owner.username,
+                avatarURL: invite.owner.avatarURL.flatMap(URL.init(string:)),
+                sentence: ListsCopy.invited(by: invite.owner.username, to: invite.name),
+                detail: ListsCopy.dishes(invite.itemCount),
+                // Unanswered until it leaves the page: every invite here is waiting on you.
+                isUnread: true,
                 decline: ListsCopy.decline,
-                accept: ListsCopy.accept,
+                primary: ListsCopy.accept,
                 isFirst: index == 0,
+                identifier: "invite.row",
                 onOpen: { context.open(.list(ListRoute(id: invite.listID)), from: .journal) },
                 onDecline: { answer(invite, accept: false) },
-                onAccept: { answer(invite, accept: true) }
+                onPrimary: { answer(invite, accept: true) },
+                trailing: {
+                    AteListCover(
+                        id: invite.listID, name: invite.name, covers: invite.covers, cover: invite.coverURL,
+                        style: .row
+                    )
+                }
             )
             .plainRow()
         }
     }
 
     private var suggestions: some View {
-        ForEach(photos.clusters) { cluster in
+        ForEach(shownClusters) { cluster in
             PhotoSuggestionRow(
                 cluster: cluster,
                 isFirst: cluster.id == photos.clusters.first?.id,
@@ -223,6 +284,11 @@ struct V2NotificationsPage: View {
     // MARK: - Opening
 
     private func open() async {
+        guard photosOnly == false else {
+            // Reached from the photos group's heading: the roll is already allowed.
+            await photos.load(mayAsk: false)
+            return
+        }
         async let tags: Void = refreshTags()
         async let waiting: Void = refreshInvites()
         // Push first; the camera roll may ask only if push did not.
@@ -248,7 +314,7 @@ struct V2NotificationsPage: View {
 
     /// `notifications_section_opened`, once a visit: when both groups have settled, or on leaving.
     private func logOpened() {
-        guard hasLoggedOpen == false else { return }
+        guard hasLoggedOpen == false, photosOnly == false else { return }
         hasLoggedOpen = true
         context.services.analytics(NotificationEvents.notificationsSectionOpened(
             tags: tagRows.count, photos: photos.clusters.count
@@ -257,9 +323,9 @@ struct V2NotificationsPage: View {
 
     // MARK: - Doing things
 
-    private func open(_ row: AteNotification) {
+    private func open(_ row: AteNotification, from source: NotificationEvents.Source) {
         guard let companionID = row.companionID, context.gate.permitsWrite(.compose) else { return }
-        context.services.analytics(NotificationEvents.ateWithOpened(from: .list))
+        context.services.analytics(NotificationEvents.ateWithOpened(from: source))
         context.app.compose(.respond(to: companionID))
     }
 
@@ -356,23 +422,30 @@ enum NotificationsCopy {
     static let unreachable = "Couldn't reach Ate."
     static let retry = "Try again"
     static let decline = "Decline"
+    static let addYours = "Add yours"
+    static let clear = "Clear"
     static let ateWith = "Ate with"
     static let fromPhotos = "From your photos"
 
-    static func line(handle: String) -> String { "@\(handle) ate with you" }
+    /// "**@jess** ate with you at **Tipo 00**". A place that has gone is not guessed at.
+    static func sentence(_ row: AteNotification) -> [AteNotificationRun] {
+        var runs: [AteNotificationRun] = [.strong("@\(row.actor.username)"), .plain(" ate with you")]
+        if let place = row.place?.name { runs += [.plain(" at "), .strong(place)] }
+        return runs
+    }
+
+    /// The visit's day, after the sentence: "Sat 19 Sep".
+    static func day(_ row: AteNotification) -> String? {
+        row.visitedAt.map { RelativeAge.day($0) }
+    }
 
     static func declineTitle(handle: String) -> String { "Remove yourself from @\(handle)'s entry?" }
-
-    /// Where and when: "Tipo 00, Sat 19 Sep". A place that has gone is not guessed at.
-    static func meta(_ row: AteNotification) -> String? {
-        let day = row.visitedAt.map { RelativeAge.day($0) }
-        let parts = [row.place?.name, day].compactMap { $0 }
-        return parts.isEmpty ? nil : parts.joined(separator: ", ")
-    }
 }
 
 enum NotificationsMetrics {
     static let skeletonRows = 4
+    /// The photo sittings on the page itself; the heading opens the rest.
+    static let photosShown = 2
     /// `.band` padding-top: 14 above the page's first group, 18 above the next.
     static let firstBandTop: CGFloat = 14
     static let bandTop: CGFloat = 18

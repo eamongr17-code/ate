@@ -41,6 +41,18 @@ private enum Fixture {
     }
 }
 
+@Suite("Notifications, refined: events")
+struct NotificationsRefinedEventsTests {
+    @Test func theRowsPillAndTheAllPhotosHeadingAreNamed() {
+        #expect(NotificationEvents.Source.allCases.map(\.rawValue) == ["push", "list", "pill"])
+        #expect(NotificationEvents.ateWithOpened(from: .pill).parameters == ["from": "pill"])
+        let all = NotificationEvents.photoSuggestionsAllOpened(count: 7)
+        #expect(all.name == "photo_suggestions_all_opened")
+        #expect(all.parameters == ["count": "7"])
+        #expect(NotificationEvents.notificationDismissed(how: .clear).parameters == ["how": "clear"])
+    }
+}
+
 @Suite("Ate with: decoding")
 struct AteWithDecodingTests {
 
@@ -52,11 +64,13 @@ struct AteWithDecodingTests {
           "companion_id":"6f1c4b2a-0000-4000-8000-0000000000c1","companion_status":"pending",
           "entry_id":"6f1c4b2a-0000-4000-8000-0000000000e1",
           "place":{"id":"6f1c4b2a-0000-4000-8000-0000000000b1","name":"Tipo 00","locality":"Melbourne"},
-          "visited_at":"2026-09-19T09:30:00+00:00"}]
+          "visited_at":"2026-09-19T09:30:00+00:00","photo_url":"https://x.test/review-photos/a/1.jpg"}]
         """.utf8)
         let rows = try PostgRESTDate.decoder.decode([AteNotification].self, from: json)
         let row = try #require(rows.first)
         #expect(row.actor.username == "eamon")
+        #expect(row.photoURL == "https://x.test/review-photos/a/1.jpg")
+        #expect(row.read().photoURL == row.photoURL)
         #expect(row.place?.name == "Tipo 00")
         #expect(row.companionStatus == .pending)
         #expect(row.isUnread)
@@ -74,6 +88,7 @@ struct AteWithDecodingTests {
         """.utf8)
         let row = try #require(try PostgRESTDate.decoder.decode([AteNotification].self, from: json).first)
         #expect(row.isRenderable == false)
+        #expect(row.photoURL == nil)
         #expect(row.companionStatus == nil)
         #expect(row.isUnread == false)
     }
@@ -186,7 +201,7 @@ struct NotificationsStoreTests {
         #expect(store.unreadCount == 2)
     }
 
-    @Test func theXClearsTheRowButKeepsTheTag() async throws {
+    @Test func clearTakesTheRowButKeepsTheTag() async throws {
         let tag = Fixture.tag(minutesAgo: 1)
         let service = InMemoryNotifications(tags: [tag, Fixture.tag(minutesAgo: 2)])
         let recorded = Recorded()
@@ -198,7 +213,7 @@ struct NotificationsStoreTests {
         #expect(store.rows.contains { $0.id == row.id } == false)
         #expect(store.unreadCount == 1)
         #expect(recorded.events.map(\.name) == ["notification_dismissed"])
-        #expect(recorded.events.first?.parameters["how"] == "x")
+        #expect(recorded.events.first?.parameters["how"] == "clear")
         // The server agrees after a reload, and the tag itself can still be answered.
         await store.refresh()
         #expect(store.rows.count == 1)
