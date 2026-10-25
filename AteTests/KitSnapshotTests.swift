@@ -117,7 +117,13 @@ final class KitSnapshotTests: XCTestCase {
                       share, bands.count, list, bands.count > 12 ? ", …" : "")
     }
 
-    private static func pixels(_ image: UIImage) -> (width: Int, height: Int, bytes: [UInt8])? {
+    private struct Pixels {
+        let width: Int
+        let height: Int
+        let bytes: [UInt8]
+    }
+
+    private static func pixels(_ image: UIImage) -> Pixels? {
         guard let cg = image.cgImage else { return nil }
         let width = cg.width
         let height = cg.height
@@ -128,6 +134,6 @@ final class KitSnapshotTests: XCTestCase {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
         ) else { return nil }
         context.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
-        return (width, height, bytes)
+        return Pixels(width: width, height: height, bytes: bytes)
     }
 }
