@@ -59,6 +59,12 @@ struct InlineTokenEditor: UIViewRepresentable {
     /// The caret is hidden (not moved, not resigned) while the focus is elsewhere — a pill being
     /// scored. The keyboard stays exactly where it is.
     var hidesCaret = false
+    /// The editor is as tall as its words and does not scroll itself: the page around it does, and
+    /// keeps the caret's line in view. Off, it fills what it is given and scrolls inside.
+    var growsWithText = false
+    /// The scrolling page's visible height. When it changes (the keyboard, the score slide) the
+    /// caret's line is brought back into view.
+    var pageHeight: CGFloat = 0
     /// A token was tapped: reopen its slider or its sheet.
     var onTokenTap: (EntryToken) -> Void = { _ in }
     /// The caret moved. The host needs this to know where a new token should be inserted.
@@ -86,8 +92,8 @@ struct InlineTokenEditor: UIViewRepresentable {
         // `Composer.dc.html`'s caret is coral (`background:#F0623F`). The tint is also what colours the
         // selection and its handles, which is the native behaviour following the same accent.
         view.tintColor = UIColor(AteColor.coral)
-        view.isScrollEnabled = true
-        view.alwaysBounceVertical = true
+        view.isScrollEnabled = growsWithText == false
+        view.alwaysBounceVertical = growsWithText == false
         // Room for the caret before a line's first glyph (`CaretMetrics.lead`).
         view.textContainerInset = UIEdgeInsets(top: 0, left: CaretMetrics.lead, bottom: 0, right: 0)
         view.textContainer.lineFragmentPadding = 0
@@ -119,6 +125,10 @@ struct InlineTokenEditor: UIViewRepresentable {
         if view.tintColor != tint { view.tintColor = tint }
         if isFocusSuspended, view.isFirstResponder { view.resignFirstResponder() }
         context.coordinator.focusIfRequested(focusRequest, in: view)
+        if context.coordinator.servedPageHeight != pageHeight {
+            context.coordinator.servedPageHeight = pageHeight
+            view.revealCaretSoon()
+        }
         context.coordinator.runUndoIfRequested(undo: undoRequest, redo: redoRequest, in: view)
         // The placeholder is set in the words' own paragraph style, not just their font: the first
         // line of text sits at the floor of a clamped line box, and a bare label sat four points above
@@ -135,6 +145,13 @@ struct InlineTokenEditor: UIViewRepresentable {
         if context.coordinator.shouldRender(revision: revision, style: style, dynamicTypeSize: dynamicTypeSize) {
             context.coordinator.render(composition, revision: revision, caret: caretAfterRender, into: view)
         }
+    }
+
+    /// Grown to its words: the width it is offered, and the height its lines take at that width.
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: InlineTokenTextView, context: Context) -> CGSize? {
+        guard growsWithText, let width = proposal.width, width.isFinite, width > 0 else { return nil }
+        let fit = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return CGSize(width: width, height: ceil(fit.height))
     }
 
     func makeCoordinator() -> Coordinator {

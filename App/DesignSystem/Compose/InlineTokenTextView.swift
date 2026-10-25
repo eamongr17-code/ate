@@ -69,6 +69,45 @@ final class InlineTokenTextView: UITextView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not used") }
 
+    // MARK: - Growing with the words
+
+    private var laidOutHeight: CGFloat = 0
+
+    /// Grown to its words (scrolling off), the text view is one part of a page that scrolls: a new
+    /// line makes it taller, and the caret is put back in view once the page has made room for it.
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard isScrollEnabled == false, bounds.height != laidOutHeight else { return }
+        laidOutHeight = bounds.height
+        revealCaretSoon()
+    }
+
+    /// On the next turn: the page's content size follows this view's frame, not the other way round.
+    func revealCaretSoon() {
+        guard isScrollEnabled == false else { return }
+        DispatchQueue.main.async { [weak self] in self?.revealCaret() }
+    }
+
+    /// The caret's whole line, and half a line either side of it, into the page's view — so the line
+    /// being written is never cut by the page's top or bottom edge.
+    func revealCaret() {
+        guard isScrollEnabled == false, isFirstResponder, let range = selectedTextRange,
+              let page = enclosingScrollView else { return }
+        let caret = caretRect(for: range.end)
+        guard caret.isNull == false, caret.isInfinite == false else { return }
+        let line = (typingAttributes[.font] as? UIFont)?.lineHeight ?? caret.height
+        page.scrollRectToVisible(convert(caret.insetBy(dx: 0, dy: -line), to: page), animated: true)
+    }
+
+    private var enclosingScrollView: UIScrollView? {
+        var view = superview
+        while let current = view {
+            if let scroll = current as? UIScrollView { return scroll }
+            view = current.superview
+        }
+        return nil
+    }
+
     // MARK: - The caret
 
     /// **The caret `Composer.dc.html` draws**: `width:2px; height:22px; margin-left:1px;
