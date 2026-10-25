@@ -48,6 +48,13 @@ jobs:
           udid=$(xcrun simctl create ci-sim "${{ inputs.device || 'iPhone 17 Pro' }}")
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
+          # Reduce Motion stills every clock in the kit (receipt breath, skeleton shimmer, page
+          # loader), as ci.yml and snapshots.yml set it, so KitSnapshotTests compares the same
+          # pictures here. The preference is read at boot: boot once to take it, again to honour it.
+          xcrun simctl spawn "$udid" defaults write com.apple.Accessibility ReduceMotionEnabled -bool true
+          xcrun simctl shutdown "$udid"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
           mkdir -p ci-out
 
