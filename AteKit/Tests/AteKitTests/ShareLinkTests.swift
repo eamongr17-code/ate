@@ -68,6 +68,17 @@ struct ShareLinkTests {
         #expect(still.parameters["receipt_moved"] == nil)
     }
 
+    @Test func receiptSharedSaysWhenItWasTheMiniReceipt() {
+        let mini = ShareEvents.receiptShared(
+            entryID: Self.id, source: .entry, destination: .instagramStories, sticker: .story, mini: true
+        )
+        #expect(mini.parameters["receipt_size"] == "mini")
+        let regular = ShareEvents.receiptShared(
+            entryID: Self.id, source: .entry, destination: .instagramStories, sticker: .story
+        )
+        #expect(regular.parameters["receipt_size"] == nil)
+    }
+
     @Test func receiptSharedSaysWhenItWasOneDishOfSeveral() {
         let one = ShareEvents.receiptShared(
             entryID: Self.id, source: .entry, destination: .saved, sticker: .story, oneDish: true

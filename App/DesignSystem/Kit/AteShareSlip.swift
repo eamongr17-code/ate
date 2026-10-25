@@ -28,6 +28,9 @@ struct AteShareSlip: View {
     var onFixDish: ((AteReceipt.Item) -> Void)?
     /// The paper it is printed on: white, or an accent for the share sticker (11 Oct).
     var paper: AteSharePaper = .white
+    /// **The mini receipt** (25 Oct, Eamon): for a story or post where the regular one is too big. No
+    /// handle and no suburb; the place moves down to the wordmark's line.
+    var isMini = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.snug) {
@@ -37,8 +40,12 @@ struct AteShareSlip: View {
                 dishes
             }
             AteDashedRule()
-            placeLine
-            signature
+            if isMini {
+                miniFoot
+            } else {
+                placeLine
+                signature
+            }
         }
         .padding(.top, AteShareSlipMetrics.top)
         .padding(.horizontal, AteShareSlipMetrics.inset)
@@ -109,6 +116,18 @@ struct AteShareSlip: View {
                 action: onAddPlace
             )
             .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// The place and the wordmark on one line.
+    private var miniFoot: some View {
+        HStack(alignment: .center) {
+            Text(receipt.place)
+                .ateText(.shareSlipLabel)
+                .foregroundStyle(AtePalette.slip.fg)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: AteMetrics.snug)
+            AteWordmark(height: AteShareSlipMetrics.wordmark)
         }
     }
 
@@ -248,6 +267,7 @@ enum AteShareSlipMetrics {
     VStack(spacing: AteMetrics.section) {
         AteShareSlip(receipt: .preview)
         AteShareSlip(receipt: .previewSingle)
+        AteShareSlip(receipt: .preview, isMini: true)
         AteShareSlip(receipt: .preview, isPrinting: true)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)

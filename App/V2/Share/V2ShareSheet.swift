@@ -6,10 +6,11 @@ import UIKit
 /// colour dots, and one row of ways out. No title and no close; the sheet goes down by its handle.
 ///
 /// The cards (``AteShareCard``): the receipt alone (a sticker), the ready-made story, and the 4:5 post
-/// — the last only with a photo to put on it. Under each card its dots: the sticker's paper, the
-/// story's photos and grounds, the post's photos. Adjust (the crop disc after the dots) lets the photo
-/// be dragged and pinched, out as far as the whole photo, with a blurred copy of it filling the spare
-/// room. On the card in front, the receipt can be dragged anywhere on the page.
+/// — the last two only with a photo to put them on (25 Oct, Eamon: full-screen photos, no colours).
+/// Under each card its dots: the sticker's paper; the story's and post's photos, and Regular | Mini
+/// for the receipt's size. On the card in front the photo is pinched bigger or smaller and moved with
+/// two fingers, out as far as the whole photo with a blurred copy of it filling the spare room, and a
+/// double tap puts it back; the receipt is dragged anywhere on the page with one.
 ///
 /// **A review of several dishes** (23 Oct, Eamon, option B): one receipt per dish, on that dish's own
 /// photos (``ShareReceiptPage``). Sticker, Story and Post become a switch over the cards, and the
@@ -59,7 +60,10 @@ struct V2ShareSheet: View {
     @State var looks: [UUID: AteShareLook] = [:]
     /// The photo picked on each page, by position; `nil` is its first.
     @State var picked: [UUID: Int] = [:]
-    @State var isAdjusting = false
+    /// The mini receipt on every story and post.
+    @State var isMini = false
+    /// A pinch on the photo in front: the cards hold still.
+    @State var isPinching = false
     @State var dragStart: CGSize?
     @State var zoomStart: CGFloat?
     /// Where a receipt drag started, and the receipt's laid-out size on each card.
@@ -68,8 +72,10 @@ struct V2ShareSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if isSplit {
+            if isSplit, switchFormats.count > 1 {
                 formatSwitch
+            } else if isSplit {
+                Color.clear.frame(height: V2ShareSheetMetrics.switchHeight)
             } else if isWaiting, receipt.items.count > 1 {
                 Color.clear.frame(height: V2ShareSheetMetrics.switchHeight)
             }
@@ -103,7 +109,6 @@ struct V2ShareSheet: View {
         .fixedSize()
         .environment(\.colorScheme, .dark)
         .frame(height: V2ShareSheetMetrics.switchHeight, alignment: .bottom)
-        .disabled(isAdjusting)
         .accessibilityIdentifier("share.format")
     }
 
@@ -135,7 +140,7 @@ struct V2ShareSheet: View {
         .scrollPosition(id: $current)
         .safeAreaPadding(.horizontal, (AteScreen.width - V2ShareSheetMetrics.slot.width) / 2)
         .scrollIndicators(.hidden)
-        .scrollDisabled(isAdjusting || slots.count < 2)
+        .scrollDisabled(isPinching || slots.count < 2)
         .scrollClipDisabled()
         .frame(height: V2ShareSheetMetrics.slot.height)
         .padding(.vertical, AteMetrics.section)
@@ -160,17 +165,16 @@ struct V2ShareSheet: View {
             .environment(\.colorScheme, .light)
             .ateShadow(.shareSticker)
         case .story, .post:
-            let isFraming = isAdjusting && slot == showing
             let width = V2ShareSheetMetrics.width(slot.format)
-            let canMove = isLive && isAdjusting == false && slot == showing
+            let inFront = isLive && slot == showing
             let preview = AteShareCardPreview(
-                card: card(slot, onDragReceipt: canMove ? { moveReceipt(on: slot, by: $0, width: width) } : nil),
+                card: card(slot, onDragReceipt: inFront ? { moveReceipt(on: slot, by: $0, width: width) } : nil),
                 width: width
             )
             preview
-                .overlay { if isFraming { V2FramingGrid().allowsHitTesting(false) } }
                 .contentShape(Rectangle())
-                .gesture(framing(slot, scale: preview.scale), including: isFraming ? .all : .subviews)
+                .gesture(V2PhotoPinch { if inFront { pinch(slot, $0, scale: preview.scale) } })
+                .onTapGesture(count: 2) { if inFront { resetFraming(slot) } }
                 .accessibilityLabel(label(slot.format.title, page))
         }
     }
@@ -184,7 +188,6 @@ struct V2ShareSheet: View {
         let page = self.page(slot.page)
         return AteShareCard(
             format: slot.format, receipt: page.receipt, photo: image(page), look: look(page),
-            receiptOpacity: isAdjusting && slot == showing ? V2ShareSheetMetrics.adjustingReceipt : 1,
             isReceiptHeld: receiptStart != nil && slot == showing,
             onReceiptSize: { receiptSizes[slot] = $0 },
             onDragReceipt: onDragReceipt
@@ -210,7 +213,7 @@ struct V2ShareSheet: View {
         let scale = width / pageSize.width
         let room = AteReceiptSpotLayout.room(
             page: pageSize, receipt: receiptSizes[slot] ?? .zero,
-            scale: format.receiptScale(on: look.ground), clear: format.receiptClear
+            scale: format.receiptScale(on: look.ground, mini: look.isMini), clear: format.receiptClear
         )
         func moved(_ from: CGFloat, _ by: CGFloat, _ across: CGFloat) -> CGFloat {
             across > 0 ? min(max(from + by / scale / across, 0), 1) : from
@@ -246,7 +249,7 @@ struct V2ShareSheet: View {
             V2PrintedFoot(pill: reprint)
         } else {
             V2ReceiptShareRow(
-                card: card(showing), source: source, isEnabled: isLive && isAdjusting == false,
+                card: card(showing), source: source, isEnabled: isLive,
                 oneDish: page(showing.page).isWhole == false,
                 analytics: analytics, onFirstShare: onFirstShare, isPresenting: isPresenting
             )
@@ -256,23 +259,7 @@ struct V2ShareSheet: View {
     }
 }
 
-/// The rule of thirds over a photo being adjusted.
-struct V2FramingGrid: View {
-    var body: some View {
-        Canvas { context, size in
-            var path = Path()
-            for third in [1.0 / 3, 2.0 / 3] {
-                path.move(to: CGPoint(x: size.width * third, y: 0))
-                path.addLine(to: CGPoint(x: size.width * third, y: size.height))
-                path.move(to: CGPoint(x: 0, y: size.height * third))
-                path.addLine(to: CGPoint(x: size.width, y: size.height * third))
-            }
-            context.stroke(path, with: .color(.white.opacity(0.6)), lineWidth: 1)
-        }
-    }
-}
-
-/// **One dot under a card** — a colour, the photo, or the Adjust disc — with a ring when chosen.
+/// **One dot under a card** — a colour or a photo — with a ring when chosen.
 struct AteShareSwatch: View {
     var fill: AnyShapeStyle = AnyShapeStyle(Color.clear)
     var photo: UIImage?
@@ -329,8 +316,6 @@ enum V2ShareSheetMetrics {
     static let swatchIcon: CGFloat = 16
     static let ringGap: CGFloat = 4
     static let swatchGap: CGFloat = 6
-    /// The receipt while its card's photo is adjusted.
-    static let adjustingReceipt: Double = 0.35
     /// How fast an entry's cards come in once its photos are.
     static let cardsIn: Double = 0.2
     /// The sheet's height on the entry page: the cards, the dots, the row.

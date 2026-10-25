@@ -200,7 +200,8 @@ struct V2ReceiptShareRow: View {
         analytics(ShareEvents.receiptShared(
             entryID: card.receipt.id, source: source, destination: destination, sticker: card.format.counted,
             look: card.look.name(for: card.format), adjusted: card.look.isAdjusted(card.format),
-            receiptMoved: card.look.isReceiptMoved(card.format), oneDish: oneDish
+            receiptMoved: card.look.isReceiptMoved(card.format), oneDish: oneDish,
+            mini: card.format != .sticker && card.look.isMini
         ))
     }
 }

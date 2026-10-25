@@ -2,7 +2,8 @@ import AteKit
 import SwiftUI
 import UIKit
 
-/// The share sheet's pages, the cards they make, and the dots and Adjust under the card in front.
+/// The share sheet's pages, the cards they make, the dots under the card in front, and the pinch on
+/// its photo.
 extension V2ShareSheet {
     // MARK: - Pages and cards
 
@@ -30,10 +31,10 @@ extension V2ShareSheet {
         position(page).flatMap { photos[$0] }
     }
 
-    /// The page's look: on its photo until changed, and never a photo ground with no photo.
+    /// The page's look, at the receipt size chosen for every card.
     func look(_ page: ShareReceiptPage) -> AteShareLook {
         var look = looks[page.id] ?? AteShareLook()
-        if image(page) == nil, look.ground == .photo { look.ground = .coral }
+        look.isMini = isMini
         return look
     }
 
@@ -43,19 +44,20 @@ extension V2ShareSheet {
         looks[id] = look
     }
 
-    /// The cards a page has: the story and the post only with a photo for them.
+    /// The cards a page has: the story and the post only with a photo for them (25 Oct, Eamon: no
+    /// colour grounds).
     private func formats(_ page: ShareReceiptPage) -> [AteShareFormat] {
-        image(page) == nil ? [.sticker, .story] : AteShareFormat.allCases
+        image(page) == nil ? [.sticker] : AteShareFormat.allCases
     }
 
-    /// The switch's cards: the post only when there is a photo to put it on.
+    /// The switch's cards: the story and the post only when there is a photo to put them on.
     var switchFormats: [AteShareFormat] {
-        pages.contains { image($0) != nil } ? AteShareFormat.allCases : [.sticker, .story]
+        pages.contains { image($0) != nil } ? AteShareFormat.allCases : [.sticker]
     }
 
     var format: AteShareFormat {
         let format = chosen ?? opensOn
-        return switchFormats.contains(format) ? format : .story
+        return switchFormats.contains(format) ? format : switchFormats.last ?? .sticker
     }
 
     /// What swipes: the formats of the one receipt; or, split, every dish in the chosen format, the
@@ -68,8 +70,8 @@ extension V2ShareSheet {
         guard isSplit else { return formats(whole).map { ShareSlot(format: $0, page: whole.id) } }
         let dishes = pages.filter { $0.isWhole == false }
         let shown: [ShareReceiptPage] = switch format {
-        case .sticker, .story: [whole] + dishes
-        case .post: ([whole] + dishes).filter { image($0) != nil }
+        case .sticker: [whole] + dishes
+        case .story, .post: ([whole] + dishes).filter { image($0) != nil }
         }
         return shown.map { ShareSlot(format: format, page: $0.id) }
     }
@@ -78,13 +80,11 @@ extension V2ShareSheet {
         current ?? slots.first ?? ShareSlot(format: .sticker, page: receipt.id)
     }
 
-    // MARK: - Dots, or Adjust
+    // MARK: - Dots
 
     @ViewBuilder
     var controls: some View {
-        if isAdjusting {
-            adjustBar
-        } else if isLive {
+        if isLive {
             let page = self.page(showing.page)
             let look = self.look(page)
             HStack(spacing: V2ShareSheetMetrics.swatchGap) {
@@ -94,17 +94,15 @@ extension V2ShareSheet {
                         AteShareSwatch(fill: AnyShapeStyle(paper.colour), label: "\(paper.rawValue.capitalized) paper",
                                        isSelected: look.paper == paper) { change(page.id) { $0.paper = paper } }
                     }
-                case .story:
-                    photoSwatches(page, isSelected: look.ground == .photo)
-                    ForEach(AteShareGround.allCases.filter { $0 != .photo }, id: \.self) { ground in
-                        AteShareSwatch(fill: AnyShapeStyle(ground.colour), label: ground.rawValue.capitalized,
-                                       isSelected: look.ground == ground) { change(page.id) { $0.ground = ground } }
+                case .story, .post:
+                    if page.photos.count > 1 {
+                        photoSwatches(page)
+                        Rectangle()
+                            .fill(AtePalette.ink.hairline)
+                            .frame(width: 1, height: V2ShareSheetMetrics.swatch)
+                            .padding(.horizontal, V2ShareSheetMetrics.swatchGap)
                     }
-                case .post:
-                    if page.photos.count > 1 { photoSwatches(page, isSelected: true) }
-                }
-                if showing.format != .sticker, image(page) != nil {
-                    AteShareSwatch(icon: .crop, label: "Adjust photo") { isAdjusting = true }
+                    sizeSwitch
                 }
             }
         } else {
@@ -112,14 +110,26 @@ extension V2ShareSheet {
         }
     }
 
+    /// Regular | Mini: the receipt's size on every story and post.
+    private var sizeSwitch: some View {
+        Picker("Receipt size", selection: $isMini) {
+            Text("Regular").tag(false)
+            Text("Mini").tag(true)
+        }
+        .pickerStyle(.segmented)
+        .fixedSize()
+        .environment(\.colorScheme, .dark)
+        .accessibilityIdentifier("share.size")
+    }
+
     /// A dot per photo the page can go on. Picking another starts its framing afresh.
-    private func photoSwatches(_ page: ShareReceiptPage, isSelected: Bool) -> some View {
+    private func photoSwatches(_ page: ShareReceiptPage) -> some View {
         ForEach(page.photos, id: \.self) { position in
             let number = (page.photos.firstIndex(of: position) ?? 0) + 1
             AteShareSwatch(
                 photo: photos[position],
                 label: page.photos.count > 1 ? "Photo \(number)" : "Your photo",
-                isSelected: isSelected && self.position(page) == position
+                isSelected: self.position(page) == position
             ) {
                 if self.position(page) != position {
                     picked[page.id] = position
@@ -128,24 +138,8 @@ extension V2ShareSheet {
                         $0.postFraming = .automatic
                     }
                 }
-                change(page.id) { $0.ground = .photo }
             }
         }
-    }
-
-    private var adjustBar: some View {
-        HStack(spacing: AteMetrics.regular) {
-            Button("Reset") { setFraming(.automatic, for: showing) }
-                .buttonStyle(.glass)
-            Slider(value: zoom, in: zoomRange)
-                .tint(AteColor.coral)
-                .accessibilityLabel("Zoom")
-            Button("Done") { isAdjusting = false }
-                .buttonStyle(.glassProminent)
-                .tint(AtePalette.ink.fg)
-                .foregroundStyle(AteColor.ink)
-        }
-        .padding(.horizontal, AteMetrics.gutter)
     }
 
     // MARK: - The photo's framing
@@ -156,50 +150,86 @@ extension V2ShareSheet {
         AteShareCard.photoFrame(slot.format, look: look(page(slot.page)))
     }
 
-    private var zoomRange: ClosedRange<CGFloat> {
-        PhotoFraming.minimumZoom(image: photoSize(showing), frame: frame(showing))...PhotoFraming.maximumZoom
-    }
-
-    private var zoom: Binding<CGFloat> {
-        Binding {
-            look(page(showing.page)).framing(for: showing.format).zoom
-        } set: { zoom in
-            var framing = self.look(self.page(showing.page)).framing(for: showing.format)
-            framing.zoom = zoom
-            setFraming(framing, for: showing)
-        }
-    }
-
     private func setFraming(_ framing: PhotoFraming, for slot: ShareSlot) {
         let held = framing.clamped(image: photoSize(slot), frame: frame(slot))
         change(slot.page) { $0.setFraming(held, for: slot.format) }
     }
 
-    /// Drag to move, pinch to zoom: on screen points, scaled back to the card's own.
-    func framing(_ slot: ShareSlot, scale: CGFloat) -> some Gesture {
+    func resetFraming(_ slot: ShareSlot) {
+        guard slot.format != .sticker else { return }
+        withAnimation(.snappy) { setFraming(.automatic, for: slot) }
+    }
+
+    /// A pinch scales the photo from where it started, and the fingers moving together move it: on
+    /// screen points, scaled back to the card's own.
+    func pinch(_ slot: ShareSlot, _ pinch: V2PhotoPinch.Value?, scale: CGFloat) {
+        guard slot.format != .sticker else { return }
+        guard let pinch else {
+            dragStart = nil
+            zoomStart = nil
+            isPinching = false
+            return
+        }
         let frame = self.frame(slot)
-        let framingNow = { look(page(slot.page)).framing(for: slot.format) }
-        let drag = DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                let start = dragStart ?? framingNow().offset
-                if dragStart == nil { dragStart = start }
-                var framing = framingNow()
-                framing.offset = CGSize(
-                    width: start.width + value.translation.width / scale / frame.width,
-                    height: start.height + value.translation.height / scale / frame.height
-                )
-                setFraming(framing, for: slot)
+        let now = look(page(slot.page)).framing(for: slot.format)
+        let offset = dragStart ?? now.offset
+        let zoom = zoomStart ?? now.zoom
+        if dragStart == nil { dragStart = offset }
+        if zoomStart == nil { zoomStart = zoom }
+        isPinching = true
+        var framing = now
+        framing.zoom = zoom * pinch.scale
+        framing.offset = CGSize(
+            width: offset.width + pinch.translation.width / scale / frame.width,
+            height: offset.height + pinch.translation.height / scale / frame.height
+        )
+        setFraming(framing, for: slot)
+    }
+}
+
+/// **Two fingers on the photo**: how far apart they have spread, and how far they have moved together,
+/// since they came down; `nil` once they lift. A UIKit pinch, because SwiftUI's own does not say where
+/// the fingers went, and one finger is left to the cards and the receipt.
+struct V2PhotoPinch: UIGestureRecognizerRepresentable {
+    struct Value {
+        var scale: CGFloat
+        var translation: CGSize
+    }
+
+    let onChange: (Value?) -> Void
+
+    final class Coordinator {
+        /// The fingers' middle at the last change, and how many fingers made it: when one lifts or
+        /// lands the middle jumps, so the count starts the motion afresh from there.
+        var last: CGPoint?
+        var touches = 0
+        var moved = CGSize.zero
+    }
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPinchGestureRecognizer {
+        UIPinchGestureRecognizer()
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UIPinchGestureRecognizer, context: Context) {
+        let state = context.coordinator
+        switch recognizer.state {
+        case .began, .changed:
+            let point = recognizer.location(in: recognizer.view)
+            let touches = recognizer.numberOfTouches
+            if let last = state.last, touches == state.touches {
+                state.moved.width += point.x - last.x
+                state.moved.height += point.y - last.y
             }
-            .onEnded { _ in dragStart = nil }
-        let pinch = MagnifyGesture()
-            .onChanged { value in
-                let start = zoomStart ?? framingNow().zoom
-                if zoomStart == nil { zoomStart = start }
-                var framing = framingNow()
-                framing.zoom = start * value.magnification
-                setFraming(framing, for: slot)
-            }
-            .onEnded { _ in zoomStart = nil }
-        return SimultaneousGesture(drag, pinch)
+            state.last = point
+            state.touches = touches
+            onChange(Value(scale: recognizer.scale, translation: state.moved))
+        default:
+            state.last = nil
+            state.touches = 0
+            state.moved = .zero
+            onChange(nil)
+        }
     }
 }
