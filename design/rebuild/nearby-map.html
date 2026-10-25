@@ -1,0 +1,320 @@
+<title>Ate Dish Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Young+Serif&display=swap">
+<style>
+/* Layout: research first, then live iPhones (393×852pt) for each option, every phone drawn twice (light row, dark row) with the iOS 26 glass chrome */
+:root{
+  --page:#F4F1EC; --page-fg:#24141F; --page-mut:#6E6470; --page-line:#DDD6CC; --accent:#F0623F;
+  --f-dish:"Young Serif",Georgia,serif; --f-ui:"DM Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#151416;--page-fg:#EEEAE4;--page-mut:#9C94A0;--page-line:#2C2A2E;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#151416;--page-fg:#EEEAE4;--page-mut:#9C94A0;--page-line:#2C2A2E;color-scheme:dark}
+body{background:var(--page);color:var(--page-fg);font-family:var(--f-ui);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:48px}
+section{display:flex;flex-direction:column;gap:14px;min-width:0}
+h1{font:400 40px/1.02 var(--f-dish);letter-spacing:-.02em;margin:0;text-wrap:balance}
+h2{font:400 26px/1.08 var(--f-dish);letter-spacing:-.02em;margin:0;text-wrap:balance}
+p.s{margin:0;color:var(--page-mut);font-size:15px;line-height:1.5;max-width:72ch}
+p.s b,ul.s b{color:var(--page-fg);font-weight:600}
+ul.s{margin:0;padding-left:18px;color:var(--page-mut);font-size:15px;line-height:1.55;max-width:72ch}
+a{color:var(--accent)}
+.rec{display:inline-block;font:500 11px/1 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--accent);padding:5px 8px;border-radius:6px;vertical-align:middle;margin-left:8px}
+.refs{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px 18px;max-width:1000px}
+.refs div{font-size:14.5px;line-height:1.45;color:var(--page-mut);border-top:1px solid var(--page-line);padding-top:10px}
+.refs b{color:var(--page-fg);font-weight:600}
+.row-lab{font:600 12px/1 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--page-mut)}
+.pair{display:flex;flex-wrap:wrap;gap:22px 18px}
+.ph-wrap{display:flex;flex-direction:column;gap:8px;width:calc(415px*var(--z,.72));max-width:100%}
+.ph-wrap .cap{font:600 14px/1.25 var(--f-ui);color:var(--page-fg)}
+.ph-wrap .cap small{display:block;font-weight:400;color:var(--page-mut);margin-top:3px;font-size:13px}
+@media (max-width:700px){.ph-wrap{--z:.85}}
+@media (max-width:420px){.ph-wrap{--z:.84}}
+
+/* ---------- the phone ---------- */
+.phone{zoom:var(--z,.72);width:393px;height:852px;border-radius:55px;position:relative;overflow:hidden;flex:none;
+  box-shadow:0 0 0 10px #1a1a1c,0 0 0 11px #3a3a3e,0 24px 60px rgba(0,0,0,.22);margin:11px;
+  --ground:#EFEAE2;--slip:#fff;--fg:#24141F;--mut:#5E5560;--hair:rgba(36,20,31,.10);--pill:#F6D365;--ink:#24141F;--ink-fg:#fff;
+  --lg-tint:rgba(255,255,255,.55);--lg-rim:rgba(255,255,255,.95);--lg-shade:rgba(36,20,31,.16);--lg-sel:rgba(36,20,31,.08);
+  --m-land:#F3EFE8;--m-road:#FFFFFF;--m-major:#FBE6B4;--m-edge:#E2DCD2;--m-park:#D5E8C8;--m-water:#AFD6EE;--m-label:#8A8290;--ring:#fff}
+.phone.dk{--ground:#0C0C0D;--slip:#1C1C1E;--fg:#F5F4F1;--mut:#A5A4A8;--hair:rgba(255,255,255,.12);--pill:#E6C65F;--ink:#F5F4F1;--ink-fg:#0C0C0D;
+  --lg-tint:rgba(40,40,44,.6);--lg-rim:rgba(255,255,255,.16);--lg-shade:rgba(0,0,0,.55);--lg-sel:rgba(255,255,255,.12);
+  --m-land:#1D1E21;--m-road:#34353A;--m-major:#4A4536;--m-edge:#26272B;--m-park:#1E2A21;--m-water:#14233A;--m-label:#8E8C94;--ring:#2A2A2D}
+.screen{position:absolute;inset:0;background:var(--ground);color:var(--fg);font-family:var(--f-ui);overflow:hidden}
+.status{position:absolute;top:0;left:0;right:0;height:54px;display:flex;justify-content:space-between;align-items:center;padding:6px 34px 0 46px;font:600 17px/1 -apple-system,system-ui,sans-serif;z-index:20;pointer-events:none;color:var(--fg)}
+.status i{width:58px;height:13px;background:linear-gradient(90deg,var(--fg) 0 62%,transparent 62% 70%,var(--fg) 70%);border-radius:3px}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;background:#000;border-radius:20px;z-index:21}
+.glass{background:var(--lg-tint);backdrop-filter:blur(22px) saturate(1.8);-webkit-backdrop-filter:blur(22px) saturate(1.8);
+  box-shadow:inset 0 0 0 .7px var(--lg-rim),0 8px 22px -8px var(--lg-shade)}
+.disc{width:44px;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex:none;position:absolute;z-index:12;border:0;color:var(--fg);cursor:pointer}
+svg.i{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:9px;background:var(--fg);z-index:22;opacity:.9}
+
+/* feed */
+.fhdr{position:absolute;left:0;right:0;top:54px;height:48px;display:flex;align-items:center;padding:0 16px 0 20px;z-index:8}
+.fhdr h3{font:400 30px/1 var(--f-dish);letter-spacing:-.02em;margin:0 auto 0 0;font-weight:400}
+.fgrp{height:44px;display:flex;align-items:center;padding:0 4px;border-radius:999px;position:relative}
+.fgrp span{width:40px;height:44px;display:flex;align-items:center;justify-content:center}
+.fgrp .new{position:absolute;inset:-5px;border-radius:999px;box-shadow:0 0 0 2px var(--accent);pointer-events:none}
+.fpad{position:absolute;top:116px;left:0;right:0;bottom:0}
+.slip{background:var(--slip);margin:0 12px 12px;border-radius:20px;padding:14px 18px 16px}
+.by{display:flex;align-items:center;gap:8px;font:600 13px/1 var(--f-ui)}
+.by i{width:24px;height:24px;border-radius:99px;display:block}
+.by span{color:var(--mut);font-weight:400}
+.dl{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--hair);font:400 20px/1.1 var(--f-dish)}
+.dl:last-of-type{border-bottom:0}
+.pics{display:flex;gap:4px;margin-top:10px}
+.pics i{width:86px;height:86px;border-radius:18px;display:block}
+.tabs{position:absolute;left:16px;right:16px;bottom:24px;height:62px;display:flex;gap:10px;z-index:9}
+.tabs .tb{flex:1;border-radius:999px;display:flex;align-items:center;padding:0 4px}
+.tabs .tb span{flex:1;height:54px;border-radius:999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font:600 10px/1 -apple-system,system-ui,sans-serif;color:var(--fg)}
+.tabs .tb span.sel{background:var(--lg-sel);color:var(--accent)}
+.tabs .tb svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tabs .plus{width:62px;height:62px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex:none}
+.tabs .plus svg{width:26px;height:26px;stroke:var(--fg);fill:none;stroke-width:2;stroke-linecap:round}
+
+/* score pill */
+.sc{display:inline-flex;align-items:center;gap:3px;height:24px;padding:0 8px 0 6px;border-radius:999px;background:var(--pill);color:#24141F;font:700 13px/1 var(--f-ui);font-variant-numeric:tabular-nums;flex:none}
+.sc svg{width:11px;height:11px;fill:#24141F}
+
+/* map */
+.map{position:absolute;inset:0;cursor:grab}
+.map svg.m{position:absolute;inset:0;width:100%;height:100%}
+.pin{position:absolute;transform:translate(-50%,-50%);z-index:5;border:0;padding:0;background:none;cursor:pointer;transition:transform .18s cubic-bezier(.2,.9,.3,1.3)}
+.pin>i{display:block;width:48px;height:48px;border-radius:999px;box-shadow:0 0 0 3px var(--ring),0 6px 14px rgba(0,0,0,.28)}
+.pin .sc{position:absolute;left:30px;top:30px;height:21px;font-size:12px;padding:0 7px 0 5px;box-shadow:0 0 0 2px var(--ring)}
+.pin .ct{position:absolute;right:-6px;top:-6px;min-width:22px;height:22px;border-radius:999px;background:var(--ink);color:var(--ink-fg);font:700 12px/22px var(--f-ui);text-align:center;padding:0 6px;box-shadow:0 0 0 2px var(--ring)}
+.pin.on{transform:translate(-50%,-50%) scale(1.3);z-index:6}
+.pin.on>i{box-shadow:0 0 0 3px var(--ink),0 8px 18px rgba(0,0,0,.35)}
+.pin.dim{opacity:.55}
+.me{position:absolute;width:18px;height:18px;border-radius:99px;background:#0A84FF;box-shadow:0 0 0 3px #fff,0 0 0 26px rgba(10,132,255,.15);transform:translate(-50%,-50%);z-index:4}
+/* option B pins */
+.bpin{position:absolute;transform:translate(-50%,-100%);z-index:5;display:flex;flex-direction:column;align-items:center;border:0;background:none;padding:0;cursor:pointer}
+.bpin .sc{height:30px;font-size:15px;padding:0 10px 0 8px;box-shadow:0 0 0 2px var(--ring),0 5px 12px rgba(0,0,0,.25)}
+.bpin::after{content:"";width:10px;height:10px;background:var(--pill);transform:rotate(45deg) translateY(-6px);margin-top:-2px;box-shadow:2px 2px 0 0 var(--ring)}
+.bpin.on .sc{background:var(--ink);color:var(--ink-fg)}
+.bpin.on .sc svg{fill:var(--ink-fg)}
+.bpin.on::after{background:var(--ink)}
+
+/* the sheet (iOS 26: floating glass at the low detent) */
+.sheet{position:absolute;left:8px;right:8px;bottom:8px;border-radius:38px;z-index:11;padding:8px 0 26px;overflow:hidden}
+.grab{width:36px;height:5px;border-radius:9px;background:var(--mut);opacity:.45;margin:0 auto 10px}
+.sh-h{display:flex;align-items:flex-start;gap:10px;padding:0 18px 6px 22px}
+.sh-h div{flex:1;min-width:0}
+.sh-h h4{font:400 24px/1.1 var(--f-dish);letter-spacing:-.01em;margin:0;font-weight:400}
+.sh-h p{margin:5px 0 0;font:400 14px/1.3 var(--f-ui);color:var(--mut)}
+.sh-h .x{position:static;width:34px;height:34px;background:var(--lg-sel)}
+.sh-h .x svg{width:15px;height:15px;stroke-width:2.4}
+.open{display:inline-flex;align-items:center;height:36px;padding:0 16px;border-radius:999px;background:var(--ink);color:var(--ink-fg);font:600 14px/1 var(--f-ui);margin:4px 0 0 22px;border:0}
+.dr{display:flex;align-items:center;gap:12px;padding:9px 18px 9px 22px}
+.dr+.dr{border-top:1px solid var(--hair);margin-left:86px;padding-left:0}
+.dr+.dr>i{margin-left:-64px}
+.dr>i{width:52px;height:52px;border-radius:14px;display:block;flex:none}
+.dr div{flex:1;min-width:0}
+.dr b{display:block;font:400 18px/1.15 var(--f-dish);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr small{display:block;font:400 13.5px/1.3 var(--f-ui);color:var(--mut);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* option B cards */
+.cards{position:absolute;left:0;right:0;bottom:30px;display:flex;gap:10px;padding:0 0 0 16px;z-index:11;overflow:hidden}
+.card{flex:none;width:318px;border-radius:28px;padding:10px;display:flex;gap:12px;align-items:center}
+.card>i{width:86px;height:86px;border-radius:20px;display:block;flex:none}
+.card div{flex:1;min-width:0}
+.card b{display:block;font:400 20px/1.1 var(--f-dish);font-weight:400}
+.card small{display:block;font:400 13.5px/1.3 var(--f-ui);color:var(--mut);margin:4px 0 8px}
+
+/* food stand-ins */
+.f1{background:radial-gradient(circle at 40% 40%,#E6A257,#9A4A1F 70%,#5C2A12)}
+.f2{background:radial-gradient(circle at 55% 45%,#F2946A,#C2452C 65%,#6E2316)}
+.f3{background:radial-gradient(circle at 50% 50%,#F4E3B5 0 30%,#D9A441 31% 55%,#7A4B1C 70%)}
+.f4{background:radial-gradient(circle at 45% 55%,#9BCB6B,#4F8A35 55%,#24451C)}
+.f5{background:radial-gradient(circle at 50% 45%,#FFF1D6 0 22%,#E8B04A 24% 48%,#8E5B26 72%)}
+.f6{background:radial-gradient(circle at 40% 40%,#F7C9A8,#D9775A 55%,#7D3326)}
+.f7{background:radial-gradient(circle at 55% 50%,#3B2A24 0 20%,#C8A27A 22% 50%,#5A3E2B 75%)}
+.f8{background:radial-gradient(circle at 50% 50%,#FBEFD2 0 35%,#E3C07E 37% 60%,#B07A3A 80%)}
+.a1{background:#F0623F}.a2{background:#B9A5EA}.a3{background:#3ECF64}
+@media (prefers-reduced-motion:reduce){.pin{transition:none}}
+</style>
+
+<div class="wrap">
+  <section>
+    <h1>Map of nearby dishes</h1>
+    <p class="s">A map button on the Feed opens a full-screen map of what people have eaten around you. Pins are places that have dishes in Ate; the sheet lists those dishes. Two ways to draw it below, each in light and dark. <b>Tap a pin</b> on the live phones to see the place view.</p>
+  </section>
+
+  <section>
+    <h2>What Mobbin shows</h2>
+    <div class="refs">
+      <div><b><a href="https://mobbin.com/screens/973d754b-c7ff-4348-a7c7-4564f5676176">Hypelist</a></b><br>Round photo pins that pile into a cluster where it's busy. The photo is the pin, so you see food before you tap.</div>
+      <div><b><a href="https://mobbin.com/screens/f945b81f-7135-453b-8e8e-7841f32530f6">Snapchat Map</a></b><br>Photo pins plus a sheet that rises with the place when you tap one. Closest to Option A.</div>
+      <div><b><a href="https://mobbin.com/screens/6fa48557-5b7a-4a7a-b311-f6cd32575bc6">Places</a></b> · <b><a href="https://mobbin.com/screens/c37207c4-aae6-46e5-bf50-c611aab2c6c7">Zomato</a></b><br>Rating pins and a swipeable card row; swiping moves the selected pin. Option B.</div>
+      <div><b><a href="https://mobbin.com/screens/581b744a-fc7a-48e8-9ece-7a3db63cf092">Deliveroo</a></b> · <b><a href="https://mobbin.com/screens/ff560597-4452-4581-9ae3-557360a35206">DoorDash</a></b><br>Hundreds of identical dots. Works with huge coverage; with a beta's coverage it reads as empty, so we avoid it.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Option A: photo pins and a dish sheet <span class="rec">Recommended</span></h2>
+    <p class="s">Each pin is the best-rated dish photo at that place with its average score. Pins that overlap merge into one with a count. The sheet lists every dish on screen, best first, and updates when you pan. Tapping a pin turns the sheet into that place's dishes. It's the native iOS 26 pattern (Apple Maps, Find My), so the sheet and buttons are system glass.</p>
+    <div class="row-lab">Light</div><div class="pair" id="a-light"></div>
+    <div class="row-lab">Dark</div><div class="pair" id="a-dark"></div>
+  </section>
+
+  <section>
+    <h2>Option B: score pins and a card row</h2>
+    <p class="s">Pins are butter score pills. One card per place sits at the bottom; swiping the cards moves the selected pin. Lighter on the map, but you only see one dish at a time and the photos are hidden until you swipe.</p>
+    <div class="row-lab">Light · Dark</div><div class="pair" id="b"></div>
+  </section>
+
+  <section>
+    <h2>How it holds up</h2>
+    <ul class="s">
+      <li><b>Never empty.</b> The map opens framed on you plus the nearest 10 places with dishes, however far (fourth phone above). With location off it opens on the city with the most dishes.</li>
+      <li><b>Cost.</b> Apple Maps, built into iOS: free, no quota, no Google calls. The map adds nothing to the Places bill.</li>
+      <li><b>Volume.</b> One query each time the map stops moving, for the visible area only, capped at 60 places, on the places location index that already exists. At 50 users that's a few hundred small queries a day.</li>
+      <li><b>Same data as the Feed.</b> Only entries the Feed can already show; nobody's private journal appears.</li>
+      <li><b>Events.</b> map opened, pin tapped, dish opened, place opened.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+const ICON = {
+  back:'<svg class="i" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+  loc:'<svg class="i" viewBox="0 0 24 24"><path d="M20 4L4 11l7 2 2 7z"/></svg>',
+  map:'<svg class="i" viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>',
+  x:'<svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  star:'<svg viewBox="0 0 24 24"><path d="M12 2l3 7 7 .6-5.3 4.7 1.6 7.2L12 17.8 5.7 21.5l1.6-7.2L2 9.6 9 9z"/></svg>'
+};
+const sc = s => `<span class="sc">${ICON.star}${s}</span>`;
+const chrome = '<div class="island"></div><div class="status"><span>9:41</span><i></i></div><div class="home"></div>';
+
+/* A stylised street map: a tilted grid, a few main roads, a river and parks. Wide = zoomed out. */
+function mapSVG(wide){
+  const step = wide ? 24 : 46, out=[];
+  out.push('<rect width="393" height="852" fill="var(--m-land)"/>');
+  if (wide){
+    out.push('<path d="M-20 700 C 60 640 120 690 160 760 S 230 852 260 900 L -20 900Z" fill="var(--m-water)"/>');
+    out.push('<rect x="250" y="250" width="70" height="90" rx="10" fill="var(--m-park)" transform="rotate(-12 285 295)"/>');
+    out.push('<rect x="40" y="420" width="90" height="60" rx="10" fill="var(--m-park)" transform="rotate(-12 85 450)"/>');
+  } else {
+    out.push('<rect x="215" y="150" width="120" height="150" rx="12" fill="var(--m-park)" transform="rotate(-12 275 225)"/>');
+    out.push('<rect x="30" y="560" width="110" height="90" rx="12" fill="var(--m-park)" transform="rotate(-12 85 605)"/>');
+  }
+  out.push('<g transform="rotate(-12 196 426)">');
+  for (let x=-400; x<800; x+=step) out.push(`<line x1="${x}" y1="-300" x2="${x}" y2="1150" stroke="var(--m-road)" stroke-width="${wide?3:7}"/>`);
+  for (let y=-300; y<1150; y+=step) out.push(`<line x1="-400" y1="${y}" x2="800" y2="${y}" stroke="var(--m-road)" stroke-width="${wide?3:7}"/>`);
+  const majors = wide ? [[60,'v'],[230,'v'],[340,'h'],[560,'h']] : [[120,'v'],[310,'v'],[380,'h']];
+  majors.forEach(([p,d])=>{
+    const a = d==='v' ? `x1="${p}" y1="-300" x2="${p}" y2="1150"` : `x1="-400" y1="${p}" x2="800" y2="${p}"`;
+    out.push(`<line ${a} stroke="var(--m-edge)" stroke-width="${wide?7:14}"/><line ${a} stroke="var(--m-major)" stroke-width="${wide?5:11}"/>`);
+  });
+  out.push('</g>');
+  if (!wide) out.push('<path d="M-20 760 C 90 720 160 800 260 770 S 380 700 420 730 L 420 900 L -20 900Z" fill="var(--m-water)"/>');
+  const labs = wide
+    ? [[150,250,'FITZROY'],[300,420,'RICHMOND'],[70,380,'CARLTON'],[120,560,'MELBOURNE'],[230,660,'SOUTH YARRA']]
+    : [[70,250,'FITZROY'],[230,470,'COLLINGWOOD'],[300,140,'CLIFTON HILL']];
+  labs.forEach(([x,y,t])=>out.push(`<text x="${x}" y="${y}" fill="var(--m-label)" font-family="DM Sans,system-ui,sans-serif" font-size="11" font-weight="600" letter-spacing="1.2">${t}</text>`));
+  return `<svg class="m" viewBox="0 0 393 852" preserveAspectRatio="xMidYMid slice">${out.join('')}</svg>`;
+}
+
+/* Example data (Melbourne). */
+const PLACES = {
+  sw:{name:'Small Wins', sub:'Collingwood · 350 m', x:200, y:330, f:'f2', s:'4.6', dishes:[['f2','Cacio e Pepe','6 people','4.8'],['f5','Burrata','4 people','4.5'],['f8','Tiramisu','3 people','4.3']]},
+  as:{name:'Astrid', sub:'Fitzroy · 600 m', x:105, y:205, f:'f1', s:'4.4', n:3, dishes:[['f1','Fried Chicken Sandwich','5 people','4.4'],['f6','Prawn Toast','2 people','4.2'],['f7','Espresso Martini','3 people','4.0']]},
+  bh:{name:'Bali Hai', sub:'Collingwood · 900 m', x:300, y:250, f:'f4', s:'4.2', dishes:[['f4','Gado Gado','3 people','4.2'],['f3','Nasi Goreng','4 people','4.1']]},
+  fs:{name:'Fitness Smoothies', sub:'Fitzroy · 1.1 km', x:70, y:440, f:'f6', s:'3.9', dishes:[['f6','Mango Smoothie','2 people','3.9']]},
+  ka:{name:'Kafeneion', sub:'Fitzroy · 1.3 km', x:325, y:175, f:'f3', s:'4.5', n:2, dishes:[['f3','Spanakopita','3 people','4.5']]}
+};
+const ME = {x:180, y:420};
+
+function pinsA(sel){
+  return Object.entries(PLACES).map(([k,p])=>
+    `<button class="pin${sel===k?' on':''}${sel&&sel!==k?' dim':''}" data-k="${k}" style="left:${p.x}px;top:${p.y}px" aria-label="${p.name}"><i class="${p.f}"></i>${p.n?`<span class="ct">${p.n}</span>`:''}${sc(p.s)}</button>`).join('');
+}
+function allDishes(){
+  const rows=[];
+  Object.values(PLACES).forEach(p=>p.dishes.forEach(d=>rows.push([d[0],d[1],p.name+' · '+p.sub.split(' · ')[1],d[3]])));
+  return rows.sort((a,b)=>b[3]-a[3]);
+}
+const drow = d => `<div class="dr"><i class="${d[0]}"></i><div><b>${d[1]}</b><small>${d[2]}</small></div>${sc(d[3])}</div>`;
+
+function sheetA(sel){
+  if (!sel){
+    const rows = allDishes();
+    return `<div class="sheet glass"><div class="grab"></div><div class="sh-h"><div><h4>${rows.length} dishes on the map</h4></div></div>${rows.slice(0,3).map(drow).join('')}</div>`;
+  }
+  const p = PLACES[sel];
+  return `<div class="sheet glass"><div class="grab"></div><div class="sh-h"><div><h4>${p.name}</h4><p>${p.sub}</p></div><button class="disc x" data-close aria-label="Close">${ICON.x}</button></div>
+    <button class="open">Open place</button>${p.dishes.slice(0,3).map(d=>drow([d[0],d[1],d[2],d[3]])).join('')}</div>`;
+}
+function mapChrome(){
+  return `<button class="disc glass" style="left:16px;top:58px" aria-label="Back">${ICON.back}</button>
+          <button class="disc glass" style="right:16px;top:58px" aria-label="Show my location">${ICON.loc}</button>`;
+}
+
+function phoneFeed(dk){
+  return `<div class="phone${dk?' dk':''}"><div class="screen">${chrome}
+    <div class="fhdr"><h3>Feed</h3><div class="fgrp glass"><span>${ICON.map}</span><b class="new"></b></div></div>
+    <div class="fpad">
+      <div class="slip"><div class="by"><i class="a1"></i>@paris <span>· Small Wins</span></div>
+        <div class="dl">Cacio e Pepe ${sc('5.0')}</div><div class="dl">Burrata ${sc('4.5')}</div>
+        <div class="pics"><i class="f2"></i><i class="f5"></i><i class="f8"></i></div></div>
+      <div class="slip"><div class="by"><i class="a2"></i>@jess <span>· Astrid</span></div>
+        <div class="dl">Fried Chicken Sandwich ${sc('4.5')}</div><div class="dl">Prawn Toast ${sc('4.0')}</div>
+        <div class="pics"><i class="f1"></i><i class="f6"></i></div></div>
+    </div>
+    <div class="tabs"><div class="tb glass">
+      <span>${'<svg viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/></svg>'}Journal</span>
+      <span class="sel"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Feed</span>
+      <span><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg>Search</span>
+      <span><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>You</span>
+    </div><div class="plus glass"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div></div>
+  </div></div>`;
+}
+function phoneMapA(dk, sel){
+  return `<div class="phone${dk?' dk':''}" data-a><div class="screen">${chrome}
+    <div class="map" data-map>${mapSVG(false)}<span class="me" style="left:${ME.x}px;top:${ME.y}px"></span><div data-pins>${pinsA(sel)}</div></div>
+    ${mapChrome()}<div data-sheet>${sheetA(sel)}</div></div></div>`;
+}
+function phoneSparse(dk){
+  /* Zoomed out: you in Clifton Hill, the nearest dishes 3–6 km away in the city. */
+  const pins = [[140,500,'f2','4.6',4],[225,555,'f1','4.4',3],[90,580,'f5','4.3',0],[265,445,'f4','4.2',2]];
+  return `<div class="phone${dk?' dk':''}"><div class="screen">${chrome}
+    <div class="map">${mapSVG(true)}<span class="me" style="left:300px;top:170px"></span>
+    ${pins.map(p=>`<button class="pin" style="left:${p[0]}px;top:${p[1]}px"><i class="${p[2]}"></i>${p[4]?`<span class="ct">${p[4]}</span>`:''}${sc(p[3])}</button>`).join('')}</div>
+    ${mapChrome()}
+    <div class="sheet glass"><div class="grab"></div><div class="sh-h"><div><h4>10 dishes on the map</h4></div></div>
+      ${[['f2','Cacio e Pepe','Small Wins · 4.2 km','4.8'],['f5','Burrata','Small Wins · 4.2 km','4.5'],['f1','Fried Chicken Sandwich','Astrid · 4.8 km','4.4']].map(drow).join('')}</div>
+  </div></div>`;
+}
+function phoneB(dk){
+  const ks = Object.keys(PLACES);
+  return `<div class="phone${dk?' dk':''}"><div class="screen">${chrome}
+    <div class="map">${mapSVG(false)}<span class="me" style="left:${ME.x}px;top:${ME.y}px"></span>
+    ${ks.map((k,i)=>{const p=PLACES[k];return `<button class="bpin${i===0?' on':''}" style="left:${p.x}px;top:${p.y}px">${sc(p.s)}</button>`}).join('')}</div>
+    ${mapChrome()}
+    <div class="cards">${ks.slice(0,2).map(k=>{const p=PLACES[k],d=p.dishes[0];
+      return `<div class="card glass"><i class="${d[0]}"></i><div><b>${d[1]}</b><small>${p.name} · ${p.sub.split(' · ')[1]}</small>${sc(d[3])}</div></div>`}).join('')}</div>
+  </div></div>`;
+}
+
+const wrapPh = (html, cap, sub) => `<div class="ph-wrap">${html}<div class="cap">${cap}<small>${sub}</small></div></div>`;
+function rowA(dk){
+  return wrapPh(phoneFeed(dk),'1. Feed','New map button in the header glass (ringed here only to point it out).')
+       + wrapPh(phoneMapA(dk,null),'2. Map','Pins are places, the sheet is every dish in view, best first. Tap a pin.')
+       + wrapPh(phoneMapA(dk,'sw'),'3. Tapped a pin','The sheet becomes that place. Open place goes to its page.')
+       + wrapPh(phoneSparse(dk),'4. Few dishes nearby','Opens framed on you and the nearest 10 places, even 5 km away.');
+}
+document.getElementById('a-light').innerHTML = rowA(false);
+document.getElementById('a-dark').innerHTML = rowA(true);
+document.getElementById('b').innerHTML = wrapPh(phoneB(false),'Map, light','First card selected; swipe to move along.') + wrapPh(phoneB(true),'Map, dark','');
+
+/* Live: tap a pin to open its place in the sheet, tap the map or ✕ to go back. */
+document.querySelectorAll('[data-a]').forEach(ph=>{
+  let sel = ph.querySelector('.pin.on')?.dataset.k || null;
+  const render = () => { ph.querySelector('[data-pins]').innerHTML = pinsA(sel); ph.querySelector('[data-sheet]').innerHTML = sheetA(sel); };
+  ph.addEventListener('click', e=>{
+    const pin = e.target.closest('.pin');
+    if (pin){ sel = pin.dataset.k === sel ? null : pin.dataset.k; render(); return; }
+    if (e.target.closest('[data-close]') || (e.target.closest('[data-map]') && !e.target.closest('.pin'))){ sel = null; render(); }
+  });
+});
+</script>
