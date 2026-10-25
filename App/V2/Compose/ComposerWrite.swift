@@ -269,10 +269,11 @@ struct V2ComposerWrite: View {
                     ),
                     allowsSix: true,
                     sixLock: sixAllowance?.lock(for: model.composition, scoring: scoring.id),
-                    onSixLocked: { services.analytics(EntryEvents.scoreSixLocked()) }
-                ) { rating in
-                    model.finishScore(at: rating).map(services.analytics)
-                }
+                    onSixLocked: { services.analytics(EntryEvents.scoreSixLocked()) },
+                    onFinish: { rating in
+                        model.finishScore(at: rating).map(services.analytics)
+                    }
+                )
                 .padding(.horizontal, AteMetrics.cardGutter)
                 .padding(.bottom, AteMetrics.snug)
                 .transition(reduceMotion ? AnyTransition.opacity : V2ComposerMotion.sliderRising)
