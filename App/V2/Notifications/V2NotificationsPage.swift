@@ -214,12 +214,13 @@ struct V2NotificationsPage: View {
                 isFirst: index == 0,
                 onOpen: { open(row, from: .list) },
                 onDecline: { declining = row },
-                onPrimary: { open(row, from: .pill) }
-            ) {
-                if let photo = row.photoURL {
-                    AteThumb(photo: .remote(photo))
+                onPrimary: { open(row, from: .pill) },
+                trailing: {
+                    if let photo = row.photoURL {
+                        AteThumb(photo: .remote(photo))
+                    }
                 }
-            }
+            )
             .plainRow()
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                 Button(NotificationsCopy.clear) { Task { await store.dismiss(row) } }
@@ -247,12 +248,14 @@ struct V2NotificationsPage: View {
                 identifier: "invite.row",
                 onOpen: { context.open(.list(ListRoute(id: invite.listID)), from: .journal) },
                 onDecline: { answer(invite, accept: false) },
-                onPrimary: { answer(invite, accept: true) }
-            ) {
-                AteListCover(
-                    id: invite.listID, name: invite.name, covers: invite.covers, cover: invite.coverURL, style: .row
-                )
-            }
+                onPrimary: { answer(invite, accept: true) },
+                trailing: {
+                    AteListCover(
+                        id: invite.listID, name: invite.name, covers: invite.covers, cover: invite.coverURL,
+                        style: .row
+                    )
+                }
+            )
             .plainRow()
         }
     }

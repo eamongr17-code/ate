@@ -57,7 +57,8 @@ struct AteNotificationRow<Trailing: View>: View {
                 .accessibilityIdentifier(identifier)
                 HStack(spacing: AteNotificationRowMetrics.answerGap) {
                     AteInkPill(
-                        title: decline, size: .row, isQuiet: true, identifier: "\(identifier).decline", action: onDecline
+                        title: decline, size: .row, isQuiet: true, identifier: "\(identifier).decline",
+                        action: onDecline
                     )
                     AteInkPill(title: primary, size: .row, identifier: "\(identifier).primary", action: onPrimary)
                 }
