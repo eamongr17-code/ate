@@ -84,66 +84,6 @@ struct AteAvatarStack: View {
     }
 }
 
-/// **A list invite** (screen 7) — the notification row's anatomy without its X: the owner's 36
-/// avatar, "@eamon invited you to Date night", the count under it; then Decline (quiet) and Accept
-/// under the words. A tap on the row previews the list.
-struct AteListInviteRow: View {
-    let owner: ListPerson
-    let line: String
-    var meta: String?
-    let decline: String
-    let accept: String
-    var isFirst = false
-    let onOpen: () -> Void
-    let onDecline: () -> Void
-    let onAccept: () -> Void
-
-    @Environment(\.atePalette) private var palette
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button(action: onOpen) {
-                HStack(spacing: AteNotificationRowMetrics.gap) {
-                    AteAvatar(
-                        userID: owner.id, handle: owner.username, size: .review,
-                        url: owner.avatarURL.flatMap(URL.init(string:))
-                    )
-                    VStack(alignment: .leading, spacing: AteNotificationRowMetrics.lineGap) {
-                        Text(line)
-                            .ateText(.rowTitle)
-                            .foregroundStyle(palette.fg)
-                            .lineLimit(2)
-                        if let meta {
-                            Text(meta)
-                                .ateText(.meta)
-                                .foregroundStyle(palette.muted)
-                                .lineLimit(1)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(minHeight: AteNotificationRowMetrics.height)
-                .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isButton)
-            .accessibilityIdentifier("invite.row")
-            HStack(spacing: AteListPeopleMetrics.answerGap) {
-                AteInkPill(title: decline, size: .row, isQuiet: true, identifier: "invite.decline", action: onDecline)
-                AteInkPill(title: accept, size: .row, identifier: "invite.accept", action: onAccept)
-            }
-            .padding(.leading, AteNotificationRowMetrics.avatar + AteNotificationRowMetrics.gap)
-            .padding(.bottom, AteListPeopleMetrics.answerBottom)
-        }
-        .padding(.horizontal, AteMetrics.gutter)
-        .background(palette.ground)
-        .overlay(alignment: .top) {
-            if isFirst == false { AteHairline().padding(.horizontal, AteMetrics.gutter) }
-        }
-    }
-}
-
 enum AteListPeopleMetrics {
     /// A cover choice's picture: the dish row's 56 (``AteThumb/Size/row``).
     static let picture: CGFloat = 56
@@ -151,7 +91,4 @@ enum AteListPeopleMetrics {
     static let ring: CGFloat = 2
     /// `.stack .av+.av{margin-left:-6px}`.
     static let stackOverlap: CGFloat = 6
-    /// `.inv{gap:10px; padding:0 0 4px 48px}` — under the words, past the avatar.
-    static let answerGap: CGFloat = 10
-    static let answerBottom: CGFloat = 12
 }

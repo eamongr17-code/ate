@@ -65,11 +65,23 @@ extension KitGalleryScreen {
                 .environment(\.atePalette, .surface)
                 .background(AtePalette.surface.ground)
                 AteAvatarStack(people: [KitListFixtures.eamon, KitListFixtures.paris])
-                AteListInviteRow(
-                    owner: KitListFixtures.eamon, line: "@eamon invited you to Date night", meta: "6 dishes",
-                    decline: "Decline", accept: "Accept", isFirst: true,
-                    onOpen: {}, onDecline: {}, onAccept: {}
-                )
+                AteNotificationRow(
+                    userID: KitListFixtures.eamon.id, handle: "eamon",
+                    sentence: [.strong("@eamon"), .plain(" invited you to "), .strong("Date night")],
+                    detail: "6 dishes", isUnread: true, decline: "Decline", primary: "Accept", isFirst: true,
+                    onOpen: {}, onDecline: {}, onPrimary: {}
+                ) {
+                    AteListCover(id: KitListFixtures.burgers, name: "Date night", covers: KitListFixtures.covers,
+                                 style: .row)
+                }
+                AteNotificationRow(
+                    userID: KitListFixtures.paris.id, handle: "paris",
+                    sentence: [.strong("@paris"), .plain(" ate with you at "), .strong("Tipo 00")],
+                    detail: "Sat 19 Sep", decline: "Decline", primary: "Add yours",
+                    onOpen: {}, onDecline: {}, onPrimary: {}
+                ) {
+                    AteThumb(photo: .remote("asset://pizza"))
+                }
                 .padding(.horizontal, -AteMetrics.gutter)
             }
             .padding(.horizontal, AteMetrics.gutter)

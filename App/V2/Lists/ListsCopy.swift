@@ -65,8 +65,9 @@ enum ListsCopy {
         "Leave \(name)?"
     }
 
-    static func invited(by handle: String, to name: String) -> String {
-        "@\(handle) invited you to \(name)"
+    /// "**@eamon** invited you to **Date night**" — a notification row's sentence.
+    static func invited(by handle: String, to name: String) -> [AteNotificationRun] {
+        [.strong("@\(handle)"), .plain(" invited you to "), .strong(name)]
     }
 
     /// The owner line: you (or the owner) first, then everyone who accepted.

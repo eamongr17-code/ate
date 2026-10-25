@@ -4,9 +4,10 @@ import SwiftUI
 /// **A band's heading on a page** — "Your ratings", "Your top dishes": one line in the control face.
 /// (The small one; a Feed section's 28pt heading is `AteSectionHeading`.)
 /// With an action it is a link to the band's own page, the chevron at the far end and the whole line
-/// a 44pt target.
+/// a 44pt target; a count, when given, sits muted before the chevron ("From your photos   7 ›").
 struct AteBandHeading: View {
     let title: String
+    var count: Int?
     var identifier: String?
     var action: (() -> Void)?
 
@@ -18,6 +19,12 @@ struct AteBandHeading: View {
                 HStack(spacing: AteMetrics.snug) {
                     label
                     Spacer(minLength: 0)
+                    if let count {
+                        Text(count, format: .number)
+                            .ateText(.notificationLine)
+                            .foregroundStyle(palette.muted)
+                            .monospacedDigit()
+                    }
                     AteIcon.chevron.view(size: AteBandHeadingMetrics.chevron)
                         .foregroundStyle(palette.muted)
                 }

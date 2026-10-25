@@ -2,9 +2,9 @@ import AteKit
 import SwiftUI
 import UIKit
 
-/// The old **From your photos** route. The page folded into Notifications on 5 Oct
-/// (`lists-notifications.html` E1): the route stays so nothing that pushes it breaks, and it opens
-/// the one page.
+/// **Every photo sitting** — the Notifications page's "From your photos" heading, opened when it holds
+/// more than the two the page shows (`notifications-refined.html`, 25 Oct): the same page with only
+/// that group, titled "From your photos".
 struct V2SuggestionsPage: View {
     let context: V2PageContext
 
@@ -13,7 +13,7 @@ struct V2SuggestionsPage: View {
     }
 
     var body: some View {
-        V2NotificationsPage(context: context)
+        V2NotificationsPage(context: context, photosOnly: true)
     }
 }
 

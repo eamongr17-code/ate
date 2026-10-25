@@ -5,7 +5,7 @@
 
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { world, U, P, id, receipt } from './fixtures.mjs';
+import { world, U, P, id, receipt, photoUrl } from './fixtures.mjs';
 
 let w, db, as, asService, rows, error;
 const X = [1, 2, 3, 4, 5, 6].map((n) => id(900 + n)); // six extra people, for the cap
@@ -299,6 +299,16 @@ test('entry_with_people called directly applies the entries rule: blocked by the
   assert.deepEqual((await direct(U.alice, id(10))).map((p) => p.username), ['bob'], 'the author still sees their own');
   assert.equal(await code(null, `select public.entry_with_people($1)`, [id(10)]), '42501', 'anon: no grant');
   await as(U.alice, () => db.query(`select public.unblock_user($1)`, [U.dan]));
+});
+
+test('my_notifications: photo_url is the tagger\'s first photo of the visit, null when none (0087)', async () => {
+  const E = await w.visit(97, U.alice, P.tipo, receipt(['Gnocchi']), '2026-09-24T09:00:00Z', { photos: ['a/97-0.jpg', 'a/97-1.jpg'] });
+  const F = await w.visit(98, U.alice, P.tipo, receipt(['Tiramisu']), '2026-09-24T10:00:00Z');
+  const [e] = await tag(U.alice, E, U.dan);
+  const [f] = await tag(U.alice, F, U.dan);
+  const inboxRows = await inbox(U.dan);
+  assert.equal(inboxRows.find((n) => n.companion_id === e.companion_id).photo_url, photoUrl('a/97-0.jpg'));
+  assert.equal(inboxRows.find((n) => n.companion_id === f.companion_id).photo_url, null);
 });
 
 test('my_notifications: a half cursor is 22023', async () => {
