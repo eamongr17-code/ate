@@ -15,12 +15,18 @@ struct AtePhoto: Identifiable, Equatable {
     /// Where the dish a tile stands for sits, in a photo it shares with other dishes (0083): the
     /// tile crops onto it. The full-screen viewer always shows the photo whole.
     var focus: PhotoDishBox?
+    /// The picture itself, for a photo held in memory with no address (the composer's staged picks):
+    /// what the full-screen viewer shows and flies out of its tile. Without it a staged photo could
+    /// only fade in, while its tile vanished under it (26 Oct).
+    var picture: UIImage?
 
     init(
-        id: UUID = UUID(), image: Image? = nil, url: URL? = nil, dish: DishLetter? = nil, focus: PhotoDishBox? = nil
+        id: UUID = UUID(), image: Image? = nil, url: URL? = nil, dish: DishLetter? = nil, focus: PhotoDishBox? = nil,
+        picture: UIImage? = nil
     ) {
         self.id = id
-        self.image = image
+        self.image = image ?? picture.map(Image.init(uiImage:))
+        self.picture = picture
         self.url = url
         self.dish = dish
         self.focus = focus
@@ -223,6 +229,7 @@ struct PhotoCluster: View {
 
     @Environment(\.atePalette) private var palette
     @Environment(\.atePhotoOriginRelay) private var originRelay
+    @Environment(\.atePhotoHiddenSource) private var hiddenSource
     /// Where each tile sits, for the photo preview to grow out of (round 4).
     @State private var frames = AtePhotoTileFrames()
     /// Photos that would not load (build 88): dropped from the strip, never left as an empty tile.
@@ -301,7 +308,11 @@ struct PhotoCluster: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Photo \(position + 1) of \(count)")
                 .accessibilityIdentifier("photo.\(index)")
-                .modifier(RemovablePhoto(index: index, side: side, angle: tilt, onRemove: onRemove))
+                // Its X steps aside with it while the photo is up, rather than floating over nothing.
+                .modifier(RemovablePhoto(
+                    index: index, side: side, angle: tilt, onRemove: onRemove,
+                    isHidden: hiddenSource == frames.sourceID(index)
+                ))
         } else {
             drawn.modifier(RemovablePhoto(index: index, side: side, angle: tilt, onRemove: onRemove))
         }
@@ -329,6 +340,8 @@ private struct RemovablePhoto: ViewModifier {
     /// The tile's tilt, which the X follows.
     let angle: Double
     let onRemove: ((Int) -> Void)?
+    /// Its photo is up in the viewer, its tile hidden under the flight.
+    var isHidden = false
 
     @Environment(\.atePalette) private var palette
 
@@ -353,6 +366,7 @@ private struct RemovablePhoto: ViewModifier {
                             .accessibilityIdentifier("photo.remove.\(index)")
                         }
                         .rotationEffect(.degrees(angle))
+                        .opacity(isHidden ? 0 : 1)
                 }
                 .contentShape(
                     .contextMenuPreview,

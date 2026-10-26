@@ -83,6 +83,13 @@ struct ZoomablePhoto: UIViewRepresentable {
             guard let url = photo.url else {
                 // A photo held in memory, with no address: the composer's staged picks, and the
                 // share screen's fetched copies. Without this the viewer opened black (build 116).
+                if let picture = photo.picture {
+                    // The very picture the flight draws, so it lands on the page with nothing to move.
+                    shownID = photo.id
+                    loading?.cancel()
+                    display(picture)
+                    return
+                }
                 guard let image = photo.image else { return }
                 shownID = photo.id
                 loading?.cancel()
