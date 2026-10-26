@@ -61,6 +61,18 @@ struct PlaceMapLinkTests {
         #expect(word.street == nil)
     }
 
+    @Test func aLandmarkIsNoStreetButTheNextLineCanBe() {
+        let landmark = PlaceMapLink(name: "Roti MA Indy", address: "7-Eleven, Phuket 83000, Thailand",
+                                    latitude: nil, longitude: nil, googlePlaceID: nil)
+        #expect(landmark.street == nil)
+        let next = PlaceMapLink(name: "Roti MA Indy", address: "7-Eleven, 12/3 Soi Bangla, Patong, Thailand",
+                                latitude: nil, longitude: nil, googlePlaceID: nil)
+        #expect(next.street == "12/3 Soi Bangla")
+        let range = PlaceMapLink(name: "X", address: "12-14 Smith St, Fitzroy VIC 3065, Australia",
+                                 latitude: nil, longitude: nil, googlePlaceID: nil)
+        #expect(range.street == "12-14 Smith St")
+    }
+
     @Test func theSummaryDecodesThePointAndIsFineWithout() throws {
         let id = UUID()
         let with = #"{"restaurant_id":"\#(id)","name":"Small Wins","#

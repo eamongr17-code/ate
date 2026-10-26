@@ -41,18 +41,23 @@ public struct PlaceMapLink: Sendable, Equatable {
         return address.localizedCaseInsensitiveContains(name) ? address : "\(name), \(address)"
     }
 
-    /// The street the place is on ("1203 High St"): the address's first line when it reads as one
-    /// (it has a number, and is not a suburb line such as "Melbourne VIC 3000"). `nil` otherwise, and
-    /// the chip then says "Map".
+    /// The street the place is on ("1203 High St"): the first of the address's first two lines that
+    /// reads as one — a house number standing alone and then a word ("361 Little Bourke St", "Shop
+    /// 2/32 Bourke St"). A landmark ("7-Eleven"), a suburb line ("Melbourne VIC 3000") or a bare word
+    /// is no street. `nil` when neither line is one, and the chip then says "Map".
     public var street: String? {
-        guard let line = address?.split(separator: ",").first?
-            .trimmingCharacters(in: .whitespaces).nilIfEmpty,
-              line.contains(where: \.isNumber),
-              line.range(of: #"\b[A-Za-z]{2,3}\s+\d{4}$"#, options: .regularExpression) == nil,
-              line.caseInsensitiveCompare(name) != .orderedSame
-        else { return nil }
-        return line
+        guard let address else { return nil }
+        return address.split(separator: ",").prefix(2)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { line in
+                line.range(of: Self.houseNumberThenWord, options: .regularExpression) != nil
+                    && line.range(of: #"\b[A-Za-z]{2,3}\s+\d{4}$"#, options: .regularExpression) == nil
+                    && line.caseInsensitiveCompare(name) != .orderedSame
+            }
     }
+
+    /// A number on its own ("12", "12A", "2/32", "12-14"), then a space and a letter.
+    private static let houseNumberThenWord = #"(^|\s)\d+[A-Za-z]?(/\d+[A-Za-z]?)?(-\d+[A-Za-z]?)?\s+\p{L}"#
 
     /// Apple Maps: a pin named for the place on its point, else a search.
     public var appleMapsURL: URL {
