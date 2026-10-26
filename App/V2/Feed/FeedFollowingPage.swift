@@ -54,7 +54,7 @@ struct FeedFollowingPage: View {
         .ateTitleCollapse($isCollapsed, after: titleBottom)
         .ateGround()
         .ateCollapsingTitle(FeedEditionCopy.following, isCollapsed: isCollapsed)
-        .refreshable { await store.refresh() }
+        .ateRefreshable { await store.refresh() }
         .task { await store.loadIfNeeded() }
         .accessibilityIdentifier("following.page")
     }

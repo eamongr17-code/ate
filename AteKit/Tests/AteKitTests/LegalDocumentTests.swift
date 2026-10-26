@@ -21,6 +21,12 @@ struct LegalDocumentTests {
         #expect(trim(LegalDocument.termsMarkdown) == trim(try Self.repoFile("terms.md")))
     }
 
+    @Test("Settings' Email us writes to the contact both documents name")
+    func contactMatches() {
+        #expect(LegalDocument.privacyMarkdown.contains("Contact: \(LegalDocument.contactEmail)"))
+        #expect(LegalDocument.termsMarkdown.contains("Contact: \(LegalDocument.contactEmail)"))
+    }
+
     @Test("headings, paragraphs and points, in order; the title without the app's name")
     func parses() {
         let document = LegalDocument(markdown: "# Ate — Terms\n\n_Updated._\n\n## Using Ate\n- Be 13.\n- Be kind.\n")

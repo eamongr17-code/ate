@@ -202,6 +202,17 @@ public enum EntryEvents {
         AnalyticsEvent(name: "receipt_fallback_shown", parameters: ["kind": kind.rawValue, "surface": surface])
     }
 
+    /// The printed face read which photo is which dish for its per-dish share cards: `paired` (at
+    /// least one photo has a dish), `none` (the match paired nothing, failed or was skipped: the
+    /// dishes stay stickers), or `failed` (the read itself failed). `landed` says whether the entry's
+    /// landing finished before the patience ran out; `ms` is from the receipt printing.
+    public static func sharePhotoPairs(outcome: String, landed: Bool, milliseconds: Int) -> AnalyticsEvent {
+        AnalyticsEvent(
+            name: "share_photo_pairs",
+            parameters: ["outcome": outcome, "landed": flag(landed), "ms": String(max(0, milliseconds))]
+        )
+    }
+
     /// The receipt printed — the promise, kept. Fired once per entry per appearance of the printed
     /// state, which is the only moment the artefact exists for the person who wrote it.
     public static func receiptPrinted(itemCount: Int, hasAverage: Bool) -> AnalyticsEvent {

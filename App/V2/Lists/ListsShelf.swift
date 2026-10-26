@@ -31,7 +31,7 @@ struct ListsShelf: View {
         }
         .scrollIndicators(.hidden)
         .ateRootBarHiding($barHidden)
-        .refreshable { await lists.refresh() }
+        .ateRefreshable { await lists.refresh() }
         .task { await lists.loadIfNeeded() }
         .accessibilityIdentifier("lists.shelf")
         .sheet(isPresented: $isNaming, onDismiss: openMade) {

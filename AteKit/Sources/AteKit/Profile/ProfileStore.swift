@@ -64,7 +64,7 @@ public final class ProfileStore {
             let summary = try await profiles.profile(id: userID)
             hasLoadedHeader = true
             header = .ready(summary)
-        } catch is CancellationError {
+        } catch let error where error.isCancellation {
             return
         } catch {
             hasLoadedHeader = true

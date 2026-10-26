@@ -82,5 +82,7 @@ public enum NotificationEvents {
         case tag
         /// A printed receipt, once the camera roll's ask is behind it.
         case receipt
+        /// Settings → Notifications, while iOS had never asked.
+        case settings
     }
 }

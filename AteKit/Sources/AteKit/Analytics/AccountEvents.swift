@@ -70,6 +70,23 @@ public enum AccountEvents {
         AnalyticsEvent(name: "user_unblocked")
     }
 
+    /// A This iPhone row was tapped, and what iOS allowed at the time — the count of people who go
+    /// looking for a permission they turned off.
+    public static func permissionOpened(
+        _ permission: DevicePermission, state: DevicePermissionState
+    ) -> AnalyticsEvent {
+        AnalyticsEvent(
+            name: "settings_permission_opened",
+            parameters: ["permission": permission.rawValue, "state": state.rawValue]
+        )
+    }
+
+    /// Email us, from Settings. `opened` is `false` when there was no mail app and the address was
+    /// copied instead.
+    public static func supportEmailTapped(opened: Bool) -> AnalyticsEvent {
+        AnalyticsEvent(name: "support_email_tapped", parameters: ["opened": opened ? "true" : "false"])
+    }
+
     /// The session was ended deliberately.
     public static func signedOut() -> AnalyticsEvent {
         AnalyticsEvent(name: "signed_out")

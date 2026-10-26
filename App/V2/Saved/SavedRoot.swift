@@ -96,7 +96,7 @@ struct SavedRoot: View {
         .scrollIndicators(.hidden)
         .contentMargins(.bottom, AteMetrics.section, for: .scrollContent)
         .ateRootBarHiding($barHidden)
-        .refreshable {
+        .ateRefreshable {
             Task { await saved.loadCities() }
             if AteBeta.isOn { Task { await own.refresh() } }
             await saved.refresh()

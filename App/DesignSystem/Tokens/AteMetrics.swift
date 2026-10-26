@@ -223,6 +223,9 @@ enum AteMetrics {
     static let settingsChevron: CGFloat = 15
     /// The check beside the chosen Appearance — `Handle`'s check, at its own 18.
     static let settingsCheck: CGFloat = 18
+    /// A Settings row's line icon, and the gap to its name (`settings-redesign.html` B).
+    static let settingsIcon: CGFloat = 22
+    static let settingsIconGap: CGFloat = 12
 
     /// A photo in a static, tilted cluster — journal slip.
     static let clusterPhoto: CGFloat = 80

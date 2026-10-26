@@ -89,7 +89,7 @@ struct V2TagEditionPage: View {
                 }
             }
         }
-        .refreshable { await store.refresh() }
+        .ateRefreshable { await store.refresh() }
         .task {
             await store.loadIfNeeded()
             guard hasRecordedView == false else { return }

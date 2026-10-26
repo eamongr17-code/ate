@@ -31,6 +31,14 @@ extension V2ShareSheet {
         position(page).flatMap { photos[$0] }
     }
 
+    /// Which photo is which dish landed while a story or post is in front: its photo stays put, rather
+    /// than the whole receipt jumping to the best dish's photo under the person's fingers.
+    func holdPhotoInFront(_ before: [UUID: [Int]]) {
+        guard let current, current.format != .sticker, picked[current.page] == nil else { return }
+        let was = ShareReceiptPage.pages(for: receipt, available: photos.keys.sorted(), dishPhotos: before)
+        if let first = was.first(where: { $0.id == current.page })?.photos.first { picked[current.page] = first }
+    }
+
     /// The page's look, at the receipt size chosen for every card.
     func look(_ page: ShareReceiptPage) -> AteShareLook {
         var look = looks[page.id] ?? AteShareLook()
