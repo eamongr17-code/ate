@@ -125,6 +125,12 @@ public enum DetailEvents {
         AnalyticsEvent(name: "place_fact_opened", parameters: ["kind": kind])
     }
 
+    /// A place's street chip opened Maps (26 Oct). `app` is `apple` or `google`; `point` says whether
+    /// it opened on the place's map point or had to search by name (a hand-added place).
+    public static func placeMapOpened(app: String, hasPoint: Bool) -> AnalyticsEvent {
+        AnalyticsEvent(name: "place_map_opened", parameters: ["app": app, "point": hasPoint ? "yes" : "no"])
+    }
+
     /// A "More like this" card on a dish page was tapped (round 7). `position` is 1-based: how far
     /// along the carousel people go before one earns a tap.
     public static func similarDishOpened(position: Int) -> AnalyticsEvent {

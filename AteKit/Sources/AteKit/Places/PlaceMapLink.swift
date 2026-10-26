@@ -34,16 +34,24 @@ public struct PlaceMapLink: Sendable, Equatable {
         return (latitude, longitude)
     }
 
-    /// What either app searches for when there is no point: the name, and the address when there is one.
+    /// What either app searches for when there is no point: the name and the address (the address
+    /// alone when it already starts with the name), or the name when there is no address.
     var searchText: String {
-        guard let address, address.localizedCaseInsensitiveContains(name) == false else { return name }
-        return "\(name), \(address)"
+        guard let address else { return name }
+        return address.localizedCaseInsensitiveContains(name) ? address : "\(name), \(address)"
     }
 
-    /// The first line of the address ("1203 High St"), or `nil` when there is none to show.
+    /// The street the place is on ("1203 High St"): the address's first line when it reads as one
+    /// (it has a number, and is not a suburb line such as "Melbourne VIC 3000"). `nil` otherwise, and
+    /// the chip then says "Map".
     public var street: String? {
-        address?.split(separator: ",").first
-            .map { $0.trimmingCharacters(in: .whitespaces) }?.nilIfEmpty
+        guard let line = address?.split(separator: ",").first?
+            .trimmingCharacters(in: .whitespaces).nilIfEmpty,
+              line.contains(where: \.isNumber),
+              line.range(of: #"\b[A-Za-z]{2,3}\s+\d{4}$"#, options: .regularExpression) == nil,
+              line.caseInsensitiveCompare(name) != .orderedSame
+        else { return nil }
+        return line
     }
 
     /// Apple Maps: a pin named for the place on its point, else a search.

@@ -13,14 +13,16 @@ struct PlaceMapLinkTests {
         #expect(smallWins.appleMapsURL.absoluteString
             == "https://maps.apple.com/?ll=-37.8562109,145.0278178&q=Small%20Wins")
         #expect(smallWins.googleMapsURL.absoluteString
-            == "comgooglemapsurl://www.google.com/maps/search/?api=1&query=Small%20Wins&query_place_id=ChIJH8uNX8Rp1moR3B6YRXsiNNc")
+            == "comgooglemapsurl://www.google.com/maps/search/?api=1&query=Small%20Wins"
+                + "&query_place_id=ChIJH8uNX8Rp1moR3B6YRXsiNNc")
     }
 
     @Test func aHandAddedPlaceSearchesForItsNameAndAddress() {
         let hand = PlaceMapLink(name: "Corner Cafe", address: "12 Smith St, Fitzroy",
                                 latitude: nil, longitude: nil, googlePlaceID: nil)
         #expect(hand.coordinate == nil)
-        #expect(hand.appleMapsURL.absoluteString == "https://maps.apple.com/?q=Corner%20Cafe,%2012%20Smith%20St,%20Fitzroy")
+        #expect(hand.appleMapsURL.absoluteString
+            == "https://maps.apple.com/?q=Corner%20Cafe,%2012%20Smith%20St,%20Fitzroy")
         #expect(hand.googleMapsURL.absoluteString
             == "comgooglemapsurl://www.google.com/maps/search/?api=1&query=Corner%20Cafe,%2012%20Smith%20St,%20Fitzroy")
     }
@@ -46,11 +48,23 @@ struct PlaceMapLinkTests {
 
     @Test func theStreetIsTheAddressFirstLine() {
         #expect(smallWins.street == "1203 High St")
+        let shop = PlaceMapLink(name: "Bali Hai", address: "Shop 2/32 Bourke St, Melbourne VIC 3000, Australia",
+                                latitude: nil, longitude: nil, googlePlaceID: nil)
+        #expect(shop.street == "Shop 2/32 Bourke St")
+    }
+
+    @Test func aSuburbLineOrAWordIsNoStreet() {
+        let suburb = PlaceMapLink(name: "X", address: "Melbourne VIC 3000, Australia",
+                                  latitude: nil, longitude: nil, googlePlaceID: nil)
+        let word = PlaceMapLink(name: "X", address: "Fitzroy", latitude: nil, longitude: nil, googlePlaceID: nil)
+        #expect(suburb.street == nil)
+        #expect(word.street == nil)
     }
 
     @Test func theSummaryDecodesThePointAndIsFineWithout() throws {
         let id = UUID()
-        let with = #"{"restaurant_id":"\#(id)","name":"Small Wins","lat":-37.85,"lng":145.02,"google_place_id":"ChIJx"}"#
+        let with = #"{"restaurant_id":"\#(id)","name":"Small Wins","#
+            + #""lat":-37.85,"lng":145.02,"google_place_id":"ChIJx"}"#
         let without = #"{"restaurant_id":"\#(id)","name":"Small Wins"}"#
         let a = try JSONDecoder().decode(PlaceSummary.self, from: Data(with.utf8))
         let b = try JSONDecoder().decode(PlaceSummary.self, from: Data(without.utf8))
