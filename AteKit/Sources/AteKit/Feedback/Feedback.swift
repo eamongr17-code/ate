@@ -250,7 +250,9 @@ public actor FeedbackOutbox {
                 guard let data = try? Data(contentsOf: url) else { return nil }
                 if let kept = try? JSONDecoder().decode(Kept.self, from: data) { return (url, kept) }
                 // a pre-owner file: nobody can say whose it is
-                if let report = try? JSONDecoder().decode(FeedbackReport.self, from: data) { return (url, Kept(owner: nil, report: report)) }
+                if let report = try? JSONDecoder().decode(FeedbackReport.self, from: data) {
+                    return (url, Kept(owner: nil, report: report))
+                }
                 return nil
             }
             .sorted { $0.1.report.createdAt < $1.1.report.createdAt }
