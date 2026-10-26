@@ -285,7 +285,7 @@ final class PreviewPhotoLibrary: AtePhotoLibrary {
     func recent() async -> [PhotoSuggestionItem] {
         guard isAuthorized, Self.isEmpty == false else { return [] }
         let calendar = Calendar.autoupdatingCurrent
-        let now = Date()
+        let now = RelativeAge.now
         return Self.sittings.flatMap { sitting -> [PhotoSuggestionItem] in
             let day = calendar.date(byAdding: .day, value: -sitting.offsetDays, to: now) ?? now
             var components = calendar.dateComponents([.year, .month, .day], from: day)

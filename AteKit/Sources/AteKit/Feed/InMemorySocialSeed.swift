@@ -2,8 +2,8 @@
 import Foundation
 
 /// The artboards' own feed, as data: three people, five visits, the same dishes, scores, suburbs
-/// and saves `design/v1/Feed.dc.html` draws. Ages are computed from now, so a drive
-/// photographed at any hour still reads "2h" and "5h" where the artboard does.
+/// and saves `design/v1/Feed.dc.html` draws. Ages are computed from now (`RelativeAge.now`), so a
+/// drive photographed at any hour still reads "2h" and "5h" where the artboard does.
 public extension InMemorySocialService {
 
     enum Seed {
@@ -42,7 +42,7 @@ public extension InMemorySocialService {
         )
 
         static func hoursAgo(_ hours: Double) -> Date {
-            Date(timeIntervalSinceNow: -hours * 3600)
+            RelativeAge.now.addingTimeInterval(-hours * 3600)
         }
     }
 

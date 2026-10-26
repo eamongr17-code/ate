@@ -26,10 +26,13 @@ struct TabShell: View {
         _selection = State(initialValue: start.tab)
         // Each tab's stores are made the first time the tab is shown, from the services.
         let services = app.services
-        _journal = State(initialValue: TabRouter(tab: .journal) { JournalStores(services: services) })
-        _feed = State(initialValue: TabRouter(tab: .feed) { V2FeedStores(services: services) })
-        _saved = State(initialValue: TabRouter(tab: .saved) { SavedStores(app: app) })
-        _you = State(initialValue: TabRouter(tab: .you) { YouStores(services: services) })
+        let path = { (tab: V2Tab) in tab == start.tab ? start.path : [] }
+        _journal = State(initialValue: TabRouter(tab: .journal, path: path(.journal)) {
+            JournalStores(services: services)
+        })
+        _feed = State(initialValue: TabRouter(tab: .feed, path: path(.feed)) { V2FeedStores(services: services) })
+        _saved = State(initialValue: TabRouter(tab: .saved, path: path(.saved)) { SavedStores(app: app) })
+        _you = State(initialValue: TabRouter(tab: .you, path: path(.you)) { YouStores(services: services) })
         if start.composes { app.compose(ComposerPresentation(origin: .tabBar)) }
     }
 

@@ -41,7 +41,7 @@ jobs:
           echo "$files"
           match() { echo "$files" | grep -qE "$1" && echo true || echo false; }
           echo "backend=$(match '^(supabase/|AteKit/Sources/|AteKit/Tests/AteKitTests/.*(Contract|Staging)|AteKit/Package|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
-          echo "app=$(match '^(App/|ShareExtension/|AteKit/|AteUITests/|Ate\.xcodeproj/|Config/|\.swiftlint\.yml|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
+          echo "app=$(match '^(App/|ShareExtension/|AteKit/|AteTests/|AteUITests/|Ate\.xcodeproj/|Config/|\.swiftlint\.yml|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   test:
@@ -99,10 +99,11 @@ jobs:
             -configuration Debug ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build > build.log 2>&1 || { grep -E "(error|fatal error):" build.log | sort -u | head -40; tail -50 build.log; exit 1; }
           tail -2 build.log
 
-      # The kit's visual contract: AteTests draws every page of the component gallery, light and dark,
-      # and compares it with the approved pictures in AteTests/__Snapshots__. A frost band, a tint or a
-      # line height fails here, before a build. Re-record on purpose with a [record-snapshots] commit
-      # (snapshots.yml); this step never records. On failure the result bundle (with the diff images
+      # The visual contract: AteTests draws every page of the component gallery and the main screens
+      # (on the preview data), light and dark, and compares them with the approved pictures in
+      # AteTests/__Snapshots__. A frost band, a tint, a line height or a missing row fails here, before
+      # a build. Re-record on purpose with a [record-snapshots] commit (snapshots.yml); this step never
+      # records. On failure the result bundle (with the diff images
       # as attachments) is uploaded below.
       - name: Boot simulator for snapshots
         id: snapsim
@@ -120,7 +121,7 @@ jobs:
           xcrun simctl bootstatus "$udid" -b
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
 
-      - name: Design-system snapshots (light + dark)
+      - name: Kit and screen snapshots (light + dark)
         if: needs.changes.outputs.app == 'true'
         run: |
           set -o pipefail
@@ -132,7 +133,7 @@ jobs:
             -resultBundlePath snapshots.xcresult > snapshots.log 2>&1 || {
               grep -E "error:|Test Case .*failed|\*\* TEST" snapshots.log | sort -u | head -40
               grep "SNAPSHOT_B64" snapshots.log || true
-              echo "::error title=Design-system pictures changed::A gallery page no longer matches AteTests/__Snapshots__. Open the snapshots.xcresult artifact for the diff. If the change is intended, push a commit whose message contains [record-snapshots]."
+              echo "::error title=Snapshot pictures changed::A gallery page or main screen no longer matches AteTests/__Snapshots__. Open the snapshots.xcresult artifact for the diff. If the change is intended, push a commit whose message contains [record-snapshots]."
               exit 1
             }
           grep -E "Test Case .*passed|\*\* TEST" snapshots.log | tail -6

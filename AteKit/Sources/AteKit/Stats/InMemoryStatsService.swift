@@ -107,10 +107,11 @@ public extension InMemoryStatsService {
         ) -> ScoredDish {
             defer { index += 1 }
             return ScoredDish(
-                reviewID: UUID(),
-                dishID: UUID(),
+                // Seeded, not minted: a dish tile takes its accent from its id (`DishTileIdentity`).
+                reviewID: .fixture("review.\(index).\(name)"),
+                dishID: .fixture("dish.\(name).\(place)"),
                 dishName: name,
-                restaurantID: UUID(),
+                restaurantID: .fixture("place.\(place)"),
                 restaurantName: place,
                 score: score,
                 createdAt: Date(timeIntervalSince1970: 1_789_000_000 - Double(daysAgo) * 86_400),
@@ -152,11 +153,11 @@ public extension InMemoryStatsService {
             username: "eamon",
             orders: 9, places: 6, newPlaces: 4, dishes: 14, stars: 57.5, average: 4.1,
             topDishes: [
-                .init(dishID: UUID(), dishName: "Tagliatelle al ragù",
+                .init(dishID: .fixture("dish.Tagliatelle al ragù"), dishName: "Tagliatelle al ragù",
                       restaurantName: "Tipo 00", score: 4.5),
-                .init(dishID: UUID(), dishName: "Kingfish sashimi",
+                .init(dishID: .fixture("dish.Kingfish sashimi"), dishName: "Kingfish sashimi",
                       restaurantName: "Chin Chin", score: 4.5),
-                .init(dishID: UUID(), dishName: "Pork bun",
+                .init(dishID: .fixture("dish.Pork bun"), dishName: "Pork bun",
                       restaurantName: "Supernormal", score: 4.5)
             ],
             mostOrdered: .init(dishName: "Pasta", count: 4),
@@ -167,9 +168,9 @@ public extension InMemoryStatsService {
             username: "eamon",
             orders: 7, places: 5, newPlaces: 2, dishes: 11, stars: 42, average: 3.8,
             topDishes: [
-                .init(dishID: UUID(), dishName: "Lobster spaghetti",
+                .init(dishID: .fixture("dish.Lobster spaghetti"), dishName: "Lobster spaghetti",
                       restaurantName: "Gimlet", score: 5),
-                .init(dishID: UUID(), dishName: "Prawn betel leaf",
+                .init(dishID: .fixture("dish.Prawn betel leaf"), dishName: "Prawn betel leaf",
                       restaurantName: "Chin Chin", score: 4.5)
             ],
             mostOrdered: .init(dishName: "Oysters", count: 3),
