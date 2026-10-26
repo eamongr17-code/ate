@@ -15,6 +15,9 @@ LIMIT = 4000  # App Store Connect's cap on whatsNew
 FOOTER = "To report a bug, tap the bug at the top of the You tab."
 MINOR = "Bug fixes and performance improvements."
 SKIP = {"none", "nothing", "n/a", "na", "-", "minor"}
+# Not tester words: a rule (---) ends the section, and PR attribution footers are dropped.
+RULE = re.compile(r"^\s*([-*_])(\s*\1){2,}\s*$")
+BOILERPLATE = re.compile(r"generated (by|with) \[?claude|claude\.ai/code|^🤖|claude-session:|co-authored-by:", re.I)
 
 
 def gh(path):
@@ -54,8 +57,10 @@ def what_to_test(body):
     m = re.search(r"^#{1,6}\s*what to test\s*$(.*?)(?=^#{1,6}\s|\Z)", body, re.I | re.M | re.S)
     if not m:
         return None
-    lines = [re.sub(r"^\s*(?:[-*•]|\d+[.)])\s*", "", l).strip() for l in m.group(1).splitlines()]
-    lines = [l for l in lines if l]
+    raw = m.group(1).splitlines()
+    end = next((i for i, l in enumerate(raw) if RULE.match(l)), len(raw))
+    lines = [re.sub(r"^\s*(?:[-*•]|\d+[.)])\s*", "", l).strip() for l in raw[:end]]
+    lines = [l for l in lines if re.search(r"\w", l) and not BOILERPLATE.search(l)]
     if not lines:  # left blank
         return None
     if lines[0].strip(".").lower() in SKIP:
