@@ -168,4 +168,8 @@ jobs:
       # Same dish, different names (0071). After the deploy, so the function and its tables exist.
       - name: Duplicate dishes
         if: ${{ inputs.duplicate_dishes && inputs.duplicate_dishes != 'leave' }}
-        run: .github/scripts/dish_dedup.sh "$PROD_REF" "${{ inputs.duplicate_dishes }}" "${{ inputs.dish_numbers }}"
+        # inputs reach the shell as env, quoted, never pasted into the script (audit 26 Oct, finding 20)
+        env:
+          DUPLICATE_DISHES: ${{ inputs.duplicate_dishes }}
+          DISH_NUMBERS: ${{ inputs.dish_numbers }}
+        run: .github/scripts/dish_dedup.sh "$PROD_REF" "$DUPLICATE_DISHES" "$DISH_NUMBERS"

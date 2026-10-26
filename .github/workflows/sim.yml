@@ -40,8 +40,10 @@ jobs:
 
       - name: Boot simulator
         id: sim
+        env:
+          SIM_DEVICE: ${{ inputs.device }}
         run: |
-          udid=$(xcrun simctl create ci-sim "${{ inputs.device }}")
+          udid=$(xcrun simctl create ci-sim "$SIM_DEVICE")
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
