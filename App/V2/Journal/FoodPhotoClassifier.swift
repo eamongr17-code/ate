@@ -90,4 +90,10 @@ enum FoodPhotoVerdicts {
         guard let url, let data = try? JSONEncoder().encode(verdicts) else { return }
         try? data.write(to: url, options: .atomic)
     }
+
+    /// Signing out: which of this phone's photos are food is the person's (finding 26).
+    static func clear() {
+        guard let url else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
 }

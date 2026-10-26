@@ -337,7 +337,12 @@ public actor EntryOutbox {
         for photo in item.pendingPhotos {
             // Deleted while this run was working it: stop, and upload nothing more.
             guard forgotten.contains(item.id) == false else { return }
-            guard let data = try? Data(contentsOf: URL(filePath: photo.path)) else { continue }
+            guard let data = try? Data(contentsOf: URL(filePath: photo.path)) else {
+                // The staged file is gone (a build before staging moved out of Caches): the words
+                // still go, and the loss is counted rather than silent.
+                analytics(EntryEvents.stagedPhotoLost(position: photo.position))
+                continue
+            }
             do {
                 try await entries.attach(photo: EntryPhotoUpload(
                     entryID: item.entry.id, position: photo.position, data: data

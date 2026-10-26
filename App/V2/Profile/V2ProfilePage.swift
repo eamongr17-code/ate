@@ -216,6 +216,7 @@ struct V2ProfilePage: View {
                             return
                         }
                         context.services.analytics(SocialEvents.userBlocked())
+                        context.services.entryDeletions.sendBlocked(userID)
                         // The page is done: back to wherever it was opened from.
                         dismiss()
                     }

@@ -379,6 +379,7 @@ final class EntryModel: SavedDishObserving {
         do {
             try await services.profiles.block(userID: card.authorID)
             services.analytics(SocialEvents.userBlocked())
+            services.entryDeletions.sendBlocked(card.authorID)
             return card.authorID
         } catch {
             failure = .block

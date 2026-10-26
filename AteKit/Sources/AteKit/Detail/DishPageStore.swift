@@ -296,6 +296,14 @@ public final class DishPageStore: SavedDishObserving, EntryDeletionObserving {
         if reviews.isEmpty, phase == .ready { phase = .empty }
     }
 
+    /// Someone was blocked: their reviews leave the dish page now, as the server's next read
+    /// would leave them out.
+    public func authorBlocked(_ authorID: UUID) {
+        guard reviews.contains(where: { $0.author?.id == authorID }) else { return }
+        reviews.removeAll { $0.author?.id == authorID }
+        if reviews.isEmpty, phase == .ready { phase = .empty }
+    }
+
     // MARK: - Machinery
 
     private func reset() {

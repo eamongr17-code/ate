@@ -221,6 +221,10 @@ public final class EntryListStore: SavedDishObserving, EntryDeletionObserving {
         remove(entryID: entryID)
     }
 
+    public func authorBlocked(_ authorID: UUID) {
+        removeAuthor(authorID)
+    }
+
     public func entry(id: UUID) -> EntryCard? {
         entries.first { $0.id == id }
     }

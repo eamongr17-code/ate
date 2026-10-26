@@ -318,6 +318,11 @@ final class AppModel {
         }
         // The lists a cold open draws from are the person's own: nothing of them outlives the session.
         EntryPageCache.clearAll()
+        // Nor their unsent bug reports, decoded photos, or which of the phone's photos are food (audit 26 Oct).
+        let feedback = services.feedback
+        Task { await feedback.discardAll() }
+        AteImagePipeline.shared.clearAll()
+        FoodPhotoVerdicts.clear()
         onSessionEnded()
     }
 }

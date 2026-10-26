@@ -70,6 +70,13 @@ public struct EntryDeletion: Sendable, Hashable, Decodable {
 @MainActor
 public protocol EntryDeletionObserving: AnyObject {
     func entryDeleted(_ entryID: UUID)
+    /// Someone was blocked: everything they wrote leaves every list in the same turn, not only the
+    /// one the block was made from. The viewer's own lists have nothing of theirs and ignore it.
+    func authorBlocked(_ authorID: UUID)
+}
+
+public extension EntryDeletionObserving {
+    func authorBlocked(_ authorID: UUID) {}
 }
 
 /// **One delete, every list at once.** The journal, the feed and any profile that is open all drop
@@ -92,6 +99,15 @@ public final class EntryDeletions {
         prune()
         for observer in observers {
             observer.value?.entryDeleted(entryID)
+        }
+    }
+
+    /// A block landed on the server. Sent from every block button, so a list the block was not
+    /// made from stops showing the author too.
+    public func sendBlocked(_ authorID: UUID) {
+        prune()
+        for observer in observers {
+            observer.value?.authorBlocked(authorID)
         }
     }
 

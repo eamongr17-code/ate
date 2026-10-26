@@ -66,6 +66,7 @@ struct FeedSlipActionsSheet: View {
             do {
                 try await services.profiles.block(userID: authorID)
                 services.analytics(SocialEvents.userBlocked())
+                services.entryDeletions.sendBlocked(authorID)
                 onBlocked(authorID)
             } catch {
                 onFailed(.block)

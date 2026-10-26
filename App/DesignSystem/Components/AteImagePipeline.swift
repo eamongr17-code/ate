@@ -218,11 +218,46 @@ final class AteImagePipeline: @unchecked Sendable {
         return data
     }
 
+    /// Photo and avatar URLs are written by clients, so a modified one could point every viewer's
+    /// phone at a tracking pixel or a huge file (audit 26 Oct, finding 13; the database refuses them
+    /// since 0094). Only our storage is fetched, over https, and never past ``maximumBytes``.
+    static func isFetchable(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        if url.scheme == "https", host.hasSuffix(".supabase.co") { return true }
+        #if DEBUG
+        // The local stack, and the staging seed's stock photos and avatars.
+        if url.scheme == "http", host == "127.0.0.1" || host == "localhost" { return true }
+        if url.scheme == "https", host == "images.unsplash.com" || host == "i.pravatar.cc" { return true }
+        #endif
+        return false
+    }
+
+    /// Above both photo buckets' upload limits (10 MB, 0092), so no real photo is ever refused.
+    static let maximumBytes: Int64 = 12 * 1024 * 1024
+
     private func fetch(_ url: URL) async -> Data? {
-        guard let (data, response) = try? await session.data(from: url),
+        guard Self.isFetchable(url),
+              let (bytes, response) = try? await session.bytes(from: url),
               let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
-              data.isEmpty == false else { return nil }
-        return data
+              http.expectedContentLength <= Self.maximumBytes else { return nil }
+        var data = Data()
+        if http.expectedContentLength > 0 { data.reserveCapacity(Int(http.expectedContentLength)) }
+        do {
+            for try await byte in bytes {
+                data.append(byte)
+                if data.count > Self.maximumBytes { return nil }
+            }
+        } catch {
+            return nil
+        }
+        return data.isEmpty ? nil : data
+    }
+
+    /// Signing out: nothing decoded or filed for this person outlives the session (finding 26).
+    func clearAll() {
+        memory.removeAllObjects()
+        try? FileManager.default.removeItem(at: directory)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
     // MARK: - Disk

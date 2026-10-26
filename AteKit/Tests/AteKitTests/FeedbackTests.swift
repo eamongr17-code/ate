@@ -70,7 +70,7 @@ struct FeedbackTests {
         let service = FlakyFeedback()
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("outbox-\(UUID())")
         defer { try? FileManager.default.removeItem(at: directory) }
-        let outbox = FeedbackOutbox(service: service, directory: directory)
+        let outbox = FeedbackOutbox(service: service, directory: directory, owner: { Self.tester })
 
         await service.setOnline(false)
         let report = FeedbackReport(body: "froze")
@@ -91,7 +91,7 @@ struct FeedbackTests {
         let service = FlakyFeedback()
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("outbox-\(UUID())")
         defer { try? FileManager.default.removeItem(at: directory) }
-        let outbox = FeedbackOutbox(service: service, directory: directory)
+        let outbox = FeedbackOutbox(service: service, directory: directory, owner: { Self.tester })
         let report = FeedbackReport(body: "froze")
         try await outbox.post(report)
         #expect(await outbox.pending == 1)
@@ -101,16 +101,41 @@ struct FeedbackTests {
         #expect(await service.sent == [report.id])
     }
 
+    static let tester = UUID(uuidString: "00000000-0000-4000-8000-00000000000A")!
+
+    @Test("a report kept for one tester is never sent under the next one's name, and sign-out deletes it")
+    func ownerScoped() async throws {
+        let service = FlakyFeedback()
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("outbox-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let signedIn = SignedIn(Self.tester)
+        let outbox = FeedbackOutbox(service: service, directory: directory, owner: { signedIn.id })
+        try await outbox.post(FeedbackReport(body: "my journal froze"))
+
+        signedIn.id = UUID(uuidString: "00000000-0000-4000-8000-00000000000B")!
+        await outbox.flush()
+        #expect(await service.sent.isEmpty, "B's flush does not send A's report")
+        #expect(await outbox.pending == 1)
+
+        await outbox.discardAll()
+        #expect(await outbox.pending == 0, "signing out deletes it")
+    }
+
     @Test("a refusal is thrown, never kept")
     func refusalIsNotKept() async throws {
         let service = FlakyFeedback()
         await service.refuse(.rateLimited)
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("outbox-\(UUID())")
         defer { try? FileManager.default.removeItem(at: directory) }
-        let outbox = FeedbackOutbox(service: service, directory: directory)
+        let outbox = FeedbackOutbox(service: service, directory: directory, owner: { Self.tester })
         await #expect(throws: FeedbackError.rateLimited) { try await outbox.send(FeedbackReport(body: "x")) }
         #expect(await outbox.pending == 0)
     }
+}
+
+private final class SignedIn: @unchecked Sendable {
+    var id: UUID?
+    init(_ id: UUID?) { self.id = id }
 }
 
 private actor FlakyFeedback: FeedbackServing {

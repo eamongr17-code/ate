@@ -163,14 +163,19 @@ public struct FeedbackClient: FeedbackServing {
 }
 
 /// **The outbox**: a report that could not go now is kept on disk and sent on the next flush (the
-/// next send, or the app coming back to the foreground). One JSON file per report.
+/// next send, or the app coming back to the foreground). One JSON file per report, stamped with who
+/// wrote it: a flush sends only the signed-in person's own reports, and signing out deletes them,
+/// so tester A's report (and A's screenshot of A's journal) is never uploaded under tester B's name
+/// (audit 26 Oct, finding 11). A file with no owner, from a build before that, is dropped unsent.
 public actor FeedbackOutbox {
     private let service: any FeedbackServing
     private let directory: URL
+    private let owner: @Sendable () -> UUID?
 
-    public init(service: any FeedbackServing, directory: URL) {
+    public init(service: any FeedbackServing, directory: URL, owner: @escaping @Sendable () -> UUID?) {
         self.service = service
         self.directory = directory
+        self.owner = owner
     }
 
     /// `Application Support/feedback-outbox`.
@@ -198,11 +203,18 @@ public actor FeedbackOutbox {
         try keep(report)
     }
 
-    /// Try every kept report once, oldest first. Sent or refused, it leaves the outbox; unreachable stays.
+    /// Try every one of the signed-in person's kept reports once, oldest first. Sent or refused, it
+    /// leaves the outbox; unreachable stays. Someone else's stays for them (or for their sign-out).
     public func flush() async {
-        for (url, report) in kept() {
+        guard let me = owner() else { return }
+        for (url, kept) in kept() {
+            guard let author = kept.owner else {
+                try? FileManager.default.removeItem(at: url)
+                continue
+            }
+            guard author == me else { continue }
             do {
-                try await service.send(report)
+                try await service.send(kept.report)
                 try? FileManager.default.removeItem(at: url)
             } catch let error as FeedbackError where error.isRetryable {
                 return
@@ -212,22 +224,37 @@ public actor FeedbackOutbox {
         }
     }
 
+    /// Signing out: every kept report goes, unsent.
+    public func discardAll() {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
     public var pending: Int { kept().count }
 
+    private struct Kept: Codable {
+        let owner: UUID?
+        let report: FeedbackReport
+    }
+
     private func keep(_ report: FeedbackReport) throws {
+        guard let me = owner() else { throw FeedbackError.unreachable }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let data = try JSONEncoder().encode(report)
+        let data = try JSONEncoder().encode(Kept(owner: me, report: report))
         try data.write(to: directory.appendingPathComponent("\(report.id.uuidString).json"), options: .atomic)
     }
 
-    private func kept() -> [(URL, FeedbackReport)] {
+    private func kept() -> [(URL, Kept)] {
         let urls = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
         return urls.filter { $0.pathExtension == "json" }
             .compactMap { url in
-                guard let data = try? Data(contentsOf: url),
-                      let report = try? JSONDecoder().decode(FeedbackReport.self, from: data) else { return nil }
-                return (url, report)
+                guard let data = try? Data(contentsOf: url) else { return nil }
+                if let kept = try? JSONDecoder().decode(Kept.self, from: data) { return (url, kept) }
+                // a pre-owner file: nobody can say whose it is
+                if let report = try? JSONDecoder().decode(FeedbackReport.self, from: data) {
+                    return (url, Kept(owner: nil, report: report))
+                }
+                return nil
             }
-            .sorted { $0.1.createdAt < $1.1.createdAt }
+            .sorted { $0.1.report.createdAt < $1.1.report.createdAt }
     }
 }

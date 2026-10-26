@@ -143,7 +143,8 @@ struct AteServices {
         self.feedback = FeedbackOutbox(
             service: preview == nil ? FeedbackClient(api: api) as any FeedbackServing : DiscardedFeedback(),
             directory: preview == nil ? FeedbackOutbox.defaultDirectory()
-                : FileManager.default.temporaryDirectory.appendingPathComponent("feedback-preview")
+                : FileManager.default.temporaryDirectory.appendingPathComponent("feedback-preview"),
+            owner: owner
         )
         self.preferences = AtePreferences.standard
         self.outbox = EntryOutbox(entries: self.entries, analytics: AteTelemetry.record, owner: owner)

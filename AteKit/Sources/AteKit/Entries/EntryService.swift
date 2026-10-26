@@ -1,4 +1,5 @@
 import Foundation
+import Supabase
 
 /// The insert payload, exactly as `integration-design.md` writes it — and no more. `authenticated`
 /// may write only these columns on `entries`; anything else is a `42501`.
@@ -324,10 +325,19 @@ public enum EntryWriteFailure: Error, Equatable, Sendable {
     public var isRetryable: Bool { self == .offline }
 
     /// The one classification the whole write path shares. A `URLError` that means "the request
-    /// never got there" is retryable; a PostgREST refusal is not, and queueing it forever would be
-    /// a silent promise the app cannot keep.
+    /// never got there" is retryable, and so is any answer that says "not now" rather than "no":
+    /// a 5xx (a function cold-starting, a gateway hiccup), 408, 425, 429, or an expired session the
+    /// next refresh fixes (audit 26 Oct, finding 12). A 4xx data refusal is not, and queueing it
+    /// forever would be a silent promise the app cannot keep.
     public static func of(_ error: any Error) -> EntryWriteFailure {
         if let failure = error as? EntryWriteFailure { return failure }
+        if let status = transientStatus(of: error) {
+            return isTransient(status: status) ? .offline : .rejected(String(describing: error))
+        }
+        if case FunctionsError.relayError = error { return .offline }
+        if let postgrest = error as? PostgrestError, ["PGRST301", "PGRST303"].contains(postgrest.code ?? "") {
+            return .offline // the JWT expired: the next try carries a refreshed one
+        }
         if let urlError = error as? URLError {
             switch urlError.code {
             case .notConnectedToInternet, .dataNotAllowed, .timedOut, .networkConnectionLost,
@@ -340,5 +350,19 @@ public enum EntryWriteFailure: Error, Equatable, Sendable {
         }
         if error is CancellationError { return .offline }
         return .rejected(String(describing: error))
+    }
+
+    /// 5xx, request timeout, too early, too many requests.
+    static func isTransient(status: Int) -> Bool {
+        status >= 500 || status == 408 || status == 425 || status == 429
+    }
+
+    /// The HTTP status an error carries, from whichever client produced it.
+    private static func transientStatus(of error: any Error) -> Int? {
+        if let http = error as? HTTPError { return http.response.statusCode }
+        if case FunctionsError.httpError(let code, _) = error { return code }
+        if let storage = error as? StorageError, let code = storage.statusCode.flatMap(Int.init) { return code }
+        if case AuthError.api(_, _, _, let response) = error { return response.statusCode }
+        return nil
     }
 }

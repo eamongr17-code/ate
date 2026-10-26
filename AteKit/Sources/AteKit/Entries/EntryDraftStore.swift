@@ -1,7 +1,7 @@
 import Foundation
 
 /// The file-backed draft: one JSON file in Application Support, and one folder of staged JPEGs per
-/// draft in Caches.
+/// draft in Library.
 ///
 /// **Why the bytes are copied out of the picker.** A `PhotosPickerItem` identifier can only be
 /// resolved back to an asset with photo-library authorization, which the picker itself does not need
@@ -9,8 +9,8 @@ import Foundation
 /// the JPEG once, at pick time, costs a few hundred kilobytes and means the upload already has its
 /// bytes when Done is tapped, even offline, even after a relaunch.
 ///
-/// Photos live in Caches on purpose: if the system reclaims them the words still save, which is the
-/// promise that actually matters (design rule 9).
+/// If a staged photo is lost anyway the words still save, which is the promise that actually
+/// matters (design rule 9).
 public struct EntryDraftStore: EntryDraftStoring {
     /// Whose draft this is — the signed-in user, read at the moment of every call.
     ///
@@ -36,11 +36,19 @@ public struct EntryDraftStore: EntryDraftStoring {
         self.root = support.appending(path: containerName, directoryHint: .isDirectory)
         try? fileManager.createDirectory(at: root, withIntermediateDirectories: true)
 
-        let caches = (try? fileManager.url(
-            for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true
+        // Library, not Caches: an entry saved offline keeps its photos until they are uploaded, even
+        // if iOS clears Caches overnight (audit 26 Oct, finding 16). Not Application Support either:
+        // staged paths travel as `.path()` strings, which percent-encode its space, and a file
+        // looked up as `Application%20Support` is never found. Kept out of backups; they are transient.
+        let library = (try? fileManager.url(
+            for: .libraryDirectory, in: .userDomainMask, appropriateFor: nil, create: true
         )) ?? URL.temporaryDirectory
-        self.photosRoot = caches.appending(path: "\(containerName)Photos", directoryHint: .isDirectory)
+        var photosRoot = library.appending(path: "\(containerName)Photos", directoryHint: .isDirectory)
         try? fileManager.createDirectory(at: photosRoot, withIntermediateDirectories: true)
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? photosRoot.setResourceValues(values)
+        self.photosRoot = photosRoot
         self.owner = owner
     }
 
