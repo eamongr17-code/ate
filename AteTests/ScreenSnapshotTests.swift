@@ -23,6 +23,17 @@ import XCTest
 /// because tiles, avatars and photo tilts take their look from the id.
 @MainActor
 final class ScreenSnapshotTests: XCTestCase {
+    // Pinned before the test body runs: a test that picks a card out of the seed reads its date too.
+    override func setUp() {
+        super.setUp()
+        RelativeAge.pin(Self.pinnedNow)
+    }
+
+    override func tearDown() {
+        RelativeAge.pin(nil)
+        super.tearDown()
+    }
+
     func testJournal() { snapshot(.journal) }
     func testFeed() { snapshot(.feed) }
     func testSaved() { snapshot(.saved) }
@@ -64,8 +75,6 @@ final class ScreenSnapshotTests: XCTestCase {
             XCTFail("The test host has no environment (Config/Secrets.xcconfig)", file: file, line: line)
             return
         }
-        RelativeAge.pin(Self.pinnedNow)
-        defer { RelativeAge.pin(nil) }
         for (name, scheme) in [("light", ColorScheme.light), ("dark", .dark)] {
             let app = AppModel(services: AteServices(environment: environment))
             let start = V2Launch.Start(tab: tab, path: route.map { [$0] } ?? [])
