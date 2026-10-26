@@ -24,6 +24,7 @@
 --   24. A failed photo match on an entry is recorded (photos_match_tried_at); a viewer's look does not
 --       retry it for a day.
 --   27. Text caps on dish names, hand-added place fields and review notes (NOT VALID: new writes only).
+--   22. A deleted account's filed feedback is queued for redaction in the feedback repo.
 --   28. The unused V1-social tables lose client SELECT too (0093 took their writes).
 
 -- ===========================================================================
@@ -518,3 +519,37 @@ returns void language sql volatile security definer set search_path = public, ex
 $$;
 revoke all on function public.storage_purge_failed(uuid) from public, anon, authenticated;
 grant execute on function public.storage_purge_failed(uuid) to service_role;
+
+-- ===========================================================================
+-- 22. A deleted account's filed feedback is redacted from the feedback repo
+-- ===========================================================================
+-- The feedback row cascades away with the account; before it goes, its issue number and the repo
+-- paths of its screenshots are queued, and the hourly feedback sync redacts and closes that issue.
+create table if not exists public.feedback_redactions (
+  id           bigint      generated always as identity primary key,
+  issue_number integer     not null,
+  screenshots  text[]      not null default '{}',
+  queued_at    timestamptz not null default now()
+);
+alter table public.feedback_redactions enable row level security;
+revoke all on public.feedback_redactions from public, anon, authenticated;
+grant select, insert, delete on public.feedback_redactions to service_role;
+
+comment on table public.feedback_redactions is
+  '0094: GitHub issues (eamongr17-code/ate-feedback) of deleted accounts, for feedback_sync.py to redact and close. Service role only.';
+
+create or replace function public.trg_feedback_redact()
+returns trigger language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if old.status = 'filed' and old.issue_number is not null and old.source = 'app' then
+    insert into public.feedback_redactions (issue_number, screenshots)
+    values (old.issue_number, coalesce(old.screenshots, '{}'));
+  end if;
+  return old;
+end; $$;
+revoke execute on function public.trg_feedback_redact() from public, anon, authenticated;
+
+drop trigger if exists feedback_redact on public.feedback;
+create trigger feedback_redact
+  before delete on public.feedback
+  for each row execute function public.trg_feedback_redact();

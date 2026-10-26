@@ -164,3 +164,12 @@ test('27: dish names and review notes have caps', async () => {
   assert.ok(await asService(() => error(db.query(`select public.find_or_create_dish($1, $2)`, [P.tipo, 'x'.repeat(250)]))));
   assert.ok(id(1));
 });
+
+test('22: a deleted account\'s filed feedback is queued for redaction', async () => {
+  await db.query(`insert into auth.users (id, email) values ($1, 'gone@ate.test')`, [id(777)]);
+  await db.query(`insert into public.feedback (user_id, body, fingerprint, status, issue_number, screenshots)
+                  values ($1, 'it broke', 'fp', 'filed', 12, '{screenshots/x/1.jpg}')`, [id(777)]);
+  await db.query(`delete from auth.users where id = $1`, [id(777)]);
+  const q = await rows(`select issue_number, screenshots from public.feedback_redactions`);
+  assert.deepEqual(q, [{ issue_number: 12, screenshots: ['screenshots/x/1.jpg'] }]);
+});
