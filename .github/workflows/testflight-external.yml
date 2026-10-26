@@ -65,4 +65,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: pip install --quiet "pyjwt[crypto]==2.9.0"
-      - run: python .github/scripts/testflight_external.py "${{ inputs.mode || 'auto' }}"
+      - env:
+          TF_MODE: ${{ inputs.mode || 'auto' }}
+        run: python .github/scripts/testflight_external.py "$TF_MODE"

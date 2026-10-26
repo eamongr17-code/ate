@@ -5,7 +5,9 @@ name: Feedback
 # feedback, files them, marks them filed. Never changes the schema or anyone's entries.
 #
 # Repository secrets it needs:
-#   SUPABASE_ACCESS_TOKEN   already set (Prod uses it) — the service key is read from it at run time
+#   FEEDBACK_SUPABASE_KEY   optional, preferred: prod's service key alone. When it is set the job never
+#                           sees SUPABASE_ACCESS_TOKEN, which can read every project's keys (audit finding 21)
+#   SUPABASE_ACCESS_TOKEN   already set (Prod uses it) — the fallback: the service key is read from it
 #   FEEDBACK_GITHUB_TOKEN   fine-grained token: ate-feedback only, Issues + Contents read and write
 #   ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8   already set (Beta uses them) — TestFlight feedback
 # Until FEEDBACK_GITHUB_TOKEN exists the run says so and passes, so the schedule never goes red.
@@ -33,7 +35,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      # staging runs read staging, so the prod-only scoped key applies to prod runs alone
+      FEEDBACK_SUPABASE_KEY: ${{ inputs.environment != 'staging' && secrets.FEEDBACK_SUPABASE_KEY || '' }}
+      SUPABASE_ACCESS_TOKEN: ${{ (inputs.environment == 'staging' || secrets.FEEDBACK_SUPABASE_KEY == '') && secrets.SUPABASE_ACCESS_TOKEN || '' }}
       FEEDBACK_GITHUB_TOKEN: ${{ secrets.FEEDBACK_GITHUB_TOKEN }}
       FEEDBACK_REPO: eamongr17-code/ate-feedback
       PROJECT_REF: ${{ inputs.environment == 'staging' && 'cvoitgoaosofkougmarn' || 'vyaexmnajnbryimbkgkf' }}
