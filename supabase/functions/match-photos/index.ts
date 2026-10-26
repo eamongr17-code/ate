@@ -16,17 +16,18 @@
 //     see) · 405 not POST · 422 bad body
 //
 // The author's own picks (set_review_photo, 0063; kept on the entry through re-sorts, 0064) are
-// never offered to the model, and a photo they called "No dish" is never matched. One line on the
-// whole entry takes every photo with no model; a dish may hold several photos (0081, photo_dishes). Anything more goes to Claude with the photos as
+// never offered to the model, and a photo they called "No dish" is never matched. A dish may hold
+// several photos (0081, photo_dishes). Every entry, one dish or more, goes to Claude with the photos as
 // images (read from public storage here, thumbnails first) through a forced tool call (./match.ts), and only pairs naming a real
-// photo and a real line survive. Without ANTHROPIC_API_KEY, or on any model failure, nothing is
-// written: the lines keep what they had and cover reads fall back to the entry's first photo.
+// photo and a real line survive, so a photo of the people or the room names no dish (26 Oct). Without
+// ANTHROPIC_API_KEY, over budget, or on any model failure, a one-dish entry takes every photo (the
+// pre-26 Oct answer) and anything more is not written: the lines keep what they had.
 //
 // Secrets: ANTHROPIC_API_KEY (optional), ATE_SORTER_MODEL (optional, the sorter's model),
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY (auto-injected).
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { askModel, ownPhotoReadUrl, plan, resolveModel, type Line, type Photo } from './match.ts';
+import { askModel, ownPhotoReadUrl, plan, resolveModel, type Line, type Match, type Photo } from './match.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -181,18 +182,21 @@ Deno.serve(async (req) => {
 
   // The daily AI budget (0067: 60 matches per caller, shared ceiling). Over it, nothing is written,
   // exactly as without a key; the next look at the photo asks again.
-  let matches = next.kind === 'direct' ? next.matches : null;
-  if (next.kind === 'ask' && await aiBudgetAllows(admin, userId)) {
+  let matches: Match[] | null = null;
+  if (await aiBudgetAllows(admin, userId)) {
     matches = await askModel({ apiKey: ANTHROPIC_KEY, photos: next.photos, lines: next.lines, model: MODEL_ID });
     // The budget was spent and nothing came back: record the try, so a look does not pay again today.
-    if (!matches) await admin.from('entries').update({ photos_match_tried_at: new Date().toISOString() }).eq('id', entryId);
+    if (!matches && !next.fallback) await admin.from('entries').update({ photos_match_tried_at: new Date().toISOString() }).eq('id', entryId);
   }
+  // A one-dish entry the model could not look at: every photo is that dish, as before 26 Oct.
+  const located = matches != null;
+  matches ??= next.fallback;
   if (!matches) return json({ ok: true, matched: 0 });
 
   const { data: n, error: writeError } = await admin.rpc('apply_photo_matches', {
     p_entry_id: entryId,
     p_matches: matches,
-    p_located: next.kind === 'ask',
+    p_located: located,
   });
   if (writeError) {
     console.error('match-photos: apply_photo_matches failed:', writeError.message);
