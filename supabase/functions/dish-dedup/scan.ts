@@ -27,6 +27,8 @@ export type Proposal = {
   why: string | null;
 };
 export type Pair = { a: ScanDish; b: ScanDish };
+/** A pair the model kept apart (0094 dish_pair_verdicts): dish_a < dish_b, never asked again. */
+export type Apart = { dish_a: string; dish_b: string; verdict: 'different' | 'unsure' };
 
 /** The one-off scan runs on the most careful model; it is a few calls, once. */
 export const DEFAULT_SCAN_MODEL = 'claude-opus-5-5';
@@ -35,7 +37,7 @@ export const ANTHROPIC_VERSION = '2023-06-01';
 /** A refusal falls back server-side to a model that can answer (the `"default"` routing). */
 export const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
-const pairKey = (x: string, y: string) => (x < y ? `${x}|${y}` : `${y}|${x}`);
+export const pairKey = (x: string, y: string) => (x < y ? `${x}|${y}` : `${y}|${x}`);
 
 /** Which of the two survives: more lines, then older, then id (a total order, so reruns agree). */
 export function survivor(a: ScanDish, b: ScanDish): [target: ScanDish, source: ScanDish] {
@@ -208,16 +210,39 @@ export function aiProposals(payload: unknown, place: ScanPlace, pairs: Pair[]): 
   return out.filter((x) => sources.get(x.source_dish_id) === 1 && !out.some((y) => y.source_dish_id === x.target_dish_id));
 }
 
+/** Pure: the pairs the model answered "different" or "unsure", to be remembered. Nothing on a malformed reply. */
+export function apartPairs(payload: unknown, pairs: Pair[]): Apart[] {
+  const p = payload as { stop_reason?: unknown; content?: Array<Record<string, unknown>> } | null;
+  if (!p || p.stop_reason === 'refusal' || !Array.isArray(p.content)) return [];
+  const call = p.content.find((b) => b?.type === 'tool_use' && b?.name === TOOL.name);
+  const verdicts = (call?.input as { verdicts?: unknown } | undefined)?.verdicts;
+  if (!Array.isArray(verdicts)) return [];
+  const out = new Map<string, Apart>();
+  for (const raw of verdicts) {
+    const v = (raw ?? {}) as { pair?: unknown; verdict?: unknown };
+    const i = typeof v.pair === 'number' && Number.isInteger(v.pair) ? v.pair - 1 : -1;
+    if (i < 0 || i >= pairs.length || (v.verdict !== 'different' && v.verdict !== 'unsure')) continue;
+    const [x, y] = [pairs[i].a.id, pairs[i].b.id].sort();
+    out.set(`${x}|${y}`, { dish_a: x, dish_b: y, verdict: v.verdict });
+  }
+  return [...out.values()];
+}
+
 /** Ask the model about one place. null on any failure: that place gets no AI proposals. */
-export async function judgePlace(opts: {
+export async function judgePlace(opts: Parameters<typeof judgePlaceFull>[0]): Promise<Proposal[] | null> {
+  return (await judgePlaceFull(opts))?.proposals ?? null;
+}
+
+/** judgePlace, plus the pairs the model kept apart. */
+export async function judgePlaceFull(opts: {
   apiKey: string;
   place: ScanPlace;
   pairs: Pair[];
   model?: string;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
-}): Promise<Proposal[] | null> {
-  if (!opts.apiKey.trim() || !opts.pairs.length) return opts.pairs.length ? null : [];
+}): Promise<{ proposals: Proposal[]; apart: Apart[] } | null> {
+  if (!opts.apiKey.trim() || !opts.pairs.length) return opts.pairs.length ? null : { proposals: [], apart: [] };
   const req = buildRequest(opts);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 120_000);
@@ -227,7 +252,9 @@ export async function judgePlace(opts: {
       console.error('dish-dedup: model answered', res.status, (await res.text().catch(() => '')).slice(0, 300));
       return null;
     }
-    return aiProposals(await res.json(), opts.place, opts.pairs);
+    const payload = await res.json();
+    const proposals = aiProposals(payload, opts.place, opts.pairs);
+    return proposals ? { proposals, apart: apartPairs(payload, opts.pairs) } : null;
   } catch (e) {
     console.error('dish-dedup: model call failed:', e instanceof Error ? e.message : String(e));
     return null;
@@ -236,15 +263,21 @@ export async function judgePlace(opts: {
   }
 }
 
-/** The whole scan of one place: tier 1, then tier 2 on what is left. */
-export async function scanPlace(place: ScanPlace, opts: { apiKey: string; model?: string; fetchImpl?: typeof fetch }): Promise<{
+/**
+ * The whole scan of one place: tier 1, then tier 2 on what is left. `skip` holds pairKeys already
+ * judged (proposed before, or kept apart: 0094), which are never sent to the model again.
+ */
+export async function scanPlace(place: ScanPlace, opts: {
+  apiKey: string; model?: string; fetchImpl?: typeof fetch; skip?: Set<string>;
+}): Promise<{
   proposals: Proposal[];
+  apart: Apart[];
   asked: number;
   failed: boolean;
 }> {
   const { proposals, rest } = sameNameProposals(place);
-  const pairs = candidatePairs(place, rest);
-  if (!pairs.length || !opts.apiKey.trim()) return { proposals, asked: 0, failed: pairs.length > 0 };
-  const ai = await judgePlace({ apiKey: opts.apiKey, place, pairs, model: opts.model, fetchImpl: opts.fetchImpl });
-  return { proposals: [...proposals, ...(ai ?? [])], asked: pairs.length, failed: ai === null };
+  const pairs = candidatePairs(place, rest).filter((p) => !opts.skip?.has(pairKey(p.a.id, p.b.id)));
+  if (!pairs.length || !opts.apiKey.trim()) return { proposals, apart: [], asked: 0, failed: pairs.length > 0 };
+  const ai = await judgePlaceFull({ apiKey: opts.apiKey, place, pairs, model: opts.model, fetchImpl: opts.fetchImpl });
+  return { proposals: [...proposals, ...(ai?.proposals ?? [])], apart: ai?.apart ?? [], asked: pairs.length, failed: ai === null };
 }

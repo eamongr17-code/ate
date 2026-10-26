@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
 
   const admin = adminClient();
   const { data: entry, error: entryError } = await admin
-    .from('entries').select('id, author_id, photo_picks, photos_matched_at, photos_located_at').eq('id', entryId).maybeSingle();
+    .from('entries').select('id, author_id, photo_picks, photos_matched_at, photos_located_at, photos_match_tried_at').eq('id', entryId).maybeSingle();
   if (entryError) {
     console.error('match-photos: entry read failed:', entryError.message);
     return json({ error: 'read failed' }, 500);
@@ -117,6 +117,13 @@ Deno.serve(async (req) => {
   if (!entry) return json({ error: 'not found' }, 404);
   if (entry.author_id !== userId && !(unmatchedOnly && await callerCanSee(req, entryId))) {
     return json({ error: 'not found' }, 404);
+  }
+  // A model match that failed in the last day is not retried by a look (0094, audit finding 24): any
+  // viewer could otherwise spend their budget on the same entry again and again. The author's own
+  // full re-match (an edit) still asks.
+  if (unmatchedOnly && entry.photos_match_tried_at != null
+      && Date.now() - Date.parse(entry.photos_match_tried_at) < 24 * 3600 * 1000) {
+    return json({ ok: true, matched: 0 });
   }
   // Matched once already: done, unless that was before dishes were placed (0083) and the entry has
   // several dishes, so a shared-plate photo may name only one of them. Asked again once.
@@ -174,11 +181,12 @@ Deno.serve(async (req) => {
 
   // The daily AI budget (0067: 60 matches per caller, shared ceiling). Over it, nothing is written,
   // exactly as without a key; the next look at the photo asks again.
-  const matches = next.kind === 'direct'
-    ? next.matches
-    : await aiBudgetAllows(admin, userId)
-    ? await askModel({ apiKey: ANTHROPIC_KEY, photos: next.photos, lines: next.lines, model: MODEL_ID })
-    : null;
+  let matches = next.kind === 'direct' ? next.matches : null;
+  if (next.kind === 'ask' && await aiBudgetAllows(admin, userId)) {
+    matches = await askModel({ apiKey: ANTHROPIC_KEY, photos: next.photos, lines: next.lines, model: MODEL_ID });
+    // The budget was spent and nothing came back: record the try, so a look does not pay again today.
+    if (!matches) await admin.from('entries').update({ photos_match_tried_at: new Date().toISOString() }).eq('id', entryId);
+  }
   if (!matches) return json({ ok: true, matched: 0 });
 
   const { data: n, error: writeError } = await admin.rpc('apply_photo_matches', {

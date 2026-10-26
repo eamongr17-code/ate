@@ -40,8 +40,10 @@ test('0074: profiles.diet — the owner\'s PATCH, canonical and closed; nobody e
   assert.deepEqual(await dietOf(U.alice), ['gf', 'nf'], 'RLS: a stranger cannot set your diet');
   await setDiet(U.alice, ['vg']);
   assert.deepEqual(await dietOf(U.alice), ['vg'], 'vegan is stored as vg alone — nothing adds v or df');
-  const [me] = await as(U.alice, () => rows(`select diet from public.profiles where id = $1`, [U.alice]));
-  assert.deepEqual(me.diet, ['vg'], 'the owner reads it back');
+  const [me] = await as(U.alice, () => rows(`select public.my_diet() diet`));
+  assert.deepEqual(me.diet, ['vg'], 'the owner reads it back (0094: through my_diet, the column is private)');
+  assert.equal((await as(U.bob, () => error(db.query(`select diet from public.profiles where id = $1`, [U.alice]))))?.code, '42501',
+    '0094: nobody else reads it');
 });
 
 test('0074 D1: a new line is stamped with the diet, less what Compose turned off', async () => {
@@ -101,22 +103,20 @@ test('0074 D3: removing a diet tag by PATCH turns it off; adding it back restore
   await patchTags(U.alice, bao.id, ['vg']);
   assert.deepEqual(shape(await lines(E))[0], ['Mushroom Bao', ['vg'], ['vg'], []], 'a non-diet tag leaving changes nothing else');
 
-  await as(U.alice, () => db.query(`update public.reviews set diet_off = '{gf,v}', diet_tags = '{}' where id = $1`, [bao.id]));
-  assert.deepEqual(shape(await lines(E))[0], ['Mushroom Bao', ['vg'], ['vg'], []], 'a client cannot write diet_tags / diet_off');
-  const [r] = await as(U.alice, () => rows(
-    `insert into public.reviews (reviewer_id, dish_id, entry_id, tags, diet_tags, diet_off)
-     values ($1, $2, $3, '{v}', '{v}', '{gf}') returning tags, diet_tags, diet_off`, [U.alice, bao.dish_id, E]));
-  assert.deepEqual(r, { tags: ['v'], diet_tags: [], diet_off: [] }, '…nor on a direct insert');
-  await rows(`delete from public.reviews where entry_id = $1 and entry_position is null`, [E]);
+  const refused = async (sql, params) => (await as(U.alice, () => error(db.query(sql, params))))?.code;
+  assert.equal(await refused(`update public.reviews set diet_off = '{gf,v}', diet_tags = '{}' where id = $1`, [bao.id]), '42501',
+    'a client cannot write diet_tags / diet_off (0094: only tags is client-writable)');
+  assert.deepEqual(shape(await lines(E))[0], ['Mushroom Bao', ['vg'], ['vg'], []]);
+  assert.equal(await refused(`insert into public.reviews (reviewer_id, dish_id, entry_id) values ($1, $2, $3)`,
+    [U.alice, bao.dish_id, E]), '42501', '…nor insert a line at all (0094)');
 });
 
 test('0074: a corrected line is never re-stamped, and still takes a code turned off', async () => {
   await setDiet(U.cleo, ['v']);
   const E = await w.visit(3, U.cleo, P.tipo, receipt(['Margherita', 4]), '2026-10-03T09:00:00Z');
   const [m] = await lines(E);
-  await as(U.cleo, () => db.query(`update public.reviews set score = 4.5 where id = $1`, [m.id]));
-  const [{ corrected }] = await rows(`select corrected_at is not null as corrected from public.reviews where id = $1`, [m.id]);
-  assert.ok(corrected, 'a score change is a correction');
+  // 0094: no client writes a score any more; a corrected line is stamped as the correction RPCs do.
+  await db.query(`update public.reviews set score = 4.5, corrected_at = now() where id = $1`, [m.id]);
   await setDiet(U.cleo, ['v', 'gf']);
   await w.sortAs(E, P.tipo, receipt(['Margherita', 4]).items);
   assert.deepEqual(shape(await lines(E)), [['Margherita', ['v'], ['v'], []]], 'gf (new diet) not stamped on it');

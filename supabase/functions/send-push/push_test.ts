@@ -45,7 +45,7 @@ const ROW: Claimed = {
 type Sent = { url: string; headers: Record<string, string>; body: any };
 function world(opts: {
   secrets?: Record<string, string>; rows?: Claimed[]; invites?: ClaimedInvite[]; apns?: (url: string) => Response; now?: () => number;
-  kick?: string | null; failRpc?: string;
+  kick?: string | null; failRpc?: string; hang?: boolean;
 } = {}) {
   resetKickSecretCache();
   const rpcs: { name: string; args: any }[] = [];
@@ -68,9 +68,14 @@ function world(opts: {
     },
     fetch: async (url, init) => {
       sent.push({ url, headers: init.headers as Record<string, string>, body: JSON.parse(String(init.body)) });
+      if (opts.hang) {
+        // an APNs connection that never answers: only the abort ends it
+        return new Promise<Response>((_, reject) => init.signal?.addEventListener('abort', () => reject(new Error('aborted'))));
+      }
       return opts.apns ? opts.apns(url) : new Response('', { status: 200 });
     },
     now: opts.now,
+    sendTimeoutMs: opts.hang ? 30 : undefined,
   };
   const call = (auth = `Bearer ${SERVICE}`) =>
     createHandler(deps)(new Request('http://x/send-push', { method: 'POST', headers: { Authorization: auth }, body: '{}' }));
@@ -219,6 +224,14 @@ test('a transient failure (5xx / network) leaves the row for the retry drain; no
   assertEquals(w.rpcs.map((r) => r.name), ['push_claim_ate_with', 'push_claim_list_invites']);
   const down = world({ apns: () => { throw new Error('ECONNRESET'); } });
   assertEquals((await (await down.call()).json()).marked, 0);
+});
+
+test('a hung APNs connection times out as transient; the drain moves on to the next token', async () => {
+  const w = world({ hang: true });
+  const started = Date.now();
+  assertEquals(await (await w.call()).json(), { ok: true, claimed: 1, sent: 0, marked: 0, dropped: 0 });
+  assertEquals(w.sent.length, 2, 'both tokens were tried');
+  assert(Date.now() - started < 2_000, 'and nothing waited on the hung one');
 });
 
 test('nothing claimed (quiet, read, dismissed, declined, blocked, unsorted) → nothing sent, nothing marked', async () => {

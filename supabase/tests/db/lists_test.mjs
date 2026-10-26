@@ -169,7 +169,7 @@ test('items follow their line: survive a re-sort, follow a correction, leave wit
 
   // the author deletes the line: the item goes (at commit)
   const p = await dishOf(E, 'Pizza');
-  await as(U.alice, () => db.query(`delete from public.reviews where id = $1`, [p.review_id]));
+  await db.query(`delete from public.reviews where id = $1`, [p.review_id]);
   l = await getList(U.alice, L.list_id);
   assert.deepEqual(names(l), ['Minestrone']);
   assert.equal(l.items[0].position, 1);
@@ -326,17 +326,17 @@ test('search queries are trimmed and capped at 100 characters', async () => {
   assert.deepEqual(padded, [A1], 'trimmed');
 });
 
-test('legacy lists/list_dishes (0004) are owner-read now: B cannot read A\'s rows', async () => {
+test('legacy lists/list_dishes (0004): not readable through the API at all (0094)', async () => {
   const [sys] = await rows(`select id from public.lists where owner_id = $1 and is_system`, [U.alice]);
   assert.ok(sys, 'sign-up still makes the system list (rows are real; nothing dropped)');
   const g = await dishOf(A1, 'Gnocchi');
   await db.query(`insert into public.list_dishes (list_id, dish_id, position) values ($1, $2, 1) on conflict do nothing`, [sys.id, g.dish_id]);
   const read = (uid, sql) => as(uid, () => rows(sql, [U.alice]));
-  assert.equal((await read(U.bob, `select id from public.lists where owner_id = $1`)).length, 0);
-  assert.equal((await read(U.bob, `select ld.dish_id from public.list_dishes ld join public.lists l on l.id = ld.list_id where l.owner_id = $1`)).length, 0);
-  assert.equal((await as(U.bob, () => rows(`select * from public.list_dishes where list_id = $1`, [sys.id]))).length, 0);
-  assert.equal((await read(U.alice, `select id from public.lists where owner_id = $1`)).length, 1, 'the owner still reads hers');
-  assert.equal((await as(U.alice, () => rows(`select * from public.list_dishes where list_id = $1`, [sys.id]))).length, 1);
+  await assert.rejects(read(U.bob, `select id from public.lists where owner_id = $1`), /permission denied/);
+  await assert.rejects(as(U.bob, () => rows(`select * from public.list_dishes where list_id = $1`, [sys.id])), /permission denied/);
+  // 0094: unused since V1, so nobody reads them through the API, the owner included.
+  await assert.rejects(read(U.alice, `select id from public.lists where owner_id = $1`), /permission denied/);
+  await assert.rejects(as(U.alice, () => rows(`select * from public.list_dishes where list_id = $1`, [sys.id])), /permission denied/);
 });
 
 test('0060 is idempotent: re-applying it on a populated database changes nothing', async () => {

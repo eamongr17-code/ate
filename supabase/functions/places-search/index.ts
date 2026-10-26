@@ -749,12 +749,15 @@ async function dbNearby(lat: number, lng: number, radiusM: number): Promise<Rest
 
 // Chains (0085): once places are handed back, link any whose name repeats into their chain. In the
 // background, so no answer waits on it; live Google path only (the website is a Details call, made only
-// for a repeated name and once per place, so it costs ~nothing).
-function linkChainsLater(ids: (string | null | undefined)[]): void {
+// for a repeated name and once per place). Each website lookup is charged to the caller's daily budget
+// like any other Google call (audit 26 Oct, finding 14); over it, the place is simply checked later.
+function linkChainsLater(ids: (string | null | undefined)[], userId: string): void {
   if (STUB) return;
   const list = [...new Set(ids.filter((x): x is string => !!x))];
   if (list.length === 0) return;
-  const work = linkChains(adminClient(), list, (placeId) => googleWebsite(GOOGLE_KEY, placeId))
+  const website = async (placeId: string) =>
+    (await placesBudgetAllows(userId)) ? googleWebsite(GOOGLE_KEY, placeId) : { ok: false, host: null };
+  const work = linkChains(adminClient(), list, website)
     .catch((e) => console.error('chains:', e instanceof Error ? e.message : e));
   // deno-lint-ignore no-explicit-any
   (globalThis as any).EdgeRuntime?.waitUntil?.(work);
@@ -937,7 +940,7 @@ Deno.serve(async (req) => {
       // the paid Google Details call entirely (works in stub mode too).
       const known = await findRestaurantByPlaceId(placeId);
       if (known) {
-        linkChainsLater([known.id]);
+        linkChainsLater([known.id], userId);
         return json({ stub: STUB, restaurant: known });
       }
 
@@ -945,7 +948,7 @@ Deno.serve(async (req) => {
       const place = STUB ? stubDetails(placeId) : await googleDetails(placeId, sessionToken);
       if (!place) return json({ error: 'place not found' }, 404);
       const restaurant = await upsertRestaurant(place);
-      linkChainsLater([restaurant.id]);
+      linkChainsLater([restaurant.id], userId);
       return json({ stub: STUB, restaurant });
     }
 
@@ -969,7 +972,7 @@ Deno.serve(async (req) => {
       // 1) PostGIS-first (E-5 RESOLVED): the GIST-indexed KNN RPC. Free, fast.
       const dbRows = await dbNearby(lat, lng, radiusM);
       if (dbRows.length >= DB_NEARBY_THRESHOLD) {
-        linkChainsLater(dbRows.slice(0, NEARBY_CAP).map((r) => r.id));
+        linkChainsLater(dbRows.slice(0, NEARBY_CAP).map((r) => r.id), userId);
         return json({ stub: false, source: 'db', restaurants: dbRows.slice(0, NEARBY_CAP) });
       }
 
@@ -995,12 +998,14 @@ Deno.serve(async (req) => {
       }
 
       const source = upserted.length === 0 ? 'db' : dbRows.length === 0 ? 'google' : 'blend';
-      linkChainsLater(merged.slice(0, NEARBY_CAP).map((r) => r.id));
+      linkChainsLater(merged.slice(0, NEARBY_CAP).map((r) => r.id), userId);
       return json({ stub: false, source, restaurants: merged.slice(0, NEARBY_CAP) });
     }
 
     return json({ error: `unknown op '${op}'` }, 400);
   } catch (err) {
-    return json({ error: String(err instanceof Error ? err.message : err) }, 500);
+    // The detail is logged, not returned: database messages name tables and columns (audit finding 19).
+    console.error('places-search: unhandled:', err instanceof Error ? err.message : err);
+    return json({ error: 'search failed' }, 500);
   }
 });

@@ -170,7 +170,7 @@ test('0047: my_entries — score range (6 above 5), city, and the old place filt
   await visit(30, C, P.cbd, 'Pasta 3', scored('Pasta', 3), '2026-09-10T09:00:00Z');
   await visit(31, C, P.fitzroy, 'Steak 5', scored('Steak', 5), '2026-09-11T09:00:00Z');
   const six = await visit(32, C, P.sydney, 'Tart 4', scored('Tart', 4), '2026-09-12T09:00:00Z');
-  await as(C, () => db.query(`update public.reviews set score = 6 where entry_id = $1`, [six]));
+  await db.query(`update public.reviews set score = 6 where entry_id = $1`, [six]);
   await visit(33, C, P.lara, 'Chips were fine', [{ dish_name: 'Chips' }], '2026-09-13T09:00:00Z');
 
   const mine = (args) => as(C, () => rows(`select id from public.my_entries(${args})`)).then((r) => r.map((x) => x.id));

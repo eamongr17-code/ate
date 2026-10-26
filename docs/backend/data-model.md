@@ -228,15 +228,15 @@ nine RPCs (+ `feed_areas`, `feed_cities`, `get_entry_card`, 0055's `top_ate`, `n
 |---|---|---|---|---|
 | `entries` | own, or not blocked (0033) | self, `restaurant_id` required (0040) | self (cols `body, visibility` only) | self (or `delete_entry`) |
 | `entry_photos` | parent entry visible | parent entry is own | own | own |
-| `reviews` | own, or not blocked (0033) | author | author | author |
-| `profiles` | self, or (not deactivated AND not blocked) | self | self (cols `username, name, avatar_url, bio, city`, `diet` 0074) | — (`delete_account()` RPC) |
+| `reviews` | own, or not blocked (0033) | none (sorter / RPCs, 0094) | author, col `tags` only (0094) | none (0094) |
+| `profiles` | self, or (not deactivated AND not blocked); every column but `diet` (own via `my_diet()`, 0094) | none (`handle_new_user`) | self (cols `username, name, avatar_url, bio, city`, `diet` 0074) | — (`delete-account` function → `delete_account()`) |
 | `saves` | own | own | own | own |
 | `blocks` | rows you created | self as blocker | — | self as blocker |
 | `reports` | own | self | — | — |
 | `cities` (0046) | all (authenticated) | none | none | none |
 | `user_cravings` (0055) | own | none (`set_cravings`) | none | none (`set_cravings`) |
 | `user_lists` · `user_list_items` (0060) | own | none (RPCs) | none | none (RPCs) |
-| `restaurants` / `dishes` | all | dishes: authed (self-attributed); restaurants: none (RPC/service role) | none | none |
+| `restaurants` / `dishes` | all | none: `find_or_create_dish` / `add_manual_restaurant` (≤ 20 a day) / service role (0094) | none | none |
 
 The block filter is expressed **once**, in `blocked_with()`, applied in the SELECT policies of `profiles`,
 `entries` and `reviews` — so blocked users vanish from feed, journal, profile, place and dish reads in both
@@ -282,3 +282,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0084 | `more_diet_options` | five codes (`pe` pescatarian, `ha` halal, `ef`, `pf`, `sf`) in every closed set; `diet_tags_implied`: vg ⇒ v, df, ef, pe; v ⇒ pe; nf ⇒ pf; `dish_diet_counts` holds every counted, unvetoed code (the app's "?" popover) |
 | 0086 | `ate_with_copy` | `ate_with_prefill` + `body` and `dishes[].score` (the tagger's words and first-line scores) for "Copy their review"; additive |
 | 0090 | `new_to_record_score` | `new_to_record` + trailing `score` (the dish's average, `dish_stats`) so "New in" rows print a rating, never a "New" pill (drop+create, browse twin too); additive |
+| 0094 | `audit_fixes` | independent audit 26 Oct: no client review/dish writes (reviews: PATCH `tags` only); two-sixes on `entry_id` moves; `storage_purge_queue` + `delete-account` function; list invites spend `ate_with_spend('list')`; client photo/avatar URLs pinned to our storage; manual places 20/day, one open report per target, 30 reports/day; `diet` column private + `my_diet()`; live push tokens not taken over; `dish_pair_verdicts`; `entries.photos_match_tried_at`; text caps; legacy social tables unreadable |

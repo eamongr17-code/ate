@@ -17,6 +17,7 @@ export interface Deps {
   db: () => Db;
   fetch: (url: string, init: RequestInit) => Promise<Response>;
   now?: () => number;                     // ms; injectable for the JWT cache test
+  sendTimeoutMs?: number;                 // injectable for the timeout test
 }
 
 /** One row of push_claim_ate_with (0059). */
@@ -130,7 +131,23 @@ export type Outcome = 'ok' | 'dead' | 'transient' | 'rejected';
 const DEAD_REASONS = new Set(['BadDeviceToken', 'Unregistered', 'DeviceTokenNotForTopic']);
 const AUTH_REASONS = new Set(['ExpiredProviderToken', 'InvalidProviderToken', 'MissingProviderToken']);
 
+/** One APNs send may take this long (and its answer), then it is transient: a hung connection must
+ * not stall the whole drain until the function is killed (audit 26 Oct, finding 25). */
+export const SEND_TIMEOUT_MS = 10_000;
+
 async function sendOne(deps: Deps, env: ApnsEnv, jwt: string, token: string, row: Outgoing, nowMs: number): Promise<Outcome> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), deps.sendTimeoutMs ?? SEND_TIMEOUT_MS);
+  try {
+    return await sendOneWithin(deps, env, jwt, token, row, nowMs, controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function sendOneWithin(
+  deps: Deps, env: ApnsEnv, jwt: string, token: string, row: Outgoing, nowMs: number, signal: AbortSignal,
+): Promise<Outcome> {
   let res: Response;
   try {
     res = await deps.fetch(`https://${APNS_HOSTS[env]}/3/device/${token}`, {
@@ -145,6 +162,7 @@ async function sendOne(deps: Deps, env: ApnsEnv, jwt: string, token: string, row
         'content-type': 'application/json',
       },
       body: JSON.stringify(row.body),
+      signal,
     });
   } catch {
     return 'transient';
@@ -152,7 +170,7 @@ async function sendOne(deps: Deps, env: ApnsEnv, jwt: string, token: string, row
   if (res.status === 200) return 'ok';
   if (res.status === 410) return 'dead';
   let reason = '';
-  try { reason = String((await res.json())?.reason ?? ''); } catch { /* no body */ }
+  try { reason = String((await res.json())?.reason ?? ''); } catch { /* no body, or the timeout hit */ }
   if (res.status === 400 && DEAD_REASONS.has(reason)) return 'dead';
   if (res.status === 403 && AUTH_REASONS.has(reason)) { resetJwtCache(); return 'transient'; }
   if (res.status === 429 || res.status >= 500) return 'transient';

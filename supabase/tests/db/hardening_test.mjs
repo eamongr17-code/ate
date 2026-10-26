@@ -31,8 +31,8 @@ test('0067: nobody can hang a line on someone else\'s entry', async () => {
   const [card] = await as(U.alice, () => rows(`select items from public.entry_cards where id = $1`, [E]));
   assert.equal(card.items.length, 1, 'Alice\'s receipt still has only her line');
 
-  assert.equal(await as(U.bob, () => error(db.query(`update public.reviews set score = 6 where id = $1`, [bobLine]))), null,
-    'the author still edits their own line');
+  assert.equal(await as(U.bob, () => error(db.query(`update public.reviews set tags = '{gf}' where id = $1`, [bobLine]))), null,
+    'the author still edits their own line\'s tags (0094: the only client-writable column)');
 });
 
 test('0067: the AI budget caps each user per kind, and is service-only', async () => {

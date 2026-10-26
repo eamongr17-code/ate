@@ -6,7 +6,7 @@
 // front of the model, the model's answer read strictly, and the survivor rule.
 
 import { test, assert, assertEquals } from '../sort-entry/harness.ts';
-import { aiProposals, buildRequest, candidatePairs, judgePlace, sameNameProposals, scanPlace, survivor, type ScanDish, type ScanPlace } from './scan.ts';
+import { aiProposals, apartPairs, buildRequest, candidatePairs, judgePlace, pairKey, sameNameProposals, scanPlace, survivor, type ScanDish, type ScanPlace } from './scan.ts';
 
 let n = 0;
 const dish = (name: string, lines = 1, created_at = `2026-10-0${(n % 9) + 1}T00:00:00Z`): ScanDish =>
@@ -111,4 +111,19 @@ test('no key, or a failed call: the spelling tier still proposes, the model tier
     apiKey: 'k', fetchImpl: async () => Response.json(reply([{ pair: 1, verdict: 'same', why: 'one dish' }])),
   });
   assertEquals(ok.proposals.map((x) => [x.reason, x.source_name]), [['same_name', 'Gnocchis'], ['ai', 'Carbonara']]);
+});
+
+test('0094: pairs the model kept apart are remembered, and a rerun never asks them again', async () => {
+  const dishes = [dish('Spaghetti Carbonara', 2), dish('Carbonara')];
+  let calls = 0;
+  const first = await scanPlace(place(dishes), {
+    apiKey: 'k', fetchImpl: async () => { calls++; return Response.json(reply([{ pair: 1, verdict: 'different', why: 'two pastas' }])); },
+  });
+  assertEquals(first.proposals, []);
+  assertEquals(first.apart.map((a) => a.verdict), ['different']);
+  assert(first.apart[0].dish_a < first.apart[0].dish_b, 'stored in order');
+  const skip = new Set(first.apart.map((a) => pairKey(a.dish_a, a.dish_b)));
+  const again = await scanPlace(place(dishes), { apiKey: 'k', skip, fetchImpl: async () => { calls++; return Response.json(reply([])); } });
+  assertEquals([again.asked, calls], [0, 1], 'the second scan paid for nothing');
+  assertEquals(apartPairs(reply([{ pair: 1, verdict: 'same', why: '' }]), [{ a: dishes[0], b: dishes[1] }]), [], 'a "same" is not remembered as apart');
 });
