@@ -318,7 +318,7 @@ struct AtePhotoViewer: View {
         ) else { return nil }
         return AtePhotoFlightPath(
             image: image, home: home(tile, image: image), away: away, ring: tile.ring,
-            covers: covers(over: tile, photos: photos, origin: origin)
+            covers: covers(over: position, photos: photos, origin: origin)
         )
     }
 
@@ -333,17 +333,16 @@ struct AtePhotoViewer: View {
         return PhotoFlight.home(tile: tile.frame, radius: tile.radius, angle: tile.angle, image: image.size, crop: crop)
     }
 
-    /// The cluster's photos stacked over `tile` that reach it (a tilt carries a corner a little past
-    /// the square), bottom first, so they are drawn over the flying photo as the page draws them.
+    /// The cluster's photos stacked over the one at `position` (``PhotoFlight/covers(over:tiles:reach:)``),
+    /// bottom first, so they are drawn over the flying photo as the page draws them.
     private static func covers(
-        over tile: AtePhotoOrigin.Tile, photos: [AtePhoto], origin: AtePhotoOrigin?
+        over position: Int, photos: [AtePhoto], origin: AtePhotoOrigin?
     ) -> [AtePhotoFlightPath.Cover] {
-        let reach = tile.frame.insetBy(dx: -tile.frame.width * 0.2, dy: -tile.frame.height * 0.2)
-        return (origin?.tiles ?? [:])
-            .filter { $0.value.layer < tile.layer && $0.value.frame.intersects(reach) }
-            .sorted { $0.value.layer > $1.value.layer }
-            .compactMap { index, over in
-                guard photos.indices.contains(index), let image = onHand(photos[index]) else { return nil }
+        let tiles = origin?.tiles ?? [:]
+        return PhotoFlight.covers(over: position, tiles: tiles.mapValues { (frame: $0.frame, layer: $0.layer) })
+            .compactMap { index in
+                guard let over = tiles[index], photos.indices.contains(index),
+                      let image = onHand(photos[index]) else { return nil }
                 return AtePhotoFlightPath.Cover(image: image, frame: home(over, image: image), ring: over.ring)
             }
     }
