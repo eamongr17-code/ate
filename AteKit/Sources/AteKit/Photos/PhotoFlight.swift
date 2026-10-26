@@ -103,6 +103,28 @@ public enum PhotoFlight {
         )
     }
 
+    /// The tiles stacked over `flying` that the flight has to draw over it as it leaves and lands,
+    /// bottom first, as `(key, layer)` pairs — `tiles` is every tile of the cluster, layer 0 on top.
+    /// One reaching the flying tile (`reach`, a tilt's corner past the square) is a cover, and so is
+    /// any tile above a cover that laps over it: drawn alone, a cover lands on top of the photos the
+    /// page draws over it (26 Oct: the third photo opened and the middle one jumped to the front).
+    public static func covers<Key: Hashable>(
+        over flying: Key, tiles: [Key: (frame: CGRect, layer: Int)], reach: CGFloat = 0.2
+    ) -> [Key] {
+        guard let home = tiles[flying] else { return [] }
+        func grown(_ frame: CGRect) -> CGRect { frame.insetBy(dx: -frame.width * reach, dy: -frame.height * reach) }
+        var found: [Key: Int] = [:]
+        var reaching = [(frame: grown(home.frame), layer: home.layer)]
+        while let under = reaching.popLast() {
+            for (key, tile) in tiles where found[key] == nil && tile.layer < under.layer
+                && tile.frame.intersects(under.frame) {
+                found[key] = tile.layer
+                reaching.append((grown(tile.frame), tile.layer))
+            }
+        }
+        return found.sorted { $0.value > $1.value }.map(\.key)
+    }
+
     /// A tile partly off the screen would be landed on whole and then pop to its clipped self, so
     /// such a photo fades instead.
     public static func canLand(on tile: CGRect, screen: CGSize) -> Bool {

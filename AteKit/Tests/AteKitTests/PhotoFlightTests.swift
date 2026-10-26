@@ -89,4 +89,21 @@ struct PhotoFlightTests {
         #expect(PhotoFlight.canLand(on: tile, screen: page.size))
         #expect(PhotoFlight.canLand(on: tile.offsetBy(dx: 0, dy: 820), screen: page.size) == false)
     }
+
+    @Test("the third of three lands under the middle, and the middle stays under the first (26 Oct)")
+    func coversCarryWhatLapsThem() {
+        // A slip's cluster: 80pt tiles lapping by 12, the first on top.
+        let tiles: [Int: (frame: CGRect, layer: Int)] = [
+            0: (CGRect(x: 0, y: 0, width: 80, height: 80), 0),
+            1: (CGRect(x: 68, y: 0, width: 80, height: 80), 1),
+            2: (CGRect(x: 136, y: 0, width: 80, height: 80), 2)
+        ]
+        #expect(PhotoFlight.covers(over: 2, tiles: tiles) == [1, 0])
+        #expect(PhotoFlight.covers(over: 1, tiles: tiles) == [0])
+        #expect(PhotoFlight.covers(over: 0, tiles: tiles) == [])
+        // A photo clear of every cover is not drawn over it.
+        var apart = tiles
+        apart[0] = (CGRect(x: 0, y: 400, width: 80, height: 80), 0)
+        #expect(PhotoFlight.covers(over: 2, tiles: apart) == [1])
+    }
 }
