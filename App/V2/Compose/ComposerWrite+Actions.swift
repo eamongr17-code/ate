@@ -312,7 +312,7 @@ extension V2ComposerWrite {
             }
             Task {
                 let staged = await ComposerPhotoStaging.stage(item, in: directory) { preview in
-                    model.previewPhoto(id: id, picture: preview)
+                    model.previewPhoto(id: id, image: Image(uiImage: preview), picture: preview)
                 }
                 guard let staged else {
                     // Unreadable: the tile goes, the refusal is felt and counted.
