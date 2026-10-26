@@ -1,10 +1,12 @@
 import AteKit
 import SwiftUI
 
-/// **Settings** — the system's inset grouped list on the linen ground, the build's rows in its order:
-/// Handle, Photo, Diet, Appearance · Blocked people, Tutorial, Replay onboarding · Privacy, Terms ·
-/// Sign out · Delete account, red, last, on its own, confirmed once. Every row either shows what is
-/// true on the right or goes somewhere; nothing explains itself.
+/// **Settings** (`design/rebuild/settings-redesign.html` B, Eamon's pick 26 Oct) — the system's inset
+/// grouped list on the linen ground, each row after its line icon: Photo, Handle, Diet · This iPhone:
+/// Appearance and what iOS allows (Notifications, Photos, Location, Camera) · Blocked people · Help:
+/// Tutorial, Send feedback, Email us, Replay onboarding (TestFlight only) · Legal · Sign out · Delete
+/// account, red, on its own, confirmed once · the version. Every row either shows what is true on
+/// the right or goes somewhere; nothing explains itself.
 struct V2SettingsList: View {
     let model: SettingsModel
     let context: V2PageContext
@@ -12,6 +14,9 @@ struct V2SettingsList: View {
     @State private var isPickingPhoto = false
     @State private var isConfirmingDelete = false
     @State private var isShowingTutorial = false
+    @State private var isSendingFeedback = false
+    @State private var permissions = DevicePermissions()
+    @State private var toast: String?
     /// The data went but the login survived: the session is already over, once the alert is read.
     @State private var endsSessionAfterAlert = false
     @State private var deletedUserID: UUID?
@@ -19,42 +24,80 @@ struct V2SettingsList: View {
     @State private var avatarPreview: UIImage?
     /// A write that did not happen, said once.
     @State private var failure: ActionFailure?
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
+    @Environment(\.atePalette) private var palette
 
     var body: some View {
         List {
             Section {
-                AteGroupedRow(title: "Handle", value: model.displayHandle, identifier: "settings.handle") {
-                    context.open(.settings(.handle(current: model.handle)))
-                }
-                AteGroupedRow(title: "Photo", identifier: "settings.photo") {
+                AteGroupedRow(title: "Photo", icon: .library, identifier: "settings.photo") {
                     isPickingPhoto = true
                 } trailing: {
                     avatar
                 }
+                AteGroupedRow(
+                    title: "Handle", icon: .atSign, value: model.displayHandle, identifier: "settings.handle"
+                ) {
+                    context.open(.settings(.handle(current: model.handle)))
+                }
                 // What is saved: "Vegan", "Gluten free, Nut free", "None" — nothing until it is known.
-                AteGroupedRow(title: "Diet", value: context.app.diet.choice?.summary, identifier: "settings.diet") {
+                AteGroupedRow(
+                    title: "Diet", icon: .diet, value: context.app.diet.choice?.summary, identifier: "settings.diet"
+                ) {
                     context.open(.settings(.diet))
                 }
+            }
+            Section("This iPhone") {
                 AteGroupedPicker(
-                    title: "Appearance", value: model.appearance.title, selection: Bindable(model).appearance
+                    title: "Appearance", icon: .moon, value: model.appearance.title,
+                    selection: Bindable(model).appearance
                 ) {
                     ForEach(AteAppearance.allCases, id: \.self) { appearance in
                         Text(appearance.title).tag(appearance)
                     }
                 }
                 .accessibilityIdentifier("settings.appearance")
-            }
-            Section {
-                AteGroupedRow(title: "Blocked people") { context.open(.settings(.blocked)) }
-                AteGroupedRow(title: "Tutorial", identifier: "settings.tutorial") { isShowingTutorial = true }
-                // The whole first run again, from Handle, and every tip after it.
-                AteGroupedRow(title: "Replay onboarding", identifier: "settings.replayOnboarding") {
-                    context.app.replayOnboarding()
+                // What iOS allows right now; the Settings app is where it changes.
+                ForEach(DevicePermission.allCases, id: \.self) { permission in
+                    AteGroupedRow(
+                        title: permission.title, icon: permission.icon,
+                        value: permissions.state(of: permission).title, leavesApp: true,
+                        identifier: "settings.permission.\(permission.rawValue)"
+                    ) {
+                        Task { await permissions.open(permission, services: context.services) }
+                    }
                 }
             }
             Section {
-                AteGroupedRow(title: "Privacy", identifier: "settings.privacy") { context.open(.settings(.privacy)) }
-                AteGroupedRow(title: "Terms", identifier: "settings.terms") { context.open(.settings(.terms)) }
+                AteGroupedRow(title: "Blocked people", icon: .block, identifier: "settings.blocked") {
+                    context.open(.settings(.blocked))
+                }
+            }
+            Section("Help") {
+                AteGroupedRow(title: "Tutorial", icon: .circlePlay, identifier: "settings.tutorial") {
+                    isShowingTutorial = true
+                }
+                AteGroupedRow(title: "Send feedback", icon: .messageCircle, identifier: "settings.feedback") {
+                    isSendingFeedback = true
+                }
+                AteGroupedRow(title: "Email us", icon: .mail, leavesApp: true, identifier: "settings.email") {
+                    emailUs()
+                }
+                #if DEBUG || BETA
+                // The whole first run again, from Handle, and every tip after it. Testers only.
+                AteGroupedRow(title: "Replay onboarding", icon: .rotateCcw, identifier: "settings.replayOnboarding") {
+                    context.app.replayOnboarding()
+                }
+                #endif
+            }
+            Section("Legal") {
+                AteGroupedRow(title: "Privacy policy", icon: .shield, identifier: "settings.privacy") {
+                    context.open(.settings(.privacy))
+                }
+                AteGroupedRow(title: "Terms of use", icon: .fileText, identifier: "settings.terms") {
+                    context.open(.settings(.terms))
+                }
             }
             Section {
                 AteGroupedRow(title: "Sign out", identifier: "settings.signOut") {
@@ -69,6 +112,14 @@ struct V2SettingsList: View {
                 AteGroupedRow(title: "Delete account", isDestructive: true, identifier: "settings.delete") {
                     isConfirmingDelete = true
                 }
+            } footer: {
+                // The build, so a tester can quote it.
+                Text(Self.version)
+                    .ateText(.meta)
+                    .foregroundStyle(palette.muted)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, AteMetrics.regular)
+                    .accessibilityIdentifier("settings.version")
             }
         }
         .ateGroupedList()
@@ -93,7 +144,14 @@ struct V2SettingsList: View {
                 Task { await deleteAccount() }
             }
             Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your entries, photos, lists and tags are deleted. This can’t be undone.")
         }
+        // The same sheet as the testers' bug on You, here in every build.
+        .sheet(isPresented: $isSendingFeedback) {
+            FeedbackSheet(app: context.app) { toast = "Report sent. Thank you." }
+        }
+        .ateToast($toast)
         // Either the server refused (still signed in, nothing gone) or it took the data but not the
         // login — and either way the person has to know that what they asked for did not happen.
         .alert(
@@ -110,6 +168,11 @@ struct V2SettingsList: View {
         .ateFailureAlert($failure)
         .task { await model.loadIfNeeded() }
         .task { await context.app.loadDiet() }
+        .task { await permissions.refresh() }
+        // Back from the Settings app: the rows say what was changed there.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await permissions.refresh() } }
+        }
         // What the server holds is everybody's: a new photo shows on You, your bylines, everywhere.
         .onChange(of: model.avatarURL) { _, url in
             guard let userID = model.userID else { return }
@@ -117,6 +180,28 @@ struct V2SettingsList: View {
         }
         // Back from the handle page: the row shows what the server now holds.
         .onAppear { Task { await model.reloadIfLoaded() } }
+    }
+
+    // MARK: - Help
+
+    /// Mail, to the address the privacy policy names. No mail app: the address is copied instead.
+    private func emailUs() {
+        guard let url = URL(string: "mailto:\(LegalDocument.contactEmail)") else { return }
+        openURL(url) { opened in
+            if opened == false {
+                UIPasteboard.general.string = LegalDocument.contactEmail
+                toast = "Email address copied"
+            }
+            context.services.analytics(AccountEvents.supportEmailTapped(opened: opened))
+        }
+    }
+
+    /// "Ate 1.0 (238)".
+    private static var version: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? ""
+        let build = info?["CFBundleVersion"] as? String ?? ""
+        return "Ate \(short) (\(build))"
     }
 
     // MARK: - Photo
@@ -169,5 +254,17 @@ struct V2SettingsList: View {
         // The half-deletion waits for its alert to be read before the session ends.
         if outcome == .deleted { context.app.endSession(deleting: deletedUserID) }
         endsSessionAfterAlert = outcome == .loginSurvived
+    }
+}
+
+private extension DevicePermission {
+    /// The row's line icon.
+    var icon: AteIcon {
+        switch self {
+        case .notifications: .bell
+        case .photos: .photoStack
+        case .location: .place
+        case .camera: .camera
+        }
     }
 }

@@ -1,0 +1,197 @@
+<title>Ate Settings Redesign</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Newsreader:opsz,wght@6..72,400&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a short brief, then real-scale phones side by side (scroll inside each), then the row-by-row table. */
+:root{
+  --page:#E7E1D8; --fg:#24141F; --muted:#5E5560; --hair:rgba(36,20,31,.14); --card:#F4F0EA; --butter:#F6D365; --coral:#F0623F;
+  --serif:"Young Serif",Georgia,serif; --sans:"DM Sans",-apple-system,"Helvetica Neue",sans-serif; --prose:"Newsreader",Georgia,serif; --mono:"DM Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#0F0B12;--fg:#F4EFE9;--muted:#B9AFBC;--hair:rgba(255,255,255,.16);--card:#1C1520;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#0F0B12;--fg:#F4EFE9;--muted:#B9AFBC;--hair:rgba(255,255,255,.16);--card:#1C1520;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.5;padding-block:36px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.intro{max-width:720px;margin:0 auto 32px}
+h1{font:400 36px/1.1 var(--serif);margin:0 0 12px;text-wrap:balance}
+h2{font:400 26px/1.15 var(--serif);margin:0 0 6px;text-align:center;text-wrap:balance}
+.intro p,.lead{margin:0 0 10px;color:var(--muted);font-size:16px}
+.lead{text-align:center;max-width:620px;margin:0 auto 22px}
+.group{max-width:1320px;margin:0 auto 60px}
+.wrap{display:flex;gap:36px;flex-wrap:wrap;justify-content:center}
+.col{display:flex;flex-direction:column;gap:12px;align-items:center;width:390px;max-width:100%}
+.cap{font:600 15px/1.3 var(--sans);text-align:center}
+.cap small{display:block;font-weight:400;font-size:13.5px;color:var(--muted);margin-top:4px;line-height:1.45}
+.pick{display:inline-block;border-radius:999px;padding:1px 9px;font:600 12px/1.6 var(--sans);color:#24141F;background:var(--butter);margin-left:6px;vertical-align:1px}
+
+/* phone at real iPhone scale, 390 x 844 */
+.scr{--g:#EFEAE2;--t:#24141F;--m:#5E5560;--row:#FFFFFF;--line:rgba(36,20,31,.1);--red:#D93A2B;--gl:rgba(255,255,255,.62);--glb:rgba(255,255,255,.9);
+  width:390px;max-width:100%;height:844px;background:var(--g);color:var(--t);border-radius:48px;overflow:hidden;position:relative;box-shadow:0 0 0 10px #111,0 20px 40px rgba(0,0,0,.25);flex-shrink:0}
+.scr.dk{--g:#17111B;--t:#F4EFE9;--m:#B9AFBC;--row:#231B24;--line:rgba(255,255,255,.12);--red:#FF6B5B;--gl:rgba(52,42,58,.7);--glb:rgba(255,255,255,.14)}
+.sb{position:absolute;top:0;left:0;right:0;height:54px;display:flex;justify-content:space-between;align-items:center;padding:6px 34px 0 44px;font:600 17px/1 -apple-system,"Helvetica Neue",sans-serif;z-index:9;pointer-events:none}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;border-radius:20px;background:#000;z-index:10}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:140px;height:5px;border-radius:3px;background:var(--t);z-index:10}
+.bar{position:absolute;top:0;left:0;right:0;height:112px;z-index:8;background:linear-gradient(var(--g) 62%,transparent);pointer-events:none}
+.disc{position:absolute;top:60px;left:16px;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:9;background:var(--gl);-webkit-backdrop-filter:blur(18px) saturate(1.7);backdrop-filter:blur(18px) saturate(1.7);box-shadow:inset 0 0 0 .5px var(--glb),0 6px 18px rgba(0,0,0,.12)}
+.navt{position:absolute;top:72px;left:0;right:0;text-align:center;font:600 17px/1 var(--sans);z-index:9}
+.sc{position:absolute;inset:0;overflow-y:auto;padding:116px 16px 40px;scrollbar-width:none}
+.sc::-webkit-scrollbar{display:none}
+.sh{font:400 13px/1 var(--sans);color:var(--m);padding:0 18px 8px}
+.grp{background:var(--row);border-radius:26px;margin-bottom:24px;overflow:hidden}
+.gr{display:flex;align-items:center;gap:14px;min-height:52px;padding:0 16px 0 18px;font:500 17px/1.2 var(--sans);position:relative;cursor:pointer}
+.gr+.gr::before{content:"";position:absolute;top:0;right:0;left:18px;border-top:1px solid var(--line)}
+.ic .gr+.gr::before{left:52px}
+.gr .nm{flex:1;min-width:0}
+.gr .v{display:flex;align-items:center;gap:6px;color:var(--m);font-weight:400}
+.gr svg.i{width:22px;height:22px;flex:none;stroke:var(--t);fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.gr svg.c{width:16px;height:16px;stroke:var(--m);opacity:.6;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.gr.red{color:var(--red)}
+.gr.solo{justify-content:center}
+.av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#F0623F,#F6D365);display:flex;align-items:center;justify-content:center;font:600 13px/1 var(--sans);color:#24141F}
+.tf{font:500 11px/1 var(--mono);border:1px solid var(--line);border-radius:6px;padding:3px 5px;color:var(--m)}
+.foot{text-align:center;font:400 13px/1.5 var(--sans);color:var(--m);padding:4px 0 24px}
+.hl{background:rgba(246,211,101,.30)}
+.scr.dk .hl{background:rgba(246,211,101,.16)}
+
+/* action sheet */
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:11}
+.sheet{position:absolute;left:8px;right:8px;bottom:30px;z-index:12;display:grid;gap:8px}
+.sheet .box{background:var(--gl);-webkit-backdrop-filter:blur(30px) saturate(1.8);backdrop-filter:blur(30px) saturate(1.8);border-radius:22px;overflow:hidden;text-align:center;font-family:-apple-system,"Helvetica Neue",sans-serif}
+.sheet .q{padding:16px 22px 14px;font-size:13px;line-height:1.35;color:var(--m)}
+.sheet .q b{display:block;font-size:13px;font-weight:600;color:var(--m);margin-bottom:4px}
+.sheet .a{border-top:1px solid var(--line);height:56px;display:flex;align-items:center;justify-content:center;font-size:19px}
+.sheet .a.r{color:var(--red)}
+.sheet .a.k{font-weight:600}
+.scr .sheet .box{background:rgba(255,255,255,.86)}
+.scr.dk .sheet .box{background:rgba(44,36,48,.92)}
+
+/* table */
+.tbl{max-width:880px;margin:0 auto;overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:600px;font-size:14.5px}
+th,td{text-align:left;vertical-align:top;padding:10px 12px;border-top:1px solid var(--hair)}
+th{font:600 12px/1.3 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-top:0}
+td:first-child{font-weight:600;white-space:nowrap}
+td.n{color:var(--muted)}
+.new{font:500 11px/1 var(--mono);background:var(--butter);color:#24141F;border-radius:5px;padding:2px 5px;margin-left:6px;vertical-align:1px}
+.notes{max-width:720px;margin:0 auto}
+.notes ul{margin:0;padding-left:20px;color:var(--muted)}
+.notes li{margin-bottom:8px}
+.notes li b{color:var(--fg)}
+</style>
+
+<div class="intro">
+  <h1>Settings, redesigned</h1>
+  <p>Built from what Ate does today plus what the beta and the App Store need. Nothing here is a new feature. Every phone below scrolls; drag inside it.</p>
+  <p>Two layouts of the same rows. <b>A</b> is plain text, like today. <b>B</b> adds a line icon to each row, the pattern most settings pages on Mobbin use (Beli, Bluesky, Swarm, Nextdoor). I recommend B.</p>
+</div>
+
+<section class="group">
+  <h2>The settings page</h2>
+  <p class="lead">Highlighted rows are new. "This iPhone" holds what lives on the phone, not the account: each row shows what iOS currently allows and opens Ate's page in the iPhone's Settings app.</p>
+  <div class="wrap">
+    <div class="col"><div class="scr" id="pA"></div><div class="cap">A · Plain rows<small>Same look as today, more rows</small></div></div>
+    <div class="col"><div class="scr" id="pB"></div><div class="cap">B · Line icons <span class="pick">Recommended</span><small>Icons from Ate's own set (Lucide), in ink, no coloured tiles</small></div></div>
+    <div class="col"><div class="scr dk" id="pBd"></div><div class="cap">B · Dark mode<small>Rows on the dark slip colour</small></div></div>
+  </div>
+</section>
+
+<section class="group">
+  <h2>Delete account</h2>
+  <p class="lead">Today the confirmation only asks "Delete your account?". Apple expects people to know what they lose, so the sheet adds one line saying what goes.</p>
+  <div class="wrap">
+    <div class="col"><div class="scr" id="pDel"></div><div class="cap">Light</div></div>
+    <div class="col"><div class="scr dk" id="pDelD"></div><div class="cap">Dark</div></div>
+  </div>
+</section>
+
+<section class="group">
+  <h2>Row by row</h2>
+  <p class="lead">What each row shows on the right and what a tap does.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Row</th><th>Shows</th><th>Tap</th></tr></thead>
+    <tbody>
+      <tr><td>Photo</td><td class="n">Your photo</td><td>Picker, then the circle crop (unchanged)</td></tr>
+      <tr><td>Handle</td><td class="n">@handle</td><td>Handle page (unchanged)</td></tr>
+      <tr><td>Diet</td><td class="n">"Vegan", "Nut free" or "None"</td><td>Diets and allergies page (unchanged)</td></tr>
+      <tr><td>Appearance</td><td class="n">System, Light or Dark</td><td>Menu (unchanged)</td></tr>
+      <tr><td>Notifications<span class="new">NEW</span></td><td class="n">On or Off</td><td>Opens Ate's notification settings in iOS. If iOS has never asked, it asks.</td></tr>
+      <tr><td>Photos<span class="new">NEW</span></td><td class="n">All photos, Limited or Off</td><td>Opens Ate in iOS Settings. Camera roll suggestions need this.</td></tr>
+      <tr><td>Location<span class="new">NEW</span></td><td class="n">While using or Off</td><td>Opens Ate in iOS Settings. Nearby places need this.</td></tr>
+      <tr><td>Camera<span class="new">NEW</span></td><td class="n">On or Off</td><td>Opens Ate in iOS Settings</td></tr>
+      <tr><td>Blocked people</td><td class="n">How many</td><td>The blocked list, swipe to unblock (unchanged)</td></tr>
+      <tr><td>Tutorial</td><td class="n"></td><td>The three cards (unchanged)</td></tr>
+      <tr><td>Send feedback<span class="new">NEW</span></td><td class="n"></td><td>The same feedback sheet as the bug button on You (text and screenshots). Here it's in every build, App Store included.</td></tr>
+      <tr><td>Email us<span class="new">NEW</span></td><td class="n"></td><td>Opens Mail to the support address. The App Store requires a way to contact you.</td></tr>
+      <tr><td>Replay onboarding</td><td class="n">TestFlight tag</td><td>Unchanged, but only in TestFlight builds</td></tr>
+      <tr><td>Privacy policy</td><td class="n"></td><td>Renamed from "Privacy" so it isn't mistaken for privacy controls</td></tr>
+      <tr><td>Terms of use</td><td class="n"></td><td>Renamed from "Terms"</td></tr>
+      <tr><td>Sign out</td><td class="n"></td><td>Unchanged</td></tr>
+      <tr><td>Delete account</td><td class="n"></td><td>Sheet above, then the same deletion as today</td></tr>
+      <tr><td>Version line<span class="new">NEW</span></td><td class="n">"Ate 1.0 (238)"</td><td>Nothing. Testers can quote the build in bug reports.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="group notes">
+  <h2 style="text-align:left">Left out on purpose</h2>
+  <ul>
+    <li><b>Notification types.</b> Ate only sends two pushes (someone tagged you, a list invite). Per-type switches need server work and aren't worth it for the beta; the Notifications row covers on and off.</li>
+    <li><b>Download my data, private account, email change, password.</b> Not features Ate has. Sign in with Apple has no password.</li>
+    <li><b>Rate Ate.</b> Waits until it's on the App Store.</li>
+    <li><b>A profile card at the top.</b> The You tab already shows it; repeating it here adds scrolling.</li>
+  </ul>
+</section>
+
+<script>
+const P={
+  image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+  at:'<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/>',
+  leaf:'<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
+  moon:'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  photos:'<path d="M18 22H4a2 2 0 0 1-2-2V6"/><rect x="6" y="2" width="16" height="16" rx="2"/><circle cx="12" cy="8" r="2"/><path d="m22 13-1.3-1.3a2.4 2.4 0 0 0-3.4 0L11 18"/>',
+  pin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  ban:'<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+  play:'<polygon points="6 3 20 12 6 21 6 3"/>',
+  msg:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  mail:'<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+  replay:'<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  doc:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8M16 17H8M10 9H8"/>'
+};
+const chev='<svg class="c" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>';
+const updown='<svg class="c" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></svg>';
+const ext='<svg class="c" viewBox="0 0 24 24"><path d="M7 7h10v10M7 17 17 7"/></svg>';
+// [icon, name, value, trailing, isNew]
+const groups=[
+  {h:'',rows:[['image','Photo','<div class="av">E</div>',chev],['at','Handle','@eamon',chev],['leaf','Diet','Vegetarian',chev]]},
+  {h:'This iPhone',rows:[['moon','Appearance','System',updown],['bell','Notifications','On',ext,1],['photos','Photos','All photos',ext,1],['pin','Location','While using',ext,1],['camera','Camera','On',ext,1]]},
+  {h:'',rows:[['ban','Blocked people','2',chev]]},
+  {h:'Help',rows:[['play','Tutorial','',chev],['msg','Send feedback','',chev,1],['mail','Email us','',ext,1],['replay','Replay onboarding','<span class="tf">TestFlight</span>',chev]]},
+  {h:'Legal',rows:[['shield','Privacy policy','',chev],['doc','Terms of use','',chev]]}
+];
+function phone(el,icons){
+  let h='<div class="sb"><span>9:41</span><span>●●● ▮</span></div><div class="island"></div><div class="bar"></div>'+
+    '<div class="disc"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div><div class="navt">Settings</div>'+
+    '<div class="sc'+(icons?' ic':'')+'">';
+  for(const g of groups){
+    if(g.h)h+='<div class="sh">'+g.h+'</div>';
+    h+='<div class="grp">';
+    for(const [i,n,v,t,nw] of g.rows){
+      h+='<div class="gr'+(nw?' hl':'')+'">'+(icons?'<svg class="i" viewBox="0 0 24 24">'+P[i]+'</svg>':'')+'<span class="nm">'+n+'</span><span class="v">'+v+t+'</span></div>';
+    }
+    h+='</div>';
+  }
+  h+='<div class="grp"><div class="gr">Sign out</div></div><div class="grp"><div class="gr red">Delete account</div></div>'+
+     '<div class="foot hlt">Ate 1.0 (238)</div></div><div class="home"></div>';
+  el.innerHTML=h;
+}
+phone(document.getElementById('pA'),false);
+phone(document.getElementById('pB'),true);
+phone(document.getElementById('pBd'),true);
+for(const id of ['pDel','pDelD']){
+  const el=document.getElementById(id);phone(el,true);
+  const sc=el.querySelector('.sc');setTimeout(()=>{sc.scrollTop=sc.scrollHeight},50);
+  el.insertAdjacentHTML('beforeend','<div class="dim"></div><div class="sheet"><div class="box"><div class="q"><b>Delete your account?</b>Your entries, photos, lists and tags are deleted. This can’t be undone.</div><div class="a r">Delete account</div></div><div class="box"><div class="a k">Cancel</div></div></div>');
+}
+</script>
