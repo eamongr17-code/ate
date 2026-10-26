@@ -116,7 +116,14 @@ enum SnapshotPicture {
         format.scale = scale
         format.opaque = false
         let image = UIGraphicsImageRenderer(bounds: window.bounds, format: format).image { context in
-            window.layer.render(in: context.cgContext)
+            switch frame {
+            case .tall:
+                window.layer.render(in: context.cgContext)
+            case .screen:
+                // A screen's scrolling content, its ground and its glass are composited by the render
+                // server, and `layer.render` drew them black: the window is drawn as it is on screen.
+                window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+            }
         }
         window.isHidden = true
         window.rootViewController = nil
