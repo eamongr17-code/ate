@@ -61,8 +61,9 @@ extension V2ComposerWrite {
 
         // Photos and the sorter, side by side — started the moment the words land, not after the row
         // is read back, and detached from this view: closing the receipt must not cancel the rest of
-        // the entry landing. The latch hears the sort.
+        // the entry landing. The latches hear the sort, then the photos matched to its dishes.
         let sorted = Latch<EntryCard?>()
+        let matched = Latch<Bool>()
         let finish: @Sendable () -> Void = {
             Task.detached {
                 let card = await submission.finish(
@@ -73,6 +74,8 @@ extension V2ComposerWrite {
                     dietOffTokens: request.dietOffTokens,
                     sorted: { await sorted.fulfil($0) }
                 )
+                // Done, matched or not: the share sheet reads which photo is which dish now.
+                await matched.fulfil(true)
                 // Its photos are paired with its dishes by now (0063): an open page reads them again.
                 guard let card, request.photoPaths.isEmpty == false else { return }
                 await MainActor.run { NotificationCenter.ateEntryChanged(card) }
@@ -121,7 +124,7 @@ extension V2ComposerWrite {
             // connection (receipt fallback), rather than the sheet closing without a word.
             finish()
             NotificationCenter.ateEntryChanged(card)
-            onPrinted(handoff(card, request: request, sorted: nil, doneAt: startedAt, cacheHit: cacheHit))
+            onPrinted(handoff(card, request: request, sorted: nil, matched: nil, doneAt: startedAt, cacheHit: cacheHit))
             return
         }
 
@@ -133,7 +136,9 @@ extension V2ComposerWrite {
             milliseconds: PostHold.milliseconds(since: startedAt)
         ))
         let shown = landed.flatMap { $0 } ?? card
-        onPrinted(handoff(shown, request: request, sorted: sorted, doneAt: startedAt, cacheHit: cacheHit))
+        onPrinted(handoff(
+            shown, request: request, sorted: sorted, matched: matched, doneAt: startedAt, cacheHit: cacheHit
+        ))
         // The lists under the sheet hear about it once the receipt is up, not competing with it.
         Task {
             try? await Task.sleep(for: V2ComposerTiming.landing)
@@ -143,7 +148,7 @@ extension V2ComposerWrite {
 
     /// What the printed face is handed. No latch means the words went to the outbox (queued).
     private func handoff(
-        _ card: EntryCard, request: NewEntryRequest, sorted: Latch<EntryCard?>?,
+        _ card: EntryCard, request: NewEntryRequest, sorted: Latch<EntryCard?>?, matched: Latch<Bool>?,
         doneAt: ContinuousClock.Instant, cacheHit: Bool
     ) -> V2ComposerPrinted.Handoff {
         V2ComposerPrinted.Handoff(
@@ -151,6 +156,7 @@ extension V2ComposerWrite {
             photos: model.photos.map(\.photo),
             companions: model.companions.map(\.handle),
             sorted: sorted,
+            matched: matched,
             tagTokens: request.tagTokens,
             scoreTokens: request.scoreTokens,
             dietOffTokens: request.dietOffTokens,

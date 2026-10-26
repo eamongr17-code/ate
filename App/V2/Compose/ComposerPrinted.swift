@@ -31,6 +31,9 @@ struct V2ComposerPrinted: View {
         var companions: [String] = []
         /// The sort's own answer, heard as it lands.
         let sorted: Latch<EntryCard?>?
+        /// The entry's landing finished — photos up, sorted, and matched to its dishes (or the match
+        /// failed or was skipped): which photo is which dish can be read.
+        var matched: Latch<Bool>?
         /// The chips and 6s it was sorted with, so "Try again" re-sorts with the same ones.
         let tagTokens: [TagToken]
         let scoreTokens: [TagToken]?
@@ -182,25 +185,40 @@ struct V2ComposerPrinted: View {
         return receipt
     }
 
-    /// **Which photo is which dish**, for a review of several. The match runs once the photos are up,
-    /// seconds after the receipt prints, so it is read a few times, further apart each time, and not
-    /// again once it has answered. Until then every dish offers every photo.
+    /// **Which photo is which dish**, for a review of several. The match runs once the photos are up
+    /// and the lines sorted, a few seconds after the receipt prints. Until it answers, each dish is a
+    /// sticker only and the whole receipt takes the photos; the dishes' stories and posts join when it
+    /// lands (26 Oct, Eamon: one photo went on all three dishes). Read once, when the entry's landing
+    /// has finished; a receipt sorted again by "Try again" was never matched, so it is asked once.
     private func readDishPhotos() async {
         guard store.phase == .printed, store.isQueued == false, handoff.photos.isEmpty == false,
               store.card.items.count > 1 else { return }
         let entries = services.entries
         let entryID = store.card.id
-        for wait in V2PrintedTiming.dishPhotoReads {
-            try? await Task.sleep(for: wait)
+        let printedAt = ContinuousClock.now
+        let landed = await handoff.matched?.value(before: .now + V2PrintedTiming.matchPatience) != nil
+        guard Task.isCancelled == false else { return }
+        var pairs = await readPairs(entryID)
+        if let read = pairs, read.isPaired == false, read.hasPhotos {
+            await entries.matchPhotosIfNeverMatched(entryID: entryID)
             guard Task.isCancelled == false else { return }
-            guard let card = try? await entries.entry(id: entryID), card.photos.isEmpty == false,
-                  let tags = try? await entries.photoDishTags(entryID: entryID), tags.isEmpty == false
-            else { continue }
-            dishPhotos = SharePhotoPairs.positions(
-                reviewIDs: card.items.map(\.reviewID), photos: card.photos, tags: tags
-            )
-            return
+            pairs = await readPairs(entryID) ?? pairs
         }
+        if let pairs { dishPhotos = pairs.positions }
+        services.analytics(EntryEvents.sharePhotoPairs(
+            outcome: pairs.map { $0.isPaired ? "paired" : "none" } ?? "failed",
+            landed: landed,
+            milliseconds: PostHold.milliseconds(since: printedAt)
+        ))
+    }
+
+    private func readPairs(_ entryID: UUID) async -> (positions: [UUID: [Int]], isPaired: Bool, hasPhotos: Bool)? {
+        guard let card = try? await services.entries.entry(id: entryID),
+              let tags = try? await services.entries.photoDishTags(entryID: entryID) else { return nil }
+        let positions = SharePhotoPairs.positions(
+            reviewIDs: card.items.map(\.reviewID), photos: card.photos, tags: tags
+        )
+        return (positions, positions.values.contains { $0.isEmpty == false }, card.photos.isEmpty == false)
     }
 
     /// The sort's answer from the composer's latch — the one the tick's dots waited on.
@@ -302,6 +320,7 @@ enum V2PrintedTiming {
     /// How long the sort's own reply is waited on before the store's re-reads take over: past the
     /// server's 5s model timeout, its ≤3s wait on a running preview, and a slow network.
     static let patience: Duration = .seconds(12)
-    /// When which photo is which dish is read after the receipt prints: at most four reads, one row each.
-    static let dishPhotoReads: [Duration] = [.seconds(2), .seconds(4), .seconds(8), .seconds(16)]
+    /// How long the entry's landing (photos up, sort, match) is waited on before which photo is which
+    /// dish is read anyway: the uploads, the sort's patience and the match's own model call.
+    static let matchPatience: Duration = .seconds(45)
 }
