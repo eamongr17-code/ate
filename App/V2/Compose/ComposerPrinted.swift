@@ -119,6 +119,9 @@ struct V2ComposerPrinted: View {
                 isPresenting: $isSharing
             )
             .accessibilityIdentifier("summary.receipt")
+            // The lines landing and the cards coming live move as one: the paper eases to its new
+            // length, the lines fade in over the bars, the rest fades in behind (26 Oct, Eamon).
+            .ateAnimation(AteMotion.settle, value: [store.phase == .printed, photoLoaded])
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .background(AteColor.ink)
