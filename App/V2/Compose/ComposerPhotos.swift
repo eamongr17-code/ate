@@ -19,6 +19,8 @@ struct StagedPhoto: Identifiable, Equatable {
     /// for one still being written.
     var fileName: String?
     var image: Image?
+    /// The picture behind `image`, once there is one: what the viewer flies out of the tile.
+    var picture: UIImage?
     /// A photo the entry being edited already carries — in storage, drawn from its URL.
     var remoteURL: String?
     /// Picked, and still being written to disk.
@@ -27,10 +29,11 @@ struct StagedPhoto: Identifiable, Equatable {
     /// never rebuilds it (a rebuilt tile flashes).
     private let tileID = UUID()
 
-    init(id: String, fileName: String, image: Image?) {
+    init(id: String, fileName: String, picture: UIImage) {
         self.id = id
         self.fileName = fileName
-        self.image = image
+        self.image = Image(uiImage: picture)
+        self.picture = picture
     }
 
     /// A pick the picker has just handed back: in the cluster now, on disk shortly.
@@ -53,7 +56,8 @@ struct StagedPhoto: Identifiable, Equatable {
         AtePhoto(
             id: tileID,
             image: image,
-            url: remoteURL.flatMap(URL.init(string:))
+            url: remoteURL.flatMap(URL.init(string:)),
+            picture: picture
         )
     }
 }
@@ -61,7 +65,7 @@ struct StagedPhoto: Identifiable, Equatable {
 /// One library pick, on disk: its file, what the tile draws, and when it was taken (its EXIF).
 struct StagedPick {
     let fileName: String
-    let image: Image
+    let image: UIImage
     let takenAt: Date?
 }
 
@@ -92,7 +96,7 @@ enum ComposerPhotoStaging {
     static func stage(
         _ item: PhotosPickerItem,
         in directory: URL,
-        preview: @escaping @MainActor (Image) -> Void
+        preview: @escaping @MainActor (UIImage) -> Void
     ) async -> StagedPick? {
         guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
         let takenAt = await Task.detached(priority: .userInitiated) { ImageProcessing.takenAt(data) }.value
@@ -104,14 +108,14 @@ enum ComposerPhotoStaging {
         let thumbnail = await Task.detached(priority: .userInitiated) {
             ImageProcessing.thumbnail(from: data, maxPixel: previewSide)
         }.value
-        if let thumbnail { preview(Image(uiImage: UIImage(cgImage: thumbnail))) }
+        if let thumbnail { preview(UIImage(cgImage: thumbnail)) }
         let written = await Task.detached(priority: .userInitiated) { () -> CGImage? in
             guard let full = ImageProcessing.thumbnail(from: data, maxPixel: fullSide),
                   ImageProcessing.writeJPEG(full, to: target, quality: quality) else { return nil }
             return full
         }.value
         guard let written else { return nil }
-        return StagedPick(fileName: fileName, image: Image(uiImage: UIImage(cgImage: written)), takenAt: takenAt)
+        return StagedPick(fileName: fileName, image: UIImage(cgImage: written), takenAt: takenAt)
     }
 
     /// Stages images the app already holds — a camera shot, or a cluster picked on `Suggestions`.
@@ -133,7 +137,7 @@ enum ComposerPhotoStaging {
                 return UIImage(data: jpeg)?.preparingForDisplay() ?? source
             }.value
             guard let written else { continue }
-            staged.append(StagedPhoto(id: candidate.id, fileName: fileName, image: Image(uiImage: written)))
+            staged.append(StagedPhoto(id: candidate.id, fileName: fileName, picture: written))
         }
         return staged
     }
@@ -143,7 +147,7 @@ enum ComposerPhotoStaging {
         fileNames.compactMap { name in
             guard let data = try? Data(contentsOf: directory.appending(path: name)),
                   let image = UIImage(data: data) else { return nil }
-            return StagedPhoto(id: name, fileName: name, image: Image(uiImage: image))
+            return StagedPhoto(id: name, fileName: name, picture: image)
         }
     }
 

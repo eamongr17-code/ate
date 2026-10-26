@@ -312,7 +312,7 @@ extension V2ComposerWrite {
             }
             Task {
                 let staged = await ComposerPhotoStaging.stage(item, in: directory) { preview in
-                    model.previewPhoto(id: id, image: preview)
+                    model.previewPhoto(id: id, picture: preview)
                 }
                 guard let staged else {
                     // Unreadable: the tile goes, the refusal is felt and counted.
@@ -321,7 +321,7 @@ extension V2ComposerWrite {
                     services.analytics(EntryEvents.photoFailed(stage: "pick"))
                     return
                 }
-                model.finishPhoto(id: id, fileName: staged.fileName, image: staged.image)
+                model.finishPhoto(id: id, fileName: staged.fileName, picture: staged.image)
                 // The day it was taken: the file's own EXIF, else the library's record of it.
                 model.photosDated([
                     staged.takenAt ?? item.itemIdentifier.flatMap { services.photos.takenAt(ids: [$0]).first }

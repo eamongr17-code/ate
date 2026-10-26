@@ -192,11 +192,19 @@ final class ComposerModel {
         photos[index].image = image
     }
 
+    /// A pending pick has its preview picture: the tile draws it, and the viewer can fly it.
+    func previewPhoto(id: String, picture: UIImage) {
+        guard let index = photos.firstIndex(where: { $0.id == id }), photos[index].isPending else { return }
+        photos[index].image = Image(uiImage: picture)
+        photos[index].picture = picture
+    }
+
     /// A pending pick is on disk: it is a photo like any other now, and the draft keeps it.
-    func finishPhoto(id: String, fileName: String, image: Image) {
+    func finishPhoto(id: String, fileName: String, picture: UIImage) {
         guard let index = photos.firstIndex(where: { $0.id == id }) else { return }
         photos[index].fileName = fileName
-        photos[index].image = image
+        photos[index].image = Image(uiImage: picture)
+        photos[index].picture = picture
         photos[index].isPending = false
         persist()
     }
