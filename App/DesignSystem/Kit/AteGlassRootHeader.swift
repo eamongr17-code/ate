@@ -168,8 +168,8 @@ struct AteGlassHeaderRoom: View {
 
 extension View {
     /// Installs a tab root's **glass header** (``AteGlassRootHeader``) in place of the native bar:
-    /// the root's title and glass group (never an inline title), with an `accessory` under the row, the whole of it `hidden` of the way
-    /// away (0 to 1).
+    /// the root's title and glass group (never an inline title), with an `accessory` under the row,
+    /// the whole of it `hidden` of the way away (0 to 1).
     func ateGlassRootHeader<Apart: View, Controls: View, Accessory: View>(
         title: AteRootHeaderTitle,
         subtitle: String? = nil,
