@@ -27,7 +27,7 @@ class WhatToTest(unittest.TestCase):
 
 
 class Notes(unittest.TestCase):
-    def test_oldest_first_section_over_title_and_dedup(self):
+    def test_major_lines_oldest_first_minor_collapsed(self):
         subjects = [  # git log order: newest first
             "Snapshot tests (#283)",
             "Composer: one scrolling page (#273)",
@@ -35,19 +35,20 @@ class Notes(unittest.TestCase):
             "Untagged commit",
         ]
         bodies = {283: "## What to test\nnone", 273: "## What to test\n- Long reviews scroll with the photos",
-                  280: "", }
-        items = bn.notes(subjects, lambda n: bodies[n])
-        self.assertEqual(items, ["Untagged commit", "Photo flight fix", "Long reviews scroll with the photos"])
+                  280: "## Summary\nfix"}
+        self.assertEqual(bn.notes(subjects, lambda n: bodies[n]), (["Long reviews scroll with the photos"], True))
+        self.assertEqual(bn.notes(["Composer (#273)"], lambda n: bodies[n]),
+                         (["Long reviews scroll with the photos"], False))
 
     def test_compose(self):
-        text = bn.compose("301", ["A", "B"])
-        self.assertEqual(text, "New in build 301:\n• A\n• B\n\n" + bn.FOOTER)
-        self.assertTrue(bn.compose("301", []).startswith("Small fixes"))
+        self.assertEqual(bn.compose("301", ["A", "B"], False), "New in build 301:\n• A\n• B\n\n" + bn.FOOTER)
+        self.assertEqual(bn.compose("301", ["A"], True), f"New in build 301:\n• A\n• {bn.MINOR}\n\n" + bn.FOOTER)
+        self.assertEqual(bn.compose("301", [], True), f"{bn.MINOR}\n\n" + bn.FOOTER)
 
     def test_compose_stays_under_the_cap(self):
         text = bn.compose("1", ["x" * 300] * 30)
         self.assertLessEqual(len(text), bn.LIMIT)
-        self.assertIn("more small changes", text)
+        self.assertIn(bn.MINOR, text)
 
 
 if __name__ == "__main__":

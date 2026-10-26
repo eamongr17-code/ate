@@ -57,10 +57,15 @@ jobs:
       TF_CONTACT_FIRST: Eamon
       TF_CONTACT_LAST: Gracias
       TF_PRIVACY_URL: https://github.com/eamongr17-code/ate/blob/claude/project-thread-2f9ty8/legal/privacy.md
+      # Eamon's wording, 2026-10-26.
       TF_DESCRIPTION: >-
-        Ate is a journal for the dishes you eat. Write about a meal the way you'd text a friend,
-        score the dishes, and Ate prints the receipt.
-      TF_WHATS_NEW: ${{ inputs.whats_new || 'Small fixes in this build. To report a bug, tap the bug at the top of the You tab.' }}
+        Ate is your personal food journal. Rate what you ate and share it with the world. See what
+        other people are eating, find the best dishes at restaurants near you, and save the ones you
+        want to try.
+
+
+        Early beta, Melbourne first. Tap the bug on the You tab to report anything broken.
+      TF_WHATS_NEW: ${{ inputs.whats_new || 'Bug fixes and performance improvements. To report a bug, tap the bug at the top of the You tab.' }}
       TF_REVIEW_NOTES: >-
         Sign in with Apple (any Apple ID works); no demo account is needed. Location and photo
         access are optional.
