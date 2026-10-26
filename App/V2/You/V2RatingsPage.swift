@@ -34,9 +34,10 @@ struct V2RatingsPage: View {
                         settled(proxy)
                             .transition(.opacity)
                     } else if store.didFail {
-                        AteEmptyState(line: "Couldn't\nreach Ate.", art: .torn, pill: (title: "Try again", action: {
-                            Task { await store.refresh() }
-                        }))
+                        AteEmptyState(
+                            line: "Couldn't\nreach Ate.", art: .unplugged,
+                            pill: (title: "Try again", action: { Task { await store.refresh() } })
+                        )
                         .containerRelativeFrame(.vertical)
                     } else {
                         skeleton

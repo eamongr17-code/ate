@@ -58,7 +58,7 @@ struct ListPickerSheet: View {
             )
                 .frame(minHeight: ListsMetrics.emptyMinimum)
         case .failed:
-            AteEmptyState(line: ListsCopy.unreachable, art: .torn,
+            AteEmptyState(line: ListsCopy.unreachable, art: .unplugged,
                 pill: (ListsCopy.tryAgain, { Task { await picker.start() } }))
                 .frame(minHeight: ListsMetrics.emptyMinimum)
         case .ready:

@@ -54,11 +54,11 @@ struct V2TagEditionPage: View {
                 case .loading:
                     loading
                 case .empty:
-                    AteEmptyState(line: V2TagCopy.empty, art: .rail)
+                    AteEmptyState(line: V2TagCopy.empty, art: .setting)
                         .containerRelativeFrame(.vertical) { height, _ in height * FeedEditionCopy.emptyShare }
                         .accessibilityIdentifier("state.empty")
                 case .failed(let message):
-                    AteEmptyState(line: message, art: .torn, pill: (title: "Try again", action: retry))
+                    AteEmptyState(line: message, art: .unplugged, pill: (title: "Try again", action: retry))
                         .containerRelativeFrame(.vertical) { height, _ in height * FeedEditionCopy.emptyShare }
                         .accessibilityIdentifier("state.unreachable")
                 case .ready:
@@ -197,5 +197,5 @@ enum V2TagCopy {
     static let follow = "Follow"
     static let following = "Following"
     static let seeAll = "See all"
-    static let empty = "Nothing here\nyet."
+    static let empty = "No dishes\nhere yet."
 }

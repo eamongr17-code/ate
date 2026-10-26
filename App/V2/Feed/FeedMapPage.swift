@@ -382,8 +382,8 @@ enum FeedMapCopy {
     static let searchHere = "Search here"
     static let openPlace = "Open place"
     static let close = "Close"
-    static let unreachable = "The map couldn't load"
-    static let noConnection = "No connection"
+    static let unreachable = "Couldn't\nload the map."
+    static let noConnection = "No connection."
     static let tryAgain = "Try again"
 
     static func pinLabel(_ place: MapPlace) -> String {

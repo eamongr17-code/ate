@@ -219,7 +219,7 @@ struct V2ListPage: View {
                     .listPlainRow()
             }
         case .failed:
-            AteEmptyState(line: ListsCopy.unreachable, art: .torn, pill: (ListsCopy.tryAgain, { retry() }))
+            AteEmptyState(line: ListsCopy.unreachable, art: .unplugged, pill: (ListsCopy.tryAgain, { retry() }))
                 .frame(minHeight: ListsMetrics.emptyMinimum)
                 .listPlainRow()
         case .empty:

@@ -22,9 +22,9 @@ struct FeedBetaList: View {
             empty(AteEmptyState(line: "Nobody's written\nanything yet.", art: .rail))
                 .accessibilityIdentifier("state.empty")
         case .signedOut:
-            empty(AteEmptyState(line: "Nobody's\nsigned in.", art: .printer))
+            empty(AteEmptyState(line: "Nobody's\nsigned in.", art: .bell))
         case .failed:
-            empty(AteEmptyState(line: "Couldn't\nreach Ate.", art: .torn, pill: ("Try again", retry)))
+            empty(AteEmptyState(line: "Couldn't\nreach Ate.", art: .unplugged, pill: ("Try again", retry)))
                 .accessibilityIdentifier("state.unreachable")
         case .ready:
             slips

@@ -76,7 +76,7 @@ struct FeedEditionSections: View {
     private var nothing: some View {
         Group {
             if case .failed = latest.phase {
-                AteEmptyState(line: "Couldn't\nreach Ate.", art: .torn, pill: ("Try again", retry))
+                AteEmptyState(line: "Couldn't\nreach Ate.", art: .unplugged, pill: ("Try again", retry))
                     .accessibilityIdentifier("state.unreachable")
             } else {
                 AteEmptyState(line: "Nobody's written\nanything yet.", art: .rail)

@@ -56,9 +56,11 @@ extension JournalRoot {
                 ))
             }
         case .signedOut:
-            emptyBand(AteEmptyState(line: "Nobody's\nsigned in.", art: .printer))
+            emptyBand(AteEmptyState(line: "Nobody's\nsigned in.", art: .bell))
         case .failed:
-            emptyBand(AteEmptyState(line: "Couldn't\nreach Ate.", art: .torn, pill: ("Try again", { retryJournal() })))
+            emptyBand(AteEmptyState(
+                line: "Couldn't\nreach Ate.", art: .unplugged, pill: ("Try again", { retryJournal() })
+            ))
         case .ready:
             slips
         }

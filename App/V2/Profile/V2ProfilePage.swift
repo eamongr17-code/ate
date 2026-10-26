@@ -154,10 +154,10 @@ struct V2ProfilePage: View {
             AteEmptyState(line: "Nothing\nto read yet.", art: .rail)
                 .containerRelativeFrame(.vertical) { height, _ in height / 2 }
         case .signedOut:
-            AteEmptyState(line: "Nobody's\nsigned in.", art: .printer)
+            AteEmptyState(line: "Nobody's\nsigned in.", art: .bell)
                 .containerRelativeFrame(.vertical) { height, _ in height / 2 }
         case .failed:
-            AteEmptyState(line: "Couldn't\nreach Ate.", art: .torn, pill: (title: "Try again", action: {
+            AteEmptyState(line: "Couldn't\nreach Ate.", art: .unplugged, pill: (title: "Try again", action: {
                 Task { await store.refresh() }
             }))
             .containerRelativeFrame(.vertical) { height, _ in height / 2 }

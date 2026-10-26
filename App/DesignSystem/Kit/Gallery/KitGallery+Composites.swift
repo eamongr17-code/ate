@@ -109,6 +109,8 @@ extension KitGalleryScreen {
                 .frame(height: KitGalleryMetrics.emptyHeight)
             AteEmptyState(line: "Nothing saved\nyet.", art: .saved)
                 .frame(height: KitGalleryMetrics.emptyHeight)
+            AteEmptyState(line: "Couldn't\nreach Ate.", art: .unplugged, pill: ("Try again", {}), size: .section)
+                .frame(height: KitGalleryMetrics.emptyHeight)
         }
         section("Skeleton") {
             VStack(spacing: 0) {

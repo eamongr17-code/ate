@@ -98,7 +98,7 @@ struct ListsShelf: View {
             AteEmptyState(line: ListsCopy.emptyShelf, art: .lists)
                 .frame(minHeight: ListsMetrics.emptyMinimum)
         case .failed:
-            AteEmptyState(line: ListsCopy.unreachable, art: .torn, pill: (ListsCopy.tryAgain, { retry() }))
+            AteEmptyState(line: ListsCopy.unreachable, art: .unplugged, pill: (ListsCopy.tryAgain, { retry() }))
                 .frame(minHeight: ListsMetrics.emptyMinimum)
         case .loading, .ready:
             EmptyView()

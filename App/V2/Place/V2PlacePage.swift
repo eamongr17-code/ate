@@ -161,7 +161,7 @@ struct V2PlacePage: View {
             EmptyView()
         case .ready where store.dishes.isEmpty:
             // Nobody has written up a dish here yet. Not an error, and not an instruction.
-            AteEmptyState(line: "Nothing\nordered yet.", art: .rail)
+            AteEmptyState(line: "Nothing\nordered yet.", art: .setting)
                 .padding(.vertical, AteMetrics.section)
         case .ready:
             V2MenuPaper {
