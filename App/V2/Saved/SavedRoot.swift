@@ -125,11 +125,11 @@ struct SavedRoot: View {
                 app.requestedTab = .feed
             })))
         case .signedOut:
-            emptyBand(AteEmptyState(line: "Nobody's\nsigned in.", art: .printer))
+            emptyBand(AteEmptyState(line: "Nobody's\nsigned in.", art: .bell))
         case .failed where showsOwn && own.saves.isEmpty == false:
             groups
         case .failed:
-            emptyBand(AteEmptyState(line: "Couldn't\nreach Ate.", art: .torn, pill: ("Try again", { retry() })))
+            emptyBand(AteEmptyState(line: "Couldn't\nreach Ate.", art: .unplugged, pill: ("Try again", { retry() })))
         case .ready:
             groups
         }

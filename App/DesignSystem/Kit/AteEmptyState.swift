@@ -5,9 +5,10 @@ import SwiftUI
 /// one ink pill 22 below that, centred between the header and the tab bar. No second line, no
 /// helper copy. The line's own breaks are the design's and are honoured.
 ///
-/// The drawing is Paper Trail (Eamon, 2026-10-06): receipts that haven't printed yet, in marker, ink
-/// only. When the band is too short for it (a sheet, a landscape phone) the drawing steps aside and
-/// the line and pill stand alone, exactly as they did before.
+/// The drawing is Paper Trail (Eamon, 6 Oct; made a system 26 Oct, `design/illustrations/`): one
+/// paper thing, one food thing and at most one wink, in marker, ink only. When the band is too short
+/// for it (a sheet, a landscape phone) the drawing steps aside and the line and pill stand alone.
+/// Inside a page's section (a dish's reviews) it is drawn at ``Size/section``.
 ///
 /// It fills the space it is given and centres itself in it; the screen gives it the band between its
 /// header and the tab bar.
@@ -15,11 +16,29 @@ struct AteEmptyState: View {
     let line: String
     var art: AteEmptyArt?
     var pill: (title: String, action: () -> Void)?
+    var size: Size = .page
 
-    init(line: String, art: AteEmptyArt? = nil, pill: (title: String, action: () -> Void)? = nil) {
+    /// The drawing's two sizes: a whole page's band, or a section inside a page.
+    enum Size: Sendable {
+        case page, section
+
+        var artHeight: CGFloat {
+            self == .page ? AteEmptyStateMetrics.artHeight : AteEmptyStateMetrics.sectionArtHeight
+        }
+
+        var artGap: CGFloat {
+            self == .page ? AteEmptyStateMetrics.artGap : AteEmptyStateMetrics.sectionArtGap
+        }
+    }
+
+    init(
+        line: String, art: AteEmptyArt? = nil, pill: (title: String, action: () -> Void)? = nil,
+        size: Size = .page
+    ) {
         self.line = line
         self.art = art
         self.pill = pill
+        self.size = size
     }
 
     var body: some View {
@@ -36,8 +55,8 @@ struct AteEmptyState: View {
     private func stack(art: AteEmptyArt?) -> some View {
         VStack(spacing: 0) {
             if let art {
-                AteEmptyDrawing(art: art)
-                    .padding(.bottom, AteEmptyStateMetrics.artGap)
+                AteEmptyDrawing(art: art, height: size.artHeight)
+                    .padding(.bottom, size.artGap)
             }
             AteTitle(text: line, style: .emptyTitle)
             if let pill {
@@ -49,24 +68,31 @@ struct AteEmptyState: View {
 }
 
 /// **Which drawing an empty state carries** — by what the emptiness *is*, never by screen, so the same
-/// situation looks the same wherever it happens.
+/// situation looks the same wherever it happens. Each is a scene in `design/illustrations/kit.js`,
+/// rendered into `EmptyStates` as `Empty<rawValue>Ink` and `Empty<rawValue>Paper`.
 enum AteEmptyArt: String, CaseIterable, Sendable {
-    /// Your record has nothing yet: a blank docket feeding out of the printer, a pencil beside it.
+    /// Your record has nothing yet: docket #0001 feeding out of the printer, a fork and the pencil.
     case journal = "Journal"
-    /// No lists: an empty order spike.
+    /// No lists: an order spike with nothing on it but an olive.
     case lists = "Lists"
-    /// A list (or the picker) with nothing on it: a numbered docket, every line blank.
+    /// A list (or the picker) with nothing on it: a numbered docket, every line blank, a glass's ring.
     case list = "List"
-    /// Nothing kept: a blank docket with a bookmark.
+    /// Nothing kept: a blank docket with the save ribbon, and a takeaway pail.
     case saved = "Saved"
     /// Other people's writing, none yet: an empty ticket rail and a fly.
     case rail = "Rail"
-    /// Nothing new, or nobody signed in: the receipt printer, asleep.
-    case printer = "Printer"
+    /// Nothing eaten here yet (a place, a category): the menu standing over a clean plate.
+    case setting = "Setting"
+    /// Nothing new, or nobody signed in: the counter bell, unrung, asleep.
+    case bell = "Bell"
     /// A search or filter that matched nothing: a docket under a lens pulling a face.
     case search = "Search"
-    /// Couldn't reach Ate, or the thing is gone: a torn docket.
+    /// Couldn't reach Ate: a tin-can telephone with its string snapped.
+    case unplugged = "Unplugged"
+    /// The thing is gone: a docket with a bite out of it.
     case torn = "Torn"
+    /// No meals in your photos: two instant photos, one dark, one of an empty plate.
+    case photos = "Photos"
 }
 
 /// The drawing itself: two template layers, the paper under the ink, so dark mode flips it whole —
@@ -101,6 +127,9 @@ enum AteEmptyStateMetrics {
     /// The drawing's height, and the air between it and the line.
     static let artHeight: CGFloat = 160
     static let artGap: CGFloat = 20
+    /// …and inside a page's section.
+    static let sectionArtHeight: CGFloat = 96
+    static let sectionArtGap: CGFloat = 14
     /// The least an empty state is given inside a sheet, so a search that empties the rows leaves
     /// room for the line rather than collapsing the sheet under it.
     static let sheetMinimum: CGFloat = 260

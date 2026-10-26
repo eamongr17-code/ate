@@ -154,14 +154,14 @@ struct V2NotificationsPage: View {
             if tagRows.isEmpty && invites.isEmpty && showsPhotos == false && photosLoading == false {
                 if tagsFailed {
                     AteEmptyState(
-                        line: NotificationsCopy.unreachable, art: .torn,
+                        line: NotificationsCopy.unreachable, art: .unplugged,
                         pill: (title: NotificationsCopy.retry, action: retry)
                     )
                         .frame(height: emptyBand)
                         .plainRow()
                         .accessibilityIdentifier("state.unreachable")
                 } else {
-                    AteEmptyState(line: NotificationsCopy.empty, art: .printer)
+                    AteEmptyState(line: NotificationsCopy.empty, art: .bell)
                         .frame(height: emptyBand)
                         .plainRow()
                         .accessibilityIdentifier("state.empty")
@@ -418,8 +418,8 @@ private extension View {
 
 enum NotificationsCopy {
     static let title = "Notifications"
-    static let empty = "Nothing new"
-    static let unreachable = "Couldn't reach Ate."
+    static let empty = "Nothing new."
+    static let unreachable = "Couldn't\nreach Ate."
     static let retry = "Try again"
     static let decline = "Decline"
     static let addYours = "Add yours"

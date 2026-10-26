@@ -32,7 +32,7 @@ struct FeedFollowingPage: View {
                     AteFollowRowSkeleton(isFirst: index == 0).plainRow()
                 }
             case .failed(let message):
-                AteEmptyState(line: message, art: .torn, pill: (title: "Try again", action: retry))
+                AteEmptyState(line: message, art: .unplugged, pill: (title: "Try again", action: retry))
                     .containerRelativeFrame(.vertical) { height, _ in height * FeedEditionCopy.emptyShare }
                     .plainRow()
                     .accessibilityIdentifier("state.unreachable")

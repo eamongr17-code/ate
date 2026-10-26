@@ -186,10 +186,10 @@ struct FeedMapSheet: View {
                 AteDishRow(photo: AtePhoto(), name: " ").redacted(reason: .placeholder)
             }
         case .failed:
-            AteEmptyState(line: FeedMapCopy.unreachable, art: .torn, pill: (FeedMapCopy.tryAgain, retry))
+            AteEmptyState(line: FeedMapCopy.unreachable, art: .unplugged, pill: (FeedMapCopy.tryAgain, retry))
                 .accessibilityIdentifier("map.unreachable")
         case .offline:
-            AteEmptyState(line: FeedMapCopy.noConnection, art: .torn, pill: (FeedMapCopy.tryAgain, retry))
+            AteEmptyState(line: FeedMapCopy.noConnection, art: .unplugged, pill: (FeedMapCopy.tryAgain, retry))
                 .accessibilityIdentifier("map.offline")
         case .ready:
             Text(store.title.emptyLine)

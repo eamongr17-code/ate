@@ -278,7 +278,7 @@ private extension View {
 }
 
 enum AteWithCopy {
-    static let gone = "This visit isn't here."
+    static let gone = "This visit\nisn't here."
     static let remove = "Remove"
     static let placeholder = "What did you have today?"
 }

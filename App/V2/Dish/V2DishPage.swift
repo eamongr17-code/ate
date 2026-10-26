@@ -238,13 +238,13 @@ struct V2DishPage: View {
                 .padding(.top, AteMetrics.loose)
         case .empty:
             // Nobody has written about it yet. Honest, and not an instruction.
-            AteEmptyState(line: "Nobody's written\nabout this yet.")
+            AteEmptyState(line: "Nobody's written\nabout this yet.", art: .rail, size: .section)
                 .padding(.vertical, AteMetrics.section)
         case .signedOut:
-            AteEmptyState(line: "Nobody's\nsigned in.")
+            AteEmptyState(line: "Nobody's\nsigned in.", art: .bell, size: .section)
                 .padding(.vertical, AteMetrics.section)
         case .failed(let message):
-            AteEmptyState(line: message)
+            AteEmptyState(line: message, art: .unplugged, size: .section)
                 .padding(.vertical, AteMetrics.section)
         case .ready:
             reviewRows

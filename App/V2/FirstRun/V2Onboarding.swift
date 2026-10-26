@@ -78,7 +78,7 @@ struct V2Onboarding: View {
         door(
             title: OnboardingCopy.start,
             identifier: "v2.onboarding.start",
-            drawing: true
+            drawing: .journal
         ) {
             AteInkPill(
                 title: OnboardingCopy.find, isEnabled: isFinding == false, identifier: "onboarding.find"
@@ -101,7 +101,8 @@ struct V2Onboarding: View {
     private func nothing(refused: Bool) -> some View {
         door(
             title: refused ? OnboardingCopy.refused : OnboardingCopy.nothing,
-            identifier: "v2.onboarding.nothing"
+            identifier: "v2.onboarding.nothing",
+            drawing: .photos
         ) {
             AteInkPill(title: OnboardingCopy.write, identifier: "onboarding.nothing.write", action: writeBlank)
             AteWelcomeLink(title: OnboardingCopy.later, colour: palette.fg, identifier: "onboarding.nothing.later") {
@@ -110,15 +111,16 @@ struct V2Onboarding: View {
         }
     }
 
-    /// One centred line over the doors at the foot: the start screen and nothing-found. The start
-    /// screen carries the Journal's own drawing over its line, still.
+    /// One centred line over the doors at the foot: the start screen and nothing-found, each with its
+    /// drawing over the line, still: the Journal's at the start, the empty photos when none were found
+    /// (Eamon, 26 Oct).
     private func door<Doors: View>(
-        title: String, identifier: String, drawing: Bool = false, @ViewBuilder doors: () -> Doors
+        title: String, identifier: String, drawing: AteEmptyArt? = nil, @ViewBuilder doors: () -> Doors
     ) -> some View {
         VStack(spacing: 0) {
             Spacer(minLength: AteMetrics.section)
-            if drawing {
-                AteEmptyDrawing(art: .journal, height: OnboardingMetrics.drawing)
+            if let drawing {
+                AteEmptyDrawing(art: drawing, height: OnboardingMetrics.drawing)
                     .accessibilityHidden(true)
                     .padding(.bottom, OnboardingMetrics.drawingToTitle)
             }

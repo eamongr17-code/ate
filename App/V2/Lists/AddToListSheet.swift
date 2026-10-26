@@ -95,7 +95,7 @@ struct AddToListSheet: View {
             AteSheetSkeletonRows(count: ListsMetrics.skeletonRows, hasSubtitle: false)
                 .ateSkeletonSweep()
         case .failed:
-            AteEmptyState(line: ListsCopy.unreachable, art: .torn,
+            AteEmptyState(line: ListsCopy.unreachable, art: .unplugged,
                 pill: (ListsCopy.tryAgain, { Task { await store.load() } }))
                 .frame(minHeight: ListsMetrics.emptyMinimum)
         case .ready:
