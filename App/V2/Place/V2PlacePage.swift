@@ -125,7 +125,7 @@ struct V2PlacePage: View {
         let link = PlaceMapLink(summary)
         let title = link.street ?? V2PlaceCopy.map
         return [AteChipFlow.Chip(id: "map", icon: .place, title: title,
-                                 accessibilityLabel: "Open \(summary.name) in Maps",
+                                 accessibilityLabel: V2PlaceCopy.openInMaps(summary.name),
                                  identifier: "place.fact.map", action: { showMaps(link) })]
     }
 
@@ -416,6 +416,7 @@ enum V2PlaceCopy {
     static let map = "Map"
     static let appleMaps = "Apple Maps"
     static let googleMaps = "Google Maps"
+    static func openInMaps(_ name: String) -> String { "Open \(name) in Maps" }
 }
 
 enum V2PlaceMetrics {
