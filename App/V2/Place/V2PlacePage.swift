@@ -1,5 +1,6 @@
 import AteKit
 import SwiftUI
+import UIKit
 
 /// **A place: what to order there, and the visits written at it.** Menu first (contract §8): the
 /// name and the facts we hold, the menu printed as the receipt with Edge B in rating order (unscored
@@ -16,6 +17,9 @@ struct V2PlacePage: View {
     @State private var store: PlacePageStore
     @State private var isCollapsed = false
     @State private var titleBottom: CGFloat = 0
+    /// The street chip's question when Google Maps is on the phone: which app.
+    @State private var mapChoice: PlaceMapLink?
+    @Environment(\.openURL) private var openURL
 
     init(placeID: UUID, context: V2PageContext) {
         self.placeID = placeID
@@ -63,6 +67,15 @@ struct V2PlacePage: View {
         .ateCollapsingTitle(store.name ?? store.previewName, isCollapsed: isCollapsed)
         .ateRefreshable { await store.refresh() }
         .task { await store.load() }
+        .confirmationDialog(
+            mapChoice?.name ?? "",
+            isPresented: Binding(get: { mapChoice != nil }, set: { if $0 == false { mapChoice = nil } }),
+            titleVisibility: .visible,
+            presenting: mapChoice
+        ) { link in
+            Button(V2PlaceCopy.appleMaps) { openMaps(link, app: .apple) }
+            Button(V2PlaceCopy.googleMaps) { openMaps(link, app: .google) }
+        }
         .accessibilityIdentifier("place.page")
     }
 
@@ -98,10 +111,38 @@ struct V2PlacePage: View {
             EmptyView()
         } below: {
             // No diet chip here: a restaurant is never labelled, only its dishes (Eamon, 23 Oct).
-            if store.facts.isEmpty == false {
-                AteChipFlow(chips: store.facts.map { chip($0, reader: reader) })
-            }
+            // The street chip comes last and is always there: every place opens in Maps.
+            AteChipFlow(chips: store.facts.map { chip($0, reader: reader) } + mapChips)
         }
+    }
+
+    // MARK: - Maps
+
+    /// **Where it is** (`place-maps.html`, B, Eamon 26 Oct): a pin and the street, or "Map" when no
+    /// street is on file. Opens Apple Maps; asks which app when Google Maps is on the phone too.
+    private var mapChips: [AteChipFlow.Chip] {
+        guard let summary = store.summary else { return [] }
+        let link = PlaceMapLink(summary)
+        let title = link.street ?? V2PlaceCopy.map
+        return [AteChipFlow.Chip(id: "map", icon: .place, title: title,
+                                 accessibilityLabel: V2PlaceCopy.openInMaps(summary.name),
+                                 identifier: "place.fact.map", action: { showMaps(link) })]
+    }
+
+    private func showMaps(_ link: PlaceMapLink) {
+        AteHaptics.key()
+        if UIApplication.shared.canOpenURL(PlaceMapLink.googleMapsProbe) {
+            mapChoice = link
+        } else {
+            openMaps(link, app: .apple)
+        }
+    }
+
+    private enum MapsApp: String { case apple, google }
+
+    private func openMaps(_ link: PlaceMapLink, app: MapsApp) {
+        context.services.analytics(DetailEvents.placeMapOpened(app: app.rawValue, hasPoint: link.coordinate != nil))
+        openURL(app == .apple ? link.appleMapsURL : link.googleMapsURL)
     }
 
     /// A fact as its chip: the average with the star, how many people with their mark, a word. Each
@@ -368,6 +409,14 @@ private struct V2PlaceSkeleton: View {
                 .padding(.horizontal, AteMetrics.listGutter)
         }
     }
+}
+
+enum V2PlaceCopy {
+    /// The street chip when no street is on file.
+    static let map = "Map"
+    static let appleMaps = "Apple Maps"
+    static let googleMaps = "Google Maps"
+    static func openInMaps(_ name: String) -> String { "Open \(name) in Maps" }
 }
 
 enum V2PlaceMetrics {

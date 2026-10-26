@@ -112,6 +112,7 @@
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>instagram-stories</string>
+		<string>comgooglemaps</string>
 	</array>
 </dict>
 </plist>

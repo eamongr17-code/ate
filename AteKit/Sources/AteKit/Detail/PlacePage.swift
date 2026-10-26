@@ -37,6 +37,12 @@ public struct PlaceSummary: Sendable, Hashable, Codable, Identifiable {
     /// The viewer's own visits here. Zero means the "Your N visits" band is simply absent.
     public let myVisits: Int
     public let myLastVisit: Date?
+    /// Where the place is, for opening it in Maps (0095). `nil` on a hand-added place, which has no
+    /// point; Maps then searches for the name and address instead.
+    public let latitude: Double?
+    public let longitude: Double?
+    /// Google's id for the place, so Google Maps opens its exact listing. `nil` on a hand-added place.
+    public let googlePlaceID: String?
 
     public var id: UUID { restaurantID }
     public var coverURL: URL? { coverURLString.flatMap(URL.init(string:)) }
@@ -59,7 +65,10 @@ public struct PlaceSummary: Sendable, Hashable, Codable, Identifiable {
         peopleCount: Int = 0,
         dishCount: Int = 0,
         myVisits: Int = 0,
-        myLastVisit: Date? = nil
+        myLastVisit: Date? = nil,
+        latitude: Double? = nil,
+        longitude: Double? = nil,
+        googlePlaceID: String? = nil
     ) {
         self.restaurantID = restaurantID
         self.name = name
@@ -75,6 +84,9 @@ public struct PlaceSummary: Sendable, Hashable, Codable, Identifiable {
         self.dishCount = dishCount
         self.myVisits = myVisits
         self.myLastVisit = myLastVisit
+        self.latitude = latitude
+        self.longitude = longitude
+        self.googlePlaceID = googlePlaceID
     }
 
     /// Hand-written for one reason: `locality` and `entry_count` only exist from 0029 on the wire,
@@ -96,6 +108,10 @@ public struct PlaceSummary: Sendable, Hashable, Codable, Identifiable {
         self.dishCount = try container.decodeIfPresent(Int.self, forKey: .dishCount) ?? 0
         self.myVisits = try container.decodeIfPresent(Int.self, forKey: .myVisits) ?? 0
         self.myLastVisit = try container.decodeIfPresent(Date.self, forKey: .myLastVisit)
+        // 0095. Absent on a project without it: the page then opens Maps by name and address.
+        self.latitude = try container.decodeIfPresent(Double.self, forKey: .latitude)
+        self.longitude = try container.decodeIfPresent(Double.self, forKey: .longitude)
+        self.googlePlaceID = try container.decodeIfPresent(String.self, forKey: .googlePlaceID)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -109,6 +125,9 @@ public struct PlaceSummary: Sendable, Hashable, Codable, Identifiable {
         case dishCount = "dish_count"
         case myVisits = "my_visits"
         case myLastVisit = "my_last_visit"
+        case latitude = "lat"
+        case longitude = "lng"
+        case googlePlaceID = "google_place_id"
     }
 }
 

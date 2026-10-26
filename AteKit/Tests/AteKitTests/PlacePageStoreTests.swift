@@ -371,4 +371,12 @@ struct PlacePageStoreTests {
         #expect(event.name == "place_fact_opened")
         #expect(event.parameters["kind"] == "suburb")
     }
+
+    @Test("place_map_opened carries the app and whether there was a map point")
+    func mapEvent() {
+        let event = DetailEvents.placeMapOpened(app: "google", hasPoint: false)
+        #expect(event.name == "place_map_opened")
+        #expect(event.parameters["app"] == "google")
+        #expect(event.parameters["point"] == "no")
+    }
 }
