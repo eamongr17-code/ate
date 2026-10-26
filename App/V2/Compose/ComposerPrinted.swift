@@ -212,13 +212,23 @@ struct V2ComposerPrinted: View {
         ))
     }
 
-    private func readPairs(_ entryID: UUID) async -> (positions: [UUID: [Int]], isPaired: Bool, hasPhotos: Bool)? {
+    private struct Pairs {
+        let positions: [UUID: [Int]]
+        let isPaired: Bool
+        let hasPhotos: Bool
+    }
+
+    private func readPairs(_ entryID: UUID) async -> Pairs? {
         guard let card = try? await services.entries.entry(id: entryID),
               let tags = try? await services.entries.photoDishTags(entryID: entryID) else { return nil }
         let positions = SharePhotoPairs.positions(
             reviewIDs: card.items.map(\.reviewID), photos: card.photos, tags: tags
         )
-        return (positions, positions.values.contains { $0.isEmpty == false }, card.photos.isEmpty == false)
+        return Pairs(
+            positions: positions,
+            isPaired: positions.values.contains { $0.isEmpty == false },
+            hasPhotos: card.photos.isEmpty == false
+        )
     }
 
     /// The sort's answer from the composer's latch — the one the tick's dots waited on.

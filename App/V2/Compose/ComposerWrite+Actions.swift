@@ -124,7 +124,7 @@ extension V2ComposerWrite {
             // connection (receipt fallback), rather than the sheet closing without a word.
             finish()
             NotificationCenter.ateEntryChanged(card)
-            onPrinted(handoff(card, request: request, sorted: nil, matched: nil, doneAt: startedAt, cacheHit: cacheHit))
+            onPrinted(handoff(card, request: request, sorted: nil, doneAt: startedAt, cacheHit: cacheHit))
             return
         }
 
@@ -136,9 +136,9 @@ extension V2ComposerWrite {
             milliseconds: PostHold.milliseconds(since: startedAt)
         ))
         let shown = landed.flatMap { $0 } ?? card
-        onPrinted(handoff(
-            shown, request: request, sorted: sorted, matched: matched, doneAt: startedAt, cacheHit: cacheHit
-        ))
+        var printed = handoff(shown, request: request, sorted: sorted, doneAt: startedAt, cacheHit: cacheHit)
+        printed.matched = matched
+        onPrinted(printed)
         // The lists under the sheet hear about it once the receipt is up, not competing with it.
         Task {
             try? await Task.sleep(for: V2ComposerTiming.landing)
@@ -148,7 +148,7 @@ extension V2ComposerWrite {
 
     /// What the printed face is handed. No latch means the words went to the outbox (queued).
     private func handoff(
-        _ card: EntryCard, request: NewEntryRequest, sorted: Latch<EntryCard?>?, matched: Latch<Bool>?,
+        _ card: EntryCard, request: NewEntryRequest, sorted: Latch<EntryCard?>?,
         doneAt: ContinuousClock.Instant, cacheHit: Bool
     ) -> V2ComposerPrinted.Handoff {
         V2ComposerPrinted.Handoff(
@@ -156,7 +156,6 @@ extension V2ComposerWrite {
             photos: model.photos.map(\.photo),
             companions: model.companions.map(\.handle),
             sorted: sorted,
-            matched: matched,
             tagTokens: request.tagTokens,
             scoreTokens: request.scoreTokens,
             dietOffTokens: request.dietOffTokens,
