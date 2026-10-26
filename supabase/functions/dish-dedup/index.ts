@@ -48,17 +48,22 @@ function same(a: string, b: string): boolean {
 /**
  * The bearer is a service-role key, or nothing is done. The injected key is one form of it; a project
  * on the new API keys hands the workflow another (sb_secret_…, 18 Oct prod: 401), so any other bearer
- * is asked of the database itself: only the service role may read dish_merge_proposals (0071).
+ * is put to the database itself: is_service_role() (0093) is true only when PostgREST runs the request
+ * as service_role. (It used to probe dish_merge_proposals, which held only while no grant ever
+ * reached that table: an empty 200 to a role with SELECT and no policy would have passed.)
  */
 async function isServiceRole(req: Request): Promise<boolean> {
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
   if (!token) return false;
   if (same(token, SERVICE_ROLE ?? '')) return true;
-  const headers: Record<string, string> = { apikey: token };
+  const headers: Record<string, string> = { apikey: token, 'Content-Type': 'application/json' };
   if (token.split('.').length === 3) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/dish_merge_proposals?select=id&limit=1`, { headers }).catch(() => null);
-  await res?.body?.cancel();
-  return res?.ok ?? false;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/is_service_role`, { method: 'POST', headers, body: '{}' }).catch(() => null);
+  if (!res?.ok) {
+    await res?.body?.cancel();
+    return false;
+  }
+  return (await res.json().catch(() => false)) === true;
 }
 
 const ids = (raw: unknown): number[] | null =>

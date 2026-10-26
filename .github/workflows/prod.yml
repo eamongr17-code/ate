@@ -45,6 +45,10 @@ concurrency:
 env:
   PROD_REF: vyaexmnajnbryimbkgkf
 
+# Read-only token: no job here writes to the repo (security sweep, Oct 2026).
+permissions:
+  contents: read
+
 jobs:
   prod:
     name: Prod database + functions
@@ -68,7 +72,7 @@ jobs:
             exit 1
           fi
 
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@e8a4df30dd7db7da61a537ed3c92bdb0220da2ef # v1, pinned: this job holds the prod/staging DB password
         with:
           version: latest
 
@@ -93,13 +97,18 @@ jobs:
           supabase db dump --linked --password "$SUPABASE_DB_PASSWORD" -f backup/schema.sql
           supabase db dump --linked --password "$SUPABASE_DB_PASSWORD" --data-only -f backup/data.sql
           supabase db dump --linked --password "$SUPABASE_DB_PASSWORD" --role-only -f backup/roles.sql
-          ls -la backup
+          # The repo is public, so its run artifacts are downloadable by anyone signed in to GitHub:
+          # the dump leaves the runner only encrypted, under the prod DB password.
+          # Decrypt: openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in prod-backup.tar.gz.enc -pass pass:<prod DB password> | tar xz
+          tar czf - backup | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:SUPABASE_DB_PASSWORD -out prod-backup.tar.gz.enc
+          rm -rf backup
+          ls -la prod-backup.tar.gz.enc
 
       - uses: actions/upload-artifact@v4
         if: inputs.reset && inputs.confirm_reset == 'ERASE PROD'
         with:
           name: prod-backup-before-reset
-          path: backup/
+          path: prod-backup.tar.gz.enc
           retention-days: 90
           if-no-files-found: error
 
