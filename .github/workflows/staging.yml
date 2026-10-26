@@ -62,7 +62,7 @@ jobs:
             exit 1
           fi
 
-      - uses: supabase/setup-cli@e8a4df30dd7db7da61a537ed3c92bdb0220da2ef # v1, pinned: this job holds the prod/staging DB password
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3, pinned: this job holds the prod/staging DB password
         with:
           version: latest
 
