@@ -84,6 +84,10 @@
 //         (allows the request) on any infra error so a missing/failed limiter
 //         can't take down search — the JWT gate is the must-have, the limit is
 //         the secondary layer.
+//     (3) a DAILY budget (places_budget_hit, migration 0093): 400 Google calls per user and 4,000
+//         across everyone per UTC day, counted only when Google is about to be called. Over it,
+//         autocomplete answers from our own rows, details is a 429, nearby returns the DB rows.
+//         Fails CLOSED, unlike the per-minute limit: it exists to bound the bill.
 //   The client already calls via `supabase.functions.invoke()`, which attaches
 //   the logged-in user's session access token as `Authorization: Bearer <jwt>`,
 //   and the app gates to the auth screen when signed out — so authed users are
@@ -595,6 +599,24 @@ async function withinRateLimit(userId: string): Promise<boolean> {
   }
 }
 
+// DAILY BUDGET (0093). The per-minute limit above still lets one account make ~130k billable calls a
+// day; this caps each person at 400 Google calls a day and everyone at 4,000. Counted only when Google
+// is about to be called (a place we already hold costs nothing). FAILS CLOSED: no answer from the
+// budget, no Google call — the caller gets our own rows, as in stub mode for a place we hold.
+async function placesBudgetAllows(userId: string): Promise<boolean> {
+  try {
+    const { data, error } = await adminClient().rpc('places_budget_hit', { p_user_id: userId });
+    if (error) console.error('places_budget_hit failed (failing closed):', error.message);
+    return !error && data === true;
+  } catch (e) {
+    console.error('places_budget_hit threw (failing closed):', e);
+    return false;
+  }
+}
+
+/** Longer than any place name anyone types: autocomplete input past this is cut, not sent. */
+const AUTOCOMPLETE_MAX_INPUT = 120;
+
 const RESTAURANT_COLS = 'id, google_place_id, name, address, city, cuisine, cover_url';
 
 type RestaurantRow = {
@@ -876,7 +898,7 @@ Deno.serve(async (req) => {
 
   try {
     if (op === 'autocomplete') {
-      const input = String(body.input ?? '');
+      const input = String(body.input ?? '').slice(0, AUTOCOMPLETE_MAX_INPUT);
       // FB2-BE-1: optional origin → distance_meters on predictions. Coerce to
       // Number so a string "lat" from the body still works; non-finite → omitted.
       const acLat = body.lat == null ? undefined : Number(body.lat);
@@ -890,10 +912,14 @@ Deno.serve(async (req) => {
       const [predictions, local] = await Promise.all([
         STUB
           ? Promise.resolve(stubAutocomplete(input, acLat, acLng))
-          : (hasOrigin
-              ? Promise.resolve({ lat: acLat as number, lng: acLng as number })
-              : lastPlacePoint(userId)
-            ).then((bias) => googleAutocomplete(input, acLat, acLng, sessionToken, bias)),
+          : placesBudgetAllows(userId).then((allowed) =>
+            !allowed
+              ? [] // over today's budget: our own rows only
+              : (hasOrigin
+                ? Promise.resolve({ lat: acLat as number, lng: acLng as number })
+                : lastPlacePoint(userId)
+              ).then((bias) => googleAutocomplete(input, acLat, acLng, sessionToken, bias))
+          ),
         searchLocalRestaurants(input),
       ]);
       const results = blendResults(predictions as Prediction[], local as LocalMatch[]);
@@ -915,6 +941,7 @@ Deno.serve(async (req) => {
         return json({ stub: STUB, restaurant: known });
       }
 
+      if (!STUB && !(await placesBudgetAllows(userId))) return json({ error: 'daily places budget reached' }, 429);
       const place = STUB ? stubDetails(placeId) : await googleDetails(placeId, sessionToken);
       if (!place) return json({ error: 'place not found' }, 404);
       const restaurant = await upsertRestaurant(place);
@@ -948,6 +975,9 @@ Deno.serve(async (req) => {
 
       // 2) DB is thin → fall back to Google searchNearby for discovery, upsert
       //    the results so the DB warms for next time.
+      if (!(await placesBudgetAllows(userId))) {
+        return json({ stub: false, source: 'db', restaurants: dbRows.slice(0, NEARBY_CAP) });
+      }
       const googlePlaces = await googleNearby(lat, lng, radiusM);
       // FB2-BE-1: pass the query origin so each upserted Google row gets a
       // computed distance_meters (the upserted row no longer carries coords).
