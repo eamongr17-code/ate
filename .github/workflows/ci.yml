@@ -255,3 +255,6 @@ jobs:
 
       - name: Feedback sync (reports into the private feedback repo)
         run: python3 .github/scripts/feedback_sync_test.py
+
+      - name: TestFlight build notes (which PR text becomes a tester line)
+        run: python3 .github/scripts/build_notes_test.py

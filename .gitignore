@@ -40,3 +40,4 @@ supabase/.env
 scratchpad/
 .claude/worktrees/
 design/illustrations/render/
+__pycache__/
