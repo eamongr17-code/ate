@@ -89,7 +89,7 @@ struct V2NotificationsPage: View {
         .ateAnimation(AteMotion.fillIn, value: store.rows.map(\.id))
         .ateAnimation(AteMotion.fillIn, value: invites.map(\.id))
         .ateAnimation(AteMotion.fillIn, value: photos.clusters.map(\.id))
-        .refreshable {
+        .ateRefreshable {
             guard hasPeople else { return }
             async let waiting: Void = context.app.listInvites.refresh()
             await store.refresh()

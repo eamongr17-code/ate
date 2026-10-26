@@ -66,7 +66,7 @@ struct V2DishPage: View {
                 }
             }
         }
-        .refreshable {
+        .ateRefreshable {
             await store.refresh()
             await store.loadRemaining()
             await explore?.refresh()

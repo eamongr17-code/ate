@@ -58,7 +58,7 @@ struct FeedRoot: View {
             }
             .scrollIndicators(.hidden)
             .ateRootBarHiding($barHidden)
-            .refreshable { await refresh(stores) }
+            .ateRefreshable { await refresh(stores) }
             .onChange(of: router.scrollToTop + scrollToTopAfterArea) { _, _ in
                 withAnimation { reader.scrollTo(FeedRootAnchor.top, anchor: .top) }
             }

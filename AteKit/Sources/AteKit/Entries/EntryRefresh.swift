@@ -14,7 +14,7 @@ public enum EntryRefreshFailure: Equatable, Sendable {
     case keepCardAndRetry
 
     public init(_ error: any Error, hasCard: Bool) {
-        if error is CancellationError || (error as? URLError)?.code == .cancelled {
+        if error.isCancellation {
             self = .ignore
         } else if LoadFailure(error) == .gone {
             self = .gone

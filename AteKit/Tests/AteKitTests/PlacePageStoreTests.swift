@@ -209,6 +209,50 @@ struct PlacePageStoreTests {
         #expect(store.name == "Tipo 00")
     }
 
+    @Test("a pull to refresh that can't get through keeps the page it was showing (build 239)")
+    func failedRefreshKeepsThePage() async {
+        let source = FakePlaceDishSource()
+        source.seed(place: summary(), dishes: [dish("Cacio e Pepe", score: 4.5, reviews: 3)])
+        let store = store(source)
+        await store.load()
+        #expect(store.name == "Tipo 00")
+
+        source.failSummary(FakePlaceDishSource.Failure(message: "offline"))
+        source.failMenu(FakePlaceDishSource.Failure(message: "offline"))
+        await store.refresh()
+
+        #expect(store.name == "Tipo 00")
+        #expect(store.header != .unreachable)
+        #expect(store.menu == .ready)
+        #expect(store.dishes.map(\.name) == ["Cacio e Pepe"])
+    }
+
+    @Test("a read that was called off is never \"Couldn't reach Ate\"")
+    func cancelledReadIsNotUnreachable() async {
+        let source = FakePlaceDishSource()
+        source.seed(place: summary())
+        source.cancelSummary(true)
+        let store = store(source)
+        await store.load()
+        #expect(store.header == .loading)
+
+        source.cancelSummary(false)
+        await store.load()
+        #expect(store.name == "Tipo 00")
+    }
+
+    @Test("a place deleted since it was drawn still says so on a refresh")
+    func goneOnRefreshReplacesThePage() async {
+        let source = FakePlaceDishSource()
+        source.seed(place: summary())
+        let store = store(source)
+        await store.load()
+
+        source.remove(place: placeID)
+        await store.refresh()
+        #expect(store.header == .unavailable)
+    }
+
     @Test("a menu that fails does not take the header down with it")
     func menuFailsAlone() async {
         let source = FakePlaceDishSource()
