@@ -781,7 +781,7 @@ Deno.serve(async (req) => {
     if (applyError) {
       console.error('sort-entry: apply_entry_sort failed:', applyError.message);
       await admin.rpc('mark_entry_sort_failed', { p_entry_id: row.id, p_error: applyError.message });
-      return json({ error: 'sort failed', detail: applyError.message }, 500);
+      return json({ error: 'sort failed' }, 500); // the detail is logged above, never returned (audit finding 19)
     }
 
     const result = (Array.isArray(written) ? written[0] : written) as { sort_status?: string; restaurant_id?: string } | null;
@@ -813,6 +813,6 @@ Deno.serve(async (req) => {
     try {
       await admin.rpc('mark_entry_sort_failed', { p_entry_id: entryId, p_error: message });
     } catch { /* the entry keeps its words either way */ }
-    return json({ error: message }, 500);
+    return json({ error: 'sort failed' }, 500);
   }
 });

@@ -60,11 +60,12 @@ async function visit(n, author, place, body, items, when) {
 test('0041: the CHECK takes 0.5–5.0 in half steps and exactly 6; 5.5 and 6.5 stay illegal', async () => {
   const E = await visit(100, A, R1, 'Gnocchi 4.0', [{ dish_name: 'Gnocchi', score: 4, score_evidence: 'Gnocchi 4.0' }], '2026-09-01T09:00:00Z');
   const line = (await rows(`select id from public.reviews where entry_id = $1`, [E]))[0].id;
-  assert.equal(await as(A, () => error(db.query(`update public.reviews set score = 6 where id = $1`, [line]))), null, 'the author may mark a 6');
+  // 0094: scores are written by the server only, so the CHECK is exercised there.
+  assert.equal(await error(db.query(`update public.reviews set score = 6 where id = $1`, [line])), null, 'a 6 is legal');
   for (const bad of [5.5, 6.5, 7, 0]) {
-    assert.equal((await as(A, () => error(db.query(`update public.reviews set score = $2 where id = $1`, [line, bad]))))?.code, '23514', `${bad}`);
+    assert.equal((await error(db.query(`update public.reviews set score = $2 where id = $1`, [line, bad])))?.code, '23514', `${bad}`);
   }
-  assert.equal(await as(A, () => error(db.query(`update public.reviews set score = null where id = $1`, [line]))), null, 'NULL is still legal');
+  assert.equal(await error(db.query(`update public.reviews set score = null where id = $1`, [line])), null, 'NULL is still legal');
   await db.query(`delete from public.entries where id = $1`, [E]);
 });
 

@@ -229,6 +229,10 @@ jobs:
       - name: Apple token suites (apple-token)
         run: node --test supabase/functions/apple-token/*_test.ts
 
+      # delete-account's storage purge (only the account's own folders, all of them) under Node.
+      - name: Account deletion suites (delete-account)
+        run: node --test supabase/functions/delete-account/*_test.ts
+
       # dish-dedup's scan (proposals for dishes that already exist) under Node, like match-photos.
       - name: Duplicate dish scan suites (dish-dedup)
         run: node --test supabase/functions/dish-dedup/*_test.ts

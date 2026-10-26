@@ -23,7 +23,7 @@
 // GOOGLE_PLACES_API_KEY (chains only), SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (auto-injected).
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { DEFAULT_SCAN_MODEL, scanPlace, type Proposal, type ScanPlace } from './scan.ts';
+import { DEFAULT_SCAN_MODEL, pairKey, scanPlace, type Apart, type Proposal, type ScanPlace } from './scan.ts';
 import { googleWebsite, linkChains } from '../places-search/chains.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -88,28 +88,45 @@ Deno.serve(async (req) => {
       case 'scan': {
         const { data: places, error } = await db.rpc('dish_scan_places');
         if (error) throw new Error(error.message);
-        // every pair ever proposed, whatever became of it: a rejected pair is never asked again
+        // every pair ever proposed, whatever became of it: a rejected pair is never asked again; nor
+        // one the model already kept apart (0094: dish_pair_verdicts), so a rerun pays for new pairs only
         const { data: known, error: knownError } = await db.from('dish_merge_proposals').select('source_dish_id, target_dish_id');
         if (knownError) throw new Error(knownError.message);
+        const { data: judged, error: judgedError } = await db.from('dish_pair_verdicts').select('dish_a, dish_b');
+        if (judgedError) throw new Error(judgedError.message);
         const seen = new Set((known ?? []).flatMap((k) => [`${k.source_dish_id}|${k.target_dish_id}`, `${k.target_dish_id}|${k.source_dish_id}`]));
+        const skip = new Set([
+          ...(known ?? []).map((k) => pairKey(k.source_dish_id, k.target_dish_id)),
+          ...(judged ?? []).map((j) => pairKey(j.dish_a, j.dish_b)),
+        ]);
         let asked = 0;
+        let fresh = 0;
         const failed: string[] = [];
-        const fresh: Proposal[] = [];
-        // four places at a time: the function's wall clock is limited, and most places ask nothing
+        // four places at a time: the function's wall clock is limited, and most places ask nothing.
+        // Each batch is written as it lands, so a run cut off by the time limit keeps what it paid for.
         const all = (places ?? []) as ScanPlace[];
         for (let i = 0; i < all.length; i += 4) {
           const batch = all.slice(i, i + 4);
-          const results = await Promise.all(batch.map((place) => scanPlace(place, { apiKey: ANTHROPIC_KEY, model: MODEL })));
+          const results = await Promise.all(batch.map((place) => scanPlace(place, { apiKey: ANTHROPIC_KEY, model: MODEL, skip })));
+          const proposals: Proposal[] = [];
+          const apart: Apart[] = [];
           results.forEach((got, j) => {
             asked += got.asked;
             if (got.failed) failed.push(batch[j].place_name ?? batch[j].restaurant_id);
-            fresh.push(...got.proposals.filter((p) => !seen.has(`${p.source_dish_id}|${p.target_dish_id}`)));
+            proposals.push(...got.proposals.filter((p) => !seen.has(`${p.source_dish_id}|${p.target_dish_id}`)));
+            apart.push(...got.apart);
           });
-        }
-        if (fresh.length) {
-          const { error: insertError } = await db.from('dish_merge_proposals')
-            .upsert(fresh, { onConflict: 'source_dish_id,target_dish_id', ignoreDuplicates: true });
-          if (insertError) throw new Error(insertError.message);
+          if (proposals.length) {
+            const { error: insertError } = await db.from('dish_merge_proposals')
+              .upsert(proposals, { onConflict: 'source_dish_id,target_dish_id', ignoreDuplicates: true });
+            if (insertError) throw new Error(insertError.message);
+            fresh += proposals.length;
+          }
+          if (apart.length) {
+            const { error: apartError } = await db.from('dish_pair_verdicts')
+              .upsert(apart, { onConflict: 'dish_a,dish_b', ignoreDuplicates: true });
+            if (apartError) console.error('dish-dedup: verdicts not saved:', apartError.message);
+          }
         }
         let results: unknown[] | undefined;
         if (body.merge === 'same_name') {
@@ -122,7 +139,7 @@ Deno.serve(async (req) => {
           }
         }
         return json({
-          ok: true, places: (places ?? []).length, pairs_asked: asked, new_proposals: fresh.length,
+          ok: true, places: (places ?? []).length, pairs_asked: asked, new_proposals: fresh,
           model: ANTHROPIC_KEY ? MODEL : null, places_without_ai: failed, ...(results ? { results } : {}), open: await open(),
         });
       }
@@ -156,6 +173,7 @@ Deno.serve(async (req) => {
         return json({ error: 'action: scan, list, merge, reject or chains' }, 422);
     }
   } catch (e) {
+    // service-role only (the workflows read this), so the detail is still returned here
     const message = e instanceof Error ? e.message : String(e);
     console.error('dish-dedup:', message);
     return json({ error: message }, 500);

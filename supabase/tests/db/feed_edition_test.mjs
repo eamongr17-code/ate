@@ -207,7 +207,7 @@ test('new_to_record: p_since is clamped to 90 days back', async () => {
 // ─── Cravings ────────────────────────────────────────────────────────────────────────────────────
 test('craving_options: styles (dishes) then cuisines, busiest first, only tags on logged dishes; signed out too', async () => {
   // A dish nobody logged brings its tags nowhere.
-  await as(U.dan, () => db.query(`insert into public.dishes (name, restaurant_id, created_by_user_id) values ('Burrito', $1, $2)`, [P.tipo, U.dan]));
+  await db.query(`insert into public.dishes (name, restaurant_id, created_by_user_id) values ('Burrito', $1, $2)`, [P.tipo, U.dan]);
   const opts = await as(U.bob, () => rows(`select * from public.craving_options()`));
   assert.deepEqual(Object.keys(opts[0]), ['kind', 'slug', 'label', 'group']);
   assert.deepEqual([...new Set(opts.map((o) => `${o.kind}:${o.group}`))], ['style:dishes', 'cuisine:cuisines']);

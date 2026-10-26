@@ -43,10 +43,10 @@ test('a new dish is tagged from its name and its place — style → cuisine →
   const G = await w.visit(3, U.cleo, P.hand, receipt(['Flat White', 4]), '2026-09-03T09:00:00Z');
   assert.deepEqual(await tags(await dishAt(G, 1)), ['style:coffee:coffee', 'suburb:fitzroy-melbourne:Fitzroy', 'city:melbourne:Melbourne'],
     'no cuisine on the place → no cuisine chip');
-
+  // A dish the server makes (find_or_create_dish; 0094: clients make none) is tagged the same way.
   // A dish a CLIENT inserts (the composer's "add a new dish") is tagged the same way.
-  const [{ id: added }] = await as(U.dan, () => rows(
-    `insert into public.dishes (name, restaurant_id, created_by_user_id) values ('Garlic bread', $1, $2) returning id`, [P.osteria, U.dan]));
+  const [{ id: added }] = await rows(
+    `insert into public.dishes (name, restaurant_id, created_by_user_id) values ('Garlic bread', $1, $2) returning id`, [P.osteria, U.dan]);
   assert.deepEqual(await tags(added), ['style:bread:bread', 'cuisine:italian:Italian', 'suburb:carlton-melbourne:Carlton', 'city:melbourne:Melbourne']);
 });
 
@@ -200,8 +200,8 @@ test('0069: dish_styles_from_json keeps only listed styles, ≤3, first mention 
 });
 
 test('0069 cleanup: off-list styles and followed styles go, a bare dish gets its keyword guess, listed ones keep one label; idempotent', async () => {
-  const add = async (name) => (await as(U.dan, () => rows(
-    `insert into public.dishes (name, restaurant_id, created_by_user_id) values ($1, $2, $3) returning id`, [name, P.osteria, U.dan])))[0].id;
+  const add = async (name) => (await rows(
+    `insert into public.dishes (name, restaurant_id, created_by_user_id) values ($1, $2, $3) returning id`, [name, P.osteria, U.dan]))[0].id;
   const octopus = await add('Grilled octopus');   // keyword guess: grilled, seafood
   const hargow = await add('Har gow basket');     // keyword guess: dumplings, dim sum
   const styleRows = async (dish) =>

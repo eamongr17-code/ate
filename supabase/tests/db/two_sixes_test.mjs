@@ -42,15 +42,17 @@ test('0091: a re-sort keeps an entry\'s own 6, and editing that entry has its 6 
   assert.equal((await allowance(U.dan, A)).sixes_left, 1);
 });
 
-test('0091: deleting an entry gives its 6 back; a direct PATCH to 6 is held to the same rule', async () => {
+test('0091: deleting an entry gives its 6 back; a direct write of a 6 is held to the same rule (0094: server-side only)', async () => {
   const C = id(9103);
   const [line] = await rows(`select id from public.reviews where entry_id = $1`, [C]);
-  await as(U.dan, () => db.query(`update public.reviews set score = 6 where id = $1`, [line.id]));
+  await assert.rejects(as(U.dan, () => db.query(`update public.reviews set score = 6 where id = $1`, [line.id])),
+    /permission denied/, '0094: no client PATCH of a score');
+  await db.query(`update public.reviews set score = 6 where id = $1`, [line.id]);
   assert.deepEqual(await scores(C), [5], 'still two in the window');
 
   await as(U.dan, () => db.query(`delete from public.entries where id = $1`, [id(9102)]));
   assert.equal((await allowance(U.dan)).sixes_left, 1);
-  await as(U.dan, () => db.query(`update public.reviews set score = 6 where id = $1`, [line.id]));
+  await db.query(`update public.reviews set score = 6 where id = $1`, [line.id]);
   assert.deepEqual(await scores(C), [6]);
 });
 

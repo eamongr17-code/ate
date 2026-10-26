@@ -192,16 +192,23 @@ public struct AccountClient: AccountServing {
             .execute()
     }
 
+    /// `my_diet()` (0094): the column itself is readable by nobody, so no one reads anyone else's.
     public func diet() async throws -> [DietTag] {
         let id = try await api.requireCurrentUserID()
-        let rows: [DietRow] = try await api.supabase
-            .from("profiles")
-            .select("diet")
-            .eq("id", value: id.uuidString.lowercased())
-            .limit(1)
-            .execute()
-            .value
-        return DietTag.decoding(rows.first?.diet ?? [])
+        do {
+            let codes: [String]? = try await api.rpc("my_diet")
+            return DietTag.decoding(codes ?? [])
+        } catch let error as PostgrestError where error.code == "PGRST202" {
+            // A server before 0094: the column is still readable, by its owner as by everyone.
+            let rows: [DietRow] = try await api.supabase
+                .from("profiles")
+                .select("diet")
+                .eq("id", value: id.uuidString.lowercased())
+                .limit(1)
+                .execute()
+                .value
+            return DietTag.decoding(rows.first?.diet ?? [])
+        }
     }
 
     public func setDiet(_ codes: [DietTag]) async throws {
@@ -276,13 +283,24 @@ public struct AccountClient: AccountServing {
         ])
     }
 
+    /// Rows first, then files, on the server (`delete-account`, 0094): one transaction deletes the
+    /// account, and only then are its photos and avatar emptied, so a dropped connection can never
+    /// leave a live account with its photos gone, nor a deleted one with its photos still public.
     public func deleteAccount() async throws -> AccountDeletion {
         let folder = try await api.requireCurrentUserID().uuidString.lowercased()
-        for bucket in Self.personalBuckets {
-            try await purge(bucket: bucket, folder: folder)
-        }
         await revokeAppleToken()
-        return try await api.rpc("delete_account")
+        do {
+            return try await api.supabase.functions.invoke(
+                "delete-account",
+                options: FunctionInvokeOptions(method: .post, body: [String: String]())
+            )
+        } catch FunctionsError.httpError(code: 404, data: _) {
+            // A server before the delete-account function: the old order, files then rows.
+            for bucket in Self.personalBuckets {
+                try await purge(bucket: bucket, folder: folder)
+            }
+            return try await api.rpc("delete_account")
+        }
     }
 
     public func signOut() async throws {

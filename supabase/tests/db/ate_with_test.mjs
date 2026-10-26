@@ -246,6 +246,11 @@ test('push tokens: register, move between accounts on one device, unregister; ow
   assert.deepEqual(await as(U.alice, () => rows(`select token, apns_env from public.device_push_tokens`)), [{ token: tok, apns_env: 'sandbox' }]);
   assert.equal(await code(U.alice, `select public.register_push_token('xyz', 'sandbox')`), '22023');
   assert.equal(await code(U.alice, `select public.register_push_token($1, 'dev')`, [tok]), '22023');
+  // 0094: a live token is not taken by another account (alice's phone, bob's registration)…
+  await as(U.bob, () => db.query(`select public.register_push_token($1, 'production')`, [tok]));
+  assert.equal((await as(U.alice, () => rows(`select token from public.device_push_tokens`))).length, 1, 'still alice\'s');
+  // …but signing out forgets it, and the next account on the phone takes it.
+  await as(U.alice, () => db.query(`select public.unregister_push_token($1)`, [tok]));
   await as(U.bob, () => db.query(`select public.register_push_token($1, 'production')`, [tok]));
   assert.equal((await as(U.alice, () => rows(`select token from public.device_push_tokens`))).length, 0, 'the device moved to bob');
   assert.equal((await as(U.bob, () => rows(`select token from public.device_push_tokens`))).length, 1);
