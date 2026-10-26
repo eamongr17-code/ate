@@ -69,9 +69,11 @@ public final class InMemoryLists: ListsServing, InMemoryStandIn, @unchecked Send
     public func seed(name: String, lines: [DishLine], createdAt: Date) -> UUID {
         lock.withLock {
             let items = lines.enumerated().map { offset, line in
-                StoredItem(id: UUID(), line: line, addedAt: createdAt.addingTimeInterval(Double(offset)))
+                StoredItem(id: .fixture("list.\(lists.count).\(name).\(offset)"), line: line,
+                           addedAt: createdAt.addingTimeInterval(Double(offset)))
             }
-            let id = UUID()
+            // Seeded, not minted, so every launch draws the same shelf.
+            let id = UUID.fixture("list.\(lists.count).\(name)")
             lists.append(StoredList(id: id, name: name, createdAt: createdAt, updatedAt: createdAt, items: items))
             return id
         }

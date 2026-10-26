@@ -1,12 +1,14 @@
 name: Record snapshots
 
-# Re-records the design-system pictures that `AteTests` compares against (AteTests/__Snapshots__)
+# Re-records the kit and screen pictures that `AteTests` compares against (AteTests/__Snapshots__)
 # and commits them back to the branch, so a visual change is approved by its diff in the PR.
 # Runs only for a push whose commit message contains [record-snapshots]. CI (ci.yml) never records:
 # a missing or changed picture fails there.
 on:
   push:
-    paths: [AteTests/**, App/DesignSystem/**, .github/workflows/snapshots.yml]
+    # The screens (ScreenSnapshotTests) draw App/V2 on AteKit's preview data, so a change there can
+    # be re-recorded too.
+    paths: [AteTests/**, App/**, AteKit/Sources/**, Ate.xcodeproj/**, .github/workflows/snapshots.yml]
 
 permissions:
   contents: write
@@ -85,7 +87,7 @@ jobs:
           # -f: *.png is gitignored repo-wide; .gitignore un-ignores this folder, and -f is the belt to that brace.
           git add -f AteTests/__Snapshots__
           git diff --cached --quiet && { echo "pictures unchanged"; exit 0; }
-          git commit -m "Snapshots: re-recorded design-system pictures ($(find AteTests/__Snapshots__ -name '*.png' | wc -l | tr -d ' ') files)"
+          git commit -m "Snapshots: re-recorded pictures ($(find AteTests/__Snapshots__ -name '*.png' | wc -l | tr -d ' ') files)"
           git push origin "HEAD:${{ github.ref_name }}"
 
       - name: Keep the log

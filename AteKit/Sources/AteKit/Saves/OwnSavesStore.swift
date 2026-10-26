@@ -255,23 +255,27 @@ extension InMemoryOwnSaves {
         let ago = { (hours: Double) in now.addingTimeInterval(-hours * 3600) }
         return InMemoryOwnSaves(rows: [
             OwnSave(
-                id: UUID(), dishName: "Crab fried rice", restaurantID: UUID(), restaurantName: "Ho Jiak",
+                id: .fixture("own.Crab fried rice"), dishName: "Crab fried rice", restaurantID: .fixture("place.Ho Jiak"),
+                restaurantName: "Ho Jiak",
                 restaurantCity: "Sydney", source: .tiktok,
                 sourceURL: "https://www.tiktok.com/@sydneyeats/video/7300000000000000000",
                 sourceAuthor: "@sydneyeats", sourceCaption: "The crab fried rice at Ho Jiak is unreal",
                 createdAt: ago(1)
             ),
             OwnSave(
-                id: UUID(), dishName: "Birria tacos", restaurantID: UUID(), restaurantName: "La Tortilleria",
+                id: .fixture("own.Birria tacos"), dishName: "Birria tacos", restaurantID: .fixture("place.La Tortilleria"),
+                restaurantName: "La Tortilleria",
                 restaurantCity: "Melbourne", source: .instagram,
                 sourceURL: "https://www.instagram.com/reel/C1abc/", createdAt: ago(30)
             ),
             OwnSave(
-                id: UUID(), dishName: "Duck pancakes", restaurantID: UUID(), restaurantName: "Flower Drum",
+                id: .fixture("own.Duck pancakes"), dishName: "Duck pancakes", restaurantID: .fixture("place.Flower Drum"),
+                restaurantName: "Flower Drum",
                 restaurantCity: "Melbourne", createdAt: ago(80)
             ),
             OwnSave(
-                id: UUID(), dishName: "Khao soi", restaurantID: UUID(), restaurantName: "Soi 38",
+                id: .fixture("own.Khao soi"), dishName: "Khao soi", restaurantID: .fixture("place.Soi 38"),
+                restaurantName: "Soi 38",
                 restaurantCity: "Melbourne", source: .link,
                 sourceURL: "https://www.broadsheet.com.au/melbourne/food-and-drink", createdAt: ago(200)
             )

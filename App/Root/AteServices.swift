@@ -216,7 +216,7 @@ struct AteServices {
             feed: social, feedEdition: social, saves: social, ownSaves: InMemoryOwnSaves.preview(),
             profiles: social, stats: InMemoryStatsService(),
             placePages: social, dishPages: social, dishExplore: social, search: social,
-            account: InMemoryAccountService(),
+            account: InMemoryAccountService(profile: AccountProfile(id: viewer.id, username: viewer.username)),
             companions: InMemoryCompanionTagging.seeded(viewerID: EntryCard.previewSorted.authorID),
             notifications: notifications, ateWith: notifications, pushTokens: notifications,
             lists: InMemoryLists.preview(), journalSearch: InMemoryJournalSearch(entries: service)

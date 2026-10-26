@@ -8,6 +8,9 @@ enum V2Launch {
     struct Start: Equatable {
         var tab: V2Tab = .journal
         var composes = false
+        /// Pages already pushed on the opening tab: how the screen snapshots (`ScreenSnapshotTests`)
+        /// open a place or an entry on a real tab stack.
+        var path: [Route] = []
     }
 
     static var start: Start {
