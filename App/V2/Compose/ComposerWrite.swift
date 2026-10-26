@@ -83,6 +83,7 @@ struct V2ComposerWrite: View {
             }
             .allowsHitTesting(isFrozen == false)
         }
+        .ateComposerHoldsForPhoto(keyboard)
         .environment(\.atePalette, .surface)
         .foregroundStyle(AtePalette.surface.fg)
         // The surface runs behind the keyboard, to the screen's edges.

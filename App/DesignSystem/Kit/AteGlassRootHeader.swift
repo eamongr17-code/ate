@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// **The glass header** (`lighter-header.html` B, 22 Oct) — Journal, Feed and Saved. The root's
+/// **The glass header** (`lighter-header.html` B, 22 Oct) — Journal, Feed, Saved and You. The root's
 /// title row (title leading, the glass group trailing, a control apart before it), and under it an
 /// accessory (the Journal's switch, the filter's chips), as one header over the page. Once the page
 /// is under it, it lies on the one **glass bar** every header has (``AteGlassBar``, `glass-header.html`
@@ -168,9 +168,8 @@ struct AteGlassHeaderRoom: View {
 
 extension View {
     /// Installs a tab root's **glass header** (``AteGlassRootHeader``) in place of the native bar:
-    /// the same title and glass group as ``ateRootToolbar(title:subtitle:inline:isCollapsed:controls:)``
-    /// (never an inline title), with an `accessory` under the row, the whole of it `hidden` of the way
-    /// away (0 to 1).
+    /// the root's title and glass group (never an inline title), with an `accessory` under the row,
+    /// the whole of it `hidden` of the way away (0 to 1).
     func ateGlassRootHeader<Apart: View, Controls: View, Accessory: View>(
         title: AteRootHeaderTitle,
         subtitle: String? = nil,

@@ -64,6 +64,7 @@ private struct AtePhotoViewerHost: ViewModifier {
         content
             .environment(\.atePhotoOriginRelay, relay)
             .environment(\.atePhotoHiddenSource, isUp ? viewing.map(hiddenSource) : nil)
+            .environment(\.atePhotoViewerIsUp, viewing != nil)
             .environment(\.atePhotoViewer, AtePhotoViewerAction { photos, index, dishes in
                 guard photos.isEmpty == false else { return }
                 AteTelemetry.record(BrowseEvents.photoPreviewOpened(photoCount: photos.count))
@@ -310,8 +311,7 @@ struct AtePhotoViewer: View {
         _ photos: [AtePhoto], at position: Int, origin: AtePhotoOrigin?, page: CGRect?, drag: CGFloat
     ) -> AtePhotoFlightPath? {
         guard let tile = origin?.tiles[position], PhotoFlight.canLand(on: tile.frame, screen: AteScreen.size),
-              photos.indices.contains(position), let url = photos[position].url,
-              let image = AteImagePipeline.shared.onHand(url, size: .full) else { return nil }
+              photos.indices.contains(position), let image = onHand(photos[position]) else { return nil }
         let screen = CGRect(origin: .zero, size: AteScreen.size)
         guard let away = PhotoFlight.away(
             image: image.size, page: page ?? screen, anchor: CGPoint(x: screen.midX, y: screen.midY), drag: drag
@@ -320,6 +320,11 @@ struct AtePhotoViewer: View {
             image: image, home: home(tile, image: image), away: away, ring: tile.ring,
             covers: covers(over: tile, photos: photos, origin: origin)
         )
+    }
+
+    /// The picture a tile drew: a staged pick's own, or a server photo's copy on hand.
+    private static func onHand(_ photo: AtePhoto) -> UIImage? {
+        photo.picture ?? photo.url.flatMap { AteImagePipeline.shared.onHand($0, size: .full) }
     }
 
     /// A tile, exactly as the page draws it.
@@ -338,8 +343,7 @@ struct AtePhotoViewer: View {
             .filter { $0.value.layer < tile.layer && $0.value.frame.intersects(reach) }
             .sorted { $0.value.layer > $1.value.layer }
             .compactMap { index, over in
-                guard photos.indices.contains(index), let url = photos[index].url,
-                      let image = AteImagePipeline.shared.onHand(url, size: .full) else { return nil }
+                guard photos.indices.contains(index), let image = onHand(photos[index]) else { return nil }
                 return AtePhotoFlightPath.Cover(image: image, frame: home(over, image: image), ring: over.ring)
             }
     }

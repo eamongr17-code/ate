@@ -15,6 +15,9 @@ import UIKit
 @Observable
 final class KeyboardPresence {
     private(set) var isVisible = false
+    /// Counts the keyboard coming to rest on screen: a layout held for it can let go with nothing
+    /// left to move (``V2ComposerWrite``'s hold while a photo is up).
+    private(set) var arrivals = 0
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
 
     init() {
@@ -29,6 +32,13 @@ final class KeyboardPresence {
                 MainActor.assumeIsolated { self?.set(state.visible, animated: state.animated) }
             }
         }
+        observers.append(
+            center.addObserver(
+                forName: UIResponder.keyboardDidShowNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.arrivals += 1 }
+            }
+        )
         observers.append(
             center.addObserver(
                 forName: UIResponder.keyboardWillChangeFrameNotification, object: nil, queue: .main
@@ -61,5 +71,43 @@ extension View {
     /// The composer's keyboard rule: avoid it while it is up, ignore its safe area once it has gone.
     func ateComposerKeyboard(_ keyboard: KeyboardPresence) -> some View {
         ignoresSafeArea(.keyboard, edges: keyboard.isVisible ? [] : .bottom)
+    }
+}
+
+/// **The page holds still while a staged photo is up.** Opening one full screen takes the keyboard
+/// down behind it, and closing it brings the keyboard back. Left to follow, the page jumped twice: the
+/// words scrolled back to the top and the photos dropped to the bottom as the photo grew, and jumped
+/// back up just after it had landed in the old place (26 Oct). So the composer keeps the height it had
+/// when the photo opened, keyboard room and all, until the keyboard is back at rest — or, if it does
+/// not come back, a moment after the photo is down.
+private struct ComposerPhotoHold: ViewModifier {
+    let keyboard: KeyboardPresence
+    @State private var restingHeight: CGFloat = 0
+    @State private var isHolding = false
+    @Environment(\.atePhotoViewerIsUp) private var photoIsUp
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            // Held, it is proposed exactly this height, so nothing moves the measure meanwhile.
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { restingHeight = $0 }
+            .frame(height: photoIsUp || isHolding ? restingHeight : nil, alignment: .top)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .onChange(of: photoIsUp) { _, isUp in if isUp { isHolding = true } }
+            // Back and at rest: the keyboard's room is the held room, so letting go moves nothing.
+            .onChange(of: keyboard.arrivals) { if photoIsUp == false { isHolding = false } }
+            .task(id: photoIsUp) {
+                guard photoIsUp == false, isHolding else { return }
+                try? await Task.sleep(for: .seconds(1))
+                guard Task.isCancelled == false, photoIsUp == false else { return }
+                withAnimation(reduceMotion ? nil : V2ComposerMotion.slider) { isHolding = false }
+            }
+    }
+}
+
+extension View {
+    /// Holds the composer's layout through a staged photo's trip full screen and back.
+    func ateComposerHoldsForPhoto(_ keyboard: KeyboardPresence) -> some View {
+        modifier(ComposerPhotoHold(keyboard: keyboard))
     }
 }

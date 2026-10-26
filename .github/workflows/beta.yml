@@ -91,6 +91,10 @@ concurrency:
   group: beta-${{ github.ref }}
   cancel-in-progress: false
 
+# Read-only token: no job here writes to the repo (security sweep, Oct 2026).
+permissions:
+  contents: read
+
 jobs:
   preflight:
     name: Check signing credentials

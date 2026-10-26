@@ -25,6 +25,10 @@ concurrency:
   group: load-test
   cancel-in-progress: false
 
+# Read-only token: no job here writes to the repo (security sweep, Oct 2026).
+permissions:
+  contents: read
+
 jobs:
   k6:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[load-test')
@@ -32,7 +36,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: grafana/setup-k6-action@v1
+      - uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1 # v1.2.2, pinned
       - name: k6
         env:
           PROFILE: ${{ inputs.profile || (contains(github.event.head_commit.message, '[load-test smoke]') && 'smoke' || 'ramp') }}

@@ -301,22 +301,31 @@ public struct AccountClient: AccountServing {
     /// The two buckets whose objects are yours, each under a folder named for your id (0007).
     static let personalBuckets = ["review-photos", "avatars"]
 
-    /// Empties `<bucket>/<folder>/`, a page at a time. Both buckets are flat under the folder
-    /// (`<uid>/<entry>-<n>.jpg`, `<uid>/avatar.jpg`), so one level is all there is. Bounded, so a
-    /// list that somehow never shrinks cannot hold a deletion open forever.
-    private func purge(bucket: String, folder: String) async throws {
+    /// Empties `<bucket>/<folder>/`, a page at a time, and the folders inside it: photos are flat
+    /// under the folder (`<uid>/<entry>-<n>.jpg`, `<uid>/avatar.jpg`), list covers one level down
+    /// (`<uid>/list-covers/<list>.jpg`). Bounded, so a list that somehow never shrinks cannot hold a
+    /// deletion open forever.
+    private func purge(bucket: String, folder: String, depth: Int = 0) async throws {
         let storage = api.supabase.storage.from(bucket)
+        var subfolders: Set<String> = []
         for _ in 0..<Self.maximumPurgePages {
             let listed = try await storage.list(path: folder, options: SearchOptions(limit: Self.purgePageSize))
+            // A listed row with no id is a folder, not a file.
+            subfolders.formUnion(listed.filter { $0.id == nil }.map { "\(folder)/\($0.name)" })
             let paths = listed.filter { $0.id != nil }.map { "\(folder)/\($0.name)" }
-            guard paths.isEmpty == false else { return }
+            guard paths.isEmpty == false else { break }
             let removed = try await storage.remove(paths: paths)
-            guard removed.isEmpty == false else { return }
+            guard removed.isEmpty == false else { break }
+        }
+        guard depth < Self.maximumPurgeDepth else { return }
+        for subfolder in subfolders.sorted() {
+            try await purge(bucket: bucket, folder: subfolder, depth: depth + 1)
         }
     }
 
     private static let purgePageSize = 100
     private static let maximumPurgePages = 100
+    private static let maximumPurgeDepth = 2
 
     /// `profiles.diet text[]`. Optional on the way in: a project before the column, or a null, is
     /// no diet.

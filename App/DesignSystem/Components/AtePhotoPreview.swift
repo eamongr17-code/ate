@@ -43,6 +43,9 @@ extension EnvironmentValues {
     /// The tile the open viewer's photo came from and goes back to, hidden meanwhile so the photo
     /// is never on the page twice.
     @Entry var atePhotoHiddenSource: String?
+    /// The viewer is up over this page. The composer holds its layout still meanwhile, so the
+    /// keyboard going down behind the photo never moves the tile it lands back in (26 Oct).
+    @Entry var atePhotoViewerIsUp = false
 }
 
 /// The tiles of one cluster, measured as they lay out — held in a box rather than state, because a

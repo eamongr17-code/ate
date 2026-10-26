@@ -30,7 +30,7 @@ struct AteApp: App {
 
     /// Observability is wired before any feature exists — the legacy build shipped 78 updates blind.
     private static func startObservability(_ environment: AteEnvironment) {
-        if let dsn = environment.sentryDSN {
+        if let dsn = environment.sentryDSN, !isSimulatorOrTestRun {
             SentrySDK.start { options in
                 options.dsn = dsn
                 options.environment = environment.name.rawValue
@@ -50,5 +50,14 @@ struct AteApp: App {
             TelemetryDeck.initialize(config: config)
             TelemetryDeck.signal("app_launched", parameters: ["environment": environment.name.rawValue])
         }
+    }
+
+    /// CI builds and tests on the simulator; its crashes are not users' and filled Sentry with noise.
+    private static var isSimulatorOrTestRun: Bool {
+        #if targetEnvironment(simulator)
+        return true
+        #else
+        return ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        #endif
     }
 }
