@@ -22,6 +22,9 @@ struct FeedMapSheet: View {
     @State private var pull: CGFloat = 0
     /// The grabber and the title, measured: minimised, the sheet is exactly this over the home bar.
     @State private var headHeight = FeedMapSheetMetrics.headEstimate
+    /// Near me's empty state (the drawing and its line), measured: resting, an empty sheet is only as
+    /// tall as it, so more of the map shows (Eamon, 26 Oct).
+    @State private var emptyHeight: CGFloat?
 
     var body: some View {
         let isTall = detent == .high
@@ -53,6 +56,7 @@ struct FeedMapSheet: View {
         .glassEffect(.regular, in: .rect(cornerRadius: FeedMapSheetMetrics.radius))
         .padding(.horizontal, FeedMapSheetMetrics.inset)
         .padding(.bottom, FeedMapSheetMetrics.inset)
+        .ateAnimation(AteMotion.panelSettle, value: emptyFit)
         .ateAnimation(AteMotion.fillIn, value: store.selected?.id)
         .ateAnimation(AteMotion.fillIn, value: store.selectedMenu.map(\.dishID))
         .accessibilityIdentifier("map.sheet")
@@ -66,7 +70,13 @@ struct FeedMapSheet: View {
     }
 
     private func height(_ detent: FeedMapDetent) -> CGFloat {
-        room.height(detent, head: headHeight)
+        room.height(detent, head: headHeight, empty: emptyFit)
+    }
+
+    /// The empty state's height while it is all the sheet holds (Near me or Search here found nothing).
+    private var emptyFit: CGFloat? {
+        guard store.selected == nil, store.phase == .ready, store.dishes.isEmpty else { return nil }
+        return emptyHeight
     }
 
     private var drag: some Gesture {
@@ -192,9 +202,8 @@ struct FeedMapSheet: View {
             AteEmptyState(line: FeedMapCopy.noConnection, art: .unplugged, pill: (FeedMapCopy.tryAgain, retry))
                 .accessibilityIdentifier("map.offline")
         case .ready:
-            Text(store.title.emptyLine)
-                .ateText(.meta)
-                .foregroundStyle(palette.muted)
+            AteEmptyState(line: store.title.emptyLine, art: .setting, size: .section)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { emptyHeight = $0 }
                 .accessibilityIdentifier("map.empty")
         }
     }
@@ -289,12 +298,16 @@ struct FeedMapRoom {
     }
 
     /// From the sheet's bottom (``FeedMapSheetMetrics/inset`` above the screen's) to its top. `head` is
-    /// the grabber and title's measured height: minimised shows that and nothing under it.
-    func height(_ detent: FeedMapDetent, head: CGFloat) -> CGFloat {
+    /// the grabber and title's measured height: minimised shows that and nothing under it. `empty` is
+    /// the empty state's, when that is all the sheet holds: resting, the sheet then fits it.
+    func height(_ detent: FeedMapDetent, head: CGFloat, empty: CGFloat? = nil) -> CGFloat {
         let inset = FeedMapSheetMetrics.inset
+        let homeBar = max(bottomInset - inset, 0)
         switch detent {
-        case .minimised: return head + max(bottomInset - inset, 0)
-        case .low: return FeedMapMetrics.lowHeight
+        case .minimised: return head + homeBar
+        case .low:
+            guard let empty else { return FeedMapMetrics.lowHeight }
+            return min(head + empty + FeedMapSheetMetrics.emptyBottom + homeBar, FeedMapMetrics.lowHeight)
         case .high: return screen - topInset - 2 * inset
         }
     }
@@ -313,6 +326,8 @@ enum FeedMapSheetMetrics {
     static let titleGap: CGFloat = 12
     /// The grabber and the title, until measured.
     static let headEstimate: CGFloat = 76
+    /// Under an empty sheet's line, above the home bar.
+    static let emptyBottom: CGFloat = 22
     static let dragStart: CGFloat = 6
     static let headGap: CGFloat = 12
     static let lineGap: CGFloat = 4

@@ -119,8 +119,8 @@ struct DishMapTests {
         #expect(DishMapTitle.nearMe.text == "Near me")
         #expect(DishMapTitle.area("Carlton").text == "Carlton")
         #expect(DishMapTitle.area(nil).text == "This area")
-        #expect(DishMapTitle.nearMe.emptyLine == "No dishes within 2 km")
-        #expect(DishMapTitle.area("Carlton").emptyLine == "No dishes here")
+        #expect(DishMapTitle.nearMe.emptyLine == "No dishes within 2 km.")
+        #expect(DishMapTitle.area("Carlton").emptyLine == "No dishes here.")
     }
 
     @Test("10 km around a point is 20 km across, wherever it is")
