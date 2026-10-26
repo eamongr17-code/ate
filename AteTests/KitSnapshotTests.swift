@@ -43,10 +43,10 @@ final class KitSnapshotTests: XCTestCase {
             let page = KitGalleryScreen(only: section)
                 .frame(width: Self.width)
                 .environment(\.colorScheme, scheme)
-            SnapshotPicture.check(
-                page, label: "\(section)", named: name, scheme: scheme, frame: .tall(width: Self.width),
-                settle: Self.settle, file: file, testName: testName, line: line
+            let shot = SnapshotPicture.Shot(
+                label: "\(section)", name: name, scheme: scheme, frame: .tall(width: Self.width), settle: Self.settle
             )
+            SnapshotPicture.check(page, shot, file: file, testName: testName, line: line)
         }
     }
 }

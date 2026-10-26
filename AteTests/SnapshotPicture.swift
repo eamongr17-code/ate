@@ -46,13 +46,23 @@ enum SnapshotPicture {
         ProcessInfo.processInfo.environment["SNAPSHOT_TESTING_RECORD"] != nil
     }
 
+    /// One picture of a page: how a failure names it, which picture it is ("light", "dark"), and how
+    /// it is drawn.
+    struct Shot {
+        let label: String
+        let name: String
+        let scheme: ColorScheme
+        let frame: Frame
+        /// How long the page gets to settle before it is drawn.
+        let settle: TimeInterval
+    }
+
     /// Draws `page` and holds it to its approved picture, `__Snapshots__/<suite>/<test>.<name>.png`.
-    /// `label` is how a failure names the page.
-    static func check(
-        _ page: some View, label: String, named name: String, scheme: ColorScheme, frame: Frame,
-        settle: TimeInterval, file: StaticString, testName: String, line: UInt
-    ) {
-        guard let image = draw(page, scheme: scheme, frame: frame, settle: settle) else {
+    static func check(_ page: some View, _ shot: Shot, file: StaticString, testName: String, line: UInt) {
+        let label = shot.label
+        let name = shot.name
+        let frame = shot.frame
+        guard let image = draw(page, scheme: shot.scheme, frame: frame, settle: shot.settle) else {
             XCTFail("\(label) (\(name)) did not render", file: file, line: line)
             return
         }

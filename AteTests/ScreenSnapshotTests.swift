@@ -74,10 +74,11 @@ final class ScreenSnapshotTests: XCTestCase {
             let screen = TabShell(app: app, start: start)
                 .environment(app.gate)
                 .environment(\.colorScheme, scheme)
-            SnapshotPicture.check(
-                screen, label: "\(tab)\(route == nil ? "" : " + page")", named: name, scheme: scheme,
-                frame: .screen, settle: Self.settle, file: file, testName: testName, line: line
+            let shot = SnapshotPicture.Shot(
+                label: "\(tab)\(route == nil ? "" : " + page")", name: name, scheme: scheme, frame: .screen,
+                settle: Self.settle
             )
+            SnapshotPicture.check(screen, shot, file: file, testName: testName, line: line)
         }
     }
 }
