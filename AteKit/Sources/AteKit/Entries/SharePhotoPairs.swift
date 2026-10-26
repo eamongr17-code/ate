@@ -5,21 +5,17 @@ import Foundation
 /// the photo viewer names.
 public enum SharePhotoPairs {
     /// Each dish's photos as the entry's photo positions, in order: the photos paired with it. A dish
-    /// with none has none. While no photo of the entry is paired with any dish (not matched yet, or the
-    /// match failed), every dish offers every photo, so the person can still pick the right one.
+    /// with none has none — and so does every dish while nothing is paired (not matched yet, or the
+    /// match failed or was skipped). A photo is never put under a dish it was not matched to: one
+    /// photo on a review of three went on all three dish receipts until the match landed (26 Oct,
+    /// Eamon). The whole receipt still goes on any photo.
     public static func positions(
         reviewIDs: [UUID], photos: [EntryCard.Photo], tags: [String: [PhotoDishTag]]
     ) -> [UUID: [Int]] {
         let ordered = photos.sorted { $0.position < $1.position }
-        let known = Set(reviewIDs)
-        let isPaired = ordered.contains { photo in
-            tags[photo.url]?.contains { known.contains($0.reviewID) } == true
-        }
         var positions: [UUID: [Int]] = [:]
         for id in reviewIDs {
-            positions[id] = isPaired
-                ? ordered.filter { tags[$0.url]?.contains { $0.reviewID == id } == true }.map(\.position)
-                : ordered.map(\.position)
+            positions[id] = ordered.filter { tags[$0.url]?.contains { $0.reviewID == id } == true }.map(\.position)
         }
         return positions
     }

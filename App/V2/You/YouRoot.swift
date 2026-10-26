@@ -37,7 +37,7 @@ struct YouRoot: View {
                     .padding(.bottom, AteMetrics.section)
             }
             .ateRootBarHiding($barHidden)
-            .refreshable { await store.refresh() }
+            .ateRefreshable { await store.refresh() }
             .onChange(of: router.scrollToTop) { _, _ in
                 withAnimation(reduceMotion ? nil : .default) { reader.scrollTo(YouRootIDs.top, anchor: .top) }
             }

@@ -44,6 +44,8 @@ public struct LegalDocument: Sendable, Equatable {
 
     public static let privacy = LegalDocument(markdown: privacyMarkdown)
     public static let terms = LegalDocument(markdown: termsMarkdown)
+    /// The contact both documents name, and Settings → Email us writes to.
+    public static let contactEmail = "eamongr17@gmail.com"
 
     // swiftlint:disable line_length
     static let privacyMarkdown = #"""

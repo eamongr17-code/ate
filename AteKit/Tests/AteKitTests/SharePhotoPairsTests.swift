@@ -38,11 +38,11 @@ struct SharePhotoPairsTests {
         #expect(pairs[dumplings] == [])
     }
 
-    @Test func beforeAnyPairingEveryDishOffersEveryPhoto() {
+    @Test func beforeAnyPairingNoDishHasAPhoto() {
         let pairs = SharePhotoPairs.positions(reviewIDs: [soup, dumplings], photos: photos, tags: [:])
-        #expect(pairs[soup] == [0, 1, 2])
-        #expect(pairs[dumplings] == [0, 1, 2])
+        #expect(pairs[soup] == [])
+        #expect(pairs[dumplings] == [])
         let stale = ["a": [PhotoDishTag(reviewID: UUID())]]
-        #expect(SharePhotoPairs.positions(reviewIDs: [soup], photos: photos, tags: stale)[soup] == [0, 1, 2])
+        #expect(SharePhotoPairs.positions(reviewIDs: [soup], photos: photos, tags: stale)[soup] == [])
     }
 }

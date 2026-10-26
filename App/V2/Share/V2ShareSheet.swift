@@ -33,7 +33,7 @@ struct V2ShareSheet: View {
     let receipt: AteReceipt
     /// The entry's photos in hand, by position. Empty until they arrive, or when there are none.
     var photos: [Int: UIImage] = [:]
-    /// Each dish's own photos (``SharePhotoPairs``); every photo for every dish until known.
+    /// Each dish's own photos (``SharePhotoPairs``); none until known, never another dish's.
     var dishPhotos: [UUID: [Int]] = [:]
     /// Which card a review of several dishes opens on.
     var opensOn: AteShareFormat = .story
@@ -93,6 +93,7 @@ struct V2ShareSheet: View {
         .onChange(of: slots, initial: true) { _, slots in
             if current.map(slots.contains) != true { current = slots.first }
         }
+        .onChange(of: dishPhotos) { before, _ in holdPhotoInFront(before) }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("share.sheet")
     }

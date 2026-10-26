@@ -52,7 +52,7 @@ struct V2ProfilePage: View {
             .padding(.bottom, AteMetrics.section)
         }
         .ateTitleCollapse($isCollapsed, after: titleBottom)
-        .refreshable { await store.refresh() }
+        .ateRefreshable { await store.refresh() }
         .accessibilityIdentifier("v2.profile")
         .ateGround()
         .ateCollapsingTitle(handle, isCollapsed: isCollapsed)

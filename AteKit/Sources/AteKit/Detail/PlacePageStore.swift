@@ -207,11 +207,14 @@ public final class PlacePageStore {
             header = .ready(summary)
             previews?.note(restaurantID, name: summary.name)
             recordViewIfNeeded()
-        } catch is CancellationError {
+        } catch let error where error.isCancellation {
             return
         } catch {
             hasLoadedHeader = true
             let isMissing = (error as? AteAPIError).map(Self.isMissing) == true
+            // A refresh that couldn't get through keeps the page it already drew: the place is
+            // still there, only this read failed. Only "gone" replaces a page that was showing.
+            if isMissing == false, case .ready = header { return }
             header = isMissing ? .unavailable : .unreachable
             if isMissing == false { analytics(RecoveryEvents.detailUnreachable(.place)) }
         }
@@ -234,10 +237,11 @@ public final class PlacePageStore {
             seenDishIDs = []
             append(page)
             menu = .ready
-        } catch is CancellationError {
+        } catch let error where error.isCancellation {
             return
         } catch {
-            menu = .failed
+            // A menu already on the page stays there when a refresh of it fails.
+            if menu != .ready { menu = .failed }
         }
     }
 
@@ -334,7 +338,7 @@ public final class PlacePageStore {
             append(try await places.placeDishes(
                 restaurantID: restaurantID, after: cursor, pageSize: menuPageSize
             ))
-        } catch is CancellationError {
+        } catch let error where error.isCancellation {
             return
         } catch {
             // A later page that falls over must not blank a menu that is already readable; it just

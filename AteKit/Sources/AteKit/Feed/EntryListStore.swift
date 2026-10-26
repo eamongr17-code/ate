@@ -142,7 +142,7 @@ public final class EntryListStore: SavedDishObserving, EntryDeletionObserving {
             guard generationAtStart == generation else { return }
             append(page)
             inlineErrorMessage = nil
-        } catch is CancellationError {
+        } catch let error where error.isCancellation {
             return
         } catch {
             guard generationAtStart == generation else { return }
@@ -168,7 +168,7 @@ public final class EntryListStore: SavedDishObserving, EntryDeletionObserving {
             phase = entries.isEmpty ? .empty : .ready
             inlineErrorMessage = nil
             persist()
-        } catch is CancellationError {
+        } catch let error where error.isCancellation {
             return
         } catch {
             guard generationAtStart == generation else { return }

@@ -49,7 +49,7 @@ struct V2RatingsPage: View {
                 .padding(.top, AteMetrics.regular)
                 .padding(.bottom, AteMetrics.section)
             }
-            .refreshable { await store.refresh() }
+            .ateRefreshable { await store.refresh() }
             .task {
                 await store.loadIfNeeded()
                 context.services.analytics(YouEvents.ratingsViewed(score: store.score))
