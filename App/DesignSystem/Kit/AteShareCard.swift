@@ -301,8 +301,8 @@ enum AteShareCardMetrics {
     /// The blur on the photo filling the room a zoomed-out photo leaves.
     static let fillBlur: CGFloat = 28
     static let previewRadius: CGFloat = 16
-    /// The mini receipt, against the regular one on the same card.
-    static let miniScale: CGFloat = 0.6
+    /// The mini receipt, against the regular one on the same card (26 Oct, Eamon: 0.6 was too small).
+    static let miniScale: CGFloat = 0.75
     /// How much the receipt grows while it is held.
     static let heldLift: CGFloat = 1.04
 }

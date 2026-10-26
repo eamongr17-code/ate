@@ -32,13 +32,11 @@ struct AteShareSlip: View {
     /// handle and no suburb; the place moves down to the wordmark's line.
     var isMini = false
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.snug) {
-            if isPrinting {
-                ShareSlipSkeleton(breathes: breathes)
-            } else {
-                dishes
-            }
+            lines
             AteDashedRule()
             if isMini {
                 miniFoot
@@ -54,6 +52,32 @@ struct AteShareSlip: View {
         .ateSlip()
         .ateTornPaper(paper.tone, topRadius: AteShareSlipMetrics.radius)
         .accessibilityElement(children: onFixDish == nil ? .combine : .contain)
+    }
+
+    /// The dish lines, or the bars that hold their place. The bars sit over the room, never in it, so
+    /// when the sorted lines land (in the caller's animation) the bars fade off as the lines fade in
+    /// and the paper eases from the bars' length to the lines' own: no frame where both take room,
+    /// and no snap (26 Oct, Eamon: the jump from the bars to the lines was jarring).
+    private var lines: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if isPrinting == false {
+                dishes.transition(.opacity)
+            }
+        }
+        .frame(
+            maxWidth: .infinity,
+            minHeight: isPrinting ? ShareSlipSkeleton.height(dynamicTypeSize) : 0,
+            alignment: .topLeading
+        )
+        .overlay(alignment: .topLeading) {
+            if isPrinting {
+                ShareSlipSkeleton(breathes: breathes)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .clipped()
+                    .transition(.opacity)
+            }
+        }
     }
 
     private var dishes: some View {
@@ -213,6 +237,11 @@ private struct ShareSlipSkeleton: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private static let rows: [(name: CGFloat, scored: Bool)] = [(118, true), (72, true), (98, false)]
+
+    /// The bars' length on the paper: the room the lines are held while they are sorted.
+    static func height(_ size: DynamicTypeSize) -> CGFloat {
+        CGFloat(rows.count) * AteTextStyle.shareSlipDish.lineBox(size) + CGFloat(rows.count - 1) * AteMetrics.tight
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.tight) {

@@ -113,6 +113,7 @@ extension V2ShareSheet {
                     sizeSwitch
                 }
             }
+            .transition(printing.enters ? .opacity.animation(V2ShareSheetMetrics.liveIn) : .opacity)
         } else {
             Color.clear
         }
