@@ -27,6 +27,17 @@ enum SnapshotPicture {
         case tall(width: CGFloat)
         /// A screen: the simulator's own screen, with its status bar and home indicator insets.
         case screen
+
+        /// The rows at the bottom the comparison leaves out, in points. The tab bar is the system's
+        /// Liquid Glass, whose edge highlight is drawn differently from one run to the next (1.8% of a
+        /// screen between two recordings of the same entry page): it is drawn in the picture, for the
+        /// reviewer, but never judged. Its icons and labels are the kit's `chrome` page's business.
+        var unjudgedBottom: CGFloat {
+            switch self {
+            case .tall: 0
+            case .screen: 100
+            }
+        }
     }
 
     /// `snapshots.yml` sets `TEST_RUNNER_SNAPSHOT_TESTING_RECORD=all`, which reaches the test host
@@ -68,7 +79,8 @@ enum SnapshotPicture {
                     file: file, line: line)
             return
         }
-        guard let difference = whereItDiffers(image, from: picture) else { return }
+        let skipped = Int(frame.unjudgedBottom * scale)
+        guard let difference = whereItDiffers(image, from: picture, skippingBottom: skipped) else { return }
         if difference.isBeyondTolerance {
             XCTFail("\(label) (\(name)) differs from its picture: \(difference.where)", file: file, line: line)
             printThumbnail(of: image, as: "\(label).\(name)")
@@ -160,7 +172,7 @@ enum SnapshotPicture {
 
     /// Which rows of the page changed, in pixels, so a failure in CI says where to look without the
     /// result bundle. Nil when nothing differs.
-    private static func whereItDiffers(_ image: UIImage, from reference: URL) -> Difference? {
+    private static func whereItDiffers(_ image: UIImage, from reference: URL, skippingBottom: Int) -> Difference? {
         guard let old = UIImage(contentsOfFile: reference.path) else {
             return Difference(where: "the picture could not be read", isBeyondTolerance: true)
         }
@@ -173,7 +185,8 @@ enum SnapshotPicture {
         }
         var rows: [Int] = []
         var total = 0
-        for row in 0..<new.height {
+        let judged = max(0, new.height - skippingBottom)
+        for row in 0..<judged {
             var count = 0
             let start = row * new.width * 4
             for col in 0..<new.width {
@@ -195,7 +208,7 @@ enum SnapshotPicture {
                 bands.append((row, row))
             }
         }
-        let share = Double(total) / Double(new.width * new.height) * 100
+        let share = Double(total) / Double(new.width * max(judged, 1)) * 100
         let list = bands.prefix(12).map { "\($0.from)-\($0.to)" }.joined(separator: ", ")
         let text = String(format: "%.2f%% of pixels, in %d band(s) of rows: %@%@",
                           share, bands.count, list, bands.count > 12 ? ", …" : "")
