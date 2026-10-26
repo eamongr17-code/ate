@@ -20,12 +20,26 @@ test('plan: no photos or no open lines → nothing', () => {
   assertEquals(plan([photo(0)], [line('a', 'Gnocchi', { picked: true })]).kind, 'nothing');
 });
 
-test('plan: a one-dish entry takes every photo, in order, without asking', () => {
+test('plan: a one-dish entry is asked too (a photo of the table names no dish), every photo its fallback', () => {
   const p = plan([photo(1), photo(0)], [line('a', 'Gnocchi')]);
-  assertEquals(p, { kind: 'direct', matches: [
+  assertEquals(p, { kind: 'ask', photos: [photo(0), photo(1)], lines: [line('a', 'Gnocchi')], fallback: [
     { review_id: 'a', photo_url: photo(0).url },
     { review_id: 'a', photo_url: photo(1).url },
   ] });
+});
+
+test('plan: several dishes have no fallback: unanswered, nothing is written', () => {
+  const p = plan([photo(0)], [line('a', 'Gnocchi'), line('b', 'Cannoli')]);
+  assert(p.kind === 'ask' && p.fallback === null);
+});
+
+test('matchesFromResponse: a one-dish entry\'s photo of people is left out', () => {
+  const photos = [photo(0), photo(1)];
+  const lines = [line('a', 'Gnocchi')];
+  assertEquals(matchesFromResponse(reply([{ photo: 2, dish: 1, box: [100, 100, 900, 900] }]), photos, lines), [
+    { review_id: 'a', photo_url: photo(1).url, box: [0.1, 0.1, 0.9, 0.9] },
+  ]);
+  assertEquals(matchesFromResponse(reply([]), photos, lines), []);
 });
 
 test('plan: picked lines and the photos they hold are never offered', () => {

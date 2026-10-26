@@ -234,12 +234,42 @@ test('a dish with no photo of its own never shows another dish of the entry (007
     { photos: ['n/2.jpg'] });
   assert.equal((await read(await reviewId(e2, 'Som Tum'))).cover, null);
 
-  // One line: the entry's photo is that dish's, matched or not — unless the author said No dish.
+  // One line, never matched: the entry's photo is that dish's — unless the author said No dish.
   const e3 = await w.visit(22, U.alice, P.tipo, receipt(['Khao Soi', 4.5]), undefined, { photos: ['n/3.jpg'] });
   const k = await reviewId(e3, 'Khao Soi');
   assert.equal((await read(k)).cover, photoUrl('n/3.jpg'));
   await as(U.alice, () => db.query(`select public.set_review_photo($1, $2, null)`, [e3, photoUrl('n/3.jpg')]));
   assert.equal((await read(k)).cover, null);
+});
+
+test('a one-dish entry\'s photo of the people is not the dish once matched (0096)', async () => {
+  // Photo 1 is the table of friends, photo 2 the pasta: the matcher pairs only the pasta.
+  const e = await w.visit(38, U.alice, P.tipo, receipt(['Cacio e Pepe', 4.5]), undefined,
+    { photos: ['f/1.jpg', 'f/2.jpg'] });
+  const c = await reviewId(e, 'Cacio e Pepe');
+  const cover = async () => (await as(U.bob, () => db.query(
+    `select public.dish_cover_url(dish_id) cover, public.dish_photos(dish_id) photos from public.reviews where id = $1`,
+    [c]))).rows[0];
+  assert.equal((await cover()).cover, photoUrl('f/1.jpg'), 'before any match, the only line borrows the first photo');
+  await asService(() => db.query(`select public.apply_photo_matches($1, $2::jsonb, true)`,
+    [e, JSON.stringify([{ review_id: c, photo_url: photoUrl('f/2.jpg') }])]));
+  assert.deepEqual(await pairs(e), [['f/2.jpg', 'Cacio e Pepe']]);
+  const read = await cover();
+  assert.equal(read.cover, photoUrl('f/2.jpg'));
+  assert.deepEqual(read.photos.map((p) => p.url), [photoUrl('f/2.jpg')]);
+
+  // Every photo of people: matched to nothing, so the dish has no photo at all.
+  const e2 = await w.visit(39, U.alice, P.tipo, receipt(['Negroni', 4]), undefined, { photos: ['f/3.jpg'] });
+  const n = await reviewId(e2, 'Negroni');
+  await asService(() => db.query(`select public.apply_photo_matches($1, '[]'::jsonb, true)`, [e2]));
+  const [none] = (await as(U.bob, () => db.query(
+    `select public.dish_cover_url(dish_id) cover, public.dish_photos(dish_id) photos from public.reviews where id = $1`,
+    [n]))).rows;
+  assert.equal(none.cover, null);
+  assert.deepEqual(none.photos, []);
+  // The visit still shows it.
+  const [card] = (await as(U.bob, () => db.query(`select photos from public.entry_cards where id = $1`, [e2]))).rows;
+  assert.deepEqual(card.photos.map((p) => p.url), [photoUrl('f/3.jpg')]);
 });
 
 test('two photos of one dish are both that dish (0081)', async () => {
