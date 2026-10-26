@@ -24,7 +24,7 @@ Most new screens need no new drawing.
 
 ## 2. Write the line
 
-- One line in Young Serif 26. Break it with `\n` at most once, and end it with a full stop.
+- One line in Young Serif 20 (`.emptyTitle`, smaller than every title). Break it with `\n` at most once, and end it with a full stop.
 - Say literally what is there. Don't apologise, explain or add helper copy, and never invent a
   heading.
 - Use at most one pill, starting with a verb ("Try again", "Add a dish"), and only when there is an
