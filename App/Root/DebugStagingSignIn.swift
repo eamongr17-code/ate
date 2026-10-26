@@ -5,9 +5,10 @@ import Foundation
 ///
 /// **Why this exists.** Every V1 read needs a session (`anon` is revoked on all V1 tables, so an
 /// unauthenticated read returns `[]`, not data), and a simulator cannot complete Sign in with Apple.
-/// It is `Welcome`'s small "staging" door in Debug and Beta, and how every drive signs in.
+/// It is `Welcome`'s small "staging" door in Debug, and how every drive signs in.
 ///
-/// **Why it is safe.** It is compiled only in `DEBUG || BETA`, and ``make(for:api:)`` returns `nil`
+/// **Why it is safe.** It is compiled only in `DEBUG` (never Beta: TestFlight builds point at prod
+/// and must not carry the staging password, audit 26 Oct), and ``make(for:api:)`` returns `nil`
 /// for any environment other than staging — so a Release build has neither the code nor the code
 /// path. The credentials are the demo account already committed in `supabase/seed.sql`.
 struct DebugStagingSignIn: Sendable {
@@ -26,7 +27,7 @@ struct DebugStagingSignIn: Sendable {
         DebugLaunch.isOn(.debugSignIn)
     }
 
-    #if DEBUG || BETA
+    #if DEBUG
     private static let email = "eamon@ate.test"
     private static let password = "atedemo123"
 

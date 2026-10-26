@@ -68,6 +68,34 @@ struct EntryDeletionTests {
     }
 
     @MainActor
+    @Test("A block empties every list of the author, not only the one it was made from")
+    func blockReachesEveryList() async {
+        let theirs = BrowseFixtures.card(1)
+        let other = BrowseFixtures.card(2)
+        let mine = BrowseFixtures.card(3, isMine: true)
+        let deletions = EntryDeletions()
+        let feed = EntryListStore(fallbackMessage: "x") { _, size in
+            Page(items: [theirs, other], requestedLimit: size)
+        }
+        let place = EntryListStore(fallbackMessage: "x") { _, size in
+            Page(items: [theirs], requestedLimit: size)
+        }
+        feed.listen(to: deletions)
+        place.listen(to: deletions)
+        let journal = JournalStore(entries: InMemoryEntryService(entries: [mine]), deletions: deletions)
+        await feed.loadIfNeeded()
+        await place.loadIfNeeded()
+        await journal.loadIfNeeded()
+
+        deletions.sendBlocked(theirs.authorID)
+
+        #expect(feed.entries.map(\.id) == [other.id])
+        #expect(place.entries.isEmpty)
+        #expect(place.phase == .empty)
+        #expect(journal.entries.map(\.id) == [mine.id])
+    }
+
+    @MainActor
     @Test("A list that is gone stops listening")
     func weakObservers() {
         let deletions = EntryDeletions()

@@ -165,6 +165,11 @@ public enum EntryEvents {
         )
     }
 
+    /// A photo queued with an offline entry was no longer on disk when the outbox came to upload it.
+    public static func stagedPhotoLost(position: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "entry_staged_photo_lost", parameters: ["position": String(position)])
+    }
+
     /// The sorter answered. `mode` is the server's own (`stub` | `model`), never inferred, so the day
     /// model mode is switched on the two are comparable in the same series.
     public static func sortCompleted(

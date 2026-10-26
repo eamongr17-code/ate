@@ -81,7 +81,7 @@
 
 	<!-- Asked only when Suggestions is opened, to offer recent photos to write up. -->
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Ate looks at your recent photos so it can offer the meals you haven't written up yet.</string>
+	<string>Ate looks at when and where your recent photos were taken, to offer the meals you haven't written up yet and name the restaurant.</string>
 
 	<!-- Share: Save image writes the story page to Photos, add-only. -->
 	<key>NSPhotoLibraryAddUsageDescription</key>

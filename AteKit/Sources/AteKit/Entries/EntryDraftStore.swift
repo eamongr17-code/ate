@@ -36,10 +36,9 @@ public struct EntryDraftStore: EntryDraftStoring {
         self.root = support.appending(path: containerName, directoryHint: .isDirectory)
         try? fileManager.createDirectory(at: root, withIntermediateDirectories: true)
 
-        let caches = (try? fileManager.url(
-            for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true
-        )) ?? URL.temporaryDirectory
-        self.photosRoot = caches.appending(path: "\(containerName)Photos", directoryHint: .isDirectory)
+        // Application Support, not Caches: an entry saved offline keeps its photos until they are
+        // uploaded, even if iOS clears Caches overnight (audit 26 Oct, finding 18).
+        self.photosRoot = support.appending(path: "\(containerName)Photos", directoryHint: .isDirectory)
         try? fileManager.createDirectory(at: photosRoot, withIntermediateDirectories: true)
         self.owner = owner
     }
