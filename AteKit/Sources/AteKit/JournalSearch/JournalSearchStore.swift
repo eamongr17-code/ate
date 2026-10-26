@@ -157,7 +157,7 @@ public final class JournalSearchStore {
             answered = asked
             phase = results.isEmpty ? .empty : .ready
             analytics(JournalSearchEvents.searched(queryLength: asked.count, resultCount: results.count))
-        } catch is CancellationError {
+        } catch let error where error.isCancellation {
             return
         } catch {
             guard generationAtStart == generation else { return }

@@ -101,7 +101,7 @@ public final class SavedDishesStore {
             reset()
             append(page)
             phase = dishes.isEmpty ? .empty : .ready
-        } catch is CancellationError {
+        } catch let error where error.isCancellation {
             return
         } catch {
             guard generationAtStart == generation else { return }

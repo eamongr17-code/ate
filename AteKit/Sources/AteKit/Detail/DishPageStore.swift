@@ -183,11 +183,14 @@ public final class DishPageStore: SavedDishObserving, EntryDeletionObserving {
             // The next time this dish is opened, from anywhere, it draws whole at once.
             previews?.note(DishPreview(summary))
             recordViewIfNeeded()
-        } catch is CancellationError {
+        } catch let error where error.isCancellation {
             return
         } catch {
             hasLoadedHeader = true
             let isMissing = (error as? AteAPIError).map(Self.isMissing) == true
+            // A refresh that couldn't get through keeps the page it already drew: the dish is
+            // still there, only this read failed. Only "gone" replaces a page that was showing.
+            if isMissing == false, case .ready = header { return }
             header = isMissing ? .unavailable : .unreachable
             if isMissing == false { analytics(RecoveryEvents.detailUnreachable(.dish)) }
         }
@@ -215,7 +218,7 @@ public final class DishPageStore: SavedDishObserving, EntryDeletionObserving {
             append(page)
             phase = reviews.isEmpty ? .empty : .ready
             inlineErrorMessage = nil
-        } catch is CancellationError {
+        } catch let error where error.isCancellation {
             return
         } catch {
             guard generationAtStart == generation else { return }
@@ -249,7 +252,7 @@ public final class DishPageStore: SavedDishObserving, EntryDeletionObserving {
             guard generationAtStart == generation else { return }
             append(page)
             inlineErrorMessage = nil
-        } catch is CancellationError {
+        } catch let error where error.isCancellation {
             return
         } catch {
             guard generationAtStart == generation else { return }

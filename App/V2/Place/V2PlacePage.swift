@@ -61,7 +61,7 @@ struct V2PlacePage: View {
         .ateTitleCollapse($isCollapsed, after: titleBottom)
         .ateGround()
         .ateCollapsingTitle(store.name ?? store.previewName, isCollapsed: isCollapsed)
-        .refreshable { await store.refresh() }
+        .ateRefreshable { await store.refresh() }
         .task { await store.load() }
         .accessibilityIdentifier("place.page")
     }

@@ -96,7 +96,7 @@ struct V2BlockedPeoplePage: View {
         .ateGroupedList()
         .ateInlineTitle("Blocked people")
         .task { await store.loadIfNeeded() }
-        .refreshable { await store.refresh() }
+        .ateRefreshable { await store.refresh() }
     }
 }
 

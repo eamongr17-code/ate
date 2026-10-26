@@ -26,6 +26,7 @@ final class FakePlaceDishSource: PlacePageReading, DishPageReading, TestFake, @u
         var reviews: [UUID: [DishReview]] = [:]
         var saved: Set<UUID> = []
         var summaryFailure: Failure?
+        var summaryCancelled = false
         var menuFailure: Failure?
         var reviewFailures = 0
         var reviewRequests: [DishReviewCursor?] = []
@@ -51,7 +52,12 @@ final class FakePlaceDishSource: PlacePageReading, DishPageReading, TestFake, @u
         }
     }
 
+    /// The place is deleted (or its author blocked) after the page drew it.
+    func remove(place id: UUID) { lock.withLock { state.summaries[id] = nil } }
+
     func failSummary(_ failure: Failure?) { lock.withLock { state.summaryFailure = failure } }
+    /// The header read throws what URLSession throws when the task awaiting it is cancelled.
+    func cancelSummary(_ cancelled: Bool) { lock.withLock { state.summaryCancelled = cancelled } }
     func failMenu(_ failure: Failure?) { lock.withLock { state.menuFailure = failure } }
     func failReviews(times: Int) { lock.withLock { state.reviewFailures = times } }
 
@@ -64,6 +70,7 @@ final class FakePlaceDishSource: PlacePageReading, DishPageReading, TestFake, @u
     func placeSummary(restaurantID: UUID) async throws -> PlaceSummary {
         try lock.withLock {
             if let failure = state.summaryFailure { throw failure }
+            if state.summaryCancelled { throw URLError(.cancelled) }
             guard let row = state.summaries[restaurantID] else {
                 throw AteAPIError.notFound(table: "restaurants", id: restaurantID)
             }
@@ -122,6 +129,7 @@ final class FakePlaceDishSource: PlacePageReading, DishPageReading, TestFake, @u
     func dishSummary(dishID: UUID) async throws -> DishSummary {
         try lock.withLock {
             if let failure = state.summaryFailure { throw failure }
+            if state.summaryCancelled { throw URLError(.cancelled) }
             guard let row = state.dishSummaries[dishID] else {
                 throw AteAPIError.notFound(table: "dishes", id: dishID)
             }

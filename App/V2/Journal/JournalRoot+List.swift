@@ -20,7 +20,7 @@ extension JournalRoot {
         }
         .scrollIndicators(.hidden)
         .ateRootBarHiding($barHidden)
-        .refreshable { await refresh() }
+        .ateRefreshable { await refresh() }
     }
 
     // MARK: - Empty

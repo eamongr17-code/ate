@@ -47,7 +47,7 @@ struct V2TagRankedPage: View {
         .scrollIndicators(.hidden)
         .ateGround()
         .ateInlineTitle(store.tag.label, subtitle: tag.city.map { AteCity.displayName(for: $0) })
-        .refreshable { await store.refresh() }
+        .ateRefreshable { await store.refresh() }
         .task {
             await store.loadIfNeeded()
             guard hasRecordedView == false else { return }

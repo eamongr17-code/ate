@@ -155,7 +155,7 @@ public final class ListPickerStore {
             }
             answered = .some(asked)
             phase = rows.isEmpty ? .empty : .ready
-        } catch is CancellationError {
+        } catch let error where error.isCancellation {
             return
         } catch {
             guard generationAtStart == generation else { return }

@@ -65,7 +65,7 @@ struct V2ListPage: View {
         .toolbar { toolbar }
         .overlay(alignment: .bottom) { undo }
         .animation(reduceMotion ? nil : .default, value: store.undoable?.id)
-        .refreshable { await store.refresh() }
+        .ateRefreshable { await store.refresh() }
         .task { await store.loadIfNeeded() }
         .onAppear(perform: pickOnOpen)
         .onChange(of: store.phase) { _, phase in

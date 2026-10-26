@@ -138,7 +138,7 @@ public final class JournalStore: EntryDeletionObserving {
             guard generationAtStart == generation else { return }
             append(page)
             inlineErrorMessage = nil
-        } catch is CancellationError {
+        } catch let error where error.isCancellation {
             return
         } catch {
             guard generationAtStart == generation else { return }
@@ -168,7 +168,7 @@ public final class JournalStore: EntryDeletionObserving {
             phase = entries.isEmpty ? .empty : .ready
             inlineErrorMessage = nil
             persist()
-        } catch is CancellationError {
+        } catch let error where error.isCancellation {
             return
         } catch {
             guard generationAtStart == generation else { return }
