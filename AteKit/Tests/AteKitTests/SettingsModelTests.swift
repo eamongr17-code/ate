@@ -307,6 +307,18 @@ struct AccountEventsTests {
         #expect(AccountEvents.accountDeleted(authUserDeleted: false).parameters == ["auth_user_deleted": "false"])
         #expect(AccountEvents.userUnblocked().name == "user_unblocked")
         #expect(AccountEvents.signedOut().name == "signed_out")
+        #expect(AccountEvents.permissionOpened(.location, state: .off).parameters
+            == ["permission": "location", "state": "off"])
+        #expect(AccountEvents.supportEmailTapped(opened: false).parameters == ["opened": "false"])
+    }
+
+    @Test("This iPhone rows say what iOS allows in plain words")
+    func permissionWords() {
+        #expect(DevicePermission.allCases.map(\.title) == ["Notifications", "Photos", "Location", "Camera"])
+        #expect(DevicePermissionState.notAsked.title == "Not set")
+        #expect(DevicePermissionState.allPhotos.title == "All photos")
+        #expect(DevicePermissionState.whileUsing.title == "While using")
+        #expect(Set(DevicePermissionState.allCases.map(\.title)).count == DevicePermissionState.allCases.count)
     }
 
     @Test("every event name is snake_case, like the rest of the funnel")
@@ -322,7 +334,9 @@ struct AccountEventsTests {
             AccountEvents.appearanceChanged(.dark),
             AccountEvents.userUnblocked(),
             AccountEvents.signedOut(),
-            AccountEvents.accountDeleted()
+            AccountEvents.accountDeleted(),
+            AccountEvents.permissionOpened(.photos, state: .limited),
+            AccountEvents.supportEmailTapped(opened: true)
         ]
         for event in events {
             #expect(event.name == event.name.lowercased())
