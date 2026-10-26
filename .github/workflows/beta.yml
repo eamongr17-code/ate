@@ -96,6 +96,31 @@ permissions:
   contents: read
 
 jobs:
+  # "What to Test" for this build: the app PRs merged since the last uploaded build, in testers'
+  # words (.github/scripts/build_notes.py). Never blocks the upload; Send to public link falls back.
+  notes:
+    name: Write tester notes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      whats_new: ${{ steps.notes.outputs.whats_new }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Notes from merged PRs
+        id: notes
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: python3 .github/scripts/build_notes.py
+
   preflight:
     name: Check signing credentials
     runs-on: ubuntu-latest
@@ -407,10 +432,11 @@ jobs:
   # (a no-op until that group exists). Never fails the upload above.
   public-link:
     name: Send to public link
-    needs: beta
-    if: needs.beta.result == 'success' && !inputs.dry_run
+    needs: [beta, notes]
+    if: always() && needs.beta.result == 'success' && !inputs.dry_run
     uses: ./.github/workflows/testflight-external.yml
     with:
       mode: distribute
       build_number: ${{ github.run_number }}
+      whats_new: ${{ needs.notes.outputs.whats_new }}
     secrets: inherit

@@ -32,6 +32,10 @@ on:
       build_number:
         type: string
         default: ""
+      # This build's "What to Test" (Beta's notes job); empty falls back to TF_WHATS_NEW below.
+      whats_new:
+        type: string
+        default: ""
 
 # Read-only token: no job here writes to the repo (security sweep, Oct 2026).
 permissions:
@@ -56,9 +60,7 @@ jobs:
       TF_DESCRIPTION: >-
         Ate is a journal for the dishes you eat. Write about a meal the way you'd text a friend,
         score the dishes, and Ate prints the receipt.
-      TF_WHATS_NEW: >-
-        Sign in with Apple and write up a meal you've had: name the place, score the dishes, add
-        photos, and share the receipt. Take a screenshot in the app to send feedback.
+      TF_WHATS_NEW: ${{ inputs.whats_new || 'Small fixes in this build. To report a bug, tap the bug at the top of the You tab.' }}
       TF_REVIEW_NOTES: >-
         Sign in with Apple (any Apple ID works); no demo account is needed. Location and photo
         access are optional.
