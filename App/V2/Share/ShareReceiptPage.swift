@@ -14,7 +14,8 @@ struct ShareReceiptPage: Identifiable, Equatable {
     let isWhole: Bool
 
     /// A page per dish, then the whole receipt; for one dish, the whole receipt alone. `available` is
-    /// the photos in hand; `dishPhotos` each dish's own (``SharePhotoPairs``), every photo until known.
+    /// the photos in hand; `dishPhotos` each dish's own (``SharePhotoPairs``). Until the match has
+    /// answered a dish has no photo (sticker only), and its story and post join when it lands.
     static func pages(for receipt: AteReceipt, available: [Int], dishPhotos: [UUID: [Int]]) -> [ShareReceiptPage] {
         let whole = ShareReceiptPage(
             id: receipt.id, receipt: receipt,
@@ -24,7 +25,7 @@ struct ShareReceiptPage: Identifiable, Equatable {
         let dishes = receipt.items.map { item in
             var one = receipt
             one.items = [item]
-            let photos = dishPhotos[item.id].map { own in own.filter { available.contains($0) } } ?? available
+            let photos = (dishPhotos[item.id] ?? []).filter { available.contains($0) }
             return ShareReceiptPage(id: item.id, receipt: one, photos: photos, isWhole: false)
         }
         return dishes + [whole]
