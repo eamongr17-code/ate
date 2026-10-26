@@ -12,7 +12,8 @@ struct YouRoot: View {
     let router: TabRouter<YouStores>
     let app: AppModel
 
-    @State private var isCollapsed = false
+    /// How far the glass header has stepped away (0 to 1), as on every other root.
+    @State private var barHidden: CGFloat = 0
     /// The bug's Feedback sheet (`feedback.html`), testers only.
     @State private var isSendingFeedback = false
     @State private var feedbackToast: String?
@@ -35,7 +36,7 @@ struct YouRoot: View {
                     .padding(.top, AteMetrics.regular)
                     .padding(.bottom, AteMetrics.section)
             }
-            .ateRootCollapse($isCollapsed)
+            .ateRootBarHiding($barHidden)
             .refreshable { await store.refresh() }
             .onChange(of: router.scrollToTop) { _, _ in
                 withAnimation(reduceMotion ? nil : .default) { reader.scrollTo(YouRootIDs.top, anchor: .top) }
@@ -43,10 +44,11 @@ struct YouRoot: View {
         }
         .accessibilityIdentifier("v2.root.you")
         .ateGround()
-        .ateRootToolbar(
+        // The same glass header as Journal, Feed and Saved: one title, always, stepping away with the
+        // page. The native bar's collapse into a small title was You's alone (feedback #4).
+        .ateGlassRootHeader(
             title: .text(V2Tab.you.title),
-            inline: AteInlineTitle(title: V2Tab.you.title),
-            isCollapsed: isCollapsed,
+            hidden: barHidden,
             showsApart: showsBug,
             apart: { bug },
             controls: {
