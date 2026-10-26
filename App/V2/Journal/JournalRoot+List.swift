@@ -112,7 +112,7 @@ extension JournalRoot {
 
     /// A month's name over its first slip — the year beside it only when it is not this one.
     private func monthDivider(_ month: AteMonth) -> some View {
-        let isThisYear = month.year == AteMonth.containing(Date()).year
+        let isThisYear = month.year == AteMonth.containing(RelativeAge.now).year
         return AteMonthHeading(month: month.name(), year: isThisYear ? nil : String(month.year))
     }
 }

@@ -1,4 +1,7 @@
 import Foundation
+#if DEBUG
+import Synchronization
+#endif
 
 /// **"2h", "5h", "1d"** — how old an entry is, in the two or three characters the design gives it.
 ///
@@ -10,8 +13,28 @@ import Foundation
 /// Everything is floored, never rounded: an entry written 119 minutes ago reads "1h", because it
 /// has not been two hours yet and a feed that rounds up is a feed that lies about when you ate.
 public enum RelativeAge {
+    /// What every age, day and "this year" is measured from: the clock. A Debug build can pin it
+    /// (``pin(_:)``), so the screen snapshots and the preview data they draw agree on one moment and
+    /// a picture taken today still matches next month.
+    public static var now: Date {
+        #if DEBUG
+        pinned.withLock { $0 } ?? Date()
+        #else
+        Date()
+        #endif
+    }
+
+    #if DEBUG
+    private static let pinned = Mutex<Date?>(nil)
+
+    /// Holds ``now`` at `date` until it is pinned again; `nil` gives it back to the clock.
+    public static func pin(_ date: Date?) {
+        pinned.withLock { $0 = date }
+    }
+    #endif
+
     /// The design's own vocabulary: `now` under a minute, then m, h, d, w, y.
-    public static func short(_ date: Date, now: Date = Date()) -> String {
+    public static func short(_ date: Date, now: Date = RelativeAge.now) -> String {
         let seconds = now.timeIntervalSince(date)
         // A row from the future — a clock skew, or an entry backdated on another device — is not an
         // error worth a screen. It is "now", which is the closest true thing that fits.

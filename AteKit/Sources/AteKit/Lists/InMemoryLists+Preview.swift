@@ -5,7 +5,7 @@ public extension InMemoryLists {
     /// **The preview shelf**: three lists — "Melbourne's best burgers" with six dishes, a short pasta
     /// list off the design's own Tipo 00 visit, and one with nothing on it yet. The picker searches the
     /// burgers, the preview journal's lines, and a few unscored ones.
-    static func preview(journal: [EntryCard] = [.previewSorted, .previewCroissant], now: Date = .now)
+    static func preview(journal: [EntryCard] = [.previewSorted, .previewCroissant], now: Date = RelativeAge.now)
         -> InMemoryLists {
         let journalLines = lines(from: journal)
         let lists = InMemoryLists(lines: burgers(now: now) + journalLines + extras(now: now))

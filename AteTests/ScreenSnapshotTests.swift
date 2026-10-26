@@ -17,10 +17,10 @@ import XCTest
 /// only, with a `[record-snapshots]` commit, exactly as for the kit (see `KitSnapshotTests`): a change
 /// to one of these screens is expected to fail here until its pictures are re-recorded and judged.
 ///
-/// What would make a picture drift without a change: an id minted with `UUID()` in the preview data
-/// (tiles, avatars and photo tilts take their look from the id), and the calendar year. The fixtures'
-/// own visits are dated September 2026; from January 2027 the journal prints their year beside the
-/// month, and the pictures need re-recording once.
+/// Nothing on these pages may depend on when the test runs. The clock is pinned (`RelativeAge.pin`)
+/// to the evening after the design's own visit, so the feed's "2h", a visit's day and the journal's
+/// "this year" are the same in every run; and the preview data's ids are seeded, never `UUID()`,
+/// because tiles, avatars and photo tilts take their look from the id.
 @MainActor
 final class ScreenSnapshotTests: XCTestCase {
     func testJournal() { snapshot(.journal) }
@@ -40,6 +40,9 @@ final class ScreenSnapshotTests: XCTestCase {
         let jess = try XCTUnwrap(InMemorySocialService.seededEntries.first { $0.id == Self.jessAtTipo })
         snapshot(.feed, opening: .entry(jess))
     }
+
+    /// Sun 20 Sep 2026, 8:14 pm in Melbourne: a day after the design's Tipo 00 visit.
+    private static let pinnedNow = Date(timeIntervalSince1970: 1_789_899_240)
 
     private static let tipo = UUID(uuidString: "B7E00000-0000-4000-8000-000000000001")!
     private static let jessAtTipo = UUID(uuidString: "E0000000-0000-4000-8000-000000000001")!
@@ -61,6 +64,8 @@ final class ScreenSnapshotTests: XCTestCase {
             XCTFail("The test host has no environment (Config/Secrets.xcconfig)", file: file, line: line)
             return
         }
+        RelativeAge.pin(Self.pinnedNow)
+        defer { RelativeAge.pin(nil) }
         for (name, scheme) in [("light", ColorScheme.light), ("dark", .dark)] {
             let app = AppModel(services: AteServices(environment: environment))
             let start = V2Launch.Start(tab: tab, path: route.map { [$0] } ?? [])

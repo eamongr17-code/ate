@@ -17,7 +17,7 @@ enum EntrySlipPresentation {
 
     /// The feed: the person is named above the stack, every dish carries its own bookmark, and a
     /// visit of three dishes or more leaves its words to the entry (``SlipAnatomy``).
-    static func feed(_ card: EntryCard, now: Date = Date()) -> AteSlip {
+    static func feed(_ card: EntryCard, now: Date = RelativeAge.now) -> AteSlip {
         var slip = slip(card, surface: .feed, meta: .none)
         slip.density = .tight
         // A blocked or deleted author is simply absent from the row (contract). The entry is still
@@ -36,7 +36,7 @@ enum EntrySlipPresentation {
 
     /// A profile: the byline would be the page's own title repeated, so the age moves to the right
     /// of the foot line — where the journal prints its date — and the stack keeps its bookmarks.
-    static func profile(_ card: EntryCard, now: Date = Date()) -> AteSlip {
+    static func profile(_ card: EntryCard, now: Date = RelativeAge.now) -> AteSlip {
         slip(card, surface: .profile, meta: .age(RelativeAge.short(card.createdAt, now: now)))
     }
 
@@ -46,7 +46,7 @@ enum EntrySlipPresentation {
     /// would only name the room the reader is already in.
     static func placeVisit(
         _ card: EntryCard,
-        now: Date = Date(),
+        now: Date = RelativeAge.now,
         timeZone: TimeZone = .autoupdatingCurrent
     ) -> AteSlip {
         var slip = slip(card, surface: .feed, meta: .none)

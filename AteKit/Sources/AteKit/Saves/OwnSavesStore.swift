@@ -251,7 +251,7 @@ public actor InMemoryOwnSaves: OwnSaving {
 
 extension InMemoryOwnSaves {
     /// The preview drive's own saves: one of each source.
-    public static func preview(now: Date = Date()) -> InMemoryOwnSaves {
+    public static func preview(now: Date = RelativeAge.now) -> InMemoryOwnSaves {
         let ago = { (hours: Double) in now.addingTimeInterval(-hours * 3600) }
         return InMemoryOwnSaves(rows: [
             OwnSave(
