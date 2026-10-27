@@ -67,26 +67,11 @@ struct FeedMapPage: View {
             .frame(width: AteScreen.width, height: room.screen)
             .ignoresSafeArea()
         }
-        .toolbarVisibility(.hidden, for: .tabBar)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(removing: .title)
-        .toolbar {
-            // In the top bar's row, between Back and Show my location, and in the bar itself: drawn
-            // in the page under the bar, the bar took its taps (build 216, it did nothing).
-            if showsSearchHere, store.selected == nil {
-                ToolbarItem(placement: .principal) {
-                    FeedMapSearchHere(action: searchHere)
-                }
-                .sharedBackgroundVisibility(.hidden)
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { Task { await backToNearMe() } } label: {
-                    AteIcon.navigation.view(size: AteGlassDiscMetrics.glyph)
-                }
-                .accessibilityLabel(FeedMapCopy.recentre)
-                .accessibilityIdentifier("map.recentre")
-            }
-        }
+        .feedMapBar(
+            showsSearchHere: showsSearchHere && store.selected == nil,
+            searchHere: searchHere,
+            recentre: { Task { await backToNearMe() } }
+        )
         .task { await store.open() }
         // No connection on the sheet, and the sheet and pins read again when it comes back.
         .task {
@@ -339,6 +324,32 @@ struct FeedMapMark: Identifiable {
             longitude: members.map(\.longitude).reduce(0, +) / count
         )
         return FeedMapMark(id: "dot-\(first.id)", kind: .dot(members), coordinate: coordinate, label: first.name)
+    }
+}
+
+extension View {
+    /// The map's top bar: Back, Search here in the row's middle, Show my location trailing. In the bar
+    /// itself: drawn in the page under the bar, the bar took its taps (build 216, it did nothing).
+    func feedMapBar(showsSearchHere: Bool, searchHere: @escaping () -> Void, recentre: @escaping () -> Void)
+        -> some View {
+        toolbarVisibility(.hidden, for: .tabBar)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(removing: .title)
+            .toolbar {
+                if showsSearchHere {
+                    ToolbarItem(placement: .principal) {
+                        FeedMapSearchHere(action: searchHere)
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: recentre) {
+                        AteIcon.navigation.view(size: AteGlassDiscMetrics.glyph)
+                    }
+                    .accessibilityLabel(FeedMapCopy.recentre)
+                    .accessibilityIdentifier("map.recentre")
+                }
+            }
     }
 }
 
