@@ -228,39 +228,57 @@ private struct ShareSlipNameStyle: ButtonStyle {
     }
 }
 
-/// The dishes while they are being sorted: three rows at the dish lines' own height, the name and
-/// the score box as blank bars, the third unscored — an unrated dish is an empty slot even before it
-/// has a name.
+/// The dishes while they are being sorted: three rows laid out exactly like the dish lines — the
+/// name's column, then the score's column — with a blank bar for each name and a short one where the
+/// "★ 4.5" prints, the third unscored: an unrated dish is an empty slot even before it has a name.
+/// Every bar stays inside its column, so nothing runs past the paper's margin at any size (27 Oct,
+/// Eamon: the old score boxes were wider than the room left for them, and taller than a row).
 private struct ShareSlipSkeleton: View {
     var breathes: Bool
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private static let rows: [(name: CGFloat, scored: Bool)] = [(118, true), (72, true), (98, false)]
+    /// Each name bar's longest length; on a narrower paper it takes its column's width instead.
+    private static let rows: [(name: CGFloat, scored: Bool)] = [(104, true), (64, true), (88, false)]
 
-    /// The bars' length on the paper: the room the lines are held while they are sorted.
+    /// A dish line's height: the score's slot, or the name's line if that is taller.
+    private static func rowHeight(_ size: DynamicTypeSize) -> CGFloat {
+        max(AteTextStyle.shareSlipDish.lineBox(size), AteShareSlipMetrics.scoreBox + AteShareSlipMetrics.scoreLift)
+    }
+
+    /// The bars' length on the paper: the room three one-line dishes take once they print.
     static func height(_ size: DynamicTypeSize) -> CGFloat {
-        CGFloat(rows.count) * AteTextStyle.shareSlipDish.lineBox(size) + CGFloat(rows.count - 1) * AteMetrics.tight
+        CGFloat(rows.count) * rowHeight(size) + CGFloat(rows.count - 1) * AteMetrics.tight
+    }
+
+    /// Both bars sit on the score's centre line, so a row reads as one line.
+    private var barTop: CGFloat {
+        AteShareSlipMetrics.scoreLift + (AteShareSlipMetrics.scoreBox - AteShareSlipMetrics.skeletonBar) / 2
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: AteMetrics.tight) {
             ForEach(Array(Self.rows.enumerated()), id: \.offset) { _, row in
                 HStack(alignment: .top, spacing: AteMetrics.regular) {
-                    Capsule()
-                        .fill(AtePalette.slip.fg.opacity(AteShareSlipMetrics.skeletonOpacity))
-                        .frame(width: row.name, height: AteShareSlipMetrics.skeletonBar)
-                        .padding(.top, (AteShareSlipMetrics.scoreBox - AteShareSlipMetrics.skeletonBar) / 2)
-                    Spacer(minLength: 0)
-                    RoundedRectangle(cornerRadius: AteShareSlipMetrics.markRadius, style: .continuous)
-                        .fill(AtePalette.slip.fg.opacity(row.scored ? AteShareSlipMetrics.skeletonOpacity : 0))
-                        .frame(width: AteShareSlipMetrics.scoreColumn, height: AteShareSlipMetrics.scoreBox)
+                    bar(opacity: AteShareSlipMetrics.skeletonOpacity)
+                        .frame(maxWidth: row.name)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    bar(opacity: row.scored ? AteShareSlipMetrics.skeletonOpacity : 0)
+                        .frame(width: AteShareSlipMetrics.skeletonScore)
+                        .frame(width: AteShareSlipMetrics.scoreColumn)
                 }
-                .frame(height: AteTextStyle.shareSlipDish.lineBox(dynamicTypeSize), alignment: .top)
+                .padding(.top, barTop)
+                .frame(height: Self.rowHeight(dynamicTypeSize), alignment: .top)
             }
         }
         .ateSkeletonSweep(breathes)
         .accessibilityHidden(true)
+    }
+
+    private func bar(opacity: Double) -> some View {
+        Capsule()
+            .fill(AtePalette.slip.fg.opacity(opacity))
+            .frame(height: AteShareSlipMetrics.skeletonBar)
     }
 }
 
@@ -288,6 +306,8 @@ enum AteShareSlipMetrics {
     static let scoreLift: CGFloat = 1
     static let placeKeyIcon: CGFloat = 16
     static let skeletonBar: CGFloat = 10
+    /// The score's bar: about as long as a printed "★ 4.5", inside the score column.
+    static let skeletonScore: CGFloat = 36
     static let skeletonOpacity: Double = 0.10
 }
 
