@@ -330,11 +330,14 @@ struct FeedMapMark: Identifiable {
 extension View {
     /// The map's top bar: Back, Search here in the row's middle, Show my location trailing. In the bar
     /// itself: drawn in the page under the bar, the bar took its taps (build 216, it did nothing).
+    ///
+    /// Never `.toolbar(removing: .title)` here: the middle of the bar *is* the title's slot, and with
+    /// the title removed the bar kept Search here but hid it and passed its taps by (builds 217–243:
+    /// "the Search here button is gone"; `DishMapBarTests`). The page sets no title, so none shows.
     func feedMapBar(showsSearchHere: Bool, searchHere: @escaping () -> Void, recentre: @escaping () -> Void)
         -> some View {
         toolbarVisibility(.hidden, for: .tabBar)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar(removing: .title)
             .toolbar {
                 if showsSearchHere {
                     ToolbarItem(placement: .principal) {
