@@ -64,6 +64,32 @@ struct LatePhotoTests {
         #expect(service.inserts == 0)
     }
 
+    @Test("a run that fails part-way keeps only the photos still owed: a retry re-sends none that landed")
+    func partialFailureKeepsOnlyWhatIsOwed() async throws {
+        let service = UploadRecorder()
+        service.failsPosition = 1
+        let outbox = EntryOutbox(entries: service, containerName: "Tests-\(UUID().uuidString)")
+        let id = UUID()
+        let insert = QueuedInsert(NewEntry(id: id, authorID: UUID(), body: "x", restaurantID: nil, createdAt: Date()))
+        var item = QueuedEntry(
+            entry: insert,
+            pendingPhotos: [
+                QueuedPhoto(position: 0, path: try lateFile()), QueuedPhoto(position: 1, path: try lateFile()),
+            ],
+            needsSort: false
+        )
+        item.hasInserted = true
+        await outbox.enqueue(item)
+
+        #expect(await outbox.run().isEmpty)
+        #expect(service.uploads == ["\(id) @0"])
+        #expect(await outbox.queued(entryID: id)?.pendingPhotos.map(\.position) == [1], "photo 0 is no longer owed")
+
+        service.failsPosition = nil
+        #expect(await outbox.run() == [id])
+        #expect(service.uploads == ["\(id) @0", "\(id) @1"], "photo 0 went up once")
+    }
+
     @Test("a late photo joins an entry already waiting in the outbox")
     func joinsTheQueuedEntry() async throws {
         let service = UploadRecorder()
