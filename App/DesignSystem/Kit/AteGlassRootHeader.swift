@@ -126,7 +126,7 @@ private struct AteRootBarHiding: ViewModifier {
             } action: { old, new in
                 depth = new.depth
                 // A page too short to take the header all the way away keeps it all there: it would
-                // stop part way up at the page's end, its title under the clock (You, build 251).
+                // stop part way up at the page's end, its title under the clock (You, 27 Oct).
                 guard new.room >= travel else {
                     if hidden != 0 {
                         withAnimation(reduceMotion ? nil : AteGlassRootHeaderMetrics.slide) { hidden = 0 }
