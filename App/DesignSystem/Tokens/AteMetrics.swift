@@ -120,6 +120,10 @@ enum AteMetrics {
     /// Between a slip's bands: the byline, the dish stack, the words, the photos, the foot line
     /// (`gap:10px`).
     static let slipBandGap: CGFloat = 10
+    /// …except between the dish stack and the words under it, which belong together: the dish row's
+    /// own 9 below the name already parts them (Eamon, 27 Oct: the gap was too big; it was the band
+    /// gap, 10 or the feed's 8).
+    static let slipWordsGap: CGFloat = 4
     /// A slip's foot line — pin, place, suburb, and the date or age on the right
     /// (`.placeline`: `min-height:28px; margin:2px 0 -6px`).
     static let slipFootHeight: CGFloat = 28
@@ -171,6 +175,8 @@ enum AteMetrics {
     static let pagePaddingSide: CGFloat = 20
     /// Between the page's bands (`gap:16px`).
     static let pageBandGap: CGFloat = 16
+    /// …except between the dish rows and the words, as on a slip (Eamon, 27 Oct: was 16).
+    static let pageWordsGap: CGFloat = 8
     /// How far the page runs off the bottom of the screen: the artboard's `min-height:760` starts at
     /// 112 on an 844-tall page, so 28 of it is always past the fold (design rule 10).
     static let pageOvershoot: CGFloat = 28

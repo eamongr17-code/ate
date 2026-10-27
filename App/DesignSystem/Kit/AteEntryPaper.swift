@@ -55,6 +55,7 @@ struct AteEntryPaper: View {
             if words.plain.isEmpty == false {
                 InlineTokenText(composition: words, style: .proseLarge, onScoreDish: onScoreDish)
                     .accessibilityIdentifier("entry.words")
+                    .padding(.top, hasDishRows ? AteMetrics.pageWordsGap - AteMetrics.pageBandGap : 0)
             }
             reprint
             if photos.isEmpty == false {
@@ -92,6 +93,12 @@ struct AteEntryPaper: View {
             topTrailingRadius: AteMetrics.pageTop,
             style: .continuous
         ))
+    }
+
+    /// Whether the words sit under a dish band (rows, or the receipt still printing them).
+    private var hasDishRows: Bool {
+        if case .rows(let rows) = dishes { return rows.isEmpty == false }
+        return true
     }
 
     @ViewBuilder

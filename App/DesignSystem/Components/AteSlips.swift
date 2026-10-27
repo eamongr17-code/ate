@@ -105,6 +105,8 @@ struct EntrySlip: View {
                         } }
                     )
                 }
+                // Under the dishes the words sit closer than the band gap: pulled up to `slipWordsGap`.
+                .padding(.top, slip.dishes.isEmpty ? 0 : AteMetrics.slipWordsGap - insets.gap)
             }
             // …and a photo opens itself, full screen, never the entry. A sibling of the words'
             // button rather than inside it: a tap inside a button's label belongs to that button.
