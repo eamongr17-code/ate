@@ -253,12 +253,12 @@ struct DishMapTests {
 
     @Test("location off opens on 2 km around the busiest place, listing that area")
     func opensWithoutLocation() async throws {
-        let store = DishMapStore(reads: Reads(nearest: [geelong]), menus: Menus(), locate: { _ in nil })
+        let store = DishMapStore(reads: Reads(nearest: [geelong]), menus: Menus(), locate: { _ in nil },
+                                 nameArea: { _ in "Geelong" })
         await store.open()
         let frame = try #require(store.frame)
         #expect(frame.contains(latitude: geelong.latitude, longitude: geelong.longitude))
         #expect(store.listing == .area(frame))
-        store.name(area: "Geelong", for: frame)
         #expect(store.title == .area("Geelong"))
         #expect(store.phone == nil)
     }
@@ -266,7 +266,8 @@ struct DishMapTests {
     @Test("panning moves the pins, not the list; Search here lists the screen; my location goes back")
     func searchHere() async throws {
         let reads = Reads(nearest: [], dishes: [dish("Near", meters: 350)])
-        let store = DishMapStore(reads: reads, menus: Menus(), locate: { _ in self.fitzroy })
+        let store = DishMapStore(reads: reads, menus: Menus(), locate: { _ in self.fitzroy },
+                                 nameArea: { _ in "Carlton" })
         await store.open()
         let home = try #require(store.frame)
         await store.show(home)
@@ -284,10 +285,6 @@ struct DishMapTests {
         await store.searchHere()
         #expect(store.listing == .area(carlton))
         #expect(store.canSearchHere == false)
-        #expect(store.title == .area(nil))
-        store.name(area: "Fitzroy", for: home)
-        #expect(store.title == .area(nil), "a name for an area no longer listed is dropped")
-        store.name(area: "Carlton", for: carlton)
         #expect(store.title == .area("Carlton"))
 
         let listedBeforeReturn = reads.listed.withLock { $0.count }
@@ -301,14 +298,14 @@ struct DishMapTests {
 
     @Test("Search here over an empty area ends ready and empty, the state the sheet draws its empty state for")
     func searchHereEmpty() async throws {
-        let store = DishMapStore(reads: Reads(nearest: []), menus: Menus(), locate: { _ in self.fitzroy })
+        let store = DishMapStore(reads: Reads(nearest: []), menus: Menus(), locate: { _ in self.fitzroy },
+                                 nameArea: { _ in "Thalang District" })
         await store.open()
         let thalang = MapBox(
             centerLatitude: 8.03, centerLongitude: 98.34, latitudeDelta: 0.06, longitudeDelta: 0.05
         )
         await store.show(thalang)
         await store.searchHere()
-        store.name(area: "Thalang District", for: thalang)
         // FeedMapSheet shows the drawing and fits its height on exactly this: nothing selected, ready,
         // no dishes (build 244 showed the old grey line because #294 had not shipped, not another path).
         #expect(store.selected == nil)
@@ -316,6 +313,31 @@ struct DishMapTests {
         #expect(store.dishes.isEmpty)
         #expect(store.title == .area("Thalang District"))
         #expect(store.title.emptyLine == "No dishes here.")
+    }
+
+    @Test("Search here keeps the list and its title on show until the new list lands with its suburb")
+    func searchHereKeepsList() async throws {
+        let reads = Reads(nearest: [], dishes: [dish("Near", meters: 350)])
+        let store = DishMapStore(reads: reads, menus: Menus(), locate: { _ in self.fitzroy },
+                                 nameArea: { _ in "Carlton" })
+        await store.open()
+        let carlton = MapBox(
+            centerLatitude: -37.70, centerLongitude: 144.98, latitudeDelta: 0.18, longitudeDelta: 0.22
+        )
+        await store.show(carlton)
+        let listedBefore = reads.listed.withLock { $0.count }
+        reads.holdNextList.withLock { $0 = true }
+        let searching = Task { await store.searchHere() }
+        while reads.listed.withLock({ $0.count }) == listedBefore { await Task.yield() }
+        // The read is out: no placeholders, no "This area".
+        #expect(store.phase == .ready)
+        #expect(store.dishes.map(\.name) == ["Near"])
+        #expect(store.title == .nearMe)
+        #expect(store.canSearchHere == false)
+        reads.release()
+        await searching.value
+        #expect(store.title == .area("Carlton"))
+        #expect(store.listing == .area(carlton))
     }
 
     @Test("my location a few metres off the last fix keeps the list; far off reads it again")
