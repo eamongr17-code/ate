@@ -122,7 +122,7 @@ enum AteColor {
     static let scoreFill = Color(light: butter, dark: butterDark)
     /// The numerals and star on ``scoreFill`` — ink in both modes.
     static let scoreInk = ink
-    /// A score drawn as a mark rather than a pill: a filled star, a histogram bar, the slider's burst.
+    /// A score drawn as a mark rather than a pill: a histogram bar, the slider's burst. Never a star.
     static let scoreMark = Color(light: butter, dark: butterDark)
     /// The composer's Place and Diet keys and the diet codes — linen in light, raised grey in dark.
     static let keyFill = Color(light: linenField, dark: raisedDark)

@@ -7,7 +7,7 @@ import TipKit
 /// on flat paper with Edge B. The existing ``EntrySlip``, with each surface's rules applied here once
 /// rather than by every caller:
 ///
-/// - **Journal** — no byline, no bookmarks, the full caption, the day at the foot.
+/// - **Journal** — no byline, no bookmarks, "with @jess" on top, the full caption, the day at the foot.
 /// - **Feed** — the byline, a bookmark on every dish, the tighter density, two lines of words, and
 ///   **no words at all past two dishes** (``SlipAnatomy``).
 /// - **Profile** — bookmarks, two lines, the age at the foot.

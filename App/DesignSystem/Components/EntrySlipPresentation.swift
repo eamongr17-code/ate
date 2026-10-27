@@ -69,6 +69,8 @@ enum EntrySlipPresentation {
                 avatarURL: author.avatarURL.flatMap(URL.init(string:))
             )
         }
+        // The byline carries "with", as it does in the feed — yours and everyone else's alike.
+        slip.byline?.with = CompanionLine.compact(card.companions.map(\.username))
         return slip
     }
 
@@ -114,6 +116,7 @@ enum EntrySlipPresentation {
             photos: Array(viewerPhotos(card).prefix(maximumPhotos))
         )
         slip.viewerPhotos = viewerPhotos(card)
+        slip.with = card.companions.map { AteWithPerson(id: $0.userID, handle: $0.username) }
         slip.isMine = card.isMine
         slip.wordsLineLimit = SlipAnatomy.wordsLineLimit(on: surface)
         return slip

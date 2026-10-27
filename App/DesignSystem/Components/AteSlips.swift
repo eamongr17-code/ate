@@ -71,12 +71,18 @@ struct EntrySlip: View {
         content()
             // `padding:12px 16px 14px` under a byline; `4px 16px 14px` when the slip opens straight
             // on its first 44pt dish row, which carries its own air. The feed's are `10px 14px 12px`.
-            .padding(.top, slip.byline == nil ? AteMetrics.slipPaddingTopBare : insets.top)
+            .padding(.top, topPadding)
             .padding(.horizontal, insets.side)
             .padding(.bottom, insets.bottom + AteMetrics.tornEdgeHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
             .ateSlip()
             .ateTornPaper()
+    }
+
+    /// A "with" line on top takes the tight top, not the byline's 12: kept compact (27 Oct).
+    private var topPadding: CGFloat {
+        if slip.byline != nil { return insets.top }
+        return slip.with.isEmpty ? AteMetrics.slipPaddingTopBare : AteMetrics.slipTightPaddingTop
     }
 
     /// The paper's padding and the gap between its bands, by density.
@@ -87,6 +93,14 @@ struct EntrySlip: View {
         VStack(alignment: .leading, spacing: insets.gap) {
             if let byline = slip.byline {
                 bylineRow(byline, interactive: interactive)
+            } else if slip.with.isEmpty == false {
+                // Who it was eaten with, where no byline says so: on top, where the feed's byline
+                // says it (`journal-ate-with.html` B). Part of the entry, so it opens the entry —
+                // and held close to the first dish (Eamon, 27 Oct: compact).
+                tappable(interactive: interactive, part: "with") {
+                    AteWithSlipLine(people: slip.with)
+                }
+                .padding(.bottom, slip.dishes.isEmpty ? 0 : AteMetrics.slipWordsGap - insets.gap)
             }
             if slip.dishes.isEmpty == false {
                 dishStack(interactive: interactive)

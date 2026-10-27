@@ -67,15 +67,22 @@ enum KitFixtures {
         )
     }
 
-    /// Long names, long place, no photos, one unscored dish.
+    /// Long names, long place, no photos, one unscored dish — eaten with the most people an entry
+    /// takes (six), the first with a long handle.
     static var long: AteSlip {
-        AteSlip(
+        var slip = AteSlip(
             dishes: [slipDish(longName, 6), slipDish("Grilled sourdough", nil, tags: [.vg, .df])],
             place: longPlace,
             suburb: "Collingwood North",
             meta: .age("3d"),
             words: .previewFeedWords
         )
+        // Fixed ids: an avatar's colour is its id's, and the picture must not change run to run.
+        let handles = ["alexandra.montgomery.eats", "jessw", "sam", "priya", "tom", "leo"]
+        slip.with = handles.enumerated().map { index, handle in
+            AteWithPerson(id: UUID(uuidString: "00000000-0000-4000-8000-00000000000\(index)")!, handle: handle)
+        }
+        return slip
     }
 
     /// The design's own visits, with the bundled photos in place of flat swatches.

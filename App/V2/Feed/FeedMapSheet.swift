@@ -8,7 +8,8 @@ import SwiftUI
 /// Drawn in the page, not presented: a presented sheet over a pushed page stayed on screen after Back
 /// and raced the pushes it made, the map's lost touches in build 214. It floats on glass like the
 /// system's, and drags between three heights: minimised to its title, resting, and tall. Below the
-/// tallest the whole sheet drags; at the tallest the list scrolls and the top drags.
+/// tallest the whole sheet drags; at the tallest the list scrolls and the top drags. A list too short
+/// to fill those heights caps them: the sheet stops just under its last row (Eamon, 27 Oct).
 struct FeedMapSheet: View {
     let store: DishMapStore
     @Binding var detent: FeedMapDetent
@@ -22,12 +23,13 @@ struct FeedMapSheet: View {
     @State private var pull: CGFloat = 0
     /// The grabber and the title, measured: minimised, the sheet is exactly this over the home bar.
     @State private var headHeight = FeedMapSheetMetrics.headEstimate
-    /// Near me's empty state (the drawing and its line), measured: resting, an empty sheet is only as
-    /// tall as it, so more of the map shows (Eamon, 26 Oct).
-    @State private var emptyHeight: CGFloat?
+    /// What the list holds (its rows, or the empty state), measured: the sheet is never taller than
+    /// it, so a place with five dishes shows no empty paper under them (Eamon, 26 and 27 Oct).
+    @State private var listHeight: CGFloat?
 
     var body: some View {
-        let isTall = detent == .high
+        // The list scrolls only once the sheet is as tall as it goes and the rows still don't fit.
+        let isTall = detent == .high && overflows
         VStack(alignment: .leading, spacing: 0) {
             head
                 .contentShape(.rect)
@@ -40,10 +42,12 @@ struct FeedMapSheet: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     list
                 }
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
                 .padding(.horizontal, AteMetrics.gutter)
                 .padding(.bottom, room.bottomInset + AteMetrics.section)
             }
             .scrollIndicators(.hidden)
+            .scrollBounceBehavior(.basedOnSize)
             // Minimised is the title alone: no row peeking under it (build 215). It comes back as
             // soon as the sheet is pulled up.
             .opacity(detent == .minimised && pull <= 0 ? 0 : 1)
@@ -56,7 +60,7 @@ struct FeedMapSheet: View {
         .glassEffect(.regular, in: .rect(cornerRadius: FeedMapSheetMetrics.radius))
         .padding(.horizontal, FeedMapSheetMetrics.inset)
         .padding(.bottom, FeedMapSheetMetrics.inset)
-        .ateAnimation(AteMotion.panelSettle, value: emptyFit)
+        .ateAnimation(AteMotion.panelSettle, value: fit)
         .ateAnimation(AteMotion.fillIn, value: store.selected?.id)
         .ateAnimation(AteMotion.fillIn, value: store.selectedMenu.map(\.dishID))
         .accessibilityIdentifier("map.sheet")
@@ -70,13 +74,21 @@ struct FeedMapSheet: View {
     }
 
     private func height(_ detent: FeedMapDetent) -> CGFloat {
-        room.height(detent, head: headHeight, empty: emptyFit)
+        room.height(detent, head: headHeight, content: fit)
     }
 
-    /// The empty state's height while it is all the sheet holds (Near me or Search here found nothing).
-    private var emptyFit: CGFloat? {
-        guard store.selected == nil, store.phase == .ready, store.dishes.isEmpty else { return nil }
-        return emptyHeight
+    /// The list's height, once it holds what it will show: rows, or Near me's empty or failed state.
+    /// While Near me loads (or a tapped place has no rows yet), the height doesn't follow the list, so
+    /// the sheet doesn't drop and jump back.
+    private var fit: CGFloat? {
+        if store.selected != nil { return shown?.isEmpty == false ? listHeight : nil }
+        return store.phase == .opening ? nil : listHeight
+    }
+
+    /// The rows are taller than the tallest sheet, so it scrolls them.
+    private var overflows: Bool {
+        guard let fit else { return true }
+        return room.fits(head: headHeight, content: fit) == false
     }
 
     private var drag: some Gesture {
@@ -205,7 +217,6 @@ struct FeedMapSheet: View {
                 .accessibilityIdentifier("map.offline")
         case .ready:
             AteEmptyState(line: store.title.emptyLine, art: .setting, size: .section)
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { emptyHeight = $0 }
                 .accessibilityIdentifier("map.empty")
         }
     }
@@ -300,18 +311,30 @@ struct FeedMapRoom {
     }
 
     /// From the sheet's bottom (``FeedMapSheetMetrics/inset`` above the screen's) to its top. `head` is
-    /// the grabber and title's measured height: minimised shows that and nothing under it. `empty` is
-    /// the empty state's, when that is all the sheet holds: resting, the sheet then fits it.
-    func height(_ detent: FeedMapDetent, head: CGFloat, empty: CGFloat? = nil) -> CGFloat {
-        let inset = FeedMapSheetMetrics.inset
-        let homeBar = max(bottomInset - inset, 0)
+    /// the grabber and title's measured height: minimised shows that and nothing under it. `content`
+    /// is the list's (its rows, or the empty state): resting and tall never go past it.
+    func height(_ detent: FeedMapDetent, head: CGFloat, content: CGFloat? = nil) -> CGFloat {
         switch detent {
         case .minimised: return head + homeBar
-        case .low:
-            guard let empty else { return FeedMapMetrics.lowHeight }
-            return min(head + empty + FeedMapSheetMetrics.emptyBottom + homeBar, FeedMapMetrics.lowHeight)
-        case .high: return screen - topInset - 2 * inset
+        case .low: return min(FeedMapMetrics.lowHeight, whole(head: head, content: content))
+        case .high: return min(tallest, whole(head: head, content: content))
         }
+    }
+
+    /// Whether the whole list fits in the tallest sheet, so nothing scrolls.
+    func fits(head: CGFloat, content: CGFloat) -> Bool {
+        whole(head: head, content: content) <= tallest
+    }
+
+    /// Up under the map's top buttons.
+    private var tallest: CGFloat { screen - topInset - 2 * FeedMapSheetMetrics.inset }
+
+    private var homeBar: CGFloat { max(bottomInset - FeedMapSheetMetrics.inset, 0) }
+
+    /// The head, the whole list, a margin under its last row, and the home bar.
+    private func whole(head: CGFloat, content: CGFloat?) -> CGFloat {
+        guard let content else { return .infinity }
+        return head + content + FeedMapSheetMetrics.listBottom + homeBar
     }
 }
 
@@ -328,8 +351,8 @@ enum FeedMapSheetMetrics {
     static let titleGap: CGFloat = 12
     /// The grabber and the title, until measured.
     static let headEstimate: CGFloat = 76
-    /// Under an empty sheet's line, above the home bar.
-    static let emptyBottom: CGFloat = 22
+    /// Under the list's last row (or the empty state's line), above the home bar, when the sheet fits it.
+    static let listBottom: CGFloat = 22
     static let dragStart: CGFloat = 6
     static let headGap: CGFloat = 12
     static let lineGap: CGFloat = 4
