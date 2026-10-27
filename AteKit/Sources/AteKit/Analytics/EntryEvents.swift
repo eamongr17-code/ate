@@ -202,6 +202,13 @@ public enum EntryEvents {
         AnalyticsEvent(name: "receipt_fallback_shown", parameters: ["kind": kind.rawValue, "surface": surface])
     }
 
+    /// A saved entry turned out to have nothing scored: no receipt, and the composer's sheet went
+    /// down rather than wait on one (``EntrySummaryStore/Phase/unscored``). How often a first entry
+    /// lands here says whether people find the Score key.
+    public static func receiptUnscored(entryID: UUID) -> AnalyticsEvent {
+        AnalyticsEvent(name: "receipt_unscored", parameters: ["entry_id": entryID.uuidString.lowercased()])
+    }
+
     /// The printed face read which photo is which dish for its per-dish share cards: `paired` (at
     /// least one photo has a dish), `none` (the match paired nothing, failed or was skipped: the
     /// dishes stay stickers), or `failed` (the read itself failed). `landed` says whether the entry's

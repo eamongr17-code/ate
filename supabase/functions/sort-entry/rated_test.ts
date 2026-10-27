@@ -6,9 +6,11 @@
 // number is a rating.
 
 import { test, assertEquals } from './harness.ts';
-import { attachScoreTokens, keepRated, parseScoreTokens } from './rated.ts';
+import { attachScoreTokens, keepRated, parseScoreTokens, printable } from './rated.ts';
 import { scalarOffset } from './offsets.ts';
-import type { SortItem } from './types.ts';
+import { parseEntry } from './parse.ts';
+import { validatePlan } from './validate.ts';
+import type { SortItem, SortPlan } from './types.ts';
 
 function line(body: string, dish: string, evidence: string | null, score: number | null): SortItem {
   const at = evidence ? scalarOffset(body, body.lastIndexOf(evidence)) : null;
@@ -74,4 +76,22 @@ test('a claimed pill or an already-scored line is left alone', () => {
   const marks = [{ offset: 5, length: 3 }, { offset: 13, length: 3 }];
   const out = attachScoreTokens([line(body, 'Ragù', '4.5', 4.5)], marks, body);
   assertEquals(out.map((i) => [i.score, i.evidence_offset]), [[4.5, 5]]);
+});
+
+test('the model reading a dish as the venue prints nothing; the parser prints the dish (prod, 27 Oct)', () => {
+  const body = 'Beach Mezze 3.0, everything was fresh and tasty, but I was hoping for more (better) pita bread tbh V';
+  const pill = { offset: 12, length: 3 };
+  // What the model returned at a picked place: the dish taken as place_query, an unscored pita bread.
+  const model: SortPlan = {
+    place_query: 'Beach Mezze 3.0', place_offset: null,
+    items: [{ ...line(body, 'pita bread', null, null), mention_offset: null }],
+  };
+  assertEquals(printable(model, [pill], body), 0);
+  const parsed = validatePlan(parseEntry({ body, knownDishes: [], placeNames: ['The Lazy Coconut'] }), {
+    body, knownDishes: [], sixSpans: [],
+  });
+  assertEquals(printable(parsed, [pill], body), 1);
+  assertEquals(keepRated(parsed.items, [pill], body).map((i) => [i.dish_name, i.score]), [['Beach Mezze', 3]]);
+  // With no pill at all there is nothing to print either way: a number typed as words is not a score.
+  assertEquals(printable(parsed, [], body), 0);
 });

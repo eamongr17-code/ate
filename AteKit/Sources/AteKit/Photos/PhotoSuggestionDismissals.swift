@@ -62,9 +62,10 @@ public final class PhotoSuggestionDismissals {
         clusters(items).reduce(0) { $0 + $1.items.count }
     }
 
-    /// The X. Every photo in the row goes, and stays gone.
+    /// The X. Every photo in the row goes, and stays gone — with the rest of its sitting, which would
+    /// otherwise come straight back as a row of its own.
     public func dismiss(_ cluster: PhotoSuggestionCluster) {
-        for item in cluster.items { dismissed[item.id] = item.createdAt }
+        for item in cluster.items + cluster.others { dismissed[item.id] = item.createdAt }
         let horizon = now().addingTimeInterval(-PhotoSuggestions.window)
         dismissed = dismissed.filter { $0.value >= horizon }
         store.setValue(Self.encode(dismissed), forKey: key)

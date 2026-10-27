@@ -214,6 +214,7 @@ private struct V2EntryScreen: View {
     private var dishes: AteEntryPaper.Dishes {
         switch model.state {
         case .printed: .rows(model.dishes)
+        case .unscored: .rows([])
         case .pending: .pending(isFailed: false)
         case .failed: .pending(isFailed: true)
         }

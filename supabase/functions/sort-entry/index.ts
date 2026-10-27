@@ -89,7 +89,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { fencedPlaceNames, mentionForPlaceName, parseEntry, placeCandidateSpans } from './parse.ts';
 import { validatePlan } from './validate.ts';
 import { resolveMode, resolveModel, sortWithModel } from './model.ts';
-import { attachScoreTokens, keepRated, parseScoreTokens } from './rated.ts';
+import { attachScoreTokens, keepRated, parseScoreTokens, printable } from './rated.ts';
 import {
   attachDietOffTokens,
   attachTagTokens,
@@ -515,6 +515,8 @@ async function planFor(
     tagTokens: TagToken[];
     /** The client-marked sixes (0041). The only way a 6 is ever written. */
     sixTokens: SixToken[];
+    /** Every score pill (./rated.ts), or null from a client that sends none: what decides whether a plan prints. */
+    scoreTokens: SixToken[] | null;
     /** A place the USER chose (composer tap / preview's restaurant_id). Never overwritten. */
     pinnedRestaurantId: string | null;
     /** The pinned place's name + menu, already read with the entry (0056). */
@@ -574,6 +576,7 @@ async function planFor(
           body,
           knownDishes: known,
           placeCandidates: candidates.map((c) => c.phrase),
+          pinnedPlace: pinnedName,
           tagWords: tagTokenWords(body, tagTokens),
           sixMarks: sixMarks(body, sixes),
         }),
@@ -603,11 +606,10 @@ async function planFor(
   });
   // A marked tag word is never a dish, nor the front half of one ("GF Salad 3.5").
   const excludeSpans = tagTokenSpans(body, tagTokens);
-  if (!plan) {
-    plan = parseEntry({
+  const parsed = () =>
+    parseEntry({
       body, knownDishes: known, placeNames, excludeSpans, sixSpans: sixes.map((s): [number, number] => [s.start, s.end]),
     });
-  }
 
   // ---- 3. the same gate for every mode, cached or not --------------------
   // validatePlan rebuilds every item WITHOUT tags; the client's marked tokens are the only
@@ -615,9 +617,26 @@ async function planFor(
   // (the model does not honour excludeSpans) and places each tag by span, never by name.
   // A 6 survives only on a marked span (validatePlan), and a marked six nobody claimed goes to the
   // dish named just before it (attachSixTokens) — after the tag pass, which may re-cut mentions.
-  const gated = validatePlan(plan, { body, knownDishes: known, sixSpans: sixes });
-  const tagged = attachTagTokens(gated.items, body, tagTokens, known);
-  const validated: SortPlan = { ...gated, items: attachSixTokens(tagged, sixes) };
+  const gate = (raw: SortPlan): SortPlan => {
+    const gated = validatePlan(raw, { body, knownDishes: known, sixSpans: sixes });
+    const tagged = attachTagTokens(gated.items, body, tagTokens, known);
+    return { ...gated, items: attachSixTokens(tagged, sixes) };
+  };
+  let validated = gate(plan ?? parsed());
+
+  // ---- 4. a model plan that prints nothing falls back to the parser -------
+  // The model can misread a dish as the venue ("Beach Mezze 3.0, …" → place_query, no dish; prod,
+  // 27 Oct) and leave a scored entry with no lines — a receipt that never prints, and a "Try again"
+  // that asks the same model the same thing. When the rule-based reading prints a scored line where
+  // the model's prints none, it is used. Never the other way round: the model stays first.
+  if (plan && usedMode === 'model' && printable(validated, opts.scoreTokens, body) === 0) {
+    const fallback = gate(parsed());
+    if (printable(fallback, opts.scoreTokens, body) > 0) {
+      console.warn('sort-entry: model plan printed nothing; using the parser');
+      validated = fallback;
+      usedMode = 'stub';
+    }
+  }
 
   return { limited: false, usedMode, cacheHit, waitedMs, modelMs, cacheKey, restaurantId, mention, validated };
 }
@@ -662,6 +681,7 @@ Deno.serve(async (req) => {
         body: draft.body,
         tagTokens,
         sixTokens,
+        scoreTokens,
         pinnedRestaurantId: draft.restaurantId,
         preview: true,
       });
@@ -716,6 +736,7 @@ Deno.serve(async (req) => {
         body: row.body,
         tagTokens,
         sixTokens,
+        scoreTokens,
         pinnedRestaurantId: userPinned,
         pinnedPreloaded: ctx.pinned,
         preview: false,

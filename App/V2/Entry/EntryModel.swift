@@ -14,6 +14,9 @@ final class EntryModel: SavedDishObserving {
         /// The sorter could not finish. One retry, in the design's vocabulary.
         case failed
         case printed(AteReceipt)
+        /// Sorted, with a place, and nothing scored: the words and photos are the entry. No receipt,
+        /// no skeleton, no retry — a re-sort reads the same words the same way (27 Oct).
+        case unscored
     }
 
     /// Which line is being re-named, if any.
@@ -450,10 +453,10 @@ enum EntryPresentation {
         case .sorted:
             // **An empty receipt is never printed or shared.** A placeless entry sorts to no lines —
             // its plan is parked until a place is attached, which the place line does — so it is
-            // still waiting, not printed. A place with nothing on it is the sorter finding no dish
-            // it could stand behind: the retry is the honest answer.
+            // still waiting, not printed. A place with nothing on it is an entry with nothing
+            // scored: its words and photos, with no receipt and no retry that could change that.
             guard card.place != nil else { return .pending }
-            guard card.items.isEmpty == false else { return .failed }
+            guard card.items.isEmpty == false else { return .unscored }
             return .printed(receipt(for: card, handle: handle))
         }
     }
