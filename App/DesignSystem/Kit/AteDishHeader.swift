@@ -164,31 +164,54 @@ struct AteChipFlow: View {
         /// A chip that switches the page (the viewer's diet chips on a place): on or off.
         var isOn: Bool?
         var identifier: String?
+        /// On one line, the chip that gives way: it ends in "…" when the row runs out.
+        var truncates = false
         var action: (() -> Void)?
     }
 
     let chips: [Chip]
     /// The explore chips are taller and roomier than a place's facts.
     var isExplore = false
+    /// Never wraps (a place's facts, Eamon 27 Oct): every chip keeps its size but the one that
+    /// `truncates`, which takes what is left and ends in "…" when its words don't fit.
+    var isOneLine = false
 
     var body: some View {
-        AteFlow(spacing: isExplore ? AteChipFlowMetrics.exploreGap : AteChipFlowMetrics.factGap) {
-            ForEach(chips) { chip in
-                AteChip(
-                    icon: chip.icon,
-                    title: chip.title,
-                    height: isExplore ? AteChipFlowMetrics.exploreHeight : AteMetrics.chipHeight,
-                    iconSize: AteChipFlowMetrics.icon,
-                    sidePadding: isExplore ? AteChipFlowMetrics.explorePadding : AteMetrics.regular,
-                    textStyle: isExplore ? .exploreChip : .controlSmall,
-                    isOn: chip.isOn,
-                    action: chip.action
-                )
-                .accessibilityLabel(chip.accessibilityLabel ?? chip.title)
-                .accessibilityIdentifier(chip.identifier ?? "")
+        Group {
+            if isOneLine {
+                HStack(spacing: gap) {
+                    ForEach(chips) { chip in
+                        if chip.truncates {
+                            chipView(chip).lineLimit(1)
+                        } else {
+                            chipView(chip).fixedSize()
+                        }
+                    }
+                }
+            } else {
+                AteFlow(spacing: gap) {
+                    ForEach(chips) { chip in chipView(chip) }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var gap: CGFloat { isExplore ? AteChipFlowMetrics.exploreGap : AteChipFlowMetrics.factGap }
+
+    private func chipView(_ chip: Chip) -> some View {
+        AteChip(
+            icon: chip.icon,
+            title: chip.title,
+            height: isExplore ? AteChipFlowMetrics.exploreHeight : AteMetrics.chipHeight,
+            iconSize: AteChipFlowMetrics.icon,
+            sidePadding: isExplore ? AteChipFlowMetrics.explorePadding : AteMetrics.regular,
+            textStyle: isExplore ? .exploreChip : .controlSmall,
+            isOn: chip.isOn,
+            action: chip.action
+        )
+        .accessibilityLabel(chip.accessibilityLabel ?? chip.title)
+        .accessibilityIdentifier(chip.identifier ?? "")
     }
 }
 

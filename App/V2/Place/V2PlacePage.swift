@@ -17,7 +17,7 @@ struct V2PlacePage: View {
     @State private var store: PlacePageStore
     @State private var isCollapsed = false
     @State private var titleBottom: CGFloat = 0
-    /// The street chip's question when Google Maps is on the phone: which app.
+    /// The pin's question when Google Maps is on the phone: which app.
     @State private var mapChoice: PlaceMapLink?
     @Environment(\.openURL) private var openURL
 
@@ -107,20 +107,21 @@ struct V2PlacePage: View {
             EmptyView()
         } below: {
             // No diet chip here: a restaurant is never labelled, only its dishes (Eamon, 23 Oct).
-            // The street chip comes last and is always there: every place opens in Maps.
-            AteChipFlow(chips: store.facts.map { chip($0, reader: reader) } + mapChips)
+            // The pin comes last and is always there: every place opens in Maps. One line, the
+            // suburb giving way when it is long (Eamon, 27 Oct).
+            AteChipFlow(chips: store.facts.map { chip($0, reader: reader) } + mapChips, isOneLine: true)
         }
     }
 
     // MARK: - Maps
 
-    /// **Where it is** (`place-maps.html`, B, Eamon 26 Oct): a pin and the street, or "Map" when no
-    /// street is on file. Opens Apple Maps; asks which app when Google Maps is on the phone too.
+    /// **Where it is** (`place-maps.html`, B, Eamon 26 Oct): a round pin, so the facts fit one row
+    /// (`design/rebuild/place-pills-one-row.html`, Eamon 27 Oct). Opens Apple Maps; asks which app when Google Maps
+    /// is on the phone too.
     private var mapChips: [AteChipFlow.Chip] {
         guard let summary = store.summary else { return [] }
         let link = PlaceMapLink(summary)
-        let title = link.street ?? V2PlaceCopy.map
-        return [AteChipFlow.Chip(id: "map", icon: .place, title: title,
+        return [AteChipFlow.Chip(id: "map", icon: .place, title: "",
                                  accessibilityLabel: V2PlaceCopy.openInMaps(summary.name),
                                  identifier: "place.fact.map", action: { showMaps(link) })]
     }
@@ -160,7 +161,8 @@ struct V2PlacePage: View {
                                     identifier: "place.fact.people", action: action)
         case .word(let value):
             let action = store.suburbTag.map { tag -> () -> Void in { openSuburb(tag) } }
-            return AteChipFlow.Chip(id: fact.id, title: value, identifier: "place.fact.suburb", action: action)
+            return AteChipFlow.Chip(id: fact.id, title: value, identifier: "place.fact.suburb",
+                                    truncates: true, action: action)
         }
     }
 
@@ -406,8 +408,6 @@ private struct V2PlaceSkeleton: View {
 }
 
 enum V2PlaceCopy {
-    /// The street chip when no street is on file.
-    static let map = "Map"
     static func openInMaps(_ name: String) -> String { "Open \(name) in Maps" }
 }
 
