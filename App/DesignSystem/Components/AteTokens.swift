@@ -293,7 +293,7 @@ struct PlaceToken: View {
 /// 2026-10-27: no butter-and-outline stars anywhere). The one shared star: the slider, a dish's
 /// aggregate row and the Ratings page's group headings all draw this.
 struct AteStar: View {
-    /// 0 = outline, 0.5 = half-filled, 1 = filled.
+    /// 0 = outline, 0.5 = half-filled, 1 = filled (solid foreground).
     var fill: Double
     var side: CGFloat = AteMetrics.star
     /// `ComposerStars` strokes the slider's stars at 1.3, not the chrome's 1.8 — they are 44 across
