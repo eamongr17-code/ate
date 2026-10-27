@@ -131,6 +131,13 @@ struct EntrySlip: View {
                     if interactive, slip.dishes.isEmpty == false { dishSource?.readAhead(slip.id) }
                 }
             }
+            // Who it was eaten with, where no byline says so: above the foot line, as on the entry
+            // (`journal-ate-with.html` A). Part of the entry, so it opens the entry.
+            if slip.byline == nil, slip.with.isEmpty == false {
+                tappable(interactive: interactive, part: "with") {
+                    AteWithSlipLine(people: slip.with)
+                }
+            }
             // The foot line is its own band: the place goes to the place, everything above it goes
             // to the entry. (A sibling rather than a child of the body's button — a tap inside a
             // button's label belongs to that button, so a nested one would never be heard.)

@@ -121,3 +121,50 @@ enum AteWithKitMetrics {
     static let check: CGFloat = 28
     static let checkGlyph: CGFloat = 16
 }
+
+/// **"with @jess +2"** on a slip (`journal-ate-with.html` A): ``AteWithLine``'s avatars and words,
+/// on one line, at a slip's size. The first handle and how many more — the entry lists them all. A
+/// long handle truncates; the count never does.
+struct AteWithSlipLine: View {
+    let people: [AteWithPerson]
+
+    /// A slip is always slip paper, whatever page it lies on.
+    private let palette = AtePalette.slip
+
+    var body: some View {
+        HStack(spacing: AteMetrics.snug) {
+            HStack(spacing: -AteWithKitMetrics.avatarOverlap) {
+                ForEach(people.prefix(2)) { person in
+                    AteAvatar(userID: person.id, handle: person.handle, size: .byline)
+                        .padding(AteWithKitMetrics.ring)
+                        .background(AteColor.slip, in: .circle)
+                }
+            }
+            .padding(-AteWithKitMetrics.ring)
+            HStack(spacing: AteWithKitMetrics.wordSpace) {
+                Text("with")
+                    .ateText(.meta)
+                    .foregroundStyle(palette.muted)
+                    .fixedSize()
+                if let first = people.first {
+                    Text(verbatim: "@\(first.handle)")
+                        .ateText(.metaStrong)
+                        .foregroundStyle(palette.fg)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                if people.count > 1 {
+                    Text(verbatim: "+\(people.count - 1)")
+                        .ateText(.metaStrong)
+                        .foregroundStyle(palette.fg)
+                        .fixedSize()
+                        .layoutPriority(1)
+                }
+            }
+        }
+        .frame(minHeight: AteMetrics.avatar)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("with " + people.map { "@\($0.handle)" }.joined(separator: ", "))
+    }
+}
