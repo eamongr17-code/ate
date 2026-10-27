@@ -299,6 +299,25 @@ struct DishMapTests {
         #expect(reads.listed.withLock { $0.count } == listedBeforeReturn, "Near me came back without a read")
     }
 
+    @Test("Search here over an empty area ends ready and empty, the state the sheet draws its empty state for")
+    func searchHereEmpty() async throws {
+        let store = DishMapStore(reads: Reads(nearest: []), menus: Menus(), locate: { _ in self.fitzroy })
+        await store.open()
+        let thalang = MapBox(
+            centerLatitude: 8.03, centerLongitude: 98.34, latitudeDelta: 0.06, longitudeDelta: 0.05
+        )
+        await store.show(thalang)
+        await store.searchHere()
+        store.name(area: "Thalang District", for: thalang)
+        // FeedMapSheet shows the drawing and fits its height on exactly this: nothing selected, ready,
+        // no dishes (build 244 showed the old grey line because #294 had not shipped, not another path).
+        #expect(store.selected == nil)
+        #expect(store.phase == .ready)
+        #expect(store.dishes.isEmpty)
+        #expect(store.title == .area("Thalang District"))
+        #expect(store.title.emptyLine == "No dishes here.")
+    }
+
     @Test("my location a few metres off the last fix keeps the list; far off reads it again")
     func nearMeHoldsStill() async throws {
         let reads = Reads(nearest: [], dishes: [dish("Near", meters: 350)])
