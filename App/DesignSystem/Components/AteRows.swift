@@ -167,7 +167,8 @@ struct AteChip: View {
 }
 
 extension AteChip {
-    /// An icon with no title is a round button, its glyph centred in a circle the pill's height.
+    /// An icon with no title is a round button (a place's Maps pin), its glyph centred in a circle the
+    /// pill's height.
     @ViewBuilder fileprivate var label: some View {
         if title.isEmpty, let icon {
             icon.view(size: iconSize)
