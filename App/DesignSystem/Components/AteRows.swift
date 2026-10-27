@@ -148,15 +148,10 @@ struct AteChip: View {
 
     var body: some View {
         let isLit = isOn == true
-        let content = HStack(spacing: AteMetrics.snug - 2) {
-            if let icon { icon.view(size: iconSize) }
-            Text(title).ateText(textStyle)
-        }
-        .padding(.leading, icon == nil ? sidePadding : sidePadding - 2)
-        .padding(.trailing, sidePadding)
-        .atePillHeight(height)
-        .background(isLit ? palette.solid : palette.raised, in: .capsule)
-        .foregroundStyle(isLit ? palette.inverted : palette.fg)
+        let content = label
+            .atePillHeight(height)
+            .background(isLit ? palette.solid : palette.raised, in: .capsule)
+            .foregroundStyle(isLit ? palette.inverted : palette.fg)
 
         if let action {
             // A 32 (or the feed's 40) pill reaches 44 to a finger.
@@ -167,6 +162,23 @@ struct AteChip: View {
                 .accessibilityAddTraits(isLit ? .isSelected : [])
         } else {
             content
+        }
+    }
+}
+
+extension AteChip {
+    /// An icon with no title is a round button, its glyph centred in a circle the pill's height.
+    @ViewBuilder fileprivate var label: some View {
+        if title.isEmpty, let icon {
+            icon.view(size: iconSize)
+                .frame(width: height)
+        } else {
+            HStack(spacing: AteMetrics.snug - 2) {
+                if let icon { icon.view(size: iconSize) }
+                Text(title).ateText(textStyle)
+            }
+            .padding(.leading, icon == nil ? sidePadding : sidePadding - 2)
+            .padding(.trailing, sidePadding)
         }
     }
 }
