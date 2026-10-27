@@ -315,31 +315,6 @@ struct DishMapTests {
         #expect(store.title.emptyLine == "No dishes here.")
     }
 
-    @Test("Search here keeps the list and its title on show until the new list lands with its suburb")
-    func searchHereKeepsList() async throws {
-        let reads = Reads(nearest: [], dishes: [dish("Near", meters: 350)])
-        let store = DishMapStore(reads: reads, menus: Menus(), locate: { _ in self.fitzroy },
-                                 nameArea: { _ in "Carlton" })
-        await store.open()
-        let carlton = MapBox(
-            centerLatitude: -37.70, centerLongitude: 144.98, latitudeDelta: 0.18, longitudeDelta: 0.22
-        )
-        await store.show(carlton)
-        let listedBefore = reads.listed.withLock { $0.count }
-        reads.holdNextList.withLock { $0 = true }
-        let searching = Task { await store.searchHere() }
-        while reads.listed.withLock({ $0.count }) == listedBefore { await Task.yield() }
-        // The read is out: no placeholders, no "This area".
-        #expect(store.phase == .ready)
-        #expect(store.dishes.map(\.name) == ["Near"])
-        #expect(store.title == .nearMe)
-        #expect(store.canSearchHere == false)
-        reads.release()
-        await searching.value
-        #expect(store.title == .area("Carlton"))
-        #expect(store.listing == .area(carlton))
-    }
-
     @Test("my location a few metres off the last fix keeps the list; far off reads it again")
     func nearMeHoldsStill() async throws {
         let reads = Reads(nearest: [], dishes: [dish("Near", meters: 350)])
@@ -409,5 +384,33 @@ struct DishMapTests {
         await store.select(geelong)
         #expect(store.selected == nil)
         #expect(store.selectedMenu.isEmpty)
+    }
+}
+
+/// Search here, past the suite's body length.
+extension DishMapTests {
+    @Test("Search here keeps the list and its title on show until the new list lands with its suburb")
+    func searchHereKeepsList() async throws {
+        let reads = Reads(nearest: [], dishes: [dish("Near", meters: 350)])
+        let store = DishMapStore(reads: reads, menus: Menus(), locate: { _ in self.fitzroy },
+                                 nameArea: { _ in "Carlton" })
+        await store.open()
+        let carlton = MapBox(
+            centerLatitude: -37.70, centerLongitude: 144.98, latitudeDelta: 0.18, longitudeDelta: 0.22
+        )
+        await store.show(carlton)
+        let listedBefore = reads.listed.withLock { $0.count }
+        reads.holdNextList.withLock { $0 = true }
+        let searching = Task { await store.searchHere() }
+        while reads.listed.withLock({ $0.count }) == listedBefore { await Task.yield() }
+        // The read is out: no placeholders, no "This area".
+        #expect(store.phase == .ready)
+        #expect(store.dishes.map(\.name) == ["Near"])
+        #expect(store.title == .nearMe)
+        #expect(store.canSearchHere == false)
+        reads.release()
+        await searching.value
+        #expect(store.title == .area("Carlton"))
+        #expect(store.listing == .area(carlton))
     }
 }
