@@ -105,6 +105,8 @@ private struct AteRootBarHiding: ViewModifier {
         var depth: CGFloat
         /// Past the end — the bottom's rubber band, which must not bring the header back.
         var isPastEnd: Bool
+        /// How far under the header the page can go at all, top to end.
+        var room: CGFloat
     }
 
     func body(content: Content) -> some View {
@@ -118,10 +120,19 @@ private struct AteRootBarHiding: ViewModifier {
                 return Reading(
                     offset: geometry.contentOffset.y,
                     depth: geometry.contentOffset.y + geometry.contentInsets.top,
-                    isPastEnd: geometry.contentOffset.y > end
+                    isPastEnd: geometry.contentOffset.y > end,
+                    room: end + geometry.contentInsets.top
                 )
             } action: { old, new in
                 depth = new.depth
+                // A page too short to take the header all the way away keeps it all there: it would
+                // stop part way up at the page's end, its title under the clock (You, build 251).
+                guard new.room >= travel else {
+                    if hidden != 0 {
+                        withAnimation(reduceMotion ? nil : AteGlassRootHeaderMetrics.slide) { hidden = 0 }
+                    }
+                    return
+                }
                 var next = hidden
                 let isFinger = phase == .interacting || phase == .decelerating
                 if isFinger, new.isPastEnd == false, old.isPastEnd == false {
