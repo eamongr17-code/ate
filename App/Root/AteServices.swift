@@ -123,7 +123,7 @@ struct AteServices {
         self.dishPages = preview?.dishPages ?? DishPageClient(api: api)
         self.dishExplore = preview?.dishExplore ?? DishExploreClient(api: api) { await AteLastFix.point() }
         self.search = preview?.search ?? SearchClient(api: api)
-        self.dishMap = preview == nil ? DishMapClient(api: api) : EmptyDishMap()
+        self.dishMap = preview == nil ? DishMapClient(api: api) : PreviewDishMap()
         let location = AteLocation()
         self.locate = { mayAsk in
             await location.current(mayAsk: mayAsk).map { SearchOrigin(latitude: $0.latitude, longitude: $0.longitude) }
@@ -238,11 +238,18 @@ struct AteServices {
     }
 }
 
-/// The preview drive's map: nothing on it. The map is a live read of the record; the in-memory
-/// fixtures have no coordinates to draw.
-private struct EmptyDishMap: DishMapReading {
+/// The preview drive's map: one place to open on, and no pins or dishes. The map is a live read of
+/// the record; the in-memory fixtures have no coordinates to draw.
+private struct PreviewDishMap: DishMapReading {
+    /// One place, so the map opens framed on it and has something to Search here away from (the
+    /// map's UI test pans off it).
+    private static let place = MapPlace(
+        restaurantID: UUID(uuidString: "6D0C1A55-0000-4000-8000-000000000088")!, name: "Tipo 00",
+        locality: "Melbourne", latitude: -37.8126, longitude: 144.9652
+    )
+
     func places(in box: MapBox, origin: SearchOrigin?, limit: Int) async throws -> [MapPlace] { [] }
-    func nearest(to origin: SearchOrigin?, limit: Int) async throws -> [MapPlace] { [] }
+    func nearest(to origin: SearchOrigin?, limit: Int) async throws -> [MapPlace] { [Self.place] }
     func dishes(in box: MapBox, origin: SearchOrigin?, after cursor: MapDishCursor?, pageSize: Int) async throws
         -> MapDishPage {
         MapDishPage(items: [], requestedLimit: pageSize)
