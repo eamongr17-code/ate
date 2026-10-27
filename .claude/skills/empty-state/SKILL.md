@@ -24,12 +24,13 @@ Most new screens need no new drawing.
 
 ## 2. Write the line
 
-- One line in Young Serif 26. Break it with `\n` at most once, and end it with a full stop.
+- One line in Young Serif 20 (`.emptyTitle`, smaller than every title). Break it with `\n` at most once, and end it with a full stop.
 - Say literally what is there. Don't apologise, explain or add helper copy, and never invent a
   heading.
 - Use at most one pill, starting with a verb ("Try again", "Add a dish"), and only when there is an
   action to take.
-- Use the house lines when they fit: "Couldn't\nreach Ate." · "Nothing new." · "No dishes\nhere yet."
+- Use the house lines when they fit: "Couldn't\nreach Ate." · "Nothing new." · "No dishes\nhere yet." ·
+  "No dishes within 2 km." / "No dishes here." (the map sheet, with `.setting` at `.section`).
 
 ## 3. A new kind (only if none fits)
 

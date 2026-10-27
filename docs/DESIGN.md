@@ -28,11 +28,12 @@ for exact sizes, colours, radii and copy; it is 390×844 and does not render out
    statement, anywhere). **Edge B on dish entry slips, the place menu and every receipt** (the stats
    slip on You/Profile is whole, 16 all round).
    **Empty states** (Eamon, 2026-10-06; system 2026-10-26): one hand-drawn "Paper Trail" drawing,
-   then one Young Serif 26 line ending in a full stop and at most one verb-first ink pill, on the
-   ground. A drawing is one paper thing + one food thing + at most one wink, ink and paper only,
-   objects only, never sad. It is picked by what the emptiness is, never by screen (11 kinds in
-   `AteEmptyArt`); same situation, same words and drawing everywhere. Page size 160pt, section 96pt.
-   Kit + scenes: `design/illustrations/kit.js`; new ones via `.claude/skills/empty-state`.
+   then one Young Serif 20 line (smaller than every title) ending in a full stop and at most one
+   verb-first ink pill, on the ground. A drawing is one paper thing + one food thing + at most one
+   wink, ink and paper only, objects only, never sad. It is picked by what the emptiness is, never by
+   screen (11 kinds in `AteEmptyArt`); same situation, same words and drawing everywhere. Page size
+   160pt, section 96pt. Kit + scenes: `design/illustrations/kit.js`; new ones via
+   `.claude/skills/empty-state`.
 5. **Colour is punctuation**, never decoration: score tokens, avatars, the + button, Share/Welcome
    grounds. No blobs, patterns, gradients-as-style, or colour-blocked feed cards.
 6. **The mess is tilt + overlap of photos**, only in small static clusters (entry slips, entry,
