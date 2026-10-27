@@ -1,3 +1,5 @@
+import AteKit
+import MapKit
 import SwiftUI
 import UIKit
 import XCTest
@@ -38,6 +40,53 @@ final class DishMapBarTests: XCTestCase {
         let hit = window.hitTest(CGPoint(x: frame.midX, y: frame.midY), with: nil)
         XCTAssertTrue(hit.map { $0.isDescendant(of: title) } ?? false,
                       "a tap at Search here's middle lands on it, not on \(String(describing: hit))")
+    }
+
+    /// The real map page, opened from the Feed on the preview data, never offers Search here before
+    /// anything has moved it (the nightly drive of 27 Oct found it up on opening). Sampled through the
+    /// opening, so a flash counts as well as a button that stays.
+    func testTheMapOpensWithoutSearchHere() throws {
+        guard let environment = try? AteEnvironment.resolve(bundle: .main) else {
+            XCTFail("The test host has no environment (Config/Secrets.xcconfig)")
+            return
+        }
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let app = AppModel(services: AteServices(environment: environment))
+        let shell = TabShell(app: app, start: V2Launch.Start(tab: .feed, path: [.map])).environment(app.gate)
+        let window = UIWindow(windowScene: scene)
+        window.frame = scene.screen.bounds
+        window.rootViewController = UIHostingController(rootView: shell)
+        window.isHidden = false
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+        var timeline: [String] = []
+        var everShown = false
+        for tick in 1...24 {
+            turn(0.25)
+            let pushed = (window.rootViewController?.allChildren ?? [])
+                .compactMap { $0 as? UINavigationController }
+                .filter { $0.viewControllers.count > 1 && $0.view.window != nil }
+            let title = pushed.first?.topViewController?.navigationItem.titleView
+            let shown = title.map { $0.window != nil && !$0.isHiddenInTree && $0.bounds.width > 60 } ?? false
+            everShown = everShown || shown
+            timeline.append("\(Double(tick) * 0.25)s: \(pushed.isEmpty ? "no map" : shown ? "SHOWN" : "-")")
+            if tick % 4 == 0, let map = window.allSubviews.compactMap({ $0 as? MKMapView }).first {
+                let region = map.region
+                timeline.append(String(
+                    format: "[map %.0fx%.0f insets t%.0f b%.0f, centre %.4f,%.4f span %.4f x %.4f]",
+                    map.bounds.width, map.bounds.height, map.safeAreaInsets.top, map.safeAreaInsets.bottom,
+                    region.center.latitude, region.center.longitude, region.span.latitudeDelta,
+                    region.span.longitudeDelta
+                ))
+            }
+        }
+        let listed = MapBox.around(SearchOrigin(latitude: -37.8118, longitude: 144.9629), radiusMeters: 2_000)
+        let wanted = String(format: "listed centre %.4f,%.4f span %.4f x %.4f", listed.centerLatitude,
+                            listed.centerLongitude, listed.latitudeDelta, listed.longitudeDelta)
+        XCTAssertFalse(everShown,
+                       "Search here showed while the map opened (\(wanted)): \(timeline.joined(separator: ", "))")
     }
 
     private func turn(_ seconds: TimeInterval) {
