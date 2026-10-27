@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// **The empty state** — one anatomy app-wide: a hand-drawn ink illustration, one line in Young
 /// Serif at 20 under it (``AteTextStyle/emptyTitle``; 40, then 26, read too loud, Eamon), and at most
@@ -97,9 +98,14 @@ enum AteEmptyArt: String, CaseIterable, Sendable {
 
 /// The drawing itself: two template layers, the paper under the ink, so dark mode flips it whole —
 /// ink becomes the light foreground and the paper becomes the plum slip.
+///
+/// The layers are trimmed top and bottom to what is drawn (`split.py`), so the line sits right under
+/// the drawing (Eamon, 27 Oct: it floated apart). Every drawing is the stage's width, one scale for
+/// all; its height is its own.
 struct AteEmptyDrawing: View {
     let art: AteEmptyArt
-    /// The empty state's own size unless a screen gives the drawing more room (first run's start).
+    /// The stage's height (its width is this × ``AteEmptyStateMetrics/artAspect``): the empty state's
+    /// own unless a screen gives the drawing more room (first run's start).
     var height: CGFloat = AteEmptyStateMetrics.artHeight
 
     @Environment(\.atePalette) private var palette
@@ -109,8 +115,18 @@ struct AteEmptyDrawing: View {
             layer("Paper").foregroundStyle(AteColor.slip)
             layer("Ink").foregroundStyle(palette.fg)
         }
-        .frame(width: height * AteEmptyStateMetrics.artAspect, height: height)
+        .frame(width: width, height: width * trimmed)
         .accessibilityHidden(true)
+    }
+
+    private var width: CGFloat { height * AteEmptyStateMetrics.artAspect }
+
+    /// The trimmed drawing's height over its width; the whole stage's if the image is missing.
+    private var trimmed: CGFloat {
+        guard let size = UIImage(named: "Empty\(art.rawValue)Ink")?.size, size.width > 0 else {
+            return 1 / AteEmptyStateMetrics.artAspect
+        }
+        return size.height / size.width
     }
 
     private func layer(_ name: String) -> some View {
@@ -124,12 +140,13 @@ struct AteEmptyDrawing: View {
 enum AteEmptyStateMetrics {
     /// `gap:22px` between the line and its pill.
     static let gap: CGFloat = 22
-    /// The drawing's height, and the air between it and the line.
+    /// The drawing's stage height, and the air between what is drawn and the line: right next to it
+    /// (Eamon, 27 Oct; it was 20 under the stage's own empty air, 40 to 75 in all).
     static let artHeight: CGFloat = 160
-    static let artGap: CGFloat = 20
+    static let artGap: CGFloat = 12
     /// …and inside a page's section.
     static let sectionArtHeight: CGFloat = 96
-    static let sectionArtGap: CGFloat = 14
+    static let sectionArtGap: CGFloat = 8
     /// The least an empty state is given inside a sheet, so a search that empties the rows leaves
     /// room for the line rather than collapsing the sheet under it.
     static let sheetMinimum: CGFloat = 260
