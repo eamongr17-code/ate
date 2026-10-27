@@ -18,10 +18,15 @@ public struct PhotoSuggestionItem: Identifiable, Equatable, Sendable {
 /// **A sitting, guessed from the camera roll.** Photos taken close together are one meal; the person
 /// writes about it or they don't.
 public struct PhotoSuggestionCluster: Identifiable, Equatable, Sendable {
+    /// The photos it offers — the row's, and exactly the ones the composer opens holding.
     public let items: [PhotoSuggestionItem]
+    /// The rest of the sitting: retakes of a shot already offered, and photos past the limit. Never
+    /// offered, but they go with the sitting when it is dismissed, or they would come back as a new one.
+    public let others: [PhotoSuggestionItem]
 
-    public init(items: [PhotoSuggestionItem]) {
+    public init(items: [PhotoSuggestionItem], others: [PhotoSuggestionItem] = []) {
         self.items = items
+        self.others = others
     }
 
     /// The first photo's identity — stable across a re-fetch, unlike a position in a list.
@@ -39,8 +44,12 @@ public struct PhotoSuggestionCluster: Identifiable, Equatable, Sendable {
 /// cluster carries photos, a time and at most a coordinate, and **never a place** — a place reaches
 /// the composer only when the person taps one of the nearby chips (``PhotoPlaceChips``).
 public enum PhotoSuggestions {
-    /// How many photos one cluster offers the composer. The composer's own limit.
-    public static let photoLimit = 5
+    /// How many photos one cluster offers: the three its row shows, so the composer opens holding
+    /// exactly what was seen. (It took five, two of them never shown: 27 Oct, a mezze plate five times.)
+    public static let photoLimit = 3
+    /// A photo taken this soon after the last one offered is a retake of the same shot, not another
+    /// dish: three frames of one plate are offered once.
+    public static let sameShot: TimeInterval = 10
     /// A new photo more than this long after the last one starts a new sitting.
     public static let gap: TimeInterval = 2 * 60 * 60
     /// How far back the screen looks.
@@ -53,8 +62,23 @@ public enum PhotoSuggestions {
         gap: TimeInterval = PhotoSuggestions.gap
     ) -> [PhotoSuggestionCluster] {
         sittings(items, now: now, gap: gap)
-            .map { PhotoSuggestionCluster(items: Array($0.prefix(photoLimit))) }
+            .map { sitting in
+                let offered = Array(distinctShots(sitting).prefix(photoLimit))
+                let ids = Set(offered.map(\.id))
+                return PhotoSuggestionCluster(items: offered, others: sitting.filter { ids.contains($0.id) == false })
+            }
             .sorted { $0.date > $1.date }
+    }
+
+    /// A sitting less its retakes, oldest first: a photo within ``sameShot`` of the last one kept is
+    /// the same shot again. Measured from the kept photo, so a long burst is still one shot.
+    static func distinctShots(_ sitting: [PhotoSuggestionItem]) -> [PhotoSuggestionItem] {
+        var kept: [PhotoSuggestionItem] = []
+        for item in sitting {
+            if let last = kept.last, item.createdAt.timeIntervalSince(last.createdAt) < sameShot { continue }
+            kept.append(item)
+        }
+        return kept
     }
 
     /// The sittings whole, oldest photo first in each — before the composer's five are taken.

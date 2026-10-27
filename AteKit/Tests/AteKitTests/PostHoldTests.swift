@@ -144,14 +144,14 @@ struct SummaryReceiptTests {
         #expect(summary.showsReceipt == false)
     }
 
-    @Test("a failed or empty print shows no receipt, and offers the re-print")
+    @Test("a failed print shows no receipt and offers the re-print; an unscored one shows none and offers none")
     func stalledShowsNothing() async {
         let failed = store(card(.failed)) { _ in card(.failed) }
         #expect(failed.showsReceipt == false)
         #expect(failed.phase == .stalled)
         let empty = store(card(.pending, lines: 0)) { _ in card(.sorted, lines: 0) }
         await empty.watch()
-        #expect(empty.phase == .stalled)
+        #expect(empty.phase == .unscored)
         #expect(empty.showsReceipt == false)
     }
 

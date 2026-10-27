@@ -40,14 +40,35 @@ struct PhotoSuggestionsTests {
         #expect(PhotoSuggestions.cluster(items, now: date(20, 9, 9)).count == 2)
     }
 
-    @Test("A sitting offers at most the composer's five")
-    func capsAtFive() {
+    @Test("A sitting offers the three its row shows, and keeps the rest")
+    func capsAtThree() {
         let items = (0..<8).map {
             PhotoSuggestionItem(id: "\($0)", createdAt: date(19, 9, 20, $0 * 5))
         }
         let clusters = PhotoSuggestions.cluster(items, now: date(20, 9, 9))
         #expect(clusters.count == 1)
-        #expect(clusters[0].items.count == 5)
+        #expect(clusters[0].items.map(\.id) == ["0", "1", "2"])
+        #expect(clusters[0].others.map(\.id) == ["3", "4", "5", "6", "7"])
+    }
+
+    @Test("Retakes of one shot are offered once (27 Oct: one mezze plate, five times)")
+    func collapsesRetakes() {
+        let start = date(27, 10, 13, 30)
+        let at = { (seconds: TimeInterval) in start.addingTimeInterval(seconds) }
+        let items = [
+            PhotoSuggestionItem(id: "beach", createdAt: at(0)),
+            PhotoSuggestionItem(id: "mezze", createdAt: at(300)),
+            PhotoSuggestionItem(id: "mezze-2", createdAt: at(302)),
+            PhotoSuggestionItem(id: "mezze-3", createdAt: at(305)),
+            // a long burst is still one shot: measured from the photo kept, 9s later
+            PhotoSuggestionItem(id: "mezze-4", createdAt: at(309)),
+            PhotoSuggestionItem(id: "pita", createdAt: at(340)),
+            PhotoSuggestionItem(id: "pita-2", createdAt: at(341))
+        ]
+        let cluster = PhotoSuggestions.cluster(items, now: date(28, 10, 9))[0]
+        #expect(cluster.items.map(\.id) == ["beach", "mezze", "pita"])
+        #expect(Set(cluster.others.map(\.id)) == ["mezze-2", "mezze-3", "mezze-4", "pita-2"])
+        #expect(cluster.id == "beach")
     }
 
     @Test("Newest sitting first, and its id is its first photo")

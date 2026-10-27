@@ -21,7 +21,7 @@
 
 import { scalarLength, scalarOffset, sliceScalars } from './offsets.ts';
 import { parseSixTokens, type SixToken } from './six.ts';
-import type { SortItem } from './types.ts';
+import type { SortItem, SortPlan } from './types.ts';
 
 export type ScoreToken = SixToken;
 
@@ -99,4 +99,12 @@ export function attachScoreTokens(items: readonly SortItem[], marks: readonly Sc
     out[owner].evidence_offset = m.offset;
   }
   return out;
+}
+
+/**
+ * How many lines a plan would print: the scored ones, the pills attached first — both sort paths
+ * apply exactly this last. Zero is a receipt that never prints (sort-entry falls back to the parser).
+ */
+export function printable(plan: SortPlan, marks: readonly ScoreToken[] | null, body: string): number {
+  return keepRated(attachScoreTokens(plan.items, marks, body), marks, body).length;
 }

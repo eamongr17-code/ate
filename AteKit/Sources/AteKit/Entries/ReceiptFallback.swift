@@ -43,7 +43,7 @@ public enum ReceiptFallback: String, Sendable, Equatable, CaseIterable {
     /// place) has nothing to explain.
     public static func on(_ phase: EntrySummaryStore.Phase, isQueued: Bool, isSlow: Bool) -> ReceiptFallback? {
         switch phase {
-        case .printed, .needsPlace:
+        case .printed, .needsPlace, .unscored:
             nil
         case .sorting:
             isQueued ? .offline : (isSlow ? .slow : nil)

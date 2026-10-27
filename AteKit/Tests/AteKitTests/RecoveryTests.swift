@@ -32,6 +32,19 @@ struct PhotoSuggestionDismissalsTests {
         #expect(dismissals.count(items) == 1)
     }
 
+    @Test("An X takes the whole sitting: its retakes and the photos past the row never come back as a row")
+    func dismissTakesTheWholeSitting() {
+        let sitting = (0..<6).map { item("s\($0)", hoursAgo: 3 - Double($0) * 0.1) }
+            + [item("s0-retake", hoursAgo: 3 - 2.0 / 3600)]
+        let dismissals = PhotoSuggestionDismissals(store: InMemoryKeyValueStore(), owner: owner, now: { self.now })
+        let row = dismissals.clusters(sitting)
+        #expect(row.count == 1)
+        #expect(row[0].items.count == PhotoSuggestions.photoLimit)
+        dismissals.dismiss(row[0])
+        #expect(dismissals.clusters(sitting).isEmpty)
+        #expect(dismissals.count(sitting) == 0)
+    }
+
     @Test("Gone for the next launch too — but only for the person who dismissed it")
     func remembersPerPerson() {
         let store = InMemoryKeyValueStore()

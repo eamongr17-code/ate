@@ -12,7 +12,7 @@ import Observation
 ///
 /// **An empty receipt is never printed or shared.** A placeless entry sorts to no lines (the plan is
 /// parked until a place is attached), so "sorted" alone is not "printed": the receipt prints only
-/// with a place and at least one line.
+/// with a place and at least one line. With a place and no line, nothing was scored (``Phase/unscored``).
 @MainActor
 @Observable
 public final class EntrySummaryStore {
@@ -24,9 +24,13 @@ public final class EntrySummaryStore {
         /// Sorted, but nothing can print until a place is attached: the receipt's place slot is
         /// the Place key.
         case needsPlace
-        /// The sorter failed, found nothing to print, or took longer than anyone waits on this
-        /// screen. The skeleton stops breathing and the ink pill offers "Try again".
+        /// The sorter failed, or took longer than anyone waits on this screen. The skeleton stops
+        /// breathing and the ink pill offers "Try again".
         case stalled
+        /// Sorted, with a place, and nothing scored: the entry is its words and photos. No receipt
+        /// to print or share — and no "Try again", which would read the same words the same way
+        /// (27 Oct: a skeleton and a retry that could never work). The composer goes down.
+        case unscored
     }
 
     /// What the store needs from the entry service — closures, so the Summary can be driven by a
@@ -141,7 +145,7 @@ public final class EntrySummaryStore {
         switch phase {
         case .printed, .needsPlace: true
         case .sorting: isAttachingPlace
-        case .stalled: false
+        case .stalled, .unscored: false
         }
     }
 
@@ -260,7 +264,7 @@ public final class EntrySummaryStore {
         case .failed: return .stalled
         case .sorted:
             guard card.place != nil else { return .needsPlace }
-            return card.items.isEmpty ? .stalled : .printed
+            return card.items.isEmpty ? .unscored : .printed
         }
     }
 }

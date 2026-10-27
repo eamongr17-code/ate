@@ -251,7 +251,16 @@ public struct SupabaseEntryService: EntryService {
         }
     }
 
+    /// Only with a live session, refreshed first if it has lapsed (``AteAPIClient/session()``). Without
+    /// one the call goes out on the publishable key alone and match-photos answers 401 — 27 Oct, a
+    /// signed-out viewer opening photos (``matchPhotosIfNeverMatched``) did, over and over. Nothing to
+    /// match for someone who is not signed in: skip it.
+    private func hasSession() async -> Bool {
+        (try? await api.session()) != nil
+    }
+
     public func matchPhotos(entryID: UUID) async {
+        guard await hasSession() else { return }
         _ = try? await api.supabase.functions.invoke(
             "match-photos",
             options: FunctionInvokeOptions(method: .post, body: ["entry_id": entryID.uuidString.lowercased()])
@@ -263,6 +272,7 @@ public struct SupabaseEntryService: EntryService {
             "entry_id": .string(entryID.uuidString.lowercased()),
             "unmatched_only": .bool(true)
         ]
+        guard await hasSession() else { return }
         _ = try? await api.supabase.functions.invoke(
             "match-photos",
             options: FunctionInvokeOptions(method: .post, body: body)

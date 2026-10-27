@@ -148,6 +148,13 @@ struct V2ComposerPrinted: View {
         .onChange(of: app.outboxLanded) { _, _ in Task { await store.recheck() } }
         .onChange(of: fallback, initial: true) { _, kind in countFallback(kind) }
         .onChange(of: store.card) { _, card in NotificationCenter.ateEntryChanged(card) }
+        // Nothing scored: no receipt will ever print, so there is nothing to wait for or retry. The
+        // sheet goes down and the entry is in the Journal as its words and photos (27 Oct).
+        .onChange(of: store.phase == .unscored, initial: true) { _, unscored in
+            guard unscored else { return }
+            services.analytics(EntryEvents.receiptUnscored(entryID: store.card.id))
+            app.isComposing = false
+        }
         .onChange(of: store.showsReceipt, initial: true) { _, shows in countEntrance(shows) }
         .onDisappear { countDone() }
         .v2PlaceSheet(

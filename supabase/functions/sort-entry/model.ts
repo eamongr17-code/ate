@@ -190,13 +190,16 @@ export function buildRequest(opts: {
   model?: SorterModel;
   knownDishes?: string[];
   placeCandidates?: string[];
+  /** The place the DINER picked (composer tap). Known, so no phrase in the words is guessed to be it. */
+  pinnedPlace?: string | null;
   /** The words the client marked as dietary tag chips (0036), verbatim, in body order. */
   tagWords?: string[];
   /** Each client-marked six (0041) with the words just before it (./six.ts sixMarks), in body order. */
   sixMarks?: string[];
 }): ModelRequest {
   const known = (opts.knownDishes ?? []).slice(0, 200);
-  const places = (opts.placeCandidates ?? []).slice(0, 8);
+  const pinned = (opts.pinnedPlace ?? '').trim();
+  const places = pinned ? [] : (opts.placeCandidates ?? []).slice(0, 8);
   const tags = (opts.tagWords ?? []).filter((w) => w.trim()).slice(0, 40);
   const sixes = (opts.sixMarks ?? []).filter((w) => w.trim()).slice(0, 24);
 
@@ -209,7 +212,15 @@ export function buildRequest(opts: {
     known.length
       ? `KNOWN MENU DISHES AT THE MATCHED PLACE (prefer these spellings when they match): ${known.join(' | ')}`
       : 'KNOWN MENU DISHES: none supplied (no place matched yet).',
-    places.length ? `PLACE-NAME CANDIDATES found in the text: ${places.join(' | ')}` : '',
+    // A place the diner picked is settled. Offering phrases as candidates then only invites the
+    // model to read a dish as the venue: "Beach Mezze 3.0, …" at a picked place came back as
+    // place_query "Beach Mezze 3.0" and no dish at all (prod, 27 Oct).
+    pinned
+      ? `THE PLACE (the diner picked it): ${pinned}. Nothing else in the text is the place: ` +
+        'a capitalised name that is not this place is a dish. Omit place_query unless the text names this place.'
+      : places.length
+      ? `PLACE-NAME CANDIDATES found in the text: ${places.join(' | ')}`
+      : '',
     // 0036: the chips are dietary TAGS the diner attached, never dish words. The server cuts
     // them out of any dish name anyway (tags.ts); this keeps the model from building on them.
     tags.length
@@ -297,6 +308,7 @@ export type ModelCallOptions = {
   model?: SorterModel;
   knownDishes?: string[];
   placeCandidates?: string[];
+  pinnedPlace?: string | null;
   tagWords?: string[];
   sixMarks?: string[];
   timeoutMs?: number;
@@ -323,6 +335,7 @@ export async function callModel(opts: ModelCallOptions): Promise<ModelCall> {
     model: opts.model,
     knownDishes: opts.knownDishes,
     placeCandidates: opts.placeCandidates,
+    pinnedPlace: opts.pinnedPlace,
     tagWords: opts.tagWords,
     sixMarks: opts.sixMarks,
   });

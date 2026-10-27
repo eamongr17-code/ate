@@ -126,12 +126,16 @@ struct EntrySummaryStoreTests {
         #expect(summary.share() != nil, "Share is live once it has printed")
     }
 
-    @Test("a place with no dish on it is not an empty receipt either: it stalls, with a re-print")
+    @Test("a place with nothing scored is not an empty receipt, and not a retry that cannot help (27 Oct)")
     func placeButNoLines() async {
         let summary = store(card(.pending, place: tipo, lines: 0)) { _ in card(.sorted, lines: 0) }
         await summary.watch()
-        #expect(summary.phase == .stalled)
+        #expect(summary.phase == .unscored)
+        #expect(summary.showsReceipt == false)
         #expect(summary.share() == nil)
+        #expect(ReceiptFallback.on(summary.phase, isQueued: false, isSlow: true) == nil, "no line, no Try again")
+        await summary.reprint()
+        #expect(summary.phase == .unscored, "nothing to re-print")
     }
 
     @Test("a stalled print recovers: Try again re-sorts and watches, and Done is still there")

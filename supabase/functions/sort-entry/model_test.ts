@@ -237,3 +237,16 @@ test('0056: a model call that hangs past the timeout returns no plan (the stub r
   const got = await callModel({ apiKey: 'k', body: 'Tiramisu 4.0', fetchImpl: hang, timeoutMs: 20 });
   assertEquals([got.plan, got.error], [null, 'aborted']);
 });
+
+test('a place the diner picked is named to the model, and no phrase is offered as a candidate', () => {
+  const body = 'Beach Mezze 3.0, everything was fresh and tasty';
+  const picked = JSON.parse(buildRequest({
+    apiKey: 'k', body, placeCandidates: ['Beach Mezze 3.0'], pinnedPlace: 'The Lazy Coconut',
+  }).body).messages[0].content as string;
+  assert(picked.includes('THE PLACE (the diner picked it): The Lazy Coconut.'));
+  assert(!picked.includes('PLACE-NAME CANDIDATES'));
+  const open = JSON.parse(buildRequest({ apiKey: 'k', body, placeCandidates: ['Beach Mezze 3.0'] }).body)
+    .messages[0].content as string;
+  assert(open.includes('PLACE-NAME CANDIDATES found in the text: Beach Mezze 3.0'));
+  assert(!open.includes('THE PLACE'));
+});
