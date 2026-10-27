@@ -116,7 +116,7 @@ struct V2PlacePage: View {
     // MARK: - Maps
 
     /// **Where it is** (`place-maps.html`, B, Eamon 26 Oct): a round pin, so the facts fit one row
-    /// (`place-pills-one-row.html`, Eamon 27 Oct). Opens Apple Maps; asks which app when Google Maps
+    /// (`design/rebuild/place-pills-one-row.html`, Eamon 27 Oct). Opens Apple Maps; asks which app when Google Maps
     /// is on the phone too.
     private var mapChips: [AteChipFlow.Chip] {
         guard let summary = store.summary else { return [] }
