@@ -221,8 +221,11 @@ final class EntryModel: SavedDishObserving {
         hasReadOnce = hasReadOnce || isSeed == false
         #endif
         self.card = card
-        // The words as written — a place named in them is plain text (ComposerPlaceB).
-        composition = EntryPresentation.composition(for: card)
+        // The words as written — a place named in them is plain text (ComposerPlaceB). Words that
+        // only name the dishes and their scores are said once, in the rows, as on the slip (`MinimalEntry`).
+        composition = EntryBodyTokens.wordsEchoDishRows(card)
+            ? EntryComposition(plain: "", spans: [])
+            : EntryPresentation.composition(for: card)
         // Named by address, so a redraw (a bookmark, a correction) never reloads a photo.
         photos = EntrySlipPresentation.viewerPhotos(card)
         state = EntryPresentation.state(for: card, handle: handle)
