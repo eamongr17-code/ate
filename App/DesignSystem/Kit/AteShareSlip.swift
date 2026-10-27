@@ -238,7 +238,8 @@ private struct ShareSlipSkeleton: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    /// Each name bar's longest length; on a narrower paper it takes its column's width instead.
+    /// Each name bar's longest length, all under the name column's 112 (172 of paper, less the 12 gap
+    /// and the 48 score column); on a narrower column a bar takes the column's width instead.
     private static let rows: [(name: CGFloat, scored: Bool)] = [(104, true), (64, true), (88, false)]
 
     /// A dish line's height: the score's slot, or the name's line if that is taller.
