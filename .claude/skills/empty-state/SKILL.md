@@ -42,8 +42,9 @@ Most new screens need no new drawing.
    as a claude.ai Artifact. Send Eamon the link and wait for his explicit OK before building.
 3. Render it into the asset catalogue:
    `NODE_PATH=$(npm root -g) node design/illustrations/render.js && python3 design/illustrations/split.py`
-   This writes the `EmptyXInk` / `EmptyXPaper` template layers. The app tints them, so dark mode is
-   automatic.
+   This writes the `EmptyXInk` / `EmptyXPaper` template layers, trimmed top and bottom to what is
+   drawn so the line sits right under it (12pt on a page, 8 in a section). The app tints them, so
+   dark mode is automatic. Never hand-pad a drawing or add a spacer between it and the line.
 4. Add the `AteEmptyArt` case, with its raw value equal to the scene's `asset`, and a one-line doc
    comment saying what the emptiness is.
 
