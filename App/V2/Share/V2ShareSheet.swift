@@ -319,6 +319,8 @@ enum V2ShareSheetMetrics {
     static let swatchGap: CGFloat = 6
     /// How fast an entry's cards come in once its photos are.
     static let cardsIn: Double = 0.2
+    /// After a review, the dots come in just behind the printed lines, once the paper has mostly settled.
+    static let liveIn = AteMotion.fillIn.delay(0.3)
     /// The sheet's height on the entry page: the cards, the dots, the row.
     static let sheetHeight: CGFloat = 660
 

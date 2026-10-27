@@ -67,14 +67,10 @@ struct V2PlacePage: View {
         .ateCollapsingTitle(store.name ?? store.previewName, isCollapsed: isCollapsed)
         .ateRefreshable { await store.refresh() }
         .task { await store.load() }
-        .confirmationDialog(
-            mapChoice?.name ?? "",
-            isPresented: Binding(get: { mapChoice != nil }, set: { if $0 == false { mapChoice = nil } }),
-            titleVisibility: .visible,
-            presenting: mapChoice
-        ) { link in
-            Button(V2PlaceCopy.appleMaps) { openMaps(link, app: .apple) }
-            Button(V2PlaceCopy.googleMaps) { openMaps(link, app: .google) }
+        .sheet(isPresented: Binding(get: { mapChoice != nil }, set: { if $0 == false { mapChoice = nil } })) {
+            if let link = mapChoice {
+                AteMapsSheet(title: link.name) { app in openMaps(link, app: app) }
+            }
         }
         .accessibilityIdentifier("place.page")
     }
@@ -138,9 +134,7 @@ struct V2PlacePage: View {
         }
     }
 
-    private enum MapsApp: String { case apple, google }
-
-    private func openMaps(_ link: PlaceMapLink, app: MapsApp) {
+    private func openMaps(_ link: PlaceMapLink, app: AteMapsSheet.Choice) {
         context.services.analytics(DetailEvents.placeMapOpened(app: app.rawValue, hasPoint: link.coordinate != nil))
         openURL(app == .apple ? link.appleMapsURL : link.googleMapsURL)
     }
@@ -414,8 +408,6 @@ private struct V2PlaceSkeleton: View {
 enum V2PlaceCopy {
     /// The street chip when no street is on file.
     static let map = "Map"
-    static let appleMaps = "Apple Maps"
-    static let googleMaps = "Google Maps"
     static func openInMaps(_ name: String) -> String { "Open \(name) in Maps" }
 }
 

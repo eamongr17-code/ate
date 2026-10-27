@@ -8,8 +8,9 @@
 // line that exist. A line may take several photos (22 Oct: Paris's two photos of one noodle soup;
 // only the first was named), and a photo several lines (22 Oct: a sandwich and its fries on one
 // plate, 0083). Each pairing may say where the dish sits in the photo: a box, from the same call. A
-// line the author picked by hand is never offered. Without the key nothing is asked: one line takes
-// every photo, and anything more is left as it is.
+// line the author picked by hand is never offered. A photo of no listed dish (the people at the
+// table, the room) is left out, also on a one-dish entry. Without the key nothing is asked: one line
+// takes every photo, and anything more is left as it is.
 
 import {
   ANTHROPIC_URL,
@@ -143,20 +144,22 @@ export async function loadImages(
 /**
  * What to do before any model is asked. `ask` lists only what is still open: the lines nobody
  * picked and the photos no picked line holds.
+ *
+ * A one-dish entry is asked too (26 Oct, Eamon: a photo of the people you were with is no photo of
+ * the dish). Its `fallback` is the old answer, every photo is that dish, kept for when the model
+ * cannot be asked (no key, over budget) or does not answer: then nothing is worse than before.
  */
 export function plan(photos: Photo[], lines: Line[]):
   | { kind: 'nothing' }
-  | { kind: 'direct'; matches: Match[] }
-  | { kind: 'ask'; photos: Photo[]; lines: Line[] } {
+  | { kind: 'ask'; photos: Photo[]; lines: Line[]; fallback: Match[] | null } {
   const held = new Set(lines.filter((l) => l.picked && l.photo_url).map((l) => l.photo_url!));
   const openPhotos = [...photos].sort((a, b) => a.position - b.position).filter((p) => !held.has(p.url)).slice(0, MAX_PHOTOS);
   const openLines = lines.filter((l) => !l.picked);
   if (!openPhotos.length || !openLines.length) return { kind: 'nothing' };
-  // One dish left and the whole entry is about it: every photo is that dish. No model needed.
-  if (openLines.length === 1 && lines.length === 1) {
-    return { kind: 'direct', matches: openPhotos.map((p) => ({ review_id: openLines[0].review_id, photo_url: p.url })) };
-  }
-  return { kind: 'ask', photos: openPhotos, lines: openLines };
+  const fallback = openLines.length === 1 && lines.length === 1
+    ? openPhotos.map((p) => ({ review_id: openLines[0].review_id, photo_url: p.url }))
+    : null;
+  return { kind: 'ask', photos: openPhotos, lines: openLines, fallback };
 }
 
 export const TOOL = {
