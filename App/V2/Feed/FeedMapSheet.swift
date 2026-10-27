@@ -217,7 +217,6 @@ struct FeedMapSheet: View {
                 .accessibilityIdentifier("map.offline")
         case .ready:
             AteEmptyState(line: store.title.emptyLine, art: .setting, size: .section)
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { emptyHeight = $0 }
                 .accessibilityIdentifier("map.empty")
         }
     }
