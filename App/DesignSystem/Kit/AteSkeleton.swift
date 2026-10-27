@@ -86,6 +86,7 @@ struct AteSkeleton: View {
                 AteSkeletonBar(height: 14)
                 AteSkeletonBar(width: 190, height: 14)
             }
+            .padding(.top, AteMetrics.slipWordsGap - AteMetrics.slipBandGap)
             HStack(spacing: AteMetrics.snug) {
                 ForEach(0..<3, id: \.self) { _ in
                     RoundedRectangle(

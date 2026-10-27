@@ -105,6 +105,7 @@ struct EntrySlip: View {
                         } }
                     )
                 }
+                .padding(.top, slip.dishes.isEmpty ? 0 : AteMetrics.slipWordsGap - insets.gap)
             }
             // …and a photo opens itself, full screen, never the entry. A sibling of the words'
             // button rather than inside it: a tap inside a button's label belongs to that button.
