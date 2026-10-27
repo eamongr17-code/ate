@@ -16,6 +16,9 @@ struct AtePhotoCluster: View {
         case summary
         /// The entry page: 104, `-6 5 -2`.
         case entry
+        /// A photo suggestion's row (`notifications-refined.html` `.sug`): 88, `-5 4 -2`, `padding:4px 0`.
+        /// The composer's 116 overran the row, pushing its title and ✕ to the screen's edges (27 Oct).
+        case suggestion
     }
 
     let photos: [AtePhoto]
@@ -59,6 +62,7 @@ struct AtePhotoClusterMetrics {
         case .composer: (side, angles, top, bottom) = (AteMetrics.clusterPhotoComposer, AtePhotoAngles.slip, 8, 6)
         case .summary: (side, angles, top, bottom) = (96, [-7, 5, -3], 0, 0)
         case .entry: (side, angles, top, bottom) = (104, [-6, 5, -2], 6, 0)
+        case .suggestion: (side, angles, top, bottom) = (88, AtePhotoAngles.slip, 4, 4)
         }
     }
 }

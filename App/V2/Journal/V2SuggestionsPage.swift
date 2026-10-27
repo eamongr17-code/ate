@@ -164,25 +164,36 @@ struct PhotoSuggestionRow: View {
 }
 
 /// A sitting's photos: the slip's tilted, overlapping cluster — the same mess a written-up entry
-/// wears, so the photos already look like the entry they are about to become. Three at most; the
-/// rest are all in the composer when the row is tapped.
+/// wears, so the photos already look like the entry they are about to become. Three at most, and
+/// exactly the three the composer opens holding.
+///
+/// Each carries its picture as well as its tile, so a tap flies the photo out of its tile and back
+/// (``AtePhotoViewer``). With the tile's `Image` alone the viewer could only fade it in, and on close
+/// drop it off the screen while its tile sat hidden (27 Oct) — the composer's 26 Oct fix, not made here.
 private struct SuggestionPhotos: View {
     let library: any AtePhotoLibrary
     let ids: [String]
 
     @State private var images: [String: Image] = [:]
+    @State private var pictures: [String: UIImage] = [:]
 
     private var shown: [String] { Array(ids.prefix(SuggestionMetrics.maximumPhotos)) }
 
     var body: some View {
         AtePhotoCluster(
-            photos: shown.enumerated().map { AtePhoto(id: SuggestionMetrics.photoID($0), image: images[$1]) },
-            size: .composer,
+            photos: shown.enumerated().map {
+                AtePhoto(id: SuggestionMetrics.photoID($0), image: images[$1], picture: pictures[$1])
+            },
+            size: .suggestion,
             surface: AtePalette.automatic.ground
         )
         .task(id: shown) {
+            // The tiles first, all of them, then the pictures the viewer opens on.
             for id in shown where images[id] == nil {
-                images[id] = await library.thumbnail(id: id, side: AtePhotoClusterMetrics(.composer).side)
+                images[id] = await library.thumbnail(id: id, side: AtePhotoClusterMetrics(.suggestion).side)
+            }
+            for id in shown where pictures[id] == nil {
+                pictures[id] = await library.image(id: id, maximumDimension: SuggestionMetrics.viewerDimension)
             }
         }
     }
@@ -202,7 +213,7 @@ struct SuggestionSkeletonRow: View {
             .frame(minHeight: AteMetrics.hit)
             AtePhotoCluster(
                 photos: (0..<photos).map { AtePhoto(id: SuggestionMetrics.photoID($0)) },
-                size: .composer,
+                size: .suggestion,
                 surface: AtePalette.automatic.ground
             )
         }
@@ -217,6 +228,8 @@ struct SuggestionSkeletonRow: View {
 enum SuggestionMetrics {
     static let skeletons = 2
     static let maximumPhotos = 3
+    /// The longest edge of the picture a tapped photo opens on: full screen on a phone, no more.
+    static let viewerDimension: CGFloat = 1200
     static let dismissGlyph: CGFloat = 16
     static let dismissDuration = 0.25
     static let titleBar: CGFloat = 112
