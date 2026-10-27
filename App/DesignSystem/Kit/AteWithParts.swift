@@ -122,7 +122,7 @@ enum AteWithKitMetrics {
     static let checkGlyph: CGFloat = 16
 }
 
-/// **"with @jess +2"** on a slip (`journal-ate-with.html` A): ``AteWithLine``'s avatars and words,
+/// **"with @jess +2"** on a slip (`journal-ate-with.html` B): ``AteWithLine``'s avatars and words,
 /// on one line, at a slip's size. The first handle and how many more — the entry lists them all. A
 /// long handle truncates; the count never does.
 struct AteWithSlipLine: View {

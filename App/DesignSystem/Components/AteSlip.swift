@@ -70,7 +70,7 @@ struct AteSlip: Equatable, Identifiable {
     var viewerPhotos: [AtePhoto] = []
     /// Who wrote it — present in the feed, absent in your own journal and on their own profile.
     var byline: AteByline?
-    /// Who it was eaten with. Printed above the foot line where there is no byline to carry it —
+    /// Who it was eaten with. Printed on top where there is no byline to carry it —
     /// your journal and a profile (``AteWithSlipLine``); the feed's byline says it instead.
     var with: [AteWithPerson] = []
     /// The viewer's own entry: its photos' dishes can be fixed from the viewer.
