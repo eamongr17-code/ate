@@ -79,7 +79,13 @@ struct FeedMapPage: View {
             for await isOnline in ConnectivityWatch.states() { await store.connectionChanged(isOnline: isOnline) }
         }
         .onChange(of: store.frame) { _, frame in
-            if let frame { position = .region(framing?.region(frame, detent: detent) ?? MKCoordinateRegion(frame)) }
+            guard let frame else { return }
+            let target = framing?.region(frame, detent: detent) ?? MKCoordinateRegion(frame)
+            position = .region(target)
+            // What the map shows once there, without waiting for MapKit to say so: a camera end from
+            // the map's first, unframed view could land after this, or none come for the framing,
+            // and Search here was up on opening (the nightly drive, 27 Oct).
+            Task { await store.show(shown(target), reading: MapBox(target).grown(by: FeedMapMetrics.readAhead)) }
         }
         // The bar's items take no implicit animation; Search here fades in and out by hand.
         .onChange(of: store.canSearchHere) { _, can in
@@ -103,9 +109,8 @@ struct FeedMapPage: View {
             .onMapCameraChange(frequency: .onEnd) { camera in
                 region = camera.region
                 relayout(proxy)
-                let shown = visibleBox(proxy) ?? MapBox(camera.region)
                 let reading = MapBox(camera.region).grown(by: FeedMapMetrics.readAhead)
-                Task { await store.show(shown, reading: reading) }
+                Task { await store.show(shown(camera.region), reading: reading) }
             }
             .onChange(of: store.places) { relayout(proxy) }
             .onChange(of: store.selected) { relayout(proxy) }
@@ -163,19 +168,10 @@ struct FeedMapPage: View {
         marks = photos + dots.compactMap { $0 }
     }
 
-    /// What is on screen and not under the sheet at rest: what Search here lists, and what it
-    /// measures the map's moves against.
-    private func visibleBox(_ proxy: MapProxy) -> MapBox? {
-        guard let framing,
-              let topLeft = proxy.convert(CGPoint(x: 0, y: framing.top), from: .local),
-              let bottomRight = proxy.convert(
-                CGPoint(x: AteScreen.width, y: framing.clearBottom(detent)), from: .local
-              )
-        else { return nil }
-        return MapBox(
-            minLatitude: bottomRight.latitude, minLongitude: topLeft.longitude,
-            maxLatitude: topLeft.latitude, maxLongitude: bottomRight.longitude
-        )
+    /// What is on screen and not under the sheet at rest, with the camera on `region`: what Search
+    /// here lists, and what it measures the map's moves against.
+    private func shown(_ region: MKCoordinateRegion) -> MapBox {
+        framing?.visible(region, detent: detent) ?? MapBox(region)
     }
 
     private func select(_ place: MapPlace) async {
@@ -254,17 +250,21 @@ struct FeedMapFraming: Equatable {
         screen - (detent == .minimised ? minimisedBottom : lowBottom)
     }
 
+    /// What MapKit frames a region in: the whole map down to its bottom inset, the minimised sheet's
+    /// top. The map runs under the top bar with no top inset (measured: insets top 0, bottom 110 on
+    /// a 402 × 874 screen), so a region's middle sits at this height's middle, not under the bar.
+    var mapHeight: CGFloat { max(screen - minimisedBottom, 1) }
+
     /// The region that shows `box` whole and centred in what the sheet leaves clear.
     func region(_ box: MapBox, detent: FeedMapDetent) -> MKCoordinateRegion {
         let metersPerDegree = 111_320.0
         let shrink = max(cos(box.centerLatitude * .pi / 180), 0.01)
-        // The map's own frame: under the top bar, down to the minimised sheet.
-        let framed = Double(max(screen - top - minimisedBottom, 1))
+        let framed = Double(mapHeight)
         let clear = Double(max(clearBottom(detent) - top, 1))
         let across = Double(max(width, 1))
         let metersPerPoint = max(box.widthMeters / across, box.latitudeDelta * metersPerDegree / clear)
         // The clear part's middle sits this far above the framed part's middle.
-        let lift = (framed - clear) / 2
+        let lift = Double(mapHeight / 2 - (top + clearBottom(detent)) / 2)
         return MKCoordinateRegion(
             center: CLLocationCoordinate2D(
                 latitude: box.centerLatitude - lift * metersPerPoint / metersPerDegree,
@@ -274,6 +274,20 @@ struct FeedMapFraming: Equatable {
                 latitudeDelta: framed * metersPerPoint / metersPerDegree,
                 longitudeDelta: across * metersPerPoint / metersPerDegree / shrink
             )
+        )
+    }
+
+    /// The part of `region` between the top bar and the resting sheet. Worked out from the region
+    /// (MapKit reports it for ``mapHeight``), not by asking the map to convert points: that read the
+    /// whole region when it failed, and the opening view counted as moved (the nightly drive, 27 Oct).
+    func visible(_ region: MKCoordinateRegion, detent: FeedMapDetent) -> MapBox {
+        let perPoint = region.span.latitudeDelta / Double(mapHeight)
+        let middle = Double(mapHeight / 2)
+        return MapBox(
+            minLatitude: region.center.latitude - (Double(clearBottom(detent)) - middle) * perPoint,
+            minLongitude: region.center.longitude - region.span.longitudeDelta / 2,
+            maxLatitude: region.center.latitude + (middle - Double(top)) * perPoint,
+            maxLongitude: region.center.longitude + region.span.longitudeDelta / 2
         )
     }
 }
