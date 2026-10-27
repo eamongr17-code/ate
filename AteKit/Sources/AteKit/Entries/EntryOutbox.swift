@@ -332,8 +332,9 @@ public actor EntryOutbox {
             _ = try await entries.create(item.entry.newEntry)
             item.hasInserted = true
         }
-        var remaining: [QueuedPhoto] = []
         var uploaded = 0
+        // Each photo leaves the list as it lands, so a failure part-way keeps only what is still
+        // owed: a retry does not upload the earlier ones again.
         for photo in item.pendingPhotos {
             // Deleted while this run was working it: stop, and upload nothing more.
             guard forgotten.contains(item.id) == false else { return }
@@ -341,19 +342,15 @@ public actor EntryOutbox {
                 // The staged file is gone (a build before staging moved out of Caches): the words
                 // still go, and the loss is counted rather than silent.
                 analytics(EntryEvents.stagedPhotoLost(position: photo.position))
+                item.pendingPhotos.removeAll { $0 == photo }
                 continue
             }
-            do {
-                try await entries.attach(photo: EntryPhotoUpload(
-                    entryID: item.entry.id, position: photo.position, data: data
-                ))
-                uploaded += 1
-            } catch {
-                remaining.append(photo)
-                throw error
-            }
+            try await entries.attach(photo: EntryPhotoUpload(
+                entryID: item.entry.id, position: photo.position, data: data
+            ))
+            item.pendingPhotos.removeAll { $0 == photo }
+            uploaded += 1
         }
-        item.pendingPhotos = remaining
         var sorted = false
         if item.needsSort, forgotten.contains(item.id) == false {
             let outcome = try await entries.sort(
