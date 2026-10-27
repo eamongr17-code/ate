@@ -134,7 +134,8 @@ one band in the paper's colour crossing the screen, 1.6s a pass, all placeholder
   (28pt avatar, handle — truncates — and age); Journal and Profile have no top row. Then the **dish
   rows**: name (`.h` 20/21) left, score (`.h` 26 with a filled 16 star) right, 1pt hairline between,
   44 minimum; a long name wraps to 2 lines then ellipsis, score top-aligned to its first line; unrated
-  = empty slot. Then the words (16, 2-line clamp, inline tokens) — **Feed hides them when a visit has
+  = empty slot. Then the words (16, 2-line clamp, inline tokens), 4pt under the dish rows rather than
+  the band gap (the entry page: 8 rather than 16; Eamon, 27 Oct) — **Feed hides them when a visit has
   more than 2 dishes** — then the tilted 80pt photo cluster, then the **foot line**: muted pin + place
   (600, 14) + suburb (muted 13), and the Journal's date ("Sat 19 Sep") or a Profile's age right-aligned.
   The place truncates first; suburb and date never wrap. In the feed and on a profile every dish row
