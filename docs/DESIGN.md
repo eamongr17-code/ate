@@ -136,7 +136,7 @@ one band in the paper's colour crossing the screen, 1.6s a pass, all placeholder
   rows**: name (`.h` 20/21) left, score (`.h` 26 with a filled 16 star) right, 1pt hairline between,
   44 minimum; a long name wraps to 2 lines then ellipsis, score top-aligned to its first line; unrated
   = empty slot. Then the words (16, 2-line clamp, inline tokens), 4pt under the dish rows rather than
-  the band gap (the entry page: 8 rather than 16; Eamon, 27 Oct) — **Feed hides them when a visit has
+  the band gap (Eamon, 27 Oct) — **Feed hides them when a visit has
   more than 2 dishes** — then the tilted 80pt photo cluster, then the **foot line**: muted pin + place
   (600, 14) + suburb (muted 13), and the Journal's date ("Sat 19 Sep") or a Profile's age right-aligned.
   The place truncates first; suburb and date never wrap. In the feed and on a profile every dish row
@@ -153,8 +153,8 @@ Journal & compose: `Main` (Journal | Saved segment; logo; photo-stack button wit
 headers) · `JournalLong` + `FeedLong` (long names, long places) · `MainEmpty` ·
 `Suggestions` (photos to write up as tilted 88pt clusters; never guesses a place) · `Saved` (grouped by place) · `Composer` ·
 `ComposerStars` (slide to score; name `.h` 22, score 28) · `ComposerVoice` · `Entry` (`EntryHier`: one
-white page on the linen ground, 24pt top corners, running off the bottom: the dish rows, the words, the
-tilted collage, then the place line — pin, place, suburb, day right. No title, no bill, no receipt;
+white page on the linen ground, 24pt top corners, running off the bottom: the dish rows, the words (8pt under
+the rows; the other bands 16), the tilted collage, then the place line — pin, place, suburb, day right. No title, no bill, no receipt;
 place line → `Restaurant` (long press `PlaceSheet`), row → `Dish` (long press `DishSheet`)) ·
 `PlaceSheet` · `AddPlace` · `DishSheet` · `DietTags`.
 Gives back: `You` · `Ratings` (tap a histogram bar) · `Recap` (monthly statement) · `Summary` +
