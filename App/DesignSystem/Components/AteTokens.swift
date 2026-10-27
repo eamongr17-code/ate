@@ -289,7 +289,9 @@ struct PlaceToken: View {
 
 /// A star, solid-outlined and fillable by a fraction. Design rule 7: **stars are never low-opacity** —
 /// an unscored star is a full-strength outline, because "nothing here yet" is a state, not a disabled
-/// control.
+/// control. The filled part is solid foreground, the same black star every score glyph uses (Eamon,
+/// 2026-10-27: no butter-and-outline stars anywhere). The one shared star: the slider, a dish's
+/// aggregate row and the Ratings page's group headings all draw this.
 struct AteStar: View {
     /// 0 = outline, 0.5 = half-filled, 1 = filled.
     var fill: Double
@@ -308,7 +310,6 @@ struct AteStar: View {
             // quarter in the slider's equal columns.
             ZStack {
                 AteIconShape(paths: AteIcon.starFilled.fills)
-                    .fill(AteColor.scoreMark)
                 outline
             }
             .frame(width: side, height: side)
