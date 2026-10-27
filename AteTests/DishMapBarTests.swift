@@ -1,4 +1,5 @@
 import AteKit
+import MapKit
 import SwiftUI
 import UIKit
 import XCTest
@@ -71,8 +72,21 @@ final class DishMapBarTests: XCTestCase {
             let shown = title.map { $0.window != nil && !$0.isHiddenInTree && $0.bounds.width > 60 } ?? false
             everShown = everShown || shown
             timeline.append("\(Double(tick) * 0.25)s: \(pushed.isEmpty ? "no map" : shown ? "SHOWN" : "-")")
+            if tick % 4 == 0, let map = window.allSubviews.compactMap({ $0 as? MKMapView }).first {
+                let region = map.region
+                timeline.append(String(
+                    format: "[map %.0fx%.0f insets t%.0f b%.0f, centre %.4f,%.4f span %.4f x %.4f]",
+                    map.bounds.width, map.bounds.height, map.safeAreaInsets.top, map.safeAreaInsets.bottom,
+                    region.center.latitude, region.center.longitude, region.span.latitudeDelta,
+                    region.span.longitudeDelta
+                ))
+            }
         }
-        XCTAssertFalse(everShown, "Search here showed while the map opened: \(timeline.joined(separator: ", "))")
+        let listed = MapBox.around(SearchOrigin(latitude: -37.8118, longitude: 144.9629), radiusMeters: 2_000)
+        let wanted = String(format: "listed centre %.4f,%.4f span %.4f x %.4f", listed.centerLatitude,
+                            listed.centerLongitude, listed.latitudeDelta, listed.longitudeDelta)
+        XCTAssertFalse(everShown,
+                       "Search here showed while the map opened (\(wanted)): \(timeline.joined(separator: ", "))")
     }
 
     private func turn(_ seconds: TimeInterval) {
