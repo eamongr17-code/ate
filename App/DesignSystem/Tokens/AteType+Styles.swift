@@ -24,10 +24,11 @@ extension AteTextStyle {
     static let sheetTitle = AteTextStyle(
         voice: .heading, size: 26, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title
     )
-    /// The one line an empty state says. 26pt — under its drawing it is a caption to the picture, so
-    /// it is well under ``screenTitle`` (Eamon, 6 Oct: the empty line was too big).
+    /// The one line an empty state says. 20pt — under its drawing it is a caption to the picture, so
+    /// it sits clearly under every title, ``sheetTitle`` and ``pageTitle`` included (Eamon, 6 Oct: 40
+    /// was too big; 26 Oct: 26 matched the titles and felt wrong).
     static let emptyTitle = AteTextStyle(
-        voice: .heading, size: 26, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title
+        voice: .heading, size: 20, weight: 800, trackingEm: -0.02, lineHeight: 1.1, textStyle: .title3
     )
     /// The score a `Ratings` page is about, beside its stars. 28pt, the number size.
     static let ratingsScore = AteTextStyle(

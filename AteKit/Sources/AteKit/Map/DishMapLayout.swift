@@ -177,8 +177,8 @@ public enum DishMapTitle: Sendable, Equatable {
     /// The one line when the list is empty.
     public var emptyLine: String {
         switch self {
-        case .nearMe: "No dishes within \(Int(DishMapStore.nearRadius / 1000)) km"
-        case .area: "No dishes here"
+        case .nearMe: "No dishes within \(Int(DishMapStore.nearRadius / 1000)) km."
+        case .area: "No dishes here."
         }
     }
 }

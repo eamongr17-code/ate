@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// **The empty state** — one anatomy app-wide: a hand-drawn ink illustration, one line in Young
-/// Serif at 26 under it (``AteTextStyle/emptyTitle``; 40 read too loud, Eamon 6 Oct), and at most
+/// Serif at 20 under it (``AteTextStyle/emptyTitle``; 40, then 26, read too loud, Eamon), and at most
 /// one ink pill 22 below that, centred between the header and the tab bar. No second line, no
 /// helper copy. The line's own breaks are the design's and are honoured.
 ///
