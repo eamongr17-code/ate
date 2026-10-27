@@ -9,7 +9,8 @@ import Observation
 /// moves; only the pins follow the camera (``show(_:)``). Once the map is somewhere else, Search here
 /// (``canSearchHere``, ``searchHere()``) lists what is on screen, titled with its suburb, and the
 /// location button comes back to Near me (``backToNearMe()``). A read that lands after a newer one
-/// was asked for is dropped, so a fast pan never paints an old area.
+/// was asked for is dropped, so a fast pan never paints an old area. A list on show stays, rows and
+/// title, until the next one lands with its suburb: only an empty sheet shows placeholders.
 @MainActor
 @Observable
 public final class DishMapStore {
@@ -29,6 +30,12 @@ public final class DishMapStore {
         case nearMe(SearchOrigin)
         /// Every dish at the places in a box: Search here, or the opening view with location off.
         case area(MapBox)
+
+        /// An area to name, Near me needs none.
+        var area: MapBox? {
+            if case .area(let box) = self { return box }
+            return nil
+        }
 
         public var box: MapBox {
             switch self {
@@ -59,8 +66,8 @@ public final class DishMapStore {
     public private(set) var listing: Listing?
     public private(set) var dishes: [MapDish] = []
     public private(set) var hasMoreDishes = false
-    /// The suburb of a Search here (or of the opening view with location off), once looked up.
-    public private(set) var listedArea: String?
+    /// The sheet's title: the list on show's, so it changes with the rows, never before them.
+    public private(set) var title: DishMapTitle = .nearMe
     /// The tapped pin.
     public private(set) var selected: MapPlace?
     /// The tapped place's dishes, best first — the place page's own menu read (`place_dishes`), its
@@ -72,11 +79,14 @@ public final class DishMapStore {
     private let reads: any DishMapReading
     private let menus: any PlacePageReading
     private let locate: NearbyPlaces.Locate
+    private let nameArea: NameArea
     private let analytics: AnalyticsRecorder
     private var pinGeneration = 0
     private var listGeneration = 0
     private var nextCursor: MapDishCursor?
     private var isLoadingMore = false
+    /// A list read is out: placeholders on an empty sheet, the old list kept on a full one.
+    private var isListing = false
     /// A list read with no answer after this long says No connection (build 217: a ~17 s dropout
     /// sat on placeholders with nothing said).
     private let stallSeconds: Double
@@ -92,10 +102,14 @@ public final class DishMapStore {
         let next: MapDishCursor?
     }
 
+    /// The suburb in the middle of a box ("Carlton"), or `nil` (over water, or no answer).
+    public typealias NameArea = @Sendable (MapBox) async -> String?
+
     public init(
         reads: any DishMapReading,
         menus: any PlacePageReading,
         locate: @escaping NearbyPlaces.Locate,
+        nameArea: @escaping NameArea = { _ in nil },
         analytics: @escaping AnalyticsRecorder = { _ in },
         stallSeconds: Double = 8
     ) {
@@ -103,12 +117,8 @@ public final class DishMapStore {
         self.reads = reads
         self.menus = menus
         self.locate = locate
+        self.nameArea = nameArea
         self.analytics = analytics
-    }
-
-    public var title: DishMapTitle {
-        if case .some(.area) = listing { return .area(listedArea) }
-        return .nearMe
     }
 
     /// The map has moved far enough from what the sheet lists that Search here is worth offering:
@@ -196,8 +206,9 @@ public final class DishMapStore {
         if let kept = lastNearMe, Self.isSameSpot(kept.phone, fix) {
             phone = kept.phone
             listGeneration += 1
+            isListing = false
             listing = .nearMe(kept.phone)
-            listedArea = nil
+            title = .nearMe
             dishes = kept.dishes
             nextCursor = kept.next
             hasMoreDishes = kept.next != nil
@@ -215,12 +226,6 @@ public final class DishMapStore {
         let down = (a.latitude - b.latitude) * 111_320
         let across = (a.longitude - b.longitude) * 111_320 * cos(a.latitude * .pi / 180)
         return (down * down + across * across).squareRoot() <= sameSpotMeters
-    }
-
-    /// The suburb of an area listing, looked up by the view. Kept only while that is still the list.
-    public func name(area: String?, for box: MapBox) {
-        guard listing == .area(box) else { return }
-        listedArea = area?.isEmpty == false ? area : nil
     }
 
     /// The next page of the sheet, when the list reaches its end.
@@ -268,22 +273,32 @@ public final class DishMapStore {
 
     private func list(_ listing: Listing) async {
         self.listing = listing
-        listedArea = nil
         listGeneration += 1
         let mine = listGeneration
-        phase = isOnline ? .opening : .offline
-        dishes = []
+        isListing = true
+        // A list on show (or its empty state) stays until the new one lands, title and all: Search here
+        // and the location button never blank the sheet to placeholders and "This area" (Eamon, 27 Oct).
+        if phase != .ready {
+            title = Self.title(listing, area: nil)
+            phase = isOnline ? .opening : .offline
+            dishes = []
+        }
         hasMoreDishes = false
         nextCursor = nil
         let stall = stallSeconds
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(stall))
-            guard let self, mine == self.listGeneration, self.phase == .opening else { return }
+            guard let self, mine == self.listGeneration, self.isListing, self.phase != .offline else { return }
             self.phase = .offline
         }
         do {
+            let lookup = nameArea
+            async let named = Self.name(listing, with: lookup)
             let fill = try await fill(listing, after: nil)
+            let area = await named
             guard mine == listGeneration else { return }
+            isListing = false
+            title = Self.title(listing, area: area)
             dishes = fill.items
             nextCursor = fill.next
             hasMoreDishes = fill.next != nil
@@ -293,8 +308,19 @@ public final class DishMapStore {
             }
         } catch {
             guard mine == listGeneration else { return }
+            isListing = false
+            title = Self.title(listing, area: nil)
             phase = Self.isConnectionLost(error) || isOnline == false ? .offline : .failed
         }
+    }
+
+    private static func title(_ listing: Listing, area: String?) -> DishMapTitle {
+        listing.area == nil ? .nearMe : .area(area)
+    }
+
+    private nonisolated static func name(_ listing: Listing, with lookup: NameArea) async -> String? {
+        guard let box = listing.area, let name = await lookup(box), name.isEmpty == false else { return nil }
+        return name
     }
 
     /// The phone's connection changed. Gone: a list still loading says No connection. Back: a list
@@ -303,7 +329,7 @@ public final class DishMapStore {
         let wasOnline = self.isOnline
         self.isOnline = isOnline
         guard isOnline else {
-            if phase == .opening { phase = .offline }
+            if phase == .opening || isListing { phase = .offline }
             return
         }
         guard wasOnline == false || phase == .offline else { return }

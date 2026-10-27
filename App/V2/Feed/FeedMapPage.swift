@@ -38,6 +38,7 @@ struct FeedMapPage: View {
             reads: context.services.dishMap,
             menus: context.services.placePages,
             locate: context.services.locate,
+            nameArea: { box in await FeedMapPage.suburb(latitude: box.centerLatitude, longitude: box.centerLongitude) },
             analytics: context.services.analytics
         ))
     }
@@ -83,12 +84,6 @@ struct FeedMapPage: View {
         // The bar's items take no implicit animation; Search here fades in and out by hand.
         .onChange(of: store.canSearchHere) { _, can in
             withAnimation(AteMotion.fillIn) { showsSearchHere = can }
-        }
-        // An area list is titled with its suburb.
-        .task(id: store.listing) {
-            guard case .some(.area(let box)) = store.listing else { return }
-            let name = await Self.suburb(latitude: box.centerLatitude, longitude: box.centerLongitude)
-            store.name(area: name, for: box)
         }
         .accessibilityIdentifier("map.page")
     }
@@ -223,7 +218,8 @@ struct FeedMapPage: View {
         await store.listNearMe(fix)
     }
 
-    /// The suburb in the middle of an area, for its title ("Carlton").
+    /// The suburb in the middle of an area, for its title ("Carlton"). The store looks it up with the
+    /// list, so the title changes with the rows.
     private nonisolated static func suburb(latitude: Double, longitude: Double) async -> String? {
         guard let request = MKReverseGeocodingRequest(location: CLLocation(latitude: latitude, longitude: longitude))
         else { return nil }

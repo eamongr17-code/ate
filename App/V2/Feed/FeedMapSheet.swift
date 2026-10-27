@@ -192,8 +192,10 @@ struct FeedMapSheet: View {
     private var nearbyState: some View {
         switch store.phase {
         case .opening:
+            // The kit's dish row skeleton, as Saved and a place's menu load (27 Oct: it redacted a real
+            // row with a blank name: a blurred grey tile and a dot, not the row's shape).
             ForEach(0..<FeedMapSheetMetrics.skeletonRows, id: \.self) { _ in
-                AteDishRow(photo: AtePhoto(), name: " ").redacted(reason: .placeholder)
+                AteSkeleton(kind: .dishRow)
             }
         case .failed:
             AteEmptyState(line: FeedMapCopy.unreachable, art: .unplugged, pill: (FeedMapCopy.tryAgain, retry))
