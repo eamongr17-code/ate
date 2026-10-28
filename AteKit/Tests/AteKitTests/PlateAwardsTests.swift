@@ -91,7 +91,7 @@ struct PlateAwardsTests {
         #expect(store.phase == .ready)
         #expect(store.earned.map(\.award) == [.dishes25, .dishes10, .dishes1])
         let cells = store.cells
-        #expect(cells.count == 19, "twenty less the secret 6")
+        #expect(cells.count == 18, "nineteen less the secret 6")
         #expect(cells.prefix(3).map(\.id) == [.dishes25, .dishes10, .dishes1])
         #expect(cells.dropFirst(3).first?.id == .dishes50)
         #expect(cells.contains { $0.id == .first6 } == false)
