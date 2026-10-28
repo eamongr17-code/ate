@@ -38,9 +38,10 @@ struct V2AwardPage: View {
                     .frame(width: AteAwardsMetrics.detailPlate, height: AteAwardsMetrics.detailPlate)
                     .padding(.top, AteMetrics.loose)
                 Text(route.award.name)
-                    .ateText(.awardTitle)
+                    .ateTextExactLifted(.awardTitle)
                     .foregroundStyle(AtePalette.automatic.fg)
                     .multilineTextAlignment(.center)
+                    .padding(.horizontal, AteMetrics.gutter)
                     .padding(.top, AteMetrics.tight)
                 if let award {
                     Text(AtePlateSpec.backstampDate(award.earnedAt))
@@ -51,8 +52,10 @@ struct V2AwardPage: View {
                         .transition(.opacity)
                 }
             }
+            // Full width at every phase: before its rows land the page is only as wide as its
+            // title, and the screen's own white showed at both sides (Eamon, build 269).
+            .frame(maxWidth: .infinity)
             .ateAnimation(AteMotion.fillIn, value: award == nil)
-            .padding(.horizontal, AteMetrics.gutter)
             .padding(.bottom, AteMetrics.section)
         }
         .ateRefreshable { await store.refresh() }
@@ -85,8 +88,10 @@ struct V2AwardPage: View {
         switch route.award.opening {
         case .mosaic(let count):
             mosaic(award, count: count)
+                .padding(.horizontal, AteMetrics.gutter)
         case .dishes:
             dishRows
+                .padding(.horizontal, AteMetrics.gutter)
                 .padding(.top, AteMetrics.section)
         case .entries:
             slips
@@ -182,6 +187,7 @@ struct V2AwardPage: View {
                     onDish: { context.open(.dish($0.dishID), from: .award) },
                     identifier: "award.slip"
                 )
+                .ateCardWidth() // the one card width, as on the Journal and a profile
             }
         }
     }
