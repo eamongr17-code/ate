@@ -41,6 +41,15 @@ extension EntryModel {
         await refreshPhotoDishes()
     }
 
+    /// The dish's own photo, as its thumbnail on "Add to a list": the photo it is paired with, never
+    /// simply the entry's first (28 Oct).
+    func coverURL(of dish: AteSlip.Dish) -> String? {
+        guard let card else { return nil }
+        return PhotoDishTag.cover(
+            of: dish.id, photos: card.photos, pairs: photoDishes, isOnlyDish: card.items.count == 1
+        )
+    }
+
     func refreshPhotoDishes() async {
         guard let card, card.photos.isEmpty == false else {
             photoDishes = [:]

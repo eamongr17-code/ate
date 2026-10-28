@@ -234,13 +234,12 @@ private struct V2EntryScreen: View {
     /// The pill under the receipt: every dish of this visit, asked which first when there are several.
     private func addEntryToList(_ card: EntryCard) {
         guard context.gate.permitsWrite(.journal) else { return }
-        let photo = card.photos.min { $0.position < $1.position }?.url
         services.analytics(ListEvents.entryAddOpened(dishes: model.dishes.count))
         addingToList = AddToListTarget(
             dishes: model.dishes.map { dish in
                 AddToListTarget.Dish(
                     line: DishLine(entryID: card.id, dishID: dish.dishID), name: dish.name, score: dish.score,
-                    photoURL: photo
+                    photoURL: model.coverURL(of: dish)
                 )
             },
             place: card.place?.name
@@ -252,7 +251,7 @@ private struct V2EntryScreen: View {
         guard context.gate.permitsWrite(.journal) else { return }
         addingToList = AddToListTarget(
             line: DishLine(entryID: card.id, dishID: dish.dishID), name: dish.name, place: card.place?.name,
-            score: dish.score, photoURL: card.photos.min { $0.position < $1.position }?.url
+            score: dish.score, photoURL: model.coverURL(of: dish)
         )
     }
 

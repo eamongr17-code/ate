@@ -45,4 +45,26 @@ struct SharePhotoPairsTests {
         let stale = ["a": [PhotoDishTag(reviewID: UUID())]]
         #expect(SharePhotoPairs.positions(reviewIDs: [soup], photos: photos, tags: stale)[soup] == [])
     }
+
+    // MARK: - A dish's thumbnail ("Which dishes?", 28 Oct)
+
+    @Test func eachDishIsShownOnItsOwnFirstPhoto() {
+        let tags = [
+            "a": [PhotoDishTag(reviewID: soup)],
+            "b": [PhotoDishTag(reviewID: dumplings)],
+            "c": [PhotoDishTag(reviewID: dumplings)]
+        ]
+        #expect(PhotoDishTag.cover(of: soup, photos: photos, pairs: tags, isOnlyDish: false) == "a")
+        #expect(PhotoDishTag.cover(of: dumplings, photos: photos, pairs: tags, isOnlyDish: false) == "b")
+    }
+
+    @Test func anUnpairedDishBorrowsNoOtherDishsPhoto() {
+        let tags = ["a": [PhotoDishTag(reviewID: soup)]]
+        #expect(PhotoDishTag.cover(of: dumplings, photos: photos, pairs: tags, isOnlyDish: false) == nil)
+        #expect(PhotoDishTag.cover(of: dumplings, photos: photos, pairs: [:], isOnlyDish: false) == nil)
+    }
+
+    @Test func theOnlyDishHasTheFirstPhotoPairedOrNot() {
+        #expect(PhotoDishTag.cover(of: soup, photos: photos, pairs: [:], isOnlyDish: true) == "a")
+    }
 }

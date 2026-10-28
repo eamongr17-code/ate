@@ -108,6 +108,17 @@ public extension PhotoDishTag {
         let dishes = Set(pairs.values.flatMap { $0.map(\.reviewID) })
         return dishes.count > 1 && pairs.values.allSatisfy { $0.allSatisfy { $0.box == nil } }
     }
+
+    /// A dish's own photo on an entry, as a thumbnail: the first photo that shows it. The only dish
+    /// of an entry has every photo; with several, a dish no photo holds has none — never another
+    /// dish's photo (28 Oct: "Which dishes?" put the linguine on the prawns too).
+    static func cover(
+        of reviewID: UUID, photos: [EntryCard.Photo], pairs: [String: [PhotoDishTag]], isOnlyDish: Bool
+    ) -> String? {
+        let ordered = photos.sorted { $0.position < $1.position }
+        guard isOnlyDish == false else { return ordered.first?.url }
+        return ordered.first { pairs[$0.url]?.contains { $0.reviewID == reviewID } == true }?.url
+    }
 }
 
 public extension PhotoDishBox {
