@@ -163,6 +163,48 @@ struct ListPickerTests {
         #expect(page.items.map(\.dishName) == ["Ragu"])
     }
 
+    @Test("several dishes are one tick: ticked only when the list holds all of them")
+    func addSeveralToList() async throws {
+        let lines = [
+            pickerLine("Pancake", daysAgo: 1), pickerLine("Hash brown", daysAgo: 1), pickerLine("Ragu", daysAgo: 2)
+        ]
+        let service = InMemoryLists(lines: lines)
+        let brunch = service.seed(name: "Brunch", lines: [lines[2].line, lines[0].line], createdAt: base)
+        let fried = service.seed(name: "Fried", lines: [], createdAt: base.addingTimeInterval(10))
+        let shelf = ListsStore(service: service)
+        await shelf.refresh()
+        let log = EventLog()
+        let picked = [lines[0].line, lines[1].line]
+        let store = AddToListStore(lines: picked, service: service, shelf: shelf, analytics: log.recorder)
+        await store.load()
+        #expect(store.lists.map(\.name) == ["Fried", "Brunch"])
+        #expect(store.lists.map(\.contains) == [false, false], "Brunch holds only one of the two")
+        // A tick adds what is missing, after what was there, and the pancake is not added twice.
+        #expect(await store.toggle(store.lists[1]))
+        #expect(store.lists[1].contains && store.lists[1].itemCount == 3)
+        let after = try await service.list(id: brunch).items.map(\.line)
+        #expect(after == [lines[2].line, lines[0].line, lines[1].line])
+        #expect(shelf.lists.first { $0.id == brunch }?.itemCount == 3)
+        #expect(log.first(named: "list_item_added")?.parameters["count"] == "1")
+        #expect(await store.toggle(store.lists[0]))
+        #expect(try await service.list(id: fried).items.map(\.line) == picked)
+        // An untick takes every one of them off, and leaves the rest of the list.
+        #expect(await store.toggle(store.lists[1]))
+        #expect(store.lists[1].contains == false && store.lists[1].itemCount == 1)
+        #expect(try await service.list(id: brunch).items.map(\.line) == [lines[2].line])
+    }
+
+    @Test("several dishes that would overfill a list name the cap and add nothing")
+    func addSeveralPastTheCap() async {
+        let lines = (0..<101).map { pickerLine("D\($0)", daysAgo: $0) }
+        let service = InMemoryLists(lines: lines)
+        service.seed(name: "Nearly", lines: lines.prefix(99).map(\.line), createdAt: base)
+        let store = AddToListStore(lines: [lines[99].line, lines[100].line], service: service)
+        await store.load()
+        #expect(await store.toggle(store.lists[0]) == false)
+        #expect(store.failure == .itemCap && store.lists[0].contains == false && store.lists[0].itemCount == 99)
+    }
+
     @Test("a refused New list leaves nothing to open")
     func refusedNewList() async {
         let lines = [pickerLine("Ragu", daysAgo: 1)]

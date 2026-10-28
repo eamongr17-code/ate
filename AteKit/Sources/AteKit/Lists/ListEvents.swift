@@ -41,6 +41,11 @@ public enum ListEvents {
         ])
     }
 
+    /// An entry's "Add to a list" pill: how many dishes the visit offered.
+    public static func entryAddOpened(dishes: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "list_entry_add_opened", parameters: ["dishes": String(max(0, dishes))])
+    }
+
     public enum AddSource: String, Sendable {
         /// The list page's picker.
         case picker

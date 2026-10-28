@@ -12,6 +12,8 @@ enum ListsCopy {
     static let addDishes = "Add dishes"
     static let share = "Share"
     static let addToList = "Add to a list"
+    static let whichDishes = "Which dishes?"
+    static let next = "Next"
     static let emptyShelf = "No lists\nyet."
     static let emptyPicker = "Nothing to\nadd yet."
     static let noMatch = "Nothing\nlike that."
