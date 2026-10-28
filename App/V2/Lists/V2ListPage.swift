@@ -93,22 +93,6 @@ struct V2ListPage: View {
             }
             .presentationDetents([.medium, .large])
         }
-        .confirmationDialog(
-            ListsCopy.confirmDelete(store.name), isPresented: $isConfirmingDelete, titleVisibility: .visible
-        ) {
-            Button(ListsCopy.delete, role: .destructive) {
-                Task { if await store.delete() { dismiss() } }
-            }
-            .accessibilityIdentifier("list.delete.confirm")
-        }
-        .confirmationDialog(
-            ListsCopy.confirmLeave(store.name), isPresented: $isConfirmingLeave, titleVisibility: .visible
-        ) {
-            Button(ListsCopy.leave, role: .destructive) {
-                Task { await store.leave() }
-            }
-            .accessibilityIdentifier("list.leave.confirm")
-        }
         .listsFailureAlert(failure: isSheetUp ? nil : store.failure) { store.clearFailure() }
     }
 
@@ -267,8 +251,7 @@ struct V2ListPage: View {
         .listPlainRow()
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if store.isOwn {
-                Button(ListsCopy.remove, role: .destructive) { remove(item) }
-                    .tint(AteColor.destructive)
+                AteSwipeRemove(title: ListsCopy.remove) { remove(item) }
             }
         }
         .accessibilityActions {
@@ -317,6 +300,24 @@ struct V2ListPage: View {
                 }
                 .accessibilityLabel("More")
                 .accessibilityIdentifier("list.more")
+                // On the ••• it came from: iOS 26 points the ask at the view it hangs on, and on the
+                // page that was the page's middle (Eamon, 28 Oct).
+                .confirmationDialog(
+                    ListsCopy.confirmDelete(store.name), isPresented: $isConfirmingDelete, titleVisibility: .visible
+                ) {
+                    Button(ListsCopy.delete, role: .destructive) {
+                        Task { if await store.delete() { dismiss() } }
+                    }
+                    .accessibilityIdentifier("list.delete.confirm")
+                }
+                .confirmationDialog(
+                    ListsCopy.confirmLeave(store.name), isPresented: $isConfirmingLeave, titleVisibility: .visible
+                ) {
+                    Button(ListsCopy.leave, role: .destructive) {
+                        Task { await store.leave() }
+                    }
+                    .accessibilityIdentifier("list.leave.confirm")
+                }
             }
         }
     }

@@ -169,8 +169,7 @@ struct SavedRoot: View {
             .padding(.top, index == 0 ? AteMetrics.snug : 0)
             .listPlainRow()
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                Button(SavedCopy.remove, role: .destructive) { remove(row) }
-                    .tint(AteColor.destructive)
+                AteSwipeRemove(title: SavedCopy.remove) { remove(row) }
             }
             .accessibilityAction(named: SavedCopy.remove) { remove(row) }
         }

@@ -177,6 +177,8 @@ struct ListsDecodingTests {
         #expect(ListEvents.itemRemoved(listSize: 5, undone: true).parameters["undone"] == "true")
         #expect(ListEvents.reordered(listSize: 6).name == "list_reordered")
         #expect(ListEvents.shared(lines: 6).name == "list_shared")
+        #expect(ListEvents.entryAddOpened(dishes: 3).name == "list_entry_add_opened")
+        #expect(ListEvents.entryAddOpened(dishes: 3).parameters == ["dishes": "3"])
         #expect(JournalSearchEvents.opened().name == "journal_search_opened")
         #expect(JournalSearchEvents.searched(queryLength: 6, resultCount: 0).parameters["result_count"] == "0")
         #expect(JournalSearchEvents.resultOpened(position: 2).name == "journal_search_result_opened")

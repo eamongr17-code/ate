@@ -7,4 +7,7 @@ extension Notification.Name {
     static let atePhotoAccessGranted = Notification.Name("ate.photoAccessGranted")
     /// An entry went out holding camera-roll photos: their sittings are no longer on offer.
     static let ateSuggestionPhotosWrittenUp = Notification.Name("ate.suggestionPhotosWrittenUp")
+    /// From your photos read the whole roll, or a sitting left it: the photos it still offers (`Int`).
+    /// The Journal's bell takes this number rather than its own older read.
+    static let ateSuggestionsWaiting = Notification.Name("ate.suggestionsWaiting")
 }

@@ -20,6 +20,8 @@ struct AteInkPill: View {
     var isEnabled = true
     /// The field colour with ink lettering: the second of a pair, never on its own.
     var isQuiet = false
+    /// A glyph before the words: an entry's "Add to a list" (`journal-dish-to-list.html` B).
+    var icon: AteIcon?
     var identifier: String?
     let action: () -> Void
 
@@ -27,15 +29,21 @@ struct AteInkPill: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .ateText(textStyle)
-                .lineLimit(1)
-                .padding(.horizontal, padding)
-                .frame(maxWidth: size == .sheet ? .infinity : nil)
-                .frame(height: height)
-                .foregroundStyle(isQuiet ? palette.fg : palette.inverted)
-                .background(isQuiet ? palette.field : palette.solid, in: .capsule)
-                .contentShape(.capsule)
+            HStack(spacing: AteInkPillMetrics.iconGap) {
+                if let icon {
+                    icon.view(size: AteInkPillMetrics.icon)
+                        .accessibilityHidden(true)
+                }
+                Text(title)
+                    .ateText(textStyle)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, padding)
+            .frame(maxWidth: size == .sheet ? .infinity : nil)
+            .frame(height: height)
+            .foregroundStyle(isQuiet ? palette.fg : palette.inverted)
+            .background(isQuiet ? palette.field : palette.solid, in: .capsule)
+            .contentShape(.capsule)
         }
         .buttonStyle(.plain)
         .disabled(isEnabled == false)
@@ -75,4 +83,6 @@ enum AteInkPillMetrics {
     static let emptyPadding: CGFloat = 24
     static let rowHeight: CGFloat = 38
     static let rowPadding: CGFloat = 18
+    static let icon: CGFloat = 20
+    static let iconGap: CGFloat = 10
 }

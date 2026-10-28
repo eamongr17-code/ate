@@ -116,7 +116,9 @@ enum EntrySlipPresentation {
             photos: Array(viewerPhotos(card).prefix(maximumPhotos))
         )
         slip.viewerPhotos = viewerPhotos(card)
-        slip.with = card.companions.map { AteWithPerson(id: $0.userID, handle: $0.username) }
+        slip.with = card.companions.map {
+            AteWithPerson(id: $0.userID, handle: $0.username, avatarURL: $0.avatarURL.flatMap(URL.init(string:)))
+        }
         slip.isMine = card.isMine
         slip.wordsLineLimit = SlipAnatomy.wordsLineLimit(on: surface)
         return slip

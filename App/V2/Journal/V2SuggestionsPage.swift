@@ -68,6 +68,16 @@ final class PhotoSuggestionsModel {
         }
         guard Task.isCancelled == false else { return }
         phase = clusters.isEmpty ? .empty : .ready
+        announceWaiting()
+    }
+
+    /// How many photos these sittings hold — the unit of the Journal bell's photo part.
+    var waiting: Int { clusters.reduce(0) { $0 + $1.items.count } }
+
+    /// The whole roll was read (or a sitting left): the bell takes this page's number, so it never
+    /// counts photos the page no longer offers (Eamon, 28 Oct: a badge over "Nothing new").
+    private func announceWaiting() {
+        NotificationCenter.default.post(name: .ateSuggestionsWaiting, object: waiting)
     }
 
     /// An entry went out holding some of these photos (posted from a row, or picked in the
@@ -78,6 +88,7 @@ final class PhotoSuggestionsModel {
         dismissals = reread
         clusters = reread.clusters(food)
         if phase == .ready, clusters.isEmpty { phase = .empty }
+        if phase == .ready || phase == .empty { announceWaiting() }
     }
 
     func dismiss(_ cluster: PhotoSuggestionCluster) {
@@ -85,6 +96,7 @@ final class PhotoSuggestionsModel {
         services.analytics(SuggestionEvents.dismissed(photos: cluster.items.count))
         clusters.removeAll { $0.id == cluster.id }
         if clusters.isEmpty { phase = .empty }
+        announceWaiting()
     }
 }
 

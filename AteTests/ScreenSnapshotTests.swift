@@ -31,7 +31,7 @@ final class ScreenSnapshotTests: XCTestCase {
     func testPlace() {
         snapshot(.journal, opening: .place(Self.tipo))
     }
-    /// Your own visit, opened from its Journal slip.
+    /// Your own visit, opened from its Journal slip: "Add to a list" under the receipt.
     func testEntry() {
         snapshot(.journal, opening: .entry(EntryCard.previewSorted))
     }

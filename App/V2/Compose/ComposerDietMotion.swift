@@ -38,8 +38,9 @@ struct ComposerDietUnfold<Keys: View, Back: View, Code: View>: View {
                         }
                     }
                 }
-                // Clipped to the capsule: a code past its edge waits for the swipe.
+                // A code past either edge fades into it rather than being cut off (Eamon, 28 Oct).
                 .scrollIndicators(.hidden)
+                .ateScrollEdgeFade()
             }
         }
         .ateAnimation(Self.spring, value: isChoosingDiet)

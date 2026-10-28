@@ -1,10 +1,12 @@
 import SwiftUI
 
-/// Somebody an entry was eaten with, as the kit draws them: their id (the avatar's colour) and
-/// handle (its letter, and what is printed).
+/// Somebody an entry was eaten with, as the kit draws them: their id (the avatar's colour), handle
+/// (its letter, and what is printed) and their photo, which the row always carries — without it the
+/// avatar showed a letter unless their photo had been seen elsewhere first (Eamon, 28 Oct).
 struct AteWithPerson: Identifiable, Equatable {
     let id: UUID
     let handle: String
+    var avatarURL: URL?
 }
 
 /// **"with @jess"** — at the foot of the entry's paper, just above the ruled place line
@@ -49,7 +51,7 @@ struct AteWithLine: View {
     private var avatars: some View {
         HStack(spacing: -AteWithKitMetrics.avatarOverlap) {
             ForEach(people.prefix(2)) { person in
-                AteAvatar(userID: person.id, handle: person.handle, size: .byline)
+                AteAvatar(userID: person.id, handle: person.handle, size: .byline, url: person.avatarURL)
                     .padding(AteWithKitMetrics.ring)
                     .background(AteColor.slip, in: .circle)
             }
@@ -72,7 +74,7 @@ struct AtePersonPickRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: AteDishRowMetrics.gap) {
-                AteAvatar(userID: person.id, handle: person.handle, size: .review)
+                AteAvatar(userID: person.id, handle: person.handle, size: .review, url: person.avatarURL)
                 VStack(alignment: .leading, spacing: AteDishRowMetrics.lineGap) {
                     Text(verbatim: "@\(person.handle)")
                         .ateText(.rowTitle)
@@ -135,7 +137,7 @@ struct AteWithSlipLine: View {
         HStack(spacing: AteMetrics.snug) {
             HStack(spacing: -AteWithKitMetrics.avatarOverlap) {
                 ForEach(people.prefix(2)) { person in
-                    AteAvatar(userID: person.id, handle: person.handle, size: .byline)
+                    AteAvatar(userID: person.id, handle: person.handle, size: .byline, url: person.avatarURL)
                         .padding(AteWithKitMetrics.ring)
                         .background(AteColor.slip, in: .circle)
                 }

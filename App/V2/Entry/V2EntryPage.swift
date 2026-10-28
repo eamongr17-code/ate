@@ -104,7 +104,7 @@ private struct V2EntryScreen: View {
             )
             .sheet(isPresented: $isShowingActions) { actionsSheet }
             .sheet(item: $addingToList) {
-                AddToListSheet(target: $0, app: context.app) { context.open(.list($0), from: .journal) }
+                AddEntryToListSheet(entry: $0, app: context.app) { context.open(.list($0), from: .journal) }
             }
             .sheet(isPresented: $isSharingReceipt) {
                 if let receipt = model.receipt, let card = model.card {
@@ -122,13 +122,6 @@ private struct V2EntryScreen: View {
                 }
             }
             .v2FailureAlert($model.failure, analytics: services.analytics)
-            .confirmationDialog(
-                "Delete this entry?", isPresented: $model.isConfirmingDelete, titleVisibility: .visible
-            ) {
-                Button("Delete", role: .destructive) {
-                    Task { if await model.delete() { dismiss() } }
-                }
-            }
             .alert("Couldn't reach Ate.", isPresented: $model.deleteFailed) {
                 Button("OK", role: .cancel) {}
             }
@@ -165,6 +158,15 @@ private struct V2EntryScreen: View {
                     .ateAnimation(AteMotion.fillIn, value: model.isLoaded)
                     .padding(.horizontal, AteMetrics.pageInset)
                     .padding(.top, AteMetrics.pageGap)
+                    // Under your own receipt: its dishes onto your lists (Eamon picked B, 28 Oct).
+                    if let card = model.card, card.isMine, case .printed = model.state, model.dishes.isEmpty == false {
+                        AteInkPill(
+                            title: ListsCopy.addToList, isQuiet: true, icon: .listPlus, identifier: "entry.addToList"
+                        ) { addEntryToList(card) }
+                        .padding(.horizontal, AteMetrics.pageInset)
+                        .padding(.top, AteMetrics.pageGap)
+                        .transition(.opacity)
+                    }
                     // On the ground under the paper: more at the place, and more like it.
                     V2EntryMore(store: more, place: model.card?.place, context: context)
                         .padding(.bottom, AteMetrics.section)
@@ -229,6 +231,22 @@ private struct V2EntryScreen: View {
         context.open(.dish(dish.dishID), from: .entry)
     }
 
+    /// The pill under the receipt: every dish of this visit, asked which first when there are several.
+    private func addEntryToList(_ card: EntryCard) {
+        guard context.gate.permitsWrite(.journal) else { return }
+        let photo = card.photos.min { $0.position < $1.position }?.url
+        services.analytics(ListEvents.entryAddOpened(dishes: model.dishes.count))
+        addingToList = AddToListTarget(
+            dishes: model.dishes.map { dish in
+                AddToListTarget.Dish(
+                    line: DishLine(entryID: card.id, dishID: dish.dishID), name: dish.name, score: dish.score,
+                    photoURL: photo
+                )
+            },
+            place: card.place?.name
+        )
+    }
+
     /// Add to a list: the line is this visit and this dish.
     private func addToList(_ dish: AteSlip.Dish, card: EntryCard) {
         guard context.gate.permitsWrite(.journal) else { return }
@@ -279,6 +297,14 @@ private struct V2EntryScreen: View {
                     }
                     .accessibilityLabel("More")
                     .accessibilityIdentifier("entry.more")
+                    // On the ••• it came from, not the page: the ask points at what it hangs on.
+                    .confirmationDialog(
+                        "Delete this entry?", isPresented: $model.isConfirmingDelete, titleVisibility: .visible
+                    ) {
+                        Button("Delete", role: .destructive) {
+                            Task { if await model.delete() { dismiss() } }
+                        }
+                    }
                 }
             } else if model.byline != nil {
                 // With no author on the row (blocked, deleted) there is nobody to act on.

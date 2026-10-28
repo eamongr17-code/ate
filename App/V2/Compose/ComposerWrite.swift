@@ -184,7 +184,9 @@ struct V2ComposerWrite: View {
     private var byline: some View {
         AteComposerByline(
             place: model.place.flatMap { $0.name.isEmpty ? nil : $0.name },
-            people: model.companions.map { AteWithPerson(id: $0.userID, handle: $0.handle) },
+            people: model.companions.map {
+                AteWithPerson(id: $0.userID, handle: $0.handle, avatarURL: $0.avatarURL.flatMap(URL.init(string:)))
+            },
             onPlace: {
                 AteHaptics.key()
                 PlaceTip().invalidate(reason: .actionPerformed)
