@@ -2,9 +2,9 @@ import AteKit
 import SwiftUI
 
 /// **Somebody else's page** — pushed from a byline. The page header (`page-headers.html`): their
-/// avatar, their handle as the page's name, their city under it, the handle taking the bar once it has
-/// scrolled under it, their dish and place totals on one line under the city; then their slips, a bookmark on every dish, because a
-/// profile is somewhere you come to for what to order next. ••• opens the one actions sheet: Share,
+/// avatar, their handle as the page's name, their city and their dish and place totals under it, the
+/// handle taking the bar once it has scrolled under it; then their slips, a bookmark on every dish,
+/// because a profile is somewhere you come to for what to order next. ••• opens the one actions sheet: Share,
 /// Report, Block, each write asking once. No follow, no follower counts (no social in V1).
 struct V2ProfilePage: View {
     let userID: UUID
