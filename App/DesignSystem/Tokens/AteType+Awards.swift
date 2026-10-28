@@ -15,9 +15,9 @@ extension AteTextStyle {
     static let awardDate = AteTextStyle(
         voice: .display, size: 14, weight: 400, lineHeight: 1.3, textStyle: .subheadline
     )
-    /// A grid cell's name and its day. 14pt/600 and 12.5pt.
+    /// A grid cell's name (on an exact 1.15 box) and its day. 14pt/600 and 12.5pt.
     static let awardCellName = AteTextStyle(
-        voice: .display, size: 14, weight: 600, lineHeight: 1.25, textStyle: .footnote
+        voice: .display, size: 14, weight: 600, lineHeight: 1.15, textStyle: .footnote
     )
     static let awardCellDate = AteTextStyle(
         voice: .display, size: 12.5, weight: 400, lineHeight: 1.3, textStyle: .caption

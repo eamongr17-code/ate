@@ -66,8 +66,9 @@ struct AteAwardCell: View {
                     AtePlateStill(award: award.award)
                         .frame(maxWidth: AteAwardsMetrics.gridPlate)
                         .padding(.bottom, AteMetrics.tight - AteMetrics.hairspace)
+                    // the exact line box: two-line names sat on the face's own loose leading
                     Text(award.award.name)
-                        .ateText(.awardCellName)
+                        .ateTextExactLifted(.awardCellName)
                         .foregroundStyle(palette.fg)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
