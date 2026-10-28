@@ -1,6 +1,5 @@
 import AteKit
 import SwiftUI
-import UIKit
 
 /// **A place: what to order there, and the visits written at it.** Menu first (contract §8): the
 /// name and the facts we hold, the menu printed as the receipt with Edge B in rating order (unscored
@@ -17,7 +16,7 @@ struct V2PlacePage: View {
     @State private var store: PlacePageStore
     @State private var isCollapsed = false
     @State private var titleBottom: CGFloat = 0
-    /// The pin's question when Google Maps is on the phone: which app.
+    /// The map's question when Google Maps is on the phone: which app.
     @State private var mapChoice: PlaceMapLink?
     @Environment(\.openURL) private var openURL
 
@@ -67,11 +66,7 @@ struct V2PlacePage: View {
         .ateCollapsingTitle(store.name ?? store.previewName, isCollapsed: isCollapsed)
         .ateRefreshable { await store.refresh() }
         .task { await store.load() }
-        .sheet(isPresented: Binding(get: { mapChoice != nil }, set: { if $0 == false { mapChoice = nil } })) {
-            if let link = mapChoice {
-                AteMapsSheet(title: link.name) { app in openMaps(link, app: app) }
-            }
-        }
+        .placeMapsOpening($mapChoice, surface: "place", analytics: context.services.analytics)
         .accessibilityIdentifier("place.page")
     }
 
@@ -92,6 +87,7 @@ struct V2PlacePage: View {
         case .ready(let summary):
             VStack(alignment: .leading, spacing: AteMetrics.loose) {
                 header(summary.name, reader: reader)
+                mapCard(summary)
                 menu
             }
             .transition(.opacity)
@@ -107,37 +103,39 @@ struct V2PlacePage: View {
             EmptyView()
         } below: {
             // No diet chip here: a restaurant is never labelled, only its dishes (Eamon, 23 Oct).
-            // The pin comes last and is always there: every place opens in Maps. One line, the
-            // suburb giving way when it is long (Eamon, 27 Oct).
+            // One line, the suburb giving way when it is long (Eamon, 27 Oct). The map card under
+            // the header opens Maps; the pin is here only for a place the card has nothing for.
             AteChipFlow(chips: store.facts.map { chip($0, reader: reader) } + mapChips, isOneLine: true)
         }
     }
 
     // MARK: - Maps
 
-    /// **Where it is** (`place-maps.html`, B, Eamon 26 Oct): a round pin, so the facts fit one row
-    /// (`design/rebuild/place-pills-one-row.html`, Eamon 27 Oct). Opens Apple Maps; asks which app when Google Maps
-    /// is on the phone too.
+    /// **Where it is** (`dish-page-place-map.html`, A, Eamon 28 Oct): the map and the full address
+    /// under the header, on the same card a dish page shows. Tapping it opens Maps.
+    @ViewBuilder
+    private func mapCard(_ summary: PlaceSummary) -> some View {
+        let link = PlaceMapLink(summary)
+        if AtePlaceMapCard.shows(link, title: nil) {
+            AtePlaceMapCard(link: link, onMap: { showMaps(link) })
+                .padding(.horizontal, AteMetrics.listGutter)
+        }
+    }
+
+    /// The round pin (`place-pills-one-row.html`, 27 Oct), now only for a place with neither a point
+    /// nor an address, which the card has nothing to draw for: every place still opens in Maps.
     private var mapChips: [AteChipFlow.Chip] {
         guard let summary = store.summary else { return [] }
         let link = PlaceMapLink(summary)
+        guard AtePlaceMapCard.shows(link, title: nil) == false else { return [] }
         return [AteChipFlow.Chip(id: "map", icon: .place, title: "",
-                                 accessibilityLabel: V2PlaceCopy.openInMaps(summary.name),
+                                 accessibilityLabel: AtePlaceMapCardCopy.openInMaps(summary.name),
                                  identifier: "place.fact.map", action: { showMaps(link) })]
     }
 
     private func showMaps(_ link: PlaceMapLink) {
-        AteHaptics.key()
-        if UIApplication.shared.canOpenURL(PlaceMapLink.googleMapsProbe) {
-            mapChoice = link
-        } else {
-            openMaps(link, app: .apple)
-        }
-    }
-
-    private func openMaps(_ link: PlaceMapLink, app: AteMapsSheet.Choice) {
-        context.services.analytics(DetailEvents.placeMapOpened(app: app.rawValue, hasPoint: link.coordinate != nil))
-        openURL(app == .apple ? link.appleMapsURL : link.googleMapsURL)
+        PlaceMaps.show(link, choice: $mapChoice, surface: "place",
+                       analytics: context.services.analytics, openURL: openURL)
     }
 
     /// A fact as its chip: the average with the star, how many people with their mark, a word. Each
@@ -405,10 +403,6 @@ private struct V2PlaceSkeleton: View {
                 .padding(.horizontal, AteMetrics.listGutter)
         }
     }
-}
-
-enum V2PlaceCopy {
-    static func openInMaps(_ name: String) -> String { "Open \(name) in Maps" }
 }
 
 enum V2PlaceMetrics {

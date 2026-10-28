@@ -21,6 +21,11 @@ struct V2DishPage: View {
     @State private var titleBottom: CGFloat = 0
     /// The star bands open on this page, by ``DishReviewBand/id``. All closed on arrival.
     @State private var openBands: Set<Int> = []
+    /// The dish's place, for the place card: its point and address. Read after the page's own read.
+    @State private var place: PlaceSummary?
+    /// The map's question when Google Maps is on the phone: which app.
+    @State private var mapChoice: PlaceMapLink?
+    @Environment(\.openURL) private var openURL
 
     init(dishID: UUID, context: V2PageContext) {
         self.dishID = dishID
@@ -69,7 +74,9 @@ struct V2DishPage: View {
         .ateRefreshable {
             await store.refresh()
             await store.loadRemaining()
+            async let place: Void = loadPlace()
             await explore?.refresh()
+            await place
         }
         .task {
             await store.load()
@@ -79,8 +86,11 @@ struct V2DishPage: View {
             // After the page's own read, never beside it: the sections below the reviews must not
             // slow the part of the page somebody opened it for.
             guard store.summary != nil else { return }
+            async let place: Void = loadPlace()
             await explore?.load()
+            await place
         }
+        .placeMapsOpening($mapChoice, surface: "dish", analytics: context.services.analytics)
         .accessibilityIdentifier("dish.page")
     }
 
@@ -118,6 +128,7 @@ struct V2DishPage: View {
                 }
                 .transition(.opacity)
                 reviews
+                placeCard
                 exploreSections
             }
         }
@@ -157,11 +168,11 @@ struct V2DishPage: View {
         }
         if summary != nil {
             reviews
+            placeCard
             exploreSections
         } else {
-            AteReviewRowSkeleton()
-                .padding(.horizontal, AteMetrics.listGutter)
-                .padding(.top, AteMetrics.loose)
+            V2ReviewsCard { AteReviewRowSkeleton() }
+                .padding(.top, V2DishMetrics.partGap)
                 .transition(.opacity)
         }
     }
@@ -233,9 +244,8 @@ struct V2DishPage: View {
     private var reviews: some View {
         switch store.phase {
         case .loading:
-            AteReviewRowSkeleton()
-                .padding(.horizontal, AteMetrics.listGutter)
-                .padding(.top, AteMetrics.loose)
+            V2ReviewsCard { AteReviewRowSkeleton() }
+                .padding(.top, V2DishMetrics.partGap)
         case .empty:
             // Nobody has written about it yet. Honest, and not an instruction.
             AteEmptyState(line: "Nobody's written\nabout this yet.", art: .rail, size: .section)
@@ -247,7 +257,8 @@ struct V2DishPage: View {
             AteEmptyState(line: message, art: .unplugged, size: .section)
                 .padding(.vertical, AteMetrics.section)
         case .ready:
-            reviewRows
+            V2ReviewsCard { reviewRows }
+                .padding(.top, V2DishMetrics.partGap)
         }
     }
 
@@ -258,8 +269,6 @@ struct V2DishPage: View {
         let mine = store.myReview
         if let mine {
             reviewRow(mine, isFirst: true)
-                .padding(.top, AteMetrics.loose)
-                .padding(.horizontal, AteMetrics.listGutter)
         }
         let bands = store.bands
         ForEach(bands) { band in
@@ -282,16 +291,13 @@ struct V2DishPage: View {
                     reviewRow(review, isFirst: false)
                 }
             }
-            .padding(.top, isFirst ? AteMetrics.loose : 0)
-            .padding(.horizontal, AteMetrics.listGutter)
         }
         if let message = store.inlineErrorMessage {
             Text(message)
                 .ateText(.meta)
                 .foregroundStyle(AtePalette.automatic.muted)
                 .frame(maxWidth: .infinity)
-                .padding(.top, AteMetrics.regular)
-                .padding(.horizontal, AteMetrics.listGutter)
+                .padding(.vertical, AteMetrics.regular)
         }
     }
 
@@ -376,10 +382,83 @@ enum V2DishMetrics {
     static let placeBar: CGFloat = 110
     static let placeBarHeight: CGFloat = 14
     static let aggregateBar: CGFloat = 160
-    static let aggregateBarHeight: CGFloat = 52
+    static let aggregateBarHeight: CGFloat = 44
+    /// Between the page's parts: the header, the reviews, the place (`gap-m`, 22; Eamon 28 Oct: the
+    /// page was spaced out).
+    static let partGap: CGFloat = 22
+}
+
+/// **The reviews, on one whole slip** (`dish-page-place-map.html`, A): "Reviews" over yours and the
+/// star bands, so the page reads as parts rather than loose rows on the ground.
+private struct V2ReviewsCard<Rows: View>: View {
+    @ViewBuilder var rows: Rows
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: AteMetrics.slipCorner, style: .continuous)
+        VStack(alignment: .leading, spacing: 0) {
+            Text(V2DishCopy.reviews)
+                .ateText(.feedSection)
+                .foregroundStyle(AtePalette.slip.fg)
+                .accessibilityAddTraits(.isHeader)
+                .padding(.top, AteMetrics.loose)
+                .padding(.bottom, AteMetrics.tight)
+            rows
+        }
+        .padding(.horizontal, AteMetrics.slipPadding)
+        .padding(.bottom, AteMetrics.tight)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background { shape.fill(AtePaperTone.slip.fill).ateContactLine(.slip) }
+        .ateSlip()
+        .padding(.horizontal, AteMetrics.listGutter)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("dish.reviews")
+    }
+}
+
+enum V2DishCopy {
+    static let reviews = "Reviews"
 }
 
 private extension V2DishPage {
+    // MARK: - The place
+
+    /// **Where it is** (`dish-page-place-map.html`, A, Eamon 28 Oct): the place's map, its name and
+    /// address, the same card the place page shows. The map opens Maps; the name opens the place.
+    @ViewBuilder
+    var placeCard: some View {
+        if let place, store.isSettled {
+            let link = PlaceMapLink(place)
+            AtePlaceMapCard(
+                link: link,
+                title: place.name,
+                onMap: {
+                    PlaceMaps.show(link, choice: $mapChoice, surface: "dish",
+                                   analytics: context.services.analytics, openURL: openURL)
+                },
+                onPlace: { openPlace(place) }
+            )
+            .padding(.horizontal, AteMetrics.listGutter)
+            .padding(.top, V2DishMetrics.partGap)
+            .transition(.opacity)
+        }
+    }
+
+    /// The place's own read, for its point and address. A failure leaves the card off the page: the
+    /// name under the dish's still opens the place.
+    func loadPlace() async {
+        guard let restaurantID = store.summary?.restaurantID else { return }
+        guard let summary = try? await context.services.placePages.placeSummary(restaurantID: restaurantID) else {
+            return
+        }
+        withAnimation(AteMotion.fillIn) { place = summary }
+    }
+
+    func openPlace(_ place: PlaceSummary) {
+        context.services.analytics(DetailEvents.dishPlaceCardOpened())
+        PlacePreviews.shared.note(place.restaurantID, name: place.name)
+        context.open(.place(place.restaurantID), from: .dish)
+    }
+
     /// Every hero photo is this dish: the viewer names it, with who took it (when their review has
     /// arrived) and where.
     func heroDishes(_ photos: [AtePhoto]) -> AtePhotoDishes? {
