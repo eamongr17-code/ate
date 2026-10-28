@@ -194,6 +194,18 @@ struct ListPickerTests {
         #expect(try await service.list(id: brunch).items.map(\.line) == [lines[2].line])
     }
 
+    @Test("the same dish line twice is one line")
+    func addSeveralDeduplicates() async throws {
+        let lines = [pickerLine("Pancake", daysAgo: 1)]
+        let service = InMemoryLists(lines: lines)
+        let brunch = service.seed(name: "Brunch", lines: [], createdAt: base)
+        let store = AddToListStore(lines: [lines[0].line, lines[0].line], service: service)
+        #expect(store.lines == [lines[0].line])
+        await store.load()
+        #expect(await store.toggle(store.lists[0]))
+        #expect(try await service.list(id: brunch).items.map(\.line) == [lines[0].line])
+    }
+
     @Test("several dishes that would overfill a list name the cap and add nothing")
     func addSeveralPastTheCap() async {
         let lines = (0..<101).map { pickerLine("D\($0)", daysAgo: $0) }
