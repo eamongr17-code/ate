@@ -38,12 +38,12 @@ struct AteInkPill: View {
                     .ateText(textStyle)
                     .lineLimit(1)
             }
-                .padding(.horizontal, padding)
-                .frame(maxWidth: size == .sheet ? .infinity : nil)
-                .frame(height: height)
-                .foregroundStyle(isQuiet ? palette.fg : palette.inverted)
-                .background(isQuiet ? palette.field : palette.solid, in: .capsule)
-                .contentShape(.capsule)
+            .padding(.horizontal, padding)
+            .frame(maxWidth: size == .sheet ? .infinity : nil)
+            .frame(height: height)
+            .foregroundStyle(isQuiet ? palette.fg : palette.inverted)
+            .background(isQuiet ? palette.field : palette.solid, in: .capsule)
+            .contentShape(.capsule)
         }
         .buttonStyle(.plain)
         .disabled(isEnabled == false)
