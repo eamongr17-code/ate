@@ -20,6 +20,7 @@ struct TabShell: View {
     @State private var you: TabRouter<YouStores>
     /// "You found the 6" is up.
     @State private var isTellingOfTheSix = false
+    @Environment(\.scenePhase) private var scenePhase
 
     init(app: AppModel, start: V2Launch.Start) {
         self.app = app
@@ -74,8 +75,16 @@ struct TabShell: View {
                 .ateCoversThePage()
                 .tipViewStyle(AteTipStyle())
         }
-        .fullScreenCover(isPresented: $isTellingOfTheSix) {
+        .fullScreenCover(isPresented: $isTellingOfTheSix, onDismiss: checkAwards) {
             SixFoundScreen { isTellingOfTheSix = false }
+        }
+        .fullScreenCover(isPresented: isShowingAwards) {
+            AwardTakeoverScreen(app: app) { app.awardTakeover.finish() }
+        }
+        // The app opening, or coming back to the front: anything earned and not yet shown comes up.
+        .task(id: scenePhase == .active) {
+            guard scenePhase == .active else { return }
+            checkAwards()
         }
         .ateLinkShell() // a waiting link is pushed once the tabs are up
         .onChange(of: app.linkedEntry, initial: true) { _, entryID in
@@ -122,11 +131,32 @@ struct TabShell: View {
 
     /// The composer is down, the receipt and its share sheet with it: the first 6 is explained, once.
     private func tellOfTheSix() {
-        guard app.owesSixFound else { return }
+        guard app.owesSixFound else {
+            checkAwards()
+            return
+        }
         app.owesSixFound = false
         app.services.preferences.toldSixFound(app.services.api.currentUserID)
         app.services.analytics(EntryEvents.sixExplained())
         isTellingOfTheSix = true
+    }
+
+    // MARK: - Awards
+
+    /// The takeover is up while it holds an award.
+    private var isShowingAwards: Binding<Bool> {
+        Binding(
+            get: { app.awardTakeover.showing.isEmpty == false },
+            set: { if $0 == false { app.awardTakeover.finish() } }
+        )
+    }
+
+    /// Unseen awards come up once nothing else is over the tabs: after a post's summary closes, after
+    /// the 6 is explained, and when the app comes to the front.
+    private func checkAwards() {
+        guard app.hasSession, app.isComposing == false, isTellingOfTheSix == false else { return }
+        let takeover = app.awardTakeover
+        Task { await takeover.check() }
     }
 
     // MARK: - Reading ahead

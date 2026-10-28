@@ -331,6 +331,16 @@ are simply not there, so tolerate an absent author; (3) `authenticated` may writ
 `(id, author_id, body, visibility, restaurant_id, created_at)` on an `entries` insert and
 `(body, visibility)` on update (column grants) — anything else is `42501`.
 
+## Plate awards (0098)
+
+| Call | Returns |
+|---|---|
+| `rpc awards_of(p_user)` (null = me) | `{award, earned_at, entry_id, dish_id, entry_ids, dish_ids, other_user_id, other_handle, seen, dish_name, restaurant_name, score}[]`, newest first (the names and score are the line behind it: its dish on its entry, else the entry's first line), ≤ 20 rows (unpaged). `seen` is false only on your own unseen ones. `[]` through a block, for a deactivated profile; anon `42501` |
+| `rpc mark_awards_seen(p_awards)` (null = all) | int — how many of YOUR unseen awards were marked. Call after the takeover shows them |
+| `rpc award_lines(p_user, p_award, p_after_at, p_after_id, p_limit)` | `{review_id, entry_id, dish_id, dish_name, restaurant_id, restaurant_name, score, created_at, photo_url}[]` oldest first, keyset `(created_at, review_id)`, default 60, max 100. `dishes_N` → the first N lines; `five_in_entry` → that entry's lines; `same_dish_3` → the dish's first 3 lines; `five_at_place`/`saves_10`/`saved_by_someone` → the first line of each dish in `dish_ids`. Other awards open their `entry_id` with `get_entry_card`. `[]` when the award is not visible to you |
+
+No client write: awards are earned in the database by the writes that earn them (sort, entry, save, ate-with tag, a dish's style). Existing people were backfilled unseen, so their first open after 0098 shows one takeover.
+
 ## Errors worth handling
 
 `23505` on an entry insert = already accepted. `42501` = RLS/grant refusal (not yours, or a column you may not

@@ -37,7 +37,12 @@ struct YouRoot: View {
                     .padding(.bottom, AteMetrics.section)
             }
             .ateRootBarHiding($barHidden)
-            .ateRefreshable { await store.refresh() }
+            .ateRefreshable {
+                let you = store, band = router.stores.awards
+                async let header: Void = you.refresh()
+                async let plates: Void = band.refresh()
+                _ = await (header, plates)
+            }
             .onChange(of: router.scrollToTop) { _, _ in
                 withAnimation(reduceMotion ? nil : .default) { reader.scrollTo(YouRootIDs.top, anchor: .top) }
             }
@@ -60,8 +65,15 @@ struct YouRoot: View {
         }
         .ateToast($feedbackToast)
         .task {
-            await store.loadIfNeeded()
+            let you = store, band = router.stores.awards
+            async let header: Void = you.loadIfNeeded()
+            async let plates: Void = band.loadIfNeeded()
+            _ = await (header, plates)
             app.services.analytics(YouEvents.youViewed())
+        }
+        // A takeover just went down: what it showed is on the band now.
+        .onChange(of: app.awardTakeover.showing.isEmpty) { _, isDown in
+            if isDown { Task { await router.stores.awards.refresh() } }
         }
         // A new handle from Settings, or a session that arrived late: the header reads it again.
         .onChange(of: app.handle) { _, _ in Task { await store.refresh() } }
@@ -106,6 +118,7 @@ struct YouRoot: View {
                 AteProfileHeader(summary: summary)
                 ratings
                 topDishes
+                awards
             }
             .transition(.opacity)
         }
@@ -158,12 +171,31 @@ struct YouRoot: View {
         }
     }
 
+    /// "Your awards ›" — the third band (`plate-awards-screens.html`): the plates you hold, newest
+    /// first, running off the edge. Absent until something has been earned.
+    @ViewBuilder
+    private var awards: some View {
+        let earned = router.stores.awards.earned
+        if earned.isEmpty == false {
+            VStack(alignment: .leading, spacing: AteMetrics.regular) {
+                AteBandHeading(title: "Your awards", identifier: "you.awards") {
+                    router.open(.awards(AwardsRoute()))
+                }
+                AteAwardsRow(awards: earned) { award in
+                    app.services.analytics(AwardEvents.opened(award: award.award, source: .you, isMe: true))
+                    router.open(.award(AwardRoute(award: award.award)), from: .you)
+                }
+            }
+        }
+    }
+
     /// The whole page before it has arrived — every band as its still shape, then one fade.
     private var skeleton: some View {
         VStack(alignment: .leading, spacing: AteProfileHeaderMetrics.bandGap) {
             AteProfileHeaderSkeleton()
             AteScoreHistogramSkeleton()
             AteTopDishesSkeleton()
+            AteAwardsRowSkeleton()
         }
         .accessibilityHidden(true)
     }
