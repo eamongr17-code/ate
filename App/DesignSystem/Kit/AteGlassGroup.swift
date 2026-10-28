@@ -49,8 +49,6 @@ enum AteGlassGroupMetrics {
     static let badgePadding: CGFloat = 4
     static let badgeTop: CGFloat = 3
     static let badgeTrailing: CGFloat = 1
-    /// The cutout around the badge, in the glass's own colour, so it sits clear of the icon.
-    static let badgeRing: CGFloat = 1.5
 }
 
 /// One control in an ``AteGlassGroup``: an icon in its 36 × 44 slot, with an optional coral count
@@ -103,11 +101,10 @@ private struct AteGlassBadgeKey: PreferenceKey {
     }
 }
 
-/// The coral count, solid, ringed in the glass's colour, at the slot's top right.
+/// The coral count, solid, at the slot's top right. No ring: the glass is see-through, so a ring in
+/// any one colour shows as a stroke against the cream behind it (Eamon, 28 Oct).
 private struct AteGlassBadge: View {
     let count: Int
-
-    @Environment(\.atePalette) private var palette
 
     var body: some View {
         Text(verbatim: "\(count)")
@@ -117,10 +114,6 @@ private struct AteGlassBadge: View {
             .frame(minWidth: AteGlassGroupMetrics.badge, minHeight: AteGlassGroupMetrics.badge)
             .foregroundStyle(AteKitColor.badgeInk)
             .background(AteKitColor.badge, in: .capsule)
-            .padding(AteGlassGroupMetrics.badgeRing)
-            .background(palette.chip, in: .capsule)
-            // The ring grows outward; the coral stays where the contract puts it.
-            .offset(x: AteGlassGroupMetrics.badgeRing, y: -AteGlassGroupMetrics.badgeRing)
             .padding(.top, AteGlassGroupMetrics.badgeTop)
             .padding(.trailing, AteGlassGroupMetrics.badgeTrailing)
     }
