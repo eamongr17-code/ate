@@ -126,7 +126,7 @@ struct AwardRows: Decodable {
             if let award = try? rows.decode(EarnedAward.self) {
                 out.append(award)
             } else {
-                _ = try row.decode(Skip.self)
+                _ = try rows.decode(Skip.self)
             }
         }
         awards = out
