@@ -167,3 +167,43 @@ enum AtePlaceMapCardMetrics {
     static let stem: CGFloat = 8
     static let stemWidth: CGFloat = 2
 }
+
+/// **The map card before its place has arrived** — the same whole slip at the card's own size: the
+/// map's room, then the name (on a dish page) and the address as still bars, so nothing moves when
+/// the card fills in.
+struct AtePlaceMapCardSkeleton: View {
+    /// A dish page's card, with the place's name over the address.
+    var hasTitle = false
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: AteMetrics.slipCorner, style: .continuous)
+        VStack(alignment: .leading, spacing: 0) {
+            Rectangle()
+                .fill(AtePalette.slip.hairline)
+                .frame(maxWidth: .infinity)
+                .frame(height: AtePlaceMapCardMetrics.mapHeight)
+            VStack(alignment: .leading, spacing: AteMetrics.snug) {
+                if hasTitle {
+                    AteSkeletonBar(width: AtePlaceMapCardMetrics.titleBar,
+                                   height: AtePlaceMapCardMetrics.titleBarHeight)
+                }
+                AteSkeletonBar(width: AtePlaceMapCardMetrics.lineBar, height: AtePlaceMapCardMetrics.lineBarHeight)
+                AteSkeletonBar(width: AtePlaceMapCardMetrics.restBar, height: AtePlaceMapCardMetrics.lineBarHeight)
+            }
+            .padding(.horizontal, AteMetrics.slipPadding)
+            .padding(.vertical, AteMetrics.regular)
+        }
+        .clipShape(shape)
+        .background { shape.fill(AtePaperTone.slip.fill).ateContactLine(.slip) }
+        .ateSkeletonSweep()
+        .accessibilityHidden(true)
+    }
+}
+
+extension AtePlaceMapCardMetrics {
+    static let titleBar: CGFloat = 140
+    static let titleBarHeight: CGFloat = 16
+    static let lineBar: CGFloat = 170
+    static let restBar: CGFloat = 220
+    static let lineBarHeight: CGFloat = 12
+}

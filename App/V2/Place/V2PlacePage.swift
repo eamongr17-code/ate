@@ -375,7 +375,7 @@ private struct V2MenuSkeletonRows: View {
 }
 
 /// **The whole page before it has settled** — the name the opening row printed (or its bar), the
-/// chips, the menu and a visit as still shapes at their sizes.
+/// chips, the map card, the menu and a visit as still shapes at their sizes.
 private struct V2PlaceSkeleton: View {
     let name: String?
     @Binding var titleBottom: CGFloat
@@ -398,6 +398,8 @@ private struct V2PlaceSkeleton: View {
             }
             .padding(.horizontal, AteMetrics.gutter)
             .padding(.top, AtePageHeaderMetrics.top)
+            AtePlaceMapCardSkeleton()
+                .padding(.horizontal, AteMetrics.listGutter)
             V2MenuPaper { V2MenuSkeletonRows() }
             AteSkeleton(kind: .entrySlip)
                 .padding(.horizontal, AteMetrics.listGutter)
