@@ -15,10 +15,10 @@ extension AteTextStyle {
     static let screenTitle = AteTextStyle(
         voice: .heading, size: 34, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .largeTitle
     )
-    /// A dish's aggregate, printed like a price on its own page. 64pt — the one number big enough
-    /// to be read across a table (`Dish.dc.html`).
+    /// A dish's aggregate, printed like a price on its own page. 44pt, on one line with its stars
+    /// (`dish-page-place-map.html`, A, Eamon 28 Oct; 64 before).
     static let dishScore = AteTextStyle(
-        voice: .display, size: 64, weight: 700, trackingEm: -0.03, lineHeight: 1.0, textStyle: .largeTitle
+        voice: .display, size: 44, weight: 700, trackingEm: -0.03, lineHeight: 1.0, textStyle: .largeTitle
     )
     /// A sheet's title. 26pt (30 before 6 Oct).
     static let sheetTitle = AteTextStyle(

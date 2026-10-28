@@ -58,7 +58,8 @@ enum AteDishHeroMetrics {
     static let inset: CGFloat = 6
 }
 
-/// **A dish's aggregate** — the number at 64 to one decimal, and beside it five stars filled to the
+/// **A dish's aggregate** — the number at 44 to one decimal (64 until `dish-page-place-map.html`, A,
+/// Eamon 28 Oct: one line, not a block), and beside it five stars filled to the
 /// nearest half, over how many people and the dish's diet chips, then the "?" that opens how many
 /// people of each diet logged it (`diet-more.html`). An unrated dish prints no number and no stars:
 /// the people line alone, or nothing (scores are never inferred).
@@ -143,10 +144,10 @@ struct AteStarRow: View {
 }
 
 enum AteDishAggregateMetrics {
-    /// `gap:14px`; the stars over the people line `gap:6px`; five 20pt stars 2 apart.
+    /// `gap:14px`; the stars over the people line `gap:4px`; five 16pt stars 2 apart (28 Oct).
     static let gap: CGFloat = 14
-    static let lineGap: CGFloat = 6
-    static let star: CGFloat = 20
+    static let lineGap: CGFloat = 4
+    static let star: CGFloat = 16
     static let starGap: CGFloat = 2
     static let starStroke: CGFloat = 1.5
     static let peopleIcon: CGFloat = 14

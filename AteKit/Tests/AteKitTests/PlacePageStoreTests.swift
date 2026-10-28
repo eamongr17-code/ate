@@ -378,5 +378,8 @@ struct PlacePageStoreTests {
         #expect(event.name == "place_map_opened")
         #expect(event.parameters["app"] == "google")
         #expect(event.parameters["point"] == "no")
+        #expect(event.parameters["surface"] == "place")
+        let fromDish = DetailEvents.placeMapOpened(app: "apple", hasPoint: true, surface: "dish")
+        #expect(fromDish.parameters["surface"] == "dish")
     }
 }

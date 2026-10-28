@@ -56,6 +56,23 @@ public struct PlaceMapLink: Sendable, Equatable {
             }
     }
 
+    /// **The address as the map card prints it** (`dish-page-place-map.html`, Eamon 28 Oct): its first
+    /// line on its own, the rest under it — "45/2 Srisoonthorn Rd" over "Choeng Thale, Thalang, Phuket
+    /// 83110". A first line that is only the place's own name (Google sometimes starts with it) is
+    /// skipped. `nil` when there is no address.
+    public var addressLines: (first: String, rest: String?)? {
+        guard let address else { return nil }
+        var parts = address.split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.isEmpty == false }
+        if parts.count > 1, parts[0].caseInsensitiveCompare(name) == .orderedSame {
+            parts.removeFirst()
+        }
+        guard let first = parts.first else { return nil }
+        let rest = parts.dropFirst().joined(separator: ", ")
+        return (first, rest.isEmpty ? nil : rest)
+    }
+
     /// A number on its own ("12", "12A", "2/32", "12-14"), then a space and a letter.
     private static let houseNumberThenWord = #"(^|\s)\d+[A-Za-z]?(/\d+[A-Za-z]?)?(-\d+[A-Za-z]?)?\s+\p{L}"#
 
