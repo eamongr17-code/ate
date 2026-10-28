@@ -131,7 +131,7 @@ struct PlateAwardsTests {
         await takeover.check()
         #expect(takeover.showing.map(\.award) == [.dishes25, .first5])
         #expect(me.markedSeen.count == 1)
-        #expect(Set((me.markedSeen.first ?? nil) ?? []) == [.dishes25, .first5])
+        #expect(Set(me.markedSeen.first.flatMap { $0 } ?? []) == [.dishes25, .first5])
         #expect(takeover.daysAfterFirstDish(takeover.showing[0], calendar: Self.utc) == 34)
 
         await takeover.check()
@@ -155,10 +155,10 @@ struct PlateAwardsTests {
 
     @Test("Lines page oldest first until a short page")
     func linePages() async {
-        let all = (0..<130).map { i in
+        let all = (0..<130).map { index in
             AwardLine(
-                reviewID: UUID(), entryID: nil, dishID: UUID(), dishName: "Dish \(i)",
-                createdAt: Self.t0.addingTimeInterval(Double(i) * 60)
+                reviewID: UUID(), entryID: nil, dishID: UUID(), dishName: "Dish \(index)",
+                createdAt: Self.t0.addingTimeInterval(Double(index) * 60)
             )
         }
         let awards = InMemoryAwards(lines: [.dishes250: all])
