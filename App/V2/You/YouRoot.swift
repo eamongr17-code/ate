@@ -103,9 +103,7 @@ struct YouRoot: View {
                 .transition(.opacity)
         case .ready(let summary):
             VStack(alignment: .leading, spacing: AteProfileHeaderMetrics.bandGap) {
-                AteProfileHeader(userID: summary.userID, handle: summary.username, city: summary.city,
-                                 avatarURL: summary.avatarURL.flatMap(URL.init(string:)))
-                AteProfileStats(summary: summary)
+                AteProfileHeader(summary: summary)
                 ratings
                 topDishes
             }
@@ -164,7 +162,6 @@ struct YouRoot: View {
     private var skeleton: some View {
         VStack(alignment: .leading, spacing: AteProfileHeaderMetrics.bandGap) {
             AteProfileHeaderSkeleton()
-            AteProfileStats(summary: nil)
             AteScoreHistogramSkeleton()
             AteTopDishesSkeleton()
         }
