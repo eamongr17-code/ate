@@ -107,7 +107,9 @@ final class EntryModel: SavedDishObserving {
 
     /// Who it was eaten with, as the kit draws them.
     var companions: [AteWithPerson] {
-        (card?.companions ?? []).map { AteWithPerson(id: $0.userID, handle: $0.username) }
+        (card?.companions ?? []).map { AteWithPerson(
+            id: $0.userID, handle: $0.username, avatarURL: $0.avatarURL.flatMap(URL.init(string:))
+        ) }
     }
 
     /// Somebody else's entry that lists people: is the viewer one of them, tagged by its author? (A

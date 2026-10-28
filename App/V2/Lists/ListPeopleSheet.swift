@@ -71,7 +71,10 @@ struct ListPeopleSheet: View {
                             .accessibilityAddTraits(.isHeader)
                     }
                     AtePersonPickRow(
-                        person: AteWithPerson(id: person.userID, handle: person.handle),
+                        person: AteWithPerson(
+                            id: person.userID, handle: person.handle,
+                            avatarURL: person.avatarURL.flatMap(URL.init(string:))
+                        ),
                         name: person.name,
                         isSelected: store.isSelected(person),
                         isFirst: index == 0 || person.userID == firstRecent

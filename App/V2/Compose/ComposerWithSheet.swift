@@ -76,7 +76,10 @@ struct ComposerWithSheet: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(store.rows.enumerated()), id: \.element.id) { index, person in
                     AtePersonPickRow(
-                        person: AteWithPerson(id: person.userID, handle: person.handle),
+                        person: AteWithPerson(
+                            id: person.userID, handle: person.handle,
+                            avatarURL: person.avatarURL.flatMap(URL.init(string:))
+                        ),
                         name: person.name,
                         isSelected: store.isSelected(person),
                         isFirst: index == 0
