@@ -112,8 +112,7 @@ struct AteWithRespondFace: View {
                     .padding(.horizontal, AteMetrics.gutter - AteScoringDishRowMetrics.currentInset)
                     .plainRow()
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(AteWithCopy.remove, role: .destructive) { model.remove(line.id) }
-                            .tint(AteColor.destructive)
+                        AteSwipeRemove(title: AteWithCopy.remove) { model.remove(line.id) }
                     }
                     .accessibilityAction(named: AteWithCopy.remove) { model.remove(line.id) }
                 }

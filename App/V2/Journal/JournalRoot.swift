@@ -79,6 +79,11 @@ struct JournalRoot: View {
         .onReceive(NotificationCenter.default.publisher(for: .atePhotoAccessGranted)) { _ in
             Task { await stores.photos.load(force: true) }
         }
+        // From your photos read the roll, or a sitting was dismissed there: the bell shows its number.
+        .onReceive(NotificationCenter.default.publisher(for: .ateSuggestionsWaiting)) { note in
+            guard let waiting = note.object as? Int else { return }
+            stores.photos.settle(waiting)
+        }
         // Photos just posted with an entry: their sittings leave the count.
         .onReceive(NotificationCenter.default.publisher(for: .ateSuggestionPhotosWrittenUp)) { _ in
             Task { await stores.photos.load(force: true) }

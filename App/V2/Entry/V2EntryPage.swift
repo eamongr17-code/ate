@@ -122,13 +122,6 @@ private struct V2EntryScreen: View {
                 }
             }
             .v2FailureAlert($model.failure, analytics: services.analytics)
-            .confirmationDialog(
-                "Delete this entry?", isPresented: $model.isConfirmingDelete, titleVisibility: .visible
-            ) {
-                Button("Delete", role: .destructive) {
-                    Task { if await model.delete() { dismiss() } }
-                }
-            }
             .alert("Couldn't reach Ate.", isPresented: $model.deleteFailed) {
                 Button("OK", role: .cancel) {}
             }
@@ -279,6 +272,14 @@ private struct V2EntryScreen: View {
                     }
                     .accessibilityLabel("More")
                     .accessibilityIdentifier("entry.more")
+                    // On the ••• it came from, not the page: the ask points at what it hangs on.
+                    .confirmationDialog(
+                        "Delete this entry?", isPresented: $model.isConfirmingDelete, titleVisibility: .visible
+                    ) {
+                        Button("Delete", role: .destructive) {
+                            Task { if await model.delete() { dismiss() } }
+                        }
+                    }
                 }
             } else if model.byline != nil {
                 // With no author on the row (blocked, deleted) there is nobody to act on.

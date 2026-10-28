@@ -32,6 +32,8 @@ final class JournalPhotoCount {
     /// ``freshFor`` of the last read is not worth another pass through Photos.
     @ObservationIgnored private var readAt: Date?
     private static let freshFor: TimeInterval = 30
+    /// Which read is the latest: an older one finishing after it is dropped.
+    @ObservationIgnored private var reads = 0
 
     init(services: AteServices) {
         self.services = services
@@ -45,7 +47,22 @@ final class JournalPhotoCount {
         }
         if force == false, let readAt, Date().timeIntervalSince(readAt) < Self.freshFor { return }
         readAt = Date()
+        reads += 1
+        let read = reads
+        let recent = await services.photos.recent()
+        // A newer read (a post, a dismissal) started while this one classified the roll: its number
+        // wins. And what was dismissed or posted is read after the roll, not before it — a sitting
+        // written up during the read must not come back on the bell (Eamon, 28 Oct).
+        guard read == reads else { return }
         let dismissals = PhotoSuggestionDismissals(store: UserDefaultsStore(), owner: services.photoOwner)
-        count = dismissals.count(await services.photos.recent())
+        count = dismissals.count(recent)
+    }
+
+    /// From your photos has just read the roll itself: its number is the newer one, and it counts as
+    /// a fresh read.
+    func settle(_ waiting: Int) {
+        reads += 1
+        count = max(0, waiting)
+        readAt = Date()
     }
 }
