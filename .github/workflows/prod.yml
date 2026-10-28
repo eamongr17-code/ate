@@ -135,9 +135,8 @@ jobs:
 
       - name: Deploy edge functions
         if: inputs.apply || (inputs.reset && inputs.confirm_reset == 'ERASE PROD')
-        # Every function under supabase/functions, with config.toml's per-function settings
-        # (send-push takes no user JWT).
-        run: supabase functions deploy --project-ref "$PROD_REF" --use-api
+        # Every function under supabase/functions, one at a time, each retried on a bundler timeout.
+        run: .github/scripts/deploy_functions.sh "$PROD_REF"
 
       - name: Smoke read
         if: inputs.apply || (inputs.reset && inputs.confirm_reset == 'ERASE PROD')

@@ -16,7 +16,7 @@ name: Staging
 on:
   push:
     branches: [claude/project-thread-2f9ty8]
-    paths: ["supabase/**", ".github/workflows/staging.yml"]
+    paths: ["supabase/**", ".github/workflows/staging.yml", ".github/scripts/deploy_functions.sh"]
   workflow_dispatch:
     inputs:
       duplicate_dishes:
@@ -89,8 +89,8 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy edge functions
-        # Every function under supabase/functions, with config.toml's per-function settings.
-        run: supabase functions deploy --project-ref "$STAGING_REF" --use-api
+        # Every function under supabase/functions, one at a time, each retried on a bundler timeout.
+        run: .github/scripts/deploy_functions.sh "$STAGING_REF"
 
       - name: Smoke read
         env:
