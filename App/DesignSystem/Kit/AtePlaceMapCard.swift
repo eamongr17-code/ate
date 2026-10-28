@@ -131,7 +131,8 @@ struct AtePlaceMapCard: View {
 
 /// The place on the card's map (`map-card-pin.html`, B, Eamon 28 Oct): the restaurant pin — a map pin
 /// in coral with the knife and fork in white, the way Maps marks a restaurant, outlined in white so it
-/// parts from any street, its tip on the point.
+/// parts from any street, its tip on the point. It stands on the map: a small soft shadow at the tip
+/// only, never one around the whole pin (Eamon, 28 Oct).
 private struct AtePlaceMapCardPin: View {
     var body: some View {
         let shape = AtePinShape()
@@ -144,7 +145,14 @@ private struct AtePlaceMapCardPin: View {
                     .padding(.top, (AtePlaceMapCardMetrics.pinWidth - AtePlaceMapCardMetrics.pinGlyph) / 2)
             }
             .frame(width: AtePlaceMapCardMetrics.pinWidth, height: AtePlaceMapCardMetrics.pinHeight)
-            .ateShadow(.mapPin)
+            // Behind the tip, centred on the point; outside the frame, so the anchor stays the tip.
+            .background(alignment: .bottom) {
+                Ellipse()
+                    .fill(AteKitColor.pinContact)
+                    .frame(width: AtePlaceMapCardMetrics.contactWidth, height: AtePlaceMapCardMetrics.contactHeight)
+                    .blur(radius: AtePlaceMapCardMetrics.contactBlur)
+                    .offset(y: AtePlaceMapCardMetrics.contactHeight / 2)
+            }
             .accessibilityHidden(true)
     }
 }
@@ -188,6 +196,10 @@ enum AtePlaceMapCardMetrics {
     static let pinHeight: CGFloat = 40
     static let pinGlyph: CGFloat = 15
     static let pinOutline: CGFloat = 2
+    /// The shadow it stands on: a 16 × 6 ellipse at the tip, softened by 2.
+    static let contactWidth: CGFloat = 16
+    static let contactHeight: CGFloat = 6
+    static let contactBlur: CGFloat = 2
 }
 
 /// **The map card before its place has arrived** — the same whole slip at the card's own size: the

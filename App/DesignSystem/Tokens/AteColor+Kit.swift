@@ -25,6 +25,8 @@ enum AteKitColor {
     /// its tick at `.4` (``disabledOpacity``).
     static let coveredChipOpacity: Double = 0.45
     static let coveredRowOpacity: Double = 0.5
+    /// The map card pin's shadow at its tip — ink in both modes: a shadow on the map, not the page.
+    static let pinContact = AteColor.ink.opacity(0.35)
     /// What dims the other app under the share card — `.dim{background:rgba(0,0,0,.35)}`.
     static let shareScrim = Color.black.opacity(0.35)
     /// Over the photo outside the avatar's circle while it is positioned — black at 60%.
