@@ -7,24 +7,17 @@ extension AteTextStyle {
     static let awardTakeoverTitle = AteTextStyle(
         voice: .heading, size: 38, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .largeTitle
     )
-    /// …and on an opened award's page. 34pt.
-    static let awardTitle = AteTextStyle(
-        voice: .heading, size: 34, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .largeTitle
-    )
     /// The dish line under the name. 17pt.
     static let awardLine = AteTextStyle(
         voice: .display, size: 17, weight: 400, lineHeight: 1.4, textStyle: .body
     )
-    /// The day it was earned, and "N days after your first dish". 14pt and 15pt.
+    /// The day it was earned. 14pt.
     static let awardDate = AteTextStyle(
         voice: .display, size: 14, weight: 400, lineHeight: 1.3, textStyle: .subheadline
     )
-    static let awardStat = AteTextStyle(
-        voice: .display, size: 15, weight: 400, lineHeight: 1.35, textStyle: .subheadline
-    )
-    /// A grid cell's name and its day. 14pt/600 and 12.5pt.
+    /// A grid cell's name (on an exact 1.15 box) and its day. 14pt/600 and 12.5pt.
     static let awardCellName = AteTextStyle(
-        voice: .display, size: 14, weight: 600, lineHeight: 1.25, textStyle: .footnote
+        voice: .display, size: 14, weight: 600, lineHeight: 1.15, textStyle: .footnote
     )
     static let awardCellDate = AteTextStyle(
         voice: .display, size: 12.5, weight: 400, lineHeight: 1.3, textStyle: .caption

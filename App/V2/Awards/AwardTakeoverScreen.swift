@@ -225,10 +225,6 @@ enum AwardCopy {
 
     static func yourFirst(_ count: Int) -> String { "Your first \(count) dishes" }
     static func firstDishes(_ count: Int) -> String { "First \(count) dishes" }
-
-    static func nextAward(in dishes: Int) -> String {
-        dishes == 1 ? "Next award in 1 dish" : "Next award in \(dishes) dishes"
-    }
 }
 
 enum AwardTakeoverMetrics {

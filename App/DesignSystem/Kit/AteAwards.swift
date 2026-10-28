@@ -8,24 +8,24 @@ struct AteAwardsRow: View {
     let onOpen: (EarnedAward) -> Void
 
     var body: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(spacing: AteAwardsMetrics.rowGap) {
-                ForEach(awards) { award in
-                    Button { onOpen(award) } label: {
-                        AtePlateStill(award: award.award)
-                            .frame(width: AteAwardsMetrics.rowPlate, height: AteAwardsMetrics.rowPlate)
-                            .contentShape(.circle)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(award.award.name)
-                    .accessibilityIdentifier("awards.row.\(award.award.rawValue)")
+        // the newest four in Your top dishes' fixed columns (Eamon, build 271: no scrolling); the
+        // still's transparent margin may spill past its column, the plate itself never does
+        let shown = Array(awards.prefix(AteAwardsMetrics.rowCount))
+        HStack(alignment: .top, spacing: 0) {
+            ForEach(Array(shown.enumerated()), id: \.element.id) { index, award in
+                Button { onOpen(award) } label: {
+                    AtePlateStill(award: award.award)
+                        .frame(width: AteAwardsMetrics.rowPlate, height: AteAwardsMetrics.rowPlate)
+                        .frame(width: AteTopDishesMetrics.column)
+                        .contentShape(.circle)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(award.award.name)
+                .accessibilityIdentifier("awards.row.\(award.award.rawValue)")
+                if index < shown.count - 1 { Spacer(minLength: 0) }
             }
-            .padding(.horizontal, AteMetrics.gutter)
         }
-        .scrollIndicators(.hidden)
-        // the row runs to the screen's edges, the page's gutter inside it
-        .padding(.horizontal, -AteMetrics.gutter)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -36,12 +36,14 @@ struct AteAwardsRowSkeleton: View {
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        HStack(spacing: AteAwardsMetrics.rowGap) {
-            ForEach(0..<AteAwardsMetrics.skeletonCount, id: \.self) { _ in
+        HStack(spacing: 0) {
+            ForEach(0..<AteAwardsMetrics.rowCount, id: \.self) { index in
                 Circle()
                     .fill(palette.hairline)
                     .padding(AteAwardsMetrics.skeletonInset)
                     .frame(width: AteAwardsMetrics.rowPlate, height: AteAwardsMetrics.rowPlate)
+                    .frame(width: AteTopDishesMetrics.column)
+                if index < AteAwardsMetrics.rowCount - 1 { Spacer(minLength: 0) }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -66,8 +68,9 @@ struct AteAwardCell: View {
                     AtePlateStill(award: award.award)
                         .frame(maxWidth: AteAwardsMetrics.gridPlate)
                         .padding(.bottom, AteMetrics.tight - AteMetrics.hairspace)
+                    // the exact line box: two-line names sat on the face's own loose leading
                     Text(award.award.name)
-                        .ateText(.awardCellName)
+                        .ateTextExactLifted(.awardCellName)
                         .foregroundStyle(palette.fg)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
@@ -112,10 +115,9 @@ struct AteAwardsGridSkeleton: View {
 }
 
 enum AteAwardsMetrics {
-    /// The band's plates: 92 square, 6 apart (`.arow`).
+    /// The band: the newest four, a 92 still centred in each of Your top dishes' columns.
+    static let rowCount = 4
     static let rowPlate: CGFloat = 92
-    static let rowGap: CGFloat = 6
-    static let skeletonCount = 4
     /// A disc's inset in its plate's square — a still's plate does not fill its square.
     static let skeletonInset: CGFloat = 12
     /// The grid: three columns, plates up to 112, rows 18 apart (`.grid`).
@@ -126,8 +128,6 @@ enum AteAwardsMetrics {
     static let columns = Array(
         repeating: GridItem(.flexible(), spacing: gridColumnGap, alignment: .top), count: 3
     )
-    /// An opened award's plate: 330 square.
-    static let detailPlate: CGFloat = 330
 
     /// "18 Oct" — the year only when it is not this one.
     static func cellDate(_ date: Date, now: Date = .now) -> String {

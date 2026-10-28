@@ -3,7 +3,7 @@ import SwiftUI
 
 /// **One award, opened** (`plate-awards-screens.html`): the live plate — drag to spin, turn it over
 /// for its back — its name and day, then what earned it, by type:
-/// - a dish count: "Your first N dishes", oldest first, the Nth ringed; the next award's distance;
+/// - a dish count: "Your first N dishes", oldest first;
 /// - a few dishes (one entry's five, one place's five, the 10 saves', the same dish's three, the
 ///   saved dish): their rows;
 /// - everything else: the entries behind it, as their slips.
@@ -16,7 +16,9 @@ struct V2AwardPage: View {
     @State private var lines: AwardLinesStore
     @State private var stage = AtePlateStage()
     @State private var entries: [EntryCard] = []
-    @State private var dishesLogged: Int?
+    @State private var isCollapsed = false
+    /// Where the header's name ends: the bar takes it once the page has scrolled past.
+    @State private var titleBottom: CGFloat = 0
     @State private var sharing: AwardShareImage?
     @Environment(\.colorScheme) private var colorScheme
 
@@ -33,35 +35,31 @@ struct V2AwardPage: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                // The page header every pushed page opens with: the name, left, at the top, and
+                // the day under it; the bar takes the name on scroll (Eamon, 28 Oct).
+                AtePageTitle(title: route.award.name, subtitle: day, titleBottom: $titleBottom)
+                // The screen's full width, not the mockup's 330, so the backstamp reads (Eamon,
+                // build 271); the plate keeps its own margin inside the square.
                 AtePlateView(stage: stage)
-                    .frame(width: AteAwardsMetrics.detailPlate, height: AteAwardsMetrics.detailPlate)
-                    .padding(.top, AteMetrics.loose)
-                Text(route.award.name)
-                    .ateTextExactLifted(.awardTitle)
-                    .foregroundStyle(AtePalette.automatic.fg)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, AteMetrics.gutter)
-                    .padding(.top, AteMetrics.tight)
+                    .aspectRatio(1, contentMode: .fit)
+                    .containerRelativeFrame(.horizontal)
                 if let award {
-                    Text(AtePlateSpec.backstampDate(award.earnedAt))
-                        .ateText(.awardDate)
-                        .foregroundStyle(AtePalette.automatic.muted)
-                        .padding(.top, AteMetrics.tight)
                     behind(award)
                         .transition(.opacity)
                 }
             }
             // Full width at every phase: before its rows land the page is only as wide as its
             // title, and the screen's own white showed at both sides (Eamon, build 269).
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .ateAnimation(AteMotion.fillIn, value: award == nil)
             .padding(.bottom, AteMetrics.section)
         }
+        .ateTitleCollapse($isCollapsed, after: titleBottom)
         .ateRefreshable { await store.refresh() }
         .accessibilityIdentifier("v2.award")
         .ateGround()
-        .atePushedBar()
+        .ateCollapsingTitle(route.award.name, isCollapsed: isCollapsed)
         .toolbar {
             if award != nil {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -81,13 +79,18 @@ struct V2AwardPage: View {
         .onChange(of: colorScheme) { _, _ in showPlate(intro: false) }
     }
 
+    /// The day it was earned, under the name.
+    private var day: String? {
+        award.map { AtePlateSpec.backstampDate($0.earnedAt) }
+    }
+
     // MARK: - What earned it
 
     @ViewBuilder
     private func behind(_ award: EarnedAward) -> some View {
         switch route.award.opening {
         case .mosaic(let count):
-            mosaic(award, count: count)
+            mosaic(count: count)
                 .padding(.horizontal, AteMetrics.gutter)
         case .dishes:
             dishRows
@@ -99,15 +102,8 @@ struct V2AwardPage: View {
         }
     }
 
-    private func mosaic(_ award: EarnedAward, count: Int) -> some View {
+    private func mosaic(count: Int) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            if let days = store.daysAfterFirstDish(award) {
-                Text(AwardCopy.daysAfterFirstDish(days))
-                    .ateText(.awardStat)
-                    .foregroundStyle(AtePalette.automatic.fg)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, AteMetrics.snug)
-            }
             Text(isMine ? AwardCopy.yourFirst(count) : AwardCopy.firstDishes(count))
                 .ateText(.awardSection)
                 .foregroundStyle(AtePalette.automatic.fg)
@@ -115,32 +111,18 @@ struct V2AwardPage: View {
                 .padding(.top, AteMetrics.section)
                 .padding(.bottom, AteMetrics.regular)
             LazyVGrid(columns: AwardPageMetrics.mosaicColumns, spacing: AteMetrics.snug) {
-                ForEach(Array(lines.lines.enumerated()), id: \.element.id) { index, line in
-                    tile(line, isEarning: index == count - 1)
+                ForEach(lines.lines) { line in
+                    tile(line)
                         .task { await lines.loadMore(after: line) }
                 }
             }
             if lines.phase == .loading { AteAwardsGridSkeleton().padding(.top, AteMetrics.regular) }
-            if isMine, let logged = dishesLogged, let toGo = PlateAward.dishesToNext(after: logged) {
-                Text(AwardCopy.nextAward(in: toGo))
-                    .ateText(.awardDate)
-                    .foregroundStyle(AtePalette.automatic.muted)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, AwardPageMetrics.nextTop)
-            }
         }
     }
 
-    private func tile(_ line: AwardLine, isEarning: Bool) -> some View {
+    private func tile(_ line: AwardLine) -> some View {
         Button { open(line) } label: {
             AteThumb(photo: .dish(line.dishID, name: line.dishName, cover: line.photoURL), size: .row)
-                .padding(AwardPageMetrics.ringGap)
-                .overlay {
-                    if isEarning {
-                        RoundedRectangle(cornerRadius: AwardPageMetrics.ringRadius, style: .continuous)
-                            .strokeBorder(AtePalette.automatic.fg, lineWidth: AwardPageMetrics.ring)
-                    }
-                }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(line.dishName)
@@ -201,9 +183,6 @@ struct V2AwardPage: View {
         switch route.award.opening {
         case .mosaic, .dishes:
             await lines.loadIfNeeded()
-            if isMine, case .mosaic = route.award.opening, let me = try? await context.services.stats.viewerID() {
-                dishesLogged = try? await context.services.stats.summary(userID: me).dishes
-            }
         case .entries:
             guard entries.isEmpty else { return }
             var read: [EntryCard] = []
@@ -248,10 +227,5 @@ struct V2AwardPage: View {
 enum AwardPageMetrics {
     /// "Your first N dishes": five across, 8 apart (`.mos`).
     static let mosaicColumns = Array(repeating: GridItem(.flexible(), spacing: AteMetrics.snug), count: 5)
-    /// The earning dish's ring: 2 of ink, 2 off the tile.
-    static let ring: CGFloat = 2
-    static let ringGap: CGFloat = 3
-    static let ringRadius: CGFloat = 19
-    static let nextTop: CGFloat = 18
     static let slipsTop: CGFloat = 22
 }
