@@ -59,6 +59,81 @@ struct EditResortTests {
     }
 }
 
+@Suite("New words' re-sort is owed until it lands (0097)")
+struct OwedResortTests {
+    private func edit(_ opened: String, _ now: String) -> EntryEdit {
+        EntryEdit(
+            entryID: UUID(), body: now, originalRestaurantID: nil, restaurantID: nil, tagTokens: [],
+            originalBody: opened
+        )
+    }
+
+    @Test("a re-sort that fails is left in the outbox, and the outbox's next run prints it")
+    func failedResortIsOwed() async throws {
+        let service = FlakySorter(failures: 1)
+        let outbox = EntryOutbox(entries: service, containerName: "Tests-\(UUID().uuidString)")
+        let change = edit("Tiramisu 3.5", "Tiramisu 4.0")
+        try await change.save(to: service)
+        #expect(await change.sort(on: service, owing: outbox, authorID: UUID(), createdAt: Date()) == nil)
+        let owed = try #require(await outbox.queued(entryID: change.entryID))
+        #expect(owed.needsSort && owed.hasInserted, "owed a sort, never a second insert")
+
+        #expect(await outbox.run() == [change.entryID])
+        #expect(service.sorts == 2)
+        #expect(service.inserts == 0)
+        #expect(await outbox.queued(entryID: change.entryID) == nil)
+    }
+
+    @Test("a re-sort that lands leaves nothing owed; an edit with the same words owes nothing at all")
+    func landedResortClears() async throws {
+        let service = FlakySorter(failures: 0)
+        let outbox = EntryOutbox(entries: service, containerName: "Tests-\(UUID().uuidString)")
+        let change = edit("Tiramisu 3.5", "Tiramisu 4.0")
+        #expect(await change.sort(on: service, owing: outbox, authorID: UUID(), createdAt: Date()) != nil)
+        #expect(await outbox.pendingCount == 0)
+
+        let same = edit("Tiramisu 3.5", "Tiramisu 3.5")
+        await same.sort(on: service, owing: outbox, authorID: UUID(), createdAt: Date())
+        #expect(await outbox.pendingCount == 0)
+    }
+}
+
+/// Fails its first `failures` sorts as a dropped connection would; counts every sort and insert.
+private final class FlakySorter: EntryService, TestFake, @unchecked Sendable {
+    private let lock = NSLock()
+    private var failuresLeft: Int
+    private var sortCount = 0
+    private var insertCount = 0
+    var sorts: Int { lock.withLock { sortCount } }
+    var inserts: Int { lock.withLock { insertCount } }
+
+    init(failures: Int) { failuresLeft = failures }
+
+    func updateBody(entryID: UUID, body: String) async throws {}
+    func create(_ entry: NewEntry) async throws -> EntryCard {
+        lock.withLock { insertCount += 1 }
+        return EntryCard(id: entry.id, authorID: entry.authorID, body: entry.body, orderNumber: 1, createdAt: Date())
+    }
+    func entry(id: UUID) async throws -> EntryCard {
+        EntryCard(id: id, authorID: UUID(), body: "", orderNumber: 1, createdAt: Date())
+    }
+    func sort(entryID: UUID, force: Bool, tagTokens: [TagToken]) async throws -> SortOutcome {
+        try await sort(entryID: entryID, force: force, tagTokens: tagTokens, scoreTokens: nil)
+    }
+    func sort(entryID: UUID, force: Bool, tagTokens: [TagToken], scoreTokens: [TagToken]?) async throws -> SortOutcome {
+        let fails = lock.withLock {
+            sortCount += 1
+            guard failuresLeft > 0 else { return false }
+            failuresLeft -= 1
+            return true
+        }
+        if fails { throw URLError(.networkConnectionLost) }
+        return SortOutcome(
+            entryID: entryID, status: .sorted, mode: "stub", itemCount: 1, restaurantID: nil, didAttachPlace: false
+        )
+    }
+}
+
 /// Records the six tokens every sort was asked with.
 final class SixRecorder: EntryService, TestFake, @unchecked Sendable {
     private let lock = NSLock()

@@ -215,6 +215,34 @@ public struct EntryEdit: Sendable {
         return try? await entries.entry(id: entryID)
     }
 
+    /// Step four when **the words changed** (weekly audit, 28 Oct). The server has put the entry back
+    /// to printing and dropped any score its new words no longer say (0097), so the re-sort is owed,
+    /// not optional: it is queued in the outbox *before* it is asked for, held while this call asks,
+    /// and cleared only once it lands. A failure, a dropped connection or a closed app leaves it owed,
+    /// and the outbox asks again on the next foreground. Any other edit sorts as ``sort(on:)`` does.
+    @discardableResult
+    public func sort(
+        on entries: any EntryService, owing outbox: EntryOutbox, authorID: UUID, createdAt: Date
+    ) async -> EntryCard? {
+        guard changesBody else { return await sort(on: entries) }
+        var owed = QueuedEntry(
+            entry: QueuedInsert(NewEntry(
+                id: entryID, authorID: authorID, body: body, restaurantID: restaurantID, createdAt: createdAt
+            )),
+            pendingPhotos: [],
+            needsSort: true
+        )
+        owed.hasInserted = true
+        owed.tagTokens = tagTokens
+        owed.scoreTokens = scoreTokens
+        await outbox.enqueue(owed)
+        await outbox.hold(entryID: entryID)
+        let card = await sort(on: entries)
+        await outbox.recordProgress(entryID: entryID, uploadedPositions: [], didSort: card != nil)
+        await outbox.release(entryID: entryID)
+        return card
+    }
+
     /// After ``sort(on:)`` — or instead of it, for a photo-only edit — pair the photos with the
     /// dishes again (0063): a re-sort rebuilds the lines, and an added photo has no dish yet. Kept
     /// apart from the sort so the new lines show without waiting on the photos being looked at.
