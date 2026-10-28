@@ -129,23 +129,45 @@ struct AtePlaceMapCard: View {
     }
 }
 
-/// The place on the card's map: an ink disc with the utensils in butter, ringed in the slip, on a
-/// short stem so its tip sits on the point.
+/// The place on the card's map (`map-card-pin.html`, B, Eamon 28 Oct): the restaurant pin — a map pin
+/// in coral with the knife and fork in white, the way Maps marks a restaurant, outlined in white so it
+/// parts from any street, its tip on the point.
 private struct AtePlaceMapCardPin: View {
     var body: some View {
-        VStack(spacing: 0) {
-            AteIcon.dish.view(size: AtePlaceMapCardMetrics.pinGlyph)
-                .foregroundStyle(AteColor.butter)
-                .frame(width: AtePlaceMapCardMetrics.pin, height: AtePlaceMapCardMetrics.pin)
-                .background(AteColor.ink, in: .circle)
-                .padding(AtePlaceMapCardMetrics.pinRing)
-                .background(AteColor.slip, in: .circle)
-                .ateShadow(.mapPin)
-            Rectangle()
-                .fill(AteColor.ink)
-                .frame(width: AtePlaceMapCardMetrics.stemWidth, height: AtePlaceMapCardMetrics.stem)
-        }
-        .accessibilityHidden(true)
+        let shape = AtePinShape()
+        shape
+            .fill(AteColor.coral)
+            .overlay { shape.stroke(AteColor.onBrand, lineWidth: AtePlaceMapCardMetrics.pinOutline) }
+            .overlay(alignment: .top) {
+                AteIcon.dish.view(size: AtePlaceMapCardMetrics.pinGlyph)
+                    .foregroundStyle(AteColor.onBrand)
+                    .padding(.top, (AtePlaceMapCardMetrics.pinWidth - AtePlaceMapCardMetrics.pinGlyph) / 2)
+            }
+            .frame(width: AtePlaceMapCardMetrics.pinWidth, height: AtePlaceMapCardMetrics.pinHeight)
+            .ateShadow(.mapPin)
+            .accessibilityHidden(true)
+    }
+}
+
+/// A map pin's teardrop: a round head the width of the rect, narrowing to a point at the bottom.
+struct AtePinShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let radius = rect.width / 2
+        let centre = CGPoint(x: rect.midX, y: rect.minY + radius)
+        let tip = CGPoint(x: rect.midX, y: rect.maxY)
+        // Where the head meets the tail, 30° below either side.
+        let left = CGPoint(x: centre.x - radius * 0.866, y: centre.y + radius * 0.5)
+        let right = CGPoint(x: centre.x + radius * 0.866, y: centre.y + radius * 0.5)
+        var path = Path()
+        path.move(to: tip)
+        path.addQuadCurve(to: left, control: CGPoint(x: centre.x - radius * 0.45, y: centre.y + radius * 1.15))
+        // Over the top, from lower left to lower right (angles grow clockwise on screen).
+        path.addArc(center: centre, radius: radius, startAngle: .degrees(150), endAngle: .degrees(390),
+                    clockwise: false)
+        path.addLine(to: right)
+        path.addQuadCurve(to: tip, control: CGPoint(x: centre.x + radius * 0.45, y: centre.y + radius * 1.15))
+        path.closeSubpath()
+        return path
     }
 }
 
@@ -161,9 +183,49 @@ enum AtePlaceMapCardMetrics {
     static let disc: CGFloat = 32
     static let glyph: CGFloat = 16
     static let chevron: CGFloat = 15
-    static let pin: CGFloat = 30
-    static let pinGlyph: CGFloat = 16
-    static let pinRing: CGFloat = 2
-    static let stem: CGFloat = 8
-    static let stemWidth: CGFloat = 2
+    /// The pin: 30 wide, 40 tall, a 15 knife and fork in its head, a 2 white outline.
+    static let pinWidth: CGFloat = 30
+    static let pinHeight: CGFloat = 40
+    static let pinGlyph: CGFloat = 15
+    static let pinOutline: CGFloat = 2
+}
+
+/// **The map card before its place has arrived** — the same whole slip at the card's own size: the
+/// map's room, then the name (on a dish page) and the address as still bars, so nothing moves when
+/// the card fills in.
+struct AtePlaceMapCardSkeleton: View {
+    /// A dish page's card, with the place's name over the address.
+    var hasTitle = false
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: AteMetrics.slipCorner, style: .continuous)
+        VStack(alignment: .leading, spacing: 0) {
+            Rectangle()
+                .fill(AtePalette.slip.hairline)
+                .frame(maxWidth: .infinity)
+                .frame(height: AtePlaceMapCardMetrics.mapHeight)
+            VStack(alignment: .leading, spacing: AteMetrics.snug) {
+                if hasTitle {
+                    AteSkeletonBar(width: AtePlaceMapCardMetrics.titleBar,
+                                   height: AtePlaceMapCardMetrics.titleBarHeight)
+                }
+                AteSkeletonBar(width: AtePlaceMapCardMetrics.lineBar, height: AtePlaceMapCardMetrics.lineBarHeight)
+                AteSkeletonBar(width: AtePlaceMapCardMetrics.restBar, height: AtePlaceMapCardMetrics.lineBarHeight)
+            }
+            .padding(.horizontal, AteMetrics.slipPadding)
+            .padding(.vertical, AteMetrics.regular)
+        }
+        .clipShape(shape)
+        .background { shape.fill(AtePaperTone.slip.fill).ateContactLine(.slip) }
+        .ateSkeletonSweep()
+        .accessibilityHidden(true)
+    }
+}
+
+extension AtePlaceMapCardMetrics {
+    static let titleBar: CGFloat = 140
+    static let titleBarHeight: CGFloat = 16
+    static let lineBar: CGFloat = 170
+    static let restBar: CGFloat = 220
+    static let lineBarHeight: CGFloat = 12
 }

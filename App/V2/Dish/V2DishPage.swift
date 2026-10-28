@@ -23,6 +23,8 @@ struct V2DishPage: View {
     @State private var openBands: Set<Int> = []
     /// The dish's place, for the place card: its point and address. Read after the page's own read.
     @State private var place: PlaceSummary?
+    /// The place's read has answered (or failed): until then the card waits as a still shape.
+    @State private var isPlaceSettled = false
     /// The map's question when Google Maps is on the phone: which app.
     @State private var mapChoice: PlaceMapLink?
     @Environment(\.openURL) private var openURL
@@ -106,14 +108,22 @@ struct V2DishPage: View {
                 VStack(alignment: .leading, spacing: AteMetrics.loose) {
                     AteDishHero.placeholder
                         .padding(.leading, V2DishMetrics.heroInset)
-                    AteSkeletonBar(width: V2DishMetrics.nameBar, height: V2DishMetrics.nameBarHeight,
+                    VStack(alignment: .leading, spacing: AtePageHeaderMetrics.lineGap) {
+                        AteSkeletonBar(width: V2DishMetrics.nameBar, height: V2DishMetrics.nameBarHeight,
+                                       palette: .automatic)
+                        AteSkeletonBar(width: V2DishMetrics.placeBar, height: V2DishMetrics.placeBarHeight,
+                                       palette: .automatic)
+                            .frame(height: AteMetrics.hit, alignment: .top)
+                    }
+                    .ateSkeletonSweep()
+                    .padding(.horizontal, AteMetrics.gutter)
+                    AteSkeletonBar(width: V2DishMetrics.aggregateBar, height: V2DishMetrics.aggregateBarHeight,
                                    palette: .automatic)
                         .ateSkeletonSweep()
                         .padding(.horizontal, AteMetrics.gutter)
-                    AteReviewRowSkeleton()
-                        .padding(.horizontal, AteMetrics.listGutter)
                 }
                 .transition(.opacity)
+                waitingParts
             case .unavailable:
                 AteEmptyState(line: "This dish\nisn't here.", art: .torn)
                     .browseFillsPage()
@@ -171,10 +181,20 @@ struct V2DishPage: View {
             placeCard
             exploreSections
         } else {
+            waitingParts
+        }
+    }
+
+    /// The reviews card and the place card as still shapes, while the page's own read is out.
+    private var waitingParts: some View {
+        VStack(spacing: 0) {
             V2ReviewsCard { AteReviewRowSkeleton() }
                 .padding(.top, V2DishMetrics.partGap)
-                .transition(.opacity)
+            AtePlaceMapCardSkeleton(hasTitle: true)
+                .padding(.horizontal, AteMetrics.listGutter)
+                .padding(.top, V2DishMetrics.partGap)
         }
+        .transition(.opacity)
     }
 
     // MARK: - The header
@@ -388,37 +408,6 @@ enum V2DishMetrics {
     static let partGap: CGFloat = 22
 }
 
-/// **The reviews, on one whole slip** (`dish-page-place-map.html`, A): "Reviews" over yours and the
-/// star bands, so the page reads as parts rather than loose rows on the ground.
-private struct V2ReviewsCard<Rows: View>: View {
-    @ViewBuilder var rows: Rows
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: AteMetrics.slipCorner, style: .continuous)
-        VStack(alignment: .leading, spacing: 0) {
-            Text(V2DishCopy.reviews)
-                .ateText(.feedSection)
-                .foregroundStyle(AtePalette.slip.fg)
-                .accessibilityAddTraits(.isHeader)
-                .padding(.top, AteMetrics.loose)
-                .padding(.bottom, AteMetrics.tight)
-            rows
-        }
-        .padding(.horizontal, AteMetrics.slipPadding)
-        .padding(.bottom, AteMetrics.tight)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background { shape.fill(AtePaperTone.slip.fill).ateContactLine(.slip) }
-        .ateSlip()
-        .padding(.horizontal, AteMetrics.listGutter)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("dish.reviews")
-    }
-}
-
-enum V2DishCopy {
-    static let reviews = "Reviews"
-}
-
 private extension V2DishPage {
     // MARK: - The place
 
@@ -426,7 +415,12 @@ private extension V2DishPage {
     /// address, the same card the place page shows. The map opens Maps; the name opens the place.
     @ViewBuilder
     var placeCard: some View {
-        if let place, store.isSettled {
+        if store.isSettled, place == nil, isPlaceSettled == false {
+            AtePlaceMapCardSkeleton(hasTitle: true)
+                .padding(.horizontal, AteMetrics.listGutter)
+                .padding(.top, V2DishMetrics.partGap)
+                .transition(.opacity)
+        } else if let place, store.isSettled {
             let link = PlaceMapLink(place)
             AtePlaceMapCard(
                 link: link,
@@ -446,11 +440,15 @@ private extension V2DishPage {
     /// The place's own read, for its point and address. A failure leaves the card off the page: the
     /// name under the dish's still opens the place.
     func loadPlace() async {
-        guard let restaurantID = store.summary?.restaurantID else { return }
-        guard let summary = try? await context.services.placePages.placeSummary(restaurantID: restaurantID) else {
+        guard let restaurantID = store.summary?.restaurantID else {
+            isPlaceSettled = true
             return
         }
-        withAnimation(AteMotion.fillIn) { place = summary }
+        let summary = try? await context.services.placePages.placeSummary(restaurantID: restaurantID)
+        withAnimation(AteMotion.fillIn) {
+            if let summary { place = summary }
+            isPlaceSettled = true
+        }
     }
 
     func openPlace(_ place: PlaceSummary) {
