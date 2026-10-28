@@ -129,19 +129,19 @@ struct AtePlaceMapCard: View {
     }
 }
 
-/// The place on the card's map (`map-card-pin.html`): a classic map pin in ink with a white centre,
-/// outlined in the slip so it parts from any street, its tip on the point.
+/// The place on the card's map (`map-card-pin.html`, B, Eamon 28 Oct): the restaurant pin — a map pin
+/// in coral with the knife and fork in white, the way Maps marks a restaurant, outlined in white so it
+/// parts from any street, its tip on the point.
 private struct AtePlaceMapCardPin: View {
     var body: some View {
         let shape = AtePinShape()
         shape
-            .fill(AteColor.ink)
-            .overlay { shape.stroke(AteColor.slip, lineWidth: AtePlaceMapCardMetrics.pinOutline) }
+            .fill(AteColor.coral)
+            .overlay { shape.stroke(AteColor.onBrand, lineWidth: AtePlaceMapCardMetrics.pinOutline) }
             .overlay(alignment: .top) {
-                Circle()
-                    .fill(AteColor.slip)
-                    .frame(width: AtePlaceMapCardMetrics.pinDot, height: AtePlaceMapCardMetrics.pinDot)
-                    .padding(.top, (AtePlaceMapCardMetrics.pinWidth - AtePlaceMapCardMetrics.pinDot) / 2)
+                AteIcon.dish.view(size: AtePlaceMapCardMetrics.pinGlyph)
+                    .foregroundStyle(AteColor.onBrand)
+                    .padding(.top, (AtePlaceMapCardMetrics.pinWidth - AtePlaceMapCardMetrics.pinGlyph) / 2)
             }
             .frame(width: AtePlaceMapCardMetrics.pinWidth, height: AtePlaceMapCardMetrics.pinHeight)
             .ateShadow(.mapPin)
@@ -183,10 +183,10 @@ enum AtePlaceMapCardMetrics {
     static let disc: CGFloat = 32
     static let glyph: CGFloat = 16
     static let chevron: CGFloat = 15
-    /// The pin: 30 wide, 40 tall, a 10 white centre, a 2 slip outline.
+    /// The pin: 30 wide, 40 tall, a 15 knife and fork in its head, a 2 white outline.
     static let pinWidth: CGFloat = 30
     static let pinHeight: CGFloat = 40
-    static let pinDot: CGFloat = 10
+    static let pinGlyph: CGFloat = 15
     static let pinOutline: CGFloat = 2
 }
 
