@@ -3,7 +3,7 @@ import SwiftUI
 
 /// **Somebody else's page** — pushed from a byline. The page header (`page-headers.html`): their
 /// avatar, their handle as the page's name, their city under it, the handle taking the bar once it has
-/// scrolled under it; then their three totals and their slips, a bookmark on every dish, because a
+/// scrolled under it, their dish and place totals on one line under the city; then their slips, a bookmark on every dish, because a
 /// profile is somewhere you come to for what to order next. ••• opens the one actions sheet: Share,
 /// Report, Block, each write asking once. No follow, no follower counts (no social in V1).
 struct V2ProfilePage: View {
@@ -41,8 +41,6 @@ struct V2ProfilePage: View {
                     content
                 } else {
                     headerSkeleton
-                    AteProfileStats(summary: nil)
-                        .ateCardWidth()
                     AteSkeleton(kind: .entrySlip)
                         .ateCardWidth()
                 }
@@ -88,7 +86,8 @@ struct V2ProfilePage: View {
         return "@\(summary.username)"
     }
 
-    /// Their avatar, the handle as the page's name, their city under it (`page-headers.html`).
+    /// Their avatar, the handle as the page's name, their city and totals under it (`page-headers.html`,
+    /// `you-header.html` A).
     private func header(_ summary: ProfileSummary) -> some View {
         AtePageHeader("@\(summary.username)", titleBottom: $titleBottom) {
             AteAvatar(
@@ -96,11 +95,14 @@ struct V2ProfilePage: View {
                 textStyle: .avatarMonogram, url: summary.avatarURL.flatMap(URL.init(string:))
             )
         } line: {
-            if let city = summary.city, city.isEmpty == false {
-                Text(city)
-                    .ateText(.pageHeaderLine)
-                    .foregroundStyle(AtePalette.automatic.muted)
-                    .lineLimit(1)
+            VStack(alignment: .leading, spacing: AteMetrics.hairspace) {
+                if let city = summary.city, city.isEmpty == false {
+                    Text(city)
+                        .ateText(.pageHeaderLine)
+                        .foregroundStyle(AtePalette.automatic.muted)
+                        .lineLimit(1)
+                }
+                AteProfileCounts(summary: summary)
             }
         }
         .accessibilityElement(children: .combine)
@@ -137,8 +139,6 @@ struct V2ProfilePage: View {
                 .containerRelativeFrame(.vertical)
         case .ready(let summary):
             header(summary)
-            AteProfileStats(summary: summary)
-                .ateCardWidth()
             entries
         }
     }

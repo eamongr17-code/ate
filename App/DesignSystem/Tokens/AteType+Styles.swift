@@ -34,10 +34,6 @@ extension AteTextStyle {
     static let ratingsScore = AteTextStyle(
         voice: .display, size: 28, weight: 700, trackingEm: -0.03, lineHeight: 1.0, textStyle: .title
     )
-    /// A number in a statement's cell: "142". 28pt.
-    static let statValue = AteTextStyle(
-        voice: .display, size: 28, weight: 700, trackingEm: -0.03, lineHeight: 1.0, textStyle: .title2
-    )
     /// A pushed page's own name, beside a back arrow: "From your photos". 24pt.
     static let pageTitle = AteTextStyle(
         voice: .heading, size: 24, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title2
