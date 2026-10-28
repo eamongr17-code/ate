@@ -34,6 +34,27 @@ struct PlaceMapLinkTests {
         #expect(bare.appleMapsURL.absoluteString == "https://maps.apple.com/?q=Bar%20%26%20Grill%20%232")
     }
 
+    @Test func theAddressSplitsAfterItsFirstLine() {
+        let lines = smallWins.addressLines
+        #expect(lines?.first == "1203 High St")
+        #expect(lines?.rest == "Armadale VIC 3143, Australia")
+    }
+
+    @Test func anAddressThatStartsWithTheNameSkipsIt() {
+        let named = PlaceMapLink(name: "Small Wins", address: "Small Wins, 1203 High St, Armadale",
+                                 latitude: nil, longitude: nil, googlePlaceID: nil)
+        #expect(named.addressLines?.first == "1203 High St")
+        #expect(named.addressLines?.rest == "Armadale")
+    }
+
+    @Test func aOneLineAddressHasNoSecondLine() {
+        let one = PlaceMapLink(name: "X", address: "Phuket", latitude: nil, longitude: nil, googlePlaceID: nil)
+        #expect(one.addressLines?.first == "Phuket")
+        #expect(one.addressLines?.rest == nil)
+        let none = PlaceMapLink(name: "X", address: " ", latitude: nil, longitude: nil, googlePlaceID: nil)
+        #expect(none.addressLines == nil)
+    }
+
     @Test func zeroZeroIsNoPoint() {
         let zero = PlaceMapLink(name: "X", address: nil, latitude: 0, longitude: 0, googlePlaceID: nil)
         #expect(zero.coordinate == nil)

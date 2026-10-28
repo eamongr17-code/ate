@@ -224,6 +224,7 @@ extension V2ComposerWrite {
         }
         let staged = services.outbox.staged
         let entries = services.entries
+        let outbox = services.outbox
         let analytics = services.analytics
         Task {
             do {
@@ -236,13 +237,18 @@ extension V2ComposerWrite {
                 if edit.changesPlace { analytics(EntryEvents.corrected(.place)) }
                 if edit.changesDate { analytics(EntryEvents.corrected(.date)) }
                 AteHaptics.success()
-                NotificationCenter.ateEntryChanged(card)
+                // New words put the entry back to printing (0097): the page keeps its receipt until the
+                // re-sort below lands, rather than blinking to "printing" for the seconds it takes.
+                if edit.changesBody == false { NotificationCenter.ateEntryChanged(card) }
                 dismiss()
                 // The re-sort lands after the sheet has gone: tell the entry page (and the lists)
-                // again, so dishes added in the edit appear the moment they are printed.
+                // again, so dishes added in the edit appear the moment they are printed. New words'
+                // re-sort is owed to the outbox, so a failure here is asked again later.
                 // Then the photos are paired with the dishes again (0063), without holding the lines.
                 Task.detached {
-                    if let sorted = await edit.sort(on: entries) {
+                    if let sorted = await edit.sort(
+                        on: entries, owing: outbox, authorID: card.authorID, createdAt: card.createdAt
+                    ) {
                         await MainActor.run { NotificationCenter.ateEntryChanged(sorted) }
                     }
                     await edit.matchPhotos(on: entries)

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// **Which maps app** — asked from a place's street chip when Google Maps is on the phone too: the
+/// **Which maps app** — asked from a place's map card when Google Maps is on the phone too: the
 /// place's name as the title, Apple Maps and Google Maps as rows, on the one sheet scaffold and in the
 /// actions sheet's row anatomy. A row closes the sheet and opens that app.
 struct AteMapsSheet: View {
