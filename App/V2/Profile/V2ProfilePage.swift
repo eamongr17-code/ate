@@ -118,6 +118,11 @@ struct V2ProfilePage: View {
                 width: AteProfileHeaderMetrics.nameBar, height: AteProfileHeaderMetrics.nameBarHeight,
                 palette: .automatic
             )
+            // The totals line under the name.
+            AteSkeletonBar(
+                width: AteProfileHeaderMetrics.cityBar, height: AteProfileHeaderMetrics.cityBarHeight,
+                palette: .automatic
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, AteMetrics.gutter)
