@@ -240,8 +240,8 @@ struct AteServices {
             EarnedAward(award: .dishes10, earnedAt: start.addingTimeInterval(15 * day)),
             EarnedAward(award: .first5, earnedAt: start.addingTimeInterval(18 * day),
                         dishName: "Pavlova", restaurantName: "Fratelli House", score: 5),
-            EarnedAward(award: .firstDrink, earnedAt: start.addingTimeInterval(26 * day),
-                        dishName: "Mezcal Negroni", restaurantName: "Bar Margaux", score: 4.5),
+            EarnedAward(award: .firstDessert, earnedAt: start.addingTimeInterval(26 * day),
+                        dishName: "Tiramisu", restaurantName: "Bar Margaux", score: 4.5),
             EarnedAward(award: .dishes25, earnedAt: start.addingTimeInterval(34 * day),
                         dishName: "Cacio e Pepe", restaurantName: "Tipo 00", score: 4.5)
         ]

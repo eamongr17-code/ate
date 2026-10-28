@@ -97,7 +97,7 @@ test('five dishes in one entry, three entries in one Melbourne day, five dishes 
   assert.equal(day.entry_id, id(9034));
 });
 
-test('the same dish three times; first drink and first dessert, including a style that lands later', async () => {
+test('the same dish three times; first dessert, including a style that lands later; first drink is retired', async () => {
   for (const n of [9041, 9042, 9043]) await w.visit(n, X.same, P.osteria, receipt(['Ragù']), at(n - 9030));
   const same = await award(X.same, 'same_dish_3');
   assert.ok(same, 'earned on the third');
@@ -114,7 +114,7 @@ test('the same dish three times; first drink and first dessert, including a styl
   await db.query(`insert into public.dish_tag_links (dish_id, kind, slug, label, source) values
     ($1, 'style', 'drinks', 'drinks', 'sorter'), ($2, 'style', 'dessert', 'dessert', 'sorter')`,
     [await dish('House Special'), await dish('Nonna Plate')]);
-  assert.equal((await award(X.style, 'first_drink'))?.dish_id, await dish('House Special'));
+  assert.equal(await award(X.style, 'first_drink'), undefined, 'first drink is retired (0099)');
   assert.equal((await award(X.style, 'first_dessert'))?.dish_id, await dish('Nonna Plate'));
 });
 

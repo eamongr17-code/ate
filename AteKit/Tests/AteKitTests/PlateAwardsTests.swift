@@ -18,14 +18,15 @@ struct PlateAwardsTests {
 
     // MARK: - The catalogue
 
-    @Test("Twenty awards, the server's ids, the approved names")
+    @Test("Nineteen awards, the server's ids, the approved names; the first drink is retired")
     func catalogue() {
-        #expect(PlateAward.allCases.count == 20)
+        #expect(PlateAward.allCases.count == 19)
+        #expect(PlateAward(rawValue: "first_drink") == nil)
         #expect(PlateAward.dishes25.rawValue == "dishes_25")
         #expect(PlateAward.firstHalf.rawValue == "first_half")
         #expect(PlateAward.savedBySomeone.name == "Dish saved by someone")
         #expect(PlateAward.allCases.filter(\.isSecret) == [.first6])
-        #expect(Set(PlateAward.allCases.map(\.stillName)).count == 20)
+        #expect(Set(PlateAward.allCases.map(\.stillName)).count == 19)
     }
 
     @Test("What an opened award shows, by type")
@@ -102,7 +103,7 @@ struct PlateAwardsTests {
     func six() async {
         let store = AwardsStore(userID: nil, awards: InMemoryAwards(awards: [nil: [Self.held(.first6, days: 1)]]))
         await store.loadIfNeeded()
-        #expect(store.cells.count == 20)
+        #expect(store.cells.count == 19)
         #expect(store.cells.first?.id == .first6)
     }
 
@@ -182,7 +183,7 @@ struct PlateAwardsTests {
             == ["award": "dishes_25", "count": "2"])
         #expect(AwardEvents.opened(award: .first5, source: .awardsPage, isMe: false).parameters
             == ["award": "first_5", "source": "awards_page", "is_me": "false"])
-        #expect(AwardEvents.shared(award: .firstDrink, source: .takeover).name == "award_shared")
+        #expect(AwardEvents.shared(award: .firstDessert, source: .takeover).name == "award_shared")
         #expect(AwardEvents.pageViewed(isMe: true, earned: 7).parameters == ["is_me": "true", "earned": "7"])
     }
 

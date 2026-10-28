@@ -39,9 +39,11 @@ struct V2AwardPage: View {
                 // The page header every pushed page opens with: the name, left, at the top, and
                 // the day under it; the bar takes the name on scroll (Eamon, 28 Oct).
                 AtePageTitle(title: route.award.name, subtitle: day, titleBottom: $titleBottom)
+                // The screen's full width, not the mockup's 330, so the backstamp reads (Eamon,
+                // build 271); the plate keeps its own margin inside the square.
                 AtePlateView(stage: stage)
-                    .frame(width: AteAwardsMetrics.detailPlate, height: AteAwardsMetrics.detailPlate)
-                    .frame(maxWidth: .infinity)
+                    .aspectRatio(1, contentMode: .fit)
+                    .containerRelativeFrame(.horizontal)
                 if let award {
                     behind(award)
                         .transition(.opacity)

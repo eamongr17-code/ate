@@ -1,8 +1,8 @@
 import Foundation
 
-/// **The twenty plate awards** (0098, `design/rebuild/plate-awards*.html`), in the order the set is
-/// drawn. Each is a plate from a world ceramic tradition — the first drink is a glass — and every one
-/// is about the food, never a place.
+/// **The nineteen plate awards** (0098, `design/rebuild/plate-awards*.html`), in the order the set is
+/// drawn. Each is a plate from a world ceramic tradition, and every one is about the food, never a
+/// place. The mockup's twentieth, the first drink, was retired before launch (0099: "just plates").
 ///
 /// The raw value is the server's id; the live plate page and its stills use the same ids.
 public enum PlateAward: String, CaseIterable, Sendable, Codable, Hashable, Identifiable {
@@ -16,7 +16,6 @@ public enum PlateAward: String, CaseIterable, Sendable, Codable, Hashable, Ident
     case first5 = "first_5"
     case first6 = "first_6"
     case firstHalf = "first_half"
-    case firstDrink = "first_drink"
     case firstDessert = "first_dessert"
     case newCountry = "new_country"
     case ateWith = "ate_with"
@@ -43,7 +42,6 @@ public enum PlateAward: String, CaseIterable, Sendable, Codable, Hashable, Ident
         case .first5: "First 5.0"
         case .first6: "First 6"
         case .firstHalf: "First 0.5"
-        case .firstDrink: "First drink"
         case .firstDessert: "First dessert"
         case .newCountry: "Dish in a new country"
         case .ateWith: "Ate with someone"

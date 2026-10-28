@@ -8,6 +8,7 @@ the app without touching how a plate looks or moves:
   * the ids become the server's award ids (0098),
   * the backstamp and the glass engraving use the app's DM Sans and carry the viewer's handle,
   * the mockup page's grid, table and buttons go; `window.ate` is the app's handle on it,
+  * the first drink (the mockup's one glass) leaves the set: it was retired (0099, "just plates"),
   * every plate rests fully face-on, live and in the stills (Eamon, build 269): the entrance's lean
     ends at zero instead of snapping there on its last frame, and there is no idle sway after it,
 and writes one self-contained page (three.js, the fonts and the wordmark inlined) to
@@ -85,6 +86,7 @@ def engine():
 
 
 APP_TAIL = r"""/* ---------- the app's handle on the plate ---------- */
+A.splice(A.findIndex(a=>a.id==='first_drink'),1);  // retired (0099): the set is just plates
 function shoot(a,off){pivot.position.set(0,0,0);pivot.rotation.set(a.kind==='glass'?.12:0,0,0);build(a,off);renderer.render(scene,camera);return renderer.domElement.toDataURL('image/png')}
 const post=(m)=>{try{webkit.messageHandlers.plate.postMessage(m)}catch(e){}};
 let running=false;

@@ -146,13 +146,15 @@ one band in the paper's colour crossing the screen, 1.6s a pass, all placeholder
 - **Sheets** (place / dish / new place / actions) — white, 32pt top corners, grabber, title 30, pill
   search field, radio rows, one ink pill button.
 - **Photo** — squircle (radius 28% of side; 16 on thumbs), 3pt ring in the surface colour when overlapping.
-- **Plate awards** (`plate-awards.html`, `plate-awards-screens.html`, 28 Oct) — twenty 3D plates,
-  each from a ceramic tradition (the first drink is a ruby goblet), always about food, no words on
-  the front; the back carries the name, dish, day and "Made for @handle". Live in a transparent web
-  view running the approved engine (`design/plates/`), stills baked from it. A full-screen ink
-  takeover after the post summary closes and on app open (several awards are pages of one
-  takeover); the You band comes third; the Awards page is one grid with silhouettes and no
-  headings, the secret 6 absent until earned; an opened award shows what earned it, by type.
+- **Plate awards** (`plate-awards.html`, `plate-awards-screens.html`, 28 Oct) — nineteen 3D plates
+  (the mockup's drink goblet was cut: "just plates"), each from a ceramic tradition, always about
+  food, no words on the front, resting face-on; the back carries the name, dish, day and "Made for
+  @handle". Live in a transparent web view running the approved engine (`design/plates/`), stills
+  baked from it. A full-screen ink takeover after the post summary closes and on app open (several
+  awards are pages of one takeover); the You band comes third, the newest four in Your top dishes'
+  columns, no scrolling; the Awards page is one grid with silhouettes and no headings, the secret 6
+  absent until earned; an opened award is a standard pushed page (name and day as its title, the
+  plate at the screen's full width, then what earned it, by type).
 
 ## Screens (`design/v1/<name>.dc.html`)
 

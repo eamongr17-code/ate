@@ -538,6 +538,7 @@ function tick(now){const dt=Math.min(50,now-last)/16.67;last=now;
   renderer.render(scene,camera);requestAnimationFrame(tick)}
 
 /* ---------- the app's handle on the plate ---------- */
+A.splice(A.findIndex(a=>a.id==='first_drink'),1);  // retired (0099): the set is just plates
 function shoot(a,off){pivot.position.set(0,0,0);pivot.rotation.set(a.kind==='glass'?.12:0,0,0);build(a,off);renderer.render(scene,camera);return renderer.domElement.toDataURL('image/png')}
 const post=(m)=>{try{webkit.messageHandlers.plate.postMessage(m)}catch(e){}};
 let running=false;
