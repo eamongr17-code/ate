@@ -83,7 +83,7 @@ private struct V2EntryScreen: View {
                     Task { await model.refreshPhotoDishes() }
                     return
                 }
-                Task { await model.reload() }
+                Task { await model.reloadWatchingPrint() }
             }
             .v2PlaceSheet(
                 isPresented: $model.isCorrectingPlace,

@@ -210,6 +210,13 @@ final class EntryModel: SavedDishObserving {
         if card?.sortStatus == .pending, state == .pending { await waitForSort() }
     }
 
+    /// **An edit was saved** (the composer's note): read the entry again, and when its new words are
+    /// still printing (0097) watch them as a new entry's are — past the watch, "Try again".
+    func reloadWatchingPrint() async {
+        await reload()
+        if card?.sortStatus == .pending, state == .pending { await waitForSort() }
+    }
+
     private static let sortPollInterval = Duration.milliseconds(700)
     private static let sortPollCount = 12
 
