@@ -1,5 +1,6 @@
 import AteKit
 import SwiftUI
+import UIKit
 
 /// **The sheet over the dish map** (`nearby-map-2.html`): **Near me** — every dish within 2 km, best
 /// first, paged as you scroll — or the suburb after Search here, or, with a pin tapped, that place:
@@ -7,9 +8,11 @@ import SwiftUI
 ///
 /// Drawn in the page, not presented: a presented sheet over a pushed page stayed on screen after Back
 /// and raced the pushes it made, the map's lost touches in build 214. It floats on glass like the
-/// system's, and drags between three heights: minimised to its title, resting, and tall. Below the
-/// tallest the whole sheet drags; at the tallest the list scrolls and the top drags. A list too short
-/// to fill those heights caps them: the sheet stops just under its last row (Eamon, 27 Oct).
+/// system's, and drags between three heights: minimised to its title, resting, and tall. A finger
+/// anywhere on it drags it live; at the tallest the list scrolls, and pulling down with the list at its
+/// top hands over to the sheet, as Apple Maps does (Eamon, 28 Oct: only the grabber moved it, and the
+/// rest jumped on release). A list too short to fill those heights caps them: the sheet stops just
+/// under its last row (Eamon, 27 Oct).
 struct FeedMapSheet: View {
     let store: DishMapStore
     @Binding var detent: FeedMapDetent
@@ -21,6 +24,11 @@ struct FeedMapSheet: View {
     /// How far the finger has pulled the sheet up (down is negative) since the drag began. State, not
     /// gesture state, so it settles back to 0 in the same animation as the new height.
     @State private var pull: CGFloat = 0
+    /// The finger's travel when the sheet took it: the sheet moves from there, so a pull handed over
+    /// from the list starts where the list stopped, not with a jump.
+    @State private var pullStart: CGFloat?
+    /// The list is scrolled to its top, so pulling down moves the sheet instead.
+    @State private var listAtTop = true
     /// The grabber and the title, measured: minimised, the sheet is exactly this over the home bar.
     @State private var headHeight = FeedMapSheetMetrics.headEstimate
     /// What the list holds (its rows, or the empty state), measured: the sheet is never taller than
@@ -32,8 +40,6 @@ struct FeedMapSheet: View {
         let isTall = detent == .high && overflows
         VStack(alignment: .leading, spacing: 0) {
             head
-                .contentShape(.rect)
-                .gesture(drag)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured in
                     // Minimised, the sheet is the head: it grows and shrinks with it, never jumps.
                     withAnimation(detent == .minimised ? AteMotion.panelSettle : nil) { headHeight = measured }
@@ -46,23 +52,35 @@ struct FeedMapSheet: View {
                 .padding(.horizontal, AteMetrics.gutter)
                 .padding(.bottom, room.bottomInset + AteMetrics.section)
             }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top <= 0.5
+            } action: { _, atTop in
+                listAtTop = atTop
+            }
+            // A new list, not the old one's rows moved: a tapped place's dishes (or Near me's, on
+            // letting go) come in at the top and fade in, and the old leave at once. Keyed by dish,
+            // the rows in both slid through the new ones and their lines faded through each other
+            // (Eamon's recording, 28 Oct).
+            .id(store.selected?.id)
+            .transition(FeedMapSheetMotion.swap)
             .scrollIndicators(.hidden)
             .scrollBounceBehavior(.basedOnSize)
             // Minimised is the title alone: no row peeking under it (build 215). It comes back as
             // soon as the sheet is pulled up.
             .opacity(detent == .minimised && pull <= 0 ? 0 : 1)
-            .scrollDisabled(isTall == false)
-            .gesture(drag, including: isTall ? .subviews : .all)
+            // While the sheet has the finger the list holds still.
+            .scrollDisabled(isTall == false || pullStart != nil)
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(height: height, alignment: .top)
+        .contentShape(.rect)
+        .gesture(FeedMapSheetPan(onChange: pulled, onEnd: released))
         .clipShape(.rect(cornerRadius: FeedMapSheetMetrics.radius))
         .glassEffect(.regular, in: .rect(cornerRadius: FeedMapSheetMetrics.radius))
         .padding(.horizontal, FeedMapSheetMetrics.inset)
         .padding(.bottom, FeedMapSheetMetrics.inset)
         .ateAnimation(AteMotion.panelSettle, value: fit)
         .ateAnimation(AteMotion.fillIn, value: store.selected?.id)
-        .ateAnimation(AteMotion.fillIn, value: store.selectedMenu.map(\.dishID))
         .accessibilityIdentifier("map.sheet")
     }
 
@@ -91,19 +109,31 @@ struct FeedMapSheet: View {
         return room.fits(head: headHeight, content: fit) == false
     }
 
-    private var drag: some Gesture {
-        DragGesture(minimumDistance: FeedMapSheetMetrics.dragStart, coordinateSpace: .global)
-            .onChanged { value in pull = -value.translation.height }
-            .onEnded { value in
-                let landing = height(detent) - value.predictedEndTranslation.height
-                let nearest = FeedMapDetent.allCases.min {
-                    abs(height($0) - landing) < abs(height($1) - landing)
-                }
-                withAnimation(AteMotion.panelSettle) {
-                    detent = nearest ?? detent
-                    pull = 0
-                }
-            }
+    /// The finger moved. Below the tallest, or on the grabber and title, the sheet follows it; on the
+    /// tallest sheet's list the list scrolls until it is at its top and the finger heads down, and from
+    /// there the sheet follows.
+    private func pulled(_ finger: FeedMapSheetPan.Value) {
+        let isTall = detent == .high && overflows
+        if pullStart == nil {
+            guard isTall == false || finger.onList == false || (listAtTop && finger.velocity > 0) else { return }
+            pullStart = finger.translation
+        }
+        pull = -(finger.translation - (pullStart ?? 0))
+    }
+
+    /// The finger lifted: the sheet settles at the height nearest where its flick would have carried it.
+    private func released(_ finger: FeedMapSheetPan.Value) {
+        guard let start = pullStart else { return }
+        let travel = finger.translation - start + finger.velocity * FeedMapSheetMetrics.flick
+        let landing = height(detent) - travel
+        let nearest = FeedMapDetent.allCases.min {
+            abs(height($0) - landing) < abs(height($1) - landing)
+        }
+        withAnimation(AteMotion.panelSettle) {
+            detent = nearest ?? detent
+            pull = 0
+        }
+        pullStart = nil
     }
 
     // MARK: - The top: the grabber and the title (or the tapped place)
@@ -138,9 +168,9 @@ struct FeedMapSheet: View {
 
     // MARK: - The list
 
-    /// Near me (or Search here), or the tapped place's dishes: one list, its rows known by their
-    /// dish, so a dish in both stays put when a pin is tapped or let go, and only what differs comes
-    /// and goes (build 217: the two lists cross-faded through each other, and so did the titles).
+    /// Near me (or Search here), or the tapped place's dishes. Tapping a pin or letting it go swaps
+    /// the whole list (see the scroll view's `id`): the old goes at once and the new fades in, so the
+    /// two never show through each other (build 217) and no row slides across the others (28 Oct).
     @ViewBuilder
     private var list: some View {
         if let shown {
@@ -186,8 +216,13 @@ struct FeedMapSheet: View {
                 )
             }
         }
-        let theirs = Set(store.dishes.filter { $0.restaurantID == place.restaurantID }.map(\.dishID))
-        return nearbyRows.filter { theirs.contains($0.id) }
+        // The line the menu's own rows will carry, so nothing changes under them when it lands.
+        return store.dishes.filter { $0.restaurantID == place.restaurantID }.map { dish in
+            FeedMapSheetRow(
+                id: dish.dishID, name: dish.name, cover: dish.coverURLString, tags: [],
+                subtitle: FeedMapCopy.people(dish.reviewCount), score: dish.score
+            )
+        }
     }
 
     private var nearbyRows: [FeedMapSheetRow] {
@@ -268,6 +303,72 @@ struct FeedMapSheetRow: Identifiable {
     let tags: [DietTag]
     let subtitle: String
     let score: Double?
+}
+
+/// **A finger anywhere on the sheet.** A UIKit pan, alongside the list's own: SwiftUI's drag on the
+/// list's scroll view only reported once the finger lifted (build 259: the sheet sat still, then
+/// jumped), and only the grabber and title followed the finger. The sheet decides, move by move,
+/// whether the finger is its or the list's.
+struct FeedMapSheetPan: UIGestureRecognizerRepresentable {
+    struct Value {
+        /// Down from where the finger came down (up is negative).
+        var translation: CGFloat
+        /// Points a second, down positive.
+        var velocity: CGFloat
+        /// The finger came down on the list, not the grabber and title.
+        var onList: Bool
+    }
+
+    let onChange: (Value) -> Void
+    let onEnd: (Value) -> Void
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var onList = false
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            var view = touch.view
+            while let current = view, (current is UIScrollView) == false { view = current.superview }
+            onList = view != nil
+            return true
+        }
+
+        /// The list keeps scrolling while the sheet watches; the sheet stops it when it takes over.
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+        ) -> Bool {
+            other.view is UIScrollView
+        }
+
+        /// Up and down only: a sideways swipe is left alone.
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+            let velocity = pan.velocity(in: pan.view)
+            return abs(velocity.y) >= abs(velocity.x)
+        }
+    }
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let pan = UIPanGestureRecognizer()
+        pan.delegate = context.coordinator
+        pan.maximumNumberOfTouches = 1
+        return pan
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        let value = Value(
+            translation: recognizer.translation(in: nil).y,
+            velocity: recognizer.velocity(in: nil).y,
+            onList: context.coordinator.onList
+        )
+        switch recognizer.state {
+        case .began, .changed: onChange(value)
+        case .ended, .cancelled, .failed: onEnd(value)
+        default: break
+        }
+    }
 }
 
 enum FeedMapSheetMotion {
@@ -353,7 +454,8 @@ enum FeedMapSheetMetrics {
     static let headEstimate: CGFloat = 76
     /// Under the list's last row (or the empty state's line), above the home bar, when the sheet fits it.
     static let listBottom: CGFloat = 22
-    static let dragStart: CGFloat = 6
+    /// How far ahead a flick carries the sheet: seconds of the finger's speed as it lifts.
+    static let flick: CGFloat = 0.2
     static let headGap: CGFloat = 12
     static let lineGap: CGFloat = 4
     static let close: CGFloat = 34
