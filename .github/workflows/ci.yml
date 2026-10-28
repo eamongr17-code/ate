@@ -51,7 +51,9 @@ jobs:
     # skip the app builds below.
     if: needs.changes.outputs.app == 'true' || needs.changes.outputs.backend == 'true'
     runs-on: macos-26
-    timeout-minutes: 30
+    # 40, not 30: a slow runner on 28 Oct spent 22 minutes on the build alone and was cut off
+    # eight minutes into the snapshots, with nothing failing.
+    timeout-minutes: 40
     env:
       # Resolved packages live outside the checkout, so one cache entry also covers xcodebuild's clones.
       SPM_CLONES: /Users/runner/ate-spm
