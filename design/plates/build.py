@@ -8,6 +8,8 @@ the app without touching how a plate looks or moves:
   * the ids become the server's award ids (0098),
   * the backstamp and the glass engraving use the app's DM Sans and carry the viewer's handle,
   * the mockup page's grid, table and buttons go; `window.ate` is the app's handle on it,
+  * every plate rests fully face-on, live and in the stills (Eamon, build 269): the entrance's lean
+    ends at zero instead of snapping there on its last frame, and there is no idle sway after it,
 and writes one self-contained page (three.js, the fonts and the wordmark inlined) to
 App/Resources/Plates/plate-world.html, which `AtePlateView` loads into a WKWebView.
 `bake.js` renders the stills the rows and grids use from the same page.
@@ -72,12 +74,18 @@ def engine():
                 APP_TAIL, js, count=1, flags=re.S)
     js = re.sub(r"function setTheme\(t\)\{.*?\nfunction start\(\)\{[^\n]*\n",
                 "function start(){resize();addEventListener('resize',resize);ready()}\n", js, count=1, flags=re.S)
+    # rest face-on: the lean comes back to nothing as the entrance lands, and nothing sways after
+    js = sub(js, "tilt=.4*Math.sin(e*Math.PI*1.25)*(1-e*.6)", "tilt=.4*Math.sin(e*Math.PI)*(1-e*.6)")
+    js = sub(js, "pivot.rotation.x=tilt+(drag||intro?0:Math.sin(idle)*.07);"
+                 "pivot.rotation.y+=(drag||intro?0:Math.sin(idle*.8+1)*.09);"
+                 "pivot.rotation.z=intro?spinZ:(drag?0:Math.sin(idle*.7)*.03);",
+             "pivot.rotation.x=tilt;pivot.rotation.z=intro?spinZ:0;")
     js = sub(js, "'600 30px \"DM Sans\"'", "'600 30px \"DM Sans\"','500 30px \"DM Sans\"'")
     return js
 
 
 APP_TAIL = r"""/* ---------- the app's handle on the plate ---------- */
-function shoot(a,off){pivot.position.set(0,0,0);pivot.rotation.set(a.kind==='glass'?.22:-.32,.38,0);build(a,off);renderer.render(scene,camera);return renderer.domElement.toDataURL('image/png')}
+function shoot(a,off){pivot.position.set(0,0,0);pivot.rotation.set(a.kind==='glass'?.12:0,0,0);build(a,off);renderer.render(scene,camera);return renderer.domElement.toDataURL('image/png')}
 const post=(m)=>{try{webkit.messageHandlers.plate.postMessage(m)}catch(e){}};
 let running=false;
 function ready(){

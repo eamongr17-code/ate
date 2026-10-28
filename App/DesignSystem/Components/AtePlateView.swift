@@ -105,6 +105,7 @@ struct AtePlateView: UIViewRepresentable {
         web.scrollView.bounces = false
         web.scrollView.contentInsetAdjustmentBehavior = .never
         web.accessibilityElementsHidden = true
+        web.addGestureRecognizer(context.coordinator.hold)
         stage.web = web
         if let url = AtePlateView.page {
             web.loadFileURL(url, allowingReadAccessTo: url)
@@ -123,15 +124,53 @@ struct AtePlateView: UIViewRepresentable {
     static let page = Bundle.main.url(forResource: "plate-world", withExtension: "html")
 
     @MainActor
-    final class Coordinator: NSObject, WKScriptMessageHandler {
+    final class Coordinator: NSObject, WKScriptMessageHandler, UIGestureRecognizerDelegate {
         let stage: AtePlateStage
+        /// **A drag on the plate spins it; it never takes the page back.** iOS 26 lets a sideways
+        /// drag anywhere on a pushed page start the back swipe, and a spin is a sideways drag
+        /// (Eamon, build 269). This pan watches every touch on the plate alongside the web view,
+        /// cancels nothing, and holds the navigation controller's back swipes until it fails —
+        /// which it never does once a drag on the plate has begun.
+        let hold = UIPanGestureRecognizer()
 
         init(stage: AtePlateStage) {
             self.stage = stage
+            super.init()
+            hold.cancelsTouchesInView = false
+            hold.delaysTouchesBegan = false
+            hold.delaysTouchesEnded = false
+            hold.delegate = self
         }
 
         func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
             if message.body as? String == "ready" { stage.didLoad() }
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+        ) -> Bool {
+            true
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldBeRequiredToFailBy other: UIGestureRecognizer
+        ) -> Bool {
+            guard let navigation = navigationController(of: gestureRecognizer.view) else { return false }
+            return other === navigation.interactiveContentPopGestureRecognizer
+                || other === navigation.interactivePopGestureRecognizer
+        }
+
+        private func navigationController(of view: UIView?) -> UINavigationController? {
+            var responder: UIResponder? = view
+            while let next = responder {
+                if let controller = next as? UIViewController, let navigation = controller.navigationController {
+                    return navigation
+                }
+                responder = next.next
+            }
+            return nil
         }
     }
 

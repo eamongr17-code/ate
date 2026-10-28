@@ -27,24 +27,29 @@ struct AwardTakeoverScreen: View {
                 AtePlateView(stage: stage)
                     .frame(width: geometry.size.width, height: geometry.size.width)
                     .padding(.top, AwardTakeoverMetrics.plateTop)
-                if let current {
-                    words(current)
-                        .padding(.horizontal, AwardTakeoverMetrics.wordsInset)
-                        .padding(.top, AwardTakeoverMetrics.plateToWords)
+                // Paging is heard only under the plate: a drag on the plate spins it, and never
+                // turns the page (Eamon, build 269).
+                VStack(spacing: 0) {
+                    if let current {
+                        words(current)
+                            .padding(.horizontal, AwardTakeoverMetrics.wordsInset)
+                            .padding(.top, AwardTakeoverMetrics.plateToWords)
+                    }
+                    Spacer(minLength: AteMetrics.section)
+                    if awards.count > 1 { dots }
+                    buttons
+                        .padding(.horizontal, AteMetrics.gutter)
+                        .ateContentBottom(AwardTakeoverMetrics.buttonsBottom)
                 }
-                Spacer(minLength: AteMetrics.section)
-                if awards.count > 1 { dots }
-                buttons
-                    .padding(.horizontal, AteMetrics.gutter)
-                    .ateContentBottom(AwardTakeoverMetrics.buttonsBottom)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(.rect)
+                .gesture(swipe)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .background { ground }
         .environment(\.atePalette, .ink)
         .preferredColorScheme(.dark)
-        .contentShape(.rect)
-        .gesture(swipe)
         .accessibilityIdentifier("v2.award.takeover")
         .sheet(item: $sharing) { image in
             ShareSheet(image: image.image)
@@ -74,7 +79,7 @@ struct AwardTakeoverScreen: View {
     private func words(_ award: EarnedAward) -> some View {
         VStack(spacing: 0) {
             Text(award.award.name)
-                .ateText(.awardTakeoverTitle)
+                .ateTextExactLifted(.awardTakeoverTitle)
                 .foregroundStyle(AteAwardColor.takeoverInk)
                 .multilineTextAlignment(.center)
                 .rise(isWordsUp, delay: AwardTakeoverMetrics.titleDelay, reduceMotion: reduceMotion)
