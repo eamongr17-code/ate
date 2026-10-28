@@ -46,6 +46,8 @@ struct AteServices {
     let search: any SearchReading
     /// The dish map's pins and sheet (0088), opened from the Feed.
     let dishMap: any DishMapReading
+    /// Plate awards (0098): yours and anyone's, and the dishes behind one.
+    let awards: any AwardsReading
     /// Where the phone is, asking the first time — the dish map's opening and Show my location.
     let locate: NearbyPlaces.Locate
     /// The one place a bookmark's new state is announced. Everything that draws one listens, so a
@@ -124,6 +126,7 @@ struct AteServices {
         self.dishExplore = preview?.dishExplore ?? DishExploreClient(api: api) { await AteLastFix.point() }
         self.search = preview?.search ?? SearchClient(api: api)
         self.dishMap = preview == nil ? DishMapClient(api: api) : PreviewDishMap()
+        self.awards = preview == nil ? AwardsClient(api: api) : Self.previewAwards(api: api)
         let location = AteLocation()
         self.locate = { mayAsk in
             await location.current(mayAsk: mayAsk).map { SearchOrigin(latitude: $0.latitude, longitude: $0.longitude) }
@@ -224,6 +227,27 @@ struct AteServices {
         )
         #else
         return nil
+        #endif
+    }
+
+    /// The preview drive's awards: a few held, all seen, so no takeover covers a drive or a snapshot.
+    private static func previewAwards(api: AteAPIClient) -> any AwardsReading {
+        #if DEBUG
+        let day: TimeInterval = 86_400
+        let start = Date.now.addingTimeInterval(-40 * day)
+        let held: [EarnedAward] = [
+            EarnedAward(award: .dishes1, earnedAt: start, dishName: "Burrata", restaurantName: "Bar Liberty", score: 4),
+            EarnedAward(award: .dishes10, earnedAt: start.addingTimeInterval(15 * day)),
+            EarnedAward(award: .first5, earnedAt: start.addingTimeInterval(18 * day),
+                        dishName: "Pavlova", restaurantName: "Fratelli House", score: 5),
+            EarnedAward(award: .firstDrink, earnedAt: start.addingTimeInterval(26 * day),
+                        dishName: "Mezcal Negroni", restaurantName: "Bar Margaux", score: 4.5),
+            EarnedAward(award: .dishes25, earnedAt: start.addingTimeInterval(34 * day),
+                        dishName: "Cacio e Pepe", restaurantName: "Tipo 00", score: 4.5)
+        ]
+        return InMemoryAwards(awards: [nil: held])
+        #else
+        return AwardsClient(api: api)
         #endif
     }
 

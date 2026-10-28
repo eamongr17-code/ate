@@ -33,12 +33,16 @@ enum Route: Hashable {
     case list(ListRoute)
     /// The dish map (0088), pushed from the Feed's map button.
     case map
+    /// Someone's awards, as one grid (yours when `userID` is nil) — "Your awards ›" on You.
+    case awards(AwardsRoute)
+    /// One award, opened: its plate, and what earned it.
+    case award(AwardRoute)
 
     /// Whether this destination exists yet.
     var isBuilt: Bool {
         switch self {
         case .entry, .suggestions, .profile, .place, .dish, .tag, .ratings, .settings, .following, .notifications,
-             .list, .map:
+             .list, .map, .awards, .award:
             true
         }
     }
@@ -49,4 +53,19 @@ enum Route: Hashable {
         default: nil
         }
     }
+}
+
+/// Whose awards page: yours when `userID` is nil.
+struct AwardsRoute: Hashable {
+    var userID: UUID?
+    /// Their handle, for the backs of their plates; nil = yours.
+    var handle: String?
+}
+
+/// One award, opened, and whose it is (yours when `userID` is nil).
+struct AwardRoute: Hashable {
+    var userID: UUID?
+    var award: PlateAward
+    /// Their handle, for the plate's back; nil = yours, read from the session.
+    var handle: String?
 }
