@@ -14,6 +14,9 @@ final class TabRouter<Stores>: V2TabRouting {
     var path: [Route] = []
     /// Bumped by a re-tap of the tab while its root is showing — the root scrolls to its top.
     private(set) var scrollToTop = 0
+    /// Bumped when a new entry written from a notification lands: the Journal shows its own shelf,
+    /// from the top.
+    private(set) var newEntryShown = 0
     /// Where each pushed page was opened from — its view event's `source`.
     private(set) var sources: [Route: DetailSource] = [:]
 
@@ -50,6 +53,12 @@ final class TabRouter<Stores>: V2TabRouting {
         }
         sources[route] = source
         path.append(route)
+    }
+
+    /// Back to the root with nothing pushed, at the top of its own list — where a new entry is.
+    func showNewEntry() {
+        path.removeAll()
+        newEntryShown += 1
     }
 
     /// The tab's own item, tapped while it is the current tab: a pushed stack goes back to its root

@@ -336,7 +336,8 @@ struct V2NotificationsPage: View {
         context.app.compose(ComposerPresentation(
             origin: .photoSuggestion,
             assetIdentifiers: cluster.items.map(\.id),
-            place: place
+            place: place,
+            landsOnJournal: true
         ))
     }
 

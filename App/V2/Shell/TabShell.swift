@@ -69,7 +69,7 @@ struct TabShell: View {
         // hero, the menu. Kit photo surfaces open it themselves.
         .atePhotoViewerHost()
         .environment(\.atePhotoDishSource, AtePhotoDishSource.live(app.services))
-        .sheet(isPresented: Bindable(app).isComposing, onDismiss: tellOfTheSix) {
+        .sheet(isPresented: Bindable(app).isComposing, onDismiss: composerDown) {
             ComposerSheet(app: app)
                 .ateCoversThePage()
                 .tipViewStyle(AteTipStyle())
@@ -98,6 +98,24 @@ struct TabShell: View {
             ScreenTrail.app.visit(tab.rawValue)
         }
         .task { await warmTheOtherTabs() }
+    }
+
+    // MARK: - After the composer
+
+    /// The composer is down: home to the Journal if the entry was written from a notification, then
+    /// the first 6 explained over wherever that left the person.
+    private func composerDown() {
+        landOnJournal()
+        tellOfTheSix()
+    }
+
+    /// An entry written from a notification (the Notifications page, or a tapped push): the Journal
+    /// tab, popped to its root and scrolled to the top, where the new entry is (Eamon, 28 Oct).
+    private func landOnJournal() {
+        guard app.owesJournal else { return }
+        app.owesJournal = false
+        selection = .journal
+        journal.showNewEntry()
     }
 
     // MARK: - The 6

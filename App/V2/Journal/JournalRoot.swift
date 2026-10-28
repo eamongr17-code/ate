@@ -47,6 +47,10 @@ struct JournalRoot: View {
                     withAnimation(reduceMotion ? nil : .default) { proxy.scrollTo(Self.top, anchor: .top) }
                 }
                 .onChange(of: listChanged) { _, _ in jump(to: Self.top, proxy: proxy) }
+                .onChange(of: router.newEntryShown) { _, _ in
+                    shelf = .journal
+                    jump(to: Self.top, proxy: proxy)
+                }
         }
         .accessibilityIdentifier("v2.root.journal")
         .ateGround()

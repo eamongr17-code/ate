@@ -36,6 +36,10 @@ struct ComposerPresentation: Identifiable, Hashable {
     /// **"I ate it"** on a dish you saved yourself: the composer opens on its place, with its name as
     /// the first words, and once the entry is saved the dish leaves Saved.
     var ateOwnSave: OwnSave?
+    /// Opened from a notification — the Notifications page (a tag, a photo sitting) or a tapped
+    /// push. Once a new entry is printed and the sheet is down, the shell goes home to the Journal
+    /// with the entry at its top, rather than back to the notification it was written from.
+    var landsOnJournal = false
 
     /// The entry being edited, carried whole so the composer does not have to fetch it back.
     struct EditingEntry: Hashable {
@@ -60,7 +64,7 @@ struct ComposerPresentation: Identifiable, Hashable {
 
     /// Answering an "Ate with" tag: the composer, prefilled from the tag.
     static func respond(to companionID: UUID) -> ComposerPresentation {
-        ComposerPresentation(origin: .tabBar, respondingTo: companionID)
+        ComposerPresentation(origin: .tabBar, respondingTo: companionID, landsOnJournal: true)
     }
 
     static func ateIt(_ save: OwnSave) -> ComposerPresentation {

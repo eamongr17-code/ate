@@ -51,6 +51,10 @@ struct ComposerSheet: View {
         }
         // A staged photo opens full screen from inside the sheet: the shell's viewer is under it.
         .atePhotoViewerHost()
+        // Written from a notification: the sheet goes down onto the Journal, not the notification.
+        .onChange(of: printed != nil) { _, isPrinted in
+            if isPrinted, presentation.landsOnJournal { app.owesJournal = true }
+        }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
     }

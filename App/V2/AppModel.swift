@@ -54,6 +54,9 @@ final class AppModel {
     /// Words holding a 6 were just saved by someone never told about it: "You found the 6" comes up
     /// once the composer is down (``SixFoundScreen``).
     var owesSixFound = false
+    /// A new entry was printed from a composer opened on a notification
+    /// (``ComposerPresentation/landsOnJournal``): once the sheet is down, the shell goes to the Journal.
+    var owesJournal = false
     /// An entry a link asked for, waiting for the shell to push it on the current tab.
     var linkedEntry: UUID?
     /// Bumped whenever the outbox lands something, so the Journal can refresh under it.
