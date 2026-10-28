@@ -32,6 +32,9 @@ final class AppModel {
     /// Your diet — one of it, so a change in Settings is lit in the composer and on a place's chips
     /// in the same turn.
     let diet: DietStore
+    /// Plate awards' full-screen takeover: every unseen award, in one, when a post's summary closes
+    /// and when the app opens.
+    let awardTakeover: AwardTakeover
     /// A tapped list-invite push, waiting for the shell to open Notifications.
     var linkedInvites = false
     /// A tab a page asked to go to (Saved's empty "Go to the Feed"), waiting for the shell.
@@ -87,6 +90,7 @@ final class AppModel {
         self.lists = lists
         self.listInvites = ListInvitesStore(service: services.lists, shelf: lists, analytics: services.analytics)
         self.diet = DietStore(account: services.account, analytics: services.analytics)
+        self.awardTakeover = AwardTakeover(awards: services.awards)
         self.saves = SaveAction(
             saves: services.saves,
             analytics: services.analytics,

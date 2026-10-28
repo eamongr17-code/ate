@@ -47,6 +47,11 @@ enum AteHaptics {
         UINotificationFeedbackGenerator().notificationOccurred(.error)
     }
 
+    /// An award's plate arriving in the takeover: one soft tap, as the plate settles.
+    static func award() {
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.8)
+    }
+
     /// An entry saved — Done in the composer landing. The system's own success pattern.
     static func success() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)

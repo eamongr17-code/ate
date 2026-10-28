@@ -51,6 +51,8 @@ public enum DetailSource: String, Sendable, CaseIterable, Codable {
     case you
     /// The dish map (0088) — a row of its sheet, or a tapped place's Open place.
     case map
+    /// An opened award (0098) — a dish or entry behind it.
+    case award
 }
 
 /// Which affordance a "log" call to action was tapped on.

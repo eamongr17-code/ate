@@ -22,6 +22,8 @@ struct V2Destinations: View {
         case .notifications: V2NotificationsPage(context: context)
         case .list(let list): V2ListPage(list, context: context)
         case .map: FeedMapPage(context: context)
+        case .awards(let awards): V2AwardsPage(route: awards, context: context)
+        case .award(let award): V2AwardPage(route: award, context: context)
         }
     }
 }

@@ -35,7 +35,7 @@ struct DetailEventsTests {
         #expect(DetailSource.allCases.map(\.rawValue) == [
             "feed", "search", "diary", "receipt", "unknown",
             "entry", "saved", "profile", "journal", "place", "dish", "link", "similar", "tag", "entry_more", "you",
-            "map"
+            "map", "award"
         ])
     }
 

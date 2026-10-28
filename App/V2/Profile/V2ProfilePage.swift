@@ -12,6 +12,8 @@ struct V2ProfilePage: View {
 
     /// Held here, not made in the destination's builder, which runs again on every redraw.
     @State private var store: ProfileStore
+    /// Their awards: the band under the header (`plate-awards-screens.html`), absent when none.
+    @State private var awards: AwardsStore
     @State private var isShowingActions = false
     @State private var isCollapsed = false
     /// Where the header's name ends: the bar takes it once the page has scrolled past.
@@ -30,6 +32,7 @@ struct V2ProfilePage: View {
             savedDishes: services.savedDishes,
             deletions: services.entryDeletions
         ))
+        _awards = State(initialValue: AwardsStore(userID: userID, awards: services.awards))
     }
 
     var body: some View {
@@ -50,7 +53,12 @@ struct V2ProfilePage: View {
             .padding(.bottom, AteMetrics.section)
         }
         .ateTitleCollapse($isCollapsed, after: titleBottom)
-        .ateRefreshable { await store.refresh() }
+        .ateRefreshable {
+            let page = store, band = awards
+            async let header: Void = page.refresh()
+            async let plates: Void = band.refresh()
+            _ = await (header, plates)
+        }
         .accessibilityIdentifier("v2.profile")
         .ateGround()
         .ateCollapsingTitle(handle, isCollapsed: isCollapsed)
@@ -67,7 +75,10 @@ struct V2ProfilePage: View {
             }
         }
         .task {
+            let band = awards
+            async let plates: Void = band.loadIfNeeded()
             await store.load()
+            await plates
             if case .ready(let summary) = store.header {
                 context.services.analytics(SocialEvents.profileViewed(isMe: summary.isMe))
             }
@@ -144,7 +155,25 @@ struct V2ProfilePage: View {
                 .containerRelativeFrame(.vertical)
         case .ready(let summary):
             header(summary)
+            awardsBand(handle: summary.username)
             entries
+        }
+    }
+
+    /// Their plates, newest first, the same row as on You. Each opens read-only.
+    @ViewBuilder
+    private func awardsBand(handle: String) -> some View {
+        if awards.earned.isEmpty == false {
+            VStack(alignment: .leading, spacing: AteMetrics.regular) {
+                AteBandHeading(title: "Awards", identifier: "profile.awards") {
+                    context.open(.awards(AwardsRoute(userID: userID, handle: handle)), from: .profile)
+                }
+                AteAwardsRow(awards: awards.earned) { award in
+                    context.services.analytics(AwardEvents.opened(award: award.award, source: .profile, isMe: false))
+                    context.open(.award(AwardRoute(userID: userID, award: award.award, handle: handle)), from: .profile)
+                }
+            }
+            .padding(.horizontal, AteMetrics.gutter)
         }
     }
 
