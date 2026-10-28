@@ -396,7 +396,8 @@ revoke all on function public.trg_awards_styles() from public, anon, authenticat
 -- 5. Reads
 -- ===========================================================================
 
--- A person's awards (yours when p_user is NULL). At most twenty rows, so no cursor. `seen` is only
+-- A person's awards (yours when p_user is NULL), with the dish, place and score behind each (what the
+-- takeover and the plate's backstamp print). At most twenty rows, so no cursor. `seen` is only
 -- meaningful on your own: someone else's always reads true. Empty through a block, for a deactivated
 -- profile, and signed out.
 create or replace function public.awards_of(p_user uuid default null)
@@ -407,9 +408,12 @@ returns table (
   dish_id       uuid,
   entry_ids     uuid[],
   dish_ids      uuid[],
-  other_user_id uuid,
-  other_handle  text,
-  seen          boolean)
+  other_user_id   uuid,
+  other_handle    text,
+  seen            boolean,
+  dish_name       text,
+  restaurant_name text,
+  score           numeric)
 language sql
 stable
 security definer
@@ -419,12 +423,24 @@ as $$
   select a.award, a.earned_at, a.entry_id, a.dish_id, a.entry_ids, a.dish_ids,
          case when o.id is null then null else a.other_user_id end,
          o.username::text,
-         case when a.user_id = w.me then a.seen_at is not null else true end
+         case when a.user_id = w.me then a.seen_at is not null else true end,
+         d.name::text,
+         coalesce(re.name, rd.name)::text,
+         ln.score
     from who w
     join public.user_awards a on a.user_id = w.id
     join public.profiles p on p.id = a.user_id
     left join public.profiles o
       on o.id = a.other_user_id and o.deleted_at is null and not public.blocked_with(o.id)
+    -- the line behind it: its dish on its entry, else the entry's first line
+    left join lateral (
+      select rv.dish_id, rv.score from public.reviews rv
+       where rv.entry_id = a.entry_id and (a.dish_id is null or rv.dish_id = a.dish_id)
+       order by rv.entry_position nulls last, rv.created_at, rv.id limit 1) ln on true
+    left join public.dishes d on d.id = coalesce(a.dish_id, ln.dish_id, a.dish_ids[1])
+    left join public.entries e on e.id = a.entry_id
+    left join public.restaurants re on re.id = e.restaurant_id
+    left join public.restaurants rd on rd.id = d.restaurant_id
    where w.me is not null
      and (a.user_id = w.me or (p.deleted_at is null and not public.blocked_with(a.user_id)))
    order by a.earned_at desc, a.award;

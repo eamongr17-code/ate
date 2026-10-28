@@ -70,6 +70,8 @@ test('scores you gave: the first 5.0, 6 and 0.5', async () => {
   await w.visit(9013, u, P.marion, receipt(['Risotto', 6]), at(7));
   assert.deepEqual(await held(u), ['dishes_1', 'first_5', 'first_6', 'first_half']);
   assert.equal((await award(u, 'first_6')).entry_id, id(9013));
+  const six = (await awardsOf(u)).find((a) => a.award === 'first_6');
+  assert.deepEqual([six.dish_name, six.restaurant_name, Number(six.score)], ['Risotto', 'Marion', 6], 'what the takeover prints');
   assert.ok((await award(u, 'first_5')).dish_id, 'the dish that earned it');
 });
 
