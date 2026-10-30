@@ -21,8 +21,12 @@ final class DishMapBarTests: XCTestCase {
             window.isHidden = true
             window.rootViewController = nil
         }
-        // Pushed, then Search here comes in after a beat, with the page's own fade.
+        // Pushed, then Search here comes in after a beat, with the page's own fade. A slow runner can
+        // take longer than a fixed wait (nightly drive, 30 Oct), so wait for it, up to a limit.
         turn(2)
+        for _ in 0..<16 where Self.titleView(in: window)?.window == nil {
+            turn(0.25)
+        }
 
         let bars = window.allSubviews.compactMap { $0 as? UINavigationBar }.filter { $0.window != nil }
         let bar = try XCTUnwrap(bars.first, "a navigation bar is up")
@@ -87,6 +91,13 @@ final class DishMapBarTests: XCTestCase {
                             listed.centerLongitude, listed.latitudeDelta, listed.longitudeDelta)
         XCTAssertFalse(everShown,
                        "Search here showed while the map opened (\(wanted)): \(timeline.joined(separator: ", "))")
+    }
+
+    /// The pushed page's bar middle item, once the bar is up.
+    private static func titleView(in window: UIWindow) -> UIView? {
+        (window.rootViewController?.allChildren ?? [])
+            .compactMap { $0 as? UINavigationController }.first?
+            .topViewController?.navigationItem.titleView
     }
 
     private func turn(_ seconds: TimeInterval) {
