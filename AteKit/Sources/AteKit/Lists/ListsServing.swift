@@ -50,11 +50,6 @@ public protocol ListsServing: Sendable {
     func leave(listID: UUID) async throws
 }
 
-public extension ListsServing {
-    static var shelfPageSize: Int { 50 }
-    static var pickerPageSize: Int { 30 }
-}
-
 /// **The server's list rules, on the phone** — the caps and the name and query bounds, so a store can
 /// refuse before it asks and the in-memory service refuses exactly where the server would.
 public enum ListRules {

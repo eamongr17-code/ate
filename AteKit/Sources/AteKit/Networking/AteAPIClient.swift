@@ -51,20 +51,6 @@ public final class AteAPIClient: Sendable {
 
     // MARK: - Reads
 
-    /// A single row by primary key. Throws ``AteAPIError/notFound(table:id:)`` when the row is
-    /// absent *or* invisible under RLS — the client can't tell those apart, and shouldn't pretend to.
-    public func fetchByID<Record: AteRecord>(_ type: Record.Type, id: UUID) async throws -> Record {
-        let rows: [Record] = try await supabase
-            .from(Record.table)
-            .select(Record.columns)
-            .eq(Record.primaryKeyColumn, value: id.uuidString)
-            .limit(1)
-            .execute()
-            .value
-        guard let row = rows.first else { throw AteAPIError.notFound(table: Record.table, id: id) }
-        return row
-    }
-
     /// Several rows by primary key, in one round trip. Missing ids are simply absent from the
     /// result — this is the "hydrate the stats for the dishes I just listed" call, where a partial
     /// answer is correct.
@@ -74,18 +60,6 @@ public final class AteAPIClient: Sendable {
             .from(Record.table)
             .select(Record.columns)
             .in(Record.primaryKeyColumn, values: ids.map(\.uuidString))
-            .execute()
-            .value
-    }
-
-    /// An unpaginated read, for bounded sets only (a restaurant's dish list, one review's stats).
-    /// Anything user-generated and unbounded must use ``page(_:request:refine:)`` instead —
-    /// every list query is paginated from day one (ARCHITECTURE.md, server-state row).
-    public func fetchAll<Record: AteRecord>(
-        _ type: Record.Type,
-        refine: @Sendable (PostgrestFilterBuilder) -> PostgrestTransformBuilder = { $0 }
-    ) async throws -> [Record] {
-        try await refine(supabase.from(Record.table).select(Record.columns))
             .execute()
             .value
     }
@@ -127,28 +101,6 @@ public final class AteAPIClient: Sendable {
             .limit(request.limit)
             .execute()
             .value
-        return Page(items: items, requestedLimit: request.limit)
-    }
-
-    /// A page from a set-returning RPC that is itself keyset-paginated on `(created_at, id)`.
-    /// The cursor travels as *parameters* here, not as a filter, because the function does the
-    /// comparison. NOTE: `get_feed` is follow-scoped V3 infrastructure and is NOT the V1 global
-    /// feed — that's a plain `page()` over `reviews` (PRODUCT.md: global feed, no follow graph).
-    public func rpcPage<Record: KeysetPaginated>(
-        _ type: Record.Type,
-        function: String,
-        request: PageRequest = PageRequest(),
-        cursorParameterNames: (createdAt: String, id: String) = ("cursor_created_at", "cursor_id"),
-        pageSizeParameterName: String = "page_size",
-        parameters: [String: AnyJSON] = [:]
-    ) async throws -> Page<Record> {
-        var params = parameters
-        params[pageSizeParameterName] = .integer(request.limit)
-        if let cursor = request.cursor {
-            params[cursorParameterNames.createdAt] = .string(PostgRESTTimestamp.string(from: cursor.createdAt))
-            params[cursorParameterNames.id] = .string(cursor.id.uuidString.lowercased())
-        }
-        let items: [Record] = try await supabase.rpc(function, params: params).execute().value
         return Page(items: items, requestedLimit: request.limit)
     }
 

@@ -79,10 +79,6 @@ public final class FeedAreaModel {
     /// beside "Near me".
     public var isNearMe: Bool { location == .nearMe && nearMe?.isNearby == true }
 
-    /// Near me, not worked out yet — the control says "Near me" and nothing else, rather than a
-    /// city (or Everywhere) it is about to take back.
-    public var isResolvingNearMe: Bool { location == .nearMe && hasResolvedNearMe == false && nearMe == nil }
-
     /// What the control prints for where the feed is: a city's name, or "Everywhere".
     public var locationTitle: String {
         switch location {
@@ -161,12 +157,5 @@ public final class FeedAreaModel {
             rank: { if case .city(let slug) = next { return cities.firstIndex { $0.city == slug } }; return nil }()
         ))
         return city != before
-    }
-
-    /// Re-reads the remembered choice — after a sign-in, when "whose phone is this" changed.
-    public func reloadSelection() {
-        location = FeedLocation(stored: store.value(forKey: Self.locationKey(for: owner())))
-        openingTask = nil
-        hasOpened = false
     }
 }

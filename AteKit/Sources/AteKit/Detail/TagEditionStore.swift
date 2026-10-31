@@ -188,11 +188,6 @@ public final class TagEditionStore: SavedDishObserving {
         receipts = receipts.map { $0.settingSaved(dishID: dishID, to: isSaved) }
     }
 
-    /// An entry deleted elsewhere leaves the receipts.
-    public func removeEntry(_ entryID: UUID) {
-        receipts.removeAll { $0.id == entryID }
-    }
-
     private nonisolated static func attempt<Value: Sendable>(
         _ read: @Sendable () async throws -> Value
     ) async -> Value? {

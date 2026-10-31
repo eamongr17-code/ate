@@ -93,9 +93,6 @@ public final class EarlySortScheduler {
         self.send = send
     }
 
-    /// True while a preview's request is out.
-    public var isInFlight: Bool { inFlight != nil }
-
     /// Whether the server has (or is about to have) a plan for exactly these inputs — the preview
     /// landed, or is out now. What Done's `cache_hit` reports.
     public func covers(_ input: EarlySortInput?) -> Bool {

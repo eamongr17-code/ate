@@ -52,9 +52,6 @@ public struct SearchFilters: Sendable, Hashable {
 
     public static let none = SearchFilters()
 
-    /// The bars a minimum score can be set at. "Any" is `nil`.
-    public static let minimumScores: [Double] = [3.0, 3.5, 4.0, 4.5]
-
     public var isEmpty: Bool {
         cuisines.isEmpty && tags.isEmpty && minimumScore == nil && maximumScore == nil && city == nil
             && window.isAll
@@ -97,14 +94,6 @@ public struct SearchFilters: Sendable, Hashable {
     public func toggling(tag: DietTag) -> SearchFilters {
         let toggled = tags.contains(tag) ? tags.filter { $0 != tag } : tags + [tag]
         return SearchFilters(cuisines: cuisines, tags: toggled, minimumScore: minimumScore)
-    }
-
-    public func clearingCuisines() -> SearchFilters {
-        SearchFilters(tags: tags, minimumScore: minimumScore)
-    }
-
-    public func clearingTags() -> SearchFilters {
-        SearchFilters(cuisines: cuisines, minimumScore: minimumScore)
     }
 
     // MARK: - What a pill prints

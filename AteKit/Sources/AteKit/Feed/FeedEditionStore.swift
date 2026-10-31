@@ -43,7 +43,6 @@ public final class FeedEditionStore: SavedDishObserving {
 
     /// The picker's chips, read when it is first opened.
     public private(set) var options: [CravingOption] = []
-    public private(set) var hasLoadedOptions = false
 
     /// "What do you crave?" (4 Oct) — the card after The Top Ate, asked once: its pills (the first
     /// six of `craving_options()`, busiest first), what has been picked on it, and whether it stands.
@@ -174,13 +173,6 @@ public final class FeedEditionStore: SavedDishObserving {
     }
 
     // MARK: - Cravings
-
-    public func loadOptionsIfNeeded() async {
-        guard hasLoadedOptions == false else { return }
-        guard let answer = try? await reads.cravingOptions() else { return }
-        options = answer
-        hasLoadedOptions = true
-    }
 
     /// The picker's Done: the whole set replaces the last one (`set_cravings`), and the shelves are
     /// read again for it. Returns whether it landed; a refusal leaves the set as it was.
