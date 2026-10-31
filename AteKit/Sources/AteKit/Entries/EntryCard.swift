@@ -14,9 +14,6 @@ public enum EntrySortStatus: String, Sendable, Codable, CaseIterable {
     case pending
     case sorted
     case failed
-
-    /// An entry whose receipt cannot arrive without another attempt.
-    public var needsRetry: Bool { self == .failed }
 }
 
 /// **The one row shape.** Journal slip, feed slip, the entry page and the share receipt are the same

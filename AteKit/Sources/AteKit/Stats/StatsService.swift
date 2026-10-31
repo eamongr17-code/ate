@@ -68,8 +68,6 @@ public struct StatsClient: StatsReading {
     public static let maximumDishLimit = 500
     /// `statement_months` pages at 60 — five years of writing in one read.
     public static let defaultMonthLimit = 60
-    /// How many "Your 5.0s" the You tab draws — four tiles, as the artboard sets them.
-    public static let perfectLimit = 4
 
     private let api: AteAPIClient
     private let profiles: ProfileClient

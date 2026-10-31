@@ -135,9 +135,6 @@ public struct JournalQuery: Hashable, Sendable {
         }
     }
 
-    /// The minimum-score choices the filter offers: whole stars, the way a person thinks about them.
-    public static let minScoreSteps: [Double] = [3, 4, 5]
-
     public var hasFilters: Bool {
         place != nil || minScore != nil || maxScore != nil || tag != nil || period != nil || city != nil
             || window.isAll == false
