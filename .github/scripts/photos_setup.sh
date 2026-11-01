@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # .github/scripts/photos_setup.sh <prod|staging> <project-ref> [move]
 #
-# Photos on Cloudflare R2 (0103). Idempotent, so every apply runs it; the summary says what it did and
+# Photos on Cloudflare R2 (0101). Idempotent, so every apply runs it; the summary says what it did and
 # what stands in the way:
 #   0. waits for the domain (Config/domain.txt, one line) and CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID.
 #      Missing → says so and stops; photos stay on Supabase.
@@ -9,7 +9,7 @@
 #      photos.<domain> / photos-staging.<domain>, deployed with the project's URL and publishable key.
 #   2. checks the Worker: health 200, an unsigned upload refused (401).
 #   With "move" (staging: always; prod: the Prod workflow's "move photos" box):
-#   3. photo_storage_set(base): every app build with 0103's client uploads to R2 from now on.
+#   3. photo_storage_set(base): every app build with 0101's client uploads to R2 from now on.
 #   4. copies every Supabase-hosted photo the database names (and its _t.jpg) into R2 through the
 #      Worker's /v1/import, which answers per file: copied / present / missing / bad.
 #   5. checks each copied photo is served from the photos host (HTTP 200, same size), then

@@ -2,7 +2,7 @@ import Foundation
 import Supabase
 import Synchronization
 
-/// **Where photos are kept: Supabase Storage, or Cloudflare R2 once the server says so (0103).**
+/// **Where photos are kept: Supabase Storage, or Cloudflare R2 once the server says so (0101).**
 ///
 /// The server holds one switch, `photo_storage_config() → {base}`. `nil`: uploads go to Supabase
 /// Storage, exactly as before. A base (`https://photos.<domain>/`): uploads go to the photos Worker

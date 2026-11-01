@@ -169,7 +169,7 @@ jobs:
         continue-on-error: true
         run: .github/scripts/dish_dedup.sh "$PROD_REF" chains
 
-      # Photos on Cloudflare R2 (0103): every apply deploys the bucket and Worker on photos.<domain>; the
+      # Photos on Cloudflare R2 (0101): every apply deploys the bucket and Worker on photos.<domain>; the
       # "move photos" box also switches new uploads to R2 and copies, checks and moves existing photos.
       # Waits quietly for the domain and the Cloudflare secrets. A failure here never fails the apply.
       - name: Photos on R2

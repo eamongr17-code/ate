@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import AteKit
 
-/// 0103: photos on Cloudflare R2. One suite, serialized, because ``PhotoHosts`` is process-wide.
+/// 0101: photos on Cloudflare R2. One suite, serialized, because ``PhotoHosts`` is process-wide.
 @Suite("Photo store: Supabase or R2", .serialized)
 struct PhotoStoreTests {
     @Test("a base is https://host/ and nothing more")

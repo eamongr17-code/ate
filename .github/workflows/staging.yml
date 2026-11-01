@@ -113,7 +113,7 @@ jobs:
           DISH_NUMBERS: ${{ inputs.dish_numbers }}
         run: .github/scripts/dish_dedup.sh "$STAGING_REF" "$DUPLICATE_DISHES" "$DISH_NUMBERS"
 
-      # Photos on Cloudflare R2 (0103): the bucket and Worker on photos-staging.<domain>, then new uploads
+      # Photos on Cloudflare R2 (0101): the bucket and Worker on photos-staging.<domain>, then new uploads
       # switched over and existing photos copied, checked and moved. Waits quietly for the domain and the
       # Cloudflare secrets. Staging always moves; prod waits for its box.
       - name: Photos on R2

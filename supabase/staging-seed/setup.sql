@@ -14,7 +14,7 @@ begin
                   where id = '3e801ac3-88ab-4763-a686-aeab9b79c624' and email = 'eamon@ate.test')
      or not exists (select 1 from public.entry_photos
                      where photo_url like 'https://cvoitgoaosofkougmarn.supabase.co/%'
-                        or photo_url like 'https://photos-staging.%')   -- 0103: staging's photos on R2
+                        or photo_url like 'https://photos-staging.%')   -- 0101: staging's photos on R2
      or exists (select 1 from public.entry_photos
                  where photo_url like 'https://vyaexmnajnbryimbkgkf.supabase.co/%'
                     or photo_url like 'https://photos.%') then           -- prod's, on R2
@@ -36,7 +36,7 @@ begin
                   where id = '3e801ac3-88ab-4763-a686-aeab9b79c624' and email = 'eamon@ate.test')
      or not exists (select 1 from public.entry_photos
                      where photo_url like 'https://cvoitgoaosofkougmarn.supabase.co/%'
-                        or photo_url like 'https://photos-staging.%')   -- 0103: staging's photos on R2
+                        or photo_url like 'https://photos-staging.%')   -- 0101: staging's photos on R2
      or exists (select 1 from public.entry_photos
                  where photo_url like 'https://vyaexmnajnbryimbkgkf.supabase.co/%'
                     or photo_url like 'https://photos.%') then           -- prod's, on R2

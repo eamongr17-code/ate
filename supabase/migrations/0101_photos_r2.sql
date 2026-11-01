@@ -1,4 +1,4 @@
--- 0103 — Photos move to Cloudflare R2 (Nov 2026).
+-- 0101 — Photos move to Cloudflare R2 (Nov 2026).
 --
 -- Why: Supabase Free serves 5 GB of downloads a month, and every photo view is a download. R2 charges
 -- nothing for downloads. The photos Worker (cloudflare/photos) sits on photos.<domain>: it serves reads
@@ -35,7 +35,7 @@ revoke all on public.photo_storage from public, anon, authenticated;
 grant select, insert, update on public.photo_storage to service_role;
 
 comment on table public.photo_storage is
-  '0103: where new photos go. base = the photos Worker (https://photos.<domain>/), null = Supabase Storage. One row; set by photos_setup.sh.';
+  '0101: where new photos go. base = the photos Worker (https://photos.<domain>/), null = Supabase Storage. One row; set by photos_setup.sh.';
 
 create or replace function public.photo_base()
 returns text language sql stable security definer set search_path = public, extensions as $$
@@ -148,7 +148,7 @@ begin
             where o.photo_url = u.url and o.entry_id is distinct from p_entry_id)
   ),
   originals as (
-    -- 0103: a photo on R2 (photos.<domain>/review-photos/<path>) names the same bucket path
+    -- 0101: a photo on R2 (photos.<domain>/review-photos/<path>) names the same bucket path
     select coalesce(
              (regexp_match(
                 u.url,
@@ -205,7 +205,7 @@ begin
   end if;
   if v_url is not null and (
        char_length(v_url) > 500
-       -- 0103: our storage only (Supabase or R2), and the owner's own list-covers folder
+       -- 0101: our storage only (Supabase or R2), and the owner's own list-covers folder
        or not public.storage_url_ok(v_url, 'review-photos')
        or coalesce((regexp_match(v_url, '/storage/v1/object/public/review-photos/([^?#]+)'))[1],
                    public.photo_key_path(v_url, 'review-photos'), '')

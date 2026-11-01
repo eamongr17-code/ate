@@ -453,7 +453,7 @@ public struct SupabaseEntryService: EntryService {
 
 extension SupabaseEntryService {
     /// `…/storage/v1/object/public/review-photos/<path>` → `<path>`, and the same for a photo on R2
-    /// (`https://photos.<domain>/review-photos/<path>`, 0103). Anything else is not ours: `nil`.
+    /// (`https://photos.<domain>/review-photos/<path>`, 0101). Anything else is not ours: `nil`.
     static func storagePath(fromPublicURL url: String) -> String? {
         let marker = "/object/public/\(photoBucket)/"
         if let range = url.range(of: marker) {

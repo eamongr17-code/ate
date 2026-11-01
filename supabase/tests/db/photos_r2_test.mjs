@@ -1,4 +1,4 @@
-// supabase/tests/db/photos_r2_test.mjs — 0103: photos on Cloudflare R2. The switch, the URL checks,
+// supabase/tests/db/photos_r2_test.mjs — 0101: photos on Cloudflare R2. The switch, the URL checks,
 // delete_entry's paths, and the row move that only touches files the setup script verified.
 //
 //   cd supabase/tests/db && npm ci && node --test
@@ -65,7 +65,7 @@ test('list covers: the owner\'s list-covers folder, on Supabase or R2, never ano
   assert.equal(await cover(`${R2}review-photos/${U.alice}/list-covers/l.jpg`), '22023', 'someone else\'s folder');
   assert.equal(await cover(`${R2}review-photos/${U.bob}/e-1.jpg`), '22023', 'not a cover');
   assert.equal(await cover(`https://evil.example/storage/v1/object/public/review-photos/${U.bob}/list-covers/l.jpg`),
-    '22023', 'any host passed before 0103');
+    '22023', 'any host passed before 0101');
   await setBase(null);
 });
 

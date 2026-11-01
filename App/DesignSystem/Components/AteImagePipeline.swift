@@ -220,7 +220,7 @@ final class AteImagePipeline: @unchecked Sendable {
 
     /// Photo and avatar URLs are written by clients, so a modified one could point every viewer's
     /// phone at a tracking pixel or a huge file (audit 26 Oct, finding 13; the database refuses them
-    /// since 0094). Only our storage (Supabase; R2's photos host, 0103) over https, never past ``maximumBytes``.
+    /// since 0094). Only our storage (Supabase; R2's photos host, 0101) over https, never past ``maximumBytes``.
     static func isFetchable(_ url: URL) -> Bool {
         guard let host = url.host?.lowercased() else { return false }
         if url.scheme == "https", host.hasSuffix(".supabase.co") || PhotoHosts.isPhotoHost(host) { return true }

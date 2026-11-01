@@ -9,7 +9,7 @@
 //   1. delete_account() as the caller: one transaction, all or nothing, and it queues the caller's
 //      storage folders (storage_purge_queue, 0094).
 //   2. the caller's review-photos/<uid>/ and avatars/<uid>/ are emptied through the Storage API with
-//      the service role, and on Cloudflare R2 through the photos Worker (0103), and the queue row
+//      the service role, and on Cloudflare R2 through the photos Worker (0101), and the queue row
 //      goes. A purge that fails keeps its row; the next call of
 //      this function (anyone's) retries a few old rows, so files never outlive the account for long.
 //   → 200 { ok: true, auth_user_deleted: true, storage_purged: bool }
@@ -44,7 +44,7 @@ async function authedUserId(token: string): Promise<string | null> {
 async function purgeQueued(admin: any, userId: string): Promise<boolean> {
   try {
     await purgeAccount((name) => admin.storage.from(name), userId);
-    // 0103: and on R2, once photos live there. Supabase's copies go above either way.
+    // 0101: and on R2, once photos live there. Supabase's copies go above either way.
     const base = await admin.rpc('photo_base');
     await purgeR2(typeof base.data === 'string' ? base.data : null, SERVICE_ROLE, userId);
     await admin.from('storage_purge_queue').delete().eq('user_id', userId);

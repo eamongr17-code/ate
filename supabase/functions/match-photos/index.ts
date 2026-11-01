@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
       .order('entry_position'),
     admin.rpc('photo_base'),
   ]);
-  // 0103: photos on R2 are read from the photos Worker; null (or a server before 0103) = Supabase only
+  // 0101: photos on R2 are read from the photos Worker; null (or a server before 0101) = Supabase only
   const photoBase = typeof baseRes.data === 'string' ? baseRes.data : null;
   if (photosRes.error || linesRes.error) {
     console.error('match-photos: read failed:', photosRes.error?.message ?? linesRes.error?.message);

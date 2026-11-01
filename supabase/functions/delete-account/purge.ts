@@ -50,7 +50,7 @@ export async function purgeAccount(bucketFor: (name: string) => Bucket, userId: 
 }
 
 /**
- * The same account's folders on Cloudflare R2 (0103), through the photos Worker at `photoBase`
+ * The same account's folders on Cloudflare R2 (0101), through the photos Worker at `photoBase`
  * (photo_storage.base), which empties `review-photos/<uid>/` and `avatars/<uid>/`. The service key is
  * the Worker's proof that the call comes from us. No base = photos never left Supabase: nothing to do.
  * Throws on anything but a 200, so the account stays queued and is retried.
