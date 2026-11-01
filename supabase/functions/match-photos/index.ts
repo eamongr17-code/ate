@@ -141,13 +141,16 @@ Deno.serve(async (req) => {
   const restored = await admin.rpc('restore_photo_picks', { p_entry_id: entryId });
   if (restored.error) console.error('match-photos: restore_photo_picks failed:', restored.error.message);
 
-  const [photosRes, linesRes] = await Promise.all([
+  const [photosRes, linesRes, baseRes] = await Promise.all([
     admin.from('entry_photos').select('position, photo_url').eq('entry_id', entryId).order('position'),
     admin.from('reviews')
       .select('id, note, photo_url, photo_picked_at, entry_position, dishes(name)')
       .eq('entry_id', entryId)
       .order('entry_position'),
+    admin.rpc('photo_base'),
   ]);
+  // 0101: photos on R2 are read from the photos Worker; null (or a server before 0101) = Supabase only
+  const photoBase = typeof baseRes.data === 'string' ? baseRes.data : null;
   if (photosRes.error || linesRes.error) {
     console.error('match-photos: read failed:', photosRes.error?.message ?? linesRes.error?.message);
     return json({ error: 'read failed' }, 500);
@@ -161,7 +164,7 @@ Deno.serve(async (req) => {
     .map((p) => ({
       position: p.position as number,
       url: p.photo_url as string,
-      read: ownPhotoReadUrl(p.photo_url as string, entry.author_id, SUPABASE_URL),
+      read: ownPhotoReadUrl(p.photo_url as string, entry.author_id, SUPABASE_URL, photoBase),
     }))
     .filter((p): p is Photo & { read: string } => p.read !== null);
   // deno-lint-ignore no-explicit-any

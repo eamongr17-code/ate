@@ -142,6 +142,7 @@ public final class JournalStore: EntryDeletionObserving {
             return
         } catch {
             guard generationAtStart == generation else { return }
+            ErrorReporting.report(error, where: "journal.nextPage")
             inlineErrorMessage = Self.message(for: error)
         }
     }
@@ -173,6 +174,7 @@ public final class JournalStore: EntryDeletionObserving {
         } catch {
             guard generationAtStart == generation else { return }
             hasLoadedOnce = true
+            ErrorReporting.report(error, where: "journal.firstPage")
             if entries.isEmpty {
                 phase = Self.isNotAuthenticated(error)
                     ? .signedOut
@@ -329,7 +331,7 @@ public final class JournalStore: EntryDeletionObserving {
     }
 
     /// One short sentence in the journal's own voice. Never the raw error: a PostgREST body is noise
-    /// to the reader. (Sentry sees crashes only, not handled errors like this one.)
+    /// to the reader. (The fault itself goes to Sentry through ErrorReporting.)
     static func message(for error: any Error) -> String {
         if let urlError = error as? URLError {
             switch urlError.code {

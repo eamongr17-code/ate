@@ -57,18 +57,20 @@ public struct SupabaseEntryService: EntryService {
     public func attach(photo: EntryPhotoUpload) async throws {
         let userID = try await api.requireCurrentUserID()
         let path = "\(userID.uuidString.lowercased())/\(photo.objectName())"
-        let storage = api.supabase.storage.from(Self.photoBucket)
-        let options = FileOptions(contentType: "image/jpeg", upsert: true)
-        // `upsert` so a retried upload overwrites rather than 409s — the path is deterministic, so
-        // a second attempt is the same object. The small copy (`_t.jpg`, what lists draw) goes up
-        // beside it at the same time.
+        // Overwrites, so a retried upload is the same object (the path is deterministic). The small
+        // copy (`_t.jpg`, what lists draw) goes up beside it at the same time. Supabase Storage or
+        // R2, whichever the server names (``AteAPIClient/uploadPhoto(bucket:path:data:contentType:)``).
         let thumbnail = PhotoThumbnail.jpeg(from: photo.data)
-        async let full = storage.upload(path, data: photo.data, options: options)
+        async let full = api.uploadPhoto(
+            bucket: Self.photoBucket, path: path, data: photo.data, contentType: "image/jpeg"
+        )
         if let thumbnail {
-            _ = try await storage.upload(PhotoThumbnail.path(for: path), data: thumbnail, options: options)
+            _ = try await api.uploadPhoto(
+                bucket: Self.photoBucket, path: PhotoThumbnail.path(for: path), data: thumbnail,
+                contentType: "image/jpeg"
+            )
         }
-        _ = try await full
-        let url = try storage.getPublicURL(path: path).absoluteString
+        let url = try await full
         try await attachExisting(entryID: photo.entryID, position: photo.position, url: url)
     }
 
@@ -94,8 +96,7 @@ public struct SupabaseEntryService: EntryService {
         // folder being tidied: only paths inside this bucket are named, and a miss changes nothing.
         let paths = removedURLs.compactMap(Self.storagePath(fromPublicURL:))
         guard paths.isEmpty == false else { return }
-        _ = try await api.supabase.storage.from(Self.photoBucket)
-            .remove(paths: PhotoAddress.withThumbnails(paths))
+        try await api.removePhotos(bucket: Self.photoBucket, paths: PhotoAddress.withThumbnails(paths))
     }
 
     public func previewSort(_ input: EarlySortInput) async throws {
@@ -106,14 +107,6 @@ public struct SupabaseEntryService: EntryService {
     }
 
     static let photoBucket = "review-photos"
-
-    /// `…/storage/v1/object/public/review-photos/<path>` → `<path>`.
-    static func storagePath(fromPublicURL url: String) -> String? {
-        let marker = "/object/public/\(photoBucket)/"
-        guard let range = url.range(of: marker) else { return nil }
-        let path = String(url[range.upperBound...])
-        return path.isEmpty ? nil : path.removingPercentEncoding ?? path
-    }
 
     @discardableResult
     public func sort(entryID: UUID, force: Bool, tagTokens: [TagToken]) async throws -> SortOutcome {
@@ -351,7 +344,7 @@ public struct SupabaseEntryService: EntryService {
         let deletion = try EntryDeletion.decode(data)
         let files = deletion.storageFiles
         if files.isEmpty == false {
-            _ = try? await api.supabase.storage.from(EntryDeletion.bucket).remove(paths: files)
+            try? await api.removePhotos(bucket: EntryDeletion.bucket, paths: files)
         }
         return deletion
     }
@@ -455,5 +448,22 @@ public struct SupabaseEntryService: EntryService {
         enum CodingKeys: String, CodingKey {
             case dishName = "dish_name"
         }
+    }
+}
+
+extension SupabaseEntryService {
+    /// `…/storage/v1/object/public/review-photos/<path>` → `<path>`, and the same for a photo on R2
+    /// (`https://photos.<domain>/review-photos/<path>`, 0101). Anything else is not ours: `nil`.
+    static func storagePath(fromPublicURL url: String) -> String? {
+        let marker = "/object/public/\(photoBucket)/"
+        if let range = url.range(of: marker) {
+            let path = String(url[range.upperBound...])
+            return path.isEmpty ? nil : path.removingPercentEncoding ?? path
+        }
+        let prefix = "/\(photoBucket)/"
+        guard let parsed = URL(string: url), let host = parsed.host(), PhotoHosts.isPhotoHost(host),
+              parsed.path().hasPrefix(prefix) else { return nil }
+        let path = String(parsed.path().dropFirst(prefix.count))
+        return path.isEmpty ? nil : path.removingPercentEncoding ?? path
     }
 }

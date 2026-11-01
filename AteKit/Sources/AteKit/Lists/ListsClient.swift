@@ -129,11 +129,9 @@ public struct ListsClient: ListsServing {
         do {
             let owner = try await api.requireCurrentUserID()
             let path = "\(Self.id(owner))/list-covers/\(Self.id(listID)).\(image.fileExtension)"
-            let storage = api.supabase.storage.from("review-photos")
-            _ = try await storage.upload(
-                path, data: image.data, options: FileOptions(contentType: image.contentType, upsert: true)
+            let base = try await api.uploadPhoto(
+                bucket: "review-photos", path: path, data: image.data, contentType: image.contentType
             )
-            let base = try storage.getPublicURL(path: path).absoluteString
             return base + "?v=\(Int(Date().timeIntervalSince1970))"
         } catch {
             throw ListsError.of(error)

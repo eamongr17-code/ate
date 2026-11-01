@@ -40,7 +40,7 @@ jobs:
           files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
           echo "$files"
           match() { echo "$files" | grep -qE "$1" && echo true || echo false; }
-          echo "backend=$(match '^(supabase/|AteKit/Sources/|AteKit/Tests/AteKitTests/.*(Contract|Staging)|AteKit/Package|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
+          echo "backend=$(match '^(supabase/|cloudflare/|\.github/scripts/photos_setup\.sh|AteKit/Sources/|AteKit/Tests/AteKitTests/.*(Contract|Staging)|AteKit/Package|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
           echo "app=$(match '^(App/|ShareExtension/|AteKit/|AteTests/|AteUITests/|Ate\.xcodeproj/|Config/|\.swiftlint\.yml|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
@@ -242,6 +242,17 @@ jobs:
       # match-photos' pure module (plan, request, answer gate) under Node, like read-share.
       - name: Photo matcher suites (match-photos)
         run: node --test supabase/functions/match-photos/*_test.ts
+
+      # The photos Worker (cloudflare/photos): its rules under Node, then a type check and a dry-run
+      # bundle of the Worker itself, so a deploy never meets code that does not compile.
+      - name: Photos Worker (R2)
+        working-directory: cloudflare/photos
+        run: |
+          node --test src/*_test.ts
+          npm ci --no-fund --no-audit
+          npx -y -p typescript@5.9 tsc -p .
+          printf 'name = "ate-photos-ci"\nmain = "src/index.ts"\ncompatibility_date = "2026-10-01"\n[[r2_buckets]]\nbinding = "PHOTOS"\nbucket_name = "ate-photos-ci"\n' > wrangler.generated.toml
+          npx wrangler deploy --dry-run -c wrangler.generated.toml --outdir /tmp/photos-worker
 
       # places-search's pure modules, same deal: no runtime APIs, so Node runs them. Only the
       # node-compatible suites are listed — blend_test.ts imports

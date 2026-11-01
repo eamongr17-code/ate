@@ -237,6 +237,25 @@ test('ownPhotoReadUrl: only the author\'s own bucket folder, always read from ou
   assertEquals(ownPhotoReadUrl('not a url', me, base), null);
 });
 
+test('ownPhotoReadUrl: an R2 photo is read from the photos Worker, the author\'s folder only', () => {
+  const me = '00000000-0000-4000-8000-00000000000a';
+  const base = 'https://ref.supabase.co/';
+  const photos = 'https://photos.x.app/';
+  const own = `https://photos.x.app/review-photos/${me}/e-0.jpg`;
+  assertEquals(ownPhotoReadUrl(own, me, base, photos), own);
+  assertEquals(ownPhotoReadUrl(`${own}?v=2`, me, base, photos), own);
+  assertEquals(ownPhotoReadUrl(own, me, base, null), null, 'R2 is not ours until it is switched on');
+  assertEquals(ownPhotoReadUrl(`https://photos.x.app/review-photos/someone-else/e.jpg`, me, base, photos), null);
+  assertEquals(ownPhotoReadUrl(`https://photos.x.app/avatars/${me}/a.jpg`, me, base, photos), null);
+  assertEquals(ownPhotoReadUrl(`https://photos.x.app/review-photos/${me}/%2e%2e/x.jpg`, me, base, photos), null);
+  assertEquals(ownPhotoReadUrl(`http://photos.x.app/review-photos/${me}/e.jpg`, me, base, photos), null, 'https only');
+  // the old Supabase URLs keep working beside it
+  assertEquals(
+    ownPhotoReadUrl(`https://ref.supabase.co/storage/v1/object/public/review-photos/${me}/e.jpg`, me, base, photos),
+    `https://ref.supabase.co/storage/v1/object/public/review-photos/${me}/e.jpg`,
+  );
+});
+
 test('loadImages: reads from `read` when set, keeps `url`, and skips an oversized photo', async () => {
   const seen: string[] = [];
   const fetchImpl = (async (url: string) => {

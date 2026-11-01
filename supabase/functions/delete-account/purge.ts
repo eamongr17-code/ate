@@ -48,3 +48,27 @@ export async function purgeAccount(bucketFor: (name: string) => Bucket, userId: 
   for (const name of PERSONAL_BUCKETS) removed += await purgeFolder(bucketFor(name), userId.toLowerCase());
   return removed;
 }
+
+/**
+ * The same account's folders on Cloudflare R2 (0101), through the photos Worker at `photoBase`
+ * (photo_storage.base), which empties `review-photos/<uid>/` and `avatars/<uid>/`. The service key is
+ * the Worker's proof that the call comes from us. No base = photos never left Supabase: nothing to do.
+ * Throws on anything but a 200, so the account stays queued and is retried.
+ */
+export async function purgeR2(
+  photoBase: string | null,
+  serviceKey: string,
+  userId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<number> {
+  if (!photoBase) return 0;
+  if (!UUID.test(userId)) throw new Error('not a user id');
+  const res = await fetchImpl(`${photoBase.replace(/\/+$/, '')}/v1/purge`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId.toLowerCase() }),
+  });
+  if (!res.ok) throw new Error(`R2 purge: HTTP ${res.status}`);
+  const body = (await res.json().catch(() => ({}))) as { removed?: unknown };
+  return typeof body.removed === 'number' ? body.removed : 0;
+}

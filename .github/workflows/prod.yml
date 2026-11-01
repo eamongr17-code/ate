@@ -8,6 +8,7 @@
 # Repository secrets it needs (Settings → Secrets and variables → Actions):
 #   SUPABASE_ACCESS_TOKEN       a personal access token (supabase.com/dashboard/account/tokens)
 #   SUPABASE_PROD_DB_PASSWORD   prod's database password (Database → Settings)
+#   CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID   the photos Worker and its R2 bucket (optional until set)
 # The functions' own secrets (ANTHROPIC_API_KEY, GOOGLE_PLACES_API_KEY) live in the prod project itself
 # (Edge Functions → Secrets). The APNs key (APNS_KEY_ID, APNS_PRIVATE_KEY) and RESEND_API_KEY are
 # GitHub secrets that every apply copies into prod ("Function secrets", "Email sign-in").
@@ -29,6 +30,10 @@ on:
         description: "To reset, type ERASE PROD"
         type: string
         default: ""
+      move_photos:
+        description: "Photos: switch new uploads to Cloudflare R2 and move existing photos there (Supabase keeps a copy)"
+        type: boolean
+        default: false
       duplicate_dishes:
         description: "Duplicate dishes: scan lists them (changes nothing); scan-merge-names also merges same-name pairs; merge or reject the numbers below"
         type: choice
@@ -182,6 +187,18 @@ jobs:
         if: inputs.apply || (inputs.reset && inputs.confirm_reset == 'ERASE PROD')
         continue-on-error: true
         run: .github/scripts/dish_dedup.sh "$PROD_REF" chains
+
+      # Photos on Cloudflare R2 (0101): every apply deploys the bucket and Worker on photos.<domain>; the
+      # "move photos" box also switches new uploads to R2 and copies, checks and moves existing photos.
+      # Waits quietly for the domain and the Cloudflare secrets. A failure here never fails the apply.
+      - name: Photos on R2
+        if: inputs.apply || inputs.move_photos
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          MOVE: ${{ inputs.move_photos && 'move' || '' }}
+        run: .github/scripts/photos_setup.sh prod "$PROD_REF" "$MOVE"
 
       # Same dish, different names (0071). After the deploy, so the function and its tables exist.
       - name: Duplicate dishes
