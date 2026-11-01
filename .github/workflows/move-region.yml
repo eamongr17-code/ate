@@ -26,7 +26,7 @@ permissions:
 
 env:
   OLD_REF: vyaexmnajnbryimbkgkf   # Seoul, ap-northeast-2
-  NEW_REF: SYDNEY_REF_PENDING     # Sydney, ap-southeast-2
+  NEW_REF: flfcyokydrmsdrignmcu    # Sydney, ap-southeast-2
 
 jobs:
   move:
