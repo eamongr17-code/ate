@@ -1,0 +1,56 @@
+name: Move prod to Sydney
+
+# One-off, Nov 2026 (Eamon chose Sydney on 1 Nov): copies prod from the Seoul project to the new Sydney
+# one with .github/scripts/move_region.sh. The Seoul project is only read. Runs on a push to the move
+# branch whose commit message holds [move-check] (read-only) or [move-copy], or by hand once on main.
+# Deleted after the cutover, together with the Seoul project (only with Eamon's OK).
+
+on:
+  push:
+    branches: [claude/project-thread-zpix8d]
+    paths: [.github/scripts/move_region.sh, .github/workflows/move-region.yml]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "check (read-only) or copy (Seoul → Sydney)"
+        type: choice
+        options: [check, copy]
+        default: check
+
+concurrency:
+  group: prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  OLD_REF: vyaexmnajnbryimbkgkf   # Seoul, ap-northeast-2
+  NEW_REF: flfcyokydrmsdrignmcu    # Sydney, ap-southeast-2
+
+jobs:
+  move:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.message, '[move-check]') ||
+      contains(github.event.head_commit.message, '[move-copy]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
+      MODE: ${{ inputs.mode || (contains(github.event.head_commit.message, '[move-copy]') && 'copy' || 'check') }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3, pinned: this job holds the prod DB password
+        with:
+          version: latest
+      - name: Postgres 17 client
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -sSfo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17 >/dev/null
+          psql --version
+      - name: Move (${{ env.MODE }})
+        run: .github/scripts/move_region.sh "$MODE" "$OLD_REF" "$NEW_REF"

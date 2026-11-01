@@ -106,7 +106,7 @@ test('13: photo and avatar URLs must be this project\'s storage', async () => {
   assert.equal(await code(U.bob, `insert into public.entry_photos (entry_id, position, photo_url) values ($1, 5, $2)`,
     [E, photoUrl(`${U.bob}/6-5.jpg`)]), null, 'our own storage is fine');
 
-  const avatar = (u) => `https://vyaexmnajnbryimbkgkf.supabase.co/storage/v1/object/public/avatars/${u}/avatar.jpg?v=123`;
+  const avatar = (u) => `https://flfcyokydrmsdrignmcu.supabase.co/storage/v1/object/public/avatars/${u}/avatar.jpg?v=123`;
   assert.equal(await code(U.bob, `update public.profiles set avatar_url = 'https://evil.example/a.png' where id = $1`, [U.bob]), '22023');
   assert.equal(await code(U.bob, `update public.profiles set avatar_url = $2 where id = $1`, [U.bob, avatar(U.bob)]), null);
   assert.equal(await code(U.bob, `update public.profiles set avatar_url = null where id = $1`, [U.bob]), null, 'removing it is fine');

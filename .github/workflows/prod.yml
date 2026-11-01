@@ -2,7 +2,7 @@
 #
 # Run by hand: Actions → Prod → Run workflow, on the integration branch (or main; nothing else runs). It always prints what it would
 # apply first (a dry run). Tick "apply" to then apply the pending migrations and deploy every edge
-# function to prod (project vyaexmnajnbryimbkgkf). Migrations are forward-only; nothing here deletes
+# function to prod (project flfcyokydrmsdrignmcu, Sydney; Seoul vyaexmnajnbryimbkgkf retired Nov 2026). Migrations are forward-only; nothing here deletes
 # data, and a migration that would is a CEO escalation before it is ever merged (rule 4d).
 #
 # Repository secrets it needs (Settings → Secrets and variables → Actions):
@@ -48,7 +48,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PROD_REF: vyaexmnajnbryimbkgkf
+  PROD_REF: flfcyokydrmsdrignmcu
 
 # Read-only token: no job here writes to the repo (security sweep, Oct 2026).
 permissions:
@@ -146,7 +146,7 @@ jobs:
       - name: Smoke read
         if: inputs.apply || (inputs.reset && inputs.confirm_reset == 'ERASE PROD')
         env:
-          PROD_KEY: sb_publishable_EQqUPHQv-1yZrqqvOWphkw_IlFI2ALY
+          PROD_KEY: sb_publishable_dsHGOPIari4L3SYtlnd_Cg_jbti85dT
         run: |
           code=$(curl -s -o body.json -w '%{http_code}' \
             "https://$PROD_REF.supabase.co/rest/v1/restaurants?select=id&limit=1" \
