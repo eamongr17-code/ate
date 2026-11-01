@@ -11,8 +11,8 @@ rules = [
 ]
 
 [vars]
-SUPABASE_URL = "https://vyaexmnajnbryimbkgkf.supabase.co"
+SUPABASE_URL = "https://flfcyokydrmsdrignmcu.supabase.co"
 # The publishable key is public by design (it ships in the app); RLS + the signed-out RPC list (0034) guard the data.
-SUPABASE_PUBLISHABLE_KEY = "sb_publishable_EQqUPHQv-1yZrqqvOWphkw_IlFI2ALY"
+SUPABASE_PUBLISHABLE_KEY = "sb_publishable_dsHGOPIari4L3SYtlnd_Cg_jbti85dT"
 APP_LINK = "https://testflight.apple.com/join/VsFj6pKV"
 APP_ID = "9M6K835247.com.eamongracias.ate"
