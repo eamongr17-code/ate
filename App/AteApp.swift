@@ -42,6 +42,12 @@ struct AteApp: App {
                 options.tracesSampleRate = 0.2
                 #endif
             }
+            // Handled faults (a journal that won't load, an entry the server refused), not only crashes.
+            ErrorReporting.install { error, place in
+                SentrySDK.capture(error: error) { scope in
+                    scope.setTag(value: place, key: "where")
+                }
+            }
         }
 
         if let appID = environment.telemetryDeckAppID {
