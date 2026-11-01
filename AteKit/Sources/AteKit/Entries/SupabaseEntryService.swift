@@ -108,21 +108,6 @@ public struct SupabaseEntryService: EntryService {
 
     static let photoBucket = "review-photos"
 
-    /// `…/storage/v1/object/public/review-photos/<path>` → `<path>`, and the same for a photo on R2
-    /// (`https://photos.<domain>/review-photos/<path>`, 0103). Anything else is not ours: `nil`.
-    static func storagePath(fromPublicURL url: String) -> String? {
-        let marker = "/object/public/\(photoBucket)/"
-        if let range = url.range(of: marker) {
-            let path = String(url[range.upperBound...])
-            return path.isEmpty ? nil : path.removingPercentEncoding ?? path
-        }
-        let prefix = "/\(photoBucket)/"
-        guard let parsed = URL(string: url), let host = parsed.host(), PhotoHosts.isPhotoHost(host),
-              parsed.path().hasPrefix(prefix) else { return nil }
-        let path = String(parsed.path().dropFirst(prefix.count))
-        return path.isEmpty ? nil : path.removingPercentEncoding ?? path
-    }
-
     @discardableResult
     public func sort(entryID: UUID, force: Bool, tagTokens: [TagToken]) async throws -> SortOutcome {
         try await sort(entryID: entryID, force: force, tagTokens: tagTokens, scoreTokens: nil)
@@ -463,5 +448,22 @@ public struct SupabaseEntryService: EntryService {
         enum CodingKeys: String, CodingKey {
             case dishName = "dish_name"
         }
+    }
+}
+
+extension SupabaseEntryService {
+    /// `…/storage/v1/object/public/review-photos/<path>` → `<path>`, and the same for a photo on R2
+    /// (`https://photos.<domain>/review-photos/<path>`, 0103). Anything else is not ours: `nil`.
+    static func storagePath(fromPublicURL url: String) -> String? {
+        let marker = "/object/public/\(photoBucket)/"
+        if let range = url.range(of: marker) {
+            let path = String(url[range.upperBound...])
+            return path.isEmpty ? nil : path.removingPercentEncoding ?? path
+        }
+        let prefix = "/\(photoBucket)/"
+        guard let parsed = URL(string: url), let host = parsed.host(), PhotoHosts.isPhotoHost(host),
+              parsed.path().hasPrefix(prefix) else { return nil }
+        let path = String(parsed.path().dropFirst(prefix.count))
+        return path.isEmpty ? nil : path.removingPercentEncoding ?? path
     }
 }

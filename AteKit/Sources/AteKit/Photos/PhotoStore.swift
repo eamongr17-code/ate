@@ -163,6 +163,15 @@ public enum PhotoHosts {
         return known == host.lowercased()
     }
 
+    /// Whether to fetch `url`: `known` (the caller's own host check passed), or an https photo on a
+    /// host the server turns out to name once asked (the first launch after photos moved, or a new
+    /// domain).
+    public static func allows(_ url: URL, known: Bool) async -> Bool {
+        if known { return true }
+        guard url.scheme == "https", let host = url.host() else { return false }
+        return await learn(host: host)
+    }
+
     /// A photo names a host the app has not met: ask the server, then answer again. One ask at a
     /// time however many tiles wait on it, and none within 30 seconds of the last.
     public static func learn(host: String, now: Date = Date()) async -> Bool {

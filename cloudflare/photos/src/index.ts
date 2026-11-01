@@ -43,6 +43,8 @@ async function read(req: Request, env: Env, pathname: string): Promise<Response>
   headers.set('Content-Length', String(object.size));
   headers.set('Cache-Control', CACHE_CONTROL);
   headers.set('X-Content-Type-Options', 'nosniff');
+  // never a page, even if some image were also valid HTML
+  headers.set('Content-Security-Policy', "default-src 'none'; sandbox");
   const body = 'body' in object ? (object as R2ObjectBody).body : null;
   return new Response(req.method === 'HEAD' ? null : body, { headers });
 }
@@ -55,8 +57,10 @@ async function upload(req: Request, env: Env, rawKey: string): Promise<Response>
   if (ownerOf(k) !== uid) return json({ error: 'not your folder' }, 403);
 
   const limit = BUCKETS[k.bucket];
-  const declared = Number(req.headers.get('Content-Length') ?? '0');
-  if (declared > limit) return json({ error: 'too large' }, 413);
+  // A length up front, or no upload: a chunked body would be buffered whole before the size check.
+  const length = req.headers.get('Content-Length');
+  if (length === null || !/^\d+$/.test(length)) return json({ error: 'length required' }, 411);
+  if (Number(length) > limit) return json({ error: 'too large' }, 413);
   const bytes = new Uint8Array(await req.arrayBuffer());
   if (bytes.length === 0) return json({ error: 'empty' }, 400);
   if (bytes.length > limit) return json({ error: 'too large' }, 413);
