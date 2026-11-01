@@ -1,7 +1,7 @@
 // supabase/functions/delete-account/purge_test.ts — the storage purge against a fake bucket.
 
 import { test, assert, assertEquals } from '../sort-entry/harness.ts';
-import { purgeAccount, purgeFolder, type Bucket } from './purge.ts';
+import { purgeAccount, purgeFolder, purgeR2, type Bucket } from './purge.ts';
 
 /** A bucket over a flat set of object paths, listing like Supabase: files one level, folders as id-less rows. */
 function fakeBucket(paths: string[], opts: { failRemove?: boolean } = {}): Bucket & { left: Set<string> } {
@@ -58,5 +58,27 @@ test('purgeFolder: a storage error is thrown, so the queue row stays for a retry
   } catch {
     threw = true;
   }
+  assert(threw);
+});
+
+test('purgeR2: one call to the photos Worker with the service key; nothing when photos never moved', async () => {
+  const seen: { url: string; init?: RequestInit }[] = [];
+  const ok = (async (url: string, init?: RequestInit) => {
+    seen.push({ url, init });
+    return new Response(JSON.stringify({ ok: true, removed: 7 }), { status: 200 });
+  }) as unknown as typeof fetch;
+  assertEquals(await purgeR2(null, 'svc', U, ok), 0);
+  assertEquals(seen.length, 0);
+  assertEquals(await purgeR2('https://photos.x.app/', 'svc', U.toUpperCase(), ok), 7);
+  assertEquals(seen[0].url, 'https://photos.x.app/v1/purge');
+  assertEquals((seen[0].init?.headers as Record<string, string>).Authorization, 'Bearer svc');
+  assertEquals(JSON.parse(String(seen[0].init?.body)), { user_id: U });
+
+  const down = (async () => new Response('no', { status: 503 })) as unknown as typeof fetch;
+  let threw = false;
+  try { await purgeR2('https://photos.x.app/', 'svc', U, down); } catch { threw = true; }
+  assert(threw, 'a failed purge keeps the account queued');
+  threw = false;
+  try { await purgeR2('https://photos.x.app/', 'svc', '../x', ok); } catch { threw = true; }
   assert(threw);
 });

@@ -16,7 +16,8 @@ name: Staging
 on:
   push:
     branches: [claude/project-thread-2f9ty8]
-    paths: ["supabase/**", ".github/workflows/staging.yml", ".github/scripts/deploy_functions.sh"]
+    paths: ["supabase/**", "cloudflare/photos/**", ".github/workflows/staging.yml", ".github/scripts/deploy_functions.sh",
+            ".github/scripts/photos_setup.sh"]
   workflow_dispatch:
     inputs:
       duplicate_dishes:
@@ -111,3 +112,12 @@ jobs:
           DUPLICATE_DISHES: ${{ inputs.duplicate_dishes }}
           DISH_NUMBERS: ${{ inputs.dish_numbers }}
         run: .github/scripts/dish_dedup.sh "$STAGING_REF" "$DUPLICATE_DISHES" "$DISH_NUMBERS"
+
+      # Photos on Cloudflare R2 (0101): the bucket and Worker on photos-staging.<domain>, then new uploads
+      # switched over and existing photos copied, checked and moved. Waits quietly for the domain and the
+      # Cloudflare secrets. Staging always moves; prod waits for its box.
+      - name: Photos on R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: .github/scripts/photos_setup.sh staging "$STAGING_REF" move

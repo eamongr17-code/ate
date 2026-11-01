@@ -362,6 +362,7 @@ public enum EntryWriteFailure: Error, Equatable, Sendable {
         if let http = error as? HTTPError { return http.response.statusCode }
         if case FunctionsError.httpError(let code, _) = error { return code }
         if let storage = error as? StorageError, let code = storage.statusCode.flatMap(Int.init) { return code }
+        if let photo = error as? PhotoStoreError { return photo.status }
         if case AuthError.api(_, _, _, let response) = error { return response.statusCode }
         return nil
     }

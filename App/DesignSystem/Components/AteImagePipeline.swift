@@ -220,10 +220,10 @@ final class AteImagePipeline: @unchecked Sendable {
 
     /// Photo and avatar URLs are written by clients, so a modified one could point every viewer's
     /// phone at a tracking pixel or a huge file (audit 26 Oct, finding 13; the database refuses them
-    /// since 0094). Only our storage is fetched, over https, and never past ``maximumBytes``.
+    /// since 0094). Only our storage (Supabase; R2's photos host, 0101) over https, never past ``maximumBytes``.
     static func isFetchable(_ url: URL) -> Bool {
         guard let host = url.host?.lowercased() else { return false }
-        if url.scheme == "https", host.hasSuffix(".supabase.co") { return true }
+        if url.scheme == "https", host.hasSuffix(".supabase.co") || PhotoHosts.isPhotoHost(host) { return true }
         #if DEBUG
         // The local stack, and the staging seed's stock photos and avatars.
         if url.scheme == "http", host == "127.0.0.1" || host == "localhost" { return true }
@@ -236,7 +236,7 @@ final class AteImagePipeline: @unchecked Sendable {
     static let maximumBytes: Int64 = 12 * 1024 * 1024
 
     private func fetch(_ url: URL) async -> Data? {
-        guard Self.isFetchable(url),
+        guard await PhotoHosts.allows(url, known: Self.isFetchable(url)),
               let (bytes, response) = try? await session.bytes(from: url),
               let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
               http.expectedContentLength <= Self.maximumBytes else { return nil }
