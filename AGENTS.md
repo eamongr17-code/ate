@@ -70,6 +70,27 @@ feedback, and brand direction when he defines it. Everything else is the team's 
 - **Headings say literally what they show.** No invented category names, anywhere.
 - **Built for volume.** Every query paginated and indexed, every external call's cost checked. Beta is ~50 users.
 
+## The operating loop (Eamon approved 2026-11-01)
+
+- **Builds leave on a train.** TestFlight builds go out at 7am and 7pm Melbourne (`train.yml` on main
+  dispatches `beta.yml`), or on demand from the Actions page. Merging a PR does not build. A thread
+  never announces a build number it has not seen uploaded.
+- **One digest, not many pings.** The daily ops sweep's digest is the only unprompted message Eamon
+  gets: build number, what to test, decisions as numbers, the only-him tasks with dates. Flow threads
+  report to the coordinator and to their checklist, and message Eamon directly only with a mockup
+  link for his OK. Anything that needs his decision is filed for the digest, not asked in the thread.
+- **One intake queue.** Every tester report, Sentry crash, and every recording or voice note Eamon
+  drops in the project chat becomes an issue in `ate-feedback` (the coordinator files his). The sweep
+  triages; the Monday list ranks. No thread is opened for a bug that is not an issue first.
+- **Proof in the PR.** A PR that changes what a screen looks like carries a picture of the changed
+  screen (the CI kit pictures, a snapshot test, or a clip from `sim.yml`'s harness) before it is
+  called shipped. "Shipped, untested on a phone" still applies to feel; it no longer covers layout.
+- **Nothing sits.** `pr-watch.yml` on main comments on any open PR with no checks after 10 minutes,
+  a merge conflict, or green and unmerged for two hours. The comment wakes the owning thread; the
+  thread acts, it does not explain.
+- **Three builders at once.** At most three threads build code at the same time; the coordinator queues
+  the rest. The usage limit is shared, and five parallel threads stall everything.
+
 ## How work moves
 
 - **PM decides, lead dispatches, one integrator merges.** Agents never commit to main; the lead
