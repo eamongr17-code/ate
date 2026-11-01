@@ -56,7 +56,9 @@ export async function entryPage(id: string, origin: string, env: Env): Promise<R
     return errorPage(origin, env);
   }
   if (!card) return gonePage(origin, env);
-  return html(renderEntry(card, origin, env), 200);
+  const first = firstPhoto(card);
+  const preview = first ? await thumbnailIfThere(first) : null;
+  return html(renderEntry(card, origin, env, preview), 200);
 }
 
 /** get_entry_card answers one row, an array of one, or null; anything else is "not there". */
@@ -66,7 +68,29 @@ export function parseCard(raw: unknown): Card | null {
   return row as Card;
 }
 
-export function renderEntry(card: Card, origin: string, env: Env): string {
+function firstPhoto(card: Card): string | null {
+  return [...(card.photos ?? [])].sort((a, b) => a.position - b.position).find((p) => isHttps(p.url))?.url ?? null;
+}
+
+/** The preview image: the photo's thumbnail (`<name>_t.jpg`, uploads since round 3) when it exists, so a
+ *  chat preview does not pull the full-size photo; older photos have none → the full photo. */
+export function thumbnailURL(url: string): string | null {
+  const thumb = url.replace(/\.(jpe?g|png|heic|webp)(\?.*)?$/i, '_t.jpg');
+  return thumb === url ? null : thumb;
+}
+
+async function thumbnailIfThere(url: string): Promise<string> {
+  const thumb = thumbnailURL(url);
+  if (!thumb) return url;
+  try {
+    const res = await fetch(thumb, { method: 'HEAD', signal: AbortSignal.timeout(2000) });
+    return res.ok ? thumb : url;
+  } catch {
+    return url;
+  }
+}
+
+export function renderEntry(card: Card, origin: string, env: Env, previewImage: string | null = null): string {
   const handle = card.author?.username ? `@${card.author.username}` : 'Someone';
   const placeName = card.place?.name ?? null;
   const title = placeName ? `${handle} at ${placeName}` : handle;
@@ -90,7 +114,7 @@ export function renderEntry(card: Card, origin: string, env: Env): string {
   return page({
     title,
     description,
-    image: photos[0]?.url ?? null,
+    image: previewImage ?? photos[0]?.url ?? null,
     canonical: `${origin}/entry/${card.id}`,
     appURL,
     env,

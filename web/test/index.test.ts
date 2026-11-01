@@ -1,7 +1,7 @@
 // Run: npm test (node --test, type-stripped). The logo import is stubbed by test/loader.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aasa, parseCard, renderEntry, text } from '../src/render.ts';
+import { aasa, parseCard, renderEntry, text, thumbnailURL } from '../src/render.ts';
 
 const env = {
   SUPABASE_URL: 'https://x.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'k',
@@ -57,4 +57,10 @@ test('fonts come from our own domain, never a font host', () => {
   const html = renderEntry(card, 'https://chewsfood.app', env);
   assert.ok(!/googleapis|gstatic/.test(html));
   assert.ok(html.includes('/fonts/youngserif.woff2'));
+});
+
+test('thumbnail URL: name_t.jpg; nothing for an unknown extension', () => {
+  assert.equal(thumbnailURL('https://x.co/u/e-0.jpg'), 'https://x.co/u/e-0_t.jpg');
+  assert.equal(thumbnailURL('https://x.co/u/e-0.JPEG?v=2'), 'https://x.co/u/e-0_t.jpg');
+  assert.equal(thumbnailURL('https://x.co/u/e-0'), null);
 });
