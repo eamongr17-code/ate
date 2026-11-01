@@ -155,8 +155,7 @@ function page(p: PageParts): string {
 <link rel="canonical" href="${attr(p.canonical)}">
 ${og}
 <meta name="robots" content="noindex">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700&family=Newsreader:opsz@6..72&display=swap">
+<link rel="preload" href="/fonts/youngserif.woff2" as="font" type="font/woff2" crossorigin>
 <style>${CSS}</style>
 </head><body>
 <header><img class="logo" src="/logo.svg" alt="ate.">${p.body ? open : ''}</header>
@@ -170,6 +169,9 @@ const SCRIPT = `document.querySelectorAll('a[data-app]').forEach(function(a){a.a
 const STAR = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg>';
 
 const CSS = `
+@font-face{font-family:'Young Serif';font-weight:400;font-display:swap;src:url(/fonts/youngserif.woff2) format('woff2')}
+@font-face{font-family:'DM Sans';font-weight:100 1000;font-display:swap;src:url(/fonts/dmsans.woff2) format('woff2')}
+@font-face{font-family:Newsreader;font-weight:200 800;font-display:swap;src:url(/fonts/newsreader.woff2) format('woff2')}
 :root{--g:#EFEAE2;--ink:#24141F;--mut:#5E5560;--hr:rgba(36,20,31,.14);color-scheme:light dark}
 @media (prefers-color-scheme:dark){:root{--g:#17111B;--ink:#F4EFE9;--mut:#B9AFBC;--hr:rgba(255,255,255,.16)}.logo{filter:invert(1)}}
 *{box-sizing:border-box}
@@ -206,7 +208,7 @@ function html(body: string, status: number): Response {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': status === 200 ? `public, max-age=${CACHE_SECONDS}` : 'no-store',
-      'Content-Security-Policy': "default-src 'none'; img-src 'self' https:; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      'Content-Security-Policy': "default-src 'none'; img-src 'self' https:; style-src 'unsafe-inline'; font-src 'self'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
     },

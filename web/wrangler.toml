@@ -5,7 +5,10 @@ main = "src/index.ts"
 compatibility_date = "2026-10-01"
 workers_dev = false
 
-rules = [{ type = "Text", globs = ["**/*.svg"], fallthrough = true }]
+rules = [
+  { type = "Text", globs = ["**/*.svg"], fallthrough = true },
+  { type = "Data", globs = ["**/*.woff2"], fallthrough = true },
+]
 
 [vars]
 SUPABASE_URL = "https://vyaexmnajnbryimbkgkf.supabase.co"

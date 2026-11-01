@@ -115,7 +115,8 @@ jobs:
         continue-on-error: true
         run: .github/scripts/push_setup.sh "$STAGING_REF"
 
-      # Email sign-in, as on prod: the same sender and code-only emails.
+      # Email sign-in, as on prod: the same sender (hello@<domain>) and code-only emails. Staging
+      # deliberately shares prod's domain as its site URL and sender; staging has no domain of its own.
       - name: Email sign-in
         continue-on-error: true
         env:

@@ -12,9 +12,15 @@
 //
 // Cost/volume: responses are cached at Cloudflare's edge for 5 minutes per URL, so a post shared to a
 // group chat costs one Supabase read, not one per viewer. Workers' free plan is 100k requests a day.
-// No cookies, no scripts from elsewhere, no tracking.
+// No cookies, no scripts or fonts from elsewhere (fonts are served from here), no tracking.
 
 import logo from './logo.svg';
+import dmsans from './fonts/dmsans.woff2';
+import newsreader from './fonts/newsreader.woff2';
+import youngserif from './fonts/youngserif.woff2';
+
+// The three fonts, served from here (latin subsets, OFL): no viewer's IP goes to a font host.
+const FONTS: Record<string, ArrayBuffer> = { dmsans, newsreader, youngserif };
 import { aasa, entryPage, json, listPage, type Env } from './render.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -33,6 +39,13 @@ export default {
     if (path === '/logo.svg') {
       return new Response(logo, {
         headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' },
+      });
+    }
+
+    const font = /^\/fonts\/(dmsans|newsreader|youngserif)\.woff2$/.exec(path);
+    if (font) {
+      return new Response(FONTS[font[1]], {
+        headers: { 'Content-Type': 'font/woff2', 'Cache-Control': 'public, max-age=31536000, immutable' },
       });
     }
 

@@ -52,3 +52,9 @@ test('AASA names the app and both paths', () => {
 test('text() escapes quotes for attributes', () => {
   assert.equal(text(`a"b'<`), 'a&quot;b&#39;&lt;');
 });
+
+test('fonts come from our own domain, never a font host', () => {
+  const html = renderEntry(card, 'https://chewsfood.app', env);
+  assert.ok(!/googleapis|gstatic/.test(html));
+  assert.ok(html.includes('/fonts/youngserif.woff2'));
+});
