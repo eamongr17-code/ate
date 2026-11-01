@@ -1,0 +1,71 @@
+# Web — the pages behind shared links (web/, a Cloudflare Worker on the Ate domain).
+#
+# Every PR touching web/ runs its tests. A merge to the integration branch deploys it, once the domain is
+# in Config/domain.txt and these repository secrets exist (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN    Cloudflare → My Profile → API Tokens → "Edit Cloudflare Workers", the domain's zone
+#   CLOUDFLARE_ACCOUNT_ID   Cloudflare home page, right-hand column
+# The Worker answers <domain> and www.<domain>: /entry/<id>, /list/<id> and the universal-links file.
+
+name: Web
+
+on:
+  push:
+    branches: [claude/project-thread-2f9ty8]
+    paths: ["web/**", "Config/domain.txt", ".github/workflows/web.yml"]
+  pull_request:
+    paths: ["web/**", ".github/workflows/web.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Web pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Tests
+        run: npm test
+
+      - name: Bundle (dry run)
+        run: npx wrangler deploy --dry-run --outdir dist
+
+      - name: Deploy
+        if: github.event_name != 'pull_request'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          domain=$(tr -d '[:space:]' < ../Config/domain.txt)
+          if [ -z "$domain" ] || [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            {
+              echo "### Web pages: not deployed"
+              [ -n "$domain" ] || echo "No domain yet (Config/domain.txt)."
+              [ -n "$CLOUDFLARE_API_TOKEN" ] || echo "No CLOUDFLARE_API_TOKEN secret."
+              [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || echo "No CLOUDFLARE_ACCOUNT_ID secret."
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          case "$domain" in *[!a-z0-9.-]*) echo "::error::Config/domain.txt is not a domain"; exit 1;; esac
+          # Top-level keys must come before [vars] in TOML: the route goes in above it.
+          routes="routes = [{ pattern = \"$domain\", custom_domain = true }, { pattern = \"www.$domain\", custom_domain = true }]"
+          awk -v r="$routes" '/^\[vars\]/ && !done { print r; print ""; done=1 } { print }' wrangler.toml > wrangler.deploy.toml
+          npx wrangler deploy --config wrangler.deploy.toml
+          code=$(curl -s -o aasa.json -w '%{http_code}' "https://$domain/.well-known/apple-app-site-association" || true)
+          echo "### Web pages: deployed to https://$domain (universal-links file: HTTP $code)" | tee -a "$GITHUB_STEP_SUMMARY"

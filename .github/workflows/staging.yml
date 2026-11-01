@@ -16,7 +16,7 @@ name: Staging
 on:
   push:
     branches: [claude/project-thread-2f9ty8]
-    paths: ["supabase/**", ".github/workflows/staging.yml", ".github/scripts/deploy_functions.sh", ".github/scripts/function_secrets.sh", ".github/scripts/auth_setup.sh"]
+    paths: ["supabase/**", ".github/workflows/staging.yml", ".github/scripts/deploy_functions.sh", ".github/scripts/function_secrets.sh", ".github/scripts/auth_setup.sh", "Config/domain.txt"]
   workflow_dispatch:
     inputs:
       duplicate_dishes:
@@ -35,8 +35,6 @@ concurrency:
 
 env:
   STAGING_REF: cvoitgoaosofkougmarn
-  # Same value as ATE_DOMAIN in prod.yml (empty until the domain is bought).
-  ATE_DOMAIN: ""
 
 # Read-only token: no job here writes to the repo (security sweep, Oct 2026).
 permissions:
@@ -122,7 +120,7 @@ jobs:
         continue-on-error: true
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-        run: .github/scripts/auth_setup.sh "$STAGING_REF" "$ATE_DOMAIN"
+        run: .github/scripts/auth_setup.sh "$STAGING_REF" "$(tr -d '[:space:]' < Config/domain.txt)"
 
       # Same dish, different names (0071). After the deploy, so the function and its tables exist.
       - name: Duplicate dishes

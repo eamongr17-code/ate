@@ -1,0 +1,15 @@
+# Ate's web pages for shared links (web/src/index.ts). Deployed by .github/workflows/web.yml, which adds
+# the custom-domain route from Config/domain.txt — nothing to edit here when the domain lands.
+name = "ate-web"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+workers_dev = false
+
+rules = [{ type = "Text", globs = ["**/*.svg"], fallthrough = true }]
+
+[vars]
+SUPABASE_URL = "https://vyaexmnajnbryimbkgkf.supabase.co"
+# The publishable key is public by design (it ships in the app); RLS + the signed-out RPC list (0034) guard the data.
+SUPABASE_PUBLISHABLE_KEY = "sb_publishable_EQqUPHQv-1yZrqqvOWphkw_IlFI2ALY"
+APP_LINK = "https://testflight.apple.com/join/VsFj6pKV"
+APP_ID = "9M6K835247.com.eamongracias.ate"

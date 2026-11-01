@@ -45,9 +45,6 @@ concurrency:
 
 env:
   PROD_REF: vyaexmnajnbryimbkgkf
-  # The domain share links and sign-in emails use. Empty until it is bought; the same value as
-  # AteLinks.domain in AteKit and the Worker's route in web/wrangler.toml.
-  ATE_DOMAIN: ""
 
 # Read-only token: no job here writes to the repo (security sweep, Oct 2026).
 permissions:
@@ -170,7 +167,7 @@ jobs:
         continue-on-error: true
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-        run: .github/scripts/auth_setup.sh "$PROD_REF" "$ATE_DOMAIN"
+        run: .github/scripts/auth_setup.sh "$PROD_REF" "$(tr -d '[:space:]' < Config/domain.txt)"
 
       # Push notifications (0059): on once prod holds the APNs key (APNS_* in Edge Functions → Secrets).
       # Idempotent; the summary says what is missing. A failure here never fails the apply.

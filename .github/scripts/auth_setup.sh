@@ -19,7 +19,7 @@ summary="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
 if [ -z "$domain" ] || [ -z "${RESEND_API_KEY:-}" ]; then
   {
     echo "### Email sign-in: sender not set"
-    [ -n "$domain" ] || echo "No domain yet (ATE_DOMAIN in the workflow)."
+    [ -n "$domain" ] || echo "No domain yet (Config/domain.txt)."
     [ -n "${RESEND_API_KEY:-}" ] || echo "No RESEND_API_KEY GitHub secret."
   } | tee -a "$summary"
   exit 0

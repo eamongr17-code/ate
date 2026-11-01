@@ -1,0 +1,14 @@
+{
+  "name": "ate-web",
+  "private": true,
+  "description": "Ate's web pages for shared links (Cloudflare Worker). Deployed by .github/workflows/web.yml.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test --experimental-strip-types test/*.test.ts",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.156.0",
+    "@cloudflare/workers-types": "5.20261101.1"
+  }
+}
