@@ -16,7 +16,7 @@ begin
                      where photo_url like 'https://cvoitgoaosofkougmarn.supabase.co/%'
                         or photo_url like 'https://photos-staging.%')   -- 0101: staging's photos on R2
      or exists (select 1 from public.entry_photos
-                 where photo_url like 'https://vyaexmnajnbryimbkgkf.supabase.co/%'
+                 where photo_url like 'https://vyaexmnajnbryimbkgkf.supabase.co/%' or photo_url like 'https://flfcyokydrmsdrignmcu.supabase.co/%'
                     or photo_url like 'https://photos.%') then           -- prod's, on R2
     raise exception 'staging_seed: this database is not STAGING (cvoitgoaosofkougmarn) — refusing';
   end if;
@@ -38,7 +38,7 @@ begin
                      where photo_url like 'https://cvoitgoaosofkougmarn.supabase.co/%'
                         or photo_url like 'https://photos-staging.%')   -- 0101: staging's photos on R2
      or exists (select 1 from public.entry_photos
-                 where photo_url like 'https://vyaexmnajnbryimbkgkf.supabase.co/%'
+                 where photo_url like 'https://vyaexmnajnbryimbkgkf.supabase.co/%' or photo_url like 'https://flfcyokydrmsdrignmcu.supabase.co/%'
                     or photo_url like 'https://photos.%') then           -- prod's, on R2
     raise exception 'staging_seed: this database is not STAGING (cvoitgoaosofkougmarn) — refusing';
   end if;

@@ -40,7 +40,7 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ (inputs.environment == 'staging' || secrets.FEEDBACK_SUPABASE_KEY == '') && secrets.SUPABASE_ACCESS_TOKEN || '' }}
       FEEDBACK_GITHUB_TOKEN: ${{ secrets.FEEDBACK_GITHUB_TOKEN }}
       FEEDBACK_REPO: eamongr17-code/ate-feedback
-      PROJECT_REF: ${{ inputs.environment == 'staging' && 'cvoitgoaosofkougmarn' || 'vyaexmnajnbryimbkgkf' }}
+      PROJECT_REF: ${{ inputs.environment == 'staging' && 'cvoitgoaosofkougmarn' || 'flfcyokydrmsdrignmcu' }}
       ENV_LABEL: ${{ inputs.environment == 'staging' && 'staging' || '' }}
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}

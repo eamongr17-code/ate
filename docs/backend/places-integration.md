@@ -14,7 +14,7 @@ The single server-side entry point is the edge function **`supabase/functions/pl
 | Billing | Free Trial billing account ($300 credit, AUD, Individual). **Required even for the free tier.** |
 | API enabled | **Places API (New)** (`places.googleapis.com`) — NOT the legacy Places API. Covers Autocomplete, Place Details, and Nearby Search under one enabled API + one key. |
 | API key | "Ate Places API (server)" — **API restriction: Places API (New) only**; **application restriction: None** (called server-side from the Supabase edge runtime, which has no stable egress IP) |
-| Secret | Supabase Edge Function secret **`GOOGLE_PLACES_API_KEY`** on project `vyaexmnajnbryimbkgkf`. Never in code. |
+| Secret | Supabase Edge Function secret **`GOOGLE_PLACES_API_KEY`** on project `flfcyokydrmsdrignmcu`. Never in code. |
 | Function | `places-search` deployed + ACTIVE (`verify_jwt: true`). Live Google path engages on next cold start after the secret was set. |
 
 > Verification still owed: a real end-to-end `stub:false` round-trip needs a valid user JWT (the function requires auth) → that's the QA-1 gate, not provisioning.

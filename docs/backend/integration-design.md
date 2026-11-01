@@ -2,7 +2,7 @@
 
 Everything the app calls, with shapes. Schema lives in `data-model.md`. **Complete enough to build the
 Swift client against without asking a question** — if something is missing, that is a bug in this file.
-**Environments are law:** Debug → STAGING `cvoitgoaosofkougmarn`, Release → PROD `vyaexmnajnbryimbkgkf`;
+**Environments are law:** Debug → STAGING `cvoitgoaosofkougmarn`, Release → PROD `flfcyokydrmsdrignmcu`;
 migrations reach staging when the lead applies them after QA (until a staging-deploy job exists) and prod only via an explicit CI job. The contract is tested twice: `supabase/tests/db/*.mjs` pins behaviour on the whole migration chain (PGlite, every backend PR), and AteKit's `ContractSmokeTests` decodes one live read per surface from staging as `ci@ate.test` (never a person's account). Auth: Supabase Auth (Apple +
 email; see Account below); every call carries the user's token. `anon` has no table access (a raw read →
 `[]` or `42501`). **Every entry is public (0033).** **Signed out (0034):** with the publishable key alone, only
