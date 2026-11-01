@@ -71,24 +71,33 @@ export function thumbnailUrl(url: string): string | null {
 }
 
 const BUCKET_PATH = '/storage/v1/object/public/review-photos/';
+const R2_BUCKET = 'review-photos/';
 
 /**
  * Where to read a stored photo (0067, the readiness review): only a file in the AUTHOR'S OWN folder
- * of the review-photos bucket, and always from our own storage at `base` (SUPABASE_URL), whatever
- * host the stored URL names. `entry_photos.photo_url` is client-written, so without this the
+ * of the review-photos bucket, and always from our own storage, whatever host the stored URL names:
+ * Supabase Storage at `base` (SUPABASE_URL), or, for a photo on R2 (0103), the photos Worker at
+ * `photoBase` (photo_storage.base). `entry_photos.photo_url` is client-written, so without this the
  * function would fetch any address an author typed in. `null` = not ours: never read, never offered.
  */
-export function ownPhotoReadUrl(url: string, authorId: string, base: string): string | null {
+export function ownPhotoReadUrl(url: string, authorId: string, base: string, photoBase: string | null = null): string | null {
   let u: URL;
   try {
     u = new URL(url);
   } catch {
     return null;
   }
+  const own = (path: string) =>
+    path.toLowerCase().startsWith(`${authorId.toLowerCase()}/`) && !path.includes('..') && !/%(2e|2f|5c)/i.test(path);
+  const r2 = photoBase ? new URL(photoBase) : null;
+  if (r2 && u.protocol === 'https:' && u.host === r2.host && u.pathname.startsWith(`/${R2_BUCKET}`)) {
+    const path = u.pathname.slice(R2_BUCKET.length + 1);
+    return own(path) ? `${r2.origin}/${R2_BUCKET}${path}` : null;
+  }
   const at = u.pathname.indexOf(BUCKET_PATH);
   if (at < 0) return null;
   const path = u.pathname.slice(at + BUCKET_PATH.length);
-  if (!path.toLowerCase().startsWith(`${authorId.toLowerCase()}/`) || path.includes('..') || /%(2e|2f|5c)/i.test(path)) return null;
+  if (!own(path)) return null;
   return `${base.replace(/\/+$/, '')}${BUCKET_PATH}${path}`;
 }
 

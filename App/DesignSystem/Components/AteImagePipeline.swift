@@ -224,6 +224,8 @@ final class AteImagePipeline: @unchecked Sendable {
     static func isFetchable(_ url: URL) -> Bool {
         guard let host = url.host?.lowercased() else { return false }
         if url.scheme == "https", host.hasSuffix(".supabase.co") { return true }
+        // The photos Worker on R2 (0103), once the server has named it.
+        if url.scheme == "https", PhotoHosts.isPhotoHost(host) { return true }
         #if DEBUG
         // The local stack, and the staging seed's stock photos and avatars.
         if url.scheme == "http", host == "127.0.0.1" || host == "localhost" { return true }
@@ -236,6 +238,11 @@ final class AteImagePipeline: @unchecked Sendable {
     static let maximumBytes: Int64 = 12 * 1024 * 1024
 
     private func fetch(_ url: URL) async -> Data? {
+        // A photo on a host this phone has not met yet (the first launch after photos moved, or a
+        // new domain): ask the server once whether it is ours.
+        if Self.isFetchable(url) == false, url.scheme == "https", let host = url.host() {
+            _ = await PhotoHosts.learn(host: host)
+        }
         guard Self.isFetchable(url),
               let (bytes, response) = try? await session.bytes(from: url),
               let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),

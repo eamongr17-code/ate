@@ -41,3 +41,8 @@ scratchpad/
 .claude/worktrees/
 design/illustrations/render/
 __pycache__/
+
+# Cloudflare Workers
+cloudflare/*/node_modules/
+cloudflare/*/.wrangler/
+cloudflare/*/wrangler.generated.toml

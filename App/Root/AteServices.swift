@@ -98,6 +98,12 @@ struct AteServices {
 
         let preview = Self.previewServices()
         self.isPreviewData = preview != nil
+        if preview == nil {
+            // Where photos live (0103): asked now, so the first screen draws R2 photos, and again
+            // whenever a photo names a host the app has not met.
+            PhotoHosts.setRefresher { [api] in await api.refreshPhotoStorage() }
+            Task { [api] in await api.refreshPhotoStorage() }
+        }
         // Whose draft and whose queued entries: the signed-in user, read at every use, so nothing one
         // person leaves on this phone is resumed or posted as the next one. The preview drive has no
         // session, so it is one fixed person.

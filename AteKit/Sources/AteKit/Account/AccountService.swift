@@ -244,16 +244,13 @@ public struct AccountClient: AccountServing {
         // 42501, not a 404. Deterministic and upserted, so a retried upload overwrites rather
         // than leaving the bucket full of half-finished avatars.
         let path = "\(id.uuidString.lowercased())/avatar.\(image.fileExtension)"
-        let storage = api.supabase.storage.from("avatars")
-        _ = try await storage.upload(
-            path,
-            data: image.data,
-            options: FileOptions(contentType: image.contentType, upsert: true)
+        // The object URL is durable and public (Supabase Storage or R2, whichever the server names),
+        // so the row stores the URL and not the bytes. A cache-buster is appended because the path
+        // never changes: without it the old avatar would keep being served from every CDN and
+        // `AsyncImage` cache that has it.
+        let base = try await api.uploadPhoto(
+            bucket: "avatars", path: path, data: image.data, contentType: image.contentType
         )
-        // The object URL is durable and the bucket is public, so the row stores the URL and not the
-        // bytes. A cache-buster is appended because the path never changes: without it the old
-        // avatar would keep being served from every CDN and `AsyncImage` cache that has it.
-        let base = try storage.getPublicURL(path: path).absoluteString
         let url = base + "?v=\(Int(Date().timeIntervalSince1970))"
         _ = try await api.supabase
             .from("profiles")
