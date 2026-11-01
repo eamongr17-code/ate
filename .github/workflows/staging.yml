@@ -16,7 +16,7 @@ name: Staging
 on:
   push:
     branches: [claude/project-thread-2f9ty8]
-    paths: ["supabase/**", ".github/workflows/staging.yml", ".github/scripts/deploy_functions.sh"]
+    paths: ["supabase/**", ".github/workflows/staging.yml", ".github/scripts/deploy_functions.sh", ".github/scripts/function_secrets.sh", ".github/scripts/auth_setup.sh"]
   workflow_dispatch:
     inputs:
       duplicate_dishes:
@@ -35,6 +35,8 @@ concurrency:
 
 env:
   STAGING_REF: cvoitgoaosofkougmarn
+  # Same value as ATE_DOMAIN in prod.yml (empty until the domain is bought).
+  ATE_DOMAIN: ""
 
 # Read-only token: no job here writes to the repo (security sweep, Oct 2026).
 permissions:
@@ -102,6 +104,25 @@ jobs:
           echo "restaurants read: HTTP $code"
           [ "$code" = "200" ] || { cat body.json; exit 1; }
           echo "STAGING APPLIED AND READABLE" >> "$GITHUB_STEP_SUMMARY"
+
+      # The APNs key from GitHub secrets (Debug builds get pushes from staging too).
+      - name: Function secrets
+        continue-on-error: true
+        env:
+          APNS_KEY_ID: ${{ secrets.APNS_KEY_ID }}
+          APNS_PRIVATE_KEY: ${{ secrets.APNS_PRIVATE_KEY }}
+        run: .github/scripts/function_secrets.sh "$STAGING_REF"
+
+      - name: Push notifications
+        continue-on-error: true
+        run: .github/scripts/push_setup.sh "$STAGING_REF"
+
+      # Email sign-in, as on prod: the same sender and code-only emails.
+      - name: Email sign-in
+        continue-on-error: true
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: .github/scripts/auth_setup.sh "$STAGING_REF" "$ATE_DOMAIN"
 
       # Same dish, different names (0071). After the deploy, so the function and its tables exist.
       - name: Duplicate dishes
