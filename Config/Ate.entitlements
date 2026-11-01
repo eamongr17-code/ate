@@ -2,12 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Universal links: https://ate.link/entry/… and /list/… open the app (AteLinks.base; the site serves
+	<!-- Universal links: https://rateonate.com/entry/… and /list/… open the app (AteLinks.base; the site serves
 	     /.well-known/apple-app-site-association from web/). Same domain as Config/domain.txt. -->
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:ate.link</string>
-		<string>applinks:www.ate.link</string>
+		<string>applinks:rateonate.com</string>
+		<string>applinks:www.rateonate.com</string>
 	</array>
 	<key>com.apple.developer.applesignin</key>
 	<array>

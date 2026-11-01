@@ -8,7 +8,7 @@ struct ShareLinkTests {
     private static let id = UUID(uuidString: "3F2504E0-4F89-11D3-9A0C-0305E82C3301")!
 
     @Test func aListLinkIsTheAppsOwnSchemeAndReadsBack() {
-        #expect(AteLinks.list(Self.id).absoluteString == "https://ate.link/list/3f2504e0-4f89-11d3-9a0c-0305e82c3301")
+        #expect(AteLinks.list(Self.id).absoluteString == "https://rateonate.com/list/3f2504e0-4f89-11d3-9a0c-0305e82c3301")
         #expect(AteLinks.parse(AteLinks.list(Self.id)) == .list(Self.id))
         #expect(AteLinks.parse(URL(string: "ATE://List/3F2504E0-4F89-11D3-9A0C-0305E82C3301/")!) == .list(Self.id))
         #expect(AteLinks.parse(URL(string: "ate://list/not-a-uuid")!) == nil)

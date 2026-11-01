@@ -9,15 +9,15 @@ struct EntryLinkTests {
     private static let id = UUID(uuidString: "3F2504E0-4F89-11D3-9A0C-0305E82C3301")!
 
     @Test func anEntryLinkIsOnTheDomainWithALowercasedID() {
-        #expect(AteLinks.entry(Self.id).absoluteString == "https://ate.link/entry/3f2504e0-4f89-11d3-9a0c-0305e82c3301")
+        #expect(AteLinks.entry(Self.id).absoluteString == "https://rateonate.com/entry/3f2504e0-4f89-11d3-9a0c-0305e82c3301")
     }
 
     /// A link sent before the domain (`ate://`) still opens, and so do the domain's own and www.
     @Test func oldSchemeLinksAndDomainLinksBothOpen() {
         #expect(AteLinks.parse(URL(string: "ate://entry/\(Self.id)")!) == .entry(Self.id))
-        #expect(AteLinks.parse(URL(string: "https://ate.link/entry/\(Self.id)")!) == .entry(Self.id))
-        #expect(AteLinks.parse(URL(string: "https://www.ate.link/entry/\(Self.id)")!) == .entry(Self.id))
-        #expect(AteLinks.parse(URL(string: "http://ate.link/entry/\(Self.id)")!) == nil)
+        #expect(AteLinks.parse(URL(string: "https://rateonate.com/entry/\(Self.id)")!) == .entry(Self.id))
+        #expect(AteLinks.parse(URL(string: "https://www.rateonate.com/entry/\(Self.id)")!) == .entry(Self.id))
+        #expect(AteLinks.parse(URL(string: "http://rateonate.com/entry/\(Self.id)")!) == nil)
     }
 
     @Test func anEntryLinkReadsBackToItsEntry() {

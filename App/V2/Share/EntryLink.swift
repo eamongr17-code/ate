@@ -6,7 +6,7 @@ import UIKit
 /// **Sharing somebody else's entry** (round 5, Eamon): a link to it, never their receipt — whoever
 /// gets it opens the review inside Ate. Your own entry still shares its printed receipt (`Share`).
 ///
-/// The link is ``AteLinks/entry(_:)``: `https://ate.link/entry/<id>`, the app when installed, the web page when not.
+/// The link is ``AteLinks/entry(_:)``: `https://rateonate.com/entry/<id>`, the app when installed, the web page when not.
 enum EntryLinkShare {
     /// What the system share sheet is handed: the link, dressed so the sheet's header (and a message
     /// preview) names the dishes rather than showing a bare URL.
