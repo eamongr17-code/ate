@@ -240,7 +240,8 @@ public actor EntryOutbox {
             } catch {
                 guard EntryWriteFailure.of(error).isRetryable else {
                     // A refusal is not a bad connection. Mark it and move on rather than counting
-                    // eight foregrounds towards the same answer.
+                    // eight foregrounds towards the same answer. A refused entry is a bug to look at.
+                    ErrorReporting.report(error, where: "outbox.refused")
                     working.isBlocked = true
                     update(working)
                     continue

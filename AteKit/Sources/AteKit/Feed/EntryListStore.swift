@@ -146,6 +146,7 @@ public final class EntryListStore: SavedDishObserving, EntryDeletionObserving {
             return
         } catch {
             guard generationAtStart == generation else { return }
+            ErrorReporting.report(error, where: "entryList.nextPage")
             inlineErrorMessage = message(for: error)
         }
     }
@@ -173,6 +174,7 @@ public final class EntryListStore: SavedDishObserving, EntryDeletionObserving {
         } catch {
             guard generationAtStart == generation else { return }
             hasLoadedOnce = true
+            ErrorReporting.report(error, where: "entryList.firstPage")
             if entries.isEmpty {
                 phase = Self.isNotAuthenticated(error)
                     ? .signedOut
@@ -260,7 +262,7 @@ public final class EntryListStore: SavedDishObserving, EntryDeletionObserving {
     }
 
     /// One short sentence, in the app's own voice. Never the raw error: a PostgREST body is noise to
-    /// the reader. (Sentry sees crashes only, not handled errors like this one.)
+    /// the reader. (The fault itself goes to Sentry through ErrorReporting.)
     func message(for error: any Error) -> String {
         if let urlError = error as? URLError {
             switch urlError.code {
