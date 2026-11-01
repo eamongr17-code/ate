@@ -75,17 +75,10 @@ on:
         description: "Archive only (no signing, no upload)"
         type: boolean
         default: false
-  # Every merge into the integration branch that changes the app uploads a build (Eamon, 2026-10-14:
-  # ship each merge without his Mac). A merge is a PR whose CI already passed; backend-only merges
-  # build nothing. The concurrency group below queues back-to-back merges instead of cancelling.
-  push:
-    branches: [claude/project-thread-2f9ty8]
-    paths:
-      - "App/**"
-      - "AteKit/**"
-      - "ShareExtension/**"
-      - "Config/**"
-      - "Ate.xcodeproj/**"
+  # Builds leave on a train, not per merge (Eamon, 2026-11-01). The train is .github/workflows/train.yml
+  # on main: at 7am and 7pm Melbourne it dispatches this workflow on the integration branch when app
+  # code has merged since the last uploaded build. A manual run from the Actions page is the "on demand"
+  # train. Until 1 Nov every app merge pushed a build here (273 builds for 173 PRs).
 
 concurrency:
   group: beta-${{ github.ref }}
