@@ -11,7 +11,8 @@ marks themselves are trademarks of their owners and are used only to name
 those apps.
 
 The typefaces are licensed under the SIL Open Font License; their licences sit
-beside the fonts in App/Resources/Fonts/.
+beside the fonts in App/Resources/Fonts/. The share-link web pages serve latin
+subsets of the same three (DM Sans, Newsreader, Young Serif) from web/src/fonts/.
 
 The award plates (App/Resources/Plates/plate-world.html) are drawn with three.js
 r128 (MIT, below) and letter their numbers in digit-only subsets of Alfa Slab

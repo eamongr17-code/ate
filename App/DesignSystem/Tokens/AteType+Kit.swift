@@ -157,4 +157,13 @@ extension AteTextStyle {
     static let kitDietSignal = AteTextStyle(
         voice: .display, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.2, textStyle: .footnote
     )
+    /// Welcome's "Continue with email", under Apple's button: DM Sans 600 at 17
+    /// (`email-signin-share-links.html` `.emailbtn`).
+    static let kitWelcomeEmail = AteTextStyle(
+        voice: .display, size: 17, weight: 600, trackingEm: 0, lineHeight: 1.0, textStyle: .body
+    )
+    /// One digit of the email code: DM Sans 700 at 28 (`.code span`).
+    static let kitCodeDigit = AteTextStyle(
+        voice: .display, size: 28, weight: 700, trackingEm: 0, lineHeight: 1.0, textStyle: .title2
+    )
 }

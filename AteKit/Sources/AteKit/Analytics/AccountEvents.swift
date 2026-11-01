@@ -4,6 +4,8 @@ import Foundation
 /// free string quietly becomes three spellings of the same one.
 public enum SignInProvider: String, Sendable, CaseIterable, Codable {
     case apple
+    /// A 6-digit code sent to an email address (Nov 2026, `email-signin-share-links` A).
+    case email
     /// The seeded staging account. Debug and Beta only — it is in the vocabulary so the numbers
     /// from an internal build can be told apart from real ones rather than silently inflating them.
     case debugStaging = "debug_staging"
@@ -113,4 +115,8 @@ public enum SignInFailure: String, Sendable, CaseIterable, Codable {
     case authorization
     /// Apple was happy; Supabase refused the token.
     case exchange
+    /// Email: the code could not be sent (bad address, the per-address minute, or no connection).
+    case codeNotSent = "code_not_sent"
+    /// Email: the code typed was wrong or had run out (10 minutes).
+    case wrongCode = "wrong_code"
 }

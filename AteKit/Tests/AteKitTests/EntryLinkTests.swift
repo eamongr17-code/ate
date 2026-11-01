@@ -8,8 +8,16 @@ import Testing
 struct EntryLinkTests {
     private static let id = UUID(uuidString: "3F2504E0-4F89-11D3-9A0C-0305E82C3301")!
 
-    @Test func anEntryLinkIsTheAppsOwnSchemeAndALowercasedID() {
-        #expect(AteLinks.entry(Self.id).absoluteString == "ate://entry/3f2504e0-4f89-11d3-9a0c-0305e82c3301")
+    @Test func anEntryLinkIsOnTheDomainWithALowercasedID() {
+        #expect(AteLinks.entry(Self.id).absoluteString == "https://rateonate.app/entry/3f2504e0-4f89-11d3-9a0c-0305e82c3301")
+    }
+
+    /// A link sent before the domain (`ate://`) still opens, and so do the domain's own and www.
+    @Test func oldSchemeLinksAndDomainLinksBothOpen() {
+        #expect(AteLinks.parse(URL(string: "ate://entry/\(Self.id)")!) == .entry(Self.id))
+        #expect(AteLinks.parse(URL(string: "https://rateonate.app/entry/\(Self.id)")!) == .entry(Self.id))
+        #expect(AteLinks.parse(URL(string: "https://www.rateonate.app/entry/\(Self.id)")!) == .entry(Self.id))
+        #expect(AteLinks.parse(URL(string: "http://rateonate.app/entry/\(Self.id)")!) == nil)
     }
 
     @Test func anEntryLinkReadsBackToItsEntry() {

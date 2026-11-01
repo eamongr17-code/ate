@@ -9,8 +9,9 @@
 #   SUPABASE_ACCESS_TOKEN       a personal access token (supabase.com/dashboard/account/tokens)
 #   SUPABASE_PROD_DB_PASSWORD   prod's database password (Database → Settings)
 #   CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID   the photos Worker and its R2 bucket (optional until set)
-# The functions' own secrets (ANTHROPIC_API_KEY, GOOGLE_PLACES_API_KEY, the APNS_* set) live in the prod
-# project itself (Edge Functions → Secrets) and are never read or written here.
+# The functions' own secrets (ANTHROPIC_API_KEY, GOOGLE_PLACES_API_KEY) live in the prod project itself
+# (Edge Functions → Secrets). The APNs key (APNS_KEY_ID, APNS_PRIVATE_KEY) and RESEND_API_KEY are
+# GitHub secrets that every apply copies into prod ("Function secrets", "Email sign-in").
 
 name: Prod
 
@@ -154,6 +155,24 @@ jobs:
           echo "restaurants read: HTTP $code"
           [ "$code" = "200" ] || { cat body.json; exit 1; }
           echo "PROD APPLIED AND READABLE" >> "$GITHUB_STEP_SUMMARY"
+
+      # Function secrets Eamon keeps in GitHub (the APNs key) → prod's Edge Function secrets.
+      - name: Function secrets
+        if: inputs.apply || (inputs.reset && inputs.confirm_reset == 'ERASE PROD')
+        continue-on-error: true
+        env:
+          APNS_KEY_ID: ${{ secrets.APNS_KEY_ID }}
+          APNS_PRIVATE_KEY: ${{ secrets.APNS_PRIVATE_KEY }}
+        run: .github/scripts/function_secrets.sh "$PROD_REF"
+
+      # Email sign-in: the sender (Resend), code-only emails, Confirm email on. Skips until the domain
+      # and RESEND_API_KEY exist.
+      - name: Email sign-in
+        if: inputs.apply || (inputs.reset && inputs.confirm_reset == 'ERASE PROD')
+        continue-on-error: true
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: .github/scripts/auth_setup.sh "$PROD_REF" "$(tr -d '[:space:]' < Config/domain.txt)"
 
       # Push notifications (0059): on once prod holds the APNs key (APNS_* in Edge Functions → Secrets).
       # Idempotent; the summary says what is missing. A failure here never fails the apply.
