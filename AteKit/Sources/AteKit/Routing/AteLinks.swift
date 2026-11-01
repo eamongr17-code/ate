@@ -13,13 +13,14 @@ public enum AteLink: Equatable, Sendable {
 /// Sharing somebody else's entry sends a link to it, not a picture (round 5, Eamon): whoever gets it
 /// opens the review inside Ate. A person's OWN entry still shares its printed receipt.
 ///
-/// App-only for now (Eamon, round 5): there is no domain yet and no web fallback, so the link is the
-/// app's own scheme, `ate://entry/<id>`. ``base`` is the ONE value to change when a domain lands —
-/// every link is built from it and every incoming link is read against it.
+/// Links are `https://ate.link/entry/<id>` (Nov 2026): with Ate installed the link opens the app (a
+/// universal link, `applinks:ate.link` + the site's apple-app-site-association); without it, the web
+/// page (`web/`) shows the post and the way to get the app. Every link is built from ``base`` and every
+/// incoming link is read against it; the old `ate://` links already sent keep opening.
 public enum AteLinks {
-    /// **The one config value.** Where every link starts. A custom scheme until Eamon picks a
-    /// domain; then `https://<domain>/` (plus the associated-domains entitlement).
-    public static let base = URL(string: "ate://")!
+    /// **The one config value.** Where every link starts: the domain in `Config/domain.txt`, which
+    /// the associated-domains entitlement (`Config/Ate.entitlements`) and the web pages also use.
+    public static let base = URL(string: "https://ate.link/")!
 
     /// The custom scheme the app registers (`CFBundleURLTypes`). Always understood, whatever
     /// ``base`` becomes, so a link already sent keeps opening.
@@ -30,7 +31,7 @@ public enum AteLinks {
     /// …and a list link's.
     static let listSegment = "list"
 
-    /// `ate://entry/<id>` — the link a shared entry sends. Ids are lowercased, as Postgres writes them.
+    /// `https://ate.link/entry/<id>` — the link a shared entry sends. Ids are lowercased, as Postgres writes them.
     public static func entry(_ id: UUID) -> URL {
         entry(id, base: base)
     }
@@ -39,7 +40,7 @@ public enum AteLinks {
         URL(string: base.absoluteString + entrySegment + "/" + id.uuidString.lowercased())!
     }
 
-    /// `ate://list/<id>` — the link a shared list sends (Spotify's playlist, not a receipt).
+    /// `https://ate.link/list/<id>` — the link a shared list sends (Spotify's playlist, not a receipt).
     public static func list(_ id: UUID) -> URL {
         list(id, base: base)
     }
