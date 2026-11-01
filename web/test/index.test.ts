@@ -64,3 +64,21 @@ test('thumbnail URL: name_t.jpg; nothing for an unknown extension', () => {
   assert.equal(thumbnailURL('https://x.co/u/e-0.JPEG?v=2'), 'https://x.co/u/e-0_t.jpg');
   assert.equal(thumbnailURL('https://x.co/u/e-0'), null);
 });
+
+import { ogHTML, ogParts } from '../src/og.ts';
+
+test('preview image: place, @handle · locality, first three dishes, best filled, the rest counted', () => {
+  const parts = ogParts({ ...card, items: [...card.items, { dish_name: 'Tiramisu', score: 3, position: 4 }] });
+  assert.equal(parts.place, 'Small Wins');
+  assert.equal(parts.byline, '@eamon · Fitzroy');
+  assert.deepEqual(parts.rows.map((r) => [r.name, r.score, r.best]), [
+    ['Cacio e Pepe', '4.5', true], ['Burnt Butter Mash', '4.0', false], ['Negroni', null, false],
+  ]);
+  assert.equal(parts.more, 1);
+});
+
+test('preview image escapes names and drops the photo column when there is none', () => {
+  const html = ogHTML({ place: '<b>x</b>', byline: '', rows: [], more: 0 }, null, 'data:,');
+  assert.ok(html.includes('&lt;b&gt;x&lt;/b&gt;'));
+  assert.ok(!html.includes('<img src="http'));
+});

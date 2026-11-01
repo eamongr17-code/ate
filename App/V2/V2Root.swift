@@ -34,7 +34,7 @@ struct V2Root: View {
         // "The first write asks for sign-in": Welcome again, over the feed, with its link as Not Now.
         .fullScreenCover(isPresented: Bindable(app.gate).isAsking) { welcome(isPrompt: true) }
         .environment(app.gate)
-        // https://rateonate.com/entry/<id> (and old ate:// links), on every screen the root shows — Welcome and the handle step too.
+        // https://rateonate.app/entry/<id> (and old ate:// links), on every screen the root shows — Welcome and the handle step too.
         .ateEntryLinks(app.linkSituation) { entryID, browseFirst in
             if browseFirst {
                 if app.browse(isPrompt: false) { start = V2Launch.Start(tab: .feed) }

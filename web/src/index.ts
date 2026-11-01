@@ -21,7 +21,12 @@ import youngserif from './fonts/youngserif.woff2';
 
 // The three fonts, served from here (latin subsets, OFL): no viewer's IP goes to a font host.
 const FONTS: Record<string, ArrayBuffer> = { dmsans, newsreader, youngserif };
-import { aasa, entryPage, json, listPage, type Env } from './render.ts';
+import { ImageResponse } from 'workers-og';
+import dmsans500 from './fonts/dmsans-500.ttf';
+import dmsans700 from './fonts/dmsans-700.ttf';
+import youngserifTTF from './fonts/youngserif.ttf';
+import { aasa, entryPage, fetchCard, json, listPage, previewPhoto, type Env } from './render.ts';
+import { ogHTML, ogParts } from './og.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -49,6 +54,18 @@ export default {
       });
     }
 
+    const og = /^\/entry\/([0-9a-f-]{36})\/og\.png$/i.exec(path);
+    if (og && UUID.test(og[1])) {
+      const id = og[1].toLowerCase();
+      const cache = caches.default;
+      const key = new Request(`${url.origin}/entry/${id}/og.png`);
+      const hit = await cache.match(key);
+      if (hit) return hit;
+      const image = await ogImage(id, env);
+      if (image.status === 200) ctx.waitUntil(cache.put(key, image.clone()));
+      return image;
+    }
+
     const [, kind, id] = path.split('/');
     if ((kind === 'entry' || kind === 'list') && id && UUID.test(id)) {
       const cache = caches.default;
@@ -66,3 +83,29 @@ export default {
   },
 };
 
+
+const LOGO = `data:image/svg+xml;base64,${btoa(logo)}`;
+
+/** The post's link preview image. Cached an hour at the edge, so one render per post per hour. */
+async function ogImage(id: string, env: Env): Promise<Response> {
+  let card;
+  try {
+    card = await fetchCard(id, env);
+  } catch {
+    return new Response('Unavailable', { status: 503 });
+  }
+  if (!card) return new Response('Not found', { status: 404 });
+  const photo = await previewPhoto(card);
+  const image = new ImageResponse(ogHTML(ogParts(card), photo, LOGO), {
+    width: 1200,
+    height: 630,
+    fonts: [
+      { name: 'DM Sans', data: dmsans500, weight: 500, style: 'normal' },
+      { name: 'DM Sans', data: dmsans700, weight: 700, style: 'normal' },
+      { name: 'Young Serif', data: youngserifTTF, weight: 400, style: 'normal' },
+    ],
+  });
+  const headers = new Headers(image.headers);
+  headers.set('Cache-Control', 'public, max-age=3600');
+  return new Response(image.body, { status: 200, headers });
+}

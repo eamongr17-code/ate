@@ -27,7 +27,7 @@ export function aasa(appID: string) {
 
 // ─── The post ───────────────────────────────────────────────────────────────────────────────────
 
-interface Card {
+export interface Card {
   id: string;
   created_at: string;
   body: string | null;
@@ -37,28 +37,38 @@ interface Card {
   items: { dish_name: string; score: number | null; position: number }[] | null;
 }
 
+/** The post, as the signed-out Feed reads it. null = not there (deleted, blocked); throws on an outage. */
+export async function fetchCard(id: string, env: Env): Promise<Card | null> {
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/get_entry_card`, {
+    method: 'POST',
+    headers: {
+      apikey: env.SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_PUBLISHABLE_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ p_entry_id: id }),
+    signal: AbortSignal.timeout(5000),
+  });
+  if (res.ok) return parseCard(await res.json());
+  if (res.status >= 500) throw new Error(`get_entry_card ${res.status}`);
+  return null;
+}
+
 export async function entryPage(id: string, origin: string, env: Env): Promise<Response> {
-  let card: Card | null = null;
+  let card: Card | null;
   try {
-    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/get_entry_card`, {
-      method: 'POST',
-      headers: {
-        apikey: env.SUPABASE_PUBLISHABLE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_PUBLISHABLE_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ p_entry_id: id }),
-      signal: AbortSignal.timeout(5000),
-    });
-    if (res.ok) card = parseCard(await res.json());
-    else if (res.status >= 500) return errorPage(origin, env);
+    card = await fetchCard(id, env);
   } catch {
     return errorPage(origin, env);
   }
   if (!card) return gonePage(origin, env);
+  return html(renderEntry(card, origin, env, `${origin}/entry/${card.id}/og.png`), 200);
+}
+
+/** The photo for the preview image: the first photo's thumbnail when it exists, else the photo, else none. */
+export async function previewPhoto(card: Card): Promise<string | null> {
   const first = firstPhoto(card);
-  const preview = first ? await thumbnailIfThere(first) : null;
-  return html(renderEntry(card, origin, env, preview), 200);
+  return first ? await thumbnailIfThere(first) : null;
 }
 
 /** get_entry_card answers one row, an array of one, or null; anything else is "not there". */
@@ -166,6 +176,7 @@ function page(p: PageParts): string {
     `<meta property="og:url" content="${attr(p.canonical)}">`,
     `<meta property="og:type" content="article">`,
     p.image ? `<meta property="og:image" content="${attr(p.image)}">` : '',
+    p.image && p.image.endsWith('/og.png') ? `<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">` : '',
     `<meta name="twitter:card" content="${p.image ? 'summary_large_image' : 'summary'}">`,
   ].filter(Boolean).join('\n');
   // "Open in Ate": tries the app's own scheme, and if the page is still here a moment later (no app),
@@ -249,6 +260,7 @@ export function text(s: string | null | undefined): string {
   return (s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }
 const attr = text;
+export const esc = text;
 
 function isHttps(u: string | null | undefined): u is string {
   try { return new URL(u ?? '').protocol === 'https:'; } catch { return false; }

@@ -7,7 +7,7 @@ workers_dev = false
 
 rules = [
   { type = "Text", globs = ["**/*.svg"], fallthrough = true },
-  { type = "Data", globs = ["**/*.woff2"], fallthrough = true },
+  { type = "Data", globs = ["**/*.woff2", "**/*.ttf"], fallthrough = true },
 ]
 
 [vars]

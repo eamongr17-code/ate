@@ -13,14 +13,14 @@ public enum AteLink: Equatable, Sendable {
 /// Sharing somebody else's entry sends a link to it, not a picture (round 5, Eamon): whoever gets it
 /// opens the review inside Ate. A person's OWN entry still shares its printed receipt.
 ///
-/// Links are `https://rateonate.com/entry/<id>` (Nov 2026): with Ate installed the link opens the app (a
-/// universal link, `applinks:rateonate.com` + the site's apple-app-site-association); without it, the web
+/// Links are `https://rateonate.app/entry/<id>` (Nov 2026): with Ate installed the link opens the app (a
+/// universal link, `applinks:rateonate.app` + the site's apple-app-site-association); without it, the web
 /// page (`web/`) shows the post and the way to get the app. Every link is built from ``base`` and every
 /// incoming link is read against it; the old `ate://` links already sent keep opening.
 public enum AteLinks {
     /// **The one config value.** Where every link starts: the domain in `Config/domain.txt`, which
     /// the associated-domains entitlement (`Config/Ate.entitlements`) and the web pages also use.
-    public static let base = URL(string: "https://rateonate.com/")!
+    public static let base = URL(string: "https://rateonate.app/")!
 
     /// The custom scheme the app registers (`CFBundleURLTypes`). Always understood, whatever
     /// ``base`` becomes, so a link already sent keeps opening.
@@ -31,7 +31,7 @@ public enum AteLinks {
     /// …and a list link's.
     static let listSegment = "list"
 
-    /// `https://rateonate.com/entry/<id>` — the link a shared entry sends. Ids are lowercased, as Postgres writes them.
+    /// `https://rateonate.app/entry/<id>` — the link a shared entry sends. Ids are lowercased, as Postgres writes them.
     public static func entry(_ id: UUID) -> URL {
         entry(id, base: base)
     }
@@ -40,7 +40,7 @@ public enum AteLinks {
         URL(string: base.absoluteString + entrySegment + "/" + id.uuidString.lowercased())!
     }
 
-    /// `https://rateonate.com/list/<id>` — the link a shared list sends (Spotify's playlist, not a receipt).
+    /// `https://rateonate.app/list/<id>` — the link a shared list sends (Spotify's playlist, not a receipt).
     public static func list(_ id: UUID) -> URL {
         list(id, base: base)
     }
