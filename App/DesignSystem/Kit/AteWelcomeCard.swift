@@ -81,6 +81,35 @@ struct AteWelcomeLink: View {
     }
 }
 
+/// **Welcome's second door** — "Continue with email", a white capsule the height of Apple's button
+/// and directly under it (`email-signin-share-links.html` A). Apple's stays first and the same size,
+/// as App Review asks of any other sign-in beside it.
+struct AteWelcomeEmailButton: View {
+    var isEnabled = true
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: AteWelcomeCardMetrics.emailIconGap) {
+                AteIcon.mail.view(size: AteWelcomeCardMetrics.emailIcon)
+                    .accessibilityHidden(true)
+                Text("Continue with email")
+                    .ateText(.kitWelcomeEmail)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: AteMetrics.buttonHeight)
+            .foregroundStyle(AteColor.ink)
+            .background(AteColor.onBrand, in: .capsule)
+            .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .disabled(isEnabled == false)
+        .opacity(isEnabled ? 1 : AteKitColor.disabledOpacity)
+        .accessibilityIdentifier("welcome.email")
+    }
+}
+
 enum AteWelcomeCardMetrics {
     static let line = "A personal journal of the best food you've ever eaten."
     /// The logo 123 high (260 across), the stars and the line 26 apart under it.
@@ -99,5 +128,9 @@ enum AteWelcomeCardMetrics {
     static let underline: CGFloat = 1
     /// `left:20; right:20; bottom:40; gap:6` — Apple's button, then the link.
     static let doorsGap: CGFloat = 6
+    /// Apple's button over the email one: 12 (`email-signin-share-links.html` A).
+    static let buttonsGap: CGFloat = 12
+    static let emailIcon: CGFloat = 20
+    static let emailIconGap: CGFloat = 8
     static let doorsBottom: CGFloat = 40
 }

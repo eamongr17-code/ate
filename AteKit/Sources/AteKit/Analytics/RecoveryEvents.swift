@@ -21,6 +21,10 @@ public enum ActionFailure: String, Sendable, CaseIterable, Identifiable {
     case addOwnSave = "add_own_save"
     /// Settings → Diet, or the first-run step's Next.
     case diet = "diet_save"
+    /// Email sign-in: the code did not go out.
+    case sendCode = "send_code"
+    /// Email sign-in: the code typed was wrong, or older than ten minutes.
+    case emailCode = "email_code"
 
     public var id: String { rawValue }
 
@@ -38,6 +42,8 @@ public enum ActionFailure: String, Sendable, CaseIterable, Identifiable {
         case .removeMe: "Couldn't remove you."
         case .addOwnSave: "Couldn't save the dish."
         case .diet: "Couldn't save your diet."
+        case .sendCode: "Couldn't send the code."
+        case .emailCode: "Couldn't sign in with that code."
         }
     }
 }

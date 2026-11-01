@@ -4,7 +4,8 @@ import SwiftUI
 
 /// **Welcome** — a full-screen cover on coral: the logo traced on, five stars and the line
 /// (``AteWelcomeMark``), then Apple's own Sign in with Apple in black and "See what everyone's
-/// eating", which opens the Feed signed out.
+/// eating", which opens the Feed signed out. "Continue with email" sits under Apple's button and
+/// pushes the email sign-in (``V2EmailSignInScreen``).
 ///
 /// It is also the sign-in ask: when somebody reading signed out tries to write or save, this is the
 /// screen that comes up, and its link reads "Not now". A sign-in that fails (not one the person
@@ -19,13 +20,27 @@ struct V2WelcomeScreen: View {
     let onBrowse: () -> Void
     /// The seeded staging account. Non-nil only in Debug and Beta.
     var onDebugSignIn: (() async -> Void)?
+    /// "Continue with email": a code to the address, then the code for a session (``V2EmailSignInScreen``).
+    var onSendEmailCode: (String) async -> Bool = { _ in false }
+    var onEmailCode: (String, String) async -> Bool = { _, _ in false }
     var isBusy = false
 
     /// The raw nonce of the request in the air. Its hash went to Apple; this goes to Supabase.
     @State private var nonce = ""
     @State private var failure: ActionFailure?
+    @State private var showsEmail = false
 
     var body: some View {
+        NavigationStack {
+            welcome
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(isPresented: $showsEmail) {
+                    V2EmailSignInScreen(onSendCode: onSendEmailCode, onVerify: onEmailCode)
+                }
+        }
+    }
+
+    private var welcome: some View {
         // Stacked rather than layered, so however tall the type makes either part they cannot
         // overlap: at the largest sizes the page scrolls, Apple's button always clear of the mark
         // (App Review reads an obscured Sign in with Apple as a rejection).
@@ -50,10 +65,13 @@ struct V2WelcomeScreen: View {
         }
     }
 
-    /// Apple's button, then the link.
+    /// Apple's button, the email one under it, then the link.
     private var doors: some View {
         VStack(spacing: AteWelcomeCardMetrics.doorsGap) {
-            appleButton
+            VStack(spacing: AteWelcomeCardMetrics.buttonsGap) {
+                appleButton
+                AteWelcomeEmailButton(isEnabled: isBusy == false) { showsEmail = true }
+            }
             AteWelcomeLink(title: isPrompt ? "Not now" : "See what everyone's eating", action: onBrowse)
         }
         .padding(.horizontal, AteMetrics.gutter)

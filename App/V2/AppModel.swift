@@ -176,6 +176,41 @@ final class AppModel {
         return true
     }
 
+    /// Email sign-in, step one: a code to the address. False when it did not go out.
+    func sendEmailCode(to address: String) async -> Bool {
+        services.analytics(AccountEvents.signInStarted(provider: .email))
+        do {
+            try await EmailSignIn.sendCode(to: address, with: services.api)
+            return true
+        } catch {
+            services.analytics(AccountEvents.signInFailed(provider: .email, reason: .codeNotSent))
+            return false
+        }
+    }
+
+    /// …step two: the code, for a session. False when the code was wrong or had run out — the
+    /// person is told, and can type it again or ask for a new one.
+    func signInWithEmail(_ address: String, code: String) async -> Bool {
+        isSigningIn = true
+        defer { isSigningIn = false }
+        let signedIn: AppleSignIn.SignedIn
+        do {
+            signedIn = try await EmailSignIn.verify(code, for: address, with: services.api)
+        } catch {
+            services.analytics(AccountEvents.signInFailed(provider: .email, reason: .wrongCode))
+            return false
+        }
+        // No first-authorization signal by email: the account's age says it (the code is ten
+        // minutes old at most, so a new address is always inside the window), and a handle the
+        // server made up is caught again by `loadHandle`.
+        if FirstRun.isNewAccount(isFirstAuthorization: false, createdAt: signedIn.accountCreatedAt) {
+            services.preferences.noteOwesHandle(signedIn.userID)
+        }
+        services.analytics(AccountEvents.signInCompleted(provider: .email))
+        didSignIn()
+        return true
+    }
+
     /// The seeded staging account — Debug and Beta only (`debugSignIn` is nil everywhere else).
     func signInToStaging() async {
         guard let debugSignIn = services.debugSignIn else { return }

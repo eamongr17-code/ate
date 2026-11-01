@@ -76,6 +76,8 @@ struct V2Root: View {
                 if app.browse(isPrompt: isPrompt) { start = V2Launch.Start(tab: .feed) }
             },
             onDebugSignIn: debugDoor,
+            onSendEmailCode: { await app.sendEmailCode(to: $0) },
+            onEmailCode: { await app.signInWithEmail($0, code: $1) },
             isBusy: app.isSigningIn
         )
     }
