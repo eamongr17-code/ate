@@ -3,7 +3,7 @@ name: Move prod to Sydney
 # One-off, Nov 2026 (Eamon chose Sydney on 1 Nov): copies prod from the Seoul project to the new Sydney
 # one with .github/scripts/move_region.sh. The Seoul project is only read. Runs on a push to the move
 # branch whose commit message holds [move-check] (read-only) or [move-copy], or by hand once on main.
-# Deleted after the cutover, together with the Seoul project (only with Eamon's OK).
+# Final copy run at the cutover (PR #333 merged 1 Nov). Deleted with the Seoul project, only with Eamon's OK.
 
 on:
   push:
