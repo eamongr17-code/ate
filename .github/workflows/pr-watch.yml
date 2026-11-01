@@ -1,0 +1,28 @@
+name: PR watch
+
+# Nothing sits (Eamon, 2026-11-01). Every half hour: an open PR with no checks after 10 minutes,
+# a merge conflict, or green and unmerged for two hours gets one comment per state and head.
+# The comment is an event on the PR, which wakes the Claude thread that owns it. Rationale and
+# earlier incidents: a conflicted PR gets no CI at all (#294 sat overnight); a green PR waited two
+# hours for a hand-off (#324).
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: read
+
+jobs:
+  watch:
+    name: Comment on stuck PRs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Look at every open PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/pr_watch.py
