@@ -117,7 +117,13 @@ for f in supabase/migrations/*.sql; do
   v=$(basename "$f" | cut -d_ -f1)
   if [[ "$v" < "$old_last" || "$v" == "$old_last" ]]; then cp "$f" "$stage/supabase/migrations/"; fi
 done
-(cd "$stage" && supabase db push --db-url "$NEW_URL" --include-all --yes)
+# A re-run finds the schema already there (and newer migrations applied): leave it as it is.
+if [ "$(psql "$NEW_URL" -Atc "select to_regclass('supabase_migrations.schema_migrations') is not null")" = t ] \
+   && [ "$(psql "$NEW_URL" -Atc 'select count(*) from supabase_migrations.schema_migrations')" != 0 ]; then
+  echo "New project already has its schema; rows only."
+else
+  (cd "$stage" && supabase db push --db-url "$NEW_URL" --include-all --yes)
+fi
 
 # ---- 3. rows, over emptied tables ---------------------------------------------------------------
 truncate_list=$(echo "$tables" | paste -sd, -)
