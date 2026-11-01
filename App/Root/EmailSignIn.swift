@@ -19,7 +19,9 @@ struct EmailSignIn {
 
     /// Trades the code for a session. `.email` covers both a new address's confirmation code and a
     /// returning one's sign-in code.
-    static func verify(_ code: String, for address: String, with api: AteAPIClient) async throws -> AppleSignIn.SignedIn {
+    static func verify(
+        _ code: String, for address: String, with api: AteAPIClient
+    ) async throws -> AppleSignIn.SignedIn {
         let response = try await api.supabase.auth.verifyOTP(email: address, token: code, type: .email)
         guard let session = response.session else { throw EmailSignInError.noSession }
         return AppleSignIn.SignedIn(userID: session.user.id, accountCreatedAt: session.user.createdAt)
