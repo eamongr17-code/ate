@@ -30,7 +30,8 @@ struct ErrorReportingTests {
         for error in quiet { #expect(ErrorReporting.isWorthReporting(error) == false, "\(error)") }
         #expect(ErrorReporting.isWorthReporting(ServerFault()))
         #expect(ErrorReporting.isWorthReporting(URLError(.badServerResponse)))
-        #expect(ErrorReporting.isWorthReporting(DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "x"))))
+        let decoding = DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "x"))
+        #expect(ErrorReporting.isWorthReporting(decoding))
     }
 
     @Test("one report per place and error type per quiet period")
@@ -45,7 +46,8 @@ struct ErrorReportingTests {
         ErrorReporting.report(OtherFault(), where: "test.a", now: t0.addingTimeInterval(60))
         ErrorReporting.report(ServerFault(), where: "test.b", now: t0.addingTimeInterval(60))
         ErrorReporting.report(URLError(.notConnectedToInternet), where: "test.c", now: t0)
-        ErrorReporting.report(ServerFault(), where: "test.a", now: t0.addingTimeInterval(ErrorReporting.quietPeriod + 1))
+        let later = t0.addingTimeInterval(ErrorReporting.quietPeriod + 1)
+        ErrorReporting.report(ServerFault(), where: "test.a", now: later)
 
         #expect(recorder.sent == ["test.a", "test.a", "test.b", "test.a"])
     }

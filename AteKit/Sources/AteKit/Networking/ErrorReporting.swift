@@ -26,10 +26,10 @@ public enum ErrorReporting {
     public static func report(_ error: any Error, where place: String, now: Date = Date()) {
         guard isWorthReporting(error) else { return }
         let key = "\(place)|\(String(reflecting: type(of: error)))"
-        let sink: Sink? = state.withLock { s in
-            guard let sink = s.sink else { return nil }
-            if let last = s.lastSent[key], now.timeIntervalSince(last) < quietPeriod { return nil }
-            s.lastSent[key] = now
+        let sink: Sink? = state.withLock { current in
+            guard let sink = current.sink else { return nil }
+            if let last = current.lastSent[key], now.timeIntervalSince(last) < quietPeriod { return nil }
+            current.lastSent[key] = now
             return sink
         }
         sink?(error, place)
