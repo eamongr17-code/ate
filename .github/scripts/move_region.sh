@@ -179,7 +179,8 @@ echo "Photos: $copied copied, $failed failed." | tee -a "$summary"
 
 # ---- 6. settings and function secrets ------------------------------------------------------------
 auth=$(call GET "/projects/$old/config/auth" | jq 'with_entries(select(.value != null and
-  (.key | test("^(external_|mailer_|smtp_|sms_provider$|site_url$|uri_allow_list$|jwt_exp$|rate_limit_|security_|password_|sessions_|refresh_token_|disable_signup$|mfa_|hook_)"))))')
+  (.key | test("^(external_|mailer_|smtp_|sms_provider$|site_url$|uri_allow_list$|jwt_exp$|rate_limit_|security_|password_|sessions_|refresh_token_|disable_signup$|mfa_|hook_)"))))
+  | if (.smtp_host // "") == "" then with_entries(select(.key | test("^smtp_|^rate_limit_email_sent$") | not)) else . end')
 call PATCH "/projects/$new/config/auth" "$auth" >/dev/null
 echo "Auth settings copied ($(echo "$auth" | jq 'length') fields). Sign-in with Apple on: $(echo "$auth" | jq -r '.external_apple_enabled // false')." | tee -a "$summary"
 rest=$(call GET "/projects/$old/postgrest" | jq '{db_schema, max_rows, db_extra_search_path, db_pool} | with_entries(select(.value != null))')
