@@ -11,6 +11,8 @@ struct AteFieldPill: View {
     /// False where the page's title already says what the field is ("Your email"): the label then
     /// only names the field to VoiceOver.
     var showsLabel = true
+    /// Where the page raises the keyboard on arrival ("Your email"): the field's focus.
+    var focus: FocusState<Bool>.Binding?
 
     @Environment(\.atePalette) private var palette
 
@@ -32,7 +34,15 @@ struct AteFieldPill: View {
             .background(palette.field, in: .capsule)
             .accessibilityLabel(label)
             .accessibilityIdentifier(identifier ?? "field.\(label.lowercased())")
+            .ateFocused(focus)
         }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func ateFocused(_ focus: FocusState<Bool>.Binding?) -> some View {
+        if let focus { focused(focus) } else { self }
     }
 }
 

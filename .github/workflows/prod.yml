@@ -43,6 +43,10 @@ on:
         description: "Proposal numbers to merge or reject, e.g. 3,5,8 (merge also takes: all)"
         type: string
         default: ""
+      test_push:
+        description: "Test push: send one test notification to this handle's phones, e.g. wamon (writes nothing)"
+        type: string
+        default: ""
 
 concurrency:
   group: prod
@@ -208,3 +212,16 @@ jobs:
           DUPLICATE_DISHES: ${{ inputs.duplicate_dishes }}
           DISH_NUMBERS: ${{ inputs.dish_numbers }}
         run: .github/scripts/dish_dedup.sh "$PROD_REF" "$DUPLICATE_DISHES" "$DISH_NUMBERS"
+
+      # A test notification to one person's phones, straight through APNs (push_test.py). Writes
+      # nothing; proves the key and the phone's token without anyone tagging anyone.
+      - name: Test push
+        if: ${{ inputs.test_push != '' }}
+        env:
+          APNS_KEY_ID: ${{ secrets.APNS_KEY_ID }}
+          APNS_PRIVATE_KEY: ${{ secrets.APNS_PRIVATE_KEY }}
+          TEST_PUSH: ${{ inputs.test_push }}
+        run: |
+          set -o pipefail
+          pip install --quiet "pyjwt[crypto]==2.9.0" "httpx[http2]==0.27.2"
+          python .github/scripts/push_test.py "$PROD_REF" "$TEST_PUSH" | tee -a "$GITHUB_STEP_SUMMARY"

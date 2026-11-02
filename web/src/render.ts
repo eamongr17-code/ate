@@ -100,40 +100,63 @@ async function thumbnailIfThere(url: string): Promise<string> {
   }
 }
 
+/** The dish a share leads with (dish-first): the top score, the first of a tie; with no scores, the first dish. */
+export function headlineDish(card: Card): { name: string; score: number | null } | null {
+  const items = [...(card.items ?? [])].sort((a, b) => a.position - b.position).filter((i) => i.dish_name);
+  if (!items.length) return null;
+  const scored = items.filter((i) => typeof i.score === 'number');
+  const top = scored.length ? scored.reduce((a, b) => ((b.score as number) > (a.score as number) ? b : a)) : items[0];
+  return { name: top.dish_name, score: typeof top.score === 'number' ? top.score : null };
+}
+
+/** "@handle at Place" — the line under the dish (dish-first: the place is never the headline). */
+export function atLine(card: Card): string {
+  const handle = card.author?.username ? `@${card.author.username}` : '';
+  const place = card.place?.name ?? '';
+  return [handle, place].filter(Boolean).join(' at ') || 'Ate';
+}
+
 export function renderEntry(card: Card, origin: string, env: Env, previewImage: string | null = null): string {
   const handle = card.author?.username ? `@${card.author.username}` : 'Someone';
   const placeName = card.place?.name ?? null;
-  const title = placeName ? `${handle} at ${placeName}` : handle;
+  const lead = headlineDish(card);
+  const title = lead ? `${lead.name}${lead.score === null ? '' : ` ★ ${lead.score.toFixed(1)}`}` : atLine(card);
   const photos = [...(card.photos ?? [])].sort((a, b) => a.position - b.position).filter((p) => isHttps(p.url));
   const items = [...(card.items ?? [])].sort((a, b) => a.position - b.position);
   const best = Math.max(-1, ...items.map((i) => (typeof i.score === 'number' ? i.score : -1)));
-  const description = items.map((i) => i.dish_name).filter(Boolean).slice(0, 4).join(', ');
   const appURL = `ate://entry/${card.id}`;
 
+  // 2 Nov (Eamon, mockup 2): the photo near full width at 4:5, untilted; more than one swipes sideways.
   const photoHTML = photos.length
-    ? `<div class="photos">${photos.slice(0, 2).map((p, n) =>
-        `<img class="p${n}" src="${attr(p.url)}" alt="" loading="${n ? 'lazy' : 'eager'}">`).join('')}</div>`
+    ? `<div class="photos">${photos.map((p, n) =>
+        `<img src="${attr(p.url)}" alt="" loading="${n ? 'lazy' : 'eager'}">`).join('')}</div>`
     : '';
+  // The dishes are the headline, each at the same size, in the order they were rated; the place is a
+  // line under the first.
   const rows = items.map((i) => {
     const scored = typeof i.score === 'number';
     const cls = scored && i.score === best ? 'sc best' : 'sc';
     const score = scored ? `${STAR}${(i.score as number).toFixed(1)}` : '';
-    return `<div class="drow"><span class="dn">${text(i.dish_name)}</span><span class="${cls}">${score}</span></div>`;
-  }).join('');
+    return `<div class="drow"><h1 class="dn">${text(i.dish_name)}</h1><span class="${cls}">${score}</span></div>`;
+  });
+  const at = placeName
+    ? `<p class="at">at <b>${text(placeName)}</b>${card.place?.locality ? ` · ${text(card.place.locality)}` : ''}</p>`
+    : '';
 
   return page({
     title,
-    description,
+    description: atLine(card),
     image: previewImage ?? photos[0]?.url ?? null,
     canonical: `${origin}/entry/${card.id}`,
     appURL,
     env,
     body: `${photoHTML}
 <article>
-  <div class="byline"><span class="av">${text(initial(card.author?.username))}</span><b>${text(handle)}</b><span>· ${text(shortDate(card.created_at))}</span></div>
-  ${placeName ? `<h1>${text(placeName)}</h1>${card.place?.locality ? `<p class="meta">${text(card.place.locality)}</p>` : ''}` : ''}
+  ${rows[0] ?? ''}
+  ${at}
+  ${rows.slice(1).join('')}
   ${card.body ? `<p class="words">${text(card.body)}</p>` : ''}
-  <div class="dishes">${rows}</div>
+  <div class="byline"><span class="av">${text(initial(card.author?.username))}</span><b>${text(handle)}</b><span>· ${text(shortDate(card.created_at))}</span></div>
 </article>`,
   });
 }
@@ -211,25 +234,23 @@ const CSS = `
 @media (prefers-color-scheme:dark){:root{--g:#17111B;--ink:#F4EFE9;--mut:#B9AFBC;--hr:rgba(255,255,255,.16)}.logo{filter:invert(1)}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--g);color:var(--ink);font:400 18px/1.5 Newsreader,Georgia,serif;-webkit-text-size-adjust:100%}
-header{display:flex;align-items:center;justify-content:space-between;max-width:560px;margin:0 auto;padding:14px 18px}
+header{display:flex;align-items:center;justify-content:space-between;max-width:560px;margin:0 auto;padding:14px 16px 10px}
 .logo{height:30px;width:auto}
 .open{display:inline-flex;align-items:center;height:40px;padding:0 18px;border-radius:999px;background:var(--ink);color:var(--g);font:600 15px/1 'DM Sans',sans-serif;text-decoration:none}
-main{max-width:560px;margin:0 auto;padding:0 20px 48px}
-.photos{position:relative;height:270px;margin:8px 0 6px}
-.photos img{position:absolute;object-fit:cover;border-radius:16px;box-shadow:0 0 0 3px #FBF9F6}
-.photos .p0{left:6%;top:12px;width:60%;height:230px;transform:rotate(-4deg)}
-.photos .p1{right:4%;top:30px;width:44%;height:210px;transform:rotate(5deg)}
-.photos img:only-child{left:50%;width:70%;transform:translateX(-50%) rotate(-3deg)}
-.byline{display:flex;align-items:center;gap:7px;margin-top:18px;font:500 14px/1 'DM Sans',sans-serif;color:var(--mut)}
+main{max-width:560px;margin:0 auto;padding:0 8px 48px}
+.photos{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:4px 0 0}
+.photos::-webkit-scrollbar{display:none}
+.photos img{flex:0 0 100%;width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:22px;scroll-snap-align:center}
+article{padding:18px 10px 0;display:flex;flex-direction:column;gap:12px}
+.byline{display:flex;align-items:center;gap:7px;margin-top:4px;font:500 14px/1 'DM Sans',sans-serif;color:var(--mut)}
 .byline b{color:var(--ink);font-weight:600}
 .av{width:26px;height:26px;border-radius:50%;background:#F6D365;color:#24141F;display:inline-flex;align-items:center;justify-content:center;font:700 13px 'DM Sans',sans-serif}
-h1{font:400 30px/1.02 'Young Serif',Georgia,serif;letter-spacing:-.02em;margin:14px 0 0}
-.meta{margin:4px 0 0;font:500 14px/1.3 'DM Sans',sans-serif;color:var(--mut)}
-.words{margin:14px 0 10px;white-space:pre-wrap}
-.drow{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:48px;border-top:1px solid var(--hr)}
-.drow:first-child{border-top:0}
-.dn{font:400 20px/1.1 'Young Serif',Georgia,serif;letter-spacing:-.01em}
-.sc{flex-shrink:0;min-width:72px;height:34px;border-radius:999px;box-shadow:inset 0 0 0 1px var(--hr);display:inline-flex;align-items:center;justify-content:center;gap:4px;font:700 20px/1 'DM Sans',sans-serif}
+.at{margin:0;font:500 15px/1.3 'DM Sans',sans-serif;color:var(--mut)}
+.at b{color:var(--ink);font-weight:600}
+.words{margin:0;white-space:pre-wrap}
+.drow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.dn{margin:0;font:400 34px/1.02 'Young Serif',Georgia,serif;letter-spacing:-.02em;text-wrap:balance}
+.sc{flex-shrink:0;min-width:80px;height:38px;margin-top:1px;border-radius:999px;box-shadow:inset 0 0 0 1px var(--hr);display:inline-flex;align-items:center;justify-content:center;gap:4px;font:700 20px/1 'DM Sans',sans-serif}
 .sc.best{background:#F6D365;color:#24141F;box-shadow:none}
 .gone{margin:30vh 0 0;text-align:center;font:400 20px/1.25 'Young Serif',Georgia,serif}
 .solo{margin-top:30vh;display:flex;justify-content:center}

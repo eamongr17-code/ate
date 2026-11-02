@@ -2,12 +2,14 @@
 //
 //   GET /entry/<uuid>   one post, as the signed-out Feed shows it (get_entry_card with the publishable
 //                       key: every entry is public, 0033). Open Graph tags give Messages/WhatsApp a
-//                       preview: the first photo, "@handle at Place". Deleted/blocked → "This post was deleted."
+//                       preview (og.png): the photo, the top dish and its score, "@handle at Place".
+//                       Deleted/blocked → "This post was deleted."
 //   GET /list/<uuid>    lists are private (0060), so the page shows NOTHING of the list: just the way into
 //                       the app. A member opens it in Ate.
 //   GET /.well-known/apple-app-site-association   universal links: /entry/* and /list/* open the app
 //                       when it is installed (Associated Domains entitlement, applinks:<domain>).
 //   GET /logo.svg       the wordmark.
+//   GET /logo.png       the wordmark as a PNG, for the sign-in code email (mail apps don't show SVG).
 //   anything else       → the App link (TestFlight during the beta).
 //
 // Cost/volume: responses are cached at Cloudflare's edge for 5 minutes per URL, so a post shared to a
@@ -15,6 +17,7 @@
 // No cookies, no scripts or fonts from elsewhere (fonts are served from here), no tracking.
 
 import logo from './logo.svg';
+import logoPNG from './logo-email.png';
 import dmsans from './fonts/dmsans.woff2';
 import newsreader from './fonts/newsreader.woff2';
 import youngserif from './fonts/youngserif.woff2';
@@ -44,6 +47,12 @@ export default {
     if (path === '/logo.svg') {
       return new Response(logo, {
         headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' },
+      });
+    }
+
+    if (path === '/logo.png') {
+      return new Response(logoPNG, {
+        headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' },
       });
     }
 
@@ -84,7 +93,10 @@ export default {
 };
 
 
-const LOGO = `data:image/svg+xml;base64,${btoa(logo)}`;
+const LOGOS = {
+  ink: `data:image/svg+xml;base64,${btoa(logo)}`,
+  paper: `data:image/svg+xml;base64,${btoa(logo.replaceAll('#24141F', '#FBF9F6'))}`,
+};
 
 /** The post's link preview image. Cached an hour at the edge, so one render per post per hour. */
 async function ogImage(id: string, env: Env): Promise<Response> {
@@ -96,7 +108,7 @@ async function ogImage(id: string, env: Env): Promise<Response> {
   }
   if (!card) return new Response('Not found', { status: 404 });
   const photo = await previewPhoto(card);
-  const image = new ImageResponse(ogHTML(ogParts(card), photo, LOGO), {
+  const image = new ImageResponse(ogHTML(ogParts(card), photo, LOGOS), {
     width: 1200,
     height: 630,
     fonts: [
