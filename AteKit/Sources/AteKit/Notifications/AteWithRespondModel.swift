@@ -91,7 +91,6 @@ public final class AteWithRespondModel {
                     phase = .gone
                     return
                 case .pending:
-                    if read.isStillSorting { continue }
                     if await open(read) { return }
                 }
             } catch let error as AteWithError where error == .gone || error == .declined {
@@ -105,8 +104,9 @@ public final class AteWithRespondModel {
     }
 
     /// A pending tag, read: its rows — or, with every dish already on their entry that day, the link.
-    /// `false` when that link did not land, so the read is tried again.
+    /// `false` while the tagger's dishes are still on their way or the link did not land: read again.
     private func open(_ read: AteWithPrefill) async -> Bool {
+        if read.isStillSorting { return false }
         if read.isAlreadyScored { return await link(read) }
         adopt(read)
         return true
