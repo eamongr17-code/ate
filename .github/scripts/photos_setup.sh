@@ -115,7 +115,13 @@ say "New uploads now go to R2."
 from="$url/storage/v1/object/public/"
 rpc photo_keys_on_supabase "$(jq -nc --arg f "$from" '{p_from: $f}')" | jq -r '.[]' | sort -u > keys.txt
 originals=$(wc -l < keys.txt | tr -d ' ')
-{ cat keys.txt; grep '^review-photos/' keys.txt | grep -v '_t\.jpg$' | sed -E 's/\.[^./]*$/_t.jpg/'; } | sort -u > all.txt
+if [ "$originals" = 0 ]; then
+  say "Every photo the database names is already on R2; nothing to move."
+  rm -f keys.txt; exit 0
+fi
+# grep exits 1 when nothing matches (e.g. only avatars left); that is not a failure here
+{ cat keys.txt; { grep '^review-photos/' keys.txt || true; } | { grep -v '_t\.jpg$' || true; } \
+    | sed -E 's/\.[^./]*$/_t.jpg/'; } | sort -u > all.txt
 : > results.jsonl
 split -l 10 all.txt batch.   # 10 a call: a free-plan Worker makes at most 50 subrequests
 for f in batch.*; do
