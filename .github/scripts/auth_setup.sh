@@ -27,7 +27,7 @@ fi
 echo "::add-mask::$RESEND_API_KEY"
 
 dir="$(cd "$(dirname "$0")" && pwd)"
-template=$(cat "$dir/../../supabase/templates/code.html")
+template=$(sed "s/__DOMAIN__/$domain/g" "$dir/../../supabase/templates/code.html")
 
 body=$(jq -n \
   --arg domain "$domain" \
