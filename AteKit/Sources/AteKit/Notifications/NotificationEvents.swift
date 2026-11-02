@@ -21,16 +21,27 @@ public enum NotificationEvents {
 
     /// The person posted their own entry from a tag: how many of the tagger's dishes they scored,
     /// dropped, or kept unscored, and whether they wrote anything.
+    /// `skipped` (0103): the tagger's dishes left off the sheet because the person had already scored
+    /// them that day; `merged`: the answer went into their own same-day entry rather than a new one.
     public static func ateWithPosted(
-        scored: Int, removed: Int, unscored: Int, hasWords: Bool, copied: Bool = false
+        scored: Int, removed: Int, unscored: Int, hasWords: Bool, copied: Bool = false,
+        skipped: Int = 0, merged: Bool = false
     ) -> AnalyticsEvent {
         AnalyticsEvent(name: "ate_with_posted", parameters: [
             "scored": String(scored),
             "removed": String(removed),
             "unscored": String(unscored),
             "has_words": hasWords ? "true" : "false",
-            "copied": copied ? "true" : "false"
+            "copied": copied ? "true" : "false",
+            "skipped": String(skipped),
+            "merged": merged ? "true" : "false"
         ])
+    }
+
+    /// A tag at a place the person had already posted that day, every dish already scored: answering
+    /// only linked the two entries, and theirs opened (0103). No sheet.
+    public static func ateWithLinked(dishes: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "ate_with_linked", parameters: ["dishes": String(dishes)])
     }
 
     /// "Copy their review" was tapped on a tag: how many scores it filled, and whether words came too.

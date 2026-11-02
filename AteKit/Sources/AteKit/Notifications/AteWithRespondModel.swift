@@ -6,6 +6,11 @@ import Foundation
 /// rows: letting go fills the row, holds the score on the slide for ``ScoreSlider/settleDelay`` as the
 /// composer's own slide does, then moves to the next unscored one; it folds away once every row is
 /// done. The tick is live from the start (the place is already attached).
+///
+/// **One place, one day, one entry** (0103, `same-day-one-entry.html` A): when the person already posted
+/// this place that day, the dishes on that entry are left off the rows, and the answer is added to that
+/// entry. With every dish already there, nothing is asked: the tag is answered with nothing (which only
+/// links the two entries) and theirs opens.
 @MainActor
 @Observable
 public final class AteWithRespondModel {
@@ -87,6 +92,10 @@ public final class AteWithRespondModel {
                     return
                 case .pending:
                     if read.isStillSorting { continue }
+                    if read.isAlreadyScored {
+                        if await link(read) { return }
+                        continue
+                    }
                     adopt(read)
                     return
                 }
@@ -102,9 +111,33 @@ public final class AteWithRespondModel {
 
     private func adopt(_ read: AteWithPrefill) {
         prefill = read
-        lines = read.dishes.sorted { $0.position < $1.position }.map { Line(dishID: $0.dishID, name: $0.dishName) }
+        lines = read.dishesToScore.map { Line(dishID: $0.dishID, name: $0.dishName) }
         current = lines.first?.id
         phase = .ready
+    }
+
+    /// Every dish is already on their entry that day: answer with nothing, which links the two, and open
+    /// theirs. `false` when the answer did not land, so the read is tried again.
+    private func link(_ read: AteWithPrefill) async -> Bool {
+        prefill = read
+        do {
+            let card = try await service.respond(companionID: companionID, entryID: entryID, items: [], body: "")
+            analytics(NotificationEvents.ateWithLinked(dishes: read.dishes.count))
+            phase = .answered(card.id)
+            return true
+        } catch let error as AteWithError where error != .unreachable {
+            phase = .gone
+            return true
+        } catch {
+            phase = .unreachable
+            return false
+        }
+    }
+
+    /// The tagger's dishes left off the rows: already on the person's entry that day.
+    public var skippedCount: Int {
+        guard let prefill else { return 0 }
+        return prefill.dishes.count - prefill.dishesToScore.count
     }
 
     // MARK: - Scoring
@@ -159,7 +192,10 @@ public final class AteWithRespondModel {
     /// "Copy @them's review" shows while there is something of theirs to copy and nothing of the
     /// person's own yet: no score given, no words, no dish removed (`copy-their-review.html`, A).
     public var canCopy: Bool {
-        guard phase == .ready, isPosting == false, hasCopied == false, let prefill, prefill.hasReviewToCopy else {
+        guard phase == .ready, isPosting == false, hasCopied == false, let prefill else { return false }
+        // Only what is on the rows counts: a score of theirs on a dish the person already had is not copied.
+        let scores = taggerScores(prefill)
+        guard lines.contains(where: { scores[$0.dishID] != nil }) || prefill.taggerWords.isEmpty == false else {
             return false
         }
         return lines.allSatisfy { $0.score == nil } && removedCount == 0 && hasWords == false
@@ -169,10 +205,7 @@ public final class AteWithRespondModel {
     /// it stays theirs to change; the slide goes to the first row still empty, or folds away.
     public func copyTaggerReview() {
         guard canCopy, let prefill else { return }
-        let scores = Dictionary(
-            prefill.dishes.compactMap { dish in dish.score.map { (dish.dishID, $0) } },
-            uniquingKeysWith: { first, _ in first }
-        )
+        let scores = taggerScores(prefill)
         for index in lines.indices {
             lines[index].score = scores[lines[index].dishID]
         }
@@ -182,6 +215,13 @@ public final class AteWithRespondModel {
         analytics(NotificationEvents.ateWithReviewCopied(
             scores: lines.filter { $0.score != nil }.count, hasWords: hasWords
         ))
+    }
+
+    private func taggerScores(_ prefill: AteWithPrefill) -> [UUID: Rating] {
+        Dictionary(
+            prefill.dishes.compactMap { dish in dish.score.map { (dish.dishID, $0) } },
+            uniquingKeysWith: { first, _ in first }
+        )
     }
 
     // MARK: - Posting
@@ -206,7 +246,7 @@ public final class AteWithRespondModel {
             let scored = lines.filter { $0.score != nil }.count
             analytics(NotificationEvents.ateWithPosted(
                 scored: scored, removed: removedCount, unscored: lines.count - scored, hasWords: hasWords,
-                copied: hasCopied
+                copied: hasCopied, skipped: skippedCount, merged: card.id != entryID
             ))
             return card
         } catch let error as AteWithError {

@@ -346,6 +346,15 @@ public enum EntryEvents {
         AnalyticsEvent(name: "entry_save_failed", parameters: ["edit": flag(isEdit), "reason": reason])
     }
 
+    /// **One place, one day, one entry** (0103): a post at a place the person had already posted that
+    /// day was added to that entry rather than printed as a second one. How many scores and photos it
+    /// added.
+    public static func addedToSameDay(newScores: Int, newPhotos: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "entry_added_to_same_day", parameters: [
+            "new_scores": String(max(0, newScores)), "new_photos": String(max(0, newPhotos))
+        ])
+    }
+
     /// Done stopped waiting on picks still being written (a slow iCloud original): the entry was
     /// saved without them, and they follow through the outbox. `count` is how many were late.
     public static func photoLate(count: Int) -> AnalyticsEvent {

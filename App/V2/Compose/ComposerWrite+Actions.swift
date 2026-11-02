@@ -55,6 +55,11 @@ extension V2ComposerWrite {
     private func submit(startedAt: ContinuousClock.Instant, cacheHit: Bool) async {
         let draft = model.draft
         let request = model.request(from: draft, photoDirectory: model.photoDirectory)
+        // Already posted this place today: the words, photos and people join that entry instead.
+        if let earlier = await sameDayEntry(for: request) {
+            addToSameDay(earlier, request: request, startedAt: startedAt)
+            return
+        }
         if model.hasPendingPhotos { model.handOffLatePhotos(to: request) }
         let submission = services.submission
         let analytics = services.analytics

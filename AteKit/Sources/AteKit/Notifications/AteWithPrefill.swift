@@ -17,6 +17,11 @@ public struct AteWithPrefill: Sendable, Hashable, Decodable {
     public let dishes: [Dish]
     /// The tagger's words for the visit, for "Copy their review" (0086). `nil` from an older server.
     public let body: String?
+    /// **One place, one day, one entry** (0103): the person's own entry at this place on the visit's
+    /// day, if they already posted one. Answering then adds to it. `nil` from an older server.
+    public let myEntryID: UUID?
+    /// The tagger's dishes already on that entry: the sheet leaves them out (they are scored).
+    public let myDishIDs: [UUID]?
 
     public struct Place: Sendable, Hashable, Decodable {
         public let id: UUID
@@ -75,7 +80,9 @@ public struct AteWithPrefill: Sendable, Hashable, Decodable {
         tagger: AteNotification.Person,
         place: Place?,
         dishes: [Dish],
-        body: String? = nil
+        body: String? = nil,
+        myEntryID: UUID? = nil,
+        myDishIDs: [UUID]? = nil
     ) {
         self.companionID = companionID
         self.status = status
@@ -87,16 +94,29 @@ public struct AteWithPrefill: Sendable, Hashable, Decodable {
         self.place = place
         self.dishes = dishes
         self.body = body
+        self.myEntryID = myEntryID
+        self.myDishIDs = myDishIDs
     }
 
     enum CodingKeys: String, CodingKey {
         case status, tagger, place, dishes, body
+        case myEntryID = "my_entry_id"
+        case myDishIDs = "my_dish_ids"
         case companionID = "companion_id"
         case responseEntryID = "response_entry_id"
         case entryID = "entry_id"
         case visitedAt = "visited_at"
         case sortStatus = "sort_status"
     }
+
+    /// The tagger's dishes the person has not scored that day: the sheet's rows, in their order.
+    public var dishesToScore: [Dish] {
+        let have = Set(myDishIDs ?? [])
+        return dishes.filter { have.contains($0.dishID) == false }.sorted { $0.position < $1.position }
+    }
+
+    /// Every dish is already on the person's entry that day: nothing to fill in, answering only links.
+    public var isAlreadyScored: Bool { myEntryID != nil && dishes.isEmpty == false && dishesToScore.isEmpty }
 
     /// The tagger's dishes are not printed yet: ask again shortly.
     public var isStillSorting: Bool { sortStatus == .pending && dishes.isEmpty }
