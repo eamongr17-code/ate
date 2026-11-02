@@ -5,7 +5,8 @@ import UIKit
 /// **The receipt's ways out** (11 Oct, approved: the ink share sheet): one scrolling row under the
 /// cards, the apps in their own colours first — Stories, TikTok, Messages, Instagram — then Copy
 /// link, Save image and More. Whatever card is showing is what leaves (``AteShareCard``), rendered at
-/// the moment of the tap, so what leaves is what is on screen.
+/// the moment of the tap, so what leaves is what is on screen. Messages is the exception: it sends
+/// the link alone, whose own preview card stands in for the picture (2 Nov, Eamon).
 ///
 /// Instagram Stories takes each card its own way: the sticker as a sticker on Instagram's camera, the
 /// story as its photo plus the receipt as a movable sticker, the post as the story's background.
@@ -144,11 +145,10 @@ struct V2ReceiptShareRow: View {
 
     private func message() {
         first()
-        guard let render = render() else { return }
         if MessagesComposer.canSend {
             isPresenting?.wrappedValue = true
-            messaging = MessagesComposer.Draft(body: link.absoluteString, image: render.page)
-        } else {
+            messaging = MessagesComposer.Draft(body: link.absoluteString)
+        } else if let render = render() {
             present(ShareSender.Sending(image: render.page, sticker: render.sticker))
         }
     }

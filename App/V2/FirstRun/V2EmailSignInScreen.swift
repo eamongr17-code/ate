@@ -5,6 +5,10 @@ import SwiftUI
 /// "Continue with email". "Your email" and Continue, which sends the code; then "Enter the code" —
 /// six boxes iOS fills from Mail, and the sixth digit signs in with no button. "Send a new code"
 /// works a minute after the last one.
+///
+/// The keyboard is up on arrival. Continue moves to "Enter the code" at once and the code goes out
+/// behind it (the send waits on the mail server, ~3 s): if it did not go out, the page comes back
+/// to "Your email" with the alert.
 struct V2EmailSignInScreen: View {
     /// Sends a code to the address; false when it did not go out.
     let onSendCode: (String) async -> Bool
@@ -18,12 +22,15 @@ struct V2EmailSignInScreen: View {
     @State private var sentTo: String?
     /// When the last code went out — "Send a new code" waits a minute from it.
     @State private var sentAt = Date.distantPast
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         EmailPage(
             title: "Your email",
             content: {
-                AteFieldPill(label: "Email", text: $typed, identifier: "email.address", showsLabel: false)
+                AteFieldPill(
+                    label: "Email", text: $typed, identifier: "email.address", showsLabel: false, focus: $isFocused
+                )
                     .keyboardType(.emailAddress)
                     .textContentType(.emailAddress)
                     .textInputAutocapitalization(.never)
@@ -41,19 +48,21 @@ struct V2EmailSignInScreen: View {
         .navigationDestination(item: $sentTo) { address in
             V2EmailCodeScreen(address: address, sentAt: sentAt, onResend: resend, onVerify: onVerify)
         }
+        .onAppear { isFocused = true }
         .ateFailureAlert($failure)
     }
 
     private func send() {
         guard let address = EmailSignInRules.address(typed), isSending == false else { return }
         isSending = true
+        sentAt = Date()
+        sentTo = address
         Task {
             let ok = await onSendCode(address)
             isSending = false
-            if ok {
-                sentAt = Date()
-                sentTo = address
-            } else {
+            if ok == false {
+                sentTo = nil
+                sentAt = .distantPast
                 failure = .sendCode
             }
         }

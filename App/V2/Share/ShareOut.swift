@@ -3,14 +3,13 @@ import Photos
 import SwiftUI
 import UIKit
 
-/// **Messages, from the share row** — the system's own compose sheet with the link in the text and
-/// the page attached, so the thread shows the picture and the tap opens the entry. Counted only when
-/// it was actually sent.
+/// **Messages, from the share row** — the system's own compose sheet with the link alone (2 Nov,
+/// Eamon: the link, not the receipt too). Messages draws the link's own preview card, and a tap
+/// opens the entry. Counted only when it was actually sent.
 struct MessagesComposer: UIViewControllerRepresentable {
     struct Draft: Identifiable {
         let id = UUID()
         let body: String
-        let image: UIImage?
     }
 
     let draft: Draft
@@ -21,9 +20,6 @@ struct MessagesComposer: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> MFMessageComposeViewController {
         let controller = MFMessageComposeViewController()
         controller.body = draft.body
-        if MFMessageComposeViewController.canSendAttachments(), let png = draft.image?.pngData() {
-            controller.addAttachmentData(png, typeIdentifier: "public.png", filename: "Ate.png")
-        }
         controller.messageComposeDelegate = context.coordinator
         return controller
     }
