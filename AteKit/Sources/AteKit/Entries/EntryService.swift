@@ -224,9 +224,15 @@ public protocol EntryService: Sendable {
     /// The author's own pairing of one photo with several dishes (`set_photo_dishes`, 0083): exactly
     /// these lines, or none (No dish). Matching never overrides it, and it outlives a re-sort.
     func setPhotoDishes(entryID: UUID, photoURL: String, reviewIDs: [UUID]) async throws
+    /// **One place, one day, one entry** (0103): the signed-in person's entry at this place on the same
+    /// Melbourne day as `at`, if there is one — the composer adds to it instead of posting a second.
+    func sameDayEntry(restaurantID: UUID, at: Date) async throws -> EntryCard?
 }
 
 public extension EntryService {
+    /// A service with nothing earlier to find never merges: every post is its own entry.
+    func sameDayEntry(restaurantID: UUID, at: Date) async throws -> EntryCard? { nil }
+
     /// A service with no server-side cache has nothing to warm.
     func previewSort(_ input: EarlySortInput) async throws {}
 

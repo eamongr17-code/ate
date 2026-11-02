@@ -7,7 +7,7 @@ import Supabase
 /// through whatever decoder the Supabase client was configured with: `entry_cards` is a view of
 /// microsecond timestamps, and a cursor built from a truncated one silently skips rows.
 public struct SupabaseEntryService: EntryService {
-    private let api: AteAPIClient
+    let api: AteAPIClient
     private let profiles: any ViewerProfileReading
 
     public init(api: AteAPIClient, profiles: (any ViewerProfileReading)? = nil) {

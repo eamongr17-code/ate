@@ -109,6 +109,9 @@ struct AteWithDecodingTests {
         #expect(prefill.place?.address == "361 Little Bourke St")
         #expect(prefill.dishes.count == 2)
         #expect(prefill.isStillSorting == false)
+        // An older server sends no same-day keys: every dish is a row, as before.
+        #expect(prefill.myEntryID == nil)
+        #expect(prefill.dishesToScore.map(\.dishName) == ["Tagliatelle al ragù", "Tiramisu"])
     }
 
     @Test func prefillDecodesTheReviewToCopy() throws {
@@ -354,7 +357,8 @@ struct AteWithRespondTests {
         #expect(card.orderNumber == 39)
         #expect(recorded.events.last?.name == "ate_with_posted")
         #expect(recorded.events.last?.parameters
-            == ["scored": "2", "removed": "1", "unscored": "0", "has_words": "false", "copied": "false"])
+            == ["scored": "2", "removed": "1", "unscored": "0", "has_words": "false", "copied": "false",
+                "skipped": "0", "merged": "false"])
 
         // A retry with the same minted id is the same card, not a second entry.
         let again = try await service.respond(companionID: companionID, entryID: model.entryID, items: [], body: "")

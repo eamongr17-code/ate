@@ -42,6 +42,10 @@ struct V2ComposerWrite: View {
     @State var sixAllowance: SixAllowance?
     /// The visible height of the page above the keys — the photos' floor, and the caret's frame.
     @State var pageHeight: CGFloat = 0
+    /// **One place, one day, one entry** (0103): the person's earlier entry at this place that day,
+    /// as it stood when Done first found it. A retry after a failed save adds to the same snapshot, so
+    /// the new words are never appended twice.
+    @State var sameDayTarget: EntryCard?
     @Environment(\.openURL) var openURL
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.dismiss) var dismiss

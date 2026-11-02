@@ -98,7 +98,7 @@ public final class InMemoryNotifications: NotificationsReading, AteWithRespondin
                 companionID: companionID, status: tag.status, responseEntryID: tag.responseEntryID,
                 entryID: tag.prefill.entryID, visitedAt: tag.prefill.visitedAt, sortStatus: tag.prefill.sortStatus,
                 tagger: tag.prefill.tagger, place: tag.prefill.place, dishes: tag.prefill.dishes,
-                body: tag.prefill.body
+                body: tag.prefill.body, myEntryID: tag.prefill.myEntryID, myDishIDs: tag.prefill.myDishIDs
             )
         }
     }
@@ -109,24 +109,28 @@ public final class InMemoryNotifications: NotificationsReading, AteWithRespondin
         return try lock.withLock {
             guard let index = index(of: companionID) else { throw AteWithError.gone }
             let tag = tags[index]
+            // 0103: a same-day entry of their own takes the answer.
+            let into = tag.prefill.myEntryID
             switch tag.status {
             case .accepted:
-                if tag.responseEntryID == entryID, let card = posted.first(where: { $0.id == entryID }) { return card }
+                if let answered = tag.responseEntryID, answered == entryID || answered == into,
+                   let card = posted.first(where: { $0.id == answered }) { return card }
                 throw AteWithError.alreadyAnswered
             case .declined:
                 throw AteWithError.declined
             case .pending:
                 break
             }
-            if items.isEmpty, body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if items.isEmpty, body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, into == nil {
                 throw AteWithError.unreachable
             }
+            let have = Set(tag.prefill.myDishIDs ?? [])
             let known = Dictionary(
                 tag.prefill.dishes.map { ($0.dishID, $0.dishName) }, uniquingKeysWith: { first, _ in first }
             )
             var seen: Set<UUID> = []
             var lines: [EntryCard.Item] = []
-            for item in items where seen.insert(item.dishID).inserted {
+            for item in items where seen.insert(item.dishID).inserted && have.contains(item.dishID) == false {
                 guard let name = known[item.dishID] else { throw AteWithError.unreachable }
                 lines.append(EntryCard.Item(
                     reviewID: UUID(), dishID: item.dishID, dishName: name, score: item.score,
@@ -137,7 +141,7 @@ public final class InMemoryNotifications: NotificationsReading, AteWithRespondin
                 EntryCard.Place(id: $0.id, name: $0.name, address: $0.address, locality: $0.locality)
             }
             let card = EntryCard(
-                id: entryID, authorID: viewer.id, body: body, restaurantID: place?.id,
+                id: into ?? entryID, authorID: viewer.id, body: body, restaurantID: place?.id,
                 restaurantSource: place == nil ? nil : "user", orderNumber: nextOrderNumber, sortStatus: .sorted,
                 sortedAt: .now, createdAt: tag.prefill.visitedAt, isMine: true, author: viewer, place: place,
                 items: lines
@@ -145,7 +149,7 @@ public final class InMemoryNotifications: NotificationsReading, AteWithRespondin
             nextOrderNumber += 1
             posted.append(card)
             tags[index].status = .accepted
-            tags[index].responseEntryID = entryID
+            tags[index].responseEntryID = into ?? entryID
             tags[index].dismissed = true
             return card
         }
