@@ -7,7 +7,7 @@ import Supabase
 /// through whatever decoder the Supabase client was configured with: `entry_cards` is a view of
 /// microsecond timestamps, and a cursor built from a truncated one silently skips rows.
 public struct SupabaseEntryService: EntryService {
-    private let api: AteAPIClient
+    let api: AteAPIClient
     private let profiles: any ViewerProfileReading
 
     public init(api: AteAPIClient, profiles: (any ViewerProfileReading)? = nil) {
@@ -160,18 +160,6 @@ public struct SupabaseEntryService: EntryService {
         let rows = try PostgRESTDate.decoder.decode([EntryCard].self, from: data)
         guard let row = rows.first else { throw AteAPIError.notFound(table: EntryCard.table, id: id) }
         return row
-    }
-
-    /// `my_same_day_entry` (0103): `[]` = none that day, so the post is a new entry.
-    public func sameDayEntry(restaurantID: UUID, at: Date) async throws -> EntryCard? {
-        let data = try await api.supabase
-            .rpc("my_same_day_entry", params: [
-                "p_restaurant_id": AnyJSON.string(restaurantID.uuidString.lowercased()),
-                "p_at": AnyJSON.string(PostgRESTTimestamp.string(from: at))
-            ])
-            .execute()
-            .data
-        return try PostgRESTDate.decoder.decode([EntryCard].self, from: data).first
     }
 
     public func journal(after cursor: PageCursor?, pageSize: Int) async throws -> Page<EntryCard> {
