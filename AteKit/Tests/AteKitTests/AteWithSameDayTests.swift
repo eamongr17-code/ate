@@ -36,6 +36,7 @@ private enum Fixture {
     }
 }
 
+@MainActor
 @Suite("Ate with: one place, one day, one entry")
 struct AteWithSameDayTests {
     @Test func prefillDecodesTheSameDayEntry() throws {
