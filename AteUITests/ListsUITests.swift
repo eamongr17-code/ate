@@ -25,7 +25,7 @@ final class ListsUITests: XCTestCase {
         app.buttons["sheet.primary"].firstMatch.tap()
 
         let picks = app.buttons.matching(identifier: "lists.pick")
-        XCTAssertTrue(picks.firstMatch.waitForExistence(timeout: 8), "the picker rises over the new page")
+        XCTAssertTrue(picks.firstMatch.waitForExistence(timeout: 8), "the picker rises over the new page. On screen:\n\(app.debugDescription)")
         XCTAssertTrue(app.descendants(matching: .any)["list.page"].firstMatch.exists, "the page is under it")
         picks.element(boundBy: 0).tap()
         picks.element(boundBy: 1).tap()
