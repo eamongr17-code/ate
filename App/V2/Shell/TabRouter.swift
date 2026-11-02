@@ -17,6 +17,10 @@ final class TabRouter<Stores>: V2TabRouting {
     /// Bumped when a new entry written from a notification lands: the Journal shows its own shelf,
     /// from the top.
     private(set) var newEntryShown = 0
+    /// Bumped when the tab should come back to its root's first shelf: a re-tap of the tab, or the
+    /// tab left while a list was open. The Journal answers by showing its own shelf, not Lists
+    /// (Eamon, 2 Nov).
+    private(set) var firstShelfShown = 0
     /// Where each pushed page was opened from — its view event's `source`.
     private(set) var sources: [Route: DetailSource] = [:]
 
@@ -69,6 +73,14 @@ final class TabRouter<Stores>: V2TabRouting {
         } else {
             path.removeAll()
         }
+        firstShelfShown += 1
+    }
+
+    /// Another tab was picked while this one was showing. A list's page is closed, and the root
+    /// comes back on its first shelf, so the tab reopens where it starts rather than on Lists.
+    func left() {
+        if path.contains(where: \.isList) { path.removeAll() }
+        firstShelfShown += 1
     }
 }
 
@@ -81,4 +93,5 @@ protocol V2TabRouting: AnyObject {
     func shown()
     func open(_ route: Route, from source: DetailSource)
     func reselected()
+    func left()
 }

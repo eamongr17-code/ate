@@ -38,6 +38,11 @@ enum Route: Hashable {
     /// One award, opened: its plate, and what earned it.
     case award(AwardRoute)
 
+    /// One of your lists' pages.
+    var isList: Bool {
+        if case .list = self { true } else { false }
+    }
+
     /// Whether this destination exists yet.
     var isBuilt: Bool {
         switch self {

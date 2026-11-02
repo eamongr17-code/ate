@@ -102,7 +102,8 @@ struct TabShell: View {
             app.requestedTab = nil
             if tab != selection, mayOpen(tab) { selection = tab }
         }
-        .onChange(of: selection, initial: true) { _, tab in
+        .onChange(of: selection, initial: true) { old, tab in
+            if old != tab { router(for: old)?.left() }
             router(for: tab)?.shown()
             ScreenTrail.app.visit(tab.rawValue)
         }
