@@ -67,7 +67,8 @@ struct V2ListPage: View {
         .animation(reduceMotion ? nil : .default, value: store.undoable?.id)
         .ateRefreshable { await store.refresh() }
         .task { await store.loadIfNeeded() }
-        .onAppear(perform: pickOnOpen)
+        // Once the push has landed: raised as it starts, the picker can be refused and never show.
+        .ateOnDidAppear(pickOnOpen)
         .onChange(of: store.phase) { _, phase in
             if phase == .gone { dismiss() }
         }

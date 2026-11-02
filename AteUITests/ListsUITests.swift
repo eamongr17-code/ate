@@ -25,7 +25,8 @@ final class ListsUITests: XCTestCase {
         app.buttons["sheet.primary"].firstMatch.tap()
 
         let picks = app.buttons.matching(identifier: "lists.pick")
-        XCTAssertTrue(picks.firstMatch.waitForExistence(timeout: 8), "the picker rises over the new page")
+        XCTAssertTrue(picks.firstMatch.waitForExistence(timeout: 8),
+                      "the picker rises over the new page. On screen:\n\(app.debugDescription)")
         XCTAssertTrue(app.descendants(matching: .any)["list.page"].firstMatch.exists, "the page is under it")
         picks.element(boundBy: 0).tap()
         picks.element(boundBy: 1).tap()
@@ -45,7 +46,8 @@ final class ListsUITests: XCTestCase {
         pasta.tap()
         XCTAssertTrue(waitUntil(5) { rows.count == 2 }, "the pasta list's two rows")
         app.buttons["list.add"].firstMatch.tap()
-        XCTAssertTrue(picks.firstMatch.waitForExistence(timeout: 8))
+        XCTAssertTrue(picks.firstMatch.waitForExistence(timeout: 8),
+                      "the picker rises over the list. On screen:\n\(app.debugDescription)")
         picks.element(boundBy: 0).tap()
         app.buttons["Add 1 dish"].firstMatch.tap()
         XCTAssertTrue(waitUntil(5) { picks.firstMatch.exists == false && rows.count == 3 }, "still on the list page, one more row")
