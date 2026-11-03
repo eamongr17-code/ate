@@ -107,3 +107,18 @@ test('handles: the app\'s alphabet for client writes; other columns still save o
   await as(U.cleo, () => db.query(`update public.profiles set ${cols[0]} = 'Cleo' where id = $1`, [U.cleo]));
   assert.equal((await rows(`select ${cols[0]} v from public.profiles where id = $1`, [U.cleo]))[0].v, 'Cleo');
 });
+
+test('0108: lines left on an old day move to their entry\'s time; running it again changes nothing', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const sql = await readFile(new URL('../../migrations/0108_backfill_redated_lines.sql', import.meta.url), 'utf8');
+  const E = await w.visit(10705, U.cleo, P.tipo, receipt(['Bread', 4]), '2026-09-05T09:00:00Z');
+  await db.query(`update public.entries set created_at = '2026-08-01T12:00:00Z' where id = $1`, [E]);   // the old, pre-0107 move
+  const off = `select count(*)::int n from public.reviews r join public.entries e on e.id = r.entry_id
+                where r.created_at is distinct from e.created_at`;
+  assert.ok((await rows(off))[0].n >= 1);
+  await db.exec(sql);
+  assert.equal((await rows(off))[0].n, 0);
+  assert.equal((await rows(`select count(*)::int n from public.reviews where entry_id = $1 and corrected_at is not null`, [E]))[0].n, 0);
+  await db.exec(sql);
+  assert.equal((await rows(off))[0].n, 0);
+});
