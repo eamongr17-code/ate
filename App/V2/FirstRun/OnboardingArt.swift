@@ -242,18 +242,7 @@ private struct OnboardingDetailsArt: View {
         isTagged = false
         guard await beat(OnboardingArtMetrics.detailsStart) else { return }
         withAnimation(OnboardingArtMetrics.drop) { hasPeople = true }
-        // The photos: the dot lands on the key, it goes down, the two land one after the other.
-        guard await beat(OnboardingArtMetrics.detailsBeat) else { return }
-        guard await tap(.photos, press: {
-            withAnimation(OnboardingArtMetrics.press) { isAddingPhotos = true }
-        }) else { return }
-        for _ in OnboardingSample.photos {
-            guard await beat(OnboardingArtMetrics.scoreHold) else { return }
-            withAnimation(OnboardingArtMetrics.drop) { photoCount += 1 }
-        }
-        touch.target = nil
-        guard await beat(OnboardingArtMetrics.scoreHold) else { return }
-        withAnimation(OnboardingArtMetrics.press) { isAddingPhotos = false }
+        guard await beat(OnboardingArtMetrics.detailsBeat), await addPhotos() else { return }
         // The Diet key goes down and unfolds into every code; V lights, then lands in the words.
         guard await beat(OnboardingArtMetrics.detailsBeat) else { return }
         guard await tap(.diet, press: {
@@ -270,6 +259,21 @@ private struct OnboardingDetailsArt: View {
         touch.target = nil
         guard await beat(OnboardingArtMetrics.scoreHold) else { return }
         withAnimation(OnboardingArtMetrics.drop) { isTagged = true }
+    }
+
+    /// The photos: the dot lands on the key, it goes down, the two land one after the other.
+    private func addPhotos() async -> Bool {
+        guard await tap(.photos, press: {
+            withAnimation(OnboardingArtMetrics.press) { isAddingPhotos = true }
+        }) else { return false }
+        for _ in OnboardingSample.photos {
+            guard await beat(OnboardingArtMetrics.scoreHold) else { return false }
+            withAnimation(OnboardingArtMetrics.drop) { photoCount += 1 }
+        }
+        touch.target = nil
+        guard await beat(OnboardingArtMetrics.scoreHold) else { return false }
+        withAnimation(OnboardingArtMetrics.press) { isAddingPhotos = false }
+        return true
     }
 
     /// Waits `duration`; false when the card left in the meantime.
