@@ -179,8 +179,30 @@ enum TokenPill {
         renderer.scale = scale > 0 ? scale : 3
         renderer.isOpaque = false
         guard let image = renderer.uiImage else { return nil }
-        cache[key] = image
+        // A pill that came back with nothing drawn in it is not kept: the cache lasts the whole
+        // session, so one empty draw would leave every pill of that score an empty gap in the words
+        // until the app restarts (Eamon's Lazy Coconut 2.0, 3 Nov). The next draw tries again.
+        if hasInk(image) { cache[key] = image }
         return image
+    }
+
+    /// Whether any pixel of the pill is drawn at all.
+    static func hasInk(_ image: UIImage) -> Bool {
+        guard let cgImage = image.cgImage, cgImage.width > 0, cgImage.height > 0 else { return false }
+        let width = cgImage.width
+        let height = cgImage.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(
+                data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        // Every fourth byte is a pixel's alpha.
+        return drawn && stride(from: 3, to: pixels.count, by: 4).contains { pixels[$0] > 0 }
     }
 
     @ViewBuilder
