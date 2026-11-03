@@ -123,11 +123,14 @@ import {
   type PreviewCache,
 } from './preview.ts';
 import type { PlaceCandidate, SorterMode, SortPlan } from './types.ts';
+// 0106: a place's first dish → its chain's other locations (places-search's runtime-free module).
+import { addChainLocations, googleTextSearchPage, googleWebsite } from '../places-search/chains.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
+const GOOGLE_KEY = (Deno.env.get('GOOGLE_PLACES_API_KEY') ?? '').trim();
 
 const MODE: SorterMode = resolveMode(ANTHROPIC_KEY, Deno.env.get('ATE_SORTER_MODE'));
 const MODEL_ID = resolveModel(Deno.env.get('ATE_SORTER_MODEL'));
@@ -473,6 +476,28 @@ async function aiBudgetAllows(admin: ReturnType<typeof adminClient>, userId: str
   return data === true;
 }
 
+/**
+ * 0106 (feedback #5): once a place has a dish, find its chain's other locations, in the background so
+ * the sort's answer never waits on Google. chain_locations_due skips a place already asked, so this is
+ * one Text Search per place ever, charged to the author's daily places budget (fails closed).
+ */
+function chainLocationsLater(admin: ReturnType<typeof adminClient>, restaurantId: string | null | undefined, userId: string): void {
+  if (!GOOGLE_KEY || !restaurantId) return;
+  const allowed = async () => {
+    const { data, error } = await admin.rpc('places_budget_hit', { p_user_id: userId });
+    return !error && data === true;
+  };
+  const work = addChainLocations(
+    admin, [restaurantId],
+    async (name, lat, lng, token) =>
+      (await allowed()) ? googleTextSearchPage(GOOGLE_KEY, name, lat, lng, token) : { ok: false, places: [], next: null },
+    async (placeId) => (await allowed()) ? googleWebsite(GOOGLE_KEY, placeId) : { ok: false, host: null },
+    { maxSearches: 1 },
+  ).catch((e) => console.error('sort-entry: chain locations:', e instanceof Error ? e.message : e));
+  // deno-lint-ignore no-explicit-any
+  (globalThis as any).EdgeRuntime?.waitUntil?.(work);
+}
+
 /** The spend guard. Fails CLOSED: a preview is optional, the real sort after Done is not. */
 async function admitPreview(admin: ReturnType<typeof adminClient>, authorId: string): Promise<boolean> {
   const { data, error } = await admin.rpc('sort_preview_rate_hit', {
@@ -806,6 +831,7 @@ Deno.serve(async (req) => {
     }
 
     const result = (Array.isArray(written) ? written[0] : written) as { sort_status?: string; restaurant_id?: string } | null;
+    chainLocationsLater(admin, result?.restaurant_id ?? restaurantId, row.author_id);
 
     // The write committed: a plan reused from a preview is consumed — its row holds draft text —
     // and the sorted card is read back for the client, both at once.

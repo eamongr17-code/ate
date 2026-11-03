@@ -13,7 +13,9 @@
 //   { action: 'chains' }                → links chain restaurants (0085): every unchained Google place whose
 //                                         name repeats gets its website checked (up to 200 a run, once
 //                                         per place), and same name + same website host become one chain
-//                                         whose locations share one menu (their dishes merge)
+//                                         whose locations share one menu (their dishes merge); then
+//                                         every place with a dish that was never asked has its chain's
+//                                         other locations found (0106, up to 50 Text Searches a run)
 //   401 not a service-role key · 405 not POST · 422 bad body
 //
 // A scan writes proposals only. Merging is a separate, named call a person makes after reading the
@@ -24,7 +26,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { DEFAULT_SCAN_MODEL, pairKey, scanPlace, type Apart, type Proposal, type ScanPlace } from './scan.ts';
-import { googleWebsite, linkChains } from '../places-search/chains.ts';
+import { addChainLocations, googleTextSearchPage, googleWebsite, linkChains } from '../places-search/chains.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -163,11 +165,18 @@ Deno.serve(async (req) => {
       }
       case 'chains': {
         if (!GOOGLE_KEY) return json({ error: 'GOOGLE_PLACES_API_KEY is not set' }, 422);
-        const got = await linkChains(db, null, (placeId) => googleWebsite(GOOGLE_KEY, placeId), { maxFetches: 200, limit: 500 });
+        const website = (placeId: string) => googleWebsite(GOOGLE_KEY, placeId);
+        const got = await linkChains(db, null, website, { maxFetches: 200, limit: 500 });
+        // 0106: every place with a dish that was never asked gets its chain's other locations found.
+        const locations = await addChainLocations(
+          db, null,
+          (name, lat, lng, token) => googleTextSearchPage(GOOGLE_KEY, name, lat, lng, token),
+          website, { maxSearches: 50 },
+        );
         const { data: chains, error } = await db.from('chains')
           .select('id, name, website_host, restaurants!restaurants_chain_id_fkey(count)').order('name');
         if (error) throw new Error(error.message);
-        return json({ ok: true, ...got, all_chains: chains ?? [] });
+        return json({ ok: true, ...got, locations_searched: locations.searched, all_chains: chains ?? [] });
       }
       default:
         return json({ error: 'action: scan, list, merge, reject or chains' }, 422);
