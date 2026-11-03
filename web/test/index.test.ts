@@ -96,6 +96,7 @@ test('preview image escapes names; the photo fills the card, or the words go in 
   const full = ogHTML({ dish: 'Pad Thai', score: '5.0', byline: '@w at O', more: 2 }, 'https://p.co/a.jpg', logos);
   assert.ok(full.includes('width:1200px;height:630px;object-fit:cover'));
   assert.ok(full.includes('data:paper'));
-  assert.ok(full.includes('★ 5.0'));
+  assert.ok(full.includes('5.0</div>'));
+  assert.ok(!full.includes('★'), 'the fonts have no ★ glyph, so the star must be drawn');
   assert.ok(full.includes('@w at O · +2 more'));
 });
