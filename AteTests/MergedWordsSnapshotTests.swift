@@ -16,11 +16,13 @@ final class MergedWordsSnapshotTests: XCTestCase {
 
     static func card() -> EntryCard {
         // (dish, score, evidence offset, evidence text, mention offset, mention text), as prod has them.
-        let lines: [(String, Double, Int, String, Int, String)] = [
-            ("Beach Mezze", 3, 12, "3.0", 0, "Beach Mezze"),
-            ("Chicken Satay Skewers", 3.5, 125, "3.5", 103, "Chicken satay skewers"),
-            ("Linguine Frutti di Mare", 2, 131, "Linguine Frutti di Mare 2.0", 131, "Linguine Frutti di Mare"),
-            ("Tiger Prawns", 4, 204, "Tiger Prawns 4.0", 204, "Tiger Prawns")
+        let lines: [Line] = [
+            Line("Beach Mezze", 3, 12, "3.0", 0, "Beach Mezze"),
+            Line("Chicken Satay Skewers", 3.5, 125, "3.5", 103, "Chicken satay skewers"),
+            Line(
+                "Linguine Frutti di Mare", 2, 131, "Linguine Frutti di Mare 2.0", 131, "Linguine Frutti di Mare"
+            ),
+            Line("Tiger Prawns", 4, 204, "Tiger Prawns 4.0", 204, "Tiger Prawns")
         ]
         return EntryCard(
             id: UUID(), authorID: UUID(), body: body, orderNumber: 1, sortStatus: .sorted,
@@ -30,10 +32,10 @@ final class MergedWordsSnapshotTests: XCTestCase {
             place: EntryCard.Place(id: UUID(), name: "The Lazy Coconut"),
             items: lines.enumerated().map { index, line in
                 EntryCard.Item(
-                    reviewID: UUID(), dishID: UUID(), dishName: line.0, score: Rating(exactly: line.1),
+                    reviewID: UUID(), dishID: UUID(), dishName: line.dish, score: Rating(exactly: line.score),
                     position: index + 1,
-                    evidenceOffset: line.2, evidenceLength: line.3.unicodeScalars.count,
-                    mentionOffset: line.4, mentionLength: line.5.unicodeScalars.count
+                    evidenceOffset: line.evidenceAt, evidenceLength: line.evidence.unicodeScalars.count,
+                    mentionOffset: line.mentionAt, mentionLength: line.mention.unicodeScalars.count
                 )
             }
         )
@@ -41,7 +43,8 @@ final class MergedWordsSnapshotTests: XCTestCase {
 
     func testLazyCoconutWords() {
         let composition = EntryPresentation.composition(for: Self.card())
-        print("merged words spans:", composition.spans.map { ($0.span.location, $0.span.length, $0.token.plainText) })
+        let spans = composition.spans.map { ($0.span.location, $0.token.plainText) }
+        print("merged words spans:", spans)
         for (name, scheme) in [("light", ColorScheme.light), ("dark", .dark)] {
             let page = InlineTokenText(composition: composition, style: .slipProse)
                 .padding(16)
@@ -53,5 +56,19 @@ final class MergedWordsSnapshotTests: XCTestCase {
             )
             SnapshotPicture.check(page, shot, file: #filePath, testName: #function, line: #line)
         }
+    }
+}
+
+/// One receipt line as prod holds it: dish, score, and where its evidence and mention sit.
+private struct Line {
+    let dish: String
+    let score: Double
+    let evidenceAt: Int
+    let evidence: String
+    let mentionAt: Int
+    let mention: String
+    init(_ dish: String, _ score: Double, _ evidenceAt: Int, _ evidence: String, _ mentionAt: Int, _ mention: String) {
+        (self.dish, self.score, self.evidenceAt) = (dish, score, evidenceAt)
+        (self.evidence, self.mentionAt, self.mention) = (evidence, mentionAt, mention)
     }
 }
