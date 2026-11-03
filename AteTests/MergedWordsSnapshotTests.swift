@@ -41,6 +41,17 @@ final class MergedWordsSnapshotTests: XCTestCase {
         )
     }
 
+    /// An empty draw is never cached, so one bad render can't leave a score's pill blank all session.
+    func testAnEmptyPillIsNotKept() throws {
+        let clear = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 20)).image { _ in }
+        XCTAssertFalse(TokenPill.hasInk(clear))
+        let pill = try XCTUnwrap(TokenPill.image(
+            for: .score(try XCTUnwrap(Rating(exactly: 2))), prose: 17, palette: .automatic,
+            dynamicTypeSize: .large, scale: 2
+        ))
+        XCTAssertTrue(TokenPill.hasInk(pill))
+    }
+
     func testLazyCoconutWords() {
         let composition = EntryPresentation.composition(for: Self.card())
         let spans = composition.spans.map { ($0.span.location, $0.token.plainText) }
