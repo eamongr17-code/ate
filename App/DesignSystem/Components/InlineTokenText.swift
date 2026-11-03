@@ -47,7 +47,7 @@ struct InlineTokenText: View {
     }
 }
 
-private struct InlineTokenLabel: UIViewRepresentable {
+struct InlineTokenLabel: UIViewRepresentable {
     let composition: EntryComposition
     let attributes: InlineTokenAttributes
     let lineLimit: Int?
