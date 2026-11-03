@@ -34,11 +34,10 @@ private struct AteTouchTargets: PreferenceKey {
 }
 
 extension View {
-    /// Marks this view as where the dot lands for `target`; `nil` marks nothing.
+    /// Marks this view as where the dot lands for `target`; `nil` marks nothing and adds no
+    /// preference at all, so a Feed row's bookmark carries nothing outside onboarding.
     func ateTouchTarget(_ target: AteTouchTarget?) -> some View {
-        anchorPreference(key: AteTouchTargets.self, value: .bounds) { anchor in
-            target.map { [$0: anchor] } ?? [:]
-        }
+        modifier(AteTouchTargetMark(target: target))
     }
 
     /// Draws the dot over this view, on whichever of its targets `touch` names.
@@ -49,6 +48,18 @@ extension View {
             }
             .allowsHitTesting(false)
             .accessibilityHidden(true)
+        }
+    }
+}
+
+private struct AteTouchTargetMark: ViewModifier {
+    let target: AteTouchTarget?
+
+    func body(content: Content) -> some View {
+        if let target {
+            content.anchorPreference(key: AteTouchTargets.self, value: .bounds) { [target: $0] }
+        } else {
+            content
         }
     }
 }
