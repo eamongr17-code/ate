@@ -109,7 +109,7 @@ import { localityFromAddress } from './locality.ts';
 // A place's name without the keywords padded onto its listing; mirrors clean_place_name() (0075).
 import { cleanPlaceName } from './name.ts';
 // Chains (0085): which places are one chain, by name + website host. Runtime-free, tested under Node.
-import { googleWebsite, linkChains } from './chains.ts';
+import { addChainLocations, googleTextSearchPage, googleWebsite, linkChains } from './chains.ts';
 
 const GOOGLE_KEY = Deno.env.get('GOOGLE_PLACES_API_KEY') ?? '';
 const STUB = GOOGLE_KEY.trim() === '';
@@ -757,7 +757,14 @@ function linkChainsLater(ids: (string | null | undefined)[], userId: string): vo
   if (list.length === 0) return;
   const website = async (placeId: string) =>
     (await placesBudgetAllows(userId)) ? googleWebsite(GOOGLE_KEY, placeId) : { ok: false, host: null };
+  // 0106: then, for any of them that has a dish and was never asked, the chain's other locations
+  // (one Text Search each, charged to the same budget), so every location gets the chain's pin.
+  const search = async (name: string, lat: number, lng: number, token: string | null) =>
+    (await placesBudgetAllows(userId))
+      ? googleTextSearchPage(GOOGLE_KEY, name, lat, lng, token)
+      : { ok: false, places: [], next: null };
   const work = linkChains(adminClient(), list, website)
+    .then(() => addChainLocations(adminClient(), list, search, website))
     .catch((e) => console.error('chains:', e instanceof Error ? e.message : e));
   // deno-lint-ignore no-explicit-any
   (globalThis as any).EdgeRuntime?.waitUntil?.(work);

@@ -167,3 +167,11 @@ test('fold refuses what would overflow, and anyone but the service', async () =>
   const denied = await as(U.bob, () => error(db.query(`select public.fold_same_day_entry($1, $2)`, [from, into])));
   assert.equal(denied?.code, '42501');
 });
+
+test('0105: the fold\'s backups are gone once Eamon checked prod; the fold itself stays', async () => {
+  const left = await rows(`select table_name from information_schema.tables
+                           where table_schema = 'public' and table_name like 'backup_0104_%'`);
+  assert.deepEqual(left, []);
+  const fold = await rows(`select 1 from pg_proc where proname = 'fold_same_day_entry'`);
+  assert.equal(fold.length, 1);
+});

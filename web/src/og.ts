@@ -16,6 +16,9 @@ const GROUND = '#EFEAE2';
 const BUTTER = '#F6D365';
 const PAPER = '#FBF9F6';
 
+// The star is drawn, not typed: DM Sans has no ★, so satori drew a missing-glyph box (3 Nov).
+const STAR = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${INK}" d="M12 1.6l3.1 6.6 7.2.9-5.3 5 1.4 7.1L12 17.7l-6.4 3.5 1.4-7.1-5.3-5 7.2-.9z"/></svg>`)}`;
+
 export interface OgParts {
   dish: string | null;
   score: string | null;
@@ -46,7 +49,7 @@ export function ogHTML(parts: OgParts, photo: string | null, logos: { ink: strin
     : '';
   const byline = [parts.byline, parts.more > 0 ? `+${parts.more} more` : ''].filter(Boolean).join(' · ');
   const pill = parts.score
-    ? `<div style="display:flex;flex-shrink:0;align-items:center;justify-content:center;height:84px;padding:0 30px;border-radius:999px;background:${BUTTER};color:${INK};font-family:'DM Sans';font-weight:700;font-size:48px">★ ${esc(parts.score)}</div>`
+    ? `<div style="display:flex;flex-shrink:0;align-items:center;justify-content:center;height:84px;padding:0 30px;border-radius:999px;background:${BUTTER};color:${INK};font-family:'DM Sans';font-weight:700;font-size:48px"><img src="${STAR}" width="40" height="40" style="width:40px;height:40px;margin-right:12px">${esc(parts.score)}</div>`
     : '';
   return `<div style="display:flex;position:relative;width:1200px;height:630px;background:${GROUND};color:${fg}">
   ${back}
