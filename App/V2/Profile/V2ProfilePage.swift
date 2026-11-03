@@ -170,7 +170,8 @@ struct V2ProfilePage: View {
                 }
                 AteAwardsRow(awards: awards.earned) { award in
                     context.services.analytics(AwardEvents.opened(award: award.award, source: .profile, isMe: false))
-                    context.open(.award(AwardRoute(userID: userID, award: award.award, handle: handle)), from: .profile)
+                    let opened = AwardRoute(userID: userID, award: award.award, handle: handle, earned: award)
+                    context.open(.award(opened), from: .profile)
                 }
             }
             .padding(.horizontal, AteMetrics.gutter)

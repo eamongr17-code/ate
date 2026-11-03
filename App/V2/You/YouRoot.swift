@@ -183,7 +183,7 @@ struct YouRoot: View {
                 }
                 AteAwardsRow(awards: earned) { award in
                     app.services.analytics(AwardEvents.opened(award: award.award, source: .you, isMe: true))
-                    router.open(.award(AwardRoute(award: award.award)), from: .you)
+                    router.open(.award(AwardRoute(award: award.award, earned: award)), from: .you)
                 }
             }
         }

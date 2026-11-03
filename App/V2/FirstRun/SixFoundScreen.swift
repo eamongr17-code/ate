@@ -14,8 +14,7 @@ struct SixFoundScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: AteMetrics.section)
-            AteScoreToken(.personal(.blownAway), size: .hero)
-                .scaleEffect(SixFoundMetrics.tokenScale)
+            AteScoreToken(.personal(.blownAway), size: .sticker)
                 .rotationEffect(.degrees(SixFoundMetrics.tilt))
                 .scaleEffect(isOut || reduceMotion ? 1 : 0.4)
                 .opacity(isOut || reduceMotion ? 1 : 0)
@@ -53,8 +52,8 @@ enum SixFoundCopy {
 }
 
 enum SixFoundMetrics {
-    /// The hero token, drawn at a little over twice its size and tilted like a sticker.
-    static let tokenScale: CGFloat = 2.2
+    /// The hero token, drawn at a little over twice its size (``AteScoreToken/Size/sticker``) and
+    /// tilted like a sticker.
     static let tilt: Double = -4
     static let tokenHeight: CGFloat = 96
     static let tokenToTitle: CGFloat = 34

@@ -82,6 +82,12 @@ def engine():
                  "pivot.rotation.z=intro?spinZ:(drag?0:Math.sin(idle*.7)*.03);",
              "pivot.rotation.x=tilt;pivot.rotation.z=intro?spinZ:0;")
     js = sub(js, "'600 30px \"DM Sans\"'", "'600 30px \"DM Sans\"','500 30px \"DM Sans\"'")
+    # the entrance runs on frames shown, not the wall clock (feedback #6): the first frame of a new
+    # plate compiles its shaders and uploads its textures, and a stall there used to eat the start
+    # of the turn, so the plate appeared half way through it. A slow frame now advances it 34ms.
+    js = sub(js, "intro={t0:performance.now()}", "intro={el:0}")
+    js = sub(js, "const dt=Math.min(50,now-last)/16.67;", "const dt=Math.max(0,Math.min(50,now-last))/16.67;")
+    js = sub(js, "const t=Math.min(1,(now-intro.t0)/2200)", "intro.el+=Math.min(34,dt*16.67);const t=Math.min(1,intro.el/2200)")
     return js
 
 
@@ -98,6 +104,10 @@ function ready(){
       renderer.setSize(canvas.clientWidth,canvas.clientWidth,false);camera.position.z=6.3;catcher.visible=true;
       show(a);catcher.material.opacity=a.kind==='glass'?0:shadowOp();
       if(o.intro===false){intro=null;rot=target=0;tilt=0;pivot.position.set(0,0,0);key.position.x=-1.6;canvas.style.opacity=1}else playIntro();
+      // warm the new plate up out of sight: its shaders and textures go to the GPU now, before
+      // the entrance's first frame (feedback #6). Reduce Motion has no entrance: show it at rest.
+      if(intro)canvas.style.opacity=0;renderer.compile(scene,camera);renderer.render(scene,camera);last=performance.now();
+      if(!intro)canvas.style.opacity=1;
       if(!running){running=true;requestAnimationFrame(tick)}return true},
     flip(){flip()},
     replay(){playIntro()},
