@@ -61,7 +61,9 @@ struct V2AwardsPage: View {
                     context.services.analytics(
                         AwardEvents.opened(award: award.award, source: .awardsPage, isMe: userID == nil)
                     )
-                    let opened = AwardRoute(userID: userID, award: award.award, handle: route.handle)
+                    let opened = AwardRoute(
+                        userID: userID, award: award.award, handle: route.handle, earned: award
+                    )
                     context.open(.award(opened), from: .award)
                 }
             }

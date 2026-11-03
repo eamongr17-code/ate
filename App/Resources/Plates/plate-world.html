@@ -529,10 +529,10 @@ canvas.addEventListener('pointermove',e=>{if(!drag)return;const now=performance.
 const end=()=>{if(!drag)return;drag=false;target=Math.round((rot+vel*12)/Math.PI)*Math.PI};
 canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);
 function flip(){if(intro){intro=null;pivot.position.set(0,0,0);key.position.x=-1.6;canvas.style.opacity=1}target=Math.round(rot/Math.PI)*Math.PI+Math.PI;vel=reduce?0:.02;if(reduce)rot=target};
-function playIntro(){if(reduce){rot=target=0;return}intro={t0:performance.now()};target=0;vel=0;tilt=0}
+function playIntro(){if(reduce){rot=target=0;return}intro={el:0};target=0;vel=0;tilt=0}
 let last=performance.now();
-function tick(now){const dt=Math.min(50,now-last)/16.67;last=now;
-  if(intro){const t=Math.min(1,(now-intro.t0)/2200),e=1-Math.pow(1-t,4),u=1-e;const sw=Math.sin(e*Math.PI);if(curKind==='glass'){rot=-TAU*u;spinZ=0;tilt=.18*sw}else{rot=-.55*sw;spinZ=-TAU*u;tilt=.4*Math.sin(e*Math.PI)*(1-e*.6)}pivot.position.z=-1.6*u;pivot.position.y=-.22*u;canvas.style.opacity=Math.min(1,t*3);key.position.x=-1.6+5*u;if(t>=1){intro=null;pivot.position.set(0,0,0);rot=0;tilt=0;target=0;vel=0;key.position.x=-1.6;canvas.style.opacity=1}}
+function tick(now){const dt=Math.max(0,Math.min(50,now-last))/16.67;last=now;
+  if(intro){intro.el+=Math.min(34,dt*16.67);const t=Math.min(1,intro.el/2200),e=1-Math.pow(1-t,4),u=1-e;const sw=Math.sin(e*Math.PI);if(curKind==='glass'){rot=-TAU*u;spinZ=0;tilt=.18*sw}else{rot=-.55*sw;spinZ=-TAU*u;tilt=.4*Math.sin(e*Math.PI)*(1-e*.6)}pivot.position.z=-1.6*u;pivot.position.y=-.22*u;canvas.style.opacity=Math.min(1,t*3);key.position.x=-1.6+5*u;if(t>=1){intro=null;pivot.position.set(0,0,0);rot=0;tilt=0;target=0;vel=0;key.position.x=-1.6;canvas.style.opacity=1}}
   else if(!drag){vel=(vel+(target-rot)*.045*dt)*Math.pow(.88,dt);rot+=vel*dt;tilt+=(0-tilt)*.06*dt;idle+=.012*dt}
   pivot.rotation.y=rot;pivot.rotation.x=tilt;pivot.rotation.z=intro?spinZ:0;
   renderer.render(scene,camera);requestAnimationFrame(tick)}
@@ -550,6 +550,10 @@ function ready(){
       renderer.setSize(canvas.clientWidth,canvas.clientWidth,false);camera.position.z=6.3;catcher.visible=true;
       show(a);catcher.material.opacity=a.kind==='glass'?0:shadowOp();
       if(o.intro===false){intro=null;rot=target=0;tilt=0;pivot.position.set(0,0,0);key.position.x=-1.6;canvas.style.opacity=1}else playIntro();
+      // warm the new plate up out of sight: its shaders and textures go to the GPU now, before
+      // the entrance's first frame (feedback #6). Reduce Motion has no entrance: show it at rest.
+      if(intro)canvas.style.opacity=0;renderer.compile(scene,camera);renderer.render(scene,camera);last=performance.now();
+      if(!intro)canvas.style.opacity=1;
       if(!running){running=true;requestAnimationFrame(tick)}return true},
     flip(){flip()},
     replay(){playIntro()},

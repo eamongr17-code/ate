@@ -73,4 +73,7 @@ struct AwardRoute: Hashable {
     var award: PlateAward
     /// Their handle, for the plate's back; nil = yours, read from the session.
     var handle: String?
+    /// The award as the band or grid that opened it already holds it, so the plate goes up with
+    /// the page instead of after a fresh read (feedback #6). The page still reads it afresh.
+    var earned: EarnedAward?
 }

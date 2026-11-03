@@ -19,11 +19,14 @@ enum AteScore: Equatable, Sendable {
 /// - ``Size/row`` — a dish row, a ranked row, a shelf card's corner (`.tok` at 13, `padding:2px 9px
 ///   2px 7px`).
 /// - ``Size/hero`` — the hero card's corner (`.tok` at 17, same padding).
+/// - ``Size/sticker`` — "You found the 6": the hero drawn 2.2 times over at its real size. Liquid
+///   Glass under a `scaleEffect` draws its own shape at the wrong size, so it is never scaled up.
 struct AteScoreToken: View {
     enum Size: Equatable {
         case inline(prose: CGFloat)
         case row
         case hero
+        case sticker
     }
 
     let score: AteScore?
@@ -58,6 +61,8 @@ struct AteScoreToken: View {
                 pill(score, metrics: .row)
             case .hero:
                 pill(score, metrics: .hero)
+            case .sticker:
+                pill(score, metrics: .sticker)
             }
         }
     }
@@ -78,7 +83,7 @@ struct AteScoreToken: View {
             printed = ScoreFormat.average(value)
             rating = Rating(rounding: value)
         }
-        return HStack(spacing: AteScoreTokenMetrics.gap) {
+        return HStack(spacing: metrics.spacing) {
             AteIcon.starFilled.view(size: metrics.star)
                 .foregroundStyle(dress.star)
             Text(printed)
@@ -109,9 +114,19 @@ struct AteScoreTokenMetrics {
     let leading: CGFloat
     let trailing: CGFloat
     let vertical: CGFloat
+    /// Star to numeral.
+    var spacing: CGFloat = AteScoreTokenMetrics.gap
 
     static let row = AteScoreTokenMetrics(numeral: 13, star: 11, leading: 7, trailing: 9, vertical: 2)
     static let hero = AteScoreTokenMetrics(numeral: 17, star: 14, leading: 7, trailing: 9, vertical: 2)
+    static let sticker = hero.scaled(2.2)
+
+    func scaled(_ factor: CGFloat) -> AteScoreTokenMetrics {
+        AteScoreTokenMetrics(
+            numeral: numeral * factor, star: star * factor, leading: leading * factor,
+            trailing: trailing * factor, vertical: vertical * factor, spacing: spacing * factor
+        )
+    }
 
     /// `gap:3px` between the star and the numeral; `line-height:1.55`.
     static let gap: CGFloat = 3

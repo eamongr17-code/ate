@@ -31,7 +31,7 @@ struct V2AwardPage: View {
     }
 
     private var isMine: Bool { route.userID == nil }
-    private var award: EarnedAward? { store.award(route.award) }
+    private var award: EarnedAward? { store.award(route.award) ?? route.earned }
 
     var body: some View {
         ScrollView {
@@ -177,8 +177,11 @@ struct V2AwardPage: View {
     // MARK: - Loading
 
     private func load() async {
+        // The opener already holds the award: the plate rises with the page, not after the read.
+        let shownEarly = award != nil
+        if shownEarly { showPlate(intro: true) }
         await store.loadIfNeeded()
-        showPlate(intro: true)
+        if shownEarly == false { showPlate(intro: true) }
         guard let award else { return }
         switch route.award.opening {
         case .mosaic, .dishes:

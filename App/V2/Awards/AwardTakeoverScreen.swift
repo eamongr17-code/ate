@@ -16,6 +16,7 @@ struct AwardTakeoverScreen: View {
     @State private var isWordsUp = false
     @State private var sharing: AwardShareImage?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var awards: [EarnedAward] { app.awardTakeover.showing }
     private var current: EarnedAward? { awards.indices.contains(page) ? awards[page] : awards.first }
@@ -105,13 +106,18 @@ struct AwardTakeoverScreen: View {
                 .ateText(.awardLine)
                 .foregroundStyle(AteAwardColor.takeoverInk)
         } else if let dish = award.dishLine {
-            AteFlow(spacing: AteMetrics.snug, lineSpacing: AteMetrics.tight, centresLines: true) {
-                Text(dish)
-                    .ateText(.awardLine)
-                    .foregroundStyle(AteAwardColor.takeoverInk)
-                    .multilineTextAlignment(.center)
+            // Word by word, a space apart, so the score rides the last line's end instead of
+            // standing beside a two-line block (Eamon, 3 Nov).
+            let space = AwardTakeoverMetrics.space(dynamicTypeSize)
+            AteFlow(spacing: space, lineSpacing: 0, centresLines: true) {
+                ForEach(Array(dish.split(separator: " ").enumerated()), id: \.offset) { _, word in
+                    Text(word)
+                        .ateText(.awardLine)
+                        .foregroundStyle(AteAwardColor.takeoverInk)
+                }
                 if let score = award.score.flatMap(Rating.init(exactly:)) {
                     AteScoreToken(rating: score, size: .row)
+                        .padding(.leading, max(0, AteMetrics.snug - space))
                 }
             }
         }
@@ -228,6 +234,12 @@ enum AwardCopy {
 }
 
 enum AwardTakeoverMetrics {
+    /// One space of the dish line, as drawn: the gap between its words when they flow one by one.
+    @MainActor
+    static func space(_ dynamicTypeSize: DynamicTypeSize) -> CGFloat {
+        let font = AteFont.uiFont(for: .awardLine, dynamicTypeSize: dynamicTypeSize)
+        return ceil((" " as NSString).size(withAttributes: [.font: font]).width)
+    }
     /// The plate's square starts under the status bar (`#stage{top:96px}`, less the bar).
     static let plateTop: CGFloat = 42
     static let plateToWords: CGFloat = 0
