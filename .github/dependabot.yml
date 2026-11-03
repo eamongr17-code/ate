@@ -1,0 +1,30 @@
+# Dependency alerts and update PRs (security sweep, 1 Nov 2026).
+#
+# Security updates arrive whenever GitHub publishes an advisory for something we use (turn on
+# "Dependabot security updates" in Settings → Code security). The weekly version PRs below are
+# grouped, few, and never merged alone: patch bumps are Tier A, minor/major wait for Eamon (AGENTS.md).
+version: 2
+updates:
+  - package-ecosystem: swift
+    directory: /AteKit
+    target-branch: claude/project-thread-2f9ty8
+    schedule: { interval: weekly, day: sunday }
+    open-pull-requests-limit: 2
+    groups:
+      swift-packages: { patterns: ["*"] }
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: claude/project-thread-2f9ty8
+    schedule: { interval: weekly, day: sunday }
+    open-pull-requests-limit: 2
+    groups:
+      actions: { patterns: ["*"] }
+
+  - package-ecosystem: npm
+    directory: /supabase/tests/db
+    target-branch: claude/project-thread-2f9ty8
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 1
+    groups:
+      db-tests: { patterns: ["*"] }
