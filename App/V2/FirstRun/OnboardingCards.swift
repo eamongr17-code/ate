@@ -147,6 +147,11 @@ enum OnboardingSample {
     /// The composer's Diet key puts the chip between the dish and its score.
     private static let vegetarian = EntryToken(kind: .tag(DietTagMark(tag: .v, text: DietTag.v.label)))
     private static let dishIDs = [UUID(), UUID()]
+    /// The avatar's colour comes from the id's bytes: one fixed id, so the person's own tile is the
+    /// same colour every time the cards play (and in the touch dot's snapshot).
+    private static let bylineID = UUID(uuid: (
+        0xA7, 0xE0, 0x0B, 0x0A, 0x2D, 0x1E, 0x4C, 0x11, 0x8A, 0x7E, 0x0B, 0x0A, 0x2D, 0x1E, 0x00, 0x01
+    ))
 
     private enum Piece {
         case words(String)
@@ -246,7 +251,7 @@ enum OnboardingSample {
             place: place,
             suburb: suburb,
             words: words(tagged: true),
-            byline: AteByline(userID: UUID(), handle: handle, age: "now", with: "@\(friend.handle)")
+            byline: AteByline(userID: bylineID, handle: handle, age: "now", with: "@\(friend.handle)")
         )
     }
 }
