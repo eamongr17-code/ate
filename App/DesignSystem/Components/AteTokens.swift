@@ -166,7 +166,7 @@ extension AteTextStyle {
     /// **Not rounded**: `em` is a fraction in the markup, and rounding 12.48 to 12 took nearly a
     /// point off the width of every pill in a 16pt slip.
     static func scoreToken(inProse size: CGFloat) -> AteTextStyle {
-        AteTextStyle(voice: .mono, size: size * 0.78, weight: 500, lineHeight: 1.0, textStyle: .footnote)
+        AteTextStyle(voice: .display, size: size * 0.78, weight: 600, lineHeight: 1.0, textStyle: .footnote)
     }
 
     /// A diet chip's code in the words — the score numeral's own voice, a step smaller
@@ -174,7 +174,7 @@ extension AteTextStyle {
     /// a touch so the smaller codes stay legible.
     static func dietToken(inProse size: CGFloat) -> AteTextStyle {
         AteTextStyle(
-            voice: .mono, size: size * 0.78 * TokenPillMetrics.dietScale, weight: 500,
+            voice: .display, size: size * 0.78 * TokenPillMetrics.dietScale, weight: 600,
             trackingEm: 0.04, lineHeight: 1.0, textStyle: .footnote
         )
     }
@@ -188,9 +188,10 @@ extension AteTextStyle {
     }
 }
 
-/// **The score token.** A butter pill carrying a filled star and one decimal, in mono — a score
-/// printed like a price (design rule 7). It appears inline in prose, inside a receipt's line items,
-/// and in the composer's editable text, and it is the same object in all three.
+/// **The score token.** A butter pill carrying a filled star and one decimal, in DM Sans 600 (DM
+/// Mono until 3 Nov: its slashed zero read as code, Eamon) — a score printed like a price (design
+/// rule 7). It appears inline in prose, inside a receipt's line items, and in the composer's
+/// editable text, and it is the same object in all three.
 struct ScoreToken: View {
     let rating: Rating
     /// The prose size it sits in; the pill is proportioned from it (0.78em in the prototype).

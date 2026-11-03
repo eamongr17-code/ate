@@ -104,11 +104,11 @@ extension AteTextStyle {
     static let tileCaption = AteTextStyle(
         voice: .display, size: 12, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .caption
     )
-    /// A dietary tag's code in its chip on its own: the score pill's DM Mono 500, a step under a 16pt
+    /// A dietary tag's code in its chip on its own: the score pill's DM Sans 600, a step under a 16pt
     /// slip's score numeral (``TokenPillMetrics/dietScale``), capitals, `line-height:1` (Eamon, 9
     /// Oct: one family with the score, but never bigger than it). Capped — the chip is a fixed height.
     static let dietTag = AteTextStyle(
-        voice: .mono, size: 11, weight: 500, trackingEm: 0.04, lineHeight: 1.0,
+        voice: .display, size: 11, weight: 600, trackingEm: 0.04, lineHeight: 1.0,
         textStyle: .caption2, maximumSize: 13, uppercase: true
     )
     /// The score's word on the score slider's panel ("Delicious"): the dish voice `.h` at 20,

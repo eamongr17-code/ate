@@ -41,9 +41,9 @@ extension AteTextStyle {
         voice: .display, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote
     )
     /// A score token's numeral at a fixed size (`.tok` at `font-size:13px` on a card, `17px` on the
-    /// hero) — DM Mono 500. Inline tokens size against their prose instead (``scoreToken(inProse:)``).
+    /// hero) — DM Sans 600. Inline tokens size against their prose instead (``scoreToken(inProse:)``).
     static func kitScoreToken(_ size: CGFloat) -> AteTextStyle {
-        AteTextStyle(voice: .mono, size: size, weight: 500, lineHeight: 1.0, textStyle: .footnote)
+        AteTextStyle(voice: .display, size: size, weight: 600, lineHeight: 1.0, textStyle: .footnote)
     }
     /// A shelf card's dish — `.card .t b`: Young Serif at 16 (17 in the old sans; the serif
     /// runs wider), lines 1.05 apart like every serif title, two lines.
