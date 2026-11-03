@@ -35,6 +35,8 @@ test('set_entry_date moves the lines with the entry, and they stay uncorrected',
 
   // Someone else still cannot move it, and their lines stay put.
   assert.equal(await code(() => as(U.bob, () => db.query(`select public.set_entry_date($1, now())`, [E]))), 'P0002');
+  const after = await rows(`select created_at at time zone 'UTC' at from public.reviews where entry_id = $1`, [E]);
+  for (const l of after) assert.equal(l.at.getTime(), at.getTime(), 'a refused move leaves the lines alone');
 });
 
 test('saves: a forged source person is replaced by the entry\'s author', async () => {
