@@ -82,7 +82,7 @@ jobs:
         run: |
           set -o pipefail
           supabase db push --linked --dry-run --password "$SUPABASE_DB_PASSWORD" | tee dry-run.txt
-          supabase db push --linked --password "$SUPABASE_DB_PASSWORD"
+          supabase db push --linked --password "$SUPABASE_DB_PASSWORD" --yes
           {
             echo "### Staging: migrations applied"
             echo '```'
