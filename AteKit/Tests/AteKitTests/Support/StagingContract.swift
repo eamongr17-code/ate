@@ -74,6 +74,9 @@ enum StagingContract {
             let task = Task {
                 let supabase = makeClient()
                 try await supabase.auth.signIn(email: email, password: password)
+                // Staging's auth and REST servers can disagree by under a second: a token used the
+                // instant it is minted can read as "JWT issued at future" (PGRST303, PR #355's run).
+                try await Task.sleep(for: .seconds(2))
                 return AteAPIClient(supabase: supabase)
             }
             signingIn = task
