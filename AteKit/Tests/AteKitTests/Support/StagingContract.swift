@@ -59,18 +59,30 @@ enum StagingContract {
         )
     }
 
-    /// One signed-in client shared by the suite — sign-in is the slow part.
+    /// One signed-in client shared by both suites — exactly one sign-in per run.
+    ///
+    /// The in-flight sign-in is what is cached, not its result: an actor re-enters at `await`, so
+    /// caching the result let every test that started together pass the empty check and sign in on
+    /// its own (30 at once). That tripped GoTrue's rate limit (429) and queued 30 writes on the one
+    /// auth.users row. A failed sign-in is dropped so the next test can try again.
     actor Backend {
         static let shared = Backend()
-        private var cached: AteAPIClient?
+        private var signingIn: Task<AteAPIClient, Error>?
 
         func client() async throws -> AteAPIClient {
-            if let cached { return cached }
-            let supabase = makeClient()
-            try await supabase.auth.signIn(email: email, password: password)
-            let client = AteAPIClient(supabase: supabase)
-            cached = client
-            return client
+            if let signingIn { return try await signingIn.value }
+            let task = Task {
+                let supabase = makeClient()
+                try await supabase.auth.signIn(email: email, password: password)
+                return AteAPIClient(supabase: supabase)
+            }
+            signingIn = task
+            do {
+                return try await task.value
+            } catch {
+                signingIn = nil
+                throw error
+            }
         }
     }
 }

@@ -9,9 +9,9 @@ import Testing
 /// client sends (or answers with a row it cannot decode) fails here rather than on a device.
 ///
 /// Decode-only on purpose: empty is a legal answer for most of these (the contract account blocks
-/// nobody and saves nothing). Behaviour lives in `supabase/tests/db/*.mjs`. Read-only; runs in parallel;
+/// nobody and saves nothing). Behaviour lives in `supabase/tests/db/*.mjs`. Read-only; one test at a time;
 /// opt-in with `ATE_CONTRACT_TESTS=1` like ``ContractSmokeTests``.
-@Suite("Contract smoke — staging reads", .enabled(if: StagingContract.isEnabled))
+@Suite("Contract smoke — staging reads", .enabled(if: StagingContract.isEnabled), .serialized)
 struct ContractSmokeReadsTests {
     static let melbourne = (latitude: -37.8136, longitude: 144.9631)
 

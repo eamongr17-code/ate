@@ -12,9 +12,10 @@ import Testing
 /// live server can prove is that the DEPLOYED functions still bind the parameters the app sends and
 /// still answer with rows the app's decoders accept — so that is all this checks. Read-only: no
 /// writes, no walks, no lock; it signs in as the dedicated `ci@ate.test` (see ``StagingContract``).
+/// Serialized: thirty reads at once starve staging's Free-plan Nano until one hits the 8 s timeout.
 ///
 /// Opt-in (`ATE_CONTRACT_TESTS=1`): CI runs it after the unit tests on backend PRs and on main.
-@Suite("Contract smoke — staging", .enabled(if: StagingContract.isEnabled))
+@Suite("Contract smoke — staging", .enabled(if: StagingContract.isEnabled), .serialized)
 struct ContractSmokeTests {
     static let melbourne = TimeZone(identifier: "Australia/Melbourne")!
 
