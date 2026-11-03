@@ -45,7 +45,7 @@ struct AteInkPill: View {
             .background(isQuiet ? palette.field : palette.solid, in: .capsule)
             .contentShape(.capsule)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.atePress)
         .disabled(isEnabled == false)
         .opacity(isEnabled ? 1 : AteKitColor.disabledOpacity)
         .accessibilityIdentifier(identifier ?? "pill.\(title)")

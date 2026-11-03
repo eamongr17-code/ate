@@ -75,7 +75,7 @@ struct AteWelcomeLink: View {
                 .frame(minHeight: AteMetrics.hit)
                 .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.atePress)
         .foregroundStyle(colour)
         .accessibilityIdentifier(identifier)
     }
@@ -103,7 +103,7 @@ struct AteWelcomeEmailButton: View {
             .background(AteColor.onBrand, in: .capsule)
             .contentShape(.capsule)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.atePress)
         .disabled(isEnabled == false)
         .opacity(isEnabled ? 1 : AteKitColor.disabledOpacity)
         .accessibilityIdentifier("welcome.email")

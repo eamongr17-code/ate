@@ -47,10 +47,10 @@ struct OnboardingCards: View {
     }
 
     private func next() {
+        AteHaptics.key()
         guard page < OnboardingCard.allCases.count - 1 else {
             return onDone(OnboardingCard.allCases.count, false)
         }
-        AteHaptics.key()
         withAnimation(AteMotion.fillIn) { page += 1 }
     }
 
@@ -147,15 +147,21 @@ enum OnboardingSample {
     /// The composer's Diet key puts the chip between the dish and its score.
     private static let vegetarian = EntryToken(kind: .tag(DietTagMark(tag: .v, text: DietTag.v.label)))
     private static let dishIDs = [UUID(), UUID()]
+    /// The avatar's colour comes from the id's bytes: one fixed id, so the person's own tile is the
+    /// same colour every time the cards play (and in the touch dot's snapshot).
+    private static let bylineID = UUID(uuid: (
+        0xA7, 0xE0, 0x0B, 0x0A, 0x2D, 0x1E, 0x4C, 0x11, 0x8A, 0x7E, 0x0B, 0x0A, 0x2D, 0x1E, 0x00, 0x01
+    ))
 
     private enum Piece {
         case words(String)
         case token(EntryToken)
 
-        /// A token is one step of the typing, however many characters it prints.
+        /// A word (with the space after it) is one step of the typing, and so is a token. Word by
+        /// word, not letter by letter: Eamon (3 Nov) found the letter-by-letter typing too slow.
         var steps: Int {
             switch self {
-            case .words(let text): text.count
+            case .words(let text): OnboardingSample.chunks(text).count
             case .token: 1
             }
         }
@@ -172,7 +178,27 @@ enum OnboardingSample {
         return pieces
     }
 
-    /// How many steps typing the words takes: a step per character, and one per pill.
+    /// `text` cut into words, each keeping the spaces after it, so the chunks join back into `text`.
+    static func chunks(_ text: String) -> [Substring] {
+        var chunks: [Substring] = []
+        var start = text.startIndex
+        var index = text.startIndex
+        var hasWord = false
+        while index < text.endIndex {
+            let next = text.index(after: index)
+            if text[index] != " " { hasWord = true }
+            if hasWord, text[index] == " ", next == text.endIndex || text[next] != " " {
+                chunks.append(text[start..<next])
+                start = next
+                hasWord = false
+            }
+            index = next
+        }
+        if start < text.endIndex { chunks.append(text[start...]) }
+        return chunks
+    }
+
+    /// How many steps typing the words takes: a step per word, and one per pill.
     static func steps(tagged: Bool) -> Int {
         pieces(tagged: tagged).reduce(0) { $0 + $1.steps }
     }
@@ -199,7 +225,7 @@ enum OnboardingSample {
         for piece in pieces(tagged: tagged) where remaining > 0 {
             switch piece {
             case .words(let text):
-                plain += String(text.prefix(remaining))
+                plain += chunks(text).prefix(remaining).joined()
             case .token(let token):
                 spans.append(EntryTokenSpan(
                     token: token,
@@ -225,7 +251,7 @@ enum OnboardingSample {
             place: place,
             suburb: suburb,
             words: words(tagged: true),
-            byline: AteByline(userID: UUID(), handle: handle, age: "now", with: "@\(friend.handle)")
+            byline: AteByline(userID: bylineID, handle: handle, age: "now", with: "@\(friend.handle)")
         )
     }
 }

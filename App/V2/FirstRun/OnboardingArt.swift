@@ -5,8 +5,8 @@ import SwiftUI
 /// made the way people actually make one (Eamon: no AI photography, less frantic). The only photos
 /// are the details card's two real ones. Each card shows one thing happening to it, then holds still:
 ///
-/// - **Write** — the composer's paper: the place in its pill, the review typing itself out, and a
-///   score dropping in after each dish while the Score key lights.
+/// - **Write** — the composer's paper: the place in its pill, the review appearing word by word,
+///   and a score dropping in after each dish while the Score key lights.
 /// - **Details** — the same paper. Who you ate with drops into the top line, the photos key lights
 ///   and the pizza and tiramisu land, then the Diet key opens into every code, V lights and lands on
 ///   the margherita. It holds with the codes open, so the card shows what the key holds
@@ -67,6 +67,8 @@ private struct OnboardingPaper: View {
     var isAddingPhotos = false
     var isChoosingDiet = false
     var picked: DietTag?
+    /// Where the touch dot is (``AteTouchDot``): on the key the card is about to press.
+    var touch = AteTouch()
 
     @Environment(\.atePalette) private var palette
 
@@ -87,6 +89,7 @@ private struct OnboardingPaper: View {
             }
             ComposerDietUnfold(isChoosingDiet: isChoosingDiet, keys: keys, back: back) { tag in
                 AteKey(kind: .code(tag), isActive: tag == picked) {}
+                    .ateTouchTarget(tag == .v ? .code : nil)
             }
             .padding(.horizontal, AteMetrics.slipPadding)
         }
@@ -95,6 +98,7 @@ private struct OnboardingPaper: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .ateTornPaper(.slip)
         .ateShadow(.lift)
+        .ateTouchDot(touch)
     }
 
     private func cluster(_ photos: [AtePhoto]) -> some View {
@@ -114,35 +118,40 @@ private struct OnboardingPaper: View {
                 .foregroundStyle(isAddingPhotos ? palette.inverted : palette.fg)
                 .frame(width: OnboardingArtMetrics.photosKey, height: OnboardingArtMetrics.photosKey)
                 .background(isAddingPhotos ? palette.solid : .clear, in: .circle)
+                .ateTouchTarget(.photos)
                 .padding(.leading, -OnboardingArtMetrics.photosKeyOutset)
             Spacer(minLength: 0)
             ComposerKey(
                 title: "Score", icon: .starFilled, background: AteColor.scoreFill, foreground: AteColor.scoreInk,
                 isActive: isScoring, activeForeground: AteColor.butter
             ) {}
+            .ateTouchTarget(.score)
             ComposerKey(
                 title: "Diet", icon: .diet, iconSize: 16, background: ComposerKeyColor.place,
                 foreground: ComposerKeyColor.placeInk, isActive: isTagging, iconOnly: true
             ) {}
+            .ateTouchTarget(.diet)
         }
     }
 }
 
 // MARK: - Write
 
-/// The review typing itself out, a score pill dropping in after each dish as the Score key lights.
+/// The review appearing word by word, a score pill dropping in after each dish as the Score key lights.
 private struct OnboardingWriteArt: View {
     let isShowing: Bool
 
     @State private var typed = OnboardingSample.steps(tagged: false)
     @State private var isScoring = false
+    @State private var touch = AteTouch()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         OnboardingPaper(
             words: OnboardingSample.words(tagged: false, typed: typed),
             finished: OnboardingSample.words(tagged: false),
-            isScoring: isScoring
+            isScoring: isScoring,
+            touch: touch
         )
         .animation(reduceMotion ? nil : OnboardingArtMetrics.press, value: isScoring)
         .task(id: isShowing) { await type() }
@@ -151,6 +160,7 @@ private struct OnboardingWriteArt: View {
     private func type() async {
         let steps = OnboardingSample.steps(tagged: false)
         isScoring = false
+        touch = AteTouch()
         guard isShowing, reduceMotion == false else {
             typed = steps
             return
@@ -160,12 +170,18 @@ private struct OnboardingWriteArt: View {
         while typed < steps {
             if Task.isCancelled { return }
             if OnboardingSample.isToken(step: typed, tagged: false) {
-                // The pill, as the composer makes one: the Score key goes down, the score drops in.
+                // The pill, as the composer makes one: the dot lands on the Score key, the key goes
+                // down, the score drops in, and the dot lifts off.
+                touch.target = .score
+                try? await Task.sleep(for: OnboardingArtMetrics.touchLead)
                 isScoring = true
+                touch.isDown = true
                 try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
                 typed += 1
+                touch.isDown = false
                 try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
                 isScoring = false
+                touch.target = nil
             } else {
                 try? await Task.sleep(for: OnboardingArtMetrics.keystroke)
                 typed += 1
@@ -188,6 +204,7 @@ private struct OnboardingDetailsArt: View {
     @State private var isChoosingDiet = true
     @State private var isPicked = true
     @State private var isTagged = true
+    @State private var touch = AteTouch()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -200,7 +217,8 @@ private struct OnboardingDetailsArt: View {
             photos: Array(OnboardingSample.photos.prefix(photoCount)),
             isAddingPhotos: isAddingPhotos,
             isChoosingDiet: isChoosingDiet,
-            picked: isPicked ? .v : nil
+            picked: isPicked ? .v : nil,
+            touch: touch
         )
         .task(id: isShowing) { await play() }
     }
@@ -208,6 +226,7 @@ private struct OnboardingDetailsArt: View {
     private func play() async {
         isTagging = false
         isAddingPhotos = false
+        touch = AteTouch()
         guard isShowing, reduceMotion == false else {
             hasPeople = true
             photoCount = OnboardingSample.photos.count
@@ -221,34 +240,57 @@ private struct OnboardingDetailsArt: View {
         isChoosingDiet = false
         isPicked = false
         isTagged = false
-        try? await Task.sleep(for: OnboardingArtMetrics.detailsStart)
-        guard Task.isCancelled == false else { return }
+        guard await beat(OnboardingArtMetrics.detailsStart) else { return }
         withAnimation(OnboardingArtMetrics.drop) { hasPeople = true }
-        try? await Task.sleep(for: OnboardingArtMetrics.detailsBeat)
-        // The photos: the key goes down, the two land one after the other.
-        guard Task.isCancelled == false else { return }
-        withAnimation(OnboardingArtMetrics.press) { isAddingPhotos = true }
-        for _ in OnboardingSample.photos {
-            try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
-            guard Task.isCancelled == false else { return }
-            withAnimation(OnboardingArtMetrics.drop) { photoCount += 1 }
-        }
-        try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
-        withAnimation(OnboardingArtMetrics.press) { isAddingPhotos = false }
-        try? await Task.sleep(for: OnboardingArtMetrics.detailsBeat)
+        guard await beat(OnboardingArtMetrics.detailsBeat), await addPhotos() else { return }
         // The Diet key goes down and unfolds into every code; V lights, then lands in the words.
-        guard Task.isCancelled == false else { return }
-        withAnimation(OnboardingArtMetrics.press) { isTagging = true }
-        try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
-        guard Task.isCancelled == false else { return }
+        guard await beat(OnboardingArtMetrics.detailsBeat) else { return }
+        guard await tap(.diet, press: {
+            withAnimation(OnboardingArtMetrics.press) { isTagging = true }
+        }) else { return }
+        touch.target = nil
+        guard await beat(OnboardingArtMetrics.scoreHold) else { return }
         isTagging = false
         isChoosingDiet = true
-        try? await Task.sleep(for: OnboardingArtMetrics.codesBeat)
-        guard Task.isCancelled == false else { return }
-        withAnimation(OnboardingArtMetrics.press) { isPicked = true }
-        try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
-        guard Task.isCancelled == false else { return }
+        guard await beat(OnboardingArtMetrics.codesBeat) else { return }
+        guard await tap(.code, press: {
+            withAnimation(OnboardingArtMetrics.press) { isPicked = true }
+        }) else { return }
+        touch.target = nil
+        guard await beat(OnboardingArtMetrics.scoreHold) else { return }
         withAnimation(OnboardingArtMetrics.drop) { isTagged = true }
+    }
+
+    /// The photos: the dot lands on the key, it goes down, the two land one after the other.
+    private func addPhotos() async -> Bool {
+        guard await tap(.photos, press: {
+            withAnimation(OnboardingArtMetrics.press) { isAddingPhotos = true }
+        }) else { return false }
+        for _ in OnboardingSample.photos {
+            guard await beat(OnboardingArtMetrics.scoreHold) else { return false }
+            withAnimation(OnboardingArtMetrics.drop) { photoCount += 1 }
+        }
+        touch.target = nil
+        guard await beat(OnboardingArtMetrics.scoreHold) else { return false }
+        withAnimation(OnboardingArtMetrics.press) { isAddingPhotos = false }
+        return true
+    }
+
+    /// Waits `duration`; false when the card left in the meantime.
+    private func beat(_ duration: Duration) async -> Bool {
+        try? await Task.sleep(for: duration)
+        return Task.isCancelled == false
+    }
+
+    /// The dot lands on `target`, goes down doing `press`, and comes up, still on the key.
+    private func tap(_ target: AteTouchTarget, press: () -> Void) async -> Bool {
+        touch.target = target
+        guard await beat(OnboardingArtMetrics.touchLead) else { return false }
+        touch.isDown = true
+        press()
+        let stayed = await beat(OnboardingArtMetrics.tap)
+        touch.isDown = false
+        return stayed
     }
 }
 
@@ -261,6 +303,7 @@ private struct OnboardingShareArt: View {
 
     @State private var isRisen = true
     @State private var isSaved = true
+    @State private var touch = AteTouch()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -270,6 +313,8 @@ private struct OnboardingShareArt: View {
             onSave: { _ in }
         )
         .ateShadow(.lift)
+        .environment(\.ateMarksSaveTarget, true)
+        .ateTouchDot(touch)
         .padding(.horizontal, AteMetrics.tight)
         .opacity(isRisen ? 1 : 0)
         .offset(y: isRisen ? 0 : OnboardingArtMetrics.rise)
@@ -277,6 +322,7 @@ private struct OnboardingShareArt: View {
     }
 
     private func play() async {
+        touch = AteTouch()
         guard isShowing, reduceMotion == false else {
             isRisen = true
             isSaved = true
@@ -289,7 +335,14 @@ private struct OnboardingShareArt: View {
         withAnimation(OnboardingArtMetrics.risen) { isRisen = true }
         try? await Task.sleep(for: OnboardingArtMetrics.saveAfter)
         guard Task.isCancelled == false else { return }
+        touch.target = .save
+        try? await Task.sleep(for: OnboardingArtMetrics.touchLead)
+        guard Task.isCancelled == false else { return }
+        touch.isDown = true
         withAnimation(OnboardingArtMetrics.drop) { isSaved = true }
+        try? await Task.sleep(for: OnboardingArtMetrics.tap)
+        touch.isDown = false
+        touch.target = nil
     }
 }
 
@@ -308,20 +361,26 @@ enum OnboardingArtMetrics {
     static let photosKeyOutset: CGFloat = (AteMetrics.keyHeight - 22) / 2
 
     // Write
-    static let typingStart: Duration = .milliseconds(450)
-    static let keystroke: Duration = .milliseconds(38)
-    static let scoreHold: Duration = .milliseconds(350)
+    // Quick on purpose (Eamon, 3 Nov: the typing was too slow): a word per step, the whole card
+    // done in about two seconds rather than seven.
+    static let typingStart: Duration = .milliseconds(250)
+    /// One word, with its space.
+    static let keystroke: Duration = .milliseconds(55)
+    static let scoreHold: Duration = .milliseconds(250)
+    /// The touch dot settling on a key before it presses, and how long a tap holds it down.
+    static let touchLead: Duration = .milliseconds(280)
+    static let tap: Duration = .milliseconds(180)
 
     // Details
-    static let detailsStart: Duration = .milliseconds(900)
-    static let detailsBeat: Duration = .milliseconds(1000)
+    static let detailsStart: Duration = .milliseconds(350)
+    static let detailsBeat: Duration = .milliseconds(550)
     /// The codes unfold before V lights.
-    static let codesBeat: Duration = .milliseconds(900)
+    static let codesBeat: Duration = .milliseconds(500)
 
     // Share
     static let rise: CGFloat = 24
-    static let riseStart: Duration = .milliseconds(150)
-    static let saveAfter: Duration = .milliseconds(1800)
+    static let riseStart: Duration = .milliseconds(100)
+    static let saveAfter: Duration = .milliseconds(700)
 
     static let press = Animation.easeOut(duration: 0.15)
     static let drop = Animation.spring(response: 0.4, dampingFraction: 0.6)
