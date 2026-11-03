@@ -1,26 +1,30 @@
 name: Staging keep-alive
 
-# Supabase pauses free projects after about a week without traffic, which takes the TestFlight app
-# down (it happened in September 2026). One real query a day keeps staging awake. This never touches prod.
+# Schedules only fire from main, but the real job lives on the integration branch
+# (claude/project-thread-2f9ty8). This copy on main only forwards: once a day it dispatches
+# keepalive.yml on that branch, so main never needs updating for it again.
+# Do not merge this file into the integration branch: there, keepalive.yml is the real job.
+
 on:
   schedule:
     - cron: "17 19 * * *"
   workflow_dispatch:
 
-permissions: {}
+permissions:
+  actions: write
+
+env:
+  BRANCH: claude/project-thread-2f9ty8
 
 jobs:
-  ping:
-    name: Ping staging
+  forward:
+    name: Run the integration branch's keep-alive
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
-      - name: One anonymous read through PostgREST
+      - name: Dispatch keepalive.yml on the integration branch
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # The publishable key + RLS deny-by-default means this returns 200 and [] — but it is a real
-          # database query, which is what counts as activity.
-          code=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 30 \
-            "${{ vars.SUPABASE_URL_STAGING }}/rest/v1/restaurants?select=id&limit=1" \
-            -H "apikey: ${{ vars.SUPABASE_KEY_STAGING }}")
-          echo "status=$code body=$(cat /tmp/body)"
-          [ "$code" = "200" ]
+          gh workflow run keepalive.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
+          echo "Dispatched keepalive.yml on $BRANCH."
