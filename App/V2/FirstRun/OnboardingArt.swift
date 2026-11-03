@@ -5,8 +5,8 @@ import SwiftUI
 /// made the way people actually make one (Eamon: no AI photography, less frantic). The only photos
 /// are the details card's two real ones. Each card shows one thing happening to it, then holds still:
 ///
-/// - **Write** — the composer's paper: the place in its pill, the review typing itself out, and a
-///   score dropping in after each dish while the Score key lights.
+/// - **Write** — the composer's paper: the place in its pill, the review appearing word by word,
+///   and a score dropping in after each dish while the Score key lights.
 /// - **Details** — the same paper. Who you ate with drops into the top line, the photos key lights
 ///   and the pizza and tiramisu land, then the Diet key opens into every code, V lights and lands on
 ///   the margherita. It holds with the codes open, so the card shows what the key holds
@@ -130,7 +130,7 @@ private struct OnboardingPaper: View {
 
 // MARK: - Write
 
-/// The review typing itself out, a score pill dropping in after each dish as the Score key lights.
+/// The review appearing word by word, a score pill dropping in after each dish as the Score key lights.
 private struct OnboardingWriteArt: View {
     let isShowing: Bool
 
@@ -308,20 +308,23 @@ enum OnboardingArtMetrics {
     static let photosKeyOutset: CGFloat = (AteMetrics.keyHeight - 22) / 2
 
     // Write
-    static let typingStart: Duration = .milliseconds(450)
-    static let keystroke: Duration = .milliseconds(38)
-    static let scoreHold: Duration = .milliseconds(350)
+    // Quick on purpose (Eamon, 3 Nov: the typing was too slow): a word per step, the whole card
+    // done in about two seconds rather than seven.
+    static let typingStart: Duration = .milliseconds(250)
+    /// One word, with its space.
+    static let keystroke: Duration = .milliseconds(55)
+    static let scoreHold: Duration = .milliseconds(250)
 
     // Details
-    static let detailsStart: Duration = .milliseconds(900)
-    static let detailsBeat: Duration = .milliseconds(1000)
+    static let detailsStart: Duration = .milliseconds(350)
+    static let detailsBeat: Duration = .milliseconds(550)
     /// The codes unfold before V lights.
-    static let codesBeat: Duration = .milliseconds(900)
+    static let codesBeat: Duration = .milliseconds(500)
 
     // Share
     static let rise: CGFloat = 24
-    static let riseStart: Duration = .milliseconds(150)
-    static let saveAfter: Duration = .milliseconds(1800)
+    static let riseStart: Duration = .milliseconds(100)
+    static let saveAfter: Duration = .milliseconds(1000)
 
     static let press = Animation.easeOut(duration: 0.15)
     static let drop = Animation.spring(response: 0.4, dampingFraction: 0.6)

@@ -47,10 +47,10 @@ struct OnboardingCards: View {
     }
 
     private func next() {
+        AteHaptics.key()
         guard page < OnboardingCard.allCases.count - 1 else {
             return onDone(OnboardingCard.allCases.count, false)
         }
-        AteHaptics.key()
         withAnimation(AteMotion.fillIn) { page += 1 }
     }
 
@@ -152,10 +152,11 @@ enum OnboardingSample {
         case words(String)
         case token(EntryToken)
 
-        /// A token is one step of the typing, however many characters it prints.
+        /// A word (with the space after it) is one step of the typing, and so is a token. Word by
+        /// word, not letter by letter: Eamon (3 Nov) found the letter-by-letter typing too slow.
         var steps: Int {
             switch self {
-            case .words(let text): text.count
+            case .words(let text): OnboardingSample.chunks(text).count
             case .token: 1
             }
         }
@@ -172,7 +173,27 @@ enum OnboardingSample {
         return pieces
     }
 
-    /// How many steps typing the words takes: a step per character, and one per pill.
+    /// `text` cut into words, each keeping the spaces after it, so the chunks join back into `text`.
+    static func chunks(_ text: String) -> [Substring] {
+        var chunks: [Substring] = []
+        var start = text.startIndex
+        var index = text.startIndex
+        var hasWord = false
+        while index < text.endIndex {
+            let next = text.index(after: index)
+            if text[index] != " " { hasWord = true }
+            if hasWord, text[index] == " ", next == text.endIndex || text[next] != " " {
+                chunks.append(text[start..<next])
+                start = next
+                hasWord = false
+            }
+            index = next
+        }
+        if start < text.endIndex { chunks.append(text[start...]) }
+        return chunks
+    }
+
+    /// How many steps typing the words takes: a step per word, and one per pill.
     static func steps(tagged: Bool) -> Int {
         pieces(tagged: tagged).reduce(0) { $0 + $1.steps }
     }
@@ -199,7 +220,7 @@ enum OnboardingSample {
         for piece in pieces(tagged: tagged) where remaining > 0 {
             switch piece {
             case .words(let text):
-                plain += String(text.prefix(remaining))
+                plain += chunks(text).prefix(remaining).joined()
             case .token(let token):
                 spans.append(EntryTokenSpan(
                     token: token,
