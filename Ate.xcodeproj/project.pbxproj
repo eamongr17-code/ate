@@ -72,6 +72,7 @@
 			membershipExceptions = (
 				DesignSystem/Components/AteHaptics.swift,
 				DesignSystem/Components/AteHitTarget.swift,
+				DesignSystem/Components/AtePressStyle.swift,
 				DesignSystem/Components/AteRows.swift,
 				DesignSystem/Components/AteSheet.swift,
 				DesignSystem/Components/AteSheetPresentation.swift,

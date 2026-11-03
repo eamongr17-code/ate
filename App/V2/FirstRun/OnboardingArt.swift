@@ -240,55 +240,53 @@ private struct OnboardingDetailsArt: View {
         isChoosingDiet = false
         isPicked = false
         isTagged = false
-        try? await Task.sleep(for: OnboardingArtMetrics.detailsStart)
-        guard Task.isCancelled == false else { return }
+        guard await beat(OnboardingArtMetrics.detailsStart) else { return }
         withAnimation(OnboardingArtMetrics.drop) { hasPeople = true }
-        try? await Task.sleep(for: OnboardingArtMetrics.detailsBeat)
         // The photos: the dot lands on the key, it goes down, the two land one after the other.
-        guard Task.isCancelled == false else { return }
-        touch.target = .photos
-        try? await Task.sleep(for: OnboardingArtMetrics.touchLead)
-        guard Task.isCancelled == false else { return }
-        touch.isDown = true
-        withAnimation(OnboardingArtMetrics.press) { isAddingPhotos = true }
-        try? await Task.sleep(for: OnboardingArtMetrics.tap)
-        touch.isDown = false
+        guard await beat(OnboardingArtMetrics.detailsBeat) else { return }
+        guard await tap(.photos, press: {
+            withAnimation(OnboardingArtMetrics.press) { isAddingPhotos = true }
+        }) else { return }
         for _ in OnboardingSample.photos {
-            try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
-            guard Task.isCancelled == false else { return }
+            guard await beat(OnboardingArtMetrics.scoreHold) else { return }
             withAnimation(OnboardingArtMetrics.drop) { photoCount += 1 }
         }
         touch.target = nil
-        try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
+        guard await beat(OnboardingArtMetrics.scoreHold) else { return }
         withAnimation(OnboardingArtMetrics.press) { isAddingPhotos = false }
-        try? await Task.sleep(for: OnboardingArtMetrics.detailsBeat)
         // The Diet key goes down and unfolds into every code; V lights, then lands in the words.
-        guard Task.isCancelled == false else { return }
-        touch.target = .diet
-        try? await Task.sleep(for: OnboardingArtMetrics.touchLead)
-        guard Task.isCancelled == false else { return }
-        touch.isDown = true
-        withAnimation(OnboardingArtMetrics.press) { isTagging = true }
-        try? await Task.sleep(for: OnboardingArtMetrics.tap)
-        touch.isDown = false
+        guard await beat(OnboardingArtMetrics.detailsBeat) else { return }
+        guard await tap(.diet, press: {
+            withAnimation(OnboardingArtMetrics.press) { isTagging = true }
+        }) else { return }
         touch.target = nil
-        try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
-        guard Task.isCancelled == false else { return }
+        guard await beat(OnboardingArtMetrics.scoreHold) else { return }
         isTagging = false
         isChoosingDiet = true
-        try? await Task.sleep(for: OnboardingArtMetrics.codesBeat)
-        guard Task.isCancelled == false else { return }
-        touch.target = .code
-        try? await Task.sleep(for: OnboardingArtMetrics.touchLead)
-        guard Task.isCancelled == false else { return }
-        touch.isDown = true
-        withAnimation(OnboardingArtMetrics.press) { isPicked = true }
-        try? await Task.sleep(for: OnboardingArtMetrics.tap)
-        touch.isDown = false
+        guard await beat(OnboardingArtMetrics.codesBeat) else { return }
+        guard await tap(.code, press: {
+            withAnimation(OnboardingArtMetrics.press) { isPicked = true }
+        }) else { return }
         touch.target = nil
-        try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
-        guard Task.isCancelled == false else { return }
+        guard await beat(OnboardingArtMetrics.scoreHold) else { return }
         withAnimation(OnboardingArtMetrics.drop) { isTagged = true }
+    }
+
+    /// Waits `duration`; false when the card left in the meantime.
+    private func beat(_ duration: Duration) async -> Bool {
+        try? await Task.sleep(for: duration)
+        return Task.isCancelled == false
+    }
+
+    /// The dot lands on `target`, goes down doing `press`, and comes up, still on the key.
+    private func tap(_ target: AteTouchTarget, press: () -> Void) async -> Bool {
+        touch.target = target
+        guard await beat(OnboardingArtMetrics.touchLead) else { return false }
+        touch.isDown = true
+        press()
+        let stayed = await beat(OnboardingArtMetrics.tap)
+        touch.isDown = false
+        return stayed
     }
 }
 
