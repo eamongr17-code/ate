@@ -15,7 +15,7 @@ for dir in supabase/functions/*/; do
   name=$(basename "$dir")
   [[ "$name" == _* || ! -f "$dir/index.ts" ]] && continue
   for attempt in 1 2 3; do
-    if supabase functions deploy "$name" --project-ref "$ref" --use-api; then
+    if supabase functions deploy "$name" --project-ref "$ref" --use-api --yes; then
       continue 2
     fi
     if (( attempt < 3 )); then

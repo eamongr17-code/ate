@@ -28,7 +28,7 @@ if [ -n "${APNS_KEY_ID:-}" ] && [ -n "${APNS_PRIVATE_KEY:-}" ]; then
 fi
 
 if [ -s "$envfile" ]; then
-  supabase secrets set --project-ref "$ref" --env-file "$envfile" >/dev/null
+  supabase secrets set --project-ref "$ref" --env-file "$envfile" --yes >/dev/null
 fi
 {
   echo "### Function secrets"

@@ -141,7 +141,7 @@ jobs:
 
       - name: Apply migrations
         if: inputs.apply || (inputs.reset && inputs.confirm_reset == 'ERASE PROD')
-        run: supabase db push --linked --password "$SUPABASE_DB_PASSWORD"
+        run: supabase db push --linked --password "$SUPABASE_DB_PASSWORD" --yes
 
       - name: Deploy edge functions
         if: inputs.apply || (inputs.reset && inputs.confirm_reset == 'ERASE PROD')
