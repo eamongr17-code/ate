@@ -47,7 +47,7 @@ struct InlineTokenText: View {
     }
 }
 
-private struct InlineTokenLabel: UIViewRepresentable {
+struct InlineTokenLabel: UIViewRepresentable {
     let composition: EntryComposition
     let attributes: InlineTokenAttributes
     let lineLimit: Int?
@@ -69,6 +69,7 @@ private struct InlineTokenLabel: UIViewRepresentable {
         label.numberOfLines = lineLimit ?? 0
         label.onScoreDish = onScoreDish
         let string = NSMutableAttributedString(attributedString: attributes.attributedString(for: composition))
+        Self.tightenBlankLines(in: string)
         // A paragraph style in the string beats the label's own `lineBreakMode`, so a clamped slip
         // has to carry the truncation itself — `-webkit-line-clamp` ends on an ellipsis, and a
         // label that just stops mid-sentence is lying about how much was written.
@@ -82,6 +83,29 @@ private struct InlineTokenLabel: UIViewRepresentable {
             }
         }
         label.attributedText = string
+    }
+
+    /// How tall a blank line between two paragraphs prints, as a share of a line of words.
+    static let blankLineShare: CGFloat = 0.4
+
+    /// **A blank line reads as a short pause, not a whole empty line** (Eamon, 3 Nov). The notes of
+    /// one sitting posted separately are joined by a blank line (0103/0104), and a full line of
+    /// nothing between them read as a hole. Only the read-only words: the composer keeps whole lines,
+    /// where the caret has to sit on them.
+    static func tightenBlankLines(in string: NSMutableAttributedString) {
+        let text = string.string as NSString
+        guard text.length > 1 else { return }
+        for index in 1..<text.length where text.character(at: index) == 10 && text.character(at: index - 1) == 10 {
+            let range = NSRange(location: index, length: 1)
+            guard let paragraph = (string.attribute(.paragraphStyle, at: index, effectiveRange: nil)
+                as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle else { continue }
+            let line = paragraph.maximumLineHeight + paragraph.lineSpacing
+            guard line > 0 else { continue }
+            paragraph.minimumLineHeight = line * blankLineShare
+            paragraph.maximumLineHeight = line * blankLineShare
+            paragraph.lineSpacing = 0
+            string.addAttribute(.paragraphStyle, value: paragraph, range: range)
+        }
     }
 
     /// SwiftUI proposes a width; the label answers with the height its words need in it. Without this

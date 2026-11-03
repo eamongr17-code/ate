@@ -52,6 +52,23 @@ final class MergedWordsSnapshotTests: XCTestCase {
         XCTAssertTrue(TokenPill.hasInk(pill))
     }
 
+    /// Only the empty line between two notes shrinks; the lines of words keep their height.
+    func testOnlyTheBlankLineShrinks() throws {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.minimumLineHeight = 24
+        paragraph.maximumLineHeight = 24
+        paragraph.lineSpacing = 4
+        let string = NSMutableAttributedString(string: "One\n\nTwo", attributes: [.paragraphStyle: paragraph])
+        InlineTokenLabel.tightenBlankLines(in: string)
+        let blank = try XCTUnwrap(string.attribute(.paragraphStyle, at: 4, effectiveRange: nil) as? NSParagraphStyle)
+        XCTAssertEqual(blank.maximumLineHeight, 28 * InlineTokenLabel.blankLineShare, accuracy: 0.01)
+        XCTAssertEqual(blank.lineSpacing, 0)
+        let words = try XCTUnwrap(string.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)
+        XCTAssertEqual(words.maximumLineHeight, 24)
+        let next = try XCTUnwrap(string.attribute(.paragraphStyle, at: 5, effectiveRange: nil) as? NSParagraphStyle)
+        XCTAssertEqual(next.maximumLineHeight, 24)
+    }
+
     func testLazyCoconutWords() {
         let composition = EntryPresentation.composition(for: Self.card())
         let spans = composition.spans.map { ($0.span.location, $0.token.plainText) }
