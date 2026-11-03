@@ -1,0 +1,54 @@
+name: Build train
+
+# Builds leave on a train, not per merge (Eamon, 2026-11-01). Twice a day this looks at the
+# integration branch and, when app code has merged since the last uploaded build, dispatches
+# beta.yml on that branch. "On demand" = run this (or beta.yml itself) from the Actions page.
+# Schedules only run from main, which is why this file lives here and beta.yml stays on the branch.
+on:
+  schedule:
+    - cron: "0 20 * * *" # 7am Melbourne (AEDT, UTC+11; 6am once daylight saving ends in April)
+    - cron: "0 8 * * *" # 7pm Melbourne
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  BRANCH: claude/project-thread-2f9ty8
+
+jobs:
+  dispatch:
+    name: Dispatch Beta if the app changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH }}
+          fetch-depth: 0
+      - name: Compare with the last uploaded build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          runs="repos/$GITHUB_REPOSITORY/actions/workflows/beta.yml/runs"
+          head=$(git rev-parse HEAD)
+          last=$(gh api "$runs?branch=$BRANCH&status=success&per_page=1" --jq '.workflow_runs[0].head_sha // empty')
+          echo "head=$head last_built=${last:-none}"
+          if [ -n "$last" ] && git merge-base --is-ancestor "$last" HEAD 2>/dev/null; then
+            changed=$(git diff --name-only "$last" HEAD -- App AteKit ShareExtension Config Ate.xcodeproj | wc -l | tr -d ' ')
+          else
+            changed=1
+          fi
+          if [ "$changed" = "0" ]; then
+            echo "No app change since the last build; no train."
+            exit 0
+          fi
+          busy=$(gh api "$runs?branch=$BRANCH&per_page=5" --jq '[.workflow_runs[] | select(.status == "in_progress" or .status == "queued")] | length')
+          if [ "$busy" != "0" ]; then
+            echo "A Beta run is already in progress; it will carry these commits."
+            exit 0
+          fi
+          gh workflow run beta.yml --ref "$BRANCH"
+          echo "Dispatched Beta on $BRANCH at $head ($changed app files since $last)."
