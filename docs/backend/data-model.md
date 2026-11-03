@@ -290,3 +290,4 @@ no column grants: an author PATCHes their own `score`/`note`/`tags` — the sanc
 | 0099 | `retire_first_drink` | `first_drink` retired: `award_put` never writes it, held rows deleted, the CHECK drops it |
 | 0103 | `same_day_one_entry` | one place + one Melbourne day = one entry: `same_day_entry` (service), `my_same_day_entry` RPC; `ate_with_prefill` + `my_entry_id`/`my_dish_ids`; `respond_ate_with` answers INTO a same-day entry; `entry_companions_response_uq` dropped (+ `response_request_id`), `entry_with_people` lists every host |
 | 0104 | `fold_same_day_entries` | `fold_same_day_entry(from, into)` (service) + one-off fold of entries already posted twice the same day (printed only; refused over 24 photos / 20,000 chars); every touched row copied to `backup_0104_*` first (no grants) |
+| 0105 | `drop_backup_0104` | drops the `backup_0104_*` tables after Eamon checked prod (3 Nov) |
