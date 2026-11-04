@@ -173,6 +173,8 @@ enum OnboardingSample {
     private static let dishIDs = [fixed(0x05), fixed(0x06)]
     /// The person's own tile on the Feed card.
     private static let bylineID = fixed(0x01)
+    /// The Feed card's own id: the photos' tilt is seeded from it.
+    private static let slipID = fixed(0x07)
 
     private static func fixed(_ last: UInt8) -> UUID {
         UUID(uuid: (0xA7, 0xE0, 0x0B, 0x0A, 0x2D, 0x1E, 0x4C, 0x11, 0x8A, 0x7E, 0x0B, 0x0A, 0x2D, 0x1E, 0x00, last))
@@ -243,6 +245,7 @@ enum OnboardingSample {
     /// The entry as the Feed prints it, with the person's own handle on it.
     static func feedSlip(handle: String) -> AteSlip {
         AteSlip(
+            id: slipID,
             dishes: [
                 AteSlip.Dish(id: dishIDs[0], dishID: dishIDs[0], name: "Margherita Pizza", score: first),
                 AteSlip.Dish(id: dishIDs[1], dishID: dishIDs[1], name: "Tiramisu", score: second, tags: [.v])
