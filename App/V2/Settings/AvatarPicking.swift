@@ -137,9 +137,7 @@ private struct CropStage: View {
 
     var body: some View {
         if let image = cropping.image {
-            AteAvatarCropper(image: image, frame: frame, onCancel: onCancel) { square in
-                onDone(image, square)
-            }
+            AteAvatarCropper(image: image, frame: frame, onCancel: onCancel, onDone: { square in onDone(image, square) })
         } else {
             // The cropper's own ground and close, while the photo arrives.
             AteColor.viewerGround
