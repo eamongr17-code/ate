@@ -153,4 +153,19 @@ extension AteTextStyle {
     .padding()
     .ateAccentGround(AteColor.coral)
 }
+
+#Preview("Ink sheet row") {
+    AteShareRow(actions: [
+        .init(id: "link", icon: .link, title: "Copy link", brand: .neutral) {},
+        .init(id: "stories", icon: .instagram, title: "Stories", brand: .instagram) {},
+        .init(id: "messages", icon: .messageCircle, title: "Messages", brand: .messages) {},
+        .init(id: "whatsapp", icon: .whatsapp, title: "WhatsApp", brand: .whatsapp) {},
+        .init(id: "tiktok", icon: .tiktok, title: "TikTok", brand: .tiktok) {},
+        .init(id: "instagram", icon: .instagram, title: "Instagram", brand: .instagram) {},
+        .init(id: "save", icon: .download, title: "Save", brand: .neutral) {},
+        .init(id: "more", icon: .more, title: "More", brand: .neutral) {}
+    ])
+    .environment(\.atePalette, .ink)
+    .background(AteColor.ink)
+}
 #endif
