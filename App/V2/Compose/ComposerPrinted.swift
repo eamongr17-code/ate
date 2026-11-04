@@ -94,7 +94,6 @@ struct V2ComposerPrinted: View {
                 receipt: receipt,
                 photos: photos,
                 dishPhotos: dishPhotos,
-                opensOn: .sticker,
                 source: .summary,
                 isLive: store.phase == .printed && photoLoaded,
                 printing: V2ShareSheet.Printing(

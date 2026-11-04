@@ -52,36 +52,16 @@ extension V2ShareSheet {
         looks[id] = look
     }
 
-    /// The cards a page has: the story and the post only with a photo for them (25 Oct, Eamon: no
-    /// colour grounds).
-    private func formats(_ page: ShareReceiptPage) -> [AteShareFormat] {
-        image(page) == nil ? [.sticker] : AteShareFormat.allCases
-    }
-
-    /// The switch's cards: the story and the post only when there is a photo to put them on.
-    var switchFormats: [AteShareFormat] {
-        pages.contains { image($0) != nil } ? AteShareFormat.allCases : [.sticker]
-    }
-
-    var format: AteShareFormat {
-        let format = chosen ?? opensOn
-        return switchFormats.contains(format) ? format : switchFormats.last ?? .sticker
-    }
-
-    /// What swipes: the formats of the one receipt; or, split, every dish in the chosen format, the
-    /// whole receipt first (it is what printed; 25 Oct, Eamon: on a story or post too, on one photo).
+    /// What swipes (4 Nov, Eamon: one carousel): one sticker, the whole receipt; then a story for each
+    /// page with a photo to put it on — the whole receipt first, then, for several dishes, each dish.
     var slots: [ShareSlot] {
         let pages = pages
         guard let whole = pages.last else { return [] }
         guard isWaiting == false else { return [] }
-        guard isLive else { return [ShareSlot(format: .sticker, page: whole.id)] }
-        guard isSplit else { return formats(whole).map { ShareSlot(format: $0, page: whole.id) } }
-        let dishes = pages.filter { $0.isWhole == false }
-        let shown: [ShareReceiptPage] = switch format {
-        case .sticker: [whole] + dishes
-        case .story, .post: ([whole] + dishes).filter { image($0) != nil }
-        }
-        return shown.map { ShareSlot(format: format, page: $0.id) }
+        let sticker = ShareSlot(format: .sticker, page: whole.id)
+        guard isLive else { return [sticker] }
+        let stories = isSplit ? [whole] + pages.filter { $0.isWhole == false } : [whole]
+        return [sticker] + stories.filter { image($0) != nil }.map { ShareSlot(format: .story, page: $0.id) }
     }
 
     var showing: ShareSlot {

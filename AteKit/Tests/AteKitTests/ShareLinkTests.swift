@@ -41,7 +41,8 @@ struct ShareLinkTests {
         #expect(event.parameters["destination"] == "instagram_stories")
         #expect(event.parameters["sticker"] == "photo")
         #expect(ShareDestination.allCases.map(\.rawValue).sorted()
-            == ["clipboard", "instagram", "instagram_stories", "link", "messages", "saved", "system", "tiktok"])
+            == ["clipboard", "instagram", "instagram_stories", "link", "messages", "saved", "system", "tiktok",
+               "whatsapp"])
         #expect(ShareSticker.allCases.map(\.rawValue).sorted() == ["photo", "post", "slip", "sticker", "story"])
         #expect(event.parameters["look"] == nil)
         #expect(event.parameters["adjusted"] == nil)

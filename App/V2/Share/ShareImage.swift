@@ -73,6 +73,15 @@ enum ShareApps {
         return components.url
     }
 
+    /// WhatsApp's own hook: a new message, the text written in, the chat still to pick.
+    static func whatsapp(text: String) -> URL? {
+        var components = URLComponents()
+        components.scheme = "whatsapp"
+        components.host = "send"
+        components.queryItems = [URLQueryItem(name: "text", value: text)]
+        return components.url
+    }
+
     /// Opens the app; `false` when it is not on the phone.
     @MainActor
     static func open(_ url: URL?) async -> Bool {

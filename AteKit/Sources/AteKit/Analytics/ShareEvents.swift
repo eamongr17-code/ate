@@ -18,6 +18,8 @@ public enum ShareDestination: String, Sendable, CaseIterable, Codable {
     case tiktok
     /// Saved to Photos, then Instagram's own composer opened on it.
     case instagram
+    /// WhatsApp opened on a new message with the entry's link.
+    case whatsapp
 }
 
 /// Which page left: the receipt on the entry's photo, or the receipt alone on the coral ground.

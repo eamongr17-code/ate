@@ -35,7 +35,7 @@ struct V2ReceiptShareSheet: View {
         .padding(.top, AteMetrics.section)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(AteColor.ink)
-        .presentationDetents([.height(V2ShareSheetMetrics.sheetHeight(dishes: receipt.items.count)), .large])
+        .presentationDetents([.height(V2ShareSheetMetrics.sheetHeight), .large])
         .presentationDragIndicator(.visible)
         .presentationBackground(AteColor.ink)
         .task {

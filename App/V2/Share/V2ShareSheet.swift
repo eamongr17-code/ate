@@ -5,16 +5,16 @@ import UIKit
 /// **The ink share sheet** (11 Oct, approved; Spotify's layout): the cards you swipe between, their
 /// colour dots, and one row of ways out. No title and no close; the sheet goes down by its handle.
 ///
-/// The cards (``AteShareCard``): the receipt alone (a sticker), the ready-made story, and the 4:5 post
-/// — the last two only with a photo to put them on (25 Oct, Eamon: full-screen photos, no colours).
-/// Under each card its dots: the sticker's paper; the story's and post's photos, and Regular | Mini
-/// for the receipt's size. On the card in front the photo is pinched bigger or smaller and moved with
-/// two fingers, out as far as the whole photo with a blurred copy of it filling the spare room, and a
-/// double tap puts it back; the receipt is dragged anywhere on the page with one.
+/// The cards (``AteShareCard``), in one carousel (4 Nov, Eamon: no switch, no posts): the receipt
+/// alone (a sticker), then the ready-made stories — only with a photo to put them on (25 Oct, Eamon:
+/// full-screen photos, no colours). Under each card its dots: the sticker's paper; the story's
+/// photos, and Regular | Mini for the receipt's size. On the card in front the photo is pinched
+/// bigger or smaller and moved with two fingers, out as far as the whole photo with a blurred copy
+/// of it filling the spare room, and a double tap puts it back; the receipt is dragged anywhere on
+/// the page with one.
 ///
-/// **A review of several dishes** (23 Oct, Eamon, option B): one receipt per dish, on that dish's own
-/// photos (``ShareReceiptPage``). Sticker, Story and Post become a switch over the cards, and the
-/// cards swipe from dish to dish; the whole receipt is the first sticker.
+/// **A review of several dishes** (23 Oct, Eamon, option B): one sticker, the whole receipt; then a
+/// story for the whole receipt and one per dish, each on that dish's own photos (``ShareReceiptPage``).
 ///
 /// The sticker card is the printed receipt itself (``AtePrintedReceiptStage``), so after a review it
 /// prints right there, takes the Place key, and a dish name can be tapped to fix it. The other cards
@@ -35,8 +35,6 @@ struct V2ShareSheet: View {
     var photos: [Int: UIImage] = [:]
     /// Each dish's own photos (``SharePhotoPairs``); none until known, never another dish's.
     var dishPhotos: [UUID: [Int]] = [:]
-    /// Which card a review of several dishes opens on.
-    var opensOn: AteShareFormat = .story
     let source: ReceiptShareSource
     /// The receipt has printed and the photos are in: the other cards and the row are live.
     var isLive = true
@@ -54,8 +52,6 @@ struct V2ShareSheet: View {
     var isPresenting: Binding<Bool>?
 
     @State var current: ShareSlot?
-    /// The switch over the cards, for a review of several dishes; `nil` is ``opensOn``.
-    @State var chosen: AteShareFormat?
     /// Each page's paper, ground, framing and receipt spot, once changed.
     @State var looks: [UUID: AteShareLook] = [:]
     /// The photo picked on each page, by position; `nil` is its first.
@@ -72,13 +68,6 @@ struct V2ShareSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if isSplit, switchFormats.count > 1 {
-                formatSwitch
-            } else if isSplit {
-                Color.clear.frame(height: V2ShareSheetMetrics.switchHeight)
-            } else if isWaiting, receipt.items.count > 1 {
-                Color.clear.frame(height: V2ShareSheetMetrics.switchHeight)
-            }
             carousel
             controls
                 .frame(height: V2ShareSheetMetrics.controlsHeight)
@@ -99,26 +88,6 @@ struct V2ShareSheet: View {
     }
 
     // MARK: - The switch
-
-    private var formatSwitch: some View {
-        AteSegments(
-            options: switchFormats.map { AteSegment($0, $0.title) }, selection: switchSelection, hugs: true,
-            identifier: "share.format"
-        )
-        .environment(\.atePalette, .shareSwitch)
-        .frame(height: V2ShareSheetMetrics.switchHeight, alignment: .bottom)
-    }
-
-    /// A change of card keeps the dish in front, where that card has it.
-    private var switchSelection: Binding<AteShareFormat> {
-        Binding {
-            format
-        } set: { format in
-            let page = current?.page
-            chosen = format
-            current = slots.first { $0.page == page } ?? slots.first
-        }
-    }
 
     // MARK: - The cards
 
@@ -310,8 +279,6 @@ enum V2ShareSheetMetrics {
 
     static let stickerWidth: CGFloat = 224
     static let controlsHeight: CGFloat = 64
-    /// The Sticker / Story / Post switch over the cards, for a review of several dishes.
-    static let switchHeight: CGFloat = 44
     static let swatch: CGFloat = 30
     static let swatchIcon: CGFloat = 16
     static let ringGap: CGFloat = 4
@@ -323,9 +290,4 @@ enum V2ShareSheetMetrics {
     static let liveIn = AteMotion.fillIn.delay(0.3)
     /// The sheet's height on the entry page: the cards, the dots, the row.
     static let sheetHeight: CGFloat = 660
-
-    /// …and with the switch, for a receipt of several dishes.
-    static func sheetHeight(dishes: Int) -> CGFloat {
-        dishes > 1 ? sheetHeight + switchHeight : sheetHeight
-    }
 }
