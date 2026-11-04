@@ -3,8 +3,8 @@ import SwiftUI
 
 /// **The three cards** (`design/rebuild/onboarding-calm.html`, 17 Oct): one entry, written the way
 /// people really write one — the review with a score after each dish — then its details, then how it
-/// looks in the Feed (``OnboardingArt``). A centred title on each; only the first has a line under
-/// it. No photos. Swipe or Next; Skip goes to the start screen, never past it.
+/// looks in the Feed (``OnboardingArt``). A centred title on each and no line under it (Eamon,
+/// 4 Nov: "Score as you go" removed). No photos. Swipe or Next; Skip goes to the start screen, never past it.
 ///
 /// The pictures are built from the kit fed ``OnboardingSample``, so a kit change reaches them.
 /// Nothing on a card is tappable.
@@ -78,20 +78,11 @@ struct OnboardingCards: View {
     }
 
     private func words(_ card: OnboardingCard) -> some View {
-        VStack(spacing: AteMetrics.snug) {
-            AteTitle(
-                text: card.title,
-                style: card == .write ? .onboardingWriteTitle : .handleTitle,
-                endsWithWordmark: card == .write
-            )
-            if let line = card.line {
-                Text(line)
-                    .ateText(.onboardingLine)
-                    .foregroundStyle(palette.muted)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
+        AteTitle(
+            text: card.title,
+            style: card == .write ? .onboardingWriteTitle : .handleTitle,
+            endsWithWordmark: card == .write
+        )
     }
 
     private var dots: some View {
@@ -119,14 +110,6 @@ enum OnboardingCard: Int, CaseIterable, Identifiable {
         case .write: "Write about what you"
         case .details: "Add the details."
         case .share: "Share your favourite dishes with the world."
-        }
-    }
-
-    /// The one line under the title, on the first card only.
-    var line: String? {
-        switch self {
-        case .write: "Score as you go."
-        case .details, .share: nil
         }
     }
 }
