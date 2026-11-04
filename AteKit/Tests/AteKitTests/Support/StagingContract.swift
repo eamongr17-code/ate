@@ -59,6 +59,25 @@ enum StagingContract {
         )
     }
 
+    /// Staging's auth server can run seconds ahead of its REST server, so a token used soon after it
+    /// is minted reads as "JWT issued at future" (PGRST303). A fixed 2 s wait was not enough (PRs
+    /// #355, #360: the first read still failed). Instead, ask REST with the new token until it takes
+    /// it, backing off 0.5 → 16 s (about 30 s in all). Any other answer, success or failure, ends the
+    /// wait; the tests themselves judge it.
+    static func waitUntilRESTAcceptsToken(_ supabase: SupabaseClient) async throws {
+        for delay in [0.5, 1, 2, 4, 8, 16] {
+            do {
+                _ = try await supabase.rpc("my_saved_cities").execute()
+                return
+            } catch let error as PostgrestError where error.code == "PGRST303" {
+                try await Task.sleep(for: .seconds(delay))
+            } catch {
+                return
+            }
+        }
+        _ = try await supabase.rpc("my_saved_cities").execute()
+    }
+
     /// One signed-in client shared by both suites — exactly one sign-in per run.
     ///
     /// The in-flight sign-in is what is cached, not its result: an actor re-enters at `await`, so
@@ -74,9 +93,7 @@ enum StagingContract {
             let task = Task {
                 let supabase = makeClient()
                 try await supabase.auth.signIn(email: email, password: password)
-                // Staging's auth and REST servers can disagree by under a second: a token used the
-                // instant it is minted can read as "JWT issued at future" (PGRST303, PR #355's run).
-                try await Task.sleep(for: .seconds(2))
+                try await waitUntilRESTAcceptsToken(supabase)
                 return AteAPIClient(supabase: supabase)
             }
             signingIn = task
