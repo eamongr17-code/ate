@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// **"Share to"** — the share screen's fixed row of ways out (Strava, Beli, Spotify: a row, not a
-/// system sheet, until "More"). Each is the kit's glass disc with one word under it. Instagram
-/// Stories and Copy link sit first, the same size, the same tap (Eamon: equally accessible). A disc
+/// system sheet, until "More"). Each is a disc with one word under it: the kit's glass disc, or an
+/// app's own colour (``AteBrandDisc``); on the ink sheet Copy link sits first (4 Nov, Eamon). A disc
 /// that has just acted says so on itself — "Copied", "Saved" — and nothing else does (design rule 1:
 /// no toast, no banner).
 ///
