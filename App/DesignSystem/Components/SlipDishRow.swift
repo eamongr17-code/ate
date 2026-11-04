@@ -32,8 +32,6 @@ struct SlipDishRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
     @Environment(\.colorScheme) private var colorScheme
-    /// The onboarding Share card: the first dish's bookmark is where its touch dot lands.
-    @Environment(\.ateMarksSaveTarget) private var marksSaveTarget
 
     /// **The row, as the two artboards draw it.**
     ///
@@ -89,7 +87,6 @@ struct SlipDishRow: View {
             if let onSave {
                 bookmark(action: onSave)
                     .popoverTip(saveTip, arrowEdge: .top)
-                    .ateTouchTarget(marksSaveTarget ? .save : nil)
                     // No text of its own: it centres on the numeral's caps, which is the centre of
                     // the score slot whether or not the slot is filled.
                     .alignmentGuide(.top) { $0[VerticalAlignment.center] - metrics.markCentre }

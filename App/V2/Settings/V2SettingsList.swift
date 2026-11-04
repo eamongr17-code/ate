@@ -130,7 +130,7 @@ struct V2SettingsList: View {
             onFailure: { failure = .avatar },
             onPicked: { jpeg in Task { await upload(jpeg) } }
         )
-        // The onboarding's three cards again, on their own: no handle, no photo ask, no sign-out.
+        // The onboarding's tutorial again, on their own: no handle, no photo ask, no sign-out.
         .fullScreenCover(isPresented: $isShowingTutorial) {
             V2Tutorial(handle: context.app.handle ?? model.handle ?? "") { reached, skipped in
                 context.services.analytics(OnboardingEvents.tutorial(reached: reached, skipped: skipped))

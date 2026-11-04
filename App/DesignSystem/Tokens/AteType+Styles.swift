@@ -95,6 +95,11 @@ extension AteTextStyle {
     static let meta = AteTextStyle(
         voice: .display, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote
     )
+    /// A letter on the keyboard under the tutorial's composer: 22, regular, at every text size (the
+    /// keys are a picture of the keyboard, not text to read).
+    static let onboardingKeyLetter = AteTextStyle(
+        voice: .display, size: 22, weight: 400, trackingEm: 0, lineHeight: 1.0, textStyle: .body, maximumSize: 22
+    )
     /// The one line under a first-run card's title: how. 16pt/500.
     static let onboardingLine = AteTextStyle(
         voice: .display, size: 16, weight: 500, trackingEm: 0, lineHeight: 1.35, textStyle: .callout

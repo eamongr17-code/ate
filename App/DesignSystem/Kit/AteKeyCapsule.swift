@@ -28,6 +28,8 @@ struct AteKeyCapsule<Library: View>: View {
     var codes: [DietTag] = DietTag.pickingOrder
     /// A tip on the Score key: a first entry's Score tip.
     var scoreTip: (any Tip)?
+    /// The Diet key drawn pressed (ink): only the tutorial's picture, which shows the key in use.
+    var isDietLit = false
     @ViewBuilder var library: Library
 
     @Environment(\.atePalette) private var palette
@@ -67,7 +69,7 @@ struct AteKeyCapsule<Library: View>: View {
             HStack(spacing: AteKeyCapsuleMetrics.gap) {
                 AteKey(kind: .score, isActive: isScoring, action: onScore)
                     .popoverTip(scoreTip, arrowEdge: .bottom)
-                AteKey(kind: .diet) {
+                AteKey(kind: .diet, isActive: isDietLit) {
                     onDiet()
                     isChoosingDiet = true
                 }

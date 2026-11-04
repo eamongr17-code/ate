@@ -7,7 +7,7 @@ import SwiftUI
 /// 1. **A photo of you** (``OnboardingPhotoStep``): the avatar, Apple's picker, Not now.
 /// 1b. **Set your dietary requirements** (``OnboardingDietStep``, `diet.html`): the ten codes, Next
 ///    or None of these.
-/// 2. **The three cards** (``OnboardingCards``): one entry written with its scores, its details,
+/// 2. **The tutorial** (``OnboardingCards``): one entry written in the composer a piece per step,
 ///    then as the Feed shows it.
 /// 3. **Start with your last meal**: Find it in my photos (the system's own prompt does the asking),
 ///    Write one now (a blank composer), or Later (the empty Journal). Nothing assumes the roll has
@@ -304,6 +304,8 @@ enum OnboardingMetrics {
     static let artTop: CGFloat = 16
     static let dot: CGFloat = 8
     static let dotsToPill: CGFloat = 18
+    /// How far a drag goes before the tutorial reads it as a swipe to the next or previous step.
+    static let swipe: CGFloat = 24
     /// Start: the two pills and the link, 10 apart.
     static let doorsGap: CGFloat = 10
     static let titleBar: CGFloat = 220
