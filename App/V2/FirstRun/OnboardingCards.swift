@@ -181,6 +181,39 @@ enum OnboardingSample {
         return chunks
     }
 
+    /// The Write card's words as they arrive: every word laid out from the start, so nothing
+    /// reflows as they come up; a pill only once its step is reached (what follows it is still
+    /// unseen then); and where each word's step sits in the text.
+    static func arriving(typed: Int) -> OnboardingArrival {
+        var plain = ""
+        var spans: [EntryTokenSpan] = []
+        var words: [OnboardingArrival.Word] = []
+        var step = 0
+        for piece in pieces(tagged: false) {
+            switch piece {
+            case .words(let text):
+                for chunk in chunks(text) {
+                    let start = plain.utf16.count
+                    plain += chunk
+                    words.append(OnboardingArrival.Word(
+                        step: step, range: NSRange(location: start, length: plain.utf16.count - start)
+                    ))
+                    step += 1
+                }
+            case .token(let token):
+                if step < typed {
+                    spans.append(EntryTokenSpan(
+                        token: token,
+                        span: TextSpan(location: plain.utf16.count, length: token.kind.plainText.utf16.count)
+                    ))
+                    plain += token.kind.plainText
+                }
+                step += 1
+            }
+        }
+        return OnboardingArrival(composition: EntryComposition(plain: plain, spans: spans), words: words)
+    }
+
     /// How many steps typing the words takes: a step per word, and one per pill.
     static func steps(tagged: Bool) -> Int {
         pieces(tagged: tagged).reduce(0) { $0 + $1.steps }
@@ -237,4 +270,15 @@ enum OnboardingSample {
             byline: AteByline(userID: bylineID, handle: handle, age: "now", with: "@\(friend.handle)")
         )
     }
+}
+
+/// The Write card's words partway in (``OnboardingSample/arriving(typed:)``).
+struct OnboardingArrival {
+    struct Word {
+        let step: Int
+        let range: NSRange
+    }
+
+    let composition: EntryComposition
+    let words: [Word]
 }

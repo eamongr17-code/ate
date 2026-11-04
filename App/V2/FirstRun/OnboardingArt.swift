@@ -69,10 +69,9 @@ private struct OnboardingPaper: View {
     var picked: DietTag?
     /// Where the touch dot is (``AteTouchDot``): on the key the card is about to press.
     var touch = AteTouch()
-    /// The Write card's newest words, still fading in: each is the words up to that step, laid over
-    /// `words` (which holds only the settled ones) and faded in as it arrives (Eamon, 4 Nov: fade in
-    /// word by word rather than type). Same text up to the new word, so the glyphs coincide.
-    var fading: [OnboardingArrivingWords] = []
+    /// The Write card's words still fading in (Eamon, 4 Nov: fade in word by word rather than
+    /// type). Every word is laid out from the start and only its colour comes up, in one label.
+    var fades: [InlineTokenFade] = []
 
     @Environment(\.atePalette) private var palette
 
@@ -81,11 +80,7 @@ private struct OnboardingPaper: View {
             AteComposerByline(place: OnboardingSample.place, people: people, onPlace: {}, onPeople: {})
             ZStack(alignment: .topLeading) {
                 InlineTokenText(composition: finished, style: .onboardingWords).hidden()
-                InlineTokenText(composition: words, style: .onboardingWords)
-                ForEach(fading) { arriving in
-                    InlineTokenText(composition: arriving.words, style: .onboardingWords)
-                        .transition(.opacity)
-                }
+                InlineTokenText(composition: words, style: .onboardingWords, fades: fades)
             }
             .padding(.horizontal, AteMetrics.gutter)
             if holdsPhotos {
@@ -145,11 +140,6 @@ private struct OnboardingPaper: View {
 
 // MARK: - Write
 
-/// The words up to one step of the Write card, while that step's word is still fading in.
-private struct OnboardingArrivingWords: Identifiable {
-    let id: Int
-    let words: EntryComposition
-}
 
 /// The review appearing word by word, a score pill dropping in after each dish as the Score key lights.
 private struct OnboardingWriteArt: View {
@@ -159,46 +149,67 @@ private struct OnboardingWriteArt: View {
     // the empty paper that then fills, never the finished one that empties and refills (Eamon,
     // 4 Nov: the second and third cards glitched when swiped to).
     @State private var typed = 0
+    /// When each step arrived, for its fade.
+    @State private var arrivals: [Int: Date] = [:]
+    /// No word is mid-fade: the clock below stops.
+    @State private var isSettled = true
     @State private var isScoring = false
     @State private var touch = AteTouch()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        OnboardingPaper(
-            words: OnboardingSample.words(tagged: false, typed: typed - OnboardingArtMetrics.fadingWords),
-            finished: OnboardingSample.words(tagged: false),
-            isScoring: isScoring,
-            touch: touch,
-            fading: fading
-        )
+        // One label with every word in it, redrawn on the display's clock only while a word fades:
+        // nothing is added, removed or resized as the words come up, so nothing can jump (build
+        // 282's layered labels each resized under the fade's animation and shook).
+        TimelineView(.animation(minimumInterval: OnboardingArtMetrics.fadeTick, paused: isSettled)) { context in
+            let arrival = OnboardingSample.arriving(typed: typed)
+            OnboardingPaper(
+                words: arrival.composition,
+                finished: OnboardingSample.words(tagged: false),
+                isScoring: isScoring,
+                touch: touch,
+                fades: fades(arrival, at: context.date)
+            )
+        }
         .animation(reduceMotion ? nil : OnboardingArtMetrics.press, value: isScoring)
         .task(id: isShowing) { await type() }
     }
 
-    /// The last few steps, each still fading in over the settled words.
-    private var fading: [OnboardingArrivingWords] {
-        let first = max(1, typed - OnboardingArtMetrics.fadingWords + 1)
-        guard first <= typed else { return [] }
-        return (first...typed).map {
-            OnboardingArrivingWords(id: $0, words: OnboardingSample.words(tagged: false, typed: $0))
+    /// Every word not fully in yet: unseen before its step, then up over `wordFade`.
+    private func fades(_ arrival: OnboardingArrival, at now: Date) -> [InlineTokenFade] {
+        arrival.words.compactMap { word in
+            let opacity: Double
+            if word.step >= typed {
+                opacity = 0
+            } else if let arrived = arrivals[word.step] {
+                opacity = min(1, now.timeIntervalSince(arrived) / OnboardingArtMetrics.wordFade)
+            } else {
+                opacity = 1
+            }
+            return opacity < 1 ? InlineTokenFade(range: word.range, opacity: opacity) : nil
         }
     }
 
     /// One more word (or pill), fading in.
     private func step() {
-        withAnimation(OnboardingArtMetrics.wordFade) { typed += 1 }
+        arrivals[typed] = .now
+        typed += 1
     }
 
     private func type() async {
         let steps = OnboardingSample.steps(tagged: false)
         isScoring = false
         touch = AteTouch()
+        arrivals = [:]
+        isSettled = true
         guard reduceMotion == false else {
             typed = steps
             return
         }
         typed = 0
         guard isShowing else { return }
+        isSettled = false
+        defer { isSettled = true }
         try? await Task.sleep(for: OnboardingArtMetrics.typingStart)
         while typed < steps {
             if Task.isCancelled { return }
@@ -220,6 +231,8 @@ private struct OnboardingWriteArt: View {
                 step()
             }
         }
+        // The last word's fade, before the clock stops.
+        try? await Task.sleep(for: .seconds(OnboardingArtMetrics.wordFade))
     }
 }
 
@@ -401,9 +414,9 @@ enum OnboardingArtMetrics {
     /// One word, with its space: a new one every 80ms, each fading in over 0.24s, so about three
     /// are arriving at once and none snaps in.
     static let keystroke: Duration = .milliseconds(80)
-    static let wordFade = Animation.easeOut(duration: 0.24)
-    /// How many of the newest steps are still fading; older ones are drawn solid underneath.
-    static let fadingWords = 3
+    static let wordFade: TimeInterval = 0.24
+    /// How often a fading word is redrawn.
+    static let fadeTick: TimeInterval = 1.0 / 30
     static let scoreHold: Duration = .milliseconds(250)
     /// The touch dot settling on a key before it presses, and how long a tap holds it down.
     static let touchLead: Duration = .milliseconds(220)
