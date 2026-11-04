@@ -38,6 +38,7 @@ struct OnboardingCards: View {
             OnboardingArt(card: page, handle: handle)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .padding(.top, OnboardingMetrics.artTop)
+                .padding(.bottom, AteMetrics.section)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
             title
