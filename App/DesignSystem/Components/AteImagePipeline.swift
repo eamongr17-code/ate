@@ -210,7 +210,7 @@ final class AteImagePipeline: @unchecked Sendable {
     }
 
     /// The photo's own bytes: on disk, or fetched and filed.
-    private func original(_ url: URL) async -> Data? {
+    func original(_ url: URL) async -> Data? {
         let file = diskFile(url.absoluteString, kind: "original")
         if let data = readDisk(file) { return data }
         guard let data = await fetch(url) else { return nil }

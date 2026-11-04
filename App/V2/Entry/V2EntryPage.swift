@@ -65,6 +65,11 @@ private struct V2EntryScreen: View {
             .task {
                 services.savedDishes.add(model)
                 await model.load()
+                // Your own entry can be shared: its photos at full size are fetched ahead, so the
+                // share sheet's cards are ready as it rises.
+                if let card = model.card, card.isMine {
+                    await AteImagePipeline.shared.warmOriginals(card.photos.map(\.url))
+                }
             }
             .onChange(of: model.card) { _, card in
                 if let card { NotificationCenter.ateEntryChanged(card) }
@@ -111,6 +116,7 @@ private struct V2EntryScreen: View {
                     V2ReceiptShareSheet(
                         receipt: receipt,
                         photos: card.photos,
+                        heldPairs: model.photoDishes,
                         loadPairs: { [model] in
                             await model.pairPhotosIfNeverPaired()
                             await model.refreshPhotoDishes()

@@ -135,6 +135,9 @@ struct V2ShareSheet: View {
                         .id(slot)
                 }
             }
+            // Holds the cards' height while there are none yet, so their arrival fades in place
+            // instead of opening the carousel from nothing.
+            .frame(minHeight: V2ShareSheetMetrics.slot.height)
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.viewAligned)
@@ -317,8 +320,9 @@ enum V2ShareSheetMetrics {
     static let swatchIcon: CGFloat = 16
     static let ringGap: CGFloat = 4
     static let swatchGap: CGFloat = 6
-    /// How fast an entry's cards come in once its photos are.
-    static let cardsIn: Double = 0.2
+    /// An entry's cards coming in once its photos are: one fade, in the place they rest (4 Nov,
+    /// Eamon: they lurched up from the middle of an empty sheet).
+    static let cardsIn = AteMotion.fillIn
     /// After a review, the dots come in just behind the printed lines, once the paper has mostly settled.
     static let liveIn = AteMotion.fillIn.delay(0.3)
     /// The sheet's height on the entry page: the cards, the dots, the row.
