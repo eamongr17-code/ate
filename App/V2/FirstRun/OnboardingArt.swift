@@ -140,7 +140,6 @@ private struct OnboardingPaper: View {
 
 // MARK: - Write
 
-
 /// The review appearing word by word, a score pill dropping in after each dish as the Score key lights.
 private struct OnboardingWriteArt: View {
     let isShowing: Bool
