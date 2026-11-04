@@ -303,6 +303,14 @@ struct AtePalette: Equatable, Sendable {
         raised: Color.white.opacity(0.12)
     )
 
+    /// The share sheet's two switches: the ink sheet's own, with the chosen pill a step lighter than
+    /// its track so it reads at a glance, as the system's dark segmented control does.
+    static let shareSwitch: AtePalette = {
+        var palette = AtePalette.ink
+        palette.raised = Color.white.opacity(0.28)
+        return palette
+    }()
+
     /// An accent ground — Share, Welcome. Ink text, white chips, in both modes.
     static func accent(_ colour: Color) -> AtePalette {
         AtePalette(
