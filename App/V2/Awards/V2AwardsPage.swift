@@ -47,6 +47,7 @@ struct V2AwardsPage: View {
         .ateGround()
         .ateInlineTitle("Awards")
         .task {
+            AtePlatePool.warm() // the live plate behind every cell, loaded before the tap
             await store.loadIfNeeded()
             guard hasCounted == false, store.phase == .ready else { return }
             hasCounted = true
