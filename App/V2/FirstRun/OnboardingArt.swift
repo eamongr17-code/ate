@@ -155,7 +155,10 @@ private struct OnboardingArrivingWords: Identifiable {
 private struct OnboardingWriteArt: View {
     let isShowing: Bool
 
-    @State private var typed = OnboardingSample.steps(tagged: false)
+    // Each card waits at its first frame until it is the page on screen, so a card swiped in is
+    // the empty paper that then fills, never the finished one that empties and refills (Eamon,
+    // 4 Nov: the second and third cards glitched when swiped to).
+    @State private var typed = 0
     @State private var isScoring = false
     @State private var touch = AteTouch()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -190,11 +193,12 @@ private struct OnboardingWriteArt: View {
         let steps = OnboardingSample.steps(tagged: false)
         isScoring = false
         touch = AteTouch()
-        guard isShowing, reduceMotion == false else {
+        guard reduceMotion == false else {
             typed = steps
             return
         }
         typed = 0
+        guard isShowing else { return }
         try? await Task.sleep(for: OnboardingArtMetrics.typingStart)
         while typed < steps {
             if Task.isCancelled { return }
@@ -226,13 +230,13 @@ private struct OnboardingWriteArt: View {
 private struct OnboardingDetailsArt: View {
     let isShowing: Bool
 
-    @State private var hasPeople = true
-    @State private var photoCount = OnboardingSample.photos.count
+    @State private var hasPeople = false
+    @State private var photoCount = 0
     @State private var isAddingPhotos = false
     @State private var isTagging = false
-    @State private var isChoosingDiet = true
-    @State private var isPicked = true
-    @State private var isTagged = true
+    @State private var isChoosingDiet = false
+    @State private var isPicked = false
+    @State private var isTagged = false
     @State private var touch = AteTouch()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -256,7 +260,7 @@ private struct OnboardingDetailsArt: View {
         isTagging = false
         isAddingPhotos = false
         touch = AteTouch()
-        guard isShowing, reduceMotion == false else {
+        guard reduceMotion == false else {
             hasPeople = true
             photoCount = OnboardingSample.photos.count
             isChoosingDiet = true
@@ -269,7 +273,7 @@ private struct OnboardingDetailsArt: View {
         isChoosingDiet = false
         isPicked = false
         isTagged = false
-        guard await beat(OnboardingArtMetrics.detailsStart) else { return }
+        guard isShowing, await beat(OnboardingArtMetrics.detailsStart) else { return }
         withAnimation(OnboardingArtMetrics.drop) { hasPeople = true }
         guard await beat(OnboardingArtMetrics.detailsBeat), await addPhotos() else { return }
         // The Diet key goes down and unfolds into every code; V lights, then lands in the words.
@@ -330,8 +334,8 @@ private struct OnboardingShareArt: View {
     let handle: String
     let isShowing: Bool
 
-    @State private var isRisen = true
-    @State private var isSaved = true
+    @State private var isRisen = false
+    @State private var isSaved = false
     @State private var touch = AteTouch()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -352,13 +356,14 @@ private struct OnboardingShareArt: View {
 
     private func play() async {
         touch = AteTouch()
-        guard isShowing, reduceMotion == false else {
+        guard reduceMotion == false else {
             isRisen = true
             isSaved = true
             return
         }
         isRisen = false
         isSaved = false
+        guard isShowing else { return }
         try? await Task.sleep(for: OnboardingArtMetrics.riseStart)
         guard Task.isCancelled == false else { return }
         withAnimation(OnboardingArtMetrics.risen) { isRisen = true }
