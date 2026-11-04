@@ -49,20 +49,24 @@ struct V2ReceiptShareRow: View {
             })
     }
 
+    /// Eamon's order (4 Nov, after Spotify's row): Copy link first, Save and More last.
     private var actions: [AteShareRow.Action] {
         [
+            .init(id: "link", icon: .link, title: word("link", "Copy link"), isEnabled: isEnabled, brand: .neutral,
+                  action: copyLink),
             .init(id: "stories", icon: .instagram, title: "Stories", isEnabled: isEnabled, brand: .instagram,
                   action: shareToStories),
-            .init(id: "tiktok", icon: .tiktok, title: word("tiktok", "TikTok"), isEnabled: isEnabled,
-                  isBusy: busy == "tiktok", brand: .tiktok, action: shareToTikTok),
             .init(id: "messages", icon: .messageCircle, title: "Messages", isEnabled: isEnabled, brand: .messages,
                   action: message),
+            .init(id: "whatsapp", icon: .whatsapp, title: "WhatsApp", isEnabled: isEnabled, brand: .whatsapp,
+                  action: shareToWhatsApp),
+            .init(id: "tiktok", icon: .tiktok, title: word("tiktok", "TikTok"), isEnabled: isEnabled,
+                  isBusy: busy == "tiktok", brand: .tiktok, action: shareToTikTok),
             .init(id: "instagram", icon: .instagram, title: "Instagram", isEnabled: isEnabled,
                   isBusy: busy == "instagram", brand: .instagram, action: shareToInstagram),
-            .init(id: "link", icon: .link, title: word("link", "Copy link"), isEnabled: isEnabled, action: copyLink),
-            .init(id: "save", icon: .download, title: word("save", "Save image"), isEnabled: isEnabled,
-                  isBusy: busy == "save", action: save),
-            .init(id: "more", icon: .more, title: "More", isEnabled: isEnabled, action: more)
+            .init(id: "save", icon: .download, title: word("save", "Save"), isEnabled: isEnabled,
+                  isBusy: busy == "save", brand: .neutral, action: save),
+            .init(id: "more", icon: .more, title: "More", isEnabled: isEnabled, brand: .neutral, action: more)
         ]
     }
 
@@ -131,6 +135,19 @@ struct V2ReceiptShareRow: View {
                await ShareApps.open(ShareApps.instagram(libraryIdentifier: identifier)) {
                 count(.instagram)
             } else {
+                present(ShareSender.Sending(image: render.page, sticker: render.sticker))
+            }
+        }
+    }
+
+    /// WhatsApp opened on a new message holding the entry's link, whose preview is the card's picture
+    /// (the share links' preview image). The system sheet when WhatsApp is not on the phone.
+    private func shareToWhatsApp() {
+        first()
+        Task {
+            if await ShareApps.open(ShareApps.whatsapp(text: link.absoluteString)) {
+                count(.whatsapp)
+            } else if let render = render() {
                 present(ShareSender.Sending(image: render.page, sticker: render.sticker))
             }
         }

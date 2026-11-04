@@ -49,6 +49,9 @@ enum AteColor {
     ]
     static let tiktok = Color.black
     static let messagesGreen = Color(hex: 0x34C759)
+    static let whatsappGreen = Color(hex: 0x25D366)
+    /// Copy link, Save and More on the ink sheet's row: a flat grey disc beside the apps' colours.
+    static let shareNeutral = Color.white.opacity(0.14)
     /// The glyph on an app's own coloured disc.
     static let onBrand = Color.white
 
@@ -303,6 +306,14 @@ struct AtePalette: Equatable, Sendable {
         raised: Color.white.opacity(0.12)
     )
 
+    /// The share sheet's two switches: the ink sheet's own, with the chosen pill a step lighter than
+    /// its track so it reads at a glance, as the system's dark segmented control does.
+    static let shareSwitch: AtePalette = {
+        var palette = AtePalette.ink
+        palette.raised = Color.white.opacity(0.28)
+        return palette
+    }()
+
     /// An accent ground — Share, Welcome. Ink text, white chips, in both modes.
     static func accent(_ colour: Color) -> AtePalette {
         AtePalette(
@@ -388,7 +399,9 @@ extension Color {
 /// An app's colour, on its disc in the share row and behind a saved dish's source mark. TikTok's and
 /// Instagram's discs carry the app's own mark (``AteIcon/tiktok``, ``AteIcon/instagram``).
 enum AteShareBrand {
-    case instagram, tiktok, messages
+    case instagram, tiktok, messages, whatsapp
+    /// Ate's own ways out (Copy link, Save, More): flat grey, no glass (4 Nov, Eamon: Spotify's row).
+    case neutral
 
     /// The share row's 44 disc.
     var fill: AnyShapeStyle { fill(size: 44) }
@@ -403,6 +416,8 @@ enum AteShareBrand {
             ))
         case .tiktok: AnyShapeStyle(AteColor.tiktok)
         case .messages: AnyShapeStyle(AteColor.messagesGreen)
+        case .whatsapp: AnyShapeStyle(AteColor.whatsappGreen)
+        case .neutral: AnyShapeStyle(AteColor.shareNeutral)
         }
     }
 }

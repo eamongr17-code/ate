@@ -198,7 +198,8 @@ struct AteSegment<Value: Hashable>: Identifiable {
 }
 
 /// A two-way segmented pill — Journal | Saved. A pill inside a field-coloured pill, which is the only
-/// segmented control the design has.
+/// segmented control the design has. The pill slides to the tap: one quick move, no glass (4 Nov,
+/// Eamon: the system's Liquid Glass morph is too much for a control this small).
 struct AteSegments<Value: Hashable>: View {
     let options: [AteSegment<Value>]
     @Binding var selection: Value
@@ -208,6 +209,7 @@ struct AteSegments<Value: Hashable>: View {
     var identifier: String?
 
     @Environment(\.atePalette) private var palette
+    @Namespace private var pill
 
     var body: some View {
         HStack(spacing: 0) {
@@ -223,7 +225,11 @@ struct AteSegments<Value: Hashable>: View {
                         .padding(.horizontal, hugs ? Self.hugPadding : 0)
                         .frame(maxWidth: hugs ? nil : .infinity)
                         .atePillHeight(AteMetrics.segmentHeight)
-                        .background(isCurrent ? palette.raised : .clear, in: .capsule)
+                        .background {
+                            if isCurrent {
+                                Capsule().fill(palette.raised).matchedGeometryEffect(id: "pill", in: pill)
+                            }
+                        }
                         .foregroundStyle(isCurrent ? palette.fg : palette.muted)
                         .ateHitArea(Self.hitOutset)
                 }
@@ -235,6 +241,7 @@ struct AteSegments<Value: Hashable>: View {
         }
         .padding(AteMetrics.tight)
         .background(palette.field, in: .capsule)
+        .ateAnimation(AteMotion.segmentSlide, value: selection)
     }
 
     /// A segment is drawn 36 tall; a finger gets 44 (the outset lands on the pill's own rim).

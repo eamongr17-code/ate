@@ -43,6 +43,8 @@ enum AteMotion {
     /// The map's camera gliding somewhere (Show my location, a tapped dot): a pan you can follow,
     /// never a jump (Eamon, 25 Oct).
     static let mapGlide = Animation.smooth(duration: 0.8)
+    /// A segmented pill's selection sliding to the tapped option (``AteSegments``).
+    static let segmentSlide = Animation.snappy(duration: 0.25)
     /// The map's sheet settling on a height after a drag: the system sheet's own movement.
     static let panelSettle = Animation.spring(duration: 0.35, bounce: 0)
 }
