@@ -14,7 +14,8 @@ final class OnboardingSnapshotTests: XCTestCase {
     func testThought() { snapshot(.thought) }
     func testNextDish() { snapshot(.nextDish) }
     func testDetails() { snapshot(.details) }
-    func testShare() { snapshot(.share) }
+    /// Not `testShare`: the kit has a picture by that name, and the app bundle holds every picture flat.
+    func testShareStep() { snapshot(.share) }
 
     /// Long enough for the Write step to play its three words and its score, and the photos to load.
     private static let settle: TimeInterval = 3
