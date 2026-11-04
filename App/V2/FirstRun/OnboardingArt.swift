@@ -69,6 +69,10 @@ private struct OnboardingPaper: View {
     var picked: DietTag?
     /// Where the touch dot is (``AteTouchDot``): on the key the card is about to press.
     var touch = AteTouch()
+    /// The Write card's newest words, still fading in: each is the words up to that step, laid over
+    /// `words` (which holds only the settled ones) and faded in as it arrives (Eamon, 4 Nov: fade in
+    /// word by word rather than type). Same text up to the new word, so the glyphs coincide.
+    var fading: [OnboardingArrivingWords] = []
 
     @Environment(\.atePalette) private var palette
 
@@ -78,6 +82,10 @@ private struct OnboardingPaper: View {
             ZStack(alignment: .topLeading) {
                 InlineTokenText(composition: finished, style: .onboardingWords).hidden()
                 InlineTokenText(composition: words, style: .onboardingWords)
+                ForEach(fading) { arriving in
+                    InlineTokenText(composition: arriving.words, style: .onboardingWords)
+                        .transition(.opacity)
+                }
             }
             .padding(.horizontal, AteMetrics.gutter)
             if holdsPhotos {
@@ -137,35 +145,60 @@ private struct OnboardingPaper: View {
 
 // MARK: - Write
 
+/// The words up to one step of the Write card, while that step's word is still fading in.
+private struct OnboardingArrivingWords: Identifiable {
+    let id: Int
+    let words: EntryComposition
+}
+
 /// The review appearing word by word, a score pill dropping in after each dish as the Score key lights.
 private struct OnboardingWriteArt: View {
     let isShowing: Bool
 
-    @State private var typed = OnboardingSample.steps(tagged: false)
+    // Each card waits at its first frame until it is the page on screen, so a card swiped in is
+    // the empty paper that then fills, never the finished one that empties and refills (Eamon,
+    // 4 Nov: the second and third cards glitched when swiped to).
+    @State private var typed = 0
     @State private var isScoring = false
     @State private var touch = AteTouch()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         OnboardingPaper(
-            words: OnboardingSample.words(tagged: false, typed: typed),
+            words: OnboardingSample.words(tagged: false, typed: typed - OnboardingArtMetrics.fadingWords),
             finished: OnboardingSample.words(tagged: false),
             isScoring: isScoring,
-            touch: touch
+            touch: touch,
+            fading: fading
         )
         .animation(reduceMotion ? nil : OnboardingArtMetrics.press, value: isScoring)
         .task(id: isShowing) { await type() }
+    }
+
+    /// The last few steps, each still fading in over the settled words.
+    private var fading: [OnboardingArrivingWords] {
+        let first = max(1, typed - OnboardingArtMetrics.fadingWords + 1)
+        guard first <= typed else { return [] }
+        return (first...typed).map {
+            OnboardingArrivingWords(id: $0, words: OnboardingSample.words(tagged: false, typed: $0))
+        }
+    }
+
+    /// One more word (or pill), fading in.
+    private func step() {
+        withAnimation(OnboardingArtMetrics.wordFade) { typed += 1 }
     }
 
     private func type() async {
         let steps = OnboardingSample.steps(tagged: false)
         isScoring = false
         touch = AteTouch()
-        guard isShowing, reduceMotion == false else {
+        guard reduceMotion == false else {
             typed = steps
             return
         }
         typed = 0
+        guard isShowing else { return }
         try? await Task.sleep(for: OnboardingArtMetrics.typingStart)
         while typed < steps {
             if Task.isCancelled { return }
@@ -177,14 +210,14 @@ private struct OnboardingWriteArt: View {
                 isScoring = true
                 touch.isDown = true
                 try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
-                typed += 1
+                step()
                 touch.isDown = false
                 try? await Task.sleep(for: OnboardingArtMetrics.scoreHold)
                 isScoring = false
                 touch.target = nil
             } else {
                 try? await Task.sleep(for: OnboardingArtMetrics.keystroke)
-                typed += 1
+                step()
             }
         }
     }
@@ -197,13 +230,13 @@ private struct OnboardingWriteArt: View {
 private struct OnboardingDetailsArt: View {
     let isShowing: Bool
 
-    @State private var hasPeople = true
-    @State private var photoCount = OnboardingSample.photos.count
+    @State private var hasPeople = false
+    @State private var photoCount = 0
     @State private var isAddingPhotos = false
     @State private var isTagging = false
-    @State private var isChoosingDiet = true
-    @State private var isPicked = true
-    @State private var isTagged = true
+    @State private var isChoosingDiet = false
+    @State private var isPicked = false
+    @State private var isTagged = false
     @State private var touch = AteTouch()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -227,7 +260,7 @@ private struct OnboardingDetailsArt: View {
         isTagging = false
         isAddingPhotos = false
         touch = AteTouch()
-        guard isShowing, reduceMotion == false else {
+        guard reduceMotion == false else {
             hasPeople = true
             photoCount = OnboardingSample.photos.count
             isChoosingDiet = true
@@ -240,7 +273,7 @@ private struct OnboardingDetailsArt: View {
         isChoosingDiet = false
         isPicked = false
         isTagged = false
-        guard await beat(OnboardingArtMetrics.detailsStart) else { return }
+        guard isShowing, await beat(OnboardingArtMetrics.detailsStart) else { return }
         withAnimation(OnboardingArtMetrics.drop) { hasPeople = true }
         guard await beat(OnboardingArtMetrics.detailsBeat), await addPhotos() else { return }
         // The Diet key goes down and unfolds into every code; V lights, then lands in the words.
@@ -301,8 +334,8 @@ private struct OnboardingShareArt: View {
     let handle: String
     let isShowing: Bool
 
-    @State private var isRisen = true
-    @State private var isSaved = true
+    @State private var isRisen = false
+    @State private var isSaved = false
     @State private var touch = AteTouch()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -323,13 +356,14 @@ private struct OnboardingShareArt: View {
 
     private func play() async {
         touch = AteTouch()
-        guard isShowing, reduceMotion == false else {
+        guard reduceMotion == false else {
             isRisen = true
             isSaved = true
             return
         }
         isRisen = false
         isSaved = false
+        guard isShowing else { return }
         try? await Task.sleep(for: OnboardingArtMetrics.riseStart)
         guard Task.isCancelled == false else { return }
         withAnimation(OnboardingArtMetrics.risen) { isRisen = true }
@@ -364,11 +398,15 @@ enum OnboardingArtMetrics {
     // Quick on purpose (Eamon, 3 Nov: the typing was too slow): a word per step, the whole card
     // done in about two seconds rather than seven.
     static let typingStart: Duration = .milliseconds(250)
-    /// One word, with its space.
-    static let keystroke: Duration = .milliseconds(55)
+    /// One word, with its space: a new one every 80ms, each fading in over 0.24s, so about three
+    /// are arriving at once and none snaps in.
+    static let keystroke: Duration = .milliseconds(80)
+    static let wordFade = Animation.easeOut(duration: 0.24)
+    /// How many of the newest steps are still fading; older ones are drawn solid underneath.
+    static let fadingWords = 3
     static let scoreHold: Duration = .milliseconds(250)
     /// The touch dot settling on a key before it presses, and how long a tap holds it down.
-    static let touchLead: Duration = .milliseconds(280)
+    static let touchLead: Duration = .milliseconds(220)
     static let tap: Duration = .milliseconds(180)
 
     // Details

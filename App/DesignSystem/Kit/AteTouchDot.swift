@@ -68,74 +68,47 @@ private struct AteTouchDotLayer: View {
     let touch: AteTouch
     let frames: [AteTouchTarget: CGRect]
 
-    /// The last place it landed: kept while it fades, so it lifts off where it was.
-    @State private var shown: AteTouchTarget?
-    /// Counts presses: each one sends out one ripple.
-    @State private var presses = 0
     @Environment(\.atePalette) private var palette
 
     var body: some View {
-        let frame = (touch.target ?? shown).flatMap { frames[$0] } ?? .zero
-        let isVisible = touch.target != nil
-        ZStack {
-            // The ripple: once per press, it leaves the dot and fades. Unseen at rest.
-            Circle()
-                .strokeBorder(palette.fg.opacity(AteTouchDotMetrics.ringOpacity), lineWidth: AteTouchDotMetrics.ring)
-                .keyframeAnimator(initialValue: Ripple(), trigger: presses) { ring, ripple in
-                    ring.scaleEffect(ripple.scale).opacity(ripple.opacity)
-                } keyframes: { _ in
-                    KeyframeTrack(\.scale) {
-                        LinearKeyframe(1, duration: 0)
-                        CubicKeyframe(AteTouchDotMetrics.rippleScale, duration: AteTouchDotMetrics.rippleDuration)
-                    }
-                    KeyframeTrack(\.opacity) {
-                        LinearKeyframe(1, duration: 0)
-                        CubicKeyframe(0, duration: AteTouchDotMetrics.rippleDuration)
-                    }
-                }
-            Circle()
-                .fill(palette.fg.opacity(AteTouchDotMetrics.fillOpacity))
-                .overlay {
-                    Circle().strokeBorder(
-                        palette.fg.opacity(AteTouchDotMetrics.ringOpacity), lineWidth: AteTouchDotMetrics.ring
-                    )
-                }
-                .scaleEffect(touch.isDown ? AteTouchDotMetrics.pressScale : 1)
-                .animation(AteTouchDotMetrics.press, value: touch.isDown)
+        // One dot per landing, identified by its key: it fades in on the key and fades out there.
+        // It never travels between keys or from anywhere else (Eamon, 4 Nov: the first build's
+        // dot flew around the card), and a key that has not been laid out yet shows nothing.
+        ZStack(alignment: .topLeading) {
+            if let target = touch.target, let frame = frames[target] {
+                dot
+                    .position(x: frame.midX, y: frame.midY)
+                    .transaction { $0.animation = nil }
+                    .id(target)
+                    .transition(.opacity)
+            }
         }
-        .frame(width: AteTouchDotMetrics.size, height: AteTouchDotMetrics.size)
-        .scaleEffect(isVisible ? 1 : AteTouchDotMetrics.liftScale)
-        .opacity(isVisible ? 1 : 0)
-        .animation(AteTouchDotMetrics.land, value: isVisible)
-        // After the animation, so the dot is placed, never slid: it lands where the key is.
-        .position(x: frame.midX, y: frame.midY)
-        .transaction { $0.animation = nil }
-        .onChange(of: touch.target) { _, target in
-            if let target { shown = target }
-        }
-        .onChange(of: touch.isDown) { _, isDown in
-            if isDown { presses += 1 }
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .animation(AteTouchDotMetrics.fade, value: touch.target)
     }
-}
 
-/// The ripple's frame: at rest it is unseen.
-private struct Ripple {
-    var scale: CGFloat = 1
-    var opacity: Double = 0
+    private var dot: some View {
+        Circle()
+            .fill(palette.fg.opacity(AteTouchDotMetrics.fillOpacity))
+            .overlay {
+                Circle().strokeBorder(
+                    palette.fg.opacity(AteTouchDotMetrics.ringOpacity), lineWidth: AteTouchDotMetrics.ring
+                )
+            }
+            .frame(width: AteTouchDotMetrics.size, height: AteTouchDotMetrics.size)
+            .scaleEffect(touch.isDown ? AteTouchDotMetrics.pressScale : 1)
+            .animation(AteTouchDotMetrics.press, value: touch.isDown)
+    }
 }
 
 enum AteTouchDotMetrics {
     /// A fingertip's size on glass.
     static let size: CGFloat = 44
-    static let ring: CGFloat = 2
-    static let fillOpacity: Double = 0.22
-    static let ringOpacity: Double = 0.45
-    static let pressScale: CGFloat = 0.8
-    static let rippleScale: CGFloat = 1.9
-    /// Lands from a little larger, as a finger coming down to the glass.
-    static let liftScale: CGFloat = 1.3
+    static let ring: CGFloat = 1.5
+    static let fillOpacity: Double = 0.18
+    static let ringOpacity: Double = 0.35
+    static let pressScale: CGFloat = 0.88
     static let press = Animation.easeOut(duration: 0.12)
-    static let rippleDuration: TimeInterval = 0.45
-    static let land = Animation.easeOut(duration: 0.22)
+    /// In and out, in place.
+    static let fade = Animation.easeOut(duration: 0.18)
 }
