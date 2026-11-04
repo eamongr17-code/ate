@@ -368,7 +368,7 @@ enum OnboardingArtMetrics {
     static let keystroke: Duration = .milliseconds(55)
     static let scoreHold: Duration = .milliseconds(250)
     /// The touch dot settling on a key before it presses, and how long a tap holds it down.
-    static let touchLead: Duration = .milliseconds(280)
+    static let touchLead: Duration = .milliseconds(220)
     static let tap: Duration = .milliseconds(180)
 
     // Details
