@@ -36,14 +36,15 @@ private struct AvatarPicking: ViewModifier {
     /// A failure is said once the sheet has gone: an alert asked for while it closes is never shown.
     @State private var failed = false
 
+    private func sayFailure() {
+        guard failed else { return }
+        failed = false
+        onFailure()
+    }
+
     func body(content: Content) -> some View {
         content
-            .sheet(isPresented: $isPresented, onDismiss: {
-                if failed {
-                    failed = false
-                    onFailure()
-                }
-            }) {
+            .sheet(isPresented: $isPresented, onDismiss: sayFailure) {
                 AvatarPickerSheet(frame: frame) {
                     isPresented = false
                 } onFailure: {
