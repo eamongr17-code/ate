@@ -1,3 +1,4 @@
+import ImageIO
 import UIKit
 
 /// An avatar, drawn down from whatever the library gave — Settings → Photo and first run's photo
@@ -22,6 +23,21 @@ enum AvatarImage {
                 height: image.size.height * scale
             ))
         }
+    }
+
+    /// The picked photo, decoded once and drawn down to at most 2048 across with its orientation
+    /// applied — enough for a 1080 cover, and far quicker to place and crop than a 12MP original.
+    static func decoded(_ data: Data, maxPixels: CGFloat = 2048) -> UIImage? {
+        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, options) else { return nil }
+        let thumbnail = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixels,
+        ] as CFDictionary
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnail) else { return nil }
+        return UIImage(cgImage: image)
     }
 
     private static func draw(size: CGSize, _ drawing: () -> Void) -> Data? {
