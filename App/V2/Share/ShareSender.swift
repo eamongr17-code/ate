@@ -79,3 +79,17 @@ extension SharePhotos {
         return images.merging(fetched) { held, _ in held }
     }
 }
+
+extension AteImagePipeline {
+    /// Puts photos' original bytes on disk, decoding nothing, at low priority: what the share sheet
+    /// will draw its cards from, so opening it reads the disk instead of the network. **Awaited from
+    /// the page's own `.task`**, so leaving the page stops it.
+    func warmOriginals(_ addresses: [String]) async {
+        await withTaskGroup(of: Void.self) { group in
+            for address in addresses {
+                guard let url = URL(string: address), cached(url, size: .full) == nil else { continue }
+                group.addTask(priority: .utility) { [self] in _ = await original(url) }
+            }
+        }
+    }
+}

@@ -169,18 +169,6 @@ final class AteImagePipeline: @unchecked Sendable {
         }
     }
 
-    /// Puts photos' original bytes on disk, decoding nothing, at low priority: what the share sheet
-    /// will draw its cards from, so opening it reads the disk instead of the network. **Awaited from
-    /// the page's own `.task`**, so leaving the page stops it.
-    func warmOriginals(_ addresses: [String]) async {
-        await withTaskGroup(of: Void.self) { group in
-            for address in addresses {
-                guard let url = URL(string: address), cached(url, size: .full) == nil else { continue }
-                group.addTask(priority: .utility) { [self] in _ = await original(url) }
-            }
-        }
-    }
-
     // MARK: - Loading
 
     private func load(_ url: URL, size: AtePhotoSize) async -> UIImage? {
@@ -222,7 +210,7 @@ final class AteImagePipeline: @unchecked Sendable {
     }
 
     /// The photo's own bytes: on disk, or fetched and filed.
-    private func original(_ url: URL) async -> Data? {
+    func original(_ url: URL) async -> Data? {
         let file = diskFile(url.absoluteString, kind: "original")
         if let data = readDisk(file) { return data }
         guard let data = await fetch(url) else { return nil }
