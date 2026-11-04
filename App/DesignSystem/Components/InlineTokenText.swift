@@ -19,6 +19,9 @@ struct InlineTokenText: View {
     /// sorter resolved carries one (``EntryToken/dishID``) — an unsorted entry's pills, and every
     /// pill in the composer, stay inert. `nil` makes every pill inert.
     var onScoreDish: ((UUID) -> Void)?
+    /// Spans of the words drawn see-through (the onboarding Write card fading its words in). The
+    /// text is all laid out either way, so nothing reflows as a span comes up.
+    var fades: [InlineTokenFade] = []
 
     @Environment(\.displayScale) private var displayScale
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -34,7 +37,8 @@ struct InlineTokenText: View {
             colorScheme: colorScheme
         )
         InlineTokenLabel(
-            composition: composition, attributes: attributes, lineLimit: lineLimit, onScoreDish: onScoreDish
+            composition: composition, attributes: attributes, lineLimit: lineLimit, onScoreDish: onScoreDish,
+            fades: fades
         )
             // The half-leading under the last line. TextKit puts `lineSpacing` between lines only, so
             // a laid-out paragraph stops at the bottom of its last line's glyphs; in the markup the
@@ -52,6 +56,7 @@ struct InlineTokenLabel: UIViewRepresentable {
     let attributes: InlineTokenAttributes
     let lineLimit: Int?
     let onScoreDish: ((UUID) -> Void)?
+    var fades: [InlineTokenFade] = []
 
     func makeUIView(context: Context) -> TokenLabel {
         let label = TokenLabel()
@@ -70,6 +75,7 @@ struct InlineTokenLabel: UIViewRepresentable {
         label.onScoreDish = onScoreDish
         let string = NSMutableAttributedString(attributedString: attributes.attributedString(for: composition))
         Self.tightenBlankLines(in: string)
+        Self.apply(fades, to: string)
         // A paragraph style in the string beats the label's own `lineBreakMode`, so a clamped slip
         // has to carry the truncation itself — `-webkit-line-clamp` ends on an ellipsis, and a
         // label that just stops mid-sentence is lying about how much was written.
@@ -83,6 +89,21 @@ struct InlineTokenLabel: UIViewRepresentable {
             }
         }
         label.attributedText = string
+    }
+
+    /// Each fade's span keeps its colour at `opacity` of its own alpha. Attachments (the pills) are
+    /// images and are not touched.
+    static func apply(_ fades: [InlineTokenFade], to string: NSMutableAttributedString) {
+        let whole = NSRange(location: 0, length: string.length)
+        for fade in fades where fade.opacity < 1 {
+            let range = NSIntersectionRange(fade.range, whole)
+            guard range.length > 0 else { continue }
+            string.enumerateAttribute(.foregroundColor, in: range) { value, run, _ in
+                guard let colour = value as? UIColor else { return }
+                let alpha = colour.cgColor.alpha * fade.opacity
+                string.addAttribute(.foregroundColor, value: colour.withAlphaComponent(alpha), range: run)
+            }
+        }
     }
 
     /// How tall a blank line between two paragraphs prints, as a share of a line of words.
@@ -115,6 +136,12 @@ struct InlineTokenLabel: UIViewRepresentable {
         let size = label.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
         return CGSize(width: width, height: size.height)
     }
+}
+
+/// A span of the words (UTF-16, as ``EntryComposition`` counts) drawn at `opacity`.
+struct InlineTokenFade: Equatable {
+    let range: NSRange
+    let opacity: CGFloat
 }
 
 /// **A label whose score pills are links.** One tap recogniser, and it only ever *begins* on a pill
