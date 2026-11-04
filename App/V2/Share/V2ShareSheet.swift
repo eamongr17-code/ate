@@ -101,16 +101,12 @@ struct V2ShareSheet: View {
     // MARK: - The switch
 
     private var formatSwitch: some View {
-        Picker("Card", selection: switchSelection) {
-            ForEach(switchFormats) { format in
-                Text(format.title).tag(format)
-            }
-        }
-        .pickerStyle(.segmented)
-        .fixedSize()
-        .environment(\.colorScheme, .dark)
+        AteSegments(
+            options: switchFormats.map { AteSegment($0, $0.title) }, selection: switchSelection, hugs: true,
+            identifier: "share.format"
+        )
+        .environment(\.atePalette, .shareSwitch)
         .frame(height: V2ShareSheetMetrics.switchHeight, alignment: .bottom)
-        .accessibilityIdentifier("share.format")
     }
 
     /// A change of card keeps the dish in front, where that card has it.

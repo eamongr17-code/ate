@@ -34,6 +34,8 @@ struct AteShareRow: View {
                 .padding(.horizontal, AteShareRowMetrics.scrollInset)
             }
             .scrollIndicators(.hidden)
+            // A glass disc swells under a finger: past the row's edge, not cut off by it (4 Nov).
+            .scrollClipDisabled()
         } else {
             HStack(alignment: .top, spacing: 0) {
                 ForEach(actions) { item($0).frame(maxWidth: .infinity) }

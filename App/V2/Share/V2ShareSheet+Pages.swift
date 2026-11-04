@@ -121,14 +121,11 @@ extension V2ShareSheet {
 
     /// Regular | Mini: the receipt's size on every story and post.
     private var sizeSwitch: some View {
-        Picker("Receipt size", selection: $isMini) {
-            Text("Regular").tag(false)
-            Text("Mini").tag(true)
-        }
-        .pickerStyle(.segmented)
-        .fixedSize()
-        .environment(\.colorScheme, .dark)
-        .accessibilityIdentifier("share.size")
+        AteSegments(
+            options: [AteSegment(false, "Regular"), AteSegment(true, "Mini")], selection: $isMini, hugs: true,
+            identifier: "share.size"
+        )
+        .environment(\.atePalette, .shareSwitch)
     }
 
     /// A dot per photo the page can go on. Picking another starts its framing afresh.
@@ -241,4 +238,14 @@ struct V2PhotoPinch: UIGestureRecognizerRepresentable {
             onChange(nil)
         }
     }
+}
+
+extension AtePalette {
+    /// The share sheet's two switches: the ink sheet's own, with the chosen pill a step lighter than
+    /// its track so it reads at a glance, as the system's dark segmented control does.
+    static let shareSwitch: AtePalette = {
+        var palette = AtePalette.ink
+        palette.raised = Color.white.opacity(0.28)
+        return palette
+    }()
 }
