@@ -26,6 +26,8 @@ struct AteAwardsRow: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        // a plate here is one tap from the live plate: have its page loaded before the tap
+        .onAppear { AtePlatePool.warm() }
     }
 }
 

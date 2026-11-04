@@ -177,20 +177,38 @@ struct V2AwardPage: View {
     // MARK: - Loading
 
     private func load() async {
-        // The opener already holds the award: the plate rises with the page, not after the read.
-        let shownEarly = award != nil
-        if shownEarly { showPlate(intro: true) }
-        await store.loadIfNeeded()
-        if shownEarly == false { showPlate(intro: true) }
+        // The opener already holds the award: the plate rises with the page, and what earned it
+        // loads at the same time as the fresh read, not after it.
+        if award != nil {
+            showPlate(intro: true)
+            let store = store
+            async let fresh: Void = store.loadIfNeeded()
+            await loadBehind()
+            await fresh
+        } else {
+            await store.loadIfNeeded()
+            showPlate(intro: true)
+            await loadBehind()
+        }
+    }
+
+    private func loadBehind() async {
         guard let award else { return }
         switch route.award.opening {
         case .mosaic, .dishes:
             await lines.loadIfNeeded()
         case .entries:
             guard entries.isEmpty else { return }
-            var read: [EntryCard] = []
-            for id in award.entries {
-                if let card = try? await context.services.entries.entry(id: id) { read.append(card) }
+            // all at once, kept in the award's order: one at a time was a round trip per entry
+            let ids = award.entries
+            let service = context.services.entries
+            let read = await withTaskGroup(of: (Int, EntryCard?).self) { group in
+                for (index, id) in ids.enumerated() {
+                    group.addTask { (index, try? await service.entry(id: id)) }
+                }
+                var cards = [EntryCard?](repeating: nil, count: ids.count)
+                for await (index, card) in group { cards[index] = card }
+                return cards.compactMap { $0 }
             }
             entries = read
         }
