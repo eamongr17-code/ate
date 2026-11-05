@@ -52,9 +52,9 @@ jobs:
   test:
     name: AteKit tests + app build
     needs: changes
-    # Backend-only PRs run it too, for the staging smoke (which needs the AteKit test build); they
-    # skip the app builds below.
-    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.backend == 'true'
+    # The app only: AteKit's tests and the staging smoke run in the Linux job, so a backend-only PR
+    # never waits on (or pays for) a Mac. A skipped required check counts as passing.
+    if: needs.changes.outputs.app == 'true'
     runs-on: macos-26
     # 40, not 30: a slow runner on 28 Oct spent 22 minutes on the build alone and was cut off
     # eight minutes into the snapshots, with nothing failing.
@@ -78,20 +78,6 @@ jobs:
           msg=""
           [ "${{ github.event_name }}" = "pull_request" ] && msg=$(git log -1 --format=%B HEAD^2)
           if echo "$msg" | grep -qF '[record-snapshots]'; then echo "record=true" >> "$GITHUB_OUTPUT"; else echo "record=false" >> "$GITHUB_OUTPUT"; fi
-
-      # The snapshot simulator boots behind the lint, tests and build (about 7 minutes), not in front
-      # of the snapshots. Reduce Motion is written into the new device before its first boot (the
-      # preference is read at boot), so it boots once, not twice; the boot step below checks it took.
-      - name: Start the snapshot simulator
-        id: snapsim
-        if: needs.changes.outputs.app == 'true' && steps.rec.outputs.record != 'true'
-        run: |
-          udid=$(xcrun simctl create snap-sim "iPhone 17 Pro")
-          prefs="$HOME/Library/Developer/CoreSimulator/Devices/$udid/data/Library/Preferences"
-          mkdir -p "$prefs"
-          defaults write "$prefs/com.apple.Accessibility" ReduceMotionEnabled -bool true
-          xcrun simctl boot "$udid"
-          echo "udid=$udid" >> "$GITHUB_OUTPUT"
 
       # First, and inside this job: lint is a required gate without costing a runner of its own.
       - name: SwiftLint (strict)
@@ -119,8 +105,8 @@ jobs:
             spm-${{ runner.os }}-${{ hashFiles('AteKit/Package.resolved', 'Ate.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-
             spm-${{ runner.os }}-
 
-      - name: AteKit unit tests
-        run: swift test --package-path AteKit
+      # AteKit's own tests run in the Linux job; their Apple-only paths (ImageIO, NSDataDetector) run
+      # here in AteTests (AteKitOnAppleTests), in the snapshot step below.
 
       # arm64 only: the runner is Apple silicon, and a generic simulator destination otherwise builds
       # x86_64 as well (every target twice).
@@ -142,19 +128,24 @@ jobs:
       # a build. Re-record on purpose with a [record-snapshots] commit (snapshots.yml); this step never
       # records. On failure the result bundle (with the diff images
       # as attachments) is uploaded below.
-      - name: Simulator booted, Reduce Motion on
-        if: steps.snapsim.outputs.udid != ''
+      # Booted here, not behind the build: on a 3-core runner a background boot slowed lint, tests
+      # and the build by more than it saved (measured on #371). Reduce Motion written before the
+      # first boot did not take, so it is still boot, write, reboot.
+      - name: Boot simulator for snapshots
+        id: snapsim
+        if: needs.changes.outputs.app == 'true' && steps.rec.outputs.record != 'true'
         run: |
-          udid="${{ steps.snapsim.outputs.udid }}"
+          udid=$(xcrun simctl create snap-sim "iPhone 17 Pro")
+          xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b > /dev/null
-          if [ "$(xcrun simctl spawn "$udid" defaults read com.apple.Accessibility ReduceMotionEnabled 2>/dev/null)" != "1" ]; then
-            # The preference did not take before boot: the old way, boot once to write it, again to honour it.
-            echo "Reduce Motion not set at first boot; rebooting with it"
-            xcrun simctl spawn "$udid" defaults write com.apple.Accessibility ReduceMotionEnabled -bool true
-            xcrun simctl shutdown "$udid"
-            xcrun simctl boot "$udid"
-            xcrun simctl bootstatus "$udid" -b > /dev/null
-          fi
+          # Reduce Motion stills every clock in the kit (receipt breath, page loader, posting dots),
+          # so the pictures are the same from one run to the next. The preference is read at boot,
+          # so the simulator is booted once to take it and again to honour it.
+          xcrun simctl spawn "$udid" defaults write com.apple.Accessibility ReduceMotionEnabled -bool true
+          xcrun simctl shutdown "$udid"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b > /dev/null
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
 
       - name: Kit and screen snapshots (light + dark)
         if: steps.snapsim.outputs.udid != ''
@@ -208,24 +199,6 @@ jobs:
             ${{ env.SPM_CLONES }}
           key: spm-${{ runner.os }}-${{ hashFiles('AteKit/Package.resolved', 'Ate.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ github.sha }}
 
-      # The live half of the contract: one read-only decode per surface the app calls, as ci@ate.test.
-      # Behaviour is pinned by the PGlite job; this only proves the deployed server still answers the
-      # app's requests with rows its decoders accept. Backend PRs and main only; last, so a staging
-      # outage never hides a build break.
-      - name: Staging smoke (contract)
-        if: needs.changes.outputs.backend == 'true' || github.event_name == 'push'
-        run: ATE_CONTRACT_TESTS=1 swift test --package-path AteKit --skip-build --filter ContractSmoke
-
-      - name: Staging RLS gate holds
-        if: needs.changes.outputs.backend == 'true' || github.event_name == 'push'
-        run: |
-          # Anon read with the publishable key must return 200 and an empty array (RLS deny-by-default).
-          code=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 30 \
-            "${{ vars.SUPABASE_URL_STAGING }}/rest/v1/restaurants?select=id&limit=1" \
-            -H "apikey: ${{ vars.SUPABASE_KEY_STAGING }}")
-          echo "status=$code body=$(cat /tmp/body)"
-          [ "$code" = "200" ] && [ "$(cat /tmp/body)" = "[]" ]
-
       - name: Pictures are being re-recorded
         if: steps.rec.outputs.record == 'true' && needs.changes.outputs.app == 'true'
         run: |
@@ -254,6 +227,26 @@ jobs:
           key: atekit-linux-${{ hashFiles('AteKit/Package.resolved') }}
       - name: swift test (Linux)
         run: swift test --package-path AteKit
+
+      # The live half of the contract: one read-only decode per surface the app calls, as ci@ate.test.
+      # Behaviour is pinned by the PGlite job; this only proves the deployed server still answers the
+      # app's requests with rows its decoders accept. Backend PRs and main only; last, so a staging
+      # outage never hides a build break.
+      - name: Staging smoke (contract)
+        if: needs.changes.outputs.backend == 'true' || github.event_name == 'push'
+        run: ATE_CONTRACT_TESTS=1 swift test --package-path AteKit --skip-build --filter ContractSmoke
+
+      - name: Staging RLS gate holds
+        if: needs.changes.outputs.backend == 'true' || github.event_name == 'push'
+        run: |
+          # Swift's image has no curl.
+          command -v curl >/dev/null || { apt-get update -qq && apt-get install -y -qq curl > /dev/null; }
+          # Anon read with the publishable key must return 200 and an empty array (RLS deny-by-default).
+          code=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 30 \
+            "${{ vars.SUPABASE_URL_STAGING }}/rest/v1/restaurants?select=id&limit=1" \
+            -H "apikey: ${{ vars.SUPABASE_KEY_STAGING }}")
+          echo "status=$code body=$(cat /tmp/body)"
+          [ "$code" = "200" ] && [ "$(cat /tmp/body)" = "[]" ]
 
   backend:
     name: Backend tests (PGlite + sorter)
