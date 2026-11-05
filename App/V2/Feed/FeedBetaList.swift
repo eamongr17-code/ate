@@ -1,9 +1,9 @@
 import AteKit
 import SwiftUI
 
-/// **The beta Feed** (``AteBeta``, `beta-feed` mockup, Eamon 11 Oct): every receipt printed on Ate,
-/// newest first, from everywhere, paged as you read. No area, no sections; the approved slip,
-/// unchanged. The end rule shows only when there is nothing older.
+/// **The beta Feed** (``AteBeta``, `beta-feed` mockup, Eamon 11 Oct): every receipt posted on Ate in
+/// the last 7 days (Eamon, 5 Nov), newest posted first, from everywhere, paged as you read. No area,
+/// no sections; the approved slip, unchanged. The end rule shows only when the window has no more.
 struct FeedBetaList: View {
     let store: EntryListStore
     let actions: FeedEditionActions
@@ -19,7 +19,7 @@ struct FeedBetaList: View {
             }
             .transition(.opacity)
         case .empty:
-            empty(AteEmptyState(line: "Nobody's written\nanything yet.", art: .rail))
+            empty(AteEmptyState(line: FeedBetaCopy.empty, art: .rail))
                 .accessibilityIdentifier("state.empty")
         case .signedOut:
             empty(AteEmptyState(line: "Nobody's\nsigned in.", art: .bell))
@@ -50,7 +50,7 @@ struct FeedBetaList: View {
                 .padding(.top, AteMetrics.section)
                 .ateCardWidth()
         } else if store.hasReachedEnd {
-            AteEndRule(line: "You're caught up")
+            AteEndRule(line: FeedBetaCopy.end)
                 .accessibilityIdentifier("feed.caughtUp")
         }
     }
@@ -62,6 +62,12 @@ struct FeedBetaList: View {
     private func retry() {
         Task { await store.refresh() }
     }
+}
+
+/// Literal about the window, so an empty or short Feed never reads as "nobody uses this".
+enum FeedBetaCopy {
+    static let empty = "Nothing posted in\nthe last 7 days."
+    static let end = "That's the last 7 days"
 }
 
 enum FeedBetaMetrics {
