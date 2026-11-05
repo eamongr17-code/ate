@@ -97,6 +97,7 @@ struct AteDishRow: View {
             }
             if let onSave {
                 AteSaveButton(dishName: name, isSaved: isSaved, identifier: "row.save", action: onSave)
+                    .padding(.leading, AteSaveButton.rowLeading(after: AteDishRowMetrics.gap))
                     .padding(.vertical, -AteDishRowMetrics.saveBleed)
                     .padding(.trailing, -AteDishRowMetrics.saveBleed)
             }

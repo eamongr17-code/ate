@@ -30,6 +30,28 @@ struct AteSaveButton: View {
     /// `ic("bm", 22)` in a 44 button.
     static let mark: CGFloat = 22
 
+    /// On a row, the space between the score and the bookmark's drawn mark. Every row that prints a
+    /// score beside its bookmark (a slip's dish, a dish row, a ranked row, a new dish) keeps this one
+    /// gap (Eamon, 5 Nov 2026: the old 21 to 29 read as far too big).
+    static let rowScoreGap: CGFloat = 10
+
+    /// How far the plain mark's drawn edge sits inside its 44 target: the target's own margin, plus
+    /// the bookmark's side bearing in its 24 box (`x = 5`, drawn at the icons' optical 90% about the
+    /// centre), less half its stroke: about 15.4.
+    static let plainMarkInset: CGFloat = {
+        let unit = mark / AteVector.viewBox
+        let optical = AteIconShape.opticalScale
+        let bearing = mark * (1 - optical) / 2 + 5 * unit * optical - AteIconShape.strokeWidth * unit / 2
+        return (AteMetrics.hit - mark) / 2 + bearing
+    }()
+
+    /// The leading margin a row gives its plain bookmark after a stack gap of `gap`, so the mark
+    /// lands ``rowScoreGap`` from the score. Negative: the 44 target tucks back over the gap, and a
+    /// few points over the score's trailing edge, while the mark itself never moves onto it.
+    static func rowLeading(after gap: CGFloat) -> CGFloat {
+        rowScoreGap - gap - plainMarkInset
+    }
+
     @Environment(\.atePalette) private var palette
 
     var body: some View {

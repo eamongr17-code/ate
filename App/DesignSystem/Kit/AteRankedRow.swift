@@ -50,9 +50,9 @@ struct AteRankedRow: View {
             .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
             if let onSave {
-                // `.rk .bm{margin:0 -12px 0 -6px}`.
+                // `.rk .bm{margin-right:-12px}`; its leading edge is the one row gap to the score.
                 AteSaveButton(dishName: name, isSaved: isSaved, identifier: "ranked.save", action: onSave)
-                    .padding(.leading, -AteRankedRowMetrics.saveLeading)
+                    .padding(.leading, AteSaveButton.rowLeading(after: AteRankedRowMetrics.gap))
                     .padding(.trailing, -AteRankedRowMetrics.saveTrailing)
             }
         }
@@ -74,6 +74,5 @@ enum AteRankedRowMetrics {
     /// `.tr .tn{width:18px}`.
     static let trackRankWidth: CGFloat = 18
     static let lineGap: CGFloat = 2
-    static let saveLeading: CGFloat = 6
     static let saveTrailing: CGFloat = 12
 }
