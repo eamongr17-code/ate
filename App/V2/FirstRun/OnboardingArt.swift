@@ -76,6 +76,9 @@ struct OnboardingArt: View {
                 AteEntrySlip(slip: OnboardingSample.feedSlip(handle: handle), surface: .feed, onSave: { _ in })
                     .ateShadow(.lift)
                     .padding(.horizontal, AteMetrics.tight)
+                    // The card is shorter than the composer it replaces: it sits in the middle of the
+                    // composer's room, not at its top with the gap all below (build 284).
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .transition(
                         .asymmetric(
                             insertion: .opacity.combined(with: .offset(y: OnboardingArtMetrics.rise)),
