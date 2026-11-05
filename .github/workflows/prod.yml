@@ -70,7 +70,7 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Secrets present
         run: |
@@ -82,7 +82,7 @@ jobs:
             exit 1
           fi
 
-      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3, pinned: this job holds the prod/staging DB password
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v1.7.3, pinned: this job holds the prod/staging DB password
         with:
           version: latest
 
@@ -114,7 +114,7 @@ jobs:
           rm -rf backup
           ls -la prod-backup.tar.gz.enc
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: inputs.reset && inputs.confirm_reset == 'ERASE PROD'
         with:
           name: prod-backup-before-reset
