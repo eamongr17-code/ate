@@ -361,8 +361,8 @@ public enum EntryEvents {
         AnalyticsEvent(name: "entry_photo_late", parameters: ["count": String(max(0, count))])
     }
 
-    /// A picked photo could not be read at all — `stage` is `pick` (in the composer) or `late`
-    /// (after Done). Never silent.
+    /// A picked photo could not be read at all — `stage` is `pick` (in the composer), `suggestion`
+    /// (a photo sitting the composer opened holding) or `late` (after Done). Never silent.
     public static func photoFailed(stage: String) -> AnalyticsEvent {
         AnalyticsEvent(name: "entry_photo_failed", parameters: ["stage": stage])
     }
