@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// Where a photo was taken — `PHAsset.location`, reduced to two numbers.
 public struct PhotoCoordinate: Hashable, Sendable {

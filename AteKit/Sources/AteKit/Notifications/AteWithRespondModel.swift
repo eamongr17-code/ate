@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// **Answering a tag** — the composer's prefilled face, as logic. The tagger's place and dishes are
 /// read live (``AteWithResponding/prefill(companionID:)``); the person scores what they had, drops

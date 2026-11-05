@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// **`Blocked people`** — the list, its cursor, and the one action on it.
 ///

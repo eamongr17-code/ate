@@ -4,11 +4,14 @@ on:
   pull_request:
   push:
     branches: [main]
+  # The snapshot recorder dispatches CI on the commit it pushed: a GITHUB_TOKEN push starts no
+  # pull_request run, and this way nobody has to push a follow-up commit to get the PR checked.
+  workflow_dispatch:
 
 # PRs cancel a superseded run; main never does, so every merge finishes and saves its cache.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 # Read-only token: no job here writes to the repo (security sweep, Oct 2026).
 permissions:
@@ -32,12 +35,14 @@ jobs:
           fetch-depth: 0
       - id: diff
         run: |
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
+          if [ "${{ github.event_name }}" = "push" ]; then
             echo "backend=true" >> "$GITHUB_OUTPUT"
             echo "app=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          # A dispatched run (the recorder's) diffs against the integration branch, as its PR would.
+          base="${{ github.base_ref || 'claude/project-thread-2f9ty8' }}"
+          files=$(git diff --name-only "origin/$base...HEAD")
           echo "$files"
           match() { echo "$files" | grep -qE "$1" && echo true || echo false; }
           echo "backend=$(match '^(supabase/|cloudflare/|\.github/scripts/photos_setup\.sh|AteKit/Sources/|AteKit/Tests/AteKitTests/.*(Contract|Staging)|AteKit/Package|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
@@ -47,9 +52,9 @@ jobs:
   test:
     name: AteKit tests + app build
     needs: changes
-    # Backend-only PRs run it too, for the staging smoke (which needs the AteKit test build); they
-    # skip the app builds below.
-    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.backend == 'true'
+    # The app only: AteKit's tests and the staging smoke run in the Linux job, so a backend-only PR
+    # never waits on (or pays for) a Mac. A skipped required check counts as passing.
+    if: needs.changes.outputs.app == 'true'
     runs-on: macos-26
     # 40, not 30: a slow runner on 28 Oct spent 22 minutes on the build alone and was cut off
     # eight minutes into the snapshots, with nothing failing.
@@ -59,6 +64,20 @@ jobs:
       SPM_CLONES: /Users/runner/ate-spm
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Two deep, so a PR's merge commit still has the PR head (HEAD^2) to read the message of.
+          fetch-depth: 2
+
+      # A [record-snapshots] commit's pictures are stale by design: snapshots.yml re-records them,
+      # pushes, and dispatches CI on that commit. This run skips the 13 simulator minutes and fails
+      # at the end, so the stale head can never read as green.
+      - name: Recording run?
+        id: rec
+        run: |
+          # Pull requests only: the recorder's dispatched run (and main) always compares.
+          msg=""
+          [ "${{ github.event_name }}" = "pull_request" ] && msg=$(git log -1 --format=%B HEAD^2)
+          if echo "$msg" | grep -qF '[record-snapshots]'; then echo "record=true" >> "$GITHUB_OUTPUT"; else echo "record=false" >> "$GITHUB_OUTPUT"; fi
 
       # First, and inside this job: lint is a required gate without costing a runner of its own.
       - name: SwiftLint (strict)
@@ -86,8 +105,8 @@ jobs:
             spm-${{ runner.os }}-${{ hashFiles('AteKit/Package.resolved', 'Ate.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-
             spm-${{ runner.os }}-
 
-      - name: AteKit unit tests
-        run: swift test --package-path AteKit
+      # AteKit's own tests run in the Linux job; their Apple-only paths (ImageIO, NSDataDetector) run
+      # here in AteTests (AteKitOnAppleTests), in the snapshot step below.
 
       # arm64 only: the runner is Apple silicon, and a generic simulator destination otherwise builds
       # x86_64 as well (every target twice).
@@ -95,10 +114,12 @@ jobs:
         if: needs.changes.outputs.app == 'true'
         run: |
           set -o pipefail
+          # build-for-testing: the app plus its test bundles, once; the snapshots then run without
+          # building again.
           xcodebuild -project Ate.xcodeproj -scheme Ate \
             -destination 'generic/platform=iOS Simulator' \
             -clonedSourcePackagesDirPath "$SPM_CLONES" \
-            -configuration Debug ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build > build.log 2>&1 || { grep -E "(error|fatal error):" build.log | sort -u | head -40; tail -50 build.log; exit 1; }
+            -configuration Debug ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build-for-testing > build.log 2>&1 || { grep -E "(error|fatal error):" build.log | sort -u | head -40; tail -50 build.log; exit 1; }
           tail -2 build.log
 
       # The visual contract: AteTests draws every page of the component gallery and the main screens
@@ -107,27 +128,30 @@ jobs:
       # a build. Re-record on purpose with a [record-snapshots] commit (snapshots.yml); this step never
       # records. On failure the result bundle (with the diff images
       # as attachments) is uploaded below.
+      # Booted here, not behind the build: on a 3-core runner a background boot slowed lint, tests
+      # and the build by more than it saved (measured on #371). Reduce Motion written before the
+      # first boot did not take, so it is still boot, write, reboot.
       - name: Boot simulator for snapshots
         id: snapsim
-        if: needs.changes.outputs.app == 'true'
+        if: needs.changes.outputs.app == 'true' && steps.rec.outputs.record != 'true'
         run: |
           udid=$(xcrun simctl create snap-sim "iPhone 17 Pro")
           xcrun simctl boot "$udid"
-          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl bootstatus "$udid" -b > /dev/null
           # Reduce Motion stills every clock in the kit (receipt breath, page loader, posting dots),
           # so the pictures are the same from one run to the next. The preference is read at boot,
           # so the simulator is booted once to take it and again to honour it.
           xcrun simctl spawn "$udid" defaults write com.apple.Accessibility ReduceMotionEnabled -bool true
           xcrun simctl shutdown "$udid"
           xcrun simctl boot "$udid"
-          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl bootstatus "$udid" -b > /dev/null
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
 
       - name: Kit and screen snapshots (light + dark)
-        if: needs.changes.outputs.app == 'true'
+        if: steps.snapsim.outputs.udid != ''
         run: |
           set -o pipefail
-          xcodebuild test -project Ate.xcodeproj -scheme Ate \
+          xcodebuild test-without-building -project Ate.xcodeproj -scheme Ate \
             -destination "id=${{ steps.snapsim.outputs.udid }}" \
             -only-testing:AteTests \
             -clonedSourcePackagesDirPath "$SPM_CLONES" \
@@ -141,7 +165,7 @@ jobs:
           grep -E "Test Case .*passed|\*\* TEST" snapshots.log | tail -6
 
       - name: Upload snapshot result bundle
-        if: failure() && needs.changes.outputs.app == 'true'
+        if: failure() && steps.snapsim.outputs.udid != ''
         uses: actions/upload-artifact@v4
         with:
           name: snapshots-${{ github.run_number }}
@@ -175,6 +199,35 @@ jobs:
             ${{ env.SPM_CLONES }}
           key: spm-${{ runner.os }}-${{ hashFiles('AteKit/Package.resolved', 'Ate.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ github.sha }}
 
+      - name: Pictures are being re-recorded
+        if: steps.rec.outputs.record == 'true' && needs.changes.outputs.app == 'true'
+        run: |
+          # The tag anywhere in the message counts (snapshots.yml reads it the same way), so a commit
+          # that only describes recording must not spell the tag out.
+          echo "::error title=Re-recording snapshots::This commit's message carries the record tag, so its pictures are being re-recorded. Record snapshots pushes them and runs CI on that commit; that run is the one that counts."
+          exit 1
+
+  # AteKit's tests on Linux, in Swift's own container: the same 1,282 tests as the Mac job, in a
+  # couple of minutes on a cheap runner, so a logic break goes red long before the Mac job finishes.
+  # The few Apple-only pieces (ImageIO thumbnails, the keychain session) are fenced off with
+  # canImport and still run on the Mac. Threads run the same thing with scripts/test-linux.sh.
+  linux:
+    name: AteKit tests (Linux)
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container: swift:6.2-noble
+    steps:
+      - uses: actions/checkout@v4
+      # Dependencies' build products only change with the lockfile; AteKit's own files rebuild anyway.
+      - uses: actions/cache@v4
+        with:
+          path: AteKit/.build
+          key: atekit-linux-${{ hashFiles('AteKit/Package.resolved') }}
+      - name: swift test (Linux)
+        run: swift test --package-path AteKit
+
       # The live half of the contract: one read-only decode per surface the app calls, as ci@ate.test.
       # Behaviour is pinned by the PGlite job; this only proves the deployed server still answers the
       # app's requests with rows its decoders accept. Backend PRs and main only; last, so a staging
@@ -186,6 +239,8 @@ jobs:
       - name: Staging RLS gate holds
         if: needs.changes.outputs.backend == 'true' || github.event_name == 'push'
         run: |
+          # Swift's image has no curl.
+          command -v curl >/dev/null || { apt-get update -qq && apt-get install -y -qq curl > /dev/null; }
           # Anon read with the publishable key must return 200 and an empty array (RLS deny-by-default).
           code=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 30 \
             "${{ vars.SUPABASE_URL_STAGING }}/rest/v1/restaurants?select=id&limit=1" \

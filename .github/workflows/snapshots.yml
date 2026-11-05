@@ -12,6 +12,8 @@ on:
 
 permissions:
   contents: write
+  # To start CI on the recorded commit (below).
+  actions: write
 
 concurrency:
   group: snapshots-${{ github.ref }}
@@ -86,9 +88,19 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # -f: *.png is gitignored repo-wide; .gitignore un-ignores this folder, and -f is the belt to that brace.
           git add -f AteTests/__Snapshots__
-          git diff --cached --quiet && { echo "pictures unchanged"; exit 0; }
-          git commit -m "Snapshots: re-recorded pictures ($(find AteTests/__Snapshots__ -name '*.png' | wc -l | tr -d ' ') files)"
-          git push origin "HEAD:${{ github.ref_name }}"
+          if git diff --cached --quiet; then
+            echo "pictures unchanged"
+          else
+            git commit -m "Snapshots: re-recorded pictures ($(find AteTests/__Snapshots__ -name '*.png' | wc -l | tr -d ' ') files)"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
+
+      # A GITHUB_TOKEN push starts no pull_request run, so CI is dispatched on the branch's new head.
+      # Its checks land on that commit, which is what the PR's merge gate reads: no follow-up commit.
+      - name: Run CI on the recorded commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --repo "${{ github.repository }}" --ref "${{ github.ref_name }}"
 
       - name: Keep the log
         if: always()

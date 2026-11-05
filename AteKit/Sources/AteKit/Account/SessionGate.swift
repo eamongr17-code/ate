@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// **Signed out, but looking** — `Welcome`'s "See what everyone's eating", and the one rule that
 /// comes with it: reading is free, and the first write asks for sign-in.

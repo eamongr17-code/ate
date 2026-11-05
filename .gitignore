@@ -7,6 +7,7 @@ xcuserdata/
 *.playground
 .swiftpm/
 .build/
+.build-linux/
 Packages/
 
 # Secrets — never committed; .example variants are

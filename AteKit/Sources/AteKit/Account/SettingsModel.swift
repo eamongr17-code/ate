@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// **`Settings`** — the state behind the nine rows.
 ///

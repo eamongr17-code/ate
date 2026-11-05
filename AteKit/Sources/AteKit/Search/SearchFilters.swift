@@ -143,11 +143,14 @@ public struct SearchFilters: Sendable, Hashable {
     /// Cuisines in the order picked, tags in their canonical order, then the score — "Italian",
     /// "GF", "4.0+".
     public var pills: [Pill] {
-        (city.map { [Pill(kind: .city, title: AteCity.displayName(for: $0))] } ?? [])
-            + (window.title().map { [Pill(kind: .window, title: $0)] } ?? [])
-            + cuisines.map { Pill(kind: .cuisine($0), title: $0) }
-            + tags.map { Pill(kind: .tag($0), title: $0.label) }
-            + (scoreSummary.map { [Pill(kind: .minimumScore, title: $0)] } ?? [])
+        // Built up step by step: the one-expression version takes the Linux compiler too long.
+        var pills: [Pill] = []
+        if let city { pills.append(Pill(kind: .city, title: AteCity.displayName(for: city))) }
+        if let title = window.title() { pills.append(Pill(kind: .window, title: title)) }
+        pills += cuisines.map { Pill(kind: .cuisine($0), title: $0) }
+        pills += tags.map { Pill(kind: .tag($0), title: $0.label) }
+        if let scoreSummary { pills.append(Pill(kind: .minimumScore, title: scoreSummary)) }
+        return pills
     }
 
     /// The filters without the pill the reader took away.

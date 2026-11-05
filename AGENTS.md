@@ -119,5 +119,5 @@ run-state files. If a doc grows past ~200 lines, it's becoming a transcript — 
 
 ## Commands
 
-`swift test --package-path AteKit` (green) · `xcodebuild -scheme Ate build` (clean) ·
+`swift test --package-path AteKit` (green; cloud threads: `scripts/test-linux.sh`, seconds, run it before every push) · `xcodebuild -scheme Ate build` (clean) ·
 `supabase start` (local stack) · `supabase db push --linked` (CI only, never by hand).

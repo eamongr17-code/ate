@@ -1,4 +1,6 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Foundation
 
 /// Where a dish sits in a photo (0083): fractions of the image, 0 at the top-leading corner, 1 at

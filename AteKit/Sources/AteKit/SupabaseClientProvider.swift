@@ -12,7 +12,14 @@ public enum SupabaseClientProvider {
         SupabaseClient(
             supabaseURL: environment.supabaseURL,
             supabaseKey: environment.supabaseKey,
-            options: SupabaseClientOptions(auth: .init(storage: SharedSessionStorage.standard))
+            options: SupabaseClientOptions(auth: .init(storage: sessionStorage))
         )
     }
+
+    #if canImport(Security) && !os(Linux)
+    private static var sessionStorage: any AuthLocalStorage { SharedSessionStorage.standard }
+    #else
+    /// Linux test runs only (no keychain): the session lives in memory for the process.
+    private static var sessionStorage: any AuthLocalStorage { MemorySessionStorage() }
+    #endif
 }

@@ -1,4 +1,7 @@
+import Foundation
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 
 /// **Where a full-screen photo is, on its way between its tile and the screen** (24 Oct, rebuild).
 /// The viewer flies one picture inside one rounded frame. At home the frame *is* the tile (its

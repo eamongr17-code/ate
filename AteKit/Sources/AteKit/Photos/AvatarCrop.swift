@@ -1,4 +1,7 @@
+import Foundation
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 
 /// **Where a photo sits in the avatar's circle** (Settings → Photo and first run's photo step,
 /// `design/rebuild/settings-photo-crop.html`, option A, 18 Oct). The photo always covers the circle:

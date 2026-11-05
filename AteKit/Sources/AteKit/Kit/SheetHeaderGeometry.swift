@@ -1,4 +1,7 @@
+import Foundation
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 
 /// **Every sheet's header, in one place** — where the close disc, the primary disc and the title sit.
 /// The scaffold lays its header out from this and nothing else, so no sheet can move its X: the close

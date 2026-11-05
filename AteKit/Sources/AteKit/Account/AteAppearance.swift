@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// **Which of the two grounds the app is painted on** — `Settings.dc.html`'s Appearance row.
 ///
