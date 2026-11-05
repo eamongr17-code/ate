@@ -1,15 +1,10 @@
-# Prod — the one way the production database and edge functions change (AGENTS.md rule 5).
+# Prod, run from main: forwards to the integration branch, where the real Prod workflow lives.
 #
-# Run by hand: Actions → Prod → Run workflow, on the integration branch (or main; nothing else runs). It always prints what it would
-# apply first (a dry run). Tick "apply" to then apply the pending migrations and deploy every edge
-# function to prod (project vyaexmnajnbryimbkgkf). Migrations are forward-only; nothing here deletes
-# data, and a migration that would is a CEO escalation before it is ever merged (rule 4d).
-#
-# Repository secrets it needs (Settings → Secrets and variables → Actions):
-#   SUPABASE_ACCESS_TOKEN       a personal access token (supabase.com/dashboard/account/tokens)
-#   SUPABASE_PROD_DB_PASSWORD   prod's database password (Database → Settings)
-# The functions' own secrets (ANTHROPIC_API_KEY, GOOGLE_PLACES_API_KEY, the APNS_* set) live in the prod
-# project itself (Edge Functions → Secrets) and are never read or written here.
+# Actions → Prod → Run workflow defaults to main. This copy only re-runs Prod on
+# claude/project-thread-2f9ty8 with the same "apply" choice, so the default branch can never point
+# at a stale database (main's old copy still named the retired Seoul project). The forwarded run
+# shows up as a second Prod run in the list; that one does the work and prints the result.
+# Its other options (photos, duplicate dishes, reset) stay on the integration branch on purpose.
 
 name: Prod
 
@@ -21,72 +16,23 @@ on:
         type: boolean
         default: false
 
-concurrency:
-  group: prod
-  cancel-in-progress: false
+permissions:
+  actions: write
 
 env:
-  PROD_REF: vyaexmnajnbryimbkgkf
+  BRANCH: claude/project-thread-2f9ty8
 
 jobs:
-  prod:
-    name: Prod database + functions
-    # Only what has been merged reaches prod: the integration branch or main, never a feature branch.
-    if: github.ref == 'refs/heads/claude/project-thread-2f9ty8' || github.ref == 'refs/heads/main'
+  forward:
+    name: Run Prod on the integration branch
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
+    timeout-minutes: 3
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Secrets present
-        run: |
-          missing=""
-          [ -n "$SUPABASE_ACCESS_TOKEN" ] || missing="$missing SUPABASE_ACCESS_TOKEN"
-          [ -n "$SUPABASE_DB_PASSWORD" ] || missing="$missing SUPABASE_PROD_DB_PASSWORD"
-          if [ -n "$missing" ]; then
-            echo "::error title=Missing secrets::Add these repository secrets:$missing"
-            exit 1
-          fi
-
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Link prod
-        run: supabase link --project-ref "$PROD_REF" --password "$SUPABASE_DB_PASSWORD"
-
-      - name: What would change (dry run)
-        run: |
-          supabase migration list --linked --password "$SUPABASE_DB_PASSWORD" | tee migration-list.txt
-          supabase db push --linked --dry-run --password "$SUPABASE_DB_PASSWORD" | tee dry-run.txt
-          {
-            echo "### Prod: pending migrations"
-            echo '```'
-            cat dry-run.txt
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Apply migrations
-        if: inputs.apply
-        run: supabase db push --linked --password "$SUPABASE_DB_PASSWORD"
-
-      - name: Deploy edge functions
-        if: inputs.apply
-        # Every function under supabase/functions, with config.toml's per-function settings
-        # (send-push takes no user JWT).
-        run: supabase functions deploy --project-ref "$PROD_REF" --use-api
-
-      - name: Smoke read
-        if: inputs.apply
+      - name: Dispatch
         env:
-          PROD_KEY: sb_publishable_EQqUPHQv-1yZrqqvOWphkw_IlFI2ALY
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          APPLY: ${{ inputs.apply }}
         run: |
-          code=$(curl -s -o body.json -w '%{http_code}' \
-            "https://$PROD_REF.supabase.co/rest/v1/restaurants?select=id&limit=1" \
-            -H "apikey: $PROD_KEY")
-          echo "restaurants read: HTTP $code"
-          [ "$code" = "200" ] || { cat body.json; exit 1; }
-          echo "PROD APPLIED AND READABLE" >> "$GITHUB_STEP_SUMMARY"
+          gh workflow run prod.yml --ref "$BRANCH" -f apply="$APPLY"
+          echo "Prod dispatched on $BRANCH (apply=$APPLY). Open the newest Prod run for the result." >> "$GITHUB_STEP_SUMMARY"
