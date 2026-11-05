@@ -1,8 +1,15 @@
+#if canImport(ImageIO)
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Foundation
+#if canImport(ImageIO)
 import ImageIO
+#endif
 import Testing
+#if canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
+#endif
 @testable import AteKit
 
 @Suite("Photo thumbnails")
@@ -50,3 +57,4 @@ struct PhotoThumbnailTests {
         return output as Data
     }
 }
+#endif

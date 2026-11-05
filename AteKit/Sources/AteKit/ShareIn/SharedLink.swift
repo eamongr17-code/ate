@@ -12,8 +12,9 @@ public enum SharedLink {
     /// The first https link in a run of text, as written (a trailing full stop or bracket is not part
     /// of it).
     public static func find(in text: String?) -> URL? {
-        guard let text, text.isEmpty == false,
-              let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+        guard let text, text.isEmpty == false else { return nil }
+        #if canImport(Darwin)
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
         else { return nil }
         let whole = NSRange(text.startIndex..., in: text)
         for match in detector.matches(in: text, options: [], range: whole) {
@@ -21,6 +22,15 @@ public enum SharedLink {
             return found
         }
         return nil
+        #else
+        // Linux has no NSDataDetector: whitespace-separated words, trailing punctuation trimmed.
+        for word in text.split(whereSeparator: \.isWhitespace) {
+            let trimmed = word.trimmingCharacters(in: CharacterSet(charactersIn: ".,;:!?)]}>\"'"))
+            guard let start = trimmed.range(of: "https://", options: .caseInsensitive) else { continue }
+            if let found = https(URL(string: String(trimmed[start.lowerBound...]))) { return found }
+        }
+        return nil
+        #endif
     }
 
     /// The first https link among everything shared: the URL attachments first (they are the

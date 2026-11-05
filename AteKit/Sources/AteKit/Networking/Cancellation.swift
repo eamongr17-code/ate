@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public extension Error {
     /// **A read that was called off, not one that failed.** Swift's own `CancellationError`, and the

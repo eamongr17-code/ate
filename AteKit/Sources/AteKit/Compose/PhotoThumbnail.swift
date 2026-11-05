@@ -1,6 +1,10 @@
 import Foundation
+#if canImport(ImageIO)
 import ImageIO
+#endif
+#if canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
+#endif
 
 /// **The small copy of every uploaded photo** — max 480 on the long side, JPEG q0.8, stored beside
 /// the full one at `<same path minus extension>_t.jpg`. Lists draw thumbnails from that path; the
@@ -18,6 +22,7 @@ public enum PhotoThumbnail {
 
     /// The thumbnail's JPEG bytes, or `nil` when the data is not an image ImageIO can read.
     public static func jpeg(from data: Data) -> Data? {
+        #if canImport(ImageIO)
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -37,5 +42,8 @@ public enum PhotoThumbnail {
         )
         guard CGImageDestinationFinalize(destination) else { return nil }
         return output as Data
+        #else
+        return nil // Linux test runs only: no ImageIO, so no thumbnail.
+        #endif
     }
 }

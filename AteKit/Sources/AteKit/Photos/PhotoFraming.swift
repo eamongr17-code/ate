@@ -1,4 +1,7 @@
+import Foundation
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 
 /// **Where a photo sits in a share card's frame** (11 Oct, Eamon: "Adjust should allow use of the full
 /// photo"). The automatic crop fills the frame (zoom 1); pinching out can go as far as the whole

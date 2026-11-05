@@ -1,5 +1,8 @@
+import Foundation
 import AteKit
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Testing
 
 @Suite("Avatar crop — the photo always covers the circle")

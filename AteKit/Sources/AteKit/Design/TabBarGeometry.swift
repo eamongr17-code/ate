@@ -1,4 +1,7 @@
+import Foundation
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 
 /// **Where everything in the tab bar sits**, full and minimised (round 6) — kept out of the view so
 /// the geometry can be tested.
