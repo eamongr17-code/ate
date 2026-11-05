@@ -6,7 +6,10 @@
 // the dish's score pill on the right. No photo → the same words in ink on the ground. Rendered with
 // satori + resvg (workers-og); satori reads only TTF/OTF, so the fonts here are TTF.
 //
-// Every string goes through esc(): satori parses this HTML, so a dish name is text, never markup.
+// Words go through ogText(), not esc(). workers-og parses this HTML with HTMLRewriter and passes each
+// text chunk to satori exactly as written: entities are NOT decoded, so esc() printed "Freddy&#39;s"
+// on the image (5 Nov). In a text node only "<" can start markup, so ogText() swaps that one character
+// for a look-alike and leaves ' " & as they are. Attributes (the photo URL) still use esc().
 
 import { atLine, esc, headlineDish, type Card } from './render.ts';
 
@@ -18,6 +21,11 @@ const PAPER = '#FBF9F6';
 
 // The star is drawn, not typed: DM Sans has no ★, so satori drew a missing-glyph box (3 Nov).
 const STAR = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${INK}" d="M12 1.6l3.1 6.6 7.2.9-5.3 5 1.4 7.1L12 17.7l-6.4 3.5 1.4-7.1-5.3-5 7.2-.9z"/></svg>`)}`;
+
+/** A word on the image: literal text (no entities, see above), never markup. */
+export function ogText(s: string | null | undefined): string {
+  return (s ?? '').replace(/</g, '‹');
+}
 
 export interface OgParts {
   dish: string | null;
@@ -49,15 +57,15 @@ export function ogHTML(parts: OgParts, photo: string | null, logos: { ink: strin
     : '';
   const byline = [parts.byline, parts.more > 0 ? `+${parts.more} more` : ''].filter(Boolean).join(' · ');
   const pill = parts.score
-    ? `<div style="display:flex;flex-shrink:0;align-items:center;justify-content:center;height:84px;padding:0 30px;border-radius:999px;background:${BUTTER};color:${INK};font-family:'DM Sans';font-weight:700;font-size:48px"><img src="${STAR}" width="40" height="40" style="width:40px;height:40px;margin-right:12px">${esc(parts.score)}</div>`
+    ? `<div style="display:flex;flex-shrink:0;align-items:center;justify-content:center;height:84px;padding:0 30px;border-radius:999px;background:${BUTTER};color:${INK};font-family:'DM Sans';font-weight:700;font-size:48px"><img src="${STAR}" width="40" height="40" style="width:40px;height:40px;margin-right:12px">${ogText(parts.score)}</div>`
     : '';
   return `<div style="display:flex;position:relative;width:1200px;height:630px;background:${GROUND};color:${fg}">
   ${back}
   <img src="${onPhoto ? logos.paper : logos.ink}" width="160" height="76" style="position:absolute;left:56px;top:46px;width:160px;height:76px">
   <div style="display:flex;position:absolute;left:56px;right:56px;bottom:52px;align-items:flex-end;justify-content:space-between">
     <div style="display:flex;flex-direction:column;flex:1;min-width:0;margin-right:28px">
-      ${parts.dish ? `<div style="display:flex;font-family:'Young Serif';font-size:96px;line-height:1;letter-spacing:-2px">${esc(parts.dish)}</div>` : ''}
-      <div style="display:flex;font-family:'DM Sans';font-weight:500;font-size:34px;color:${sub};margin-top:16px">${esc(byline)}</div>
+      ${parts.dish ? `<div style="display:flex;font-family:'Young Serif';font-size:96px;line-height:1;letter-spacing:-2px">${ogText(parts.dish)}</div>` : ''}
+      <div style="display:flex;font-family:'DM Sans';font-weight:500;font-size:34px;color:${sub};margin-top:16px">${ogText(byline)}</div>
     </div>
     ${pill}
   </div>
