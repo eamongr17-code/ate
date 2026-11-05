@@ -90,13 +90,19 @@ test('preview image: the top dish and its score, @handle at Place, the other dis
 test('preview image escapes names; the photo fills the card, or the words go in ink without one', () => {
   const logos = { ink: 'data:ink', paper: 'data:paper' };
   const bare = ogHTML({ dish: '<b>x</b>', score: null, byline: '', more: 0 }, null, logos);
-  assert.ok(bare.includes('&lt;b&gt;x&lt;/b&gt;'));
+  assert.ok(bare.includes('‹b>x‹/b>'));
+  assert.ok(!bare.includes('<b>'));
   assert.ok(!bare.includes('<img src="http'));
   assert.ok(bare.includes('data:ink'));
   const full = ogHTML({ dish: 'Pad Thai', score: '5.0', byline: '@w at O', more: 2 }, 'https://p.co/a.jpg', logos);
   assert.ok(full.includes('width:1200px;height:630px;object-fit:cover'));
   assert.ok(full.includes('data:paper'));
   assert.ok(full.includes('5.0</div>'));
+  // The image's parser does not decode entities, so an apostrophe must go in as itself (5 Nov).
+  const named = ogHTML({ dish: "Nonna's Gnocchi", score: null, byline: "@wamon at Freddy's · Cutler & Co", more: 0 }, null, logos);
+  assert.ok(named.includes(">Nonna's Gnocchi</div>"));
+  assert.ok(named.includes(">@wamon at Freddy's · Cutler & Co</div>"));
+  assert.ok(!/&#39;|&amp;/.test(named));
   assert.ok(!full.includes('★'), 'the fonts have no ★ glyph, so the star must be drawn');
   assert.ok(full.includes('@w at O · +2 more'));
 });
