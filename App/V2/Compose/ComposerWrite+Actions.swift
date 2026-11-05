@@ -286,23 +286,45 @@ extension V2ComposerWrite {
         NotificationCenter.default.post(name: .ateSuggestionPhotosWrittenUp, object: nil)
     }
 
-    /// A composer opened from a photo suggestion arrives holding a cluster's photos: staged the same
-    /// way the picker's are, and bringing nothing with them but their pixels — never a place.
+    /// A composer opened from a photo suggestion arrives holding a cluster's photos, bringing nothing
+    /// with them but their pixels — never a place. **They appear at once**, the way a library pick
+    /// does: a still tile the moment the sheet is up, a small preview as soon as the library hands
+    /// one back, and the full-size bytes written to disk behind it. Before, the sheet sat empty until
+    /// every photo had been fetched at full size and written, one after another.
     func stageSuggestedPhotos() async {
         guard presentation.assetIdentifiers.isEmpty == false, model.photos.isEmpty else { return }
-        var images: [(id: String, image: UIImage)] = []
-        for identifier in presentation.assetIdentifiers {
-            guard let image = await services.photos.image(
-                id: identifier, maximumDimension: ComposerPhotoStaging.maximumDimension
-            ) else { continue }
-            images.append((id: identifier, image: image))
-        }
-        let staged = await ComposerPhotoStaging.stage(images: images, in: model.photoDirectory, existing: [])
-        // Anything picked while they were written stays, after them.
-        let added = model.photos.filter { photo in staged.contains { $0.id == photo.id } == false }
-        model.setPhotos(Array((staged + added).prefix(EntryDraft.photoLimit)))
+        let accepted = model.beginPhotos(ids: presentation.assetIdentifiers)
+        guard accepted.isEmpty == false else { return }
         // The suggestion's photos bring their own day (date-and-photos.html).
-        model.photosDated(services.photos.takenAt(ids: images.map(\.id)))
+        model.photosDated(services.photos.takenAt(ids: accepted))
+        let directory = model.photoDirectory
+        for id in accepted {
+            Task {
+                if let quick = await services.photos.thumbnail(id: id, side: AteMetrics.clusterPhotoComposer) {
+                    model.previewPhoto(id: id, image: quick)
+                }
+            }
+            Task {
+                guard let image = await services.photos.image(
+                          id: id, maximumDimension: ComposerPhotoStaging.maximumDimension
+                      ),
+                      let staged = await ComposerPhotoStaging.stage(
+                          images: [(id: id, image: image)], in: directory, existing: []
+                      ).first,
+                      let fileName = staged.fileName, let picture = staged.picture
+                else {
+                    // Gone from the library, or unreadable: the tile goes, as a failed pick's does.
+                    model.dropPhoto(id: id)
+                    services.analytics(EntryEvents.photoFailed(stage: "suggestion"))
+                    return
+                }
+                model.finishPhoto(id: id, fileName: fileName, picture: picture)
+                if model.lateHandoff != nil {
+                    model.landLate(fileName: fileName)
+                    sendLatePhotos()
+                }
+            }
+        }
     }
 
     /// **Library picks appear at once**: a still tile the moment the picker closes, its preview as
