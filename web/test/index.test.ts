@@ -106,3 +106,22 @@ test('preview image escapes names; the photo fills the card, or the words go in 
   assert.ok(!full.includes('★'), 'the fonts have no ★ glyph, so the star must be drawn');
   assert.ok(full.includes('@w at O · +2 more'));
 });
+
+test('legal pages: the repo Markdown as HTML, escaped, bullets in one list', async () => {
+  const { legalHTML, legalPage } = await import('../src/render.ts');
+  const { readFileSync } = await import('node:fs');
+  const md = readFileSync(new URL('../../legal/privacy.md', import.meta.url), 'utf8');
+  const out = legalHTML(md);
+  assert.ok(out.startsWith('<h1>Ate — Privacy Policy</h1>'));
+  assert.ok(out.includes('<h2>What we collect</h2>'));
+  assert.ok(out.includes('<li><b>Your account.</b>'));
+  assert.ok(out.includes('<p><i>Last updated:'));
+  assert.equal(legalHTML('- a\n- b\n\npara').match(/<ul>/g)?.length, 1);
+  assert.ok(!legalHTML('# x <script>').includes('<script>'));
+  const res = legalPage(md, '/privacy', 'https://rateonate.app', env);
+  assert.equal(res.status, 200);
+  const body = await res.text();
+  assert.ok(body.includes('<title>Ate — Privacy Policy</title>'));
+  assert.ok(body.includes('<link rel="canonical" href="https://rateonate.app/privacy">'));
+  assert.ok(readFileSync(new URL('../../legal/terms.md', import.meta.url), 'utf8').startsWith('# Ate — Terms of Use'));
+});

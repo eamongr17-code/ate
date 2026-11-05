@@ -184,6 +184,42 @@ function errorPage(origin: string, env: Env): Response {
   }), 503);
 }
 
+// ─── The privacy policy and the terms ──────────────────────────────────────────────────────────
+// legal/privacy.md and legal/terms.md, bundled at deploy, so the public links (TestFlight, the App
+// Store) live on Ate's own domain rather than in the repo. The app shows the same words (LegalDocument).
+
+/** The small Markdown the two documents use: `#`/`##` headings, `- ` bullets, paragraphs, **bold**, _italic_. */
+export function legalHTML(markdown: string): string {
+  const inline = (s: string) => text(s)
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/(^|[\s(])_(.+?)_(?=$|[\s).,;:])/g, '$1<i>$2</i>');
+  const out: string[] = [];
+  let list = false;
+  for (const raw of markdown.split('\n')) {
+    const line = raw.trim();
+    const bullet = line.startsWith('- ');
+    if (list && !bullet) { out.push('</ul>'); list = false; }
+    if (!line) continue;
+    if (line.startsWith('## ')) out.push(`<h2>${inline(line.slice(3))}</h2>`);
+    else if (line.startsWith('# ')) out.push(`<h1>${inline(line.slice(2))}</h1>`);
+    else if (bullet) {
+      if (!list) { out.push('<ul>'); list = true; }
+      out.push(`<li>${inline(line.slice(2))}</li>`);
+    } else out.push(`<p>${inline(line)}</p>`);
+  }
+  if (list) out.push('</ul>');
+  return out.join('\n');
+}
+
+/** `/privacy` and `/terms`: the document on the site's own page. */
+export function legalPage(markdown: string, path: string, origin: string, env: Env): Response {
+  const heading = /^# (.+)$/m.exec(markdown)?.[1] ?? 'Ate';
+  return html(page({
+    title: heading, description: '', image: null, canonical: `${origin}${path}`, appURL: null, env,
+    body: `<article class="legal">${legalHTML(markdown)}</article>`,
+  }), 200);
+}
+
 // ─── The page shell ─────────────────────────────────────────────────────────────────────────────
 
 interface PageParts {
@@ -254,6 +290,12 @@ article{padding:18px 10px 0;display:flex;flex-direction:column;gap:12px}
 .sc.best{background:#F6D365;color:#24141F;box-shadow:none}
 .gone{margin:30vh 0 0;text-align:center;font:400 20px/1.25 'Young Serif',Georgia,serif}
 .solo{margin-top:30vh;display:flex;justify-content:center}
+.legal{gap:0;padding-bottom:24px}
+.legal h1{margin:8px 0 6px;font:400 30px/1.1 'Young Serif',Georgia,serif;letter-spacing:-.01em}
+.legal h2{margin:22px 0 6px;font:600 17px/1.3 'DM Sans',sans-serif}
+.legal p{margin:0 0 10px}
+.legal ul{margin:0 0 10px;padding-left:22px}
+.legal li{margin:0 0 6px}
 `;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────────────────────

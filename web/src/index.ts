@@ -8,6 +8,7 @@
 //                       the app. A member opens it in Ate.
 //   GET /.well-known/apple-app-site-association   universal links: /entry/* and /list/* open the app
 //                       when it is installed (Associated Domains entitlement, applinks:<domain>).
+//   GET /privacy, /terms  legal/privacy.md and legal/terms.md (TestFlight's and the App Store's links).
 //   GET /logo.svg       the wordmark.
 //   GET /logo.png       the wordmark as a PNG, for the sign-in code email (mail apps don't show SVG).
 //   anything else       → the App link (TestFlight during the beta).
@@ -28,7 +29,9 @@ import { ImageResponse } from 'workers-og';
 import dmsans500 from './fonts/dmsans-500.ttf';
 import dmsans700 from './fonts/dmsans-700.ttf';
 import youngserifTTF from './fonts/youngserif.ttf';
-import { aasa, entryPage, fetchCard, json, listPage, previewPhoto, type Env } from './render.ts';
+import privacyMD from '../../legal/privacy.md';
+import termsMD from '../../legal/terms.md';
+import { aasa, entryPage, fetchCard, json, legalPage, listPage, previewPhoto, type Env } from './render.ts';
 import { ogHTML, ogParts } from './og.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -43,6 +46,9 @@ export default {
 
     if (path === '/.well-known/apple-app-site-association' || path === '/apple-app-site-association') {
       return json(aasa(env.APP_ID));
+    }
+    if (path === '/privacy' || path === '/terms') {
+      return legalPage(path === '/privacy' ? privacyMD : termsMD, path, url.origin, env);
     }
     if (path === '/logo.svg') {
       return new Response(logo, {
