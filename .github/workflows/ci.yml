@@ -229,7 +229,9 @@ jobs:
       - name: Pictures are being re-recorded
         if: steps.rec.outputs.record == 'true' && needs.changes.outputs.app == 'true'
         run: |
-          echo "::error title=Re-recording snapshots::This commit asks for new pictures. Record snapshots pushes them and runs CI on that commit; that run is the one that counts."
+          # The tag anywhere in the message counts (snapshots.yml reads it the same way), so a commit
+          # that only describes recording must not spell the tag out.
+          echo "::error title=Re-recording snapshots::This commit's message carries the record tag, so its pictures are being re-recorded. Record snapshots pushes them and runs CI on that commit; that run is the one that counts."
           exit 1
 
   # AteKit's tests on Linux, in Swift's own container: the same 1,282 tests as the Mac job, in a
