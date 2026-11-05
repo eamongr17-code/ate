@@ -44,12 +44,12 @@ public enum OnboardingEvents {
         AnalyticsEvent(name: "onboarding_photo", parameters: ["answer": answer.rawValue])
     }
 
-    /// The cards were left: the furthest one seen (1–4), and whether Skip did it.
+    /// The tutorial was left: the furthest step seen (1–5 since 4 Nov 2026; 1–3 before), and whether Skip did it.
     public static func cards(reached card: Int, skipped: Bool) -> AnalyticsEvent {
         AnalyticsEvent(name: "onboarding_cards", parameters: ["card": String(card), "skipped": String(skipped)])
     }
 
-    /// Settings' Tutorial — the same cards, on their own — was left: the furthest card seen (1–3),
+    /// Settings' Tutorial — the same cards, on their own — was left: the furthest step seen (1–5),
     /// and whether Skip did it.
     public static func tutorial(reached card: Int, skipped: Bool) -> AnalyticsEvent {
         AnalyticsEvent(name: "settings_tutorial", parameters: ["card": String(card), "skipped": String(skipped)])

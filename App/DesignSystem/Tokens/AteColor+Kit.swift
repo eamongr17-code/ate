@@ -36,6 +36,12 @@ enum AteKitColor {
     /// A dish's name over its photo — an ink capsule at 78%, so the food shows at its edge
     /// (`.tag{background:rgba(20,14,18,.78)}`).
     static let photoDishName = AteColor.ink.opacity(0.78)
+    /// The keyboard's top under the tutorial's composer (``OnboardingArt``): the system keyboard's
+    /// own greys, its keys and their one-point lower edge, light and dark.
+    static let keyboard = Color(light: Color(hex: 0xD1D3D9), dark: Color(hex: 0x2B2B2E))
+    static let keyboardKey = Color(light: .white, dark: Color(hex: 0x6B6B70))
+    static let keyboardKeyEdge = Color(light: Color(hex: 0x898A8E), dark: Color(hex: 0x1A1A1C))
+    static let keyboardLetter = Color(light: .black, dark: .white)
     /// The share card's grabber, in the surface's ink — `rgba(36,20,31,.2)`.
     static let grabberOpacity: Double = 0.2
 }

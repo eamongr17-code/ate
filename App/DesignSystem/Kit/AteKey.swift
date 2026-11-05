@@ -15,7 +15,8 @@ struct AteKey: View {
 
     let kind: Kind
     /// The Score key inverts while its slider is open: ink pill, butter lettering. A code is on (ink)
-    /// when the dish already wears it, and pressing it takes it back off.
+    /// when the dish already wears it, and pressing it takes it back off. The Diet key inverts only
+    /// in the tutorial, while it shows the key being pressed.
     var isActive = false
     let action: () -> Void
 
@@ -39,6 +40,7 @@ struct AteKey: View {
                 iconSize: AteKeyMetrics.dietIcon,
                 background: ComposerKeyColor.place,
                 foreground: ComposerKeyColor.placeInk,
+                isActive: isActive,
                 identifier: "composer.key.diet",
                 action: action
             )
