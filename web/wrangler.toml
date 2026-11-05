@@ -6,7 +6,7 @@ compatibility_date = "2026-10-01"
 workers_dev = false
 
 rules = [
-  { type = "Text", globs = ["**/*.svg"], fallthrough = true },
+  { type = "Text", globs = ["**/*.svg", "**/*.md"], fallthrough = true },
   { type = "Data", globs = ["**/*.woff2", "**/*.ttf", "**/*.png"], fallthrough = true },
 ]
 

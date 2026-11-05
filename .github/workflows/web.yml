@@ -4,16 +4,16 @@
 # in Config/domain.txt and these repository secrets exist (Settings → Secrets and variables → Actions):
 #   CLOUDFLARE_API_TOKEN    Cloudflare → My Profile → API Tokens → "Edit Cloudflare Workers", the domain's zone
 #   CLOUDFLARE_ACCOUNT_ID   Cloudflare home page, right-hand column
-# The Worker answers <domain> and www.<domain>: /entry/<id>, /list/<id> and the universal-links file.
+# The Worker answers <domain> and www.<domain>: /entry/<id>, /list/<id>, /privacy, /terms and the universal-links file.
 
 name: Web
 
 on:
   push:
     branches: [claude/project-thread-2f9ty8]
-    paths: ["web/**", "Config/domain.txt", ".github/workflows/web.yml"]
+    paths: ["web/**", "legal/**", "Config/domain.txt", ".github/workflows/web.yml"]
   pull_request:
-    paths: ["web/**", ".github/workflows/web.yml"]
+    paths: ["web/**", "legal/**", ".github/workflows/web.yml"]
   workflow_dispatch:
 
 concurrency:

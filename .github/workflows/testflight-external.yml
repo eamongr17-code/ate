@@ -56,7 +56,8 @@ jobs:
       TF_CONTACT_EMAIL: eamongr17@gmail.com
       TF_CONTACT_FIRST: Eamon
       TF_CONTACT_LAST: Gracias
-      TF_PRIVACY_URL: https://github.com/eamongr17-code/ate/blob/claude/project-thread-2f9ty8/legal/privacy.md
+      # legal/privacy.md, served by the web Worker (web/), so the link survives the repo going private.
+      TF_PRIVACY_URL: https://rateonate.app/privacy
       # Eamon's wording, 2026-10-26.
       TF_DESCRIPTION: >-
         Ate is your personal food journal. Rate what you ate and share it with the world. See what
