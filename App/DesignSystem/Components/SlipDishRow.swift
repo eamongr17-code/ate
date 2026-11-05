@@ -179,7 +179,8 @@ struct SlipDishRow: View {
         }
     }
 
-    /// `gap:14px` between the score and its bookmark.
+    /// `gap:14px`: the stack gap before the bookmark. What shows between the score and the mark is
+    /// ``AteSaveButton/rowScoreGap``, once the bookmark tucks back over it.
     private static let bookmarkGap: CGFloat = 14
 
     /// A dish row's geometry, from the fonts — the numbers the CSS arrives at by itself.
