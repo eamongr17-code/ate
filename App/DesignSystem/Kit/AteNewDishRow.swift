@@ -44,6 +44,7 @@ struct AteNewDishRow: View {
             .accessibilityIdentifier("new.open")
             if let onSave {
                 AteSaveButton(dishName: name, isSaved: isSaved, identifier: "new.save", action: onSave)
+                    .padding(.leading, AteSaveButton.rowLeading(after: AteNewDishRowMetrics.gap))
                     .padding(.trailing, -AteNewDishRowMetrics.saveTrailing)
             }
         }

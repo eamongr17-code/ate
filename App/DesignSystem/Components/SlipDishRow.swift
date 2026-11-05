@@ -161,8 +161,10 @@ struct SlipDishRow: View {
 
     private func bookmark(action: @escaping () -> Void) -> some View {
         AteSaveButton(dishName: dish.name, isSaved: dish.isSaved, action: action)
-            // `margin:-10px -12px -10px 0` — the target stays 44, the mark sits on the paper's edge.
+            // `margin:-10px -12px -10px 0` — the target stays 44, the mark sits on the paper's edge,
+            // and ``AteSaveButton/rowScoreGap`` from the score.
             .padding(.vertical, -10)
+            .padding(.leading, AteSaveButton.rowLeading(after: Self.bookmarkGap))
             .padding(.trailing, -12)
     }
 
@@ -177,7 +179,8 @@ struct SlipDishRow: View {
         }
     }
 
-    /// `gap:14px` between the score and its bookmark.
+    /// `gap:14px`: the stack gap before the bookmark. What shows between the score and the mark is
+    /// ``AteSaveButton/rowScoreGap``, once the bookmark tucks back over it.
     private static let bookmarkGap: CGFloat = 14
 
     /// A dish row's geometry, from the fonts — the numbers the CSS arrives at by itself.
