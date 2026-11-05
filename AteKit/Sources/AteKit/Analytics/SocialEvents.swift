@@ -53,6 +53,12 @@ public enum SocialEvents {
         )
     }
 
+    /// The Feed's first page came back empty: nothing was posted in its window (0109). How often the
+    /// 7-day window leaves the Feed blank, which `feed_page_loaded` alone cannot tell from a slow day.
+    public static func feedWindowEmpty(days: Int) -> AnalyticsEvent {
+        AnalyticsEvent(name: "feed_window_empty", parameters: ["days": String(days)])
+    }
+
     /// A bookmark was tapped. Fired **optimistically**, at the tap, because the tap is the intent —
     /// and the number we act on is how often people save, not how often the network agreed.
     public static func saveToggled(source: SaveSource, isSaved: Bool) -> AnalyticsEvent {

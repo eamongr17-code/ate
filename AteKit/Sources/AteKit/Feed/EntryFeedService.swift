@@ -34,6 +34,17 @@ public protocol EntryFeedReading: Sendable {
         city: String?
     ) async throws -> Page<EntryCard>
 
+    /// One page of what was POSTED in the last `withinDays` days (`p_within_days`, 0109), newest
+    /// posted first — when it was eaten does not move it. The cursor is the last row's
+    /// `(posted_at, id)`, so a page from here only continues a walk started here.
+    func recentFeedPage(
+        after cursor: PageCursor?,
+        pageSize: Int,
+        includeOwn: Bool,
+        city: String?,
+        withinDays: Int
+    ) async throws -> Page<EntryCard>
+
     /// `feed_cities()` — the cities the Feed has food in, busiest first. Unpaged (a handful).
     func feedCities() async throws -> [AteCity]
 
@@ -53,6 +64,18 @@ public extension EntryFeedReading {
         city: String?
     ) async throws -> Page<EntryCard> {
         try await feedPage(after: cursor, pageSize: pageSize, includeOwn: includeOwn, area: area)
+    }
+
+    /// The in-memory drives and the tests' fakes keep no post time: their whole feed, unwindowed,
+    /// so a preview drive with fixed fixture dates never goes blank.
+    func recentFeedPage(
+        after cursor: PageCursor?,
+        pageSize: Int,
+        includeOwn: Bool,
+        city: String?,
+        withinDays: Int
+    ) async throws -> Page<EntryCard> {
+        try await feedPage(after: cursor, pageSize: pageSize, includeOwn: includeOwn, area: nil, city: city)
     }
 
     func feedCities() async throws -> [AteCity] { [] }
@@ -76,6 +99,9 @@ public struct EntryFeedClient: EntryFeedReading {
     /// The server clamps `get_entry_feed` at 50 (`least(greatest(p_page_size,1),50)`); asking for
     /// more would come back short and make `isLastPage` lie.
     public static let maximumPageSize = 50
+
+    /// The Feed's window: what was posted in the last 7 days (Eamon, 5 Nov).
+    public static let feedWindowDays = 7
 
     private let api: AteAPIClient
 
@@ -122,6 +148,48 @@ public struct EntryFeedClient: EntryFeedReading {
             .data
         let rows = try PostgRESTDate.decoder.decode([EntryCard].self, from: data)
         return Page(items: rows, requestedLimit: limit)
+    }
+
+    public func recentFeedPage(
+        after cursor: PageCursor?,
+        pageSize: Int,
+        includeOwn: Bool,
+        city: String?,
+        withinDays: Int
+    ) async throws -> Page<EntryCard> {
+        let limit = min(Self.maximumPageSize, max(1, pageSize))
+        var parameters: [String: AnyJSON] = [
+            "p_page_size": .integer(limit),
+            "p_include_own": .bool(includeOwn),
+            "p_within_days": .integer(withinDays)
+        ]
+        // With a window the keyset is (posted_at, id): `p_cursor_created_at` carries the last
+        // row's posted_at (0109). `PageCursor.createdAt` holds it — see `postedCursors` below.
+        parameters["p_cursor_created_at"] = cursor
+            .map { .string(PostgRESTTimestamp.string(from: $0.createdAt)) } ?? .null
+        parameters["p_cursor_id"] = cursor.map { .string($0.id.uuidString.lowercased()) } ?? .null
+        if let city { parameters["p_city"] = .string(city) }
+
+        let data = try await api.supabase
+            .rpc("get_entry_feed", params: parameters)
+            .execute()
+            .data
+        let rows = try PostgRESTDate.decoder.decode([EntryCard].self, from: data)
+        let stamps = try PostgRESTDate.decoder.decode([PostedStamp].self, from: data)
+        let next = rows.count < limit ? nil : stamps.last.map { PageCursor(createdAt: $0.postedAt, id: $0.id) }
+        return Page(items: rows, nextCursor: next)
+    }
+
+    /// The two fields a windowed page's cursor is made of. Read beside the card rather than on it:
+    /// every other list pages on `created_at`, and only this read orders by when it was posted.
+    private struct PostedStamp: Decodable {
+        let id: UUID
+        let postedAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case postedAt = "posted_at"
+        }
     }
 
     public func feedCities() async throws -> [AteCity] {

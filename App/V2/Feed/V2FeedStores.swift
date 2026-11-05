@@ -14,7 +14,8 @@ import SwiftUI
 struct V2FeedStores {
     let edition: FeedEditionStore
     let latest: EntryListStore
-    /// The beta Feed (``AteBeta``): every receipt, newest first, from everywhere (yours too), paged.
+    /// The beta Feed (``AteBeta``): every receipt posted in the last 7 days, newest posted first,
+    /// from everywhere (yours too), paged.
     let everything: EntryListStore
     let area: FeedAreaModel
     /// The one location path the app has — asked from the Near me pick and nowhere else.
@@ -41,6 +42,9 @@ struct V2FeedStores {
             await area?.loadCitiesIfNeeded()
             return FeedAreaModel.openingLocation(journalCities: [], feedCities: area?.cities ?? [])
         }
+        // The Feed is what was POSTED in the last 7 days, newest posted first (0109) — an entry dated
+        // back to a month-old dinner still lands on top the day it is posted.
+        let window = EntryFeedClient.feedWindowDays
         // A short run, not the feed: one page of the cap, never paged (round 8).
         let latest = EntryListStore(
             pageSize: FeedEditionStore.latestCap,
@@ -48,8 +52,8 @@ struct V2FeedStores {
             savedDishes: services.savedDishes
         ) { cursor, pageSize in
             let city = cursor == nil ? await area.cityForFirstPage() : await area.cityForNextPage
-            return try await reader.feedPage(
-                after: cursor, pageSize: pageSize, includeOwn: false, area: nil, city: city
+            return try await reader.recentFeedPage(
+                after: cursor, pageSize: pageSize, includeOwn: false, city: city, withinDays: window
             )
         }
         latest.listen(to: services.entryDeletions)
@@ -57,13 +61,16 @@ struct V2FeedStores {
             fallbackMessage: "Couldn't load the feed.",
             savedDishes: services.savedDishes
         ) { cursor, pageSize in
-            try await reader.feedPage(after: cursor, pageSize: pageSize, includeOwn: true, area: nil, city: nil)
+            try await reader.recentFeedPage(
+                after: cursor, pageSize: pageSize, includeOwn: true, city: nil, withinDays: window
+            )
         }
         everything.listen(to: services.entryDeletions)
-        everything.cache = services.pageCache("feed")
+        everything.cache = services.pageCache("feed.7d")
         let analytics = services.analytics
         everything.onPageLoaded = { page, count in
             analytics(SocialEvents.feedPageLoaded(page: page, itemCount: count))
+            if page == 1, count == 0 { analytics(SocialEvents.feedWindowEmpty(days: window)) }
         }
         let edition = FeedEditionStore(
             reads: services.feedEdition,
