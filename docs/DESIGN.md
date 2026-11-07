@@ -28,7 +28,7 @@ for exact sizes, colours, radii and copy; it is 390×844 and does not render out
    statement, anywhere). **Edge B on dish entry slips, the place menu and every receipt** (the stats
    slip on You/Profile is whole, 16 all round).
    **Empty states** (Eamon, 2026-10-06; system 2026-10-26): one hand-drawn "Paper Trail" drawing,
-   then one Young Serif 20 line (smaller than every title) ending in a full stop and at most one
+   then one Radio Canada Big 20 line (smaller than every title) ending in a full stop and at most one
    verb-first ink pill, on the ground. A drawing is one paper thing + one food thing + at most one
    wink, ink and paper only, objects only, never sad. It is picked by what the emptiness is, never by
    screen (11 kinds in `AteEmptyArt`); same situation, same words and drawing everywhere. Page size
@@ -75,10 +75,10 @@ Accents (same in both modes, always carry `#24141F` text): coral `#F0623F` · bu
 Destructive `#B3261E`.
 
 Type — four voices, bundled fonts (all OFL):
-- **Young Serif** — every title and every name of a thing: screen/page/sheet titles, sections, places, dishes, list names, wherever they appear (tracking −2% at 24+, −1% at 18–23, line-height 1.0). Chosen by Eamon 10 Oct.
-- **DM Sans** — everything you tap, scan or count: controls, labels, meta, scores, avatar letters. Replaced Bricolage Grotesque 23 Oct (`design/rebuild/typography.html`). Sizes: 64 hero score · 28 numbers · 22 slip score · 17 rows · 16 buttons · 15 controls · 14 small controls · 13 meta · 12 captions · 11 badges/tabs. 600 for controls, 500 for meta, 700 for numbers. iOS's own menus, alerts, swipe actions and date picker stay SF Pro (apps can't change them).
-- **Newsreader** — the user's words, everywhere they appear (16–19, line-height 1.45–1.5; italic for quoted dish notes).
-- **DM Mono** — only inside receipts (line items 13; labels 11 uppercase, tracking 8%).
+- **Radio Canada Big** (Bold) — every title and every name of a thing: screen/page/sheet titles, sections, places, dishes, list names, wherever they appear (tracking −2% at 24+, −1% at 18–23, line-height 1.0). Chosen by Eamon 6 Nov (replacing Radio Canada Big: serif headings on beige read as Claude's own app; `/mnt/project-files/mockups/font-system.html`).
+- **Radio Canada** — everything you tap, scan or count: controls, labels, meta, scores, avatar letters. The text cut of the heading family. Sizes: 64 hero score · 28 numbers · 22 slip score · 17 rows · 16 buttons · 15 controls · 14 small controls · 13 meta · 12 captions · 11 badges/tabs. 600 for controls, 500 for meta, 700 for numbers. iOS's own menus, alerts, swipe actions and date picker stay SF Pro (apps can't change them).
+- **Spectral** — the user's words, everywhere they appear (16–19, line-height 1.45–1.5, tracking −2%; italic for quoted dish notes). Eamon wanted a serif for the words, set slightly tight.
+- **Spline Sans Mono** — only inside receipts (line items 13; labels 11 uppercase, tracking 8%). Plain zero, never slashed.
 
 Spacing: screen gutter 20; **list gutter 12** (Journal, Feed, Profile: slips and their headers);
 content top 60–70 under the status bar; 44pt minimum hit targets.
@@ -91,18 +91,18 @@ one band in the paper's colour crossing the screen, 1.6s a pass, all placeholder
 - **Chrome** (round 5) — all the app's own, no system bars or Liquid Glass. One **glass**
   (`AteGlass`): backdrop blur under a warm tint, a hairline rim, a light shadow cast only outside it.
   - **Tab bar** — keeps build 80's native look: a 62 glass capsule, 21 in and 21 up, of Journal ·
-    Feed · Search · You (line icon 24 over DM Sans 11; bold on a 76×54 pill when current; Feed is
+    Feed · Search · You (line icon 24 over Radio Canada 11; bold on a 76×54 pill when current; Feed is
     Lucide utensils-crossed), and
     **+** as a separate 62 glass circle 8 beside it that presents the composer and is never a tab.
     Scroll down minimises it to the current tab alone in a 48 disc (+ shrinks to 48), a spring
     morph; scroll up or a tap on the disc brings it back. Re-tap scrolls to top. Every pushed page
     hides it, and it rides the pop back in with its tab's root.
-  - **Top bar** on pushed pages — a 44 glass back disc 16 in, the page's name (Young Serif 18) after
+  - **Top bar** on pushed pages — a 44 glass back disc 16 in, the page's name (Radio Canada Big 18) after
     it once the page's own title has scrolled under the bar, its controls as one glass pill 16 in from
     the right; the entry page keeps its author in the bar. Tab roots' corner buttons are 44 glass discs.
   - **Page header** (`page-headers.html`, 24 Oct) — every pushed page about one thing (list, place,
     dish, tag, person, notifications, following), left, 20 in: picture if it has one (list cover 160,
-    dish photos, avatar 72), 18 above the name in Young Serif 34 (lines 1.05, up to 3), one DM Sans
+    dish photos, avatar 72), 18 above the name in Radio Canada Big 34 (lines 1.05, up to 3), one Radio Canada
     15 line 8 under it (names 600 in ink), buttons or chips 16 under that.
   - **Glass bar** (`glass-header.html` 1, 24 Oct) — every header, tab roots and pushed pages alike,
     lies on one full-width sheet of Liquid Glass (`AteGlassBar`) from the screen's top edge to the
@@ -111,7 +111,7 @@ one band in the paper's colour crossing the screen, 1.6s a pass, all placeholder
     leaving only iOS's subtle soft edge under the clock, no colour. Set once in the kit; a lint rule
     stops screens setting their own.
   - **Compact header** — mid-list, a scroll up brings back a compact header, not the big one: the
-    tab's name (Young Serif, 20) leading — on the Journal the month you are in, its year muted —
+    tab's name (Radio Canada Big, 20) leading — on the Journal the month you are in, its year muted —
     and its controls trailing (the Feed's location chip, Search's filter, the Journal's active
     chips and calendar), in a 52 row under the status bar on the glass bar. It comes out of a blur
     into focus.
@@ -120,14 +120,14 @@ one band in the paper's colour crossing the screen, 1.6s a pass, all placeholder
     small fitted sheet with a live "Show N entries". Rating and Date are two-thumb sliders.
 - **App icon** — coral ground with the white `ate.` wordmark, optically centred. Dark appearance is
   the coral wordmark on ink; tinted is the white glyph on transparent.
-- **Score token** — butter pill, filled star + one-decimal number, DM Mono 500, inline in prose.
+- **Score token** — butter pill, filled star + one-decimal number, Radio Canada 600, inline in prose.
 - **Tag chip** (`DietTags`) — GF · DF · V · VG · NF: linen (ground-colour) pill, 18 high, 6 side
-  padding, DM Mono 500 caps +4%, muted, no stroke. 6 after a dish's name on its row (4 apart,
+  padding, Radio Canada 600 caps +4%, muted, no stroke. 6 after a dish's name on its row (4 apart,
   lifted 3); inline in the words (lifted 2). Typing a code straight after a dish promotes it, as a
   number becomes a score; never on receipts.
 - **Letter tile** (`Saved`, `NoPhotoA`) — a dish with no photo, wherever a dish thumbnail appears:
   the slot's squircle in one accent picked from the dish id (never butter), its first letter in
-  Young Serif (26 on 56), ink. Never an empty grey square.
+  Radio Canada Big (26 on 56), ink. Never an empty grey square.
 - **Receipt** — place (title 32) + address (mono label) / dashed rule / numbered line items with dot
   leaders and right-aligned score — nothing under a line / dashed rule / `Order #` left, date right;
   `n dishes` left, `Avg` right / barcode / handle left, logo right / edge B. Printing: skeleton lines.

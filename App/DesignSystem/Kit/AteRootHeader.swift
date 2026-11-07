@@ -141,7 +141,7 @@ enum AteRootHeaderMetrics {
 }
 
 /// **An inline bar title** — a pushed page's name (or byline), and a tab root's title once it has
-/// collapsed into the bar, leading-aligned on every screen: the name in Young Serif at 18, the face of
+/// collapsed into the bar, leading-aligned on every screen: the name in Radio Canada Big at 18, the face of
 /// the title it stands for (`scroll-headers.html`, 24 Oct), and an optional muted
 /// subtitle under it (the Feed's city). A leading item in the native bar; the bar, its glass and
 /// its scroll-edge effect are the system's.

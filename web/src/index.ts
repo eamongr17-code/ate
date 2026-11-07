@@ -19,16 +19,16 @@
 
 import logo from './logo.svg';
 import logoPNG from './logo-email.png';
-import dmsans from './fonts/dmsans.woff2';
-import newsreader from './fonts/newsreader.woff2';
-import youngserif from './fonts/youngserif.woff2';
+import radiocanada from './fonts/radiocanada.woff2';
+import radiocanadabig from './fonts/radiocanadabig.woff2';
+import spectral from './fonts/spectral.woff2';
 
 // The three fonts, served from here (latin subsets, OFL): no viewer's IP goes to a font host.
-const FONTS: Record<string, ArrayBuffer> = { dmsans, newsreader, youngserif };
+const FONTS: Record<string, ArrayBuffer> = { radiocanada, radiocanadabig, spectral };
 import { ImageResponse } from 'workers-og';
-import dmsans500 from './fonts/dmsans-500.ttf';
-import dmsans700 from './fonts/dmsans-700.ttf';
-import youngserifTTF from './fonts/youngserif.ttf';
+import radiocanada500 from './fonts/radiocanada-500.ttf';
+import radiocanada700 from './fonts/radiocanada-700.ttf';
+import radiocanadabig700 from './fonts/radiocanadabig-700.ttf';
 import privacyMD from '../../legal/privacy.md';
 import termsMD from '../../legal/terms.md';
 import { aasa, entryPage, fetchCard, json, legalPage, listPage, previewPhoto, type Env } from './render.ts';
@@ -62,7 +62,7 @@ export default {
       });
     }
 
-    const font = /^\/fonts\/(dmsans|newsreader|youngserif)\.woff2$/.exec(path);
+    const font = /^\/fonts\/(radiocanada|radiocanadabig|spectral)\.woff2$/.exec(path);
     if (font) {
       return new Response(FONTS[font[1]], {
         headers: { 'Content-Type': 'font/woff2', 'Cache-Control': 'public, max-age=31536000, immutable' },
@@ -118,9 +118,9 @@ async function ogImage(id: string, env: Env): Promise<Response> {
     width: 1200,
     height: 630,
     fonts: [
-      { name: 'DM Sans', data: dmsans500, weight: 500, style: 'normal' },
-      { name: 'DM Sans', data: dmsans700, weight: 700, style: 'normal' },
-      { name: 'Young Serif', data: youngserifTTF, weight: 400, style: 'normal' },
+      { name: 'Radio Canada', data: radiocanada500, weight: 500, style: 'normal' },
+      { name: 'Radio Canada', data: radiocanada700, weight: 700, style: 'normal' },
+      { name: 'Radio Canada Big', data: radiocanadabig700, weight: 700, style: 'normal' },
     ],
   });
   const headers = new Headers(image.headers);

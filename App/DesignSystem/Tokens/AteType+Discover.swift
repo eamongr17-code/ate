@@ -5,12 +5,12 @@ import SwiftUI
 
 extension AteTextStyle {
     /// **A pushed page's header** (`page-headers.html`, 24 Oct): the name of the thing the page is
-    /// about — a list, a place, a dish, a tag, a person — in Young Serif at 34, lines 1.05 apart, on
+    /// about — a list, a place, a dish, a tag, a person — in Radio Canada Big at 34, lines 1.05 apart, on
     /// up to three lines…
     static let pageHeaderTitle = AteTextStyle(
         voice: .heading, size: 34, weight: 800, trackingEm: -0.02, lineHeight: 1.05, textStyle: .largeTitle
     )
-    /// …the one line under it in DM Sans at 15, muted…
+    /// …the one line under it in Radio Canada at 15, muted…
     static let pageHeaderLine = AteTextStyle(
         voice: .display, size: 15, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .subheadline
     )
@@ -18,7 +18,7 @@ extension AteTextStyle {
     static let pageHeaderStrong = AteTextStyle(
         voice: .display, size: 15, weight: 600, trackingEm: 0, lineHeight: 1.3, textStyle: .subheadline
     )
-    /// The ask card's question — `.h` at 26: Young Serif, `letter-spacing:-.035em`, `line-height:1`.
+    /// The ask card's question — `.h` at 26: Radio Canada Big, `letter-spacing:-.035em`, `line-height:1`.
     static let kitAskTitle = AteTextStyle(
         voice: .heading, size: 26, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title2
     )

@@ -100,14 +100,18 @@ extension AteFont {
         return max(0, drop - font.pointSize * overshoot)
     }
 
-    /// Young Serif's tall ascender (1046 against a 750 cap) makes the overflow rule above lift it too
-    /// far: on build 108 a slip's 20pt dish name sat 5.7pt above its score's baseline, tight to the
-    /// paper's top and loose over the words below. Measured off the device, as a fraction of the em.
-    private static let headingDropOvershoot: CGFloat = 0.285
+    /// A tall ascender makes the overflow rule above lift a face too far. These are fractions of the
+    /// em cut from the lift, per voice.
+    ///
+    /// Radio Canada Big's vertical metrics (995 ascender, 305 descender, 690 cap) are within a few
+    /// units of DM Sans's (992/310/700), so it takes the 0.15 em that DM Sans was measured to need on
+    /// build 185 (a slip's 22pt score sat 3.3pt above its dish name's baseline). Young Serif, which
+    /// held this slot before 7 Nov, needed 0.285 for its 1046 ascender.
+    private static let headingDropOvershoot: CGFloat = 0.15
 
-    /// DM Sans has the same problem in a smaller dose (992/310 against a 700 cap). On build 185 a slip's
-    /// 22pt score sat 3.3pt above its dish name's baseline, so its lift is cut by 0.15 em.
-    private static let displayDropOvershoot: CGFloat = 0.15
+    /// Radio Canada is shorter (945/255): its natural line is 1.2 em, a third less overflow over a
+    /// 1.0 box than DM Sans's, so its cut shrinks in proportion. Not yet measured on a device.
+    private static let displayDropOvershoot: CGFloat = 0.10
 
     /// The style's cap height, in points — what a glyph set beside a numeral centres on.
     static func capHeight(for style: AteTextStyle, dynamicTypeSize: DynamicTypeSize = .large) -> CGFloat {

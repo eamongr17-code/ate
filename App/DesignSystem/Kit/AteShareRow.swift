@@ -129,12 +129,12 @@ enum AteShareRowMetrics {
 }
 
 extension AteTextStyle {
-    /// The word under a share disc. DM Sans 500 at 11.
+    /// The word under a share disc. Radio Canada 500 at 11.
     static let shareRowLabel = AteTextStyle(
         voice: .display, size: 11, weight: 500, trackingEm: 0, lineHeight: 1.15, textStyle: .caption,
         maximumSize: 14
     )
-    /// The word under a disc in the ink sheet's scrolling row: Spotify's, a size up. DM Sans 400 at 13.
+    /// The word under a disc in the ink sheet's scrolling row: Spotify's, a size up. Radio Canada 400 at 13.
     static let shareRowLabelLarge = AteTextStyle(
         voice: .display, size: 13, weight: 400, trackingEm: 0, lineHeight: 1.15, textStyle: .caption,
         maximumSize: 16

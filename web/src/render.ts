@@ -249,7 +249,7 @@ function page(p: PageParts): string {
 <link rel="canonical" href="${attr(p.canonical)}">
 ${og}
 <meta name="robots" content="noindex">
-<link rel="preload" href="/fonts/youngserif.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/radiocanadabig.woff2" as="font" type="font/woff2" crossorigin>
 <style>${CSS}</style>
 </head><body>
 <header><img class="logo" src="/logo.svg" alt="ate.">${p.body ? open : ''}</header>
@@ -263,39 +263,39 @@ const SCRIPT = `document.querySelectorAll('a[data-app]').forEach(function(a){a.a
 const STAR = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg>';
 
 const CSS = `
-@font-face{font-family:'Young Serif';font-weight:400;font-display:swap;src:url(/fonts/youngserif.woff2) format('woff2')}
-@font-face{font-family:'DM Sans';font-weight:100 1000;font-display:swap;src:url(/fonts/dmsans.woff2) format('woff2')}
-@font-face{font-family:Newsreader;font-weight:200 800;font-display:swap;src:url(/fonts/newsreader.woff2) format('woff2')}
+@font-face{font-family:'Radio Canada Big';font-weight:400 700;font-display:swap;src:url(/fonts/radiocanadabig.woff2) format('woff2')}
+@font-face{font-family:'Radio Canada';font-weight:300 700;font-display:swap;src:url(/fonts/radiocanada.woff2) format('woff2')}
+@font-face{font-family:Spectral;font-weight:400;font-display:swap;src:url(/fonts/spectral.woff2) format('woff2')}
 :root{--g:#EFEAE2;--ink:#24141F;--mut:#5E5560;--hr:rgba(36,20,31,.14);color-scheme:light dark}
 @media (prefers-color-scheme:dark){:root{--g:#17111B;--ink:#F4EFE9;--mut:#B9AFBC;--hr:rgba(255,255,255,.16)}.logo{filter:invert(1)}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--g);color:var(--ink);font:400 18px/1.5 Newsreader,Georgia,serif;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--g);color:var(--ink);font:400 18px/1.5 Spectral,Georgia,serif;-webkit-text-size-adjust:100%}
 header{display:flex;align-items:center;justify-content:space-between;max-width:560px;margin:0 auto;padding:14px 16px 10px}
 .logo{height:30px;width:auto}
-.open{display:inline-flex;align-items:center;height:40px;padding:0 18px;border-radius:999px;background:var(--ink);color:var(--g);font:600 15px/1 'DM Sans',sans-serif;text-decoration:none}
+.open{display:inline-flex;align-items:center;height:40px;padding:0 18px;border-radius:999px;background:var(--ink);color:var(--g);font:600 15px/1 'Radio Canada',sans-serif;text-decoration:none}
 main{max-width:560px;margin:0 auto;padding:0 8px 48px}
 .photos{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:4px 0 0}
 .photos::-webkit-scrollbar{display:none}
 .photos img{flex:0 0 100%;width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:22px;scroll-snap-align:center}
 article{padding:18px 10px 0;display:flex;flex-direction:column;gap:12px}
-.byline{display:flex;align-items:center;gap:7px;margin-top:4px;font:500 14px/1 'DM Sans',sans-serif;color:var(--mut)}
+.byline{display:flex;align-items:center;gap:7px;margin-top:4px;font:500 14px/1 'Radio Canada',sans-serif;color:var(--mut)}
 .byline b{color:var(--ink);font-weight:600}
-.av{width:26px;height:26px;border-radius:50%;background:#F6D365;color:#24141F;display:inline-flex;align-items:center;justify-content:center;font:700 13px 'DM Sans',sans-serif}
-.at{margin:0;font:500 15px/1.3 'DM Sans',sans-serif;color:var(--mut)}
+.av{width:26px;height:26px;border-radius:50%;background:#F6D365;color:#24141F;display:inline-flex;align-items:center;justify-content:center;font:700 13px 'Radio Canada',sans-serif}
+.at{margin:0;font:500 15px/1.3 'Radio Canada',sans-serif;color:var(--mut)}
 .at b{color:var(--ink);font-weight:600}
-.words{margin:0;white-space:pre-wrap}
+.words{margin:0;white-space:pre-wrap;letter-spacing:-.02em}
 .drow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-.dn{margin:0;font:400 34px/1.02 'Young Serif',Georgia,serif;letter-spacing:-.02em;text-wrap:balance}
-.sc{flex-shrink:0;min-width:80px;height:38px;margin-top:1px;border-radius:999px;box-shadow:inset 0 0 0 1px var(--hr);display:inline-flex;align-items:center;justify-content:center;gap:4px;font:700 20px/1 'DM Sans',sans-serif}
+.dn{margin:0;font:700 34px/1.02 'Radio Canada Big',sans-serif;letter-spacing:-.015em;text-wrap:balance}
+.sc{flex-shrink:0;min-width:80px;height:38px;margin-top:1px;border-radius:999px;box-shadow:inset 0 0 0 1px var(--hr);display:inline-flex;align-items:center;justify-content:center;gap:4px;font:700 20px/1 'Radio Canada',sans-serif}
 .sc.best{background:#F6D365;color:#24141F;box-shadow:none}
-.gone{margin:30vh 0 0;text-align:center;font:400 20px/1.25 'Young Serif',Georgia,serif}
+.gone{margin:30vh 0 0;text-align:center;font:700 20px/1.25 'Radio Canada Big',sans-serif}
 .solo{margin-top:30vh;display:flex;justify-content:center}
 .legal{gap:0;padding-bottom:24px}
-.legal h1{margin:8px 0 6px;font:400 30px/1.1 'Young Serif',Georgia,serif;letter-spacing:-.01em}
-.legal h2{margin:22px 0 6px;font:600 17px/1.3 'DM Sans',sans-serif}
-.legal p{margin:0 0 10px}
+.legal h1{margin:8px 0 6px;font:700 30px/1.1 'Radio Canada Big',sans-serif;letter-spacing:-.01em}
+.legal h2{margin:22px 0 6px;font:600 17px/1.3 'Radio Canada',sans-serif}
+.legal p{margin:0 0 10px;letter-spacing:-.02em}
 .legal ul{margin:0 0 10px;padding-left:22px}
-.legal li{margin:0 0 6px}
+.legal li{margin:0 0 6px;letter-spacing:-.02em}
 `;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────────────────────
