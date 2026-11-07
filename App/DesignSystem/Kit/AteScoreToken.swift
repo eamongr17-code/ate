@@ -9,7 +9,7 @@ enum AteScore: Equatable, Sendable {
     case average(Double)
 }
 
-/// **The score token** — a filled star and one decimal on a butter pill, in DM Sans 600. Brick with
+/// **The score token** — a filled star and one decimal on a butter pill, in Radio Canada 600. Brick with
 /// white lettering for a secret 6; a one-shot sweep on a 5.0 and a 6 (``ScoreStyle``). An unrated
 /// dish renders **nothing**: the slot stays empty — no star, no zero, no dash, never dimmed.
 ///

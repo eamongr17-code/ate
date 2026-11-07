@@ -3,27 +3,29 @@ import SwiftUI
 
 /// **The voices** — and the only place in the app that is allowed to name a font.
 ///
-/// - **Young Serif** — headings: screen and page titles, places, dishes, list names. One heavy weight.
-/// - **DM Sans** — controls (600, 15), labels, meta, scores and avatar letters (23 Oct, replacing
-///   Bricolage Grotesque: calmer beside Young Serif, and DM Mono's sister face).
-/// - **Newsreader** — the person's own words, everywhere they appear.
-/// - **DM Mono** — inside receipts, and nowhere else.
+/// Since 7 Nov 2026 (Eamon: the serif-on-beige look read as Claude's own app):
 ///
-/// The families ship as variable fonts, so a weight is a point on the `wght` axis rather than a
-/// separate file, and the optical-size axis is driven from the actual point size (that is what `opsz`
-/// is for: DM Sans at 13 is a different drawing from DM Sans at 40).
+/// - **Radio Canada Big** — headings: screen and page titles, places, dishes, list names. Bold.
+/// - **Radio Canada** — controls (600, 15), labels, meta, scores and avatar letters. The text cut of
+///   the same family, so the furniture shares the headings' tapered strokes.
+/// - **Spectral** — the person's own words, everywhere they appear, set 2% tight.
+/// - **Spline Sans Mono** — inside receipts, and nowhere else. Its zero is plain, not slashed.
+///
+/// Radio Canada Big, Radio Canada and Spline Sans Mono ship as variable fonts, so a weight is a point
+/// on the `wght` axis rather than a separate file. Spectral ships as static cuts (regular, medium and
+/// their italics). None of the four has an optical-size axis.
 ///
 /// Everything degrades: if the font files are missing from the bundle, each voice falls back to a
 /// system design (`.serif` for the words, `.monospaced` for receipts, the system sans for chrome) and
 /// the app still lays out correctly. Dynamic Type scaling is applied either way.
 enum AteVoice: Sendable {
-    /// Young Serif — the words a screen is about: titles, places, dishes, list names. Not numbers.
+    /// Radio Canada Big — the words a screen is about: titles, places, dishes, list names. Not numbers.
     case heading
-    /// DM Sans — controls, labels, meta, scores. The app's furniture.
+    /// Radio Canada — controls, labels, meta, scores. The app's furniture.
     case display
-    /// Newsreader — the person's words. Never used for chrome.
+    /// Spectral — the person's words. Never used for chrome.
     case prose
-    /// DM Mono — receipts only.
+    /// Spline Sans Mono — receipts only.
     case mono
 }
 
@@ -63,22 +65,13 @@ struct AteTextStyle: Equatable, Sendable {
 /// Turns an ``AteTextStyle`` into a real font. The single point where a family name is spoken.
 enum AteFont {
 
-    /// **Newsreader is drawn heavier than the 400 the design names.**
+    /// How much heavier than its nominal weight the prose voice is drawn on the variable axis.
     ///
-    /// The prototype's 400 and ours are the same outlines — "tagliatelle" at 17 advances identically
-    /// in both — but a browser gamma-corrects and stem-darkens text and Core Graphics does not, so
-    /// the same file comes off an iPhone about a fifth less inked: 30.1% coverage and a 5px stem in
-    /// the render against 25.7% and 4px on the device, measured at 3x. It is a serif problem and not
-    /// a rendering-stack problem in general — DM Mono on the same page is within half a percent.
-    ///
-    /// Eamon judged the render, so the render is the target and the axis is the only lever that
-    /// reaches it. The cost is bought knowingly: heavier is wider, and the words wrap a little
-    /// sooner than the artboard's do.
-    ///
-    /// Only the **prose** voice is compensated; it is added to the style's own weight, so a bold
-    /// Newsreader added later still lands a notch above its nominal. And only the variable axis is
-    /// moved — the system-serif fallback keeps the design's weight, because it has no gamma to undo.
-    static let proseWeightCompensation: CGFloat = 80
+    /// Newsreader needed +80 to match the browser render Eamon judged (Core Graphics does not
+    /// stem-darken a serif the way a browser does). Spectral ships as static cuts, so there is no axis
+    /// to move and the words are drawn at the weight the style names; kept at zero so a variable prose
+    /// face added later starts from the design's own number.
+    static let proseWeightCompensation: CGFloat = 0
 
     /// The resolved `UIFont` — needed directly by the composer, which has to put fonts into an
     /// `NSAttributedString`, and by anything drawing text into an image.
@@ -117,12 +110,10 @@ enum AteFont {
 
     // MARK: Private
 
-    /// The face at its design size, with **both variable axes pinned by us**: `wght` from the style
-    /// (400 for every Newsreader run, 800 for a title) and `opsz` from `opticalSize`.
-    ///
-    /// Pinned rather than left to Core Text's automatic optical sizing, which happens to agree at the
-    /// default text size and is silent when it does not. The bundled files are the variable ones, so
-    /// the italic runs come off `Newsreader-Italic-Variable`, never a slanted roman.
+    /// The face at its design size, with **its variable axes pinned by us**: `wght` from the style
+    /// (inside the face's own range — a title asks for 800, Radio Canada Big stops at 700) and `opsz`
+    /// from `opticalSize` when a face has one. Italic runs come off a real italic file, never a
+    /// slanted roman.
     private static func base(for style: AteTextStyle, opticalSize: CGFloat) -> UIFont {
         let registry = AteFontRegistry.shared
         guard let face = registry.face(for: style.voice, italic: style.italic) else {
@@ -132,7 +123,9 @@ enum AteFont {
             return fallback(for: style)
         }
         guard let axes = face.variationAxes else { return named }
-        var variations: [Int: CGFloat] = [AteFontAxis.weight: drawnWeight(for: style)]
+        var weight = drawnWeight(for: style)
+        if let range = face.weightRange { weight = min(max(weight, range.lowerBound), range.upperBound) }
+        var variations: [Int: CGFloat] = [AteFontAxis.weight: weight]
         if let opsz = face.opticalSizeRange {
             variations[AteFontAxis.opticalSize] = min(max(opticalSize, opsz.lowerBound), opsz.upperBound)
         }
@@ -145,9 +138,8 @@ enum AteFont {
         return UIFont(descriptor: descriptor, size: style.size)
     }
 
-    /// The weight the variable axis is actually set to — the design's, plus Newsreader's gamma
-    /// compensation. Both faces of the family, roman and italic, since both are drawn by the same
-    /// rasteriser.
+    /// The weight the variable axis is actually set to — the design's, plus the prose compensation
+    /// (zero for Spectral, which has no axis).
     private static func drawnWeight(for style: AteTextStyle) -> CGFloat {
         style.voice == .prose ? style.weight + proseWeightCompensation : style.weight
     }

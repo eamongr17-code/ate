@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// **Plate awards' type** (`design/rebuild/plate-awards-screens.html`): the award's name in Young
-/// Serif, everything else in DM Sans.
+/// Serif, everything else in Radio Canada.
 extension AteTextStyle {
     /// The award's name under the takeover's plate. 38pt.
     static let awardTakeoverTitle = AteTextStyle(

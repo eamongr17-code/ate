@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// **Titles as tabs** (`journal-header.html` B, 24 Oct) — a root titled by its choices: each one a
-/// root title in Young Serif, side by side on the header's one row, the one showing in ink and the
+/// root title in Radio Canada Big, side by side on the header's one row, the one showing in ink and the
 /// rest dimmed. A tap on a dimmed title shows it. The Journal's "Journal  Lists"; no pill, no
 /// segmented control (Linear's Issues / Projects, Apple Music's Library).
 struct AteTitleTabs<Value: Hashable>: View {

@@ -56,13 +56,14 @@
 	     SwiftUI previews and the debug gallery get the real faces too. -->
 	<key>UIAppFonts</key>
 	<array>
-		<string>YoungSerif-Regular.ttf</string>
-		<string>DMSans-Variable.ttf</string>
-		<string>Newsreader-Variable.ttf</string>
-		<string>Newsreader-Italic-Variable.ttf</string>
-		<string>DMMono-Regular.ttf</string>
-		<string>DMMono-Medium.ttf</string>
-		<string>DMMono-Italic.ttf</string>
+		<string>RadioCanadaBig-Variable.ttf</string>
+		<string>RadioCanada-Variable.ttf</string>
+		<string>Spectral-Regular.ttf</string>
+		<string>Spectral-Medium.ttf</string>
+		<string>Spectral-Italic.ttf</string>
+		<string>Spectral-MediumItalic.ttf</string>
+		<string>SplineSansMono-Variable.ttf</string>
+		<string>SplineSansMono-Italic-Variable.ttf</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

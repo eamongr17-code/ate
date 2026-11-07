@@ -6,7 +6,8 @@
 `engine.js` is the mockup engine exactly as Eamon approved it (28 Oct 2026). This script adapts it for
 the app without touching how a plate looks or moves:
   * the ids become the server's award ids (0098),
-  * the backstamp and the glass engraving use the app's DM Sans and carry the viewer's handle,
+  * the backstamp and the glass engraving use the app's Radio Canada and Spectral and carry the
+    viewer's handle,
   * the mockup page's grid, table and buttons go; `window.ate` is the app's handle on it,
   * the first drink (the mockup's one glass) leaves the set: it was retired (0099, "just plates"),
   * every plate rests fully face-on, live and in the stills (Eamon, build 269): the entrance's lean
@@ -46,8 +47,8 @@ FONTS = [
     ("Bodoni Moda", "normal", "600", "BodoniModa-600.ttf"),
 ]
 APP_FONTS = [
-    ("DM Sans", "normal", "100 1000", ROOT / "App/Resources/Fonts/DMSans-Variable.ttf"),
-    ("Newsreader", "italic", "200 800", ROOT / "App/Resources/Fonts/Newsreader-Italic-Variable.ttf"),
+    ("Radio Canada", "normal", "300 700", ROOT / "App/Resources/Fonts/RadioCanada-Variable.ttf"),
+    ("Spectral", "italic", "400", ROOT / "App/Resources/Fonts/Spectral-Italic.ttf"),
 ]
 
 
@@ -62,7 +63,11 @@ def engine():
     for old, new in IDS.items():
         js = sub(js, f"{{id:'{old}',", f"{{id:'{new}',")
     js = sub(js, "a.id==='s05'", "a.id==='first_half'")
-    js = js.replace('"Bricolage Grotesque"', '"DM Sans"')
+    # the app's own voices (7 Nov 2026): Radio Canada for the lettering, Spectral for the dish
+    js = js.replace('"Bricolage Grotesque"', '"Radio Canada"')
+    js = sub(js, "italic 400 27px Newsreader, Georgia, serif", "italic 400 27px Spectral, Georgia, serif")
+    js = sub(js, "italic 400 44px Newsreader, Georgia, serif", "italic 400 44px Spectral, Georgia, serif")
+    js = sub(js, "'italic 600 40px Newsreader'", "'italic 400 40px Spectral'")
     # the viewer's handle on the backstamp and the glass
     js = sub(js, "arcText(x,'MADE FOR @EAMON',", "arcText(x,('MADE FOR @'+HANDLE).toUpperCase(),")
     js = sub(js, "x.fillText('MADE FOR @EAMON',0,y+86)", "x.fillText(('MADE FOR @'+HANDLE).toUpperCase(),0,y+86)")
@@ -81,7 +86,7 @@ def engine():
                  "pivot.rotation.y+=(drag||intro?0:Math.sin(idle*.8+1)*.09);"
                  "pivot.rotation.z=intro?spinZ:(drag?0:Math.sin(idle*.7)*.03);",
              "pivot.rotation.x=tilt;pivot.rotation.z=intro?spinZ:0;")
-    js = sub(js, "'600 30px \"DM Sans\"'", "'600 30px \"DM Sans\"','500 30px \"DM Sans\"'")
+    js = sub(js, "'600 30px \"Radio Canada\"'", "'600 30px \"Radio Canada\"','500 30px \"Radio Canada\"'")
     # the entrance runs on frames shown, not the wall clock (feedback #6): the first frame of a new
     # plate compiles its shaders and uploads its textures, and a stall there used to eat the start
     # of the turn, so the plate appeared half way through it. A slow frame now advances it 34ms.

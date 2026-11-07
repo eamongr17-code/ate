@@ -71,7 +71,7 @@ test('text() escapes quotes for attributes', () => {
 test('fonts come from our own domain, never a font host', () => {
   const html = renderEntry(card, 'https://chewsfood.app', env);
   assert.ok(!/googleapis|gstatic/.test(html));
-  assert.ok(html.includes('/fonts/youngserif.woff2'));
+  assert.ok(html.includes('/fonts/radiocanadabig.woff2'));
 });
 
 test('thumbnail URL: name_t.jpg; nothing for an unknown extension', () => {

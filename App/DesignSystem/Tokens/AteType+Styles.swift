@@ -6,9 +6,9 @@ import SwiftUI
 
 extension AteTextStyle {
 
-    // Titles — Young Serif (10 Oct: Eamon swapped the headings off Bricolage). Tracking −2% at 24pt
-    // and up, −1% at slip sizes, none below 18. Scores and avatar letters are DM Sans 700
-    // (23 Oct: Eamon replaced Bricolage with DM Sans app-wide).
+    // Titles — Radio Canada Big Bold (7 Nov: Eamon replaced Radio Canada Big; the styles' 800 is pinned to
+    // the face's 700). Tracking −2% at 24pt and up, −1% at slip sizes, none below 18. Scores and
+    // avatar letters are Radio Canada 700.
 
     /// A screen's own name: "Feed", "You", "Search". 34pt (40 until Eamon's 6 Oct "some headings are too big"; every
     /// heading stepped down one notch here, never per screen).
@@ -68,7 +68,7 @@ extension AteTextStyle {
         voice: .display, size: 22, weight: 700, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title2
     )
 
-    // Controls — DM Sans 600.
+    // Controls — Radio Canada 600.
 
     /// The default control label: segment, chip, row. 15pt.
     static let control = AteTextStyle(
@@ -109,7 +109,7 @@ extension AteTextStyle {
     static let tileCaption = AteTextStyle(
         voice: .display, size: 12, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .caption
     )
-    /// A dietary tag's code in its chip on its own: the score pill's DM Sans 600, a step under a 16pt
+    /// A dietary tag's code in its chip on its own: the score pill's Radio Canada 600, a step under a 16pt
     /// slip's score numeral (``TokenPillMetrics/dietScale``), capitals, `line-height:1` (Eamon, 9
     /// Oct: one family with the score, but never bigger than it). Capped — the chip is a fixed height.
     static let dietTag = AteTextStyle(
@@ -150,38 +150,42 @@ extension AteTextStyle {
         textStyle: .title, maximumSize: 44
     )
 
-    // The person's words — Newsreader.
+    // The person's words — Spectral, 2% tight (Eamon, 7 Nov: "kern it slightly tighter").
+
+    /// Spectral's tracking everywhere it sets the person's words.
+    static let proseTracking: CGFloat = -0.02
 
     /// The composer: the biggest the words ever are. 19pt.
     static let composerProse = AteTextStyle(
-        voice: .prose, size: 19, weight: 400, lineHeight: 1.5, textStyle: .body
+        voice: .prose, size: 19, weight: 400, trackingEm: AteTextStyle.proseTracking, lineHeight: 1.5, textStyle: .body
     )
     /// The one line an empty slip or Welcome says under its title. 17pt — `.prose`'s own 1.5.
     static let proseLarge = AteTextStyle(
-        voice: .prose, size: 17, weight: 400, lineHeight: 1.5, textStyle: .body
+        voice: .prose, size: 17, weight: 400, trackingEm: AteTextStyle.proseTracking, lineHeight: 1.5, textStyle: .body
     )
     /// The words in a journal slip. 16pt at `.prose`'s 1.5 — the entry page sets 1.45 by hand, and
     /// the two really are different in the markup.
     static let slipProse = AteTextStyle(
-        voice: .prose, size: 16, weight: 400, lineHeight: 1.5, textStyle: .body
+        voice: .prose, size: 16, weight: 400, trackingEm: AteTextStyle.proseTracking, lineHeight: 1.5, textStyle: .body
     )
     /// Welcome's line, centred under the logo: the words' own roman, as a slip prints them. 20pt.
     static let welcomeLine = AteTextStyle(
-        voice: .prose, size: 20, weight: 400, lineHeight: 1.35, textStyle: .body
+        voice: .prose, size: 20, weight: 400, trackingEm: AteTextStyle.proseTracking, lineHeight: 1.35, textStyle: .body
     )
     /// The words typing themselves on the first-run Write card (`onboarding-cards.html`). 22pt — the
     /// composer's words, a step up, because the card is a picture of them.
     static let onboardingWords = AteTextStyle(
-        voice: .prose, size: 22, weight: 400, lineHeight: 1.42, textStyle: .body, maximumSize: 26
+        voice: .prose, size: 22, weight: 400, trackingEm: AteTextStyle.proseTracking, lineHeight: 1.42,
+        textStyle: .body, maximumSize: 26
     )
     /// The words on their own page (Entry) and in a journal slip. 16pt.
     static let prose = AteTextStyle(
-        voice: .prose, size: 16, weight: 400, lineHeight: 1.45, textStyle: .body
+        voice: .prose, size: 16, weight: 400, trackingEm: AteTextStyle.proseTracking, lineHeight: 1.45, textStyle: .body
     )
 
-    // Receipts — DM Mono, and only here. Dish rows and scores only: no note under a line, ever.
+    // Receipts — Spline Sans Mono, and only here. Dish rows and scores only: no note under a line, ever.
 
-    /// The numerals under the ratings histogram. 10pt DM Mono, plain — the only mono outside a
+    /// The numerals under the ratings histogram. 10pt Spline Sans Mono, plain — the only mono outside a
     /// receipt, because a chart's scale is a printed measure and reads as one.
     static let scaleLabel = AteTextStyle(
         voice: .mono, size: 10, weight: 400, lineHeight: 1.35, textStyle: .caption2, maximumSize: 14

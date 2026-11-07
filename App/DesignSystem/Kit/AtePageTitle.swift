@@ -3,7 +3,7 @@ import SwiftUI
 /// **A pushed page's header** (`page-headers.html`, approved 24 Oct) — every page about one thing (a
 /// list, a place, a dish, a tag, a person) and every pushed page with a name of its own (notifications,
 /// what you follow) opens the same way, always left: its picture if it has one, 18 above the name;
-/// the name in Young Serif at 34 on up to three lines; one muted line 8 under it; its buttons or
+/// the name in Radio Canada Big at 34 on up to three lines; one muted line 8 under it; its buttons or
 /// chips 16 under that. Once the name has scrolled under the bar the bar takes it
 /// (``SwiftUICore/View/ateTitleCollapse(_:after:)``, ``SwiftUICore/View/ateCollapsingTitle(_:subtitle:isCollapsed:)``).
 struct AtePageHeader<Art: View, Line: View, Below: View>: View {

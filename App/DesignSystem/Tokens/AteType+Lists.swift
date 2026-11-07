@@ -3,7 +3,7 @@ import SwiftUI
 // **Lists** (`design/rebuild/lists-playlists.html`, `lists-notifications.html` §3): the cover and the receipt.
 
 extension AteTextStyle {
-    /// A cover's name where the list has no photo — `.cov.gen b`: Young Serif at 22, `line-height:1`,
+    /// A cover's name where the list has no photo — `.cov.gen b`: Radio Canada Big at 22, `line-height:1`,
     /// `-.035em`…
     static let kitListCoverName = AteTextStyle(
         voice: .heading, size: 22, weight: 800, trackingEm: -0.01, lineHeight: 1.0, textStyle: .title3,
@@ -14,11 +14,11 @@ extension AteTextStyle {
         voice: .heading, size: 24, weight: 800, trackingEm: -0.02, lineHeight: 1.0, textStyle: .title,
         maximumSize: 24
     )
-    /// A shelf tile's name — `.tile b`: Young Serif at 15 (16 in the sans; the serif runs wider).
+    /// A shelf tile's name — `.tile b`: Radio Canada Big at 15.
     static let kitListTileName = AteTextStyle(
         voice: .heading, size: 15, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .callout
     )
-    /// A row's place in the list — `.tr .tn`: DM Mono 500 at 13, muted.
+    /// A row's place in the list — `.tr .tn`: Spline Sans Mono 500 at 13, muted.
     static let kitListTrackRank = AteTextStyle(
         voice: .mono, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.0, textStyle: .footnote,
         maximumSize: 18
@@ -28,27 +28,27 @@ extension AteTextStyle {
         voice: .heading, size: 25, weight: 800, trackingEm: -0.02, lineHeight: 1.02, textStyle: .title2,
         maximumSize: 25
     )
-    /// A line's rank — `.rl .q`: DM Mono 500 at 11.
+    /// A line's rank — `.rl .q`: Spline Sans Mono 500 at 11.
     static let kitListReceiptRank = AteTextStyle(
         voice: .mono, size: 11, weight: 500, trackingEm: 0, lineHeight: 1.0, textStyle: .caption2,
         maximumSize: 11
     )
-    /// A line's dish — `.rl .n`: Young Serif at 19, `line-height:1.1`, `-.03em`.
+    /// A line's dish — `.rl .n`: Radio Canada Big at 19, `line-height:1.1`, `-.03em`.
     static let kitListReceiptDish = AteTextStyle(
         voice: .heading, size: 19, weight: 800, trackingEm: -0.01, lineHeight: 1.1, textStyle: .headline,
         maximumSize: 19
     )
-    /// A line's score, printed like a price — `.rl .s`: DM Sans 700 at 22, `-.02em`.
+    /// A line's score, printed like a price — `.rl .s`: Radio Canada 700 at 22, `-.02em`.
     static let kitListReceiptScore = AteTextStyle(
         voice: .display, size: 22, weight: 700, trackingEm: -0.02, lineHeight: 1.0, textStyle: .headline,
         maximumSize: 21
     )
-    /// The place under a line — `.rpl`: DM Mono 400 at 10, `line-height:1.2`, `.08em`, upper case.
+    /// The place under a line — `.rpl`: Spline Sans Mono 400 at 10, `line-height:1.2`, `.08em`, upper case.
     static let kitListReceiptPlace = AteTextStyle(
         voice: .mono, size: 10, weight: 400, trackingEm: 0.08, lineHeight: 1.2, textStyle: .caption2,
         maximumSize: 10, uppercase: true
     )
-    /// The receipt's mono labels at the share picture's fixed size — `.lab`: DM Mono 11, `.08em`.
+    /// The receipt's mono labels at the share picture's fixed size — `.lab`: Spline Sans Mono 11, `.08em`.
     static let kitListReceiptLabel = AteTextStyle(
         voice: .mono, size: 11, weight: 400, trackingEm: 0.08, lineHeight: 1.35, textStyle: .caption2,
         maximumSize: 11, uppercase: true

@@ -82,7 +82,7 @@ enum TokenPillMetrics {
     static let dietGapOnName: CGFloat = 6
 }
 
-/// **A dietary tag** — the score pill's muted sibling: the code in capitals, DM Mono 500 like the
+/// **A dietary tag** — the score pill's muted sibling: the code in capitals, Spline Sans Mono 500 like the
 /// score's numeral, on the ground colour so it reads as the paper showing through rather than as an
 /// accent. No stroke, no enamel. The same chip after a dish's name on a card and inline in the words.
 struct DietTagChip: View {
@@ -188,7 +188,7 @@ extension AteTextStyle {
     }
 }
 
-/// **The score token.** A butter pill carrying a filled star and one decimal, in DM Sans 600 (DM
+/// **The score token.** A butter pill carrying a filled star and one decimal, in Radio Canada 600 (DM
 /// Mono until 3 Nov: its slashed zero read as code, Eamon) — a score printed like a price (design
 /// rule 7). It appears inline in prose, inside a receipt's line items, and in the composer's
 /// editable text, and it is the same object in all three.

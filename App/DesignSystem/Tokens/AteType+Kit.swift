@@ -5,7 +5,7 @@ import SwiftUI
 // never writes a number into `.ateText`.
 
 extension AteTextStyle {
-    /// The ink pill in a sheet — `.pill`: DM Sans 600 at 16, `line-height:1`.
+    /// The ink pill in a sheet — `.pill`: Radio Canada 600 at 16, `line-height:1`.
     static let kitInkPill = AteTextStyle(
         voice: .display, size: 16, weight: 600, trackingEm: 0, lineHeight: 1.0, textStyle: .body
     )
@@ -26,12 +26,12 @@ extension AteTextStyle {
     static let kitReceiptFallbackPage = AteTextStyle(
         voice: .display, size: 15, weight: 500, trackingEm: 0, lineHeight: 1.4, textStyle: .subheadline
     )
-    /// A photo's caption on somebody else's entry — `.capL b`: Young Serif at 16 (the dish is a name)
+    /// A photo's caption on somebody else's entry — `.capL b`: Radio Canada Big at 16 (the dish is a name)
     /// (design/rebuild/photo-dish-caption.html, B).
     static let kitPhotoCaptionDish = AteTextStyle(
         voice: .heading, size: 16, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .body
     )
-    /// A dish's name floating over it in a photo of several — `.tag`: Young Serif at 16
+    /// A dish's name floating over it in a photo of several — `.tag`: Radio Canada Big at 16
     /// (design/rebuild/photo-dish-tags.html).
     static let kitPhotoDishName = AteTextStyle(
         voice: .heading, size: 16, weight: 800, trackingEm: -0.01, lineHeight: 1.0, textStyle: .body
@@ -41,12 +41,12 @@ extension AteTextStyle {
         voice: .display, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.3, textStyle: .footnote
     )
     /// A score token's numeral at a fixed size (`.tok` at `font-size:13px` on a card, `17px` on the
-    /// hero) — DM Sans 600. Inline tokens size against their prose instead (``scoreToken(inProse:)``).
+    /// hero) — Radio Canada 600. Inline tokens size against their prose instead (``scoreToken(inProse:)``).
     static func kitScoreToken(_ size: CGFloat) -> AteTextStyle {
         AteTextStyle(voice: .display, size: size, weight: 600, lineHeight: 1.0, textStyle: .footnote)
     }
-    /// A shelf card's dish — `.card .t b`: Young Serif at 16 (17 in the old sans; the serif
-    /// runs wider), lines 1.05 apart like every serif title, two lines.
+    /// A shelf card's dish — `.card .t b`: Radio Canada Big at 16, lines 1.05
+    /// apart like every title, two lines.
     static let kitShelfDish = AteTextStyle(
         voice: .heading, size: 16, weight: 800, trackingEm: -0.01, lineHeight: 1.05, textStyle: .body
     )
@@ -82,7 +82,7 @@ extension AteTextStyle {
         voice: .display, size: 16, weight: 500, trackingEm: 0, lineHeight: 1.0, textStyle: .body
     )
     /// A page's name in the bar once its own title has scrolled under it (`scroll-headers.html`, 24
-    /// Oct): the same Young Serif as the title it stands for, at 18.
+    /// Oct): the same Radio Canada Big as the title it stands for, at 18.
     static let kitInlinePageTitle = AteTextStyle(
         voice: .heading, size: 18, weight: 800, trackingEm: -0.01, lineHeight: 1.1, textStyle: .headline,
         maximumSize: 22
@@ -99,7 +99,7 @@ extension AteTextStyle {
         voice: .display, size: 12, weight: 500, trackingEm: 0, lineHeight: 1.2, textStyle: .caption,
         maximumSize: 16
     )
-    /// A native tab bar item's label, at rest and selected — 11 in DM Sans, bold
+    /// A native tab bar item's label, at rest and selected — 11 in Radio Canada, bold
     /// when current. Set on the system bar's items through ``AteNativeChrome``.
     static let kitTabLabel = AteTextStyle(
         voice: .display, size: 11, weight: 500, trackingEm: 0, lineHeight: 1.2,
@@ -129,18 +129,18 @@ extension AteTextStyle {
 
     // Share to Ate (`share-to-ate.html`) — the card that rises over another app.
 
-    /// The card's title, "Save to Ate" — `.h` at `400 20px/1 'Young Serif'`, `.h`'s `-.035em`.
+    /// The card's title, "Save to Ate" — `.h` at `400 20px/1 'Radio Canada Big'`, `.h`'s `-.035em`.
     static let kitShareTitle = AteTextStyle(
         voice: .heading, size: 20, weight: 800, trackingEm: -0.035, lineHeight: 1.0, textStyle: .title3,
         maximumSize: 26
     )
-    /// …and the word under its tick — `.done`: Young Serif at 20, `line-height:1`. Capped: it sits in a
+    /// …and the word under its tick — `.done`: Radio Canada Big at 20, `line-height:1`. Capped: it sits in a
     /// fixed 170 square.
     static let kitShareDone = AteTextStyle(
         voice: .heading, size: 20, weight: 800, trackingEm: 0, lineHeight: 1.0, textStyle: .title3,
         maximumSize: 26
     )
-    /// Where a shared post came from — `.linkcard .ui`: DM Sans 600 at 15.
+    /// Where a shared post came from — `.linkcard .ui`: Radio Canada 600 at 15.
     static let kitLinkTitle = AteTextStyle(
         voice: .display, size: 15, weight: 600, trackingEm: 0, lineHeight: 1.5, textStyle: .subheadline
     )
@@ -157,12 +157,12 @@ extension AteTextStyle {
     static let kitDietSignal = AteTextStyle(
         voice: .display, size: 13, weight: 500, trackingEm: 0, lineHeight: 1.2, textStyle: .footnote
     )
-    /// Welcome's "Continue with email", under Apple's button: DM Sans 600 at 17
+    /// Welcome's "Continue with email", under Apple's button: Radio Canada 600 at 17
     /// (`email-signin-share-links.html` `.emailbtn`).
     static let kitWelcomeEmail = AteTextStyle(
         voice: .display, size: 17, weight: 600, trackingEm: 0, lineHeight: 1.0, textStyle: .body
     )
-    /// One digit of the email code: DM Sans 700 at 28 (`.code span`).
+    /// One digit of the email code: Radio Canada 700 at 28 (`.code span`).
     static let kitCodeDigit = AteTextStyle(
         voice: .display, size: 28, weight: 700, trackingEm: 0, lineHeight: 1.0, textStyle: .title2
     )

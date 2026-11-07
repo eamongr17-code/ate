@@ -9,23 +9,28 @@ final class AteFontRegistry: @unchecked Sendable {
     struct Face {
         let family: String
         private let regular: String
-        /// DM Mono is not variable: its medium is a separate file, chosen by weight.
+        /// Spectral is not variable: its medium is a separate file, chosen by weight.
         private let medium: String?
         let variationAxes: Set<Int>?
         let opticalSizeRange: ClosedRange<CGFloat>?
+        /// The `wght` axis's own range. A style can ask for more (titles say 800, Radio Canada Big
+        /// stops at 700), and the axis is pinned inside it rather than left to Core Text to clamp.
+        let weightRange: ClosedRange<CGFloat>?
 
         init(
             family: String,
             regular: String,
             medium: String? = nil,
             variationAxes: Set<Int>?,
-            opticalSizeRange: ClosedRange<CGFloat>?
+            opticalSizeRange: ClosedRange<CGFloat>?,
+            weightRange: ClosedRange<CGFloat>? = nil
         ) {
             self.family = family
             self.regular = regular
             self.medium = medium
             self.variationAxes = variationAxes
             self.opticalSizeRange = opticalSizeRange
+            self.weightRange = weightRange
         }
 
         var postScriptName: String { regular }
@@ -78,41 +83,46 @@ final class AteFontRegistry: @unchecked Sendable {
         var family: String { face.family }
     }
 
-    /// PostScript names and axis ranges read out of the shipped files with a Core Text dump, not
-    /// guessed: Young Serif is one static weight, DM Sans's default instance is its 9pt Regular,
-    /// and Newsreader's is 16pt Regular.
+    /// PostScript names and axis ranges read out of the shipped files with fontTools, not guessed
+    /// (7 Nov 2026, Eamon's type change). Radio Canada Big's `wght` runs 400–700, Radio Canada's and
+    /// Spline Sans Mono's 300–700; none has an optical-size axis. Spectral ships as static cuts, so its
+    /// medium is a separate file chosen by weight.
     private static let candidates: [Candidate] = [
         Candidate(voice: .heading, italic: false, face: Face(
-            family: "Young Serif",
-            regular: "YoungSerif-Regular",
-            variationAxes: nil,
-            opticalSizeRange: nil
+            family: "Radio Canada Big",
+            regular: "RadioCanadaBig-Regular",
+            variationAxes: [AteFontAxis.weight],
+            opticalSizeRange: nil,
+            weightRange: 400...700
         )),
         Candidate(voice: .display, italic: false, face: Face(
-            family: "DM Sans",
-            regular: "DMSans-9ptRegular",
-            variationAxes: [AteFontAxis.weight, AteFontAxis.opticalSize],
-            opticalSizeRange: 9...40
+            family: "Radio Canada",
+            regular: "RadioCanada-Regular",
+            variationAxes: [AteFontAxis.weight],
+            opticalSizeRange: nil,
+            weightRange: 300...700
         )),
         Candidate(voice: .prose, italic: false, face: Face(
-            family: "Newsreader",
-            regular: "Newsreader16pt-Regular",
-            variationAxes: [AteFontAxis.weight, AteFontAxis.opticalSize],
-            opticalSizeRange: 6...72
+            family: "Spectral", regular: "Spectral-Regular", medium: "Spectral-Medium",
+            variationAxes: nil, opticalSizeRange: nil
         )),
         Candidate(voice: .prose, italic: true, face: Face(
-            family: "Newsreader",
-            regular: "Newsreader16pt-Italic",
-            variationAxes: [AteFontAxis.weight, AteFontAxis.opticalSize],
-            opticalSizeRange: 6...72
+            family: "Spectral", regular: "Spectral-Italic", medium: "Spectral-MediumItalic",
+            variationAxes: nil, opticalSizeRange: nil
         )),
         Candidate(voice: .mono, italic: false, face: Face(
-            family: "DM Mono", regular: "DMMono-Regular", medium: "DMMono-Medium",
-            variationAxes: nil, opticalSizeRange: nil
+            family: "Spline Sans Mono",
+            regular: "SplineSansMono-Regular",
+            variationAxes: [AteFontAxis.weight],
+            opticalSizeRange: nil,
+            weightRange: 300...700
         )),
         Candidate(voice: .mono, italic: true, face: Face(
-            family: "DM Mono", regular: "DMMono-Italic",
-            variationAxes: nil, opticalSizeRange: nil
+            family: "Spline Sans Mono",
+            regular: "SplineSansMono-Italic",
+            variationAxes: [AteFontAxis.weight],
+            opticalSizeRange: nil,
+            weightRange: 300...700
         ))
     ]
 
