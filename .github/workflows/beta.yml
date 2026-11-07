@@ -102,7 +102,7 @@ jobs:
     outputs:
       whats_new: ${{ steps.notes.outputs.whats_new }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Notes from merged PRs
@@ -175,7 +175,7 @@ jobs:
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_TEAM_ID: ${{ vars.ASC_TEAM_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Select Xcode 26
         run: |
@@ -189,7 +189,7 @@ jobs:
         run: cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
 
       - name: Cache SPM
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/Library/Caches/org.swift.swiftpm
@@ -410,7 +410,7 @@ jobs:
 
       - name: Upload build artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: beta-${{ github.run_number }}
           if-no-files-found: ignore

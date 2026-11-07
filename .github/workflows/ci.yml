@@ -30,7 +30,7 @@ jobs:
       backend: ${{ steps.diff.outputs.backend }}
       app: ${{ steps.diff.outputs.app }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - id: diff
@@ -63,7 +63,7 @@ jobs:
       # Resolved packages live outside the checkout, so one cache entry also covers xcodebuild's clones.
       SPM_CLONES: /Users/runner/ate-spm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Two deep, so a PR's merge commit still has the PR head (HEAD^2) to read the message of.
           fetch-depth: 2
@@ -95,7 +95,7 @@ jobs:
       # lockfile and never save; only a push to main saves (after the builds). AteKit/.build is NOT
       # cached: measured on #97 it was 1.9 GB and saved nothing (a fresh checkout's mtimes rebuild it).
       - name: Restore SPM cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/Library/Caches/org.swift.swiftpm
@@ -166,7 +166,7 @@ jobs:
 
       - name: Upload snapshot result bundle
         if: failure() && steps.snapsim.outputs.udid != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: snapshots-${{ github.run_number }}
           if-no-files-found: ignore
@@ -192,7 +192,7 @@ jobs:
       # Saved once the builds pass, before the staging smoke: a staging hiccup must not cost main its cache.
       - name: Save SPM cache
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             ~/Library/Caches/org.swift.swiftpm
@@ -219,9 +219,9 @@ jobs:
     timeout-minutes: 15
     container: swift:6.2-noble
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Dependencies' build products only change with the lockfile; AteKit's own files rebuild anyway.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: AteKit/.build
           key: atekit-linux-${{ hashFiles('AteKit/Package.resolved') }}
@@ -255,8 +255,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
